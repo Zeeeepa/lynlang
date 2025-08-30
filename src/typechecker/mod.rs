@@ -314,6 +314,20 @@ impl TypeChecker {
                 inference::infer_binary_op_type(self, left, op, right)
             }
             Expression::FunctionCall { name, .. } => {
+                // Check if this is a stdlib function call (e.g., io.print)
+                if name.contains('.') {
+                    let parts: Vec<&str> = name.splitn(2, '.').collect();
+                    if parts.len() == 2 {
+                        let module = parts[0];
+                        let func = parts[1];
+                        
+                        // Handle stdlib function return types
+                        if module == "io" && (func == "print" || func == "println") {
+                            return Ok(AstType::Void);
+                        }
+                    }
+                }
+                
                 // First check if it's a known function
                 if let Some(sig) = self.functions.get(name) {
                     Ok(sig.return_type.clone())

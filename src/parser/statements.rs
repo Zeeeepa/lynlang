@@ -13,10 +13,13 @@ impl<'a> Parser<'a> {
             if let Token::Identifier(name) = &self.current_token {
                 // Check for := operator (likely a module import or constant)
                 if self.peek_token == Token::Operator(":=".to_string()) {
-                    // Save the name and position
+                    // Save the name and complete state
                     let var_name = name.clone();
                     let saved_current = self.current_token.clone();
                     let saved_peek = self.peek_token.clone();
+                    let saved_lex_pos = self.lexer.position;
+                    let saved_lex_read = self.lexer.read_position;
+                    let saved_lex_char = self.lexer.current_char;
                     
                     // Look ahead to see if this is a module import
                     self.next_token(); // Move to :=
@@ -31,6 +34,8 @@ impl<'a> Parser<'a> {
                             let saved_pos = self.lexer.position;
                             let saved_read_pos = self.lexer.read_position;
                             let saved_char = self.lexer.current_char;
+                            let saved_current = self.current_token.clone();
+                            let saved_peek = self.peek_token.clone();
                             
                             self.next_token();
                             let is_import = self.current_token == Token::Symbol('.') && {
@@ -38,11 +43,12 @@ impl<'a> Parser<'a> {
                                 matches!(&self.current_token, Token::Identifier(name) if name == "import")
                             };
                             
-                            // Restore position
+                            // Restore position AND tokens
                             self.lexer.position = saved_pos;
                             self.lexer.read_position = saved_read_pos;
                             self.lexer.current_char = saved_char;
-                            self.next_token(); // Back to the identifier
+                            self.current_token = saved_current;
+                            self.peek_token = saved_peek;
                             
                             is_import
                         } else {
@@ -52,9 +58,12 @@ impl<'a> Parser<'a> {
                         false
                     };
                     
-                    // Restore position
+                    // Restore complete state
                     self.current_token = saved_current;
                     self.peek_token = saved_peek;
+                    self.lexer.position = saved_lex_pos;
+                    self.lexer.read_position = saved_lex_read;
+                    self.lexer.current_char = saved_lex_char;
                     
                     if is_module_import {
                         // Parse as module import
