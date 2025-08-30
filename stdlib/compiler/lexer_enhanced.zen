@@ -1,0 +1,734 @@
+// Enhanced Lexer for the Zen language
+// Part of the self-hosting compiler
+
+core := @std.core
+io := @std.io
+token := @std.compiler.token
+
+// Lexer state
+Lexer = struct {
+    input: String,
+    position: i32,      // current position in input (points to current char)
+    read_position: i32, // current reading position in input (after current char)
+    ch: i8,            // current char under examination
+    line: i32,
+    column: i32,
+}
+
+// Create a new lexer
+lexer_new = (input: String) Lexer {
+    l := Lexer {
+        input: input,
+        position: 0,
+        read_position: 0,
+        ch: 0,
+        line: 1,
+        column: 1,
+    }
+    // Read the first character
+    lexer_read_char(&l)
+    return l
+}
+
+// Read the next character
+lexer_read_char = (l: *Lexer) void {
+    l.position >= l.input.len() ? 
+        | true => { 
+            l.ch = 0  // EOF
+        } 
+        | false => {
+            l.ch = l.input[l.read_position]
+            l.position = l.read_position
+            l.read_position = l.read_position + 1
+            
+            // Update line and column
+            l.ch == '\n' ? 
+                | true => {
+                    l.line = l.line + 1
+                    l.column = 1
+                }
+                | false => {
+                    l.column = l.column + 1
+                }
+        }
+}
+
+// Peek at the next character without advancing
+lexer_peek_char = (l: *Lexer) i8 {
+    l.read_position >= l.input.len() ? 
+        | true => { return 0 }
+        | false => { return l.input[l.read_position] }
+}
+
+// Peek two characters ahead
+lexer_peek_char2 = (l: *Lexer) i8 {
+    pos := l.read_position + 1
+    pos >= l.input.len() ?
+        | true => { return 0 }
+        | false => { return l.input[pos] }
+}
+
+// Skip whitespace
+lexer_skip_whitespace = (l: *Lexer) void {
+    loop (l.ch == ' ' || l.ch == '\t' || l.ch == '\r') {
+        lexer_read_char(l)
+    }
+}
+
+// Skip line comment (// ...)
+lexer_skip_line_comment = (l: *Lexer) String {
+    start_pos := l.position
+    // Skip the '//' 
+    lexer_read_char(l)
+    lexer_read_char(l)
+    
+    // Read until end of line or EOF
+    loop (l.ch != '\n' && l.ch != 0) {
+        lexer_read_char(l)
+    }
+    
+    return l.input.substring(start_pos + 2, l.position)
+}
+
+// Skip block comment (/* ... */)
+lexer_skip_block_comment = (l: *Lexer) String {
+    start_pos := l.position
+    // Skip the '/*'
+    lexer_read_char(l)
+    lexer_read_char(l)
+    
+    // Read until '*/' or EOF
+    loop (l.ch != 0) {
+        l.ch == '*' && lexer_peek_char(l) == '/' ?
+            | true => {
+                lexer_read_char(l)  // consume '*'
+                lexer_read_char(l)  // consume '/'
+                break
+            }
+            | false => {
+                lexer_read_char(l)
+            }
+    }
+    
+    return l.input.substring(start_pos + 2, l.position - 2)
+}
+
+// Check if character is a letter
+is_letter = (ch: i8) bool {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
+}
+
+// Check if character is a digit
+is_digit = (ch: i8) bool {
+    return ch >= '0' && ch <= '9'
+}
+
+// Check if character is alphanumeric
+is_alnum = (ch: i8) bool {
+    return is_letter(ch) || is_digit(ch)
+}
+
+// Read an identifier
+lexer_read_identifier = (l: *Lexer) String {
+    start_pos := l.position
+    
+    // Handle @ prefix for namespaces
+    l.ch == '@' ?
+        | true => {
+            lexer_read_char(l)
+            // Read namespace parts (e.g., @std.core.vec)
+            loop (is_alnum(l.ch) || l.ch == '.') {
+                lexer_read_char(l)
+            }
+        }
+        | false => {
+            // Regular identifier
+            loop (is_alnum(l.ch)) {
+                lexer_read_char(l)
+            }
+        }
+    
+    return l.input.substring(start_pos, l.position)
+}
+
+// Read a number (integer or float)
+lexer_read_number = (l: *Lexer) (String, bool) {
+    start_pos := l.position
+    is_float := false
+    
+    // Handle hex numbers (0x...)
+    l.ch == '0' && (lexer_peek_char(l) == 'x' || lexer_peek_char(l) == 'X') ?
+        | true => {
+            lexer_read_char(l)  // consume '0'
+            lexer_read_char(l)  // consume 'x'
+            loop (is_digit(l.ch) || (l.ch >= 'a' && l.ch <= 'f') || (l.ch >= 'A' && l.ch <= 'F')) {
+                lexer_read_char(l)
+            }
+            return (l.input.substring(start_pos, l.position), false)
+        }
+        | false => {}
+    
+    // Handle binary numbers (0b...)
+    l.ch == '0' && (lexer_peek_char(l) == 'b' || lexer_peek_char(l) == 'B') ?
+        | true => {
+            lexer_read_char(l)  // consume '0'
+            lexer_read_char(l)  // consume 'b'
+            loop (l.ch == '0' || l.ch == '1') {
+                lexer_read_char(l)
+            }
+            return (l.input.substring(start_pos, l.position), false)
+        }
+        | false => {}
+    
+    // Read integer part
+    loop (is_digit(l.ch)) {
+        lexer_read_char(l)
+    }
+    
+    // Check for decimal point
+    l.ch == '.' && is_digit(lexer_peek_char(l)) ? 
+        | true => {
+            is_float = true
+            lexer_read_char(l)  // consume '.'
+            loop (is_digit(l.ch)) {
+                lexer_read_char(l)
+            }
+        }
+        | false => {}
+    
+    // Check for scientific notation
+    (l.ch == 'e' || l.ch == 'E') ?
+        | true => {
+            is_float = true
+            lexer_read_char(l)  // consume 'e' or 'E'
+            (l.ch == '+' || l.ch == '-') ?
+                | true => { lexer_read_char(l) }
+                | false => {}
+            loop (is_digit(l.ch)) {
+                lexer_read_char(l)
+            }
+        }
+        | false => {}
+    
+    // Check for type suffix (i32, u64, f32, etc.)
+    (l.ch == 'i' || l.ch == 'u' || l.ch == 'f') ?
+        | true => {
+            suffix_start := l.position
+            lexer_read_char(l)
+            loop (is_digit(l.ch)) {
+                lexer_read_char(l)
+            }
+        }
+        | false => {}
+    
+    return (l.input.substring(start_pos, l.position), is_float)
+}
+
+// Read a string literal
+lexer_read_string = (l: *Lexer) String {
+    lexer_read_char(l)  // skip opening quote
+    start_pos := l.position
+    
+    loop (l.ch != '"' && l.ch != 0) {
+        l.ch == '\\' ? 
+            | true => {
+                lexer_read_char(l)  // skip escape char
+                l.ch != 0 ?
+                    | true => { lexer_read_char(l) }  // skip escaped char
+                    | false => {}
+            }
+            | false => {
+                lexer_read_char(l)
+            }
+    }
+    
+    result := l.input.substring(start_pos, l.position)
+    l.ch == '"' ?
+        | true => { lexer_read_char(l) }  // skip closing quote
+        | false => {}  // Error: unterminated string
+    return result
+}
+
+// Read a character literal
+lexer_read_char_literal = (l: *Lexer) i8 {
+    lexer_read_char(l)  // skip opening quote
+    
+    result := l.ch
+    l.ch == '\\' ?
+        | true => {
+            lexer_read_char(l)  // skip escape char
+            // Handle escape sequences
+            l.ch == 'n' ? | true => { result = '\n' } | false => {}
+            l.ch == 't' ? | true => { result = '\t' } | false => {}
+            l.ch == 'r' ? | true => { result = '\r' } | false => {}
+            l.ch == '\\' ? | true => { result = '\\' } | false => {}
+            l.ch == '\'' ? | true => { result = '\'' } | false => {}
+            lexer_read_char(l)
+        }
+        | false => {
+            lexer_read_char(l)
+        }
+    
+    l.ch == '\'' ?
+        | true => { lexer_read_char(l) }  // skip closing quote
+        | false => {}  // Error: unterminated char
+    
+    return result
+}
+
+// Get the next token
+lexer_next_token = (l: *Lexer) Token {
+    // Skip whitespace and comments
+    loop {
+        lexer_skip_whitespace(l)
+        
+        // Check for comments
+        l.ch == '/' && lexer_peek_char(l) == '/' ?
+            | true => {
+                comment := lexer_skip_line_comment(l)
+                continue
+            }
+            | false => {}
+        
+        l.ch == '/' && lexer_peek_char(l) == '*' ?
+            | true => {
+                comment := lexer_skip_block_comment(l)
+                continue
+            }
+            | false => {}
+        
+        break
+    }
+    
+    // Save position for token
+    tok_line := l.line
+    tok_column := l.column
+    
+    // EOF
+    l.ch == 0 ?
+        | true => {
+            return token::create_token(token::TokenType::EOF, "", tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Newline
+    l.ch == '\n' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Newline, "\n", tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Identifiers and keywords
+    (is_letter(l.ch) || l.ch == '@') ?
+        | true => {
+            id := lexer_read_identifier(l)
+            
+            // Check if it's a keyword
+            token::is_keyword(id) ?
+                | true => {
+                    return token::create_token(token::TokenType::Keyword, id, tok_line, tok_column)
+                }
+                | false => {
+                    // Check for boolean literals
+                    id == "true" || id == "false" ?
+                        | true => {
+                            return token::create_token(token::TokenType::Boolean, id, tok_line, tok_column)
+                        }
+                        | false => {
+                            return token::create_token(token::TokenType::Identifier, id, tok_line, tok_column)
+                        }
+                }
+        }
+        | false => {}
+    
+    // Numbers
+    is_digit(l.ch) ?
+        | true => {
+            (num, is_float) := lexer_read_number(l)
+            is_float ?
+                | true => {
+                    return token::create_token(token::TokenType::Float, num, tok_line, tok_column)
+                }
+                | false => {
+                    return token::create_token(token::TokenType::Integer, num, tok_line, tok_column)
+                }
+        }
+        | false => {}
+    
+    // String literals
+    l.ch == '"' ?
+        | true => {
+            str := lexer_read_string(l)
+            return token::create_token(token::TokenType::String, str, tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Character literals
+    l.ch == '\'' ?
+        | true => {
+            char_val := lexer_read_char_literal(l)
+            char_str := String::from_char(char_val)
+            return token::create_token(token::TokenType::Integer, char_str, tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Operators and punctuation
+    ch := l.ch
+    next_ch := lexer_peek_char(l)
+    next_ch2 := lexer_peek_char2(l)
+    
+    // Three-character operators
+    ch == ':' && next_ch == ':' && next_ch2 == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::AssignMut, "::=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '.' && next_ch == '.' && next_ch2 == '.' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Ellipsis, "...", tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Two-character operators
+    ch == ':' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::AssignConst, ":=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == ':' && next_ch == ':' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::DoubleColon, "::", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '-' && next_ch == '>' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Arrow, "->", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '=' && next_ch == '>' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::FatArrow, "=>", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '=' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Equals, "==", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '!' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::NotEquals, "!=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '<' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::LessThanEquals, "<=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '>' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::GreaterThanEquals, ">=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '&' && next_ch == '&' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::And, "&&", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '|' && next_ch == '|' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Or, "||", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '<' && next_ch == '<' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::LeftShift, "<<", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '>' && next_ch == '>' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::RightShift, ">>", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '.' && next_ch == '.' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Range, "..", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '+' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::PlusEquals, "+=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '-' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::MinusEquals, "-=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '*' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::StarEquals, "*=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '/' && next_ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::SlashEquals, "/=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Single-character operators
+    ch == '+' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Plus, "+", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '-' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Minus, "-", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '*' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Star, "*", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '/' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Slash, "/", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '%' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Percent, "%", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '=' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Assign, "=", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '<' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::LessThan, "<", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '>' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::GreaterThan, ">", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '!' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Not, "!", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '&' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Ampersand, "&", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '|' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Pipe, "|", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '^' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Caret, "^", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '~' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Tilde, "~", tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Delimiters
+    ch == '(' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::LeftParen, "(", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == ')' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::RightParen, ")", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '{' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::LeftBrace, "{", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '}' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::RightBrace, "}", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '[' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::LeftBracket, "[", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == ']' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::RightBracket, "]", tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Punctuation
+    ch == ',' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Comma, ",", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == ';' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Semicolon, ";", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == ':' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Colon, ":", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '.' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Dot, ".", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '?' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::Question, "?", tok_line, tok_column)
+        }
+        | false => {}
+    
+    ch == '@' ?
+        | true => {
+            lexer_read_char(l)
+            return token::create_token(token::TokenType::At, "@", tok_line, tok_column)
+        }
+        | false => {}
+    
+    // Unknown character - create error token
+    lexer_read_char(l)
+    char_str := String::from_char(ch)
+    return token::create_token(token::TokenType::Unknown, char_str, tok_line, tok_column)
+}
+
+// Tokenize entire input
+lexer_tokenize_all = (l: *Lexer) Vec<Token> {
+    tokens := Vec<Token>::new()
+    
+    loop {
+        tok := lexer_next_token(l)
+        tokens.push(tok)
+        tok.type == token::TokenType::EOF ?
+            | true => { break }
+            | false => {}
+    }
+    
+    return tokens
+}
