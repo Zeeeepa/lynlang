@@ -2,10 +2,8 @@
 // Self-hosted AST representation for the Zen compiler
 
 // Import dependencies
-comptime {
-    mem := @import("mem")
-    core := @import("core")
-}
+mem := @std.mem
+core := @std.core
 
 // Type System
 AstType = 

@@ -2,12 +2,10 @@
 // Self-hosted type checking and semantic analysis for the Zen compiler
 
 // Import dependencies
-comptime {
-    ast := @import("ast")
-    mem := @import("mem")
-    core := @import("core")
-    hashmap := @import("hashmap")
-}
+ast := @std.ast
+mem := @std.mem
+core := @std.core
+hashmap := @std.hashmap
 
 // Type Environment
 TypeEnv = {

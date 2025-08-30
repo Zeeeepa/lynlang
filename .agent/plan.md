@@ -1,52 +1,70 @@
-# Zen Language Import Syntax Reform Plan
+# Zen Language - Self-Hosting Plan
 
 ## Goal
-Remove the comptime requirement for imports, making them first-class declarations at the module level.
+Bootstrap the Zen compiler in Zen itself, achieving self-hosting capability.
 
-## Current State
-- Imports already work without comptime in examples (e.g., quickstart.zen)
-- Parser supports ModuleImport in both Declaration and Statement enums
-- Two import patterns are supported:
-  1. Direct stdlib: `core := @std.core`
-  2. Build import: `io := build.import("io")`
+## Current Progress
+✅ Import syntax simplified (no comptime required)
+✅ Basic token definitions created
+✅ Initial lexer implementation started
 
-## Issues Found
-1. Import parsing is only done in `parse_program` for top-level declarations
-2. The parse_variable_declaration doesn't recognize imports as special
-3. Imports inside functions/blocks would be parsed as regular assignments
+## Phases
 
-## Implementation Plan
+### Phase 1: Lexer (In Progress)
+- [x] Token type definitions
+- [x] Basic lexer structure
+- [ ] Complete operator tokenization
+- [ ] Comment handling
+- [ ] Error reporting
+- [ ] Test suite for lexer
 
-### Phase 1: Parser Updates ✅
-- [x] Analyze current import implementation
-- [ ] Ensure imports are only allowed at module level
-- [ ] Update parse_variable_declaration to recognize module imports
-- [ ] Prevent imports inside functions/blocks
+### Phase 2: Parser
+- [ ] AST node definitions
+- [ ] Expression parser
+- [ ] Statement parser
+- [ ] Type parser
+- [ ] Error recovery
+- [ ] Test suite for parser
 
-### Phase 2: AST & Validation
-- [ ] Ensure ModuleImport is properly handled in typechecker
-- [ ] Validate imports are at module scope only
-- [ ] Update error messages for misplaced imports
+### Phase 3: Type Checker
+- [ ] Type inference
+- [ ] Type checking rules
+- [ ] Generic type handling
+- [ ] Error reporting
+- [ ] Test suite for type checker
 
-### Phase 3: Code Generation
-- [ ] Verify LLVM codegen handles non-comptime imports
-- [ ] Ensure proper module resolution
-- [ ] Test import symbol visibility
+### Phase 4: Code Generator
+- [ ] LLVM bindings
+- [ ] Expression compilation
+- [ ] Statement compilation
+- [ ] Function compilation
+- [ ] Module compilation
+- [ ] Optimization passes
 
-### Phase 4: Testing
-- [ ] Write comprehensive tests for new import syntax
-- [ ] Test error cases (imports in wrong scope)
-- [ ] Update existing tests to use new syntax
+### Phase 5: Bootstrap
+- [ ] Compile compiler with itself
+- [ ] Verify output matches
+- [ ] Performance benchmarks
+- [ ] Documentation
 
-### Phase 5: Documentation & Examples
-- [ ] Update all example files
-- [ ] Document the change
-- [ ] Update language specification
+## Technical Challenges
+1. String handling without full stdlib
+2. Dynamic memory allocation
+3. LLVM FFI bindings
+4. Error handling patterns
+5. Module system implementation
 
-## Design Decisions
-1. Imports are module-level only (not allowed in functions/blocks)
-2. Two syntaxes supported:
-   - `name := @std.module` for stdlib
-   - `name := build.import("module")` for other modules
-3. Imports create immutable bindings
-4. Import order doesn't matter (resolved before execution)
+## Testing Strategy
+- Unit tests for each component
+- Integration tests for compilation
+- Bootstrap validation tests
+- Performance regression tests
+
+## Estimated Timeline
+- Phase 1: 1 week
+- Phase 2: 2 weeks  
+- Phase 3: 2 weeks
+- Phase 4: 3 weeks
+- Phase 5: 1 week
+
+Total: ~9 weeks for full self-hosting

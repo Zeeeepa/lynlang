@@ -1,9 +1,7 @@
 // Date and time utilities for Zen
 
-comptime {
-    std := @std
-    core := std.core
-}
+std := @std
+core := std.core
 
 // Time duration in nanoseconds
 Duration = {

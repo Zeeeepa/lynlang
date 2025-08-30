@@ -1,9 +1,7 @@
 // Random number generation utilities for Zen
 
-comptime {
-    std := @std
-    core := std.core
-}
+std := @std
+core := std.core
 
 // Random number generator state
 RandomState = {
