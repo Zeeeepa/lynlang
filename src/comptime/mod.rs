@@ -210,6 +210,66 @@ impl ComptimeInterpreter {
                     fields: HashMap::new(),
                 });
                 
+                // @std.io
+                fields.insert("io".to_string(), ComptimeValue::Struct {
+                    name: "io".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.vec
+                fields.insert("vec".to_string(), ComptimeValue::Struct {
+                    name: "vec".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.hashmap
+                fields.insert("hashmap".to_string(), ComptimeValue::Struct {
+                    name: "hashmap".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.string
+                fields.insert("string".to_string(), ComptimeValue::Struct {
+                    name: "string".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.math
+                fields.insert("math".to_string(), ComptimeValue::Struct {
+                    name: "math".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.lexer
+                fields.insert("lexer".to_string(), ComptimeValue::Struct {
+                    name: "lexer".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.parser
+                fields.insert("parser".to_string(), ComptimeValue::Struct {
+                    name: "parser".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.ast
+                fields.insert("ast".to_string(), ComptimeValue::Struct {
+                    name: "ast".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.type_checker
+                fields.insert("type_checker".to_string(), ComptimeValue::Struct {
+                    name: "type_checker".to_string(),
+                    fields: HashMap::new(),
+                });
+                
+                // @std.codegen
+                fields.insert("codegen".to_string(), ComptimeValue::Struct {
+                    name: "codegen".to_string(),
+                    fields: HashMap::new(),
+                });
+                
                 // @std.build
                 fields.insert("build".to_string(), ComptimeValue::Struct {
                     name: "build".to_string(),

@@ -1,12 +1,10 @@
 // Self-hosted tests for Zen standard library
 // Tests core functionality written in Zen
 
-comptime {
-    core := @std.core
-    vec := @std.vec
-    hashmap := @std.hashmap
-    io := @std.io
-}
+core := @std.core
+vec := @std.vec
+hashmap := @std.hashmap
+io := @std.io
 
 // External functions for testing
 extern printf = (format: *i8, ...) i32

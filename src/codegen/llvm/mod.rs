@@ -177,6 +177,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::TypeAlias(_) => {
                     // Type aliases are resolved at compile time, no codegen needed
                 }
+                ast::Declaration::Constant { name, value, .. } => {
+                    // Evaluate the constant value and store it in the comptime environment
+                    // This allows it to be used in subsequent code
+                    if let Ok(comptime_value) = self.comptime_evaluator.evaluate_expression(value) {
+                        self.comptime_evaluator.set_variable(name.clone(), comptime_value);
+                    }
+                    // Constants are compile-time values, no runtime codegen needed
+                }
             }
         }
         

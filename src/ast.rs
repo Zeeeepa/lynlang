@@ -372,6 +372,11 @@ pub enum Declaration {
     Behavior(BehaviorDefinition),
     Impl(ImplBlock),
     ComptimeBlock(Vec<Statement>),
+    Constant {
+        name: String,
+        value: Expression,
+        type_: Option<AstType>,
+    },
     ModuleImport {
         alias: String,
         module_path: String,
