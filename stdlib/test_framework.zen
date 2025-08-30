@@ -1,13 +1,11 @@
 // Zen Standard Library - Test Framework
 // Provides testing infrastructure for Zen programs
 
-comptime {
-    core := @std.core
-    io := @std.io
-    assert := @std.assert
-    vec := @std.vec
-    string := @std.string
-}
+core := @std.core
+io := @std.io
+assert := @std.assert
+vec := @std.vec
+string := @std.string
 
 // TestResult represents the outcome of a test
 TestResult = 

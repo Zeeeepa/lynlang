@@ -1,57 +1,42 @@
-# Fix Plan: Engine-SDK Consistency
+# Zen Language Import Syntax Refactor Plan
 
-## Phase 1: Immediate Critical Fixes (Priority 1)
+## Current State
+- Imports are currently handled inside comptime blocks
+- ModuleImport is already a Declaration variant in AST
+- Parser already handles := operator for module imports at top-level
 
-### 1.1 Fix Missing build.rs Module
-- Create `src/stdlib/build.rs` with BuildModule implementation
-- Connect to existing `stdlib/build.zen`
+## Goal
+Remove comptime requirement for imports - allow direct import statements at module level.
 
-### 1.2 Register All Stdlib Modules  
-- Add all 30+ stdlib modules to StdNamespace registry
-- Create placeholder .rs files for missing modules
+## Implementation Steps
 
-### 1.3 Fix Core Module Intrinsics
-- Add LLVM implementations for size_of, align_of, type_name
-- Connect panic/assert to Zen implementations
+### Phase 1: Parser Changes
+1. **Update parser to handle imports without comptime** ✓
+   - The parser already supports this via := operator
+   - Need to ensure it works correctly outside comptime blocks
 
-## Phase 2: Type System Alignment (Priority 2)
+### Phase 2: Update Examples and Tests
+2. **Update all example files to use new syntax**
+   - Remove comptime blocks around imports
+   - Convert to direct import statements
 
-### 2.1 Unify Result/Option Types
-- Standardize Result<T,E> definition across engine and SDK
-- Update AstType to properly handle enum variants
+### Phase 3: Stdlib Migration
+3. **Begin stdlib implementation in Zen**
+   - Start with core modules (io, mem, fs)
+   - Implement basic functionality first
+   - Add more complex features progressively
 
-### 2.2 Fix IO Module Abstraction
-- Create high-level IO functions in SDK matching engine interface
-- Wrap low-level C FFI with proper error handling
+### Phase 4: Testing Framework
+4. **Create basic test framework**
+   - Implement assert functions
+   - Create test runner
+   - Add test discovery
 
-## Phase 3: Comprehensive Testing (Priority 3)
+### Phase 5: LSP/Checker
+5. **Implement basic checking**
+   - Type checking
+   - Import resolution
+   - Basic error reporting
 
-### 3.1 Create Stdlib Tests
-- Test each registered function
-- Verify type checking
-- Ensure codegen works
-
-### 3.2 Integration Tests
-- Test module imports
-- Test cross-module function calls
-- Test error handling
-
-## Estimated Time
-- Phase 1: 2-3 hours
-- Phase 2: 3-4 hours  
-- Phase 3: 2-3 hours
-- Total: ~10 hours
-
-## Current Progress
-- [x] Analysis complete
-- [x] Phase 1 implementation (COMPLETED)
-  - [x] Created build.rs module
-  - [x] Registered math, string, vec, fs modules
-  - [x] Fixed core module intrinsics
-- [ ] Phase 2 implementation (TODO)
-  - [ ] Unify Result/Option types
-  - [ ] Fix IO module abstraction
-- [x] Phase 3 implementation (PARTIAL)
-  - [x] Created stdlib integration tests
-  - [ ] Need execution tests
-  - [ ] Need cross-module tests
+## Current Focus
+Working on removing comptime requirement from imports across the codebase.

@@ -1,9 +1,7 @@
 // Zen Standard Library: Vector (Dynamic Array) Implementation
 // A growable array type
 
-comptime {
-    core := @std.core
-}
+core := @std.core
 
 // Vector structure - dynamic array
 Vec<T> = {

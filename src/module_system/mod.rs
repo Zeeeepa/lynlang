@@ -51,8 +51,8 @@ impl ModuleSystem {
             return Ok(&self.modules[module_path]);
         }
         
-        // Handle @std modules specially - they're built-in and don't need file loading
-        if module_path.starts_with("@std") {
+        // Handle @std and std. modules specially - they're built-in and don't need file loading
+        if module_path.starts_with("@std") || module_path.starts_with("std.") {
             // Create an empty program for built-in modules
             // The actual functionality is provided by the compiler's stdlib module
             let empty_program = Program {

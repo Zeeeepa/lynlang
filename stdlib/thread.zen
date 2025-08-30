@@ -1,10 +1,8 @@
 // Zen Standard Library: Thread Module  
 // Threading and concurrency primitives
 
-comptime {
-    core := @std.core
-    mem := @std.mem
-}
+core := @std.core
+mem := @std.mem
 
 // Thread ID type
 ThreadId = i64

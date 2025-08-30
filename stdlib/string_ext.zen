@@ -1,11 +1,9 @@
 // Zen Standard Library: Extended String Utilities
 // Additional string manipulation functions
 
-comptime {
-    core := @std.core
-    mem := @std.mem
-    vec := @std.vec
-}
+core := @std.core
+mem := @std.mem
+vec := @std.vec
 
 // String slice for zero-copy operations
 StringSlice = {

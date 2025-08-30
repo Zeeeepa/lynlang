@@ -1,11 +1,9 @@
 // Pattern matching with the ? operator in Zen
 // Demonstrates the unified conditional syntax without if/else keywords
 
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+core := @std.core
+build := @std.build
+io := build.import("io")
 
 // Function to get grade from score using pattern matching
 get_grade = (score: int) string {

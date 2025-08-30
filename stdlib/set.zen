@@ -1,11 +1,9 @@
 // Zen Standard Library: Set Module
 // Hash-based set implementation for unique element storage
 
-comptime {
-    core := @std.core
-    mem := @std.mem
-    hash := @std.hash
-}
+core := @std.core
+mem := @std.mem
+hash := @std.hash
 
 // Set implemented using a hash table
 Set<T> = {

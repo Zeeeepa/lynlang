@@ -2,16 +2,13 @@
 // Demonstrates all major features from lang.md specification v1.0
 
 // 1. Module imports using @std namespace
-comptime {
-    core := @std.core
-    build := @std.build
-    
-    // Import standard library modules
-    io := build.import("io")
-    mem := build.import("mem")
-    math := build.import("math")
-    collections := build.import("collections")
-}
+core := @std.core
+build := @std.build
+// Import standard library modules
+io := build.import("io")
+mem := build.import("mem")
+math := build.import("math")
+collections := build.import("collections")
 
 // 2. Data Structures: Structs with mutable/immutable fields
 User = {

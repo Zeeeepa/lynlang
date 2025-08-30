@@ -1,10 +1,8 @@
 // Zen Language Example: Pattern Matching
 // Demonstrates the unique ? operator for all conditionals
 
-comptime {
-    build := @std.build
-    io := build.import("io")
-}
+build := @std.build
+io := build.import("io")
 
 // Simple value matching
 get_day_type = (day_num: i32) string {

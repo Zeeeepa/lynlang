@@ -79,8 +79,8 @@ impl<'ctx> Compiler<'ctx> {
         // Process all module imports
         for decl in &program.declarations {
             if let Declaration::ModuleImport { alias, module_path } = decl {
-                // Skip loading and resolution for @std modules (they're built-in)
-                if !module_path.starts_with("@std") {
+                // Skip loading and resolution for @std and std. modules (they're built-in)
+                if !module_path.starts_with("@std") && !module_path.starts_with("std.") {
                     // Load the module
                     module_system.load_module(module_path)?;
                     

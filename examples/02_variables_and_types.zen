@@ -1,10 +1,8 @@
 // Zen Language Example: Variables and Types
 // Demonstrates the declaration system and basic types
 
-comptime {
-    build := @std.build
-    io := build.import("io")
-}
+build := @std.build
+io := build.import("io")
 
 main = () void {
     // ===== Immutable Bindings (Constants) =====

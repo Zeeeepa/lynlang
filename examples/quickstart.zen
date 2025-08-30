@@ -1,11 +1,9 @@
 // Zen Language Quickstart
 // A concise introduction to core language features
 
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+core := @std.core
+build := @std.build
+io := build.import("io")
 
 // Simple struct
 Point = { x: f64, y: f64 }
