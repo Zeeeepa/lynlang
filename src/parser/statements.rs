@@ -170,6 +170,28 @@ impl<'a> Parser<'a> {
                 } else if self.peek_token == Token::Symbol('(') {
                     // Could be an external function declaration
                     declarations.push(Declaration::ExternalFunction(self.parse_external_function()?));
+                } else if self.peek_token == Token::Operator(":=".to_string()) {
+                    // Top-level constant declaration: name := value
+                    let name = if let Token::Identifier(name) = &self.current_token {
+                        name.clone()
+                    } else {
+                        unreachable!()
+                    };
+                    self.next_token(); // consume identifier
+                    self.next_token(); // consume ':='
+                    let value = self.parse_expression()?;
+                    
+                    // Skip optional semicolon
+                    if self.current_token == Token::Symbol(';') {
+                        self.next_token();
+                    }
+                    
+                    // Create a constant declaration
+                    declarations.push(Declaration::Constant {
+                        name,
+                        value,
+                        type_: None, // Type will be inferred
+                    });
                 } else {
                     return Err(CompileError::SyntaxError(
                         format!("Unexpected token after identifier: {:?}", self.peek_token),

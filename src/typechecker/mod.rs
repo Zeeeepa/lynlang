@@ -115,6 +115,26 @@ impl TypeChecker {
             Declaration::Impl(impl_block) => {
                 self.behavior_resolver.register_impl(impl_block)?;
             }
+            Declaration::Constant { name, value, type_ } => {
+                // Type check the constant value
+                let inferred_type = self.infer_expression_type(value)?;
+                
+                // If a type was specified, verify it matches
+                if let Some(declared_type) = type_ {
+                    if !self.types_compatible(declared_type, &inferred_type) {
+                        return Err(CompileError::TypeError(
+                            format!(
+                                "Type mismatch: constant '{}' declared as {:?} but has value of type {:?}",
+                                name, declared_type, inferred_type
+                            ),
+                            None
+                        ));
+                    }
+                }
+                
+                // Store the constant as a global variable
+                self.declare_variable(name, inferred_type)?;
+            }
             _ => {}
         }
         Ok(())
@@ -139,6 +159,9 @@ impl TypeChecker {
                 for method in &impl_block.methods {
                     self.check_function(method)?;
                 }
+            }
+            Declaration::Constant { .. } => {
+                // Constants are already type-checked in collect_declaration_types
             }
             _ => {}
         }
