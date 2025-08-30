@@ -1,12 +1,11 @@
 // Hello World example in Zen
 // Demonstrates basic function declaration and string output
 
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+core := @std.core
+build := @std.build
+io := build.import("io")
 
-main = () void {
-    io.print("Hello, Zen!\n")
+main = () i32 {
+    io.print("Hello, Zen!\n");
+    return 0
 }

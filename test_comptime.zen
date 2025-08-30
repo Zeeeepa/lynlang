@@ -1,0 +1,10 @@
+// Test with comptime block (current working syntax)
+
+comptime {
+    io := @std.io
+}
+
+main = () i32 {
+    io.print("Testing imports\n");
+    return 0
+}

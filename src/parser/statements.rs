@@ -10,9 +10,171 @@ impl<'a> Parser<'a> {
         let mut declarations = vec![];
         while self.current_token != Token::Eof {
             // Parse top-level declarations
-            if let Token::Identifier(_) = &self.current_token {
-                // Could be a function definition: name :: (params) -> returnType { ... } or name = ...
-                if self.peek_token == Token::Operator("::".to_string()) {
+            if let Token::Identifier(name) = &self.current_token {
+                // Check for := operator (likely a module import or constant)
+                if self.peek_token == Token::Operator(":=".to_string()) {
+                    // Save the name and position
+                    let var_name = name.clone();
+                    let saved_current = self.current_token.clone();
+                    let saved_peek = self.peek_token.clone();
+                    
+                    // Look ahead to see if this is a module import
+                    self.next_token(); // Move to :=
+                    self.next_token(); // Move past :=
+                    
+                    // Check if the right side starts with @std or is a build.import call
+                    let is_module_import = if let Token::Identifier(id) = &self.current_token {
+                        if id.starts_with("@std") {
+                            true
+                        } else if id == "build" {
+                            // Check for build.import pattern
+                            let saved_pos = self.lexer.position;
+                            let saved_read_pos = self.lexer.read_position;
+                            let saved_char = self.lexer.current_char;
+                            
+                            self.next_token();
+                            let is_import = self.current_token == Token::Symbol('.') && {
+                                self.next_token();
+                                matches!(&self.current_token, Token::Identifier(name) if name == "import")
+                            };
+                            
+                            // Restore position
+                            self.lexer.position = saved_pos;
+                            self.lexer.read_position = saved_read_pos;
+                            self.lexer.current_char = saved_char;
+                            self.next_token(); // Back to the identifier
+                            
+                            is_import
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    
+                    // Restore position
+                    self.current_token = saved_current;
+                    self.peek_token = saved_peek;
+                    
+                    if is_module_import {
+                        // Parse as module import
+                        let alias = var_name;
+                        self.next_token(); // consume name
+                        self.next_token(); // consume :=
+                        
+                        // Check if it's a build.import call
+                        if let Token::Identifier(id) = &self.current_token {
+                            if id == "build" {
+                                // Handle build.import("module_name") pattern
+                                self.next_token(); // consume 'build'
+                                if self.current_token != Token::Symbol('.') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected '.' after 'build'".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume '.'
+                                
+                                if !matches!(&self.current_token, Token::Identifier(name) if name == "import") {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected 'import' after 'build.'".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume 'import'
+                                
+                                if self.current_token != Token::Symbol('(') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected '(' after 'build.import'".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume '('
+                                
+                                // Get the module name from the string literal
+                                let module_name = if let Token::StringLiteral(name) = &self.current_token {
+                                    name.clone()
+                                } else {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected string literal for module name".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                };
+                                self.next_token(); // consume string
+                                
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after module name".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                
+                                // Create ModuleImport with std.module_name path
+                                declarations.push(Declaration::ModuleImport {
+                                    alias,
+                                    module_path: format!("std.{}", module_name),
+                                });
+                            } else {
+                                // Parse the module path (@std.module or similar)
+                                let module_path = id.clone();
+                                self.next_token();
+                                
+                                // Handle member access for @std.module
+                                let full_path = if self.current_token == Token::Symbol('.') {
+                                    let mut path = module_path;
+                                    while self.current_token == Token::Symbol('.') {
+                                        self.next_token(); // consume '.'
+                                        if let Token::Identifier(member) = &self.current_token {
+                                            path.push('.');
+                                            path.push_str(member);
+                                            self.next_token();
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    path
+                                } else {
+                                    module_path
+                                };
+                                
+                                // Create ModuleImport declaration
+                                declarations.push(Declaration::ModuleImport {
+                                    alias,
+                                    module_path: full_path,
+                                });
+                            }
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "Expected module path after :=".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    } else {
+                        // Parse as a constant declaration
+                        let stmt = self.parse_statement()?;
+                        // Convert statement to declaration
+                        if let Statement::VariableDeclaration { name, type_, initializer, .. } = stmt {
+                            if let Some(init) = initializer {
+                                declarations.push(Declaration::Constant {
+                                    name,
+                                    type_,
+                                    value: init,
+                                });
+                            } else {
+                                return Err(CompileError::SyntaxError(
+                                    "Constant declaration requires an initializer".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "Expected variable declaration".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    }
+                } else if self.peek_token == Token::Operator("::".to_string()) {
                     // Function with type annotation: name :: (params) -> returnType { ... }
                     declarations.push(Declaration::Function(self.parse_function()?));
                 } else if self.peek_token == Token::Operator("=".to_string()) || self.peek_token == Token::Operator("<".to_string()) {

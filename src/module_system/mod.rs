@@ -51,6 +51,17 @@ impl ModuleSystem {
             return Ok(&self.modules[module_path]);
         }
         
+        // Handle @std modules specially - they're built-in and don't need file loading
+        if module_path.starts_with("@std") {
+            // Create an empty program for built-in modules
+            // The actual functionality is provided by the compiler's stdlib module
+            let empty_program = Program {
+                declarations: Vec::new(),
+            };
+            self.modules.insert(module_path.to_string(), empty_program);
+            return Ok(&self.modules[module_path]);
+        }
+        
         // Try to find the module file
         let file_path = self.resolve_module_path(module_path)?;
         
