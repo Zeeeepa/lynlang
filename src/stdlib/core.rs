@@ -21,6 +21,45 @@ impl CoreModule {
             is_builtin: true,
         });
         
+        // Additional core functions from SDK
+        functions.insert("min".to_string(), StdFunction {
+            name: "min".to_string(),
+            params: vec![
+                ("a".to_string(), AstType::I64),
+                ("b".to_string(), AstType::I64),
+            ],
+            return_type: AstType::I64,
+            is_builtin: true,
+        });
+        
+        functions.insert("max".to_string(), StdFunction {
+            name: "max".to_string(),
+            params: vec![
+                ("a".to_string(), AstType::I64),
+                ("b".to_string(), AstType::I64),
+            ],
+            return_type: AstType::I64,
+            is_builtin: true,
+        });
+        
+        functions.insert("abs".to_string(), StdFunction {
+            name: "abs".to_string(),
+            params: vec![("n".to_string(), AstType::I64)],
+            return_type: AstType::I64,
+            is_builtin: true,
+        });
+        
+        functions.insert("clamp".to_string(), StdFunction {
+            name: "clamp".to_string(),
+            params: vec![
+                ("value".to_string(), AstType::I64),
+                ("min".to_string(), AstType::I64),
+                ("max".to_string(), AstType::I64),
+            ],
+            return_type: AstType::I64,
+            is_builtin: true,
+        });
+        
         functions.insert("align_of".to_string(), StdFunction {
             name: "align_of".to_string(),
             params: vec![("T".to_string(), AstType::Generic { name: "T".to_string(), type_args: vec![] })],
@@ -50,9 +89,16 @@ impl CoreModule {
         });
         
         // Core types
-        // Core types - for now using placeholder generic types
         types.insert("type".to_string(), AstType::Generic { name: "type".to_string(), type_args: vec![] });
         types.insert("Any".to_string(), AstType::Generic { name: "Any".to_string(), type_args: vec![] });
+        types.insert("Result".to_string(), AstType::Result {
+            ok_type: Box::new(AstType::Generic { name: "T".to_string(), type_args: vec![] }),
+            err_type: Box::new(AstType::Generic { name: "E".to_string(), type_args: vec![] }),
+        });
+        types.insert("Option".to_string(), AstType::Option(
+            Box::new(AstType::Generic { name: "T".to_string(), type_args: vec![] })
+        ));
+        types.insert("Range".to_string(), AstType::Generic { name: "Range".to_string(), type_args: vec![] });
         
         CoreModule { functions, types }
     }

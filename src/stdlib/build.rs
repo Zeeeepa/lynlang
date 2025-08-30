@@ -1,8 +1,8 @@
-use crate::ast::{AstType, Expression};
+use crate::ast::AstType;
 use super::{StdModuleTrait, StdFunction};
 use std::collections::HashMap;
 
-/// The @std.build module provides build system access and module importing
+/// The @std.build module provides build system functionality
 pub struct BuildModule {
     functions: HashMap<String, StdFunction>,
     types: HashMap<String, AstType>,
@@ -13,65 +13,107 @@ impl BuildModule {
         let mut functions = HashMap::new();
         let mut types = HashMap::new();
         
-        // Build system functions
+        // Import function for module loading
         functions.insert("import".to_string(), StdFunction {
             name: "import".to_string(),
             params: vec![("module_name".to_string(), AstType::String)],
-            return_type: AstType::Generic { name: "Module".to_string(), type_args: vec![] },
+            return_type: AstType::Generic { 
+                name: "Module".to_string(), 
+                type_args: vec![] 
+            },
             is_builtin: true,
         });
         
-        functions.insert("link".to_string(), StdFunction {
-            name: "link".to_string(),
-            params: vec![("library".to_string(), AstType::String)],
-            return_type: AstType::Void,
+        // Default configuration function
+        functions.insert("default_config".to_string(), StdFunction {
+            name: "default_config".to_string(),
+            params: vec![],
+            return_type: AstType::Generic { 
+                name: "BuildConfig".to_string(), 
+                type_args: vec![] 
+            },
             is_builtin: true,
         });
         
-        functions.insert("export".to_string(), StdFunction {
-            name: "export".to_string(),
+        // Compile file function
+        functions.insert("compile_file".to_string(), StdFunction {
+            name: "compile_file".to_string(),
             params: vec![
-                ("name".to_string(), AstType::String),
-                ("value".to_string(), AstType::Generic { name: "Any".to_string(), type_args: vec![] }),
+                ("path".to_string(), AstType::String),
+                ("config".to_string(), AstType::Generic { 
+                    name: "BuildConfig".to_string(), 
+                    type_args: vec![] 
+                }),
             ],
-            return_type: AstType::Void,
+            return_type: AstType::Generic { 
+                name: "BuildResult".to_string(), 
+                type_args: vec![] 
+            },
             is_builtin: true,
         });
         
-        functions.insert("target".to_string(), StdFunction {
-            name: "target".to_string(),
+        // Build project function
+        functions.insert("build_project".to_string(), StdFunction {
+            name: "build_project".to_string(),
+            params: vec![
+                ("config".to_string(), AstType::Generic { 
+                    name: "BuildConfig".to_string(), 
+                    type_args: vec![] 
+                }),
+            ],
+            return_type: AstType::Generic { 
+                name: "BuildResult".to_string(), 
+                type_args: vec![] 
+            },
+            is_builtin: true,
+        });
+        
+        // Get compiler version
+        functions.insert("compiler_version".to_string(), StdFunction {
+            name: "compiler_version".to_string(),
             params: vec![],
             return_type: AstType::String,
             is_builtin: true,
         });
         
-        functions.insert("os".to_string(), StdFunction {
-            name: "os".to_string(),
+        // Get target triple
+        functions.insert("target_triple".to_string(), StdFunction {
+            name: "target_triple".to_string(),
             params: vec![],
             return_type: AstType::String,
             is_builtin: true,
         });
         
-        functions.insert("arch".to_string(), StdFunction {
-            name: "arch".to_string(),
-            params: vec![],
-            return_type: AstType::String,
+        // Check if feature is enabled
+        functions.insert("has_feature".to_string(), StdFunction {
+            name: "has_feature".to_string(),
+            params: vec![("feature".to_string(), AstType::String)],
+            return_type: AstType::Bool,
             is_builtin: true,
         });
         
-        // Build-related types
-        // Build-related types
-        types.insert("Module".to_string(), AstType::Generic { name: "Module".to_string(), type_args: vec![] });
-        types.insert("Target".to_string(), AstType::String);
+        // Build types - these would need proper struct definitions
+        types.insert("BuildConfig".to_string(), AstType::Generic { 
+            name: "BuildConfig".to_string(), 
+            type_args: vec![] 
+        });
+        
+        types.insert("BuildResult".to_string(), AstType::Generic { 
+            name: "BuildResult".to_string(), 
+            type_args: vec![] 
+        });
+        
+        types.insert("Module".to_string(), AstType::Generic { 
+            name: "Module".to_string(), 
+            type_args: vec![] 
+        });
+        
+        types.insert("CompilationUnit".to_string(), AstType::Generic { 
+            name: "CompilationUnit".to_string(), 
+            type_args: vec![] 
+        });
         
         BuildModule { functions, types }
-    }
-    
-    /// Import a module by name
-    pub fn import_module(name: &str) -> Result<Expression, String> {
-        // This would integrate with the module system to load and compile modules
-        // For now, return a placeholder
-        Ok(Expression::Identifier(format!("module_{}", name)))
     }
 }
 
