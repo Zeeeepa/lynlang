@@ -1,6 +1,0 @@
-// Simple test without imports
-
-main = () i32 {
-    // Just return a value for now
-    return 42
-}

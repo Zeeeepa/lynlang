@@ -268,6 +268,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_function_call(&mut self, name: &str, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Check if this is a stdlib function call (e.g., io.print)
+        if name.contains('.') {
+            let parts: Vec<&str> = name.splitn(2, '.').collect();
+            if parts.len() == 2 {
+                let module = parts[0];
+                let func = parts[1];
+                
+                // Handle stdlib function calls
+                if module == "io" && func == "print" {
+                    return self.compile_io_print(args);
+                } else if module == "io" && func == "println" {
+                    return self.compile_io_println(args);
+                }
+            }
+        }
+        
         // First check if this is a direct function call
         if let Some(function) = self.module.get_function(name) {
             // Direct function call
@@ -412,5 +428,67 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Function not found
             Err(CompileError::UndeclaredFunction(name.to_string(), None))
         }
+    }
+    
+    /// Compile io.print function call
+    fn compile_io_print(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("io.print expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare printf
+        let printf_fn = self.module.get_function("printf").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
+            self.module.add_function("printf", fn_type, None)
+        });
+        
+        // Compile the string argument
+        let arg_value = self.compile_expression(&args[0])?;
+        
+        // Call printf
+        let call = self.builder.build_call(
+            printf_fn,
+            &[arg_value.into()],
+            "printf_call"
+        )?;
+        
+        // Return void as unit value
+        Ok(self.context.i32_type().const_zero().into())
+    }
+    
+    /// Compile io.println function call
+    fn compile_io_println(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("io.println expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare puts (which adds a newline automatically)
+        let puts_fn = self.module.get_function("puts").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], false);
+            self.module.add_function("puts", fn_type, None)
+        });
+        
+        // Compile the string argument
+        let arg_value = self.compile_expression(&args[0])?;
+        
+        // Call puts
+        let call = self.builder.build_call(
+            puts_fn,
+            &[arg_value.into()],
+            "puts_call"
+        )?;
+        
+        // Return void as unit value
+        Ok(self.context.i32_type().const_zero().into())
     }
 } 

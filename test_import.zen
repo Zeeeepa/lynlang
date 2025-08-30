@@ -1,8 +1,0 @@
-// Test top-level imports
-
-io := @std.io
-
-main = () i32 {
-    io.print("Testing imports\n");
-    return 0
-}
