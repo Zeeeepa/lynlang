@@ -2,13 +2,11 @@
 // Self-hosted LLVM IR code generation for the Zen compiler
 
 // Import dependencies
-comptime {
-    ast := @import("ast")
-    mem := @import("mem")
-    core := @import("core")
-    string := @import("string")
-    vec := @import("vec")
-}
+ast := @std.ast
+mem := @std.mem
+core := @std.core
+string := @std.string
+vec := @std.vec
 
 // LLVM IR Types
 LLVMType = 

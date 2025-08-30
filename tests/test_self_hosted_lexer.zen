@@ -1,9 +1,7 @@
 // Tests for the self-hosted Zen lexer
 
-comptime {
-    lexer := @std.lexer
-    io := @std.io
-}
+lexer := @std.lexer
+io := @std.io
 
 // Test basic tokenization
 test_basic_tokens = () bool {

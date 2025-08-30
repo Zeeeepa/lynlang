@@ -1,10 +1,8 @@
 // Basic cryptographic utilities for Zen
 // Note: These are educational implementations and should not be used for real security
 
-comptime {
-    std := @std
-    core := std.core
-}
+std := @std
+core := std.core
 
 // Simple hash function (FNV-1a 32-bit)
 fnv1a_32 = (data: []u8, len: usize) u32 {

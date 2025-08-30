@@ -1,16 +1,14 @@
 // Comprehensive self-hosted test suite for Zen
 // Demonstrates the language's ability to implement complex systems in itself
 
-comptime {
-    core := @std.core
-    vec := @std.vec
-    hashmap := @std.hashmap
-    string := @std.string
-    math := @std.math
-    algorithms := @std.algorithms
-    collections := @std.collections
-    iterator := @std.iterator
-}
+core := @std.core
+vec := @std.vec
+hashmap := @std.hashmap
+string := @std.string
+math := @std.math
+algorithms := @std.algorithms
+collections := @std.collections
+iterator := @std.iterator
 
 // External functions for testing
 extern printf = (format: *i8, ...) i32

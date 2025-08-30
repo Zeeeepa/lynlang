@@ -1,10 +1,8 @@
 // Encoding and decoding utilities for Zen
 
-comptime {
-    std := @std
-    core := std.core
-    string := std.string
-}
+std := @std
+core := std.core
+string := std.string
 
 // Base64 encoding table
 BASE64_CHARS := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
