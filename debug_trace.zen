@@ -1,0 +1,9 @@
+// Debug parsing issue
+test = () i32 {
+    // This should parse the entire conditional as the return expression
+    return true ? | true => 10 | false => 20
+}
+
+main = () i32 {
+    return 0
+}

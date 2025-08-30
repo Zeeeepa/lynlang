@@ -15,17 +15,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Statement::Return(expr) => {
                 let value = self.compile_expression(expr)?;
+                // Debug: Check if we're returning the right type
+                if let Some(func) = self.current_function {
+                    let expected_ret_type = func.get_type().get_return_type();
+                    if let Some(expected) = expected_ret_type {
+                        let actual_type = value.get_type();
+                        // This will help us debug type mismatches
+                    }
+                }
                 self.builder.build_return(Some(&value))?;
                 Ok(())
             }
             Statement::VariableDeclaration { name, type_, initializer, is_mutable: _, declaration_type: _ } => {
                 // Handle type inference or explicit type
+                // We may need to compile the expression for type inference, so save the value
+                let mut compiled_value: Option<BasicValueEnum> = None;
+                
                 let llvm_type = match type_ {
                     Some(type_) => self.to_llvm_type(type_)?,
                     None => {
                         // Type inference - try to infer from initializer
                         if let Some(init_expr) = initializer {
                             let init_value = self.compile_expression(init_expr)?;
+                            // Save the compiled value to avoid recompiling
+                            compiled_value = Some(init_value);
+                            
                             match init_value {
                                 BasicValueEnum::IntValue(int_val) => {
                                     if int_val.get_type().get_bit_width() <= 32 {
@@ -61,7 +75,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let alloca = self.builder.build_alloca(basic_type, name).map_err(|e| CompileError::from(e))?;
 
                 if let Some(init_expr) = initializer {
-                    let value = self.compile_expression(init_expr)?;
+                    // Use the saved value if we already compiled it for type inference
+                    let value = if let Some(saved_value) = compiled_value {
+                        saved_value
+                    } else {
+                        self.compile_expression(init_expr)?
+                    };
                     
                     // Handle function pointers specially
                     if let Some(type_) = type_ {

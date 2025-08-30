@@ -1,0 +1,23 @@
+// Test conditional return type issue
+extern printf = (format: *i8, ...) i32
+
+test_simple = (n: i32) i32 {
+    // This should work - conditional with i32 results
+    result := n <= 1 ? | true => n | false => n + 1
+    return result
+}
+
+test_direct_return = (n: i32) i32 {
+    // This is what's failing
+    return n <= 1 ? | true => n | false => n + 1
+}
+
+main = () i32 {
+    r1 := test_simple(5)
+    printf("test_simple(5) = %d\n", r1)
+    
+    r2 := test_direct_return(5)
+    printf("test_direct_return(5) = %d\n", r2)
+    
+    return 0
+}
