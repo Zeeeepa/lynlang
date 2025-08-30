@@ -1,9 +1,7 @@
 // structs_enums.zen - Data structures
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+core := @std.core
+build := @std.build
+io := build.import("io")
 
 // Struct with default values and mutable fields
 Person = {

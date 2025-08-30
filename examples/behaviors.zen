@@ -1,9 +1,7 @@
 // behaviors.zen - Traits/Interfaces
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+core := @std.core
+build := @std.build
+io := build.import("io")
 
 // Define behaviors (traits/interfaces)
 Drawable = behavior {

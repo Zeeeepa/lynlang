@@ -1,10 +1,8 @@
 // Zen Standard Library: Collections Module
 // Advanced data structures
 
-comptime {
-    core := @std.core
-    mem := @std.mem
-}
+core := @std.core
+mem := @std.mem
 
 // ============================================================================
 // Stack (LIFO)

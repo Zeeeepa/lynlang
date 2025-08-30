@@ -1,11 +1,9 @@
 // Zen Standard Library - Async/Await Module
 // Provides async programming support with Task<T> and Future<T> types
 
-comptime {
-    core := @std.core
-    mem := @std.mem
-    thread := @std.thread
-}
+core := @std.core
+mem := @std.mem
+thread := @std.thread
 
 // Task represents an async computation that produces a value of type T
 Task<T> = {

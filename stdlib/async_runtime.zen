@@ -1,11 +1,9 @@
 // Async/Await Runtime Foundation for Zen
 // Provides async programming primitives and task management
 
-comptime {
-    core := @std.core
-    thread := @std.build.import("thread")
-    collections := @std.build.import("collections_ext")
-}
+core := @std.core
+thread := @std.build.import("thread")
+collections := @std.build.import("collections_ext")
 
 // Task state enum
 TaskState = 

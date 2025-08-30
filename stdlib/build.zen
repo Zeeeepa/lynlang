@@ -1,12 +1,10 @@
 // Zen Standard Library: Build System Module
 // Provides utilities for compiling and building Zen projects
 
-comptime {
-    core := @std.core
-    fs := @std.fs
-    process := @std.process
-    string := @std.string
-}
+core := @std.core
+fs := @std.fs
+process := @std.process
+string := @std.string
 
 // Build configuration
 BuildConfig = {

@@ -1,11 +1,9 @@
 // Variable declarations in Zen
 // Demonstrates different ways to declare variables and constants
 
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+core := @std.core
+build := @std.build
+io := build.import("io")
 
 main = () void {
     // Immutable bindings (constants)

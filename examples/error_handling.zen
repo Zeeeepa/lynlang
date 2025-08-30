@@ -1,9 +1,7 @@
 // error_handling.zen - Error handling with Result and Option
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+core := @std.core
+build := @std.build
+io := build.import("io")
 
 // Error types
 ParseError = {

@@ -1,11 +1,9 @@
 // Extended Testing Framework for Zen
 // Provides comprehensive testing utilities and assertions
 
-comptime {
-    core := @std.core
-    io := @std.build.import("io")
-    string := @std.build.import("string")
-}
+core := @std.core
+io := @std.build.import("io")
+string := @std.build.import("string")
 
 // Test result types
 TestResult = 

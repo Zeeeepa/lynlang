@@ -1,11 +1,9 @@
 // Zen Bootstrap Script
 // This script will eventually bootstrap the Zen compiler using the self-hosted components
 
-comptime {
-    core := @std.core
-    io := @std.io
-    build := @std.build
-}
+core := @std.core
+io := @std.io
+build := @std.build
 
 // Import self-hosted components
 lexer := build.import("stdlib/lexer.zen")

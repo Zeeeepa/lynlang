@@ -1,11 +1,9 @@
 // Extended Collections Module for Zen
 // Provides advanced data structures and utilities
 
-comptime {
-    core := @std.core
-    vec := @std.build.import("vec")
-    hashmap := @std.build.import("hashmap")
-}
+core := @std.core
+vec := @std.build.import("vec")
+hashmap := @std.build.import("hashmap")
 
 // Priority Queue (Binary Heap) implementation
 BinaryHeap<T> = {

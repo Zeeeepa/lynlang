@@ -1,10 +1,8 @@
 // Zen Standard Library: File System Module
 // High-level file system operations
 
-comptime {
-    core := @std.core
-    io := @std.io
-}
+core := @std.core
+io := @std.io
 
 // File metadata
 FileMetadata = {
