@@ -1,0 +1,191 @@
+// Lexer for the Zen language
+// Part of the self-hosting compiler
+
+core := @std.core
+io := @std.io
+
+// Import our token definitions
+// token := @compiler.token
+
+// Lexer state
+Lexer = struct {
+    input: String,
+    position: i32,      // current position in input (points to current char)
+    read_position: i32, // current reading position in input (after current char)
+    ch: i8,            // current char under examination
+    line: i32,
+    column: i32,
+}
+
+// Create a new lexer
+lexer_new = (input: String) Lexer {
+    l := Lexer {
+        input: input,
+        position: 0,
+        read_position: 0,
+        ch: 0,
+        line: 1,
+        column: 1,
+    }
+    // Read the first character
+    lexer_read_char(&l)
+    return l
+}
+
+// Read the next character
+lexer_read_char = (l: *Lexer) void {
+    l.position >= l.input.len() ? 
+        | true => { 
+            l.ch = 0  // EOF
+        } 
+        | false => {
+            l.ch = l.input[l.read_position]
+            l.position = l.read_position
+            l.read_position = l.read_position + 1
+            
+            // Update line and column
+            l.ch == '\n' ? 
+                | true => {
+                    l.line = l.line + 1
+                    l.column = 1
+                }
+                | false => {
+                    l.column = l.column + 1
+                }
+        }
+}
+
+// Peek at the next character without advancing
+lexer_peek_char = (l: *Lexer) i8 {
+    l.read_position >= l.input.len() ? 
+        | true => { return 0 }
+        | false => { return l.input[l.read_position] }
+}
+
+// Skip whitespace
+lexer_skip_whitespace = (l: *Lexer) void {
+    loop (l.ch == ' ' || l.ch == '\t' || l.ch == '\r') {
+        lexer_read_char(l)
+    }
+}
+
+// Check if character is a letter
+is_letter = (ch: i8) bool {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
+}
+
+// Check if character is a digit
+is_digit = (ch: i8) bool {
+    return ch >= '0' && ch <= '9'
+}
+
+// Read an identifier
+lexer_read_identifier = (l: *Lexer) String {
+    start_pos := l.position
+    loop (is_letter(l.ch) || is_digit(l.ch)) {
+        lexer_read_char(l)
+    }
+    return l.input.substring(start_pos, l.position)
+}
+
+// Read a number
+lexer_read_number = (l: *Lexer) String {
+    start_pos := l.position
+    
+    // Read integer part
+    loop (is_digit(l.ch)) {
+        lexer_read_char(l)
+    }
+    
+    // Check for decimal point
+    l.ch == '.' && is_digit(lexer_peek_char(l)) ? 
+        | true => {
+            lexer_read_char(l)  // consume '.'
+            loop (is_digit(l.ch)) {
+                lexer_read_char(l)
+            }
+        }
+        | false => {}
+    
+    return l.input.substring(start_pos, l.position)
+}
+
+// Read a string literal
+lexer_read_string = (l: *Lexer) String {
+    lexer_read_char(l)  // skip opening quote
+    start_pos := l.position
+    
+    loop (l.ch != '"' && l.ch != 0) {
+        l.ch == '\\' ? 
+            | true => {
+                lexer_read_char(l)  // skip escape char
+                lexer_read_char(l)  // skip escaped char
+            }
+            | false => {
+                lexer_read_char(l)
+            }
+    }
+    
+    result := l.input.substring(start_pos, l.position)
+    lexer_read_char(l)  // skip closing quote
+    return result
+}
+
+// Main function for testing
+main = () i32 {
+    io.print("Zen Lexer - Self-hosting component\n")
+    
+    // Test input
+    input := "x := 42 + 3.14"
+    l := lexer_new(input)
+    
+    io.print("Lexing: ")
+    io.print(input)
+    io.print("\n")
+    
+    // Simple token extraction test
+    loop (l.ch != 0) {
+        lexer_skip_whitespace(&l)
+        
+        is_letter(l.ch) ? 
+            | true => {
+                id := lexer_read_identifier(&l)
+                io.print("Identifier: ")
+                io.print(id)
+                io.print("\n")
+            }
+            | false => {}
+        
+        is_digit(l.ch) ?
+            | true => {
+                num := lexer_read_number(&l)
+                io.print("Number: ")
+                io.print(num)
+                io.print("\n")
+            }
+            | false => {}
+        
+        // Handle operators
+        l.ch == ':' && lexer_peek_char(&l) == '=' ?
+            | true => {
+                io.print("Operator: :=\n")
+                lexer_read_char(&l)
+                lexer_read_char(&l)
+            }
+            | false => {}
+        
+        l.ch == '+' ?
+            | true => {
+                io.print("Operator: +\n")
+                lexer_read_char(&l)
+            }
+            | false => {}
+        
+        // Move to next if we haven't processed this char
+        l.ch != 0 && !is_letter(l.ch) && !is_digit(l.ch) && l.ch != ':' && l.ch != '+' ?
+            | true => { lexer_read_char(&l) }
+            | false => {}
+    }
+    
+    return 0
+}
