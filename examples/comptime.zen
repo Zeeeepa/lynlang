@@ -1,11 +1,11 @@
 // comptime.zen - Compile-time evaluation
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-    math := build.import("math")
-    range := core.range
-}
+
+// Module imports (no comptime needed)
+core := @std.core
+build := @std.build
+io := build.import("io")
+math := build.import("math")
+range := core.range
 
 // Compile-time constant calculation
 FIBONACCI_10 := comptime {

@@ -1,10 +1,9 @@
 // Example demonstrating the new functional loop syntax in Zen
 
-comptime {
-    std := @std
-    io := std.io
-    iter := std.iterator
-}
+// Module imports (no comptime needed)
+std := @std
+io := std.io
+iter := std.iterator
 
 main = () i32 {
     // Simple range loop - print numbers 1 to 10
