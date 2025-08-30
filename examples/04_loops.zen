@@ -1,13 +1,12 @@
 // Zen Language Example: Loops
 // Demonstrates the unified loop construct
 
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-    range := core.range
-    range_inclusive := core.range_inclusive
-}
+// Module imports (no comptime needed)
+core := @std.core
+build := @std.build
+io := build.import("io")
+range := core.range
+range_inclusive := core.range_inclusive
 
 main = () void {
     io.print("=== Loop Examples ===\n\n")
