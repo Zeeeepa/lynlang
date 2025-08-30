@@ -20,6 +20,12 @@ TokenType =
     | Comment
     | Eof
 
+// Result type for lexer_read_number
+NumberResult = {
+    text: *i8,
+    is_float: bool,
+}
+
 // Token with value and position
 Token = {
     token_type: TokenType,
@@ -134,7 +140,7 @@ lexer_read_identifier = (l: *Lexer) *i8 {
 }
 
 // Read number (integer or float)
-lexer_read_number = (l: *Lexer) (*i8, bool) {
+lexer_read_number = (l: *Lexer) NumberResult {
     start := l.position
     is_float := false
     
@@ -157,11 +163,11 @@ lexer_read_number = (l: *Lexer) (*i8, bool) {
         | false => {}
     
     len := l.position - start
-    result := malloc((len + 1) as i64) as *i8
-    memcpy(result as *void, (l.input + start) as *void, len as i64)
-    result[len] = 0
+    text := malloc((len + 1) as i64) as *i8
+    memcpy(text as *void, (l.input + start) as *void, len as i64)
+    text[len] = 0
     
-    return (result, is_float)
+    return NumberResult{ text: text, is_float: is_float }
 }
 
 // Read string literal
@@ -248,8 +254,8 @@ lexer_next_token = (l: *Lexer) Token {
             is_digit(l.current_char) ?
                 | true => {
                     num_result := lexer_read_number(l)
-                    value = num_result.0
-                    token_type = num_result.1 ? 
+                    value = num_result.text
+                    token_type = num_result.is_float ? 
                         | true => TokenType::Float 
                         | false => TokenType::Integer
                 }

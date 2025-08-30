@@ -1,34 +1,29 @@
 // Comprehensive Self-Hosting Test for Zen Language
 // Tests that all stdlib modules required for self-hosting are working
 
-comptime {
-    std := @std
-    core := std.core
-    io := std.io
-    fs := std.fs
-    assert := std.assert
-    test := std.test_framework
-}
+// Standard library imports
+std := @std
+core := std.core
+io := std.io
+fs := std.fs
+assert := std.assert
+test := std.test_framework
 
 // Import compiler modules
-comptime {
-    lexer := std.lexer
-    parser := std.parser
-    ast := std.ast
-    type_checker := std.type_checker
-    codegen := std.codegen
-}
+lexer := std.lexer
+parser := std.parser
+ast := std.ast
+type_checker := std.type_checker
+codegen := std.codegen
 
 // Import support modules
-comptime {
-    vec := std.vec
-    hashmap := std.hashmap
-    string := std.string
-    mem := std.mem
-    process := std.process
-    thread := std.thread
-    async := std.async
-}
+vec := std.vec
+hashmap := std.hashmap
+string := std.string
+mem := std.mem
+process := std.process
+thread := std.thread
+async := std.async
 
 extern puts = (s: *i8) i32
 extern printf = (format: *i8, ...) i32

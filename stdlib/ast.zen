@@ -432,7 +432,9 @@ ast_validate_program = (program: *Program) bool {
     // Check for main function
     has_main := false
     i ::= 0
-    loop (i < program.declaration_count) {
+    loop {
+
+        i < program.declaration_count ? | false => { break } | true => {}
         decl := program.declarations[i]
         decl ?
             | Declaration::Function(func) => {
@@ -450,7 +452,9 @@ ast_validate_program = (program: *Program) bool {
 ast_free_program = (program: *Program) void {
     // Free all declarations
     i ::= 0
-    loop (i < program.declaration_count) {
+    loop {
+
+        i < program.declaration_count ? | false => { break } | true => {}
         ast_free_declaration(&program.declarations[i])
         i = i + 1
     }
@@ -458,7 +462,9 @@ ast_free_program = (program: *Program) void {
     
     // Free all modules
     i = 0
-    loop (i < program.module_count) {
+    loop {
+
+        i < program.module_count ? | false => { break } | true => {}
         ast_free_module(&program.modules[i])
         i = i + 1
     }
@@ -518,7 +524,9 @@ ast_free_statement = (stmt: *Statement) void {
         }
         | Statement::Block(statements, count) => {
             i ::= 0
-            loop (i < count) {
+            loop {
+
+                i < count ? | false => { break } | true => {}
                 ast_free_statement(&statements[i])
                 i = i + 1
             }
@@ -540,7 +548,9 @@ ast_free_expression = (expr: *Expression) void {
         | Expression::FunctionCall(target, args, count) => {
             ast_free_expression(target)
             i ::= 0
-            loop (i < count) {
+            loop {
+
+                i < count ? | false => { break } | true => {}
                 ast_free_expression(&args[i])
                 i = i + 1
             }
@@ -548,7 +558,9 @@ ast_free_expression = (expr: *Expression) void {
         }
         | Expression::Block(statements, count) => {
             i ::= 0
-            loop (i < count) {
+            loop {
+
+                i < count ? | false => { break } | true => {}
                 ast_free_statement(&statements[i])
                 i = i + 1
             }
