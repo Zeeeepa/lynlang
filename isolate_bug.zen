@@ -1,0 +1,18 @@
+// Isolate the exact issue
+test1 = (n: i32) i32 {
+    // Step 1: Comparison
+    cmp := n > 5
+    // Step 2: Use comparison in conditional
+    result := cmp ? | true => 10 | false => 20
+    // Step 3: Return
+    return result
+}
+
+test2 = (n: i32) i32 {
+    // All in one line - this should work the same way
+    return n > 5 ? | true => 10 | false => 20
+}
+
+main = () i32 {
+    return 0
+}

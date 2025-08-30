@@ -50,6 +50,13 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
+        
+        // After parsing binary expressions, check for postfix '?' operator
+        if self.current_token == Token::Symbol('?') {
+            self.next_token(); // consume '?'
+            left = self.parse_pattern_match(left)?;
+        }
+        
         Ok(left)
     }
 
@@ -92,11 +99,6 @@ impl<'a> Parser<'a> {
 
     fn parse_primary_expression(&mut self) -> Result<Expression> {
         match &self.current_token {
-            Token::Keyword(crate::lexer::Keyword::Return) => {
-                self.next_token(); // consume 'return'
-                let expr = self.parse_expression()?;
-                Ok(Expression::Return(Box::new(expr)))
-            }
             Token::Keyword(crate::lexer::Keyword::Comptime) => {
                 self.next_token(); // consume 'comptime'
                 let expr = self.parse_expression()?;
