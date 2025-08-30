@@ -64,7 +64,9 @@ lexer_peek_char = (l: *Lexer) i8 {
 
 // Skip whitespace
 lexer_skip_whitespace = (l: *Lexer) void {
-    loop (l.ch == ' ' || l.ch == '\t' || l.ch == '\r') {
+    loop {
+
+        l.ch == ' ' || l.ch == '\t' || l.ch == '\r' ? | false => { break } | true => {}
         lexer_read_char(l)
     }
 }
@@ -115,7 +117,10 @@ lexer_read_string = (l: *Lexer) String {
     lexer_read_char(l)  // skip opening quote
     start_pos := l.position
     
-    loop (l.ch != '"' && l.ch != 0) {
+    loop {
+
+    
+        l.ch != '"' && l.ch != 0 ? | false => { break } | true => {}
         l.ch == '\\' ? 
             | true => {
                 lexer_read_char(l)  // skip escape char
@@ -144,7 +149,9 @@ main = () i32 {
     io.print("\n")
     
     // Simple token extraction test
-    loop (l.ch != 0) {
+    loop {
+
+        l.ch != 0 ? | false => { break } | true => {}
         lexer_skip_whitespace(&l)
         
         is_letter(l.ch) ? 

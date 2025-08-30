@@ -70,7 +70,9 @@ lexer_peek_char2 = (l: *Lexer) i8 {
 
 // Skip whitespace
 lexer_skip_whitespace = (l: *Lexer) void {
-    loop (l.ch == ' ' || l.ch == '\t' || l.ch == '\r') {
+    loop {
+
+        l.ch == ' ' || l.ch == '\t' || l.ch == '\r' ? | false => { break } | true => {}
         lexer_read_char(l)
     }
 }
@@ -83,7 +85,9 @@ lexer_skip_line_comment = (l: *Lexer) String {
     lexer_read_char(l)
     
     // Read until end of line or EOF
-    loop (l.ch != '\n' && l.ch != 0) {
+    loop {
+
+        l.ch != '\n' && l.ch != 0 ? | false => { break } | true => {}
         lexer_read_char(l)
     }
     
@@ -98,7 +102,9 @@ lexer_skip_block_comment = (l: *Lexer) String {
     lexer_read_char(l)
     
     // Read until '*/' or EOF
-    loop (l.ch != 0) {
+    loop {
+
+        l.ch != 0 ? | false => { break } | true => {}
         l.ch == '*' && lexer_peek_char(l) == '/' ?
             | true => {
                 lexer_read_char(l)  // consume '*'
@@ -137,13 +143,15 @@ lexer_read_identifier = (l: *Lexer) String {
         | true => {
             lexer_read_char(l)
             // Read namespace parts (e.g., @std.core.vec)
-            loop (is_alnum(l.ch) || l.ch == '.') {
+            loop {
+                (is_alnum(l.ch) || l.ch == '.') ? | false => { break } | true => {}
                 lexer_read_char(l)
             }
         }
         | false => {
             // Regular identifier
-            loop (is_alnum(l.ch)) {
+            loop {
+                is_alnum(l.ch) ? | false => { break } | true => {}
                 lexer_read_char(l)
             }
         }
@@ -151,8 +159,14 @@ lexer_read_identifier = (l: *Lexer) String {
     return l.input.substring(start_pos, l.position)
 }
 
+// Result type for number reading
+NumberResult = {
+    text: String,
+    is_float: bool,
+}
+
 // Read a number (integer or float)
-lexer_read_number = (l: *Lexer) (String, bool) {
+lexer_read_number = (l: *Lexer) NumberResult {
     start_pos := l.position
     is_float := false
     
@@ -164,7 +178,7 @@ lexer_read_number = (l: *Lexer) (String, bool) {
             loop (is_digit(l.ch) || (l.ch >= 'a' && l.ch <= 'f') || (l.ch >= 'A' && l.ch <= 'F')) {
                 lexer_read_char(l)
             }
-            return (l.input.substring(start_pos, l.position), false)
+            return NumberResult{ text: l.input.substring(start_pos, l.position), is_float: false }
         }
         | false => {}
     
@@ -173,15 +187,18 @@ lexer_read_number = (l: *Lexer) (String, bool) {
         | true => {
             lexer_read_char(l)  // consume '0'
             lexer_read_char(l)  // consume 'b'
-            loop (l.ch == '0' || l.ch == '1') {
+            loop {
+
+                l.ch == '0' || l.ch == '1' ? | false => { break } | true => {}
                 lexer_read_char(l)
             }
-            return (l.input.substring(start_pos, l.position), false)
+            return NumberResult{ text: l.input.substring(start_pos, l.position), is_float: false }
         }
         | false => {}
     
     // Read integer part
-    loop (is_digit(l.ch)) {
+    loop {
+        is_digit(l.ch) ? | false => { break } | true => {}
         lexer_read_char(l)
     }
     
@@ -221,7 +238,7 @@ lexer_read_number = (l: *Lexer) (String, bool) {
         }
         | false => {}
     
-    return (l.input.substring(start_pos, l.position), is_float)
+    return NumberResult{ text: l.input.substring(start_pos, l.position), is_float: is_float }
 }
 
 // Read a string literal
@@ -229,7 +246,10 @@ lexer_read_string = (l: *Lexer) String {
     lexer_read_char(l)  // skip opening quote
     start_pos := l.position
     
-    loop (l.ch != '"' && l.ch != 0) {
+    loop {
+
+    
+        l.ch != '"' && l.ch != 0 ? | false => { break } | true => {}
         l.ch == '\\' ? 
             | true => {
                 lexer_read_char(l)  // skip escape char

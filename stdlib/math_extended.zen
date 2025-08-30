@@ -80,7 +80,9 @@ mean_f64 = (values: *f64, count: i64) f64 {
     
     sum := 0.0
     i ::= 0i64
-    loop (i < count) {
+    loop {
+
+        i < count ? | false => { break } | true => {}
         sum = sum + values[i]
         i = i + 1
     }
@@ -96,7 +98,10 @@ variance_f64 = (values: *f64, count: i64) f64 {
     sum_sq_diff := 0.0
     i ::= 0i64
     
-    loop (i < count) {
+    loop {
+
+    
+        i < count ? | false => { break } | true => {}
         diff := values[i] - mean
         sum_sq_diff = sum_sq_diff + diff * diff
         i = i + 1
@@ -113,7 +118,9 @@ std_dev_f64 = (values: *f64, count: i64) f64 {
 sum_f64 = (values: *f64, count: i64) f64 {
     sum := 0.0
     i ::= 0i64
-    loop (i < count) {
+    loop {
+
+        i < count ? | false => { break } | true => {}
         sum = sum + values[i]
         i = i + 1
     }
@@ -127,7 +134,9 @@ product_f64 = (values: *f64, count: i64) f64 {
     
     product := 1.0
     i ::= 0i64
-    loop (i < count) {
+    loop {
+
+        i < count ? | false => { break } | true => {}
         product = product * values[i]
         i = i + 1
     }
@@ -141,7 +150,9 @@ min_array_f64 = (values: *f64, count: i64) f64 {
     
     min := values[0]
     i ::= 1i64
-    loop (i < count) {
+    loop {
+
+        i < count ? | false => { break } | true => {}
         values[i] < min ? | true => { min = values[i] }
                         | false => {}
         i = i + 1
@@ -156,7 +167,9 @@ max_array_f64 = (values: *f64, count: i64) f64 {
     
     max := values[0]
     i ::= 1i64
-    loop (i < count) {
+    loop {
+
+        i < count ? | false => { break } | true => {}
         values[i] > max ? | true => { max = values[i] }
                         | false => {}
         i = i + 1
@@ -250,7 +263,9 @@ binomial = (n: i64, k: i64) i64 {
     
     result ::= 1i64
     i ::= 0i64
-    loop (i < k) {
+    loop {
+
+        i < k ? | false => { break } | true => {}
         result = result * (n - i) / (i + 1)
         i = i + 1
     }

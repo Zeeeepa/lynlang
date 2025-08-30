@@ -147,7 +147,9 @@ add_variable = (env: *TypeEnv, name: string, type_: *ast.AstType) void {
 type_check_program = (checker: *TypeChecker, program: *ast.Program) bool {
     // Check all declarations
     i ::= 0
-    loop (i < program.declaration_count) {
+    loop {
+
+        i < program.declaration_count ? | false => { break } | true => {}
         type_check_declaration(checker, &program.declarations[i])
         i = i + 1
     }
@@ -196,7 +198,9 @@ type_check_function = (checker: *TypeChecker, func: *ast.Function) void {
     
     // Extract parameter types
     i ::= 0
-    loop (i < func.param_count) {
+    loop {
+
+        i < func.param_count ? | false => { break } | true => {}
         sig.param_types[i] = func.params[i].type_
         i = i + 1
     }
@@ -211,7 +215,9 @@ type_check_function = (checker: *TypeChecker, func: *ast.Function) void {
     
     // Add parameters to scope
     i = 0
-    loop (i < func.param_count) {
+    loop {
+
+        i < func.param_count ? | false => { break } | true => {}
         add_variable(func_env, func.params[i].name, func.params[i].type_)
         i = i + 1
     }
@@ -233,7 +239,9 @@ type_check_struct = (checker: *TypeChecker, struct_: *ast.Struct) void {
     // Create type definition
     fields := mem.alloc(struct_.field_count * @sizeof(FieldDef)) as *FieldDef
     i ::= 0
-    loop (i < struct_.field_count) {
+    loop {
+
+        i < struct_.field_count ? | false => { break } | true => {}
         fields[i] = FieldDef {
             name: struct_.fields[i].name,
             type_: struct_.fields[i].type_,
@@ -247,7 +255,9 @@ type_check_struct = (checker: *TypeChecker, struct_: *ast.Struct) void {
     
     // Type check methods
     i = 0
-    loop (i < struct_.method_count) {
+    loop {
+
+        i < struct_.method_count ? | false => { break } | true => {}
         type_check_function(checker, &struct_.methods[i])
         i = i + 1
     }
@@ -258,10 +268,14 @@ type_check_enum = (checker: *TypeChecker, enum_: *ast.Enum) void {
     // Create type definition
     variants := mem.alloc(enum_.variant_count * @sizeof(VariantDef)) as *VariantDef
     i ::= 0
-    loop (i < enum_.variant_count) {
+    loop {
+
+        i < enum_.variant_count ? | false => { break } | true => {}
         variant_fields := mem.alloc(enum_.variants[i].field_count * @sizeof(FieldDef)) as *FieldDef
         j ::= 0
-        loop (j < enum_.variants[i].field_count) {
+        loop {
+
+            j < enum_.variants[i].field_count ? | false => { break } | true => {}
             variant_fields[j] = FieldDef {
                 name: enum_.variants[i].fields[j].name,
                 type_: enum_.variants[i].fields[j].type_,
@@ -432,7 +446,9 @@ type_check_statement = (checker: *TypeChecker, stmt: *ast.Statement) void {
             
             // Type check statements
             i ::= 0
-            loop (i < count) {
+            loop {
+
+                i < count ? | false => { break } | true => {}
                 type_check_statement(checker, &statements[i])
                 i = i + 1
             }
@@ -582,7 +598,9 @@ type_check_function_call = (checker: *TypeChecker, target: *ast.Expression, args
                         | false => {
                             // Type check arguments
                             i ::= 0
-                            loop (i < arg_count && i < func_sig.param_count) {
+                            loop {
+
+                                i < arg_count && i < func_sig.param_count ? | false => { break } | true => {}
                                 arg_type := type_check_expression(checker, &args[i])
                                 !types_equal(arg_type, &func_sig.param_types[i]) ?
                                     | true => {
@@ -618,7 +636,9 @@ type_check_field_access = (checker: *TypeChecker, object: *ast.Expression, field
                         | TypeDefinition::Struct(fields, field_count) => {
                             // Find field
                             i ::= 0
-                            loop (i < field_count) {
+                            loop {
+
+                                i < field_count ? | false => { break } | true => {}
                                 fields[i].name == field ?
                                     | true => { return fields[i].type_ }
                                     | false => {}
@@ -722,7 +742,9 @@ types_equal = (a: *ast.AstType, b: *ast.AstType) bool {
 // Print type errors
 print_type_errors = (checker: *TypeChecker) void {
     error := checker.errors
-    loop (error != 0 as *TypeError) {
+    loop {
+
+        error != 0 as *TypeError ? | false => { break } | true => {}
         io.println("Type error: $(error.message) at $(error.location.file):$(error.location.line):$(error.location.column)")
         error = error.next
     }
@@ -732,7 +754,9 @@ print_type_errors = (checker: *TypeChecker) void {
 type_checker_free = (checker: *TypeChecker) void {
     // Free error list
     error := checker.errors
-    loop (error != 0 as *TypeError) {
+    loop {
+
+        error != 0 as *TypeError ? | false => { break } | true => {}
         next := error.next
         mem.free(error as *void)
         error = next

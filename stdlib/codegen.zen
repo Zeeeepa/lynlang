@@ -156,7 +156,9 @@ ast_type_to_llvm = (type_: *ast.AstType) *LLVMType {
 codegen_program = (gen: *CodeGen, program: *ast.Program) string {
     // Generate declarations
     i ::= 0
-    loop (i < program.declaration_count) {
+    loop {
+
+        i < program.declaration_count ? | false => { break } | true => {}
         codegen_declaration(gen, &program.declarations[i])
         i = i + 1
     }
@@ -191,7 +193,9 @@ codegen_function = (gen: *CodeGen, func: *ast.Function) void {
     
     // Convert parameters
     i ::= 0
-    loop (i < func.param_count) {
+    loop {
+
+        i < func.param_count ? | false => { break } | true => {}
         llvm_func.params[i] = LLVMParam {
             type_: ast_type_to_llvm(func.params[i].type_),
             name: func.params[i].name,
@@ -286,7 +290,9 @@ codegen_statement = (gen: *CodeGen, stmt: *ast.Statement) void {
         }
         | ast.Statement::Block(statements, count) => {
             i ::= 0
-            loop (i < count) {
+            loop {
+
+                i < count ? | false => { break } | true => {}
                 codegen_statement(gen, &statements[i])
                 i = i + 1
             }
@@ -480,7 +486,9 @@ codegen_function_call = (gen: *CodeGen, target: *ast.Expression, args: *ast.Expr
     // Generate arguments
     arg_values := mem.alloc(arg_count * @sizeof(LLVMValue)) as *LLVMValue
     i ::= 0
-    loop (i < arg_count) {
+    loop {
+
+        i < arg_count ? | false => { break } | true => {}
         arg_values[i] = *codegen_expression(gen, &args[i])
         i = i + 1
     }
@@ -611,7 +619,9 @@ emit_function_signature = (output: string, func: *LLVMFunction) void {
     string.append(output, " @$(func.name)(")
     
     i ::= 0
-    loop (i < func.param_count) {
+    loop {
+
+        i < func.param_count ? | false => { break } | true => {}
         i > 0 ? | true => { string.append(output, ", ") } | false => {}
         emit_type(output, func.params[i].type_)
         string.append(output, " %$(func.params[i].name)")
@@ -695,7 +705,9 @@ emit_instruction = (output: string, instr: *LLVMInstr) void {
             // TODO: Emit proper function type
             string.append(output, "i32 @$(func)(")
             j ::= 0
-            loop (j < arg_count) {
+            loop {
+
+                j < arg_count ? | false => { break } | true => {}
                 j > 0 ? | true => { string.append(output, ", ") } | false => {}
                 emit_type(output, args[j].type_)
                 string.append(output, " $(args[j].name)")
