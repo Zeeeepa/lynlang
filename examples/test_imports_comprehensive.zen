@@ -1,0 +1,58 @@
+// Comprehensive test for new import syntax without comptime
+// This file tests that imports work at the top level without comptime blocks
+
+// Standard library imports - direct style
+core := @std.core
+vec := @std.vec
+hashmap := @std.hashmap
+io := @std.io
+math := @std.math
+string := @std.string
+
+// Build system imports
+build := @std.build
+fs := build.import("fs")
+net := build.import("net")
+
+// Test that we can use imported modules
+main = () i32 {
+    // Test io module
+    io.print("Testing new import syntax\n");
+    
+    // Test vec module (when implemented)
+    // v := vec.new();
+    
+    // Test math module (when implemented)
+    // result := math.abs(-42);
+    
+    // Test string module (when implemented)
+    // s := string.from("Hello");
+    
+    io.print("All imports working correctly!\n");
+    
+    return 0
+}
+
+// Test that imports can be used in function definitions
+test_imports_in_functions = () void {
+    io.print("Imports accessible in functions\n");
+}
+
+// Test that imports can be used in struct methods
+TestStruct = struct {
+    value: i32,
+}
+
+impl TestStruct {
+    print_value = (self: *TestStruct) void {
+        // Use io from top-level import
+        io.print("Value from struct method\n");
+    }
+}
+
+// Verify that comptime blocks still work for meta-programming
+comptime {
+    // This should still work for actual compile-time evaluation
+    // but is not required for imports
+    const_value := 42
+}

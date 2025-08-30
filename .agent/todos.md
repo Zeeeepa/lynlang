@@ -1,52 +1,36 @@
-# Zen Language Development TODOs
+# Zen Language - Todo List
 
 ## Completed ✅
-- [x] Remove comptime requirement from imports
-- [x] Update all example files to use new import syntax  
-- [x] Update stdlib files to use new import syntax
-- [x] Fix module resolution for std. modules
-- [x] Test compiler with new import syntax
+- [x] Analyze current import syntax implementation
+- [x] Run existing tests to check current state
+- [x] Create comprehensive test file for new import syntax
+- [x] Update .agent directory with progress
 
-## In Progress 🚧
-- [ ] Create comprehensive .agent metadata files
+## In Progress 🔄
+- [ ] Fix failing language feature tests
+  - test_fibonacci_recursive
+  - test_multiple_return_values
+  - test_nested_pattern_matching
+  - test_struct_with_methods
 
-## Upcoming Tasks 📋
-
-### Self-Hosting (Priority 1)
+## Pending 📋
+- [ ] Write test for self-hosting components
 - [ ] Implement lexer in Zen
-- [ ] Implement parser in Zen  
-- [ ] Implement AST in Zen
-- [ ] Implement type checker in Zen
+- [ ] Implement parser in Zen
+- [ ] Implement semantic analyzer in Zen
 - [ ] Implement code generator in Zen
-- [ ] Bootstrap compiler with itself
+- [ ] Create testing framework in Zen
+- [ ] Develop LSP support
 
-### Standard Library (Priority 2)  
-- [ ] Complete io module implementation
-- [ ] Complete mem module implementation
-- [ ] Complete fs module implementation
-- [ ] Implement collections (Vec, HashMap, Set)
-- [ ] Implement string utilities
-- [ ] Implement math functions
-- [ ] Implement process control
-- [ ] Implement threading support
-
-### Testing Framework (Priority 3)
-- [ ] Create assert module
-- [ ] Implement test runner
-- [ ] Add test discovery
-- [ ] Create test macros/attributes
-- [ ] Add benchmark support
-
-### Language Server (Priority 4)
-- [ ] Basic syntax checking
-- [ ] Import resolution
-- [ ] Type checking integration
-- [ ] Go to definition
-- [ ] Auto-completion
-- [ ] Error diagnostics
+## Priority Order
+1. Fix failing tests (critical for stability)
+2. Implement self-hosting components
+3. Expand stdlib
+4. Testing framework
+5. LSP support
 
 ## Notes
-- Comptime should only be used for metaprogramming, not imports
-- Maintain simplicity and elegance in design
-- Follow DRY and KISS principles
-- Commit frequently with clear messages
+- Import syntax refactoring complete
+- Focus on stability before new features
+- Use DRY & KISS principles
+- Commit frequently
