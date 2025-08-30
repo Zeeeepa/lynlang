@@ -1,0 +1,98 @@
+// Token types for the Zen lexer
+// Part of the self-hosting compiler
+
+core := @std.core
+
+// Token types enumeration
+TokenType = enum {
+    // Literals
+    Integer,
+    Float,
+    String,
+    Boolean,
+    
+    // Identifiers and keywords
+    Identifier,
+    Keyword,
+    
+    // Operators
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Equals,
+    NotEquals,
+    LessThan,
+    LessThanEquals,
+    GreaterThan,
+    GreaterThanEquals,
+    And,
+    Or,
+    Not,
+    
+    // Assignment
+    Assign,         // =
+    AssignConst,    // :=
+    AssignMut,      // ::=
+    
+    // Delimiters
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    
+    // Punctuation
+    Comma,
+    Semicolon,
+    Colon,
+    Dot,
+    Arrow,          // ->
+    FatArrow,       // =>
+    Question,       // ?
+    Pipe,           // |
+    At,             // @
+    
+    // Special
+    EOF,
+    Newline,
+    Comment,
+}
+
+// Token structure
+Token = struct {
+    type: TokenType,
+    value: String,
+    line: i32,
+    column: i32,
+}
+
+// Helper functions for token creation
+create_token = (type: TokenType, value: String, line: i32, column: i32) Token {
+    return Token {
+        type: type,
+        value: value,
+        line: line,
+        column: column,
+    }
+}
+
+// Check if a string is a keyword
+is_keyword = (s: String) bool {
+    // Keywords in Zen
+    keywords := ["fn", "struct", "enum", "impl", "return", "if", "else", 
+                 "loop", "break", "continue", "extern", "comptime", 
+                 "const", "mut", "bool", "i8", "i16", "i32", "i64",
+                 "u8", "u16", "u32", "u64", "f32", "f64", "void", "String"]
+    
+    // Simple linear search for now
+    i := 0
+    loop (i < keywords.len()) {
+        keywords[i] == s ? | true => { return true } | false => {}
+        i = i + 1
+    }
+    
+    return false
+}
