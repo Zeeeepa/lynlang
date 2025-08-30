@@ -259,7 +259,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Allocate the array on the heap (malloc)
         let elem_size = element_type.size_of();
-        let total_size = element_type.const_int(array_len as u64, false);
+        let i64_type = self.context.i64_type();
+        let total_size = i64_type.const_int(array_len as u64, false);
         let malloc_fn = self.module.get_function("malloc").ok_or_else(|| CompileError::InternalError("No malloc function declared".to_string(), None))?;
         let size = self.builder.build_int_mul(elem_size, total_size, "arraysize");
         let raw_ptr = self.builder.build_call(malloc_fn, &[size?.into()], "arraymalloc")?.try_as_basic_value().left().unwrap().into_pointer_value();

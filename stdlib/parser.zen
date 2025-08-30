@@ -16,25 +16,62 @@ AstType =
     | Bool
     | String
     | Void
-    | Pointer(inner: *AstType)
-    | Array(element_type: *AstType, size: i32)
-    | Custom(name: *i8)
+    | Pointer(*AstType)
+    | Array(*AstType, i32)
+    | Custom(*i8)
 
-Expression = 
-    | Integer32(value: i32)
-    | Integer64(value: i64)
-    | Float32(value: f32)
-    | Float64(value: f64)
-    | Boolean(value: bool)
-    | StringLit(value: *i8)
-    | Identifier(name: *i8)
-    | BinaryOp(left: *Expression, op: BinaryOperator, right: *Expression)
-    | UnaryOp(op: UnaryOperator, operand: *Expression)
-    | FunctionCall(name: *i8, args: *Expression, arg_count: i32)
-    | FieldAccess(object: *Expression, field: *i8)
-    | ArrayAccess(array: *Expression, index: *Expression)
-    | StructLiteral(name: *i8, fields: *FieldInit, field_count: i32)
-    | ArrayLiteral(elements: *Expression, element_count: i32)
+// For now, use a simpler representation with a struct
+// TODO: Refactor to proper enum when multi-field variants are supported
+ExpressionKind = 
+    | Integer32
+    | Integer64
+    | Float32
+    | Float64
+    | Boolean
+    | StringLit
+    | Identifier
+    | BinaryOp
+    | UnaryOp
+    | FunctionCall
+    | FieldAccess
+    | ArrayAccess
+    | StructLiteral
+    | ArrayLiteral
+
+Expression = {
+    kind: ExpressionKind,
+    // Union of possible data
+    int32_val: i32,
+    int64_val: i64,
+    float32_val: f32,
+    float64_val: f64,
+    bool_val: bool,
+    string_val: *i8,
+    // For binary ops
+    left: *Expression,
+    op: BinaryOperator,
+    right: *Expression,
+    // For unary ops
+    unary_op: UnaryOperator,
+    operand: *Expression,
+    // For function calls
+    func_name: *i8,
+    args: *Expression,
+    arg_count: i32,
+    // For field access
+    object: *Expression,
+    field: *i8,
+    // For array access
+    array: *Expression,
+    index: *Expression,
+    // For struct literals
+    struct_name: *i8,
+    fields: *FieldInit,
+    field_count: i32,
+    // For array literals
+    elements: *Expression,
+    element_count: i32,
+}
 
 BinaryOperator = 
     | Add
@@ -66,20 +103,53 @@ FieldInit = {
     value: *Expression,
 }
 
-Statement = 
-    | Expression(expr: *Expression)
-    | VariableDeclaration(name: *i8, type_: *AstType, initializer: *Expression, is_mutable: bool)
-    | VariableAssignment(name: *i8, value: *Expression)
-    | Return(value: *Expression)
-    | If(condition: *Expression, then_body: *Statement, else_body: *Statement)
-    | Loop(body: *Statement)
-    | Block(statements: *Statement, statement_count: i32)
+StatementKind = 
+    | Expression
+    | VariableDeclaration
+    | VariableAssignment
+    | Return
+    | If
+    | Loop
+    | Block
 
-Declaration = 
-    | Function(func: *Function)
-    | Struct(struct_: *Struct)
-    | Enum(enum_: *Enum)
-    | ExternalFunction(ext_func: *ExternalFunction)
+Statement = {
+    kind: StatementKind,
+    // Expression statement
+    expr: *Expression,
+    // Variable declaration
+    var_name: *i8,
+    var_type: *AstType,
+    initializer: *Expression,
+    is_mutable: bool,
+    // Variable assignment  
+    assign_name: *i8,
+    value: *Expression,
+    // Return
+    return_value: *Expression,
+    // If
+    condition: *Expression,
+    then_body: *Statement,
+    else_body: *Statement,
+    // Loop
+    loop_body: *Statement,
+    // Block
+    statements: *Statement,
+    statement_count: i32,
+}
+
+DeclarationKind = 
+    | Function
+    | Struct
+    | Enum
+    | ExternalFunction
+
+Declaration = {
+    kind: DeclarationKind,
+    func: *Function,
+    struct_: *Struct,
+    enum_: *Enum,
+    ext_func: *ExternalFunction,
+}
 
 Function = {
     name: *i8,
