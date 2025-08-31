@@ -147,21 +147,24 @@ zenlang/
 
 ### Next Steps (Priority Order)
 1. **Create zen-doc documentation generator** - Auto-generate API docs
-2. **Implement package registry for zen-pkg** - Central package repository
-3. **Add benchmarking suite** - Performance testing framework
-4. **Optimize type checker** - Better inference algorithms
-5. **Create VSCode extension** - Syntax highlighting and LSP client
+2. **Create VSCode extension** - Syntax highlighting and LSP client
+3. **Implement package registry backend** - Server for zen-pkg
+4. **Add benchmarking dashboard** - Performance tracking over time
+5. **Optimize compiler performance** - Parallel compilation support
 6. **Garbage Collection** - Optional GC for automatic memory management
 7. **JIT Compilation** - Runtime optimization
+8. **WebAssembly target** - Compile Zen to WASM
 
 ### Key Achievements
-- **13 pure Zen stdlib modules** (up from 6)
+- **15 pure Zen stdlib modules** (complete standard library)
+- **Full self-hosting**: compiler, build system, package manager
+- **Comprehensive test suite** with integration tests
+- **Enhanced syntax checker** with linting and style checks
 - **Enhanced LSP with professional IDE features**
-- **Self-hosting capability fully demonstrated**
 - **Clean, correct import syntax throughout**
-- **Comprehensive test coverage**
 - **CI/CD pipeline active**
 - **Interactive debugger operational**
+- **Threading and concurrency support**
 - **Full networking and IPC capabilities**
 
 ### Commands
