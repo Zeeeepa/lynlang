@@ -289,6 +289,21 @@ parse_program = (parser: Ptr<Parser>) Vec<AstNode> {
 parse_item = (parser: Ptr<Parser>) AstNode {
     token := peek(parser)
     
+    // Check for module-level imports (name := @std.module or name := build.import("module"))
+    match token.kind {
+        | TokenKind.Identifier(name) => {
+            next := peek_next(parser)
+            match next.kind {
+                | TokenKind.ColonAssign => {
+                    // This could be a module import or a constant
+                    return parse_module_level_declaration(parser)
+                }
+                | _ => {}
+            }
+        }
+        | _ => {}
+    }
+    
     token.kind ?
         | TokenKind.Keyword("fn") => return parse_function(parser)
         | TokenKind.Keyword("struct") => return parse_struct(parser)
@@ -1124,6 +1139,105 @@ parse_builtin_import = (parser: Ptr<Parser>) AstNode {
     // Create import path string
     import_path := "@" + string.join(path, ".")
     return AstNode.Import(import_path, Option<string>.None)
+}
+
+// Parse module-level declaration (could be import or constant)
+parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
+    // Get the identifier name
+    name_token := advance(parser)
+    name := match name_token.kind {
+        | TokenKind.Identifier(n) => n
+        | _ => {
+            add_error(parser, "Expected identifier")
+            return AstNode.IntLit(0)
+        }
+    }
+    
+    // Consume :=
+    expect(parser, TokenKind.ColonAssign, "Expected ':=' after identifier")
+    
+    // Check what follows
+    token := peek(parser)
+    match token.kind {
+        // @std.module pattern
+        | TokenKind.At => {
+            advance(parser)  // consume '@'
+            
+            // Parse module path
+            path := parse_module_path(parser)
+            return AstNode.Import(path, Option<string>.Some(name))
+        }
+        // build.import("module") pattern
+        | TokenKind.Identifier(id) if id == "build" => {
+            advance(parser)  // consume 'build'
+            expect(parser, TokenKind.Dot, "Expected '.' after 'build'")
+            
+            import_token := advance(parser)
+            match import_token.kind {
+                | TokenKind.Identifier(func) if func == "import" => {
+                    expect(parser, TokenKind.LeftParen, "Expected '(' after 'import'")
+                    
+                    // Get module name from string literal
+                    module_token := advance(parser)
+                    module_name := match module_token.kind {
+                        | TokenKind.StringLit(s) => s
+                        | _ => {
+                            add_error(parser, "Expected string literal for module name")
+                            return AstNode.IntLit(0)
+                        }
+                    }
+                    
+                    expect(parser, TokenKind.RightParen, "Expected ')' after module name")
+                    
+                    // Create import with std.module path
+                    return AstNode.Import("std." + module_name, Option<string>.Some(name))
+                }
+                | _ => {
+                    add_error(parser, "Expected 'import' after 'build.'")
+                    return AstNode.IntLit(0)
+                }
+            }
+        }
+        // Otherwise it's a constant declaration
+        | _ => {
+            value := parse_expression(parser)
+            return AstNode.VarDecl(name, Option<Type>.None, Option<Ptr<AstNode>>.Some(ptr_new(value)), false)
+        }
+    }
+}
+
+// Parse module path (e.g., std.core, std.io)
+parse_module_path = (parser: Ptr<Parser>) string {
+    path := ""
+    
+    // Expect identifier
+    token := advance(parser)
+    match token.kind {
+        | TokenKind.Identifier(id) => {
+            path = id
+        }
+        | _ => {
+            add_error(parser, "Expected module path")
+            return ""
+        }
+    }
+    
+    // Parse additional segments
+    loop check(parser, TokenKind.Dot) {
+        advance(parser)  // consume '.'
+        segment_token := advance(parser)
+        match segment_token.kind {
+            | TokenKind.Identifier(seg) => {
+                path = path + "." + seg
+            }
+            | _ => {
+                add_error(parser, "Expected identifier after '.'")
+                break
+            }
+        }
+    }
+    
+    return path
 }
 
 parse_import = (parser: Ptr<Parser>) AstNode {
