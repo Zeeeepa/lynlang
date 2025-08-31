@@ -1,0 +1,382 @@
+// Zen Standard Library - Logging Module
+// Provides structured logging capabilities
+
+core := @std.core
+io := @std.io
+string := @std.string
+time := @std.time
+
+// Log levels
+LogLevel = enum {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Fatal,
+}
+
+// Log entry structure
+LogEntry = {
+    level: LogLevel,
+    timestamp: time.Time,
+    message: string,
+    file: Option<string>,
+    line: Option<u32>,
+    fields: Vec<(string, string)>,
+}
+
+// Logger configuration
+LogConfig = {
+    min_level: LogLevel,
+    show_timestamp: bool,
+    show_level: bool,
+    show_location: bool,
+    colored_output: bool,
+    output_format: LogFormat,
+}
+
+// Output formats
+LogFormat = enum {
+    Text,
+    JSON,
+    Compact,
+}
+
+// Global logger instance
+Logger = {
+    config: LogConfig,
+    handlers: Vec<LogHandler>,
+}
+
+// Log handler interface
+LogHandler = {
+    write: (entry: &LogEntry) void,
+    flush: () void,
+}
+
+// Console handler - writes to stdout/stderr
+ConsoleHandler = {
+    use_stderr_for_errors: bool,
+}
+
+// File handler - writes to file
+FileHandler = {
+    file_path: string,
+    buffer: Vec<LogEntry>,
+    buffer_size: u32,
+}
+
+// Create default logger
+new_logger = () Logger {
+    return Logger{
+        config: LogConfig{
+            min_level: LogLevel.Info,
+            show_timestamp: true,
+            show_level: true,
+            show_location: false,
+            colored_output: true,
+            output_format: LogFormat.Text,
+        },
+        handlers: vec_new<LogHandler>(),
+    }
+}
+
+// Global logger instance
+GLOBAL_LOGGER := new_logger()
+
+// Set minimum log level
+set_level = (level: LogLevel) {
+    GLOBAL_LOGGER.config.min_level = level
+}
+
+// Check if level is enabled
+is_enabled = (level: LogLevel) bool {
+    return level as u32 >= GLOBAL_LOGGER.config.min_level as u32
+}
+
+// Format log level as string
+level_to_string = (level: LogLevel) string {
+    match level {
+        | LogLevel.Trace => return "TRACE"
+        | LogLevel.Debug => return "DEBUG"
+        | LogLevel.Info => return "INFO"
+        | LogLevel.Warn => return "WARN"
+        | LogLevel.Error => return "ERROR"
+        | LogLevel.Fatal => return "FATAL"
+    }
+}
+
+// Get ANSI color code for level
+level_color = (level: LogLevel) string {
+    GLOBAL_LOGGER.config.colored_output ? {
+        match level {
+            | LogLevel.Trace => return "\x1b[90m"  // Gray
+            | LogLevel.Debug => return "\x1b[36m"  // Cyan
+            | LogLevel.Info => return "\x1b[32m"   // Green
+            | LogLevel.Warn => return "\x1b[33m"   // Yellow
+            | LogLevel.Error => return "\x1b[31m"  // Red
+            | LogLevel.Fatal => return "\x1b[35m"  // Magenta
+        }
+    } : {
+        return ""
+    }
+}
+
+// Reset color
+reset_color = () string {
+    GLOBAL_LOGGER.config.colored_output ? {
+        return "\x1b[0m"
+    } : {
+        return ""
+    }
+}
+
+// Core logging function
+log_impl = (level: LogLevel, msg: string, file: Option<string>, line: Option<u32>) {
+    is_enabled(level) ? {
+        entry := LogEntry{
+            level: level,
+            timestamp: time.now(),
+            message: msg,
+            file: file,
+            line: line,
+            fields: vec_new<(string, string)>(),
+        }
+        
+        // Format and output based on config
+        output := format_entry(&entry)
+        
+        // Output to appropriate stream
+        level as u32 >= LogLevel.Error as u32 ? {
+            io.eprint(output)
+        } : {
+            io.print(output)
+        }
+    } : {}
+}
+
+// Format log entry
+format_entry = (entry: &LogEntry) string {
+    match GLOBAL_LOGGER.config.output_format {
+        | LogFormat.Text => return format_text(entry)
+        | LogFormat.JSON => return format_json(entry)
+        | LogFormat.Compact => return format_compact(entry)
+    }
+}
+
+// Format as text
+format_text = (entry: &LogEntry) string {
+    output := ""
+    
+    // Add timestamp
+    GLOBAL_LOGGER.config.show_timestamp ? {
+        output = output + "[" + format_timestamp(entry.timestamp) + "] "
+    } : {}
+    
+    // Add level with color
+    GLOBAL_LOGGER.config.show_level ? {
+        color := level_color(entry.level)
+        level_str := level_to_string(entry.level)
+        output = output + color + "[" + level_str + "]" + reset_color() + " "
+    } : {}
+    
+    // Add location
+    GLOBAL_LOGGER.config.show_location ? {
+        match entry.file {
+            | Option<string>.Some(f) => {
+                match entry.line {
+                    | Option<u32>.Some(l) => {
+                        output = output + f + ":" + u32_to_string(l) + " "
+                    }
+                    | Option<u32>.None => {
+                        output = output + f + " "
+                    }
+                }
+            }
+            | Option<string>.None => {}
+        }
+    } : {}
+    
+    // Add message
+    output = output + entry.message + "\n"
+    
+    return output
+}
+
+// Format as JSON
+format_json = (entry: &LogEntry) string {
+    output := "{"
+    output = output + "\"level\":\"" + level_to_string(entry.level) + "\","
+    output = output + "\"timestamp\":" + i64_to_string(entry.timestamp.nanos) + ","
+    output = output + "\"message\":\"" + escape_json(entry.message) + "\""
+    
+    // Add optional fields
+    match entry.file {
+        | Option<string>.Some(f) => {
+            output = output + ",\"file\":\"" + escape_json(f) + "\""
+        }
+        | Option<string>.None => {}
+    }
+    
+    match entry.line {
+        | Option<u32>.Some(l) => {
+            output = output + ",\"line\":" + u32_to_string(l)
+        }
+        | Option<u32>.None => {}
+    }
+    
+    output = output + "}\n"
+    return output
+}
+
+// Format as compact
+format_compact = (entry: &LogEntry) string {
+    level_char := match entry.level {
+        | LogLevel.Trace => "T"
+        | LogLevel.Debug => "D"
+        | LogLevel.Info => "I"
+        | LogLevel.Warn => "W"
+        | LogLevel.Error => "E"
+        | LogLevel.Fatal => "F"
+    }
+    
+    return level_char + " " + entry.message + "\n"
+}
+
+// Format timestamp
+format_timestamp = (t: time.Time) string {
+    // Simple format for now
+    return i64_to_string(t.nanos / 1000000000)
+}
+
+// Escape string for JSON
+escape_json = (s: string) string {
+    // Simple implementation - just handle quotes and newlines
+    result := ""
+    i := 0
+    loop i < string.len(s) {
+        c := s[i]
+        c == '"' ? { result = result + "\\\"" } :
+        c == '\n' ? { result = result + "\\n" } :
+        c == '\r' ? { result = result + "\\r" } :
+        c == '\t' ? { result = result + "\\t" } :
+        c == '\\' ? { result = result + "\\\\" } :
+        { result = result + c }
+        i = i + 1
+    }
+    return result
+}
+
+// Public logging functions
+trace = (msg: string) {
+    log_impl(LogLevel.Trace, msg, Option<string>.None, Option<u32>.None)
+}
+
+debug = (msg: string) {
+    log_impl(LogLevel.Debug, msg, Option<string>.None, Option<u32>.None)
+}
+
+info = (msg: string) {
+    log_impl(LogLevel.Info, msg, Option<string>.None, Option<u32>.None)
+}
+
+warn = (msg: string) {
+    log_impl(LogLevel.Warn, msg, Option<string>.None, Option<u32>.None)
+}
+
+error = (msg: string) {
+    log_impl(LogLevel.Error, msg, Option<string>.None, Option<u32>.None)
+}
+
+fatal = (msg: string) {
+    log_impl(LogLevel.Fatal, msg, Option<string>.None, Option<u32>.None)
+    // Exit program
+    core.exit(1)
+}
+
+// Logging with format strings
+tracef = (fmt: string, args: ...any) {
+    msg := string.format(fmt, args)
+    trace(msg)
+}
+
+debugf = (fmt: string, args: ...any) {
+    msg := string.format(fmt, args)
+    debug(msg)
+}
+
+infof = (fmt: string, args: ...any) {
+    msg := string.format(fmt, args)
+    info(msg)
+}
+
+warnf = (fmt: string, args: ...any) {
+    msg := string.format(fmt, args)
+    warn(msg)
+}
+
+errorf = (fmt: string, args: ...any) {
+    msg := string.format(fmt, args)
+    error(msg)
+}
+
+fatalf = (fmt: string, args: ...any) {
+    msg := string.format(fmt, args)
+    fatal(msg)
+}
+
+// Helper functions
+u32_to_string = (n: u32) string {
+    n == 0 ? { return "0" } : {}
+    n < 10 ? { return "" + (n + 48) as u8 } : {
+        return u32_to_string(n / 10) + u32_to_string(n % 10)
+    }
+}
+
+i64_to_string = (n: i64) string {
+    n == 0 ? { return "0" } : {}
+    n < 0 ? { return "-" + i64_to_string(-n) } : {}
+    n < 10 ? { return "" + (n + 48) as u8 } : {
+        return i64_to_string(n / 10) + i64_to_string(n % 10)
+    }
+}
+
+// Structured logging with fields
+with_field = (key: string, value: string) LogContext {
+    return LogContext{
+        fields: vec_of([(key, value)]),
+    }
+}
+
+// Log context for structured logging
+LogContext = {
+    fields: Vec<(string, string)>,
+}
+
+// Add field to context
+add_field = (ctx: &mut LogContext, key: string, value: string) {
+    vec_push(ctx.fields, (key, value))
+}
+
+// Log with context
+log_with_context = (level: LogLevel, msg: string, ctx: &LogContext) {
+    is_enabled(level) ? {
+        entry := LogEntry{
+            level: level,
+            timestamp: time.now(),
+            message: msg,
+            file: Option<string>.None,
+            line: Option<u32>.None,
+            fields: ctx.fields,
+        }
+        
+        output := format_entry(&entry)
+        
+        level as u32 >= LogLevel.Error as u32 ? {
+            io.eprint(output)
+        } : {
+            io.print(output)
+        }
+    } : {}
+}
