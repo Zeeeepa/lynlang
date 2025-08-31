@@ -226,126 +226,115 @@ parser_is_at_end = (p: Parser) bool {
 // Get current token
 parser_current_token = (p: Parser) Token {
     idx := p.current
-    idx >= p.token_count ?
-        | true => {
-            // Return EOF token
-            return Token {
-                token_type: TokenType::Eof,
-                value: 0 as *i8,
-                line: 0,
-                column: 0,
-                start: 0,
-                end: 0,
-            }
+    if idx >= p.token_count {
+        // Return EOF token
+        return Token {
+            token_type: TokenType::Eof,
+            value: 0 as *i8,
+            line: 0,
+            column: 0,
+            start: 0,
+            end: 0,
         }
-        | false => {
-            // Return token at current position
-            return p.tokens[idx]
+    } else {
+        // Return token at current position
+        return p.tokens[idx]
+    }
 }
 
 // Advance to next token
 parser_advance = (p: *Parser) void {
-    !parser_is_at_end(*p) ?
-        | true => { p.current = p.current + 1 }
-        | false => {}
+    if !parser_is_at_end(*p) {
+        p.current = p.current + 1
+    }
 }
 
 // Check if current token matches type
 parser_check = (p: Parser, expected: TokenType) bool {
-    parser_is_at_end(p) ? | true => { return false } | false => {}
+    if parser_is_at_end(p) {
+        return false
+    }
     token := parser_current_token(p)
     return token.token_type == expected
 }
 
 // Match and advance if token matches
 parser_match = (p: *Parser, expected: TokenType) bool {
-    parser_check(*p, expected) ?
-        | true => {
-            parser_advance(p)
-            return true
-        }
-        | false => {
-            return false
-        }
+    if parser_check(*p, expected) {
+        parser_advance(p)
+        return true
+    } else {
+        return false
+    }
 }
 
 // Parse identifier
 parser_parse_identifier = (p: *Parser) *i8 {
     token := parser_current_token(*p)
-    token.token_type == TokenType::Identifier ?
-        | true => {
-            value := token.value
-            parser_advance(p)
-            return value
-        }
-        | false => {
-            return 0 as *i8
-        }
+    if token.token_type == TokenType::Identifier {
+        value := token.value
+        parser_advance(p)
+        return value
+    } else {
+        return 0 as *i8
+    }
 
 // Parse type
 parser_parse_type = (p: *Parser) *AstType {
     token := parser_current_token(*p)
     
     // Check for basic types
-    token.token_type == TokenType::Identifier ?
-        | true => {
-            name := token.value
-            parser_advance(p)
-            
-            // Check type name
-            strcmp(name, "i8") == 0 ? | true => { return &AstType::I8 } | false => {}
-            strcmp(name, "i16") == 0 ? | true => { return &AstType::I16 } | false => {}
-            strcmp(name, "i32") == 0 ? | true => { return &AstType::I32 } | false => {}
-            strcmp(name, "i64") == 0 ? | true => { return &AstType::I64 } | false => {}
-            strcmp(name, "u8") == 0 ? | true => { return &AstType::U8 } | false => {}
-            strcmp(name, "u16") == 0 ? | true => { return &AstType::U16 } | false => {}
-            strcmp(name, "u32") == 0 ? | true => { return &AstType::U32 } | false => {}
-            strcmp(name, "u64") == 0 ? | true => { return &AstType::U64 } | false => {}
-            strcmp(name, "f32") == 0 ? | true => { return &AstType::F32 } | false => {}
-            strcmp(name, "f64") == 0 ? | true => { return &AstType::F64 } | false => {}
-            strcmp(name, "bool") == 0 ? | true => { return &AstType::Bool } | false => {}
-            strcmp(name, "void") == 0 ? | true => { return &AstType::Void } | false => {}
-            
-            // Custom type
-            return &AstType::Custom(name)
+    if token.token_type == TokenType::Identifier {
+        name := token.value
+        parser_advance(p)
+        
+        // Check type name
+        if strcmp(name, "i8") == 0 { return &AstType::I8 }
+        if strcmp(name, "i16") == 0 { return &AstType::I16 }
+        if strcmp(name, "i32") == 0 { return &AstType::I32 }
+        if strcmp(name, "i64") == 0 { return &AstType::I64 }
+        if strcmp(name, "u8") == 0 { return &AstType::U8 }
+        if strcmp(name, "u16") == 0 { return &AstType::U16 }
+        if strcmp(name, "u32") == 0 { return &AstType::U32 }
+        if strcmp(name, "u64") == 0 { return &AstType::U64 }
+        if strcmp(name, "f32") == 0 { return &AstType::F32 }
+        if strcmp(name, "f64") == 0 { return &AstType::F64 }
+        if strcmp(name, "bool") == 0 { return &AstType::Bool }
+        if strcmp(name, "void") == 0 { return &AstType::Void }
+        
+        // Custom type
+        return &AstType::Custom(name)
+    } else {
+        // Check for pointer type
+        if token.token_type == TokenType::Operator {
+            if strcmp(token.value, "*") == 0 {
+                parser_advance(p)
+                inner := parser_parse_type(p)
+                return &AstType::Pointer(inner)
+            } else {
+                return &AstType::I32  // Default
+            }
+        } else {
+            return &AstType::I32  // Default
         }
-        | false => {
-            // Check for pointer type
-            token.token_type == TokenType::Operator ?
-                | true => {
-                    strcmp(token.value, "*") == 0 ?
-                        | true => {
-                            parser_advance(p)
-                            inner := parser_parse_type(p)
-                            return &AstType::Pointer(inner)
-                        }
-                        | false => {
-                            return &AstType::I32  // Default
-                        }
-                }
-                | false => {
-                    return &AstType::I32  // Default
-                }
-        }
+    }
+}
 
 // Parse primary expression (literals, identifiers, parentheses)
 parser_parse_primary = (p: *Parser) *Expression {
     token := parser_current_token(*p)
     
     // Parse literals
-    token.token_type == TokenType::Integer ?
-        | true => {
-            // Parse integer literal
-            // TODO: Proper string to integer conversion
-            value := 42  // Placeholder
-            parser_advance(p)
-            return &Expression::Integer32(value)
-        }
-        | false => {}
+    if token.token_type == TokenType::Integer {
+        // Parse integer literal
+        // TODO: Proper string to integer conversion
+        value := 42  // Placeholder
+        parser_advance(p)
+        return &Expression::Integer32(value)
+    }
     
-    token.token_type == TokenType::Float ?
-        | true => {
-            // Parse float literal
+    if token.token_type == TokenType::Float {
+        // Parse float literal
             value := 3.14 as f32  // Placeholder
             parser_advance(p)
             return &Expression::Float32(value)
