@@ -60,25 +60,27 @@ main = () i32 {
 }
 ```
 
-### 2. No Comptime Required
+### 2. Imports Are NOT Comptime
 
-Unlike earlier versions, imports do NOT require `comptime` blocks:
+**IMPORTANT:** Imports are compile-time module resolution, not comptime evaluation. They should NEVER be placed in `comptime` blocks.
 
-**Current (Correct):**
+**Correct - Module-level imports:**
 ```zen
-// Direct module-level imports
+// Direct module-level imports (NOT in comptime)
 core := @std.core
 io := @std.io
 ```
 
-**Old (Deprecated):**
+**INCORRECT - Will cause compilation error:**
 ```zen
-// DO NOT use comptime for imports
+// ✗ NEVER put imports in comptime blocks
 comptime {
-    core := @std.core
-    io := @std.io
+    core := @std.core  // ERROR: Imports not allowed in comptime
+    io := @std.io      // ERROR: Imports not allowed in comptime
 }
 ```
+
+`comptime` is for meta-programming and compile-time computation, NOT for imports.
 
 ### 3. Import Aliases
 
@@ -144,9 +146,34 @@ main = () i32 {
 }
 ```
 
-## Comptime and Meta-programming
+## Comptime vs Imports
 
-`comptime` blocks are reserved for compile-time evaluation and meta-programming, NOT for imports:
+### Key Distinction
+
+- **Imports**: Module resolution that happens at compile time (but not in comptime blocks)
+- **Comptime**: Meta-programming and compile-time code execution
+
+### Comptime Use Cases
+
+`comptime` blocks are for:
+- Compile-time computation
+- Code generation
+- Type-level programming
+- Constant evaluation
+
+**NOT for imports!**
+
+Example of proper comptime usage:
+```zen
+// Correct comptime usage - computation, not imports
+comptime {
+    BUFFER_SIZE := 1024 * 4  // Compile-time constant
+    MAX_USERS := 100
+}
+
+// Imports are OUTSIDE comptime
+io := @std.io
+```
 
 ```zen
 // Imports at module level
