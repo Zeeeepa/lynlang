@@ -1,0 +1,162 @@
+// Comprehensive Import System Test
+// Validates all aspects of the module import system
+
+// Module-level imports (correct way)
+core := @std.core
+build := @std.build
+io := build.import("io")
+mem := build.import("mem")
+math := build.import("math")
+string := build.import("string")
+vec := build.import("vec")
+hashmap := build.import("hashmap")
+
+// Test that comptime is for meta-programming, not imports
+comptime {
+    // Generate compile-time constants
+    BUFFER_SIZE := 1024
+    MAX_CONNECTIONS := 100
+    
+    // Generate lookup table at compile time
+    PRIMES := generate_prime_table(100)
+}
+
+// Helper for comptime
+generate_prime_table = (max: i32) []i32 {
+    primes: []i32
+    n := 2
+    loop n <= max {
+        is_prime := true
+        i := 2
+        loop i * i <= n {
+            n % i == 0 ? | true => {
+                is_prime = false
+                break
+            } | false => {}
+            i = i + 1
+        }
+        is_prime ? | true => {
+            primes = append(primes, n)
+        } | false => {}
+        n = n + 1
+    }
+    return primes
+}
+
+// Test struct using imported types
+TestData = {
+    name: string,
+    values: vec.Vec<i32>,
+    metadata: hashmap.HashMap<string, string>,
+}
+
+// Test function using imported modules
+test_module_imports = () bool {
+    io.print("Testing module imports...\n")
+    
+    // Test string operations
+    s := string.from("Hello, Zen!")
+    len := string.len(s)
+    io.print("String length: $(len)\n")
+    
+    // Test vector operations
+    v := vec.new<i32>()
+    vec.push(v, 42)
+    vec.push(v, 100)
+    vec.push(v, -7)
+    
+    // Test math operations
+    result := math.abs(-42)
+    io.print("Absolute value: $(result)\n")
+    
+    // Test memory operations
+    buffer := mem.alloc(BUFFER_SIZE)
+    defer mem.free(buffer)
+    
+    return true
+}
+
+// Test that imports work in nested scopes
+test_nested_scope_imports = () void {
+    // Imports are visible in nested scopes
+    {
+        io.print("Nested scope 1\n")
+        v := vec.new<string>()
+        vec.push(v, string.from("test"))
+    }
+    
+    // And in function literals
+    nested_fn = () void {
+        io.print("Inside nested function\n")
+        m := math.sqrt(16.0)
+    }
+    
+    nested_fn()
+}
+
+// Test import usage in match expressions
+test_imports_in_match = (opt: Option<i32>) void {
+    match opt {
+        | Some(n) => {
+            io.print("Value: $(n)\n")
+            abs := math.abs(n)
+            io.print("Absolute: $(abs)\n")
+        }
+        | None => {
+            io.print("No value\n")
+        }
+    }
+}
+
+// Test import usage in traits
+Printable = trait {
+    print = (self: Self) void
+}
+
+impl Printable for TestData {
+    print = (self: TestData) void {
+        io.print("TestData: $(self.name)\n")
+        // Use imported vec functions
+        i := 0
+        loop i < vec.len(self.values) {
+            val := vec.get(self.values, i)
+            io.print("  Value[$(i)]: $(val)\n")
+            i = i + 1
+        }
+    }
+}
+
+// Main test runner
+main = () i32 {
+    io.print("=== Comprehensive Import Test ===\n\n")
+    
+    // Run all tests
+    test_module_imports() ? | true => {
+        io.print("✓ Module imports test passed\n")
+    } | false => {
+        io.print("✗ Module imports test failed\n")
+        return 1
+    }
+    
+    test_nested_scope_imports()
+    io.print("✓ Nested scope imports test passed\n")
+    
+    test_imports_in_match(Some(42))
+    test_imports_in_match(None)
+    io.print("✓ Match expression imports test passed\n")
+    
+    // Test trait implementation with imports
+    data := TestData{
+        name: string.from("Test"),
+        values: vec.new<i32>(),
+        metadata: hashmap.new<string, string>(),
+    }
+    vec.push(data.values, 1)
+    vec.push(data.values, 2)
+    vec.push(data.values, 3)
+    data.print()
+    io.print("✓ Trait implementation imports test passed\n")
+    
+    io.print("\n=== All import tests passed! ===\n")
+    return 0
+}
