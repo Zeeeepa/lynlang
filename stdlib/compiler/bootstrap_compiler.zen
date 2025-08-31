@@ -8,11 +8,12 @@ string := @std.string
 vec := @std.vec
 core := @std.core
 
-// Import compiler components
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-codegen := @compiler.codegen
+// Import compiler components using build.import for local modules
+build := @std.build
+lexer := build.import("compiler/lexer")
+parser := build.import("compiler/parser")
+type_checker := build.import("compiler/type_checker")
+codegen := build.import("compiler/codegen")
 
 // Compiler configuration
 CompilerConfig = {
