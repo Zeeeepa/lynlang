@@ -8,9 +8,8 @@ mem := @std.mem
 string := @std.string
 vec := @std.vec
 
-// Build system imports (if using build system)
-// build := @std.build
-// mylib := build.import("mylib")
+// Custom module imports
+// mylib := @mylib
 
 // Main function demonstrating usage
 main = () i32 {

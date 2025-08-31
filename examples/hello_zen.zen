@@ -1,0 +1,11 @@
+// Simple Hello World example with correct import syntax
+// This demonstrates the proper way to import modules in Zen
+
+// Import standard library modules at module level
+io := @std.io
+
+// Main function
+main = () i32 {
+    io.print("Hello, Zen!\n")
+    return 0
+}

@@ -1,0 +1,43 @@
+// Simple stdlib test without complex pattern matching
+
+io := @std.io
+
+main = () i32 {
+    io.print("Testing Basic Stdlib Functionality\n")
+    io.print("==================================\n\n")
+    
+    // Test 1: Basic arithmetic
+    x := 10
+    y := 20
+    sum := x + y
+    
+    sum == 30 ?
+        | true => io.print("✓ Arithmetic test passed\n")
+        | false => io.print("✗ Arithmetic test failed\n")
+    
+    // Test 2: Boolean logic
+    a := true
+    b := false
+    not_b := b ?
+        | true => false
+        | false => true
+    result := a && not_b
+    
+    result ?
+        | true => io.print("✓ Boolean test passed\n")
+        | false => io.print("✗ Boolean test failed\n")
+    
+    // Test 3: Comparison
+    val1 := 42
+    val2 := 42
+    equal := val1 == val2
+    
+    equal ?
+        | true => io.print("✓ Comparison test passed\n")
+        | false => io.print("✗ Comparison test failed\n")
+    
+    io.print("\n==================================\n")
+    io.print("All basic tests completed!\n")
+    
+    return 0
+}
