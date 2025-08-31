@@ -1,0 +1,476 @@
+// Zen Memory Management Module
+// Provides memory allocation, deallocation, and management utilities
+
+core := @std.core
+
+// External C function declarations
+@extern("malloc") allocate_raw = (size: usize) Ptr<void>
+@extern("free") deallocate_raw = (ptr: Ptr<void>) void
+@extern("realloc") reallocate_raw = (ptr: Ptr<void>, new_size: usize) Ptr<void>
+@extern("calloc") allocate_zeroed_raw = (count: usize, size: usize) Ptr<void>
+@extern("memcpy") copy_memory_raw = (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void>
+@extern("memmove") move_memory_raw = (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void>
+@extern("memset") set_memory_raw = (ptr: Ptr<void>, value: i32, size: usize) Ptr<void>
+@extern("memcmp") compare_memory_raw = (ptr1: Ptr<void>, ptr2: Ptr<void>, size: usize) i32
+
+// Memory allocation tracking
+AllocationInfo := struct {
+    ptr: Ptr<void>
+    size: usize
+    line: u32
+    file: string
+    next: Option<Ptr<AllocationInfo>>
+}
+
+// Global allocation tracker (for debug mode)
+MemoryTracker := struct {
+    head: Option<Ptr<AllocationInfo>>
+    total_allocated: usize
+    total_freed: usize
+    peak_usage: usize
+    allocation_count: u32
+    deallocation_count: u32
+}
+
+// Global memory tracker instance
+@global memory_tracker: MemoryTracker = MemoryTracker{
+    head: Option.None,
+    total_allocated: 0,
+    total_freed: 0,
+    peak_usage: 0,
+    allocation_count: 0,
+    deallocation_count: 0
+}
+
+// Allocate memory of given size
+allocate = <T>(count: usize) Ptr<T> {
+    size := count * @sizeof(T)
+    ptr := allocate_raw(size)
+    
+    if (ptr == null) {
+        panic("Memory allocation failed")
+    }
+    
+    // Track allocation in debug mode
+    @comptime {
+        if (@debug) {
+            track_allocation(ptr, size, @line, @file)
+        }
+    }
+    
+    return @ptrcast(Ptr<T>, ptr)
+}
+
+// Allocate zeroed memory
+allocate_zeroed = <T>(count: usize) Ptr<T> {
+    ptr := allocate_zeroed_raw(count, @sizeof(T))
+    
+    if (ptr == null) {
+        panic("Memory allocation failed")
+    }
+    
+    // Track allocation in debug mode
+    @comptime {
+        if (@debug) {
+            track_allocation(ptr, count * @sizeof(T), @line, @file)
+        }
+    }
+    
+    return @ptrcast(Ptr<T>, ptr)
+}
+
+// Reallocate memory
+reallocate = <T>(ptr: Ptr<T>, new_count: usize) Ptr<T> {
+    new_size := new_count * @sizeof(T)
+    new_ptr := reallocate_raw(@ptrcast(Ptr<void>, ptr), new_size)
+    
+    if (new_ptr == null) {
+        panic("Memory reallocation failed")
+    }
+    
+    // Update tracking in debug mode
+    @comptime {
+        if (@debug) {
+            untrack_allocation(@ptrcast(Ptr<void>, ptr))
+            track_allocation(new_ptr, new_size, @line, @file)
+        }
+    }
+    
+    return @ptrcast(Ptr<T>, new_ptr)
+}
+
+// Deallocate memory
+deallocate = <T>(ptr: Ptr<T>) void {
+    if (ptr == null) {
+        return
+    }
+    
+    // Untrack allocation in debug mode
+    @comptime {
+        if (@debug) {
+            untrack_allocation(@ptrcast(Ptr<void>, ptr))
+        }
+    }
+    
+    deallocate_raw(@ptrcast(Ptr<void>, ptr))
+}
+
+// Copy memory from source to destination
+copy = <T>(dest: Ptr<T>, src: Ptr<T>, count: usize) void {
+    size := count * @sizeof(T)
+    copy_memory_raw(@ptrcast(Ptr<void>, dest), @ptrcast(Ptr<void>, src), size)
+}
+
+// Move memory (handles overlapping regions)
+move = <T>(dest: Ptr<T>, src: Ptr<T>, count: usize) void {
+    size := count * @sizeof(T)
+    move_memory_raw(@ptrcast(Ptr<void>, dest), @ptrcast(Ptr<void>, src), size)
+}
+
+// Set memory to a value
+set = <T>(ptr: Ptr<T>, value: u8, count: usize) void {
+    size := count * @sizeof(T)
+    set_memory_raw(@ptrcast(Ptr<void>, ptr), @intcast(i32, value), size)
+}
+
+// Compare memory regions
+compare = <T>(ptr1: Ptr<T>, ptr2: Ptr<T>, count: usize) i32 {
+    size := count * @sizeof(T)
+    return compare_memory_raw(@ptrcast(Ptr<void>, ptr1), @ptrcast(Ptr<void>, ptr2), size)
+}
+
+// Track allocation (debug mode only)
+track_allocation = (ptr: Ptr<void>, size: usize, line: u32, file: string) void {
+    info := allocate<AllocationInfo>(1)
+    info.ptr = ptr
+    info.size = size
+    info.line = line
+    info.file = file
+    info.next = memory_tracker.head
+    
+    memory_tracker.head = Option.Some(info)
+    memory_tracker.total_allocated += size
+    memory_tracker.allocation_count += 1
+    
+    current_usage := memory_tracker.total_allocated - memory_tracker.total_freed
+    if (current_usage > memory_tracker.peak_usage) {
+        memory_tracker.peak_usage = current_usage
+    }
+}
+
+// Untrack allocation (debug mode only)
+untrack_allocation = (ptr: Ptr<void>) void {
+    prev: Option<Ptr<AllocationInfo>> = Option.None
+    current := memory_tracker.head
+    
+    while (current) {
+        match current {
+            Option.Some(info) => {
+                if (info.ptr == ptr) {
+                    // Remove from list
+                    match prev {
+                        Option.Some(p) => p.next = info.next
+                        Option.None => memory_tracker.head = info.next
+                    }
+                    
+                    memory_tracker.total_freed += info.size
+                    memory_tracker.deallocation_count += 1
+                    deallocate_raw(@ptrcast(Ptr<void>, info))
+                    return
+                }
+                prev = current
+                current = info.next
+            }
+            Option.None => break
+        }
+    }
+}
+
+// Arena allocator for temporary allocations
+Arena := struct {
+    buffer: Ptr<u8>
+    capacity: usize
+    offset: usize
+    previous: Option<Ptr<Arena>>
+}
+
+// Create new arena
+arena_new = (capacity: usize) Ptr<Arena> {
+    arena := allocate<Arena>(1)
+    arena.buffer = allocate<u8>(capacity)
+    arena.capacity = capacity
+    arena.offset = 0
+    arena.previous = Option.None
+    return arena
+}
+
+// Allocate from arena
+arena_allocate = <T>(arena: Ptr<Arena>, count: usize) Ptr<T> {
+    size := count * @sizeof(T)
+    alignment := @alignof(T)
+    
+    // Align offset
+    aligned_offset := (arena.offset + alignment - 1) & ~(alignment - 1)
+    
+    if (aligned_offset + size > arena.capacity) {
+        panic("Arena out of memory")
+    }
+    
+    ptr := @ptrcast(Ptr<T>, arena.buffer + aligned_offset)
+    arena.offset = aligned_offset + size
+    
+    return ptr
+}
+
+// Reset arena (free all allocations)
+arena_reset = (arena: Ptr<Arena>) void {
+    arena.offset = 0
+}
+
+// Destroy arena
+arena_destroy = (arena: Ptr<Arena>) void {
+    deallocate(arena.buffer)
+    deallocate(arena)
+}
+
+// Pool allocator for fixed-size objects
+Pool := <T> struct {
+    block_size: usize
+    blocks_per_chunk: usize
+    free_list: Option<Ptr<PoolNode<T>>>
+    chunks: Option<Ptr<PoolChunk<T>>>
+}
+
+PoolNode := <T> struct {
+    next: Option<Ptr<PoolNode<T>>>
+}
+
+PoolChunk := <T> struct {
+    memory: Ptr<u8>
+    next: Option<Ptr<PoolChunk<T>>>
+}
+
+// Create new pool
+pool_new = <T>(blocks_per_chunk: usize) Ptr<Pool<T>> {
+    pool := allocate<Pool<T>>(1)
+    pool.block_size = @sizeof(T)
+    pool.blocks_per_chunk = blocks_per_chunk
+    pool.free_list = Option.None
+    pool.chunks = Option.None
+    return pool
+}
+
+// Allocate from pool
+pool_allocate = <T>(pool: Ptr<Pool<T>>) Ptr<T> {
+    // Check free list first
+    match pool.free_list {
+        Option.Some(node) => {
+            pool.free_list = node.next
+            return @ptrcast(Ptr<T>, node)
+        }
+        Option.None => {
+            // Allocate new chunk
+            allocate_pool_chunk(pool)
+            return pool_allocate(pool)
+        }
+    }
+}
+
+// Allocate new chunk for pool
+allocate_pool_chunk = <T>(pool: Ptr<Pool<T>>) void {
+    chunk := allocate<PoolChunk<T>>(1)
+    chunk.memory = allocate<u8>(pool.block_size * pool.blocks_per_chunk)
+    chunk.next = pool.chunks
+    pool.chunks = Option.Some(chunk)
+    
+    // Add all blocks to free list
+    i := 0
+    while (i < pool.blocks_per_chunk) {
+        node := @ptrcast(Ptr<PoolNode<T>>, chunk.memory + i * pool.block_size)
+        node.next = pool.free_list
+        pool.free_list = Option.Some(node)
+        i += 1
+    }
+}
+
+// Return object to pool
+pool_deallocate = <T>(pool: Ptr<Pool<T>>, ptr: Ptr<T>) void {
+    node := @ptrcast(Ptr<PoolNode<T>>, ptr)
+    node.next = pool.free_list
+    pool.free_list = Option.Some(node)
+}
+
+// Destroy pool
+pool_destroy = <T>(pool: Ptr<Pool<T>>) void {
+    current := pool.chunks
+    while (current) {
+        match current {
+            Option.Some(chunk) => {
+                next := chunk.next
+                deallocate(chunk.memory)
+                deallocate(chunk)
+                current = next
+            }
+            Option.None => break
+        }
+    }
+    deallocate(pool)
+}
+
+// Smart pointer with reference counting
+Rc := <T> struct {
+    ptr: Ptr<T>
+    count: Ptr<u32>
+}
+
+// Create new reference-counted pointer
+rc_new = <T>(value: T) Rc<T> {
+    ptr := allocate<T>(1)
+    *ptr = value
+    
+    count := allocate<u32>(1)
+    *count = 1
+    
+    return Rc<T>{
+        ptr: ptr,
+        count: count
+    }
+}
+
+// Clone reference-counted pointer
+rc_clone = <T>(rc: Ptr<Rc<T>>) Rc<T> {
+    *rc.count += 1
+    return Rc<T>{
+        ptr: rc.ptr,
+        count: rc.count
+    }
+}
+
+// Drop reference-counted pointer
+rc_drop = <T>(rc: Ptr<Rc<T>>) void {
+    *rc.count -= 1
+    if (*rc.count == 0) {
+        deallocate(rc.ptr)
+        deallocate(rc.count)
+    }
+}
+
+// Get reference count
+rc_count = <T>(rc: Ptr<Rc<T>>) u32 {
+    return *rc.count
+}
+
+// Unique pointer (move-only)
+Unique := <T> struct {
+    ptr: Ptr<T>
+}
+
+// Create unique pointer
+unique_new = <T>(value: T) Unique<T> {
+    ptr := allocate<T>(1)
+    *ptr = value
+    return Unique<T>{ptr: ptr}
+}
+
+// Move unique pointer
+unique_move = <T>(from: Ptr<Unique<T>>) Unique<T> {
+    result := Unique<T>{ptr: from.ptr}
+    from.ptr = null
+    return result
+}
+
+// Release unique pointer
+unique_release = <T>(unique: Ptr<Unique<T>>) Ptr<T> {
+    ptr := unique.ptr
+    unique.ptr = null
+    return ptr
+}
+
+// Destroy unique pointer
+unique_destroy = <T>(unique: Ptr<Unique<T>>) void {
+    if (unique.ptr != null) {
+        deallocate(unique.ptr)
+        unique.ptr = null
+    }
+}
+
+// Memory statistics (debug mode)
+get_memory_stats = () MemoryStats {
+    return MemoryStats{
+        total_allocated: memory_tracker.total_allocated,
+        total_freed: memory_tracker.total_freed,
+        current_usage: memory_tracker.total_allocated - memory_tracker.total_freed,
+        peak_usage: memory_tracker.peak_usage,
+        allocation_count: memory_tracker.allocation_count,
+        deallocation_count: memory_tracker.deallocation_count
+    }
+}
+
+MemoryStats := struct {
+    total_allocated: usize
+    total_freed: usize
+    current_usage: usize
+    peak_usage: usize
+    allocation_count: u32
+    deallocation_count: u32
+}
+
+// Print memory statistics
+print_memory_stats = () void {
+    stats := get_memory_stats()
+    io := @std.io
+    
+    io.println("=== Memory Statistics ===")
+    io.printf("Total Allocated: {} bytes\n", stats.total_allocated)
+    io.printf("Total Freed: {} bytes\n", stats.total_freed)
+    io.printf("Current Usage: {} bytes\n", stats.current_usage)
+    io.printf("Peak Usage: {} bytes\n", stats.peak_usage)
+    io.printf("Allocations: {}\n", stats.allocation_count)
+    io.printf("Deallocations: {}\n", stats.deallocation_count)
+    
+    // Check for leaks
+    if (stats.current_usage > 0) {
+        io.println("WARNING: Potential memory leak detected!")
+        print_allocations()
+    }
+}
+
+// Print all active allocations (debug mode)
+print_allocations = () void {
+    io := @std.io
+    io.println("=== Active Allocations ===")
+    
+    current := memory_tracker.head
+    index := 0
+    
+    while (current) {
+        match current {
+            Option.Some(info) => {
+                io.printf("[{}] {} bytes at {}:{}\n", 
+                         index, info.size, info.file, info.line)
+                current = info.next
+                index += 1
+            }
+            Option.None => break
+        }
+    }
+    
+    if (index == 0) {
+        io.println("No active allocations")
+    }
+}
+
+// Panic function for allocation failures
+panic = (message: string) void {
+    io := @std.io
+    io.eprintln("PANIC: " + message)
+    
+    // Print memory stats in debug mode
+    @comptime {
+        if (@debug) {
+            print_memory_stats()
+        }
+    }
+    
+    @exit(1)
+}
