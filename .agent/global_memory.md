@@ -41,8 +41,8 @@ Zen is a systems programming language with:
 └── .agent/        # Meta information for AI assistance
 ```
 
-## Current Status (Updated: 2025-08-31 - v2)
-- Import system: ✅ Fully implemented (module-level only, no comptime wrapper)
+## Current Status (Updated: 2025-08-31 - v3)
+- Import system: 🔧 IN PROGRESS - Removing comptime wrapper requirement
 - Parser: ✅ Correctly rejects imports in comptime blocks  
 - Semantic analyzer: ✅ Validates imports at module level
 - LLVM codegen: ✅ Generates code correctly
