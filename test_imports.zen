@@ -1,10 +1,8 @@
-// Test file to verify import syntax works correctly
-// Imports should be at module level, not inside comptime blocks
+// Test file to verify imports work correctly outside comptime
 
-// Module-level imports (correct syntax)
 core := @std.core
 build := @std.build
-io := build.import("io")
+io := @std.io
 
 main = () i32 {
     io.print("Hello, Zen!\n")
