@@ -1,0 +1,226 @@
+// Zen Standard Library: Vec for i32
+// Specialized vector implementation for i32 type
+
+core := @std.core
+
+// Vec structure for i32
+VecI32 = {
+    data: [i32; 1000],   // Fixed backing array
+    len: i32,            // Current number of elements
+    capacity: i32,       // Total capacity
+}
+
+// Create a new empty vec
+vec_new_i32 = () VecI32 {
+    v := VecI32 {
+        data: [0, 0, 0, 0, 0],  // Initialize first few elements
+        len: 0,
+        capacity: 1000,
+    }
+    return v
+}
+
+// Get length of vec
+vec_len_i32 = (v: VecI32) i32 {
+    return v.len
+}
+
+// Check if vec is empty
+vec_is_empty_i32 = (v: VecI32) bool {
+    return v.len == 0
+}
+
+// Push element to end of vec
+vec_push_i32 = (v: *VecI32, value: i32) bool {
+    v.len < v.capacity ?
+        | true => {
+            v.data[v.len] = value
+            v.len = v.len + 1
+            return true
+        }
+        | false => {
+            return false  // Vec is full
+        }
+}
+
+// Pop element from end of vec
+vec_pop_i32 = (v: *VecI32) i32 {
+    v.len > 0 ?
+        | true => {
+            v.len = v.len - 1
+            return v.data[v.len]
+        }
+        | false => {
+            return -1  // Error value
+        }
+}
+
+// Get element at index
+vec_get_i32 = (v: VecI32, index: i32) i32 {
+    index >= 0 && index < v.len ?
+        | true => return v.data[index]
+        | false => return -1  // Error value
+}
+
+// Set element at index
+vec_set_i32 = (v: *VecI32, index: i32, value: i32) bool {
+    index >= 0 && index < v.len ?
+        | true => {
+            v.data[index] = value
+            return true
+        }
+        | false => {
+            return false
+        }
+}
+
+// Clear all elements
+vec_clear_i32 = (v: *VecI32) void {
+    v.len = 0
+}
+
+// Get first element
+vec_first_i32 = (v: VecI32) i32 {
+    v.len > 0 ?
+        | true => return v.data[0]
+        | false => return -1
+}
+
+// Get last element
+vec_last_i32 = (v: VecI32) i32 {
+    v.len > 0 ?
+        | true => return v.data[v.len - 1]
+        | false => return -1
+}
+
+// Sum all elements
+vec_sum_i32 = (v: VecI32) i32 {
+    sum ::= 0
+    i ::= 0
+    
+    loop {
+        i >= v.len ?
+            | true => break
+            | false => {
+                sum = sum + v.data[i]
+                i = i + 1
+            }
+    }
+    
+    return sum
+}
+
+// Find maximum element
+vec_max_i32 = (v: VecI32) i32 {
+    v.len == 0 ?
+        | true => return -1
+        | false => {}
+    
+    max ::= v.data[0]
+    i ::= 1
+    
+    loop {
+        i >= v.len ?
+            | true => break
+            | false => {
+                v.data[i] > max ?
+                    | true => max = v.data[i]
+                    | false => {}
+                i = i + 1
+            }
+    }
+    
+    return max
+}
+
+// Find minimum element
+vec_min_i32 = (v: VecI32) i32 {
+    v.len == 0 ?
+        | true => return -1
+        | false => {}
+    
+    min ::= v.data[0]
+    i ::= 1
+    
+    loop {
+        i >= v.len ?
+            | true => break
+            | false => {
+                v.data[i] < min ?
+                    | true => min = v.data[i]
+                    | false => {}
+                i = i + 1
+            }
+    }
+    
+    return min
+}
+
+// Check if vec contains value
+vec_contains_i32 = (v: VecI32, value: i32) bool {
+    i ::= 0
+    loop {
+        i >= v.len ?
+            | true => return false
+            | false => {
+                v.data[i] == value ?
+                    | true => return true
+                    | false => i = i + 1
+            }
+    }
+}
+
+// Find index of value
+vec_index_of_i32 = (v: VecI32, value: i32) i32 {
+    i ::= 0
+    loop {
+        i >= v.len ?
+            | true => return -1
+            | false => {
+                v.data[i] == value ?
+                    | true => return i
+                    | false => i = i + 1
+            }
+    }
+}
+
+// Reverse vec in place
+vec_reverse_i32 = (v: *VecI32) void {
+    left ::= 0
+    right ::= v.len - 1
+    
+    loop {
+        left >= right ?
+            | true => break
+            | false => {
+                // Swap elements
+                temp := v.data[left]
+                v.data[left] = v.data[right]
+                v.data[right] = temp
+                
+                left = left + 1
+                right = right - 1
+            }
+    }
+}
+
+// Export public functions
+export {
+    VecI32,
+    vec_new_i32,
+    vec_len_i32,
+    vec_is_empty_i32,
+    vec_push_i32,
+    vec_pop_i32,
+    vec_get_i32,
+    vec_set_i32,
+    vec_clear_i32,
+    vec_first_i32,
+    vec_last_i32,
+    vec_sum_i32,
+    vec_max_i32,
+    vec_min_i32,
+    vec_contains_i32,
+    vec_index_of_i32,
+    vec_reverse_i32,
+}

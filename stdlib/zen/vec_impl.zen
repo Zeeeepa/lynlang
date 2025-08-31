@@ -1,0 +1,313 @@
+// Zen Standard Library: Vec (Dynamic Array) Implementation
+// A growable array type
+
+core := @std.core
+
+// Vec structure - dynamic array
+Vec<T> = {
+    data: [T; 1000],     // Fixed backing array (simplified)
+    len: usize,          // Current number of elements
+    capacity: usize,     // Total capacity
+}
+
+// Create a new empty vec
+vec_new<T> = () Vec<T> {
+    return Vec<T> {
+        data: [],  // Would need proper initialization
+        len: 0,
+        capacity: 1000,
+    }
+}
+
+// Create vec with initial capacity
+vec_with_capacity<T> = (cap: usize) Vec<T> {
+    // For now, always use fixed size
+    return Vec<T> {
+        data: [],  // Would need proper initialization
+        len: 0,
+        capacity: 1000,
+    }
+}
+
+// Get length of vec
+vec_len<T> = (v: Vec<T>) usize {
+    return v.len
+}
+
+// Check if vec is empty
+vec_is_empty<T> = (v: Vec<T>) bool {
+    return v.len == 0
+}
+
+// Get capacity
+vec_capacity<T> = (v: Vec<T>) usize {
+    return v.capacity
+}
+
+// Push element to end of vec
+vec_push<T> = (v: *Vec<T>, value: T) void {
+    v.len < v.capacity ?
+        | true => {
+            v.data[v.len] = value
+            v.len = v.len + 1
+        }
+        | false => {
+            // Would need to grow array - not implemented
+            // For now, just ignore if full
+        }
+}
+
+// Pop element from end of vec
+vec_pop<T> = (v: *Vec<T>) core.Option<T> {
+    v.len > 0 ?
+        | true => {
+            v.len = v.len - 1
+            value := v.data[v.len]
+            return core.Option::Some(value)
+        }
+        | false => {
+            return core.Option::None
+        }
+}
+
+// Get element at index
+vec_get<T> = (v: Vec<T>, index: usize) core.Option<T> {
+    index < v.len ?
+        | true => return core.Option::Some(v.data[index])
+        | false => return core.Option::None
+}
+
+// Set element at index
+vec_set<T> = (v: *Vec<T>, index: usize, value: T) bool {
+    index < v.len ?
+        | true => {
+            v.data[index] = value
+            return true
+        }
+        | false => {
+            return false
+        }
+}
+
+// Insert element at index
+vec_insert<T> = (v: *Vec<T>, index: usize, value: T) bool {
+    index > v.len || v.len >= v.capacity ?
+        | true => return false
+        | false => {
+            // Shift elements right
+            i ::= v.len
+            loop {
+                i <= index ?
+                    | true => break
+                    | false => {
+                        v.data[i] = v.data[i - 1]
+                        i = i - 1
+                    }
+            }
+            
+            // Insert value
+            v.data[index] = value
+            v.len = v.len + 1
+            return true
+        }
+}
+
+// Remove element at index
+vec_remove<T> = (v: *Vec<T>, index: usize) core.Option<T> {
+    index >= v.len ?
+        | true => return core.Option::None
+        | false => {
+            // Save value to return
+            value := v.data[index]
+            
+            // Shift elements left
+            i ::= index
+            loop {
+                i + 1 >= v.len ?
+                    | true => break
+                    | false => {
+                        v.data[i] = v.data[i + 1]
+                        i = i + 1
+                    }
+            }
+            
+            v.len = v.len - 1
+            return core.Option::Some(value)
+        }
+}
+
+// Clear all elements
+vec_clear<T> = (v: *Vec<T>) void {
+    v.len = 0
+}
+
+// Get first element
+vec_first<T> = (v: Vec<T>) core.Option<T> {
+    v.len > 0 ?
+        | true => return core.Option::Some(v.data[0])
+        | false => return core.Option::None
+}
+
+// Get last element
+vec_last<T> = (v: Vec<T>) core.Option<T> {
+    v.len > 0 ?
+        | true => return core.Option::Some(v.data[v.len - 1])
+        | false => return core.Option::None
+}
+
+// Check if vec contains value (requires equality comparison)
+vec_contains<T> = (v: Vec<T>, value: T, eq: (T, T) bool) bool {
+    i := 0
+    loop {
+        i >= v.len ?
+            | true => return false
+            | false => {
+                eq(v.data[i], value) ?
+                    | true => return true
+                    | false => i = i + 1
+            }
+    }
+}
+
+// Find index of value
+vec_index_of<T> = (v: Vec<T>, value: T, eq: (T, T) bool) core.Option<usize> {
+    i := 0
+    loop {
+        i >= v.len ?
+            | true => return core.Option::None
+            | false => {
+                eq(v.data[i], value) ?
+                    | true => return core.Option::Some(i)
+                    | false => i = i + 1
+            }
+    }
+}
+
+// Reverse vec in place
+vec_reverse<T> = (v: *Vec<T>) void {
+    left := 0
+    right := v.len - 1
+    
+    loop {
+        left >= right ?
+            | true => break
+            | false => {
+                // Swap elements
+                temp := v.data[left]
+                v.data[left] = v.data[right]
+                v.data[right] = temp
+                
+                left = left + 1
+                right = right - 1
+            }
+    }
+}
+
+// Sort vec (bubble sort for simplicity)
+vec_sort<T> = (v: *Vec<T>, less: (T, T) bool) void {
+    n := v.len
+    i := 0
+    
+    loop {
+        i >= n - 1 ?
+            | true => break
+            | false => {
+                j := 0
+                loop {
+                    j >= n - i - 1 ?
+                        | true => break
+                        | false => {
+                            less(v.data[j + 1], v.data[j]) ?
+                                | true => {
+                                    // Swap
+                                    temp := v.data[j]
+                                    v.data[j] = v.data[j + 1]
+                                    v.data[j + 1] = temp
+                                }
+                                | false => {}
+                            j = j + 1
+                        }
+                }
+                i = i + 1
+            }
+    }
+}
+
+// Map function over vec elements
+vec_map<T, U> = (v: Vec<T>, f: (T) U) Vec<U> {
+    result := vec_new<U>()
+    i := 0
+    
+    loop {
+        i >= v.len ?
+            | true => break
+            | false => {
+                vec_push(&result, f(v.data[i]))
+                i = i + 1
+            }
+    }
+    
+    return result
+}
+
+// Filter vec elements
+vec_filter<T> = (v: Vec<T>, pred: (T) bool) Vec<T> {
+    result := vec_new<T>()
+    i := 0
+    
+    loop {
+        i >= v.len ?
+            | true => break
+            | false => {
+                pred(v.data[i]) ?
+                    | true => vec_push(&result, v.data[i])
+                    | false => {}
+                i = i + 1
+            }
+    }
+    
+    return result
+}
+
+// Fold/reduce vec
+vec_fold<T, U> = (v: Vec<T>, init: U, f: (U, T) U) U {
+    acc ::= init
+    i := 0
+    
+    loop {
+        i >= v.len ?
+            | true => break
+            | false => {
+                acc = f(acc, v.data[i])
+                i = i + 1
+            }
+    }
+    
+    return acc
+}
+
+// Export public functions
+export {
+    Vec,
+    vec_new,
+    vec_with_capacity,
+    vec_len,
+    vec_is_empty,
+    vec_capacity,
+    vec_push,
+    vec_pop,
+    vec_get,
+    vec_set,
+    vec_insert,
+    vec_remove,
+    vec_clear,
+    vec_first,
+    vec_last,
+    vec_contains,
+    vec_index_of,
+    vec_reverse,
+    vec_sort,
+    vec_map,
+    vec_filter,
+    vec_fold,
+}
