@@ -1,31 +1,59 @@
-# Zen Language Development Plan
+# Zen Language Import System Fix Plan
 
-## Current Phase: Self-Hosting & Stdlib Development
+## Current State
+- Import system currently uses both old comptime syntax and new direct syntax
+- Parser supports module-level imports but needs cleanup
+- Some examples use correct syntax, others still use comptime blocks
 
-### Immediate Goals
-1. ✅ Fix import syntax (comptime should be for metaprogramming only)
-2. 🔄 Develop self-hosted parser in Zen
-3. 🔄 Build comprehensive stdlib in Zen  
-4. 🔄 Create testing framework
-5. 🔄 Implement LSP or syntax checker
+## Goal
+Transform imports from comptime blocks to direct module-level imports:
+```zen
+// From:
+comptime {
+    core := @std.core
+    build := @std.build
+    io := build.import("io")
+}
 
-### Import Syntax Status
-- ✅ Parser handles imports without comptime wrapper
-- ✅ Examples updated to show correct syntax
-- ✅ Type checker validates import placement
-- ✅ LSP includes import syntax checking
+// To:
+core := @std.core
+build := @std.build
+io := build.import("io")
+```
 
-### Self-Hosting Progress
-Key components to port:
-- [ ] Lexer (partial implementation exists)
-- [ ] Parser (basic structure exists)
-- [ ] Type checker (foundation exists)
-- [ ] Code generator
-- [ ] Module system
+## Implementation Steps
 
-### Development Principles
-- Simplicity, elegance, practicality, intelligence
-- DRY (Don't Repeat Yourself) & KISS (Keep It Simple, Stupid)
-- 80% implementation, 20% testing
-- Frequent commits and pushes
-- Work best at 40% context window (100K-140K tokens)
+1. **Parser Updates** ✅
+   - Already supports module-level imports
+   - Need to ensure comptime blocks are for meta-programming only
+
+2. **Update All Zen Files**
+   - Fix all .zen files using old comptime import syntax
+   - Update stdlib files
+   - Update examples
+   - Update tests
+
+3. **Semantic Analysis**
+   - Ensure imports are resolved correctly
+   - Update type checker for import handling
+
+4. **LLVM Codegen**
+   - Verify codegen handles imports properly
+   - Fix any issues with module resolution
+
+5. **Self-Hosting Components**
+   - Update compiler/*.zen files
+   - Update tools/*.zen files
+   - Ensure bootstrap works
+
+6. **Testing**
+   - Add comprehensive import tests
+   - Run existing test suite
+   - Verify self-hosting works
+
+## Priority Order
+1. Fix core parser/semantic issues
+2. Update stdlib (foundation for everything)
+3. Update compiler components (self-hosting)
+4. Update examples and tests
+5. Documentation updates
