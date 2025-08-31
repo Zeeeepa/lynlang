@@ -2,8 +2,7 @@
 
 // Module imports (no comptime needed)
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 // Import core for range functions
 range := core.range
 range_inclusive := core.range_inclusive

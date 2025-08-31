@@ -3,13 +3,12 @@
 
 // 1. Module imports
 core := @std.core
-build := @std.build
 
 // Import standard library modules
-io := build.import("io")
-mem := build.import("mem")
-math := build.import("math")
-collections := build.import("collections")
+io := @std.io
+mem := @std.mem
+math := @std.math
+collections := @std.collections
 
 // 2. Basic struct definition with mutable field
 Person = {

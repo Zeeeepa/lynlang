@@ -2,9 +2,8 @@
 
 // Module imports (no comptime needed)
 core := @std.core
-build := @std.build
-io := build.import("io")
-math := build.import("math")
+io := @std.io
+math := @std.math
 range := core.range
 
 // Compile-time constant calculation

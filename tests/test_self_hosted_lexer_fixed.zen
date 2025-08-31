@@ -2,8 +2,7 @@
 // Tests the lexer implementation written in Zen
 
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 // Import the lexer (when module system supports it)
 // For now, we'll test basic concepts

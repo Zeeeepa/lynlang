@@ -36,8 +36,8 @@ test_nested_access = () bool {
 // Test import aliasing
 test_import_alias = () bool {
     // Create aliases for imports
-    stdio := build.import("io")
-    filesystem := build.import("fs")
+    stdio := @std.io
+    filesystem := @std.fs
     
     // Use aliases
     stdio.print("Using aliased import\n")
@@ -47,8 +47,8 @@ test_import_alias = () bool {
 
 // Test multiple imports from same source
 test_multiple_imports = () bool {
-    str := build.import("string")
-    str2 := build.import("string")
+    str := @std.string
+    str2 := @std.string
     
     // Both should reference the same module
     return true

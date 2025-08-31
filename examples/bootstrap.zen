@@ -3,11 +3,10 @@
 
 core := @std.core
 io := @std.io
-build := @std.build
 
 // Import self-hosted components
-lexer := build.import("stdlib/lexer.zen")
-parser := build.import("stdlib/parser.zen")
+lexer := @compiler.lexer  
+parser := @compiler.parser
 
 // Bootstrap stages
 Stage = 

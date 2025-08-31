@@ -10,9 +10,8 @@ math := @std.math
 string := @std.string
 
 // Build system imports
-build := @std.build
-fs := build.import("fs")
-net := build.import("net")
+fs := @std.fs
+net := @std.net
 
 // Test that we can use imported modules
 main = () i32 {

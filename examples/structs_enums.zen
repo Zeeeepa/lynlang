@@ -1,7 +1,6 @@
 // structs_enums.zen - Data structures
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 // Struct with default values and mutable fields
 Person = {

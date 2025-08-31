@@ -1,7 +1,6 @@
 // error_handling.zen - Error handling with Result and Option
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 // Error types
 ParseError = {

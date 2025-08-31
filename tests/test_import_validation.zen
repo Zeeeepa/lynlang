@@ -3,8 +3,7 @@
 
 // Module-level imports (CORRECT)
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 string := @std.string
 vec := @std.vec
 math := @std.math
