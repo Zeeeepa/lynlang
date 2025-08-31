@@ -1,0 +1,16 @@
+// Exact pattern from failing test
+extern printf = (format: *i8, ...) i32
+
+classify = (x: i32, y: i32) i32 {
+    return x == 0 ? 
+        | true => y == 0 ? | true => 0 | false => 1
+        | false => y == 0 ? | true => 2 | false => 3
+}
+
+main = () i32 {
+    printf("(0,0) -> %d\n", classify(0, 0))
+    printf("(0,1) -> %d\n", classify(0, 1))
+    printf("(1,0) -> %d\n", classify(1, 0))
+    printf("(1,1) -> %d\n", classify(1, 1))
+    return 0
+}
