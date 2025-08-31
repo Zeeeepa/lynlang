@@ -15,50 +15,50 @@ type_checker := build.import("type_checker")
 
 // Compiler options
 CompilerOptions := struct {
-    input_file: string
-    output_file: string
-    backend: string  // "c", "llvm", "wasm"
-    optimize: bool
-    debug: bool
-    verbose: bool
+    input_file: string,
+    output_file: string,
+    backend: string,  // "c", "llvm", "wasm"
+    optimize: bool,
+    debug: bool,
+    verbose: bool,
 }
 
 // Parse command line arguments
-parse_args = (args: []string) CompilerOptions {
+parse_args = (args: [string]) CompilerOptions {
     opts := CompilerOptions{
         input_file: "",
         output_file: "",
         backend: "c",
         optimize: false,
         debug: false,
-        verbose: false
+        verbose: false,
     }
     
     i := 1
-    while (i < args.len) {
+    loop i < args.len() {
         arg := args[i]
         
-        if (arg == "-o" && i + 1 < args.len) {
+        if (arg == "-o") && ((i + 1) < args.len()) {
             opts.output_file = args[i + 1]
-            i += 2
-        } else if (arg == "--backend" && i + 1 < args.len) {
+            i = i + 2
+        } else if arg == "--backend" && i + 1 < args.len() {
             opts.backend = args[i + 1]
-            i += 2
-        } else if (arg == "--optimize") {
+            i = i + 2
+        } else if arg == "--optimize" {
             opts.optimize = true
-            i += 1
-        } else if (arg == "--debug") {
+            i = i + 1
+        } else if arg == "--debug" {
             opts.debug = true
-            i += 1
-        } else if (arg == "--verbose" || arg == "-v") {
+            i = i + 1
+        } else if arg == "--verbose" || arg == "-v" {
             opts.verbose = true
-            i += 1
-        } else if (arg == "--help" || arg == "-h") {
+            i = i + 1
+        } else if arg == "--help" || arg == "-h" {
             print_help()
             process.exit(0)
-        } else if (!string.starts_with(arg, "-")) {
+        } else if !string.starts_with(arg, "-") {
             opts.input_file = arg
-            i += 1
+            i = i + 1
         } else {
             io.eprintln("Unknown option: " + arg)
             process.exit(1)
@@ -66,15 +66,15 @@ parse_args = (args: []string) CompilerOptions {
     }
     
     // Validate options
-    if (opts.input_file == "") {
+    if opts.input_file == "") {
         io.eprintln("Error: No input file specified")
         print_help()
         process.exit(1)
     }
     
     // Default output file
-    if (opts.output_file == "") {
-        if (opts.backend == "c") {
+    if opts.output_file == "") {
+        if opts.backend == "c") {
             opts.output_file = string.replace(opts.input_file, ".zen", ".c")
         } else {
             opts.output_file = string.replace(opts.input_file, ".zen", ".out")
@@ -100,7 +100,7 @@ print_help = () void {
 
 // Compile a Zen file
 compile_file = (opts: CompilerOptions) i32 {
-    if (opts.verbose) {
+    if opts.verbose {
         io.println("Compiling: " + opts.input_file)
         io.println("Output: " + opts.output_file)
         io.println("Backend: " + opts.backend)
@@ -108,52 +108,52 @@ compile_file = (opts: CompilerOptions) i32 {
     
     // Read input file
     source := fs.read_file(opts.input_file)
-    if (source.is_error()) {
+    if source.is_error() {
         io.eprintln("Error reading file: " + source.error())
         return 1
     }
     
     // Lexical analysis
-    if (opts.verbose) io.println("Phase 1: Lexical analysis...")
+    if opts.verbose { io.println("Phase 1: Lexical analysis...") }
     tokens := lexer.tokenize(source.unwrap())
-    if (tokens.is_error()) {
+    if tokens.is_error() {
         io.eprintln("Lexer error: " + tokens.error())
         return 1
     }
     
     // Parsing
-    if (opts.verbose) io.println("Phase 2: Parsing...")
+    if opts.verbose { io.println("Phase 2: Parsing...") }
     ast := parser.parse(tokens.unwrap())
-    if (ast.is_error()) {
+    if ast.is_error() {
         io.eprintln("Parser error: " + ast.error())
         return 1
     }
     
     // Type checking
-    if (opts.verbose) io.println("Phase 3: Type checking...")
+    if opts.verbose { io.println("Phase 3: Type checking...") }
     typed_ast := type_checker.check(ast.unwrap())
-    if (typed_ast.is_error()) {
+    if typed_ast.is_error() {
         io.eprintln("Type error: " + typed_ast.error())
         return 1
     }
     
     // Code generation
-    if (opts.verbose) io.println("Phase 4: Code generation...")
+    if opts.verbose { io.println("Phase 4: Code generation...") }
     output := generate_code(typed_ast.unwrap(), opts)
-    if (output.is_error()) {
+    if output.is_error() {
         io.eprintln("Codegen error: " + output.error())
         return 1
     }
     
     // Write output
-    if (opts.verbose) io.println("Writing output...")
+    if opts.verbose { io.println("Writing output...") }
     result := fs.write_file(opts.output_file, output.unwrap())
-    if (result.is_error()) {
+    if result.is_error() {
         io.eprintln("Error writing output: " + result.error())
         return 1
     }
     
-    if (opts.verbose) {
+    if opts.verbose {
         io.println("Compilation successful!")
     }
     
@@ -162,15 +162,15 @@ compile_file = (opts: CompilerOptions) i32 {
 
 // Generate code based on backend
 generate_code = (ast: ASTNode, opts: CompilerOptions) Result<string> {
-    if (opts.backend == "c") {
+    if opts.backend == "c") {
         backend := c_backend.new_c_backend()
         return backend.generate(ast, opts.debug)
-    } else if (opts.backend == "llvm") {
+    } else if opts.backend == "llvm") {
         // Generate LLVM IR
         module_name := string.basename(opts.input_file)
         llvm_ir := llvm_backend.generate_llvm_from_ast(ast, module_name)
         return Result.ok(llvm_ir)
-    } else if (opts.backend == "wasm") {
+    } else if opts.backend == "wasm") {
         return Result.error("WASM backend not yet implemented")
     } else {
         return Result.error("Unknown backend: " + opts.backend)
@@ -178,7 +178,7 @@ generate_code = (ast: ASTNode, opts: CompilerOptions) Result<string> {
 }
 
 // Main entry point
-main = (args: []string) i32 {
+main = (args: [string]) i32 {
     // Parse command line arguments
     opts := parse_args(args)
     

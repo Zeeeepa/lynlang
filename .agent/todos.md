@@ -17,7 +17,7 @@
 - [x] Created full compiler test suite
 
 ## 🚧 In Progress
-- [ ] Fix FFI tests that are failing
+- [ ] Fix parser to handle complex if conditions
 - [ ] Full bootstrap testing of self-hosting compiler
 
 ## 📋 Next Steps (Priority Order)

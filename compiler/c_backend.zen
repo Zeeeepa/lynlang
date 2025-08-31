@@ -49,7 +49,7 @@ new_c_backend = () CBackend {
 // Write indentation
 write_indent = (c: &CBackend) void {
     i := 0
-    while (i < c.indent) {
+    loop i < c.indent {
         c.output.append("    ")
         i = i + 1
     }
@@ -117,7 +117,7 @@ generate_expr = (c: &CBackend, expr: &parser.Expression) void {
             }
             c.output.append("(")
             i := 0
-            while (i < expr.args.len) {
+            loop i < expr.args.len {
                 if (i > 0) c.output.append(", ")
                 generate_expr(c, &expr.args[i])
                 i = i + 1
@@ -127,7 +127,7 @@ generate_expr = (c: &CBackend, expr: &parser.Expression) void {
         .ArrayLiteral => {
             c.output.append("{")
             i := 0
-            while (i < expr.elements.len) {
+            loop i < expr.elements.len {
                 if (i > 0) c.output.append(", ")
                 generate_expr(c, &expr.elements[i])
                 i = i + 1
@@ -137,7 +137,7 @@ generate_expr = (c: &CBackend, expr: &parser.Expression) void {
         .StructLiteral => {
             c.output.append("{")
             i := 0
-            while (i < expr.fields.len) {
+            loop i < expr.fields.len {
                 if (i > 0) c.output.append(", ")
                 c.output.append(".")
                 c.output.append(expr.fields[i].name)
@@ -259,9 +259,9 @@ generate_stmt = (c: &CBackend, stmt: &parser.Statement) void {
 }
 
 // Generate block of statements
-generate_block = (c: &CBackend, stmts: []parser.Statement) void {
+generate_block = (c: &CBackend, stmts: [parser.Statement]) void {
     i := 0
-    while (i < stmts.len) {
+    loop i < stmts.len {
         generate_stmt(c, &stmts[i])
         i = i + 1
     }
@@ -283,7 +283,7 @@ generate_function = (c: &CBackend, func: &parser.Function) void {
     
     // Generate parameters
     i := 0
-    while (i < func.params.len) {
+    loop i < func.params.len {
         if (i > 0) c.output.append(", ")
         param_type := map_zen_type_to_c(func.params[i].type)
         c.output.append(param_type)
@@ -324,7 +324,7 @@ generate_struct = (c: &CBackend, s: &parser.Struct) void {
     
     c.indent = 1
     i := 0
-    while (i < s.fields.len) {
+    loop i < s.fields.len {
         write_indent(c)
         field_type := map_zen_type_to_c(s.fields[i].type)
         c.output.append(field_type)
@@ -346,7 +346,7 @@ generate_enum = (c: &CBackend, e: &parser.Enum) void {
     c.indent = 1
     
     i := 0
-    while (i < e.values.len) {
+    loop i < e.values.len {
         write_indent(c)
         c.output.append(e.name)
         c.output.append("_")
@@ -409,7 +409,7 @@ generate_c_from_ast = (ast: &parser.AST) string {
             backend.output.append("(")
             
             i := 0
-            while (i < func.params.len) {
+            loop i < func.params.len {
                 if (i > 0) backend.output.append(", ")
                 param_type := map_zen_type_to_c(func.params[i].type)
                 backend.output.append(param_type)

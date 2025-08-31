@@ -1,6 +1,6 @@
 # Zen Language Self-Hosting Status
 
-## Current State (2025-08-31)
+## Current State (2025-08-31 - Updated)
 
 ### ✅ Completed Tasks
 
@@ -67,9 +67,28 @@ comptime {
 - **Tests**: tests/
 - **Tools**: tools/
 
+## Recent Changes (Latest Session)
+
+1. **Syntax Fixes in Compiler Files**
+   - Fixed `while` loops to use `loop` syntax
+   - Removed parentheses from if conditions (Zen style)
+   - Fixed array syntax from `[]string` to `[string]`
+   - Updated array length from `.len` to `.len()`
+   - Fixed compound assignment operators (e.g., `i += 1` to `i = i + 1`)
+
+2. **Files Modified**
+   - compiler/main.zen - Major syntax fixes
+   - compiler/c_backend.zen - Loop syntax fixes
+
+## Known Issues
+
+1. **Parser Limitations**
+   - Current parser has issues with complex if conditions
+   - May need refactoring to handle self-hosting properly
+
 ## Next Steps
 
-- Continue improving self-hosting compiler
+- Fix remaining parser issues for complete self-hosting
 - Add more comprehensive error messages
 - Enhance LSP features
 - Add more stdlib modules as needed
