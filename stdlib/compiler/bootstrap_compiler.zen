@@ -1,0 +1,433 @@
+// Zen Bootstrap Compiler
+// A minimal compiler that can compile Zen to LLVM IR
+// This is the foundation for self-hosting
+
+io := @std.io
+fs := @std.fs
+string := @std.string
+vec := @std.vec
+core := @std.core
+
+// Import compiler components
+lexer := @compiler.lexer
+parser := @compiler.parser
+type_checker := @compiler.type_checker
+codegen := @compiler.codegen
+
+// Compiler configuration
+CompilerConfig = {
+    input_file: string,
+    output_file: string,
+    emit_llvm: bool,
+    emit_asm: bool,
+    emit_obj: bool,
+    optimize: bool,
+    verbose: bool,
+    target_triple: string,
+}
+
+// Create default configuration
+default_config = () CompilerConfig {
+    return CompilerConfig {
+        input_file: "",
+        output_file: "a.out",
+        emit_llvm: false,
+        emit_asm: false,
+        emit_obj: false,
+        optimize: false,
+        verbose: false,
+        target_triple: "x86_64-unknown-linux-gnu",
+    }
+}
+
+// Compiler pipeline stages
+CompilationStage = 
+    | Lexing
+    | Parsing
+    | TypeChecking
+    | CodeGeneration
+    | Optimization
+    | Emission
+
+// Compilation result
+CompilationResult = 
+    | Success(string)  // Output file path
+    | Error(string, CompilationStage)  // Error message and stage
+
+// Main compilation pipeline
+compile = (config: CompilerConfig) CompilationResult {
+    // Read source file
+    source_result := fs.read_file(config.input_file)
+    source_result.is_err() ?
+        | true => return CompilationResult::Error(
+            "Failed to read input file: " + config.input_file,
+            CompilationStage::Lexing
+        )
+        | false => {}
+    
+    source := source_result.unwrap()
+    
+    config.verbose ?
+        | true => {
+            io.println("Compiling: " + config.input_file)
+            io.println("Target: " + config.target_triple)
+        }
+        | false => {}
+    
+    // Stage 1: Lexical Analysis
+    config.verbose ?
+        | true => io.print("Lexing... ")
+        | false => {}
+    
+    tokens := lexer.tokenize(source)
+    tokens.is_err() ?
+        | true => return CompilationResult::Error(
+            "Lexical error: " + tokens.unwrap_err(),
+            CompilationStage::Lexing
+        )
+        | false => {}
+    
+    config.verbose ?
+        | true => io.println("✓")
+        | false => {}
+    
+    // Stage 2: Parsing
+    config.verbose ?
+        | true => io.print("Parsing... ")
+        | false => {}
+    
+    ast := parser.parse(tokens.unwrap())
+    ast.is_err() ?
+        | true => return CompilationResult::Error(
+            "Parse error: " + ast.unwrap_err(),
+            CompilationStage::Parsing
+        )
+        | false => {}
+    
+    config.verbose ?
+        | true => io.println("✓")
+        | false => {}
+    
+    // Stage 3: Type Checking
+    config.verbose ?
+        | true => io.print("Type checking... ")
+        | false => {}
+    
+    typed_ast := type_checker.check(ast.unwrap())
+    typed_ast.is_err() ?
+        | true => return CompilationResult::Error(
+            "Type error: " + typed_ast.unwrap_err(),
+            CompilationStage::TypeChecking
+        )
+        | false => {}
+    
+    config.verbose ?
+        | true => io.println("✓")
+        | false => {}
+    
+    // Stage 4: Code Generation
+    config.verbose ?
+        | true => io.print("Generating code... ")
+        | false => {}
+    
+    llvm_ir := codegen.generate(typed_ast.unwrap(), config.target_triple)
+    llvm_ir.is_err() ?
+        | true => return CompilationResult::Error(
+            "Code generation error: " + llvm_ir.unwrap_err(),
+            CompilationStage::CodeGeneration
+        )
+        | false => {}
+    
+    config.verbose ?
+        | true => io.println("✓")
+        | false => {}
+    
+    ir_code := llvm_ir.unwrap()
+    
+    // Stage 5: Optimization (if requested)
+    config.optimize ?
+        | true => {
+            config.verbose ?
+                | true => io.print("Optimizing... ")
+                | false => {}
+            
+            optimized := optimize_ir(ir_code)
+            ir_code = optimized
+            
+            config.verbose ?
+                | true => io.println("✓")
+                | false => {}
+        }
+        | false => {}
+    
+    // Stage 6: Emission
+    output_file := emit_output(config, ir_code)
+    output_file.is_err() ?
+        | true => return CompilationResult::Error(
+            "Emission error: " + output_file.unwrap_err(),
+            CompilationStage::Emission
+        )
+        | false => {}
+    
+    config.verbose ?
+        | true => io.println("Output: " + output_file.unwrap())
+        | false => {}
+    
+    return CompilationResult::Success(output_file.unwrap())
+}
+
+// Optimize LLVM IR
+optimize_ir = (ir: string) string {
+    // TODO: Implement LLVM optimization passes
+    // For now, just return the unmodified IR
+    return ir
+}
+
+// Emit output based on configuration
+emit_output = (config: CompilerConfig, ir: string) Result<string> {
+    // Determine output file name
+    output_file := config.output_file
+    
+    // If emitting LLVM IR
+    config.emit_llvm ?
+        | true => {
+            ll_file := string.replace(output_file, ".out", ".ll")
+            fs.write_file(ll_file, ir)
+            
+            !config.emit_asm && !config.emit_obj ?
+                | true => return Result<string>::Ok(ll_file)
+                | false => {}
+        }
+        | false => {}
+    
+    // If emitting assembly
+    config.emit_asm ?
+        | true => {
+            asm_file := string.replace(output_file, ".out", ".s")
+            asm := llvm_to_asm(ir, config.target_triple)
+            asm.is_err() ?
+                | true => return Result<string>::Err(asm.unwrap_err())
+                | false => {}
+            
+            fs.write_file(asm_file, asm.unwrap())
+            
+            !config.emit_obj ?
+                | true => return Result<string>::Ok(asm_file)
+                | false => {}
+        }
+        | false => {}
+    
+    // If emitting object file
+    config.emit_obj ?
+        | true => {
+            obj_file := string.replace(output_file, ".out", ".o")
+            obj := llvm_to_obj(ir, config.target_triple)
+            obj.is_err() ?
+                | true => return Result<string>::Err(obj.unwrap_err())
+                | false => {}
+            
+            fs.write_file(obj_file, obj.unwrap())
+            return Result<string>::Ok(obj_file)
+        }
+        | false => {}
+    
+    // Default: emit executable
+    exe := llvm_to_exe(ir, config.target_triple, output_file)
+    exe.is_err() ?
+        | true => return Result<string>::Err(exe.unwrap_err())
+        | false => {}
+    
+    return Result<string>::Ok(output_file)
+}
+
+// Convert LLVM IR to assembly
+llvm_to_asm = (ir: string, target: string) Result<string> {
+    // TODO: Use LLVM to generate assembly
+    // For now, placeholder
+    return Result<string>::Err("Assembly generation not yet implemented")
+}
+
+// Convert LLVM IR to object file
+llvm_to_obj = (ir: string, target: string) Result<string> {
+    // TODO: Use LLVM to generate object file
+    // For now, placeholder
+    return Result<string>::Err("Object file generation not yet implemented")
+}
+
+// Convert LLVM IR to executable
+llvm_to_exe = (ir: string, target: string, output: string) Result<void> {
+    // TODO: Use LLVM to generate executable
+    // For now, placeholder
+    return Result<void>::Err("Executable generation not yet implemented")
+}
+
+// Parse command line arguments
+parse_args = (args: Vec<string>) CompilerConfig {
+    config := default_config()
+    
+    i := 1  // Skip program name
+    loop i < args.len() {
+        arg := args[i]
+        
+        // Input file (positional argument)
+        !string.starts_with(arg, "-") ?
+            | true => {
+                config.input_file = arg
+                i = i + 1
+                continue
+            }
+            | false => {}
+        
+        // Output file
+        arg == "-o" || arg == "--output" ?
+            | true => {
+                i + 1 < args.len() ?
+                    | true => {
+                        config.output_file = args[i + 1]
+                        i = i + 2
+                    }
+                    | false => {
+                        io.println("Error: -o requires an argument")
+                        i = i + 1
+                    }
+                continue
+            }
+            | false => {}
+        
+        // Emit LLVM IR
+        arg == "--emit-llvm" ?
+            | true => {
+                config.emit_llvm = true
+                i = i + 1
+                continue
+            }
+            | false => {}
+        
+        // Emit assembly
+        arg == "--emit-asm" || arg == "-S" ?
+            | true => {
+                config.emit_asm = true
+                i = i + 1
+                continue
+            }
+            | false => {}
+        
+        // Emit object file
+        arg == "--emit-obj" || arg == "-c" ?
+            | true => {
+                config.emit_obj = true
+                i = i + 1
+                continue
+            }
+            | false => {}
+        
+        // Enable optimization
+        arg == "-O" || arg == "--optimize" ?
+            | true => {
+                config.optimize = true
+                i = i + 1
+                continue
+            }
+            | false => {}
+        
+        // Verbose output
+        arg == "-v" || arg == "--verbose" ?
+            | true => {
+                config.verbose = true
+                i = i + 1
+                continue
+            }
+            | false => {}
+        
+        // Target triple
+        arg == "--target" ?
+            | true => {
+                i + 1 < args.len() ?
+                    | true => {
+                        config.target_triple = args[i + 1]
+                        i = i + 2
+                    }
+                    | false => {
+                        io.println("Error: --target requires an argument")
+                        i = i + 1
+                    }
+                continue
+            }
+            | false => {}
+        
+        // Help
+        arg == "-h" || arg == "--help" ?
+            | true => {
+                print_help()
+                core.exit(0)
+            }
+            | false => {}
+        
+        // Unknown argument
+        io.println("Unknown argument: " + arg)
+        i = i + 1
+    }
+    
+    return config
+}
+
+// Print help message
+print_help = () void {
+    io.println("Zen Bootstrap Compiler")
+    io.println("Usage: zenc [options] <input-file>")
+    io.println("")
+    io.println("Options:")
+    io.println("  -o, --output <file>    Output file name (default: a.out)")
+    io.println("  --emit-llvm            Emit LLVM IR (.ll file)")
+    io.println("  -S, --emit-asm         Emit assembly (.s file)")
+    io.println("  -c, --emit-obj         Emit object file (.o file)")
+    io.println("  -O, --optimize         Enable optimizations")
+    io.println("  -v, --verbose          Verbose output")
+    io.println("  --target <triple>      Target triple (default: x86_64-unknown-linux-gnu)")
+    io.println("  -h, --help             Show this help message")
+}
+
+// Entry point
+main = () i32 {
+    // Get command line arguments
+    // TODO: Get actual args when runtime support is ready
+    args := Vec<string>::new()
+    args.push("zenc")
+    
+    // For testing, add a dummy input file
+    // args.push("test.zen")
+    
+    // Parse arguments
+    config := parse_args(args)
+    
+    // Check if input file was provided
+    config.input_file == "" ?
+        | true => {
+            io.println("Error: No input file specified")
+            io.println("Use -h or --help for usage information")
+            return 1
+        }
+        | false => {}
+    
+    // Compile the file
+    result := compile(config)
+    
+    result ?
+        | Success(output) => {
+            io.println("Compilation successful: " + output)
+            return 0
+        }
+        | Error(msg, stage) => {
+            io.print("Compilation failed at ")
+            stage ?
+                | Lexing => io.print("lexing")
+                | Parsing => io.print("parsing")
+                | TypeChecking => io.print("type checking")
+                | CodeGeneration => io.print("code generation")
+                | Optimization => io.print("optimization")
+                | Emission => io.print("emission")
+            io.println(" stage:")
+            io.println(msg)
+            return 1
+        }
+}
