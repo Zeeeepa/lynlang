@@ -1,0 +1,647 @@
+// Zen Standard Library: Enhanced File System Module
+// Comprehensive file system operations for self-hosting
+
+core := @std.core
+string := @std.string
+io := @std.io
+memory := @std.memory
+vec := @std.vec
+result := @std.result
+
+// External C functions for filesystem operations
+extern fopen = (filename: *i8, mode: *i8) *void
+extern fclose = (file: *void) i32
+extern fread = (buffer: *i8, size: u64, count: u64, file: *void) u64
+extern fwrite = (buffer: *i8, size: u64, count: u64, file: *void) u64
+extern fseek = (file: *void, offset: i64, whence: i32) i32
+extern ftell = (file: *void) i64
+extern feof = (file: *void) i32
+extern ferror = (file: *void) i32
+extern remove = (filename: *i8) i32
+extern rename = (oldname: *i8, newname: *i8) i32
+extern mkdir = (dirname: *i8, mode: u32) i32
+extern rmdir = (dirname: *i8) i32
+extern getcwd = (buffer: *i8, size: u64) *i8
+extern chdir = (path: *i8) i32
+extern stat = (path: *i8, buf: *StatBuf) i32
+extern access = (path: *i8, mode: i32) i32
+extern opendir = (dirname: *i8) *void
+extern readdir = (dir: *void) *DirEntry
+extern closedir = (dir: *void) i32
+
+// File seek constants
+SEEK_SET := 0
+SEEK_CUR := 1
+SEEK_END := 2
+
+// Access mode constants
+F_OK := 0  // Test for existence
+X_OK := 1  // Test for execute permission
+W_OK := 2  // Test for write permission
+R_OK := 4  // Test for read permission
+
+// File permissions
+S_IRUSR := 0o400  // User read
+S_IWUSR := 0o200  // User write
+S_IXUSR := 0o100  // User execute
+S_IRGRP := 0o040  // Group read
+S_IWGRP := 0o020  // Group write
+S_IXGRP := 0o010  // Group execute
+S_IROTH := 0o004  // Other read
+S_IWOTH := 0o002  // Other write
+S_IXOTH := 0o001  // Other execute
+
+// Default permissions for new files and directories
+DEFAULT_FILE_PERMS := S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
+DEFAULT_DIR_PERMS := S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
+
+// Stat buffer structure
+StatBuf = struct {
+    st_dev: u64       // Device ID
+    st_ino: u64       // Inode number
+    st_mode: u32      // File mode
+    st_nlink: u32     // Number of hard links
+    st_uid: u32       // User ID
+    st_gid: u32       // Group ID
+    st_rdev: u64      // Device ID (if special file)
+    st_size: i64      // Total size in bytes
+    st_blksize: i64   // Block size
+    st_blocks: i64    // Number of blocks
+    st_atime: i64     // Last access time
+    st_mtime: i64     // Last modification time
+    st_ctime: i64     // Last status change time
+}
+
+// Directory entry structure
+DirEntry = struct {
+    d_ino: u64        // Inode number
+    d_off: i64        // Offset to next entry
+    d_reclen: u16     // Length of this record
+    d_type: u8        // File type
+    d_name: [256]i8   // Filename
+}
+
+// File type enum
+FileType = enum {
+    Regular
+    Directory
+    Symlink
+    CharDevice
+    BlockDevice
+    Fifo
+    Socket
+    Unknown
+}
+
+// File permissions structure
+Permissions = struct {
+    user_read: bool
+    user_write: bool
+    user_exec: bool
+    group_read: bool
+    group_write: bool
+    group_exec: bool
+    other_read: bool
+    other_write: bool
+    other_exec: bool
+}
+
+// File metadata
+Metadata = struct {
+    file_type: FileType
+    permissions: Permissions
+    size: u64
+    modified_time: i64
+    accessed_time: i64
+    created_time: i64
+    is_readonly: bool
+}
+
+// File handle
+File = struct {
+    handle: *void
+    path: string
+    mode: string
+    is_open: bool
+    position: u64
+}
+
+// Directory handle
+Dir = struct {
+    handle: *void
+    path: string
+    is_open: bool
+}
+
+// Path components
+PathComponents = struct {
+    directory: string
+    filename: string
+    basename: string
+    extension: string
+}
+
+// Open a file
+open = (path: string, mode: string) Result<File> {
+    handle := fopen(string.to_cstring(path), string.to_cstring(mode))
+    
+    if handle == null {
+        return Result.Err("Failed to open file")
+    }
+    
+    return Result.Ok(File {
+        handle: handle
+        path: path
+        mode: mode
+        is_open: true
+        position: 0
+    })
+}
+
+// Close a file
+close = (file: *File) Result<void> {
+    if !file.is_open {
+        return Result.Err("File is not open")
+    }
+    
+    result := fclose(file.handle)
+    if result != 0 {
+        return Result.Err("Failed to close file")
+    }
+    
+    file.is_open = false
+    return Result.Ok({})
+}
+
+// Read entire file to string
+read_to_string = (path: string) Result<string> {
+    file := open(path, "r")?
+    defer close(&file)
+    
+    // Get file size
+    fseek(file.handle, 0, SEEK_END)
+    size := ftell(file.handle)
+    fseek(file.handle, 0, SEEK_SET)
+    
+    // Allocate buffer
+    buffer := memory.alloc(size + 1)
+    defer memory.free(buffer)
+    
+    // Read file
+    read_count := fread(buffer, 1, size, file.handle)
+    if read_count != size {
+        return Result.Err("Failed to read entire file")
+    }
+    
+    // Null terminate
+    buffer[size] = 0
+    
+    return Result.Ok(string.from_cstring(buffer))
+}
+
+// Write string to file
+write_string = (path: string, contents: string) Result<void> {
+    file := open(path, "w")?
+    defer close(&file)
+    
+    cstr := string.to_cstring(contents)
+    len := string.len(contents)
+    
+    written := fwrite(cstr, 1, len, file.handle)
+    if written != len {
+        return Result.Err("Failed to write entire string")
+    }
+    
+    return Result.Ok({})
+}
+
+// Read file to bytes
+read_bytes = (path: string) Result<Vec<u8>> {
+    file := open(path, "rb")?
+    defer close(&file)
+    
+    // Get file size
+    fseek(file.handle, 0, SEEK_END)
+    size := ftell(file.handle)
+    fseek(file.handle, 0, SEEK_SET)
+    
+    // Create vector
+    bytes := vec.with_capacity<u8>(size)
+    
+    // Read file
+    buffer := memory.alloc(size)
+    defer memory.free(buffer)
+    
+    read_count := fread(buffer, 1, size, file.handle)
+    if read_count != size {
+        return Result.Err("Failed to read entire file")
+    }
+    
+    // Copy to vector
+    for i in 0..size {
+        bytes.push(buffer[i])
+    }
+    
+    return Result.Ok(bytes)
+}
+
+// Write bytes to file
+write_bytes = (path: string, data: Vec<u8>) Result<void> {
+    file := open(path, "wb")?
+    defer close(&file)
+    
+    written := fwrite(data.data(), 1, data.len(), file.handle)
+    if written != data.len() {
+        return Result.Err("Failed to write all bytes")
+    }
+    
+    return Result.Ok({})
+}
+
+// Check if path exists
+exists = (path: string) bool {
+    return access(string.to_cstring(path), F_OK) == 0
+}
+
+// Check if path is file
+is_file = (path: string) bool {
+    if !exists(path) {
+        return false
+    }
+    
+    stat_buf := StatBuf{}
+    if stat(string.to_cstring(path), &stat_buf) != 0 {
+        return false
+    }
+    
+    // Check if regular file (S_IFREG = 0o100000)
+    return (stat_buf.st_mode & 0o170000) == 0o100000
+}
+
+// Check if path is directory
+is_directory = (path: string) bool {
+    if !exists(path) {
+        return false
+    }
+    
+    stat_buf := StatBuf{}
+    if stat(string.to_cstring(path), &stat_buf) != 0 {
+        return false
+    }
+    
+    // Check if directory (S_IFDIR = 0o040000)
+    return (stat_buf.st_mode & 0o170000) == 0o040000
+}
+
+// Get file metadata
+metadata = (path: string) Result<Metadata> {
+    if !exists(path) {
+        return Result.Err("Path does not exist")
+    }
+    
+    stat_buf := StatBuf{}
+    if stat(string.to_cstring(path), &stat_buf) != 0 {
+        return Result.Err("Failed to get file stats")
+    }
+    
+    // Determine file type
+    type_bits := stat_buf.st_mode & 0o170000
+    file_type := if type_bits == 0o100000 {
+        FileType.Regular
+    } else if type_bits == 0o040000 {
+        FileType.Directory
+    } else if type_bits == 0o120000 {
+        FileType.Symlink
+    } else if type_bits == 0o020000 {
+        FileType.CharDevice
+    } else if type_bits == 0o060000 {
+        FileType.BlockDevice
+    } else if type_bits == 0o010000 {
+        FileType.Fifo
+    } else if type_bits == 0o140000 {
+        FileType.Socket
+    } else {
+        FileType.Unknown
+    }
+    
+    // Extract permissions
+    perms := Permissions {
+        user_read: (stat_buf.st_mode & S_IRUSR) != 0
+        user_write: (stat_buf.st_mode & S_IWUSR) != 0
+        user_exec: (stat_buf.st_mode & S_IXUSR) != 0
+        group_read: (stat_buf.st_mode & S_IRGRP) != 0
+        group_write: (stat_buf.st_mode & S_IWGRP) != 0
+        group_exec: (stat_buf.st_mode & S_IXGRP) != 0
+        other_read: (stat_buf.st_mode & S_IROTH) != 0
+        other_write: (stat_buf.st_mode & S_IWOTH) != 0
+        other_exec: (stat_buf.st_mode & S_IXOTH) != 0
+    }
+    
+    return Result.Ok(Metadata {
+        file_type: file_type
+        permissions: perms
+        size: stat_buf.st_size
+        modified_time: stat_buf.st_mtime
+        accessed_time: stat_buf.st_atime
+        created_time: stat_buf.st_ctime
+        is_readonly: !perms.user_write
+    })
+}
+
+// Create directory
+create_dir = (path: string) Result<void> {
+    if exists(path) {
+        return Result.Err("Path already exists")
+    }
+    
+    if mkdir(string.to_cstring(path), DEFAULT_DIR_PERMS) != 0 {
+        return Result.Err("Failed to create directory")
+    }
+    
+    return Result.Ok({})
+}
+
+// Create directory and all parent directories
+create_dir_all = (path: string) Result<void> {
+    components := string.split(path, "/")
+    current := ""
+    
+    for component in components {
+        if component == "" {
+            continue
+        }
+        
+        if current == "" && path[0] == '/' {
+            current = "/"
+        }
+        
+        current = string.concat(current, component)
+        
+        if !exists(current) {
+            create_dir(current)?
+        }
+        
+        if !string.ends_with(current, "/") {
+            current = string.concat(current, "/")
+        }
+    }
+    
+    return Result.Ok({})
+}
+
+// Remove file
+remove_file = (path: string) Result<void> {
+    if !is_file(path) {
+        return Result.Err("Path is not a file")
+    }
+    
+    if remove(string.to_cstring(path)) != 0 {
+        return Result.Err("Failed to remove file")
+    }
+    
+    return Result.Ok({})
+}
+
+// Remove empty directory
+remove_dir = (path: string) Result<void> {
+    if !is_directory(path) {
+        return Result.Err("Path is not a directory")
+    }
+    
+    if rmdir(string.to_cstring(path)) != 0 {
+        return Result.Err("Failed to remove directory")
+    }
+    
+    return Result.Ok({})
+}
+
+// Remove directory and all contents
+remove_dir_all = (path: string) Result<void> {
+    if !is_directory(path) {
+        return Result.Err("Path is not a directory")
+    }
+    
+    // List directory contents
+    entries := read_dir(path)?
+    
+    // Remove all entries
+    for entry in entries {
+        full_path := string.concat(path, "/")
+        full_path = string.concat(full_path, entry)
+        
+        if is_directory(full_path) {
+            remove_dir_all(full_path)?
+        } else {
+            remove_file(full_path)?
+        }
+    }
+    
+    // Remove the directory itself
+    remove_dir(path)
+}
+
+// Copy file
+copy = (from: string, to: string) Result<void> {
+    contents := read_bytes(from)?
+    write_bytes(to, contents)
+}
+
+// Move/rename file or directory
+rename_path = (from: string, to: string) Result<void> {
+    if !exists(from) {
+        return Result.Err("Source path does not exist")
+    }
+    
+    if rename(string.to_cstring(from), string.to_cstring(to)) != 0 {
+        return Result.Err("Failed to rename path")
+    }
+    
+    return Result.Ok({})
+}
+
+// Read directory entries
+read_dir = (path: string) Result<Vec<string>> {
+    if !is_directory(path) {
+        return Result.Err("Path is not a directory")
+    }
+    
+    dir_handle := opendir(string.to_cstring(path))
+    if dir_handle == null {
+        return Result.Err("Failed to open directory")
+    }
+    defer closedir(dir_handle)
+    
+    entries := vec.new<string>()
+    
+    loop {
+        entry := readdir(dir_handle)
+        if entry == null {
+            break
+        }
+        
+        name := string.from_cstring(&entry.d_name[0])
+        
+        // Skip . and ..
+        if name != "." && name != ".." {
+            entries.push(name)
+        }
+    }
+    
+    return Result.Ok(entries)
+}
+
+// Get current working directory
+current_dir = () Result<string> {
+    buffer := memory.alloc(4096)
+    defer memory.free(buffer)
+    
+    result := getcwd(buffer, 4096)
+    if result == null {
+        return Result.Err("Failed to get current directory")
+    }
+    
+    return Result.Ok(string.from_cstring(buffer))
+}
+
+// Change current working directory
+set_current_dir = (path: string) Result<void> {
+    if !is_directory(path) {
+        return Result.Err("Path is not a directory")
+    }
+    
+    if chdir(string.to_cstring(path)) != 0 {
+        return Result.Err("Failed to change directory")
+    }
+    
+    return Result.Ok({})
+}
+
+// Split path into components
+split_path = (path: string) PathComponents {
+    last_slash := string.rfind(path, "/")
+    
+    directory := if last_slash >= 0 {
+        string.substring(path, 0, last_slash)
+    } else {
+        ""
+    }
+    
+    filename := if last_slash >= 0 {
+        string.substring(path, last_slash + 1, string.len(path))
+    } else {
+        path
+    }
+    
+    last_dot := string.rfind(filename, ".")
+    
+    basename := if last_dot >= 0 {
+        string.substring(filename, 0, last_dot)
+    } else {
+        filename
+    }
+    
+    extension := if last_dot >= 0 {
+        string.substring(filename, last_dot + 1, string.len(filename))
+    } else {
+        ""
+    }
+    
+    return PathComponents {
+        directory: directory
+        filename: filename
+        basename: basename
+        extension: extension
+    }
+}
+
+// Join path components
+join_path = (parts: Vec<string>) string {
+    if parts.is_empty() {
+        return ""
+    }
+    
+    result := parts[0]
+    
+    for i in 1..parts.len() {
+        if !string.ends_with(result, "/") {
+            result = string.concat(result, "/")
+        }
+        result = string.concat(result, parts[i])
+    }
+    
+    return result
+}
+
+// Canonicalize path (resolve . and .. and symlinks)
+canonicalize = (path: string) Result<string> {
+    if !exists(path) {
+        return Result.Err("Path does not exist")
+    }
+    
+    // Save current directory
+    original_dir := current_dir()?
+    defer set_current_dir(original_dir)
+    
+    // Change to the path's directory
+    components := split_path(path)
+    if components.directory != "" {
+        set_current_dir(components.directory)?
+    }
+    
+    // Get absolute path
+    abs_dir := current_dir()?
+    
+    // Combine with filename
+    if components.filename != "" {
+        return Result.Ok(string.concat(abs_dir, "/", components.filename))
+    } else {
+        return Result.Ok(abs_dir)
+    }
+}
+
+// Create a temporary file
+create_temp_file = (prefix: string, suffix: string) Result<File> {
+    // Generate random name
+    timestamp := core.timestamp()
+    pid := core.process_id()
+    
+    filename := string.format("/tmp/{}_{}_{}{}", prefix, pid, timestamp, suffix)
+    
+    return open(filename, "w+")
+}
+
+// Walk directory tree recursively
+walk_dir = (path: string, callback: (string, Metadata) void) Result<void> {
+    if !is_directory(path) {
+        return Result.Err("Path is not a directory")
+    }
+    
+    entries := read_dir(path)?
+    
+    for entry in entries {
+        full_path := join_path(vec.from_array([path, entry]))
+        meta := metadata(full_path)?
+        
+        callback(full_path, meta)
+        
+        if meta.file_type == FileType.Directory {
+            walk_dir(full_path, callback)?
+        }
+    }
+    
+    return Result.Ok({})
+}
+
+// Find files matching pattern
+find_files = (path: string, pattern: string) Result<Vec<string>> {
+    matches := vec.new<string>()
+    
+    walk_dir(path, (file_path: string, meta: Metadata) void {
+        components := split_path(file_path)
+        if string.matches(components.filename, pattern) {
+            matches.push(file_path)
+        }
+    })?
+    
+    return Result.Ok(matches)
+}

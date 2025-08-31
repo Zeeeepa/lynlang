@@ -1,157 +1,306 @@
-// Comprehensive test suite for Zen import system
-// Validates that imports work at module level without comptime
+// Comprehensive test for Zen's import system
+// Validates that imports work correctly at module level only
 
-// Standard library imports
+// Module-level imports (CORRECT)
 core := @std.core
 io := @std.io
-fs := @std.fs
-math := @std.math
 string := @std.string
 vec := @std.vec
+test := @std.test
+fs := @std.fs
+process := @std.process
 
-// Test basic import functionality
+// Test basic module imports
 test_basic_imports = () bool {
-    // Test that imported modules can be used
-    io.print("Testing basic imports\n")
+    // Verify that imports are accessible
+    message := "Testing imports"
+    io.println(message)
     
-    // Test math functions
-    result := math.abs(-42)
-    if (result != 42) {
+    // Test string operations
+    text := "Hello, Zen!"
+    if !string.contains(text, "Zen") {
+        io.println("String module not working correctly")
+        return false
+    }
+    
+    // Test vector operations
+    v := vec.new<i32>()
+    v.push(42)
+    if v.len() != 1 {
+        io.println("Vec module not working correctly")
         return false
     }
     
     return true
 }
 
-// Test nested module access
-test_nested_access = () bool {
-    // Test accessing nested modules
-    // Example: @std.collections.hashmap
-    collections := @std.collections
+// Test that comptime blocks work for metaprogramming
+test_comptime_metaprogramming = () bool {
+    // This is CORRECT - comptime for compile-time computation
+    LOOKUP_TABLE := comptime {
+        table := [256]u8{}
+        for i in 0..256 {
+            table[i] = i * 2
+        }
+        table
+    }
     
-    // Should be able to access sub-modules
-    return true
-}
-
-// Test import aliasing
-test_import_alias = () bool {
-    // Create aliases for imports
-    stdio := @std.io
-    filesystem := @std.fs
-    
-    // Use aliases
-    stdio.print("Using aliased import\n")
+    // Verify the lookup table was computed
+    if LOOKUP_TABLE[10] != 20 {
+        io.println("Comptime computation failed")
+        return false
+    }
     
     return true
 }
 
-// Test multiple imports from same source
-test_multiple_imports = () bool {
-    str := @std.string
-    str2 := @std.string
+// Test nested module imports
+test_nested_imports = () bool {
+    // Import from nested module paths
+    result := @std.result
+    option := @std.core.option
     
-    // Both should reference the same module
+    // Test Result type
+    ok_result := result.Ok(42)
+    if !ok_result.is_ok() {
+        io.println("Result module not working")
+        return false
+    }
+    
+    // Test Option type
+    some_value := option.Some(100)
+    if some_value.is_none() {
+        io.println("Option module not working")
+        return false
+    }
+    
     return true
 }
 
-// Test that imports work with user modules
-UserModule := struct {
+// Test cross-module dependencies
+test_cross_module_deps = () bool {
+    // File system operations depend on io and result
+    path := "/tmp/test.txt"
+    
+    // This tests that fs module can use other stdlib modules
+    if fs.exists(path) {
+        fs.remove_file(path)
+    }
+    
+    // Create and write file
+    content := "Test content"
+    write_result := fs.write_string(path, content)
+    
+    if write_result.is_err() {
+        io.println("Failed to write file")
+        return false
+    }
+    
+    // Read file back
+    read_result := fs.read_to_string(path)
+    if read_result.is_err() {
+        io.println("Failed to read file")
+        return false
+    }
+    
+    if read_result.unwrap() != content {
+        io.println("File content mismatch")
+        return false
+    }
+    
+    // Clean up
+    fs.remove_file(path)
+    
+    return true
+}
+
+// Test build.import pattern
+test_build_import = () bool {
+    // Test the build.import syntax
+    build := @std.build
+    custom := build.import("custom_module")
+    
+    // The import should work at module level
+    // (actual functionality depends on module system implementation)
+    
+    return true
+}
+
+// Test that imports can be used in structs
+TestStruct = struct {
+    data: vec.Vec<i32>
+    name: string
+}
+
+test_imports_in_structs = () bool {
+    s := TestStruct {
+        data: vec.new<i32>()
+        name: "test"
+    }
+    
+    s.data.push(1)
+    s.data.push(2)
+    s.data.push(3)
+    
+    if s.data.len() != 3 {
+        io.println("Vec in struct not working")
+        return false
+    }
+    
+    return true
+}
+
+// Test that imports can be used in functions
+process_data = (input: vec.Vec<i32>) vec.Vec<i32> {
+    output := vec.new<i32>()
+    
+    for val in input {
+        output.push(val * 2)
+    }
+    
+    return output
+}
+
+test_imports_in_functions = () bool {
+    input := vec.from_array([1, 2, 3, 4, 5])
+    result := process_data(input)
+    
+    if result.len() != 5 {
+        io.println("Function using imported types failed")
+        return false
+    }
+    
+    if result[0] != 2 || result[4] != 10 {
+        io.println("Function computation incorrect")
+        return false
+    }
+    
+    return true
+}
+
+// Test generic functions with imported types
+map_vec = <T, U>(input: vec.Vec<T>, f: (T) U) vec.Vec<U> {
+    output := vec.new<U>()
+    
+    for item in input {
+        output.push(f(item))
+    }
+    
+    return output
+}
+
+test_generics_with_imports = () bool {
+    numbers := vec.from_array([1, 2, 3])
+    doubled := map_vec(numbers, (x: i32) i32 { return x * 2 })
+    
+    if doubled.len() != 3 {
+        io.println("Generic function with Vec failed")
+        return false
+    }
+    
+    if doubled[0] != 2 || doubled[1] != 4 || doubled[2] != 6 {
+        io.println("Generic function computation incorrect")
+        return false
+    }
+    
+    return true
+}
+
+// Test error handling with imports
+test_error_handling = () bool {
+    // Test Result type from imports
+    divide = (a: i32, b: i32) result.Result<i32> {
+        if b == 0 {
+            return result.Err("Division by zero")
+        }
+        return result.Ok(a / b)
+    }
+    
+    // Test successful operation
+    ok_result := divide(10, 2)
+    if !ok_result.is_ok() || ok_result.unwrap() != 5 {
+        io.println("Successful division failed")
+        return false
+    }
+    
+    // Test error case
+    err_result := divide(10, 0)
+    if !err_result.is_err() {
+        io.println("Error case not detected")
+        return false
+    }
+    
+    return true
+}
+
+// Test that imports work with behaviors/traits
+Printable = behavior {
+    to_string: () string
+}
+
+MyType = struct {
     value: i32
-    
-    new = (v: i32) UserModule {
-        return UserModule{ value: v }
-    }
-    
-    get = (self: UserModule) i32 {
-        return self.value
+}
+
+impl Printable for MyType {
+    to_string = () string {
+        return string.format("MyType({})", self.value)
     }
 }
 
-test_user_module = () bool {
-    m := UserModule.new(42)
-    return m.get() == 42
-}
-
-// Test that imports are resolved at compile time
-test_compile_time_resolution = () bool {
-    // Imports should be resolved during compilation
-    // Not at runtime
+test_imports_with_behaviors = () bool {
+    obj := MyType { value: 42 }
+    str := obj.to_string()
+    
+    if !string.contains(str, "42") {
+        io.println("Behavior implementation with imports failed")
+        return false
+    }
+    
     return true
 }
-
-// Test error cases (these would be separate test files that should fail)
-// 1. Import inside function - should fail
-// 2. Import inside comptime block - should fail
-// 3. Import inside struct - should fail
-// 4. Import inside if block - should fail
 
 // Main test runner
 main = () i32 {
+    io.println("Running comprehensive import system tests...")
+    io.println("=" * 50)
+    
+    tests := [
+        ("Basic imports", test_basic_imports),
+        ("Comptime metaprogramming", test_comptime_metaprogramming),
+        ("Nested imports", test_nested_imports),
+        ("Cross-module dependencies", test_cross_module_deps),
+        ("Build.import pattern", test_build_import),
+        ("Imports in structs", test_imports_in_structs),
+        ("Imports in functions", test_imports_in_functions),
+        ("Generics with imports", test_generics_with_imports),
+        ("Error handling", test_error_handling),
+        ("Imports with behaviors", test_imports_with_behaviors)
+    ]
+    
     passed := 0
     failed := 0
     
-    io.print("Running import system tests...\n")
-    
-    if (test_basic_imports()) {
-        io.print("✓ Basic imports test passed\n")
-        passed += 1
-    } else {
-        io.print("✗ Basic imports test failed\n")
-        failed += 1
+    for (name, test_fn) in tests {
+        io.print(string.format("Testing {}: ", name))
+        
+        if test_fn() {
+            io.println("✓ PASSED")
+            passed += 1
+        } else {
+            io.println("✗ FAILED")
+            failed += 1
+        }
     }
     
-    if (test_nested_access()) {
-        io.print("✓ Nested access test passed\n")
-        passed += 1
-    } else {
-        io.print("✗ Nested access test failed\n")
-        failed += 1
-    }
+    io.println("=" * 50)
+    io.println(string.format("Results: {} passed, {} failed", passed, failed))
     
-    if (test_import_alias()) {
-        io.print("✓ Import alias test passed\n")
-        passed += 1
-    } else {
-        io.print("✗ Import alias test failed\n")
-        failed += 1
-    }
-    
-    if (test_multiple_imports()) {
-        io.print("✓ Multiple imports test passed\n")
-        passed += 1
-    } else {
-        io.print("✗ Multiple imports test failed\n")
-        failed += 1
-    }
-    
-    if (test_user_module()) {
-        io.print("✓ User module test passed\n")
-        passed += 1
-    } else {
-        io.print("✗ User module test failed\n")
-        failed += 1
-    }
-    
-    if (test_compile_time_resolution()) {
-        io.print("✓ Compile time resolution test passed\n")
-        passed += 1
-    } else {
-        io.print("✗ Compile time resolution test failed\n")
-        failed += 1
-    }
-    
-    io.print("\nTest Results:\n")
-    io.print("Passed: ")
-    io.print_int(passed)
-    io.print("\nFailed: ")
-    io.print_int(failed)
-    io.print("\n")
-    
-    if (failed == 0) {
-        io.print("All tests passed!\n")
-        return 0
-    } else {
-        io.print("Some tests failed.\n")
+    if failed > 0 {
+        io.println("Some tests failed!")
         return 1
     }
+    
+    io.println("All tests passed!")
+    return 0
 }
