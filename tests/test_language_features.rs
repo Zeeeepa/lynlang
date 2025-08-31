@@ -85,7 +85,8 @@ fn test_struct_with_methods() {
         }
         
         point_new = (x: i32, y: i32) *Point {
-            p := malloc(8) as *Point
+            size: i64 = 8
+            p := malloc(size) as *Point
             p.x = x
             p.y = y
             return p
