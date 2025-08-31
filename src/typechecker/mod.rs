@@ -142,9 +142,11 @@ impl TypeChecker {
                 // Track module imports
                 self.module_imports.insert(alias.clone(), module_path.clone());
                 // Register stdlib functions if this is a known stdlib module
-                // Handle both "math" and "std.math" formats
-                let module_name = if module_path.starts_with("std.") {
-                    &module_path[4..]
+                // Handle "@std.math", "std.math", and "math" formats
+                let module_name = if module_path.starts_with("@std.") {
+                    &module_path[5..]  // Remove "@std." prefix
+                } else if module_path.starts_with("std.") {
+                    &module_path[4..]  // Remove "std." prefix
                 } else {
                     module_path.as_str()
                 };
@@ -564,6 +566,9 @@ impl TypeChecker {
         // Register functions from known stdlib modules
         match module_path {
             "math" => {
+                // Register math constants as global variables
+                // We'll treat them as functions that return constants for now
+                
                 // Register math functions
                 let math_funcs = vec![
                     ("sqrt", vec![AstType::F64], AstType::F64),
@@ -576,7 +581,9 @@ impl TypeChecker {
                     ("floor", vec![AstType::F64], AstType::F64),
                     ("ceil", vec![AstType::F64], AstType::F64),
                     ("round", vec![AstType::F64], AstType::F64),
-                    ("abs", vec![AstType::F64], AstType::F64),
+                    ("abs", vec![AstType::I64], AstType::I64),  // For now, just i64 version
+                    ("min", vec![AstType::F64, AstType::F64], AstType::F64),
+                    ("max", vec![AstType::F64, AstType::F64], AstType::F64),
                 ];
                 
                 for (name, args, ret) in math_funcs {
@@ -592,13 +599,48 @@ impl TypeChecker {
                 }
             }
             "io" => {
-                // Register io functions
-                let qualified_name = format!("{}.print", alias);
-                self.functions.insert(qualified_name, FunctionSignature {
-                    params: vec![("value".to_string(), AstType::String)],
-                    return_type: AstType::Void,
-                    is_external: true,
-                });
+                // Register io functions - names must match what codegen expects
+                let io_funcs = vec![
+                    ("print", vec![AstType::String], AstType::Void),
+                    ("print_int", vec![AstType::I64], AstType::Void),
+                    ("print_float", vec![AstType::F64], AstType::Void),
+                    ("println", vec![AstType::String], AstType::Void),
+                    ("read_line", vec![], AstType::String),
+                    ("read_file", vec![AstType::String], AstType::String),
+                    ("write_file", vec![AstType::String, AstType::String], AstType::Void),
+                ];
+                
+                for (name, args, ret) in io_funcs {
+                    let qualified_name = format!("{}.{}", alias, name);
+                    let params = args.into_iter().enumerate().map(|(i, t)| {
+                        (format!("arg{}", i), t)
+                    }).collect();
+                    self.functions.insert(qualified_name, FunctionSignature {
+                        params,
+                        return_type: ret,
+                        is_external: true,
+                    });
+                }
+            }
+            "core" => {
+                // Register core functions
+                let core_funcs = vec![
+                    // sizeof and alignof are compile-time operations, skip for now
+                    ("assert", vec![AstType::Bool], AstType::Void),
+                    ("panic", vec![AstType::String], AstType::Void),
+                ];
+                
+                for (name, args, ret) in core_funcs {
+                    let qualified_name = format!("{}.{}", alias, name);
+                    let params = args.into_iter().enumerate().map(|(i, t)| {
+                        (format!("arg{}", i), t)
+                    }).collect();
+                    self.functions.insert(qualified_name, FunctionSignature {
+                        params,
+                        return_type: ret,
+                        is_external: true,
+                    });
+                }
             }
             _ => {
                 // Unknown stdlib module, but not an error
