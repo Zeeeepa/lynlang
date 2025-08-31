@@ -36,8 +36,13 @@ fn main() {
                 Ok(content) => {
                     println!("Checking {}...", file_str);
                     
-                    // Import placement check is now disabled
-                    // Imports are allowed anywhere including comptime blocks
+                    // Check for imports in comptime blocks (which are not allowed)
+                    if let Some(error_msg) = check_import_placement(&content) {
+                        eprintln!("  ✗ Import error: {}", error_msg);
+                        has_errors = true;
+                        files_with_errors += 1;
+                        continue;
+                    }
                     
                     // Try to parse the file
                     let lexer = Lexer::new(&content);
@@ -75,9 +80,46 @@ fn main() {
 }
 
 /// Check for imports inside comptime blocks
-/// NOTE: This check is now disabled as imports are allowed anywhere
-#[allow(dead_code)]
-fn check_import_placement(_content: &str) -> Option<String> {
-    // Imports are now allowed anywhere including comptime blocks
+/// Imports are NOT allowed in comptime blocks - they must be at module level
+fn check_import_placement(content: &str) -> Option<String> {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut in_comptime = false;
+    let mut comptime_line = 0;
+    let mut brace_depth = 0;
+    
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        
+        // Track entering comptime blocks
+        if trimmed.starts_with("comptime") && trimmed.contains('{') {
+            in_comptime = true;
+            comptime_line = i + 1;
+            brace_depth = 1;
+        } else if in_comptime {
+            // Track brace depth in comptime blocks
+            for ch in line.chars() {
+                match ch {
+                    '{' => brace_depth += 1,
+                    '}' => {
+                        brace_depth -= 1;
+                        if brace_depth == 0 {
+                            in_comptime = false;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            
+            // Check for imports in comptime blocks
+            if in_comptime && (trimmed.contains("@std") || trimmed.contains(".import(")) {
+                return Some(format!(
+                    "Line {}: Import statement found inside comptime block (started at line {}). \
+                     Imports must be at module level, not inside comptime blocks.",
+                    i + 1, comptime_line
+                ));
+            }
+        }
+    }
+    
     None
 }
