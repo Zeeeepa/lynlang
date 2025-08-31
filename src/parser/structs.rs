@@ -88,25 +88,22 @@ impl<'a> Parser<'a> {
             };
             self.next_token();
 
-            // Colon
-            if self.current_token != Token::Symbol(':') {
-                return Err(CompileError::SyntaxError(
-                    "Expected ':' after field name".to_string(),
-                    Some(self.current_span.clone()),
-                ));
-            }
-            self.next_token();
-
-            // Field type
-            let field_type = self.parse_type()?;
-
-            // Check for mutability modifier (:: for mutable)
+            // Check for mutability modifier (:: for mutable) or regular type annotation (:)
             let is_mutable = if self.current_token == Token::Operator("::".to_string()) {
                 self.next_token();
                 true
-            } else {
+            } else if self.current_token == Token::Symbol(':') {
+                self.next_token();
                 false
+            } else {
+                return Err(CompileError::SyntaxError(
+                    "Expected ':' or '::' after field name".to_string(),
+                    Some(self.current_span.clone()),
+                ));
             };
+
+            // Field type
+            let field_type = self.parse_type()?;
 
             // Optional default value
             let default_value = if self.current_token == Token::Operator("=".to_string()) {

@@ -22,6 +22,8 @@ pub struct TypeChecker {
     behavior_resolver: BehaviorResolver,
     // Standard library namespace
     std_namespace: StdNamespace,
+    // Module imports (alias -> module_path)
+    module_imports: HashMap<String, String>,
 }
 
 #[derive(Clone, Debug)]
@@ -50,6 +52,7 @@ impl TypeChecker {
             enums: HashMap::new(),
             behavior_resolver: BehaviorResolver::new(),
             std_namespace: StdNamespace::new(),
+            module_imports: HashMap::new(),
         }
     }
 
@@ -134,6 +137,12 @@ impl TypeChecker {
                 
                 // Store the constant as a global variable
                 self.declare_variable(name, inferred_type)?;
+            }
+            Declaration::ModuleImport { alias, module_path } => {
+                // Track module imports
+                self.module_imports.insert(alias.clone(), module_path.clone());
+                // Register stdlib functions if this is a known stdlib module
+                self.register_stdlib_module(alias, module_path)?;
             }
             _ => {}
         }
@@ -533,6 +542,53 @@ impl TypeChecker {
 
     fn types_compatible(&self, expected: &AstType, actual: &AstType) -> bool {
         validation::types_compatible(expected, actual)
+    }
+
+    fn register_stdlib_module(&mut self, alias: &str, module_path: &str) -> Result<()> {
+        // Register functions from known stdlib modules
+        match module_path {
+            "math" => {
+                // Register math functions
+                let math_funcs = vec![
+                    ("sqrt", vec![AstType::F64], AstType::F64),
+                    ("sin", vec![AstType::F64], AstType::F64),
+                    ("cos", vec![AstType::F64], AstType::F64),
+                    ("tan", vec![AstType::F64], AstType::F64),
+                    ("pow", vec![AstType::F64, AstType::F64], AstType::F64),
+                    ("exp", vec![AstType::F64], AstType::F64),
+                    ("log", vec![AstType::F64], AstType::F64),
+                    ("floor", vec![AstType::F64], AstType::F64),
+                    ("ceil", vec![AstType::F64], AstType::F64),
+                    ("round", vec![AstType::F64], AstType::F64),
+                    ("abs", vec![AstType::F64], AstType::F64),
+                ];
+                
+                for (name, args, ret) in math_funcs {
+                    let qualified_name = format!("{}.{}", alias, name);
+                    let params = args.into_iter().enumerate().map(|(i, t)| {
+                        (format!("arg{}", i), t)
+                    }).collect();
+                    self.functions.insert(qualified_name, FunctionSignature {
+                        params,
+                        return_type: ret,
+                        is_external: true,
+                    });
+                }
+            }
+            "io" => {
+                // Register io functions
+                let qualified_name = format!("{}.print", alias);
+                self.functions.insert(qualified_name, FunctionSignature {
+                    params: vec![("value".to_string(), AstType::String)],
+                    return_type: AstType::Void,
+                    is_external: true,
+                });
+            }
+            _ => {
+                // Unknown stdlib module, but not an error
+            }
+        }
+        Ok(())
     }
 
     fn enter_scope(&mut self) {
