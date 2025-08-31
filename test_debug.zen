@@ -1,9 +1,0 @@
-// Debug test to check what functions are available
-io := @std.io
-
-main = () i32 {
-    io.print("Test\n")
-    x : i64 = 42
-    // Try without print_i64 for now
-    return 0
-}

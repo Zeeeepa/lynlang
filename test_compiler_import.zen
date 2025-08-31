@@ -1,3 +1,0 @@
-comptime {
-    lexer := @compiler.lexer
-}

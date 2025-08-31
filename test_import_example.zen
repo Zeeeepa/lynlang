@@ -1,9 +1,0 @@
-// Test file to verify imports work without comptime
-core := @std.core
-build := @std.build
-io := build.import("io")
-
-main = () i32 {
-    io.print("Hello, Zen!\n")
-    return 0
-}
