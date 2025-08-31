@@ -71,6 +71,66 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Expression::Identifier(name) = struct_ {
             // Get the variable info
             if let Some((alloca, var_type)) = self.variables.get(name) {
+                // Handle pointer to struct (p.x where p is *Point)
+                if let AstType::Pointer(inner_type) = var_type {
+                    if let AstType::Struct { name: struct_name, .. } = &**inner_type {
+                        // Get struct type info
+                        let struct_info = self.struct_types.get(struct_name)
+                            .ok_or_else(|| CompileError::TypeError(
+                                format!("Struct type '{}' not found", struct_name),
+                                None
+                            ))?;
+                        
+                        // Find field index
+                        let field_index = struct_info.fields.get(field)
+                            .map(|(idx, _)| *idx)
+                            .ok_or_else(|| CompileError::TypeError(
+                                format!("Field '{}' not found in struct '{}'", field, struct_name),
+                                None
+                            ))?;
+                        
+                        // Get field type
+                        let field_type = struct_info.fields.get(field)
+                            .map(|(_, ty)| ty.clone())
+                            .unwrap();
+                        
+                        // Load the pointer value
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let struct_ptr = self.builder.build_load(ptr_type, *alloca, &format!("load_{}_ptr", name))?;
+                        let struct_ptr = struct_ptr.into_pointer_value();
+                        
+                        // Build GEP to get field pointer
+                        let indices = vec![
+                            self.context.i32_type().const_zero(),
+                            self.context.i32_type().const_int(field_index as u64, false),
+                        ];
+                        
+                        let field_ptr = unsafe {
+                            self.builder.build_gep(
+                                struct_info.llvm_type,
+                                struct_ptr,
+                                &indices,
+                                &format!("{}_{}_ptr", name, field)
+                            )?
+                        };
+                        
+                        // Load the field value
+                        let field_llvm_type = self.to_llvm_type(&field_type)?;
+                        let basic_type = match field_llvm_type {
+                            Type::Basic(ty) => ty,
+                            Type::Struct(st) => st.as_basic_type_enum(),
+                            _ => return Err(CompileError::TypeError(
+                                "Field type must be basic type".to_string(),
+                                None
+                            )),
+                        };
+                        
+                        let value = self.builder.build_load(basic_type, field_ptr, &format!("load_{}_{}", name, field))?;
+                        return Ok(value);
+                    }
+                }
+                
+                // Handle regular struct (non-pointer)
                 if let AstType::Struct { name: struct_name, .. } = var_type {
                     // Get struct type info
                     let struct_info = self.struct_types.get(struct_name)

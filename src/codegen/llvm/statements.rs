@@ -295,6 +295,72 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let val = self.compile_expression(&value)?;
                     self.builder.build_store(element_ptr, val)?;
                     Ok(())
+                }
+                // Special case for member access on left side (struct field assignment)
+                else if let Expression::MemberAccess { object, member } = pointer {
+                    // Handle struct field assignment (p.x = value where p might be a pointer)
+                    if let Expression::Identifier(name) = &**object {
+                        // Get the variable info (clone to avoid borrow issues)
+                        let var_info = self.variables.get(name).map(|(a, t)| (*a, t.clone()));
+                        if let Some((alloca, var_type)) = var_info {
+                            // Handle pointer to struct (p.x = value where p is *Point)
+                            if let AstType::Pointer(inner_type) = &var_type {
+                                if let AstType::Struct { name: struct_name, .. } = &**inner_type {
+                                    // Get struct type info
+                                    let struct_info = self.struct_types.get(struct_name)
+                                        .ok_or_else(|| CompileError::TypeError(
+                                            format!("Struct type '{}' not found", struct_name),
+                                            None
+                                        ))?;
+                                    
+                                    // Find field index
+                                    let field_index = struct_info.fields.get(member)
+                                        .map(|(idx, _)| *idx)
+                                        .ok_or_else(|| CompileError::TypeError(
+                                            format!("Field '{}' not found in struct '{}'", member, struct_name),
+                                            None
+                                        ))?;
+                                    
+                                    // Load the pointer value
+                                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                    let struct_ptr = self.builder.build_load(ptr_type, alloca, &format!("load_{}_ptr", name))?;
+                                    let struct_ptr = struct_ptr.into_pointer_value();
+                                    
+                                    // Build GEP to get field pointer
+                                    let indices = vec![
+                                        self.context.i32_type().const_zero(),
+                                        self.context.i32_type().const_int(field_index as u64, false),
+                                    ];
+                                    
+                                    let field_ptr = unsafe {
+                                        self.builder.build_gep(
+                                            struct_info.llvm_type,
+                                            struct_ptr,
+                                            &indices,
+                                            &format!("{}_{}__ptr", name, member)
+                                        )?
+                                    };
+                                    
+                                    // Compile and store the value
+                                    let val = self.compile_expression(&value)?;
+                                    self.builder.build_store(field_ptr, val)?;
+                                    return Ok(());
+                                }
+                            }
+                            // Handle regular struct (non-pointer)
+                            else if let AstType::Struct { name: struct_name, .. } = &var_type {
+                                // Use existing struct field assignment logic
+                                let val = self.compile_expression(&value)?;
+                                self.compile_struct_field_assignment(alloca, member, val)?;
+                                return Ok(());
+                            }
+                        }
+                    }
+                    // If we get here, it's not a simple struct field assignment
+                    return Err(CompileError::TypeError(
+                        format!("Cannot assign to member access expression: {:?}.{}", object, member),
+                        None
+                    ));
                 } else {
                     let ptr_val = self.compile_expression(&pointer)?;
                     let val = self.compile_expression(&value)?;
