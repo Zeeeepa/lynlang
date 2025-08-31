@@ -124,27 +124,39 @@ lexer_new = (source: string) Lexer {
 
 // Check if character is whitespace
 is_whitespace = (c: char) bool {
-    c == ' ' | c == '\t' | c == '\r' | c == '\n'
+    if c == ' ' { return true }
+    if c == '\t' { return true }
+    if c == '\r' { return true }
+    if c == '\n' { return true }
+    return false
 }
 
 // Check if character is a digit
 is_digit = (c: char) bool {
-    c >= '0' & c <= '9'
+    if c < '0' { return false }
+    if c > '9' { return false }
+    return true
 }
 
 // Check if character is alphabetic
 is_alpha = (c: char) bool {
-    (c >= 'a' & c <= 'z') | (c >= 'A' & c <= 'Z')
+    if c >= 'a' && c <= 'z' { return true }
+    if c >= 'A' && c <= 'Z' { return true }
+    return false
 }
 
 // Check if character can start an identifier
 is_ident_start = (c: char) bool {
-    is_alpha(c) | c == '_'
+    if is_alpha(c) { return true }
+    if c == '_' { return true }
+    return false
 }
 
 // Check if character can continue an identifier
 is_ident_continue = (c: char) bool {
-    is_ident_start(c) | is_digit(c)
+    if is_ident_start(c) { return true }
+    if is_digit(c) { return true }
+    return false
 }
 
 // Check if string is a keyword
@@ -207,7 +219,7 @@ skip_line_comment = (lexer: Ptr<Lexer>) void {
     advance(lexer)
     
     // Skip until newline
-    loop peek(lexer) != '\n' & peek(lexer) != '\0' {
+    loop peek(lexer) != '\n' && peek(lexer) != '\0' {
         advance(lexer)
     }
 }
@@ -220,7 +232,7 @@ skip_block_comment = (lexer: Ptr<Lexer>) bool {
     
     // Find */
     loop peek(lexer) != '\0' {
-        peek(lexer) == '*' & peek_next(lexer) == '/' ?
+        peek(lexer) == '*' && peek_next(lexer) == '/' ?
             | true => {
                 advance(lexer)
                 advance(lexer)
@@ -239,14 +251,14 @@ lex_number = (lexer: Ptr<Lexer>) Token {
     start_column := lexer.column
     
     // Check for hex literal
-    peek(lexer) == '0' & (peek_next(lexer) == 'x' | peek_next(lexer) == 'X') ?
+    peek(lexer) == '0' && (peek_next(lexer) == 'x' || peek_next(lexer) == 'X') ?
         | true => {
             advance(lexer)  // 0
             advance(lexer)  // x
             
             // Read hex digits
-            loop is_digit(peek(lexer)) | (peek(lexer) >= 'a' & peek(lexer) <= 'f') | 
-                 (peek(lexer) >= 'A' & peek(lexer) <= 'F') {
+            loop is_digit(peek(lexer)) || (peek(lexer) >= 'a' && peek(lexer) <= 'f') || 
+                 (peek(lexer) >= 'A' && peek(lexer) <= 'F') {
                 advance(lexer)
             }
         }
@@ -257,7 +269,7 @@ lex_number = (lexer: Ptr<Lexer>) Token {
             }
             
             // Check for float
-            peek(lexer) == '.' & is_digit(peek_next(lexer)) ?
+            peek(lexer) == '.' && is_digit(peek_next(lexer)) ?
                 | true => {
                     advance(lexer)  // .
                     
@@ -267,10 +279,10 @@ lex_number = (lexer: Ptr<Lexer>) Token {
                     }
                     
                     // Check for exponent
-                    (peek(lexer) == 'e' | peek(lexer) == 'E') ?
+                    (peek(lexer) == 'e' || peek(lexer) == 'E') ?
                         | true => {
                             advance(lexer)
-                            (peek(lexer) == '+' | peek(lexer) == '-') ?
+                            (peek(lexer) == '+' || peek(lexer) == '-') ?
                                 | true => advance(lexer)
                                 | false => {}
                             
@@ -311,7 +323,7 @@ lex_string = (lexer: Ptr<Lexer>) Token {
     quote := advance(lexer)  // " or '
     result := ""
     
-    loop peek(lexer) != quote & peek(lexer) != '\0' {
+    loop peek(lexer) != quote && peek(lexer) != '\0' {
         peek(lexer) == '\\' ?
             | true => {
                 advance(lexer)  // \
@@ -335,7 +347,7 @@ lex_string = (lexer: Ptr<Lexer>) Token {
             advance(lexer)
             
             // Character literal if single quote and single char
-            quote == '\'' & result.len() == 1 ?
+            quote == '\'' && result.len() == 1 ?
                 | true => return Token{
                     kind: TokenKind.CharLiteral(result[0]),
                     span: Span{ start: start, end: lexer.pos },
@@ -411,10 +423,10 @@ next_token = (lexer: Ptr<Lexer>) Token {
     loop {
         skip_whitespace(lexer)
         
-        peek(lexer) == '/' & peek_next(lexer) == '/' ?
+        peek(lexer) == '/' && peek_next(lexer) == '/' ?
             | true => skip_line_comment(lexer)
             | false => {
-                peek(lexer) == '/' & peek_next(lexer) == '*' ?
+                peek(lexer) == '/' && peek_next(lexer) == '*' ?
                     | true => {
                         skip_block_comment(lexer) ?
                             | false => return Token{
@@ -451,7 +463,7 @@ next_token = (lexer: Ptr<Lexer>) Token {
         | false => {}
     
     // Strings and chars
-    (c == '"' | c == '\'') ?
+    (c == '"' || c == '\'') ?
         | true => return lex_string(lexer)
         | false => {}
     
