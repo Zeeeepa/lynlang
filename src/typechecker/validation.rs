@@ -156,3 +156,57 @@ pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
         _ => None,
     }
 }
+
+/// Validate that imports are not inside comptime blocks
+pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(), String> {
+    match stmt {
+        crate::ast::Statement::ComptimeBlock(statements) => {
+            for s in statements {
+                // Recursively check nested comptime blocks
+                validate_import_not_in_comptime(s)?;
+                
+                // Check for module imports or @std usage in comptime
+                if let crate::ast::Statement::VariableDeclaration { initializer, name, .. } = s {
+                    if let Some(expr) = initializer {
+                        if contains_import_expression(expr) {
+                            return Err(format!(
+                                "Module imports should not be inside comptime blocks. Move imports to module level. Found '{}' with import expression",
+                                name
+                            ));
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+        // Also check variable declarations at this level
+        crate::ast::Statement::VariableDeclaration { initializer, name, .. } => {
+            if let Some(expr) = initializer {
+                if contains_import_expression(expr) {
+                    return Err(format!(
+                        "Module imports should not be inside comptime blocks. Move imports to module level. Found '{}' with import expression",
+                        name
+                    ));
+                }
+            }
+            Ok(())
+        }
+        _ => Ok(())
+    }
+}
+
+/// Check if an expression contains import-related patterns
+pub fn contains_import_expression(expr: &crate::ast::Expression) -> bool {
+    match expr {
+        crate::ast::Expression::Identifier(id) if id.starts_with("@std") => true,
+        crate::ast::Expression::MemberAccess { object, .. } => {
+            if let crate::ast::Expression::Identifier(id) = &**object {
+                id.starts_with("@std") || id == "build"
+            } else {
+                contains_import_expression(object)
+            }
+        }
+        crate::ast::Expression::FunctionCall { name, .. } if name.contains("import") => true,
+        _ => false
+    }
+}
