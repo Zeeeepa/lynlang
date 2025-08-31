@@ -1,7 +1,0 @@
-main = () f64 {
-    x := 16.0
-    result := sqrt(x)
-    return result
-}
-
-extern sqrt = (x: f64) f64
