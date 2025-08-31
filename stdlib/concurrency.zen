@@ -1,0 +1,424 @@
+// Concurrency primitives for Zen
+// Provides channels, mutexes, and atomic operations
+
+core := @std.core
+mem := @std.mem
+thread := @std.thread
+
+// Channel for communication between threads
+Channel<T> = {
+    buffer: []T,
+    capacity: usize,
+    read_idx: usize,
+    write_idx: usize,
+    count: usize,
+    mutex: Mutex,
+    not_empty: CondVar,
+    not_full: CondVar,
+    closed: bool,
+}
+
+// Mutex for thread synchronization
+Mutex = {
+    locked: bool,
+    owner: ?thread.ThreadId,
+    wait_queue: []thread.ThreadId,
+}
+
+// Condition variable for signaling
+CondVar = {
+    waiting: []thread.ThreadId,
+}
+
+// Atomic types for lock-free operations
+AtomicI32 = {
+    value: i32,
+}
+
+AtomicU64 = {
+    value: u64,
+}
+
+AtomicBool = {
+    value: bool,
+}
+
+// Create a new channel with given capacity
+new_channel = <T>(capacity: usize) Channel<T> {
+    return Channel<T>{
+        buffer: mem.alloc_array<T>(capacity),
+        capacity: capacity,
+        read_idx: 0,
+        write_idx: 0,
+        count: 0,
+        mutex: new_mutex(),
+        not_empty: new_condvar(),
+        not_full: new_condvar(),
+        closed: false,
+    }
+}
+
+// Send a value through the channel
+send = <T>(chan: &mut Channel<T>, value: T) bool {
+    lock(&mut chan.mutex)
+    defer unlock(&mut chan.mutex)
+    
+    // Wait while channel is full
+    loop chan.count >= chan.capacity && !chan.closed {
+        wait(&mut chan.not_full, &mut chan.mutex)
+    }
+    
+    if chan.closed {
+        return false
+    }
+    
+    // Add value to buffer
+    chan.buffer[chan.write_idx] = value
+    chan.write_idx = (chan.write_idx + 1) % chan.capacity
+    chan.count += 1
+    
+    // Signal that channel is not empty
+    signal(&mut chan.not_empty)
+    return true
+}
+
+// Receive a value from the channel
+receive = <T>(chan: &mut Channel<T>) Option<T> {
+    lock(&mut chan.mutex)
+    defer unlock(&mut chan.mutex)
+    
+    // Wait while channel is empty
+    loop chan.count == 0 && !chan.closed {
+        wait(&mut chan.not_empty, &mut chan.mutex)
+    }
+    
+    if chan.count == 0 && chan.closed {
+        return Option<T>.None
+    }
+    
+    // Get value from buffer
+    value := chan.buffer[chan.read_idx]
+    chan.read_idx = (chan.read_idx + 1) % chan.capacity
+    chan.count -= 1
+    
+    // Signal that channel is not full
+    signal(&mut chan.not_full)
+    return Option<T>.Some(value)
+}
+
+// Try to receive without blocking
+try_receive = <T>(chan: &mut Channel<T>) Option<T> {
+    if !try_lock(&mut chan.mutex) {
+        return Option<T>.None
+    }
+    defer unlock(&mut chan.mutex)
+    
+    if chan.count == 0 {
+        return Option<T>.None
+    }
+    
+    // Get value from buffer
+    value := chan.buffer[chan.read_idx]
+    chan.read_idx = (chan.read_idx + 1) % chan.capacity
+    chan.count -= 1
+    
+    signal(&mut chan.not_full)
+    return Option<T>.Some(value)
+}
+
+// Close the channel
+close_channel = <T>(chan: &mut Channel<T>) void {
+    lock(&mut chan.mutex)
+    chan.closed = true
+    broadcast(&mut chan.not_empty)
+    broadcast(&mut chan.not_full)
+    unlock(&mut chan.mutex)
+}
+
+// Create a new mutex
+new_mutex = () Mutex {
+    return Mutex{
+        locked: false,
+        owner: Option.None,
+        wait_queue: [],
+    }
+}
+
+// Lock the mutex
+lock = (m: &mut Mutex) void {
+    tid := thread.current_thread_id()
+    
+    // Spin until we acquire the lock
+    loop !atomic_compare_swap(&m.locked, false, true) {
+        // Add to wait queue if not already there
+        if !contains(m.wait_queue, tid) {
+            m.wait_queue.push(tid)
+        }
+        thread.yield()
+    }
+    
+    m.owner = Option.Some(tid)
+}
+
+// Try to lock without blocking
+try_lock = (m: &mut Mutex) bool {
+    if atomic_compare_swap(&m.locked, false, true) {
+        m.owner = Option.Some(thread.current_thread_id())
+        return true
+    }
+    return false
+}
+
+// Unlock the mutex
+unlock = (m: &mut Mutex) void {
+    m.owner = Option.None
+    atomic_store(&m.locked, false)
+    
+    // Wake up waiting threads
+    if m.wait_queue.len() > 0 {
+        thread.wake(m.wait_queue[0])
+        m.wait_queue.remove(0)
+    }
+}
+
+// Create a new condition variable
+new_condvar = () CondVar {
+    return CondVar{
+        waiting: [],
+    }
+}
+
+// Wait on a condition variable
+wait = (cv: &mut CondVar, m: &mut Mutex) void {
+    tid := thread.current_thread_id()
+    cv.waiting.push(tid)
+    unlock(m)
+    thread.park()
+    lock(m)
+}
+
+// Signal one waiting thread
+signal = (cv: &mut CondVar) void {
+    if cv.waiting.len() > 0 {
+        tid := cv.waiting[0]
+        cv.waiting.remove(0)
+        thread.wake(tid)
+    }
+}
+
+// Signal all waiting threads
+broadcast = (cv: &mut CondVar) void {
+    for tid in cv.waiting {
+        thread.wake(tid)
+    }
+    cv.waiting.clear()
+}
+
+// Atomic operations
+atomic_load = (a: &AtomicI32) i32 {
+    return __atomic_load(&a.value)
+}
+
+atomic_store = (a: &mut AtomicI32, value: i32) void {
+    __atomic_store(&a.value, value)
+}
+
+atomic_add = (a: &mut AtomicI32, value: i32) i32 {
+    return __atomic_add_fetch(&a.value, value)
+}
+
+atomic_sub = (a: &mut AtomicI32, value: i32) i32 {
+    return __atomic_sub_fetch(&a.value, value)
+}
+
+atomic_compare_swap = (a: &mut AtomicBool, expected: bool, desired: bool) bool {
+    return __atomic_compare_exchange(&a.value, expected, desired)
+}
+
+// Thread pool for work distribution
+ThreadPool = {
+    workers: []thread.Thread,
+    task_queue: Channel<Task>,
+    shutdown: AtomicBool,
+}
+
+Task = {
+    func: fn() void,
+    id: u64,
+}
+
+// Create a new thread pool
+new_thread_pool = (size: usize) ThreadPool {
+    pool := ThreadPool{
+        workers: [],
+        task_queue: new_channel<Task>(size * 2),
+        shutdown: AtomicBool{ value: false },
+    }
+    
+    // Start worker threads
+    i := 0
+    loop i < size {
+        worker := thread.spawn(worker_loop, &pool)
+        pool.workers.push(worker)
+        i += 1
+    }
+    
+    return pool
+}
+
+// Worker loop for thread pool
+worker_loop = (pool: &ThreadPool) void {
+    loop !atomic_load(&pool.shutdown) {
+        task_opt := receive(&mut pool.task_queue)
+        if task_opt.is_some() {
+            task := task_opt.unwrap()
+            task.func()
+        }
+    }
+}
+
+// Submit a task to the thread pool
+submit_task = (pool: &mut ThreadPool, func: fn() void) bool {
+    if atomic_load(&pool.shutdown) {
+        return false
+    }
+    
+    task := Task{
+        func: func,
+        id: generate_task_id(),
+    }
+    
+    return send(&mut pool.task_queue, task)
+}
+
+// Shutdown the thread pool
+shutdown_pool = (pool: &mut ThreadPool) void {
+    atomic_store(&mut pool.shutdown, true)
+    close_channel(&mut pool.task_queue)
+    
+    // Wait for all workers to finish
+    for worker in pool.workers {
+        thread.join(worker)
+    }
+}
+
+// Helper to generate unique task IDs
+TASK_COUNTER: AtomicU64 = AtomicU64{ value: 0 }
+
+generate_task_id = () u64 {
+    return atomic_add(&mut TASK_COUNTER, 1)
+}
+
+// Helper to check if value is in array
+contains = <T>(arr: []T, value: T) bool {
+    for item in arr {
+        if item == value {
+            return true
+        }
+    }
+    return false
+}
+
+// Barrier for thread synchronization
+Barrier = {
+    count: usize,
+    waiting: usize,
+    mutex: Mutex,
+    cv: CondVar,
+    generation: u64,
+}
+
+// Create a new barrier
+new_barrier = (count: usize) Barrier {
+    return Barrier{
+        count: count,
+        waiting: 0,
+        mutex: new_mutex(),
+        cv: new_condvar(),
+        generation: 0,
+    }
+}
+
+// Wait at the barrier
+barrier_wait = (b: &mut Barrier) void {
+    lock(&mut b.mutex)
+    defer unlock(&mut b.mutex)
+    
+    gen := b.generation
+    b.waiting += 1
+    
+    if b.waiting == b.count {
+        // Last thread to arrive, reset and release all
+        b.waiting = 0
+        b.generation += 1
+        broadcast(&mut b.cv)
+    } else {
+        // Wait for other threads
+        loop gen == b.generation {
+            wait(&mut b.cv, &mut b.mutex)
+        }
+    }
+}
+
+// Read-Write lock for multiple readers, single writer
+RWLock = {
+    readers: i32,
+    writers: i32,
+    read_cv: CondVar,
+    write_cv: CondVar,
+    mutex: Mutex,
+}
+
+// Create a new read-write lock
+new_rwlock = () RWLock {
+    return RWLock{
+        readers: 0,
+        writers: 0,
+        read_cv: new_condvar(),
+        write_cv: new_condvar(),
+        mutex: new_mutex(),
+    }
+}
+
+// Acquire read lock
+read_lock = (rw: &mut RWLock) void {
+    lock(&mut rw.mutex)
+    defer unlock(&mut rw.mutex)
+    
+    loop rw.writers > 0 {
+        wait(&mut rw.read_cv, &mut rw.mutex)
+    }
+    rw.readers += 1
+}
+
+// Release read lock
+read_unlock = (rw: &mut RWLock) void {
+    lock(&mut rw.mutex)
+    defer unlock(&mut rw.mutex)
+    
+    rw.readers -= 1
+    if rw.readers == 0 {
+        signal(&mut rw.write_cv)
+    }
+}
+
+// Acquire write lock
+write_lock = (rw: &mut RWLock) void {
+    lock(&mut rw.mutex)
+    defer unlock(&mut rw.mutex)
+    
+    loop rw.writers > 0 || rw.readers > 0 {
+        wait(&mut rw.write_cv, &mut rw.mutex)
+    }
+    rw.writers = 1
+}
+
+// Release write lock
+write_unlock = (rw: &mut RWLock) void {
+    lock(&mut rw.mutex)
+    defer unlock(&mut rw.mutex)
+    
+    rw.writers = 0
+    broadcast(&mut rw.read_cv)
+    signal(&mut rw.write_cv)
+}
