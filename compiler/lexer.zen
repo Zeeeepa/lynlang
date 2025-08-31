@@ -1,0 +1,647 @@
+// Self-hosted Zen Lexer
+// This module tokenizes Zen source code
+
+core := @std.core
+vec := @std.vec
+string := @std.string
+char := @std.char
+
+// Token types
+TokenKind = 
+    // Literals
+    | IntLiteral(value: i64)
+    | FloatLiteral(value: f64)
+    | StringLiteral(value: string)
+    | CharLiteral(value: char)
+    | BoolLiteral(value: bool)
+    
+    // Identifiers and keywords
+    | Identifier(name: string)
+    | Keyword(keyword: string)
+    
+    // Operators
+    | Plus           // +
+    | Minus          // -
+    | Star           // *
+    | Slash          // /
+    | Percent        // %
+    | Ampersand      // &
+    | Pipe           // |
+    | Caret          // ^
+    | Tilde          // ~
+    | LShift         // <<
+    | RShift         // >>
+    
+    // Comparison
+    | Equal          // ==
+    | NotEqual       // !=
+    | Less           // <
+    | Greater        // >
+    | LessEqual      // <=
+    | GreaterEqual   // >=
+    
+    // Assignment
+    | Assign         // =
+    | ColonAssign    // :=
+    | ColonColonAssign // ::=
+    | PlusAssign     // +=
+    | MinusAssign    // -=
+    | StarAssign     // *=
+    | SlashAssign    // /=
+    
+    // Punctuation
+    | LeftParen      // (
+    | RightParen     // )
+    | LeftBrace      // {
+    | RightBrace     // }
+    | LeftBracket    // [
+    | RightBracket   // ]
+    | Semicolon      // ;
+    | Colon          // :
+    | ColonColon     // ::
+    | Comma          // ,
+    | Dot            // .
+    | DotDot         // ..
+    | Arrow          // ->
+    | FatArrow       // =>
+    | Question       // ?
+    | At             // @
+    | Dollar         // $
+    | Hash           // #
+    
+    // Special
+    | Newline
+    | Eof
+    | Invalid(message: string)
+
+// Token structure
+Token = {
+    kind: TokenKind,
+    span: Span,
+    line: u32,
+    column: u32,
+}
+
+// Source span for error reporting
+Span = {
+    start: u32,
+    end: u32,
+}
+
+// Lexer state
+Lexer = {
+    source: string,
+    pos: u32,
+    line: u32,
+    column: u32,
+    tokens: Vec<Token>,
+}
+
+// Keywords in Zen
+KEYWORDS := [
+    "if", "else", "loop", "while", "for", "match", "return", "break", "continue",
+    "fn", "struct", "enum", "trait", "impl", "type", "const", "let", "var",
+    "pub", "priv", "mut", "ref", "defer", "async", "await", "yield",
+    "import", "export", "module", "package", "use", "as",
+    "true", "false", "null", "void", "self", "Self",
+    "i8", "i16", "i32", "i64", "i128",
+    "u8", "u16", "u32", "u64", "u128",
+    "f32", "f64", "bool", "char", "string", "usize", "isize",
+    "comptime", "inline", "noinline", "packed", "align",
+    "typeof", "sizeof", "alignof", "offsetof",
+]
+
+// Create a new lexer
+lexer_new = (source: string) Lexer {
+    Lexer{
+        source: source,
+        pos: 0,
+        line: 1,
+        column: 1,
+        tokens: vec_new<Token>(),
+    }
+}
+
+// Check if character is whitespace
+is_whitespace = (c: char) bool {
+    c == ' ' | c == '\t' | c == '\r' | c == '\n'
+}
+
+// Check if character is a digit
+is_digit = (c: char) bool {
+    c >= '0' & c <= '9'
+}
+
+// Check if character is alphabetic
+is_alpha = (c: char) bool {
+    (c >= 'a' & c <= 'z') | (c >= 'A' & c <= 'Z')
+}
+
+// Check if character can start an identifier
+is_ident_start = (c: char) bool {
+    is_alpha(c) | c == '_'
+}
+
+// Check if character can continue an identifier
+is_ident_continue = (c: char) bool {
+    is_ident_start(c) | is_digit(c)
+}
+
+// Check if string is a keyword
+is_keyword = (s: string) bool {
+    i := 0
+    loop i < KEYWORDS.len() {
+        KEYWORDS[i] == s ?
+            | true => return true
+            | false => {}
+        i = i + 1
+    }
+    return false
+}
+
+// Peek at current character without advancing
+peek = (lexer: Ptr<Lexer>) char {
+    lexer.pos >= lexer.source.len() ?
+        | true => return '\0'
+        | false => return lexer.source[lexer.pos]
+}
+
+// Peek at next character
+peek_next = (lexer: Ptr<Lexer>) char {
+    lexer.pos + 1 >= lexer.source.len() ?
+        | true => return '\0'
+        | false => return lexer.source[lexer.pos + 1]
+}
+
+// Advance position and return current character
+advance = (lexer: Ptr<Lexer>) char {
+    lexer.pos >= lexer.source.len() ?
+        | true => return '\0'
+        | false => {
+            c := lexer.source[lexer.pos]
+            lexer.pos = lexer.pos + 1
+            lexer.column = lexer.column + 1
+            
+            c == '\n' ?
+                | true => {
+                    lexer.line = lexer.line + 1
+                    lexer.column = 1
+                }
+                | false => {}
+            
+            return c
+        }
+}
+
+// Skip whitespace
+skip_whitespace = (lexer: Ptr<Lexer>) void {
+    loop is_whitespace(peek(lexer)) {
+        advance(lexer)
+    }
+}
+
+// Skip line comment
+skip_line_comment = (lexer: Ptr<Lexer>) void {
+    // Skip //
+    advance(lexer)
+    advance(lexer)
+    
+    // Skip until newline
+    loop peek(lexer) != '\n' & peek(lexer) != '\0' {
+        advance(lexer)
+    }
+}
+
+// Skip block comment
+skip_block_comment = (lexer: Ptr<Lexer>) bool {
+    // Skip /*
+    advance(lexer)
+    advance(lexer)
+    
+    // Find */
+    loop peek(lexer) != '\0' {
+        peek(lexer) == '*' & peek_next(lexer) == '/' ?
+            | true => {
+                advance(lexer)
+                advance(lexer)
+                return true
+            }
+            | false => advance(lexer)
+    }
+    
+    return false  // Unterminated block comment
+}
+
+// Lex a number literal
+lex_number = (lexer: Ptr<Lexer>) Token {
+    start := lexer.pos
+    start_line := lexer.line
+    start_column := lexer.column
+    
+    // Check for hex literal
+    peek(lexer) == '0' & (peek_next(lexer) == 'x' | peek_next(lexer) == 'X') ?
+        | true => {
+            advance(lexer)  // 0
+            advance(lexer)  // x
+            
+            // Read hex digits
+            loop is_digit(peek(lexer)) | (peek(lexer) >= 'a' & peek(lexer) <= 'f') | 
+                 (peek(lexer) >= 'A' & peek(lexer) <= 'F') {
+                advance(lexer)
+            }
+        }
+        | false => {
+            // Read decimal digits
+            loop is_digit(peek(lexer)) {
+                advance(lexer)
+            }
+            
+            // Check for float
+            peek(lexer) == '.' & is_digit(peek_next(lexer)) ?
+                | true => {
+                    advance(lexer)  // .
+                    
+                    // Read fractional part
+                    loop is_digit(peek(lexer)) {
+                        advance(lexer)
+                    }
+                    
+                    // Check for exponent
+                    (peek(lexer) == 'e' | peek(lexer) == 'E') ?
+                        | true => {
+                            advance(lexer)
+                            (peek(lexer) == '+' | peek(lexer) == '-') ?
+                                | true => advance(lexer)
+                                | false => {}
+                            
+                            loop is_digit(peek(lexer)) {
+                                advance(lexer)
+                            }
+                        }
+                        | false => {}
+                    
+                    // Return float token
+                    value_str := string_slice(lexer.source, start, lexer.pos)
+                    return Token{
+                        kind: TokenKind.FloatLiteral(string_to_f64(value_str)),
+                        span: Span{ start: start, end: lexer.pos },
+                        line: start_line,
+                        column: start_column,
+                    }
+                }
+                | false => {}
+        }
+    
+    // Return integer token
+    value_str := string_slice(lexer.source, start, lexer.pos)
+    return Token{
+        kind: TokenKind.IntLiteral(string_to_i64(value_str)),
+        span: Span{ start: start, end: lexer.pos },
+        line: start_line,
+        column: start_column,
+    }
+}
+
+// Lex a string literal
+lex_string = (lexer: Ptr<Lexer>) Token {
+    start := lexer.pos
+    start_line := lexer.line
+    start_column := lexer.column
+    
+    quote := advance(lexer)  // " or '
+    result := ""
+    
+    loop peek(lexer) != quote & peek(lexer) != '\0' {
+        peek(lexer) == '\\' ?
+            | true => {
+                advance(lexer)  // \
+                c := advance(lexer)
+                
+                // Handle escape sequences
+                c ?
+                    | 'n' => result = result + "\n"
+                    | 't' => result = result + "\t"
+                    | 'r' => result = result + "\r"
+                    | '\\' => result = result + "\\"
+                    | '"' => result = result + "\""
+                    | '\'' => result = result + "'"
+                    | _ => result = result + c
+            }
+            | false => result = result + advance(lexer)
+    }
+    
+    peek(lexer) == quote ?
+        | true => {
+            advance(lexer)
+            
+            // Character literal if single quote and single char
+            quote == '\'' & result.len() == 1 ?
+                | true => return Token{
+                    kind: TokenKind.CharLiteral(result[0]),
+                    span: Span{ start: start, end: lexer.pos },
+                    line: start_line,
+                    column: start_column,
+                }
+                | false => return Token{
+                    kind: TokenKind.StringLiteral(result),
+                    span: Span{ start: start, end: lexer.pos },
+                    line: start_line,
+                    column: start_column,
+                }
+        }
+        | false => return Token{
+            kind: TokenKind.Invalid("Unterminated string literal"),
+            span: Span{ start: start, end: lexer.pos },
+            line: start_line,
+            column: start_column,
+        }
+}
+
+// Lex an identifier or keyword
+lex_identifier = (lexer: Ptr<Lexer>) Token {
+    start := lexer.pos
+    start_line := lexer.line
+    start_column := lexer.column
+    
+    // Read identifier characters
+    loop is_ident_continue(peek(lexer)) {
+        advance(lexer)
+    }
+    
+    ident := string_slice(lexer.source, start, lexer.pos)
+    
+    // Check for boolean literals
+    ident == "true" ?
+        | true => return Token{
+            kind: TokenKind.BoolLiteral(true),
+            span: Span{ start: start, end: lexer.pos },
+            line: start_line,
+            column: start_column,
+        }
+        | false => {}
+    
+    ident == "false" ?
+        | true => return Token{
+            kind: TokenKind.BoolLiteral(false),
+            span: Span{ start: start, end: lexer.pos },
+            line: start_line,
+            column: start_column,
+        }
+        | false => {}
+    
+    // Check if it's a keyword
+    is_keyword(ident) ?
+        | true => return Token{
+            kind: TokenKind.Keyword(ident),
+            span: Span{ start: start, end: lexer.pos },
+            line: start_line,
+            column: start_column,
+        }
+        | false => return Token{
+            kind: TokenKind.Identifier(ident),
+            span: Span{ start: start, end: lexer.pos },
+            line: start_line,
+            column: start_column,
+        }
+}
+
+// Get next token
+next_token = (lexer: Ptr<Lexer>) Token {
+    // Skip whitespace and comments
+    loop {
+        skip_whitespace(lexer)
+        
+        peek(lexer) == '/' & peek_next(lexer) == '/' ?
+            | true => skip_line_comment(lexer)
+            | false => {
+                peek(lexer) == '/' & peek_next(lexer) == '*' ?
+                    | true => {
+                        skip_block_comment(lexer) ?
+                            | false => return Token{
+                                kind: TokenKind.Invalid("Unterminated block comment"),
+                                span: Span{ start: lexer.pos, end: lexer.pos },
+                                line: lexer.line,
+                                column: lexer.column,
+                            }
+                            | true => {}
+                    }
+                    | false => break
+            }
+    }
+    
+    start_line := lexer.line
+    start_column := lexer.column
+    start := lexer.pos
+    
+    c := peek(lexer)
+    
+    // End of file
+    c == '\0' ?
+        | true => return Token{
+            kind: TokenKind.Eof,
+            span: Span{ start: start, end: start },
+            line: start_line,
+            column: start_column,
+        }
+        | false => {}
+    
+    // Numbers
+    is_digit(c) ?
+        | true => return lex_number(lexer)
+        | false => {}
+    
+    // Strings and chars
+    (c == '"' | c == '\'') ?
+        | true => return lex_string(lexer)
+        | false => {}
+    
+    // Identifiers and keywords
+    is_ident_start(c) ?
+        | true => return lex_identifier(lexer)
+        | false => {}
+    
+    // Operators and punctuation
+    c := advance(lexer)
+    next := peek(lexer)
+    
+    // Two-character operators
+    c ?
+        | '+' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.PlusAssign, start, lexer.pos, start_line, start_column)
+                }
+                | false => return make_token(TokenKind.Plus, start, lexer.pos, start_line, start_column)
+        }
+        | '-' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.MinusAssign, start, lexer.pos, start_line, start_column)
+                }
+                | false => {
+                    next == '>' ?
+                        | true => {
+                            advance(lexer)
+                            return make_token(TokenKind.Arrow, start, lexer.pos, start_line, start_column)
+                        }
+                        | false => return make_token(TokenKind.Minus, start, lexer.pos, start_line, start_column)
+                }
+        }
+        | '*' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.StarAssign, start, lexer.pos, start_line, start_column)
+                }
+                | false => return make_token(TokenKind.Star, start, lexer.pos, start_line, start_column)
+        }
+        | '/' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.SlashAssign, start, lexer.pos, start_line, start_column)
+                }
+                | false => return make_token(TokenKind.Slash, start, lexer.pos, start_line, start_column)
+        }
+        | '=' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.Equal, start, lexer.pos, start_line, start_column)
+                }
+                | false => {
+                    next == '>' ?
+                        | true => {
+                            advance(lexer)
+                            return make_token(TokenKind.FatArrow, start, lexer.pos, start_line, start_column)
+                        }
+                        | false => return make_token(TokenKind.Assign, start, lexer.pos, start_line, start_column)
+                }
+        }
+        | '!' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.NotEqual, start, lexer.pos, start_line, start_column)
+                }
+                | false => return make_token(TokenKind.Invalid("Unexpected character '!'"), start, lexer.pos, start_line, start_column)
+        }
+        | '<' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.LessEqual, start, lexer.pos, start_line, start_column)
+                }
+                | false => {
+                    next == '<' ?
+                        | true => {
+                            advance(lexer)
+                            return make_token(TokenKind.LShift, start, lexer.pos, start_line, start_column)
+                        }
+                        | false => return make_token(TokenKind.Less, start, lexer.pos, start_line, start_column)
+                }
+        }
+        | '>' => {
+            next == '=' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.GreaterEqual, start, lexer.pos, start_line, start_column)
+                }
+                | false => {
+                    next == '>' ?
+                        | true => {
+                            advance(lexer)
+                            return make_token(TokenKind.RShift, start, lexer.pos, start_line, start_column)
+                        }
+                        | false => return make_token(TokenKind.Greater, start, lexer.pos, start_line, start_column)
+                }
+        }
+        | ':' => {
+            next == ':' ?
+                | true => {
+                    advance(lexer)
+                    peek(lexer) == '=' ?
+                        | true => {
+                            advance(lexer)
+                            return make_token(TokenKind.ColonColonAssign, start, lexer.pos, start_line, start_column)
+                        }
+                        | false => return make_token(TokenKind.ColonColon, start, lexer.pos, start_line, start_column)
+                }
+                | false => {
+                    next == '=' ?
+                        | true => {
+                            advance(lexer)
+                            return make_token(TokenKind.ColonAssign, start, lexer.pos, start_line, start_column)
+                        }
+                        | false => return make_token(TokenKind.Colon, start, lexer.pos, start_line, start_column)
+                }
+        }
+        | '.' => {
+            next == '.' ?
+                | true => {
+                    advance(lexer)
+                    return make_token(TokenKind.DotDot, start, lexer.pos, start_line, start_column)
+                }
+                | false => return make_token(TokenKind.Dot, start, lexer.pos, start_line, start_column)
+        }
+        | '&' => return make_token(TokenKind.Ampersand, start, lexer.pos, start_line, start_column)
+        | '|' => return make_token(TokenKind.Pipe, start, lexer.pos, start_line, start_column)
+        | '^' => return make_token(TokenKind.Caret, start, lexer.pos, start_line, start_column)
+        | '~' => return make_token(TokenKind.Tilde, start, lexer.pos, start_line, start_column)
+        | '%' => return make_token(TokenKind.Percent, start, lexer.pos, start_line, start_column)
+        | '(' => return make_token(TokenKind.LeftParen, start, lexer.pos, start_line, start_column)
+        | ')' => return make_token(TokenKind.RightParen, start, lexer.pos, start_line, start_column)
+        | '{' => return make_token(TokenKind.LeftBrace, start, lexer.pos, start_line, start_column)
+        | '}' => return make_token(TokenKind.RightBrace, start, lexer.pos, start_line, start_column)
+        | '[' => return make_token(TokenKind.LeftBracket, start, lexer.pos, start_line, start_column)
+        | ']' => return make_token(TokenKind.RightBracket, start, lexer.pos, start_line, start_column)
+        | ';' => return make_token(TokenKind.Semicolon, start, lexer.pos, start_line, start_column)
+        | ',' => return make_token(TokenKind.Comma, start, lexer.pos, start_line, start_column)
+        | '?' => return make_token(TokenKind.Question, start, lexer.pos, start_line, start_column)
+        | '@' => return make_token(TokenKind.At, start, lexer.pos, start_line, start_column)
+        | '$' => return make_token(TokenKind.Dollar, start, lexer.pos, start_line, start_column)
+        | '#' => return make_token(TokenKind.Hash, start, lexer.pos, start_line, start_column)
+        | _ => return make_token(TokenKind.Invalid("Unexpected character"), start, lexer.pos, start_line, start_column)
+}
+
+// Helper to create a token
+make_token = (kind: TokenKind, start: u32, end: u32, line: u32, column: u32) Token {
+    Token{
+        kind: kind,
+        span: Span{ start: start, end: end },
+        line: line,
+        column: column,
+    }
+}
+
+// Tokenize entire source
+tokenize = (lexer: Ptr<Lexer>) Vec<Token> {
+    loop {
+        token := next_token(lexer)
+        lexer.tokens.push(token)
+        
+        token.kind ?
+            | TokenKind.Eof => break
+            | _ => {}
+    }
+    
+    return lexer.tokens
+}
+
+// Helper functions (stubs - would be in string module)
+string_slice = (s: string, start: u32, end: u32) string {
+    // Implementation would extract substring
+    return ""
+}
+
+string_to_i64 = (s: string) i64 {
+    // Implementation would parse integer
+    return 0
+}
+
+string_to_f64 = (s: string) f64 {
+    // Implementation would parse float
+    return 0.0
+}
