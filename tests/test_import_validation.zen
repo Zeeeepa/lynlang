@@ -1,0 +1,67 @@
+// Comprehensive test for import validation
+// This test ensures that imports work at module level and are rejected in comptime blocks
+
+// Module-level imports (CORRECT)
+core := @std.core
+build := @std.build
+io := build.import("io")
+string := @std.string
+vec := @std.vec
+math := @std.math
+
+// Test that comptime blocks work for meta-programming (CORRECT)
+comptime {
+    // This is valid - comptime for meta-programming
+    CONSTANT := 42
+    TABLE_SIZE := 256
+}
+
+// Test function using imports
+test_imports_work = () void {
+    io.print("Testing import system...\n")
+    
+    // Create a vector
+    v := vec.new()
+    v.push(1)
+    v.push(2)
+    v.push(3)
+    
+    // Use string functions
+    s := string.from("Hello")
+    len := string.len(s)
+    
+    // Use math functions
+    result := math.abs(-42)
+    
+    io.print("All imports working correctly!\n")
+}
+
+// Test that we can use imports in struct definitions
+TestStruct = struct {
+    data: vec.Vec<i32>
+    name: string.String
+}
+
+// Test that we can use imports in function parameters
+process_data = (v: vec.Vec<i32>) void {
+    io.print("Processing vector data...\n")
+}
+
+// Main function to run all tests
+main = () i32 {
+    io.print("=== Import Validation Test ===\n")
+    
+    test_imports_work()
+    
+    // Test struct instantiation with imported types
+    test := TestStruct {
+        data: vec.new(),
+        name: string.from("test")
+    }
+    
+    // Test function call with imported types
+    process_data(test.data)
+    
+    io.print("=== All tests passed! ===\n")
+    return 0
+}

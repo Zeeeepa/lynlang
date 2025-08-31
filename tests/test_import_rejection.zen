@@ -1,0 +1,13 @@
+// Test file that should FAIL compilation
+// This tests that imports are properly rejected inside comptime blocks
+
+// This would be INCORRECT and should fail:
+comptime {
+    // The following should trigger a compilation error
+    io := @std.io  // ERROR: Import statements are not allowed inside comptime blocks
+}
+
+main = () i32 {
+    // This won't even compile due to the error above
+    return 1
+}
