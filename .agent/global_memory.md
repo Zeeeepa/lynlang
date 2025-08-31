@@ -41,7 +41,7 @@ Zen is a systems programming language with:
 └── .agent/        # Meta information for AI assistance
 ```
 
-## Current Status
+## Current Status (Updated: 2025-08-31)
 - Import system: ✅ Fully implemented (module-level only, no comptime wrapper)
 - Parser: ✅ Correctly rejects imports in comptime blocks  
 - Semantic analyzer: ✅ Validates imports at module level
@@ -52,8 +52,14 @@ Zen is a systems programming language with:
 - Self-hosted codegen: ✅ Complete implementation
 - Standard library: ✅ Full stdlib in Zen (io, mem, math, string, vec, fs, etc.)
 - LSP syntax checker: ✅ Working implementation with zen-lint.sh
-- Comprehensive tests: ✅ All tests passing
-- Self-hosting: ✅ Infrastructure complete, ready for bootstrap
+- Import validation tests: ⚠️ 3/4 passing (io.print_float not implemented)
+- Self-hosting: ✅ Bootstrap script created, infrastructure ready
+
+## Recent Accomplishments
+- Fixed import system to use module-level imports without comptime wrapper
+- All Zen files now use correct import syntax
+- Comprehensive test coverage for import validation
+- Working LSP/linter implementation (zen-lint.sh)
 
 ## Build Commands
 ```bash
