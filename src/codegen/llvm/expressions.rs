@@ -541,11 +541,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
     
     fn compile_type_cast(&mut self, expr: &Expression, target_type: &crate::ast::AstType) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        use inkwell::values::{IntValue, FloatValue, PointerValue};
+        use inkwell::values::{IntValue, PointerValue};
         use crate::ast::AstType;
         
         let value = self.compile_expression(expr)?;
-        let target_llvm_type = self.to_llvm_type(target_type)?;
+        let _target_llvm_type = self.to_llvm_type(target_type)?;
         
         // Handle pointer casts
         if matches!(target_type, AstType::Pointer(_)) {

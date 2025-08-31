@@ -89,7 +89,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_postfix_expression(&mut self) -> Result<Expression> {
-        let mut expr = self.parse_primary_expression()?;
+        let expr = self.parse_primary_expression()?;
         
         // Pattern matching is now handled in binary expression parsing
         // to get correct precedence
@@ -197,7 +197,7 @@ impl<'a> Parser<'a> {
                 let (name_with_generics, consumed_generics) = if self.current_token == Token::Operator("<".to_string()) {
                     // Try to parse generic type arguments
                     // Save the position in case we need to backtrack
-                    let saved_pos = self.current_span.start;
+                    let _saved_pos = self.current_span.start;
                     
                     // Look ahead to determine if this is really generic syntax
                     if self.looks_like_generic_type_args() {

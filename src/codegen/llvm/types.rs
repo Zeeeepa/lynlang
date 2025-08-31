@@ -110,7 +110,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 };
                 
                 // Return a pointer to the function type
-                Ok(Type::Basic(function_type.ptr_type(AddressSpace::default()).into()))
+                Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
             },
             AstType::Enum { name, variants: _ } => {
                 // Look up the registered enum type

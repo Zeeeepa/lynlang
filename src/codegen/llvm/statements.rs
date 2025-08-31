@@ -18,8 +18,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Debug: Check if we're returning the right type
                 if let Some(func) = self.current_function {
                     let expected_ret_type = func.get_type().get_return_type();
-                    if let Some(expected) = expected_ret_type {
-                        let actual_type = value.get_type();
+                    if let Some(_expected) = expected_ret_type {
+                        let _actual_type = value.get_type();
                         // This will help us debug type mismatches
                     }
                 }
@@ -348,7 +348,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             }
                             // Handle regular struct (non-pointer)
-                            else if let AstType::Struct { name: struct_name, .. } = &var_type {
+                            else if let AstType::Struct { name: _struct_name, .. } = &var_type {
                                 // Use existing struct field assignment logic
                                 let val = self.compile_expression(&value)?;
                                 self.compile_struct_field_assignment(alloca, member, val)?;
