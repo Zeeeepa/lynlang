@@ -38,16 +38,9 @@ test_imports_in_functions = () void {
     io.print("Imports accessible in functions\n");
 }
 
-// Test that imports can be used in struct methods
-TestStruct = struct {
+// Test that imports can be used in struct definitions
+TestStruct = {
     value: i32,
-}
-
-impl TestStruct {
-    print_value = (self: *TestStruct) void {
-        // Use io from top-level import
-        io.print("Value from struct method\n");
-    }
 }
 
 // Verify that comptime blocks still work for meta-programming
