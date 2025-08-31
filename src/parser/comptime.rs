@@ -23,25 +23,25 @@ impl<'a> Parser<'a> {
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
             // Check for import attempts inside comptime block
             if let Token::Identifier(id) = &self.current_token {
-                if self.peek_token == Token::Symbol(':') {
+                if self.peek_token == Token::Operator(":=".to_string()) {
                     // Look ahead to check for := @std pattern
                     let saved_current = self.current_token.clone();
                     let saved_peek = self.peek_token.clone();
                     let saved_span = self.current_span.clone();
+                    let saved_lex_pos = self.lexer.position;
+                    let saved_lex_read = self.lexer.read_position;
+                    let saved_lex_char = self.lexer.current_char;
                     
-                    self.next_token(); // move to :
-                    if self.current_token == Token::Symbol(':') && self.peek_token == Token::Symbol('=') {
-                        self.next_token(); // move to =
-                        self.next_token(); // move past :=
-                        
-                        // Check if it's an import
-                        if let Token::Identifier(import_id) = &self.current_token {
-                            if import_id.starts_with("@std") || import_id == "build" {
-                                return Err(CompileError::SyntaxError(
-                                    "Imports are not allowed inside comptime blocks. Move imports to module level".to_string(),
-                                    Some(saved_span),
-                                ));
-                            }
+                    self.next_token(); // move to :=
+                    self.next_token(); // move past :=
+                    
+                    // Check if it's an import
+                    if let Token::Identifier(import_id) = &self.current_token {
+                        if import_id.starts_with("@std") || import_id.starts_with("@compiler") || import_id == "build" {
+                            return Err(CompileError::SyntaxError(
+                                "Imports are not allowed inside comptime blocks. Move imports to module level.".to_string(),
+                                Some(saved_span),
+                            ));
                         }
                     }
                     
@@ -49,6 +49,9 @@ impl<'a> Parser<'a> {
                     self.current_token = saved_current;
                     self.peek_token = saved_peek;
                     self.current_span = saved_span;
+                    self.lexer.position = saved_lex_pos;
+                    self.lexer.read_position = saved_lex_read;
+                    self.lexer.current_char = saved_lex_char;
                 }
             }
             
