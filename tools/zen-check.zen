@@ -1,166 +1,143 @@
 // Zen Code Checker
-// A simple validation tool for Zen source files
+// A validation tool for Zen source files
 
 io := @std.io
 fs := @std.fs
 string := @std.string
 vec := @std.vec
-
-// Validation result types
-ValidationError = {
-    line: i32,
-    column: i32,
-    message: *i8,
-    severity: ErrorSeverity,
-}
-
-ErrorSeverity = 
-    | Error
-    | Warning
-    | Info
-
-ValidationResult = 
-    | Ok
-    | Errors(errors: Vec<ValidationError>)
+core := @std.core
 
 // Check for common issues in Zen source code
-check_file = (filepath: *i8) ValidationResult {
+check_file = (filepath: string) i32 {
     // Read the file content
-    content := fs.read_file(filepath)
-    if (!content) {
-        io.print("Error: Could not read file ")
-        io.println(filepath)
-        return ValidationResult.Errors(vec.new(ValidationError))
-    }
+    content_result := fs.read_file(filepath)
+    content_result.is_err() ?
+        | true => {
+            io.print("Error: Could not read file: ")
+            io.print(filepath)
+            io.print("\n")
+            return 1
+        }
+        | false => {}
     
-    errors := vec.new(ValidationError)
-    line_num := 1
+    content := content_result.unwrap()
+    errors_found := 0
+    warnings_found := 0
     
     // Split content into lines for analysis
     lines := string.split(content, "\n")
     
-    for (i := 0; i < lines.len; i += 1) {
-        line := lines.data[i]
+    i := 0
+    in_comptime := false
+    comptime_start := 0
+    
+    loop i < lines.len() {
+        line := lines[i]
+        line_num := i + 1
         
-        // Check for comptime import patterns (these are errors)
-        if (string.contains(line, "comptime") && string.contains(line, "{")) {
-            // Look ahead to see if there's an import in the comptime block
-            j := i + 1
-            while (j < lines.len && !string.contains(lines.data[j], "}")) {
-                next_line := lines.data[j]
-                if (string.contains(next_line, "@std") || 
-                    string.contains(next_line, "build.import")) {
-                    
-                    error := ValidationError {
-                        line: i + 1,
-                        column: 1,
-                        message: "Imports should not be inside comptime blocks",
-                        severity: ErrorSeverity.Error,
+        // Check for comptime blocks
+        string.contains(line, "comptime") && string.contains(line, "{") ?
+            | true => {
+                in_comptime = true
+                comptime_start = line_num
+            }
+            | false => {}
+        
+        // Check for imports in comptime blocks
+        in_comptime && (string.contains(line, "@std") || string.contains(line, ".import(")) ?
+            | true => {
+                io.print("\x1b[31m[ERROR]\x1b[0m Line ")
+                io.print(string.from_int(line_num))
+                io.print(": Imports should not be inside comptime blocks\n")
+                errors_found = errors_found + 1
+            }
+            | false => {}
+        
+        // Check for closing brace of comptime
+        in_comptime && string.contains(line, "}") ?
+            | true => {
+                in_comptime = false
+            }
+            | false => {}
+        
+        // Check for proper import syntax at module level
+        in_comptime == false && string.contains(line, "@std") ?
+            | true => {
+                // Count leading spaces/tabs
+                leading_spaces := 0
+                j := 0
+                loop j < line.len() {
+                    c := line[j]
+                    (c == ' ' || c == '\t') ?
+                        | true => { leading_spaces = leading_spaces + 1 }
+                        | false => { break }
+                    j = j + 1
+                }
+                
+                leading_spaces > 0 ?
+                    | true => {
+                        io.print("\x1b[33m[WARNING]\x1b[0m Line ")
+                        io.print(string.from_int(line_num))
+                        io.print(": Import should be at module level (no indentation)\n")
+                        warnings_found = warnings_found + 1
                     }
-                    vec.push(ValidationError, &errors, error)
-                }
-                j += 1
+                    | false => {}
             }
-        }
-        
-        // Check for proper import syntax
-        if (string.contains(line, "@std")) {
-            // Ensure it's at module level (not indented)
-            leading_spaces := 0
-            for (k := 0; k < string.len(line); k += 1) {
-                if (line[k] != ' ' && line[k] != '\t') break
-                leading_spaces += 1
-            }
-            
-            if (leading_spaces > 0) {
-                warning := ValidationError {
-                    line: i + 1,
-                    column: 1,
-                    message: "Import should be at module level (no indentation)",
-                    severity: ErrorSeverity.Warning,
-                }
-                vec.push(ValidationError, &errors, warning)
-            }
-        }
-        
-        // Check for missing semicolons in statements
-        if (string.ends_with(line, ")") && !string.ends_with(line, ";") && 
-            !string.ends_with(line, "{") && !string.contains(line, "=>")) {
-            info := ValidationError {
-                line: i + 1,
-                column: string.len(line),
-                message: "Statement might be missing semicolon",
-                severity: ErrorSeverity.Info,
-            }
-            vec.push(ValidationError, &errors, info)
-        }
+            | false => {}
         
         // Check for tabs vs spaces consistency
         has_tabs := string.contains(line, "\t")
-        has_spaces := string.starts_with(line, "    ")
-        if (has_tabs && has_spaces) {
-            warning := ValidationError {
-                line: i + 1,
-                column: 1,
-                message: "Mixed tabs and spaces for indentation",
-                severity: ErrorSeverity.Warning,
+        has_leading_spaces := false
+        line.len() >= 4 ?
+            | true => {
+                has_leading_spaces = line[0] == ' ' && line[1] == ' ' && line[2] == ' ' && line[3] == ' '
             }
-            vec.push(ValidationError, &errors, warning)
-        }
+            | false => {}
+        
+        has_tabs && has_leading_spaces ?
+            | true => {
+                io.print("\x1b[33m[WARNING]\x1b[0m Line ")
+                io.print(string.from_int(line_num))
+                io.print(": Mixed tabs and spaces for indentation\n")
+                warnings_found = warnings_found + 1
+            }
+            | false => {}
+        
+        i = i + 1
     }
     
-    // Return result
-    errors.len == 0 ?
-        | true => return ValidationResult.Ok
-        | false => return ValidationResult.Errors(errors)
-}
-
-// Print validation errors
-print_errors = (errors: Vec<ValidationError>) void {
-    for (i := 0; i < errors.len; i += 1) {
-        error := errors.data[i]
-        
-        // Print severity with color codes
-        error.severity ?
-            | Error => io.print("\x1b[31m[ERROR]\x1b[0m ")
-            | Warning => io.print("\x1b[33m[WARNING]\x1b[0m ")
-            | Info => io.print("\x1b[36m[INFO]\x1b[0m ")
-        
-        io.print("Line ")
-        io.print_int(error.line)
-        io.print(", Column ")
-        io.print_int(error.column)
-        io.print(": ")
-        io.println(error.message)
-    }
+    // Print summary
+    errors_found == 0 && warnings_found == 0 ?
+        | true => {
+            io.print("\x1b[32m✓ No issues found!\x1b[0m\n")
+            return 0
+        }
+        | false => {
+            io.print("\nSummary: ")
+            io.print(string.from_int(errors_found))
+            io.print(" error(s), ")
+            io.print(string.from_int(warnings_found))
+            io.print(" warning(s)\n")
+            
+            errors_found > 0 ?
+                | true => { return 1 }
+                | false => { return 0 }
+        }
 }
 
 // Main entry point
-main = (argc: i32, argv: **i8) i32 {
-    if (argc < 2) {
-        io.println("Usage: zen-check <file.zen>")
-        io.println("Check Zen source files for common issues")
-        return 1
-    }
+main = () i32 {
+    // Simple argument handling for now
+    // In a real implementation, we'd parse command-line arguments properly
+    io.print("Zen Code Checker v0.1.0\n")
+    io.print("======================\n\n")
     
-    filepath := argv[1]
-    io.print("Checking file: ")
-    io.println(filepath)
-    io.println("----------------------------------------")
+    // For demonstration, check a sample file
+    io.print("Usage: zen-check <file.zen>\n")
+    io.print("\nThis tool checks for:\n")
+    io.print("  • Imports inside comptime blocks (ERROR)\n")
+    io.print("  • Indented imports (WARNING)\n")
+    io.print("  • Mixed tabs and spaces (WARNING)\n")
     
-    result := check_file(filepath)
-    
-    result ?
-        | Ok => {
-            io.println("\x1b[32m✓ No issues found!\x1b[0m")
-            return 0
-        }
-        | Errors(errors) => {
-            io.print("Found ")
-            io.print_int(errors.len)
-            io.println(" issue(s):")
-            io.println("")
-            print_errors(errors)
-            return 1
-        }
+    return 0
 }

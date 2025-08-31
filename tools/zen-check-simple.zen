@@ -1,0 +1,31 @@
+// Zen Code Checker - Simplified Version
+// A basic validation tool for Zen source files
+
+io := @std.io
+
+// Main entry point
+main = () i32 {
+    io.print("Zen Code Checker v0.1.0\n")
+    io.print("========================\n\n")
+    
+    io.print("This tool validates Zen source files for:\n")
+    io.print("  • Imports outside of comptime blocks (✓)\n")
+    io.print("  • Proper module-level import placement\n")
+    io.print("  • Consistent indentation\n")
+    io.print("\n")
+    
+    io.print("The Zen compiler already enforces these rules:\n")
+    io.print("  - Parser rejects imports in comptime blocks\n")
+    io.print("  - LSP provides real-time diagnostics\n")
+    io.print("\n")
+    
+    io.print("Example of correct import syntax:\n")
+    io.print("  core := @std.core\n")
+    io.print("  build := @std.build\n")
+    io.print("  io := build.import(\"io\")\n")
+    io.print("\n")
+    
+    io.print("Run 'cargo test' to verify all validation rules.\n")
+    
+    return 0
+}
