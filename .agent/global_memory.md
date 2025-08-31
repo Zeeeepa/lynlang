@@ -41,31 +41,31 @@ Zen is a systems programming language with:
 └── .agent/        # Meta information for AI assistance
 ```
 
-## Current Status (Updated: 2025-08-31 - Latest)
+## Current Status (Updated: 2025-08-31 - v2)
 - Import system: ✅ Fully implemented (module-level only, no comptime wrapper)
 - Parser: ✅ Correctly rejects imports in comptime blocks  
 - Semantic analyzer: ✅ Validates imports at module level
 - LLVM codegen: ✅ Generates code correctly
+- Struct pointer field access: ✅ Fixed - proper type handling for pointer to struct
+- Function return type inference: ✅ Fixed - correctly infers types from function calls
+- Function argument coercion: ✅ Fixed - auto-casts integer arguments to match parameters
+- Pointer loading: ✅ Fixed - correctly loads pointer values when used as identifiers
 - Self-hosted lexer: ✅ Complete implementation with all tokens
 - Self-hosted parser: ✅ Complete implementation
 - Self-hosted type checker: ✅ Complete implementation
 - Self-hosted codegen: ✅ Complete implementation
 - Standard library: ✅ Full stdlib in Zen (io, mem, math, string, vec, fs, etc.)
 - LSP syntax checker: ✅ Working implementation with zen-lint.sh
-- Import validation tests: ⚠️ 3/4 passing (io.print_float not implemented)
+- Test status: ✅ 9/10 language feature tests passing (nested pattern matching needs fix)
 - Self-hosting: ✅ Bootstrap script created, infrastructure ready
 
-## Recent Accomplishments (2025-08-31)
-- Fixed import system to use module-level imports without comptime wrapper
-- All Zen files now use correct import syntax
-- Created enhanced linter with multiple output formats (GitHub Actions compatible)
-- Implemented comprehensive integration tests
-- Created bootstrap script for self-hosting
-- Documented complete self-hosting process
-- Working LSP/linter implementation (zen-lint.sh and zen-lint-enhanced.sh)
-- Added io.print_int and io.print_float function support to compiler
-- Fixed struct field assignment through pointers (p.x = value)
-- Improved Generic type handling for struct types
+## Recent Accomplishments (2025-08-31 - Session 2)
+- Fixed struct pointer field access (result.quotient where result is *DivModResult)
+- Fixed type inference for function call results (correct type from function return)
+- Fixed pointer loading in compile_identifier (loads pointer values correctly)
+- Added automatic type coercion for function arguments (i32 to i64 casting)
+- Improved Generic type handling for struct field access
+- 9 out of 10 language feature tests now passing
 
 ## Build Commands
 ```bash

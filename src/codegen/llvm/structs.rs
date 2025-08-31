@@ -73,9 +73,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
             if let Some((alloca, var_type)) = self.variables.get(name) {
                 // Handle pointer to struct (p.x where p is *Point)
                 if let AstType::Pointer(inner_type) = var_type {
-                    if let AstType::Struct { name: struct_name, .. } = &**inner_type {
+                    // Check if it's a struct or a generic type that represents a struct
+                    let struct_name = match &**inner_type {
+                        AstType::Struct { name, .. } => Some(name.clone()),
+                        AstType::Generic { name, .. } => {
+                            // Check if this generic is actually a registered struct type
+                            if self.struct_types.contains_key(name) {
+                                Some(name.clone())
+                            } else {
+                                None
+                            }
+                        },
+                        _ => None
+                    };
+                    
+                    if let Some(struct_name) = struct_name {
                         // Get struct type info
-                        let struct_info = self.struct_types.get(struct_name)
+                        let struct_info = self.struct_types.get(&struct_name)
                             .ok_or_else(|| CompileError::TypeError(
                                 format!("Struct type '{}' not found", struct_name),
                                 None
@@ -131,9 +145,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 
                 // Handle regular struct (non-pointer)
-                if let AstType::Struct { name: struct_name, .. } = var_type {
+                let struct_name = match var_type {
+                    AstType::Struct { name, .. } => Some(name.clone()),
+                    AstType::Generic { name, .. } => {
+                        // Check if this generic is actually a registered struct type
+                        if self.struct_types.contains_key(name) {
+                            Some(name.clone())
+                        } else {
+                            None
+                        }
+                    },
+                    _ => None
+                };
+                
+                if let Some(struct_name) = struct_name {
                     // Get struct type info
-                    let struct_info = self.struct_types.get(struct_name)
+                    let struct_info = self.struct_types.get(&struct_name)
                         .ok_or_else(|| CompileError::TypeError(
                             format!("Struct type '{}' not found", struct_name),
                             None
@@ -257,8 +284,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         
         // For any other expression type, we need to:
-        // 1. Compile the expression to get a struct value
-        // 2. Store it in a temporary alloca  
+        // 1. Compile the expression to get a struct value or pointer
+        // 2. If it's a value, store it in a temporary alloca  
         // 3. Access the field from there
         
         // First compile the struct expression
@@ -290,14 +317,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
             (struct_info.llvm_type, field_index, field_type)
         };
         
-        // Create a temporary alloca to store the struct
-        let temp_alloca = self.builder.build_alloca(
-            llvm_type,
-            &format!("temp_struct_{}", struct_name)
-        )?;
-        
-        // Store the struct value
-        self.builder.build_store(temp_alloca, struct_val)?;
+        // Determine if we have a pointer or a value
+        let struct_ptr = if struct_val.is_pointer_value() {
+            // It's already a pointer, use it directly
+            struct_val.into_pointer_value()
+        } else {
+            // It's a value, store it in a temporary alloca
+            let temp_alloca = self.builder.build_alloca(
+                llvm_type,
+                &format!("temp_struct_{}", struct_name)
+            )?;
+            self.builder.build_store(temp_alloca, struct_val)?;
+            temp_alloca
+        };
         
         // Build GEP to access the field
         let indices = vec![
@@ -308,7 +340,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let field_ptr = unsafe {
             self.builder.build_gep(
                 llvm_type,
-                temp_alloca,
+                struct_ptr,
                 &indices,
                 &format!("field_{}_ptr", field)
             )?
