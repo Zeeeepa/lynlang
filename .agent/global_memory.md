@@ -41,7 +41,7 @@ Zen is a systems programming language with:
 └── .agent/        # Meta information for AI assistance
 ```
 
-## Current Status (Updated: 2025-08-31)
+## Current Status (Updated: 2025-08-31 - Latest)
 - Import system: ✅ Fully implemented (module-level only, no comptime wrapper)
 - Parser: ✅ Correctly rejects imports in comptime blocks  
 - Semantic analyzer: ✅ Validates imports at module level
@@ -63,6 +63,9 @@ Zen is a systems programming language with:
 - Created bootstrap script for self-hosting
 - Documented complete self-hosting process
 - Working LSP/linter implementation (zen-lint.sh and zen-lint-enhanced.sh)
+- Added io.print_int and io.print_float function support to compiler
+- Fixed struct field assignment through pointers (p.x = value)
+- Improved Generic type handling for struct types
 
 ## Build Commands
 ```bash
