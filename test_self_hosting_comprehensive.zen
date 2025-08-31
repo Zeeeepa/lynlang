@@ -1,0 +1,245 @@
+// Comprehensive self-hosting test
+// Tests that Zen can compile non-trivial programs using stdlib
+
+io := @std.io
+core := @std.core
+math := @std.math
+
+// Test data structure
+TestResult = {
+    name: *i8,
+    passed: bool,
+    message: *i8,
+}
+
+// Run a test and report result
+run_test = (name: *i8, condition: bool) void {
+    io.print("  ")
+    io.print(name)
+    io.print(": ")
+    
+    condition ?
+        | true => io.print("✓ PASS\n")
+        | false => io.print("✗ FAIL\n")
+}
+
+// Test basic arithmetic operations
+test_arithmetic = () bool {
+    // Test addition
+    sum := 10 + 20
+    test1 := sum == 30
+    
+    // Test subtraction
+    diff := 50 - 15
+    test2 := diff == 35
+    
+    // Test multiplication
+    product := 7 * 6
+    test3 := product == 42
+    
+    // Test division
+    quotient := 100 / 4
+    test4 := quotient == 25
+    
+    // Return true only if all tests pass
+    return test1 && test2 && test3 && test4
+}
+
+// Test control flow structures
+test_control_flow = () bool {
+    // Test loop
+    count := 0
+    i := 0
+    loop (i < 10) {
+        count = count + 1
+        i = i + 1
+    }
+    count == 10 ?
+        | false => return false
+        | true => {}
+    
+    // Test nested loops
+    total := 0
+    x := 0
+    loop (x < 3) {
+        y := 0
+        loop (y < 4) {
+            total = total + 1
+            y = y + 1
+        }
+        x = x + 1
+    }
+    total == 12 ?
+        | false => return false
+        | true => {}
+    
+    return true
+}
+
+// Test pattern matching
+test_pattern_matching = () bool {
+    value := 42
+    
+    // Test simple pattern
+    result := value > 40 ?
+        | true => 1
+        | false => 0
+    
+    result == 1 ?
+        | false => return false
+        | true => {}
+    
+    // Test chained patterns
+    category := value < 10 ?
+        | true => 0
+        | false => value < 50 ?
+            | true => 1
+            | false => 2
+    
+    category == 1 ?
+        | false => return false
+        | true => {}
+    
+    return true
+}
+
+// Test functions
+factorial = (n: i32) i32 {
+    n <= 1 ?
+        | true => return 1
+        | false => return n * factorial(n - 1)
+}
+
+test_functions = () bool {
+    // Test factorial
+    fact5 := factorial(5)
+    fact5 == 120 ?
+        | false => return false
+        | true => {}
+    
+    // Test core functions
+    min_val := core.min(10, 20)
+    min_val == 10 ?
+        | false => return false
+        | true => {}
+    
+    max_val := core.max(10, 20)
+    max_val == 20 ?
+        | false => return false
+        | true => {}
+    
+    abs_val := core.abs(-42)
+    abs_val == 42 ?
+        | false => return false
+        | true => {}
+    
+    return true
+}
+
+// Test structs
+Point = {
+    x: i32,
+    y: i32,
+}
+
+test_structs = () bool {
+    // Create and use struct
+    p := Point { x: 10, y: 20 }
+    
+    p.x == 10 ?
+        | false => return false
+        | true => {}
+    
+    p.y == 20 ?
+        | false => return false
+        | true => {}
+    
+    // Modify struct fields
+    p.x = 30
+    p.y = 40
+    
+    sum := p.x + p.y
+    sum == 70 ?
+        | false => return false
+        | true => {}
+    
+    return true
+}
+
+// Main test runner
+main = () i32 {
+    io.print("=== Zen Self-Hosting Comprehensive Test ===\n\n")
+    
+    passes := 0
+    failures := 0
+    
+    io.print("Running tests:\n")
+    
+    // Run all tests
+    test_arithmetic() ?
+        | true => {
+            run_test("Arithmetic Operations", true)
+            passes = passes + 1
+        }
+        | false => {
+            run_test("Arithmetic Operations", false)
+            failures = failures + 1
+        }
+    
+    test_control_flow() ?
+        | true => {
+            run_test("Control Flow", true)
+            passes = passes + 1
+        }
+        | false => {
+            run_test("Control Flow", false)
+            failures = failures + 1
+        }
+    
+    test_pattern_matching() ?
+        | true => {
+            run_test("Pattern Matching", true)
+            passes = passes + 1
+        }
+        | false => {
+            run_test("Pattern Matching", false)
+            failures = failures + 1
+        }
+    
+    test_functions() ?
+        | true => {
+            run_test("Functions", true)
+            passes = passes + 1
+        }
+        | false => {
+            run_test("Functions", false)
+            failures = failures + 1
+        }
+    
+    test_structs() ?
+        | true => {
+            run_test("Structs", true)
+            passes = passes + 1
+        }
+        | false => {
+            run_test("Structs", false)
+            failures = failures + 1
+        }
+    
+    io.print("\n")
+    io.print("Results: ")
+    io.print_int(passes)
+    io.print(" passed, ")
+    io.print_int(failures)
+    io.print(" failed\n")
+    
+    failures == 0 ?
+        | true => {
+            io.print("\n✓ All tests passed!\n")
+            return 0
+        }
+        | false => {
+            io.print("\n✗ Some tests failed.\n")
+            return 1
+        }
+}
