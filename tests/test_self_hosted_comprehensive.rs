@@ -131,6 +131,9 @@ fn test_module_level_imports_integration() {
     "#;
     
     let result = compile_zen_module(code);
+    if let Err(e) = &result {
+        eprintln!("Error compiling module-level imports: {:?}", e);
+    }
     assert!(result.is_ok(), "Module-level imports should work");
 }
 
@@ -236,6 +239,9 @@ fn test_mixed_declarations_and_imports() {
     "#;
     
     let result = compile_zen_module(code);
+    if let Err(e) = &result {
+        eprintln!("Error compiling mixed declarations: {:?}", e);
+    }
     assert!(result.is_ok(), "Mixed declarations and imports should work");
 }
 
