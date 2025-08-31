@@ -1,0 +1,102 @@
+name: Zen Language CI
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+    
+    - name: Install LLVM 15
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 15
+        echo "/usr/lib/llvm-15/bin" >> $GITHUB_PATH
+    
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build Rust compiler
+      run: cargo build --release --verbose
+    
+    - name: Run Rust tests
+      run: cargo test --verbose
+    
+    - name: Check code formatting
+      run: cargo fmt -- --check
+      continue-on-error: true
+    
+    - name: Run Clippy lints
+      run: cargo clippy -- -D warnings
+      continue-on-error: true
+    
+    - name: Test hello world example
+      run: ./target/release/zen examples/01_hello_world.zen
+    
+    - name: Run integration tests
+      run: |
+        chmod +x test_integration.sh
+        ./test_integration.sh
+    
+    - name: Test stdlib syntax
+      run: |
+        echo "Checking stdlib import syntax..."
+        ! grep -r "^comptime {" stdlib/ --include="*.zen" | grep "@std"
+    
+    - name: Verify self-hosted components
+      run: |
+        echo "Verifying self-hosted compiler components..."
+        test -f compiler/lexer.zen
+        test -f compiler/parser.zen
+        test -f compiler/codegen.zen
+        test -f tools/zen-compile.zen
+        test -f lsp/server.zen
+        test -f tools/zen-check.zen
+    
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check for TODO comments
+      run: |
+        echo "Checking for TODO comments..."
+        grep -r "TODO\|FIXME\|XXX" . --include="*.zen" --include="*.rs" || true
+    
+    - name: Check file permissions
+      run: |
+        echo "Checking executable permissions..."
+        test -x test_integration.sh || chmod +x test_integration.sh
+        test -x run_tests.sh || chmod +x run_tests.sh
+    
+    - name: Validate markdown
+      uses: DavidAnson/markdownlint-cli2-action@v9
+      with:
+        globs: '**/*.md'
+      continue-on-error: true
