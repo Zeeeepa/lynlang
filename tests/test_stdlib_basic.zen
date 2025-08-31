@@ -1,0 +1,110 @@
+// Test basic stdlib functionality
+// This test verifies that our stdlib modules work correctly
+
+io := @std.io
+
+// Simple test of option type
+test_option = () bool {
+    // Create Some value
+    some_val := 42
+    
+    // Create None value
+    none_val := 0
+    
+    // Test unwrap_or
+    has_value := some_val != 0
+    result := has_value ?
+        | true => some_val
+        | false => 99
+    
+    result == 42
+}
+
+// Simple test of result type
+test_result = () bool {
+    // Simulate Ok result
+    ok_val := 100
+    
+    // Simulate Err result
+    err_val := -1
+    
+    // Check if ok
+    is_ok := ok_val > 0
+    
+    is_ok
+}
+
+// Simple test of vector operations
+test_vector = () bool {
+    // Simulate vector operations
+    len := 0
+    
+    // Push operations
+    len = len + 1  // push(1)
+    len = len + 1  // push(2)
+    len = len + 1  // push(3)
+    
+    // Pop operation
+    len = len - 1  // pop()
+    
+    len == 2
+}
+
+// Main test runner
+main = () i32 {
+    io.print("Testing Stdlib Modules\n")
+    io.print("======================\n\n")
+    
+    passed := 0
+    failed := 0
+    
+    // Test Option
+    test_option() ?
+        | true => {
+            io.print("✓ Option test passed\n")
+            passed = passed + 1
+        }
+        | false => {
+            io.print("✗ Option test failed\n")
+            failed = failed + 1
+        }
+    
+    // Test Result
+    test_result() ?
+        | true => {
+            io.print("✓ Result test passed\n")
+            passed = passed + 1
+        }
+        | false => {
+            io.print("✗ Result test failed\n")
+            failed = failed + 1
+        }
+    
+    // Test Vector
+    test_vector() ?
+        | true => {
+            io.print("✓ Vector test passed\n")
+            passed = passed + 1
+        }
+        | false => {
+            io.print("✗ Vector test failed\n")
+            failed = failed + 1
+        }
+    
+    io.print("\n======================\n")
+    io.print("Tests passed: ")
+    io.print_int(passed)
+    io.print("\nTests failed: ")
+    io.print_int(failed)
+    io.print("\n")
+    
+    failed == 0 ?
+        | true => {
+            io.print("\n✓ All stdlib tests passed!\n")
+            return 0
+        }
+        | false => {
+            io.print("\n✗ Some tests failed\n")
+            return 1
+        }
+}

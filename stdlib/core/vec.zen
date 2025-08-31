@@ -1,0 +1,127 @@
+// Vector implementation in Zen
+// Dynamic array with automatic resizing
+
+// Vector struct
+Vec = <T> struct {
+    data: Ptr<T>
+    len: usize
+    capacity: usize
+}
+
+// Create a new empty vector
+new = <T>() Vec<T> {
+    Vec<T> {
+        data: null_ptr<T>()
+        len: 0
+        capacity: 0
+    }
+}
+
+// Create vector with capacity
+with_capacity = <T>(cap: usize) Vec<T> {
+    data := allocate<T>(cap)
+    Vec<T> {
+        data: data
+        len: 0
+        capacity: cap
+    }
+}
+
+// Push element to vector
+push = <T>(vec: &Vec<T>, value: T) void {
+    // Check if we need to grow
+    if vec.len >= vec.capacity {
+        grow(vec)
+    }
+    
+    // Add element
+    vec.data[vec.len] = value
+    vec.len = vec.len + 1
+}
+
+// Pop element from vector
+pop = <T>(vec: &Vec<T>) Option<T> {
+    vec.len > 0 ?
+        | true => {
+            vec.len = vec.len - 1
+            Option<T>.Some(vec.data[vec.len])
+        }
+        | false => Option<T>.None
+}
+
+// Get element at index
+get = <T>(vec: &Vec<T>, index: usize) Option<T> {
+    index < vec.len ?
+        | true => Option<T>.Some(vec.data[index])
+        | false => Option<T>.None
+}
+
+// Set element at index
+set = <T>(vec: &Vec<T>, index: usize, value: T) bool {
+    index < vec.len ?
+        | true => {
+            vec.data[index] = value
+            true
+        }
+        | false => false
+}
+
+// Get length
+len = <T>(vec: &Vec<T>) usize {
+    vec.len
+}
+
+// Check if empty
+is_empty = <T>(vec: &Vec<T>) bool {
+    vec.len == 0
+}
+
+// Clear vector
+clear = <T>(vec: &Vec<T>) void {
+    vec.len = 0
+}
+
+// Internal: grow vector capacity
+grow = <T>(vec: &Vec<T>) void {
+    new_capacity := vec.capacity == 0 ?
+        | true => 4
+        | false => vec.capacity * 2
+    
+    new_data := allocate<T>(new_capacity)
+    
+    // Copy old data
+    if vec.data != null_ptr<T>() {
+        i := 0
+        loop i < vec.len {
+            new_data[i] = vec.data[i]
+            i = i + 1
+        }
+        deallocate(vec.data)
+    }
+    
+    vec.data = new_data
+    vec.capacity = new_capacity
+}
+
+// Free vector memory
+free = <T>(vec: &Vec<T>) void {
+    if vec.data != null_ptr<T>() {
+        deallocate(vec.data)
+        vec.data = null_ptr<T>()
+        vec.len = 0
+        vec.capacity = 0
+    }
+}
+
+// Helper functions (would be implemented in core)
+null_ptr = <T>() Ptr<T> {
+    @ptr_cast<T>(0)
+}
+
+allocate = <T>(count: usize) Ptr<T> {
+    @allocate(T, count)
+}
+
+deallocate = <T>(ptr: Ptr<T>) void {
+    @deallocate(ptr)
+}
