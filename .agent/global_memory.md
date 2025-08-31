@@ -69,17 +69,20 @@ comptime {
 
 ## Recent Changes (Current Session - 2025-08-31)
 
-1. **Import System Verification**
-   - ✅ Confirmed imports work at module level without comptime
-   - ✅ Verified parser correctly rejects imports inside comptime blocks
+1. **Import System Fixed and Enhanced**
+   - ✅ Parser now properly rejects imports inside comptime blocks
+   - ✅ Added `in_comptime` field to Parser struct to track context
+   - ✅ Updated parse_comptime_block to set/restore comptime state
+   - ✅ Modified parse_builtin_import, parse_import, and parse_module_level_declaration to check comptime state
+   - ✅ Error message: "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only."
    - ✅ All example files use correct import syntax
-   - ✅ All import-related tests passing (68 tests passing)
+   - ✅ Test file `test_comptime_import_error.zen` correctly triggers error
 
 2. **Import Syntax Status**
    - ✅ Module-level imports work: `io := @std.io`
    - ✅ Build imports work: `io := build.import("io")`
-   - ✅ Comptime blocks reject imports with proper error messages
-   - ✅ All tests validate correct behavior
+   - ✅ Comptime blocks properly reject imports with clear error messages
+   - ✅ Normal imports continue to work correctly
 
 3. **Self-Hosting Progress Verified**
    - ✅ Compiler written in Zen (compiler/main.zen)

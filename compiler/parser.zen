@@ -187,6 +187,7 @@ Parser = {
     tokens: Vec<Token>,
     current: u32,
     errors: Vec<ParseError>,
+    in_comptime: bool,  // Track if we're inside a comptime block
 }
 
 // Parse error
@@ -201,6 +202,7 @@ parser_new = (tokens: Vec<Token>) Parser {
         tokens: tokens,
         current: 0,
         errors: vec_new<ParseError>(),
+        in_comptime: false,
     }
 }
 
@@ -1272,7 +1274,14 @@ parse_while_expression = (parser: Ptr<Parser>) AstNode {
 parse_comptime_block = (parser: Ptr<Parser>) AstNode {
     advance(parser)  // consume 'comptime'
     
+    // Save current comptime state and set to true
+    was_in_comptime := parser.in_comptime
+    parser.in_comptime = true
+    
     expr := parse_block_expr(parser)
+    
+    // Restore previous comptime state
+    parser.in_comptime = was_in_comptime
     
     return AstNode.Comptime(ptr_new(expr))
 }
@@ -1533,6 +1542,21 @@ parse_const = (parser: Ptr<Parser>) AstNode {
 }
 
 parse_builtin_import = (parser: Ptr<Parser>) AstNode {
+    // Check if we're inside a comptime block
+    parser.in_comptime ?
+        | true => {
+            add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
+            // Skip the rest of the import to recover
+            loop {
+                token := peek(parser)
+                token.kind ?
+                    | TokenKind.Semicolon | TokenKind.Newline | TokenKind.EOF => break
+                    | _ => advance(parser)
+            }
+            return AstNode.IntLit(0)
+        }
+        | false => {}
+    
     // Parse builtin module path like std.core or compiler.lexer
     path := vec_new<string>()
     
@@ -1587,6 +1611,21 @@ parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
     match token.kind {
         // @std.module pattern
         | TokenKind.At => {
+            // Check if we're inside a comptime block
+            parser.in_comptime ?
+                | true => {
+                    add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
+                    // Skip the rest of the line to recover
+                    loop {
+                        t := peek(parser)
+                        t.kind ?
+                            | TokenKind.Semicolon | TokenKind.Newline | TokenKind.EOF => break
+                            | _ => advance(parser)
+                    }
+                    return AstNode.IntLit(0)
+                }
+                | false => {}
+            
             advance(parser)  // consume '@'
             
             // Parse module path
@@ -1595,6 +1634,21 @@ parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
         }
         // build.import("module") pattern
         | TokenKind.Identifier(id) if id == "build" => {
+            // Check if we're inside a comptime block
+            parser.in_comptime ?
+                | true => {
+                    add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
+                    // Skip the rest of the line to recover
+                    loop {
+                        t := peek(parser)
+                        t.kind ?
+                            | TokenKind.Semicolon | TokenKind.Newline | TokenKind.EOF => break
+                            | _ => advance(parser)
+                    }
+                    return AstNode.IntLit(0)
+                }
+                | false => {}
+            
             advance(parser)  // consume 'build'
             expect(parser, TokenKind.Dot, "Expected '.' after 'build'")
             
@@ -1667,6 +1721,21 @@ parse_module_path = (parser: Ptr<Parser>) string {
 }
 
 parse_import = (parser: Ptr<Parser>) AstNode {
+    // Check if we're inside a comptime block
+    parser.in_comptime ?
+        | true => {
+            add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
+            // Skip the rest of the import to recover
+            loop {
+                token := peek(parser)
+                token.kind ?
+                    | TokenKind.Semicolon | TokenKind.Newline | TokenKind.EOF => break
+                    | _ => advance(parser)
+            }
+            return AstNode.IntLit(0)
+        }
+        | false => {}
+    
     advance(parser)  // consume 'import'
     
     // Parse the import path (string literal expected)
