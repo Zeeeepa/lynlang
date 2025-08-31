@@ -182,8 +182,8 @@ check_document = (doc: *Document) void {
             | true => {
                 diag := Diagnostic{
                     range: Range{
-                        start: Position{line: line_num, character: 0},
-                        end: Position{line: line_num, character: line.len()},
+                        start: Position{line = line_num, character = 0},
+                        end: Position{line = line_num, character = line.len()},
                     },
                     severity: 1,  // Error
                     code: Option<string>.Some("import-in-comptime"),
@@ -206,8 +206,8 @@ check_document = (doc: *Document) void {
                             | true => {
                                 diag := Diagnostic{
                                     range: Range{
-                                        start: Position{line: line_num, character: line.len()},
-                                        end: Position{line: line_num, character: line.len()},
+                                        start: Position{line = line_num, character = line.len()},
+                                        end: Position{line = line_num, character = line.len()},
                                     },
                                     severity: 2,  // Warning
                                     code: Option<string>.Some("missing-semicolon"),
@@ -226,8 +226,8 @@ check_document = (doc: *Document) void {
             | true => {
                 diag := Diagnostic{
                     range: Range{
-                        start: Position{line: line_num, character: 0},
-                        end: Position{line: line_num, character: 1},
+                        start: Position{line = line_num, character = 0},
+                        end: Position{line = line_num, character = 1},
                     },
                     severity: 3,  // Info
                     code: Option<string>.Some("tabs-vs-spaces"),
