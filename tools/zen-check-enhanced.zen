@@ -1,0 +1,283 @@
+// Enhanced Zen Code Checker
+// Advanced validation and linting for Zen source files
+
+io := @std.io
+fs := @std.fs
+string := @std.string
+vec := @std.vec
+core := @std.core
+
+// Error and warning tracking
+CheckResult = {
+    errors: i32,
+    warnings: i32,
+    suggestions: i32,
+}
+
+// Issue severity levels
+Severity = 
+    | Error
+    | Warning
+    | Suggestion
+    | Info
+
+// Report an issue
+report_issue = (severity: Severity, line: i32, message: string) void {
+    // Color codes for terminal output
+    color := severity ?
+        | Severity.Error => "\x1b[31m[ERROR]\x1b[0m"
+        | Severity.Warning => "\x1b[33m[WARNING]\x1b[0m"
+        | Severity.Suggestion => "\x1b[36m[SUGGEST]\x1b[0m"
+        | Severity.Info => "\x1b[34m[INFO]\x1b[0m"
+    
+    io.print(color)
+    io.print(" Line ")
+    io.print_int(line)
+    io.print(": ")
+    io.print(message)
+    io.print("\n")
+}
+
+// Check for import issues
+check_imports = (lines: Vec<string>, result: *CheckResult) void {
+    i := 0
+    in_comptime := false
+    in_function := false
+    brace_depth := 0
+    
+    loop i < lines.len() {
+        line := lines[i]
+        line_num := i + 1
+        trimmed := string.trim(line)
+        
+        // Track context
+        string.contains(line, "comptime") && string.contains(line, "{") ?
+            | true => { in_comptime = true }
+            | false => {}
+        
+        // Track function context
+        string.contains(line, "= (") && string.contains(line, ")") ?
+            | true => { in_function = true }
+            | false => {}
+        
+        // Track brace depth
+        j := 0
+        loop j < line.len() {
+            c := line[j]
+            c == '{' ? | true => { brace_depth = brace_depth + 1 } | false => {}
+            c == '}' ? | true => { 
+                brace_depth = brace_depth - 1
+                brace_depth == 0 ? | true => {
+                    in_comptime = false
+                    in_function = false
+                } | false => {}
+            } | false => {}
+            j = j + 1
+        }
+        
+        // Check for imports in wrong contexts
+        has_import := string.contains(line, "@std") || 
+                     string.contains(line, "@compiler") ||
+                     string.contains(line, ".import(")
+        
+        has_import && in_comptime ?
+            | true => {
+                report_issue(Severity.Error, line_num, 
+                    "Imports must not be inside comptime blocks")
+                result.errors = result.errors + 1
+            }
+            | false => {}
+        
+        has_import && in_function ?
+            | true => {
+                report_issue(Severity.Error, line_num,
+                    "Imports must be at module level, not inside functions")
+                result.errors = result.errors + 1
+            }
+            | false => {}
+        
+        // Check for proper import syntax
+        has_import && !in_comptime && !in_function ?
+            | true => {
+                // Should be: name := @std.module
+                !string.contains(line, ":=") ?
+                    | true => {
+                        report_issue(Severity.Warning, line_num,
+                            "Import should use := syntax (e.g., io := @std.io)")
+                        result.warnings = result.warnings + 1
+                    }
+                    | false => {}
+            }
+            | false => {}
+        
+        i = i + 1
+    }
+}
+
+// Check for syntax patterns
+check_syntax = (lines: Vec<string>, result: *CheckResult) void {
+    i := 0
+    
+    loop i < lines.len() {
+        line := lines[i]
+        line_num := i + 1
+        
+        // Check for if statements (should use pattern matching)
+        string.contains(line, "if (") || string.contains(line, "if(") ?
+            | true => {
+                report_issue(Severity.Suggestion, line_num,
+                    "Consider using pattern matching (? operator) instead of if statements")
+                result.suggestions = result.suggestions + 1
+            }
+            | false => {}
+        
+        // Check for return in pattern branches
+        string.contains(line, "=>") && string.contains(line, "return") ?
+            | true => {
+                report_issue(Severity.Warning, line_num,
+                    "Avoid return statements in pattern branches; use expressions instead")
+                result.warnings = result.warnings + 1
+            }
+            | false => {}
+        
+        // Check for struct definitions inside functions
+        prev_line := i > 0 ? | true => lines[i-1] | false => ""
+        in_function := string.contains(prev_line, "= (") && string.contains(prev_line, ")")
+        
+        in_function && string.contains(line, " = {") && !string.contains(line, ":=") ?
+            | true => {
+                report_issue(Severity.Error, line_num,
+                    "Struct definitions must be at module level, not inside functions")
+                result.errors = result.errors + 1
+            }
+            | false => {}
+        
+        i = i + 1
+    }
+}
+
+// Check for style issues
+check_style = (lines: Vec<string>, result: *CheckResult) void {
+    i := 0
+    has_tabs := false
+    has_spaces := false
+    
+    loop i < lines.len() {
+        line := lines[i]
+        line_num := i + 1
+        
+        // Check indentation consistency
+        string.contains(line, "\t") ?
+            | true => { has_tabs = true }
+            | false => {}
+        
+        line.len() >= 4 ?
+            | true => {
+                (line[0] == ' ' && line[1] == ' ') ?
+                    | true => { has_spaces = true }
+                    | false => {}
+            }
+            | false => {}
+        
+        // Check line length
+        line.len() > 100 ?
+            | true => {
+                report_issue(Severity.Suggestion, line_num,
+                    "Line exceeds 100 characters")
+                result.suggestions = result.suggestions + 1
+            }
+            | false => {}
+        
+        // Check for trailing whitespace
+        line.len() > 0 ?
+            | true => {
+                last_char := line[line.len() - 1]
+                (last_char == ' ' || last_char == '\t') ?
+                    | true => {
+                        report_issue(Severity.Warning, line_num,
+                            "Trailing whitespace detected")
+                        result.warnings = result.warnings + 1
+                    }
+                    | false => {}
+            }
+            | false => {}
+        
+        i = i + 1
+    }
+    
+    // Report mixed indentation
+    has_tabs && has_spaces ?
+        | true => {
+            report_issue(Severity.Warning, 0,
+                "Mixed tabs and spaces for indentation")
+            result.warnings = result.warnings + 1
+        }
+        | false => {}
+}
+
+// Main checker function
+check_file = (filepath: string) i32 {
+    io.print("\n=== Checking: ")
+    io.print(filepath)
+    io.print(" ===\n\n")
+    
+    // Read file
+    content_result := fs.read_file(filepath)
+    content_result.is_err() ?
+        | true => {
+            io.print("Error: Could not read file\n")
+            return 1
+        }
+        | false => {}
+    
+    content := content_result.unwrap()
+    lines := string.split(content, "\n")
+    
+    // Initialize result
+    result := CheckResult {
+        errors: 0,
+        warnings: 0,
+        suggestions: 0,
+    }
+    
+    // Run all checks
+    check_imports(lines, &result)
+    check_syntax(lines, &result)
+    check_style(lines, &result)
+    
+    // Report summary
+    io.print("\n=== Summary ===\n")
+    io.print("Errors: ")
+    io.print_int(result.errors)
+    io.print("\nWarnings: ")
+    io.print_int(result.warnings)
+    io.print("\nSuggestions: ")
+    io.print_int(result.suggestions)
+    io.print("\n\n")
+    
+    // Return exit code based on errors
+    return result.errors > 0 ? | true => 1 | false => 0
+}
+
+// Entry point
+main = () i32 {
+    io.print("Zen Enhanced Code Checker v0.2\n")
+    io.print("================================\n")
+    
+    // In a real implementation, we'd get the filename from args
+    // For now, check our test files
+    exit_code := 0
+    
+    // Check test files
+    result1 := check_file("test_minimal_bootstrap.zen")
+    result1 != 0 ? | true => { exit_code = 1 } | false => {}
+    
+    result2 := check_file("test_working_features.zen")
+    result2 != 0 ? | true => { exit_code = 1 } | false => {}
+    
+    exit_code == 0 ?
+        | true => io.print("✓ All checks passed!\n")
+        | false => io.print("✗ Some checks failed.\n")
+    
+    return exit_code
+}
