@@ -1,0 +1,254 @@
+// Tests for data structure modules (array, queue, stack)
+
+core := @std.core
+test := @std.test_framework
+array := @std.array
+queue := @std.queue
+stack := @std.stack
+io := @std.io
+
+// Array Tests
+test_array_basic = () void {
+    arr := array.new(i32, 10)
+    test.assert(arr.capacity == 10, "Initial capacity should be 10")
+    test.assert(arr.len == 0, "Initial length should be 0")
+    
+    array.push(i32, &arr, 10)
+    array.push(i32, &arr, 20)
+    array.push(i32, &arr, 30)
+    
+    test.assert(arr.len == 3, "Length should be 3")
+    
+    val := array.pop(i32, &arr)
+    test.assert(val == 30, "Popped value should be 30")
+    
+    val = array.get(i32, &arr, 1)
+    test.assert(val == 20, "Get at index 1 should return 20")
+    
+    array.free(i32, &arr)
+}
+
+test_array_operations = () void {
+    arr := array.new(i32, 5)
+    
+    array.push(i32, &arr, 1)
+    array.push(i32, &arr, 2)
+    array.push(i32, &arr, 3)
+    array.push(i32, &arr, 4)
+    
+    array.reverse(i32, &arr)
+    test.assert(array.get(i32, &arr, 0) == 4, "First element after reverse should be 4")
+    
+    index := array.find(i32, &arr, 3)
+    test.assert(index == 1, "Find should return index 1 for value 3")
+    
+    test.assert(array.contains(i32, &arr, 2) == true, "Contains should return true for 2")
+    
+    array.free(i32, &arr)
+}
+
+// Queue Tests
+test_queue_basic = () void {
+    q := queue.new(i32)
+    test.assert(queue.is_empty(i32, &q) == true, "New queue should be empty")
+    test.assert(queue.len(i32, &q) == 0, "New queue should have length 0")
+    
+    queue.enqueue(i32, &q, 10)
+    queue.enqueue(i32, &q, 20)
+    queue.enqueue(i32, &q, 30)
+    
+    test.assert(queue.len(i32, &q) == 3, "Queue should have 3 elements")
+    
+    val := queue.peek(i32, &q)
+    test.assert(val == 10, "Peek should return 10")
+    
+    val = queue.dequeue(i32, &q)
+    test.assert(val == 10, "Dequeue should return 10")
+    test.assert(queue.len(i32, &q) == 2, "Queue should have 2 elements after dequeue")
+    
+    val = queue.dequeue(i32, &q)
+    test.assert(val == 20, "Second dequeue should return 20")
+    
+    val = queue.dequeue(i32, &q)
+    test.assert(val == 30, "Third dequeue should return 30")
+    
+    test.assert(queue.is_empty(i32, &q) == true, "Queue should be empty after all dequeues")
+    
+    queue.free(i32, &q)
+}
+
+test_queue_clone = () void {
+    q := queue.new(i32)
+    
+    queue.enqueue(i32, &q, 1)
+    queue.enqueue(i32, &q, 2)
+    queue.enqueue(i32, &q, 3)
+    
+    clone := queue.clone(i32, &q)
+    
+    test.assert(queue.len(i32, &clone) == 3, "Clone should have 3 elements")
+    
+    val := queue.dequeue(i32, &clone)
+    test.assert(val == 1, "Clone dequeue should return 1")
+    
+    test.assert(queue.len(i32, &q) == 3, "Original queue should still have 3 elements")
+    
+    queue.free(i32, &q)
+    queue.free(i32, &clone)
+}
+
+test_priority_queue = () void {
+    compare = (a: i32, b: i32) i32 {
+        if (a < b) return -1
+        if (a > b) return 1
+        return 0
+    }
+    
+    pq := queue.new_priority(i32, compare)
+    
+    queue.enqueue_priority(i32, &pq, 30, 3)
+    queue.enqueue_priority(i32, &pq, 10, 1)
+    queue.enqueue_priority(i32, &pq, 20, 2)
+    
+    val := queue.dequeue_priority(i32, &pq)
+    test.assert(val == 10, "First dequeue should return highest priority (10)")
+    
+    val = queue.dequeue_priority(i32, &pq)
+    test.assert(val == 20, "Second dequeue should return 20")
+    
+    val = queue.dequeue_priority(i32, &pq)
+    test.assert(val == 30, "Third dequeue should return 30")
+    
+    queue.free_priority(i32, &pq)
+}
+
+// Stack Tests
+test_stack_basic = () void {
+    s := stack.new(i32)
+    test.assert(stack.is_empty(i32, &s) == true, "New stack should be empty")
+    test.assert(stack.len(i32, &s) == 0, "New stack should have length 0")
+    
+    stack.push(i32, &s, 10)
+    stack.push(i32, &s, 20)
+    stack.push(i32, &s, 30)
+    
+    test.assert(stack.len(i32, &s) == 3, "Stack should have 3 elements")
+    
+    val := stack.peek(i32, &s)
+    test.assert(val == 30, "Peek should return 30")
+    
+    val = stack.pop(i32, &s)
+    test.assert(val == 30, "Pop should return 30")
+    test.assert(stack.len(i32, &s) == 2, "Stack should have 2 elements after pop")
+    
+    val = stack.pop(i32, &s)
+    test.assert(val == 20, "Second pop should return 20")
+    
+    val = stack.pop(i32, &s)
+    test.assert(val == 10, "Third pop should return 10")
+    
+    test.assert(stack.is_empty(i32, &s) == true, "Stack should be empty after all pops")
+    
+    stack.free(i32, &s)
+}
+
+test_stack_operations = () void {
+    s := stack.new(i32)
+    
+    stack.push(i32, &s, 10)
+    stack.push(i32, &s, 20)
+    
+    success := stack.dup(i32, &s)
+    test.assert(success == true, "Dup should succeed")
+    test.assert(stack.len(i32, &s) == 3, "Stack should have 3 elements after dup")
+    test.assert(stack.peek(i32, &s) == 20, "Top should still be 20 after dup")
+    
+    stack.pop(i32, &s)  // Remove duplicate
+    
+    success = stack.swap(i32, &s)
+    test.assert(success == true, "Swap should succeed")
+    test.assert(stack.peek(i32, &s) == 10, "Top should be 10 after swap")
+    
+    stack.pop(i32, &s)
+    test.assert(stack.peek(i32, &s) == 20, "Second element should be 20")
+    
+    stack.free(i32, &s)
+}
+
+test_stack_clone = () void {
+    s := stack.new(i32)
+    
+    stack.push(i32, &s, 1)
+    stack.push(i32, &s, 2)
+    stack.push(i32, &s, 3)
+    
+    clone := stack.clone(i32, &s)
+    
+    test.assert(stack.len(i32, &clone) == 3, "Clone should have 3 elements")
+    
+    val := stack.pop(i32, &clone)
+    test.assert(val == 3, "Clone pop should return 3")
+    
+    test.assert(stack.len(i32, &s) == 3, "Original stack should still have 3 elements")
+    
+    stack.free(i32, &s)
+    stack.free(i32, &clone)
+}
+
+test_minmax_stack = () void {
+    compare = (a: i32, b: i32) i32 {
+        if (a < b) return -1
+        if (a > b) return 1
+        return 0
+    }
+    
+    s := stack.new_minmax(i32, compare)
+    
+    stack.push_minmax(i32, &s, 3)
+    stack.push_minmax(i32, &s, 1)
+    stack.push_minmax(i32, &s, 4)
+    stack.push_minmax(i32, &s, 2)
+    
+    min := stack.get_min(i32, &s)
+    test.assert(min == 1, "Min should be 1")
+    
+    max := stack.get_max(i32, &s)
+    test.assert(max == 4, "Max should be 4")
+    
+    stack.pop_minmax(i32, &s)  // Remove 2
+    
+    min = stack.get_min(i32, &s)
+    test.assert(min == 1, "Min should still be 1")
+    
+    stack.pop_minmax(i32, &s)  // Remove 4
+    
+    max = stack.get_max(i32, &s)
+    test.assert(max == 3, "Max should now be 3")
+    
+    stack.free_minmax(i32, &s)
+}
+
+main = () i32 {
+    io.print("Running data structure tests...\n")
+    
+    // Array tests
+    io.print("Testing arrays...\n")
+    test_array_basic()
+    test_array_operations()
+    
+    // Queue tests  
+    io.print("Testing queues...\n")
+    test_queue_basic()
+    test_queue_clone()
+    test_priority_queue()
+    
+    // Stack tests
+    io.print("Testing stacks...\n")
+    test_stack_basic()
+    test_stack_operations()
+    test_stack_clone()
+    test_minmax_stack()
+    
+    io.print("All data structure tests passed!\n")
+    return 0
+}
