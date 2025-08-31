@@ -641,7 +641,5 @@ extern set_panic_handler = (handler: *(string) void) *void
 extern restore_panic_handler = (handler: *void) void
 
 // Test discovery attribute (for compile-time registration)
-comptime {
-    // This would scan for functions marked with @test attribute
-    // and automatically register them
-}
+// Note: Test discovery happens at compile-time through attributes,
+// not through comptime blocks. The compiler handles @test attribute scanning.

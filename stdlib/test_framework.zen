@@ -401,19 +401,20 @@ benchmark_run = (bench:: Ptr<Benchmark>) void {
     io.println("    Max:     $(max) ns")
 }
 
-// Test macro helpers (compile-time)
-comptime {
-    // Register test function
-    test = (name: string, fn: () void) void {
-        // In real implementation, this would register the test
-        // with the test runner at compile time
-    }
-    
-    // Register benchmark
-    bench = (name: string, fn: () void) void {
-        // In real implementation, this would register the benchmark
-        // with the benchmark runner at compile time
-    }
+// Test macro helpers
+// Note: Test and benchmark registration happens via attributes at compile-time,
+// not through comptime blocks. The compiler handles @test and @bench attributes.
+
+// Register test function (compile-time attribute)
+@test
+test_register = (name: string, fn: () void) void {
+    // The compiler processes @test attributes during compilation
+}
+
+// Register benchmark (compile-time attribute)
+@bench
+bench_register = (name: string, fn: () void) void {
+    // The compiler processes @bench attributes during compilation
 }
 
 // Helper to get current time in nanoseconds (stub)

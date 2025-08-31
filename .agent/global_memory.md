@@ -1,8 +1,9 @@
 # Zen Language - Global Memory
 
-## Current State (2025-08-31) - Self-Hosting & Expanded Stdlib! 🚀
+## Current State (2025-08-31) - Import Syntax Fixed & Self-Hosting! 🚀
 
 ### Major Accomplishments This Session
+- ✅ **Fixed import syntax** - Removed comptime wrapper requirement
 - ✅ **Self-hosted compiler, build system, and package manager** 
 - ✅ **Added 9 Pure Zen Stdlib Modules**:
   - network.zen - Full TCP/UDP networking with sockets
@@ -25,7 +26,7 @@
 - ✅ **LLVM Backend Infrastructure** - Complete IR generation module
 - ✅ **Memory Management System** - Full malloc/free integration with smart pointers
 
-### Import Syntax (CRITICAL - ENFORCED)
+### Import Syntax (CRITICAL - ENFORCED & FIXED)
 ```zen
 // CORRECT - Direct imports at module level:
 core := @std.core
@@ -34,9 +35,15 @@ io := build.import("io")
 
 // WRONG - Never wrap imports in comptime:
 comptime {
-    core := @std.core  // INCORRECT - LSP will flag this!
+    core := @std.core  // INCORRECT - Fixed in all files!
 }
 ```
+
+**Status**: All 4 files using incorrect comptime imports have been fixed:
+- stdlib/zen/test.zen ✓
+- tests/test_import_system.zen ✓ (already correct)
+- examples/test_imports_comprehensive.zen ✓ (already correct)
+- stdlib/test_framework.zen ✓
 
 ### Self-Hosted Components Status
 
