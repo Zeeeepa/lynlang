@@ -1,0 +1,6 @@
+io := build.import("io") 
+
+main = () i32 {
+    io.print("Testing\n")
+    return 42
+}
