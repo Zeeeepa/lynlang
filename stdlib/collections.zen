@@ -1,609 +1,438 @@
-// Zen Standard Library: Collections Module
-// Advanced data structures
+// Zen Standard Library - Collections Module
+// Advanced data structures and collections
 
 core := @std.core
-mem := @std.mem
+build := @std.build
+memory := build.import("memory")
 
-// ============================================================================
-// Stack (LIFO)
-// ============================================================================
-
-Stack<T> = {
-    data: *T,
-    top: i64,
-    capacity: i64,
+// Dynamic array (vector) implementation
+Vector := struct {
+    data: []T
+    len: usize
+    capacity: usize
 }
 
-stack_new<T> = () Stack<T> {
-    return Stack<T> {
-        data: 0,
-        top: -1,
-        capacity: 0,
+// Create new vector
+Vector.new = () Vector {
+    return Vector{
+        data: make([]T, 16),
+        len: 0,
+        capacity: 16
     }
 }
 
-stack_with_capacity<T> = (capacity: i64) core.Result<Stack<T>, core.Error> {
-    capacity <= 0 ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Capacity must be positive"))
-    } | false => {}
-    
-    data := core.malloc(capacity * sizeof(T))
-    data == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
-    } | false => {}
-    
-    return core.Result::Ok(Stack<T> {
-        data: data,
-        top: -1,
-        capacity: capacity,
-    })
-}
-
-stack_push<T> = (stack: *Stack<T>, value: T) core.Result<void, core.Error> {
-    // Check if full
-    stack.top >= stack.capacity - 1 ? | true => {
-        // Need to grow
-        new_capacity := stack.capacity == 0 ? | true => 8
-                                            | false => stack.capacity * 2
-        
-        new_data := core.malloc(new_capacity * sizeof(T))
-        new_data == 0 ? | true => {
-            return core.Result::Err(core.Error::OutOfMemory)
-        } | false => {}
-        
-        // Copy existing data
-        stack.capacity > 0 ? | true => {
-            core.memcpy(new_data, stack.data, (stack.top + 1) * sizeof(T))
-            core.free(stack.data)
-        } | false => {}
-        
-        stack.data = new_data
-        stack.capacity = new_capacity
-    } | false => {}
-    
-    stack.top = stack.top + 1
-    stack.data[stack.top] = value
-    return core.Result::Ok({})
-}
-
-stack_pop<T> = (stack: *Stack<T>) core.Option<T> {
-    stack.top < 0 ? | true => return core.Option::None
-                   | false => {}
-    
-    value := stack.data[stack.top]
-    stack.top = stack.top - 1
-    return core.Option::Some(value)
-}
-
-stack_peek<T> = (stack: *Stack<T>) core.Option<T> {
-    stack.top < 0 ? | true => return core.Option::None
-                   | false => return core.Option::Some(stack.data[stack.top])
-}
-
-stack_is_empty<T> = (stack: *Stack<T>) bool {
-    return stack.top < 0
-}
-
-stack_size<T> = (stack: *Stack<T>) i64 {
-    return stack.top + 1
-}
-
-stack_clear<T> = (stack: *Stack<T>) void {
-    stack.top = -1
-}
-
-stack_free<T> = (stack: *Stack<T>) void {
-    stack.data != 0 ? | true => {
-        core.free(stack.data)
-    } | false => {}
-    
-    stack.data = 0
-    stack.top = -1
-    stack.capacity = 0
-}
-
-// ============================================================================
-// Queue (FIFO)
-// ============================================================================
-
-Queue<T> = {
-    data: *T,
-    front: i64,
-    rear: i64,
-    size: i64,
-    capacity: i64,
-}
-
-queue_new<T> = () Queue<T> {
-    return Queue<T> {
-        data: 0,
-        front: 0,
-        rear: -1,
-        size: 0,
-        capacity: 0,
+// Create vector with initial capacity
+Vector.with_capacity = (cap: usize) Vector {
+    return Vector{
+        data: make([]T, cap),
+        len: 0,
+        capacity: cap
     }
 }
 
-queue_with_capacity<T> = (capacity: i64) core.Result<Queue<T>, core.Error> {
-    capacity <= 0 ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Capacity must be positive"))
-    } | false => {}
+// Push element to vector
+Vector.push = (self: &Vector, value: T) void {
+    if (self.len >= self.capacity) {
+        self.grow()
+    }
+    self.data[self.len] = value
+    self.len = self.len + 1
+}
+
+// Pop element from vector
+Vector.pop = (self: &Vector) ?T {
+    if (self.len == 0) {
+        return null
+    }
+    self.len = self.len - 1
+    return self.data[self.len]
+}
+
+// Get element at index
+Vector.get = (self: &Vector, index: usize) ?T {
+    if (index >= self.len) {
+        return null
+    }
+    return self.data[index]
+}
+
+// Set element at index
+Vector.set = (self: &Vector, index: usize, value: T) bool {
+    if (index >= self.len) {
+        return false
+    }
+    self.data[index] = value
+    return true
+}
+
+// Insert element at index
+Vector.insert = (self: &Vector, index: usize, value: T) bool {
+    if (index > self.len) {
+        return false
+    }
     
-    data := core.malloc(capacity * sizeof(T))
-    data == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
-    } | false => {}
+    if (self.len >= self.capacity) {
+        self.grow()
+    }
     
-    return core.Result::Ok(Queue<T> {
-        data: data,
-        front: 0,
-        rear: -1,
-        size: 0,
-        capacity: capacity,
-    })
-}
-
-queue_enqueue<T> = (queue: *Queue<T>, value: T) core.Result<void, core.Error> {
-    // Check if full
-    queue.size >= queue.capacity ? | true => {
-        // Need to grow
-        new_capacity := queue.capacity == 0 ? | true => 8
-                                            | false => queue.capacity * 2
-        
-        new_data := core.malloc(new_capacity * sizeof(T))
-        new_data == 0 ? | true => {
-            return core.Result::Err(core.Error::OutOfMemory)
-        } | false => {}
-        
-        // Copy existing data in correct order
-        queue.size > 0 ? | true => {
-            i ::= 0i64
-            loop i < queue.size {
-                idx := (queue.front + i) % queue.capacity
-                new_data[i] = queue.data[idx]
-                i = i + 1
-            }
-            core.free(queue.data)
-            queue.front = 0
-            queue.rear = queue.size - 1
-        } | false => {}
-        
-        queue.data = new_data
-        queue.capacity = new_capacity
-    } | false => {}
+    // Shift elements right
+    i := self.len
+    while (i > index) {
+        self.data[i] = self.data[i - 1]
+        i = i - 1
+    }
     
-    queue.rear = (queue.rear + 1) % queue.capacity
-    queue.data[queue.rear] = value
-    queue.size = queue.size + 1
-    return core.Result::Ok({})
+    self.data[index] = value
+    self.len = self.len + 1
+    return true
 }
 
-queue_dequeue<T> = (queue: *Queue<T>) core.Option<T> {
-    queue.size == 0 ? | true => return core.Option::None
-                     | false => {}
+// Remove element at index
+Vector.remove = (self: &Vector, index: usize) ?T {
+    if (index >= self.len) {
+        return null
+    }
     
-    value := queue.data[queue.front]
-    queue.front = (queue.front + 1) % queue.capacity
-    queue.size = queue.size - 1
+    value := self.data[index]
     
-    // Reset indices when empty
-    queue.size == 0 ? | true => {
-        queue.front = 0
-        queue.rear = -1
-    } | false => {}
+    // Shift elements left
+    i := index
+    while (i < self.len - 1) {
+        self.data[i] = self.data[i + 1]
+        i = i + 1
+    }
     
-    return core.Option::Some(value)
+    self.len = self.len - 1
+    return value
 }
 
-queue_peek<T> = (queue: *Queue<T>) core.Option<T> {
-    queue.size == 0 ? | true => return core.Option::None
-                     | false => return core.Option::Some(queue.data[queue.front])
+// Clear vector
+Vector.clear = (self: &Vector) void {
+    self.len = 0
 }
 
-queue_is_empty<T> = (queue: *Queue<T>) bool {
-    return queue.size == 0
+// Check if vector is empty
+Vector.is_empty = (self: &Vector) bool {
+    return self.len == 0
 }
 
-queue_size<T> = (queue: *Queue<T>) i64 {
-    return queue.size
-}
-
-queue_clear<T> = (queue: *Queue<T>) void {
-    queue.front = 0
-    queue.rear = -1
-    queue.size = 0
-}
-
-queue_free<T> = (queue: *Queue<T>) void {
-    queue.data != 0 ? | true => {
-        core.free(queue.data)
-    } | false => {}
+// Grow vector capacity
+Vector.grow = (self: &Vector) void {
+    new_capacity := self.capacity * 2
+    new_data := make([]T, new_capacity)
     
-    queue.data = 0
-    queue.front = 0
-    queue.rear = -1
-    queue.size = 0
-    queue.capacity = 0
+    // Copy existing data
+    i := 0
+    while (i < self.len) {
+        new_data[i] = self.data[i]
+        i = i + 1
+    }
+    
+    self.data = new_data
+    self.capacity = new_capacity
 }
 
-// ============================================================================
-// Deque (Double-ended queue)
-// ============================================================================
-
-Deque<T> = {
-    data: *T,
-    front: i64,
-    rear: i64,
-    size: i64,
-    capacity: i64,
+// Linked list node
+ListNode := struct {
+    value: T
+    next: ?&ListNode
 }
 
-deque_new<T> = () Deque<T> {
-    return Deque<T> {
-        data: 0,
-        front: 0,
-        rear: 0,
-        size: 0,
-        capacity: 0,
+// Linked list implementation
+LinkedList := struct {
+    head: ?&ListNode
+    tail: ?&ListNode
+    len: usize
+}
+
+// Create new linked list
+LinkedList.new = () LinkedList {
+    return LinkedList{
+        head: null,
+        tail: null,
+        len: 0
     }
 }
 
-deque_push_front<T> = (deque: *Deque<T>, value: T) core.Result<void, core.Error> {
-    // Ensure capacity
-    deque.size >= deque.capacity ? | true => {
-        result := deque_grow(deque)
-        result ? | .Err -> e => return core.Result::Err(e)
-                | .Ok -> _ => {}
-    } | false => {}
-    
-    deque.size == 0 ? | true => {
-        deque.data[deque.front] = value
-    } | false => {
-        deque.front = (deque.front - 1 + deque.capacity) % deque.capacity
-        deque.data[deque.front] = value
-    }
-    
-    deque.size = deque.size + 1
-    return core.Result::Ok({})
-}
-
-deque_push_back<T> = (deque: *Deque<T>, value: T) core.Result<void, core.Error> {
-    // Ensure capacity
-    deque.size >= deque.capacity ? | true => {
-        result := deque_grow(deque)
-        result ? | .Err -> e => return core.Result::Err(e)
-                | .Ok -> _ => {}
-    } | false => {}
-    
-    deque.size == 0 ? | true => {
-        deque.data[deque.rear] = value
-    } | false => {
-        deque.rear = (deque.rear + 1) % deque.capacity
-        deque.data[deque.rear] = value
-    }
-    
-    deque.size = deque.size + 1
-    return core.Result::Ok({})
-}
-
-deque_pop_front<T> = (deque: *Deque<T>) core.Option<T> {
-    deque.size == 0 ? | true => return core.Option::None
-                     | false => {}
-    
-    value := deque.data[deque.front]
-    
-    deque.size > 1 ? | true => {
-        deque.front = (deque.front + 1) % deque.capacity
-    } | false => {}
-    
-    deque.size = deque.size - 1
-    return core.Option::Some(value)
-}
-
-deque_pop_back<T> = (deque: *Deque<T>) core.Option<T> {
-    deque.size == 0 ? | true => return core.Option::None
-                     | false => {}
-    
-    value := deque.data[deque.rear]
-    
-    deque.size > 1 ? | true => {
-        deque.rear = (deque.rear - 1 + deque.capacity) % deque.capacity
-    } | false => {}
-    
-    deque.size = deque.size - 1
-    return core.Option::Some(value)
-}
-
-deque_grow<T> = (deque: *Deque<T>) core.Result<void, core.Error> {
-    new_capacity := deque.capacity == 0 ? | true => 8
-                                        | false => deque.capacity * 2
-    
-    new_data := core.malloc(new_capacity * sizeof(T))
-    new_data == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
-    } | false => {}
-    
-    // Copy existing data in order
-    deque.size > 0 ? | true => {
-        i ::= 0i64
-        loop i < deque.size {
-            idx := (deque.front + i) % deque.capacity
-            new_data[i] = deque.data[idx]
-            i = i + 1
-        }
-        core.free(deque.data)
-        deque.front = 0
-        deque.rear = deque.size - 1
-    } | false => {
-        deque.front = 0
-        deque.rear = 0
-    }
-    
-    deque.data = new_data
-    deque.capacity = new_capacity
-    return core.Result::Ok({})
-}
-
-// ============================================================================
-// Linked List Node
-// ============================================================================
-
-ListNode<T> = {
-    value: T,
-    next: *ListNode<T>,
-}
-
-LinkedList<T> = {
-    head: *ListNode<T>,
-    tail: *ListNode<T>,
-    size: i64,
-}
-
-list_new<T> = () LinkedList<T> {
-    return LinkedList<T> {
-        head: 0,
-        tail: 0,
-        size: 0,
-    }
-}
-
-list_push_front<T> = (list: *LinkedList<T>, value: T) core.Result<void, core.Error> {
-    node := core.malloc(sizeof(ListNode<T>)) as *ListNode<T>
-    node == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
-    } | false => {}
-    
+// Push element to front
+LinkedList.push_front = (self: &LinkedList, value: T) void {
+    node := memory.alloc(ListNode)
     node.value = value
-    node.next = list.head
+    node.next = self.head
     
-    list.head = node
-    list.tail == 0 ? | true => {
-        list.tail = node
-    } | false => {}
-    
-    list.size = list.size + 1
-    return core.Result::Ok({})
-}
-
-list_push_back<T> = (list: *LinkedList<T>, value: T) core.Result<void, core.Error> {
-    node := core.malloc(sizeof(ListNode<T>)) as *ListNode<T>
-    node == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
-    } | false => {}
-    
-    node.value = value
-    node.next = 0
-    
-    list.tail != 0 ? | true => {
-        list.tail.next = node
-    } | false => {
-        list.head = node
+    self.head = node
+    if (self.tail == null) {
+        self.tail = node
     }
     
-    list.tail = node
-    list.size = list.size + 1
-    return core.Result::Ok({})
+    self.len = self.len + 1
 }
 
-list_pop_front<T> = (list: *LinkedList<T>) core.Option<T> {
-    list.head == 0 ? | true => return core.Option::None
-                    | false => {}
+// Push element to back
+LinkedList.push_back = (self: &LinkedList, value: T) void {
+    node := memory.alloc(ListNode)
+    node.value = value
+    node.next = null
     
-    node := list.head
+    if (self.tail) {
+        self.tail.next = node
+    } else {
+        self.head = node
+    }
+    
+    self.tail = node
+    self.len = self.len + 1
+}
+
+// Pop element from front
+LinkedList.pop_front = (self: &LinkedList) ?T {
+    if (self.head == null) {
+        return null
+    }
+    
+    node := self.head
     value := node.value
     
-    list.head = node.next
-    list.head == 0 ? | true => {
-        list.tail = 0
-    } | false => {}
-    
-    core.free(node)
-    list.size = list.size - 1
-    
-    return core.Option::Some(value)
-}
-
-list_size<T> = (list: *LinkedList<T>) i64 {
-    return list.size
-}
-
-list_is_empty<T> = (list: *LinkedList<T>) bool {
-    return list.size == 0
-}
-
-list_clear<T> = (list: *LinkedList<T>) void {
-    loop list.head != 0 {
-        node := list.head
-        list.head = node.next
-        core.free(node)
+    self.head = node.next
+    if (self.head == null) {
+        self.tail = null
     }
     
-    list.tail = 0
-    list.size = 0
+    memory.free(node)
+    self.len = self.len - 1
+    
+    return value
 }
 
-// ============================================================================
-// Binary Search Tree Node
-// ============================================================================
-
-TreeNode<K, V> = {
-    key: K,
-    value: V,
-    left: *TreeNode<K, V>,
-    right: *TreeNode<K, V>,
+// Stack implementation using vector
+Stack := struct {
+    data: Vector
 }
 
-BinarySearchTree<K, V> = {
-    root: *TreeNode<K, V>,
-    size: i64,
-}
-
-bst_new<K, V> = () BinarySearchTree<K, V> {
-    return BinarySearchTree<K, V> {
-        root: 0,
-        size: 0,
+// Create new stack
+Stack.new = () Stack {
+    return Stack{
+        data: Vector.new()
     }
 }
 
-// Note: Would need proper comparison function for generic K
-// For now, this is a template that assumes K has < operator
+// Push element onto stack
+Stack.push = (self: &Stack, value: T) void {
+    self.data.push(value)
+}
 
-bst_insert<K, V> = (tree: *BinarySearchTree<K, V>, key: K, value: V) core.Result<void, core.Error> {
-    new_node := core.malloc(sizeof(TreeNode<K, V>)) as *TreeNode<K, V>
-    new_node == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
-    } | false => {}
+// Pop element from stack
+Stack.pop = (self: &Stack) ?T {
+    return self.data.pop()
+}
+
+// Peek at top element
+Stack.peek = (self: &Stack) ?T {
+    if (self.data.len == 0) {
+        return null
+    }
+    return self.data.data[self.data.len - 1]
+}
+
+// Check if stack is empty
+Stack.is_empty = (self: &Stack) bool {
+    return self.data.is_empty()
+}
+
+// Queue implementation using linked list
+Queue := struct {
+    list: LinkedList
+}
+
+// Create new queue
+Queue.new = () Queue {
+    return Queue{
+        list: LinkedList.new()
+    }
+}
+
+// Enqueue element
+Queue.enqueue = (self: &Queue, value: T) void {
+    self.list.push_back(value)
+}
+
+// Dequeue element
+Queue.dequeue = (self: &Queue) ?T {
+    return self.list.pop_front()
+}
+
+// Peek at front element
+Queue.peek = (self: &Queue) ?T {
+    if (self.list.head) {
+        return self.list.head.value
+    }
+    return null
+}
+
+// Check if queue is empty
+Queue.is_empty = (self: &Queue) bool {
+    return self.list.len == 0
+}
+
+// Hash map bucket
+HashBucket := struct {
+    key: K
+    value: V
+    next: ?&HashBucket
+}
+
+// Hash map implementation
+HashMap := struct {
+    buckets: []?&HashBucket
+    len: usize
+    capacity: usize
+}
+
+// Create new hash map
+HashMap.new = () HashMap {
+    return HashMap{
+        buckets: make([]?&HashBucket, 16),
+        len: 0,
+        capacity: 16
+    }
+}
+
+// Hash function (simple for now)
+hash = (key: K, capacity: usize) usize {
+    // Simple hash for numeric types
+    return key % capacity
+}
+
+// Put key-value pair
+HashMap.put = (self: &HashMap, key: K, value: V) void {
+    index := hash(key, self.capacity)
     
-    new_node.key = key
-    new_node.value = value
-    new_node.left = 0
-    new_node.right = 0
-    
-    tree.root == 0 ? | true => {
-        tree.root = new_node
-        tree.size = tree.size + 1
-        return core.Result::Ok({})
-    } | false => {}
-    
-    current := tree.root
-    loop true {
-        key < current.key ? | true => {
-            current.left == 0 ? | true => {
-                current.left = new_node
-                tree.size = tree.size + 1
-                return core.Result::Ok({})
-            } | false => {
-                current = current.left
-            }
-        } | false => {
-            current.right == 0 ? | true => {
-                current.right = new_node
-                tree.size = tree.size + 1
-                return core.Result::Ok({})
-            } | false => {
-                current = current.right
-            }
+    // Check if key exists
+    current := self.buckets[index]
+    while (current) {
+        if (current.key == key) {
+            current.value = value
+            return
         }
+        current = current.next
     }
     
-    return core.Result::Ok({})  // Unreachable
-}
-
-// ============================================================================
-// Set (using simple array for now)
-// ============================================================================
-
-Set<T> = {
-    data: *T,
-    size: i64,
-    capacity: i64,
-}
-
-set_new<T> = () Set<T> {
-    return Set<T> {
-        data: 0,
-        size: 0,
-        capacity: 0,
+    // Add new bucket
+    bucket := memory.alloc(HashBucket)
+    bucket.key = key
+    bucket.value = value
+    bucket.next = self.buckets[index]
+    
+    self.buckets[index] = bucket
+    self.len = self.len + 1
+    
+    // Resize if needed
+    if (self.len > self.capacity * 3 / 4) {
+        self.resize()
     }
 }
 
-// Note: Requires equality comparison for T
-set_contains<T> = (set: *Set<T>, value: T) bool {
-    i ::= 0i64
-    loop i < set.size {
-        set.data[i] == value ? | true => return true
-                              | false => {}
-        i = i + 1
+// Get value by key
+HashMap.get = (self: &HashMap, key: K) ?V {
+    index := hash(key, self.capacity)
+    
+    current := self.buckets[index]
+    while (current) {
+        if (current.key == key) {
+            return current.value
+        }
+        current = current.next
     }
-    return false
+    
+    return null
 }
 
-set_add<T> = (set: *Set<T>, value: T) core.Result<bool, core.Error> {
-    // Check if already exists
-    set_contains(set, value) ? | true => {
-        return core.Result::Ok(false)  // Already exists
-    } | false => {}
+// Remove key-value pair
+HashMap.remove = (self: &HashMap, key: K) bool {
+    index := hash(key, self.capacity)
     
-    // Ensure capacity
-    set.size >= set.capacity ? | true => {
-        new_capacity := set.capacity == 0 ? | true => 8
-                                          | false => set.capacity * 2
-        
-        new_data := core.malloc(new_capacity * sizeof(T))
-        new_data == 0 ? | true => {
-            return core.Result::Err(core.Error::OutOfMemory)
-        } | false => {}
-        
-        set.size > 0 ? | true => {
-            core.memcpy(new_data, set.data, set.size * sizeof(T))
-            core.free(set.data)
-        } | false => {}
-        
-        set.data = new_data
-        set.capacity = new_capacity
-    } | false => {}
+    prev := null
+    current := self.buckets[index]
     
-    set.data[set.size] = value
-    set.size = set.size + 1
-    return core.Result::Ok(true)  // Added successfully
-}
-
-set_remove<T> = (set: *Set<T>, value: T) bool {
-    i ::= 0i64
-    loop i < set.size {
-        set.data[i] == value ? | true => {
-            // Shift remaining elements
-            j ::= i
-            loop j < set.size - 1 {
-                set.data[j] = set.data[j + 1]
-                j = j + 1
+    while (current) {
+        if (current.key == key) {
+            if (prev) {
+                prev.next = current.next
+            } else {
+                self.buckets[index] = current.next
             }
-            set.size = set.size - 1
+            
+            memory.free(current)
+            self.len = self.len - 1
             return true
-        } | false => {}
-        i = i + 1
+        }
+        
+        prev = current
+        current = current.next
     }
+    
     return false
 }
 
-set_size<T> = (set: *Set<T>) i64 {
-    return set.size
+// Check if key exists
+HashMap.contains = (self: &HashMap, key: K) bool {
+    return self.get(key) != null
 }
 
-set_is_empty<T> = (set: *Set<T>) bool {
-    return set.size == 0
-}
-
-set_clear<T> = (set: *Set<T>) void {
-    set.size = 0
-}
-
-set_free<T> = (set: *Set<T>) void {
-    set.data != 0 ? | true => {
-        core.free(set.data)
-    } | false => {}
+// Resize hash map
+HashMap.resize = (self: &HashMap) void {
+    new_capacity := self.capacity * 2
+    new_buckets := make([]?&HashBucket, new_capacity)
     
-    set.data = 0
-    set.size = 0
-    set.capacity = 0
+    // Rehash all entries
+    i := 0
+    while (i < self.capacity) {
+        current := self.buckets[i]
+        while (current) {
+            next := current.next
+            
+            // Rehash and insert
+            new_index := hash(current.key, new_capacity)
+            current.next = new_buckets[new_index]
+            new_buckets[new_index] = current
+            
+            current = next
+        }
+        i = i + 1
+    }
+    
+    self.buckets = new_buckets
+    self.capacity = new_capacity
+}
+
+// Set implementation using hash map
+HashSet := struct {
+    map: HashMap
+}
+
+// Create new set
+HashSet.new = () HashSet {
+    return HashSet{
+        map: HashMap.new()
+    }
+}
+
+// Add element to set
+HashSet.add = (self: &HashSet, value: T) void {
+    self.map.put(value, true)
+}
+
+// Remove element from set
+HashSet.remove = (self: &HashSet, value: T) bool {
+    return self.map.remove(value)
+}
+
+// Check if element exists
+HashSet.contains = (self: &HashSet, value: T) bool {
+    return self.map.contains(value)
+}
+
+// Get set size
+HashSet.size = (self: &HashSet) usize {
+    return self.map.len
 }

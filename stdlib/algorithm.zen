@@ -1,0 +1,292 @@
+// Zen Standard Library - Algorithm Module
+// Common algorithms and data manipulation functions
+
+core := @std.core
+build := @std.build
+
+// Swap two values
+swap = (a: &T, b: &T) void {
+    temp := *a
+    *a = *b
+    *b = temp
+}
+
+// Find minimum of two values
+min = (a: T, b: T) T {
+    if (a < b) return a
+    return b
+}
+
+// Find maximum of two values
+max = (a: T, b: T) T {
+    if (a > b) return a
+    return b
+}
+
+// Clamp value between min and max
+clamp = (value: T, min_val: T, max_val: T) T {
+    if (value < min_val) return min_val
+    if (value > max_val) return max_val
+    return value
+}
+
+// Linear search in array
+find = (arr: []T, value: T) ?usize {
+    i := 0
+    while (i < arr.len) {
+        if (arr[i] == value) {
+            return i
+        }
+        i = i + 1
+    }
+    return null
+}
+
+// Binary search in sorted array
+binary_search = (arr: []T, value: T) ?usize {
+    left := 0
+    right := arr.len - 1
+    
+    while (left <= right) {
+        mid := (left + right) / 2
+        
+        if (arr[mid] == value) {
+            return mid
+        } else if (arr[mid] < value) {
+            left = mid + 1
+        } else {
+            right = mid - 1
+        }
+    }
+    
+    return null
+}
+
+// Reverse array in place
+reverse = (arr: []T) void {
+    left := 0
+    right := arr.len - 1
+    
+    while (left < right) {
+        swap(&arr[left], &arr[right])
+        left = left + 1
+        right = right - 1
+    }
+}
+
+// Rotate array left by n positions
+rotate_left = (arr: []T, n: usize) void {
+    if (arr.len == 0) return
+    
+    n = n % arr.len
+    if (n == 0) return
+    
+    // Reverse first n elements
+    reverse_range(arr, 0, n - 1)
+    // Reverse remaining elements
+    reverse_range(arr, n, arr.len - 1)
+    // Reverse entire array
+    reverse(arr)
+}
+
+// Rotate array right by n positions
+rotate_right = (arr: []T, n: usize) void {
+    if (arr.len == 0) return
+    rotate_left(arr, arr.len - (n % arr.len))
+}
+
+// Reverse a range within an array
+reverse_range = (arr: []T, start: usize, end: usize) void {
+    while (start < end) {
+        swap(&arr[start], &arr[end])
+        start = start + 1
+        end = end - 1
+    }
+}
+
+// Check if array is sorted
+is_sorted = (arr: []T) bool {
+    if (arr.len <= 1) return true
+    
+    i := 1
+    while (i < arr.len) {
+        if (arr[i-1] > arr[i]) {
+            return false
+        }
+        i = i + 1
+    }
+    
+    return true
+}
+
+// Count occurrences of value in array
+count = (arr: []T, value: T) usize {
+    result := 0
+    for (arr) |item| {
+        if (item == value) {
+            result = result + 1
+        }
+    }
+    return result
+}
+
+// Remove duplicates from sorted array (in place)
+unique = (arr: []T) usize {
+    if (arr.len <= 1) return arr.len
+    
+    write_pos := 1
+    i := 1
+    
+    while (i < arr.len) {
+        if (arr[i] != arr[write_pos - 1]) {
+            arr[write_pos] = arr[i]
+            write_pos = write_pos + 1
+        }
+        i = i + 1
+    }
+    
+    return write_pos
+}
+
+// Partition array around pivot (for quicksort)
+partition = (arr: []T, low: usize, high: usize) usize {
+    pivot := arr[high]
+    i := low - 1
+    
+    j := low
+    while (j < high) {
+        if (arr[j] <= pivot) {
+            i = i + 1
+            swap(&arr[i], &arr[j])
+        }
+        j = j + 1
+    }
+    
+    swap(&arr[i + 1], &arr[high])
+    return i + 1
+}
+
+// Quick sort implementation
+quicksort = (arr: []T, low: usize, high: usize) void {
+    if (low < high) {
+        pi := partition(arr, low, high)
+        
+        if (pi > 0) {
+            quicksort(arr, low, pi - 1)
+        }
+        quicksort(arr, pi + 1, high)
+    }
+}
+
+// Sort array using quicksort
+sort = (arr: []T) void {
+    if (arr.len > 1) {
+        quicksort(arr, 0, arr.len - 1)
+    }
+}
+
+// Merge two sorted arrays
+merge = (arr1: []T, arr2: []T) []T {
+    result := make([]T, arr1.len + arr2.len)
+    i := 0
+    j := 0
+    k := 0
+    
+    while (i < arr1.len && j < arr2.len) {
+        if (arr1[i] <= arr2[j]) {
+            result[k] = arr1[i]
+            i = i + 1
+        } else {
+            result[k] = arr2[j]
+            j = j + 1
+        }
+        k = k + 1
+    }
+    
+    while (i < arr1.len) {
+        result[k] = arr1[i]
+        i = i + 1
+        k = k + 1
+    }
+    
+    while (j < arr2.len) {
+        result[k] = arr2[j]
+        j = j + 1
+        k = k + 1
+    }
+    
+    return result
+}
+
+// Apply function to each element
+map = (arr: []T, f: fn(T) U) []U {
+    result := make([]U, arr.len)
+    i := 0
+    while (i < arr.len) {
+        result[i] = f(arr[i])
+        i = i + 1
+    }
+    return result
+}
+
+// Filter elements based on predicate
+filter = (arr: []T, pred: fn(T) bool) []T {
+    // Count matching elements
+    count := 0
+    for (arr) |item| {
+        if (pred(item)) {
+            count = count + 1
+        }
+    }
+    
+    // Create result array
+    result := make([]T, count)
+    j := 0
+    for (arr) |item| {
+        if (pred(item)) {
+            result[j] = item
+            j = j + 1
+        }
+    }
+    
+    return result
+}
+
+// Reduce array to single value
+reduce = (arr: []T, initial: U, f: fn(U, T) U) U {
+    result := initial
+    for (arr) |item| {
+        result = f(result, item)
+    }
+    return result
+}
+
+// Check if all elements satisfy predicate
+all = (arr: []T, pred: fn(T) bool) bool {
+    for (arr) |item| {
+        if (!pred(item)) {
+            return false
+        }
+    }
+    return true
+}
+
+// Check if any element satisfies predicate
+any = (arr: []T, pred: fn(T) bool) bool {
+    for (arr) |item| {
+        if (pred(item)) {
+            return true
+        }
+    }
+    return false
+}
+
+// Find first element that satisfies predicate
+find_if = (arr: []T, pred: fn(T) bool) ?T {
+    for (arr) |item| {
+        if (pred(item)) {
+            return item
+        }
+    }
+    return null
+}
