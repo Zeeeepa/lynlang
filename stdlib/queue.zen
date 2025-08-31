@@ -1,0 +1,238 @@
+// Queue implementation for Zen
+// FIFO (First In First Out) data structure
+
+core := @std.core
+mem := @std.mem
+
+// Queue node
+QueueNode = struct(T: type) {
+    value: T,
+    next: ?*QueueNode(T),
+}
+
+// Queue structure
+Queue = struct(T: type) {
+    head: ?*QueueNode(T),
+    tail: ?*QueueNode(T),
+    size: usize,
+}
+
+// Create new queue
+new = (T: type) Queue(T) {
+    return Queue(T){
+        head: null,
+        tail: null,
+        size: 0,
+    }
+}
+
+// Check if queue is empty
+is_empty = (T: type, q: *Queue(T)) bool {
+    return q.size == 0
+}
+
+// Get queue size
+len = (T: type, q: *Queue(T)) usize {
+    return q.size
+}
+
+// Enqueue (add to back)
+enqueue = (T: type, q: *Queue(T), value: T) void {
+    node := mem.alloc(QueueNode(T), 1)
+    node.value = value
+    node.next = null
+    
+    if (q.tail == null) {
+        q.head = node
+        q.tail = node
+    } else {
+        q.tail.next = node
+        q.tail = node
+    }
+    
+    q.size += 1
+}
+
+// Dequeue (remove from front)
+dequeue = (T: type, q: *Queue(T)) ?T {
+    if (q.head == null) {
+        return null
+    }
+    
+    node := q.head
+    value := node.value
+    q.head = node.next
+    
+    if (q.head == null) {
+        q.tail = null
+    }
+    
+    mem.free(node)
+    q.size -= 1
+    
+    return value
+}
+
+// Peek at front without removing
+peek = (T: type, q: *Queue(T)) ?T {
+    if (q.head == null) {
+        return null
+    }
+    return q.head.value
+}
+
+// Clear queue
+clear = (T: type, q: *Queue(T)) void {
+    while (q.head != null) {
+        node := q.head
+        q.head = node.next
+        mem.free(node)
+    }
+    q.tail = null
+    q.size = 0
+}
+
+// Convert to array
+to_array = (T: type, q: *Queue(T)) Array(T) {
+    array := @std.array
+    result := array.new(T, q.size)
+    
+    current := q.head
+    while (current != null) {
+        array.push(T, &result, current.value)
+        current = current.next
+    }
+    
+    return result
+}
+
+// Create queue from array
+from_array = (T: type, arr: *Array(T)) Queue(T) {
+    q := new(T)
+    for (i := 0; i < arr.len; i += 1) {
+        enqueue(T, &q, arr.data[i])
+    }
+    return q
+}
+
+// Clone queue
+clone = (T: type, q: *Queue(T)) Queue(T) {
+    result := new(T)
+    current := q.head
+    
+    while (current != null) {
+        enqueue(T, &result, current.value)
+        current = current.next
+    }
+    
+    return result
+}
+
+// Free queue memory
+free = (T: type, q: *Queue(T)) void {
+    clear(T, q)
+}
+
+// Iterator support
+iter = (T: type, q: *Queue(T)) QueueIterator(T) {
+    return QueueIterator(T){
+        current: q.head,
+    }
+}
+
+QueueIterator = struct(T: type) {
+    current: ?*QueueNode(T),
+}
+
+next = (T: type, it: *QueueIterator(T)) ?T {
+    if (it.current == null) {
+        return null
+    }
+    value := it.current.value
+    it.current = it.current.next
+    return value
+}
+
+// Priority Queue implementation
+PriorityQueue = struct(T: type) {
+    data: Array(PQItem(T)),
+    compare: fn(T, T) i32,
+}
+
+PQItem = struct(T: type) {
+    value: T,
+    priority: i32,
+}
+
+// Create new priority queue
+new_priority = (T: type, compare: fn(T, T) i32) PriorityQueue(T) {
+    array := @std.array
+    return PriorityQueue(T){
+        data: array.new(PQItem(T), 16),
+        compare: compare,
+    }
+}
+
+// Enqueue with priority
+enqueue_priority = (T: type, pq: *PriorityQueue(T), value: T, priority: i32) void {
+    array := @std.array
+    item := PQItem(T){
+        value: value,
+        priority: priority,
+    }
+    
+    // Insert in sorted position
+    inserted := false
+    for (i := 0; i < pq.data.len; i += 1) {
+        if (priority < pq.data.data[i].priority) {
+            array.insert(PQItem(T), &pq.data, i, item)
+            inserted = true
+            break
+        }
+    }
+    
+    if (!inserted) {
+        array.push(PQItem(T), &pq.data, item)
+    }
+}
+
+// Dequeue highest priority
+dequeue_priority = (T: type, pq: *PriorityQueue(T)) ?T {
+    array := @std.array
+    if (pq.data.len == 0) {
+        return null
+    }
+    
+    item := array.remove(PQItem(T), &pq.data, 0)
+    return item.value
+}
+
+// Peek at highest priority
+peek_priority = (T: type, pq: *PriorityQueue(T)) ?T {
+    if (pq.data.len == 0) {
+        return null
+    }
+    return pq.data.data[0].value
+}
+
+// Check if priority queue is empty
+is_empty_priority = (T: type, pq: *PriorityQueue(T)) bool {
+    return pq.data.len == 0
+}
+
+// Get priority queue size
+len_priority = (T: type, pq: *PriorityQueue(T)) usize {
+    return pq.data.len
+}
+
+// Clear priority queue
+clear_priority = (T: type, pq: *PriorityQueue(T)) void {
+    array := @std.array
+    array.clear(PQItem(T), &pq.data)
+}
+
+// Free priority queue
+free_priority = (T: type, pq: *PriorityQueue(T)) void {
+    array := @std.array
+    array.free(PQItem(T), &pq.data)
+}
