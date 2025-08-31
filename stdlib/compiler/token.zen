@@ -62,7 +62,7 @@ TokenType = enum {
 }
 
 // Token structure
-Token = struct {
+Token = {
     type: TokenType,
     value: String,
     line: i32,
