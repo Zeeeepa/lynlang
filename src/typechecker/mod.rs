@@ -146,6 +146,13 @@ impl TypeChecker {
                 self.check_function(func)?;
             }
             Declaration::ComptimeBlock(statements) => {
+                // Check for imports in comptime blocks
+                for stmt in statements {
+                    if let Err(msg) = validation::validate_import_not_in_comptime(stmt) {
+                        return Err(CompileError::SyntaxError(msg, None));
+                    }
+                }
+                
                 self.enter_scope();
                 for statement in statements {
                     self.check_statement(statement)?;
@@ -186,6 +193,11 @@ impl TypeChecker {
     }
 
     fn check_statement(&mut self, statement: &Statement) -> Result<()> {
+        // Validate imports are not in comptime blocks
+        if let Err(msg) = validation::validate_import_not_in_comptime(statement) {
+            return Err(CompileError::SyntaxError(msg, None));
+        }
+        
         match statement {
             Statement::VariableDeclaration {
                 name,

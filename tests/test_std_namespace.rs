@@ -43,73 +43,53 @@ fn test_parse_std_build() {
 }
 
 #[test]
-fn test_comptime_std_usage() {
-    let input = "comptime { core := @std.core }";
+fn test_module_level_std_import() {
+    let input = "core := @std.core";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
     assert_eq!(program.declarations.len(), 1);
     
-    if let Some(zen::ast::Declaration::ComptimeBlock(statements)) = program.declarations.first() {
-        assert_eq!(statements.len(), 1);
-        
-        if let Statement::VariableDeclaration { name, initializer, declaration_type, .. } = &statements[0] {
-            assert_eq!(name, "core");
-            assert!(matches!(declaration_type, VariableDeclarationType::InferredImmutable));
-            
-            if let Some(Expression::MemberAccess { object, member }) = initializer {
-                assert!(matches!(**object, Expression::Identifier(ref name) if name == "@std"));
-                assert_eq!(member, "core");
-            } else {
-                panic!("Expected MemberAccess in core initialization");
-            }
-        } else {
-            panic!("Expected VariableDeclaration");
-        }
+    if let Some(zen::ast::Declaration::ModuleImport { alias, module_path }) = program.declarations.first() {
+        assert_eq!(alias, "core");
+        assert_eq!(module_path, "@std.core");
     } else {
-        panic!("Expected ComptimeBlock");
+        panic!("Expected ModuleImport declaration");
     }
 }
 
 #[test]
-fn test_build_import() {
-    let input = r#"comptime { 
-        build := @std.build
-        io := build.import("io")
-    }"#;
+fn test_module_level_build_import() {
+    let input = r#"build := @std.build
+io := build.import("io")"#;
     
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.declarations.len(), 1);
+    assert_eq!(program.declarations.len(), 2);
     
-    if let Some(zen::ast::Declaration::ComptimeBlock(statements)) = program.declarations.first() {
-        assert_eq!(statements.len(), 2);
-        
-        // Check second statement: io := build.import("io")
-        if let Statement::VariableDeclaration { name, initializer, .. } = &statements[1] {
-            assert_eq!(name, "io");
-            
-            if let Some(Expression::FunctionCall { name, args }) = initializer {
-                assert_eq!(name, "build.import");
-                assert_eq!(args.len(), 1);
-                assert!(matches!(args[0], Expression::String(ref s) if s == "io"));
-            } else {
-                panic!("Expected FunctionCall in io initialization");
-            }
-        } else {
-            panic!("Expected VariableDeclaration for io");
-        }
+    // Check first declaration: build := @std.build
+    if let Some(zen::ast::Declaration::ModuleImport { alias, module_path }) = program.declarations.first() {
+        assert_eq!(alias, "build");
+        assert_eq!(module_path, "@std.build");
     } else {
-        panic!("Expected ComptimeBlock");
+        panic!("Expected ModuleImport declaration for build");
+    }
+    
+    // Check second declaration: io := build.import("io")
+    if let Some(zen::ast::Declaration::ModuleImport { alias, module_path }) = program.declarations.get(1) {
+        assert_eq!(alias, "io");
+        assert_eq!(module_path, "std.io");
+    } else {
+        panic!("Expected ModuleImport declaration for io");
     }
 }
 
 #[test]
 fn test_typecheck_std_module() {
-    let input = "comptime { core := @std.core }";
+    let input = "core := @std.core";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
@@ -118,4 +98,26 @@ fn test_typecheck_std_module() {
     let mut type_checker = zen::typechecker::TypeChecker::new();
     let result = type_checker.check_program(&program);
     assert!(result.is_ok());
+}
+
+#[test]
+fn test_comptime_import_error() {
+    // Test that imports inside comptime blocks are rejected
+    let input = "comptime { core := @std.core }";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    
+    // Parser should still accept the syntax
+    let program = parser.parse_program().unwrap();
+    
+    // But typechecker should reject it
+    let mut type_checker = zen::typechecker::TypeChecker::new();
+    let result = type_checker.check_program(&program);
+    
+    // Should error with appropriate message
+    assert!(result.is_err());
+    if let Err(err) = result {
+        let err_msg = format!("{:?}", err);
+        assert!(err_msg.contains("Module imports should not be inside comptime blocks"));
+    }
 }
