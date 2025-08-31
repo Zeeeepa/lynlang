@@ -1,0 +1,136 @@
+// Zen Standard Library - Core Module
+// Core types and functions implemented in pure Zen
+
+// Basic type aliases
+type int = i32
+type uint = u32
+type byte = u8
+type rune = i32
+type usize = u64
+type isize = i64
+
+// Result type for error handling
+Result := enum(T, E) {
+    Ok(T)
+    Err(E)
+}
+
+// Option type for nullable values
+Option := enum(T) {
+    Some(T)
+    None
+}
+
+// Slice type
+Slice := struct(T) {
+    data: *T
+    len: usize
+    cap: usize
+}
+
+// String slice
+String := struct {
+    data: *byte
+    len: usize
+}
+
+// Basic assertions
+assert = (condition: bool, message: String) void {
+    if (!condition) {
+        panic(message)
+    }
+}
+
+// Panic function
+panic = (message: String) void {
+    // In bootstrap, this will call C's abort()
+    @builtin.panic(message)
+}
+
+// Memory functions
+alloc = (T: type, count: usize) *T {
+    size := @sizeof(T) * count
+    ptr := @builtin.malloc(size)
+    return @ptrcast(*T, ptr)
+}
+
+free = (ptr: *void) void {
+    @builtin.free(ptr)
+}
+
+copy = (T: type, dst: *T, src: *T, count: usize) void {
+    @builtin.memcpy(dst, src, @sizeof(T) * count)
+}
+
+move = (T: type, dst: *T, src: *T, count: usize) void {
+    @builtin.memmove(dst, src, @sizeof(T) * count)
+}
+
+set = (T: type, dst: *T, value: T, count: usize) void {
+    i := usize(0)
+    while (i < count) {
+        dst[i] = value
+        i = i + 1
+    }
+}
+
+// Min/max functions
+min = (T: type, a: T, b: T) T {
+    return if (a < b) a else b
+}
+
+max = (T: type, a: T, b: T) T {
+    return if (a > b) a else b
+}
+
+// Clamp function
+clamp = (T: type, value: T, min_val: T, max_val: T) T {
+    if (value < min_val) return min_val
+    if (value > max_val) return max_val
+    return value
+}
+
+// Swap function
+swap = (T: type, a: *T, b: *T) void {
+    tmp := *a
+    *a = *b
+    *b = tmp
+}
+
+// Absolute value
+abs = (T: type, value: T) T {
+    return if (value < 0) -value else value
+}
+
+// Sign function
+sign = (T: type, value: T) i32 {
+    if (value < 0) return -1
+    if (value > 0) return 1
+    return 0
+}
+
+// Power function (integer)
+pow = (base: i64, exp: u32) i64 {
+    result := i64(1)
+    i := u32(0)
+    while (i < exp) {
+        result = result * base
+        i = i + 1
+    }
+    return result
+}
+
+// Export all public functions
+export {
+    // Types
+    Result, Option, Slice, String,
+    
+    // Assertions
+    assert, panic,
+    
+    // Memory
+    alloc, free, copy, move, set,
+    
+    // Math
+    min, max, clamp, swap, abs, sign, pow
+}
