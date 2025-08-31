@@ -7,9 +7,9 @@ string := @std.string
 char := @std.char
 
 // Token types
-TokenKind = 
+type TokenKind = enum {
     // Literals
-    | IntLiteral(value: i64)
+    IntLiteral(value: i64)
     | FloatLiteral(value: f64)
     | StringLiteral(value: string)
     | CharLiteral(value: char)
@@ -73,28 +73,29 @@ TokenKind =
     | Newline
     | Eof
     | Invalid(message: string)
+}
 
 // Token structure
-Token = {
-    kind: TokenKind,
-    span: Span,
-    line: u32,
-    column: u32,
+type Token = struct {
+    kind: TokenKind
+    span: Span
+    line: u32
+    column: u32
 }
 
 // Source span for error reporting
-Span = {
-    start: u32,
-    end: u32,
+type Span = struct {
+    start: u32
+    end: u32
 }
 
 // Lexer state
-Lexer = {
-    source: string,
-    pos: u32,
-    line: u32,
-    column: u32,
-    tokens: Vec<Token>,
+type Lexer = struct {
+    source: string
+    pos: u32
+    line: u32
+    column: u32
+    tokens: Vec<Token>
 }
 
 // Keywords in Zen
@@ -113,12 +114,12 @@ KEYWORDS := [
 
 // Create a new lexer
 lexer_new = (source: string) Lexer {
-    Lexer{
-        source: source,
-        pos: 0,
-        line: 1,
-        column: 1,
-        tokens: vec_new<Token>(),
+    Lexer {
+        source: source
+        pos: 0
+        line: 1
+        column: 1
+        tokens: vec_new<Token>()
     }
 }
 
@@ -294,11 +295,11 @@ lex_number = (lexer: Ptr<Lexer>) Token {
                     
                     // Return float token
                     value_str := string_slice(lexer.source, start, lexer.pos)
-                    return Token{
-                        kind: TokenKind.FloatLiteral(string_to_f64(value_str)),
-                        span: Span{ start: start, end: lexer.pos },
-                        line: start_line,
-                        column: start_column,
+                    return Token {
+                        kind: TokenKind.FloatLiteral(string_to_f64(value_str))
+                        span: Span { start: start, end: lexer.pos }
+                        line: start_line
+                        column: start_column
                     }
                 }
                 | false => {}
@@ -306,11 +307,11 @@ lex_number = (lexer: Ptr<Lexer>) Token {
     
     // Return integer token
     value_str := string_slice(lexer.source, start, lexer.pos)
-    return Token{
-        kind: TokenKind.IntLiteral(string_to_i64(value_str)),
-        span: Span{ start: start, end: lexer.pos },
-        line: start_line,
-        column: start_column,
+    return Token {
+        kind: TokenKind.IntLiteral(string_to_i64(value_str))
+        span: Span { start: start, end: lexer.pos }
+        line: start_line
+        column: start_column
     }
 }
 
@@ -348,24 +349,24 @@ lex_string = (lexer: Ptr<Lexer>) Token {
             
             // Character literal if single quote and single char
             quote == '\'' && result.len() == 1 ?
-                | true => return Token{
-                    kind: TokenKind.CharLiteral(result[0]),
-                    span: Span{ start: start, end: lexer.pos },
-                    line: start_line,
-                    column: start_column,
+                | true => return Token {
+                    kind: TokenKind.CharLiteral(result[0])
+                    span: Span { start: start, end: lexer.pos }
+                    line: start_line
+                    column: start_column
                 }
-                | false => return Token{
-                    kind: TokenKind.StringLiteral(result),
-                    span: Span{ start: start, end: lexer.pos },
-                    line: start_line,
-                    column: start_column,
+                | false => return Token {
+                    kind: TokenKind.StringLiteral(result)
+                    span: Span { start: start, end: lexer.pos }
+                    line: start_line
+                    column: start_column
                 }
         }
-        | false => return Token{
-            kind: TokenKind.Invalid("Unterminated string literal"),
-            span: Span{ start: start, end: lexer.pos },
-            line: start_line,
-            column: start_column,
+        | false => return Token {
+            kind: TokenKind.Invalid("Unterminated string literal")
+            span: Span { start: start, end: lexer.pos }
+            line: start_line
+            column: start_column
         }
 }
 
@@ -384,36 +385,36 @@ lex_identifier = (lexer: Ptr<Lexer>) Token {
     
     // Check for boolean literals
     ident == "true" ?
-        | true => return Token{
-            kind: TokenKind.BoolLiteral(true),
-            span: Span{ start: start, end: lexer.pos },
-            line: start_line,
-            column: start_column,
+        | true => return Token {
+            kind: TokenKind.BoolLiteral(true)
+            span: Span { start: start, end: lexer.pos }
+            line: start_line
+            column: start_column
         }
         | false => {}
     
     ident == "false" ?
-        | true => return Token{
-            kind: TokenKind.BoolLiteral(false),
-            span: Span{ start: start, end: lexer.pos },
-            line: start_line,
-            column: start_column,
+        | true => return Token {
+            kind: TokenKind.BoolLiteral(false)
+            span: Span { start: start, end: lexer.pos }
+            line: start_line
+            column: start_column
         }
         | false => {}
     
     // Check if it's a keyword
     is_keyword(ident) ?
-        | true => return Token{
-            kind: TokenKind.Keyword(ident),
-            span: Span{ start: start, end: lexer.pos },
-            line: start_line,
-            column: start_column,
+        | true => return Token {
+            kind: TokenKind.Keyword(ident)
+            span: Span { start: start, end: lexer.pos }
+            line: start_line
+            column: start_column
         }
-        | false => return Token{
-            kind: TokenKind.Identifier(ident),
-            span: Span{ start: start, end: lexer.pos },
-            line: start_line,
-            column: start_column,
+        | false => return Token {
+            kind: TokenKind.Identifier(ident)
+            span: Span { start: start, end: lexer.pos }
+            line: start_line
+            column: start_column
         }
 }
 
@@ -429,11 +430,11 @@ next_token = (lexer: Ptr<Lexer>) Token {
                 peek(lexer) == '/' && peek_next(lexer) == '*' ?
                     | true => {
                         skip_block_comment(lexer) ?
-                            | false => return Token{
-                                kind: TokenKind.Invalid("Unterminated block comment"),
-                                span: Span{ start: lexer.pos, end: lexer.pos },
-                                line: lexer.line,
-                                column: lexer.column,
+                            | false => return Token {
+                                kind: TokenKind.Invalid("Unterminated block comment")
+                                span: Span { start: lexer.pos, end: lexer.pos }
+                                line: lexer.line
+                                column: lexer.column
                             }
                             | true => {}
                     }
@@ -449,11 +450,11 @@ next_token = (lexer: Ptr<Lexer>) Token {
     
     // End of file
     c == '\0' ?
-        | true => return Token{
-            kind: TokenKind.Eof,
-            span: Span{ start: start, end: start },
-            line: start_line,
-            column: start_column,
+        | true => return Token {
+            kind: TokenKind.Eof
+            span: Span { start: start, end: start }
+            line: start_line
+            column: start_column
         }
         | false => {}
     
@@ -620,11 +621,11 @@ next_token = (lexer: Ptr<Lexer>) Token {
 
 // Helper to create a token
 make_token = (kind: TokenKind, start: u32, end: u32, line: u32, column: u32) Token {
-    Token{
-        kind: kind,
-        span: Span{ start: start, end: end },
-        line: line,
-        column: column,
+    Token {
+        kind: kind
+        span: Span { start: start, end: end }
+        line: line
+        column: column
     }
 }
 
