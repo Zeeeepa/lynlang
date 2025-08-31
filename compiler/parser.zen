@@ -537,7 +537,7 @@ parse_ternary_expression = (parser: Ptr<Parser>) AstNode {
 parse_logical_or_expression = (parser: Ptr<Parser>) AstNode {
     left := parse_logical_and_expression(parser)
     
-    loop check(parser, TokenKind.Pipe) & peek_next(parser).kind != TokenKind.Pipe {
+    loop check(parser, TokenKind.Pipe) && peek_next(parser).kind != TokenKind.Pipe {
         advance(parser)
         right := parse_logical_and_expression(parser)
         left = AstNode.BinaryOp(BinaryOperator.LogicalOr, ptr_new(left), ptr_new(right))
@@ -550,7 +550,7 @@ parse_logical_or_expression = (parser: Ptr<Parser>) AstNode {
 parse_logical_and_expression = (parser: Ptr<Parser>) AstNode {
     left := parse_equality_expression(parser)
     
-    loop check(parser, TokenKind.Ampersand) & peek_next(parser).kind != TokenKind.Ampersand {
+    loop check(parser, TokenKind.Ampersand) && peek_next(parser).kind != TokenKind.Ampersand {
         advance(parser)
         right := parse_equality_expression(parser)
         left = AstNode.BinaryOp(BinaryOperator.LogicalAnd, ptr_new(left), ptr_new(right))
@@ -819,7 +819,7 @@ parse_block_expr = (parser: Ptr<Parser>) AstNode {
     
     statements := vec_new<AstNode>()
     
-    loop !check(parser, TokenKind.RightBrace) & !is_at_end(parser) {
+    loop !check(parser, TokenKind.RightBrace) && !is_at_end(parser) {
         stmt := parse_statement(parser)
         statements.push(stmt)
         
@@ -894,7 +894,7 @@ parse_return_statement = (parser: Ptr<Parser>) AstNode {
     
     // Check if there's a value
     value := Option<Ptr<AstNode>>.None
-    !check(parser, TokenKind.Semicolon) & !check(parser, TokenKind.RightBrace) ?
+    !check(parser, TokenKind.Semicolon) && !check(parser, TokenKind.RightBrace) ?
         | true => value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser)))
         | false => {}
     
@@ -906,7 +906,7 @@ parse_break_statement = (parser: Ptr<Parser>) AstNode {
     
     // Check if there's a value
     value := Option<Ptr<AstNode>>.None
-    !check(parser, TokenKind.Semicolon) & !check(parser, TokenKind.RightBrace) ?
+    !check(parser, TokenKind.Semicolon) && !check(parser, TokenKind.RightBrace) ?
         | true => value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser)))
         | false => {}
     
@@ -946,7 +946,7 @@ parse_match_expression = (parser: Ptr<Parser>) AstNode {
     
     arms := vec_new<MatchArm>()
     
-    loop !check(parser, TokenKind.RightBrace) & !is_at_end(parser) {
+    loop !check(parser, TokenKind.RightBrace) && !is_at_end(parser) {
         pattern := parse_pattern(parser)
         
         // Optional guard

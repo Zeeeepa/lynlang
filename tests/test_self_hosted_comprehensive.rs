@@ -4,18 +4,7 @@ use zen::{parser::Parser, lexer::Lexer, typechecker::TypeChecker, error::Compile
 
 fn compile_zen_module(source: &str) -> Result<String, CompileError> {
     let mut lexer = Lexer::new(source);
-    let mut tokens = Vec::new();
-    
-    // Tokenize
-    loop {
-        let token = lexer.next_token();
-        if token == zen::lexer::Token::Eof {
-            break;
-        }
-        tokens.push(token);
-    }
-    
-    let mut parser = Parser::new(tokens);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse_program()?;
     let mut type_checker = TypeChecker::new();
     let typed_ast = type_checker.check_program(&ast)?;
@@ -30,6 +19,9 @@ fn test_self_hosted_lexer_comprehensive() {
     
     // Verify the lexer can compile
     let result = compile_zen_module(zen_lexer_code);
+    if let Err(e) = &result {
+        eprintln!("Failed to compile lexer: {:?}", e);
+    }
     assert!(result.is_ok(), "Self-hosted lexer should compile");
 }
 
