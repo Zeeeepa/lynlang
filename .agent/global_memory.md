@@ -83,20 +83,30 @@ The language is now capable of compiling non-trivial programs and has the founda
 
 ### ✅ Completed
 1. **Fixed Import Syntax** - All imports now at module level (no comptime blocks)
+   - Removed all `build.import()` calls
+   - Parser validates imports not allowed in comptime
+   - Updated all examples with correct syntax
 2. **Bootstrap Compiler** - Fixed enum syntax issues in bootstrap_compiler.zen
-3. **Test Suite Created** - Multiple test files demonstrating language features:
-   - test_minimal_suite.zen - Basic working tests
-   - test_enum_simple.zen - Enum syntax validation
-   - test_bootstrap_basic.zen - Simple bootstrap demonstration
-4. **Enum Syntax Verified** - Enums use `|` for variants: `Color = | Red | Green | Blue`
+3. **Stdlib Modules Created** - Core modules written in Zen:
+   - stdlib/core/option.zen - Option type with map, filter, unwrap_or
+   - stdlib/core/result.zen - Result type for error handling
+   - stdlib/core/vec.zen - Dynamic vector implementation
+4. **Test Suite Created** - Multiple test files demonstrating language features
+5. **Examples Updated** - hello_zen.zen shows correct import pattern
 
 ### 🔧 Key Fixes Made
 - Fixed enum declarations to use correct `|` syntax
 - Removed invalid enum payload syntax (Zen doesn't support associated data yet)
-- Simplified pattern matching to avoid parser issues
-- Created minimal working examples that compile successfully
+- Parser enforces module-level imports only
+- Created working "Hello, Zen!" example
+
+### ⚠️ Known Issues
+- Boolean type handling in pattern matching needs fixing
+- Type system treats bool as i32 causing LLVM verification errors
+- Need to implement proper bool type in codegen
 
 ### 🚀 Next Steps
-1. Implement basic LSP functionality for editor support
-2. Test and validate stdlib modules
-3. Continue improving self-hosting capabilities
+1. Fix boolean type handling in compiler
+2. Implement basic LSP functionality for editor support  
+3. Create zen-check improvements
+4. Continue self-hosting work
