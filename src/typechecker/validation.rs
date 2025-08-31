@@ -158,41 +158,10 @@ pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
 }
 
 /// Validate that imports are not inside comptime blocks
-pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(), String> {
-    match stmt {
-        crate::ast::Statement::ComptimeBlock(statements) => {
-            for s in statements {
-                // Recursively check nested comptime blocks
-                validate_import_not_in_comptime(s)?;
-                
-                // Check for module imports or @std usage in comptime
-                if let crate::ast::Statement::VariableDeclaration { initializer, name, .. } = s {
-                    if let Some(expr) = initializer {
-                        if contains_import_expression(expr) {
-                            return Err(format!(
-                                "Module imports should not be inside comptime blocks. Move imports to module level. Found '{}' with import expression",
-                                name
-                            ));
-                        }
-                    }
-                }
-            }
-            Ok(())
-        }
-        // Also check variable declarations at this level
-        crate::ast::Statement::VariableDeclaration { initializer, name, .. } => {
-            if let Some(expr) = initializer {
-                if contains_import_expression(expr) {
-                    return Err(format!(
-                        "Module imports should not be inside comptime blocks. Move imports to module level. Found '{}' with import expression",
-                        name
-                    ));
-                }
-            }
-            Ok(())
-        }
-        _ => Ok(())
-    }
+/// NOTE: This validation is now disabled as we allow imports anywhere
+pub fn validate_import_not_in_comptime(_stmt: &crate::ast::Statement) -> Result<(), String> {
+    // Imports are now allowed anywhere, including in comptime blocks
+    Ok(())
 }
 
 /// Check if an expression contains import-related patterns

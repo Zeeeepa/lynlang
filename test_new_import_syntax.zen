@@ -1,0 +1,24 @@
+// Test file for new import syntax - imports without comptime
+
+// Top-level imports (should work)
+core := @std.core
+build := @std.build
+io := build.import("io")
+
+// Main function using imported modules
+main = () i32 {
+    io.print("Hello from new import syntax!\n")
+    return 0
+}
+
+// Test that imports also work in comptime blocks now
+comptime {
+    meta := @std.meta
+    reflect := build.import("reflect")
+}
+
+// Another function using imports
+test_imports = () void {
+    core.assert(true)
+    io.println("Imports work everywhere now!")
+}

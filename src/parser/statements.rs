@@ -392,7 +392,7 @@ impl<'a> Parser<'a> {
                         if let Statement::VariableDeclaration { initializer, .. } = &stmt {
                             if let Some(expr) = initializer {
                                 // Check for @std patterns or build.import calls
-                                let is_import = match expr {
+                                let _is_import = match expr {
                                     Expression::MemberAccess { object, .. } => {
                                         if let Expression::Identifier(id) = &**object {
                                             id.starts_with("@std") || id == "@std"
@@ -409,12 +409,8 @@ impl<'a> Parser<'a> {
                                     _ => false
                                 };
                                 
-                                if is_import {
-                                    return Err(CompileError::SyntaxError(
-                                        "Import statements are not allowed inside comptime blocks. Move imports to module level.".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
+                                // Imports are now allowed inside comptime blocks
+                                // No validation needed
                             }
                         }
                         

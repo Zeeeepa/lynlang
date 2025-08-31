@@ -1,0 +1,101 @@
+Test run started at Sun Aug 31 17:53:25 UTC 2025
+warning: unused variable: `function_type`
+   --> src/codegen/llvm/types.rs:106:21
+    |
+106 |                 let function_type = match return_llvm_type {
+    |                     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_function_type`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `id`
+  --> src/parser/comptime.rs:25:38
+   |
+25 |             if let Token::Identifier(id) = &self.current_token {
+   |                                      ^^ help: if this is intentional, prefix it with an underscore: `_id`
+
+warning: `zen` (lib) generated 2 warnings
+warning: variants `Function`, `Struct`, `Enum`, `Option`, `Result`, and `Range` are never constructed
+  --> src/ast.rs:27:5
+   |
+7  | pub enum AstType {
+   |          ------- variants in this enum
+...
+27 |     Function {
+   |     ^^^^^^^^
+...
+35 |     Struct {
+   |     ^^^^^^
+...
+39 |     Enum {
+   |     ^^^^
+...
+45 |     Option(Box<AstType>), // Option<T>
+   |     ^^^^^^
+46 |     Result {
+   |     ^^^^^^
+...
+50 |     Range {
+   |     ^^^^^
+   |
+   = note: `AstType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: variant `StringConcat` is never constructed
+  --> src/ast.rs:87:5
+   |
+75 | pub enum BinaryOperator {
+   |          -------------- variant in this enum
+...
+87 |     StringConcat,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `BinaryOperator` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple variants are never constructed
+   --> src/ast.rs:94:5
+    |
+93  | pub enum Expression {
+    |          ---------- variants in this enum
+94  |     Integer8(i8),
+    |     ^^^^^^^^
+95  |     Integer16(i16),
+    |     ^^^^^^^^^
+...
+98  |     Unsigned8(u8),
+    |     ^^^^^^^^^
+99  |     Unsigned16(u16),
+    |     ^^^^^^^^^^
+100 |     Unsigned32(u32),
+    |     ^^^^^^^^^^
+101 |     Unsigned64(u64),
+    |     ^^^^^^^^^^
+102 |     Float32(f32),
+    |     ^^^^^^^
+...
+121 |     AddressOf(Box<Expression>),
+    |     ^^^^^^^^^
+122 |     Dereference(Box<Expression>),
+    |     ^^^^^^^^^^^
+123 |     PointerOffset {
+    |     ^^^^^^^^^^^^^
+...
+131 |     StructField {
+    |     ^^^^^^^^^^^
+...
+150 |     StringLength(Box<Expression>),
+    |     ^^^^^^^^^^^^
+...
+164 |     PatternMatch {
+    |     ^^^^^^^^^^^^
+...
+169 |     StdModule(String),
+    |     ^^^^^^^^^
+170 |     // Generic module reference
+171 |     Module(String),
+    |     ^^^^^^
+...
+175 |     Return(Box<Expression>),
+    |     ^^^^^^
+    |
+    = note: `Expression` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+

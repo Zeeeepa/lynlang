@@ -36,13 +36,8 @@ fn main() {
                 Ok(content) => {
                     println!("Checking {}...", file_str);
                     
-                    // Check for import placement errors
-                    if let Some(error) = check_import_placement(&content) {
-                        eprintln!("  ✗ {}", error);
-                        has_errors = true;
-                        files_with_errors += 1;
-                        continue;
-                    }
+                    // Import placement check is now disabled
+                    // Imports are allowed anywhere including comptime blocks
                     
                     // Try to parse the file
                     let lexer = Lexer::new(&content);
@@ -80,47 +75,9 @@ fn main() {
 }
 
 /// Check for imports inside comptime blocks
-fn check_import_placement(content: &str) -> Option<String> {
-    let lines: Vec<&str> = content.lines().collect();
-    let mut in_comptime = false;
-    let mut brace_depth = 0;
-    
-    for (line_num, line) in lines.iter().enumerate() {
-        let trimmed = line.trim();
-        
-        // Check for comptime block start
-        if trimmed.starts_with("comptime") && line.contains('{') {
-            in_comptime = true;
-            brace_depth = 1;
-        }
-        
-        // Track brace depth in comptime
-        if in_comptime {
-            for ch in line.chars() {
-                match ch {
-                    '{' => brace_depth += 1,
-                    '}' => {
-                        brace_depth -= 1;
-                        if brace_depth == 0 {
-                            in_comptime = false;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        
-        // Check for imports in comptime
-        if in_comptime {
-            if trimmed.contains("@std") || trimmed.contains("build.import") {
-                return Some(format!(
-                    "Line {}: Import statements are not allowed inside comptime blocks\n    {}",
-                    line_num + 1,
-                    trimmed
-                ));
-            }
-        }
-    }
-    
+/// NOTE: This check is now disabled as imports are allowed anywhere
+#[allow(dead_code)]
+fn check_import_placement(_content: &str) -> Option<String> {
+    // Imports are now allowed anywhere including comptime blocks
     None
 }

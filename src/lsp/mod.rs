@@ -39,9 +39,9 @@ impl ZenServer {
         let mut diagnostics = Vec::new();
         
         match self.parse_document(uri).await {
-            Ok(program) => {
-                // Check for comptime import issues
-                diagnostics.extend(self.check_comptime_imports(&program));
+            Ok(_program) => {
+                // Comptime import check is now disabled
+                // Imports are allowed anywhere
             }
             Err(_) => {
                 // Add a generic error diagnostic
@@ -62,37 +62,10 @@ impl ZenServer {
         diagnostics
     }
     
-    fn check_comptime_imports(&self, program: &Program) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-        
-        for declaration in &program.declarations {
-            if let crate::ast::Declaration::ComptimeBlock(statements) = declaration {
-                for stmt in statements {
-                    if let crate::ast::Statement::VariableDeclaration { name, initializer, .. } = stmt {
-                        if let Some(expr) = initializer {
-                            if self.is_import_expression(expr) {
-                                diagnostics.push(Diagnostic {
-                                    range: Range::new(Position::new(0, 0), Position::new(0, 0)),
-                                    severity: Some(DiagnosticSeverity::ERROR),
-                                    code: Some(NumberOrString::String("import-in-comptime".to_string())),
-                                    code_description: None,
-                                    source: Some("zen".to_string()),
-                                    message: format!(
-                                        "Module import '{}' should not be inside comptime block. Move imports to module level.",
-                                        name
-                                    ),
-                                    related_information: None,
-                                    tags: None,
-                                    data: None,
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        diagnostics
+    #[allow(dead_code)]
+    fn check_comptime_imports(&self, _program: &Program) -> Vec<Diagnostic> {
+        // Imports are now allowed anywhere including comptime blocks
+        Vec::new()
     }
     
     fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {
