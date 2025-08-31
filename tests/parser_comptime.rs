@@ -143,3 +143,73 @@ comptime {
         panic!("Expected ComptimeBlock declaration");
     }
 }
+
+#[test]
+fn test_reject_imports_in_comptime() {
+    let input = r#"
+comptime {
+    core := @std.core
+    io := build.import("io")
+}
+"#;
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    
+    let result = parser.parse_program();
+    
+    // The parser should reject imports inside comptime blocks
+    assert!(result.is_err(), "Parser should reject imports inside comptime blocks");
+    
+    if let Err(err) = result {
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("import") || err_msg.contains("comptime"),
+            "Error message should mention imports or comptime: {}",
+            err_msg
+        );
+    }
+}
+
+#[test]
+fn test_accept_imports_at_module_level() {
+    let input = r#"
+core := @std.core
+build := @std.build
+io := build.import("io")
+
+comptime {
+    BUFFER_SIZE := 1024
+}
+
+main = () void {
+    io.print("Hello")
+}
+"#;
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    
+    let result = parser.parse_program();
+    assert!(result.is_ok(), "Parser should accept module-level imports: {:?}", result);
+    
+    let program = result.unwrap();
+    
+    // Should have 3 imports + 1 comptime block + 1 function = 5 declarations
+    assert_eq!(program.declarations.len(), 5);
+    
+    // First 3 should be imports
+    for i in 0..3 {
+        assert!(
+            matches!(&program.declarations[i], Declaration::ModuleImport { .. }),
+            "Expected ModuleImport at index {}, got {:?}",
+            i,
+            program.declarations[i]
+        );
+    }
+    
+    // Fourth should be comptime block (without imports)
+    assert!(
+        matches!(&program.declarations[3], Declaration::ComptimeBlock(_)),
+        "Expected ComptimeBlock at index 3, got {:?}",
+        program.declarations[3]
+    );
+}
