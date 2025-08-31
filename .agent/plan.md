@@ -1,35 +1,42 @@
-# Zen Language Development Plan
+# Zen Language Self-Hosting Plan
 
-## Phase 1: Import System Fix (Current)
-- [x] Analyze current import patterns
-- [ ] Fix remaining comptime-wrapped imports
-- [ ] Update parser to reject imports in comptime
-- [ ] Update all test files
-- [ ] Verify all examples work correctly
+## Goal
+Complete self-hosting of the Zen compiler with proper import syntax and stdlib
 
-## Phase 2: Standard Library Enhancement
-- [ ] Complete core module
-- [ ] Enhance io module with more operations
-- [ ] Add missing string utilities
-- [ ] Implement full collections library
-- [ ] Add comprehensive error handling
+## Key Changes
 
-## Phase 3: Self-Hosting Compiler
-- [ ] Port lexer to Zen
-- [ ] Port parser to Zen
-- [ ] Port type checker to Zen
-- [ ] Port code generator to Zen
-- [ ] Bootstrap testing
+### 1. Import Syntax Fix (Priority 1)
+- Remove comptime blocks for imports
+- Allow top-level imports: `io := @std.io`
+- Keep comptime for meta-programming only
 
-## Phase 4: LSP Implementation
-- [ ] Basic syntax checking
-- [ ] Type checking integration
-- [ ] Auto-completion
-- [ ] Go-to-definition
-- [ ] Error diagnostics
+### 2. Self-Hosting Compiler (Priority 2)
+- Complete lexer, parser, type checker, code generator
+- Ensure compiler can compile itself
+- Bootstrap process
 
-## Phase 5: Testing & Documentation
-- [ ] Unit tests for all stdlib modules
-- [ ] Integration tests for compiler
-- [ ] Performance benchmarks
-- [ ] Complete documentation
+### 3. Standard Library (Priority 3)
+- Port core modules to Zen
+- io, string, math, memory modules
+- Test coverage for all modules
+
+### 4. Testing Infrastructure (Priority 4)
+- Comprehensive test suite
+- Integration tests
+- Self-hosting validation
+
+### 5. Developer Tools (Priority 5)
+- Basic LSP or syntax checker
+- Error reporting improvements
+
+## Time Allocation
+- 40% - Import syntax and parser updates
+- 30% - Self-hosting compiler completion
+- 20% - Testing and validation
+- 10% - Documentation and tools
+
+## Success Criteria
+- Compiler can compile itself
+- All tests pass
+- Import syntax works without comptime blocks
+- Basic stdlib modules available
