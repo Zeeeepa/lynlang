@@ -53,6 +53,7 @@ Zen is a systems programming language focusing on simplicity, elegance, and prac
 - Working towards self-hosting
 - All parser import tests passing (5/5)
 - Examples updated with new import syntax
+- Fixed struct syntax in self-hosting files (removed 'struct' keyword)
 
 ## Next Steps
 1. Implement core compiler components in Zen

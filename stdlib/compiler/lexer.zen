@@ -8,7 +8,7 @@ io := @std.io
 // token := @compiler.token
 
 // Lexer state
-Lexer = struct {
+Lexer = {
     input: String,
     position: i32,      // current position in input (points to current char)
     read_position: i32, // current reading position in input (after current char)
