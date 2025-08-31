@@ -177,14 +177,14 @@ test_position_tracking = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main = () void {
     io.print("=== Self-Hosted Lexer Tests ===\n\n")
     
     tests_passed := 0
     tests_failed := 0
     
     // Run tests
-    test_token_recognition() ?
+    test_token_recognition() ? 
         | true => { tests_passed = tests_passed + 1 }
         | false => { tests_failed = tests_failed + 1 }
     
@@ -223,10 +223,8 @@ main = () i32 {
     tests_failed == 0 ?
         | true => {
             io.print("\nAll tests passed!\n")
-            return 0
         }
         | false => {
             io.print("\nSome tests failed\n")
-            return 1
         }
 }
