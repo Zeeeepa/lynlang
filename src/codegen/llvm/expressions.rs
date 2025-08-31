@@ -208,13 +208,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             let next_bb = if !is_last {
                 self.context.append_basic_block(parent_function, &format!("test_{}", i + 1))
-            } else if is_wildcard || is_exhaustive_boolean {
-                // Wildcard or exhaustive boolean patterns don't need unmatched block
-                match_bb
             } else {
-                // Non-wildcard last pattern needs somewhere to go if it doesn't match
-                // Create an unreachable block for now (in a complete implementation, 
-                // this would be a runtime error)
+                // For the last arm, create an unmatched block
+                // This will be used if the pattern doesn't match
                 let block = self.context.append_basic_block(parent_function, "pattern_unmatched");
                 unmatched_block = Some(block);
                 block
@@ -443,6 +439,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Track the current "next" block for fallthrough
         let mut _current_block = self.builder.get_insert_block().unwrap();
+        let mut unmatched_block = None;
         
         for (i, arm) in arms.iter().enumerate() {
             let is_last = i == arms.len() - 1;
@@ -477,20 +474,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             // Create blocks for this arm
             let match_bb = self.context.append_basic_block(parent_function, &format!("match_{}", i));
+            
+            // Determine the next block - if this arm doesn't match, where do we go?
             let next_bb = if !is_last {
+                // Not the last arm - go to test the next pattern
                 self.context.append_basic_block(parent_function, &format!("test_{}", i + 1))
             } else {
-                // For the last arm, we don't need a "next" block
-                match_bb  // dummy value, won't be used
+                // Last arm - create an unmatched block
+                let block = self.context.append_basic_block(parent_function, "pattern_unmatched");
+                unmatched_block = Some(block);
+                block
             };
             
             // Branch based on the condition
-            if !is_last {
-                self.builder.build_conditional_branch(final_condition, match_bb, next_bb)?;
-            } else {
-                // Last arm - if it doesn't match, it's an error (shouldn't happen with wildcard)
-                self.builder.build_conditional_branch(final_condition, match_bb, match_bb)?;
-            }
+            self.builder.build_conditional_branch(final_condition, match_bb, next_bb)?;
             
             // Generate code for the match block
             self.builder.position_at_end(match_bb);
@@ -516,6 +513,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.position_at_end(next_bb);
                 _current_block = next_bb;
             }
+        }
+        
+        // Handle unmatched pattern block if we created one
+        if let Some(unmatched_bb) = unmatched_block {
+            self.builder.position_at_end(unmatched_bb);
+            // For now, just return a default value (0) and branch to merge
+            // In a complete implementation, this would be a runtime error
+            let default_val = self.context.i32_type().const_int(0, false);
+            self.builder.build_unconditional_branch(merge_bb)?;
+            phi_values.push((default_val.into(), unmatched_bb));
         }
         
         // Position at merge block and create phi node

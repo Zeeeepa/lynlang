@@ -11,9 +11,8 @@ use test_output_verification::{ExecutionHelper, CapturedOutput};
 fn test_vec_implementation_parses() {
     let vec_code = r#"
 // Test Vec struct and basic operations
-comptime {
-    core := @std.core
-}
+// Module-level import
+core := @std.core
 
 Vec<T> = {
     data: *T,
@@ -66,9 +65,8 @@ main = () i32 {
 #[test]
 fn test_vec_push_pop_operations() {
     let vec_ops = r#"
-comptime {
-    core := @std.core
-}
+// Module-level import
+core := @std.core
 
 Vec<T> = {
     data: *T,
@@ -116,9 +114,8 @@ main = () i32 {
 #[test]
 fn test_vec_memory_operations() {
     let mem_ops = r#"
-comptime {
-    core := @std.core
-}
+// Module-level import
+core := @std.core
 
 extern malloc = (size: i64) *void
 extern free = (ptr: *void) void
@@ -159,9 +156,8 @@ main = () i32 {
 #[test]
 fn test_vec_with_pattern_matching() {
     let pattern_code = r#"
-comptime {
-    core := @std.core
-}
+// Module-level import
+core := @std.core
 
 Option<T> = 
     | Some(value: T)
@@ -175,8 +171,8 @@ Vec<T> = {
 
 vec_get<T> = (vec: *Vec<T>, index: i64) Option<T> {
     index >= 0 && index < vec.len ? 
-        | true => return Option::Some(vec.data[index])
-        | false => return Option::None
+        | true => Option::Some(vec.data[index])
+        | false => Option::None
 }
 
 main = () i32 {
