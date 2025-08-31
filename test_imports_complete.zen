@@ -1,0 +1,62 @@
+// Complete import system test
+// Tests all import patterns work correctly
+
+// Standard library imports - module level
+core := @std.core
+io := @std.io
+math := @std.math
+string := @std.string
+vec := @std.vec
+
+// Build system imports
+build := @std.build
+fs := build.import("fs")
+
+main = () i32 {
+    io.println("Testing complete import system...")
+    
+    // Test core module
+    x := core.alloc(i32)
+    core.free(x)
+    io.println("[OK] Core module works")
+    
+    // Test math module  
+    result := math.abs(-42)
+    io.print("abs(-42) = ")
+    io.print_int(result)
+    io.println("")
+    io.println("[OK] Math module works")
+    
+    // Test string module
+    str := string.new("Hello, Zen!")
+    len := string.length(str)
+    io.print("String length: ")
+    io.print_int(len)
+    io.println("")
+    io.println("[OK] String module works")
+    
+    // Test vec module
+    v := vec.new(i32)
+    vec.push(v, 1)
+    vec.push(v, 2)
+    vec.push(v, 3)
+    size := vec.size(v)
+    io.print("Vector size: ")
+    io.print_int(size)
+    io.println("")
+    io.println("[OK] Vec module works")
+    
+    // Comptime is for meta-programming, NOT imports
+    comptime {
+        // This is compile-time computation
+        CONST_VALUE := 100 * 2
+        VERSION := "1.0.0"
+    }
+    
+    io.print("Compile-time constant: ")
+    io.print_int(CONST_VALUE)
+    io.println("")
+    
+    io.println("All import tests passed!")
+    return 0
+}

@@ -1,0 +1,8 @@
+// This should fail - imports not allowed in comptime blocks
+comptime {
+    io := @std.io
+}
+
+main = () i32 {
+    return 0
+}
