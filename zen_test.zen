@@ -11,34 +11,37 @@ test_arithmetic = () bool {
     b := 20
     c := a + b
     
-    if c != 30 {
-        io.println("FAIL: arithmetic test - expected 30, got something else")
-        return false
-    }
-    
-    io.println("PASS: arithmetic test")
-    return true
+    c == 30 ?
+        | true => {
+            io.println("PASS: arithmetic test")
+            return true
+        }
+        | false => {
+            io.println("FAIL: arithmetic test - expected 30, got something else")
+            return false
+        }
 }
 
 // Test function calls
 fibonacci = (n: i32) i32 {
-    if n <= 1 {
-        return n
-    }
-    return fibonacci(n - 1) + fibonacci(n - 2)
+    n <= 1 ?
+        | true => n
+        | false => fibonacci(n - 1) + fibonacci(n - 2)
 }
 
 test_fibonacci = () bool {
     result := fibonacci(10)
     expected := 55
     
-    if result != expected {
-        io.println("FAIL: fibonacci test")
-        return false
-    }
-    
-    io.println("PASS: fibonacci test")
-    return true
+    result == expected ?
+        | true => {
+            io.println("PASS: fibonacci test")
+            return true
+        }
+        | false => {
+            io.println("FAIL: fibonacci test")
+            return false
+        }
 }
 
 // Test structs
@@ -50,31 +53,37 @@ Point = {
 test_structs = () bool {
     p := Point { x: 10, y: 20 }
     
-    if p.x != 10 || p.y != 20 {
-        io.println("FAIL: struct test")
-        return false
-    }
-    
-    io.println("PASS: struct test")
-    return true
+    (p.x == 10 && p.y == 20) ?
+        | true => {
+            io.println("PASS: struct test")
+            return true
+        }
+        | false => {
+            io.println("FAIL: struct test")
+            return false
+        }
 }
 
 // Test arrays
 test_arrays = () bool {
     arr := [1, 2, 3, 4, 5]
     sum := 0
+    i := 0
     
-    for i := 0; i < 5; i = i + 1 {
+    loop i < 5 {
         sum = sum + arr[i]
+        i = i + 1
     }
     
-    if sum != 15 {
-        io.println("FAIL: array test")
-        return false
-    }
-    
-    io.println("PASS: array test")
-    return true
+    sum == 15 ?
+        | true => {
+            io.println("PASS: array test")
+            return true
+        }
+        | false => {
+            io.println("FAIL: array test")
+            return false
+        }
 }
 
 // Test string operations
@@ -96,36 +105,12 @@ main = () i32 {
     passed := 0
     failed := 0
     
-    // Run all tests
-    if test_arithmetic() {
-        passed = passed + 1
-    } else {
-        failed = failed + 1
-    }
-    
-    if test_fibonacci() {
-        passed = passed + 1
-    } else {
-        failed = failed + 1
-    }
-    
-    if test_structs() {
-        passed = passed + 1
-    } else {
-        failed = failed + 1
-    }
-    
-    if test_arrays() {
-        passed = passed + 1
-    } else {
-        failed = failed + 1
-    }
-    
-    if test_strings() {
-        passed = passed + 1
-    } else {
-        failed = failed + 1
-    }
+    // Run all tests - simpler approach
+    test_arithmetic() ? | true => { passed = passed + 1 } | false => { failed = failed + 1 }
+    test_fibonacci() ? | true => { passed = passed + 1 } | false => { failed = failed + 1 }
+    test_structs() ? | true => { passed = passed + 1 } | false => { failed = failed + 1 }
+    test_arrays() ? | true => { passed = passed + 1 } | false => { failed = failed + 1 }
+    test_strings() ? | true => { passed = passed + 1 } | false => { failed = failed + 1 }
     
     io.println("")
     io.println("=== Test Results ===")
@@ -135,9 +120,7 @@ main = () i32 {
     io.print_int(failed)
     io.println("")
     
-    if failed > 0 {
-        return 1
-    }
-    
-    return 0
+    failed > 0 ?
+        | true => 1
+        | false => 0
 }

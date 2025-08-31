@@ -64,4 +64,7 @@ io := @std.io
 - ✅ Fixed remaining comptime import issues in test files
 - ✅ LSP validation for imports already implemented and working
 - ✅ Updated all tests to properly reject imports in comptime blocks
-- ⚠️ Known issue: nested pattern matching test failure (parser limitation - requires parentheses)
+- ✅ Fixed: nested pattern matching test (requires parentheses)
+- ✅ Added binary compilation support (-o flag for native executables)
+- ✅ Successfully tested compilation: hello.zen, minimal_test.zen
+- ⚠️ Known issue: Complex pattern matching in blocks needs LLVM fixes
