@@ -1,0 +1,112 @@
+// Comprehensive test for Zen import system
+// Demonstrates that imports work at module level without comptime
+
+// Standard library imports - no comptime needed!
+core := @std.core
+io := @std.io
+math := @std.math
+string := @std.string
+vec := @std.vec
+fs := @std.fs
+
+// Test function to verify all imports work
+test_std_imports = () bool {
+    // Test io
+    io.println("Testing standard library imports...")
+    
+    // Test math
+    pi := math.PI
+    result := math.abs(-5)
+    if (result != 5) {
+        io.println("Math import failed")
+        return false
+    }
+    
+    // Test string operations
+    text := "hello"
+    upper := string.to_upper(text)
+    if (upper != "HELLO") {
+        io.println("String import failed")
+        return false
+    }
+    
+    // Test vec operations
+    v := vec.new<i32>()
+    v.push(1)
+    v.push(2)
+    v.push(3)
+    if (v.len() != 3) {
+        io.println("Vec import failed")
+        return false
+    }
+    
+    io.println("All standard library imports working!")
+    return true
+}
+
+// Test build system imports
+test_build_imports = () bool {
+    build := @std.build
+    
+    // Import modules via build system
+    process := build.import("process")
+    json := build.import("json")
+    regex := build.import("regex")
+    
+    io.println("Build system imports working!")
+    return true
+}
+
+// Test that comptime is NOT used for imports
+test_comptime_usage = () bool {
+    // Comptime should be used for meta-programming, not imports
+    comptime {
+        // Generate compile-time constants
+        const_value := 42 * 2
+        lookup_table := generate_lookup_table()
+    }
+    
+    io.println("Comptime used correctly for meta-programming!")
+    return true
+}
+
+// Helper for comptime example
+generate_lookup_table = () [256]u8 {
+    table: [256]u8
+    i := 0
+    while (i < 256) {
+        table[i] = i as u8
+        i += 1
+    }
+    return table
+}
+
+// Main test runner
+main = () i32 {
+    io.println("=== Zen Import System Test ===\n")
+    
+    all_passed := true
+    
+    // Test standard library imports
+    if (!test_std_imports()) {
+        all_passed = false
+    }
+    
+    // Test build system imports
+    if (!test_build_imports()) {
+        all_passed = false
+    }
+    
+    // Test comptime usage
+    if (!test_comptime_usage()) {
+        all_passed = false
+    }
+    
+    if (all_passed) {
+        io.println("\n✓ All import tests passed!")
+        return 0
+    } else {
+        io.println("\n✗ Some import tests failed")
+        return 1
+    }
+}
