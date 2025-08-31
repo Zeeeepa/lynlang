@@ -1,0 +1,806 @@
+// Network programming utilities for Zen
+// Provides TCP/UDP sockets, HTTP client/server, and networking primitives
+
+core := @std.core
+mem := @std.mem
+string := @std.string
+result := @std.result
+file := @std.file
+concurrency := @std.concurrency
+
+// Socket types
+SocketType = enum {
+    TCP,
+    UDP,
+    Unix,
+}
+
+// IP Address representation
+IpAddr = enum {
+    V4 -> addr: [4]u8,
+    V6 -> addr: [16]u8,
+}
+
+// Socket address
+SocketAddr = {
+    ip: IpAddr,
+    port: u16,
+}
+
+// Socket handle
+Socket = {
+    fd: i32,
+    socket_type: SocketType,
+    is_connected: bool,
+    local_addr: ?SocketAddr,
+    remote_addr: ?SocketAddr,
+}
+
+// TCP Listener
+TcpListener = {
+    socket: Socket,
+    backlog: i32,
+}
+
+// UDP Socket
+UdpSocket = {
+    socket: Socket,
+}
+
+// HTTP Request
+HttpRequest = {
+    method: HttpMethod,
+    path: core.String,
+    version: core.String,
+    headers: []Header,
+    body: ?[]u8,
+}
+
+// HTTP Response
+HttpResponse = {
+    status_code: u16,
+    status_text: core.String,
+    version: core.String,
+    headers: []Header,
+    body: []u8,
+}
+
+// HTTP Methods
+HttpMethod = enum {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    HEAD,
+    OPTIONS,
+    PATCH,
+    CONNECT,
+    TRACE,
+}
+
+// HTTP Header
+Header = {
+    name: core.String,
+    value: core.String,
+}
+
+// Parse IP address from string
+parse_ip = (s: core.String) Result<IpAddr, core.String> {
+    // Check for IPv4
+    if string.contains(s, ".") {
+        parts := string.split(s, ".")
+        if parts.len() != 4 {
+            return Result<IpAddr, core.String>.Err("Invalid IPv4 address")
+        }
+        
+        addr: [4]u8
+        i := 0
+        loop i < 4 {
+            val := parse_u8(parts[i])
+            if val.is_err() {
+                return Result<IpAddr, core.String>.Err("Invalid IPv4 octet")
+            }
+            addr[i] = val.unwrap()
+            i += 1
+        }
+        
+        return Result<IpAddr, core.String>.Ok(IpAddr.V4(addr))
+    }
+    
+    // Check for IPv6
+    if string.contains(s, ":") {
+        // Simplified IPv6 parsing (full implementation would be more complex)
+        return Result<IpAddr, core.String>.Err("IPv6 parsing not yet implemented")
+    }
+    
+    return Result<IpAddr, core.String>.Err("Invalid IP address format")
+}
+
+// Create a socket address
+socket_addr = (ip: IpAddr, port: u16) SocketAddr {
+    return SocketAddr{
+        ip: ip,
+        port: port,
+    }
+}
+
+// Create a new TCP socket
+tcp_socket = () Result<Socket, core.String> {
+    fd := __sys_socket(AF_INET, SOCK_STREAM, 0)
+    if fd < 0 {
+        return Result<Socket, core.String>.Err("Failed to create socket")
+    }
+    
+    return Result<Socket, core.String>.Ok(Socket{
+        fd: fd,
+        socket_type: SocketType.TCP,
+        is_connected: false,
+        local_addr: Option.None,
+        remote_addr: Option.None,
+    })
+}
+
+// Create a new UDP socket
+udp_socket = () Result<UdpSocket, core.String> {
+    fd := __sys_socket(AF_INET, SOCK_DGRAM, 0)
+    if fd < 0 {
+        return Result<UdpSocket, core.String>.Err("Failed to create socket")
+    }
+    
+    return Result<UdpSocket, core.String>.Ok(UdpSocket{
+        socket: Socket{
+            fd: fd,
+            socket_type: SocketType.UDP,
+            is_connected: false,
+            local_addr: Option.None,
+            remote_addr: Option.None,
+        },
+    })
+}
+
+// Connect TCP socket to address
+tcp_connect = (addr: SocketAddr) Result<Socket, core.String> {
+    sock_res := tcp_socket()
+    if sock_res.is_err() {
+        return sock_res
+    }
+    
+    mut sock := sock_res.unwrap()
+    
+    // Convert address to sockaddr_in
+    sock_addr := to_sockaddr_in(addr)
+    
+    ret := __sys_connect(sock.fd, &sock_addr, sizeof(sock_addr))
+    if ret < 0 {
+        close_socket(&mut sock)
+        return Result<Socket, core.String>.Err("Connection failed")
+    }
+    
+    sock.is_connected = true
+    sock.remote_addr = Option.Some(addr)
+    
+    return Result<Socket, core.String>.Ok(sock)
+}
+
+// Bind socket to address
+bind = (sock: &mut Socket, addr: SocketAddr) Result<void, core.String> {
+    sock_addr := to_sockaddr_in(addr)
+    
+    ret := __sys_bind(sock.fd, &sock_addr, sizeof(sock_addr))
+    if ret < 0 {
+        return Result<void, core.String>.Err("Bind failed")
+    }
+    
+    sock.local_addr = Option.Some(addr)
+    return Result<void, core.String>.Ok(void)
+}
+
+// Listen for connections
+listen = (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String> {
+    sock_res := tcp_socket()
+    if sock_res.is_err() {
+        return Result<TcpListener, core.String>.Err(sock_res.unwrap_err())
+    }
+    
+    mut sock := sock_res.unwrap()
+    
+    // Enable address reuse
+    opt: i32 = 1
+    __sys_setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))
+    
+    // Bind to address
+    bind_res := bind(&mut sock, addr)
+    if bind_res.is_err() {
+        close_socket(&mut sock)
+        return Result<TcpListener, core.String>.Err(bind_res.unwrap_err())
+    }
+    
+    // Start listening
+    ret := __sys_listen(sock.fd, backlog)
+    if ret < 0 {
+        close_socket(&mut sock)
+        return Result<TcpListener, core.String>.Err("Listen failed")
+    }
+    
+    return Result<TcpListener, core.String>.Ok(TcpListener{
+        socket: sock,
+        backlog: backlog,
+    })
+}
+
+// Accept incoming connection
+accept = (listener: &TcpListener) Result<Socket, core.String> {
+    addr: SockAddrIn
+    addr_len: u32 = sizeof(addr)
+    
+    fd := __sys_accept(listener.socket.fd, &addr, &addr_len)
+    if fd < 0 {
+        return Result<Socket, core.String>.Err("Accept failed")
+    }
+    
+    remote_addr := from_sockaddr_in(&addr)
+    
+    return Result<Socket, core.String>.Ok(Socket{
+        fd: fd,
+        socket_type: SocketType.TCP,
+        is_connected: true,
+        local_addr: listener.socket.local_addr,
+        remote_addr: Option.Some(remote_addr),
+    })
+}
+
+// Send data over socket
+send = (sock: &Socket, data: []u8) Result<usize, core.String> {
+    if !sock.is_connected {
+        return Result<usize, core.String>.Err("Socket not connected")
+    }
+    
+    sent := __sys_send(sock.fd, data.data, data.len, 0)
+    if sent < 0 {
+        return Result<usize, core.String>.Err("Send failed")
+    }
+    
+    return Result<usize, core.String>.Ok(sent)
+}
+
+// Receive data from socket
+recv = (sock: &Socket, buffer: &mut []u8, len: usize) Result<usize, core.String> {
+    if !sock.is_connected {
+        return Result<usize, core.String>.Err("Socket not connected")
+    }
+    
+    received := __sys_recv(sock.fd, buffer.data, len, 0)
+    if received < 0 {
+        return Result<usize, core.String>.Err("Receive failed")
+    }
+    
+    return Result<usize, core.String>.Ok(received)
+}
+
+// Send data to specific address (UDP)
+send_to = (sock: &UdpSocket, data: []u8, addr: SocketAddr) Result<usize, core.String> {
+    sock_addr := to_sockaddr_in(addr)
+    
+    sent := __sys_sendto(sock.socket.fd, data.data, data.len, 0, &sock_addr, sizeof(sock_addr))
+    if sent < 0 {
+        return Result<usize, core.String>.Err("Send failed")
+    }
+    
+    return Result<usize, core.String>.Ok(sent)
+}
+
+// Receive data with source address (UDP)
+recv_from = (sock: &UdpSocket, buffer: &mut []u8, len: usize) Result<(usize, SocketAddr), core.String> {
+    addr: SockAddrIn
+    addr_len: u32 = sizeof(addr)
+    
+    received := __sys_recvfrom(sock.socket.fd, buffer.data, len, 0, &addr, &addr_len)
+    if received < 0 {
+        return Result<(usize, SocketAddr), core.String>.Err("Receive failed")
+    }
+    
+    source_addr := from_sockaddr_in(&addr)
+    return Result<(usize, SocketAddr), core.String>.Ok((received, source_addr))
+}
+
+// Close socket
+close_socket = (sock: &mut Socket) void {
+    if sock.fd >= 0 {
+        __sys_close(sock.fd)
+        sock.fd = -1
+        sock.is_connected = false
+    }
+}
+
+// Set socket to non-blocking mode
+set_nonblocking = (sock: &Socket) Result<void, core.String> {
+    flags := __sys_fcntl(sock.fd, F_GETFL, 0)
+    if flags < 0 {
+        return Result<void, core.String>.Err("Failed to get socket flags")
+    }
+    
+    ret := __sys_fcntl(sock.fd, F_SETFL, flags | O_NONBLOCK)
+    if ret < 0 {
+        return Result<void, core.String>.Err("Failed to set non-blocking")
+    }
+    
+    return Result<void, core.String>.Ok(void)
+}
+
+// HTTP Client
+HttpClient = {
+    timeout: u64,  // milliseconds
+    headers: []Header,
+}
+
+// Create new HTTP client
+http_client = () HttpClient {
+    return HttpClient{
+        timeout: 30000,  // 30 seconds default
+        headers: [],
+    }
+}
+
+// Perform HTTP GET request
+http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.String> {
+    req := HttpRequest{
+        method: HttpMethod.GET,
+        path: url,
+        version: "HTTP/1.1",
+        headers: client.headers,
+        body: Option.None,
+    }
+    
+    return http_request(client, req)
+}
+
+// Perform HTTP POST request
+http_post = (client: &HttpClient, url: core.String, body: []u8) Result<HttpResponse, core.String> {
+    req := HttpRequest{
+        method: HttpMethod.POST,
+        path: url,
+        version: "HTTP/1.1",
+        headers: client.headers,
+        body: Option.Some(body),
+    }
+    
+    return http_request(client, req)
+}
+
+// Perform generic HTTP request
+http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core.String> {
+    // Parse URL to get host and path
+    host, port, path := parse_url(req.path)
+    
+    // Resolve host
+    addr_res := resolve_host(host, port)
+    if addr_res.is_err() {
+        return Result<HttpResponse, core.String>.Err(addr_res.unwrap_err())
+    }
+    addr := addr_res.unwrap()
+    
+    // Connect to server
+    sock_res := tcp_connect(addr)
+    if sock_res.is_err() {
+        return Result<HttpResponse, core.String>.Err(sock_res.unwrap_err())
+    }
+    mut sock := sock_res.unwrap()
+    defer close_socket(&mut sock)
+    
+    // Build HTTP request string
+    request_str := format_http_request(req, host)
+    
+    // Send request
+    send_res := send(&sock, request_str.bytes())
+    if send_res.is_err() {
+        return Result<HttpResponse, core.String>.Err(send_res.unwrap_err())
+    }
+    
+    // Read response
+    buffer: [8192]u8
+    response_data: []u8 = []
+    
+    loop {
+        recv_res := recv(&sock, &mut buffer, 8192)
+        if recv_res.is_err() {
+            return Result<HttpResponse, core.String>.Err(recv_res.unwrap_err())
+        }
+        
+        bytes_read := recv_res.unwrap()
+        if bytes_read == 0 {
+            break
+        }
+        
+        response_data.append(buffer[0:bytes_read])
+    }
+    
+    // Parse HTTP response
+    return parse_http_response(response_data)
+}
+
+// HTTP Server
+HttpServer = {
+    listener: TcpListener,
+    handler: fn(HttpRequest) HttpResponse,
+    thread_pool: concurrency.ThreadPool,
+}
+
+// Create HTTP server
+http_server = (addr: SocketAddr, handler: fn(HttpRequest) HttpResponse) Result<HttpServer, core.String> {
+    listener_res := listen(addr, 128)
+    if listener_res.is_err() {
+        return Result<HttpServer, core.String>.Err(listener_res.unwrap_err())
+    }
+    
+    return Result<HttpServer, core.String>.Ok(HttpServer{
+        listener: listener_res.unwrap(),
+        handler: handler,
+        thread_pool: concurrency.new_thread_pool(10),
+    })
+}
+
+// Start serving HTTP requests
+serve = (server: &mut HttpServer) void {
+    loop {
+        // Accept connection
+        conn_res := accept(&server.listener)
+        if conn_res.is_err() {
+            continue
+        }
+        
+        conn := conn_res.unwrap()
+        
+        // Handle connection in thread pool
+        concurrency.submit_task(&mut server.thread_pool, || {
+            handle_http_connection(conn, server.handler)
+        })
+    }
+}
+
+// Handle individual HTTP connection
+handle_http_connection = (mut conn: Socket, handler: fn(HttpRequest) HttpResponse) void {
+    defer close_socket(&mut conn)
+    
+    // Read request
+    buffer: [8192]u8
+    recv_res := recv(&conn, &mut buffer, 8192)
+    if recv_res.is_err() {
+        return
+    }
+    
+    bytes_read := recv_res.unwrap()
+    if bytes_read == 0 {
+        return
+    }
+    
+    // Parse request
+    req_res := parse_http_request(buffer[0:bytes_read])
+    if req_res.is_err() {
+        // Send 400 Bad Request
+        response := HttpResponse{
+            status_code: 400,
+            status_text: "Bad Request",
+            version: "HTTP/1.1",
+            headers: [],
+            body: "Bad Request".bytes(),
+        }
+        response_str := format_http_response(response)
+        send(&conn, response_str.bytes())
+        return
+    }
+    
+    req := req_res.unwrap()
+    
+    // Call handler
+    response := handler(req)
+    
+    // Send response
+    response_str := format_http_response(response)
+    send(&conn, response_str.bytes())
+}
+
+// Helper functions
+
+// Convert IpAddr and port to sockaddr_in
+to_sockaddr_in = (addr: SocketAddr) SockAddrIn {
+    mut sock_addr: SockAddrIn
+    sock_addr.sin_family = AF_INET
+    sock_addr.sin_port = htons(addr.port)
+    
+    match addr.ip {
+        IpAddr.V4(octets) => {
+            sock_addr.sin_addr = (octets[0] << 24) | (octets[1] << 16) | 
+                                 (octets[2] << 8) | octets[3]
+        },
+        IpAddr.V6(_) => {
+            // IPv6 not fully implemented
+            sock_addr.sin_addr = 0
+        },
+    }
+    
+    return sock_addr
+}
+
+// Convert sockaddr_in to SocketAddr
+from_sockaddr_in = (addr: *SockAddrIn) SocketAddr {
+    ip_addr := addr.sin_addr
+    octets: [4]u8 = [
+        (ip_addr >> 24) & 0xFF,
+        (ip_addr >> 16) & 0xFF,
+        (ip_addr >> 8) & 0xFF,
+        ip_addr & 0xFF,
+    ]
+    
+    return SocketAddr{
+        ip: IpAddr.V4(octets),
+        port: ntohs(addr.sin_port),
+    }
+}
+
+// Network byte order conversion
+htons = (val: u16) u16 {
+    return ((val & 0xFF) << 8) | ((val >> 8) & 0xFF)
+}
+
+ntohs = (val: u16) u16 {
+    return ((val & 0xFF) << 8) | ((val >> 8) & 0xFF)
+}
+
+// Parse URL (simplified)
+parse_url = (url: core.String) (core.String, u16, core.String) {
+    // Remove http:// or https://
+    mut host_path := url
+    if string.starts_with(url, "http://") {
+        host_path = string.substring(url, 7, url.len)
+    } else if string.starts_with(url, "https://") {
+        host_path = string.substring(url, 8, url.len)
+    }
+    
+    // Find path
+    path_idx := string.index_of(host_path, "/")
+    mut host: core.String
+    mut path: core.String
+    
+    if path_idx >= 0 {
+        host = string.substring(host_path, 0, path_idx)
+        path = string.substring(host_path, path_idx, host_path.len)
+    } else {
+        host = host_path
+        path = "/"
+    }
+    
+    // Check for port
+    mut port: u16 = 80
+    port_idx := string.index_of(host, ":")
+    if port_idx >= 0 {
+        port_str := string.substring(host, port_idx + 1, host.len)
+        port = parse_u16(port_str).unwrap_or(80)
+        host = string.substring(host, 0, port_idx)
+    }
+    
+    return (host, port, path)
+}
+
+// Resolve hostname to IP address
+resolve_host = (host: core.String, port: u16) Result<SocketAddr, core.String> {
+    // For now, only handle IP addresses directly
+    ip_res := parse_ip(host)
+    if ip_res.is_err() {
+        return Result<SocketAddr, core.String>.Err("DNS resolution not implemented")
+    }
+    
+    return Result<SocketAddr, core.String>.Ok(SocketAddr{
+        ip: ip_res.unwrap(),
+        port: port,
+    })
+}
+
+// Format HTTP request
+format_http_request = (req: HttpRequest, host: core.String) core.String {
+    mut result := string.format("${} {} {}\r\n", 
+        method_to_string(req.method), req.path, req.version)
+    
+    result = string.concat(result, string.format("Host: {}\r\n", host))
+    
+    for header in req.headers {
+        result = string.concat(result, 
+            string.format("{}: {}\r\n", header.name, header.value))
+    }
+    
+    if req.body.is_some() {
+        body := req.body.unwrap()
+        result = string.concat(result, 
+            string.format("Content-Length: {}\r\n", body.len))
+    }
+    
+    result = string.concat(result, "\r\n")
+    
+    if req.body.is_some() {
+        result = string.concat(result, core.String.from_bytes(req.body.unwrap()))
+    }
+    
+    return result
+}
+
+// Format HTTP response
+format_http_response = (res: HttpResponse) core.String {
+    mut result := string.format("{} {} {}\r\n", 
+        res.version, res.status_code, res.status_text)
+    
+    for header in res.headers {
+        result = string.concat(result, 
+            string.format("{}: {}\r\n", header.name, header.value))
+    }
+    
+    result = string.concat(result, 
+        string.format("Content-Length: {}\r\n", res.body.len))
+    
+    result = string.concat(result, "\r\n")
+    result = string.concat(result, core.String.from_bytes(res.body))
+    
+    return result
+}
+
+// Parse HTTP request (simplified)
+parse_http_request = (data: []u8) Result<HttpRequest, core.String> {
+    text := core.String.from_bytes(data)
+    lines := string.split(text, "\r\n")
+    
+    if lines.len() < 1 {
+        return Result<HttpRequest, core.String>.Err("Invalid request")
+    }
+    
+    // Parse request line
+    parts := string.split(lines[0], " ")
+    if parts.len() != 3 {
+        return Result<HttpRequest, core.String>.Err("Invalid request line")
+    }
+    
+    method := string_to_method(parts[0])
+    path := parts[1]
+    version := parts[2]
+    
+    // Parse headers
+    mut headers: []Header = []
+    mut i := 1
+    loop i < lines.len() && lines[i].len > 0 {
+        colon_idx := string.index_of(lines[i], ":")
+        if colon_idx > 0 {
+            name := string.substring(lines[i], 0, colon_idx)
+            value := string.trim(string.substring(lines[i], colon_idx + 1, lines[i].len))
+            headers.push(Header{ name: name, value: value })
+        }
+        i += 1
+    }
+    
+    // Parse body if present
+    mut body: ?[]u8 = Option.None
+    if i < lines.len() - 1 {
+        body_start := i + 1
+        body_text := string.join(lines[body_start:], "\r\n")
+        body = Option.Some(body_text.bytes())
+    }
+    
+    return Result<HttpRequest, core.String>.Ok(HttpRequest{
+        method: method,
+        path: path,
+        version: version,
+        headers: headers,
+        body: body,
+    })
+}
+
+// Parse HTTP response (simplified)
+parse_http_response = (data: []u8) Result<HttpResponse, core.String> {
+    text := core.String.from_bytes(data)
+    lines := string.split(text, "\r\n")
+    
+    if lines.len() < 1 {
+        return Result<HttpResponse, core.String>.Err("Invalid response")
+    }
+    
+    // Parse status line
+    parts := string.split(lines[0], " ")
+    if parts.len() < 3 {
+        return Result<HttpResponse, core.String>.Err("Invalid status line")
+    }
+    
+    version := parts[0]
+    status_code := parse_u16(parts[1]).unwrap_or(0)
+    status_text := string.join(parts[2:], " ")
+    
+    // Parse headers
+    mut headers: []Header = []
+    mut i := 1
+    loop i < lines.len() && lines[i].len > 0 {
+        colon_idx := string.index_of(lines[i], ":")
+        if colon_idx > 0 {
+            name := string.substring(lines[i], 0, colon_idx)
+            value := string.trim(string.substring(lines[i], colon_idx + 1, lines[i].len))
+            headers.push(Header{ name: name, value: value })
+        }
+        i += 1
+    }
+    
+    // Parse body
+    mut body: []u8 = []
+    if i < lines.len() - 1 {
+        body_start := i + 1
+        body_text := string.join(lines[body_start:], "\r\n")
+        body = body_text.bytes()
+    }
+    
+    return Result<HttpResponse, core.String>.Ok(HttpResponse{
+        status_code: status_code,
+        status_text: status_text,
+        version: version,
+        headers: headers,
+        body: body,
+    })
+}
+
+// Convert method enum to string
+method_to_string = (method: HttpMethod) core.String {
+    match method {
+        HttpMethod.GET => "GET",
+        HttpMethod.POST => "POST",
+        HttpMethod.PUT => "PUT",
+        HttpMethod.DELETE => "DELETE",
+        HttpMethod.HEAD => "HEAD",
+        HttpMethod.OPTIONS => "OPTIONS",
+        HttpMethod.PATCH => "PATCH",
+        HttpMethod.CONNECT => "CONNECT",
+        HttpMethod.TRACE => "TRACE",
+    }
+}
+
+// Convert string to method enum
+string_to_method = (s: core.String) HttpMethod {
+    if string.equals(s, "GET") { return HttpMethod.GET }
+    if string.equals(s, "POST") { return HttpMethod.POST }
+    if string.equals(s, "PUT") { return HttpMethod.PUT }
+    if string.equals(s, "DELETE") { return HttpMethod.DELETE }
+    if string.equals(s, "HEAD") { return HttpMethod.HEAD }
+    if string.equals(s, "OPTIONS") { return HttpMethod.OPTIONS }
+    if string.equals(s, "PATCH") { return HttpMethod.PATCH }
+    if string.equals(s, "CONNECT") { return HttpMethod.CONNECT }
+    if string.equals(s, "TRACE") { return HttpMethod.TRACE }
+    return HttpMethod.GET  // Default
+}
+
+// Socket constants
+AF_INET: i32 = 2
+AF_INET6: i32 = 10
+SOCK_STREAM: i32 = 1
+SOCK_DGRAM: i32 = 2
+SOL_SOCKET: i32 = 1
+SO_REUSEADDR: i32 = 2
+O_NONBLOCK: i32 = 2048
+F_GETFL: i32 = 3
+F_SETFL: i32 = 4
+
+// Socket address structure
+SockAddrIn = {
+    sin_family: u16,
+    sin_port: u16,
+    sin_addr: u32,
+    sin_zero: [8]u8,
+}
+
+// System call declarations
+extern __sys_socket(domain: i32, type: i32, protocol: i32) i32
+extern __sys_bind(fd: i32, addr: *SockAddrIn, len: u32) i32
+extern __sys_listen(fd: i32, backlog: i32) i32
+extern __sys_accept(fd: i32, addr: *SockAddrIn, len: *u32) i32
+extern __sys_connect(fd: i32, addr: *SockAddrIn, len: u32) i32
+extern __sys_send(fd: i32, buf: *u8, len: usize, flags: i32) i64
+extern __sys_recv(fd: i32, buf: *u8, len: usize, flags: i32) i64
+extern __sys_sendto(fd: i32, buf: *u8, len: usize, flags: i32, addr: *SockAddrIn, addr_len: u32) i64
+extern __sys_recvfrom(fd: i32, buf: *u8, len: usize, flags: i32, addr: *SockAddrIn, addr_len: *u32) i64
+extern __sys_setsockopt(fd: i32, level: i32, optname: i32, optval: *void, optlen: u32) i32
+extern __sys_fcntl(fd: i32, cmd: i32, arg: i32) i32
+extern __sys_close(fd: i32) i32
+
+// Helper parsing functions (would be in string module)
+extern parse_u8(s: core.String) Result<u8, core.String>
+extern parse_u16(s: core.String) Result<u16, core.String>

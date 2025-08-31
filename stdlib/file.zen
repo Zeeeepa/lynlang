@@ -1,0 +1,572 @@
+// File I/O operations for Zen
+// Provides file reading, writing, and manipulation utilities
+
+core := @std.core
+mem := @std.mem
+string := @std.string
+path := @std.path
+result := @std.result
+
+// File handle
+File = {
+    fd: i32,  // File descriptor
+    path: core.String,
+    mode: FileMode,
+    is_open: bool,
+}
+
+// File modes
+FileMode = enum {
+    Read,
+    Write,
+    Append,
+    ReadWrite,
+}
+
+// File seek positions
+SeekFrom = enum {
+    Start -> offset: i64,
+    Current -> offset: i64,
+    End -> offset: i64,
+}
+
+// File metadata
+FileMetadata = {
+    size: u64,
+    created: u64,    // Unix timestamp
+    modified: u64,   // Unix timestamp
+    accessed: u64,   // Unix timestamp
+    is_dir: bool,
+    is_file: bool,
+    is_symlink: bool,
+    permissions: u32,
+}
+
+// Directory entry
+DirEntry = {
+    name: core.String,
+    path: core.String,
+    metadata: FileMetadata,
+}
+
+// Open a file with specified mode
+open = (path: core.String, mode: FileMode) Result<File, core.String> {
+    flags := mode_to_flags(mode)
+    fd := __sys_open(path.data, flags, 0o644)
+    
+    if fd < 0 {
+        return Result<File, core.String>.Err(get_error_string(fd))
+    }
+    
+    return Result<File, core.String>.Ok(File{
+        fd: fd,
+        path: path,
+        mode: mode,
+        is_open: true,
+    })
+}
+
+// Create a new file (truncates if exists)
+create = (path: core.String) Result<File, core.String> {
+    fd := __sys_open(path.data, O_CREAT | O_WRONLY | O_TRUNC, 0o644)
+    
+    if fd < 0 {
+        return Result<File, core.String>.Err(get_error_string(fd))
+    }
+    
+    return Result<File, core.String>.Ok(File{
+        fd: fd,
+        path: path,
+        mode: FileMode.Write,
+        is_open: true,
+    })
+}
+
+// Read entire file contents as string
+read_to_string = (file: &mut File) Result<core.String, core.String> {
+    if !file.is_open {
+        return Result<core.String, core.String>.Err("File is not open")
+    }
+    
+    // Get file size
+    stat := get_metadata(file)
+    if stat.is_err() {
+        return Result<core.String, core.String>.Err(stat.unwrap_err())
+    }
+    
+    size := stat.unwrap().size
+    buffer := mem.alloc<u8>(size + 1)
+    
+    bytes_read := __sys_read(file.fd, buffer, size)
+    if bytes_read < 0 {
+        mem.free(buffer)
+        return Result<core.String, core.String>.Err(get_error_string(bytes_read))
+    }
+    
+    buffer[bytes_read] = 0  // Null terminate
+    
+    return Result<core.String, core.String>.Ok(core.String{
+        data: buffer,
+        len: bytes_read,
+    })
+}
+
+// Read bytes from file
+read = (file: &mut File, buffer: &mut []u8, count: usize) Result<usize, core.String> {
+    if !file.is_open {
+        return Result<usize, core.String>.Err("File is not open")
+    }
+    
+    bytes_read := __sys_read(file.fd, buffer.data, count)
+    if bytes_read < 0 {
+        return Result<usize, core.String>.Err(get_error_string(bytes_read))
+    }
+    
+    return Result<usize, core.String>.Ok(bytes_read)
+}
+
+// Read entire file into byte array
+read_bytes = (file: &mut File) Result<[]u8, core.String> {
+    if !file.is_open {
+        return Result<[]u8, core.String>.Err("File is not open")
+    }
+    
+    // Get file size
+    stat := get_metadata(file)
+    if stat.is_err() {
+        return Result<[]u8, core.String>.Err(stat.unwrap_err())
+    }
+    
+    size := stat.unwrap().size
+    buffer := mem.alloc_array<u8>(size)
+    
+    bytes_read := __sys_read(file.fd, buffer.data, size)
+    if bytes_read < 0 {
+        mem.free(buffer.data)
+        return Result<[]u8, core.String>.Err(get_error_string(bytes_read))
+    }
+    
+    return Result<[]u8, core.String>.Ok(buffer[0:bytes_read])
+}
+
+// Write string to file
+write_string = (file: &mut File, content: core.String) Result<usize, core.String> {
+    if !file.is_open {
+        return Result<usize, core.String>.Err("File is not open")
+    }
+    
+    bytes_written := __sys_write(file.fd, content.data, content.len)
+    if bytes_written < 0 {
+        return Result<usize, core.String>.Err(get_error_string(bytes_written))
+    }
+    
+    return Result<usize, core.String>.Ok(bytes_written)
+}
+
+// Write bytes to file
+write = (file: &mut File, buffer: []u8) Result<usize, core.String> {
+    if !file.is_open {
+        return Result<usize, core.String>.Err("File is not open")
+    }
+    
+    bytes_written := __sys_write(file.fd, buffer.data, buffer.len)
+    if bytes_written < 0 {
+        return Result<usize, core.String>.Err(get_error_string(bytes_written))
+    }
+    
+    return Result<usize, core.String>.Ok(bytes_written)
+}
+
+// Write line to file (adds newline)
+write_line = (file: &mut File, line: core.String) Result<usize, core.String> {
+    total := 0
+    
+    // Write the line
+    res := write_string(file, line)
+    if res.is_err() {
+        return res
+    }
+    total += res.unwrap()
+    
+    // Write newline
+    res = write_string(file, "\n")
+    if res.is_err() {
+        return res
+    }
+    total += res.unwrap()
+    
+    return Result<usize, core.String>.Ok(total)
+}
+
+// Seek to position in file
+seek = (file: &mut File, pos: SeekFrom) Result<u64, core.String> {
+    if !file.is_open {
+        return Result<u64, core.String>.Err("File is not open")
+    }
+    
+    whence: i32
+    offset: i64
+    
+    match pos {
+        SeekFrom.Start(off) => {
+            whence = SEEK_SET
+            offset = off
+        },
+        SeekFrom.Current(off) => {
+            whence = SEEK_CUR
+            offset = off
+        },
+        SeekFrom.End(off) => {
+            whence = SEEK_END
+            offset = off
+        },
+    }
+    
+    new_pos := __sys_lseek(file.fd, offset, whence)
+    if new_pos < 0 {
+        return Result<u64, core.String>.Err(get_error_string(new_pos))
+    }
+    
+    return Result<u64, core.String>.Ok(new_pos)
+}
+
+// Get current position in file
+tell = (file: &File) Result<u64, core.String> {
+    if !file.is_open {
+        return Result<u64, core.String>.Err("File is not open")
+    }
+    
+    pos := __sys_lseek(file.fd, 0, SEEK_CUR)
+    if pos < 0 {
+        return Result<u64, core.String>.Err(get_error_string(pos))
+    }
+    
+    return Result<u64, core.String>.Ok(pos)
+}
+
+// Flush file buffers
+flush = (file: &mut File) Result<void, core.String> {
+    if !file.is_open {
+        return Result<void, core.String>.Err("File is not open")
+    }
+    
+    ret := __sys_fsync(file.fd)
+    if ret < 0 {
+        return Result<void, core.String>.Err(get_error_string(ret))
+    }
+    
+    return Result<void, core.String>.Ok(void)
+}
+
+// Close file
+close = (file: &mut File) Result<void, core.String> {
+    if !file.is_open {
+        return Result<void, core.String>.Ok(void)
+    }
+    
+    ret := __sys_close(file.fd)
+    if ret < 0 {
+        return Result<void, core.String>.Err(get_error_string(ret))
+    }
+    
+    file.is_open = false
+    return Result<void, core.String>.Ok(void)
+}
+
+// Get file metadata
+get_metadata = (file: &File) Result<FileMetadata, core.String> {
+    if !file.is_open {
+        return Result<FileMetadata, core.String>.Err("File is not open")
+    }
+    
+    stat_buf: StatBuf
+    ret := __sys_fstat(file.fd, &stat_buf)
+    
+    if ret < 0 {
+        return Result<FileMetadata, core.String>.Err(get_error_string(ret))
+    }
+    
+    return Result<FileMetadata, core.String>.Ok(FileMetadata{
+        size: stat_buf.st_size,
+        created: stat_buf.st_ctime,
+        modified: stat_buf.st_mtime,
+        accessed: stat_buf.st_atime,
+        is_dir: (stat_buf.st_mode & S_IFDIR) != 0,
+        is_file: (stat_buf.st_mode & S_IFREG) != 0,
+        is_symlink: (stat_buf.st_mode & S_IFLNK) != 0,
+        permissions: stat_buf.st_mode & 0o777,
+    })
+}
+
+// Check if file exists
+exists = (path: core.String) bool {
+    ret := __sys_access(path.data, F_OK)
+    return ret == 0
+}
+
+// Delete a file
+delete = (path: core.String) Result<void, core.String> {
+    ret := __sys_unlink(path.data)
+    if ret < 0 {
+        return Result<void, core.String>.Err(get_error_string(ret))
+    }
+    return Result<void, core.String>.Ok(void)
+}
+
+// Rename a file
+rename = (old_path: core.String, new_path: core.String) Result<void, core.String> {
+    ret := __sys_rename(old_path.data, new_path.data)
+    if ret < 0 {
+        return Result<void, core.String>.Err(get_error_string(ret))
+    }
+    return Result<void, core.String>.Ok(void)
+}
+
+// Copy a file
+copy = (src_path: core.String, dst_path: core.String) Result<u64, core.String> {
+    // Open source file
+    src_res := open(src_path, FileMode.Read)
+    if src_res.is_err() {
+        return Result<u64, core.String>.Err(src_res.unwrap_err())
+    }
+    src := src_res.unwrap()
+    defer close(&mut src)
+    
+    // Create destination file
+    dst_res := create(dst_path)
+    if dst_res.is_err() {
+        return Result<u64, core.String>.Err(dst_res.unwrap_err())
+    }
+    dst := dst_res.unwrap()
+    defer close(&mut dst)
+    
+    // Copy data
+    buffer: [4096]u8
+    total_copied: u64 = 0
+    
+    loop {
+        read_res := read(&mut src, &mut buffer, 4096)
+        if read_res.is_err() {
+            return Result<u64, core.String>.Err(read_res.unwrap_err())
+        }
+        
+        bytes_read := read_res.unwrap()
+        if bytes_read == 0 {
+            break
+        }
+        
+        write_res := write(&mut dst, buffer[0:bytes_read])
+        if write_res.is_err() {
+            return Result<u64, core.String>.Err(write_res.unwrap_err())
+        }
+        
+        total_copied += bytes_read
+    }
+    
+    return Result<u64, core.String>.Ok(total_copied)
+}
+
+// Create a directory
+create_dir = (path: core.String) Result<void, core.String> {
+    ret := __sys_mkdir(path.data, 0o755)
+    if ret < 0 {
+        return Result<void, core.String>.Err(get_error_string(ret))
+    }
+    return Result<void, core.String>.Ok(void)
+}
+
+// Create directory and all parent directories
+create_dir_all = (path: core.String) Result<void, core.String> {
+    parts := path::split(path)
+    current := core.String{ data: "", len: 0 }
+    
+    for part in parts {
+        current = path::join(current, part)
+        if !exists(current) {
+            res := create_dir(current)
+            if res.is_err() {
+                return res
+            }
+        }
+    }
+    
+    return Result<void, core.String>.Ok(void)
+}
+
+// Remove a directory (must be empty)
+remove_dir = (path: core.String) Result<void, core.String> {
+    ret := __sys_rmdir(path.data)
+    if ret < 0 {
+        return Result<void, core.String>.Err(get_error_string(ret))
+    }
+    return Result<void, core.String>.Ok(void)
+}
+
+// Read directory contents
+read_dir = (path: core.String) Result<[]DirEntry, core.String> {
+    dir := __sys_opendir(path.data)
+    if dir == null {
+        return Result<[]DirEntry, core.String>.Err("Failed to open directory")
+    }
+    defer __sys_closedir(dir)
+    
+    entries: []DirEntry = []
+    
+    loop {
+        entry := __sys_readdir(dir)
+        if entry == null {
+            break
+        }
+        
+        name := core.String{
+            data: entry.d_name,
+            len: string.len(entry.d_name),
+        }
+        
+        // Skip . and ..
+        if string.equals(name, ".") || string.equals(name, "..") {
+            continue
+        }
+        
+        full_path := path::join(path, name)
+        
+        // Get metadata
+        stat_buf: StatBuf
+        if __sys_stat(full_path.data, &stat_buf) == 0 {
+            metadata := FileMetadata{
+                size: stat_buf.st_size,
+                created: stat_buf.st_ctime,
+                modified: stat_buf.st_mtime,
+                accessed: stat_buf.st_atime,
+                is_dir: (stat_buf.st_mode & S_IFDIR) != 0,
+                is_file: (stat_buf.st_mode & S_IFREG) != 0,
+                is_symlink: (stat_buf.st_mode & S_IFLNK) != 0,
+                permissions: stat_buf.st_mode & 0o777,
+            }
+            
+            entries.push(DirEntry{
+                name: name,
+                path: full_path,
+                metadata: metadata,
+            })
+        }
+    }
+    
+    return Result<[]DirEntry, core.String>.Ok(entries)
+}
+
+// Walk directory tree recursively
+walk_dir = (path: core.String, callback: fn(DirEntry) void) Result<void, core.String> {
+    entries_res := read_dir(path)
+    if entries_res.is_err() {
+        return Result<void, core.String>.Err(entries_res.unwrap_err())
+    }
+    
+    entries := entries_res.unwrap()
+    for entry in entries {
+        callback(entry)
+        
+        if entry.metadata.is_dir {
+            walk_res := walk_dir(entry.path, callback)
+            if walk_res.is_err() {
+                return walk_res
+            }
+        }
+    }
+    
+    return Result<void, core.String>.Ok(void)
+}
+
+// Helper function to convert FileMode to system flags
+mode_to_flags = (mode: FileMode) i32 {
+    match mode {
+        FileMode.Read => O_RDONLY,
+        FileMode.Write => O_WRONLY | O_CREAT | O_TRUNC,
+        FileMode.Append => O_WRONLY | O_CREAT | O_APPEND,
+        FileMode.ReadWrite => O_RDWR | O_CREAT,
+    }
+}
+
+// Helper to get error string from errno
+get_error_string = (errno: i32) core.String {
+    match errno {
+        -1 => "Operation not permitted",
+        -2 => "No such file or directory",
+        -3 => "No such process",
+        -4 => "Interrupted system call",
+        -5 => "I/O error",
+        -13 => "Permission denied",
+        -17 => "File exists",
+        -20 => "Not a directory",
+        -21 => "Is a directory",
+        -22 => "Invalid argument",
+        -24 => "Too many open files",
+        -28 => "No space left on device",
+        _ => "Unknown error",
+    }
+}
+
+// System constants
+O_RDONLY: i32 = 0
+O_WRONLY: i32 = 1
+O_RDWR: i32 = 2
+O_CREAT: i32 = 0o100
+O_TRUNC: i32 = 0o1000
+O_APPEND: i32 = 0o2000
+
+SEEK_SET: i32 = 0
+SEEK_CUR: i32 = 1
+SEEK_END: i32 = 2
+
+F_OK: i32 = 0
+R_OK: i32 = 4
+W_OK: i32 = 2
+X_OK: i32 = 1
+
+S_IFDIR: u32 = 0o040000
+S_IFREG: u32 = 0o100000
+S_IFLNK: u32 = 0o120000
+
+// Stat buffer structure
+StatBuf = {
+    st_dev: u64,
+    st_ino: u64,
+    st_mode: u32,
+    st_nlink: u64,
+    st_uid: u32,
+    st_gid: u32,
+    st_rdev: u64,
+    st_size: u64,
+    st_blksize: u64,
+    st_blocks: u64,
+    st_atime: u64,
+    st_mtime: u64,
+    st_ctime: u64,
+}
+
+// System call declarations
+extern __sys_open(path: *u8, flags: i32, mode: u32) i32
+extern __sys_close(fd: i32) i32
+extern __sys_read(fd: i32, buf: *u8, count: usize) i64
+extern __sys_write(fd: i32, buf: *u8, count: usize) i64
+extern __sys_lseek(fd: i32, offset: i64, whence: i32) i64
+extern __sys_fsync(fd: i32) i32
+extern __sys_fstat(fd: i32, buf: *StatBuf) i32
+extern __sys_stat(path: *u8, buf: *StatBuf) i32
+extern __sys_access(path: *u8, mode: i32) i32
+extern __sys_unlink(path: *u8) i32
+extern __sys_rename(old: *u8, new: *u8) i32
+extern __sys_mkdir(path: *u8, mode: u32) i32
+extern __sys_rmdir(path: *u8) i32
+extern __sys_opendir(path: *u8) *void
+extern __sys_readdir(dir: *void) *DirEnt
+extern __sys_closedir(dir: *void) i32
+
+// Directory entry structure for readdir
+DirEnt = {
+    d_ino: u64,
+    d_off: i64,
+    d_reclen: u16,
+    d_type: u8,
+    d_name: [256]u8,
+}
