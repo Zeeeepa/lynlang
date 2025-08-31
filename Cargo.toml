@@ -9,6 +9,8 @@ inkwell = { version = "0.6.0", features = ["llvm18-1"] }
 nom = "7.1"
 thiserror = "1.0"
 ariadne = "0.4.1"
+colored = "2.0"
+rustyline = "14.0"
 
 # LSP dependencies
 tower-lsp = "0.20"
