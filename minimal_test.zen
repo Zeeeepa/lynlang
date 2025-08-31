@@ -1,0 +1,22 @@
+// Minimal test program for Zen compiler
+
+extern printf = (format: *i8, ...) i32
+
+// Test fibonacci
+fibonacci = (n: i32) i32 {
+    n <= 1 ?
+        | true => n
+        | false => fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+// Main function
+main = () i32 {
+    printf("Testing Zen compiler...\n")
+    
+    result := fibonacci(10)
+    printf("fibonacci(10) = %d\n", result)
+    
+    printf("Expected: 55\n")
+    
+    return 0
+}
