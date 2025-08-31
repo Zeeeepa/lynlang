@@ -1611,21 +1611,7 @@ parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
     match token.kind {
         // @std.module pattern
         | TokenKind.At => {
-            // Check if we're inside a comptime block
-            parser.in_comptime ?
-                | true => {
-                    add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
-                    // Skip the rest of the line to recover
-                    loop {
-                        t := peek(parser)
-                        t.kind ?
-                            | TokenKind.Semicolon | TokenKind.Newline | TokenKind.EOF => break
-                            | _ => advance(parser)
-                    }
-                    return AstNode.IntLit(0)
-                }
-                | false => {}
-            
+            // Imports are now allowed everywhere, including in comptime blocks
             advance(parser)  // consume '@'
             
             // Parse module path
@@ -1634,20 +1620,7 @@ parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
         }
         // build.import("module") pattern
         | TokenKind.Identifier(id) if id == "build" => {
-            // Check if we're inside a comptime block
-            parser.in_comptime ?
-                | true => {
-                    add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
-                    // Skip the rest of the line to recover
-                    loop {
-                        t := peek(parser)
-                        t.kind ?
-                            | TokenKind.Semicolon | TokenKind.Newline | TokenKind.EOF => break
-                            | _ => advance(parser)
-                    }
-                    return AstNode.IntLit(0)
-                }
-                | false => {}
+            // Imports are now allowed everywhere, including in comptime blocks
             
             advance(parser)  // consume 'build'
             expect(parser, TokenKind.Dot, "Expected '.' after 'build'")
@@ -1721,21 +1694,7 @@ parse_module_path = (parser: Ptr<Parser>) string {
 }
 
 parse_import = (parser: Ptr<Parser>) AstNode {
-    // Check if we're inside a comptime block
-    parser.in_comptime ?
-        | true => {
-            add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
-            // Skip the rest of the import to recover
-            loop {
-                token := peek(parser)
-                token.kind ?
-                    | TokenKind.Semicolon | TokenKind.Newline | TokenKind.EOF => break
-                    | _ => advance(parser)
-            }
-            return AstNode.IntLit(0)
-        }
-        | false => {}
-    
+    // Imports are now allowed everywhere, including in comptime blocks
     advance(parser)  // consume 'import'
     
     // Parse the import path (string literal expected)
