@@ -1,0 +1,22 @@
+// Test string interpolation with $(expr) syntax
+
+main = () i32 {
+    name := "World"
+    age := 42
+    
+    // Basic interpolation
+    greeting := "Hello, $(name)!"
+    // For now, just verify it compiles (without print function)
+    
+    // Numeric interpolation
+    message := "Age is $(age) years"
+    
+    // Expression interpolation
+    result := "2 + 2 = $(2 + 2)"
+    
+    // Multiple interpolations
+    full := "Name: $(name), Age: $(age), Next year: $(age + 1)"
+    
+    // Return age as a simple test
+    return age
+}

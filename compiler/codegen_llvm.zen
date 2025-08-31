@@ -1,0 +1,323 @@
+// Zen Language - LLVM Code Generator Module
+// Generates LLVM IR from Zen AST
+
+core := @std.core
+io := @std.io
+string := @std.string
+vec := @std.vec
+parser := @compiler.parser
+
+// Import AST types from parser
+AstNode := parser.AstNode
+Type := parser.Type
+BinaryOperator := parser.BinaryOperator
+UnaryOperator := parser.UnaryOperator
+
+// LLVM IR Builder Context
+CodeGen = {
+    // Module information
+    module_name: string,
+    
+    // Current state
+    current_function: Option<string>,
+    current_block: Option<string>,
+    
+    // Register allocation
+    next_register: u32,
+    
+    // Symbol tables
+    globals: Vec<GlobalVar>,
+    functions: Vec<Function>,
+    locals: Vec<LocalVar>,
+    string_constants: Vec<StringConstant>,
+    
+    // Output buffer
+    output: string,
+    
+    // Indentation for readability
+    indent_level: u32,
+}
+
+// Global variable info
+GlobalVar = {
+    name: string,
+    llvm_type: string,
+    initializer: Option<string>,
+    is_constant: bool,
+}
+
+// Function info
+Function = {
+    name: string,
+    return_type: string,
+    params: Vec<(string, string)>,  // (name, type)
+    is_declaration: bool,
+}
+
+// Local variable info
+LocalVar = {
+    name: string,
+    llvm_type: string,
+    register: u32,
+}
+
+// String constant info
+StringConstant = {
+    id: u32,
+    value: string,
+    global_name: string,
+}
+
+// Create new code generator
+new_codegen = (module_name: string) CodeGen {
+    return CodeGen{
+        module_name: module_name,
+        current_function: Option<string>.None,
+        current_block: Option<string>.None,
+        next_register: 0,
+        globals: vec_new<GlobalVar>(),
+        functions: vec_new<Function>(),
+        locals: vec_new<LocalVar>(),
+        string_constants: vec_new<StringConstant>(),
+        output: "",
+        indent_level: 0,
+    }
+}
+
+// Allocate new register
+alloc_register = (gen: &mut CodeGen) u32 {
+    reg := gen.next_register
+    gen.next_register = gen.next_register + 1
+    return reg
+}
+
+// Emit LLVM IR line
+emit = (gen: &mut CodeGen, line: string) {
+    i := 0
+    loop i < gen.indent_level {
+        gen.output = gen.output + "  "
+        i = i + 1
+    }
+    gen.output = gen.output + line + "\n"
+}
+
+// Convert Zen type to LLVM type
+zen_type_to_llvm = (t: Type) string {
+    match t {
+        | Type.Named(name) => {
+            name == "i8" ? { return "i8" } :
+            name == "i16" ? { return "i16" } :
+            name == "i32" ? { return "i32" } :
+            name == "i64" ? { return "i64" } :
+            name == "u8" ? { return "i8" } :
+            name == "u16" ? { return "i16" } :
+            name == "u32" ? { return "i32" } :
+            name == "u64" ? { return "i64" } :
+            name == "f32" ? { return "float" } :
+            name == "f64" ? { return "double" } :
+            name == "bool" ? { return "i1" } :
+            name == "void" ? { return "void" } :
+            name == "string" ? { return "i8*" } :
+            { return name }
+        }
+        | Type.Pointer(inner, _) => {
+            inner_type := zen_type_to_llvm(*inner)
+            return inner_type + "*"
+        }
+        | Type.Array(elem, size) => {
+            elem_type := zen_type_to_llvm(*elem)
+            match size {
+                | Option<u32>.Some(s) => return "[" + u32_to_string(s) + " x " + elem_type + "]"
+                | Option<u32>.None => return elem_type + "*"
+            }
+        }
+        | Type.Function(params, ret) => {
+            ret_type := zen_type_to_llvm(*ret)
+            // Function pointer type
+            return ret_type + " (...)*"
+        }
+        | _ => return "i32"  // Default
+    }
+}
+
+// Generate code for binary operation
+gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg: u32, ty: string) u32 {
+    result_reg := alloc_register(gen)
+    
+    op_instr := match op {
+        | BinaryOperator.Add => ty == "float" || ty == "double" ? "fadd" : "add"
+        | BinaryOperator.Sub => ty == "float" || ty == "double" ? "fsub" : "sub"
+        | BinaryOperator.Mul => ty == "float" || ty == "double" ? "fmul" : "mul"
+        | BinaryOperator.Div => ty == "float" || ty == "double" ? "fdiv" : "sdiv"
+        | BinaryOperator.Mod => "srem"
+        | BinaryOperator.Equal => ty == "float" || ty == "double" ? "fcmp oeq" : "icmp eq"
+        | BinaryOperator.NotEqual => ty == "float" || ty == "double" ? "fcmp one" : "icmp ne"
+        | BinaryOperator.Less => ty == "float" || ty == "double" ? "fcmp olt" : "icmp slt"
+        | BinaryOperator.Greater => ty == "float" || ty == "double" ? "fcmp ogt" : "icmp sgt"
+        | BinaryOperator.LessEqual => ty == "float" || ty == "double" ? "fcmp ole" : "icmp sle"
+        | BinaryOperator.GreaterEqual => ty == "float" || ty == "double" ? "fcmp oge" : "icmp sge"
+        | BinaryOperator.LogicalAnd => "and"
+        | BinaryOperator.LogicalOr => "or"
+        | BinaryOperator.BitwiseAnd => "and"
+        | BinaryOperator.BitwiseOr => "or"
+        | BinaryOperator.BitwiseXor => "xor"
+        | BinaryOperator.LeftShift => "shl"
+        | BinaryOperator.RightShift => "ashr"
+        | _ => "add"  // Default
+    }
+    
+    emit(gen, "  %" + u32_to_string(result_reg) + " = " + op_instr + " " + ty + " %" + 
+         u32_to_string(left_reg) + ", %" + u32_to_string(right_reg))
+    
+    return result_reg
+}
+
+// Generate code for expression
+gen_expression = (gen: &mut CodeGen, expr: AstNode) u32 {
+    match expr {
+        | AstNode.IntLit(val) => {
+            reg := alloc_register(gen)
+            emit(gen, "  %" + u32_to_string(reg) + " = add i32 0, " + i64_to_string(val))
+            return reg
+        }
+        | AstNode.FloatLit(val) => {
+            reg := alloc_register(gen)
+            emit(gen, "  %" + u32_to_string(reg) + " = fadd double 0.0, " + f64_to_string(val))
+            return reg
+        }
+        | AstNode.BoolLit(val) => {
+            reg := alloc_register(gen)
+            val_str := val ? "1" : "0"
+            emit(gen, "  %" + u32_to_string(reg) + " = add i1 0, " + val_str)
+            return reg
+        }
+        | AstNode.StringLit(val) => {
+            // Add string constant
+            str_id := vec_len(gen.string_constants)
+            str_name := "@.str." + u32_to_string(str_id)
+            
+            const := StringConstant{
+                id: str_id,
+                value: val,
+                global_name: str_name,
+            }
+            vec_push(gen.string_constants, const)
+            
+            // Return pointer to string constant
+            reg := alloc_register(gen)
+            emit(gen, "  %" + u32_to_string(reg) + " = getelementptr [" + 
+                 u32_to_string(string_len(val) + 1) + " x i8], [" +
+                 u32_to_string(string_len(val) + 1) + " x i8]* " + str_name + ", i32 0, i32 0")
+            return reg
+        }
+        | AstNode.Ident(name) => {
+            // Load variable
+            var := find_variable(gen, name)
+            match var {
+                | Option<LocalVar>.Some(v) => {
+                    reg := alloc_register(gen)
+                    emit(gen, "  %" + u32_to_string(reg) + " = load " + v.llvm_type + 
+                         ", " + v.llvm_type + "* %" + u32_to_string(v.register))
+                    return reg
+                }
+                | Option<LocalVar>.None => {
+                    // Variable not found, return dummy register
+                    return 0
+                }
+            }
+        }
+        | AstNode.BinaryOp(op, left, right) => {
+            left_reg := gen_expression(gen, *left)
+            right_reg := gen_expression(gen, *right)
+            // For now, assume i32 type
+            return gen_binary_op(gen, op, left_reg, right_reg, "i32")
+        }
+        | _ => {
+            // Unsupported expression, return dummy register
+            return 0
+        }
+    }
+}
+
+// Find variable in symbol table
+find_variable = (gen: &CodeGen, name: string) Option<LocalVar> {
+    i := 0
+    loop i < vec_len(gen.locals) {
+        var := vec_get(gen.locals, i)
+        var.name == name ? {
+            return Option<LocalVar>.Some(var)
+        } : {}
+        i = i + 1
+    }
+    return Option<LocalVar>.None
+}
+
+// Helper functions (stubs for now)
+u32_to_string = (n: u32) string {
+    // Convert u32 to string
+    return "0"
+}
+
+i64_to_string = (n: i64) string {
+    // Convert i64 to string
+    return "0"
+}
+
+f64_to_string = (n: f64) string {
+    // Convert f64 to string
+    return "0.0"
+}
+
+string_len = (s: string) u32 {
+    // Get string length
+    return 0
+}
+
+vec_len = <T>(v: Vec<T>) u32 {
+    // Get vector length
+    return 0
+}
+
+vec_get = <T>(v: Vec<T>, i: u32) T {
+    // Get vector element (stub)
+    // In real implementation, would access element
+    return v[0]
+}
+
+vec_push = <T>(v: &mut Vec<T>, elem: T) {
+    // Push to vector (stub)
+}
+
+vec_new = <T>() Vec<T> {
+    // Create new vector (stub)
+    return Vec<T>{}
+}
+
+// Main entry point for testing
+main = () i32 {
+    io.print("Zen LLVM Code Generator\n")
+    io.print("=======================\n\n")
+    
+    gen := new_codegen("test_module")
+    
+    // Generate module header
+    emit(&mut gen, "; ModuleID = '" + gen.module_name + "'")
+    emit(&mut gen, "source_filename = \"" + gen.module_name + ".zen\"")
+    emit(&mut gen, "")
+    
+    // Generate a simple main function
+    emit(&mut gen, "define i32 @main() {")
+    emit(&mut gen, "entry:")
+    gen.indent_level = 1
+    
+    // Generate return statement
+    emit(&mut gen, "ret i32 0")
+    
+    gen.indent_level = 0
+    emit(&mut gen, "}")
+    
+    // Output the generated LLVM IR
+    io.print(gen.output)
+    
+    return 0
+}
