@@ -145,8 +145,8 @@ main = () i32 {
 }
 
 #[test]
-fn test_nested_comptime_import_acceptance() {
-    // Test that nested comptime blocks now accept imports
+fn test_nested_comptime_import_parsing() {
+    // Test that parser accepts the syntax (type checker will reject it)
     let input = r#"
 comptime {
     x := 42
@@ -160,7 +160,8 @@ comptime {
     let mut parser = Parser::new(lexer);
     let result = parser.parse_program();
     
-    assert!(result.is_ok(), "Nested comptime imports should now be accepted");
+    // Parser accepts the syntax, type checker will validate semantics
+    assert!(result.is_ok(), "Parser should accept nested comptime syntax");
 }
 
 #[test]

@@ -158,9 +158,40 @@ pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
 }
 
 /// Validate that imports are not inside comptime blocks
-/// NOTE: This validation is now disabled as we allow imports anywhere
-pub fn validate_import_not_in_comptime(_stmt: &crate::ast::Statement) -> Result<(), String> {
-    // Imports are now allowed anywhere, including in comptime blocks
+pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(), String> {
+    use crate::ast::Statement;
+    
+    // Check if this is a ModuleImport statement
+    if let Statement::ModuleImport { alias, module_path } = stmt {
+        // This function is called from within comptime block checking,
+        // so if we reach here with a ModuleImport, it's invalid
+        return Err(format!(
+            "Import statement '{}' for module '{}' cannot be inside a comptime block. \
+            Imports must be at module level.",
+            alias, module_path
+        ));
+    }
+    
+    // Also check for variable declarations that look like imports
+    if let Statement::VariableDeclaration { name, initializer, .. } = stmt {
+        if let Some(expr) = initializer {
+            if contains_import_expression(expr) {
+                return Err(format!(
+                    "Import-like statement '{}' cannot be inside a comptime block. \
+                    Imports must be at module level.",
+                    name
+                ));
+            }
+        }
+    }
+    
+    // Check for nested comptime blocks that might contain imports
+    if let Statement::ComptimeBlock(nested_stmts) = stmt {
+        for nested_stmt in nested_stmts {
+            validate_import_not_in_comptime(nested_stmt)?;
+        }
+    }
+    
     Ok(())
 }
 

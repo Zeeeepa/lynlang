@@ -1,42 +1,74 @@
-# Zen Language Import System Fix Plan
+# Zenlang Import System & Self-Hosting Plan
 
-## Goal
-Remove the requirement for `comptime` blocks for imports, allowing top-level imports directly.
+## Current Sprint: Remove Comptime Import Requirements
 
-## Current State
-- Imports currently require `comptime { ... }` blocks
-- Parser already handles some module imports at top-level (build.import, @std)
-- Need to generalize this to all imports
+### Objective
+Transform all imports from comptime-wrapped syntax to clean module-level syntax, following the pattern:
+```zen
+// OLD (to remove)
+comptime {
+    core := @std.core
+    io := build.import("io")
+}
 
-## Implementation Steps
+// NEW (target)
+core := @std.core
+io := @std.io
+```
 
-1. **Parser Changes** (src/parser/statements.rs)
-   - Already partially supports top-level imports
-   - Need to ensure all import patterns work without comptime
-   - Remove comptime requirement validation
+## Phases
 
-2. **Semantic Analysis** 
-   - Update validation to accept top-level imports
-   - Ensure proper module resolution
+### Phase 1: Import System Cleanup (Current)
+1. ✅ Parser already supports new syntax
+2. 🚧 Clean up remaining examples with old syntax
+3. 🚧 Re-enable typechecker validation
+4. 🚧 Comprehensive testing
 
-3. **Self-Hosted Components**
-   - Update self-hosted parser (compiler/parser.zen)
-   - Fix self-hosted lexer if needed
-   - Enhance stdlib modules
+### Phase 2: Self-Hosting Enhancement
+1. Complete self-hosted lexer integration
+2. Enhance self-hosted parser
+3. Implement self-hosted code generator
+4. Bootstrap compiler with itself
 
-4. **Testing**
-   - Update existing tests for new syntax
-   - Add comprehensive import tests
-   - Ensure backward compatibility where needed
+### Phase 3: Developer Experience
+1. LSP import validation
+2. Import auto-completion
+3. Module dependency analysis
+4. Import optimization
 
-5. **Tooling**
-   - Basic LSP or checking tool for validation
-   - Linting capabilities
+## Technical Details
 
-## Priority Order (80% implementation, 20% testing)
-1. Fix parser to accept top-level imports (30%)
-2. Update semantic analyzer (20%)
-3. Fix existing tests (10%)
-4. Enhance self-hosted components (20%)
-5. Create comprehensive test suite (10%)
-6. Basic tooling/LSP (10%)
+### Parser Status
+- Location: `src/parser/statements.rs:14-120`
+- Feature: Lookahead for `identifier := @std.module`
+- Status: ✅ Working
+
+### Module System
+- Location: `src/module_system/mod.rs`
+- Features: Module resolution, stdlib handling
+- Status: ✅ Working
+
+### Validation
+- Location: `src/typechecker/validation.rs:160-181`
+- Status: ⚠️ Disabled (needs re-enabling)
+
+### Test Coverage
+- Import rejection tests: ✅
+- No-comptime import tests: ✅
+- Integration tests: 🚧 Need updates
+
+## Success Metrics
+1. Zero comptime-wrapped imports in codebase
+2. All tests passing
+3. Self-hosted compiler can compile itself
+4. LSP provides import validation
+
+## Git Strategy
+- Frequent commits (every significant change)
+- Clear commit messages
+- Test before commit
+- Merge to main when stable
+
+## Time Allocation
+- 80% Implementation
+- 20% Testing & Validation

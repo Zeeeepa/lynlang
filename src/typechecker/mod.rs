@@ -208,10 +208,7 @@ impl TypeChecker {
     }
 
     fn check_statement(&mut self, statement: &Statement) -> Result<()> {
-        // Validate imports are not in comptime blocks
-        if let Err(msg) = validation::validate_import_not_in_comptime(statement) {
-            return Err(CompileError::SyntaxError(msg, None));
-        }
+        // Note: Import validation is handled in check_declaration for ComptimeBlocks
         
         match statement {
             Statement::VariableDeclaration {

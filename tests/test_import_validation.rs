@@ -93,8 +93,8 @@ fn test_comptime_import_acceptance() {
 }
 
 #[test]
-fn test_nested_comptime_import_acceptance() {
-    // Test that nested comptime blocks with imports are now accepted
+fn test_nested_comptime_import_rejection() {
+    // Test that nested comptime blocks with imports are properly rejected
     let input = r#"
 comptime {
     x := 42
@@ -108,12 +108,18 @@ comptime {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    // Type checker should now accept nested imports
+    // Type checker should reject imports in comptime blocks
     let mut type_checker = TypeChecker::new();
     let result = type_checker.check_program(&program);
     
-    // Should pass now that imports are allowed in comptime
-    assert!(result.is_ok(), "Nested comptime imports should be accepted");
+    // Should fail because imports are not allowed in comptime blocks
+    assert!(result.is_err(), "Nested comptime imports should be rejected");
+    
+    if let Err(err) = result {
+        let err_msg = err.to_string();
+        assert!(err_msg.contains("cannot be inside a comptime block"), 
+                "Error message should mention comptime block restriction");
+    }
 }
 
 #[test]

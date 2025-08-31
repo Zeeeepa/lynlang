@@ -54,7 +54,7 @@ print_stats = () void {
 }
 
 // Comptime is for meta-programming, not imports
-@comptime {
+comptime {
     // Generate a lookup table at compile time
     TABLE_SIZE := 256
     lookup_table := [TABLE_SIZE]u8{}
