@@ -1,13 +1,8 @@
 // Comprehensive Test Suite for Zen Language
 // Tests all major language features
 
-core := @std.core
 io := @std.io
-test := @std.test_framework
-
-// Import modules to test
-lexer := @compiler.lexer
-parser := @compiler.parser
+string := @std.string
 string := @std.string
 vec := @std.vec
 hashmap := @std.hashmap

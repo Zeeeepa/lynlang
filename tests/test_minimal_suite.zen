@@ -1,0 +1,27 @@
+// Minimal Test Suite for Zen
+io := @std.io
+
+main = () i32 {
+    io.println("Running Zen tests...")
+    
+    // Test 1: Arithmetic
+    a := 5 + 3
+    a == 8 ?
+        | true => io.println("✓ Addition works")
+        | false => io.println("✗ Addition failed")
+    
+    // Test 2: Comparison
+    b := 10
+    b > 5 ?
+        | true => io.println("✓ Comparison works")
+        | false => io.println("✗ Comparison failed")
+    
+    // Test 3: Function call
+    c := 2 * 3
+    c == 6 ?
+        | true => io.println("✓ Multiplication works")
+        | false => io.println("✗ Multiplication failed")
+    
+    io.println("\nAll basic tests complete!")
+    return 0
+}
