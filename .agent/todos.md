@@ -5,34 +5,27 @@
 2. ✅ Update stdlib files using old comptime import syntax  
 3. ✅ Update example files using old comptime import syntax
 4. ✅ Verify core stdlib modules are implemented in Zen
+5. ✅ Create comprehensive test suite (run_tests.sh)
+6. ✅ Set up automated testing script
+7. ✅ Verify self-hosting components (lexer, parser documented)
+8. ✅ Create advanced linter/syntax checker (zen-lint.sh)
+9. ✅ Document self-hosting status
 
 ## In Progress 🔄
-5. 🔄 Create comprehensive test suite
-   - Need to create test runner script
-   - Organize tests by category
-   - Add integration tests
 
 ## Pending Tasks 📋
 
-### Testing Infrastructure (Priority: High)
-6. 📋 Set up automated testing script
-   - Create test runner for all .zen test files
-   - Add CI/CD integration
-   - Generate test reports
+### Next Priority: Memory Management
+10. 📋 Implement malloc/free integration
+    - Add proper external function declarations
+    - Integrate with LLVM runtime
+    - Test memory allocation for Vec and HashMap
 
-### Self-Hosting (Priority: High)  
-7. 📋 Work on self-hosting compiler components
-   - Verify lexer implementation
-   - Verify parser implementation  
-   - Test AST generation
-   - Test type checker
-   - Test code generation
-
-### Developer Tools (Priority: Medium)
-8. 📋 Create LSP or syntax checking tool
-   - Basic syntax validation
-   - Error reporting
-   - Auto-completion support
+### Next Priority: Bootstrap Process  
+11. 📋 Define bootstrap sequence
+    - Compile small programs with both compilers
+    - Compare output between Rust and self-hosted
+    - Ensure compatibility
 
 ### Documentation (Priority: Low)
 9. 📋 Document testing process in .agent directory
