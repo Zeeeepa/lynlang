@@ -1,0 +1,467 @@
+// lexer.zen - Self-hosted lexer for Zen language
+
+io := @std.io
+core := @std.core
+string := @std.string
+
+// Token types
+enum TokenType {
+    // Literals
+    Integer,
+    Float,
+    String,
+    Char,
+    Bool,
+    
+    // Identifiers and keywords
+    Identifier,
+    Keyword,
+    
+    // Operators
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Equal,
+    NotEqual,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    And,
+    Or,
+    Not,
+    Assign,
+    ColonEqual,
+    Arrow,
+    DoubleColon,
+    
+    // Punctuation
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    Comma,
+    Dot,
+    Semicolon,
+    Colon,
+    At,
+    
+    // Special
+    Eof,
+    Error,
+}
+
+struct Token {
+    type: TokenType,
+    value: string,
+    line: u32,
+    column: u32,
+}
+
+struct Lexer {
+    input: string,
+    position: u64,
+    current_char: u8,
+    line: u32,
+    column: u32,
+}
+
+// Create a new lexer
+new_lexer := (input: string) Lexer {
+    lexer := Lexer {
+        input: input,
+        position: 0,
+        current_char: if string.len(input) > 0 { string.char_at(input, 0) } else { 0 },
+        line: 1,
+        column: 1,
+    }
+    return lexer
+}
+
+// Advance to the next character
+advance := (l: *Lexer) void {
+    if l.current_char == '\n' as u8 {
+        l.line = l.line + 1
+        l.column = 1
+    } else {
+        l.column = l.column + 1
+    }
+    
+    l.position = l.position + 1
+    if l.position >= string.len(l.input) {
+        l.current_char = 0  // EOF
+    } else {
+        l.current_char = string.char_at(l.input, l.position)
+    }
+}
+
+// Peek at the next character without advancing
+peek := (l: *Lexer) u8 {
+    peek_pos := l.position + 1
+    if peek_pos >= string.len(l.input) {
+        return 0
+    }
+    return string.char_at(l.input, peek_pos)
+}
+
+// Skip whitespace
+skip_whitespace := (l: *Lexer) void {
+    while l.current_char == ' ' as u8 || 
+          l.current_char == '\t' as u8 || 
+          l.current_char == '\n' as u8 || 
+          l.current_char == '\r' as u8 {
+        advance(l)
+    }
+}
+
+// Skip line comments
+skip_line_comment := (l: *Lexer) void {
+    while l.current_char != '\n' as u8 && l.current_char != 0 {
+        advance(l)
+    }
+}
+
+// Skip block comments
+skip_block_comment := (l: *Lexer) void {
+    while true {
+        if l.current_char == '*' as u8 && peek(l) == '/' as u8 {
+            advance(l)  // skip '*'
+            advance(l)  // skip '/'
+            break
+        }
+        if l.current_char == 0 {
+            break  // EOF
+        }
+        advance(l)
+    }
+}
+
+// Check if character is a digit
+is_digit := (c: u8) bool {
+    return c >= '0' as u8 && c <= '9' as u8
+}
+
+// Check if character is alphabetic
+is_alpha := (c: u8) bool {
+    return (c >= 'a' as u8 && c <= 'z' as u8) || 
+           (c >= 'A' as u8 && c <= 'Z' as u8)
+}
+
+// Check if character is alphanumeric or underscore
+is_alnum := (c: u8) bool {
+    return is_alpha(c) || is_digit(c) || c == '_' as u8
+}
+
+// Read a number token
+read_number := (l: *Lexer) Token {
+    start_line := l.line
+    start_column := l.column
+    start_pos := l.position
+    
+    // Read integer part
+    while is_digit(l.current_char) {
+        advance(l)
+    }
+    
+    token_type := TokenType.Integer
+    
+    // Check for float
+    if l.current_char == '.' as u8 && is_digit(peek(l)) {
+        token_type = TokenType.Float
+        advance(l)  // skip '.'
+        while is_digit(l.current_char) {
+            advance(l)
+        }
+    }
+    
+    // Extract the value
+    value := string.substring(l.input, start_pos, l.position - start_pos)
+    
+    return Token {
+        type: token_type,
+        value: value,
+        line: start_line,
+        column: start_column,
+    }
+}
+
+// Read an identifier or keyword
+read_identifier := (l: *Lexer) Token {
+    start_line := l.line
+    start_column := l.column
+    start_pos := l.position
+    
+    // Handle @ prefix for special identifiers
+    if l.current_char == '@' as u8 {
+        advance(l)
+    }
+    
+    while is_alnum(l.current_char) || l.current_char == '.' as u8 {
+        advance(l)
+    }
+    
+    value := string.substring(l.input, start_pos, l.position - start_pos)
+    
+    // Check if it's a keyword
+    token_type := TokenType.Identifier
+    if is_keyword(value) {
+        token_type = TokenType.Keyword
+    }
+    
+    return Token {
+        type: token_type,
+        value: value,
+        line: start_line,
+        column: start_column,
+    }
+}
+
+// Check if a string is a keyword
+is_keyword := (s: string) bool {
+    // Keywords in Zen
+    keywords := ["if", "else", "while", "for", "return", "break", "continue",
+                 "struct", "enum", "type", "const", "let", "var", "fn",
+                 "true", "false", "null", "as", "is", "in", "match",
+                 "comptime", "defer", "async", "await", "yield"]
+    
+    i := 0
+    while i < 25 {  // Number of keywords
+        if string.equals(s, keywords[i]) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// Read a string literal
+read_string := (l: *Lexer) Token {
+    start_line := l.line
+    start_column := l.column
+    start_pos := l.position
+    
+    quote_char := l.current_char
+    advance(l)  // skip opening quote
+    
+    while l.current_char != quote_char && l.current_char != 0 {
+        if l.current_char == '\\' as u8 {
+            advance(l)  // skip backslash
+            if l.current_char != 0 {
+                advance(l)  // skip escaped character
+            }
+        } else {
+            advance(l)
+        }
+    }
+    
+    if l.current_char == quote_char {
+        advance(l)  // skip closing quote
+    }
+    
+    value := string.substring(l.input, start_pos + 1, l.position - start_pos - 2)
+    
+    return Token {
+        type: TokenType.String,
+        value: value,
+        line: start_line,
+        column: start_column,
+    }
+}
+
+// Get the next token
+next_token := (l: *Lexer) Token {
+    skip_whitespace(l)
+    
+    // Skip comments
+    while l.current_char == '/' as u8 {
+        if peek(l) == '/' as u8 {
+            skip_line_comment(l)
+            skip_whitespace(l)
+        } else if peek(l) == '*' as u8 {
+            advance(l)  // skip '/'
+            advance(l)  // skip '*'
+            skip_block_comment(l)
+            skip_whitespace(l)
+        } else {
+            break  // It's a division operator
+        }
+    }
+    
+    start_line := l.line
+    start_column := l.column
+    
+    // EOF
+    if l.current_char == 0 {
+        return Token {
+            type: TokenType.Eof,
+            value: "",
+            line: start_line,
+            column: start_column,
+        }
+    }
+    
+    // Numbers
+    if is_digit(l.current_char) {
+        return read_number(l)
+    }
+    
+    // Identifiers and keywords
+    if is_alpha(l.current_char) || l.current_char == '_' as u8 || l.current_char == '@' as u8 {
+        return read_identifier(l)
+    }
+    
+    // String literals
+    if l.current_char == '"' as u8 || l.current_char == '\'' as u8 {
+        return read_string(l)
+    }
+    
+    // Operators and punctuation
+    current := l.current_char
+    next := peek(l)
+    
+    // Two-character operators
+    if current == ':' as u8 && next == '=' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.ColonEqual, value: ":=", line: start_line, column: start_column }
+    }
+    
+    if current == '-' as u8 && next == '>' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.Arrow, value: "->", line: start_line, column: start_column }
+    }
+    
+    if current == ':' as u8 && next == ':' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.DoubleColon, value: "::", line: start_line, column: start_column }
+    }
+    
+    if current == '=' as u8 && next == '=' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.Equal, value: "==", line: start_line, column: start_column }
+    }
+    
+    if current == '!' as u8 && next == '=' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.NotEqual, value: "!=", line: start_line, column: start_column }
+    }
+    
+    if current == '<' as u8 && next == '=' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.LessEqual, value: "<=", line: start_line, column: start_column }
+    }
+    
+    if current == '>' as u8 && next == '=' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.GreaterEqual, value: ">=", line: start_line, column: start_column }
+    }
+    
+    if current == '&' as u8 && next == '&' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.And, value: "&&", line: start_line, column: start_column }
+    }
+    
+    if current == '|' as u8 && next == '|' as u8 {
+        advance(l)
+        advance(l)
+        return Token { type: TokenType.Or, value: "||", line: start_line, column: start_column }
+    }
+    
+    // Single-character operators and punctuation
+    token_type := TokenType.Error
+    value := ""
+    
+    match current {
+        '+' as u8 => { token_type = TokenType.Plus; value = "+" }
+        '-' as u8 => { token_type = TokenType.Minus; value = "-" }
+        '*' as u8 => { token_type = TokenType.Star; value = "*" }
+        '/' as u8 => { token_type = TokenType.Slash; value = "/" }
+        '%' as u8 => { token_type = TokenType.Percent; value = "%" }
+        '=' as u8 => { token_type = TokenType.Assign; value = "=" }
+        '<' as u8 => { token_type = TokenType.Less; value = "<" }
+        '>' as u8 => { token_type = TokenType.Greater; value = ">" }
+        '!' as u8 => { token_type = TokenType.Not; value = "!" }
+        '(' as u8 => { token_type = TokenType.LeftParen; value = "(" }
+        ')' as u8 => { token_type = TokenType.RightParen; value = ")" }
+        '{' as u8 => { token_type = TokenType.LeftBrace; value = "{" }
+        '}' as u8 => { token_type = TokenType.RightBrace; value = "}" }
+        '[' as u8 => { token_type = TokenType.LeftBracket; value = "[" }
+        ']' as u8 => { token_type = TokenType.RightBracket; value = "]" }
+        ',' as u8 => { token_type = TokenType.Comma; value = "," }
+        '.' as u8 => { token_type = TokenType.Dot; value = "." }
+        ';' as u8 => { token_type = TokenType.Semicolon; value = ";" }
+        ':' as u8 => { token_type = TokenType.Colon; value = ":" }
+        '@' as u8 => { token_type = TokenType.At; value = "@" }
+        _ => { token_type = TokenType.Error; value = "unknown" }
+    }
+    
+    advance(l)
+    
+    return Token {
+        type: token_type,
+        value: value,
+        line: start_line,
+        column: start_column,
+    }
+}
+
+// Tokenize the entire input
+tokenize := (input: string) []Token {
+    lexer := new_lexer(input)
+    tokens := []Token{}
+    
+    while true {
+        token := next_token(&lexer)
+        tokens = tokens + [token]  // Append token
+        if token.type == TokenType.Eof {
+            break
+        }
+    }
+    
+    return tokens
+}
+
+// Test the lexer
+main := () i32 {
+    test_input := "
+        // This is a comment
+        core := @std.core
+        io := @std.io
+        
+        main := () i32 {
+            x := 42 + 3.14
+            io.println(\"Hello, World!\")
+            return 0
+        }
+    "
+    
+    tokens := tokenize(test_input)
+    
+    i := 0
+    while i < tokens.len {
+        token := tokens[i]
+        if token.type != TokenType.Eof {
+            io.print("Token: ")
+            io.print(token.value)
+            io.print(" (line ")
+            io.print_int(token.line as i32)
+            io.print(", col ")
+            io.print_int(token.column as i32)
+            io.println(")")
+        }
+        i = i + 1
+    }
+    
+    return 0
+}
