@@ -1,0 +1,39 @@
+// Simple test file for LLVM backend
+// Tests basic arithmetic and function calls
+
+core := @std.core
+io := @std.io
+
+// Simple addition function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Multiplication function
+multiply = (x: i32, y: i32) i32 {
+    return x * y
+}
+
+// Main function
+main = () i32 {
+    // Test basic arithmetic
+    result1 := add(10, 20);
+    result2 := multiply(5, 6);
+    
+    // Combine results
+    final := add(result1, result2);
+    
+    io.print("10 + 20 = ");
+    io.print_int(result1);
+    io.print("\n");
+    
+    io.print("5 * 6 = ");
+    io.print_int(result2);
+    io.print("\n");
+    
+    io.print("Total = ");
+    io.print_int(final);
+    io.print("\n");
+    
+    return 0
+}
