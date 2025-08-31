@@ -501,6 +501,9 @@ analyze_document = (doc: Ptr<Document>) void {
     // Generate diagnostics
     doc.diagnostics = vec_new<Diagnostic>()
     
+    // Check for comptime import anti-pattern
+    check_comptime_imports(doc)
+    
     // Add lexer errors as diagnostics
     i := 0
     loop i < doc.tokens.len() {
@@ -540,6 +543,61 @@ analyze_document = (doc: Ptr<Document>) void {
             relatedInformation: vec_new<DiagnosticRelatedInformation>(),
         }
         doc.diagnostics.push(diag)
+        i = i + 1
+    }
+}
+
+// Check for comptime import anti-pattern
+check_comptime_imports = (doc: Ptr<Document>) void {
+    lines := string.split(doc.content, '\n')
+    in_comptime_block := false
+    comptime_start_line := 0
+    brace_count := 0
+    
+    i := 0
+    loop i < lines.len() {
+        line := lines[i]
+        trimmed := string.trim(line)
+        
+        // Check if entering comptime block
+        if string.starts_with(trimmed, "comptime") && string.contains(trimmed, "{") {
+            in_comptime_block = true
+            comptime_start_line = i
+            brace_count = 1
+        }
+        
+        // Track braces if in comptime block
+        if in_comptime_block {
+            j := 0
+            loop j < string.len(line) {
+                ch := string.char_at(line, j)
+                if ch == '{' { brace_count = brace_count + 1 }
+                if ch == '}' { brace_count = brace_count - 1 }
+                j = j + 1
+            }
+            
+            // Check for imports inside comptime block
+            if string.contains(trimmed, "@std") || string.contains(trimmed, ".import(") {
+                diag := Diagnostic{
+                    range: Range{
+                        start: Position{ line: i, character: 0 },
+                        end: Position{ line: i, character: string.len(line) },
+                    },
+                    severity: DiagnosticSeverity.Error,
+                    code: Option<string>.Some("comptime_import"),
+                    source: "zen",
+                    message: "Imports should not be inside comptime blocks. Move imports to module level.",
+                    relatedInformation: vec_new<DiagnosticRelatedInformation>(),
+                }
+                doc.diagnostics.push(diag)
+            }
+            
+            // Check if exiting comptime block
+            if brace_count == 0 {
+                in_comptime_block = false
+            }
+        }
+        
         i = i + 1
     }
 }
