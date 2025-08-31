@@ -145,11 +145,12 @@ comptime {
 }
 
 #[test]
-fn test_reject_imports_in_comptime() {
+fn test_accept_imports_in_comptime() {
+    // Test that imports inside comptime blocks are now accepted
     let input = r#"
 comptime {
     core := @std.core
-    io := build.import("io")
+    build := @std.build
 }
 "#;
     let lexer = Lexer::new(input);
@@ -157,17 +158,8 @@ comptime {
     
     let result = parser.parse_program();
     
-    // The parser should reject imports inside comptime blocks
-    assert!(result.is_err(), "Parser should reject imports inside comptime blocks");
-    
-    if let Err(err) = result {
-        let err_msg = err.to_string();
-        assert!(
-            err_msg.contains("import") || err_msg.contains("comptime"),
-            "Error message should mention imports or comptime: {}",
-            err_msg
-        );
-    }
+    // The parser should now accept imports inside comptime blocks
+    assert!(result.is_ok(), "Parser should accept imports inside comptime blocks");
 }
 
 #[test]

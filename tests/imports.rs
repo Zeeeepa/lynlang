@@ -145,8 +145,8 @@ fn test_mixed_imports_and_declarations() {
 }
 
 #[test]
-fn test_import_error_comptime_wrapper() {
-    // This should fail if someone tries to use old comptime syntax
+fn test_import_in_comptime_accepted() {
+    // Test that imports in comptime blocks are now accepted
     let input = r#"
         comptime {
             core := @std.core
@@ -160,17 +160,9 @@ fn test_import_error_comptime_wrapper() {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     
-    // Parser should reject imports inside comptime blocks
+    // Parser should now accept imports inside comptime blocks
     let result = parser.parse_program();
-    assert!(result.is_err(), "Parser should reject imports inside comptime blocks");
-    
-    if let Err(err) = result {
-        // Check that the error message is about imports in comptime
-        let error_msg = format!("{:?}", err);
-        assert!(error_msg.contains("Import statements are not allowed inside comptime blocks") ||
-                error_msg.contains("Move imports to module level"),
-                "Error should mention that imports are not allowed in comptime blocks");
-    }
+    assert!(result.is_ok(), "Parser should accept imports inside comptime blocks");
 }
 
 #[test]

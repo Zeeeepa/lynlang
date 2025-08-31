@@ -1,45 +1,42 @@
-# Zen Language Import System Refactor Plan
+# Zen Language Import System Fix Plan
 
 ## Goal
-Fix imports to work at module level instead of inside comptime blocks, enabling self-hosting.
+Remove the requirement for `comptime` blocks for imports, allowing top-level imports directly.
 
 ## Current State
-- Imports currently work inside comptime blocks: `comptime { io := @std.io }`
-- Need to move to module-level: `io := @std.io`
-- Parser, semantic analyzer, and code generation need updates
+- Imports currently require `comptime { ... }` blocks
+- Parser already handles some module imports at top-level (build.import, @std)
+- Need to generalize this to all imports
 
-## Implementation Order (80% coding, 20% testing)
+## Implementation Steps
 
-### Phase 1: Core Import System Fix (Priority 1)
-1. Update parser to handle module-level imports
-2. Update semantic analyzer for new import syntax  
-3. Update code generation for imports
-4. Create basic tests
+1. **Parser Changes** (src/parser/statements.rs)
+   - Already partially supports top-level imports
+   - Need to ensure all import patterns work without comptime
+   - Remove comptime requirement validation
 
-### Phase 2: Self-Hosting Foundation (Priority 2)
-1. Port lexer to Zen
-2. Port parser to Zen
-3. Port type checker to Zen
-4. Create bootstrap compiler
+2. **Semantic Analysis** 
+   - Update validation to accept top-level imports
+   - Ensure proper module resolution
 
-### Phase 3: Standard Library (Priority 3)
-1. Core modules (io, mem, string)
-2. Collections (vec, hashmap, list)
-3. Testing framework
-4. Build system
+3. **Self-Hosted Components**
+   - Update self-hosted parser (compiler/parser.zen)
+   - Fix self-hosted lexer if needed
+   - Enhance stdlib modules
 
-### Phase 4: Tooling (Priority 4)
-1. Improve zen-check syntax checker
-2. Basic LSP functionality
-3. Package manager basics
+4. **Testing**
+   - Update existing tests for new syntax
+   - Add comprehensive import tests
+   - Ensure backward compatibility where needed
 
-## Key Files to Modify
-- compiler/parser.zen - Update import parsing
-- compiler/lexer.zen - Ensure proper tokenization
-- compiler/type_checker.zen - Type checking for imports
-- compiler/codegen.zen - Code generation for imports
+5. **Tooling**
+   - Basic LSP or checking tool for validation
+   - Linting capabilities
 
-## Testing Strategy
-- Unit tests for each component
-- Integration tests for full compilation
-- Bootstrap test to ensure self-hosting works
+## Priority Order (80% implementation, 20% testing)
+1. Fix parser to accept top-level imports (30%)
+2. Update semantic analyzer (20%)
+3. Fix existing tests (10%)
+4. Enhance self-hosted components (20%)
+5. Create comprehensive test suite (10%)
+6. Basic tooling/LSP (10%)

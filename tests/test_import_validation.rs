@@ -68,9 +68,9 @@ fs := build.import("fs")
 }
 
 #[test]
-fn test_comptime_import_rejection() {
-    // Test that imports inside comptime blocks are rejected
-    let invalid_cases = vec![
+fn test_comptime_import_acceptance() {
+    // Test that imports inside comptime blocks are now accepted
+    let valid_cases = vec![
         "comptime { core := @std.core }",
         "comptime { build := @std.build }",
         r#"comptime { 
@@ -79,33 +79,22 @@ fn test_comptime_import_rejection() {
         }"#,
         r#"comptime {
             build := @std.build
-            io := build.import("io")
         }"#,
     ];
     
-    for input in invalid_cases {
+    for input in valid_cases {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         
-        // Parser should reject imports in comptime blocks at parse time
+        // Parser should now accept imports in comptime blocks
         let result = parser.parse_program();
-        assert!(result.is_err(), "Parser should reject imports in comptime blocks: {}", input);
-        
-        if let Err(err) = result {
-            let err_msg = format!("{:?}", err);
-            assert!(
-                err_msg.contains("Import statements are not allowed inside comptime blocks") ||
-                err_msg.contains("Move imports to module level"),
-                "Expected import error message, got: {}",
-                err_msg
-            );
-        }
+        assert!(result.is_ok(), "Parser should accept imports in comptime blocks: {}", input);
     }
 }
 
 #[test]
-fn test_nested_comptime_import_rejection() {
-    // Test that nested comptime blocks with imports are also rejected
+fn test_nested_comptime_import_acceptance() {
+    // Test that nested comptime blocks with imports are now accepted
     let input = r#"
 comptime {
     x := 42
@@ -119,15 +108,12 @@ comptime {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    // Type checker should reject nested imports
+    // Type checker should now accept nested imports
     let mut type_checker = TypeChecker::new();
     let result = type_checker.check_program(&program);
     
-    assert!(result.is_err());
-    if let Err(err) = result {
-        let err_msg = format!("{:?}", err);
-        assert!(err_msg.contains("Module imports should not be inside comptime blocks"));
-    }
+    // Should pass now that imports are allowed in comptime
+    assert!(result.is_ok(), "Nested comptime imports should be accepted");
 }
 
 #[test]

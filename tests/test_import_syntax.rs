@@ -1,6 +1,6 @@
-use zen_lang::lexer::Lexer;
-use zen_lang::parser::Parser;
-use zen_lang::ast::{Declaration, Statement};
+use zen::lexer::Lexer;
+use zen::parser::Parser;
+use zen::ast::{Declaration, Statement};
 
 #[test]
 fn test_module_level_imports_accepted() {
