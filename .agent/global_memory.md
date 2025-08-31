@@ -1,63 +1,53 @@
-# Zen Language Global Memory
+# Zen Language - Global Memory
 
-## Project Overview
-Zen is a systems programming language focusing on simplicity, elegance, and practicality. Currently working towards self-hosting.
+## Current State (2025-08-31)
 
-## Key Design Decisions
+### Completed Features
+- ✅ Import syntax fixed - no longer requires comptime wrapper
+- ✅ Parser correctly handles top-level imports
+- ✅ Test suite validates import functionality
+- ✅ Syntax checker wrapper script created
+- ✅ Self-hosted lexer test file ready (uses correct imports)
 
-### Import System
-- **OLD**: Imports required `comptime { }` blocks
-- **NEW**: Direct imports at module level without comptime
-- Syntax: `module := @std.module` or `module := build.import("module")`
-- @std modules and std. modules are built-in, handled by compiler
+### Import Syntax
+```zen
+// Correct (current):
+core := @std.core
+build := @std.build
+io := build.import("io")
 
-### Declaration System  
-- `:=` for immutable bindings (constants)
-- `::=` for mutable bindings (variables)
-- `=` for type definitions and functions
+// Incorrect (old):
+comptime {
+    core := @std.core
+    // ...
+}
+```
 
-### Conditional System
-- No `if/else` keywords
-- Universal `?` operator for all conditionals
-- Pattern matching with `| pattern => expression`
+### Working Examples
+- examples/01_hello_world.zen - Basic hello world with imports
+- examples/01_basics_working.zen - Basic arithmetic and variables
+- tests/test_self_hosted_lexer.zen - Lexer test suite
 
-### Module Resolution
-- Built-in modules: @std.* and std.*
-- User modules: resolved from search paths
-- Module paths converted to file paths (dots to slashes)
+### Known Issues
+- Memory allocation (malloc) not available for complex types like Vec
+- Need to implement external function declarations for malloc/free
+- LSP not yet implemented
+- Self-hosted parser needs more work
 
-## Technical Details
+### Next Steps
+1. Implement malloc/free external declarations
+2. Complete self-hosted parser
+3. Build LSP server
+4. Create more comprehensive stdlib in Zen
 
-### Compiler Architecture
-- Written in Rust (transitioning to self-hosted)
-- LLVM backend for code generation
-- Module system with import resolution
-- Type checking and inference
+### Test Commands
+```bash
+# Run tests
+cargo test test_imports_no_comptime
 
-### File Structure
-- `/src` - Rust compiler source
-- `/stdlib` - Standard library (Zen)
-- `/examples` - Example programs
-- `/tests` - Test suite
-- `/.agent` - Development metadata
+# Check syntax
+./zen-check.sh examples/hello.zen
 
-### Build Commands
-- `cargo build --release` - Build compiler
-- `./target/release/zen file.zen` - Compile Zen file
-- Output: LLVM IR (can be compiled to native)
-
-## Current State
-- Basic language features working
-- Import system refactored (no comptime needed) ✅
-- Standard library structure in place
-- Working towards self-hosting
-- All parser import tests passing (5/5)
-- Examples updated with new import syntax
-- Fixed struct syntax in self-hosting files (removed 'struct' keyword)
-- Documentation updated to reflect new import syntax (no comptime wrapper)
-
-## Next Steps
-1. Implement core compiler components in Zen
-2. Expand standard library
-3. Create testing framework
-4. Develop language server
+# Compile Zen file
+./target/debug/zen examples/01_basics_working.zen
+```
