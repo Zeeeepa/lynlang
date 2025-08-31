@@ -98,6 +98,8 @@ zenlang/
 7. ✅ Add C backend and bootstrap infrastructure
 8. ✅ Port core stdlib to pure Zen
 9. ✅ Add test runner and CI workflow
+10. ✅ Add self-hosted compiler infrastructure
+11. ✅ Enhanced REPL with colored output and readline support
 
 ### Next Steps (Priority Order)
 1. **Test Bootstrap** - Run bootstrap.sh with real compilation
