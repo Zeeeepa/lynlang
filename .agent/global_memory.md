@@ -26,14 +26,20 @@ Zen is a systems programming language being developed with a focus on simplicity
 - Stdlib tests: Located in `tests/stdlib/` directory
 
 ## Recent Achievements
-- Import syntax fixed - no comptime wrapper needed for imports
-- Self-hosted parser handles module-level imports correctly
-- Comprehensive stdlib with 40+ modules implemented
-- Test framework and comprehensive test suites added
-- LSP server with advanced features implemented
-- Math module fully integrated and working
-- Struct field mutability syntax fixed (field:: type)
-- Module import resolution working for stdlib modules
+- Import syntax fixed - no comptime wrapper needed for imports ✅
+- Self-hosted parser handles module-level imports correctly ✅
+- Comprehensive stdlib with 40+ modules implemented ✅
+- Path module added with complete file path manipulation utilities ✅
+- Test framework and comprehensive test suites added ✅
+- LSP server with advanced features implemented ✅
+- Math module fully integrated and working ✅
+- Struct field mutability syntax fixed (field:: type) ✅
+- Module import resolution working for stdlib modules ✅
+
+## Known Issues
+- Some language tests failing due to pointer/struct field access in codegen
+- Pattern matching with Vec needs parser improvements
+- Multiple return values need type system improvements
 
 ## Git Workflow
 - Frequent commits with descriptive messages
