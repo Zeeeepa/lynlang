@@ -1,0 +1,73 @@
+// Simple test utilities for Zen
+// Minimal testing functionality without complex dependencies
+
+io := @std.io
+
+// Test result tracking
+test_count ::= 0
+test_passed ::= 0
+test_failed ::= 0
+
+// Run a test with a name and boolean result
+run_test = (name: *i8, passed: bool) void {
+    test_count = test_count + 1
+    
+    passed ? 
+        | true => {
+            test_passed = test_passed + 1
+            io.print("[PASS] ");
+            io.print(name);
+            io.print("\n");
+        }
+        | false => {
+            test_failed = test_failed + 1
+            io.print("[FAIL] ");
+            io.print(name);
+            io.print("\n");
+        }
+}
+
+// Assert that a condition is true
+assert = (condition: bool, message: *i8) void {
+    condition ?
+        | false => {
+            io.print("Assertion failed: ");
+            io.print(message);
+            io.print("\n");
+        }
+        | true => {}
+}
+
+// Assert two integers are equal
+assert_eq_i32 = (a: i32, b: i32, message: *i8) bool {
+    a == b ?
+        | true => return true
+        | false => {
+            io.print("Assert equal failed: ");
+            io.print(message);
+            io.print("\n");
+            return false
+        }
+}
+
+// Print test summary
+print_summary = () void {
+    io.print("\n=== Test Summary ===\n");
+    io.print("Total tests: ");
+    // TODO: print numbers when int-to-string is available
+    io.print("\nPassed: ");
+    io.print("\nFailed: ");
+    io.print("\n");
+}
+
+// Simple test suite runner
+run_suite = (name: *i8) void {
+    io.print("\n=== Running Test Suite: ");
+    io.print(name);
+    io.print(" ===\n");
+    
+    // Reset counters
+    test_count = 0
+    test_passed = 0
+    test_failed = 0
+}
