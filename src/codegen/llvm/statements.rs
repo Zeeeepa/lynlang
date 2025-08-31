@@ -173,6 +173,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else if let Expression::TypeCast { target_type, .. } = init_expr {
                             // For type casts, use the target type
                             target_type.clone()
+                        } else if let Expression::FunctionCall { name, .. } = init_expr {
+                            // For function calls, get the return type from function_types
+                            if let Some(return_type) = self.function_types.get(name) {
+                                return_type.clone()
+                            } else {
+                                // Fallback to type inference from value
+                                match value {
+                                    BasicValueEnum::IntValue(int_val) => {
+                                        if int_val.get_type().get_bit_width() <= 32 {
+                                            AstType::I32
+                                        } else {
+                                            AstType::I64
+                                        }
+                                    }
+                                    BasicValueEnum::FloatValue(_) => AstType::F64,
+                                    BasicValueEnum::PointerValue(_) => {
+                                        AstType::Pointer(Box::new(AstType::I8))
+                                    }
+                                    _ => AstType::I64,
+                                }
+                            }
                         } else {
                             match value {
                                 BasicValueEnum::IntValue(int_val) => {

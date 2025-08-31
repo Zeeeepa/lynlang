@@ -55,8 +55,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                         }
                     } else {
-                        // Other pointer types - return the alloca directly (old behavior for compatibility)
-                        return Ok(ptr.as_basic_value_enum());
+                        // Other pointer types - load the pointer value from the alloca
+                        match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {
+                            Ok(val) => val.into(),
+                            Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                        }
                     }
                 }
                 AstType::Function { .. } => {

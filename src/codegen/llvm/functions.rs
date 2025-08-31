@@ -295,8 +295,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Some(function) = self.module.get_function(name) {
             // Direct function call
             let mut compiled_args = Vec::with_capacity(args.len());
-            for arg in args {
-                let val = self.compile_expression(arg)?;
+            let param_types = function.get_type().get_param_types();
+            
+            for (i, arg) in args.iter().enumerate() {
+                let mut val = self.compile_expression(arg)?;
+                
+                // Cast integer arguments to match expected parameter type if needed
+                if i < param_types.len() {
+                    let expected_type = param_types[i];
+                    if val.is_int_value() && expected_type.is_int_type() {
+                        let int_val = val.into_int_value();
+                        let expected_int_type = expected_type.into_int_type();
+                        if int_val.get_type().get_bit_width() != expected_int_type.get_bit_width() {
+                            // Need to cast
+                            if int_val.get_type().get_bit_width() < expected_int_type.get_bit_width() {
+                                // Sign extend
+                                val = self.builder.build_int_s_extend(int_val, expected_int_type, "extend")?.into();
+                            } else {
+                                // Truncate
+                                val = self.builder.build_int_truncate(int_val, expected_int_type, "trunc")?.into();
+                            }
+                        }
+                    }
+                }
+                
                 compiled_args.push(val);
             }
             let args_metadata: Vec<inkwell::values::BasicMetadataValueEnum> = compiled_args.iter()
