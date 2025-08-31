@@ -1,0 +1,69 @@
+// Test of features that are known to work
+// This demonstrates what Zen can currently compile successfully
+
+io := @std.io
+
+// Struct definition (must be at module level)
+Point = {
+    x: i32,
+    y: i32,
+}
+
+// Simple arithmetic function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Test basic operations
+main = () i32 {
+    io.print("=== Zen Working Features Test ===\n\n")
+    
+    // Test 1: Variables and arithmetic
+    io.print("1. Variables and arithmetic: ")
+    x := 10
+    y := 20
+    z := x + y
+    z == 30 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+    
+    // Test 2: Function calls
+    io.print("2. Function calls: ")
+    result := add(15, 25)
+    result == 40 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+    
+    // Test 3: Loops
+    io.print("3. Loops: ")
+    count := 0
+    i := 0
+    loop (i < 5) {
+        count = count + 1
+        i = i + 1
+    }
+    count == 5 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+    
+    // Test 4: Structs
+    io.print("4. Structs: ")
+    p := Point { x: 3, y: 4 }
+    sum := p.x + p.y
+    sum == 7 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+    
+    // Test 5: Pattern matching
+    io.print("5. Pattern matching: ")
+    value := 42
+    category := value > 40 ?
+        | true => 1
+        | false => 0
+    category == 1 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+    
+    io.print("\n=== All working features tested ===\n")
+    return 0
+}

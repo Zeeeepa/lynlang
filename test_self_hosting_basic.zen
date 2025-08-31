@@ -1,0 +1,104 @@
+// Basic self-hosting test
+// Tests core language features for self-hosting
+
+io := @std.io
+
+// Test arithmetic
+test_math = () void {
+    x := 10 + 20
+    y := 50 - 15
+    z := 7 * 6
+    
+    io.print("Math test: ")
+    x == 30 ?
+        | true => io.print("add OK, ")
+        | false => io.print("add FAIL, ")
+    
+    y == 35 ?
+        | true => io.print("sub OK, ")
+        | false => io.print("sub FAIL, ")
+    
+    z == 42 ?
+        | true => io.print("mul OK\n")
+        | false => io.print("mul FAIL\n")
+}
+
+// Test loops
+test_loops = () void {
+    count := 0
+    i := 0
+    loop (i < 5) {
+        count = count + 1
+        i = i + 1
+    }
+    
+    io.print("Loop test: ")
+    count == 5 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+}
+
+// Test pattern matching
+test_patterns = () void {
+    value := 42
+    
+    io.print("Pattern test: ")
+    
+    result := value > 40 ?
+        | true => 100
+        | false => 0
+    
+    result == 100 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+}
+
+// Test structs
+Point = {
+    x: i32,
+    y: i32,
+}
+
+test_structs = () void {
+    p := Point { x: 10, y: 20 }
+    
+    io.print("Struct test: ")
+    
+    sum := p.x + p.y
+    sum == 30 ?
+        | true => io.print("PASS\n")
+        | false => io.print("FAIL\n")
+}
+
+// Test functions with recursion
+fib = (n: i32) i32 {
+    return n <= 1 ?
+        | true => n
+        | false => fib(n - 1) + fib(n - 2)
+}
+
+test_recursion = () void {
+    io.print("Recursion test: ")
+    
+    result := fib(6)  // Should be 8
+    result == 8 ?
+        | true => io.print("PASS\n")
+        | false => {
+            io.print("FAIL (got ")
+            io.print_int(result)
+            io.print(")\n")
+        }
+}
+
+main = () i32 {
+    io.print("=== Zen Self-Hosting Basic Test ===\n\n")
+    
+    test_math()
+    test_loops()
+    test_patterns()
+    test_structs()
+    test_recursion()
+    
+    io.print("\n=== Test Complete ===\n")
+    return 0
+}
