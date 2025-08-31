@@ -196,6 +196,13 @@ fi
 # 10. Integration Tests
 section "Running Integration Tests"
 
+# Test import syntax (verify syntax is correct)
+if [ -f "tests/test_import_syntax.zen" ]; then
+    run_test "Import syntax test file exists" "test -f tests/test_import_syntax.zen" ""
+    # Check that the file doesn't use comptime for imports
+    run_test "No comptime imports in test" "! grep -q 'comptime.*{.*import' tests/test_import_syntax.zen" ""
+fi
+
 # Test compilation pipeline
 cat > /tmp/integration_test.zen << 'EOF'
 io := @std.io
