@@ -1,0 +1,243 @@
+// Enhanced Vector Module with Functional Programming Features
+// Provides advanced operations on vectors
+
+core := @std.core
+vec := @std.vec
+option := @std.option
+result := @std.result
+
+// Import base vector operations
+Vec := vec.Vec
+vec_new := vec.vec_new
+vec_push := vec.vec_push
+vec_pop := vec.vec_pop
+vec_get := vec.vec_get
+vec_len := vec.vec_len
+
+// Map function - applies a function to each element
+vec_map<T, U> = (v: *Vec<T>, f: (T) U) Vec<U> {
+    result := vec_new<U>()
+    
+    i := 0
+    loop i < vec_len(v) {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => {
+                mapped := f(val)
+                vec_push(&result, mapped)
+            }
+            | core.Result::Err(_) => {}
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Filter function - keeps only elements that satisfy predicate
+vec_filter<T> = (v: *Vec<T>, pred: (T) bool) Vec<T> {
+    result := vec_new<T>()
+    
+    i := 0
+    loop i < vec_len(v) {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => {
+                pred(val) ? | true => vec_push(&result, val)
+                          | false => {}
+            }
+            | core.Result::Err(_) => {}
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Fold/Reduce function - reduces vector to single value
+vec_fold<T, U> = (v: *Vec<T>, init: U, f: (U, T) U) U {
+    acc := init
+    
+    i := 0
+    loop i < vec_len(v) {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => {
+                acc = f(acc, val)
+            }
+            | core.Result::Err(_) => {}
+        }
+        i = i + 1
+    }
+    
+    return acc
+}
+
+// Find first element matching predicate
+vec_find<T> = (v: *Vec<T>, pred: (T) bool) option.Option<T> {
+    i := 0
+    loop i < vec_len(v) {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => {
+                pred(val) ? | true => return option.Option::Some(val)
+                          | false => {}
+            }
+            | core.Result::Err(_) => {}
+        }
+        i = i + 1
+    }
+    
+    return option.Option::None
+}
+
+// Check if any element satisfies predicate
+vec_any<T> = (v: *Vec<T>, pred: (T) bool) bool {
+    match vec_find(v, pred) {
+        | option.Option::Some(_) => return true
+        | option.Option::None => return false
+    }
+}
+
+// Check if all elements satisfy predicate
+vec_all<T> = (v: *Vec<T>, pred: (T) bool) bool {
+    i := 0
+    loop i < vec_len(v) {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => {
+                !pred(val) ? | true => return false
+                           | false => {}
+            }
+            | core.Result::Err(_) => return false
+        }
+        i = i + 1
+    }
+    
+    return true
+}
+
+// Partition vector into two based on predicate
+vec_partition<T> = (v: *Vec<T>, pred: (T) bool) (Vec<T>, Vec<T>) {
+    true_vec := vec_new<T>()
+    false_vec := vec_new<T>()
+    
+    i := 0
+    loop i < vec_len(v) {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => {
+                pred(val) ? | true => vec_push(&true_vec, val)
+                          | false => vec_push(&false_vec, val)
+            }
+            | core.Result::Err(_) => {}
+        }
+        i = i + 1
+    }
+    
+    return (true_vec, false_vec)
+}
+
+// Zip two vectors together
+vec_zip<T, U> = (v1: *Vec<T>, v2: *Vec<U>) Vec<(T, U)> {
+    result := vec_new<(T, U)>()
+    len1 := vec_len(v1)
+    len2 := vec_len(v2)
+    min_len := len1 < len2 ? | true => len1 | false => len2
+    
+    i := 0
+    loop i < min_len {
+        elem1 := vec_get(v1, i)
+        elem2 := vec_get(v2, i)
+        
+        match (elem1, elem2) {
+            | (core.Result::Ok(val1), core.Result::Ok(val2)) => {
+                vec_push(&result, (val1, val2))
+            }
+            | _ => {}
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Flatten a vector of vectors
+vec_flatten<T> = (v: *Vec<Vec<T>>) Vec<T> {
+    result := vec_new<T>()
+    
+    i := 0
+    loop i < vec_len(v) {
+        inner_vec := vec_get(v, i)
+        match inner_vec {
+            | core.Result::Ok(inner) => {
+                j := 0
+                loop j < vec_len(&inner) {
+                    elem := vec_get(&inner, j)
+                    match elem {
+                        | core.Result::Ok(val) => vec_push(&result, val)
+                        | _ => {}
+                    }
+                    j = j + 1
+                }
+            }
+            | _ => {}
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Take first n elements
+vec_take<T> = (v: *Vec<T>, n: i64) Vec<T> {
+    result := vec_new<T>()
+    count := n < vec_len(v) ? | true => n | false => vec_len(v)
+    
+    i := 0
+    loop i < count {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => vec_push(&result, val)
+            | _ => {}
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Skip first n elements
+vec_skip<T> = (v: *Vec<T>, n: i64) Vec<T> {
+    result := vec_new<T>()
+    start := n > 0 ? | true => n | false => 0
+    
+    i := start
+    loop i < vec_len(v) {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => vec_push(&result, val)
+            | _ => {}
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Reverse a vector
+vec_reverse<T> = (v: *Vec<T>) Vec<T> {
+    result := vec_new<T>()
+    i := vec_len(v) - 1
+    
+    loop i >= 0 {
+        elem := vec_get(v, i)
+        match elem {
+            | core.Result::Ok(val) => vec_push(&result, val)
+            | _ => {}
+        }
+        i = i - 1
+    }
+    
+    return result
+}
