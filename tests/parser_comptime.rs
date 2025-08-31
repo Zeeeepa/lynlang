@@ -1,6 +1,7 @@
 use zen::ast::{Expression, Declaration, Statement};
 use zen::lexer::Lexer;
 use zen::parser::Parser;
+use zen::typechecker::TypeChecker;
 
 #[test]
 fn test_parse_comptime_block() {
@@ -145,8 +146,8 @@ comptime {
 }
 
 #[test]
-fn test_accept_imports_in_comptime() {
-    // Test that imports inside comptime blocks are now accepted
+fn test_reject_imports_in_comptime() {
+    // Test that imports inside comptime blocks are rejected by type checker
     let input = r#"
 comptime {
     core := @std.core
@@ -158,8 +159,12 @@ comptime {
     
     let result = parser.parse_program();
     
-    // The parser should now accept imports inside comptime blocks
-    assert!(result.is_ok(), "Parser should accept imports inside comptime blocks");
+    // Parser may accept syntax, but type checker should reject
+    if let Ok(program) = result {
+        let mut type_checker = TypeChecker::new();
+        let check_result = type_checker.check_program(&program);
+        assert!(check_result.is_err(), "Type checker should reject imports inside comptime blocks");
+    }
 }
 
 #[test]
