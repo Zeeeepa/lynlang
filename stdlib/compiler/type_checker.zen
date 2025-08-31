@@ -1,0 +1,638 @@
+// Type checker for Zen compiler
+// Performs semantic analysis and type checking
+
+core := @std.core
+mem := @std.mem
+array := @std.array
+string := @std.string
+type_system := @std.compiler.type_system
+symbol_table := @std.compiler.symbol_table
+ast := @std.ast
+
+// Type checker context
+TypeChecker = struct {
+    types: *type_system.TypeContext,
+    symbols: *symbol_table.SymbolTable,
+    errors: Array(TypeError),
+    current_function: ?*type_system.Type,
+    in_loop: bool,
+    in_comptime: bool,
+}
+
+// Type error
+TypeError = struct {
+    message: String,
+    location: SourceLocation,
+    kind: TypeErrorKind,
+}
+
+// Source location
+SourceLocation = struct {
+    file: String,
+    line: u32,
+    column: u32,
+}
+
+// Type error kinds
+TypeErrorKind = enum {
+    TypeMismatch,
+    UndefinedSymbol,
+    DuplicateSymbol,
+    InvalidOperation,
+    InvalidCast,
+    MissingReturn,
+    UnreachableCode,
+    InvalidAssignment,
+    ImmutableModification,
+    InvalidFieldAccess,
+    InvalidMethodCall,
+    GenericConstraintViolation,
+}
+
+// Create new type checker
+new = (types: *type_system.TypeContext, symbols: *symbol_table.SymbolTable) TypeChecker {
+    return TypeChecker{
+        types: types,
+        symbols: symbols,
+        errors: array.new(TypeError, 32),
+        current_function: null,
+        in_loop: false,
+        in_comptime: false,
+    }
+}
+
+// Check program
+check_program = (checker: *TypeChecker, program: *ast.Program) bool {
+    // Check all top-level declarations
+    for (i := 0; i < program.declarations.len; i += 1) {
+        check_declaration(checker, program.declarations.data[i])
+    }
+    
+    return checker.errors.len == 0
+}
+
+// Check declaration
+check_declaration = (checker: *TypeChecker, decl: *ast.Declaration) void {
+    switch (decl.kind) {
+        ast.DeclKind.Function => check_function(checker, decl.function)
+        ast.DeclKind.Variable => check_variable_decl(checker, decl.variable)
+        ast.DeclKind.Type => check_type_decl(checker, decl.type_decl)
+        ast.DeclKind.Import => check_import(checker, decl.import)
+        ast.DeclKind.Struct => check_struct_decl(checker, decl.struct_decl)
+        ast.DeclKind.Enum => check_enum_decl(checker, decl.enum_decl)
+        ast.DeclKind.Interface => check_interface_decl(checker, decl.interface_decl)
+    }
+}
+
+// Check function declaration
+check_function = (checker: *TypeChecker, func: *ast.FunctionDecl) void {
+    // Create function type
+    param_types := array.new(*type_system.Type, func.params.len)
+    
+    // Enter function scope
+    symbol_table.enter_scope(checker.symbols, symbol_table.ScopeKind.Function)
+    
+    // Check parameters
+    for (i := 0; i < func.params.len; i += 1) {
+        param := func.params.data[i]
+        param_type := resolve_type(checker, param.type)
+        
+        if (param_type == null) {
+            add_error(checker, "Unknown type for parameter", param.location)
+            continue
+        }
+        
+        array.push(*type_system.Type, &param_types, param_type)
+        
+        // Add parameter to symbol table
+        symbol_table.define_variable(checker.symbols, param.name, param_type, false)
+    }
+    
+    // Check return type
+    return_type := resolve_type(checker, func.return_type)
+    if (return_type == null) {
+        add_error(checker, "Unknown return type", func.location)
+        return_type = type_system.lookup_type(checker.types, 
+                                              string.from_literal("void"))
+    }
+    
+    // Create and register function type
+    func_type := type_system.make_function_type(checker.types, param_types, return_type)
+    symbol_table.define_function(checker.symbols, func.name, func_type)
+    
+    // Set current function for return type checking
+    old_function := checker.current_function
+    checker.current_function = func_type
+    
+    // Check function body
+    if (func.body != null) {
+        check_block(checker, func.body)
+        
+        // Verify return statement if needed
+        if (return_type.kind != type_system.TypeKind.Void) {
+            if (!block_returns(func.body)) {
+                add_error(checker, "Missing return statement", func.location)
+            }
+        }
+    }
+    
+    // Restore previous function context
+    checker.current_function = old_function
+    
+    // Exit function scope
+    symbol_table.exit_scope(checker.symbols)
+}
+
+// Check variable declaration
+check_variable_decl = (checker: *TypeChecker, var_decl: *ast.VariableDecl) void {
+    // Resolve variable type
+    var_type := if (var_decl.type != null) {
+        resolve_type(checker, var_decl.type)
+    } else {
+        null
+    }
+    
+    // Check initializer
+    if (var_decl.initializer != null) {
+        init_type := check_expression(checker, var_decl.initializer)
+        
+        if (var_type == null) {
+            // Type inference
+            var_type = init_type
+        } else if (!types_compatible(var_type, init_type)) {
+            add_type_mismatch_error(checker, var_type, init_type, 
+                                   var_decl.initializer.location)
+        }
+    }
+    
+    if (var_type == null) {
+        add_error(checker, "Cannot infer type for variable", var_decl.location)
+        return
+    }
+    
+    // Add to symbol table
+    sym := symbol_table.define_variable(checker.symbols, var_decl.name, 
+                                       var_type, var_decl.is_mutable)
+    if (sym == null) {
+        add_error(checker, "Duplicate variable definition", var_decl.location)
+    }
+}
+
+// Check type declaration
+check_type_decl = (checker: *TypeChecker, type_decl: *ast.TypeDecl) void {
+    // Resolve underlying type
+    underlying := resolve_type(checker, type_decl.type)
+    if (underlying == null) {
+        add_error(checker, "Unknown underlying type", type_decl.location)
+        return
+    }
+    
+    // Register type alias
+    type_system.register_type(checker.types, type_decl.name, underlying)
+    symbol_table.define_type(checker.symbols, type_decl.name, underlying)
+}
+
+// Check struct declaration
+check_struct_decl = (checker: *TypeChecker, struct_decl: *ast.StructDecl) void {
+    fields := array.new(type_system.StructField, struct_decl.fields.len)
+    
+    // Check each field
+    for (i := 0; i < struct_decl.fields.len; i += 1) {
+        field := struct_decl.fields.data[i]
+        field_type := resolve_type(checker, field.type)
+        
+        if (field_type == null) {
+            add_error(checker, "Unknown field type", field.location)
+            continue
+        }
+        
+        struct_field := type_system.StructField{
+            name: field.name,
+            type: field_type,
+            offset: 0,  // Will be calculated later
+            is_public: field.is_public,
+        }
+        
+        array.push(type_system.StructField, &fields, struct_field)
+    }
+    
+    // Create struct type
+    struct_type := create_struct_type(checker.types, struct_decl.name, fields)
+    
+    // Register type
+    symbol_table.define_type(checker.symbols, struct_decl.name, struct_type)
+}
+
+// Check enum declaration
+check_enum_decl = (checker: *TypeChecker, enum_decl: *ast.EnumDecl) void {
+    variants := array.new(type_system.EnumVariant, enum_decl.variants.len)
+    
+    // Check each variant
+    for (i := 0; i < enum_decl.variants.len; i += 1) {
+        variant := enum_decl.variants.data[i]
+        
+        data_type := if (variant.data_type != null) {
+            resolve_type(checker, variant.data_type)
+        } else {
+            null
+        }
+        
+        enum_variant := type_system.EnumVariant{
+            name: variant.name,
+            value: variant.value,
+            data: data_type,
+        }
+        
+        array.push(type_system.EnumVariant, &variants, enum_variant)
+    }
+    
+    // Create enum type
+    enum_type := create_enum_type(checker.types, enum_decl.name, variants)
+    
+    // Register type
+    symbol_table.define_type(checker.symbols, enum_decl.name, enum_type)
+}
+
+// Check interface declaration
+check_interface_decl = (checker: *TypeChecker, interface_decl: *ast.InterfaceDecl) void {
+    methods := array.new(type_system.InterfaceMethod, interface_decl.methods.len)
+    
+    // Check each method
+    for (i := 0; i < interface_decl.methods.len; i += 1) {
+        method := interface_decl.methods.data[i]
+        method_type := create_method_type(checker, method)
+        
+        if (method_type == null) {
+            continue
+        }
+        
+        interface_method := type_system.InterfaceMethod{
+            name: method.name,
+            signature: method_type,
+        }
+        
+        array.push(type_system.InterfaceMethod, &methods, interface_method)
+    }
+    
+    // Create interface type
+    interface_type := create_interface_type(checker.types, interface_decl.name, methods)
+    
+    // Register type
+    symbol_table.define_type(checker.symbols, interface_decl.name, interface_type)
+}
+
+// Check import
+check_import = (checker: *TypeChecker, import: *ast.ImportDecl) void {
+    // Import handling would be implemented here
+    // For now, just mark as processed
+}
+
+// Check statement
+check_statement = (checker: *TypeChecker, stmt: *ast.Statement) void {
+    switch (stmt.kind) {
+        ast.StmtKind.Expression => {
+            check_expression(checker, stmt.expression)
+        }
+        ast.StmtKind.Return => {
+            check_return(checker, stmt.return_stmt)
+        }
+        ast.StmtKind.If => {
+            check_if(checker, stmt.if_stmt)
+        }
+        ast.StmtKind.While => {
+            check_while(checker, stmt.while_stmt)
+        }
+        ast.StmtKind.For => {
+            check_for(checker, stmt.for_stmt)
+        }
+        ast.StmtKind.Block => {
+            check_block(checker, stmt.block)
+        }
+        ast.StmtKind.Assignment => {
+            check_assignment(checker, stmt.assignment)
+        }
+        ast.StmtKind.Break => {
+            if (!checker.in_loop) {
+                add_error(checker, "Break outside of loop", stmt.location)
+            }
+        }
+        ast.StmtKind.Continue => {
+            if (!checker.in_loop) {
+                add_error(checker, "Continue outside of loop", stmt.location)
+            }
+        }
+    }
+}
+
+// Check block
+check_block = (checker: *TypeChecker, block: *ast.Block) void {
+    symbol_table.enter_scope(checker.symbols, symbol_table.ScopeKind.Block)
+    
+    for (i := 0; i < block.statements.len; i += 1) {
+        check_statement(checker, block.statements.data[i])
+    }
+    
+    symbol_table.exit_scope(checker.symbols)
+}
+
+// Check return statement
+check_return = (checker: *TypeChecker, ret: *ast.ReturnStmt) void {
+    if (checker.current_function == null) {
+        add_error(checker, "Return outside of function", ret.location)
+        return
+    }
+    
+    func_type := checker.current_function.metadata.function
+    expected_type := func_type.return_type
+    
+    if (ret.value != null) {
+        actual_type := check_expression(checker, ret.value)
+        
+        if (!types_compatible(expected_type, actual_type)) {
+            add_type_mismatch_error(checker, expected_type, actual_type, ret.location)
+        }
+    } else if (expected_type.kind != type_system.TypeKind.Void) {
+        add_error(checker, "Missing return value", ret.location)
+    }
+}
+
+// Check if statement
+check_if = (checker: *TypeChecker, if_stmt: *ast.IfStmt) void {
+    // Check condition
+    cond_type := check_expression(checker, if_stmt.condition)
+    bool_type := type_system.lookup_type(checker.types, string.from_literal("bool"))
+    
+    if (!types_compatible(bool_type, cond_type)) {
+        add_type_mismatch_error(checker, bool_type, cond_type, 
+                               if_stmt.condition.location)
+    }
+    
+    // Check then block
+    check_block(checker, if_stmt.then_block)
+    
+    // Check else block if present
+    if (if_stmt.else_block != null) {
+        check_block(checker, if_stmt.else_block)
+    }
+}
+
+// Check while loop
+check_while = (checker: *TypeChecker, while_stmt: *ast.WhileStmt) void {
+    // Check condition
+    cond_type := check_expression(checker, while_stmt.condition)
+    bool_type := type_system.lookup_type(checker.types, string.from_literal("bool"))
+    
+    if (!types_compatible(bool_type, cond_type)) {
+        add_type_mismatch_error(checker, bool_type, cond_type,
+                               while_stmt.condition.location)
+    }
+    
+    // Check body
+    old_in_loop := checker.in_loop
+    checker.in_loop = true
+    check_block(checker, while_stmt.body)
+    checker.in_loop = old_in_loop
+}
+
+// Check for loop
+check_for = (checker: *TypeChecker, for_stmt: *ast.ForStmt) void {
+    symbol_table.enter_scope(checker.symbols, symbol_table.ScopeKind.Loop)
+    
+    // Check init
+    if (for_stmt.init != null) {
+        check_statement(checker, for_stmt.init)
+    }
+    
+    // Check condition
+    if (for_stmt.condition != null) {
+        cond_type := check_expression(checker, for_stmt.condition)
+        bool_type := type_system.lookup_type(checker.types, string.from_literal("bool"))
+        
+        if (!types_compatible(bool_type, cond_type)) {
+            add_type_mismatch_error(checker, bool_type, cond_type,
+                                   for_stmt.condition.location)
+        }
+    }
+    
+    // Check update
+    if (for_stmt.update != null) {
+        check_statement(checker, for_stmt.update)
+    }
+    
+    // Check body
+    old_in_loop := checker.in_loop
+    checker.in_loop = true
+    check_block(checker, for_stmt.body)
+    checker.in_loop = old_in_loop
+    
+    symbol_table.exit_scope(checker.symbols)
+}
+
+// Check assignment
+check_assignment = (checker: *TypeChecker, assign: *ast.Assignment) void {
+    // Check left side (must be lvalue)
+    left_type := check_lvalue(checker, assign.left)
+    if (left_type == null) {
+        add_error(checker, "Invalid assignment target", assign.left.location)
+        return
+    }
+    
+    // Check right side
+    right_type := check_expression(checker, assign.right)
+    
+    // Check type compatibility
+    if (!types_compatible(left_type, right_type)) {
+        add_type_mismatch_error(checker, left_type, right_type, assign.location)
+    }
+}
+
+// Check expression (returns type)
+check_expression = (checker: *TypeChecker, expr: *ast.Expression) *type_system.Type {
+    switch (expr.kind) {
+        ast.ExprKind.Literal => return check_literal(checker, expr.literal)
+        ast.ExprKind.Identifier => return check_identifier(checker, expr.identifier)
+        ast.ExprKind.Binary => return check_binary(checker, expr.binary)
+        ast.ExprKind.Unary => return check_unary(checker, expr.unary)
+        ast.ExprKind.Call => return check_call(checker, expr.call)
+        ast.ExprKind.Index => return check_index(checker, expr.index)
+        ast.ExprKind.Field => return check_field(checker, expr.field)
+        ast.ExprKind.Cast => return check_cast(checker, expr.cast)
+        ast.ExprKind.Sizeof => return check_sizeof(checker, expr.sizeof_expr)
+        default => {
+            add_error(checker, "Unknown expression type", expr.location)
+            return type_system.lookup_type(checker.types, 
+                                          string.from_literal("unknown"))
+        }
+    }
+}
+
+// Helper functions (stubs for now)
+resolve_type = (checker: *TypeChecker, type_expr: *ast.TypeExpr) ?*type_system.Type {
+    // Would resolve type expression to actual type
+    return type_system.lookup_type(checker.types, type_expr.name)
+}
+
+types_compatible = (expected: *type_system.Type, actual: *type_system.Type) bool {
+    return type_system.types_equal(expected, actual) or
+           type_system.can_convert_implicit(actual, expected)
+}
+
+block_returns = (block: *ast.Block) bool {
+    // Check if block has return statement on all paths
+    return true  // Simplified for now
+}
+
+check_lvalue = (checker: *TypeChecker, expr: *ast.Expression) ?*type_system.Type {
+    // Check if expression is valid lvalue and return its type
+    return check_expression(checker, expr)
+}
+
+check_literal = (checker: *TypeChecker, lit: *ast.Literal) *type_system.Type {
+    // Return type based on literal kind
+    return type_system.lookup_type(checker.types, string.from_literal("i32"))
+}
+
+check_identifier = (checker: *TypeChecker, id: *ast.Identifier) *type_system.Type {
+    sym := symbol_table.lookup_symbol(checker.symbols, id.name)
+    if (sym == null) {
+        add_error(checker, "Undefined symbol", id.location)
+        return type_system.lookup_type(checker.types, string.from_literal("unknown"))
+    }
+    symbol_table.mark_used(sym)
+    return sym.type
+}
+
+check_binary = (checker: *TypeChecker, bin: *ast.BinaryExpr) *type_system.Type {
+    left_type := check_expression(checker, bin.left)
+    right_type := check_expression(checker, bin.right)
+    
+    // Type checking for binary operators would go here
+    return left_type
+}
+
+check_unary = (checker: *TypeChecker, un: *ast.UnaryExpr) *type_system.Type {
+    return check_expression(checker, un.operand)
+}
+
+check_call = (checker: *TypeChecker, call: *ast.CallExpr) *type_system.Type {
+    func_type := check_expression(checker, call.function)
+    
+    if (func_type.kind != type_system.TypeKind.Function) {
+        add_error(checker, "Cannot call non-function", call.location)
+        return type_system.lookup_type(checker.types, string.from_literal("unknown"))
+    }
+    
+    // Check arguments
+    func_meta := func_type.metadata.function
+    if (call.arguments.len != func_meta.params.len) {
+        add_error(checker, "Argument count mismatch", call.location)
+    }
+    
+    for (i := 0; i < call.arguments.len and i < func_meta.params.len; i += 1) {
+        arg_type := check_expression(checker, call.arguments.data[i])
+        param_type := func_meta.params.data[i]
+        
+        if (!types_compatible(param_type, arg_type)) {
+            add_type_mismatch_error(checker, param_type, arg_type,
+                                   call.arguments.data[i].location)
+        }
+    }
+    
+    return func_meta.return_type
+}
+
+check_index = (checker: *TypeChecker, idx: *ast.IndexExpr) *type_system.Type {
+    base_type := check_expression(checker, idx.base)
+    index_type := check_expression(checker, idx.index)
+    
+    // Check index is integer
+    if (!type_system.is_integer(index_type)) {
+        add_error(checker, "Index must be integer", idx.index.location)
+    }
+    
+    // Get element type
+    if (base_type.kind == type_system.TypeKind.Array) {
+        return base_type.metadata.array.element
+    } else if (base_type.kind == type_system.TypeKind.Slice) {
+        return base_type.metadata.slice.element
+    }
+    
+    add_error(checker, "Cannot index non-array type", idx.location)
+    return type_system.lookup_type(checker.types, string.from_literal("unknown"))
+}
+
+check_field = (checker: *TypeChecker, field: *ast.FieldExpr) *type_system.Type {
+    base_type := check_expression(checker, field.base)
+    
+    // Would check struct fields here
+    return type_system.lookup_type(checker.types, string.from_literal("unknown"))
+}
+
+check_cast = (checker: *TypeChecker, cast: *ast.CastExpr) *type_system.Type {
+    check_expression(checker, cast.value)
+    return resolve_type(checker, cast.target_type)
+}
+
+check_sizeof = (checker: *TypeChecker, sizeof_expr: *ast.SizeofExpr) *type_system.Type {
+    return type_system.lookup_type(checker.types, string.from_literal("usize"))
+}
+
+create_struct_type = (ctx: *type_system.TypeContext, name: String,
+                     fields: Array(type_system.StructField)) *type_system.Type {
+    // Would create struct type
+    return type_system.make_primitive_type(type_system.TypeKind.Struct, 0, 0)
+}
+
+create_enum_type = (ctx: *type_system.TypeContext, name: String,
+                   variants: Array(type_system.EnumVariant)) *type_system.Type {
+    // Would create enum type
+    return type_system.make_primitive_type(type_system.TypeKind.Enum, 0, 0)
+}
+
+create_interface_type = (ctx: *type_system.TypeContext, name: String,
+                        methods: Array(type_system.InterfaceMethod)) *type_system.Type {
+    // Would create interface type
+    return type_system.make_primitive_type(type_system.TypeKind.Interface, 0, 0)
+}
+
+create_method_type = (checker: *TypeChecker, method: *ast.MethodDecl) ?*type_system.Type {
+    // Would create method type
+    return null
+}
+
+// Error reporting
+add_error = (checker: *TypeChecker, message: String, location: SourceLocation) void {
+    error := TypeError{
+        message: message,
+        location: location,
+        kind: TypeErrorKind.InvalidOperation,
+    }
+    array.push(TypeError, &checker.errors, error)
+}
+
+add_type_mismatch_error = (checker: *TypeChecker, expected: *type_system.Type,
+                          actual: *type_system.Type, location: SourceLocation) void {
+    message := string.format("Type mismatch: expected '{}', got '{}'",
+                           expected.name, actual.name)
+    error := TypeError{
+        message: message,
+        location: location,
+        kind: TypeErrorKind.TypeMismatch,
+    }
+    array.push(TypeError, &checker.errors, error)
+}
+
+// Get errors
+get_errors = (checker: *TypeChecker) Array(TypeError) {
+    return checker.errors
+}
+
+// Clear errors
+clear_errors = (checker: *TypeChecker) void {
+    array.clear(TypeError, &checker.errors)
+}
+
+// Free type checker
+free = (checker: *TypeChecker) void {
+    array.free(TypeError, &checker.errors)
+}
