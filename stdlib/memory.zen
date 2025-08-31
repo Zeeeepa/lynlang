@@ -2,6 +2,7 @@
 // Provides memory allocation, deallocation, and management utilities
 
 core := @std.core
+io := @std.io
 
 // External C function declarations
 @extern("malloc") allocate_raw = (size: usize) Ptr<void>
@@ -418,7 +419,6 @@ MemoryStats := struct {
 // Print memory statistics
 print_memory_stats = () void {
     stats := get_memory_stats()
-    io := @std.io
     
     io.println("=== Memory Statistics ===")
     io.printf("Total Allocated: {} bytes\n", stats.total_allocated)
@@ -437,7 +437,6 @@ print_memory_stats = () void {
 
 // Print all active allocations (debug mode)
 print_allocations = () void {
-    io := @std.io
     io.println("=== Active Allocations ===")
     
     current := memory_tracker.head
@@ -462,7 +461,6 @@ print_allocations = () void {
 
 // Panic function for allocation failures
 panic = (message: string) void {
-    io := @std.io
     io.eprintln("PANIC: " + message)
     
     // Print memory stats in debug mode
