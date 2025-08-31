@@ -1,0 +1,284 @@
+// Zen Syntax Checker - A step towards self-hosting
+// This tool validates Zen source files for basic syntax errors
+
+core := @std.core
+build := @std.build
+io := build.import("io")
+fs := build.import("fs")
+string := build.import("string")
+
+// Error types for syntax checking
+SyntaxError = 
+    | UnmatchedBrace(line: i32, column: i32)
+    | UnmatchedParen(line: i32, column: i32)
+    | UnmatchedBracket(line: i32, column: i32)
+    | InvalidToken(line: i32, column: i32, token: string)
+    | MissingColon(line: i32, column: i32)
+    | InvalidOperator(line: i32, column: i32, op: string)
+    | UnexpectedEof
+
+// Result type for checking
+CheckResult = 
+    | Ok
+    | Error(errors: [100]SyntaxError, count: i32)
+
+// Token types for basic lexical analysis
+TokenType =
+    | Identifier
+    | Number
+    | String
+    | Operator
+    | Symbol
+    | Keyword
+    | Comment
+    | Whitespace
+    | Unknown
+
+// Basic token structure
+Token = {
+    type: TokenType,
+    value: string,
+    line: i32,
+    column: i32,
+}
+
+// Checker state
+CheckerState = {
+    brace_count:: i32,
+    paren_count:: i32,
+    bracket_count:: i32,
+    current_line:: i32,
+    current_column:: i32,
+    errors:: [100]SyntaxError,
+    error_count:: i32,
+}
+
+// Initialize checker state
+init_checker = () CheckerState {
+    return CheckerState {
+        brace_count: 0,
+        paren_count: 0,
+        bracket_count: 0,
+        current_line: 1,
+        current_column: 1,
+        errors: [100]SyntaxError{},
+        error_count: 0,
+    }
+}
+
+// Add error to checker state
+add_error = (state:: *CheckerState, error: SyntaxError) void {
+    state.error_count < 100 ?
+        | true => {
+            state.errors[state.error_count] = error
+            state.error_count = state.error_count + 1
+        }
+        | false => {}
+}
+
+// Check character for syntax issues
+check_character = (state:: *CheckerState, ch: i8) void {
+    ch ?
+        | '{' => {
+            state.brace_count = state.brace_count + 1
+        }
+        | '}' => {
+            state.brace_count = state.brace_count - 1
+            state.brace_count < 0 ?
+                | true => {
+                    add_error(state, SyntaxError::UnmatchedBrace(state.current_line, state.current_column))
+                }
+                | false => {}
+        }
+        | '(' => {
+            state.paren_count = state.paren_count + 1
+        }
+        | ')' => {
+            state.paren_count = state.paren_count - 1
+            state.paren_count < 0 ?
+                | true => {
+                    add_error(state, SyntaxError::UnmatchedParen(state.current_line, state.current_column))
+                }
+                | false => {}
+        }
+        | '[' => {
+            state.bracket_count = state.bracket_count + 1
+        }
+        | ']' => {
+            state.bracket_count = state.bracket_count - 1
+            state.bracket_count < 0 ?
+                | true => {
+                    add_error(state, SyntaxError::UnmatchedBracket(state.current_line, state.current_column))
+                }
+                | false => {}
+        }
+        | '\n' => {
+            state.current_line = state.current_line + 1
+            state.current_column = 1
+        }
+        | _ => {
+            state.current_column = state.current_column + 1
+        }
+}
+
+// Check for common operator patterns
+check_operators = (content: string) bool {
+    // Check for valid operators: :=, ::=, =, ==, !=, <=, >=, <, >, +, -, *, /, %, &, |, ^, <<, >>
+    // This is simplified - would need proper tokenization
+    return true
+}
+
+// Validate bracket balance at end of file
+validate_final_state = (state: *CheckerState) void {
+    state.brace_count != 0 ?
+        | true => {
+            add_error(state, SyntaxError::UnmatchedBrace(state.current_line, state.current_column))
+        }
+        | false => {}
+    
+    state.paren_count != 0 ?
+        | true => {
+            add_error(state, SyntaxError::UnmatchedParen(state.current_line, state.current_column))
+        }
+        | false => {}
+    
+    state.bracket_count != 0 ?
+        | true => {
+            add_error(state, SyntaxError::UnmatchedBracket(state.current_line, state.current_column))
+        }
+        | false => {}
+}
+
+// Check a string of Zen code
+check_syntax = (content: string) CheckResult {
+    state ::= init_checker()
+    
+    // Process each character
+    i ::= 0
+    len := string.length(content)
+    
+    loop i < len {
+        ch := content[i]
+        
+        // Skip string literals (simplified)
+        ch == '"' ?
+            | true => {
+                i = i + 1
+                loop i < len && content[i] != '"' {
+                    content[i] == '\\' ?
+                        | true => { i = i + 2 }
+                        | false => { i = i + 1 }
+                }
+            }
+            | false => {
+                // Skip comments
+                ch == '/' && i + 1 < len && content[i + 1] == '/' ?
+                    | true => {
+                        loop i < len && content[i] != '\n' {
+                            i = i + 1
+                        }
+                    }
+                    | false => {
+                        check_character(&state, ch)
+                    }
+            }
+        
+        i = i + 1
+    }
+    
+    // Final validation
+    validate_final_state(&state)
+    
+    // Return result
+    state.error_count > 0 ?
+        | true => CheckResult::Error(state.errors, state.error_count)
+        | false => CheckResult::Ok
+}
+
+// Print error message
+print_error = (error: SyntaxError) void {
+    error ?
+        | UnmatchedBrace(line, col) => {
+            io.print("Error: Unmatched '{' at line ")
+            io.print_int(line)
+            io.print(", column ")
+            io.print_int(col)
+            io.print("\n")
+        }
+        | UnmatchedParen(line, col) => {
+            io.print("Error: Unmatched '(' at line ")
+            io.print_int(line)
+            io.print(", column ")
+            io.print_int(col)
+            io.print("\n")
+        }
+        | UnmatchedBracket(line, col) => {
+            io.print("Error: Unmatched '[' at line ")
+            io.print_int(line)
+            io.print(", column ")
+            io.print_int(col)
+            io.print("\n")
+        }
+        | InvalidToken(line, col, token) => {
+            io.print("Error: Invalid token '")
+            io.print(token)
+            io.print("' at line ")
+            io.print_int(line)
+            io.print(", column ")
+            io.print_int(col)
+            io.print("\n")
+        }
+        | _ => {
+            io.print("Error: Syntax error\n")
+        }
+}
+
+// Check a file
+check_file = (filename: string) bool {
+    io.print("Checking ")
+    io.print(filename)
+    io.print("...\n")
+    
+    // Read file content (would need proper file reading)
+    content := fs.read_file(filename)
+    
+    result := check_syntax(content)
+    
+    result ?
+        | Ok => {
+            io.print("✓ No syntax errors found\n")
+            return true
+        }
+        | Error(errors, count) => {
+            io.print("✗ Found ")
+            io.print_int(count)
+            io.print(" syntax error(s):\n")
+            
+            i ::= 0
+            loop i < count {
+                print_error(errors[i])
+                i = i + 1
+            }
+            return false
+        }
+}
+
+// Main entry point
+main = (args: [string]) i32 {
+    io.print("Zen Syntax Checker v0.1.0\n")
+    io.print("==========================\n\n")
+    
+    args.length < 2 ?
+        | true => {
+            io.print("Usage: zen-check <file.zen>\n")
+            return 1
+        }
+        | false => {}
+    
+    filename := args[1]
+    success := check_file(filename)
+    
+    success ?
+        | true => return 0
+        | false => return 1
+}
