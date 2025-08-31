@@ -3,8 +3,11 @@
 
 core := @std.core
 io := @std.io
+string := @std.string
+vec := @std.vec
 parser := @compiler.parser
 type_checker := @compiler.type_checker
+symbol_table := @compiler.symbol_table
 
 // Code generation target
 Target = enum {
@@ -20,37 +23,58 @@ CodeGen = {
     indent_level: i32,
     temp_counter: i32,
     label_counter: i32,
-    errors: [String],
+    register_counter: i32,
+    errors: vec.Vec<String>,
     current_function: String,
     in_main: bool,
+    symbols: *symbol_table.SymbolTable,
+    string_literals: vec.Vec<String>,
+    global_vars: vec.Vec<String>,
 }
 
 // Create new code generator
-codegen_new = (target: Target) CodeGen {
+codegen_new = (target: Target, symbols: *symbol_table.SymbolTable) CodeGen {
     return CodeGen {
         target: target,
         output: "",
         indent_level: 0,
         temp_counter: 0,
         label_counter: 0,
-        errors: [],
+        register_counter: 0,
+        errors: vec.new<String>(),
         current_function: "",
         in_main: false,
+        symbols: symbols,
+        string_literals: vec.new<String>(),
+        global_vars: vec.new<String>(),
     }
 }
 
 // Generate a temporary variable name
 gen_temp = (cg: *CodeGen) String {
-    name := "t" + cg.temp_counter.to_string()
+    name := "t" + string.from_int(cg.temp_counter)
     cg.temp_counter = cg.temp_counter + 1
+    return name
+}
+
+// Generate an LLVM register name
+gen_register = (cg: *CodeGen) String {
+    name := "%" + string.from_int(cg.register_counter)
+    cg.register_counter = cg.register_counter + 1
     return name
 }
 
 // Generate a label name
 gen_label = (cg: *CodeGen) String {
-    name := "L" + cg.label_counter.to_string()
+    name := "L" + string.from_int(cg.label_counter)
     cg.label_counter = cg.label_counter + 1
     return name
+}
+
+// Add string literal and return its index
+add_string_literal = (cg: *CodeGen, str: String) i32 {
+    vec.push<String>(&cg.string_literals, str)
+    return vec.len<String>(cg.string_literals) - 1
 }
 
 // Emit code with proper indentation
@@ -371,7 +395,33 @@ gen_expr_llvm = (cg: *CodeGen, node: *parser.AstNode, result: String) void {
         } | false => {}
     } | false => {}
     
-    // Add more expression types...
+    node.type == parser.NodeType.Identifier ? | true => {
+        // Load variable from memory
+        ptr_temp := gen_temp(cg)
+        emit(cg, "  " + ptr_temp + " = alloca i32")
+        emit(cg, "  " + result + " = load i32, i32* " + ptr_temp)
+    } | false => {}
+    
+    node.type == parser.NodeType.FunctionCall ? | true => {
+        // Generate function call
+        args_temps := vec.new<String>()
+        i := 0
+        loop (i < node.arguments.len()) {
+            arg_temp := gen_temp(cg)
+            gen_expr_llvm(cg, node.arguments[i], arg_temp)
+            vec.push<String>(&args_temps, arg_temp)
+            i = i + 1
+        }
+        
+        emit_raw(cg, "  " + result + " = call i32 @" + node.name + "(")
+        i = 0
+        loop (i < vec.len<String>(args_temps)) {
+            i > 0 ? | true => { emit_raw(cg, ", ") } | false => {}
+            emit_raw(cg, "i32 " + vec.get<String>(args_temps, i))
+            i = i + 1
+        }
+        emit_raw(cg, ")\n")
+    } | false => {}
 }
 
 // Generate LLVM IR for statement
@@ -412,7 +462,78 @@ gen_stmt_llvm = (cg: *CodeGen, node: *parser.AstNode) void {
         }
     } | false => {}
     
-    // Add more statement types...
+    node.type == parser.NodeType.VariableDecl ? | true => {
+        // Allocate local variable
+        type_str := zen_type_to_llvm(node.var_type)
+        emit(cg, "  %" + node.name + " = alloca " + type_str)
+        
+        node.initializer != nullptr ? | true => {
+            temp := gen_temp(cg)
+            gen_expr_llvm(cg, node.initializer, temp)
+            emit(cg, "  store " + type_str + " " + temp + ", " + type_str + "* %" + node.name)
+        } | false => {}
+    } | false => {}
+    
+    node.type == parser.NodeType.Assignment ? | true => {
+        temp := gen_temp(cg)
+        gen_expr_llvm(cg, node.operand, temp)
+        type_str := zen_type_to_llvm(node.var_type)
+        emit(cg, "  store " + type_str + " " + temp + ", " + type_str + "* %" + node.name)
+    } | false => {}
+    
+    node.type == parser.NodeType.Block ? | true => {
+        i := 0
+        loop (i < node.statements.len()) {
+            gen_stmt_llvm(cg, node.statements[i])
+            i = i + 1
+        }
+    } | false => {}
+    
+    node.type == parser.NodeType.If ? | true => {
+        cond_temp := gen_temp(cg)
+        gen_expr_llvm(cg, node.condition, cond_temp)
+        
+        then_label := gen_label(cg)
+        else_label := gen_label(cg)
+        end_label := gen_label(cg)
+        
+        emit(cg, "  br i1 " + cond_temp + ", label %" + then_label + ", label %" + else_label)
+        
+        emit(cg, then_label + ":")
+        gen_stmt_llvm(cg, node.then_branch)
+        emit(cg, "  br label %" + end_label)
+        
+        emit(cg, else_label + ":")
+        node.else_branch != nullptr ? | true => {
+            gen_stmt_llvm(cg, node.else_branch)
+        } | false => {}
+        emit(cg, "  br label %" + end_label)
+        
+        emit(cg, end_label + ":")
+    } | false => {}
+    
+    node.type == parser.NodeType.Loop ? | true => {
+        loop_label := gen_label(cg)
+        body_label := gen_label(cg)
+        end_label := gen_label(cg)
+        
+        emit(cg, "  br label %" + loop_label)
+        emit(cg, loop_label + ":")
+        
+        node.condition != nullptr ? | true => {
+            cond_temp := gen_temp(cg)
+            gen_expr_llvm(cg, node.condition, cond_temp)
+            emit(cg, "  br i1 " + cond_temp + ", label %" + body_label + ", label %" + end_label)
+        } | false => {
+            emit(cg, "  br label %" + body_label)
+        }
+        
+        emit(cg, body_label + ":")
+        gen_stmt_llvm(cg, node.body)
+        emit(cg, "  br label %" + loop_label)
+        
+        emit(cg, end_label + ":")
+    } | false => {}
 }
 
 // Generate code for program
@@ -448,16 +569,124 @@ generate_program = (cg: *CodeGen, program: *parser.AstNode) bool {
     return cg.errors.len() == 0
 }
 
+// Compile a Zen source file to target code
+compile_file = (source_file: String, target: Target, output_file: String) bool {
+    // Read source file
+    source := io.read_file(source_file)
+    string.is_empty(source) ? | true => {
+        io.print("Error: Could not read source file\n")
+        return false
+    } | false => {}
+    
+    // Create lexer and tokenize
+    lexer := @compiler.lexer
+    lex := lexer.lexer_new(source)
+    tokens := lexer.tokenize(&lex)
+    
+    vec.len<lexer.Token>(tokens) == 0 ? | true => {
+        io.print("Error: No tokens generated\n")
+        return false
+    } | false => {}
+    
+    // Parse tokens to AST
+    parse := parser.parser_new(tokens)
+    ast := parser.parse(&parse)
+    
+    vec.len<String>(parse.errors) > 0 ? | true => {
+        io.print("Parser errors:\n")
+        i := 0
+        loop (i < vec.len<String>(parse.errors)) {
+            io.print("  - ")
+            io.print(vec.get<String>(parse.errors, i))
+            io.print("\n")
+            i = i + 1
+        }
+        return false
+    } | false => {}
+    
+    // Type check the AST
+    symbols := symbol_table.symbol_table_new()
+    checker := type_checker.type_checker_new(&symbols)
+    type_checker.check_program(&checker, ast)
+    
+    vec.len<String>(checker.errors) > 0 ? | true => {
+        io.print("Type checker errors:\n")
+        i := 0
+        loop (i < vec.len<String>(checker.errors)) {
+            io.print("  - ")
+            io.print(vec.get<String>(checker.errors, i))
+            io.print("\n")
+            i = i + 1
+        }
+        return false
+    } | false => {}
+    
+    // Generate code
+    cg := codegen_new(target, &symbols)
+    success := generate_program(&cg, ast)
+    
+    success ? | false => {
+        io.print("Code generation errors:\n")
+        i := 0
+        loop (i < vec.len<String>(cg.errors)) {
+            io.print("  - ")
+            io.print(vec.get<String>(cg.errors, i))
+            io.print("\n")
+            i = i + 1
+        }
+        return false
+    } | true => {}
+    
+    // Write output file
+    io.write_file(output_file, cg.output)
+    
+    io.print("Successfully compiled ")
+    io.print(source_file)
+    io.print(" to ")
+    io.print(output_file)
+    io.print("\n")
+    
+    return true
+}
+
 // Main test function
 main = () i32 {
     io.print("Zen Code Generator - Self-hosting component\n")
     io.print("===========================================\n\n")
     
-    // Create code generator for C target
-    cg := codegen_new(Target.C)
+    // Test compilation
+    test_source := "
+fn add(a: i32, b: i32) i32 {
+    return a + b
+}
+
+fn main() i32 {
+    x := 10
+    y := 20
+    result := add(x, y)
+    return result
+}"
     
-    io.print("Code generator initialized for C target\n")
-    io.print("Ready for code generation!\n")
+    // Write test source to file
+    io.write_file("test.zen", test_source)
+    
+    // Test C generation
+    io.print("Testing C code generation...\n")
+    compile_file("test.zen", Target.C, "test.c") ? | true => {
+        io.print("C generation successful!\n")
+    } | false => {
+        io.print("C generation failed!\n")
+    }
+    
+    io.print("\n")
+    
+    // Test LLVM IR generation
+    io.print("Testing LLVM IR generation...\n")
+    compile_file("test.zen", Target.LLVM_IR, "test.ll") ? | true => {
+        io.print("LLVM IR generation successful!\n")
+    } | false => {
+        io.print("LLVM IR generation failed!\n")
+    }
     
     return 0
 }

@@ -51,3 +51,6 @@ io := @std.io
 - Added comprehensive stdlib modules
 - Enhanced self-hosting components
 - Improved test coverage
+- Created stdlib modules in Zen: io.zen, core.zen, math.zen, string.zen, vec.zen
+- Implemented self-hosted lexer.zen with full tokenization
+- Fixed test_comptime_import_error to validate at type-check phase
