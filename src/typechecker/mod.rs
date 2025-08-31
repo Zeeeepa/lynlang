@@ -350,7 +350,7 @@ impl TypeChecker {
                         
                         // Handle stdlib function return types
                         match (module, func) {
-                            ("io", "print" | "println") => return Ok(AstType::Void),
+                            ("io", "print" | "println" | "print_int" | "print_float") => return Ok(AstType::Void),
                             ("io", "read_line") => return Ok(AstType::String),
                             ("math", "abs") => return Ok(AstType::I32),
                             ("math", "sqrt") => return Ok(AstType::F64),

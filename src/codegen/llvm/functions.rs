@@ -276,10 +276,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let func = parts[1];
                 
                 // Handle stdlib function calls
-                if module == "io" && func == "print" {
-                    return self.compile_io_print(args);
-                } else if module == "io" && func == "println" {
-                    return self.compile_io_println(args);
+                if module == "io" {
+                    match func {
+                        "print" => return self.compile_io_print(args),
+                        "println" => return self.compile_io_println(args),
+                        "print_int" => return self.compile_io_print_int(args),
+                        "print_float" => return self.compile_io_print_float(args),
+                        _ => {}
+                    }
                 } else if module == "math" {
                     // Handle math module functions
                     return self.compile_math_function(func, args);
@@ -489,6 +493,89 @@ impl<'ctx> LLVMCompiler<'ctx> {
             puts_fn,
             &[arg_value.into()],
             "puts_call"
+        )?;
+        
+        // Return void as unit value
+        Ok(self.context.i32_type().const_zero().into())
+    }
+    
+    /// Compile io.print_int function call
+    fn compile_io_print_int(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("io.print_int expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare printf
+        let printf_fn = self.module.get_function("printf").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
+            self.module.add_function("printf", fn_type, None)
+        });
+        
+        // Create format string for integer
+        let format_str = self.builder.build_global_string_ptr("%d\n", "int_format")?;
+        
+        // Compile the integer argument
+        let arg_value = self.compile_expression(&args[0])?;
+        
+        // Call printf
+        let _call = self.builder.build_call(
+            printf_fn,
+            &[format_str.as_pointer_value().into(), arg_value.into()],
+            "printf_int_call"
+        )?;
+        
+        // Return void as unit value
+        Ok(self.context.i32_type().const_zero().into())
+    }
+    
+    /// Compile io.print_float function call
+    fn compile_io_print_float(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("io.print_float expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare printf
+        let printf_fn = self.module.get_function("printf").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
+            self.module.add_function("printf", fn_type, None)
+        });
+        
+        // Create format string for float
+        let format_str = self.builder.build_global_string_ptr("%.6f\n", "float_format")?;
+        
+        // Compile the float argument
+        let arg_value = self.compile_expression(&args[0])?;
+        
+        // Convert to f64 if needed
+        let float_value = match arg_value {
+            BasicValueEnum::FloatValue(f) => f,
+            BasicValueEnum::IntValue(i) => {
+                // Convert int to float
+                self.builder.build_signed_int_to_float(i, self.context.f64_type(), "int_to_float")?
+            }
+            _ => {
+                return Err(CompileError::TypeError(
+                    "io.print_float expects a numeric argument".to_string(),
+                    None,
+                ));
+            }
+        };
+        
+        // Call printf
+        let _call = self.builder.build_call(
+            printf_fn,
+            &[format_str.as_pointer_value().into(), float_value.into()],
+            "printf_float_call"
         )?;
         
         // Return void as unit value
