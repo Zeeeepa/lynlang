@@ -1,0 +1,15 @@
+// Simple test file
+io := @std.io
+
+main = () i32 {
+    nums := [1, 2, 3]
+    i := 0
+    loop i < 3 {
+        io.print("Number: ")
+        num := nums[i]
+        io.print("$(num)")
+        io.print("\n")
+        i = i + 1
+    }
+    return 0
+}
