@@ -133,6 +133,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     fn compile_conditional_expression(&mut self, scrutinee: &Expression, arms: &[crate::ast::ConditionalArm]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Generate a unique ID for this conditional to avoid block name collisions
+        static mut CONDITIONAL_ID: u32 = 0;
+        let cond_id = unsafe {
+            CONDITIONAL_ID += 1;
+            CONDITIONAL_ID
+        };
+        
         let parent_function = self.current_function
             .ok_or_else(|| CompileError::InternalError("No current function for conditional".to_string(), None))?;
         
@@ -140,7 +147,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let scrutinee_val = self.compile_expression(scrutinee)?;
         
         // Create the merge block where all arms will jump to
-        let merge_bb = self.context.append_basic_block(parent_function, "match_merge");
+        let merge_bb = self.context.append_basic_block(parent_function, &format!("match_merge_{}", cond_id));
         
         // We'll collect the values and blocks for the phi node
         let mut phi_values = Vec::new();
@@ -150,7 +157,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let mut unmatched_block = None;
         
         // Check if we have exhaustive boolean patterns (true and false) for the entire conditional
-        let _is_exhaustive_boolean = arms.len() == 2 && {
+        let is_exhaustive_boolean = arms.len() == 2 && {
             let has_true = arms.iter().any(|a| {
                 if let crate::ast::Pattern::Literal(expr) = &a.pattern {
                     matches!(expr, crate::ast::Expression::Boolean(true))
@@ -200,18 +207,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
             };
             
             // Create blocks for this arm
-            let match_bb = self.context.append_basic_block(parent_function, &format!("match_{}", i));
+            let match_bb = self.context.append_basic_block(parent_function, &format!("match_{}_{}", cond_id, i));
             
             // For boolean patterns (true/false), we always need a next block for the false case
             // Check if this is a wildcard pattern which is always exhaustive
             let _is_wildcard = matches!(arm.pattern, crate::ast::Pattern::Wildcard);
             
             let next_bb = if !is_last {
-                self.context.append_basic_block(parent_function, &format!("test_{}", i + 1))
+                self.context.append_basic_block(parent_function, &format!("test_{}_{}", cond_id, i + 1))
             } else {
                 // For the last arm, create an unmatched block
                 // This will be used if the pattern doesn't match
-                let block = self.context.append_basic_block(parent_function, "pattern_unmatched");
+                // Even for exhaustive patterns, we need this for correct control flow
+                let block = self.context.append_basic_block(parent_function, &format!("pattern_unmatched_{}", cond_id));
                 unmatched_block = Some(block);
                 block
             };

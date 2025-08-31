@@ -1,0 +1,224 @@
+// Comprehensive test for self-hosted Zen compiler
+// Tests the complete compilation pipeline
+
+// Module-level imports - correct syntax
+io := @std.io
+core := @std.core
+test := @std.test
+string := @std.string
+
+// Import compiler modules
+lexer := @compiler.lexer
+parser := @compiler.parser
+type_checker := @compiler.type_checker
+symbol_table := @compiler.symbol_table
+codegen := @compiler.codegen
+
+// Test compilation of simple program
+test_compile_simple = () bool {
+    source := "main = () i32 { return 42 }"
+    
+    // Lexical analysis
+    tokens := lexer.tokenize(source)
+    if tokens.is_error() {
+        io.print("Lexer error: ")
+        io.print(tokens.get_error())
+        io.print("\n")
+        return false
+    }
+    
+    // Parsing
+    ast := parser.parse(tokens.unwrap())
+    if ast.is_error() {
+        io.print("Parser error: ")
+        io.print(ast.get_error())
+        io.print("\n")
+        return false
+    }
+    
+    // Type checking
+    symbols := symbol_table.new()
+    typed_ast := type_checker.check(ast.unwrap(), symbols)
+    if typed_ast.is_error() {
+        io.print("Type checker error: ")
+        io.print(typed_ast.get_error())
+        io.print("\n")
+        return false
+    }
+    
+    // Code generation
+    code := codegen.generate_c(typed_ast.unwrap())
+    if code.is_error() {
+        io.print("Codegen error: ")
+        io.print(code.get_error())
+        io.print("\n")
+        return false
+    }
+    
+    io.print("✓ Simple program compiled successfully\n")
+    return true
+}
+
+// Test compilation with imports
+test_compile_with_imports = () bool {
+    source := "io := @std.io\n\nmain = () i32 {\n    io.print(\"Hello\")\n    return 0\n}"
+    
+    // Full pipeline
+    tokens := lexer.tokenize(source)
+    if tokens.is_error() { return false }
+    
+    ast := parser.parse(tokens.unwrap())
+    if ast.is_error() { return false }
+    
+    symbols := symbol_table.new()
+    typed_ast := type_checker.check(ast.unwrap(), symbols)
+    if typed_ast.is_error() { return false }
+    
+    code := codegen.generate_c(typed_ast.unwrap())
+    if code.is_error() { return false }
+    
+    io.print("✓ Program with imports compiled successfully\n")
+    return true
+}
+
+// Test type checking
+test_type_checking = () bool {
+    // Test type mismatch detection
+    bad_source := "main = () i32 { return \"hello\" }"
+    
+    tokens := lexer.tokenize(bad_source)
+    if tokens.is_error() { return false }
+    
+    ast := parser.parse(tokens.unwrap())
+    if ast.is_error() { return false }
+    
+    symbols := symbol_table.new()
+    typed_ast := type_checker.check(ast.unwrap(), symbols)
+    
+    // Should fail type checking
+    if !typed_ast.is_error() {
+        io.print("Expected type error but got none\n")
+        return false
+    }
+    
+    io.print("✓ Type checking correctly detected error\n")
+    return true
+}
+
+// Test LLVM IR generation
+test_llvm_generation = () bool {
+    source := "add = (a: i32, b: i32) i32 { return a + b }"
+    
+    tokens := lexer.tokenize(source)
+    if tokens.is_error() { return false }
+    
+    ast := parser.parse(tokens.unwrap())
+    if ast.is_error() { return false }
+    
+    symbols := symbol_table.new()
+    typed_ast := type_checker.check(ast.unwrap(), symbols)
+    if typed_ast.is_error() { return false }
+    
+    // Generate LLVM IR
+    llvm_ir := codegen.generate_llvm(typed_ast.unwrap())
+    if llvm_ir.is_error() { return false }
+    
+    // Check that IR contains expected patterns
+    ir_text := llvm_ir.unwrap()
+    if !string.contains(ir_text, "define") || !string.contains(ir_text, "i32") {
+        io.print("Generated LLVM IR doesn't look right\n")
+        return false
+    }
+    
+    io.print("✓ LLVM IR generation successful\n")
+    return true
+}
+
+// Test symbol table
+test_symbol_resolution = () bool {
+    source := "x := 42\ny := x + 1\nz := y * 2"
+    
+    tokens := lexer.tokenize(source)
+    if tokens.is_error() { return false }
+    
+    ast := parser.parse(tokens.unwrap())
+    if ast.is_error() { return false }
+    
+    symbols := symbol_table.new()
+    
+    // Symbol table should track all variables
+    typed_ast := type_checker.check(ast.unwrap(), symbols)
+    if typed_ast.is_error() { return false }
+    
+    // Check symbol table contains expected symbols
+    if !symbol_table.has_symbol(symbols, "x") {
+        io.print("Symbol 'x' not found\n")
+        return false
+    }
+    if !symbol_table.has_symbol(symbols, "y") {
+        io.print("Symbol 'y' not found\n")
+        return false
+    }
+    if !symbol_table.has_symbol(symbols, "z") {
+        io.print("Symbol 'z' not found\n")
+        return false
+    }
+    
+    io.print("✓ Symbol resolution working correctly\n")
+    return true
+}
+
+// Main test runner
+main = () i32 {
+    io.print("=== Self-Hosted Compiler Tests ===\n\n")
+    
+    tests_passed := 0
+    tests_failed := 0
+    
+    // Run all tests
+    if test_compile_simple() {
+        tests_passed += 1
+    } else {
+        tests_failed += 1
+    }
+    
+    if test_compile_with_imports() {
+        tests_passed += 1
+    } else {
+        tests_failed += 1
+    }
+    
+    if test_type_checking() {
+        tests_passed += 1
+    } else {
+        tests_failed += 1
+    }
+    
+    if test_llvm_generation() {
+        tests_passed += 1
+    } else {
+        tests_failed += 1
+    }
+    
+    if test_symbol_resolution() {
+        tests_passed += 1
+    } else {
+        tests_failed += 1
+    }
+    
+    // Print summary
+    io.print("\n=== Test Summary ===\n")
+    io.print("Passed: ")
+    io.print_int(tests_passed)
+    io.print("\nFailed: ")
+    io.print_int(tests_failed)
+    io.print("\n")
+    
+    if tests_failed == 0 {
+        io.print("\n✓ All self-hosted compiler tests passed!\n")
+        return 0
+    } else {
+        io.print("\n✗ Some tests failed\n")
+        return 1
+    }
+}
