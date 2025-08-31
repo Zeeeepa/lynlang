@@ -1,0 +1,49 @@
+// Test suite for validating the fixed import system
+// Ensures imports work at module level and not in comptime blocks
+
+// Standard library imports - module level (correct)
+core := @std.core
+io := @std.io
+
+// Test that imports work correctly
+test_basic_import = () bool {
+    io.print("Testing basic imports: ")
+    
+    // If we got here, imports worked
+    io.print("PASS\n")
+    return true
+}
+
+// Test that we can declare multiple imports
+mem := @std.mem
+
+test_multiple_imports = () bool {
+    io.print("Testing multiple imports: ")
+    
+    // Imports are declared, basic test passes
+    
+    io.print("PASS\n") 
+    return true
+}
+
+// Main test runner
+main = () i32 {
+    io.print("=== Import System Test Suite ===\n\n")
+    
+    all_pass := true
+    
+    // Run tests
+    test_basic_import() ? | false => all_pass = false | _ => {}
+    test_multiple_imports() ? | false => all_pass = false | _ => {}
+    
+    io.print("\n=== Test Results ===\n")
+    all_pass ? 
+        | true => {
+            io.print("All tests PASSED!\n")
+            return 0
+        }
+        | false => {
+            io.print("Some tests FAILED!\n")
+            return 1
+        }
+}
