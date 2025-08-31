@@ -38,12 +38,27 @@ A modern systems programming language designed for clarity, performance, and joy
 - UFCS (Uniform Function Call Syntax)
 
 ### 📋 Planned
-- Standard library (io, mem, collections, etc.)
 - Memory management (Ptr<T>, Ref<T>, allocators)
-- Error handling (Result<T,E>, Option<T>)
+- Error handling improvements
 - Async/await
 - Package management
 - C FFI improvements
+
+## Self-Hosting Progress
+
+Zen is progressively becoming self-hosted! Major compiler components are being rewritten in Zen:
+
+### ✅ Self-Hosted Components
+- **Lexer** - Complete tokenizer written in Zen
+- **Parser** - Full AST generation in Zen
+- **Type Checker** - Semantic analysis in Zen
+- **Build System** - Project compilation orchestration
+- **Standard Library** - 40+ modules written in Zen
+
+### 🚧 Transitioning
+- **Code Generator** - Moving from Rust to Zen
+
+See [Self-Hosting Documentation](docs/SELF_HOSTING.md) for details.
 
 ## Unique Syntax
 
