@@ -12,6 +12,9 @@
 - ✅ Advanced linter with style checking (zen-lint.sh)
 - ✅ Self-hosting status documentation
 - ✅ Frequent git commits workflow established
+- ✅ Memory management tests (test_memory.zen)
+- ✅ Enhanced self-hosted parser (parser_enhanced.zen)
+- ✅ String utilities module (string_utils.zen)
 
 ### Import Syntax
 ```zen
@@ -33,16 +36,17 @@ comptime {
 - tests/test_self_hosted_lexer.zen - Lexer test suite
 
 ### Known Issues
-- Memory allocation (malloc) not available for complex types like Vec
-- Need to implement external function declarations for malloc/free
 - LSP not yet implemented
-- Self-hosted parser needs more work
+- Need more comprehensive test coverage
+- Bootstrap process not fully defined
+- Type checker needs enhancement
 
 ### Next Steps
-1. Implement malloc/free external declarations
-2. Complete self-hosted parser
-3. Build LSP server
-4. Create more comprehensive stdlib in Zen
+1. Build LSP server for IDE support
+2. Add more comprehensive tests
+3. Define bootstrap sequence
+4. Enhance type checker
+5. Create more stdlib modules (collections, async, etc.)
 
 ### Test Commands
 ```bash
