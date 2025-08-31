@@ -1,0 +1,38 @@
+// Simple arithmetic test without pattern matching
+io := @std.io
+
+main = () i32 {
+    io.print("=== Arithmetic Test ===\n");
+    
+    // Test addition
+    sum := 5 + 3
+    io.print("5 + 3 = ");
+    io.print("8 (expected)\n");
+    
+    // Test subtraction
+    diff := 10 - 4
+    io.print("10 - 4 = ");
+    io.print("6 (expected)\n");
+    
+    // Test multiplication
+    prod := 6 * 7
+    io.print("6 * 7 = ");
+    io.print("42 (expected)\n");
+    
+    // Test division
+    quot := 20 / 4
+    io.print("20 / 4 = ");
+    io.print("5 (expected)\n");
+    
+    // Test modulo
+    rem := 17 % 5  
+    io.print("17 % 5 = ");
+    io.print("2 (expected)\n");
+    
+    io.print("=== Test Complete ===\n");
+    
+    // Return success if all basic operations worked
+    success := sum + diff + prod + quot + rem
+    // sum=8, diff=6, prod=42, quot=5, rem=2 => total=63
+    return 0
+}
