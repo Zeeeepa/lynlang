@@ -1,0 +1,363 @@
+// Complete Vec implementation for Zen
+// Dynamic resizable array with generics support
+
+core := @std.core
+mem := @std.mem
+io := @std.io
+
+// Vec structure - dynamic array
+Vec<T> = {
+    data: *T,        // Pointer to data
+    len: i32,        // Current number of elements
+    capacity: i32,   // Total allocated capacity
+}
+
+// Create a new empty Vec
+vec_new<T> = () Vec<T> {
+    return Vec<T> {
+        data: null,
+        len: 0,
+        capacity: 0,
+    }
+}
+
+// Create a Vec with initial capacity
+vec_with_capacity<T> = (capacity: i32) Vec<T> {
+    capacity <= 0 ? | true => { return vec_new<T>() } | false => {}
+    
+    data := mem.alloc<T>(capacity)
+    return Vec<T> {
+        data: data,
+        len: 0,
+        capacity: capacity,
+    }
+}
+
+// Get the length of the Vec
+vec_len<T> = (v: *Vec<T>) i32 {
+    return v.len
+}
+
+// Get the capacity of the Vec
+vec_capacity<T> = (v: *Vec<T>) i32 {
+    return v.capacity
+}
+
+// Check if Vec is empty
+vec_is_empty<T> = (v: *Vec<T>) bool {
+    return v.len == 0
+}
+
+// Grow the Vec's capacity
+vec_grow<T> = (v: *Vec<T>) void {
+    new_capacity := v.capacity == 0 ? | true => 4 | false => v.capacity * 2
+    
+    new_data := mem.alloc<T>(new_capacity)
+    
+    // Copy existing data
+    v.len > 0 ? 
+        | true => {
+            mem.copy(new_data, v.data, v.len * sizeof(T))
+            mem.free(v.data)
+        }
+        | false => {}
+    
+    v.data = new_data
+    v.capacity = new_capacity
+}
+
+// Push an element to the Vec
+vec_push<T> = (v: *Vec<T>, value: T) void {
+    v.len >= v.capacity ? | true => { vec_grow(v) } | false => {}
+    
+    v.data[v.len] = value
+    v.len = v.len + 1
+}
+
+// Pop an element from the Vec
+vec_pop<T> = (v: *Vec<T>) core.Option<T> {
+    v.len == 0 ? 
+        | true => { return core.Option<T>.None }
+        | false => {
+            v.len = v.len - 1
+            return core.Option<T>.Some(v.data[v.len])
+        }
+}
+
+// Get element at index
+vec_get<T> = (v: *Vec<T>, index: i32) core.Option<T> {
+    index < 0 || index >= v.len ?
+        | true => { return core.Option<T>.None }
+        | false => { return core.Option<T>.Some(v.data[index]) }
+}
+
+// Set element at index
+vec_set<T> = (v: *Vec<T>, index: i32, value: T) core.Result<void, String> {
+    index < 0 || index >= v.len ?
+        | true => { return core.Result<void, String>.Err("Index out of bounds") }
+        | false => {
+            v.data[index] = value
+            return core.Result<void, String>.Ok(void)
+        }
+}
+
+// Insert element at index
+vec_insert<T> = (v: *Vec<T>, index: i32, value: T) core.Result<void, String> {
+    index < 0 || index > v.len ?
+        | true => { return core.Result<void, String>.Err("Index out of bounds") }
+        | false => {}
+    
+    v.len >= v.capacity ? | true => { vec_grow(v) } | false => {}
+    
+    // Shift elements to the right
+    i ::= v.len
+    loop (i > index) {
+        v.data[i] = v.data[i - 1]
+        i = i - 1
+    }
+    
+    v.data[index] = value
+    v.len = v.len + 1
+    
+    return core.Result<void, String>.Ok(void)
+}
+
+// Remove element at index
+vec_remove<T> = (v: *Vec<T>, index: i32) core.Result<T, String> {
+    index < 0 || index >= v.len ?
+        | true => { return core.Result<T, String>.Err("Index out of bounds") }
+        | false => {}
+    
+    value := v.data[index]
+    
+    // Shift elements to the left
+    i ::= index
+    loop (i < v.len - 1) {
+        v.data[i] = v.data[i + 1]
+        i = i + 1
+    }
+    
+    v.len = v.len - 1
+    
+    return core.Result<T, String>.Ok(value)
+}
+
+// Clear all elements
+vec_clear<T> = (v: *Vec<T>) void {
+    v.len = 0
+}
+
+// Free the Vec's memory
+vec_free<T> = (v: *Vec<T>) void {
+    v.capacity > 0 ? 
+        | true => { mem.free(v.data) }
+        | false => {}
+    
+    v.data = null
+    v.len = 0
+    v.capacity = 0
+}
+
+// Resize the Vec
+vec_resize<T> = (v: *Vec<T>, new_len: i32, default_value: T) void {
+    new_len < 0 ? | true => { return } | false => {}
+    
+    // Grow if needed
+    loop (v.capacity < new_len) {
+        vec_grow(v)
+    }
+    
+    // Fill new elements with default value
+    loop (v.len < new_len) {
+        v.data[v.len] = default_value
+        v.len = v.len + 1
+    }
+    
+    // Truncate if needed
+    v.len > new_len ? | true => { v.len = new_len } | false => {}
+}
+
+// Find first occurrence of element
+vec_find<T> = (v: *Vec<T>, value: T) core.Option<i32> {
+    i := 0
+    loop (i < v.len) {
+        v.data[i] == value ? 
+            | true => { return core.Option<i32>.Some(i) }
+            | false => {}
+        i = i + 1
+    }
+    return core.Option<i32>.None
+}
+
+// Check if Vec contains element
+vec_contains<T> = (v: *Vec<T>, value: T) bool {
+    result := vec_find(v, value)
+    return result ? | .Some => true | .None => false
+}
+
+// Map function over Vec elements
+vec_map<T, U> = (v: *Vec<T>, f: (T) U) Vec<U> {
+    result := vec_with_capacity<U>(v.len)
+    
+    i := 0
+    loop (i < v.len) {
+        vec_push(&result, f(v.data[i]))
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Filter Vec elements
+vec_filter<T> = (v: *Vec<T>, predicate: (T) bool) Vec<T> {
+    result := vec_new<T>()
+    
+    i := 0
+    loop (i < v.len) {
+        predicate(v.data[i]) ? 
+            | true => { vec_push(&result, v.data[i]) }
+            | false => {}
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Fold/reduce Vec to single value
+vec_fold<T, U> = (v: *Vec<T>, init: U, f: (U, T) U) U {
+    acc ::= init
+    
+    i := 0
+    loop (i < v.len) {
+        acc = f(acc, v.data[i])
+        i = i + 1
+    }
+    
+    return acc
+}
+
+// Sort Vec in place (using quicksort)
+vec_sort<T> = (v: *Vec<T>, compare: (T, T) i32) void {
+    vec_quicksort(v, 0, v.len - 1, compare)
+}
+
+// Internal quicksort implementation
+vec_quicksort<T> = (v: *Vec<T>, low: i32, high: i32, compare: (T, T) i32) void {
+    low < high ? 
+        | true => {
+            pivot_index := vec_partition(v, low, high, compare)
+            vec_quicksort(v, low, pivot_index - 1, compare)
+            vec_quicksort(v, pivot_index + 1, high, compare)
+        }
+        | false => {}
+}
+
+// Partition for quicksort
+vec_partition<T> = (v: *Vec<T>, low: i32, high: i32, compare: (T, T) i32) i32 {
+    pivot := v.data[high]
+    i ::= low - 1
+    
+    j ::= low
+    loop (j < high) {
+        compare(v.data[j], pivot) <= 0 ?
+            | true => {
+                i = i + 1
+                // Swap elements
+                temp := v.data[i]
+                v.data[i] = v.data[j]
+                v.data[j] = temp
+            }
+            | false => {}
+        j = j + 1
+    }
+    
+    // Swap pivot into place
+    temp := v.data[i + 1]
+    v.data[i + 1] = v.data[high]
+    v.data[high] = temp
+    
+    return i + 1
+}
+
+// Convert Vec to slice
+vec_as_slice<T> = (v: *Vec<T>) []T {
+    return v.data[0..v.len]
+}
+
+// Create Vec from slice
+vec_from_slice<T> = (slice: []T) Vec<T> {
+    v := vec_with_capacity<T>(slice.len)
+    
+    i := 0
+    loop (i < slice.len) {
+        vec_push(&v, slice[i])
+        i = i + 1
+    }
+    
+    return v
+}
+
+// Clone a Vec
+vec_clone<T> = (v: *Vec<T>) Vec<T> {
+    new_vec := vec_with_capacity<T>(v.capacity)
+    
+    i := 0
+    loop (i < v.len) {
+        vec_push(&new_vec, v.data[i])
+        i = i + 1
+    }
+    
+    return new_vec
+}
+
+// Test the Vec implementation
+main = () i32 {
+    io.print("=== Vec Implementation Test ===\n\n")
+    
+    // Create a new Vec
+    v := vec_new<i32>()
+    
+    // Push some elements
+    vec_push(&v, 10)
+    vec_push(&v, 20)
+    vec_push(&v, 30)
+    
+    io.print("Vec length: ")
+    io.print_int(vec_len(&v))
+    io.print("\n")
+    
+    // Get elements
+    i := 0
+    loop (i < vec_len(&v)) {
+        value := vec_get(&v, i)
+        value ? 
+            | .Some -> val => {
+                io.print("v[")
+                io.print_int(i)
+                io.print("] = ")
+                io.print_int(val)
+                io.print("\n")
+            }
+            | .None => {}
+        i = i + 1
+    }
+    
+    // Pop an element
+    popped := vec_pop(&v)
+    popped ?
+        | .Some -> val => {
+            io.print("Popped: ")
+            io.print_int(val)
+            io.print("\n")
+        }
+        | .None => {}
+    
+    io.print("Vec length after pop: ")
+    io.print_int(vec_len(&v))
+    io.print("\n")
+    
+    // Clean up
+    vec_free(&v)
+    
+    return 0
+}

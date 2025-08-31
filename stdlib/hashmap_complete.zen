@@ -1,0 +1,358 @@
+// Complete HashMap implementation for Zen
+// Hash table with linear probing for collision resolution
+
+core := @std.core
+vec := @std.vec
+mem := @std.mem
+io := @std.io
+
+// Entry in the hash table
+Entry<K, V> = {
+    key: K,
+    value: V,
+    occupied: bool,
+    deleted: bool,
+}
+
+// HashMap structure
+HashMap<K, V> = {
+    buckets: Vec<Entry<K, V>>,
+    size: i32,          // Number of key-value pairs
+    capacity: i32,      // Total bucket capacity
+    max_load: f32,      // Maximum load factor before resize
+}
+
+// Hash function for integers
+hash_i32 = (key: i32) u32 {
+    // Simple multiplication hash
+    k := key as u32
+    k = k ^ (k >> 16)
+    k = k * 0x85ebca6b
+    k = k ^ (k >> 13)
+    k = k * 0xc2b2ae35
+    k = k ^ (k >> 16)
+    return k
+}
+
+// Hash function for strings
+hash_string = (key: String) u32 {
+    hash ::= 5381 as u32
+    i := 0
+    loop (i < key.len) {
+        hash = ((hash << 5) + hash) + (key[i] as u32)
+        i = i + 1
+    }
+    return hash
+}
+
+// Create a new empty HashMap
+hashmap_new<K, V> = () HashMap<K, V> {
+    initial_capacity := 16
+    buckets := vec.with_capacity<Entry<K, V>>(initial_capacity)
+    
+    // Initialize all entries as unoccupied
+    i := 0
+    loop (i < initial_capacity) {
+        vec.push(&buckets, Entry<K, V> {
+            key: default<K>(),
+            value: default<V>(),
+            occupied: false,
+            deleted: false,
+        })
+        i = i + 1
+    }
+    
+    return HashMap<K, V> {
+        buckets: buckets,
+        size: 0,
+        capacity: initial_capacity,
+        max_load: 0.75,
+    }
+}
+
+// Get the number of entries
+hashmap_len<K, V> = (map: *HashMap<K, V>) i32 {
+    return map.size
+}
+
+// Check if map is empty
+hashmap_is_empty<K, V> = (map: *HashMap<K, V>) bool {
+    return map.size == 0
+}
+
+// Find bucket index for a key
+hashmap_find_bucket<K, V> = (map: *HashMap<K, V>, key: K, hash_fn: (K) u32) i32 {
+    hash := hash_fn(key)
+    index := (hash % (map.capacity as u32)) as i32
+    
+    // Linear probing to find key or empty slot
+    loop {
+        entry := vec.get(&map.buckets, index)
+        entry ?
+            | .Some -> e => {
+                !e.occupied || e.deleted ? 
+                    | true => { return index }
+                    | false => {
+                        e.key == key ? 
+                            | true => { return index }
+                            | false => {}
+                    }
+            }
+            | .None => { return -1 }
+        
+        index = (index + 1) % map.capacity
+    }
+}
+
+// Resize the HashMap when load factor exceeded
+hashmap_resize<K, V> = (map: *HashMap<K, V>, hash_fn: (K) u32) void {
+    new_capacity := map.capacity * 2
+    new_buckets := vec.with_capacity<Entry<K, V>>(new_capacity)
+    
+    // Initialize new buckets
+    i := 0
+    loop (i < new_capacity) {
+        vec.push(&new_buckets, Entry<K, V> {
+            key: default<K>(),
+            value: default<V>(),
+            occupied: false,
+            deleted: false,
+        })
+        i = i + 1
+    }
+    
+    // Rehash existing entries
+    old_buckets := map.buckets
+    map.buckets = new_buckets
+    old_capacity := map.capacity
+    map.capacity = new_capacity
+    map.size = 0
+    
+    i = 0
+    loop (i < old_capacity) {
+        entry := vec.get(&old_buckets, i)
+        entry ?
+            | .Some -> e => {
+                e.occupied && !e.deleted ?
+                    | true => { hashmap_insert(map, e.key, e.value, hash_fn) }
+                    | false => {}
+            }
+            | .None => {}
+        i = i + 1
+    }
+    
+    vec.free(&old_buckets)
+}
+
+// Insert a key-value pair
+hashmap_insert<K, V> = (map: *HashMap<K, V>, key: K, value: V, hash_fn: (K) u32) void {
+    // Check load factor
+    load_factor := (map.size as f32) / (map.capacity as f32)
+    load_factor >= map.max_load ? 
+        | true => { hashmap_resize(map, hash_fn) }
+        | false => {}
+    
+    index := hashmap_find_bucket(map, key, hash_fn)
+    index < 0 ? | true => { return } | false => {}
+    
+    entry := vec.get(&map.buckets, index)
+    entry ?
+        | .Some -> e => {
+            is_new := !e.occupied || e.deleted
+            
+            vec.set(&map.buckets, index, Entry<K, V> {
+                key: key,
+                value: value,
+                occupied: true,
+                deleted: false,
+            })
+            
+            is_new ? | true => { map.size = map.size + 1 } | false => {}
+        }
+        | .None => {}
+}
+
+// Get a value by key
+hashmap_get<K, V> = (map: *HashMap<K, V>, key: K, hash_fn: (K) u32) core.Option<V> {
+    index := hashmap_find_bucket(map, key, hash_fn)
+    index < 0 ? | true => { return core.Option<V>.None } | false => {}
+    
+    entry := vec.get(&map.buckets, index)
+    return entry ?
+        | .Some -> e => {
+            e.occupied && !e.deleted && e.key == key ?
+                | true => core.Option<V>.Some(e.value)
+                | false => core.Option<V>.None
+        }
+        | .None => core.Option<V>.None
+}
+
+// Remove a key-value pair
+hashmap_remove<K, V> = (map: *HashMap<K, V>, key: K, hash_fn: (K) u32) core.Option<V> {
+    index := hashmap_find_bucket(map, key, hash_fn)
+    index < 0 ? | true => { return core.Option<V>.None } | false => {}
+    
+    entry := vec.get(&map.buckets, index)
+    return entry ?
+        | .Some -> e => {
+            e.occupied && !e.deleted && e.key == key ?
+                | true => {
+                    value := e.value
+                    vec.set(&map.buckets, index, Entry<K, V> {
+                        key: e.key,
+                        value: e.value,
+                        occupied: true,
+                        deleted: true,
+                    })
+                    map.size = map.size - 1
+                    core.Option<V>.Some(value)
+                }
+                | false => core.Option<V>.None
+        }
+        | .None => core.Option<V>.None
+}
+
+// Check if key exists
+hashmap_contains_key<K, V> = (map: *HashMap<K, V>, key: K, hash_fn: (K) u32) bool {
+    result := hashmap_get(map, key, hash_fn)
+    return result ? | .Some => true | .None => false
+}
+
+// Clear all entries
+hashmap_clear<K, V> = (map: *HashMap<K, V>) void {
+    i := 0
+    loop (i < map.capacity) {
+        vec.set(&map.buckets, i, Entry<K, V> {
+            key: default<K>(),
+            value: default<V>(),
+            occupied: false,
+            deleted: false,
+        })
+        i = i + 1
+    }
+    map.size = 0
+}
+
+// Get all keys
+hashmap_keys<K, V> = (map: *HashMap<K, V>) Vec<K> {
+    keys := vec.with_capacity<K>(map.size)
+    
+    i := 0
+    loop (i < map.capacity) {
+        entry := vec.get(&map.buckets, i)
+        entry ?
+            | .Some -> e => {
+                e.occupied && !e.deleted ?
+                    | true => { vec.push(&keys, e.key) }
+                    | false => {}
+            }
+            | .None => {}
+        i = i + 1
+    }
+    
+    return keys
+}
+
+// Get all values
+hashmap_values<K, V> = (map: *HashMap<K, V>) Vec<V> {
+    values := vec.with_capacity<V>(map.size)
+    
+    i := 0
+    loop (i < map.capacity) {
+        entry := vec.get(&map.buckets, i)
+        entry ?
+            | .Some -> e => {
+                e.occupied && !e.deleted ?
+                    | true => { vec.push(&values, e.value) }
+                    | false => {}
+            }
+            | .None => {}
+        i = i + 1
+    }
+    
+    return values
+}
+
+// Free the HashMap's memory
+hashmap_free<K, V> = (map: *HashMap<K, V>) void {
+    vec.free(&map.buckets)
+    map.size = 0
+    map.capacity = 0
+}
+
+// Specialized HashMap for i32 keys
+HashMapI32<V> = HashMap<i32, V>
+
+hashmap_i32_new<V> = () HashMapI32<V> {
+    return hashmap_new<i32, V>()
+}
+
+hashmap_i32_insert<V> = (map: *HashMapI32<V>, key: i32, value: V) void {
+    hashmap_insert(map, key, value, hash_i32)
+}
+
+hashmap_i32_get<V> = (map: *HashMapI32<V>, key: i32) core.Option<V> {
+    return hashmap_get(map, key, hash_i32)
+}
+
+hashmap_i32_remove<V> = (map: *HashMapI32<V>, key: i32) core.Option<V> {
+    return hashmap_remove(map, key, hash_i32)
+}
+
+hashmap_i32_contains<V> = (map: *HashMapI32<V>, key: i32) bool {
+    return hashmap_contains_key(map, key, hash_i32)
+}
+
+// Test the HashMap implementation
+main = () i32 {
+    io.print("=== HashMap Implementation Test ===\n\n")
+    
+    // Create a new HashMap
+    map := hashmap_i32_new<String>()
+    
+    // Insert some key-value pairs
+    hashmap_i32_insert(&map, 1, "one")
+    hashmap_i32_insert(&map, 2, "two")
+    hashmap_i32_insert(&map, 3, "three")
+    hashmap_i32_insert(&map, 10, "ten")
+    
+    io.print("HashMap size: ")
+    io.print_int(hashmap_len(&map))
+    io.print("\n")
+    
+    // Get values
+    value := hashmap_i32_get(&map, 2)
+    value ?
+        | .Some -> v => {
+            io.print("map[2] = ")
+            io.print(v)
+            io.print("\n")
+        }
+        | .None => {
+            io.print("Key 2 not found\n")
+        }
+    
+    // Check if key exists
+    hashmap_i32_contains(&map, 10) ?
+        | true => { io.print("Key 10 exists\n") }
+        | false => { io.print("Key 10 not found\n") }
+    
+    // Remove a key
+    removed := hashmap_i32_remove(&map, 3)
+    removed ?
+        | .Some -> v => {
+            io.print("Removed key 3 with value: ")
+            io.print(v)
+            io.print("\n")
+        }
+        | .None => {}
+    
+    io.print("HashMap size after removal: ")
+    io.print_int(hashmap_len(&map))
+    io.print("\n")
+    
+    // Clean up
+    hashmap_free(&map)
+    
+    return 0
+}
