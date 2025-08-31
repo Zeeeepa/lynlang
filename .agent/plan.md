@@ -1,59 +1,41 @@
-# Zen Language Import System Fix Plan
+# Zenlang Development Plan
 
-## Current State
-- Import system currently uses both old comptime syntax and new direct syntax
-- Parser supports module-level imports but needs cleanup
-- Some examples use correct syntax, others still use comptime blocks
+## Immediate Goals (Priority 1)
+1. **Fix Import System** - Remove comptime requirement for imports
+   - Move imports to module level
+   - Update parser to handle module-level imports
+   - Ensure imports work without comptime blocks
 
-## Goal
-Transform imports from comptime blocks to direct module-level imports:
-```zen
-// From:
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
+2. **Update Examples** - Ensure all examples use new syntax
+   - Update hello.zen, fibonacci.zen, etc.
+   - Test each example after changes
 
-// To:
-core := @std.core
-build := @std.build
-io := build.import("io")
-```
+## Short-term Goals (Priority 2)
+3. **Stdlib in Zen** - Implement core stdlib modules
+   - io module (print, input)
+   - math module (basic operations)
+   - string module (manipulation)
+   - memory module (allocation)
 
-## Implementation Steps
+4. **Testing Framework** - Create comprehensive tests
+   - Unit tests for parser
+   - Integration tests for compiler
+   - Example program tests
 
-1. **Parser Updates** ✅
-   - Already supports module-level imports
-   - Need to ensure comptime blocks are for meta-programming only
+## Medium-term Goals (Priority 3)
+5. **LSP/Validation** - Implement checking system
+   - Basic syntax checking
+   - Type checking
+   - Import resolution
 
-2. **Update All Zen Files**
-   - Fix all .zen files using old comptime import syntax
-   - Update stdlib files
-   - Update examples
-   - Update tests
+6. **Self-hosting** - Port compiler to Zen
+   - Start with lexer
+   - Then parser
+   - Finally code generation
 
-3. **Semantic Analysis**
-   - Ensure imports are resolved correctly
-   - Update type checker for import handling
-
-4. **LLVM Codegen**
-   - Verify codegen handles imports properly
-   - Fix any issues with module resolution
-
-5. **Self-Hosting Components**
-   - Update compiler/*.zen files
-   - Update tools/*.zen files
-   - Ensure bootstrap works
-
-6. **Testing**
-   - Add comprehensive import tests
-   - Run existing test suite
-   - Verify self-hosting works
-
-## Priority Order
-1. Fix core parser/semantic issues
-2. Update stdlib (foundation for everything)
-3. Update compiler components (self-hosting)
-4. Update examples and tests
-5. Documentation updates
+## Principles
+- Simplicity and elegance
+- Practical solutions
+- Frequent commits
+- 80% implementation, 20% testing
+- DRY & KISS
