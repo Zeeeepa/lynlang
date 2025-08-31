@@ -842,23 +842,288 @@ extract_identifier = (token: Token) string {
 }
 
 parse_generic_params = (parser: Ptr<Parser>) Vec<string> {
-    // Stub implementation
-    return vec_new<string>()
+    generics := vec_new<string>()
+    
+    check(parser, TokenKind.Less) ? {
+        advance(parser)
+        
+        loop {
+            name_token := expect(parser, TokenKind.Identifier(""), "Expected generic parameter name")
+            name := extract_identifier(name_token)
+            vec_push(generics, name)
+            
+            check(parser, TokenKind.Comma) ? {
+                advance(parser)
+            } | {
+                break
+            }
+        }
+        
+        expect(parser, TokenKind.Greater, "Expected '>' after generic parameters")
+    } | {}
+    
+    return generics
 }
 
 parse_parameters = (parser: Ptr<Parser>) Vec<Parameter> {
-    // Stub implementation
-    return vec_new<Parameter>()
+    params := vec_new<Parameter>()
+    
+    expect(parser, TokenKind.LeftParen, "Expected '(' for parameters")
+    
+    // Parse parameters until we hit ')'
+    !check(parser, TokenKind.RightParen) && !is_at_end(parser) ? {
+        loop {
+            // Parse parameter name
+            name_token := expect(parser, TokenKind.Identifier(""), "Expected parameter name")
+            name := extract_identifier(name_token)
+            
+            // Parse type annotation
+            expect(parser, TokenKind.Colon, "Expected ':' after parameter name")
+            param_type := parse_type(parser)
+            
+            // Check for mutability (if 'mut' keyword is supported)
+            is_mutable := false
+            
+            // Check for default value
+            default_value := Option<Ptr<AstNode>>.None
+            check(parser, TokenKind.Assign) ? {
+                advance(parser)
+                default_value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser)))
+            } | {}
+            
+            // Create parameter
+            param := Parameter{
+                name: name,
+                type: param_type,
+                is_mutable: is_mutable,
+                default_value: default_value,
+            }
+            
+            vec_push(params, param)
+            
+            // Check for comma or end of parameters
+            check(parser, TokenKind.Comma) ? {
+                advance(parser)
+                // Continue parsing
+            } | {
+                break  // No more parameters
+            }
+        }
+    } | {}
+    
+    expect(parser, TokenKind.RightParen, "Expected ')' after parameters")
+    
+    return params
 }
 
 parse_type = (parser: Ptr<Parser>) Type {
-    // Stub implementation
-    return Type.Named("unknown")
+    // Parse base type
+    base_type := parse_base_type(parser)
+    
+    // Check for array/slice notation
+    check(parser, TokenKind.LeftBracket) ? {
+        advance(parser)
+        
+        // Check if it's a slice [] or sized array [n]
+        check(parser, TokenKind.RightBracket) ? {
+            advance(parser)
+            return Type.Slice(ptr_new(base_type))
+        } | {
+            // Parse array size
+            size_token := advance(parser)
+            size := match size_token.kind {
+                | TokenKind.IntegerLit(n) => Option<u32>.Some(n as u32)
+                | _ => {
+                    add_error(parser, "Expected array size")
+                    Option<u32>.None
+                }
+            }
+            expect(parser, TokenKind.RightBracket, "Expected ']' after array size")
+            return Type.Array(ptr_new(base_type), size)
+        }
+    } | {}
+    
+    // Check for pointer type
+    check(parser, TokenKind.Star) ? {
+        advance(parser)
+        is_mutable := check(parser, TokenKind.Keyword("mut")) ? {
+            advance(parser)
+            true
+        } | false
+        return Type.Pointer(ptr_new(base_type), is_mutable)
+    } | {}
+    
+    // Check for Option type
+    check(parser, TokenKind.Question) ? {
+        advance(parser)
+        return Type.Option(ptr_new(base_type))
+    } | {}
+    
+    return base_type
+}
+
+parse_base_type = (parser: Ptr<Parser>) Type {
+    token := advance(parser)
+    
+    match token.kind {
+        | TokenKind.Identifier(name) => {
+            // Check for generic parameters
+            check(parser, TokenKind.Less) ? {
+                advance(parser)
+                type_args := vec_new<Type>()
+                
+                loop {
+                    vec_push(type_args, parse_type(parser))
+                    
+                    check(parser, TokenKind.Comma) ? {
+                        advance(parser)
+                    } | {
+                        break
+                    }
+                }
+                
+                expect(parser, TokenKind.Greater, "Expected '>' after type arguments")
+                
+                // Handle specific generic types
+                name == "Option" && vec_len(type_args) == 1 ? {
+                    return Type.Option(ptr_new(vec_get(type_args, 0)))
+                } | {}
+                
+                name == "Result" && vec_len(type_args) == 2 ? {
+                    return Type.Result(
+                        ptr_new(vec_get(type_args, 0)),
+                        ptr_new(vec_get(type_args, 1))
+                    )
+                } | {}
+                
+                // Generic type with constraints
+                return Type.Generic(name, vec_new<string>())
+            } | {}
+            
+            return Type.Named(name)
+        }
+        | TokenKind.LeftParen => {
+            // Parse tuple type or function type
+            types := vec_new<Type>()
+            
+            !check(parser, TokenKind.RightParen) ? {
+                loop {
+                    vec_push(types, parse_type(parser))
+                    
+                    check(parser, TokenKind.Comma) ? {
+                        advance(parser)
+                    } | {
+                        break
+                    }
+                }
+            } | {}
+            
+            expect(parser, TokenKind.RightParen, "Expected ')' after tuple/function types")
+            
+            // Check if it's a function type
+            check(parser, TokenKind.Arrow) ? {
+                advance(parser)
+                return_type := parse_type(parser)
+                return Type.Function(types, ptr_new(return_type))
+            } | {
+                // It's a tuple type
+                return Type.Tuple(types)
+            }
+        }
+        | _ => {
+            add_error(parser, "Expected type")
+            return Type.Named("unknown")
+        }
+    }
 }
 
 parse_pattern = (parser: Ptr<Parser>) Pattern {
-    // Stub implementation
-    return Pattern.Wildcard
+    token := peek(parser)
+    
+    match token.kind {
+        | TokenKind.Underscore => {
+            advance(parser)
+            return Pattern.Wildcard
+        }
+        | TokenKind.IntegerLit(_) | TokenKind.FloatLit(_) | 
+          TokenKind.StringLit(_) | TokenKind.CharLit(_) |
+          TokenKind.BoolLit(_) => {
+            literal := parse_primary_expression(parser)
+            return Pattern.Literal(literal)
+        }
+        | TokenKind.Identifier(name) => {
+            advance(parser)
+            
+            // Check if it's an enum variant or struct pattern
+            check(parser, TokenKind.LeftParen) ? {
+                // Enum variant with data
+                advance(parser)
+                
+                check(parser, TokenKind.RightParen) ? {
+                    advance(parser)
+                    return Pattern.Enum(name, Option<Ptr<Pattern>>.None)
+                } | {
+                    inner_pattern := parse_pattern(parser)
+                    expect(parser, TokenKind.RightParen, "Expected ')' after enum pattern")
+                    return Pattern.Enum(name, Option<Ptr<Pattern>>.Some(ptr_new(inner_pattern)))
+                }
+            } | {}
+            
+            check(parser, TokenKind.LeftBrace) ? {
+                // Struct pattern
+                advance(parser)
+                fields := vec_new<(string, Pattern)>()
+                
+                !check(parser, TokenKind.RightBrace) ? {
+                    loop {
+                        field_name_token := expect(parser, TokenKind.Identifier(""), "Expected field name")
+                        field_name := extract_identifier(field_name_token)
+                        
+                        expect(parser, TokenKind.Colon, "Expected ':' after field name")
+                        field_pattern := parse_pattern(parser)
+                        
+                        vec_push(fields, (field_name, field_pattern))
+                        
+                        check(parser, TokenKind.Comma) ? {
+                            advance(parser)
+                        } | {
+                            break
+                        }
+                    }
+                } | {}
+                
+                expect(parser, TokenKind.RightBrace, "Expected '}' after struct pattern")
+                return Pattern.Struct(name, fields)
+            } | {}
+            
+            // Simple identifier pattern
+            return Pattern.Ident(name)
+        }
+        | TokenKind.LeftParen => {
+            // Tuple pattern
+            advance(parser)
+            elements := vec_new<Pattern>()
+            
+            !check(parser, TokenKind.RightParen) ? {
+                loop {
+                    vec_push(elements, parse_pattern(parser))
+                    
+                    check(parser, TokenKind.Comma) ? {
+                        advance(parser)
+                    } | {
+                        break
+                    }
+                }
+            } | {}
+            
+            expect(parser, TokenKind.RightParen, "Expected ')' after tuple pattern")
+            return Pattern.Tuple(elements)
+        }
+        | _ => {
+            add_error(parser, "Invalid pattern")
+            return Pattern.Wildcard
+        }
+    }
 }
 
 parse_var_statement = (parser: Ptr<Parser>) AstNode {
@@ -1064,18 +1329,179 @@ parse_struct_literal = (parser: Ptr<Parser>, name: string) AstNode {
 }
 
 parse_enum = (parser: Ptr<Parser>) AstNode {
-    // Stub implementation
-    return AstNode.IntLit(0)
+    advance(parser)  // consume 'enum'
+    
+    name_token := expect(parser, TokenKind.Identifier(""), "Expected enum name")
+    name := extract_identifier(name_token)
+    
+    generics := parse_generic_params(parser)
+    
+    expect(parser, TokenKind.LeftBrace, "Expected '{' after enum name")
+    
+    variants := vec_new<EnumVariant>()
+    
+    loop !check(parser, TokenKind.RightBrace) && !is_at_end(parser) {
+        variant_name_token := expect(parser, TokenKind.Identifier(""), "Expected variant name")
+        variant_name := extract_identifier(variant_name_token)
+        
+        // Check for variant data
+        data := Option<EnumVariantData>.None
+        
+        check(parser, TokenKind.LeftParen) ? {
+            advance(parser)
+            types := vec_new<Type>()
+            
+            !check(parser, TokenKind.RightParen) ? {
+                loop {
+                    vec_push(types, parse_type(parser))
+                    
+                    check(parser, TokenKind.Comma) ? {
+                        advance(parser)
+                    } | {
+                        break
+                    }
+                }
+            } | {}
+            
+            expect(parser, TokenKind.RightParen, "Expected ')' after variant types")
+            data = Option<EnumVariantData>.Some(EnumVariantData.Tuple(types))
+        } | {}
+        
+        check(parser, TokenKind.LeftBrace) ? {
+            advance(parser)
+            fields := vec_new<StructField>()
+            
+            !check(parser, TokenKind.RightBrace) ? {
+                loop {
+                    field_name_token := expect(parser, TokenKind.Identifier(""), "Expected field name")
+                    field_name := extract_identifier(field_name_token)
+                    
+                    expect(parser, TokenKind.Colon, "Expected ':' after field name")
+                    field_type := parse_type(parser)
+                    
+                    field := StructField{
+                        name: field_name,
+                        type: field_type,
+                        is_public: true,
+                        default_value: Option<Ptr<AstNode>>.None,
+                    }
+                    
+                    vec_push(fields, field)
+                    
+                    check(parser, TokenKind.Comma) ? {
+                        advance(parser)
+                    } | {
+                        break
+                    }
+                }
+            } | {}
+            
+            expect(parser, TokenKind.RightBrace, "Expected '}' after variant fields")
+            data = Option<EnumVariantData>.Some(EnumVariantData.Struct(fields))
+        } | {}
+        
+        variant := EnumVariant{
+            name: variant_name,
+            data: data,
+        }
+        
+        vec_push(variants, variant)
+        
+        // Optional comma
+        check(parser, TokenKind.Comma) ? {
+            advance(parser)
+        } | {}
+    }
+    
+    expect(parser, TokenKind.RightBrace, "Expected '}' after enum variants")
+    
+    return AstNode.EnumDecl(name, variants, generics)
 }
 
 parse_trait = (parser: Ptr<Parser>) AstNode {
-    // Stub implementation
-    return AstNode.IntLit(0)
+    advance(parser)  // consume 'trait' or 'behavior'
+    
+    name_token := expect(parser, TokenKind.Identifier(""), "Expected trait name")
+    name := extract_identifier(name_token)
+    
+    generics := parse_generic_params(parser)
+    
+    expect(parser, TokenKind.LeftBrace, "Expected '{' after trait name")
+    
+    methods := vec_new<TraitMethod>()
+    
+    loop !check(parser, TokenKind.RightBrace) && !is_at_end(parser) {
+        method_name_token := expect(parser, TokenKind.Identifier(""), "Expected method name")
+        method_name := extract_identifier(method_name_token)
+        
+        params := parse_parameters(parser)
+        
+        // Parse return type
+        return_type := Option<Type>.None
+        check(parser, TokenKind.Arrow) ? {
+            advance(parser)
+            return_type = Option<Type>.Some(parse_type(parser))
+        } | {}
+        
+        // Check for default implementation
+        has_default := false
+        default_impl := Option<Ptr<AstNode>>.None
+        
+        check(parser, TokenKind.LeftBrace) ? {
+            has_default = true
+            default_impl = Option<Ptr<AstNode>>.Some(ptr_new(parse_block_expr(parser)))
+        } | {}
+        
+        method := TraitMethod{
+            name: method_name,
+            params: params,
+            return_type: return_type,
+            has_default_impl: has_default,
+            default_impl: default_impl,
+        }
+        
+        vec_push(methods, method)
+    }
+    
+    expect(parser, TokenKind.RightBrace, "Expected '}' after trait methods")
+    
+    return AstNode.TraitDecl(name, methods, generics)
 }
 
 parse_impl = (parser: Ptr<Parser>) AstNode {
-    // Stub implementation
-    return AstNode.IntLit(0)
+    advance(parser)  // consume 'impl'
+    
+    // Check if implementing a trait
+    trait_name := Option<string>.None
+    type_name := ""
+    
+    // Parse first identifier
+    first_name_token := expect(parser, TokenKind.Identifier(""), "Expected type or trait name")
+    first_name := extract_identifier(first_name_token)
+    
+    check(parser, TokenKind.Keyword("for")) ? {
+        // impl Trait for Type
+        advance(parser)
+        trait_name = Option<string>.Some(first_name)
+        
+        type_name_token := expect(parser, TokenKind.Identifier(""), "Expected type name")
+        type_name = extract_identifier(type_name_token)
+    } | {
+        // impl Type
+        type_name = first_name
+    }
+    
+    expect(parser, TokenKind.LeftBrace, "Expected '{' after impl header")
+    
+    methods := vec_new<AstNode>()
+    
+    loop !check(parser, TokenKind.RightBrace) && !is_at_end(parser) {
+        vec_push(methods, parse_function(parser))
+    }
+    
+    expect(parser, TokenKind.RightBrace, "Expected '}' after impl methods")
+    
+    return AstNode.ImplBlock(trait_name, type_name, methods)
 }
 
 parse_type_alias = (parser: Ptr<Parser>) AstNode {
@@ -1269,8 +1695,22 @@ parse_import = (parser: Ptr<Parser>) AstNode {
 }
 
 parse_module = (parser: Ptr<Parser>) AstNode {
-    // Stub implementation
-    return AstNode.IntLit(0)
+    advance(parser)  // consume 'module'
+    
+    name_token := expect(parser, TokenKind.Identifier(""), "Expected module name")
+    name := extract_identifier(name_token)
+    
+    expect(parser, TokenKind.LeftBrace, "Expected '{' after module name")
+    
+    items := vec_new<AstNode>()
+    
+    loop !check(parser, TokenKind.RightBrace) && !is_at_end(parser) {
+        vec_push(items, parse_item(parser))
+    }
+    
+    expect(parser, TokenKind.RightBrace, "Expected '}' after module items")
+    
+    return AstNode.Module(name, items)
 }
 
 // Helper functions for memory management (stubs)
