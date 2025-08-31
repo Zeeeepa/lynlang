@@ -1,0 +1,566 @@
+// Type system for Zen compiler
+// Handles type representation, inference, and checking
+
+core := @std.core
+mem := @std.mem
+array := @std.array
+hashmap := @std.hashmap
+string := @std.string
+
+// Type kinds
+TypeKind = enum {
+    Void,
+    Bool,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Float32,
+    Float64,
+    Char,
+    String,
+    Pointer,
+    Array,
+    Slice,
+    Struct,
+    Enum,
+    Union,
+    Function,
+    Generic,
+    Interface,
+    Optional,
+    Result,
+    Never,
+    Unknown,
+}
+
+// Type representation
+Type = struct {
+    kind: TypeKind,
+    name: String,
+    size: usize,
+    align: usize,
+    is_const: bool,
+    is_mut: bool,
+    metadata: ?*TypeMetadata,
+}
+
+// Type metadata for complex types
+TypeMetadata = union {
+    pointer: PointerType,
+    array: ArrayType,
+    slice: SliceType,
+    struct_type: StructType,
+    enum_type: EnumType,
+    function: FunctionType,
+    generic: GenericType,
+    interface: InterfaceType,
+    optional: OptionalType,
+    result: ResultType,
+}
+
+PointerType = struct {
+    pointee: *Type,
+}
+
+ArrayType = struct {
+    element: *Type,
+    size: usize,
+}
+
+SliceType = struct {
+    element: *Type,
+}
+
+StructType = struct {
+    fields: Array(StructField),
+    methods: Array(Method),
+    is_packed: bool,
+}
+
+StructField = struct {
+    name: String,
+    type: *Type,
+    offset: usize,
+    is_public: bool,
+}
+
+Method = struct {
+    name: String,
+    signature: *FunctionType,
+    is_public: bool,
+    is_static: bool,
+}
+
+EnumType = struct {
+    variants: Array(EnumVariant),
+    tag_type: *Type,
+}
+
+EnumVariant = struct {
+    name: String,
+    value: i64,
+    data: ?*Type,
+}
+
+FunctionType = struct {
+    params: Array(*Type),
+    return_type: *Type,
+    is_variadic: bool,
+    calling_convention: CallingConvention,
+}
+
+CallingConvention = enum {
+    Zen,
+    C,
+    System,
+    Fast,
+}
+
+GenericType = struct {
+    name: String,
+    constraints: Array(TypeConstraint),
+    default: ?*Type,
+}
+
+TypeConstraint = struct {
+    kind: ConstraintKind,
+    type: ?*Type,
+}
+
+ConstraintKind = enum {
+    Implements,
+    Extends,
+    Equals,
+    Comparable,
+    Numeric,
+    Integer,
+    FloatingPoint,
+}
+
+InterfaceType = struct {
+    methods: Array(InterfaceMethod),
+    associated_types: Array(AssociatedType),
+}
+
+InterfaceMethod = struct {
+    name: String,
+    signature: *FunctionType,
+}
+
+AssociatedType = struct {
+    name: String,
+    constraints: Array(TypeConstraint),
+}
+
+OptionalType = struct {
+    inner: *Type,
+}
+
+ResultType = struct {
+    ok_type: *Type,
+    err_type: *Type,
+}
+
+// Type context for managing types
+TypeContext = struct {
+    types: HashMap(String, *Type),
+    generic_instances: HashMap(String, *Type),
+    type_cache: Array(*Type),
+    current_scope: *TypeScope,
+}
+
+TypeScope = struct {
+    parent: ?*TypeScope,
+    types: HashMap(String, *Type),
+    generics: Array(GenericType),
+}
+
+// Create new type context
+new_context = () TypeContext {
+    ctx := TypeContext{
+        types: hashmap.new(String, *Type, 256),
+        generic_instances: hashmap.new(String, *Type, 128),
+        type_cache: array.new(*Type, 512),
+        current_scope: null,
+    }
+    
+    // Register built-in types
+    register_builtin_types(&ctx)
+    
+    return ctx
+}
+
+// Register built-in types
+register_builtin_types = (ctx: *TypeContext) void {
+    register_type(ctx, "void", make_primitive_type(TypeKind.Void, 0, 0))
+    register_type(ctx, "bool", make_primitive_type(TypeKind.Bool, 1, 1))
+    register_type(ctx, "i8", make_primitive_type(TypeKind.Int8, 1, 1))
+    register_type(ctx, "i16", make_primitive_type(TypeKind.Int16, 2, 2))
+    register_type(ctx, "i32", make_primitive_type(TypeKind.Int32, 4, 4))
+    register_type(ctx, "i64", make_primitive_type(TypeKind.Int64, 8, 8))
+    register_type(ctx, "u8", make_primitive_type(TypeKind.UInt8, 1, 1))
+    register_type(ctx, "u16", make_primitive_type(TypeKind.UInt16, 2, 2))
+    register_type(ctx, "u32", make_primitive_type(TypeKind.UInt32, 4, 4))
+    register_type(ctx, "u64", make_primitive_type(TypeKind.UInt64, 8, 8))
+    register_type(ctx, "usize", make_primitive_type(TypeKind.UInt64, 8, 8))
+    register_type(ctx, "f32", make_primitive_type(TypeKind.Float32, 4, 4))
+    register_type(ctx, "f64", make_primitive_type(TypeKind.Float64, 8, 8))
+    register_type(ctx, "char", make_primitive_type(TypeKind.Char, 4, 4))
+    register_type(ctx, "string", make_primitive_type(TypeKind.String, 16, 8))
+}
+
+// Make primitive type
+make_primitive_type = (kind: TypeKind, size: usize, align: usize) *Type {
+    t := mem.alloc(Type, 1)
+    t.kind = kind
+    t.name = kind_to_string(kind)
+    t.size = size
+    t.align = align
+    t.is_const = false
+    t.is_mut = false
+    t.metadata = null
+    return t
+}
+
+// Convert type kind to string
+kind_to_string = (kind: TypeKind) String {
+    switch (kind) {
+        TypeKind.Void => return string.from_literal("void")
+        TypeKind.Bool => return string.from_literal("bool")
+        TypeKind.Int8 => return string.from_literal("i8")
+        TypeKind.Int16 => return string.from_literal("i16")
+        TypeKind.Int32 => return string.from_literal("i32")
+        TypeKind.Int64 => return string.from_literal("i64")
+        TypeKind.UInt8 => return string.from_literal("u8")
+        TypeKind.UInt16 => return string.from_literal("u16")
+        TypeKind.UInt32 => return string.from_literal("u32")
+        TypeKind.UInt64 => return string.from_literal("u64")
+        TypeKind.Float32 => return string.from_literal("f32")
+        TypeKind.Float64 => return string.from_literal("f64")
+        TypeKind.Char => return string.from_literal("char")
+        TypeKind.String => return string.from_literal("string")
+        default => return string.from_literal("unknown")
+    }
+}
+
+// Register type in context
+register_type = (ctx: *TypeContext, name: String, t: *Type) void {
+    hashmap.insert(String, *Type, &ctx.types, name, t)
+    array.push(*Type, &ctx.type_cache, t)
+}
+
+// Look up type by name
+lookup_type = (ctx: *TypeContext, name: String) ?*Type {
+    // Check current scope first
+    if (ctx.current_scope != null) {
+        result := hashmap.get(String, *Type, &ctx.current_scope.types, name)
+        if (result != null) {
+            return result
+        }
+    }
+    
+    // Check global types
+    return hashmap.get(String, *Type, &ctx.types, name)
+}
+
+// Create pointer type
+make_pointer_type = (ctx: *TypeContext, pointee: *Type) *Type {
+    t := mem.alloc(Type, 1)
+    t.kind = TypeKind.Pointer
+    t.name = string.concat("*", pointee.name)
+    t.size = 8  // 64-bit pointers
+    t.align = 8
+    t.is_const = false
+    t.is_mut = true
+    
+    meta := mem.alloc(TypeMetadata, 1)
+    meta.pointer = PointerType{
+        pointee: pointee,
+    }
+    t.metadata = meta
+    
+    register_type(ctx, t.name, t)
+    return t
+}
+
+// Create array type
+make_array_type = (ctx: *TypeContext, element: *Type, size: usize) *Type {
+    t := mem.alloc(Type, 1)
+    t.kind = TypeKind.Array
+    t.name = string.format("[{}]{}", size, element.name)
+    t.size = element.size * size
+    t.align = element.align
+    t.is_const = false
+    t.is_mut = false
+    
+    meta := mem.alloc(TypeMetadata, 1)
+    meta.array = ArrayType{
+        element: element,
+        size: size,
+    }
+    t.metadata = meta
+    
+    register_type(ctx, t.name, t)
+    return t
+}
+
+// Create slice type
+make_slice_type = (ctx: *TypeContext, element: *Type) *Type {
+    t := mem.alloc(Type, 1)
+    t.kind = TypeKind.Slice
+    t.name = string.format("[]{}", element.name)
+    t.size = 16  // ptr + len
+    t.align = 8
+    t.is_const = false
+    t.is_mut = false
+    
+    meta := mem.alloc(TypeMetadata, 1)
+    meta.slice = SliceType{
+        element: element,
+    }
+    t.metadata = meta
+    
+    register_type(ctx, t.name, t)
+    return t
+}
+
+// Create function type
+make_function_type = (ctx: *TypeContext, params: Array(*Type), return_type: *Type) *Type {
+    t := mem.alloc(Type, 1)
+    t.kind = TypeKind.Function
+    
+    // Build function signature string
+    sig := string.from_literal("fn(")
+    for (i := 0; i < params.len; i += 1) {
+        if (i > 0) {
+            sig = string.concat(sig, ", ")
+        }
+        sig = string.concat(sig, params.data[i].name)
+    }
+    sig = string.concat(sig, ") ")
+    sig = string.concat(sig, return_type.name)
+    
+    t.name = sig
+    t.size = 8  // Function pointer size
+    t.align = 8
+    t.is_const = true
+    t.is_mut = false
+    
+    meta := mem.alloc(TypeMetadata, 1)
+    meta.function = FunctionType{
+        params: params,
+        return_type: return_type,
+        is_variadic: false,
+        calling_convention: CallingConvention.Zen,
+    }
+    t.metadata = meta
+    
+    register_type(ctx, t.name, t)
+    return t
+}
+
+// Create optional type
+make_optional_type = (ctx: *TypeContext, inner: *Type) *Type {
+    t := mem.alloc(Type, 1)
+    t.kind = TypeKind.Optional
+    t.name = string.format("?{}", inner.name)
+    t.size = inner.size + 1  // Extra byte for discriminant
+    t.align = inner.align
+    t.is_const = false
+    t.is_mut = false
+    
+    meta := mem.alloc(TypeMetadata, 1)
+    meta.optional = OptionalType{
+        inner: inner,
+    }
+    t.metadata = meta
+    
+    register_type(ctx, t.name, t)
+    return t
+}
+
+// Create result type
+make_result_type = (ctx: *TypeContext, ok_type: *Type, err_type: *Type) *Type {
+    t := mem.alloc(Type, 1)
+    t.kind = TypeKind.Result
+    t.name = string.format("Result({}, {})", ok_type.name, err_type.name)
+    
+    // Size is max of ok and err plus discriminant
+    max_size := if (ok_type.size > err_type.size) ok_type.size else err_type.size
+    t.size = max_size + 1
+    
+    max_align := if (ok_type.align > err_type.align) ok_type.align else err_type.align
+    t.align = max_align
+    
+    t.is_const = false
+    t.is_mut = false
+    
+    meta := mem.alloc(TypeMetadata, 1)
+    meta.result = ResultType{
+        ok_type: ok_type,
+        err_type: err_type,
+    }
+    t.metadata = meta
+    
+    register_type(ctx, t.name, t)
+    return t
+}
+
+// Check if types are equal
+types_equal = (a: *Type, b: *Type) bool {
+    if (a == b) {
+        return true
+    }
+    
+    if (a.kind != b.kind) {
+        return false
+    }
+    
+    // For complex types, check metadata
+    if (a.metadata != null and b.metadata != null) {
+        switch (a.kind) {
+            TypeKind.Pointer => {
+                return types_equal(
+                    a.metadata.pointer.pointee,
+                    b.metadata.pointer.pointee
+                )
+            }
+            TypeKind.Array => {
+                return a.metadata.array.size == b.metadata.array.size and
+                       types_equal(
+                           a.metadata.array.element,
+                           b.metadata.array.element
+                       )
+            }
+            TypeKind.Slice => {
+                return types_equal(
+                    a.metadata.slice.element,
+                    b.metadata.slice.element
+                )
+            }
+            // Add more cases as needed
+        }
+    }
+    
+    return string.equals(a.name, b.name)
+}
+
+// Check if type is numeric
+is_numeric = (t: *Type) bool {
+    switch (t.kind) {
+        TypeKind.Int8,
+        TypeKind.Int16,
+        TypeKind.Int32,
+        TypeKind.Int64,
+        TypeKind.UInt8,
+        TypeKind.UInt16,
+        TypeKind.UInt32,
+        TypeKind.UInt64,
+        TypeKind.Float32,
+        TypeKind.Float64 => return true
+        default => return false
+    }
+}
+
+// Check if type is integer
+is_integer = (t: *Type) bool {
+    switch (t.kind) {
+        TypeKind.Int8,
+        TypeKind.Int16,
+        TypeKind.Int32,
+        TypeKind.Int64,
+        TypeKind.UInt8,
+        TypeKind.UInt16,
+        TypeKind.UInt32,
+        TypeKind.UInt64 => return true
+        default => return false
+    }
+}
+
+// Check if type is floating point
+is_floating = (t: *Type) bool {
+    switch (t.kind) {
+        TypeKind.Float32,
+        TypeKind.Float64 => return true
+        default => return false
+    }
+}
+
+// Check if type is signed
+is_signed = (t: *Type) bool {
+    switch (t.kind) {
+        TypeKind.Int8,
+        TypeKind.Int16,
+        TypeKind.Int32,
+        TypeKind.Int64,
+        TypeKind.Float32,
+        TypeKind.Float64 => return true
+        default => return false
+    }
+}
+
+// Get size of type
+size_of = (t: *Type) usize {
+    return t.size
+}
+
+// Get alignment of type
+align_of = (t: *Type) usize {
+    return t.align
+}
+
+// Check if type can be implicitly converted to another
+can_convert_implicit = (from: *Type, to: *Type) bool {
+    if (types_equal(from, to)) {
+        return true
+    }
+    
+    // Numeric conversions (only widening)
+    if (is_numeric(from) and is_numeric(to)) {
+        // Integer to integer (widening only)
+        if (is_integer(from) and is_integer(to)) {
+            return from.size < to.size
+        }
+        
+        // Float to float (widening only)
+        if (is_floating(from) and is_floating(to)) {
+            return from.size < to.size
+        }
+        
+        // Integer to float
+        if (is_integer(from) and is_floating(to)) {
+            return true
+        }
+    }
+    
+    // Pointer conversions
+    if (from.kind == TypeKind.Pointer and to.kind == TypeKind.Pointer) {
+        // Allow void* conversions
+        if (to.metadata.pointer.pointee.kind == TypeKind.Void) {
+            return true
+        }
+    }
+    
+    return false
+}
+
+// Free type context
+free_context = (ctx: *TypeContext) void {
+    // Free all cached types
+    for (i := 0; i < ctx.type_cache.len; i += 1) {
+        t := ctx.type_cache.data[i]
+        if (t.metadata != null) {
+            mem.free(t.metadata)
+        }
+        mem.free(t)
+    }
+    
+    hashmap.free(String, *Type, &ctx.types)
+    hashmap.free(String, *Type, &ctx.generic_instances)
+    array.free(*Type, &ctx.type_cache)
+}

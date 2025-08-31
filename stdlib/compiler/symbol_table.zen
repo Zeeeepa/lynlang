@@ -1,0 +1,510 @@
+// Symbol table for Zen compiler
+// Manages symbols, scopes, and name resolution
+
+core := @std.core
+mem := @std.mem
+array := @std.array
+hashmap := @std.hashmap
+string := @std.string
+type_system := @std.compiler.type_system
+
+// Symbol kinds
+SymbolKind = enum {
+    Variable,
+    Constant,
+    Function,
+    Type,
+    Module,
+    Enum,
+    Struct,
+    Interface,
+    Macro,
+    Label,
+}
+
+// Symbol visibility
+Visibility = enum {
+    Private,
+    Public,
+    Protected,
+    Internal,
+}
+
+// Symbol flags
+SymbolFlags = struct {
+    is_mutable: bool,
+    is_exported: bool,
+    is_imported: bool,
+    is_generic: bool,
+    is_builtin: bool,
+    is_used: bool,
+    is_deprecated: bool,
+}
+
+// Symbol representation
+Symbol = struct {
+    name: String,
+    kind: SymbolKind,
+    type: *type_system.Type,
+    visibility: Visibility,
+    flags: SymbolFlags,
+    scope_level: u32,
+    declaration_pos: SourcePosition,
+    metadata: ?*SymbolMetadata,
+}
+
+// Source position information
+SourcePosition = struct {
+    file: String,
+    line: u32,
+    column: u32,
+}
+
+// Symbol metadata for different symbol kinds
+SymbolMetadata = union {
+    variable: VariableMetadata,
+    function: FunctionMetadata,
+    type_def: TypeMetadata,
+    module: ModuleMetadata,
+}
+
+VariableMetadata = struct {
+    initial_value: ?*Expression,
+    is_parameter: bool,
+    parameter_index: u32,
+}
+
+FunctionMetadata = struct {
+    params: Array(FunctionParam),
+    return_type: *type_system.Type,
+    body: ?*Statement,
+    is_inline: bool,
+    is_extern: bool,
+}
+
+FunctionParam = struct {
+    name: String,
+    type: *type_system.Type,
+    default_value: ?*Expression,
+}
+
+TypeMetadata = struct {
+    underlying_type: *type_system.Type,
+    generic_params: Array(GenericParam),
+}
+
+GenericParam = struct {
+    name: String,
+    constraints: Array(type_system.TypeConstraint),
+    default_type: ?*type_system.Type,
+}
+
+ModuleMetadata = struct {
+    path: String,
+    exports: Array(String),
+    imports: Array(Import),
+}
+
+Import = struct {
+    module: String,
+    symbols: Array(String),
+    alias: ?String,
+}
+
+// Placeholder for AST nodes
+Expression = struct {
+    node_type: String,
+}
+
+Statement = struct {
+    node_type: String,
+}
+
+// Scope representation
+Scope = struct {
+    parent: ?*Scope,
+    symbols: HashMap(String, *Symbol),
+    children: Array(*Scope),
+    level: u32,
+    kind: ScopeKind,
+}
+
+ScopeKind = enum {
+    Global,
+    Module,
+    Function,
+    Block,
+    Loop,
+    Conditional,
+}
+
+// Symbol table
+SymbolTable = struct {
+    global_scope: *Scope,
+    current_scope: *Scope,
+    all_symbols: Array(*Symbol),
+    type_context: *type_system.TypeContext,
+}
+
+// Create new symbol table
+new_symbol_table = (type_ctx: *type_system.TypeContext) SymbolTable {
+    global := new_scope(null, ScopeKind.Global)
+    
+    table := SymbolTable{
+        global_scope: global,
+        current_scope: global,
+        all_symbols: array.new(*Symbol, 1024),
+        type_context: type_ctx,
+    }
+    
+    // Register built-in symbols
+    register_builtins(&table)
+    
+    return table
+}
+
+// Create new scope
+new_scope = (parent: ?*Scope, kind: ScopeKind) *Scope {
+    scope := mem.alloc(Scope, 1)
+    scope.parent = parent
+    scope.symbols = hashmap.new(String, *Symbol, 64)
+    scope.children = array.new(*Scope, 8)
+    scope.level = if (parent != null) parent.level + 1 else 0
+    scope.kind = kind
+    
+    if (parent != null) {
+        array.push(*Scope, &parent.children, scope)
+    }
+    
+    return scope
+}
+
+// Register built-in symbols
+register_builtins = (table: *SymbolTable) void {
+    // Built-in functions
+    register_builtin_function(table, "print", 
+        make_print_type(table.type_context))
+    register_builtin_function(table, "println",
+        make_println_type(table.type_context))
+    register_builtin_function(table, "sizeof",
+        make_sizeof_type(table.type_context))
+    register_builtin_function(table, "alignof",
+        make_alignof_type(table.type_context))
+    register_builtin_function(table, "assert",
+        make_assert_type(table.type_context))
+}
+
+// Helper to create print function type
+make_print_type = (ctx: *type_system.TypeContext) *type_system.Type {
+    params := array.new(*type_system.Type, 1)
+    string_type := type_system.lookup_type(ctx, string.from_literal("string"))
+    array.push(*type_system.Type, &params, string_type)
+    
+    void_type := type_system.lookup_type(ctx, string.from_literal("void"))
+    return type_system.make_function_type(ctx, params, void_type)
+}
+
+// Helper to create println function type
+make_println_type = (ctx: *type_system.TypeContext) *type_system.Type {
+    return make_print_type(ctx)  // Same as print
+}
+
+// Helper to create sizeof function type
+make_sizeof_type = (ctx: *type_system.TypeContext) *type_system.Type {
+    params := array.new(*type_system.Type, 1)
+    // Generic type parameter
+    any_type := type_system.lookup_type(ctx, string.from_literal("type"))
+    if (any_type == null) {
+        any_type = type_system.make_primitive_type(
+            type_system.TypeKind.Unknown, 0, 0)
+    }
+    array.push(*type_system.Type, &params, any_type)
+    
+    usize_type := type_system.lookup_type(ctx, string.from_literal("usize"))
+    return type_system.make_function_type(ctx, params, usize_type)
+}
+
+// Helper to create alignof function type
+make_alignof_type = (ctx: *type_system.TypeContext) *type_system.Type {
+    return make_sizeof_type(ctx)  // Same as sizeof
+}
+
+// Helper to create assert function type
+make_assert_type = (ctx: *type_system.TypeContext) *type_system.Type {
+    params := array.new(*type_system.Type, 2)
+    bool_type := type_system.lookup_type(ctx, string.from_literal("bool"))
+    string_type := type_system.lookup_type(ctx, string.from_literal("string"))
+    array.push(*type_system.Type, &params, bool_type)
+    array.push(*type_system.Type, &params, string_type)
+    
+    void_type := type_system.lookup_type(ctx, string.from_literal("void"))
+    return type_system.make_function_type(ctx, params, void_type)
+}
+
+// Register built-in function
+register_builtin_function = (table: *SymbolTable, name: String, 
+                            func_type: *type_system.Type) void {
+    sym := mem.alloc(Symbol, 1)
+    sym.name = name
+    sym.kind = SymbolKind.Function
+    sym.type = func_type
+    sym.visibility = Visibility.Public
+    sym.flags = SymbolFlags{
+        is_mutable: false,
+        is_exported: true,
+        is_imported: false,
+        is_generic: false,
+        is_builtin: true,
+        is_used: false,
+        is_deprecated: false,
+    }
+    sym.scope_level = 0
+    sym.declaration_pos = SourcePosition{
+        file: string.from_literal("<builtin>"),
+        line: 0,
+        column: 0,
+    }
+    
+    meta := mem.alloc(SymbolMetadata, 1)
+    meta.function = FunctionMetadata{
+        params: array.new(FunctionParam, 0),
+        return_type: func_type.metadata.function.return_type,
+        body: null,
+        is_inline: false,
+        is_extern: true,
+    }
+    sym.metadata = meta
+    
+    insert_symbol(table, sym)
+}
+
+// Enter new scope
+enter_scope = (table: *SymbolTable, kind: ScopeKind) void {
+    new_scope := new_scope(table.current_scope, kind)
+    table.current_scope = new_scope
+}
+
+// Exit current scope
+exit_scope = (table: *SymbolTable) bool {
+    if (table.current_scope.parent == null) {
+        return false  // Can't exit global scope
+    }
+    
+    table.current_scope = table.current_scope.parent
+    return true
+}
+
+// Insert symbol into current scope
+insert_symbol = (table: *SymbolTable, symbol: *Symbol) bool {
+    // Check for duplicates in current scope
+    existing := hashmap.get(String, *Symbol, 
+                           &table.current_scope.symbols, symbol.name)
+    if (existing != null) {
+        return false  // Symbol already exists
+    }
+    
+    symbol.scope_level = table.current_scope.level
+    hashmap.insert(String, *Symbol, 
+                  &table.current_scope.symbols, symbol.name, symbol)
+    array.push(*Symbol, &table.all_symbols, symbol)
+    
+    return true
+}
+
+// Look up symbol (searches parent scopes)
+lookup_symbol = (table: *SymbolTable, name: String) ?*Symbol {
+    scope := table.current_scope
+    
+    while (scope != null) {
+        sym := hashmap.get(String, *Symbol, &scope.symbols, name)
+        if (sym != null) {
+            return sym
+        }
+        scope = scope.parent
+    }
+    
+    return null
+}
+
+// Look up symbol in current scope only
+lookup_local = (table: *SymbolTable, name: String) ?*Symbol {
+    return hashmap.get(String, *Symbol, 
+                      &table.current_scope.symbols, name)
+}
+
+// Define variable
+define_variable = (table: *SymbolTable, name: String, 
+                  var_type: *type_system.Type, is_mutable: bool) ?*Symbol {
+    sym := mem.alloc(Symbol, 1)
+    sym.name = name
+    sym.kind = SymbolKind.Variable
+    sym.type = var_type
+    sym.visibility = Visibility.Private
+    sym.flags = SymbolFlags{
+        is_mutable: is_mutable,
+        is_exported: false,
+        is_imported: false,
+        is_generic: false,
+        is_builtin: false,
+        is_used: false,
+        is_deprecated: false,
+    }
+    
+    meta := mem.alloc(SymbolMetadata, 1)
+    meta.variable = VariableMetadata{
+        initial_value: null,
+        is_parameter: false,
+        parameter_index: 0,
+    }
+    sym.metadata = meta
+    
+    if (insert_symbol(table, sym)) {
+        return sym
+    }
+    
+    mem.free(meta)
+    mem.free(sym)
+    return null
+}
+
+// Define function
+define_function = (table: *SymbolTable, name: String,
+                  func_type: *type_system.Type) ?*Symbol {
+    sym := mem.alloc(Symbol, 1)
+    sym.name = name
+    sym.kind = SymbolKind.Function
+    sym.type = func_type
+    sym.visibility = Visibility.Private
+    sym.flags = SymbolFlags{
+        is_mutable: false,
+        is_exported: false,
+        is_imported: false,
+        is_generic: false,
+        is_builtin: false,
+        is_used: false,
+        is_deprecated: false,
+    }
+    
+    meta := mem.alloc(SymbolMetadata, 1)
+    meta.function = FunctionMetadata{
+        params: array.new(FunctionParam, 0),
+        return_type: func_type.metadata.function.return_type,
+        body: null,
+        is_inline: false,
+        is_extern: false,
+    }
+    sym.metadata = meta
+    
+    if (insert_symbol(table, sym)) {
+        return sym
+    }
+    
+    mem.free(meta)
+    mem.free(sym)
+    return null
+}
+
+// Define type
+define_type = (table: *SymbolTable, name: String,
+              type_def: *type_system.Type) ?*Symbol {
+    sym := mem.alloc(Symbol, 1)
+    sym.name = name
+    sym.kind = SymbolKind.Type
+    sym.type = type_def
+    sym.visibility = Visibility.Private
+    sym.flags = SymbolFlags{
+        is_mutable: false,
+        is_exported: false,
+        is_imported: false,
+        is_generic: false,
+        is_builtin: false,
+        is_used: false,
+        is_deprecated: false,
+    }
+    
+    meta := mem.alloc(SymbolMetadata, 1)
+    meta.type_def = TypeMetadata{
+        underlying_type: type_def,
+        generic_params: array.new(GenericParam, 0),
+    }
+    sym.metadata = meta
+    
+    if (insert_symbol(table, sym)) {
+        return sym
+    }
+    
+    mem.free(meta)
+    mem.free(sym)
+    return null
+}
+
+// Mark symbol as used
+mark_used = (sym: *Symbol) void {
+    sym.flags.is_used = true
+}
+
+// Mark symbol as exported
+mark_exported = (sym: *Symbol) void {
+    sym.flags.is_exported = true
+    sym.visibility = Visibility.Public
+}
+
+// Get all symbols in current scope
+get_scope_symbols = (table: *SymbolTable) Array(*Symbol) {
+    result := array.new(*Symbol, table.current_scope.symbols.size)
+    
+    // Iterate through hashmap and collect symbols
+    iter := hashmap.iter(String, *Symbol, &table.current_scope.symbols)
+    while (true) {
+        entry := hashmap.next(String, *Symbol, &iter)
+        if (entry == null) {
+            break
+        }
+        array.push(*Symbol, &result, entry.value)
+    }
+    
+    return result
+}
+
+// Get unused symbols (for warnings)
+get_unused_symbols = (table: *SymbolTable) Array(*Symbol) {
+    result := array.new(*Symbol, 32)
+    
+    for (i := 0; i < table.all_symbols.len; i += 1) {
+        sym := table.all_symbols.data[i]
+        if (!sym.flags.is_used and !sym.flags.is_builtin) {
+            array.push(*Symbol, &result, sym)
+        }
+    }
+    
+    return result
+}
+
+// Free symbol table
+free_symbol_table = (table: *SymbolTable) void {
+    // Free all symbols
+    for (i := 0; i < table.all_symbols.len; i += 1) {
+        sym := table.all_symbols.data[i]
+        if (sym.metadata != null) {
+            mem.free(sym.metadata)
+        }
+        mem.free(sym)
+    }
+    
+    // Free scopes recursively
+    free_scope_recursive(table.global_scope)
+    
+    array.free(*Symbol, &table.all_symbols)
+}
+
+// Free scope and its children
+free_scope_recursive = (scope: *Scope) void {
+    // Free children first
+    for (i := 0; i < scope.children.len; i += 1) {
+        free_scope_recursive(scope.children.data[i])
+    }
+    
+    hashmap.free(String, *Symbol, &scope.symbols)
+    array.free(*Scope, &scope.children)
+    mem.free(scope)
+}
