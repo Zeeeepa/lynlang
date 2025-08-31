@@ -5,10 +5,16 @@ core := @std.core
 vec := @std.vec
 string := @std.string
 lexer := @compiler.lexer
+errors := @compiler.errors
 
 // Import token types from lexer
 Token := lexer.Token
 TokenKind := lexer.TokenKind
+
+// Import error handling
+Diagnostic := errors.Diagnostic
+SourceLocation := errors.SourceLocation
+ErrorContext := errors.ErrorContext
 
 // AST Node Types
 AstNode = 
