@@ -439,27 +439,56 @@ parser_parse_postfix = (p: *Parser) *AstNode {
 
 // Parse statement
 parser_parse_statement = (p: *Parser) *AstNode {
-    // Variable declaration with :=
+    // Function declaration
     parser_peek(p).type == token.TokenType.Identifier ? | true => {
-        // Look ahead for := or =
-        next_tok := p.tokens[p.current + 1]
+        // Check if this is a function declaration (name = (...) ...)
+        curr_pos := p.current
+        name_tok := parser_advance(p)
         
-        next_tok.type == token.TokenType.AssignConst ? | true => {
-            // Variable declaration
-            name_tok := parser_advance(p)
-            parser_advance(p)  // consume :=
-            init := parser_parse_expression(p)
-            
-            var_node := AstNode {
-                type: NodeType.VariableDecl,
-                line: name_tok.line,
-                column: name_tok.column,
-                name: name_tok.value,
-                initializer: init,
-                is_mutable: false,
+        parser_match(p, [token.TokenType.Assign]) ? | true => {
+            parser_match(p, [token.TokenType.LeftParen]) ? | true => {
+                // This is a function declaration
+                return parser_parse_function_decl(p, name_tok)
+            } | false => {
+                // Regular assignment, restore position
+                p.current = curr_pos
             }
-            return &var_node
-        } | false => {}
+        } | false => {
+            // Check for variable declaration with :=
+            p.current = curr_pos
+            next_tok := p.tokens[p.current + 1]
+            
+            next_tok.type == token.TokenType.AssignConst ? | true => {
+                // Variable declaration
+                name_tok := parser_advance(p)
+                parser_advance(p)  // consume :=
+                init := parser_parse_expression(p)
+                
+                var_node := AstNode {
+                    type: NodeType.VariableDecl,
+                    line: name_tok.line,
+                    column: name_tok.column,
+                    name: name_tok.value,
+                    initializer: init,
+                    is_mutable: false,
+                }
+                return &var_node
+            } | false => {
+                p.current = curr_pos
+            }
+        }
+    } | false => {}
+    
+    // If statement
+    parser_peek(p).type == token.TokenType.Keyword && 
+    parser_peek(p).value == "if" ? | true => {
+        return parser_parse_if_statement(p)
+    } | false => {}
+    
+    // Loop statement
+    parser_peek(p).type == token.TokenType.Keyword && 
+    parser_peek(p).value == "loop" ? | true => {
+        return parser_parse_loop_statement(p)
     } | false => {}
     
     // Return statement
@@ -481,6 +510,30 @@ parser_parse_statement = (p: *Parser) *AstNode {
         return &ret_node
     } | false => {}
     
+    // Break statement
+    parser_peek(p).type == token.TokenType.Keyword && 
+    parser_peek(p).value == "break" ? | true => {
+        tok := parser_advance(p)
+        break_node := AstNode {
+            type: NodeType.Break,
+            line: tok.line,
+            column: tok.column,
+        }
+        return &break_node
+    } | false => {}
+    
+    // Continue statement
+    parser_peek(p).type == token.TokenType.Keyword && 
+    parser_peek(p).value == "continue" ? | true => {
+        tok := parser_advance(p)
+        continue_node := AstNode {
+            type: NodeType.Continue,
+            line: tok.line,
+            column: tok.column,
+        }
+        return &continue_node
+    } | false => {}
+    
     // Expression statement
     expr := parser_parse_expression(p)
     expr_stmt := AstNode {
@@ -490,6 +543,175 @@ parser_parse_statement = (p: *Parser) *AstNode {
         operand: expr,
     }
     return &expr_stmt
+}
+
+// Parse function declaration
+parser_parse_function_decl = (p: *Parser, name_tok: token.Token) *AstNode {
+    // Parse parameters
+    params := []
+    !parser_check(p, token.TokenType.RightParen) ? | true => {
+        loop {
+            param_name := parser_consume(p, token.TokenType.Identifier, "Expected parameter name")
+            parser_consume(p, token.TokenType.Colon, "Expected ':' after parameter name")
+            
+            // Parse type (simplified for now)
+            type_tok := parser_consume(p, token.TokenType.Identifier, "Expected type name")
+            
+            param_node := AstNode {
+                type: NodeType.VariableDecl,
+                line: param_name.line,
+                column: param_name.column,
+                name: param_name.value,
+                var_type: &Type { name: type_tok.value },
+            }
+            params.append(&param_node)
+            
+            !parser_match(p, [token.TokenType.Comma]) ? | true => { break } | false => {}
+        }
+    } | false => {}
+    
+    parser_consume(p, token.TokenType.RightParen, "Expected ')' after parameters")
+    
+    // Parse return type
+    mut return_type := &Type { name: "void" }
+    !parser_match(p, [token.TokenType.LeftBrace]) ? | true => {
+        type_tok := parser_consume(p, token.TokenType.Identifier, "Expected return type")
+        return_type = &Type { name: type_tok.value }
+        parser_consume(p, token.TokenType.LeftBrace, "Expected '{' before function body")
+    } | false => {}
+    
+    // Parse function body
+    body := parser_parse_block(p)
+    
+    func_node := AstNode {
+        type: NodeType.FunctionDecl,
+        line: name_tok.line,
+        column: name_tok.column,
+        name: name_tok.value,
+        params: params,
+        return_type: return_type,
+        body: body,
+    }
+    
+    return &func_node
+}
+
+// Parse if statement
+parser_parse_if_statement = (p: *Parser) *AstNode {
+    if_tok := parser_advance(p)  // consume 'if'
+    
+    // Parse condition (could be expression or pattern match)
+    condition := parser_parse_expression(p)
+    
+    // Check for pattern match syntax
+    parser_match(p, [token.TokenType.Question]) ? | true => {
+        parser_consume(p, token.TokenType.Pipe, "Expected '|' after '?'")
+        
+        // Parse match arms
+        arms := []
+        loop {
+            // Parse pattern (simplified - just true/false for now)
+            pattern_tok := parser_consume(p, token.TokenType.Identifier, "Expected pattern")
+            
+            pattern := Pattern {
+                is_literal: true,
+                identifier_name: pattern_tok.value,
+            }
+            
+            parser_consume(p, token.TokenType.Arrow, "Expected '=>' after pattern")
+            
+            // Parse arm body
+            body := parser_parse_block(p)
+            
+            arm := MatchArm {
+                pattern: &pattern,
+                body: body,
+            }
+            arms.append(&arm)
+            
+            parser_match(p, [token.TokenType.Pipe]) ? | false => { break } | true => {}
+        }
+        
+        match_node := AstNode {
+            type: NodeType.PatternMatch,
+            line: if_tok.line,
+            column: if_tok.column,
+            scrutinee: condition,
+            arms: arms,
+        }
+        return &match_node
+    } | false => {
+        // Regular if-else
+        parser_consume(p, token.TokenType.LeftBrace, "Expected '{' after if condition")
+        then_branch := parser_parse_block(p)
+        
+        mut else_branch := nullptr
+        parser_peek(p).type == token.TokenType.Keyword && 
+        parser_peek(p).value == "else" ? | true => {
+            parser_advance(p)  // consume 'else'
+            parser_consume(p, token.TokenType.LeftBrace, "Expected '{' after else")
+            else_branch = parser_parse_block(p)
+        } | false => {}
+        
+        if_node := AstNode {
+            type: NodeType.If,
+            line: if_tok.line,
+            column: if_tok.column,
+            condition: condition,
+            then_branch: then_branch,
+            else_branch: else_branch,
+        }
+        return &if_node
+    }
+}
+
+// Parse loop statement
+parser_parse_loop_statement = (p: *Parser) *AstNode {
+    loop_tok := parser_advance(p)  // consume 'loop'
+    
+    // Check for loop condition
+    mut condition := nullptr
+    parser_match(p, [token.TokenType.LeftParen]) ? | true => {
+        condition = parser_parse_expression(p)
+        parser_consume(p, token.TokenType.RightParen, "Expected ')' after loop condition")
+    } | false => {}
+    
+    parser_consume(p, token.TokenType.LeftBrace, "Expected '{' after loop")
+    body := parser_parse_block(p)
+    
+    loop_node := AstNode {
+        type: NodeType.Loop,
+        line: loop_tok.line,
+        column: loop_tok.column,
+        condition: condition,
+        body: body,
+    }
+    
+    return &loop_node
+}
+
+// Parse block of statements
+parser_parse_block = (p: *Parser) *AstNode {
+    statements := []
+    
+    loop (!parser_check(p, token.TokenType.RightBrace) && !parser_is_at_end(p)) {
+        stmt := parser_parse_statement(p)
+        statements.append(stmt)
+        
+        // Optional semicolon
+        parser_match(p, [token.TokenType.Semicolon])
+    }
+    
+    parser_consume(p, token.TokenType.RightBrace, "Expected '}' after block")
+    
+    block_node := AstNode {
+        type: NodeType.Block,
+        line: 0,
+        column: 0,
+        statements: statements,
+    }
+    
+    return &block_node
 }
 
 // Parse program
