@@ -4,20 +4,16 @@ mod self_hosting_tests {
     use std::path::Path;
     use zen::lexer::Lexer;
     use zen::parser::Parser;
-    use zen::typechecker::TypeChecker;
-    use zen::ast::{Declaration, Statement, Expression};
+    use zen::ast::{Declaration, Statement, Expression, Program};
 
     #[test]
     fn test_stdlib_compiler_lexer_parsing() {
         let lexer_code = fs::read_to_string("stdlib/compiler/lexer.zen")
             .expect("Failed to read lexer.zen");
         
-        let mut lexer = Lexer::new(&lexer_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok(), "Lexer should tokenize without errors");
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&lexer_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse lexer.zen without errors");
     }
 
@@ -26,12 +22,9 @@ mod self_hosting_tests {
         let parser_code = fs::read_to_string("stdlib/compiler/parser.zen")
             .expect("Failed to read parser.zen");
         
-        let mut lexer = Lexer::new(&parser_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok());
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&parser_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse parser.zen without errors");
     }
 
@@ -40,12 +33,9 @@ mod self_hosting_tests {
         let type_checker_code = fs::read_to_string("stdlib/compiler/type_checker.zen")
             .expect("Failed to read type_checker.zen");
         
-        let mut lexer = Lexer::new(&type_checker_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok());
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&type_checker_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse type_checker.zen without errors");
     }
 
@@ -54,12 +44,9 @@ mod self_hosting_tests {
         let codegen_code = fs::read_to_string("stdlib/compiler/codegen.zen")
             .expect("Failed to read codegen.zen");
         
-        let mut lexer = Lexer::new(&codegen_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok());
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&codegen_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse codegen.zen without errors");
     }
 
@@ -68,12 +55,9 @@ mod self_hosting_tests {
         let bootstrap_code = fs::read_to_string("stdlib/compiler/bootstrap_compiler.zen")
             .expect("Failed to read bootstrap_compiler.zen");
         
-        let mut lexer = Lexer::new(&bootstrap_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok());
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&bootstrap_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse bootstrap_compiler.zen without errors");
         
         // Verify imports are at module level
@@ -99,12 +83,9 @@ mod self_hosting_tests {
         let driver_code = fs::read_to_string("tools/zen-self-host.zen")
             .expect("Failed to read zen-self-host.zen");
         
-        let mut lexer = Lexer::new(&driver_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok());
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&driver_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse zen-self-host.zen without errors");
     }
 
@@ -113,12 +94,9 @@ mod self_hosting_tests {
         let env_code = fs::read_to_string("stdlib/env.zen")
             .expect("Failed to read env.zen");
         
-        let mut lexer = Lexer::new(&env_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok());
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&env_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse env.zen without errors");
     }
 
@@ -127,12 +105,9 @@ mod self_hosting_tests {
         let unittest_code = fs::read_to_string("stdlib/unittest.zen")
             .expect("Failed to read unittest.zen");
         
-        let mut lexer = Lexer::new(&unittest_code);
-        let tokens = lexer.tokenize();
-        assert!(tokens.is_ok());
-        
-        let mut parser = Parser::new(tokens.unwrap());
-        let ast = parser.parse();
+        let lexer = Lexer::new(&unittest_code);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
         assert!(ast.is_ok(), "Parser should parse unittest.zen without errors");
     }
 
@@ -148,16 +123,9 @@ mod self_hosting_tests {
                 let content = fs::read_to_string(&path)
                     .expect(&format!("Failed to read {:?}", path));
                 
-                let mut lexer = Lexer::new(&content);
-                let tokens = lexer.tokenize();
-                
-                if tokens.is_err() {
-                    eprintln!("Warning: Failed to tokenize {:?}", path);
-                    continue;
-                }
-                
-                let mut parser = Parser::new(tokens.unwrap());
-                let ast = parser.parse();
+                let lexer = Lexer::new(&content);
+                let mut parser = Parser::new(lexer);
+                let ast = parser.parse_program();
                 
                 if ast.is_err() {
                     eprintln!("Warning: Failed to parse {:?}", path);
@@ -177,14 +145,14 @@ mod self_hosting_tests {
                         }
                         Declaration::ComptimeBlock(stmts) => {
                             for stmt in stmts {
-                                if contains_import(stmt) {
+                                if contains_import(&stmt) {
                                     nested_imports += 1;
                                 }
                             }
                         }
                         Declaration::Function(func) => {
                             for stmt in &func.body {
-                                if contains_import(stmt) {
+                                if contains_import(&stmt) {
                                     nested_imports += 1;
                                 }
                             }
@@ -217,12 +185,9 @@ mod self_hosting_tests {
             let content = fs::read_to_string(module_path)
                 .expect(&format!("Failed to read {}", module_path));
             
-            let mut lexer = Lexer::new(&content);
-            let tokens = lexer.tokenize();
-            assert!(tokens.is_ok(), "Failed to tokenize {}", module_path);
-            
-            let mut parser = Parser::new(tokens.unwrap());
-            let ast = parser.parse();
+            let lexer = Lexer::new(&content);
+            let mut parser = Parser::new(lexer);
+            let ast = parser.parse_program();
             assert!(ast.is_ok(), "Failed to parse {}", module_path);
         }
     }
