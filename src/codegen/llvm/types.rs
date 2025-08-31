@@ -160,12 +160,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(Type::Struct(range_struct))
             },
             AstType::Generic { name, type_args: _ } => {
-                // After monomorphization, we should not encounter generic types
-                // If we do, it means monomorphization failed to resolve this type
-                Err(CompileError::InternalError(
-                    format!("Unresolved generic type '{}' found after monomorphization. This is a compiler bug.", name),
-                    None
-                ))
+                // Check if this is actually a user-defined struct type
+                if let Some(struct_info) = self.struct_types.get(name) {
+                    Ok(Type::Struct(struct_info.llvm_type))
+                } else {
+                    // After monomorphization, we should not encounter generic types
+                    // If we do, it means monomorphization failed to resolve this type
+                    Err(CompileError::InternalError(
+                        format!("Unresolved generic type '{}' found after monomorphization. This is a compiler bug.", name),
+                        None
+                    ))
+                }
             },
         };
         result
