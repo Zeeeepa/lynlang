@@ -1,0 +1,323 @@
+// Zen Standard Library - Core Module
+// Fundamental utilities and primitives
+
+// Option type is already defined in option.zen
+// Result type is already defined in result.zen
+
+// Panic and assertion functions
+panic = (message: string) void {
+    io := @std.io
+    io.eprintln("PANIC: " + message)
+    exit(1)
+}
+
+assert = (condition: bool, message: string) void {
+    !condition ?
+        | true => panic("Assertion failed: " + message)
+        | false => {}
+}
+
+// Memory management (placeholders for now)
+extern malloc = (size: usize) *void
+extern free = (ptr: *void) void
+extern realloc = (ptr: *void, size: usize) *void
+
+// Process control
+extern exit = (code: i32) void
+extern abort = () void
+
+// Math utilities
+abs = (n: i32) i32 {
+    n < 0 ?
+        | true => return -n
+        | false => return n
+}
+
+min = (a: i32, b: i32) i32 {
+    a < b ?
+        | true => return a
+        | false => return b
+}
+
+max = (a: i32, b: i32) i32 {
+    a > b ?
+        | true => return a
+        | false => return b
+}
+
+clamp = (value: i32, min_val: i32, max_val: i32) i32 {
+    value < min_val ?
+        | true => return min_val
+        | false => {}
+    
+    value > max_val ?
+        | true => return max_val
+        | false => {}
+    
+    return value
+}
+
+// Swap two values
+swap = (a: *i32, b: *i32) void {
+    temp := *a
+    *a = *b
+    *b = temp
+}
+
+// Generic comparison result
+Ordering = 
+    | Less
+    | Equal
+    | Greater
+
+// Compare two integers
+compare = (a: i32, b: i32) Ordering {
+    a < b ?
+        | true => return Ordering::Less
+        | false => {}
+    
+    a > b ?
+        | true => return Ordering::Greater
+        | false => {}
+    
+    return Ordering::Equal
+}
+
+// Identity function
+id = (x: i32) i32 {
+    return x
+}
+
+// Const function (returns first argument, ignores second)
+const_fn = (x: i32, y: i32) i32 {
+    return x
+}
+
+// Compose two functions (simplified for i32 -> i32)
+// In a real implementation, this would be generic
+compose = (f: (i32) i32, g: (i32) i32) (i32) i32 {
+    return (x: i32) i32 { return f(g(x)) }
+}
+
+// Pipe value through function
+pipe = (value: i32, f: (i32) i32) i32 {
+    return f(value)
+}
+
+// Apply function n times
+apply_n = (f: (i32) i32, n: i32, initial: i32) i32 {
+    result := initial
+    i := 0
+    loop i < n {
+        result = f(result)
+        i = i + 1
+    }
+    return result
+}
+
+// Range iterator (simplified)
+Range = {
+    start: i32,
+    end: i32,
+    current: i32,
+}
+
+range = (start: i32, end: i32) Range {
+    return Range {
+        start: start,
+        end: end,
+        current: start,
+    }
+}
+
+range_next = (r: *Range) Option<i32> {
+    r.current >= r.end ?
+        | true => return Option<i32>::None
+        | false => {}
+    
+    value := r.current
+    r.current = r.current + 1
+    return Option<i32>::Some(value)
+}
+
+// For each in range
+for_each = (start: i32, end: i32, f: (i32) void) void {
+    i := start
+    loop i < end {
+        f(i)
+        i = i + 1
+    }
+}
+
+// Map over range
+map_range = (start: i32, end: i32, f: (i32) i32) []i32 {
+    // This needs dynamic array support
+    // Placeholder implementation
+    len := end - start
+    len <= 0 ?
+        | true => return []
+        | false => {}
+    
+    // Would allocate array and fill it
+    // For now, this is a placeholder
+    return []
+}
+
+// Filter range
+filter_range = (start: i32, end: i32, predicate: (i32) bool) []i32 {
+    // This needs dynamic array support
+    // Placeholder implementation
+    return []
+}
+
+// Fold/reduce over range
+fold_range = (start: i32, end: i32, initial: i32, f: (i32, i32) i32) i32 {
+    result := initial
+    i := start
+    loop i < end {
+        result = f(result, i)
+        i = i + 1
+    }
+    return result
+}
+
+// Sum range
+sum_range = (start: i32, end: i32) i32 {
+    return fold_range(start, end, 0, (acc: i32, x: i32) i32 { return acc + x })
+}
+
+// Product range
+product_range = (start: i32, end: i32) i32 {
+    return fold_range(start, end, 1, (acc: i32, x: i32) i32 { return acc * x })
+}
+
+// Check if any element in range satisfies predicate
+any_in_range = (start: i32, end: i32, predicate: (i32) bool) bool {
+    i := start
+    loop i < end {
+        predicate(i) ?
+            | true => return true
+            | false => {}
+        i = i + 1
+    }
+    return false
+}
+
+// Check if all elements in range satisfy predicate
+all_in_range = (start: i32, end: i32, predicate: (i32) bool) bool {
+    i := start
+    loop i < end {
+        !predicate(i) ?
+            | true => return false
+            | false => {}
+        i = i + 1
+    }
+    return true
+}
+
+// Find first element in range that satisfies predicate
+find_in_range = (start: i32, end: i32, predicate: (i32) bool) Option<i32> {
+    i := start
+    loop i < end {
+        predicate(i) ?
+            | true => return Option<i32>::Some(i)
+            | false => {}
+        i = i + 1
+    }
+    return Option<i32>::None
+}
+
+// Utility to get size of type (simplified)
+size_of_i32 = () usize { return 4 }
+size_of_i64 = () usize { return 8 }
+size_of_bool = () usize { return 1 }
+size_of_ptr = () usize { return 8 }  // Assuming 64-bit
+
+// Memory utilities
+memcpy = (dest: *void, src: *void, n: usize) void {
+    d := dest as *u8
+    s := src as *u8
+    i := 0
+    loop i < n {
+        d[i] = s[i]
+        i = i + 1
+    }
+}
+
+memset = (dest: *void, value: u8, n: usize) void {
+    d := dest as *u8
+    i := 0
+    loop i < n {
+        d[i] = value
+        i = i + 1
+    }
+}
+
+memcmp = (ptr1: *void, ptr2: *void, n: usize) i32 {
+    p1 := ptr1 as *u8
+    p2 := ptr2 as *u8
+    i := 0
+    loop i < n {
+        p1[i] != p2[i] ?
+            | true => {
+                p1[i] < p2[i] ?
+                    | true => return -1
+                    | false => return 1
+            }
+            | false => {}
+        i = i + 1
+    }
+    return 0
+}
+
+// Type casting helpers (placeholders)
+as_i32 = (value: i64) i32 { return value as i32 }
+as_i64 = (value: i32) i64 { return value as i64 }
+as_usize = (value: i32) usize { return value as usize }
+as_ptr = (value: usize) *void { return value as *void }
+
+// Debug utilities
+debug_print = (label: string, value: i32) void {
+    io := @std.io
+    io.print(label)
+    io.print(": ")
+    io.print_int(value)
+    io.print("\n")
+}
+
+// Lazy evaluation helper
+Lazy<T> = {
+    computed: bool,
+    value: T,
+    compute: () T,
+}
+
+lazy_new = (compute: () i32) Lazy<i32> {
+    return Lazy<i32> {
+        computed: false,
+        value: 0,
+        compute: compute,
+    }
+}
+
+lazy_get = (lazy: *Lazy<i32>) i32 {
+    !lazy.computed ?
+        | true => {
+            lazy.value = lazy.compute()
+            lazy.computed = true
+        }
+        | false => {}
+    return lazy.value
+}
+
+// Simple hash function for integers
+hash_i32 = (value: i32) u32 {
+    // Simple mixing function
+    h := value as u32
+    h = h ^ (h >> 16)
+    h = h * 0x85ebca6b
+    h = h ^ (h >> 13)
+    h = h * 0xc2b2ae35
+    h = h ^ (h >> 16)
+    return h
+}

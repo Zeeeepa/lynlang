@@ -1,0 +1,330 @@
+// Zen Standard Library - String Module  
+// Provides string manipulation functionality
+
+// String type (assuming it's built-in but we define methods here)
+// string = {
+//     data: *u8,
+//     len: usize,
+// }
+
+// Create a string from bytes
+from_bytes = (data: *u8, len: usize) string {
+    // This would need runtime support
+    // For now, assume it's a builtin
+    return __builtin_string_from_bytes(data, len)
+}
+
+// Get string length
+len = (s: string) usize {
+    return s.len
+}
+
+// Check if string is empty
+is_empty = (s: string) bool {
+    return s.len == 0
+}
+
+// Get character at index
+char_at = (s: string, index: usize) u8 {
+    index >= s.len ?
+        | true => return 0
+        | false => {}
+    
+    return s.data[index]
+}
+
+// Compare two strings for equality
+equals = (s1: string, s2: string) bool {
+    s1.len != s2.len ?
+        | true => return false
+        | false => {}
+    
+    i := 0
+    loop i < s1.len {
+        s1.data[i] != s2.data[i] ?
+            | true => return false
+            | false => {}
+        i = i + 1
+    }
+    
+    return true
+}
+
+// Check if string starts with prefix
+starts_with = (s: string, prefix: string) bool {
+    prefix.len > s.len ?
+        | true => return false
+        | false => {}
+    
+    i := 0
+    loop i < prefix.len {
+        s.data[i] != prefix.data[i] ?
+            | true => return false
+            | false => {}
+        i = i + 1
+    }
+    
+    return true
+}
+
+// Check if string ends with suffix
+ends_with = (s: string, suffix: string) bool {
+    suffix.len > s.len ?
+        | true => return false
+        | false => {}
+    
+    offset := s.len - suffix.len
+    i := 0
+    loop i < suffix.len {
+        s.data[offset + i] != suffix.data[i] ?
+            | true => return false
+            | false => {}
+        i = i + 1
+    }
+    
+    return true
+}
+
+// Find first occurrence of substring
+index_of = (s: string, needle: string) i32 {
+    needle.len == 0 ?
+        | true => return 0
+        | false => {}
+    
+    needle.len > s.len ?
+        | true => return -1
+        | false => {}
+    
+    i := 0
+    loop i <= s.len - needle.len {
+        found := true
+        j := 0
+        loop j < needle.len {
+            s.data[i + j] != needle.data[j] ?
+                | true => {
+                    found = false
+                    break
+                }
+                | false => {}
+            j = j + 1
+        }
+        
+        found ?
+            | true => return i as i32
+            | false => {}
+        
+        i = i + 1
+    }
+    
+    return -1
+}
+
+// Check if string contains substring
+contains = (s: string, needle: string) bool {
+    return index_of(s, needle) >= 0
+}
+
+// Create substring from start index with length
+substring = (s: string, start: usize, length: usize) string {
+    start >= s.len ?
+        | true => return ""
+        | false => {}
+    
+    actual_len := length
+    start + length > s.len ?
+        | true => actual_len = s.len - start
+        | false => {}
+    
+    return from_bytes(s.data + start, actual_len)
+}
+
+// Create substring from start to end index
+slice = (s: string, start: usize, end: usize) string {
+    start >= s.len || start >= end ?
+        | true => return ""
+        | false => {}
+    
+    actual_end := end
+    end > s.len ?
+        | true => actual_end = s.len
+        | false => {}
+    
+    return from_bytes(s.data + start, actual_end - start)
+}
+
+// Concatenate two strings
+concat = (s1: string, s2: string) string {
+    // This needs memory allocation support
+    // For now, assume it's a builtin
+    return __builtin_string_concat(s1, s2)
+}
+
+// Concatenate multiple strings
+concat_many = (strings: []string) string {
+    result := ""
+    i := 0
+    loop i < strings.len {
+        result = concat(result, strings[i])
+        i = i + 1
+    }
+    return result
+}
+
+// Join strings with separator
+join = (strings: []string, separator: string) string {
+    strings.len == 0 ?
+        | true => return ""
+        | false => {}
+    
+    result := strings[0]
+    i := 1
+    loop i < strings.len {
+        result = concat(result, separator)
+        result = concat(result, strings[i])
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Trim whitespace from both ends
+trim = (s: string) string {
+    start := 0
+    end := s.len
+    
+    // Trim from start
+    loop start < s.len {
+        c := s.data[start]
+        is_whitespace := c == 32 || c == 9 || c == 10 || c == 13  // space, tab, \n, \r
+        !is_whitespace ?
+            | true => break
+            | false => {}
+        start = start + 1
+    }
+    
+    // Trim from end
+    loop end > start {
+        c := s.data[end - 1]
+        is_whitespace := c == 32 || c == 9 || c == 10 || c == 13
+        !is_whitespace ?
+            | true => break
+            | false => {}
+        end = end - 1
+    }
+    
+    return slice(s, start, end)
+}
+
+// Convert string to uppercase
+to_upper = (s: string) string {
+    // This needs memory allocation
+    // For now, assume it's a builtin
+    return __builtin_string_to_upper(s)
+}
+
+// Convert string to lowercase
+to_lower = (s: string) string {
+    // This needs memory allocation
+    // For now, assume it's a builtin
+    return __builtin_string_to_lower(s)
+}
+
+// Replace all occurrences of old with new
+replace = (s: string, old: string, new: string) string {
+    // This needs memory allocation and is complex
+    // For now, assume it's a builtin
+    return __builtin_string_replace(s, old, new)
+}
+
+// Split string by separator
+split = (s: string, separator: string) []string {
+    // This needs dynamic array support
+    // For now, assume it's a builtin
+    return __builtin_string_split(s, separator)
+}
+
+// Parse integer from string
+parse_int = (s: string) i32 {
+    s.len == 0 ?
+        | true => return 0
+        | false => {}
+    
+    result := 0
+    negative := false
+    i := 0
+    
+    // Check for negative sign
+    s.data[0] == 45 ?  // '-'
+        | true => {
+            negative = true
+            i = 1
+        }
+        | false => {}
+    
+    loop i < s.len {
+        c := s.data[i]
+        c < 48 || c > 57 ?  // Not a digit
+            | true => break
+            | false => {}
+        
+        digit := (c - 48) as i32
+        result = result * 10 + digit
+        i = i + 1
+    }
+    
+    negative ?
+        | true => result = -result
+        | false => {}
+    
+    return result
+}
+
+// Convert integer to string
+from_int = (n: i32) string {
+    // This needs memory allocation
+    // For now, assume it's a builtin
+    return __builtin_int_to_string(n)
+}
+
+// Format string with arguments (simplified)
+format = (template: string, args: []string) string {
+    result := template
+    i := 0
+    loop i < args.len {
+        placeholder := "{" + from_int(i) + "}"
+        result = replace(result, placeholder, args[i])
+        i = i + 1
+    }
+    return result
+}
+
+// Check if character is digit
+is_digit = (c: u8) bool {
+    return c >= 48 && c <= 57  // '0' to '9'
+}
+
+// Check if character is letter
+is_letter = (c: u8) bool {
+    is_upper := c >= 65 && c <= 90   // 'A' to 'Z'
+    is_lower := c >= 97 && c <= 122  // 'a' to 'z'
+    return is_upper || is_lower
+}
+
+// Check if character is alphanumeric
+is_alnum = (c: u8) bool {
+    return is_digit(c) || is_letter(c)
+}
+
+// Check if character is whitespace
+is_whitespace = (c: u8) bool {
+    return c == 32 || c == 9 || c == 10 || c == 13  // space, tab, \n, \r
+}
+
+// External builtin functions (these would be provided by the runtime)
+extern __builtin_string_from_bytes = (data: *u8, len: usize) string
+extern __builtin_string_concat = (s1: string, s2: string) string
+extern __builtin_string_to_upper = (s: string) string
+extern __builtin_string_to_lower = (s: string) string
+extern __builtin_string_replace = (s: string, old: string, new: string) string
+extern __builtin_string_split = (s: string, separator: string) []string
+extern __builtin_int_to_string = (n: i32) string
