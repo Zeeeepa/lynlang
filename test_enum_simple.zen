@@ -1,0 +1,19 @@
+// Test simple enum syntax
+io := @std.io
+
+// Simple enum without payloads
+Color = 
+    | Red
+    | Green
+    | Blue
+
+main = () i32 {
+    color := Color::Red
+    
+    color ?
+        | Color::Red => io.println("Red!")
+        | Color::Green => io.println("Green!")
+        | Color::Blue => io.println("Blue!")
+    
+    return 0
+}

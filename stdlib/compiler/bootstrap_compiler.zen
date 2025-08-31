@@ -49,20 +49,20 @@ CompilationStage =
     | Optimization
     | Emission
 
-// Compilation result
+// Compilation result  
 CompilationResult = 
-    | Success(string)  // Output file path
-    | Error(string, CompilationStage)  // Error message and stage
+    | Success
+    | Error
 
 // Main compilation pipeline
-compile = (config: CompilerConfig) CompilationResult {
+compile = (config: CompilerConfig) bool {
     // Read source file
     source_result := fs.read_file(config.input_file)
     source_result.is_err() ?
-        | true => return CompilationResult::Error(
-            "Failed to read input file: " + config.input_file,
-            CompilationStage::Lexing
-        )
+        | true => {
+            io.println("Failed to read input file: " + config.input_file)
+            return false
+        }
         | false => {}
     
     source := source_result.unwrap()
@@ -81,10 +81,10 @@ compile = (config: CompilerConfig) CompilationResult {
     
     tokens := lexer.tokenize(source)
     tokens.is_err() ?
-        | true => return CompilationResult::Error(
-            "Lexical error: " + tokens.unwrap_err(),
-            CompilationStage::Lexing
-        )
+        | true => {
+            io.println("Lexical error: " + tokens.unwrap_err())
+            return false
+        }
         | false => {}
     
     config.verbose ?
@@ -98,10 +98,10 @@ compile = (config: CompilerConfig) CompilationResult {
     
     ast := parser.parse(tokens.unwrap())
     ast.is_err() ?
-        | true => return CompilationResult::Error(
-            "Parse error: " + ast.unwrap_err(),
-            CompilationStage::Parsing
-        )
+        | true => {
+            io.println("Parse error: " + ast.unwrap_err())
+            return false
+        }
         | false => {}
     
     config.verbose ?
@@ -115,10 +115,10 @@ compile = (config: CompilerConfig) CompilationResult {
     
     typed_ast := type_checker.check(ast.unwrap())
     typed_ast.is_err() ?
-        | true => return CompilationResult::Error(
-            "Type error: " + typed_ast.unwrap_err(),
-            CompilationStage::TypeChecking
-        )
+        | true => {
+            io.println("Type error: " + typed_ast.unwrap_err())
+            return false
+        }
         | false => {}
     
     config.verbose ?
@@ -132,10 +132,10 @@ compile = (config: CompilerConfig) CompilationResult {
     
     llvm_ir := codegen.generate(typed_ast.unwrap(), config.target_triple)
     llvm_ir.is_err() ?
-        | true => return CompilationResult::Error(
-            "Code generation error: " + llvm_ir.unwrap_err(),
-            CompilationStage::CodeGeneration
-        )
+        | true => {
+            io.println("Code generation error: " + llvm_ir.unwrap_err())
+            return false
+        }
         | false => {}
     
     config.verbose ?
@@ -163,17 +163,17 @@ compile = (config: CompilerConfig) CompilationResult {
     // Stage 6: Emission
     output_file := emit_output(config, ir_code)
     output_file.is_err() ?
-        | true => return CompilationResult::Error(
-            "Emission error: " + output_file.unwrap_err(),
-            CompilationStage::Emission
-        )
+        | true => {
+            io.println("Emission error: " + output_file.unwrap_err())
+            return false
+        }
         | false => {}
     
     config.verbose ?
         | true => io.println("Output: " + output_file.unwrap())
         | false => {}
     
-    return CompilationResult::Success(output_file.unwrap())
+    return true
 }
 
 // Optimize LLVM IR
@@ -194,7 +194,8 @@ emit_output = (config: CompilerConfig, ir: string) Result<string> {
             ll_file := string.replace(output_file, ".out", ".ll")
             fs.write_file(ll_file, ir)
             
-            !config.emit_asm && !config.emit_obj ?
+            should_return := !config.emit_asm && !config.emit_obj
+            should_return ?
                 | true => return Result<string>::Ok(ll_file)
                 | false => {}
         }
@@ -211,7 +212,8 @@ emit_output = (config: CompilerConfig, ir: string) Result<string> {
             
             fs.write_file(asm_file, asm.unwrap())
             
-            !config.emit_obj ?
+            should_return := !config.emit_obj
+            should_return ?
                 | true => return Result<string>::Ok(asm_file)
                 | false => {}
         }
@@ -410,24 +412,14 @@ main = () i32 {
         | false => {}
     
     // Compile the file
-    result := compile(config)
+    success := compile(config)
     
-    result ?
-        | Success(output) => {
-            io.println("Compilation successful: " + output)
+    success ?
+        | true => {
+            io.println("Compilation successful")
             return 0
         }
-        | Error(msg, stage) => {
-            io.print("Compilation failed at ")
-            stage ?
-                | Lexing => io.print("lexing")
-                | Parsing => io.print("parsing")
-                | TypeChecking => io.print("type checking")
-                | CodeGeneration => io.print("code generation")
-                | Optimization => io.print("optimization")
-                | Emission => io.print("emission")
-            io.println(" stage:")
-            io.println(msg)
+        | false => {
             return 1
         }
 }
