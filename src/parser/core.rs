@@ -37,4 +37,68 @@ impl<'a> Parser<'a> {
     pub fn debug_peek_token(&self) -> &Token {
         &self.peek_token
     }
+    
+    /// Check if the current position looks like an import statement
+    pub fn is_import_statement(&self) -> bool {
+        // Check for @std imports
+        if let Token::Symbol('@') = self.current_token {
+            if let Token::Identifier(ref s) = self.peek_token {
+                return s == "std";
+            }
+        }
+        
+        // Check for identifiers that might be followed by := @std or .import()
+        if let Token::Identifier(_) = self.current_token {
+            if self.peek_token == Token::Symbol(':') {
+                // Might be := @std style import
+                return true;
+            }
+        }
+        
+        false
+    }
+    
+    /// Check if a statement contains an import
+    pub fn is_import_in_statement(&self, stmt: &crate::ast::Statement) -> bool {
+        use crate::ast::{Statement, Expression};
+        
+        match stmt {
+            Statement::VariableDeclaration { initializer, .. } => {
+                if let Some(expr) = initializer {
+                    self.is_import_expression(expr)
+                } else {
+                    false
+                }
+            }
+            _ => false
+        }
+    }
+    
+    /// Check if an expression is an import expression
+    pub fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {
+        use crate::ast::Expression;
+        
+        match expr {
+            Expression::MemberAccess { object, member } => {
+                // Check if it's @std.something or build.import()
+                if member == "import" {
+                    return true;
+                }
+                if let Expression::Identifier(name) = &**object {
+                    name.starts_with("@std")
+                } else {
+                    false
+                }
+            }
+            Expression::FunctionCall { name, .. } => {
+                // Check for .import() calls
+                name == "import" || name.ends_with(".import")
+            }
+            Expression::Identifier(name) => {
+                // Check for direct @std references
+                name.starts_with("@std")
+            }
+            _ => false
+        }
+    }
 }

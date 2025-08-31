@@ -386,7 +386,39 @@ impl<'a> Parser<'a> {
                     
                     let mut statements = vec![];
                     while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-                        statements.push(self.parse_statement()?);
+                        let stmt = self.parse_statement()?;
+                        
+                        // Check if the parsed statement contains an import
+                        if let Statement::VariableDeclaration { initializer, .. } = &stmt {
+                            if let Some(expr) = initializer {
+                                // Check for @std patterns or build.import calls
+                                let is_import = match expr {
+                                    Expression::MemberAccess { object, .. } => {
+                                        if let Expression::Identifier(id) = &**object {
+                                            id.starts_with("@std") || id == "@std"
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    Expression::FunctionCall { name, .. } => {
+                                        name.contains("import") || name == "build.import"
+                                    }
+                                    Expression::Identifier(id) => {
+                                        id.starts_with("@std")
+                                    }
+                                    _ => false
+                                };
+                                
+                                if is_import {
+                                    return Err(CompileError::SyntaxError(
+                                        "Import statements are not allowed inside comptime blocks. Move imports to module level.".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            }
+                        }
+                        
+                        statements.push(stmt);
                     }
                     
                     if self.current_token != Token::Symbol('}') {
