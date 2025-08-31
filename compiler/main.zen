@@ -10,6 +10,7 @@ process := build.import("process")
 lexer := build.import("lexer")
 parser := build.import("parser")
 c_backend := build.import("c_backend")
+llvm_backend := build.import("llvm_backend")
 type_checker := build.import("type_checker")
 
 // Compiler options
@@ -165,7 +166,10 @@ generate_code = (ast: ASTNode, opts: CompilerOptions) Result<string> {
         backend := c_backend.new_c_backend()
         return backend.generate(ast, opts.debug)
     } else if (opts.backend == "llvm") {
-        return Result.error("LLVM backend not yet implemented")
+        // Generate LLVM IR
+        module_name := string.basename(opts.input_file)
+        llvm_ir := llvm_backend.generate_llvm_from_ast(ast, module_name)
+        return Result.ok(llvm_ir)
     } else if (opts.backend == "wasm") {
         return Result.error("WASM backend not yet implemented")
     } else {

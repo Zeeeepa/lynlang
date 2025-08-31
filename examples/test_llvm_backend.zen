@@ -1,0 +1,103 @@
+// Test file for LLVM backend
+// This file tests basic LLVM IR generation
+
+core := @std.core
+io := @std.io
+math := @std.math
+
+// Simple function to test arithmetic operations
+add_numbers = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Test function with multiple operations
+calculate = (x: i32, y: i32) i32 {
+    sum := x + y
+    diff := x - y
+    product := sum * diff
+    return product
+}
+
+// Test floating point operations
+calculate_float = (a: f64, b: f64) f64 {
+    result := (a + b) * 2.0
+    return result / 3.14159
+}
+
+// Test conditional logic
+max_value = (a: i32, b: i32) i32 {
+    if (a > b) 
+        return a
+    else 
+        return b
+}
+
+// Test loops
+factorial = (n: i32) i32 {
+    result := 1
+    i := 1
+    while (i <= n) {
+        result = result * i
+        i = i + 1
+    }
+    return result
+}
+
+// Test array operations
+sum_array = (arr: []i32, size: i32) i32 {
+    sum := 0
+    i := 0
+    while (i < size) {
+        sum = sum + arr[i]
+        i = i + 1
+    }
+    return sum
+}
+
+// Test struct operations
+Point := struct {
+    x: f64
+    y: f64
+}
+
+distance = (p1: Point, p2: Point) f64 {
+    dx := p2.x - p1.x
+    dy := p2.y - p1.y
+    return math.sqrt(dx * dx + dy * dy)
+}
+
+// Main function
+main = () i32 {
+    // Test arithmetic
+    result1 := add_numbers(10, 20)
+    io.printf("10 + 20 = %d\n", result1)
+    
+    result2 := calculate(15, 5)
+    io.printf("(15 + 5) * (15 - 5) = %d\n", result2)
+    
+    // Test floating point
+    result3 := calculate_float(3.14, 2.86)
+    io.printf("((3.14 + 2.86) * 2.0) / π = %f\n", result3)
+    
+    // Test conditionals
+    max := max_value(42, 37)
+    io.printf("max(42, 37) = %d\n", max)
+    
+    // Test loops
+    fact := factorial(5)
+    io.printf("5! = %d\n", fact)
+    
+    // Test arrays
+    numbers := [1, 2, 3, 4, 5]
+    array_sum := sum_array(numbers, 5)
+    io.printf("sum([1,2,3,4,5]) = %d\n", array_sum)
+    
+    // Test structs
+    p1 := Point{x: 0.0, y: 0.0}
+    p2 := Point{x: 3.0, y: 4.0}
+    dist := distance(p1, p2)
+    io.printf("distance((0,0), (3,4)) = %f\n", dist)
+    
+    io.println("All LLVM backend tests completed!")
+    return 0
+}
