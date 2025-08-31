@@ -1,0 +1,8 @@
+// Simple Hello World example in Zen
+
+io := @std.io
+
+main = () i32 {
+    io.print("Hello, World from self-hosted Zen!\n")
+    return 0
+}
