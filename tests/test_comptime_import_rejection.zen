@@ -1,0 +1,18 @@
+// This file should FAIL to compile
+// It tests that imports inside comptime blocks are rejected
+
+// This comptime block contains imports, which is NOT allowed
+comptime {
+    // ERROR: Imports are not allowed in comptime blocks
+    io := @std.io
+    math := @std.math
+    
+    // ERROR: build.import also not allowed in comptime
+    build := @std.build
+    fs := build.import("fs")
+}
+
+main = () i32 {
+    // This won't compile due to the errors above
+    return 1
+}

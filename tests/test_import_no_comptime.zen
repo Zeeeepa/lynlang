@@ -1,0 +1,50 @@
+// Test that imports work correctly without comptime blocks
+// This is the new, correct way to import modules in Zen
+
+// Standard library imports - NO comptime needed
+core := @std.core
+build := @std.build
+math := @std.math
+vec := @std.vec
+
+// Build system imports
+io := build.import("io")
+fs := build.import("fs")
+string := build.import("string")
+
+// Test function using imports
+test_imports_work = () bool {
+    // Use imported modules
+    io.print("Testing imports without comptime\n")
+    
+    // Test math module
+    abs_val := math.abs(-42)
+    if (abs_val != 42) {
+        return false
+    }
+    
+    // Test string operations
+    str := string.new("Hello")
+    str = string.append(str, ", Zen!")
+    
+    // Test vector operations
+    v := vec.new()
+    v = vec.push(v, 1)
+    v = vec.push(v, 2)
+    v = vec.push(v, 3)
+    
+    return vec.len(v) == 3
+}
+
+// Main function
+main = () i32 {
+    io.print("=== Import System Test (No Comptime) ===\n")
+    
+    if (test_imports_work()) {
+        io.print("✓ All import tests passed!\n")
+        return 0
+    } else {
+        io.print("✗ Import tests failed\n")
+        return 1
+    }
+}

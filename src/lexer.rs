@@ -61,8 +61,9 @@ impl<'a> Lexer<'a> {
     fn read_char(&mut self) {
         if self.read_position >= self.input.len() {
             self.current_char = None;
+            self.position = self.read_position;  // Important: update position when at end
         } else {
-            if let Some((idx, ch)) = self.input[self.read_position..].char_indices().next() {
+            if let Some((_idx, ch)) = self.input[self.read_position..].char_indices().next() {
                 self.current_char = Some(ch);
                 self.position = self.read_position;
                 self.read_position += ch.len_utf8();
@@ -311,6 +312,10 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
+        // When we exit the loop, self.position might be pointing to the last character
+        // we want to include, not past it. The issue is that after the last read_char(),
+        // self.position is updated to the current position, not past the character.
+        // Actually, self.position should be correct since read_char() updates it.
         self.input[start..self.position].to_string()
     }
 
