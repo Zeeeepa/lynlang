@@ -1,0 +1,339 @@
+// Enhanced Zen Lexer for Self-Hosting
+// Complete tokenization for all Zen language features
+
+io := @std.io
+string := @std.string
+vec := @std.vec
+core := @std.core
+
+// Token types covering all Zen syntax
+TokenType = enum {
+    // Literals
+    Identifier -> value: string,
+    Number -> value: string,
+    String -> value: string,
+    Char -> value: char,
+    
+    // Keywords
+    Fn, Return, Loop, Break, Continue,
+    Struct, Enum, Trait, Impl,
+    Comptime, Type, Const, Let,
+    True, False, Null,
+    
+    // Operators
+    Plus, Minus, Star, Slash, Percent,
+    Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
+    And, Or, Not,
+    Assign, ColonEqual, ColonColonEqual,
+    Arrow, FatArrow,
+    Question, Pipe, At, Dollar,
+    
+    // Symbols
+    LeftParen, RightParen,
+    LeftBrace, RightBrace,
+    LeftBracket, RightBracket,
+    Comma, Dot, Colon, DoubleColon, Semicolon,
+    
+    // Special
+    Newline, Eof, Invalid,
+}
+
+// Token with position information
+Token = struct {
+    type: TokenType,
+    lexeme: string,
+    line: u32,
+    column: u32,
+}
+
+// Lexer state
+Lexer = struct {
+    input: string,
+    tokens: vec.Vec<Token>,
+    current: u32,
+    start: u32,
+    line: u32,
+    column: u32,
+}
+
+// Create a new lexer
+lexer_new = (input: string) Lexer {
+    return Lexer{
+        input: input,
+        tokens: vec.new<Token>(),
+        current: 0,
+        start: 0,
+        line: 1,
+        column: 1,
+    }
+}
+
+// Scan all tokens
+lexer_scan_tokens = (l: *Lexer) vec.Vec<Token> {
+    loop !is_at_end(l) {
+        l.start = l.current
+        scan_token(l)
+    }
+    
+    // Add EOF token
+    l.tokens.push(Token{
+        type: TokenType.Eof,
+        lexeme: "",
+        line: l.line,
+        column: l.column,
+    })
+    
+    return l.tokens
+}
+
+// Check if at end of input
+is_at_end = (l: *Lexer) bool {
+    return l.current >= l.input.len()
+}
+
+// Get current character
+peek = (l: *Lexer) char {
+    is_at_end(l) ? { return '\0' } : { return l.input[l.current] }
+}
+
+// Get next character without advancing
+peek_next = (l: *Lexer) char {
+    (l.current + 1) >= l.input.len() ? { return '\0' } : { return l.input[l.current + 1] }
+}
+
+// Advance and return current character
+advance = (l: *Lexer) char {
+    ch := l.input[l.current]
+    l.current = l.current + 1
+    l.column = l.column + 1
+    return ch
+}
+
+// Check if current matches expected and advance if so
+match_char = (l: *Lexer, expected: char) bool {
+    is_at_end(l) ? { return false } : {}
+    l.input[l.current] != expected ? { return false } : {}
+    l.current = l.current + 1
+    l.column = l.column + 1
+    return true
+}
+
+// Add a token
+add_token = (l: *Lexer, type: TokenType) void {
+    text := string.substring(l.input, l.start, l.current)
+    l.tokens.push(Token{
+        type: type,
+        lexeme: text,
+        line: l.line,
+        column: l.column - (l.current - l.start),
+    })
+}
+
+// Scan a single token
+scan_token = (l: *Lexer) void {
+    c := advance(l)
+    
+    match c {
+        // Single character tokens
+        | '(' => add_token(l, TokenType.LeftParen)
+        | ')' => add_token(l, TokenType.RightParen)
+        | '{' => add_token(l, TokenType.LeftBrace)
+        | '}' => add_token(l, TokenType.RightBrace)
+        | '[' => add_token(l, TokenType.LeftBracket)
+        | ']' => add_token(l, TokenType.RightBracket)
+        | ',' => add_token(l, TokenType.Comma)
+        | '.' => add_token(l, TokenType.Dot)
+        | ';' => add_token(l, TokenType.Semicolon)
+        | '+' => add_token(l, TokenType.Plus)
+        | '*' => add_token(l, TokenType.Star)
+        | '%' => add_token(l, TokenType.Percent)
+        | '?' => add_token(l, TokenType.Question)
+        | '|' => add_token(l, TokenType.Pipe)
+        | '@' => add_token(l, TokenType.At)
+        | '$' => add_token(l, TokenType.Dollar)
+        
+        // Multi-character tokens
+        | '-' => {
+            match_char(l, '>') ? 
+                { add_token(l, TokenType.Arrow) } : 
+                { add_token(l, TokenType.Minus) }
+        }
+        | '=' => {
+            match_char(l, '=') ? 
+                { add_token(l, TokenType.Equal) } :
+            match_char(l, '>') ?
+                { add_token(l, TokenType.FatArrow) } :
+                { add_token(l, TokenType.Assign) }
+        }
+        | '!' => {
+            match_char(l, '=') ? 
+                { add_token(l, TokenType.NotEqual) } : 
+                { add_token(l, TokenType.Not) }
+        }
+        | '<' => {
+            match_char(l, '=') ? 
+                { add_token(l, TokenType.LessEqual) } : 
+                { add_token(l, TokenType.Less) }
+        }
+        | '>' => {
+            match_char(l, '=') ? 
+                { add_token(l, TokenType.GreaterEqual) } : 
+                { add_token(l, TokenType.Greater) }
+        }
+        | ':' => {
+            match_char(l, ':') ? {
+                match_char(l, '=') ?
+                    { add_token(l, TokenType.ColonColonEqual) } :
+                    { add_token(l, TokenType.DoubleColon) }
+            } : match_char(l, '=') ?
+                { add_token(l, TokenType.ColonEqual) } :
+                { add_token(l, TokenType.Colon) }
+        }
+        | '&' => {
+            match_char(l, '&') ? 
+                { add_token(l, TokenType.And) } : 
+                { add_token(l, TokenType.Invalid) }
+        }
+        | '/' => {
+            match_char(l, '/') ? {
+                // Comment - skip to end of line
+                loop peek(l) != '\n' && !is_at_end(l) {
+                    advance(l)
+                }
+            } : { add_token(l, TokenType.Slash) }
+        }
+        
+        // Whitespace
+        | ' ' | '\r' | '\t' => {} // Ignore
+        | '\n' => {
+            l.line = l.line + 1
+            l.column = 1
+        }
+        
+        // String literals
+        | '"' => scan_string(l)
+        
+        // Character literals
+        | '\'' => scan_char(l)
+        
+        // Default cases
+        | _ => {
+            is_digit(c) ? { scan_number(l) } :
+            is_alpha(c) ? { scan_identifier(l) } :
+            { add_token(l, TokenType.Invalid) }
+        }
+    }
+}
+
+// Scan string literal
+scan_string = (l: *Lexer) void {
+    loop peek(l) != '"' && !is_at_end(l) {
+        peek(l) == '\n' ? {
+            l.line = l.line + 1
+            l.column = 1
+        } : {}
+        advance(l)
+    }
+    
+    is_at_end(l) ? {
+        add_token(l, TokenType.Invalid)
+        return
+    } : {}
+    
+    // Consume closing "
+    advance(l)
+    
+    // Extract string value (without quotes)
+    value := string.substring(l.input, l.start + 1, l.current - 1)
+    add_token(l, TokenType.String -> value: value)
+}
+
+// Scan character literal
+scan_char = (l: *Lexer) void {
+    peek(l) == '\\' ? {
+        advance(l) // Skip backslash
+        advance(l) // Skip escape character
+    } : {
+        advance(l) // Regular character
+    }
+    
+    peek(l) != '\'' ? {
+        add_token(l, TokenType.Invalid)
+        return
+    } : {}
+    
+    advance(l) // Consume closing '
+    
+    // Extract character value
+    value := l.input[l.start + 1]
+    add_token(l, TokenType.Char -> value: value)
+}
+
+// Scan number literal
+scan_number = (l: *Lexer) void {
+    loop is_digit(peek(l)) {
+        advance(l)
+    }
+    
+    // Look for decimal part
+    peek(l) == '.' && is_digit(peek_next(l)) ? {
+        advance(l) // Consume '.'
+        loop is_digit(peek(l)) {
+            advance(l)
+        }
+    } : {}
+    
+    value := string.substring(l.input, l.start, l.current)
+    add_token(l, TokenType.Number -> value: value)
+}
+
+// Scan identifier or keyword
+scan_identifier = (l: *Lexer) void {
+    loop is_alphanumeric(peek(l)) {
+        advance(l)
+    }
+    
+    text := string.substring(l.input, l.start, l.current)
+    type := get_keyword_type(text)
+    add_token(l, type)
+}
+
+// Check if character is digit
+is_digit = (c: char) bool {
+    return c >= '0' && c <= '9'
+}
+
+// Check if character is alpha
+is_alpha = (c: char) bool {
+    return (c >= 'a' && c <= 'z') || 
+           (c >= 'A' && c <= 'Z') || 
+           c == '_'
+}
+
+// Check if character is alphanumeric
+is_alphanumeric = (c: char) bool {
+    return is_alpha(c) || is_digit(c)
+}
+
+// Get keyword token type or identifier
+get_keyword_type = (text: string) TokenType {
+    match text {
+        | "fn" => TokenType.Fn
+        | "return" => TokenType.Return
+        | "loop" => TokenType.Loop
+        | "break" => TokenType.Break
+        | "continue" => TokenType.Continue
+        | "struct" => TokenType.Struct
+        | "enum" => TokenType.Enum
+        | "trait" => TokenType.Trait
+        | "impl" => TokenType.Impl
+        | "comptime" => TokenType.Comptime
+        | "type" => TokenType.Type
+        | "const" => TokenType.Const
+        | "let" => TokenType.Let
+        | "true" => TokenType.True
+        | "false" => TokenType.False
+        | "null" => TokenType.Null
+        | _ => TokenType.Identifier -> value: text
+    }
+}
