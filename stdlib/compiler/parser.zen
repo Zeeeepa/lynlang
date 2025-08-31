@@ -1,0 +1,561 @@
+// Zen Parser - Self-hosted parser implementation
+// Enhanced version with proper AST structure
+
+core := @std.core
+io := @std.io
+token := @compiler.token
+lexer := @compiler.lexer
+
+// AST Node Types
+NodeType = enum {
+    // Statements
+    Program,
+    FunctionDecl,
+    VariableDecl,
+    Assignment,
+    Return,
+    If,
+    Loop,
+    Break,
+    Continue,
+    Block,
+    ExpressionStmt,
+    
+    // Expressions
+    Binary,
+    Unary,
+    Literal,
+    Identifier,
+    FunctionCall,
+    MemberAccess,
+    ArrayAccess,
+    StructLiteral,
+    ArrayLiteral,
+    PatternMatch,
+}
+
+// Type representation
+Type = {
+    name: String,
+    is_pointer: bool,
+    is_array: bool,
+    array_size: i32,
+}
+
+// AST Node
+AstNode = {
+    type: NodeType,
+    // Location info
+    line: i32,
+    column: i32,
+    
+    // Node-specific data (simplified union)
+    // For literals
+    int_value: i64,
+    float_value: f64,
+    string_value: String,
+    bool_value: bool,
+    
+    // For identifiers and names
+    name: String,
+    
+    // For binary/unary operations
+    operator: String,
+    left: *AstNode,
+    right: *AstNode,
+    operand: *AstNode,
+    
+    // For functions
+    params: [*AstNode],
+    return_type: *Type,
+    body: *AstNode,
+    
+    // For blocks and programs
+    statements: [*AstNode],
+    
+    // For variables
+    var_type: *Type,
+    initializer: *AstNode,
+    is_mutable: bool,
+    
+    // For conditionals
+    condition: *AstNode,
+    then_branch: *AstNode,
+    else_branch: *AstNode,
+    
+    // For pattern matching
+    scrutinee: *AstNode,
+    arms: [*MatchArm],
+    
+    // For function calls
+    callee: *AstNode,
+    arguments: [*AstNode],
+}
+
+// Pattern matching arm
+MatchArm = {
+    pattern: *Pattern,
+    guard: *AstNode,  // Optional guard condition
+    body: *AstNode,
+}
+
+// Pattern types
+Pattern = {
+    is_wildcard: bool,
+    is_literal: bool,
+    is_identifier: bool,
+    is_struct: bool,
+    
+    // Pattern data
+    literal_value: *AstNode,
+    identifier_name: String,
+    struct_name: String,
+    struct_fields: [*Pattern],
+}
+
+// Parser state
+Parser = {
+    tokens: [token.Token],
+    current: i32,
+    errors: [String],
+}
+
+// Create a new parser
+parser_new = (tokens: [token.Token]) Parser {
+    return Parser {
+        tokens: tokens,
+        current: 0,
+        errors: [],
+    }
+}
+
+// Check if we're at the end
+parser_is_at_end = (p: *Parser) bool {
+    return p.current >= p.tokens.len() || 
+           p.tokens[p.current].type == token.TokenType.EOF
+}
+
+// Peek at current token
+parser_peek = (p: *Parser) token.Token {
+    parser_is_at_end(p) ? | true => {
+        // Return EOF token
+        return token.create_token(token.TokenType.EOF, "", 0, 0)
+    } | false => {
+        return p.tokens[p.current]
+    }
+}
+
+// Advance to next token
+parser_advance = (p: *Parser) token.Token {
+    !parser_is_at_end(p) ? | true => {
+        p.current = p.current + 1
+    } | false => {}
+    return p.tokens[p.current - 1]
+}
+
+// Check if current token matches type
+parser_check = (p: *Parser, type: token.TokenType) bool {
+    parser_is_at_end(p) ? | true => { return false } | false => {}
+    return parser_peek(p).type == type
+}
+
+// Match and consume token if it matches
+parser_match = (p: *Parser, types: [token.TokenType]) bool {
+    i := 0
+    loop (i < types.len()) {
+        parser_check(p, types[i]) ? | true => {
+            parser_advance(p)
+            return true
+        } | false => {}
+        i = i + 1
+    }
+    return false
+}
+
+// Consume token or error
+parser_consume = (p: *Parser, type: token.TokenType, message: String) token.Token {
+    parser_check(p, type) ? | true => {
+        return parser_advance(p)
+    } | false => {
+        p.errors.append(message)
+        // Return error token
+        return token.create_token(token.TokenType.EOF, "ERROR", 0, 0)
+    }
+}
+
+// Parse primary expression
+parser_parse_primary = (p: *Parser) *AstNode {
+    // Integer literal
+    parser_match(p, [token.TokenType.Integer]) ? | true => {
+        tok := p.tokens[p.current - 1]
+        node := AstNode {
+            type: NodeType.Literal,
+            line: tok.line,
+            column: tok.column,
+            int_value: tok.value.to_int(),  // Assuming string to int conversion
+        }
+        return &node
+    } | false => {}
+    
+    // Float literal
+    parser_match(p, [token.TokenType.Float]) ? | true => {
+        tok := p.tokens[p.current - 1]
+        node := AstNode {
+            type: NodeType.Literal,
+            line: tok.line,
+            column: tok.column,
+            float_value: tok.value.to_float(),  // Assuming string to float conversion
+        }
+        return &node
+    } | false => {}
+    
+    // String literal
+    parser_match(p, [token.TokenType.String]) ? | true => {
+        tok := p.tokens[p.current - 1]
+        node := AstNode {
+            type: NodeType.Literal,
+            line: tok.line,
+            column: tok.column,
+            string_value: tok.value,
+        }
+        return &node
+    } | false => {}
+    
+    // Boolean literals (true/false keywords)
+    parser_peek(p).type == token.TokenType.Keyword && 
+    (parser_peek(p).value == "true" || parser_peek(p).value == "false") ? | true => {
+        tok := parser_advance(p)
+        node := AstNode {
+            type: NodeType.Literal,
+            line: tok.line,
+            column: tok.column,
+            bool_value: tok.value == "true",
+        }
+        return &node
+    } | false => {}
+    
+    // Identifier
+    parser_match(p, [token.TokenType.Identifier]) ? | true => {
+        tok := p.tokens[p.current - 1]
+        node := AstNode {
+            type: NodeType.Identifier,
+            line: tok.line,
+            column: tok.column,
+            name: tok.value,
+        }
+        return &node
+    } | false => {}
+    
+    // Parenthesized expression
+    parser_match(p, [token.TokenType.LeftParen]) ? | true => {
+        expr := parser_parse_expression(p)
+        parser_consume(p, token.TokenType.RightParen, "Expected ')' after expression")
+        return expr
+    } | false => {}
+    
+    // If we get here, we have an error
+    p.errors.append("Unexpected token in expression")
+    return &AstNode { type: NodeType.Literal }  // Return error node
+}
+
+// Parse expression (simplified for now)
+parser_parse_expression = (p: *Parser) *AstNode {
+    return parser_parse_equality(p)
+}
+
+// Parse equality operators
+parser_parse_equality = (p: *Parser) *AstNode {
+    expr := parser_parse_comparison(p)
+    
+    loop (parser_match(p, [token.TokenType.Equals, token.TokenType.NotEquals])) {
+        op := p.tokens[p.current - 1]
+        right := parser_parse_comparison(p)
+        
+        binary_node := AstNode {
+            type: NodeType.Binary,
+            line: op.line,
+            column: op.column,
+            operator: op.value,
+            left: expr,
+            right: right,
+        }
+        expr = &binary_node
+    }
+    
+    return expr
+}
+
+// Parse comparison operators
+parser_parse_comparison = (p: *Parser) *AstNode {
+    expr := parser_parse_addition(p)
+    
+    loop (parser_match(p, [token.TokenType.LessThan, token.TokenType.LessThanEquals,
+                           token.TokenType.GreaterThan, token.TokenType.GreaterThanEquals])) {
+        op := p.tokens[p.current - 1]
+        right := parser_parse_addition(p)
+        
+        binary_node := AstNode {
+            type: NodeType.Binary,
+            line: op.line,
+            column: op.column,
+            operator: op.value,
+            left: expr,
+            right: right,
+        }
+        expr = &binary_node
+    }
+    
+    return expr
+}
+
+// Parse addition/subtraction
+parser_parse_addition = (p: *Parser) *AstNode {
+    expr := parser_parse_multiplication(p)
+    
+    loop (parser_match(p, [token.TokenType.Plus, token.TokenType.Minus])) {
+        op := p.tokens[p.current - 1]
+        right := parser_parse_multiplication(p)
+        
+        binary_node := AstNode {
+            type: NodeType.Binary,
+            line: op.line,
+            column: op.column,
+            operator: op.value,
+            left: expr,
+            right: right,
+        }
+        expr = &binary_node
+    }
+    
+    return expr
+}
+
+// Parse multiplication/division
+parser_parse_multiplication = (p: *Parser) *AstNode {
+    expr := parser_parse_unary(p)
+    
+    loop (parser_match(p, [token.TokenType.Star, token.TokenType.Slash, token.TokenType.Percent])) {
+        op := p.tokens[p.current - 1]
+        right := parser_parse_unary(p)
+        
+        binary_node := AstNode {
+            type: NodeType.Binary,
+            line: op.line,
+            column: op.column,
+            operator: op.value,
+            left: expr,
+            right: right,
+        }
+        expr = &binary_node
+    }
+    
+    return expr
+}
+
+// Parse unary operators
+parser_parse_unary = (p: *Parser) *AstNode {
+    parser_match(p, [token.TokenType.Not, token.TokenType.Minus]) ? | true => {
+        op := p.tokens[p.current - 1]
+        operand := parser_parse_unary(p)
+        
+        unary_node := AstNode {
+            type: NodeType.Unary,
+            line: op.line,
+            column: op.column,
+            operator: op.value,
+            operand: operand,
+        }
+        return &unary_node
+    } | false => {}
+    
+    return parser_parse_postfix(p)
+}
+
+// Parse postfix operations (function calls, member access, array access)
+parser_parse_postfix = (p: *Parser) *AstNode {
+    expr := parser_parse_primary(p)
+    
+    loop {
+        // Function call
+        parser_match(p, [token.TokenType.LeftParen]) ? | true => {
+            args := []
+            
+            !parser_check(p, token.TokenType.RightParen) ? | true => {
+                loop {
+                    args.append(parser_parse_expression(p))
+                    !parser_match(p, [token.TokenType.Comma]) ? | true => { break } | false => {}
+                }
+            } | false => {}
+            
+            parser_consume(p, token.TokenType.RightParen, "Expected ')' after arguments")
+            
+            call_node := AstNode {
+                type: NodeType.FunctionCall,
+                line: expr.line,
+                column: expr.column,
+                callee: expr,
+                arguments: args,
+            }
+            expr = &call_node
+            continue
+        } | false => {}
+        
+        // Member access
+        parser_match(p, [token.TokenType.Dot]) ? | true => {
+            member := parser_consume(p, token.TokenType.Identifier, "Expected member name after '.'")
+            
+            access_node := AstNode {
+                type: NodeType.MemberAccess,
+                line: member.line,
+                column: member.column,
+                left: expr,
+                name: member.value,
+            }
+            expr = &access_node
+            continue
+        } | false => {}
+        
+        // Array access
+        parser_match(p, [token.TokenType.LeftBracket]) ? | true => {
+            index := parser_parse_expression(p)
+            parser_consume(p, token.TokenType.RightBracket, "Expected ']' after array index")
+            
+            array_node := AstNode {
+                type: NodeType.ArrayAccess,
+                line: expr.line,
+                column: expr.column,
+                left: expr,
+                right: index,
+            }
+            expr = &array_node
+            continue
+        } | false => {}
+        
+        break
+    }
+    
+    return expr
+}
+
+// Parse statement
+parser_parse_statement = (p: *Parser) *AstNode {
+    // Variable declaration with :=
+    parser_peek(p).type == token.TokenType.Identifier ? | true => {
+        // Look ahead for := or =
+        next_tok := p.tokens[p.current + 1]
+        
+        next_tok.type == token.TokenType.AssignConst ? | true => {
+            // Variable declaration
+            name_tok := parser_advance(p)
+            parser_advance(p)  // consume :=
+            init := parser_parse_expression(p)
+            
+            var_node := AstNode {
+                type: NodeType.VariableDecl,
+                line: name_tok.line,
+                column: name_tok.column,
+                name: name_tok.value,
+                initializer: init,
+                is_mutable: false,
+            }
+            return &var_node
+        } | false => {}
+    } | false => {}
+    
+    // Return statement
+    parser_peek(p).type == token.TokenType.Keyword && 
+    parser_peek(p).value == "return" ? | true => {
+        ret_tok := parser_advance(p)
+        
+        // Optional return value
+        value := parser_is_at_end(p) || parser_peek(p).value == "}" ? 
+            | true => { nullptr } 
+            | false => { parser_parse_expression(p) }
+        
+        ret_node := AstNode {
+            type: NodeType.Return,
+            line: ret_tok.line,
+            column: ret_tok.column,
+            operand: value,
+        }
+        return &ret_node
+    } | false => {}
+    
+    // Expression statement
+    expr := parser_parse_expression(p)
+    expr_stmt := AstNode {
+        type: NodeType.ExpressionStmt,
+        line: expr.line,
+        column: expr.column,
+        operand: expr,
+    }
+    return &expr_stmt
+}
+
+// Parse program
+parser_parse_program = (p: *Parser) *AstNode {
+    statements := []
+    
+    loop (!parser_is_at_end(p)) {
+        stmt := parser_parse_statement(p)
+        statements.append(stmt)
+        
+        // Optional semicolon
+        parser_match(p, [token.TokenType.Semicolon])
+    }
+    
+    program := AstNode {
+        type: NodeType.Program,
+        line: 0,
+        column: 0,
+        statements: statements,
+    }
+    
+    return &program
+}
+
+// Main test function
+main = () i32 {
+    io.print("Zen Parser - Self-hosting component\n")
+    io.print("===================================\n\n")
+    
+    // Test input
+    input := "x := 42\ny := x + 10 * 2\nreturn y"
+    io.print("Input:\n")
+    io.print(input)
+    io.print("\n\n")
+    
+    // Tokenize
+    l := lexer.lexer_new(input)
+    tokens := []
+    loop {
+        tok := lexer.lexer_next_token(&l)
+        tokens.append(tok)
+        tok.type == token.TokenType.EOF ? | true => { break } | false => {}
+    }
+    
+    // Parse
+    p := parser_new(tokens)
+    ast := parser_parse_program(&p)
+    
+    // Report results
+    io.print("Parsing complete!\n")
+    io.print("Statements parsed: ")
+    io.print_int(ast.statements.len())
+    io.print("\n")
+    
+    p.errors.len() > 0 ? | true => {
+        io.print("\nErrors:\n")
+        i := 0
+        loop (i < p.errors.len()) {
+            io.print("  - ")
+            io.print(p.errors[i])
+            io.print("\n")
+            i = i + 1
+        }
+    } | false => {
+        io.print("No errors!\n")
+    }
+    
+    return 0
+}
