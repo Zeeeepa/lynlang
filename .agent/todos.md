@@ -1,26 +1,24 @@
 # Zen Language - Todo List
 
 ## Completed ✅
-- [x] Analyze current import syntax implementation
-- [x] Run existing tests to check current state
-- [x] Create comprehensive test file for new import syntax
+- [x] Fix import syntax - removed comptime requirement
+- [x] Fix struct syntax in self-hosting files
+- [x] Create arithmetic test suite
+- [x] Add test_simple.zen testing utilities
+- [x] Verify LSP builds and exists
 - [x] Update .agent directory with progress
 
 ## In Progress 🔄
-- [ ] Fix failing language feature tests
-  - test_fibonacci_recursive
-  - test_multiple_return_values
-  - test_nested_pattern_matching
-  - test_struct_with_methods
+- [ ] Complete self-hosted compiler bootstrap
+- [ ] Expand test coverage
 
 ## Pending 📋
-- [ ] Write test for self-hosting components
-- [ ] Implement lexer in Zen
-- [ ] Implement parser in Zen
-- [ ] Implement semantic analyzer in Zen
-- [ ] Implement code generator in Zen
-- [ ] Create testing framework in Zen
-- [ ] Develop LSP support
+- [ ] Fix pattern matching with enums
+- [ ] Test self-hosted lexer
+- [ ] Test self-hosted parser
+- [ ] Implement missing stdlib modules
+- [ ] Add LSP features (completion, hover)
+- [ ] Create documentation generator
 
 ## Priority Order
 1. Fix failing tests (critical for stability)
