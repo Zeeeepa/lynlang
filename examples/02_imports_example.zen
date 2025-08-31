@@ -1,0 +1,13 @@
+// Zen Language Example: Correct Import Syntax
+// Demonstrates proper module imports without comptime blocks
+
+// Direct imports at module level - this is the correct way
+core := @std.core
+build := @std.build
+io := build.import("io")
+
+// Main function demonstrating usage
+main = () i32 {
+    io.print("Hello, Zen!\n")
+    return 0
+}
