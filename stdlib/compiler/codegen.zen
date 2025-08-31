@@ -1,0 +1,463 @@
+// Zen Code Generator - Self-hosted code generation implementation
+// Generates LLVM IR or C code from typed AST
+
+core := @std.core
+io := @std.io
+parser := @compiler.parser
+type_checker := @compiler.type_checker
+
+// Code generation target
+Target = enum {
+    LLVM_IR,
+    C,
+    Assembly,
+}
+
+// Code generator context
+CodeGen = {
+    target: Target,
+    output: String,
+    indent_level: i32,
+    temp_counter: i32,
+    label_counter: i32,
+    errors: [String],
+    current_function: String,
+    in_main: bool,
+}
+
+// Create new code generator
+codegen_new = (target: Target) CodeGen {
+    return CodeGen {
+        target: target,
+        output: "",
+        indent_level: 0,
+        temp_counter: 0,
+        label_counter: 0,
+        errors: [],
+        current_function: "",
+        in_main: false,
+    }
+}
+
+// Generate a temporary variable name
+gen_temp = (cg: *CodeGen) String {
+    name := "t" + cg.temp_counter.to_string()
+    cg.temp_counter = cg.temp_counter + 1
+    return name
+}
+
+// Generate a label name
+gen_label = (cg: *CodeGen) String {
+    name := "L" + cg.label_counter.to_string()
+    cg.label_counter = cg.label_counter + 1
+    return name
+}
+
+// Emit code with proper indentation
+emit = (cg: *CodeGen, code: String) void {
+    i := 0
+    loop (i < cg.indent_level) {
+        cg.output = cg.output + "  "
+        i = i + 1
+    }
+    cg.output = cg.output + code + "\n"
+}
+
+// Emit raw code without indentation
+emit_raw = (cg: *CodeGen, code: String) void {
+    cg.output = cg.output + code
+}
+
+// Convert Zen type to C type
+zen_type_to_c = (t: *type_checker.Type) String {
+    t.kind == type_checker.TypeKind.Void ? | true => { return "void" } | false => {}
+    t.kind == type_checker.TypeKind.Bool ? | true => { return "bool" } | false => {}
+    t.kind == type_checker.TypeKind.I8 ? | true => { return "int8_t" } | false => {}
+    t.kind == type_checker.TypeKind.I16 ? | true => { return "int16_t" } | false => {}
+    t.kind == type_checker.TypeKind.I32 ? | true => { return "int32_t" } | false => {}
+    t.kind == type_checker.TypeKind.I64 ? | true => { return "int64_t" } | false => {}
+    t.kind == type_checker.TypeKind.U8 ? | true => { return "uint8_t" } | false => {}
+    t.kind == type_checker.TypeKind.U16 ? | true => { return "uint16_t" } | false => {}
+    t.kind == type_checker.TypeKind.U32 ? | true => { return "uint32_t" } | false => {}
+    t.kind == type_checker.TypeKind.U64 ? | true => { return "uint64_t" } | false => {}
+    t.kind == type_checker.TypeKind.F32 ? | true => { return "float" } | false => {}
+    t.kind == type_checker.TypeKind.F64 ? | true => { return "double" } | false => {}
+    t.kind == type_checker.TypeKind.String ? | true => { return "char*" } | false => {}
+    t.kind == type_checker.TypeKind.Pointer ? | true => {
+        return zen_type_to_c(t.pointee_type) + "*"
+    } | false => {}
+    
+    return "unknown_type"
+}
+
+// Convert Zen type to LLVM type
+zen_type_to_llvm = (t: *type_checker.Type) String {
+    t.kind == type_checker.TypeKind.Void ? | true => { return "void" } | false => {}
+    t.kind == type_checker.TypeKind.Bool ? | true => { return "i1" } | false => {}
+    t.kind == type_checker.TypeKind.I8 ? | true => { return "i8" } | false => {}
+    t.kind == type_checker.TypeKind.I16 ? | true => { return "i16" } | false => {}
+    t.kind == type_checker.TypeKind.I32 ? | true => { return "i32" } | false => {}
+    t.kind == type_checker.TypeKind.I64 ? | true => { return "i64" } | false => {}
+    t.kind == type_checker.TypeKind.U8 ? | true => { return "i8" } | false => {}
+    t.kind == type_checker.TypeKind.U16 ? | true => { return "i16" } | false => {}
+    t.kind == type_checker.TypeKind.U32 ? | true => { return "i32" } | false => {}
+    t.kind == type_checker.TypeKind.U64 ? | true => { return "i64" } | false => {}
+    t.kind == type_checker.TypeKind.F32 ? | true => { return "float" } | false => {}
+    t.kind == type_checker.TypeKind.F64 ? | true => { return "double" } | false => {}
+    t.kind == type_checker.TypeKind.String ? | true => { return "i8*" } | false => {}
+    t.kind == type_checker.TypeKind.Pointer ? | true => {
+        return zen_type_to_llvm(t.pointee_type) + "*"
+    } | false => {}
+    
+    return "unknown_type"
+}
+
+// Generate code for expression (C target)
+gen_expr_c = (cg: *CodeGen, node: *parser.AstNode) String {
+    node.type == parser.NodeType.Literal ? | true => {
+        node.int_value != 0 ? | true => { return node.int_value.to_string() } | false => {}
+        node.float_value != 0.0 ? | true => { return node.float_value.to_string() } | false => {}
+        node.string_value.len() > 0 ? | true => { 
+            return "\"" + node.string_value + "\""
+        } | false => {}
+        node.bool_value ? | true => { return "true" } | false => { return "false" }
+    } | false => {}
+    
+    node.type == parser.NodeType.Identifier ? | true => {
+        return node.name
+    } | false => {}
+    
+    node.type == parser.NodeType.Binary ? | true => {
+        left := gen_expr_c(cg, node.left)
+        right := gen_expr_c(cg, node.right)
+        return "(" + left + " " + node.operator + " " + right + ")"
+    } | false => {}
+    
+    node.type == parser.NodeType.Unary ? | true => {
+        operand := gen_expr_c(cg, node.operand)
+        return "(" + node.operator + operand + ")"
+    } | false => {}
+    
+    node.type == parser.NodeType.FunctionCall ? | true => {
+        call := gen_expr_c(cg, node.callee) + "("
+        i := 0
+        loop (i < node.arguments.len()) {
+            i > 0 ? | true => { call = call + ", " } | false => {}
+            call = call + gen_expr_c(cg, node.arguments[i])
+            i = i + 1
+        }
+        call = call + ")"
+        return call
+    } | false => {}
+    
+    node.type == parser.NodeType.MemberAccess ? | true => {
+        obj := gen_expr_c(cg, node.left)
+        return obj + "." + node.name
+    } | false => {}
+    
+    node.type == parser.NodeType.ArrayAccess ? | true => {
+        arr := gen_expr_c(cg, node.left)
+        index := gen_expr_c(cg, node.right)
+        return arr + "[" + index + "]"
+    } | false => {}
+    
+    return "/* unknown expression */"
+}
+
+// Generate code for statement (C target)
+gen_stmt_c = (cg: *CodeGen, node: *parser.AstNode) void {
+    node.type == parser.NodeType.VariableDecl ? | true => {
+        type_str := node.var_type != nullptr ? 
+            | true => { zen_type_to_c(node.var_type) } 
+            | false => { "auto" }
+        
+        emit(cg, type_str + " " + node.name)
+        
+        node.initializer != nullptr ? | true => {
+            emit_raw(cg, " = " + gen_expr_c(cg, node.initializer))
+        } | false => {}
+        
+        emit_raw(cg, ";")
+    } | false => {}
+    
+    node.type == parser.NodeType.Assignment ? | true => {
+        emit(cg, node.name + " = " + gen_expr_c(cg, node.operand) + ";")
+    } | false => {}
+    
+    node.type == parser.NodeType.FunctionDecl ? | true => {
+        // Generate function signature
+        ret_type := zen_type_to_c(node.return_type)
+        emit(cg, ret_type + " " + node.name + "(")
+        
+        // Parameters
+        i := 0
+        loop (i < node.params.len()) {
+            i > 0 ? | true => { emit_raw(cg, ", ") } | false => {}
+            param := node.params[i]
+            param_type := zen_type_to_c(param.var_type)
+            emit_raw(cg, param_type + " " + param.name)
+            i = i + 1
+        }
+        
+        emit_raw(cg, ") {")
+        cg.indent_level = cg.indent_level + 1
+        
+        // Function body
+        cg.current_function = node.name
+        gen_stmt_c(cg, node.body)
+        cg.current_function = ""
+        
+        cg.indent_level = cg.indent_level - 1
+        emit(cg, "}")
+        emit(cg, "")
+    } | false => {}
+    
+    node.type == parser.NodeType.Block ? | true => {
+        i := 0
+        loop (i < node.statements.len()) {
+            gen_stmt_c(cg, node.statements[i])
+            i = i + 1
+        }
+    } | false => {}
+    
+    node.type == parser.NodeType.If ? | true => {
+        condition := gen_expr_c(cg, node.condition)
+        emit(cg, "if (" + condition + ") {")
+        cg.indent_level = cg.indent_level + 1
+        gen_stmt_c(cg, node.then_branch)
+        cg.indent_level = cg.indent_level - 1
+        
+        node.else_branch != nullptr ? | true => {
+            emit(cg, "} else {")
+            cg.indent_level = cg.indent_level + 1
+            gen_stmt_c(cg, node.else_branch)
+            cg.indent_level = cg.indent_level - 1
+        } | false => {}
+        
+        emit(cg, "}")
+    } | false => {}
+    
+    node.type == parser.NodeType.Loop ? | true => {
+        node.condition != nullptr ? | true => {
+            condition := gen_expr_c(cg, node.condition)
+            emit(cg, "while (" + condition + ") {")
+        } | false => {
+            emit(cg, "while (1) {")
+        }
+        
+        cg.indent_level = cg.indent_level + 1
+        gen_stmt_c(cg, node.body)
+        cg.indent_level = cg.indent_level - 1
+        emit(cg, "}")
+    } | false => {}
+    
+    node.type == parser.NodeType.Return ? | true => {
+        node.operand != nullptr ? | true => {
+            emit(cg, "return " + gen_expr_c(cg, node.operand) + ";")
+        } | false => {
+            emit(cg, "return;")
+        }
+    } | false => {}
+    
+    node.type == parser.NodeType.Break ? | true => {
+        emit(cg, "break;")
+    } | false => {}
+    
+    node.type == parser.NodeType.Continue ? | true => {
+        emit(cg, "continue;")
+    } | false => {}
+    
+    node.type == parser.NodeType.ExpressionStmt ? | true => {
+        emit(cg, gen_expr_c(cg, node.operand) + ";")
+    } | false => {}
+    
+    node.type == parser.NodeType.PatternMatch ? | true => {
+        // Generate pattern match as if-else chain
+        scrutinee := gen_expr_c(cg, node.scrutinee)
+        
+        i := 0
+        loop (i < node.arms.len()) {
+            arm := node.arms[i]
+            
+            i == 0 ? | true => {
+                emit(cg, "if (" + scrutinee + " == " + arm.pattern.identifier_name + ") {")
+            } | false => {
+                emit(cg, "} else if (" + scrutinee + " == " + arm.pattern.identifier_name + ") {")
+            }
+            
+            cg.indent_level = cg.indent_level + 1
+            gen_stmt_c(cg, arm.body)
+            cg.indent_level = cg.indent_level - 1
+            
+            i = i + 1
+        }
+        
+        emit(cg, "}")
+    } | false => {}
+}
+
+// Generate C code for program
+gen_program_c = (cg: *CodeGen, program: *parser.AstNode) void {
+    // Generate includes
+    emit(cg, "#include <stdio.h>")
+    emit(cg, "#include <stdlib.h>")
+    emit(cg, "#include <stdbool.h>")
+    emit(cg, "#include <stdint.h>")
+    emit(cg, "#include <string.h>")
+    emit(cg, "")
+    
+    // Generate forward declarations
+    emit(cg, "// Forward declarations")
+    i := 0
+    loop (i < program.statements.len()) {
+        stmt := program.statements[i]
+        stmt.type == parser.NodeType.FunctionDecl ? | true => {
+            ret_type := zen_type_to_c(stmt.return_type)
+            emit_raw(cg, ret_type + " " + stmt.name + "(")
+            
+            j := 0
+            loop (j < stmt.params.len()) {
+                j > 0 ? | true => { emit_raw(cg, ", ") } | false => {}
+                param := stmt.params[j]
+                param_type := zen_type_to_c(param.var_type)
+                emit_raw(cg, param_type + " " + param.name)
+                j = j + 1
+            }
+            
+            emit_raw(cg, ");")
+            emit(cg, "")
+        } | false => {}
+        i = i + 1
+    }
+    emit(cg, "")
+    
+    // Generate functions and global variables
+    emit(cg, "// Functions and globals")
+    i = 0
+    loop (i < program.statements.len()) {
+        gen_stmt_c(cg, program.statements[i])
+        i = i + 1
+    }
+}
+
+// Generate LLVM IR for expression
+gen_expr_llvm = (cg: *CodeGen, node: *parser.AstNode, result: String) void {
+    node.type == parser.NodeType.Literal ? | true => {
+        node.int_value != 0 ? | true => {
+            emit(cg, "  " + result + " = add i32 0, " + node.int_value.to_string())
+        } | false => {}
+        // Add more literal types...
+    } | false => {}
+    
+    node.type == parser.NodeType.Binary ? | true => {
+        left_temp := gen_temp(cg)
+        right_temp := gen_temp(cg)
+        
+        gen_expr_llvm(cg, node.left, left_temp)
+        gen_expr_llvm(cg, node.right, right_temp)
+        
+        op := node.operator
+        op == "+" ? | true => {
+            emit(cg, "  " + result + " = add i32 " + left_temp + ", " + right_temp)
+        } | false => {}
+        op == "-" ? | true => {
+            emit(cg, "  " + result + " = sub i32 " + left_temp + ", " + right_temp)
+        } | false => {}
+        op == "*" ? | true => {
+            emit(cg, "  " + result + " = mul i32 " + left_temp + ", " + right_temp)
+        } | false => {}
+        op == "/" ? | true => {
+            emit(cg, "  " + result + " = sdiv i32 " + left_temp + ", " + right_temp)
+        } | false => {}
+    } | false => {}
+    
+    // Add more expression types...
+}
+
+// Generate LLVM IR for statement
+gen_stmt_llvm = (cg: *CodeGen, node: *parser.AstNode) void {
+    node.type == parser.NodeType.FunctionDecl ? | true => {
+        ret_type := zen_type_to_llvm(node.return_type)
+        emit_raw(cg, "define " + ret_type + " @" + node.name + "(")
+        
+        // Parameters
+        i := 0
+        loop (i < node.params.len()) {
+            i > 0 ? | true => { emit_raw(cg, ", ") } | false => {}
+            param := node.params[i]
+            param_type := zen_type_to_llvm(param.var_type)
+            emit_raw(cg, param_type + " %" + param.name)
+            i = i + 1
+        }
+        
+        emit_raw(cg, ") {")
+        emit(cg, "entry:")
+        
+        // Function body
+        cg.current_function = node.name
+        gen_stmt_llvm(cg, node.body)
+        cg.current_function = ""
+        
+        emit(cg, "}")
+        emit(cg, "")
+    } | false => {}
+    
+    node.type == parser.NodeType.Return ? | true => {
+        node.operand != nullptr ? | true => {
+            temp := gen_temp(cg)
+            gen_expr_llvm(cg, node.operand, temp)
+            emit(cg, "  ret i32 " + temp)
+        } | false => {
+            emit(cg, "  ret void")
+        }
+    } | false => {}
+    
+    // Add more statement types...
+}
+
+// Generate code for program
+generate_program = (cg: *CodeGen, program: *parser.AstNode) bool {
+    program.type != parser.NodeType.Program ? | true => {
+        cg.errors.append("Expected program node")
+        return false
+    } | false => {}
+    
+    cg.target == Target.C ? | true => {
+        gen_program_c(cg, program)
+    } | false => {}
+    
+    cg.target == Target.LLVM_IR ? | true => {
+        // Generate LLVM IR header
+        emit(cg, "; ModuleID = 'zen_program'")
+        emit(cg, "source_filename = \"zen_program\"")
+        emit(cg, "")
+        
+        // Generate declarations
+        emit(cg, "; External declarations")
+        emit(cg, "declare i32 @printf(i8*, ...)")
+        emit(cg, "")
+        
+        // Generate functions
+        i := 0
+        loop (i < program.statements.len()) {
+            gen_stmt_llvm(cg, program.statements[i])
+            i = i + 1
+        }
+    } | false => {}
+    
+    return cg.errors.len() == 0
+}
+
+// Main test function
+main = () i32 {
+    io.print("Zen Code Generator - Self-hosting component\n")
+    io.print("===========================================\n\n")
+    
+    // Create code generator for C target
+    cg := codegen_new(Target.C)
+    
+    io.print("Code generator initialized for C target\n")
+    io.print("Ready for code generation!\n")
+    
+    return 0
+}
