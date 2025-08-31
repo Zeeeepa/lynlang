@@ -1,0 +1,392 @@
+// Zen LSP: Basic Syntax Checker
+// Provides real-time syntax checking for Zen code
+
+core := @std.core
+vec := @std.vec
+string := @std.string
+io := @std.io
+
+// Import compiler components
+lexer := @compiler.lexer
+parser := @compiler.parser
+
+// Diagnostic severity levels
+DiagnosticSeverity = 
+    | Error
+    | Warning
+    | Information
+    | Hint
+
+// Diagnostic information
+Diagnostic = {
+    severity: DiagnosticSeverity,
+    range: Range,
+    message: string,
+    code: string,
+}
+
+// Position in document
+Position = {
+    line: u32,
+    character: u32,
+}
+
+// Range in document
+Range = {
+    start: Position,
+    end: Position,
+}
+
+// Syntax checker state
+SyntaxChecker = {
+    diagnostics: Vec<Diagnostic>,
+    source: string,
+}
+
+// Create new syntax checker
+syntax_checker_new = () SyntaxChecker {
+    SyntaxChecker {
+        diagnostics: vec_new<Diagnostic>(),
+        source: "",
+    }
+}
+
+// Check syntax of source code
+check_syntax = (checker: Ptr<SyntaxChecker>, source: string) Vec<Diagnostic> {
+    checker.source = source
+    checker.diagnostics = vec_new<Diagnostic>()
+    
+    // Lexical analysis
+    lex_result := perform_lexical_analysis(checker, source)
+    lex_result ?
+        | false => return checker.diagnostics
+        | true => {}
+    
+    // Syntactic analysis
+    parse_result := perform_syntactic_analysis(checker)
+    parse_result ?
+        | false => return checker.diagnostics
+        | true => {}
+    
+    // Basic semantic checks
+    perform_basic_semantic_checks(checker)
+    
+    return checker.diagnostics
+}
+
+// Perform lexical analysis
+perform_lexical_analysis = (checker: Ptr<SyntaxChecker>, source: string) bool {
+    lex := lexer.lexer_new(source)
+    
+    loop {
+        token := lexer.next_token(&lex)
+        
+        token.kind ?
+            | lexer.TokenKind.Invalid(msg) => {
+                diagnostic := Diagnostic {
+                    severity: DiagnosticSeverity.Error,
+                    range: Range {
+                        start: Position { line: token.line - 1, character: token.column - 1 },
+                        end: Position { line: token.line - 1, character: token.column },
+                    },
+                    message: msg,
+                    code: "E001",
+                }
+                checker.diagnostics.push(diagnostic)
+                return false
+            }
+            | lexer.TokenKind.Eof => break
+            | _ => {}
+    }
+    
+    return true
+}
+
+// Perform syntactic analysis
+perform_syntactic_analysis = (checker: Ptr<SyntaxChecker>) bool {
+    lex := lexer.lexer_new(checker.source)
+    tokens := lexer.tokenize(&lex)
+    
+    parse := parser.parser_new(tokens)
+    result := parser.parse_program(&parse)
+    
+    result ?
+        | parser.ParseResult.Error(msg, pos) => {
+            diagnostic := Diagnostic {
+                severity: DiagnosticSeverity.Error,
+                range: Range {
+                    start: Position { line: pos.line - 1, character: pos.column - 1 },
+                    end: Position { line: pos.line - 1, character: pos.column + 10 },
+                },
+                message: msg,
+                code: "E002",
+            }
+            checker.diagnostics.push(diagnostic)
+            return false
+        }
+        | parser.ParseResult.Ok(_) => return true
+}
+
+// Perform basic semantic checks
+perform_basic_semantic_checks = (checker: Ptr<SyntaxChecker>) void {
+    // Check for common issues
+    check_unused_imports(checker)
+    check_unreachable_code(checker)
+    check_naming_conventions(checker)
+}
+
+// Check for unused imports
+check_unused_imports = (checker: Ptr<SyntaxChecker>) void {
+    // Parse source to find imports
+    lex := lexer.lexer_new(checker.source)
+    tokens := lexer.tokenize(&lex)
+    
+    imports := vec_new<string>()
+    used_imports := vec_new<string>()
+    
+    // Find all imports
+    i := 0
+    loop i < tokens.len() {
+        token := tokens[i]
+        token.kind ?
+            | lexer.TokenKind.ColonAssign => {
+                i > 0 & i + 2 < tokens.len() ?
+                    | true => {
+                        prev_token := tokens[i - 1]
+                        next_token := tokens[i + 1]
+                        next_next := tokens[i + 2]
+                        
+                        next_token.kind ?
+                            | lexer.TokenKind.At => {
+                                // Found an import
+                                prev_token.kind ?
+                                    | lexer.TokenKind.Identifier(name) => {
+                                        imports.push(name)
+                                    }
+                                    | _ => {}
+                            }
+                            | _ => {}
+                    }
+                    | false => {}
+            }
+            | _ => {}
+        i = i + 1
+    }
+    
+    // Check if imports are used
+    i = 0
+    loop i < imports.len() {
+        import_name := imports[i]
+        is_used := check_import_usage(checker.source, import_name)
+        
+        is_used ?
+            | false => {
+                diagnostic := Diagnostic {
+                    severity: DiagnosticSeverity.Warning,
+                    range: Range {
+                        start: Position { line: 0, character: 0 },
+                        end: Position { line: 0, character: 0 },
+                    },
+                    message: "Unused import: " + import_name,
+                    code: "W001",
+                }
+                checker.diagnostics.push(diagnostic)
+            }
+            | true => {}
+        
+        i = i + 1
+    }
+}
+
+// Check if an import is used in the source
+check_import_usage = (source: string, import_name: string) bool {
+    // Simple check: look for import_name followed by dot
+    pattern := import_name + "."
+    return string_contains(source, pattern)
+}
+
+// Check for unreachable code
+check_unreachable_code = (checker: Ptr<SyntaxChecker>) void {
+    // Look for code after return statements
+    lines := string_split(checker.source, '\n')
+    
+    i := 0
+    loop i < lines.len() {
+        line := string_trim(lines[i])
+        
+        string_starts_with(line, "return") ?
+            | true => {
+                // Check if there's code after this in the same block
+                j := i + 1
+                loop j < lines.len() {
+                    next_line := string_trim(lines[j])
+                    
+                    // Stop at closing brace
+                    string_starts_with(next_line, "}") ?
+                        | true => break
+                        | false => {}
+                    
+                    // Skip empty lines
+                    next_line.len() == 0 ?
+                        | true => {
+                            j = j + 1
+                            continue
+                        }
+                        | false => {}
+                    
+                    // Found unreachable code
+                    diagnostic := Diagnostic {
+                        severity: DiagnosticSeverity.Warning,
+                        range: Range {
+                            start: Position { line: j, character: 0 },
+                            end: Position { line: j, character: next_line.len() },
+                        },
+                        message: "Unreachable code detected",
+                        code: "W002",
+                    }
+                    checker.diagnostics.push(diagnostic)
+                    break
+                    
+                    j = j + 1
+                }
+            }
+            | false => {}
+        
+        i = i + 1
+    }
+}
+
+// Check naming conventions
+check_naming_conventions = (checker: Ptr<SyntaxChecker>) void {
+    lex := lexer.lexer_new(checker.source)
+    tokens := lexer.tokenize(&lex)
+    
+    i := 0
+    loop i < tokens.len() {
+        token := tokens[i]
+        token.kind ?
+            | lexer.TokenKind.Identifier(name) => {
+                // Check for proper naming
+                check_identifier_naming(checker, name, token.line, token.column)
+            }
+            | _ => {}
+        i = i + 1
+    }
+}
+
+// Check identifier naming conventions
+check_identifier_naming = (checker: Ptr<SyntaxChecker>, name: string, line: u32, column: u32) void {
+    // Constants should be UPPER_CASE
+    is_all_caps := true
+    has_underscore := false
+    
+    i := 0
+    loop i < name.len() {
+        c := name[i]
+        
+        c >= 'A' & c <= 'Z' ?
+            | false => {
+                c == '_' ?
+                    | true => has_underscore = true
+                    | false => is_all_caps = false
+            }
+            | true => {}
+        
+        i = i + 1
+    }
+    
+    // If it looks like a constant but isn't all caps
+    has_underscore & !is_all_caps & name.len() > 3 ?
+        | true => {
+            first_char := name[0]
+            first_char >= 'A' & first_char <= 'Z' ?
+                | true => {
+                    diagnostic := Diagnostic {
+                        severity: DiagnosticSeverity.Information,
+                        range: Range {
+                            start: Position { line: line - 1, character: column - 1 },
+                            end: Position { line: line - 1, character: column + name.len() - 1 },
+                        },
+                        message: "Consider using UPPER_CASE for constants",
+                        code: "I001",
+                    }
+                    checker.diagnostics.push(diagnostic)
+                }
+                | false => {}
+        }
+        | false => {}
+}
+
+// Format diagnostics as JSON
+format_diagnostics_json = (diagnostics: Vec<Diagnostic>) string {
+    result := "["
+    
+    i := 0
+    loop i < diagnostics.len() {
+        i > 0 ?
+            | true => result = result + ","
+            | false => {}
+        
+        diag := diagnostics[i]
+        severity_str := ""
+        diag.severity ?
+            | DiagnosticSeverity.Error => severity_str = "Error"
+            | DiagnosticSeverity.Warning => severity_str = "Warning"
+            | DiagnosticSeverity.Information => severity_str = "Information"
+            | DiagnosticSeverity.Hint => severity_str = "Hint"
+        
+        result = result + "{"
+        result = result + "\"severity\":\"" + severity_str + "\","
+        result = result + "\"message\":\"" + diag.message + "\","
+        result = result + "\"code\":\"" + diag.code + "\","
+        result = result + "\"range\":{"
+        result = result + "\"start\":{\"line\":" + u32_to_string(diag.range.start.line) + ","
+        result = result + "\"character\":" + u32_to_string(diag.range.start.character) + "},"
+        result = result + "\"end\":{\"line\":" + u32_to_string(diag.range.end.line) + ","
+        result = result + "\"character\":" + u32_to_string(diag.range.end.character) + "}"
+        result = result + "}}"
+        
+        i = i + 1
+    }
+    
+    result = result + "]"
+    return result
+}
+
+// Helper functions (would be in string module)
+string_contains = (s: string, pattern: string) bool {
+    // Implementation would check if pattern is in s
+    return false
+}
+
+string_split = (s: string, delimiter: char) Vec<string> {
+    // Implementation would split string by delimiter
+    return vec_new<string>()
+}
+
+string_trim = (s: string) string {
+    // Implementation would trim whitespace
+    return s
+}
+
+string_starts_with = (s: string, prefix: string) bool {
+    // Implementation would check if s starts with prefix
+    return false
+}
+
+u32_to_string = (n: u32) string {
+    // Implementation would convert number to string
+    return ""
+}
+
+// Export main functions
+export {
+    SyntaxChecker,
+    syntax_checker_new,
+    check_syntax,
+    format_diagnostics_json,
+    Diagnostic,
+    DiagnosticSeverity,
+    Position,
+    Range,
+}
