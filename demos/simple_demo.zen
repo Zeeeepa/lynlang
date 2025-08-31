@@ -1,0 +1,48 @@
+// Simple demo showcasing correct import syntax in Zen
+// Imports are at module level, NOT inside comptime blocks
+
+// Standard library imports - direct @std.module style
+core := @std.core
+io := @std.io
+math := @std.math
+
+// Build system imports - using build.import()
+build := @std.build
+string := build.import("string")
+vec := build.import("vec")
+
+// Main function demonstrating usage
+main = () i32 {
+    // Using imported modules
+    io.print("Hello from Zen!\n");
+    io.print("This demo shows correct import syntax.\n");
+    
+    // Math operations (when available)
+    value := 42;
+    io.print("Value: ");
+    io.print_int(value);
+    io.print("\n");
+    
+    // String operations (when available)
+    // msg := string.from("Zen imports work!");
+    // io.print(msg);
+    
+    io.print("Imports are at module level, not in comptime blocks.\n");
+    io.print("Comptime is only for meta-programming.\n");
+    
+    return 0
+}
+
+// Example of comptime used correctly for meta-programming
+comptime {
+    // Constants and compile-time evaluation
+    MAX_SIZE := 1024
+    DEBUG_MODE := true
+    
+    // NOT for imports!
+}
+
+// Function using imported modules
+greet = () void {
+    io.print("Hello from a function!\n");
+}

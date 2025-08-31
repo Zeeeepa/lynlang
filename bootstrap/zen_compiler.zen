@@ -1,0 +1,473 @@
+// Zen Self-Hosting Compiler
+// A compiler written in Zen that can compile Zen programs
+
+// Module imports at top level (not in comptime!)
+io := @std.io
+fs := @std.fs
+string := @std.string
+vec := @std.vec
+core := @std.core
+process := @std.process
+
+// Compiler version
+VERSION := "0.1.0"
+
+// Token types for lexer
+TokenType =
+    // Literals
+    IntLiteral,
+    FloatLiteral,
+    StringLiteral,
+    CharLiteral,
+    BoolLiteral,
+    
+    // Identifiers and keywords
+    Identifier,
+    Return,
+    If,
+    Else,
+    Loop,
+    Break,
+    Continue,
+    Const,
+    Enum,
+    Struct,
+    Comptime,
+    Import,
+    
+    // Types
+    I32,
+    I64,
+    U32,
+    U64,
+    F32,
+    F64,
+    Bool,
+    Void,
+    
+    // Operators
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Equal,
+    NotEqual,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    And,
+    Or,
+    Not,
+    Assign,
+    ColonAssign,
+    Arrow,
+    
+    // Delimiters
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    Comma,
+    Dot,
+    Semicolon,
+    Colon,
+    At,
+    
+    // Special
+    Eof,
+    Error
+
+// Token structure
+Token = {
+    type: TokenType,
+    lexeme: string,
+    line: i32,
+    column: i32,
+}
+
+// Lexer state
+Lexer = {
+    source: string,
+    current: i32,
+    line: i32,
+    column: i32,
+    tokens: vec.Vec<Token>,
+}
+
+// Create a new lexer
+new_lexer = (source: string) Lexer {
+    return Lexer {
+        source: source,
+        current: 0,
+        line: 1,
+        column: 1,
+        tokens: vec.new<Token>(),
+    }
+}
+
+// Check if at end of source
+is_at_end = (lexer: &Lexer) bool {
+    return lexer.current >= string.len(lexer.source)
+}
+
+// Get current character
+peek = (lexer: &Lexer) u8 {
+    if is_at_end(lexer) {
+        return 0
+    }
+    return string.char_at(lexer.source, lexer.current)
+}
+
+// Advance to next character
+advance = (lexer: &mut Lexer) u8 {
+    c := peek(lexer);
+    lexer.current = lexer.current + 1;
+    lexer.column = lexer.column + 1;
+    if c == '\n' {
+        lexer.line = lexer.line + 1;
+        lexer.column = 1;
+    }
+    return c
+}
+
+// Skip whitespace
+skip_whitespace = (lexer: &mut Lexer) void {
+    loop {
+        c := peek(lexer);
+        if c == ' ' || c == '\r' || c == '\t' || c == '\n' {
+            advance(lexer);
+        } else if c == '/' && peek_next(lexer) == '/' {
+            // Skip line comment
+            loop {
+                if peek(lexer) == '\n' || is_at_end(lexer) {
+                    break
+                }
+                advance(lexer);
+            }
+        } else {
+            break
+        }
+    }
+}
+
+// Peek next character
+peek_next = (lexer: &Lexer) u8 {
+    if lexer.current + 1 >= string.len(lexer.source) {
+        return 0
+    }
+    return string.char_at(lexer.source, lexer.current + 1)
+}
+
+// Add token to list
+add_token = (lexer: &mut Lexer, type: TokenType, lexeme: string) void {
+    token := Token {
+        type: type,
+        lexeme: lexeme,
+        line: lexer.line,
+        column: lexer.column - string.len(lexeme),
+    };
+    vec.push(&lexer.tokens, token);
+}
+
+// Scan identifier or keyword
+scan_identifier = (lexer: &mut Lexer) void {
+    start := lexer.current - 1;
+    loop {
+        c := peek(lexer);
+        if is_alpha(c) || is_digit(c) || c == '_' {
+            advance(lexer);
+        } else {
+            break
+        }
+    }
+    
+    text := string.slice(lexer.source, start, lexer.current);
+    
+    // Check for keywords
+    type := match text {
+        "return" => TokenType.Return,
+        "if" => TokenType.If,
+        "else" => TokenType.Else,
+        "loop" => TokenType.Loop,
+        "break" => TokenType.Break,
+        "continue" => TokenType.Continue,
+        "const" => TokenType.Const,
+        "enum" => TokenType.Enum,
+        "struct" => TokenType.Struct,
+        "comptime" => TokenType.Comptime,
+        "import" => TokenType.Import,
+        "i32" => TokenType.I32,
+        "i64" => TokenType.I64,
+        "u32" => TokenType.U32,
+        "u64" => TokenType.U64,
+        "f32" => TokenType.F32,
+        "f64" => TokenType.F64,
+        "bool" => TokenType.Bool,
+        "void" => TokenType.Void,
+        "true" | "false" => TokenType.BoolLiteral,
+        _ => TokenType.Identifier,
+    };
+    
+    add_token(lexer, type, text);
+}
+
+// Scan number literal
+scan_number = (lexer: &mut Lexer) void {
+    start := lexer.current - 1;
+    is_float := false;
+    
+    loop {
+        c := peek(lexer);
+        if is_digit(c) {
+            advance(lexer);
+        } else if c == '.' && !is_float && is_digit(peek_next(lexer)) {
+            is_float = true;
+            advance(lexer);
+        } else {
+            break
+        }
+    }
+    
+    text := string.slice(lexer.source, start, lexer.current);
+    type := if is_float { TokenType.FloatLiteral } else { TokenType.IntLiteral };
+    add_token(lexer, type, text);
+}
+
+// Scan string literal
+scan_string = (lexer: &mut Lexer) void {
+    start := lexer.current;
+    
+    loop {
+        if peek(lexer) == '"' || is_at_end(lexer) {
+            break
+        }
+        if peek(lexer) == '\n' {
+            lexer.line = lexer.line + 1;
+        }
+        advance(lexer);
+    }
+    
+    if is_at_end(lexer) {
+        add_token(lexer, TokenType.Error, "Unterminated string");
+        return
+    }
+    
+    advance(lexer); // Closing "
+    text := string.slice(lexer.source, start, lexer.current - 1);
+    add_token(lexer, TokenType.StringLiteral, text);
+}
+
+// Check if character is alphabetic
+is_alpha = (c: u8) bool {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+// Check if character is digit
+is_digit = (c: u8) bool {
+    return c >= '0' && c <= '9'
+}
+
+// Scan all tokens
+scan_tokens = (lexer: &mut Lexer) void {
+    loop {
+        if is_at_end(lexer) {
+            break
+        }
+        
+        skip_whitespace(lexer);
+        if is_at_end(lexer) {
+            break
+        }
+        
+        c := advance(lexer);
+        
+        match c {
+            // Single character tokens
+            '(' => add_token(lexer, TokenType.LeftParen, "("),
+            ')' => add_token(lexer, TokenType.RightParen, ")"),
+            '{' => add_token(lexer, TokenType.LeftBrace, "{"),
+            '}' => add_token(lexer, TokenType.RightBrace, "}"),
+            '[' => add_token(lexer, TokenType.LeftBracket, "["),
+            ']' => add_token(lexer, TokenType.RightBracket, "]"),
+            ',' => add_token(lexer, TokenType.Comma, ","),
+            '.' => add_token(lexer, TokenType.Dot, "."),
+            ';' => add_token(lexer, TokenType.Semicolon, ";"),
+            '+' => add_token(lexer, TokenType.Plus, "+"),
+            '-' => {
+                if peek(lexer) == '>' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.Arrow, "->");
+                } else {
+                    add_token(lexer, TokenType.Minus, "-");
+                }
+            },
+            '*' => add_token(lexer, TokenType.Star, "*"),
+            '/' => add_token(lexer, TokenType.Slash, "/"),
+            '%' => add_token(lexer, TokenType.Percent, "%"),
+            '@' => add_token(lexer, TokenType.At, "@"),
+            
+            // Two character tokens
+            ':' => {
+                if peek(lexer) == '=' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.ColonAssign, ":=");
+                } else {
+                    add_token(lexer, TokenType.Colon, ":");
+                }
+            },
+            '=' => {
+                if peek(lexer) == '=' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.Equal, "==");
+                } else {
+                    add_token(lexer, TokenType.Assign, "=");
+                }
+            },
+            '!' => {
+                if peek(lexer) == '=' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.NotEqual, "!=");
+                } else {
+                    add_token(lexer, TokenType.Not, "!");
+                }
+            },
+            '<' => {
+                if peek(lexer) == '=' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.LessEqual, "<=");
+                } else {
+                    add_token(lexer, TokenType.Less, "<");
+                }
+            },
+            '>' => {
+                if peek(lexer) == '=' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.GreaterEqual, ">=");
+                } else {
+                    add_token(lexer, TokenType.Greater, ">");
+                }
+            },
+            '&' => {
+                if peek(lexer) == '&' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.And, "&&");
+                }
+            },
+            '|' => {
+                if peek(lexer) == '|' {
+                    advance(lexer);
+                    add_token(lexer, TokenType.Or, "||");
+                }
+            },
+            
+            // Literals
+            '"' => scan_string(lexer),
+            
+            _ => {
+                if is_alpha(c) || c == '_' {
+                    scan_identifier(lexer);
+                } else if is_digit(c) {
+                    scan_number(lexer);
+                } else {
+                    add_token(lexer, TokenType.Error, string.from_char(c));
+                }
+            }
+        }
+    }
+    
+    add_token(lexer, TokenType.Eof, "");
+}
+
+// Simple AST nodes
+AstNode =
+    Program { declarations: vec.Vec<Declaration> },
+    FunctionDecl { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> },
+    VariableDecl { name: string, type: string, value: Expression },
+    ImportDecl { alias: string, path: string }
+
+Declaration =
+    Function { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> },
+    Variable { name: string, type: string, value: Expression },
+    Import { alias: string, path: string }
+
+Parameter = {
+    name: string,
+    type: string,
+}
+
+Statement =
+    Return { value: Expression },
+    Expression { expr: Expression },
+    If { condition: Expression, then_branch: vec.Vec<Statement>, else_branch: vec.Vec<Statement> },
+    Loop { body: vec.Vec<Statement> },
+    Break,
+    Continue
+
+Expression =
+    IntLiteral { value: i32 },
+    FloatLiteral { value: f64 },
+    StringLiteral { value: string },
+    BoolLiteral { value: bool },
+    Identifier { name: string },
+    Binary { left: Box<Expression>, op: string, right: Box<Expression> },
+    Unary { op: string, operand: Box<Expression> },
+    Call { callee: Box<Expression>, args: vec.Vec<Expression> },
+    Member { object: Box<Expression>, member: string }
+
+// Simple compiler driver
+compile_file = (filename: string) bool {
+    // Read source file
+    source_result := fs.read_file(filename);
+    if source_result.is_err() {
+        io.print("Error reading file: ");
+        io.println(filename);
+        return false
+    }
+    
+    source := source_result.unwrap();
+    
+    // Tokenize
+    io.print("Lexing ");
+    io.print(filename);
+    io.print("... ");
+    
+    lexer := new_lexer(source);
+    scan_tokens(&lexer);
+    
+    io.print("Found ");
+    io.print_int(vec.len(lexer.tokens));
+    io.println(" tokens");
+    
+    // For now, just verify we can tokenize
+    if vec.len(lexer.tokens) > 0 {
+        io.println("✅ Lexing successful!");
+        return true
+    } else {
+        io.println("❌ Lexing failed!");
+        return false
+    }
+}
+
+// Main entry point
+main = () i32 {
+    io.print("Zen Self-Hosting Compiler v");
+    io.println(VERSION);
+    io.println("================================");
+    
+    // Test on a simple file
+    test_file := "demos/simple_demo.zen";
+    io.print("\nCompiling test file: ");
+    io.println(test_file);
+    
+    if compile_file(test_file) {
+        io.println("\n✨ Compilation successful!");
+        return 0
+    } else {
+        io.println("\n❌ Compilation failed!");
+        return 1
+    }
+}

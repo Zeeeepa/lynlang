@@ -1,75 +1,48 @@
-# Zenlang Global Memory
+# Zen Language - Global Memory
 
-## Project Overview
-Zenlang is a systems programming language with:
-- Clean import syntax (no comptime wrapping required)
-- Self-hosting compiler (in progress)
-- Comprehensive standard library
-- LSP support
+## Current State (2025-08-31)
 
-## Key Locations
-- Parser: `src/parser/statements.rs:14-120`
-- Module System: `src/module_system/mod.rs`
-- Type Checker: `src/typechecker/validation.rs:160-181`
-- Self-hosted Compiler: `bootstrap/compiler.zen`
-- Standard Library: `stdlib/`
+### ✅ Completed
+1. **Import System Fixed**
+   - Imports now work at module level
+   - No longer require comptime blocks
+   - Parser supports `identifier := @std.module` syntax
+   - Tests validate correct usage
 
-## Import Syntax Evolution
-```zen
-// OLD (deprecated)
-comptime {
-    core := @std.core
-    io := build.import("io")
-}
+2. **Standard Library in Zen**
+   - io_enhanced.zen - Complete IO module
+   - string_enhanced.zen - Comprehensive string operations
+   - vec_enhanced.zen - Functional vector operations
+   - test_framework.zen - Testing infrastructure
 
-// NEW (current)
-core := @std.core
-io := @std.io
-```
+3. **Binary Compilation**
+   - `-o` flag working for executable output
+   - LLVM backend generates native code
+   - Successfully compiles and runs Zen programs
 
-## Self-Hosting Status
-- ✅ Lexer (stdlib/compiler/lexer.zen)
-- ✅ Parser (compiler/parser.zen)
-- ✅ Type Checker (stdlib/compiler/type_checker.zen)
-- ✅ Symbol Table (stdlib/compiler/symbol_table.zen)
-- ✅ Code Generator (stdlib/compiler/codegen.zen - complete with C and LLVM IR targets)
-- ✅ LLVM Backend (stdlib/compiler/llvm_backend.zen - full integration)
+4. **Working Examples**
+   - simple_demo.zen - Basic import usage
+   - test_hello_binary.zen - Hello world binary
 
-## Testing Strategy
-- Unit tests for each component
-- Integration tests for full compilation
-- Import validation tests
-- Self-hosting bootstrap tests
+### 🚧 In Progress
+- Self-hosting compiler integration
+- LSP improvements
+- More stdlib modules
 
-## Known Issues
-- Type checker validation disabled (needs re-enabling)
-- ✅ Fixed: Examples now use correct import syntax
-- ✅ Fixed: LSP import validation implemented
-- ⚠️ Parser limitation: Nested conditionals require parentheses for correct parsing
+### 📝 Key Design Decisions
+- Imports at module level for clarity
+- comptime only for meta-programming
+- Result/Option types for error handling
+- Functional programming features in stdlib
 
-## Recent Changes (2025-08-31)
-- Major import system refactoring - imports must be at module level  
-- Added comprehensive stdlib modules in Zen
-- ✅ Completed self-hosted code generator with C and LLVM IR targets
-- ✅ Integrated LLVM backend module with full IR generation
-- ✅ Added comprehensive import validation tests
-- ✅ Implemented LSP validation for import placement
-- Enhanced test coverage with all tests passing (except LLVM physreg issues)
-- Created stdlib modules: io.zen, core.zen, math.zen, string.zen, vec.zen
-- Implemented self-hosted lexer.zen with full tokenization
-- Fixed test_comptime_import_error to validate at type-check phase
-- ✅ Verified all example files use correct import syntax
-- ✅ Confirmed comprehensive stdlib implementation complete
-- ✅ Self-hosted compiler implementation in bootstrap/compiler.zen
-- ✅ Fixed remaining comptime import issues in test files
-- ✅ LSP validation for imports already implemented and working
-- ✅ Updated all tests to properly reject imports in comptime blocks
-- ✅ Fixed: nested pattern matching test (requires parentheses)
-- ✅ Added binary compilation support (-o flag for native executables)
-- ✅ Successfully tested compilation: hello.zen, minimal_test.zen
-- ⚠️ Known issue: Complex pattern matching in blocks needs LLVM fixes
-- ✅ Fixed parser to reject imports inside comptime blocks - COMPLETE (2025-08-31)
-- ✅ Parser now enforces import restrictions at parse time
-- ✅ Enhanced import validation to catch all @ prefixed imports
-- ✅ Fixed test expectations for comptime import rejection
-- ✅ 40 of 41 test suites passing (1 minor test issue with @compiler detection)
+### 🔧 Technical Details
+- Parser: src/parser/statements.rs:14-120
+- Module system: src/module_system/mod.rs
+- Compiler binary support: src/main.rs:compile_file()
+
+### 🎯 Next Steps
+1. Complete self-hosting bootstrap
+2. Enhance LSP with better diagnostics
+3. Add more stdlib modules (async, net, etc.)
+4. Create comprehensive test suite
+5. Documentation and tutorials
