@@ -1,13 +1,10 @@
-// Zen Code Checker
-// A validation tool for Zen source files
+// Zen-Check: Syntax checker and linter for Zen language
+// Written in Zen for self-hosting
 
 io := @std.io
-fs := @std.fs
 string := @std.string
-vec := @std.vec
 core := @std.core
-
-// Check for common issues in Zen source code
+fs := @std.fs
 check_file = (filepath: string) i32 {
     // Read the file content
     content_result := fs.read_file(filepath)
