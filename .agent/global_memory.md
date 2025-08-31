@@ -55,11 +55,14 @@ Zen is a systems programming language with:
 - Import validation tests: ⚠️ 3/4 passing (io.print_float not implemented)
 - Self-hosting: ✅ Bootstrap script created, infrastructure ready
 
-## Recent Accomplishments
+## Recent Accomplishments (2025-08-31)
 - Fixed import system to use module-level imports without comptime wrapper
 - All Zen files now use correct import syntax
-- Comprehensive test coverage for import validation
-- Working LSP/linter implementation (zen-lint.sh)
+- Created enhanced linter with multiple output formats (GitHub Actions compatible)
+- Implemented comprehensive integration tests
+- Created bootstrap script for self-hosting
+- Documented complete self-hosting process
+- Working LSP/linter implementation (zen-lint.sh and zen-lint-enhanced.sh)
 
 ## Build Commands
 ```bash
