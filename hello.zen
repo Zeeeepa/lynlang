@@ -1,0 +1,8 @@
+// Simple Hello World program in Zen
+
+extern printf = (format: *i8, ...) i32
+
+main = () i32 {
+    printf("Hello from Zen!\n")
+    return 0
+}
