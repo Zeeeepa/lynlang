@@ -6,17 +6,15 @@
 // Section 1: Module Setup and Imports
 // ============================================================================
 
-comptime {
-    // The @std namespace is globally available - our bootstrap mechanism
-    core := @std.core
-    build := @std.build
-    
-    // Import standard library modules
-    io := build.import("io")
-    mem := build.import("mem")
-    math := build.import("math")
-    collections := build.import("collections")
-}
+// The @std namespace is globally available - our bootstrap mechanism
+core := @std.core
+build := @std.build
+
+// Import standard library modules
+io := build.import("io")
+mem := build.import("mem")
+math := build.import("math")
+collections := build.import("collections")
 
 // ============================================================================
 // Section 2: Basic Types and Declarations

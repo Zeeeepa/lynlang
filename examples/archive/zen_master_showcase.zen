@@ -5,18 +5,16 @@
 // 1. Module System and Bootstrap
 // ============================================================================
 
-comptime {
-    // The @std namespace is the bootstrap mechanism
-    core := @std.core
-    build := @std.build
-    
-    // Import standard library modules
-    io := build.import("io")
-    mem := build.import("mem")
-    math := build.import("math")
-    collections := build.import("collections")
-    str_utils := build.import("string")
-}
+// The @std namespace is the bootstrap mechanism
+core := @std.core
+build := @std.build
+
+// Import standard library modules
+io := build.import("io")
+mem := build.import("mem")
+math := build.import("math")
+collections := build.import("collections")
+str_utils := build.import("string")
 
 // ============================================================================
 // 2. Basic Types and Literals

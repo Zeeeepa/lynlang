@@ -1,34 +1,47 @@
-# Zen Language - Todo List
+# Zen Language Development TODO List
 
-## Completed ✅
-- [x] Fix import syntax - removed comptime requirement
-- [x] Fix struct syntax in self-hosting files
-- [x] Create arithmetic test suite
-- [x] Add test_simple.zen testing utilities
-- [x] Verify LSP builds and exists
-- [x] Update .agent directory with progress
+## Completed Tasks ✅
+1. ✅ Fix import syntax - remove comptime wrapper for imports
+2. ✅ Update stdlib files using old comptime import syntax  
+3. ✅ Update example files using old comptime import syntax
+4. ✅ Verify core stdlib modules are implemented in Zen
 
 ## In Progress 🔄
-- [ ] Complete self-hosted compiler bootstrap
-- [ ] Expand test coverage
+5. 🔄 Create comprehensive test suite
+   - Need to create test runner script
+   - Organize tests by category
+   - Add integration tests
 
-## Pending 📋
-- [ ] Fix pattern matching with enums
-- [ ] Test self-hosted lexer
-- [ ] Test self-hosted parser
-- [ ] Implement missing stdlib modules
-- [ ] Add LSP features (completion, hover)
-- [ ] Create documentation generator
+## Pending Tasks 📋
 
-## Priority Order
-1. Fix failing tests (critical for stability)
-2. Implement self-hosting components
-3. Expand stdlib
-4. Testing framework
-5. LSP support
+### Testing Infrastructure (Priority: High)
+6. 📋 Set up automated testing script
+   - Create test runner for all .zen test files
+   - Add CI/CD integration
+   - Generate test reports
+
+### Self-Hosting (Priority: High)  
+7. 📋 Work on self-hosting compiler components
+   - Verify lexer implementation
+   - Verify parser implementation  
+   - Test AST generation
+   - Test type checker
+   - Test code generation
+
+### Developer Tools (Priority: Medium)
+8. 📋 Create LSP or syntax checking tool
+   - Basic syntax validation
+   - Error reporting
+   - Auto-completion support
+
+### Documentation (Priority: Low)
+9. 📋 Document testing process in .agent directory
+   - Testing conventions
+   - How to add new tests
+   - CI/CD process
 
 ## Notes
-- Import syntax refactoring complete
-- Focus on stability before new features
-- Use DRY & KISS principles
-- Commit frequently
+- Import syntax has been updated: no more `comptime { imports }` wrapper needed
+- Stdlib modules are already well implemented
+- Self-hosting components exist in stdlib (lexer, parser, ast, type_checker, codegen)
+- Focus should be on testing and validation
