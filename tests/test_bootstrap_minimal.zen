@@ -1,0 +1,32 @@
+// Minimal Bootstrap Compiler Test
+// Tests the absolute basics of the compiler
+
+io := @std.io
+
+// Test basic arithmetic
+test_basic = () i32 {
+    a := 10
+    b := 20
+    c := a + b
+    
+    if c == 30 {
+        return 1
+    } else {
+        return 0
+    }
+}
+
+// Main entry point
+main = () i32 {
+    io.print("Zen Bootstrap Test\n")
+    
+    result := test_basic()
+    
+    if result == 1 {
+        io.print("PASS: Basic arithmetic\n")
+        return 0
+    } else {
+        io.print("FAIL: Basic arithmetic\n")
+        return 1
+    }
+}

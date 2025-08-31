@@ -1,0 +1,178 @@
+// Simple Bootstrap Compiler Test
+// This test validates basic functionality without complex features
+
+core := @std.core
+io := @std.io
+math := @std.math
+string := @std.string
+
+// Test that imports work at module level (no comptime needed)
+test_module_imports = () bool {
+    io.print("[TEST] Module-level imports... ")
+    
+    // Test math module
+    pi_test := math.PI > 3.0 && math.PI < 4.0
+    
+    if pi_test {
+        io.print("PASS\n")
+        return true
+    } else {
+        io.print("FAIL\n")
+        return false
+    }
+}
+
+// Test basic arithmetic operations
+test_arithmetic = () i32 {
+    io.print("[TEST] Arithmetic operations... ")
+    
+    a := 10
+    b := 20
+    sum := a + b
+    diff := b - a
+    product := a * 2
+    quotient := b / a
+    
+    if sum == 30 && diff == 10 && product == 20 && quotient == 2 {
+        io.print("PASS\n")
+        return 1
+    } else {
+        io.print("FAIL\n")
+        return 0
+    }
+}
+
+// Test string operations
+test_strings = () bool {
+    io.print("[TEST] String operations... ")
+    
+    hello := "Hello"
+    world := "World"
+    
+    // Simple length check (assuming string module has a len function)
+    if hello != world {
+        io.print("PASS\n")
+        return true
+    } else {
+        io.print("FAIL\n")
+        return false
+    }
+}
+
+// Test control flow
+test_control_flow = () i32 {
+    io.print("[TEST] Control flow... ")
+    
+    result := 0
+    
+    // Test if-else
+    x := 5
+    if x > 3 {
+        result = result + 1
+    } else {
+        result = result - 1
+    }
+    
+    // Test loops
+    mut count := 0
+    for i := 0; i < 3; i = i + 1 {
+        count = count + 1
+    }
+    
+    if result == 1 && count == 3 {
+        io.print("PASS\n")
+        return 1
+    } else {
+        io.print("FAIL\n")
+        return 0
+    }
+}
+
+// Test function calls and returns
+helper_add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+test_functions = () bool {
+    io.print("[TEST] Function calls... ")
+    
+    result := helper_add(5, 10)
+    
+    if result == 15 {
+        io.print("PASS\n")
+        return true
+    } else {
+        io.print("FAIL\n")
+        return false
+    }
+}
+
+// Test pattern matching
+test_pattern_matching = () bool {
+    io.print("[TEST] Pattern matching... ")
+    
+    value := 42
+    
+    result := match value {
+        | 0 => false
+        | 42 => true
+        | _ => false
+    }
+    
+    if result {
+        io.print("PASS\n")
+        return true
+    } else {
+        io.print("FAIL\n")
+        return false
+    }
+}
+
+// Main test runner
+main = () i32 {
+    io.print("=====================================\n")
+    io.print("Zen Bootstrap Compiler Test Suite\n")
+    io.print("=====================================\n\n")
+    
+    total_tests := 6
+    mut passed_tests := 0
+    
+    // Run all tests
+    if test_module_imports() {
+        passed_tests = passed_tests + 1
+    }
+    
+    passed_tests = passed_tests + test_arithmetic()
+    
+    if test_strings() {
+        passed_tests = passed_tests + 1
+    }
+    
+    passed_tests = passed_tests + test_control_flow()
+    
+    if test_functions() {
+        passed_tests = passed_tests + 1
+    }
+    
+    if test_pattern_matching() {
+        passed_tests = passed_tests + 1
+    }
+    
+    // Print results
+    io.print("\n=====================================\n")
+    io.print("Results: ")
+    io.print_int(passed_tests)
+    io.print(" / ")
+    io.print_int(total_tests)
+    io.print(" tests passed\n")
+    io.print("=====================================\n")
+    
+    // Return status
+    if passed_tests == total_tests {
+        io.print("\n✅ All bootstrap tests passed!\n")
+        return 0
+    } else {
+        io.print("\n❌ Some bootstrap tests failed.\n")
+        return 1
+    }
+}
