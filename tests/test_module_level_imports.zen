@@ -1,0 +1,164 @@
+// Test file for module-level imports without comptime
+// This demonstrates the correct import syntax for Zen
+
+// Standard library imports (module level, no comptime)
+core := @std.core
+io := @std.io
+math := @std.math
+string := @std.string
+vec := @std.vec
+fs := @std.fs
+
+// Build system imports
+build := @std.build
+json := build.import("json")
+network := build.import("network")
+
+// Compiler module imports
+lexer := @compiler.lexer
+parser := @compiler.parser
+codegen := @compiler.codegen
+
+// Test that imports work correctly
+test_std_imports = () bool {
+    // Test core functionality
+    min_val := core.min(5, 10)
+    max_val := core.max(5, 10)
+    
+    if min_val != 5 {
+        return false
+    }
+    
+    if max_val != 10 {
+        return false
+    }
+    
+    // Test math operations
+    abs_val := math.abs(-42)
+    if abs_val != 42 {
+        return false
+    }
+    
+    // Math constants
+    pi_check := math.PI > 3.14 && math.PI < 3.15
+    if !pi_check {
+        return false
+    }
+    
+    return true
+}
+
+// Test string operations
+test_string_ops = () bool {
+    hello := "Hello"
+    world := "World"
+    
+    // String concatenation
+    combined := string.concat(hello, ", ", world, "!")
+    expected := "Hello, World!"
+    
+    // String comparison
+    return string.equals(combined, expected)
+}
+
+// Test vector operations
+test_vec_ops = () bool {
+    // Create a new vector
+    numbers := vec.new<i32>()
+    
+    // Add elements
+    numbers.push(1)
+    numbers.push(2)
+    numbers.push(3)
+    
+    // Check length
+    if numbers.len() != 3 {
+        return false
+    }
+    
+    // Check elements
+    if numbers.get(0) != 1 {
+        return false
+    }
+    
+    if numbers.get(1) != 2 {
+        return false
+    }
+    
+    if numbers.get(2) != 3 {
+        return false
+    }
+    
+    // Test pop
+    popped := numbers.pop()
+    if popped != 3 {
+        return false
+    }
+    
+    if numbers.len() != 2 {
+        return false
+    }
+    
+    return true
+}
+
+// Test compiler module imports
+test_compiler_modules = () bool {
+    // Create a simple token
+    token := lexer.Token {
+        kind: lexer.TokenKind::Identifier("test"),
+        span: lexer.Span { start: 0, end: 4 },
+        line: 1,
+        column: 1,
+    }
+    
+    // Check token properties
+    return token.line == 1 && token.column == 1
+}
+
+// Main test runner
+main = () i32 {
+    io.println("Testing module-level imports...")
+    
+    all_passed := true
+    
+    // Run std import tests
+    if test_std_imports() {
+        io.println("✓ Standard library imports working")
+    } else {
+        io.println("✗ Standard library imports failed")
+        all_passed = false
+    }
+    
+    // Run string tests
+    if test_string_ops() {
+        io.println("✓ String operations working")
+    } else {
+        io.println("✗ String operations failed")
+        all_passed = false
+    }
+    
+    // Run vector tests
+    if test_vec_ops() {
+        io.println("✓ Vector operations working")
+    } else {
+        io.println("✗ Vector operations failed")
+        all_passed = false
+    }
+    
+    // Run compiler module tests
+    if test_compiler_modules() {
+        io.println("✓ Compiler module imports working")
+    } else {
+        io.println("✗ Compiler module imports failed")
+        all_passed = false
+    }
+    
+    if all_passed {
+        io.println("\nAll tests passed! ✓")
+        return 0
+    } else {
+        io.println("\nSome tests failed ✗")
+        return 1
+    }
+}

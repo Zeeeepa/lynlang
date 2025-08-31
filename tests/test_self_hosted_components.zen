@@ -1,0 +1,275 @@
+// Test file for self-hosted Zen compiler components
+// Verifies that lexer, parser, and other components work correctly
+
+// Import self-hosted compiler components (no comptime!)
+lexer := @compiler.lexer
+parser := @compiler.parser
+errors := @compiler.errors
+codegen := @compiler.codegen
+type_checker := @compiler.type_checker
+
+// Import standard library
+core := @std.core
+io := @std.io
+string := @std.string
+vec := @std.vec
+
+// Test the lexer component
+test_lexer = () bool {
+    // Create a lexer instance
+    source := "let x = 42 + 3.14"
+    lex := lexer.Lexer {
+        source: source,
+        pos: 0,
+        line: 1,
+        column: 1,
+        tokens: vec.new<lexer.Token>(),
+    }
+    
+    // Tokenize the source
+    tokens := lexer.tokenize(&lex)
+    
+    // Verify we got the expected tokens
+    if tokens.len() < 5 {
+        return false
+    }
+    
+    // Check first token is 'let' keyword
+    first := tokens.get(0)
+    match first.kind {
+        | Keyword(kw) => {
+            if !string.equals(kw, "let") {
+                return false
+            }
+        }
+        | _ => return false
+    }
+    
+    return true
+}
+
+// Test the parser component
+test_parser = () bool {
+    // Create tokens for a simple expression
+    tokens := vec.new<lexer.Token>()
+    
+    // Add tokens for "x = 42"
+    tokens.push(lexer.Token {
+        kind: lexer.TokenKind::Identifier("x"),
+        span: lexer.Span { start: 0, end: 1 },
+        line: 1,
+        column: 1,
+    })
+    
+    tokens.push(lexer.Token {
+        kind: lexer.TokenKind::Assign,
+        span: lexer.Span { start: 2, end: 3 },
+        line: 1,
+        column: 3,
+    })
+    
+    tokens.push(lexer.Token {
+        kind: lexer.TokenKind::IntLiteral(42),
+        span: lexer.Span { start: 4, end: 6 },
+        line: 1,
+        column: 5,
+    })
+    
+    tokens.push(lexer.Token {
+        kind: lexer.TokenKind::Eof,
+        span: lexer.Span { start: 6, end: 6 },
+        line: 1,
+        column: 7,
+    })
+    
+    // Create parser
+    p := parser.Parser {
+        tokens: tokens,
+        current: 0,
+        diagnostics: vec.new<errors.Diagnostic>(),
+    }
+    
+    // Parse the tokens
+    ast := parser.parse(&p)
+    
+    // Verify we got an AST
+    return ast != null
+}
+
+// Test error handling
+test_error_handling = () bool {
+    // Create a diagnostic
+    diag := errors.Diagnostic {
+        level: errors.Level::Error,
+        message: "Test error message",
+        location: errors.SourceLocation {
+            file: "test.zen",
+            line: 10,
+            column: 5,
+        },
+        context: errors.ErrorContext::Parser,
+    }
+    
+    // Verify diagnostic properties
+    match diag.level {
+        | Error => {
+            return string.equals(diag.message, "Test error message")
+        }
+        | _ => return false
+    }
+}
+
+// Test type checker component
+test_type_checker = () bool {
+    // Create a simple type
+    int_type := type_checker.Type::Integer(32, true)
+    
+    // Check type properties
+    match int_type {
+        | Integer(bits, signed) => {
+            return bits == 32 && signed == true
+        }
+        | _ => return false
+    }
+}
+
+// Test codegen component
+test_codegen = () bool {
+    // Create a simple AST node
+    node := parser.AstNode::IntLit(42)
+    
+    // Create codegen context
+    ctx := codegen.Context {
+        module_name: "test",
+        functions: vec.new<codegen.Function>(),
+        globals: vec.new<codegen.Global>(),
+        types: vec.new<codegen.TypeDef>(),
+    }
+    
+    // Generate code for the node
+    // (This would emit LLVM IR or other backend code)
+    result := codegen.generate_node(&ctx, &node)
+    
+    return result != null
+}
+
+// Test integration between components
+test_integration = () bool {
+    // Full pipeline test: source -> tokens -> AST -> type check -> codegen
+    source := "func add(a: i32, b: i32) i32 { return a + b }"
+    
+    // Lexer phase
+    lex := lexer.Lexer {
+        source: source,
+        pos: 0,
+        line: 1,
+        column: 1,
+        tokens: vec.new<lexer.Token>(),
+    }
+    tokens := lexer.tokenize(&lex)
+    
+    // Parser phase
+    p := parser.Parser {
+        tokens: tokens,
+        current: 0,
+        diagnostics: vec.new<errors.Diagnostic>(),
+    }
+    ast := parser.parse(&p)
+    
+    // Type checking phase
+    type_ctx := type_checker.Context {
+        scopes: vec.new<type_checker.Scope>(),
+        errors: vec.new<errors.Diagnostic>(),
+    }
+    typed_ast := type_checker.check(&type_ctx, ast)
+    
+    // Codegen phase
+    gen_ctx := codegen.Context {
+        module_name: "test",
+        functions: vec.new<codegen.Function>(),
+        globals: vec.new<codegen.Global>(),
+        types: vec.new<codegen.TypeDef>(),
+    }
+    code := codegen.generate(&gen_ctx, typed_ast)
+    
+    return code != null
+}
+
+// Main test runner
+main = () i32 {
+    io.println("Testing self-hosted compiler components...")
+    io.println("==========================================")
+    
+    test_count := 0
+    passed_count := 0
+    
+    // Run lexer test
+    test_count = test_count + 1
+    if test_lexer() {
+        io.println("✓ Lexer component working")
+        passed_count = passed_count + 1
+    } else {
+        io.println("✗ Lexer component failed")
+    }
+    
+    // Run parser test
+    test_count = test_count + 1
+    if test_parser() {
+        io.println("✓ Parser component working")
+        passed_count = passed_count + 1
+    } else {
+        io.println("✗ Parser component failed")
+    }
+    
+    // Run error handling test
+    test_count = test_count + 1
+    if test_error_handling() {
+        io.println("✓ Error handling working")
+        passed_count = passed_count + 1
+    } else {
+        io.println("✗ Error handling failed")
+    }
+    
+    // Run type checker test
+    test_count = test_count + 1
+    if test_type_checker() {
+        io.println("✓ Type checker working")
+        passed_count = passed_count + 1
+    } else {
+        io.println("✗ Type checker failed")
+    }
+    
+    // Run codegen test
+    test_count = test_count + 1
+    if test_codegen() {
+        io.println("✓ Code generation working")
+        passed_count = passed_count + 1
+    } else {
+        io.println("✗ Code generation failed")
+    }
+    
+    // Run integration test
+    test_count = test_count + 1
+    if test_integration() {
+        io.println("✓ Component integration working")
+        passed_count = passed_count + 1
+    } else {
+        io.println("✗ Component integration failed")
+    }
+    
+    // Print summary
+    io.println("\n==========================================")
+    io.print("Results: ")
+    io.print_int(passed_count)
+    io.print(" / ")
+    io.print_int(test_count)
+    io.println(" tests passed")
+    
+    if passed_count == test_count {
+        io.println("\n✓ All self-hosted tests passed!")
+        return 0
+    } else {
+        io.println("\n✗ Some tests failed")
+        return 1
+    }
+}
