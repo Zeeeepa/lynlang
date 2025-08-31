@@ -1,0 +1,356 @@
+// Test runner for self-hosted Zen compiler
+
+io := @std.io
+fs := @std.fs
+path := @std.path
+process := @std.process
+string := @std.string
+vec := @std.vec
+result := @std.result
+
+// Import compiler for testing
+compiler := @compiler.compiler
+lexer := @compiler.lexer
+parser := @compiler.parser
+type_checker := @compiler.type_checker
+
+// Test case structure
+struct TestCase {
+    name: string,
+    file: string,
+    expected_output: ?string,
+    should_fail: bool,
+    error_pattern: ?string,
+}
+
+// Test result
+struct TestResult {
+    test: TestCase,
+    passed: bool,
+    output: string,
+    error: ?string,
+}
+
+// Test suite
+struct TestSuite {
+    name: string,
+    tests: vec.Vec<TestCase>,
+    results: vec.Vec<TestResult>,
+}
+
+// Create test suite
+create_suite = (name: string) TestSuite {
+    return TestSuite {
+        name: name,
+        tests: vec.new<TestCase>(),
+        results: vec.new<TestResult>(),
+    }
+}
+
+// Add test to suite
+add_test = (suite: &mut TestSuite, test: TestCase) {
+    vec.push(suite.tests, test)
+}
+
+// Run single test
+run_test = (test: TestCase) TestResult {
+    io.print("  Running: " + test.name + "... ")
+    
+    // Read test file
+    let source = fs.read_file(test.file)
+    if source.is_err() {
+        io.print("❌ (file not found)\n")
+        return TestResult {
+            test: test,
+            passed: false,
+            output: "",
+            error: some("File not found: " + test.file),
+        }
+    }
+    
+    // Compile the test
+    let comp = compiler.new(compiler.Config {
+        optimization_level: 0,
+        target: compiler.Target.Native,
+        debug: true,
+    })
+    
+    let compile_result = compiler.compile_string(comp, source.unwrap(), test.file)
+    
+    // Check compilation result
+    if test.should_fail {
+        // Test expects compilation to fail
+        if compile_result.is_err() {
+            let error_msg = compile_result.unwrap_err()
+            
+            // Check error pattern if specified
+            if test.error_pattern? {
+                | some(pattern) => {
+                    if string.contains(error_msg, pattern) {
+                        io.print("✅\n")
+                        return TestResult {
+                            test: test,
+                            passed: true,
+                            output: error_msg,
+                            error: none,
+                        }
+                    } else {
+                        io.print("❌ (wrong error)\n")
+                        return TestResult {
+                            test: test,
+                            passed: false,
+                            output: error_msg,
+                            error: some("Expected error pattern not found"),
+                        }
+                    }
+                }
+                | none => {
+                    io.print("✅\n")
+                    return TestResult {
+                        test: test,
+                        passed: true,
+                        output: error_msg,
+                        error: none,
+                    }
+                }
+            }
+        } else {
+            io.print("❌ (expected failure)\n")
+            return TestResult {
+                test: test,
+                passed: false,
+                output: "",
+                error: some("Expected compilation to fail but it succeeded"),
+            }
+        }
+    } else {
+        // Test expects compilation to succeed
+        if compile_result.is_err() {
+            io.print("❌ (compilation failed)\n")
+            return TestResult {
+                test: test,
+                passed: false,
+                output: "",
+                error: some(compile_result.unwrap_err()),
+            }
+        }
+        
+        // Run the compiled program if output is expected
+        if test.expected_output? {
+            | some(expected) => {
+                let output_file = "/tmp/zen_test_" + string.replace(test.name, " ", "_")
+                compiler.write_executable(comp, output_file)?
+                
+                let run_result = process.run(output_file)
+                if run_result.is_err() {
+                    io.print("❌ (runtime error)\n")
+                    return TestResult {
+                        test: test,
+                        passed: false,
+                        output: "",
+                        error: some("Runtime error: " + run_result.unwrap_err()),
+                    }
+                }
+                
+                let actual = run_result.unwrap()
+                if actual == expected {
+                    io.print("✅\n")
+                    return TestResult {
+                        test: test,
+                        passed: true,
+                        output: actual,
+                        error: none,
+                    }
+                } else {
+                    io.print("❌ (wrong output)\n")
+                    return TestResult {
+                        test: test,
+                        passed: false,
+                        output: actual,
+                        error: some("Output mismatch"),
+                    }
+                }
+            }
+            | none => {
+                io.print("✅\n")
+                return TestResult {
+                    test: test,
+                    passed: true,
+                    output: "",
+                    error: none,
+                }
+            }
+        }
+    }
+}
+
+// Run test suite
+run_suite = (suite: &mut TestSuite) {
+    io.print("\nRunning test suite: " + suite.name + "\n")
+    io.print("=" * 50 + "\n")
+    
+    suite.tests.iter() |test| {
+        let result = run_test(test)
+        vec.push(suite.results, result)
+    }
+    
+    // Print summary
+    let passed = suite.results.filter(|r| r.passed).len()
+    let failed = suite.results.filter(|r| !r.passed).len()
+    let total = suite.results.len()
+    
+    io.print("\n" + "=" * 50 + "\n")
+    io.print("Results: ")
+    io.print_int(passed)
+    io.print(" passed, ")
+    io.print_int(failed)
+    io.print(" failed, ")
+    io.print_int(total)
+    io.print(" total\n")
+    
+    // Print failed tests details
+    if failed > 0 {
+        io.print("\nFailed tests:\n")
+        suite.results.iter() |r| {
+            if !r.passed {
+                io.print("  • " + r.test.name + "\n")
+                if r.error? {
+                    | some(err) => io.print("    Error: " + err + "\n")
+                    | none => {}
+                }
+            }
+        }
+    }
+}
+
+// Create integration test suite
+create_integration_tests = () TestSuite {
+    let mut suite = create_suite("Integration Tests")
+    
+    // Hello world test
+    add_test(&mut suite, TestCase {
+        name: "Hello World",
+        file: "examples/hello_world.zen",
+        expected_output: some("Hello, World from self-hosted Zen!\n"),
+        should_fail: false,
+        error_pattern: none,
+    })
+    
+    // Fibonacci test
+    add_test(&mut suite, TestCase {
+        name: "Fibonacci",
+        file: "examples/fibonacci.zen",
+        expected_output: none, // Just check compilation
+        should_fail: false,
+        error_pattern: none,
+    })
+    
+    // Pattern matching test
+    add_test(&mut suite, TestCase {
+        name: "Pattern Matching",
+        file: "examples/pattern_matching.zen",
+        expected_output: none,
+        should_fail: false,
+        error_pattern: none,
+    })
+    
+    return suite
+}
+
+// Create syntax error test suite
+create_error_tests = () TestSuite {
+    let mut suite = create_suite("Error Handling Tests")
+    
+    // Import in comptime block test
+    add_test(&mut suite, TestCase {
+        name: "Import in Comptime",
+        file: "tests/errors/comptime_import.zen",
+        expected_output: none,
+        should_fail: true,
+        error_pattern: some("Imports are not allowed inside comptime blocks"),
+    })
+    
+    // Type mismatch test
+    add_test(&mut suite, TestCase {
+        name: "Type Mismatch",
+        file: "tests/errors/type_mismatch.zen",
+        expected_output: none,
+        should_fail: true,
+        error_pattern: some("type mismatch"),
+    })
+    
+    return suite
+}
+
+// Create compiler feature test suite
+create_feature_tests = () TestSuite {
+    let mut suite = create_suite("Compiler Feature Tests")
+    
+    // Generics test
+    add_test(&mut suite, TestCase {
+        name: "Generic Functions",
+        file: "tests/features/generics.zen",
+        expected_output: none,
+        should_fail: false,
+        error_pattern: none,
+    })
+    
+    // Async test
+    add_test(&mut suite, TestCase {
+        name: "Async/Await",
+        file: "tests/features/async.zen",
+        expected_output: none,
+        should_fail: false,
+        error_pattern: none,
+    })
+    
+    // Traits test
+    add_test(&mut suite, TestCase {
+        name: "Traits",
+        file: "tests/features/traits.zen",
+        expected_output: none,
+        should_fail: false,
+        error_pattern: none,
+    })
+    
+    return suite
+}
+
+// Main test runner
+main = () i32 {
+    io.print("Zen Compiler Test Runner\n")
+    io.print("========================\n")
+    
+    let mut all_passed = true
+    
+    // Run integration tests
+    let mut integration = create_integration_tests()
+    run_suite(&mut integration)
+    if integration.results.any(|r| !r.passed) {
+        all_passed = false
+    }
+    
+    // Run error tests
+    let mut errors = create_error_tests()
+    run_suite(&mut errors)
+    if errors.results.any(|r| !r.passed) {
+        all_passed = false
+    }
+    
+    // Run feature tests
+    let mut features = create_feature_tests()
+    run_suite(&mut features)
+    if features.results.any(|r| !r.passed) {
+        all_passed = false
+    }
+    
+    // Final summary
+    io.print("\n" + "=" * 50 + "\n")
+    if all_passed {
+        io.print("✅ All tests passed!\n")
+        return 0
+    } else {
+        io.print("❌ Some tests failed\n")
+        return 1
+    }
+}
