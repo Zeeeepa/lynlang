@@ -214,16 +214,14 @@ comptime {
 ## Module System
 
 ```zen
-// Every file starts with comptime imports
-comptime {
-    core := @std.core      // Compiler intrinsics
-    build := @std.build    // Build system interface
-    
-    // Import modules
-    io := build.import("io")
-    net := build.import("net")
-    json := build.import("json")
-}
+// Direct module imports - no comptime wrapper needed
+core := @std.core      // Compiler intrinsics
+build := @std.build    // Build system interface
+
+// Import modules
+io := build.import("io")
+net := build.import("net")
+json := build.import("json")
 
 // Create namespace
 Math = {

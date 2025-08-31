@@ -53,20 +53,19 @@ Zen provides a single, globally available "magic" namespace: `@std`. It is the b
 *   `@std.core`: A module containing fundamental compiler intrinsics for type information (`core.sizeOf`), memory operations, and other low-level primitives.
 *   `@std.build`: A module for interacting with the build system, primarily used for importing other modules.
 
-A conventional file preamble uses `comptime` to set up aliases for core modules:
+Modules are imported directly at the top level without requiring `comptime`:
 
 ```zen
-comptime {
-    core := @std.core
-    build := @std.build
+// Direct module imports - no comptime wrapper needed
+core := @std.core
+build := @std.build
 
-    // Import standard library modules using the build interface.
-    // The string is a module specifier resolved by the build system.
-    io := build.import("io")
-    mem := build.import("mem")
-    math := build.import("math")
-    collections := build.import("collections")
-}
+// Import standard library modules using the build interface.
+// The string is a module specifier resolved by the build system.
+io := build.import("io")
+mem := build.import("mem")
+math := build.import("math")
+collections := build.import("collections")
 ```
 
 ### 3. Basic Types & Literals
@@ -440,11 +439,9 @@ io.print("User: $(user), Score: $(score)")
 // main.zen
 
 // 1. Imports and setup
-comptime {
-    build := @std.build
-    io := build.import("io")
-    str_utils := build.import("string")
-}
+build := @std.build
+io := build.import("io")
+str_utils := build.import("string")
 
 // 2. Data structures
 HttpError =
