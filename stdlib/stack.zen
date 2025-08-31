@@ -1,0 +1,256 @@
+// Stack implementation for Zen
+// LIFO (Last In First Out) data structure
+
+core := @std.core
+mem := @std.mem
+array := @std.array
+
+// Stack structure using array backing
+Stack = struct(T: type) {
+    data: Array(T),
+}
+
+// Create new stack
+new = (T: type) Stack(T) {
+    return Stack(T){
+        data: array.new(T, 16),
+    }
+}
+
+// Create stack with initial capacity
+with_capacity = (T: type, capacity: usize) Stack(T) {
+    return Stack(T){
+        data: array.new(T, capacity),
+    }
+}
+
+// Push element onto stack
+push = (T: type, s: *Stack(T), value: T) void {
+    array.push(T, &s.data, value)
+}
+
+// Pop element from stack
+pop = (T: type, s: *Stack(T)) ?T {
+    return array.pop(T, &s.data)
+}
+
+// Peek at top element without removing
+peek = (T: type, s: *Stack(T)) ?T {
+    if (s.data.len == 0) {
+        return null
+    }
+    return s.data.data[s.data.len - 1]
+}
+
+// Check if stack is empty
+is_empty = (T: type, s: *Stack(T)) bool {
+    return s.data.len == 0
+}
+
+// Get stack size
+len = (T: type, s: *Stack(T)) usize {
+    return s.data.len
+}
+
+// Clear stack
+clear = (T: type, s: *Stack(T)) void {
+    array.clear(T, &s.data)
+}
+
+// Reserve capacity
+reserve = (T: type, s: *Stack(T), capacity: usize) void {
+    array.reserve(T, &s.data, capacity)
+}
+
+// Shrink to fit
+shrink_to_fit = (T: type, s: *Stack(T)) void {
+    array.shrink_to_fit(T, &s.data)
+}
+
+// Convert to array (bottom to top)
+to_array = (T: type, s: *Stack(T)) Array(T) {
+    return array.clone(T, &s.data)
+}
+
+// Create stack from array (first element becomes bottom)
+from_array = (T: type, arr: *Array(T)) Stack(T) {
+    s := new(T)
+    array.extend(T, &s.data, arr)
+    return s
+}
+
+// Clone stack
+clone = (T: type, s: *Stack(T)) Stack(T) {
+    return Stack(T){
+        data: array.clone(T, &s.data),
+    }
+}
+
+// Free stack memory
+free = (T: type, s: *Stack(T)) void {
+    array.free(T, &s.data)
+}
+
+// Reverse stack in place
+reverse = (T: type, s: *Stack(T)) void {
+    array.reverse(T, &s.data)
+}
+
+// Transfer all elements from one stack to another
+transfer = (T: type, from: *Stack(T), to: *Stack(T)) void {
+    while (!is_empty(T, from)) {
+        value := pop(T, from)
+        if (value != null) {
+            push(T, to, value)
+        }
+    }
+}
+
+// Duplicate top element
+dup = (T: type, s: *Stack(T)) bool {
+    top := peek(T, s)
+    if (top == null) {
+        return false
+    }
+    push(T, s, top)
+    return true
+}
+
+// Swap top two elements
+swap = (T: type, s: *Stack(T)) bool {
+    if (s.data.len < 2) {
+        return false
+    }
+    
+    temp := s.data.data[s.data.len - 1]
+    s.data.data[s.data.len - 1] = s.data.data[s.data.len - 2]
+    s.data.data[s.data.len - 2] = temp
+    return true
+}
+
+// Rotate top n elements (move top to position n)
+rotate = (T: type, s: *Stack(T), n: usize) bool {
+    if (n == 0 or n > s.data.len) {
+        return false
+    }
+    
+    top := s.data.data[s.data.len - 1]
+    
+    // Shift elements up
+    for (i := s.data.len - 1; i > s.data.len - n; i -= 1) {
+        s.data.data[i] = s.data.data[i - 1]
+    }
+    
+    s.data.data[s.data.len - n] = top
+    return true
+}
+
+// Iterator support (top to bottom)
+iter = (T: type, s: *Stack(T)) StackIterator(T) {
+    return StackIterator(T){
+        data: s.data.data,
+        index: s.data.len,
+    }
+}
+
+StackIterator = struct(T: type) {
+    data: *T,
+    index: usize,
+}
+
+next = (T: type, it: *StackIterator(T)) ?T {
+    if (it.index == 0) {
+        return null
+    }
+    it.index -= 1
+    return it.data[it.index]
+}
+
+// Min/Max stack implementation (tracks minimum/maximum efficiently)
+MinMaxStack = struct(T: type) {
+    main: Stack(T),
+    mins: Stack(T),
+    maxs: Stack(T),
+    compare: fn(T, T) i32,
+}
+
+// Create new min/max stack
+new_minmax = (T: type, compare: fn(T, T) i32) MinMaxStack(T) {
+    return MinMaxStack(T){
+        main: new(T),
+        mins: new(T),
+        maxs: new(T),
+        compare: compare,
+    }
+}
+
+// Push to min/max stack
+push_minmax = (T: type, s: *MinMaxStack(T), value: T) void {
+    push(T, &s.main, value)
+    
+    // Update min stack
+    current_min := peek(T, &s.mins)
+    if (current_min == null or s.compare(value, current_min) <= 0) {
+        push(T, &s.mins, value)
+    } else {
+        push(T, &s.mins, current_min)
+    }
+    
+    // Update max stack
+    current_max := peek(T, &s.maxs)
+    if (current_max == null or s.compare(value, current_max) >= 0) {
+        push(T, &s.maxs, value)
+    } else {
+        push(T, &s.maxs, current_max)
+    }
+}
+
+// Pop from min/max stack
+pop_minmax = (T: type, s: *MinMaxStack(T)) ?T {
+    if (is_empty(T, &s.main)) {
+        return null
+    }
+    
+    pop(T, &s.mins)
+    pop(T, &s.maxs)
+    return pop(T, &s.main)
+}
+
+// Get minimum element
+get_min = (T: type, s: *MinMaxStack(T)) ?T {
+    return peek(T, &s.mins)
+}
+
+// Get maximum element
+get_max = (T: type, s: *MinMaxStack(T)) ?T {
+    return peek(T, &s.maxs)
+}
+
+// Peek at top of min/max stack
+peek_minmax = (T: type, s: *MinMaxStack(T)) ?T {
+    return peek(T, &s.main)
+}
+
+// Check if min/max stack is empty
+is_empty_minmax = (T: type, s: *MinMaxStack(T)) bool {
+    return is_empty(T, &s.main)
+}
+
+// Get min/max stack size
+len_minmax = (T: type, s: *MinMaxStack(T)) usize {
+    return len(T, &s.main)
+}
+
+// Clear min/max stack
+clear_minmax = (T: type, s: *MinMaxStack(T)) void {
+    clear(T, &s.main)
+    clear(T, &s.mins)
+    clear(T, &s.maxs)
+}
+
+// Free min/max stack
+free_minmax = (T: type, s: *MinMaxStack(T)) void {
+    free(T, &s.main)
+    free(T, &s.mins)
+    free(T, &s.maxs)
+}

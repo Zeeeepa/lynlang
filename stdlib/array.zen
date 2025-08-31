@@ -1,0 +1,381 @@
+// Array/Slice operations for Zen
+// Provides dynamic array functionality with automatic resizing
+
+core := @std.core
+mem := @std.mem
+math := @std.math
+
+// Dynamic array structure
+Array = struct(T: type) {
+    data: *T,
+    len: usize,
+    capacity: usize,
+}
+
+// Create a new array with initial capacity
+new = (T: type, initial_capacity: usize) Array(T) {
+    data := if (initial_capacity > 0) {
+        mem.alloc(T, initial_capacity)
+    } else {
+        null
+    }
+    
+    return Array(T){
+        data: data,
+        len: 0,
+        capacity: initial_capacity,
+    }
+}
+
+// Create array from slice
+from_slice = (T: type, slice: []T) Array(T) {
+    arr := new(T, slice.len)
+    arr.len = slice.len
+    mem.copy(arr.data, slice.ptr, slice.len * @sizeof(T))
+    return arr
+}
+
+// Push element to array
+push = (T: type, arr: *Array(T), value: T) void {
+    if (arr.len >= arr.capacity) {
+        grow(T, arr)
+    }
+    arr.data[arr.len] = value
+    arr.len += 1
+}
+
+// Pop element from array
+pop = (T: type, arr: *Array(T)) ?T {
+    if (arr.len == 0) {
+        return null
+    }
+    arr.len -= 1
+    return arr.data[arr.len]
+}
+
+// Get element at index
+get = (T: type, arr: *Array(T), index: usize) ?T {
+    if (index >= arr.len) {
+        return null
+    }
+    return arr.data[index]
+}
+
+// Set element at index
+set = (T: type, arr: *Array(T), index: usize, value: T) bool {
+    if (index >= arr.len) {
+        return false
+    }
+    arr.data[index] = value
+    return true
+}
+
+// Insert element at index
+insert = (T: type, arr: *Array(T), index: usize, value: T) bool {
+    if (index > arr.len) {
+        return false
+    }
+    
+    if (arr.len >= arr.capacity) {
+        grow(T, arr)
+    }
+    
+    // Shift elements right
+    if (index < arr.len) {
+        mem.move(
+            arr.data + index + 1,
+            arr.data + index,
+            (arr.len - index) * @sizeof(T)
+        )
+    }
+    
+    arr.data[index] = value
+    arr.len += 1
+    return true
+}
+
+// Remove element at index
+remove = (T: type, arr: *Array(T), index: usize) ?T {
+    if (index >= arr.len) {
+        return null
+    }
+    
+    value := arr.data[index]
+    
+    // Shift elements left
+    if (index < arr.len - 1) {
+        mem.move(
+            arr.data + index,
+            arr.data + index + 1,
+            (arr.len - index - 1) * @sizeof(T)
+        )
+    }
+    
+    arr.len -= 1
+    return value
+}
+
+// Clear array (keep capacity)
+clear = (T: type, arr: *Array(T)) void {
+    arr.len = 0
+}
+
+// Resize array to exact size
+resize = (T: type, arr: *Array(T), new_size: usize) void {
+    if (new_size > arr.capacity) {
+        reserve(T, arr, new_size)
+    }
+    arr.len = new_size
+}
+
+// Reserve capacity
+reserve = (T: type, arr: *Array(T), new_capacity: usize) void {
+    if (new_capacity <= arr.capacity) {
+        return
+    }
+    
+    new_data := mem.alloc(T, new_capacity)
+    if (arr.data != null and arr.len > 0) {
+        mem.copy(new_data, arr.data, arr.len * @sizeof(T))
+        mem.free(arr.data)
+    }
+    
+    arr.data = new_data
+    arr.capacity = new_capacity
+}
+
+// Grow array capacity (internal)
+grow = (T: type, arr: *Array(T)) void {
+    new_capacity := if (arr.capacity == 0) {
+        8
+    } else {
+        arr.capacity * 2
+    }
+    reserve(T, arr, new_capacity)
+}
+
+// Shrink to fit
+shrink_to_fit = (T: type, arr: *Array(T)) void {
+    if (arr.len == arr.capacity) {
+        return
+    }
+    
+    if (arr.len == 0) {
+        if (arr.data != null) {
+            mem.free(arr.data)
+        }
+        arr.data = null
+        arr.capacity = 0
+        return
+    }
+    
+    new_data := mem.alloc(T, arr.len)
+    mem.copy(new_data, arr.data, arr.len * @sizeof(T))
+    mem.free(arr.data)
+    arr.data = new_data
+    arr.capacity = arr.len
+}
+
+// Get slice of array
+slice = (T: type, arr: *Array(T), start: usize, end: usize) []T {
+    if (start > end or end > arr.len) {
+        return []T{}
+    }
+    return arr.data[start..end]
+}
+
+// Reverse array in place
+reverse = (T: type, arr: *Array(T)) void {
+    if (arr.len <= 1) {
+        return
+    }
+    
+    left := 0
+    right := arr.len - 1
+    
+    while (left < right) {
+        temp := arr.data[left]
+        arr.data[left] = arr.data[right]
+        arr.data[right] = temp
+        left += 1
+        right -= 1
+    }
+}
+
+// Find element in array
+find = (T: type, arr: *Array(T), value: T) ?usize {
+    for (i := 0; i < arr.len; i += 1) {
+        if (arr.data[i] == value) {
+            return i
+        }
+    }
+    return null
+}
+
+// Check if array contains element
+contains = (T: type, arr: *Array(T), value: T) bool {
+    return find(T, arr, value) != null
+}
+
+// Map function over array
+map = (T: type, U: type, arr: *Array(T), f: fn(T) U) Array(U) {
+    result := new(U, arr.len)
+    result.len = arr.len
+    
+    for (i := 0; i < arr.len; i += 1) {
+        result.data[i] = f(arr.data[i])
+    }
+    
+    return result
+}
+
+// Filter array
+filter = (T: type, arr: *Array(T), predicate: fn(T) bool) Array(T) {
+    result := new(T, arr.len)
+    
+    for (i := 0; i < arr.len; i += 1) {
+        if (predicate(arr.data[i])) {
+            push(T, &result, arr.data[i])
+        }
+    }
+    
+    return result
+}
+
+// Reduce array
+reduce = (T: type, U: type, arr: *Array(T), initial: U, f: fn(U, T) U) U {
+    result := initial
+    for (i := 0; i < arr.len; i += 1) {
+        result = f(result, arr.data[i])
+    }
+    return result
+}
+
+// Sort array (quicksort)
+sort = (T: type, arr: *Array(T), compare: fn(T, T) i32) void {
+    if (arr.len <= 1) {
+        return
+    }
+    quicksort(T, arr.data, 0, arr.len - 1, compare)
+}
+
+// Quicksort implementation
+quicksort = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) void {
+    if (low >= high) {
+        return
+    }
+    
+    pivot_index := partition(T, data, low, high, compare)
+    if (pivot_index > 0) {
+        quicksort(T, data, low, pivot_index - 1, compare)
+    }
+    quicksort(T, data, pivot_index + 1, high, compare)
+}
+
+// Partition for quicksort
+partition = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) usize {
+    pivot := data[high]
+    i := low
+    
+    for (j := low; j < high; j += 1) {
+        if (compare(data[j], pivot) <= 0) {
+            temp := data[i]
+            data[i] = data[j]
+            data[j] = temp
+            i += 1
+        }
+    }
+    
+    temp := data[i]
+    data[i] = data[high]
+    data[high] = temp
+    
+    return i
+}
+
+// Binary search (array must be sorted)
+binary_search = (T: type, arr: *Array(T), value: T, compare: fn(T, T) i32) ?usize {
+    if (arr.len == 0) {
+        return null
+    }
+    
+    left := 0
+    right := arr.len - 1
+    
+    while (left <= right) {
+        mid := left + (right - left) / 2
+        cmp := compare(arr.data[mid], value)
+        
+        if (cmp == 0) {
+            return mid
+        } else if (cmp < 0) {
+            left = mid + 1
+        } else {
+            if (mid == 0) break
+            right = mid - 1
+        }
+    }
+    
+    return null
+}
+
+// Clone array
+clone = (T: type, arr: *Array(T)) Array(T) {
+    result := new(T, arr.capacity)
+    result.len = arr.len
+    
+    if (arr.len > 0) {
+        mem.copy(result.data, arr.data, arr.len * @sizeof(T))
+    }
+    
+    return result
+}
+
+// Extend array with another array
+extend = (T: type, arr: *Array(T), other: *Array(T)) void {
+    if (other.len == 0) {
+        return
+    }
+    
+    required_capacity := arr.len + other.len
+    if (required_capacity > arr.capacity) {
+        reserve(T, arr, required_capacity)
+    }
+    
+    mem.copy(arr.data + arr.len, other.data, other.len * @sizeof(T))
+    arr.len += other.len
+}
+
+// Free array memory
+free = (T: type, arr: *Array(T)) void {
+    if (arr.data != null) {
+        mem.free(arr.data)
+    }
+    arr.data = null
+    arr.len = 0
+    arr.capacity = 0
+}
+
+// Iterator support
+iter = (T: type, arr: *Array(T)) ArrayIterator(T) {
+    return ArrayIterator(T){
+        data: arr.data,
+        len: arr.len,
+        index: 0,
+    }
+}
+
+ArrayIterator = struct(T: type) {
+    data: *T,
+    len: usize,
+    index: usize,
+}
+
+next = (T: type, it: *ArrayIterator(T)) ?T {
+    if (it.index >= it.len) {
+        return null
+    }
+    value := it.data[it.index]
+    it.index += 1
+    return value
+}
