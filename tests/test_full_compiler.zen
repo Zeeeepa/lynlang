@@ -1,0 +1,271 @@
+// Test the full self-hosted compiler pipeline
+// This tests lexer -> parser -> type checker -> code generator
+
+core := @std.core
+io := @std.io
+lexer := @compiler.lexer_enhanced
+parser := @compiler.parser
+type_checker := @compiler.type_checker
+codegen := @compiler.codegen
+
+// Test simple program compilation
+test_simple_program = () bool {
+    input := "
+main = () i32 {
+    x := 10
+    y := 20
+    result := x + y
+    return result
+}"
+    
+    io.print("Testing simple program compilation:\n")
+    io.print("-----------------------------------\n")
+    io.print(input)
+    io.print("\n-----------------------------------\n\n")
+    
+    // Phase 1: Lexing
+    io.print("Phase 1: Lexing...\n")
+    lex := lexer.lexer_new(input)
+    tokens := lexer.tokenize(&lex)
+    io.print("  Tokens generated: ")
+    io.print_int(tokens.len())
+    io.print("\n")
+    
+    lex.errors.len() > 0 ? | true => {
+        io.print("  Lexer errors:\n")
+        i := 0
+        loop (i < lex.errors.len()) {
+            io.print("    - ")
+            io.print(lex.errors[i])
+            io.print("\n")
+            i = i + 1
+        }
+        return false
+    } | false => {
+        io.print("  ✓ Lexing successful\n")
+    }
+    
+    // Phase 2: Parsing
+    io.print("\nPhase 2: Parsing...\n")
+    p := parser.parser_new(tokens)
+    ast := parser.parser_parse_program(&p)
+    
+    p.errors.len() > 0 ? | true => {
+        io.print("  Parser errors:\n")
+        i := 0
+        loop (i < p.errors.len()) {
+            io.print("    - ")
+            io.print(p.errors[i])
+            io.print("\n")
+            i = i + 1
+        }
+        return false
+    } | false => {
+        io.print("  ✓ Parsing successful\n")
+        io.print("  AST nodes: ")
+        io.print_int(ast.statements.len())
+        io.print("\n")
+    }
+    
+    // Phase 3: Type Checking
+    io.print("\nPhase 3: Type Checking...\n")
+    tc := type_checker.type_checker_new()
+    type_check_result := type_checker.type_check_program(&tc, ast)
+    
+    !type_check_result ? | true => {
+        io.print("  Type checker errors:\n")
+        i := 0
+        loop (i < tc.errors.len()) {
+            io.print("    - ")
+            io.print(tc.errors[i])
+            io.print("\n")
+            i = i + 1
+        }
+        return false
+    } | false => {
+        io.print("  ✓ Type checking successful\n")
+    }
+    
+    // Phase 4: Code Generation (C target)
+    io.print("\nPhase 4: Code Generation (C)...\n")
+    cg_c := codegen.codegen_new(codegen.Target.C)
+    codegen_result := codegen.generate_program(&cg_c, ast)
+    
+    !codegen_result ? | true => {
+        io.print("  Code generator errors:\n")
+        i := 0
+        loop (i < cg_c.errors.len()) {
+            io.print("    - ")
+            io.print(cg_c.errors[i])
+            io.print("\n")
+            i = i + 1
+        }
+        return false
+    } | false => {
+        io.print("  ✓ Code generation successful\n")
+        io.print("\nGenerated C code:\n")
+        io.print("==================\n")
+        io.print(cg_c.output)
+        io.print("==================\n")
+    }
+    
+    return true
+}
+
+// Test complex program with functions
+test_complex_program = () bool {
+    input := "
+fibonacci = (n: i32) i32 {
+    n <= 1 ? | true => {
+        return n
+    } | false => {
+        a := fibonacci(n - 1)
+        b := fibonacci(n - 2)
+        return a + b
+    }
+}
+
+main = () i32 {
+    result := fibonacci(10)
+    return result
+}"
+    
+    io.print("\n\nTesting complex program compilation:\n")
+    io.print("------------------------------------\n")
+    io.print(input)
+    io.print("\n------------------------------------\n\n")
+    
+    // Run through full pipeline
+    lex := lexer.lexer_new(input)
+    tokens := lexer.tokenize(&lex)
+    
+    lex.errors.len() > 0 ? | true => {
+        io.print("✗ Lexer failed\n")
+        return false
+    } | false => {}
+    
+    p := parser.parser_new(tokens)
+    ast := parser.parser_parse_program(&p)
+    
+    p.errors.len() > 0 ? | true => {
+        io.print("✗ Parser failed\n")
+        return false
+    } | false => {}
+    
+    tc := type_checker.type_checker_new()
+    type_check_result := type_checker.type_check_program(&tc, ast)
+    
+    !type_check_result ? | true => {
+        io.print("✗ Type checker failed\n")
+        return false
+    } | false => {}
+    
+    cg := codegen.codegen_new(codegen.Target.C)
+    codegen_result := codegen.generate_program(&cg, ast)
+    
+    !codegen_result ? | true => {
+        io.print("✗ Code generator failed\n")
+        return false
+    } | false => {}
+    
+    io.print("✓ All phases successful!\n")
+    io.print("\nGenerated code preview (first 500 chars):\n")
+    preview := cg.output.substring(0, 500)
+    io.print(preview)
+    io.print("...\n")
+    
+    return true
+}
+
+// Test error handling
+test_error_handling = () bool {
+    input := "
+main = () i32 {
+    x := \"hello\"
+    y := 42
+    result := x + y  // Type error: can't add string and int
+    return result
+}"
+    
+    io.print("\n\nTesting error handling:\n")
+    io.print("-----------------------\n")
+    io.print(input)
+    io.print("\n-----------------------\n\n")
+    
+    // Run through pipeline
+    lex := lexer.lexer_new(input)
+    tokens := lexer.tokenize(&lex)
+    
+    p := parser.parser_new(tokens)
+    ast := parser.parser_parse_program(&p)
+    
+    tc := type_checker.type_checker_new()
+    type_check_result := type_checker.type_check_program(&tc, ast)
+    
+    !type_check_result ? | true => {
+        io.print("✓ Type error correctly detected:\n")
+        i := 0
+        loop (i < tc.errors.len()) {
+            io.print("  - ")
+            io.print(tc.errors[i])
+            io.print("\n")
+            i = i + 1
+        }
+        return true  // Expected to fail
+    } | false => {
+        io.print("✗ Type error not detected\n")
+        return false
+    }
+}
+
+// Main test runner
+main = () i32 {
+    io.print("===========================================\n")
+    io.print("   Self-Hosted Compiler Full Test Suite   \n")
+    io.print("===========================================\n\n")
+    
+    passed := 0
+    failed := 0
+    
+    // Run tests
+    test_simple_program() ? | true => {
+        io.print("\n✓ Simple program test passed\n")
+        passed = passed + 1
+    } | false => {
+        io.print("\n✗ Simple program test failed\n")
+        failed = failed + 1
+    }
+    
+    test_complex_program() ? | true => {
+        io.print("\n✓ Complex program test passed\n")
+        passed = passed + 1
+    } | false => {
+        io.print("\n✗ Complex program test failed\n")
+        failed = failed + 1
+    }
+    
+    test_error_handling() ? | true => {
+        io.print("\n✓ Error handling test passed\n")
+        passed = passed + 1
+    } | false => {
+        io.print("\n✗ Error handling test failed\n")
+        failed = failed + 1
+    }
+    
+    // Print summary
+    io.print("\n===========================================\n")
+    io.print("Test Summary:\n")
+    io.print("  Passed: ")
+    io.print_int(passed)
+    io.print("\n  Failed: ")
+    io.print_int(failed)
+    io.print("\n")
+    
+    failed == 0 ? | true => {
+        io.print("\n✓✓✓ All tests passed! Self-hosting compiler is functional! ✓✓✓\n")
+        return 0
+    } | false => {
+        io.print("\n✗ Some tests failed. More work needed.\n")
+        return 1
+    }
+}
