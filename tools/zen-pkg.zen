@@ -141,8 +141,7 @@ init_package = (options: Map<string, string>) i32 {
     // Create main file
     main_content := "// " + name + " - " + description + "\n\n"
     main_content += "core := @std.core\n"
-    main_content += "build := @std.build\n"
-    main_content += "io := build.import(\"io\")\n\n"
+    main_content += "io := @std.io\n\n"
     main_content += "main = () i32 {\n"
     main_content += "    io.println(\"Hello from " + name + "!\")\n"
     main_content += "    return 0\n"
