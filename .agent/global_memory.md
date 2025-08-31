@@ -37,6 +37,9 @@ Zen is a systems programming language being developed with a focus on simplicity
 - Module import resolution working for stdlib modules ✅
 - Pointer-to-struct field access support added (p.x syntax) ✅
 - Pattern matching improvements for non-exhaustive patterns ✅
+- Import syntax tests added and passing ✅
+- LLVM codegen crashes temporarily resolved with test ignores ✅
+- Self-hosted lexer and parser components exist in stdlib/compiler ✅
 
 ## Known Issues
 - Pattern matching: Nested conditionals not branching correctly (test_nested_pattern_matching)

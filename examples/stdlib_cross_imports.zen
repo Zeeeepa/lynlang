@@ -1,0 +1,71 @@
+// Test that stdlib modules can import each other correctly
+// This demonstrates module interdependencies
+
+// Import multiple stdlib modules
+io := @std.io
+string := @std.string
+vec := @std.vec
+math := @std.math
+
+// Test function that uses multiple stdlib modules
+process_data = () void {
+    // Create a vector
+    v := vec.new()
+    
+    // Add some numbers
+    v.push(10)
+    v.push(20)
+    v.push(30)
+    
+    // Process with math functions
+    sum := 0
+    i := 0
+    loop i < v.len() {
+        sum = sum + v.get(i)
+        i = i + 1
+    }
+    
+    // Create a string from the result
+    result_str := string.from_int(sum)
+    
+    // Print using io module
+    io.print("Sum of vector elements: ")
+    io.print(result_str)
+    io.print("\n")
+}
+
+// Test string manipulation across modules
+test_string_ops = () void {
+    // Create strings
+    s1 := "Hello"
+    s2 := "World"
+    
+    // Use string module functions
+    combined := string.concat(s1, " ")
+    combined = string.concat(combined, s2)
+    
+    // Print result
+    io.print("Combined string: ")
+    io.print(combined)
+    io.print("\n")
+    
+    // Test string length
+    len := string.len(combined)
+    io.print("String length: ")
+    io.print_i64(len)
+    io.print("\n")
+}
+
+// Main entry point
+main = () i32 {
+    io.print("Testing stdlib cross-imports\n")
+    io.print("============================\n\n")
+    
+    process_data()
+    test_string_ops()
+    
+    io.print("\n============================\n")
+    io.print("Cross-import tests complete!\n")
+    
+    return 0
+}
