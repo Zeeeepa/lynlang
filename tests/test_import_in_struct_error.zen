@@ -1,0 +1,7 @@
+// This test should FAIL - imports not allowed inside structs
+
+MyStruct := struct {
+    // ERROR: Import inside struct definition
+    io := @std.io
+    value: i32
+}
