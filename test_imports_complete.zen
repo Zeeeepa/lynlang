@@ -8,9 +8,8 @@ math := @std.math
 string := @std.string
 vec := @std.vec
 
-// Build system imports
-build := @std.build
-fs := build.import("fs")
+// File system import
+fs := @std.fs
 
 main = () i32 {
     io.println("Testing complete import system...")

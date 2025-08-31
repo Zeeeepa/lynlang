@@ -1,8 +1,7 @@
 // functions.zen - Function definitions and UFCS
 core := @std.core
-build := @std.build
-io := build.import("io")
-math := build.import("math")
+io := @std.io
+math := @std.math
 
 // Simple function
 add = (a: i32, b: i32) i32 {

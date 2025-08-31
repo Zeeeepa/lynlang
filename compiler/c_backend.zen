@@ -2,11 +2,10 @@
 // Generates compilable C code from Zen AST
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-string := build.import("string")
-fs := build.import("fs")
-parser := build.import("parser")
+io := @std.io
+string := @std.string
+fs := @std.fs
+parser := @compiler.parser
 
 // C type mapping
 map_zen_type_to_c = (zen_type: string) string {

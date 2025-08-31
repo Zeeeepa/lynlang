@@ -2,11 +2,10 @@
 // A simple tool to check Zen source files for syntax errors
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-fs := build.import("fs")
-args := build.import("args")
-string := build.import("string")
+io := @std.io
+fs := @std.fs
+args := @std.args
+string := @std.string
 
 // Error types
 SyntaxError = struct {

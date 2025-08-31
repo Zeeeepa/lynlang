@@ -2,13 +2,12 @@
 // Provides IDE support for Zen language files
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-json := build.import("json")
-net := build.import("net")
-fs := build.import("fs")
-lexer := build.import("lexer")
-parser := build.import("parser")
+io := @std.io
+json := @std.json
+net := @std.net
+fs := @std.fs
+lexer := @compiler.lexer
+parser := @compiler.parser
 
 // LSP Message Types
 LSPMessage = {

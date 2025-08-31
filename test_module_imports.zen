@@ -1,7 +1,6 @@
 // Test module-level imports without comptime
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 math := @std.math
 
 main = () i32 {

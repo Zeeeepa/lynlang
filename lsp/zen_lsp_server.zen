@@ -12,10 +12,9 @@ fs := @std.fs
 result := @std.result
 
 // Import compiler components
-build := @std.build
-lexer := build.import("lexer")
-parser := build.import("parser")
-type_checker := build.import("type_checker")
+lexer := @compiler.lexer
+parser := @compiler.parser
+type_checker := @compiler.type_checker
 
 // LSP message types
 MessageType := enum {
