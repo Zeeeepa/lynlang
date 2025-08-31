@@ -1,0 +1,99 @@
+// string.zen - String manipulation functions for Zen
+
+// String length
+len := (s: string) u64 {
+    return @compiler.builtin("strlen", s)
+}
+
+// String comparison
+equals := (a: string, b: string) bool {
+    return @compiler.builtin("strcmp", a, b) == 0
+}
+
+compare := (a: string, b: string) i32 {
+    return @compiler.builtin("strcmp", a, b)
+}
+
+// String concatenation
+concat := (a: string, b: string) string {
+    return @compiler.builtin("strcat", a, b)
+}
+
+// Substring operations
+substring := (s: string, start: u64, length: u64) string {
+    return @compiler.builtin("substr", s, start, length)
+}
+
+// Character operations
+char_at := (s: string, index: u64) u8 {
+    return @compiler.builtin("char_at", s, index)
+}
+
+// String searching
+index_of := (s: string, needle: string) i64 {
+    return @compiler.builtin("strstr", s, needle)
+}
+
+contains := (s: string, needle: string) bool {
+    return index_of(s, needle) >= 0
+}
+
+starts_with := (s: string, prefix: string) bool {
+    prefix_len := len(prefix)
+    if prefix_len > len(s) {
+        return false
+    }
+    sub := substring(s, 0, prefix_len)
+    return equals(sub, prefix)
+}
+
+ends_with := (s: string, suffix: string) bool {
+    suffix_len := len(suffix)
+    str_len := len(s)
+    if suffix_len > str_len {
+        return false
+    }
+    sub := substring(s, str_len - suffix_len, suffix_len)
+    return equals(sub, suffix)
+}
+
+// String conversion
+to_upper := (s: string) string {
+    return @compiler.builtin("to_upper", s)
+}
+
+to_lower := (s: string) string {
+    return @compiler.builtin("to_lower", s)
+}
+
+// Trimming
+trim := (s: string) string {
+    return @compiler.builtin("trim", s)
+}
+
+trim_left := (s: string) string {
+    return @compiler.builtin("trim_left", s)
+}
+
+trim_right := (s: string) string {
+    return @compiler.builtin("trim_right", s)
+}
+
+// String splitting
+split := (s: string, delimiter: string) []string {
+    return @compiler.builtin("split", s, delimiter)
+}
+
+// String joining
+join := (strings: []string, separator: string) string {
+    return @compiler.builtin("join", strings, separator)
+}
+
+// String replacement
+replace := (s: string, old: string, new: string) string {
+    return @compiler.builtin("replace", s, old, new)
+}
+
+replace_all := (s: string, old: string, new: string) string {
+    return @compiler.builtin("replace_all", s, old, new)
+}

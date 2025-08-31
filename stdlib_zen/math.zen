@@ -1,0 +1,108 @@
+// math.zen - Mathematical functions for Zen
+
+// Constants
+const PI: f64 = 3.14159265358979323846
+const E: f64 = 2.71828182845904523536
+const TAU: f64 = 6.28318530717958647692
+
+// Basic arithmetic functions
+pow := (base: f64, exp: f64) f64 {
+    return @compiler.builtin("pow", base, exp)
+}
+
+sqrt := (x: f64) f64 {
+    return @compiler.builtin("sqrt", x)
+}
+
+cbrt := (x: f64) f64 {
+    return pow(x, 1.0 / 3.0)
+}
+
+// Trigonometric functions
+sin := (x: f64) f64 {
+    return @compiler.builtin("sin", x)
+}
+
+cos := (x: f64) f64 {
+    return @compiler.builtin("cos", x)
+}
+
+tan := (x: f64) f64 {
+    return @compiler.builtin("tan", x)
+}
+
+asin := (x: f64) f64 {
+    return @compiler.builtin("asin", x)
+}
+
+acos := (x: f64) f64 {
+    return @compiler.builtin("acos", x)
+}
+
+atan := (x: f64) f64 {
+    return @compiler.builtin("atan", x)
+}
+
+atan2 := (y: f64, x: f64) f64 {
+    return @compiler.builtin("atan2", y, x)
+}
+
+// Exponential and logarithmic functions
+exp := (x: f64) f64 {
+    return @compiler.builtin("exp", x)
+}
+
+log := (x: f64) f64 {
+    return @compiler.builtin("log", x)
+}
+
+log10 := (x: f64) f64 {
+    return @compiler.builtin("log10", x)
+}
+
+log2 := (x: f64) f64 {
+    return @compiler.builtin("log2", x)
+}
+
+// Rounding functions
+floor := (x: f64) f64 {
+    return @compiler.builtin("floor", x)
+}
+
+ceil := (x: f64) f64 {
+    return @compiler.builtin("ceil", x)
+}
+
+round := (x: f64) f64 {
+    return @compiler.builtin("round", x)
+}
+
+trunc := (x: f64) f64 {
+    return @compiler.builtin("trunc", x)
+}
+
+// Helper functions
+abs_f64 := (x: f64) f64 {
+    if x < 0.0 {
+        return -x
+    }
+    return x
+}
+
+sign := (x: f64) i32 {
+    if x > 0.0 {
+        return 1
+    } else if x < 0.0 {
+        return -1
+    }
+    return 0
+}
+
+// Degree/Radian conversion
+deg_to_rad := (deg: f64) f64 {
+    return deg * PI / 180.0
+}
+
+rad_to_deg := (rad: f64) f64 {
+    return rad * 180.0 / PI
+}
