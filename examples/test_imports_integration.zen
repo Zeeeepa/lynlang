@@ -1,0 +1,47 @@
+// Integration test for module imports
+// Tests that imports work correctly without comptime wrapper
+
+// Direct module imports at top level
+core := @std.core
+io := @std.io
+math := @std.math
+
+// Test basic import usage
+test_basic_imports = () void {
+    // Use io module for printing
+    io.print("Testing basic imports...\n")
+    
+    // Use math module for calculations
+    pi := math.PI
+    radius := 5.0
+    area := pi * radius * radius
+    
+    io.print("Circle area with radius 5: ")
+    io.print_f64(area)
+    io.print("\n")
+}
+
+// Test nested module access
+test_nested_access = () void {
+    io.print("Testing nested module access...\n")
+    
+    // Access nested functionality
+    result := math.abs(-42)
+    io.print("Absolute value of -42: ")
+    io.print_i64(result)
+    io.print("\n")
+}
+
+// Main function
+main = () i32 {
+    io.print("Starting import integration tests\n")
+    io.print("================================\n\n")
+    
+    test_basic_imports()
+    test_nested_access()
+    
+    io.print("\n================================\n")
+    io.print("All import tests completed!\n")
+    
+    return 0
+}
