@@ -1,0 +1,356 @@
+// Zen Type Checker
+// This module performs type checking and inference on the AST
+
+core := @std.core
+vec := @std.vec
+string := @std.string
+map := @std.map
+parser := @compiler.parser
+errors := @compiler.errors
+
+// Import AST types from parser
+AstNode := parser.AstNode
+
+// Type representation
+Type = 
+    // Primitive types
+    | I8 | I16 | I32 | I64
+    | U8 | U16 | U32 | U64
+    | F32 | F64
+    | Bool
+    | Char
+    | Void
+    
+    // String type
+    | String
+    
+    // Pointer type
+    | Ptr(inner: Box<Type>)
+    
+    // Array type
+    | Array(element: Box<Type>, size: Option<usize>)
+    
+    // Vector type
+    | Vec(element: Box<Type>)
+    
+    // Function type
+    | Function(params: Vec<Type>, return_type: Box<Type>)
+    
+    // Struct type
+    | Struct(name: string, fields: Vec<(string, Type)>)
+    
+    // Enum type
+    | Enum(name: string, variants: Vec<EnumVariant>)
+    
+    // Generic type
+    | Generic(name: string, constraints: Vec<TypeConstraint>)
+    
+    // Type variable (for inference)
+    | TypeVar(id: u32)
+    
+    // Unknown type (needs inference)
+    | Unknown
+    
+    // Error type
+    | Error(msg: string)
+
+// Enum variant representation
+EnumVariant = {
+    name: string,
+    fields: Option<Vec<Type>>,
+}
+
+// Type constraints for generics
+TypeConstraint = 
+    | Trait(name: string)
+    | Equals(type: Type)
+    | SubtypeOf(type: Type)
+
+// Type environment for tracking variable types
+TypeEnv = {
+    variables: Map<string, Type>,
+    functions: Map<string, Type>,
+    types: Map<string, Type>,
+    parent: Option<Ptr<TypeEnv>>,
+}
+
+// Type checker state
+TypeChecker = {
+    env: TypeEnv,
+    errors: Vec<errors.Diagnostic>,
+    type_var_counter: u32,
+    substitutions: Map<u32, Type>,
+}
+
+// Create a new type checker
+new_type_checker = () TypeChecker {
+    TypeChecker {
+        env: TypeEnv {
+            variables: map.new<string, Type>(),
+            functions: map.new<string, Type>(),
+            types: map.new<string, Type>(),
+            parent: Option<Ptr<TypeEnv>>.None,
+        },
+        errors: vec.new<errors.Diagnostic>(),
+        type_var_counter: 0,
+        substitutions: map.new<u32, Type>(),
+    }
+}
+
+// Check types for an entire module
+check_module = (checker: Ptr<TypeChecker>, module: Vec<AstNode>) Result<(), Vec<errors.Diagnostic>> {
+    // First pass: collect type definitions
+    for node in module {
+        match node {
+            | AstNode.StructDecl(name, fields, generics) => {
+                register_struct_type(checker, name, fields, generics)
+            }
+            | AstNode.EnumDecl(name, variants, generics) => {
+                register_enum_type(checker, name, variants, generics)
+            }
+            | AstNode.TypeAlias(name, type) => {
+                register_type_alias(checker, name, type)
+            }
+            | _ => {}
+        }
+    }
+    
+    // Second pass: collect function signatures
+    for node in module {
+        match node {
+            | AstNode.FuncDecl(name, params, return_type, _, is_generic) => {
+                register_function(checker, name, params, return_type, is_generic)
+            }
+            | _ => {}
+        }
+    }
+    
+    // Third pass: check function bodies and expressions
+    for node in module {
+        check_ast_node(checker, node)
+    }
+    
+    // Return errors if any
+    checker.errors.is_empty() ?
+        | true => Result.Ok(())
+        | false => Result.Err(checker.errors)
+}
+
+// Check types for an AST node
+check_ast_node = (checker: Ptr<TypeChecker>, node: AstNode) Type {
+    match node {
+        // Literals
+        | AstNode.IntLit(value) => infer_int_type(value)
+        | AstNode.FloatLit(_) => Type.F64
+        | AstNode.StringLit(_) => Type.String
+        | AstNode.CharLit(_) => Type.Char
+        | AstNode.BoolLit(_) => Type.Bool
+        
+        // Identifiers
+        | AstNode.Ident(name) => lookup_variable(checker, name)
+        
+        // Binary operations
+        | AstNode.BinaryOp(op, left, right) => {
+            check_binary_op(checker, op, left, right)
+        }
+        
+        // Function calls
+        | AstNode.Call(func, args) => {
+            check_function_call(checker, func, args)
+        }
+        
+        // Variable declarations
+        | AstNode.VarDecl(name, type_annotation, value, is_mutable) => {
+            check_var_decl(checker, name, type_annotation, value, is_mutable)
+        }
+        
+        // If expressions
+        | AstNode.If(condition, then_branch, else_branch) => {
+            check_if_expr(checker, condition, then_branch, else_branch)
+        }
+        
+        // Block expressions
+        | AstNode.Block(statements) => {
+            check_block(checker, statements)
+        }
+        
+        // Return statements
+        | AstNode.Return(value) => {
+            check_return(checker, value)
+        }
+        
+        // Other cases
+        | _ => Type.Unknown
+    }
+}
+
+// Infer integer type from literal value
+infer_int_type = (value: i64) Type {
+    value >= -128 && value <= 127 ? Type.I8 :
+    value >= -32768 && value <= 32767 ? Type.I16 :
+    value >= -2147483648 && value <= 2147483647 ? Type.I32 :
+    Type.I64
+}
+
+// Check binary operation types
+check_binary_op = (checker: Ptr<TypeChecker>, op: parser.BinaryOperator, left: Ptr<AstNode>, right: Ptr<AstNode>) Type {
+    left_type := check_ast_node(checker, *left)
+    right_type := check_ast_node(checker, *right)
+    
+    // Type checking logic for different operators
+    match op {
+        | parser.BinaryOperator.Add
+        | parser.BinaryOperator.Sub
+        | parser.BinaryOperator.Mul
+        | parser.BinaryOperator.Div => {
+            unify_types(checker, left_type, right_type) ?
+                | Ok(unified) => unified
+                | Err(msg) => {
+                    add_error(checker, msg)
+                    Type.Error(msg)
+                }
+        }
+        | parser.BinaryOperator.Eq
+        | parser.BinaryOperator.Neq
+        | parser.BinaryOperator.Lt
+        | parser.BinaryOperator.Gt
+        | parser.BinaryOperator.Lte
+        | parser.BinaryOperator.Gte => {
+            unify_types(checker, left_type, right_type) ?
+                | Ok(_) => Type.Bool
+                | Err(msg) => {
+                    add_error(checker, msg)
+                    Type.Error(msg)
+                }
+        }
+        | parser.BinaryOperator.And
+        | parser.BinaryOperator.Or => {
+            is_bool(left_type) && is_bool(right_type) ?
+                | true => Type.Bool
+                | false => {
+                    msg := "Logical operators require boolean operands"
+                    add_error(checker, msg)
+                    Type.Error(msg)
+                }
+        }
+        | _ => Type.Unknown
+    }
+}
+
+// Unify two types
+unify_types = (checker: Ptr<TypeChecker>, t1: Type, t2: Type) Result<Type, string> {
+    match (t1, t2) {
+        | (Type.Unknown, t) | (t, Type.Unknown) => Result.Ok(t)
+        | (Type.TypeVar(id1), Type.TypeVar(id2)) if id1 == id2 => Result.Ok(t1)
+        | (Type.TypeVar(id), t) | (t, Type.TypeVar(id)) => {
+            // Add substitution
+            checker.substitutions.insert(id, t)
+            Result.Ok(t)
+        }
+        | (Type.I32, Type.I32) => Result.Ok(Type.I32)
+        | (Type.F64, Type.F64) => Result.Ok(Type.F64)
+        | (Type.Bool, Type.Bool) => Result.Ok(Type.Bool)
+        | (Type.String, Type.String) => Result.Ok(Type.String)
+        | _ => Result.Err(string.format("Cannot unify types {} and {}", type_to_string(t1), type_to_string(t2)))
+    }
+}
+
+// Convert type to string for error messages
+type_to_string = (t: Type) string {
+    match t {
+        | Type.I8 => "i8"
+        | Type.I16 => "i16"
+        | Type.I32 => "i32"
+        | Type.I64 => "i64"
+        | Type.U8 => "u8"
+        | Type.U16 => "u16"
+        | Type.U32 => "u32"
+        | Type.U64 => "u64"
+        | Type.F32 => "f32"
+        | Type.F64 => "f64"
+        | Type.Bool => "bool"
+        | Type.Char => "char"
+        | Type.String => "string"
+        | Type.Void => "void"
+        | Type.Ptr(inner) => string.format("*{}", type_to_string(*inner))
+        | Type.Array(elem, size) => {
+            size ?
+                | Some(s) => string.format("[{}; {}]", type_to_string(*elem), s)
+                | None => string.format("[{}]", type_to_string(*elem))
+        }
+        | Type.Vec(elem) => string.format("Vec<{}>", type_to_string(*elem))
+        | Type.Unknown => "?"
+        | Type.Error(msg) => string.format("error: {}", msg)
+        | _ => "complex type"
+    }
+}
+
+// Check if type is boolean
+is_bool = (t: Type) bool {
+    match t {
+        | Type.Bool => true
+        | _ => false
+    }
+}
+
+// Helper functions (stubs for now)
+register_struct_type = (checker: Ptr<TypeChecker>, name: string, fields: Vec<parser.StructField>, generics: Vec<string>) void {
+    // TODO: Implement
+}
+
+register_enum_type = (checker: Ptr<TypeChecker>, name: string, variants: Vec<parser.EnumVariant>, generics: Vec<string>) void {
+    // TODO: Implement
+}
+
+register_type_alias = (checker: Ptr<TypeChecker>, name: string, type: Type) void {
+    checker.env.types.insert(name, type)
+}
+
+register_function = (checker: Ptr<TypeChecker>, name: string, params: Vec<parser.Parameter>, return_type: Option<Type>, is_generic: bool) void {
+    // TODO: Implement
+}
+
+lookup_variable = (checker: Ptr<TypeChecker>, name: string) Type {
+    checker.env.variables.get(name) ?
+        | Some(t) => t
+        | None => Type.Unknown
+}
+
+check_function_call = (checker: Ptr<TypeChecker>, func: Ptr<AstNode>, args: Vec<AstNode>) Type {
+    // TODO: Implement
+    Type.Unknown
+}
+
+check_var_decl = (checker: Ptr<TypeChecker>, name: string, type_annotation: Option<Type>, value: Option<Ptr<AstNode>>, is_mutable: bool) Type {
+    // TODO: Implement
+    Type.Unknown
+}
+
+check_if_expr = (checker: Ptr<TypeChecker>, condition: Ptr<AstNode>, then_branch: Ptr<AstNode>, else_branch: Option<Ptr<AstNode>>) Type {
+    // TODO: Implement
+    Type.Unknown
+}
+
+check_block = (checker: Ptr<TypeChecker>, statements: Vec<AstNode>) Type {
+    // TODO: Implement
+    Type.Unknown
+}
+
+check_return = (checker: Ptr<TypeChecker>, value: Option<Ptr<AstNode>>) Type {
+    // TODO: Implement
+    Type.Void
+}
+
+add_error = (checker: Ptr<TypeChecker>, msg: string) void {
+    diagnostic := errors.Diagnostic {
+        level: errors.DiagnosticLevel.Error,
+        message: msg,
+        location: errors.SourceLocation {
+            file: "unknown",
+            line: 0,
+            column: 0,
+        },
+        context: Option<errors.ErrorContext>.None,
+    }
+    checker.errors.push(diagnostic)
+}
