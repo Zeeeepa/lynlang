@@ -2,8 +2,8 @@
 // Provides advanced data structures and utilities
 
 core := @std.core
-vec := @std.build.import("vec")
-hashmap := @std.build.import("hashmap")
+vec := @std.vec
+hashmap := @std.hashmap
 
 // Priority Queue (Binary Heap) implementation
 BinaryHeap<T> = {

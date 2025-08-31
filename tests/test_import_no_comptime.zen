@@ -3,14 +3,11 @@
 
 // Standard library imports - NO comptime needed
 core := @std.core
-build := @std.build
 math := @std.math
 vec := @std.vec
-
-// Build system imports
-io := build.import("io")
-fs := build.import("fs")
-string := build.import("string")
+io := @std.io
+fs := @std.fs
+string := @std.string
 
 // Test function using imports
 test_imports_work = () bool {

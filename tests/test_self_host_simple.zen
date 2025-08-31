@@ -3,10 +3,9 @@
 
 // Import standard library modules (no comptime needed!)
 core := @std.core
-build := @std.build
-io := build.import("io")
-fs := build.import("fs")
-string := build.import("string")
+io := @std.io
+fs := @std.fs
+string := @std.string
 
 // Test data structure to verify imports work
 TestResult = struct {

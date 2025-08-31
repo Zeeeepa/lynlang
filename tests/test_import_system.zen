@@ -3,13 +3,12 @@
 
 // Direct module imports - no comptime wrapper needed
 core := @std.core
-build := @std.build
 
 // Import standard library modules
-io := build.import("io")
-mem := build.import("mem")
-math := build.import("math")
-collections := build.import("collections")
+io := @std.io
+mem := @std.mem
+math := @std.math
+collections := @std.collections
 
 // Test that comptime blocks still work for actual compile-time computation
 // but are NOT needed for imports

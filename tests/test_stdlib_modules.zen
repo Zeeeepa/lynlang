@@ -9,9 +9,8 @@ result := @std.result
 thread := @std.thread
 
 // Import new modules
-build := @std.build
-task_executor := build.import("task_executor")
-url := build.import("url")
+task_executor := @std.task_executor
+url := @std.url
 
 // Test URL parsing
 test_url_parsing = () bool {

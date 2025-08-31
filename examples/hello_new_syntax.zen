@@ -2,8 +2,7 @@
 // Imports are at module level, NOT in comptime blocks
 
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 main = () i32 {
     io.print("Hello, Zen!\n")

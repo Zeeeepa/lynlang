@@ -2,16 +2,15 @@
 // Compiles Zen source code to C for bootstrapping
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-fs := build.import("fs")
-os := build.import("os")
-string := build.import("string")
-path := build.import("path")
-lexer := build.import("../compiler/lexer")
-parser := build.import("../compiler/parser")
-codegen := build.import("../compiler/codegen")
-type_checker := build.import("../compiler/type_checker")
+io := @std.io
+fs := @std.fs
+os := @std.os
+string := @std.string
+path := @std.path
+lexer := @compiler.lexer
+parser := @compiler.parser
+codegen := @compiler.codegen
+type_checker := @compiler.type_checker
 
 // Compiler options
 CompilerOptions := struct {

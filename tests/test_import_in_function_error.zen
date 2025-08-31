@@ -2,7 +2,7 @@
 
 main = () i32 {
     // ERROR: Import inside function scope
-    io := build.import("io")
+    io := @std.io
     io.print("This should not compile\n")
     return 0
 }

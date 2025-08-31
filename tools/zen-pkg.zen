@@ -2,13 +2,12 @@
 // Package management for the Zen ecosystem
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-fs := build.import("fs")
-string := build.import("string")
-process := build.import("process")
-http := build.import("http")
-json := build.import("json")
+io := @std.io
+fs := @std.fs
+string := @std.string
+process := @std.process
+http := @std.http
+json := @std.json
 
 // Package manifest structure
 PackageManifest := struct {

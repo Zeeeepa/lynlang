@@ -2,8 +2,8 @@
 // Provides async programming primitives and task management
 
 core := @std.core
-thread := @std.build.import("thread")
-collections := @std.build.import("collections_ext")
+thread := @std.thread
+collections := @std.collections_ext
 
 // Task state enum
 TaskState = 

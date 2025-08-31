@@ -2,8 +2,7 @@
 // Advanced data structures and collections
 
 core := @std.core
-build := @std.build
-memory := build.import("memory")
+memory := @std.memory
 
 // Dynamic array (vector) implementation
 Vector := struct {

@@ -8,8 +8,7 @@ comptime {
     math := @std.math
     
     // ERROR: build.import also not allowed in comptime
-    build := @std.build
-    fs := build.import("fs")
+    fs := @std.fs
 }
 
 main = () i32 {

@@ -2,16 +2,15 @@
 // Main entry point for the self-hosted compiler
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-fs := build.import("fs")
-string := build.import("string")
-process := build.import("process")
-lexer := build.import("lexer")
-parser := build.import("parser")
-c_backend := build.import("c_backend")
-llvm_backend := build.import("llvm_backend")
-type_checker := build.import("type_checker")
+io := @std.io
+fs := @std.fs
+string := @std.string
+process := @std.process
+lexer := @compiler.lexer
+parser := @compiler.parser
+c_backend := @compiler.c_backend
+llvm_backend := @compiler.llvm_backend
+type_checker := @compiler.type_checker
 
 // Compiler options
 CompilerOptions := struct {

@@ -2,8 +2,8 @@
 // Provides comprehensive testing utilities and assertions
 
 core := @std.core
-io := @std.build.import("io")
-string := @std.build.import("string")
+io := @std.io
+string := @std.string
 
 // Test result types
 TestResult = 

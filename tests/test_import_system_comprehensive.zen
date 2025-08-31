@@ -3,11 +3,10 @@
 
 // Standard library imports
 core := @std.core
-build := @std.build
-io := build.import("io")
-fs := build.import("fs")
+io := @std.io
+fs := @std.fs
 math := @std.math
-string := build.import("string")
+string := @std.string
 vec := @std.vec
 
 // Test basic import functionality

@@ -2,14 +2,13 @@
 // Interactive shell for experimenting with Zen code
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-string := build.import("string")
-process := build.import("process")
-lexer := build.import("lexer")
-parser := build.import("parser")
-type_checker := build.import("type_checker")
-interpreter := build.import("interpreter")
+io := @std.io
+string := @std.string
+process := @std.process
+lexer := @compiler.lexer
+parser := @compiler.parser
+type_checker := @compiler.type_checker
+interpreter := @compiler.interpreter
 
 // REPL state
 ReplState := struct {

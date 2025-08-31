@@ -2,8 +2,7 @@
 // The simplest possible Zen program
 
 // Bootstrap imports - no comptime needed
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 // Entry point - every Zen program needs a main function
 main = () void {
