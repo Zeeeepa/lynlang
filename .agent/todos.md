@@ -12,32 +12,68 @@
 9. ✅ Document self-hosting status
 10. ✅ Fixed all comptime import issues in 4 files
 11. ✅ Verified parser tests pass for new import syntax
+12. ✅ Enhanced self-hosted parser with proper import parsing
+13. ✅ Added parse_builtin_import for @std syntax
+14. ✅ Created comprehensive import syntax test
+15. ✅ All 16 tests passing
 
 ## In Progress 🔄
 - None currently
 
-## Pending Tasks 📋 (Priority Order)
+## Next Priority Tasks 📋 (Priority Order)
 
-### Next Priority: Memory Management
-10. 📋 Implement malloc/free integration
-    - Add proper external function declarations
-    - Integrate with LLVM runtime
-    - Test memory allocation for Vec and HashMap
+### High Priority: Core Compiler Features
+1. 📋 Implement type inference improvements
+   - Better generic type resolution
+   - Improved error messages
+   - Support for complex type constraints
 
-### Next Priority: Bootstrap Process  
-11. 📋 Define bootstrap sequence
-    - Compile small programs with both compilers
-    - Compare output between Rust and self-hosted
-    - Ensure compatibility
+2. 📋 Complete LLVM backend optimizations
+   - Add optimization passes
+   - Implement inlining
+   - Dead code elimination
 
-### Documentation (Priority: Low)
-9. 📋 Document testing process in .agent directory
-   - Testing conventions
-   - How to add new tests
-   - CI/CD process
+3. 📋 Memory management enhancements
+   - Complete malloc/free integration
+   - Add smart pointer support
+   - Implement reference counting option
+
+### Medium Priority: Developer Experience  
+4. 📋 Create VSCode extension
+   - Syntax highlighting
+   - LSP client integration
+   - Debugging support
+
+5. 📋 Build documentation generator (zen-doc)
+   - Extract doc comments
+   - Generate HTML/Markdown docs
+   - API reference generation
+
+6. 📋 Package registry implementation
+   - Server backend for zen-pkg
+   - Package versioning
+   - Dependency resolution
+
+### Low Priority: Advanced Features
+7. 📋 WebAssembly target
+   - WASM code generation
+   - Browser runtime support
+   - Node.js integration
+
+8. 📋 JIT compilation support
+   - Runtime optimization
+   - Hot code reloading
+   - Performance profiling
+
+## Session Progress Summary
+- ✅ Import syntax fully migrated from comptime wrapper to direct imports
+- ✅ Self-hosted parser enhanced with proper import/builtin parsing
+- ✅ Test coverage expanded to 16 passing tests
+- ✅ Bootstrap process working correctly
+- ✅ All stdlib modules using correct import syntax
 
 ## Notes
-- Import syntax has been updated: no more `comptime { imports }` wrapper needed
-- Stdlib modules are already well implemented
-- Self-hosting components exist in stdlib (lexer, parser, ast, type_checker, codegen)
-- Focus should be on testing and validation
+- Import syntax is now clean: `core := @std.core` (no comptime wrapper)
+- Self-hosted compiler components are functional
+- Parser can handle both regular imports and @builtin imports
+- Focus next on type system and optimization improvements

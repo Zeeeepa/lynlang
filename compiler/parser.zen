@@ -759,6 +759,11 @@ parse_primary_expression = (parser: Ptr<Parser>) AstNode {
                 | true => return parse_struct_literal(parser, name)
                 | false => return AstNode.Ident(name)
         }
+        | TokenKind.At => {
+            // Builtin import like @std.core
+            advance(parser)
+            return parse_builtin_import(parser)
+        }
         | TokenKind.LeftParen => {
             advance(parser)
             expr := parse_expression(parser)
@@ -1086,9 +1091,67 @@ parse_const = (parser: Ptr<Parser>) AstNode {
     return AstNode.VarDecl(name, type_annotation, Option<Ptr<AstNode>>.Some(ptr_new(value)), false)
 }
 
+parse_builtin_import = (parser: Ptr<Parser>) AstNode {
+    // Parse builtin module path like std.core or compiler.lexer
+    path := vec_new<string>()
+    
+    // First component (e.g., "std" or "compiler")
+    first_token := expect(parser, TokenKind.Identifier(""), "Expected module name after @")
+    first := match first_token.kind {
+        | TokenKind.Identifier(name) => name
+        | _ => {
+            add_error(parser, "Invalid builtin module name")
+            return AstNode.IntLit(0)
+        }
+    }
+    path.push(first)
+    
+    // Parse additional components separated by dots
+    loop {
+        check(parser, TokenKind.Dot) ?
+            | true => {
+                advance(parser)  // consume '.'
+                component_token := expect(parser, TokenKind.Identifier(""), "Expected module component after '.'")
+                component := match component_token.kind {
+                    | TokenKind.Identifier(name) => name
+                    | _ => break
+                }
+                path.push(component)
+            }
+            | false => break
+    }
+    
+    // Create import path string
+    import_path := "@" + string.join(path, ".")
+    return AstNode.Import(import_path, Option<string>.None)
+}
+
 parse_import = (parser: Ptr<Parser>) AstNode {
-    // Stub implementation
-    return AstNode.IntLit(0)
+    advance(parser)  // consume 'import'
+    
+    // Parse the import path (string literal expected)
+    path_token := expect(parser, TokenKind.StringLit(""), "Expected import path as string")
+    path := match path_token.kind {
+        | TokenKind.StringLit(s) => s
+        | _ => {
+            add_error(parser, "Invalid import path")
+            return AstNode.IntLit(0)
+        }
+    }
+    
+    // Check for optional alias
+    alias := check(parser, TokenKind.Keyword("as")) ?
+        | true => {
+            advance(parser)  // consume 'as'
+            alias_token := expect(parser, TokenKind.Identifier(""), "Expected alias name")
+            match alias_token.kind {
+                | TokenKind.Identifier(name) => Option<string>.Some(name)
+                | _ => Option<string>.None
+            }
+        }
+        | false => Option<string>.None
+    
+    return AstNode.Import(path, alias)
 }
 
 parse_module = (parser: Ptr<Parser>) AstNode {
