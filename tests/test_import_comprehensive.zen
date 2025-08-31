@@ -9,6 +9,12 @@ build := @std.build
 io := build.import("io")
 fs := build.import("fs")
 math := @std.math
+meta := @std.meta
+reflect := build.import("reflect")
+ast := @compiler.ast
+outer_meta := @std.meta
+inner_reflect := @std.reflect
+inner_ast := @compiler.ast
 
 // Test imports inside functions
 test_function_imports = () void {
@@ -21,12 +27,8 @@ test_function_imports = () void {
     response := http.get("https://example.com")
 }
 
-// Test imports in comptime blocks (now allowed)
+// Comptime blocks are for meta-programming, not imports
 comptime {
-    meta := @std.meta
-    reflect := build.import("reflect")
-    ast := @compiler.ast
-    
     // Can use imports for compile-time code generation
     generate_struct = (name: string) void {
         meta.define_type(name, reflect.struct_type([
@@ -36,15 +38,10 @@ comptime {
     }
 }
 
-// Test nested comptime with imports
+// Test nested comptime for meta-programming
 comptime {
-    outer_meta := @std.meta
-    
     comptime {
-        inner_reflect := @std.reflect
-        inner_ast := @compiler.ast
-        
-        // Nested imports work fine
+        // Meta-programming logic
         process_ast = (node: inner_ast.Node) void {
             inner_reflect.inspect(node)
         }
