@@ -1,41 +1,35 @@
-# Zenlang Development Plan
+# Zen Language Development Plan
 
-## Immediate Goals (Priority 1)
-1. **Fix Import System** - Remove comptime requirement for imports
-   - Move imports to module level
-   - Update parser to handle module-level imports
-   - Ensure imports work without comptime blocks
+## Phase 1: Import System Fix (Current)
+- [x] Analyze current import patterns
+- [ ] Fix remaining comptime-wrapped imports
+- [ ] Update parser to reject imports in comptime
+- [ ] Update all test files
+- [ ] Verify all examples work correctly
 
-2. **Update Examples** - Ensure all examples use new syntax
-   - Update hello.zen, fibonacci.zen, etc.
-   - Test each example after changes
+## Phase 2: Standard Library Enhancement
+- [ ] Complete core module
+- [ ] Enhance io module with more operations
+- [ ] Add missing string utilities
+- [ ] Implement full collections library
+- [ ] Add comprehensive error handling
 
-## Short-term Goals (Priority 2)
-3. **Stdlib in Zen** - Implement core stdlib modules
-   - io module (print, input)
-   - math module (basic operations)
-   - string module (manipulation)
-   - memory module (allocation)
+## Phase 3: Self-Hosting Compiler
+- [ ] Port lexer to Zen
+- [ ] Port parser to Zen
+- [ ] Port type checker to Zen
+- [ ] Port code generator to Zen
+- [ ] Bootstrap testing
 
-4. **Testing Framework** - Create comprehensive tests
-   - Unit tests for parser
-   - Integration tests for compiler
-   - Example program tests
+## Phase 4: LSP Implementation
+- [ ] Basic syntax checking
+- [ ] Type checking integration
+- [ ] Auto-completion
+- [ ] Go-to-definition
+- [ ] Error diagnostics
 
-## Medium-term Goals (Priority 3)
-5. **LSP/Validation** - Implement checking system
-   - Basic syntax checking
-   - Type checking
-   - Import resolution
-
-6. **Self-hosting** - Port compiler to Zen
-   - Start with lexer
-   - Then parser
-   - Finally code generation
-
-## Principles
-- Simplicity and elegance
-- Practical solutions
-- Frequent commits
-- 80% implementation, 20% testing
-- DRY & KISS
+## Phase 5: Testing & Documentation
+- [ ] Unit tests for all stdlib modules
+- [ ] Integration tests for compiler
+- [ ] Performance benchmarks
+- [ ] Complete documentation
