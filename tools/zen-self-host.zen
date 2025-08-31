@@ -1,0 +1,177 @@
+// Zen Self-Hosting Driver
+// Uses the Zen standard library compiler to compile Zen code
+
+io := @std.io
+fs := @std.fs
+string := @std.string
+core := @std.core
+build := @std.build
+
+// Import compiler components
+lexer := build.import("compiler/lexer")
+parser := build.import("compiler/parser")
+type_checker := build.import("compiler/type_checker")
+codegen := build.import("compiler/codegen")
+
+// Compilation options
+CompileOptions = {
+    input_file: string,
+    output_file: string,
+    target: string,  // "llvm", "c", "wasm"
+    optimize: bool,
+    verbose: bool,
+}
+
+// Compile a Zen source file
+compile = (options: CompileOptions) Result<void, string> {
+    if options.verbose {
+        io.println("Zen Self-Hosted Compiler")
+        io.printf("Input: {}\n", options.input_file)
+        io.printf("Output: {}\n", options.output_file)
+        io.printf("Target: {}\n", options.target)
+    }
+    
+    // Read source file
+    source := fs.read_file(options.input_file)?
+    
+    // Lexical analysis
+    if options.verbose {
+        io.println("Phase 1: Lexical Analysis...")
+    }
+    tokens := lexer.tokenize(source)?
+    
+    // Parsing
+    if options.verbose {
+        io.println("Phase 2: Parsing...")
+    }
+    ast := parser.parse(tokens)?
+    
+    // Type checking
+    if options.verbose {
+        io.println("Phase 3: Type Checking...")
+    }
+    typed_ast := type_checker.check(ast)?
+    
+    // Code generation
+    if options.verbose {
+        io.println("Phase 4: Code Generation...")
+    }
+    
+    output := match options.target {
+        "llvm" => codegen.emit_llvm(typed_ast)?,
+        "c" => codegen.emit_c(typed_ast)?,
+        "wasm" => codegen.emit_wasm(typed_ast)?,
+        _ => return Result.Err("Unknown target: " + options.target)
+    }
+    
+    // Write output file
+    fs.write_file(options.output_file, output)?
+    
+    if options.verbose {
+        io.println("Compilation successful!")
+    }
+    
+    return Result.Ok(void)
+}
+
+// Parse command line arguments
+parse_args = (args: [string]) CompileOptions {
+    options := CompileOptions {
+        input_file: "",
+        output_file: "output",
+        target: "llvm",
+        optimize: false,
+        verbose: false,
+    }
+    
+    i := 1  // Skip program name
+    while i < args.len {
+        arg := args[i]
+        
+        match arg {
+            "-o" | "--output" => {
+                if i + 1 < args.len {
+                    options.output_file = args[i + 1]
+                    i += 2
+                } else {
+                    io.eprintln("Error: -o requires an argument")
+                    core.exit(1)
+                }
+            },
+            "-t" | "--target" => {
+                if i + 1 < args.len {
+                    options.target = args[i + 1]
+                    i += 2
+                } else {
+                    io.eprintln("Error: -t requires an argument")
+                    core.exit(1)
+                }
+            },
+            "-O" | "--optimize" => {
+                options.optimize = true
+                i += 1
+            },
+            "-v" | "--verbose" => {
+                options.verbose = true
+                i += 1
+            },
+            "-h" | "--help" => {
+                print_help()
+                core.exit(0)
+            },
+            _ => {
+                if arg.starts_with("-") {
+                    io.eprintf("Unknown option: {}\n", arg)
+                    core.exit(1)
+                } else {
+                    options.input_file = arg
+                    i += 1
+                }
+            }
+        }
+    }
+    
+    if options.input_file == "" {
+        io.eprintln("Error: No input file specified")
+        print_help()
+        core.exit(1)
+    }
+    
+    // Add appropriate extension to output file based on target
+    if !options.output_file.contains(".") {
+        options.output_file = match options.target {
+            "llvm" => options.output_file + ".ll",
+            "c" => options.output_file + ".c",
+            "wasm" => options.output_file + ".wasm",
+            _ => options.output_file
+        }
+    }
+    
+    return options
+}
+
+// Print help message
+print_help = () void {
+    io.println("Usage: zen-self-host [options] <input.zen>")
+    io.println("")
+    io.println("Options:")
+    io.println("  -o, --output <file>    Output file name")
+    io.println("  -t, --target <target>  Target format (llvm, c, wasm)")
+    io.println("  -O, --optimize         Enable optimizations")
+    io.println("  -v, --verbose          Verbose output")
+    io.println("  -h, --help             Show this help message")
+}
+
+// Main entry point
+main = (args: [string]) i32 {
+    options := parse_args(args)
+    
+    result := compile(options)
+    match result {
+        Result.Ok => return 0,
+        Result.Err -> err => {
+            io.eprintf("Compilation error: {}\n", err)
+            return 1
+        }
+    }
+}
