@@ -1,39 +1,75 @@
-# Zen Language Global Memory
+# Zen Language Self-Hosting Status
 
-## Project Overview
-Zen is a systems programming language with:
-- Strong type system
-- Pattern matching
-- Comptime evaluation for meta-programming
-- Self-hosting compiler (in progress)
-- Standard library written in Zen
+## Current State (2025-08-31)
 
-## Key Design Principles
-- Simplicity, elegance, practicality, and intelligence
-- DRY (Don't Repeat Yourself) & KISS (Keep It Simple, Stupid)
-- Comptime is for meta-programming, NOT for imports
+### ✅ Completed Tasks
 
-## Import System Rules
-1. Imports should be at module level (NOT inside comptime blocks)
-2. Standard library imports use `@std.module` syntax
-3. Build system imports use `@std.build.import("module")` syntax
-4. Comptime blocks are for compile-time computation and meta-programming
+1. **Import Syntax Fixed**
+   - Imports now work at module level without comptime blocks
+   - Correct syntax: `io := @std.io` (at top level)
+   - Comptime is reserved for meta-programming only
 
-## Standard Library Modules
-- core: Core types and utilities
-- io: Input/output operations
-- string: String manipulation
-- vec: Dynamic arrays
-- hashmap: Hash maps
-- math: Mathematical functions
-- fs: File system operations
-- thread: Threading utilities
-- json: JSON parsing/serialization
-- test: Testing framework
-- build: Build system utilities
+2. **Parser Support**
+   - Parser already supports top-level imports
+   - Handles both `@std.module` and `build.import("module")` patterns
+   - Located in: compiler/parser.zen
 
-## Current Tasks
-- ✅ Import system fixed (imports at module level work correctly)
-- Bootstrap self-hosting compiler (lexer, parser, type checker, codegen complete)
-- Comprehensive testing in progress
-- LSP implementation for code checking
+3. **Type Checker Updated**
+   - Added Import AST node handling
+   - Imports are treated as having Void type (module resolution phase)
+   - Located in: compiler/type_checker.zen
+
+4. **Standard Library**
+   - Already ported to Zen
+   - Key modules: core, io, string, vec, math, fs, process
+   - Located in: stdlib/
+
+5. **Testing Infrastructure**
+   - Comprehensive test suite in tests/
+   - Self-hosting test: tests/test_self_hosting_complete.zen
+   - Checker tool: tools/zen-check.zen
+
+6. **LSP/Checker Tools**
+   - Multiple checker tools available in tools/
+   - zen-check.zen: Basic syntax checker
+   - zen-lsp.zen: Language server implementation
+
+## Import Syntax Examples
+
+### Correct (New) Syntax
+```zen
+// At module level, no comptime
+core := @std.core
+io := @std.io
+math := @std.math
+
+main = () i32 {
+    io.print("Hello, Zen!\n")
+    return 0
+}
+```
+
+### Incorrect (Old) Syntax
+```zen
+// DON'T DO THIS!
+comptime {
+    io := @std.io  // ERROR: Imports not allowed in comptime
+}
+```
+
+## Key Files
+
+- **Compiler**: compiler/main.zen
+- **Parser**: compiler/parser.zen
+- **Type Checker**: compiler/type_checker.zen
+- **Code Generator**: compiler/code_gen.zen
+- **Standard Library**: stdlib/
+- **Tests**: tests/
+- **Tools**: tools/
+
+## Next Steps
+
+- Continue improving self-hosting compiler
+- Add more comprehensive error messages
+- Enhance LSP features
+- Add more stdlib modules as needed
