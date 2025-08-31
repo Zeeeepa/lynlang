@@ -1,0 +1,474 @@
+// zen_diagnostics.zen - LSP diagnostics for Zen language
+
+io := @std.io
+string := @std.string
+vec := @std.vec
+
+// Import compiler modules for analysis
+lexer := @compiler.lexer
+parser := @compiler.parser
+type_checker := @compiler.type_checker
+errors := @compiler.errors
+
+// Diagnostic severity levels (LSP standard)
+enum DiagnosticSeverity {
+    Error = 1,
+    Warning = 2,
+    Information = 3,
+    Hint = 4,
+}
+
+// Diagnostic structure (LSP standard)
+struct Diagnostic {
+    range: Range,
+    severity: DiagnosticSeverity,
+    code: Option<string>,
+    source: string,
+    message: string,
+    tags: Vec<DiagnosticTag>,
+    related_information: Vec<DiagnosticRelatedInformation>,
+}
+
+struct Range {
+    start: Position,
+    end: Position,
+}
+
+struct Position {
+    line: u32,     // 0-based
+    character: u32, // 0-based UTF-16 code unit
+}
+
+enum DiagnosticTag {
+    Unnecessary = 1,
+    Deprecated = 2,
+}
+
+struct DiagnosticRelatedInformation {
+    location: Location,
+    message: string,
+}
+
+struct Location {
+    uri: string,
+    range: Range,
+}
+
+// Diagnostic analyzer
+struct DiagnosticAnalyzer {
+    source_code: string,
+    file_uri: string,
+    diagnostics: Vec<Diagnostic>,
+}
+
+// Create new analyzer
+new_analyzer = (source: string, uri: string) DiagnosticAnalyzer {
+    return DiagnosticAnalyzer {
+        source_code: source,
+        file_uri: uri,
+        diagnostics: vec.new<Diagnostic>(),
+    }
+}
+
+// Main analysis function
+analyze = (analyzer: *DiagnosticAnalyzer) Vec<Diagnostic> {
+    // Lexical analysis
+    perform_lexical_analysis(analyzer)
+    
+    // Syntax analysis
+    perform_syntax_analysis(analyzer)
+    
+    // Semantic analysis
+    perform_semantic_analysis(analyzer)
+    
+    // Import validation
+    validate_imports(analyzer)
+    
+    // Type checking
+    perform_type_checking(analyzer)
+    
+    return analyzer.diagnostics
+}
+
+// Lexical analysis - check for invalid tokens
+perform_lexical_analysis = (analyzer: *DiagnosticAnalyzer) void {
+    lex := lexer.new_lexer(analyzer.source_code)
+    
+    loop {
+        token := lexer.next_token(lex)
+        if token.type == lexer.TokenType.Eof {
+            break
+        }
+        
+        if token.type == lexer.TokenType.Error {
+            add_diagnostic(analyzer, 
+                create_error_diagnostic(
+                    "Invalid token",
+                    token.line - 1,  // Convert to 0-based
+                    token.column - 1,
+                    token.column - 1 + string.len(token.value)
+                )
+            )
+        }
+    }
+}
+
+// Syntax analysis - parse and check for syntax errors
+perform_syntax_analysis = (analyzer: *DiagnosticAnalyzer) void {
+    lex := lexer.new_lexer(analyzer.source_code)
+    tokens := lexer.tokenize(lex)
+    
+    p := parser.new_parser(tokens)
+    result := parser.parse_program(p)
+    
+    match result {
+        Err(errors) => {
+            for error in errors {
+                add_diagnostic(analyzer,
+                    create_error_diagnostic(
+                        error.message,
+                        error.line - 1,
+                        error.column - 1,
+                        error.column
+                    )
+                )
+            }
+        },
+        Ok(program) => {
+            // Check for additional syntax issues
+            check_syntax_patterns(analyzer, program)
+        }
+    }
+}
+
+// Check common syntax patterns and issues
+check_syntax_patterns = (analyzer: *DiagnosticAnalyzer, program: parser.Program) void {
+    for decl in program.declarations {
+        match decl {
+            parser.Declaration.Function(func) => {
+                // Check for missing return statements
+                if func.return_type && !has_return_statement(func.body) {
+                    add_diagnostic(analyzer,
+                        create_warning_diagnostic(
+                            "Function may not return a value on all paths",
+                            func.base.line - 1,
+                            func.base.column - 1,
+                            func.base.column + string.len(func.name)
+                        )
+                    )
+                }
+            },
+            parser.Declaration.Variable(var) => {
+                // Check for unused variables (simple check)
+                if string.starts_with(var.name, "_") {
+                    // Intentionally unused
+                } else if !var.is_comptime && !is_variable_used(var.name, program) {
+                    add_diagnostic(analyzer,
+                        create_warning_diagnostic(
+                            string.format("Unused variable '{}'", var.name),
+                            var.base.line - 1,
+                            var.base.column - 1,
+                            var.base.column + string.len(var.name)
+                        ).with_tag(DiagnosticTag.Unnecessary)
+                    )
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
+// Validate imports
+validate_imports = (analyzer: *DiagnosticAnalyzer) void {
+    lines := string.split(analyzer.source_code, '\n')
+    in_comptime := false
+    brace_depth := 0
+    
+    for i, line in lines {
+        trimmed := string.trim(line)
+        
+        // Track comptime blocks
+        if string.contains(trimmed, "comptime") && string.contains(trimmed, "{") {
+            in_comptime = true
+            brace_depth = 1
+        }
+        
+        if in_comptime {
+            // Count braces to track nesting
+            for char in trimmed {
+                if char == '{' {
+                    brace_depth = brace_depth + 1
+                } else if char == '}' {
+                    brace_depth = brace_depth - 1
+                    if brace_depth == 0 {
+                        in_comptime = false
+                    }
+                }
+            }
+            
+            // Check for imports in comptime
+            if string.contains(trimmed, "@std") || string.contains(trimmed, "@compiler") {
+                add_diagnostic(analyzer,
+                    create_error_diagnostic(
+                        "Imports cannot be placed inside comptime blocks",
+                        i as u32,
+                        0,
+                        string.len(trimmed) as u32
+                    ).with_suggestion("Move import to module level")
+                )
+            }
+        }
+        
+        // Check for imports inside functions (simple heuristic)
+        if !in_comptime && is_inside_function(lines, i) {
+            if string.contains(trimmed, ":= @std") || string.contains(trimmed, ":= @compiler") {
+                add_diagnostic(analyzer,
+                    create_error_diagnostic(
+                        "Imports must be at module level",
+                        i as u32,
+                        string.index_of(trimmed, ":=") as u32,
+                        string.len(trimmed) as u32
+                    ).with_suggestion("Move import to top of file")
+                )
+            }
+        }
+    }
+}
+
+// Semantic analysis
+perform_semantic_analysis = (analyzer: *DiagnosticAnalyzer) void {
+    // Check for unreachable code
+    check_unreachable_code(analyzer)
+    
+    // Check for duplicate definitions
+    check_duplicate_definitions(analyzer)
+    
+    // Check for missing semicolons (if required)
+    // check_missing_semicolons(analyzer)
+}
+
+// Type checking
+perform_type_checking = (analyzer: *DiagnosticAnalyzer) void {
+    lex := lexer.new_lexer(analyzer.source_code)
+    tokens := lexer.tokenize(lex)
+    p := parser.new_parser(tokens)
+    
+    parse_result := parser.parse_program(p)
+    if parse_result.is_ok() {
+        program := parse_result.unwrap()
+        tc := type_checker.new()
+        type_result := type_checker.check(tc, program)
+        
+        match type_result {
+            Err(type_errors) => {
+                for error in type_errors {
+                    severity := if string.contains(error.message, "warning") {
+                        DiagnosticSeverity.Warning
+                    } else {
+                        DiagnosticSeverity.Error
+                    }
+                    
+                    add_diagnostic(analyzer,
+                        Diagnostic {
+                            range: Range {
+                                start: Position { 
+                                    line: error.line - 1, 
+                                    character: error.column - 1 
+                                },
+                                end: Position { 
+                                    line: error.line - 1, 
+                                    character: error.column 
+                                },
+                            },
+                            severity: severity,
+                            code: Some("type_error"),
+                            source: "zen_type_checker",
+                            message: error.message,
+                            tags: vec.new<DiagnosticTag>(),
+                            related_information: vec.new<DiagnosticRelatedInformation>(),
+                        }
+                    )
+                }
+            },
+            Ok(_) => {}
+        }
+    }
+}
+
+// Helper functions
+create_error_diagnostic = (message: string, line: u32, start_col: u32, end_col: u32) Diagnostic {
+    return Diagnostic {
+        range: Range {
+            start: Position { line: line, character: start_col },
+            end: Position { line: line, character: end_col },
+        },
+        severity: DiagnosticSeverity.Error,
+        code: None,
+        source: "zen_diagnostics",
+        message: message,
+        tags: vec.new<DiagnosticTag>(),
+        related_information: vec.new<DiagnosticRelatedInformation>(),
+    }
+}
+
+create_warning_diagnostic = (message: string, line: u32, start_col: u32, end_col: u32) Diagnostic {
+    return Diagnostic {
+        range: Range {
+            start: Position { line: line, character: start_col },
+            end: Position { line: line, character: end_col },
+        },
+        severity: DiagnosticSeverity.Warning,
+        code: None,
+        source: "zen_diagnostics",
+        message: message,
+        tags: vec.new<DiagnosticTag>(),
+        related_information: vec.new<DiagnosticRelatedInformation>(),
+    }
+}
+
+with_tag = (diag: Diagnostic, tag: DiagnosticTag) Diagnostic {
+    vec.push(diag.tags, tag)
+    return diag
+}
+
+with_suggestion = (diag: Diagnostic, suggestion: string) Diagnostic {
+    // Add suggestion to message
+    diag.message = string.format("{}\nSuggestion: {}", diag.message, suggestion)
+    return diag
+}
+
+add_diagnostic = (analyzer: *DiagnosticAnalyzer, diag: Diagnostic) void {
+    vec.push(analyzer.diagnostics, diag)
+}
+
+// Check if a line is inside a function (simple heuristic)
+is_inside_function = (lines: Vec<string>, line_index: usize) bool {
+    // Look backward for function declaration
+    i := line_index
+    brace_count := 0
+    
+    loop i > 0 {
+        i = i - 1
+        line := lines[i]
+        
+        // Count braces
+        for char in line {
+            if char == '{' {
+                brace_count = brace_count - 1
+            } else if char == '}' {
+                brace_count = brace_count + 1
+            }
+        }
+        
+        // Check for function pattern
+        if string.contains(line, "= (") && string.contains(line, ")") {
+            return brace_count < 0  // We're inside if we've seen more { than }
+        }
+        
+        // Stop if we reach module level
+        if brace_count == 0 && (string.contains(line, "struct") || 
+                                string.contains(line, "enum") || 
+                                string.contains(line, "type")) {
+            return false
+        }
+    }
+    
+    return false
+}
+
+has_return_statement = (block: parser.Block) bool {
+    for stmt in block.statements {
+        match stmt {
+            parser.Statement.Return(_) => return true,
+            parser.Statement.Block(b) => {
+                if has_return_statement(b) {
+                    return true
+                }
+            },
+            parser.Statement.If(if_stmt) => {
+                // Check both branches
+                // TODO: Implement proper control flow analysis
+            },
+            _ => {}
+        }
+    }
+    return false
+}
+
+is_variable_used = (name: string, program: parser.Program) bool {
+    // TODO: Implement proper usage analysis
+    // For now, assume all variables are used
+    return true
+}
+
+check_unreachable_code = (analyzer: *DiagnosticAnalyzer) void {
+    // TODO: Implement unreachable code detection
+}
+
+check_duplicate_definitions = (analyzer: *DiagnosticAnalyzer) void {
+    // TODO: Implement duplicate definition detection
+}
+
+// Format diagnostics for output
+format_diagnostic = (diag: *Diagnostic) string {
+    severity_str := match diag.severity {
+        DiagnosticSeverity.Error => "Error",
+        DiagnosticSeverity.Warning => "Warning",
+        DiagnosticSeverity.Information => "Info",
+        DiagnosticSeverity.Hint => "Hint",
+    }
+    
+    return string.format("[{}] {}:{} - {}", 
+                         severity_str,
+                         diag.range.start.line + 1,
+                         diag.range.start.character + 1,
+                         diag.message)
+}
+
+// Main entry point for testing
+main = () i32 {
+    io.print("Zen Language Diagnostics Tool\n")
+    io.print("=============================\n\n")
+    
+    // Test with sample code
+    test_code := "
+// Test file
+io := @std.io
+
+main = () i32 {
+    // This would be an error:
+    // bad := @std.bad  // Import inside function
+    
+    x := 42
+    y := x + 1
+    
+    io.print_int(y)
+    
+    return 0
+}
+
+// Unused variable warning
+unused := 100
+
+// Function missing return
+needs_return = () i32 {
+    x := 42
+    // Missing return statement
+}
+"
+    
+    analyzer := new_analyzer(test_code, "test.zen")
+    diagnostics := analyze(&analyzer)
+    
+    io.print("Found ")
+    io.print_int(vec.len(diagnostics))
+    io.print(" diagnostic(s):\n\n")
+    
+    for diag in diagnostics {
+        formatted := format_diagnostic(&diag)
+        io.print(formatted)
+        io.print("\n")
+    }
+    
+    return 0
+}

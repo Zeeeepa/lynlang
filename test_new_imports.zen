@@ -1,22 +1,14 @@
-// Test file to verify new import syntax works correctly
-// All imports should be at module level, not in comptime blocks
+// Test program with new import syntax
 
-// Standard library imports
-core := @std.core
+// Imports at module level - no comptime needed!
 io := @std.io
+core := @std.core
 
+// Simple main function
 main = () i32 {
-    io.print("Testing new import system...\n")
+    io.print("Hello from Zen!\n")
+    io.print("✅ Imports work without comptime!\n")
+    io.print("✅ Clean syntax: identifier := @module.path\n")
     
-    // Test basic functionality
-    msg := "Hello, Zen!"
-    io.print(msg)
-    io.print("\n")
-    
-    // Test vec functionality would go here
-    // (Vec implementation needs to be completed)
-    io.print("Vec test placeholder\n")
-    
-    io.print("All imports working correctly!\n")
     return 0
 }

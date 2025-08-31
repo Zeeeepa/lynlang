@@ -1,0 +1,273 @@
+// errors.zen - Error handling and reporting for self-hosted compiler
+
+io := @std.io
+string := @std.string
+vec := @std.vec
+
+// Error categories
+enum ErrorCategory {
+    Syntax,
+    Type,
+    Semantic,
+    Module,
+    Internal,
+}
+
+// Error severity
+enum ErrorSeverity {
+    Error,
+    Warning,
+    Info,
+    Hint,
+}
+
+// Source location
+struct SourceLocation {
+    file: string,
+    line: u32,
+    column: u32,
+    length: u32,
+}
+
+// Compile error
+struct CompileError {
+    category: ErrorCategory,
+    severity: ErrorSeverity,
+    message: string,
+    location: Option<SourceLocation>,
+    notes: Vec<string>,
+    suggestion: Option<string>,
+}
+
+// Error context for better reporting
+struct ErrorContext {
+    source_code: string,
+    file_name: string,
+    errors: Vec<CompileError>,
+    warnings: Vec<CompileError>,
+    error_count: u32,
+    warning_count: u32,
+}
+
+// Create new error context
+new_context := (source: string, file: string) *ErrorContext {
+    ctx := core.allocate<ErrorContext>()
+    ctx.source_code = source
+    ctx.file_name = file
+    ctx.errors = vec.new<CompileError>()
+    ctx.warnings = vec.new<CompileError>()
+    ctx.error_count = 0
+    ctx.warning_count = 0
+    return ctx
+}
+
+// Add error to context
+add_error := (ctx: *ErrorContext, error: CompileError) void {
+    if error.severity == ErrorSeverity.Error {
+        vec.push(ctx.errors, error)
+        ctx.error_count = ctx.error_count + 1
+    } else if error.severity == ErrorSeverity.Warning {
+        vec.push(ctx.warnings, error)
+        ctx.warning_count = ctx.warning_count + 1
+    }
+}
+
+// Create syntax error
+syntax_error := (message: string, location: SourceLocation) CompileError {
+    return CompileError {
+        category: ErrorCategory.Syntax,
+        severity: ErrorSeverity.Error,
+        message: message,
+        location: Some(location),
+        notes: vec.new<string>(),
+        suggestion: None,
+    }
+}
+
+// Create type error
+type_error := (message: string, location: SourceLocation) CompileError {
+    return CompileError {
+        category: ErrorCategory.Type,
+        severity: ErrorSeverity.Error,
+        message: message,
+        location: Some(location),
+        notes: vec.new<string>(),
+        suggestion: None,
+    }
+}
+
+// Check if error is type error
+is_type_error := (error: *CompileError) bool {
+    return error.category == ErrorCategory.Type
+}
+
+// Format error for display
+format_error := (error: *CompileError, source: string) string {
+    result := ""
+    
+    // Add severity and category
+    severity_str := match error.severity {
+        ErrorSeverity.Error => "error",
+        ErrorSeverity.Warning => "warning",
+        ErrorSeverity.Info => "info",
+        ErrorSeverity.Hint => "hint",
+    }
+    
+    category_str := match error.category {
+        ErrorCategory.Syntax => "syntax",
+        ErrorCategory.Type => "type",
+        ErrorCategory.Semantic => "semantic",
+        ErrorCategory.Module => "module",
+        ErrorCategory.Internal => "internal",
+    }
+    
+    // Format header
+    if error.location {
+        loc := error.location.unwrap()
+        result = string.format("{}[{}]: {} at {}:{}:{}\n", 
+                              severity_str, category_str, error.message,
+                              loc.file, loc.line, loc.column)
+        
+        // Add source line with error indicator
+        line_text := get_source_line(source, loc.line)
+        if line_text {
+            result = string.concat(result, string.format("  {} | {}\n", loc.line, line_text.unwrap()))
+            
+            // Add error indicator
+            spaces := string.repeat(" ", loc.column - 1)
+            arrows := string.repeat("^", loc.length)
+            result = string.concat(result, string.format("      | {}{}\n", spaces, arrows))
+        }
+    } else {
+        result = string.format("{}[{}]: {}\n", severity_str, category_str, error.message)
+    }
+    
+    // Add notes
+    for note in error.notes {
+        result = string.concat(result, string.format("  note: {}\n", note))
+    }
+    
+    // Add suggestion
+    if error.suggestion {
+        result = string.concat(result, string.format("  suggestion: {}\n", error.suggestion.unwrap()))
+    }
+    
+    return result
+}
+
+// Get source line by line number
+get_source_line := (source: string, line_num: u32) Option<string> {
+    lines := string.split(source, '\n')
+    if line_num > 0 && line_num <= vec.len(lines) {
+        return Some(lines[line_num - 1])
+    }
+    return None
+}
+
+// Print all errors in context
+print_errors := (ctx: *ErrorContext) void {
+    // Print errors
+    for error in ctx.errors {
+        formatted := format_error(&error, ctx.source_code)
+        io.print(formatted)
+    }
+    
+    // Print warnings
+    for warning in ctx.warnings {
+        formatted := format_error(&warning, ctx.source_code)
+        io.print(formatted)
+    }
+    
+    // Print summary
+    if ctx.error_count > 0 || ctx.warning_count > 0 {
+        io.print(string.format("\n{} error(s), {} warning(s)\n", 
+                               ctx.error_count, ctx.warning_count))
+    }
+}
+
+// Common error messages
+unexpected_token := (expected: string, actual: string, loc: SourceLocation) CompileError {
+    return syntax_error(
+        string.format("expected '{}', found '{}'", expected, actual),
+        loc
+    )
+}
+
+undefined_identifier := (name: string, loc: SourceLocation) CompileError {
+    error := CompileError {
+        category: ErrorCategory.Semantic,
+        severity: ErrorSeverity.Error,
+        message: string.format("undefined identifier '{}'", name),
+        location: Some(loc),
+        notes: vec.new<string>(),
+        suggestion: Some("did you forget to declare this variable?"),
+    }
+    return error
+}
+
+type_mismatch := (expected: string, actual: string, loc: SourceLocation) CompileError {
+    error := type_error(
+        string.format("type mismatch: expected '{}', got '{}'", expected, actual),
+        loc
+    )
+    vec.push(error.notes, "types must match exactly in this context")
+    return error
+}
+
+duplicate_definition := (name: string, loc: SourceLocation, prev_loc: SourceLocation) CompileError {
+    error := CompileError {
+        category: ErrorCategory.Semantic,
+        severity: ErrorSeverity.Error,
+        message: string.format("duplicate definition of '{}'", name),
+        location: Some(loc),
+        notes: vec.new<string>(),
+        suggestion: None,
+    }
+    vec.push(error.notes, string.format("previous definition at {}:{}",
+                                        prev_loc.line, prev_loc.column))
+    return error
+}
+
+// Import-specific errors
+import_in_comptime := (loc: SourceLocation) CompileError {
+    error := syntax_error(
+        "imports cannot be placed inside comptime blocks",
+        loc
+    )
+    error.suggestion = Some("move the import to module level (outside any blocks)")
+    vec.push(error.notes, "imports must be at the top level of the module")
+    vec.push(error.notes, "use 'identifier := @std.module' syntax at module level")
+    return error
+}
+
+invalid_import_syntax := (loc: SourceLocation) CompileError {
+    error := syntax_error(
+        "invalid import syntax",
+        loc
+    )
+    error.suggestion = Some("use 'identifier := @std.module' or 'identifier := build.import(\"module\")'")
+    return error
+}
+
+// Warning creators
+unused_variable := (name: string, loc: SourceLocation) CompileError {
+    return CompileError {
+        category: ErrorCategory.Semantic,
+        severity: ErrorSeverity.Warning,
+        message: string.format("unused variable '{}'", name),
+        location: Some(loc),
+        notes: vec.new<string>(),
+        suggestion: Some("prefix with '_' to indicate intentionally unused"),
+    }
+}
+
+unreachable_code := (loc: SourceLocation) CompileError {
+    return CompileError {
+        category: ErrorCategory.Semantic,
+        severity: ErrorSeverity.Warning,
+        message: "unreachable code detected",
+        location: Some(loc),
+        notes: vec.new<string>(),
+        suggestion: Some("remove or refactor this code"),
+    }
+}

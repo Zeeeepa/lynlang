@@ -1,0 +1,891 @@
+// parser.zen - Self-hosted parser for Zen language
+
+io := @std.io
+core := @std.core
+string := @std.string
+vec := @std.vec
+
+// Import lexer module
+lexer := @compiler.lexer
+
+// AST Node Types
+enum NodeType {
+    // Program
+    Program,
+    
+    // Declarations
+    FunctionDecl,
+    VariableDecl,
+    StructDecl,
+    EnumDecl,
+    TypeAlias,
+    ModuleImport,
+    
+    // Statements
+    ExpressionStmt,
+    ReturnStmt,
+    IfStmt,
+    LoopStmt,
+    BreakStmt,
+    ContinueStmt,
+    Block,
+    
+    // Expressions
+    BinaryExpr,
+    UnaryExpr,
+    CallExpr,
+    IndexExpr,
+    MemberExpr,
+    Identifier,
+    IntegerLiteral,
+    FloatLiteral,
+    StringLiteral,
+    BoolLiteral,
+    ArrayLiteral,
+    StructLiteral,
+    
+    // Pattern matching
+    MatchExpr,
+    MatchArm,
+    Pattern,
+}
+
+// Base AST Node
+struct AstNode {
+    node_type: NodeType,
+    line: u32,
+    column: u32,
+}
+
+// Program node - root of AST
+struct Program {
+    base: AstNode,
+    declarations: Vec<Declaration>,
+}
+
+// Declaration types
+enum Declaration {
+    Function(FunctionDecl),
+    Variable(VariableDecl),
+    Struct(StructDecl),
+    Enum(EnumDecl),
+    TypeAlias(TypeAliasDecl),
+    Import(ImportDecl),
+}
+
+struct FunctionDecl {
+    base: AstNode,
+    name: string,
+    params: Vec<Parameter>,
+    return_type: Option<Type>,
+    body: Block,
+    is_generic: bool,
+    type_params: Vec<string>,
+}
+
+struct Parameter {
+    name: string,
+    param_type: Type,
+    is_mutable: bool,
+}
+
+struct VariableDecl {
+    base: AstNode,
+    name: string,
+    var_type: Option<Type>,
+    value: Option<Expression>,
+    is_mutable: bool,
+    is_comptime: bool,
+}
+
+struct ImportDecl {
+    base: AstNode,
+    alias: string,
+    module_path: string,
+}
+
+// Type representation
+enum Type {
+    Named(string),
+    Pointer(Box<Type>),
+    Array(Box<Type>, Option<u64>),
+    Function(Vec<Type>, Box<Type>),
+    Generic(string, Vec<Type>),
+}
+
+// Expression types
+enum Expression {
+    Binary(BinaryExpr),
+    Unary(UnaryExpr),
+    Call(CallExpr),
+    Index(IndexExpr),
+    Member(MemberExpr),
+    Identifier(string),
+    IntegerLit(i64),
+    FloatLit(f64),
+    StringLit(string),
+    BoolLit(bool),
+    Match(MatchExpr),
+}
+
+struct BinaryExpr {
+    base: AstNode,
+    left: Box<Expression>,
+    operator: string,
+    right: Box<Expression>,
+}
+
+struct UnaryExpr {
+    base: AstNode,
+    operator: string,
+    operand: Box<Expression>,
+}
+
+struct CallExpr {
+    base: AstNode,
+    callee: Box<Expression>,
+    arguments: Vec<Expression>,
+}
+
+struct MemberExpr {
+    base: AstNode,
+    object: Box<Expression>,
+    member: string,
+}
+
+struct MatchExpr {
+    base: AstNode,
+    scrutinee: Box<Expression>,
+    arms: Vec<MatchArm>,
+}
+
+struct MatchArm {
+    pattern: Pattern,
+    guard: Option<Expression>,
+    body: Expression,
+}
+
+enum Pattern {
+    Wildcard,
+    Identifier(string),
+    Literal(Expression),
+    Struct(string, Vec<(string, Pattern)>),
+    Enum(string, Option<Box<Pattern>>),
+}
+
+// Statement types
+enum Statement {
+    Expression(Expression),
+    Return(Option<Expression>),
+    If(IfStmt),
+    Loop(LoopStmt),
+    Break,
+    Continue,
+    Block(Block),
+}
+
+struct IfStmt {
+    base: AstNode,
+    condition: Expression,
+    then_branch: Box<Statement>,
+    else_branch: Option<Box<Statement>>,
+}
+
+struct LoopStmt {
+    base: AstNode,
+    condition: Option<Expression>,
+    body: Block,
+}
+
+struct Block {
+    base: AstNode,
+    statements: Vec<Statement>,
+}
+
+// Parser state
+struct Parser {
+    tokens: Vec<lexer.Token>,
+    current: u64,
+    errors: Vec<ParseError>,
+}
+
+struct ParseError {
+    message: string,
+    line: u32,
+    column: u32,
+}
+
+// Parser implementation
+new_parser := (tokens: Vec<lexer.Token>) Parser {
+    return Parser {
+        tokens: tokens,
+        current: 0,
+        errors: vec.new<ParseError>(),
+    }
+}
+
+// Check if at end of tokens
+is_at_end := (p: *Parser) bool {
+    return p.current >= vec.len(p.tokens) || 
+           p.tokens[p.current].type == lexer.TokenType.Eof
+}
+
+// Get current token
+current_token := (p: *Parser) lexer.Token {
+    if p.current < vec.len(p.tokens) {
+        return p.tokens[p.current]
+    }
+    // Return EOF token
+    return lexer.Token {
+        type: lexer.TokenType.Eof,
+        value: "",
+        line: 0,
+        column: 0,
+    }
+}
+
+// Peek next token
+peek_token := (p: *Parser) lexer.Token {
+    if p.current + 1 < vec.len(p.tokens) {
+        return p.tokens[p.current + 1]
+    }
+    return lexer.Token {
+        type: lexer.TokenType.Eof,
+        value: "",
+        line: 0,
+        column: 0,
+    }
+}
+
+// Advance to next token
+advance := (p: *Parser) lexer.Token {
+    if !is_at_end(p) {
+        token := p.tokens[p.current]
+        p.current = p.current + 1
+        return token
+    }
+    return current_token(p)
+}
+
+// Check if current token matches type
+check := (p: *Parser, token_type: lexer.TokenType) bool {
+    if is_at_end(p) {
+        return false
+    }
+    return current_token(p).type == token_type
+}
+
+// Consume token of expected type or report error
+consume := (p: *Parser, token_type: lexer.TokenType, message: string) Result<lexer.Token, ParseError> {
+    if check(p, token_type) {
+        return Ok(advance(p))
+    }
+    
+    token := current_token(p)
+    error := ParseError {
+        message: message,
+        line: token.line,
+        column: token.column,
+    }
+    vec.push(p.errors, error)
+    return Err(error)
+}
+
+// Parse program (entry point)
+parse_program := (p: *Parser) Result<Program, Vec<ParseError>> {
+    declarations := vec.new<Declaration>()
+    
+    loop !is_at_end(p) {
+        // Skip newlines at top level
+        if check(p, lexer.TokenType.Semicolon) {
+            advance(p)
+            continue
+        }
+        
+        decl_result := parse_declaration(p)
+        match decl_result {
+            Ok(decl) => vec.push(declarations, decl),
+            Err(error) => {
+                // Try to recover by synchronizing
+                synchronize(p)
+            }
+        }
+    }
+    
+    if vec.len(p.errors) > 0 {
+        return Err(p.errors)
+    }
+    
+    return Ok(Program {
+        base: AstNode {
+            node_type: NodeType.Program,
+            line: 0,
+            column: 0,
+        },
+        declarations: declarations,
+    })
+}
+
+// Parse top-level declaration
+parse_declaration := (p: *Parser) Result<Declaration, ParseError> {
+    token := current_token(p)
+    
+    // Check for import syntax: identifier := @std.module
+    if token.type == lexer.TokenType.Identifier {
+        next := peek_token(p)
+        if next.type == lexer.TokenType.ColonEqual {
+            // Save state to check if it's an import
+            saved_pos := p.current
+            name := token.value
+            advance(p)  // consume identifier
+            advance(p)  // consume :=
+            
+            // Check if right side is @std.something
+            if check(p, lexer.TokenType.At) || 
+               (check(p, lexer.TokenType.Identifier) && current_token(p).value == "build") {
+                // It's an import!
+                p.current = saved_pos  // Reset position
+                return parse_import(p)
+            }
+            
+            // Not an import, reset and parse as variable
+            p.current = saved_pos
+            return parse_variable_decl(p)
+        }
+    }
+    
+    // Check for keywords
+    if token.type == lexer.TokenType.Keyword {
+        match token.value {
+            "fn" => return parse_function_decl(p),
+            "struct" => return parse_struct_decl(p),
+            "enum" => return parse_enum_decl(p),
+            "type" => return parse_type_alias(p),
+            "let" | "const" | "comptime" => return parse_variable_decl(p),
+            _ => {}
+        }
+    }
+    
+    // Try to parse as variable declaration (name = value or name: type = value)
+    if token.type == lexer.TokenType.Identifier {
+        return parse_variable_or_function_decl(p)
+    }
+    
+    return Err(ParseError {
+        message: string.format("Unexpected token at top level: {}", token.value),
+        line: token.line,
+        column: token.column,
+    })
+}
+
+// Parse import declaration
+parse_import := (p: *Parser) Result<Declaration, ParseError> {
+    token := current_token(p)
+    if token.type != lexer.TokenType.Identifier {
+        return Err(ParseError {
+            message: "Expected identifier for import alias",
+            line: token.line,
+            column: token.column,
+        })
+    }
+    
+    alias := token.value
+    advance(p)  // consume alias
+    
+    if !check(p, lexer.TokenType.ColonEqual) {
+        return Err(ParseError {
+            message: "Expected ':=' after import alias",
+            line: current_token(p).line,
+            column: current_token(p).column,
+        })
+    }
+    advance(p)  // consume :=
+    
+    // Parse module path
+    module_path := ""
+    
+    // Handle @std.module syntax
+    if check(p, lexer.TokenType.At) {
+        advance(p)  // consume @
+        if !check(p, lexer.TokenType.Identifier) {
+            return Err(ParseError {
+                message: "Expected module path after '@'",
+                line: current_token(p).line,
+                column: current_token(p).column,
+            })
+        }
+        module_path = current_token(p).value
+        advance(p)
+        
+        // Handle dots in path
+        loop check(p, lexer.TokenType.Dot) {
+            advance(p)  // consume .
+            if !check(p, lexer.TokenType.Identifier) {
+                break
+            }
+            module_path = string.concat(module_path, ".")
+            module_path = string.concat(module_path, current_token(p).value)
+            advance(p)
+        }
+    }
+    // Handle build.import("module") syntax
+    else if check(p, lexer.TokenType.Identifier) && current_token(p).value == "build" {
+        advance(p)  // consume build
+        consume(p, lexer.TokenType.Dot, "Expected '.' after 'build'")?
+        
+        if !check(p, lexer.TokenType.Identifier) || current_token(p).value != "import" {
+            return Err(ParseError {
+                message: "Expected 'import' after 'build.'",
+                line: current_token(p).line,
+                column: current_token(p).column,
+            })
+        }
+        advance(p)  // consume import
+        
+        consume(p, lexer.TokenType.LeftParen, "Expected '(' after 'build.import'")?
+        
+        if !check(p, lexer.TokenType.String) {
+            return Err(ParseError {
+                message: "Expected string literal for module name",
+                line: current_token(p).line,
+                column: current_token(p).column,
+            })
+        }
+        module_path = string.concat("std.", current_token(p).value)
+        advance(p)
+        
+        consume(p, lexer.TokenType.RightParen, "Expected ')' after module name")?
+    }
+    else {
+        return Err(ParseError {
+            message: "Expected '@std' or 'build.import' for module import",
+            line: current_token(p).line,
+            column: current_token(p).column,
+        })
+    }
+    
+    return Ok(Declaration.Import(ImportDecl {
+        base: AstNode {
+            node_type: NodeType.ModuleImport,
+            line: token.line,
+            column: token.column,
+        },
+        alias: alias,
+        module_path: module_path,
+    }))
+}
+
+// Parse variable or function declaration
+parse_variable_or_function_decl := (p: *Parser) Result<Declaration, ParseError> {
+    name_token := current_token(p)
+    name := name_token.value
+    advance(p)
+    
+    // Check for function: name = (params) return_type { ... }
+    if check(p, lexer.TokenType.Equal) {
+        advance(p)  // consume =
+        if check(p, lexer.TokenType.LeftParen) {
+            // It's a function
+            return parse_function_body(p, name, name_token.line, name_token.column)
+        }
+        // It's a variable with initializer
+        expr := parse_expression(p)?
+        return Ok(Declaration.Variable(VariableDecl {
+            base: AstNode {
+                node_type: NodeType.VariableDecl,
+                line: name_token.line,
+                column: name_token.column,
+            },
+            name: name,
+            var_type: None,
+            value: Some(expr),
+            is_mutable: true,
+            is_comptime: false,
+        }))
+    }
+    
+    // Check for typed declaration: name: type = value
+    if check(p, lexer.TokenType.Colon) {
+        advance(p)  // consume :
+        var_type := parse_type(p)?
+        
+        value := if check(p, lexer.TokenType.Equal) {
+            advance(p)  // consume =
+            Some(parse_expression(p)?)
+        } else {
+            None
+        }
+        
+        return Ok(Declaration.Variable(VariableDecl {
+            base: AstNode {
+                node_type: NodeType.VariableDecl,
+                line: name_token.line,
+                column: name_token.column,
+            },
+            name: name,
+            var_type: Some(var_type),
+            value: value,
+            is_mutable: true,
+            is_comptime: false,
+        }))
+    }
+    
+    // Check for immutable: name := value or name ::= value  
+    if check(p, lexer.TokenType.ColonEqual) || check(p, lexer.TokenType.DoubleColon) {
+        is_comptime := check(p, lexer.TokenType.DoubleColon)
+        advance(p)
+        
+        expr := parse_expression(p)?
+        return Ok(Declaration.Variable(VariableDecl {
+            base: AstNode {
+                node_type: NodeType.VariableDecl,
+                line: name_token.line,
+                column: name_token.column,
+            },
+            name: name,
+            var_type: None,
+            value: Some(expr),
+            is_mutable: false,
+            is_comptime: is_comptime,
+        }))
+    }
+    
+    return Err(ParseError {
+        message: "Expected '=', ':', ':=', or '::=' after identifier",
+        line: current_token(p).line,
+        column: current_token(p).column,
+    })
+}
+
+// Parse function body (after name =)
+parse_function_body := (p: *Parser, name: string, line: u32, column: u32) Result<Declaration, ParseError> {
+    // Parse parameters
+    consume(p, lexer.TokenType.LeftParen, "Expected '(' for function parameters")?
+    
+    params := vec.new<Parameter>()
+    if !check(p, lexer.TokenType.RightParen) {
+        loop {
+            param := parse_parameter(p)?
+            vec.push(params, param)
+            
+            if !check(p, lexer.TokenType.Comma) {
+                break
+            }
+            advance(p)  // consume comma
+        }
+    }
+    
+    consume(p, lexer.TokenType.RightParen, "Expected ')' after parameters")?
+    
+    // Parse return type
+    return_type := if check(p, lexer.TokenType.Identifier) || 
+                      check(p, lexer.TokenType.Star) {
+        Some(parse_type(p)?)
+    } else {
+        None
+    }
+    
+    // Parse body
+    body := parse_block(p)?
+    
+    return Ok(Declaration.Function(FunctionDecl {
+        base: AstNode {
+            node_type: NodeType.FunctionDecl,
+            line: line,
+            column: column,
+        },
+        name: name,
+        params: params,
+        return_type: return_type,
+        body: body,
+        is_generic: false,
+        type_params: vec.new<string>(),
+    }))
+}
+
+// Parse parameter
+parse_parameter := (p: *Parser) Result<Parameter, ParseError> {
+    name := consume(p, lexer.TokenType.Identifier, "Expected parameter name")?.value
+    consume(p, lexer.TokenType.Colon, "Expected ':' after parameter name")?
+    param_type := parse_type(p)?
+    
+    return Ok(Parameter {
+        name: name,
+        param_type: param_type,
+        is_mutable: false,  // TODO: Handle mutable parameters
+    })
+}
+
+// Parse type
+parse_type := (p: *Parser) Result<Type, ParseError> {
+    // Handle pointer types
+    if check(p, lexer.TokenType.Star) {
+        advance(p)
+        inner_type := parse_type(p)?
+        return Ok(Type.Pointer(Box.new(inner_type)))
+    }
+    
+    // Handle array types [N]T or []T
+    if check(p, lexer.TokenType.LeftBracket) {
+        advance(p)
+        
+        size := if check(p, lexer.TokenType.Integer) {
+            val := string.parse_int(current_token(p).value)?
+            advance(p)
+            Some(val as u64)
+        } else {
+            None
+        }
+        
+        consume(p, lexer.TokenType.RightBracket, "Expected ']' after array size")?
+        element_type := parse_type(p)?
+        
+        return Ok(Type.Array(Box.new(element_type), size))
+    }
+    
+    // Named type
+    if check(p, lexer.TokenType.Identifier) {
+        name := current_token(p).value
+        advance(p)
+        
+        // Check for generic parameters
+        if check(p, lexer.TokenType.Less) {
+            advance(p)
+            type_args := vec.new<Type>()
+            
+            loop {
+                arg := parse_type(p)?
+                vec.push(type_args, arg)
+                
+                if !check(p, lexer.TokenType.Comma) {
+                    break
+                }
+                advance(p)
+            }
+            
+            consume(p, lexer.TokenType.Greater, "Expected '>' after type arguments")?
+            return Ok(Type.Generic(name, type_args))
+        }
+        
+        return Ok(Type.Named(name))
+    }
+    
+    return Err(ParseError {
+        message: "Expected type",
+        line: current_token(p).line,
+        column: current_token(p).column,
+    })
+}
+
+// Parse block statement
+parse_block := (p: *Parser) Result<Block, ParseError> {
+    token := consume(p, lexer.TokenType.LeftBrace, "Expected '{' for block")?
+    
+    statements := vec.new<Statement>()
+    
+    loop !check(p, lexer.TokenType.RightBrace) && !is_at_end(p) {
+        // Skip semicolons
+        if check(p, lexer.TokenType.Semicolon) {
+            advance(p)
+            continue
+        }
+        
+        stmt := parse_statement(p)?
+        vec.push(statements, stmt)
+    }
+    
+    consume(p, lexer.TokenType.RightBrace, "Expected '}' after block")?
+    
+    return Ok(Block {
+        base: AstNode {
+            node_type: NodeType.Block,
+            line: token.line,
+            column: token.column,
+        },
+        statements: statements,
+    })
+}
+
+// Parse statement
+parse_statement := (p: *Parser) Result<Statement, ParseError> {
+    token := current_token(p)
+    
+    if token.type == lexer.TokenType.Keyword {
+        match token.value {
+            "return" => {
+                advance(p)
+                expr := if !check(p, lexer.TokenType.Semicolon) && 
+                          !check(p, lexer.TokenType.RightBrace) {
+                    Some(parse_expression(p)?)
+                } else {
+                    None
+                }
+                return Ok(Statement.Return(expr))
+            },
+            "if" => return parse_if_statement(p),
+            "loop" => return parse_loop_statement(p),
+            "break" => {
+                advance(p)
+                return Ok(Statement.Break)
+            },
+            "continue" => {
+                advance(p)
+                return Ok(Statement.Continue)
+            },
+            _ => {}
+        }
+    }
+    
+    // Try block
+    if check(p, lexer.TokenType.LeftBrace) {
+        block := parse_block(p)?
+        return Ok(Statement.Block(block))
+    }
+    
+    // Expression statement
+    expr := parse_expression(p)?
+    return Ok(Statement.Expression(expr))
+}
+
+// Parse expression (simplified for now)
+parse_expression := (p: *Parser) Result<Expression, ParseError> {
+    // For now, just parse primary expressions
+    // TODO: Implement full expression parsing with precedence
+    return parse_primary(p)
+}
+
+// Parse primary expression
+parse_primary := (p: *Parser) Result<Expression, ParseError> {
+    token := current_token(p)
+    
+    match token.type {
+        lexer.TokenType.Integer => {
+            val := string.parse_int(token.value)?
+            advance(p)
+            return Ok(Expression.IntegerLit(val))
+        },
+        lexer.TokenType.Float => {
+            val := string.parse_float(token.value)?
+            advance(p)
+            return Ok(Expression.FloatLit(val))
+        },
+        lexer.TokenType.String => {
+            advance(p)
+            return Ok(Expression.StringLit(token.value))
+        },
+        lexer.TokenType.Bool => {
+            val := token.value == "true"
+            advance(p)
+            return Ok(Expression.BoolLit(val))
+        },
+        lexer.TokenType.Identifier => {
+            advance(p)
+            return Ok(Expression.Identifier(token.value))
+        },
+        _ => {
+            return Err(ParseError {
+                message: string.format("Unexpected token in expression: {}", token.value),
+                line: token.line,
+                column: token.column,
+            })
+        }
+    }
+}
+
+// Error recovery - synchronize to next declaration
+synchronize := (p: *Parser) void {
+    advance(p)
+    
+    loop !is_at_end(p) {
+        if previous_token(p).type == lexer.TokenType.Semicolon {
+            return
+        }
+        
+        token := current_token(p)
+        if token.type == lexer.TokenType.Keyword {
+            match token.value {
+                "fn" | "struct" | "enum" | "type" | "let" | "const" => return,
+                _ => {}
+            }
+        }
+        
+        advance(p)
+    }
+}
+
+// Get previous token
+previous_token := (p: *Parser) lexer.Token {
+    if p.current > 0 {
+        return p.tokens[p.current - 1]
+    }
+    return lexer.Token {
+        type: lexer.TokenType.Eof,
+        value: "",
+        line: 0,
+        column: 0,
+    }
+}
+
+// TODO: Implement remaining parsing functions
+parse_function_decl := (p: *Parser) Result<Declaration, ParseError> {
+    // Placeholder
+    return Err(ParseError {
+        message: "Function declarations not yet implemented",
+        line: 0,
+        column: 0,
+    })
+}
+
+parse_struct_decl := (p: *Parser) Result<Declaration, ParseError> {
+    // Placeholder
+    return Err(ParseError {
+        message: "Struct declarations not yet implemented",
+        line: 0,
+        column: 0,
+    })
+}
+
+parse_enum_decl := (p: *Parser) Result<Declaration, ParseError> {
+    // Placeholder
+    return Err(ParseError {
+        message: "Enum declarations not yet implemented",
+        line: 0,
+        column: 0,
+    })
+}
+
+parse_type_alias := (p: *Parser) Result<Declaration, ParseError> {
+    // Placeholder
+    return Err(ParseError {
+        message: "Type aliases not yet implemented",
+        line: 0,
+        column: 0,
+    })
+}
+
+parse_variable_decl := (p: *Parser) Result<Declaration, ParseError> {
+    // Placeholder
+    return Err(ParseError {
+        message: "Variable declarations not yet implemented",
+        line: 0,
+        column: 0,
+    })
+}
+
+parse_if_statement := (p: *Parser) Result<Statement, ParseError> {
+    // Placeholder
+    return Err(ParseError {
+        message: "If statements not yet implemented",
+        line: 0,
+        column: 0,
+    })
+}
+
+parse_loop_statement := (p: *Parser) Result<Statement, ParseError> {
+    // Placeholder
+    return Err(ParseError {
+        message: "Loop statements not yet implemented",
+        line: 0,
+        column: 0,
+    })
+}
