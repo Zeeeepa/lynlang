@@ -1,0 +1,263 @@
+// Zen Syntax Checker
+// A simple tool to check Zen source files for syntax errors
+
+core := @std.core
+build := @std.build
+io := build.import("io")
+fs := build.import("fs")
+args := build.import("args")
+string := build.import("string")
+
+// Error types
+SyntaxError = struct {
+    line: i32,
+    column: i32,
+    message: string,
+    context: string,
+}
+
+// Check result
+CheckResult = enum {
+    Success,
+    SyntaxErrors(Vec<SyntaxError>),
+    FileError(string),
+}
+
+// Token types for basic checking
+TokenType = enum {
+    Identifier,
+    Number,
+    String,
+    Operator,
+    Symbol,
+    Keyword,
+    EOF,
+}
+
+// Basic syntax checker
+SyntaxChecker = struct {
+    input: string,
+    position: i32,
+    line: i32,
+    column: i32,
+    errors: Vec<SyntaxError>,
+}
+
+// Create a new syntax checker
+new_checker = (input: string) SyntaxChecker {
+    return SyntaxChecker {
+        input: input,
+        position: 0,
+        line: 1,
+        column: 1,
+        errors: Vec<SyntaxError>.new(),
+    }
+}
+
+// Add an error
+add_error = (checker: &mut SyntaxChecker, message: string) void {
+    error := SyntaxError {
+        line: checker.line,
+        column: checker.column,
+        message: message,
+        context: get_line_context(checker.input, checker.line),
+    }
+    checker.errors.push(error)
+}
+
+// Get context for error reporting
+get_line_context = (input: string, line_num: i32) string {
+    lines := string.split(input, "\n")
+    if (line_num > 0 && line_num <= lines.len()) {
+        return lines[line_num - 1]
+    }
+    return ""
+}
+
+// Check for balanced braces
+check_balanced_braces = (checker: &mut SyntaxChecker) void {
+    brace_count := 0
+    paren_count := 0
+    bracket_count := 0
+    
+    i := 0
+    loop (i < checker.input.len()) {
+        ch := checker.input[i]
+        
+        match ch {
+            | '{' => brace_count = brace_count + 1
+            | '}' => {
+                brace_count = brace_count - 1
+                if (brace_count < 0) {
+                    add_error(checker, "Unexpected closing brace '}'")
+                }
+            }
+            | '(' => paren_count = paren_count + 1
+            | ')' => {
+                paren_count = paren_count - 1
+                if (paren_count < 0) {
+                    add_error(checker, "Unexpected closing parenthesis ')'")
+                }
+            }
+            | '[' => bracket_count = bracket_count + 1
+            | ']' => {
+                bracket_count = bracket_count - 1
+                if (bracket_count < 0) {
+                    add_error(checker, "Unexpected closing bracket ']'")
+                }
+            }
+            | '\n' => {
+                checker.line = checker.line + 1
+                checker.column = 0
+            }
+            | _ => {}
+        }
+        
+        checker.column = checker.column + 1
+        i = i + 1
+    }
+    
+    if (brace_count > 0) {
+        add_error(checker, "Unclosed brace '{'")
+    }
+    if (paren_count > 0) {
+        add_error(checker, "Unclosed parenthesis '('")
+    }
+    if (bracket_count > 0) {
+        add_error(checker, "Unclosed bracket '['")
+    }
+}
+
+// Check for invalid import placement
+check_import_placement = (checker: &mut SyntaxChecker) void {
+    lines := string.split(checker.input, "\n")
+    in_comptime := false
+    brace_depth := 0
+    
+    i := 0
+    loop (i < lines.len()) {
+        line := string.trim(lines[i])
+        
+        // Check for comptime block start
+        if (string.starts_with(line, "comptime") && string.contains(line, "{")) {
+            in_comptime = true
+            brace_depth = 1
+        }
+        
+        // Track brace depth in comptime
+        if (in_comptime) {
+            j := 0
+            loop (j < line.len()) {
+                if (line[j] == '{') {
+                    brace_depth = brace_depth + 1
+                } else if (line[j] == '}') {
+                    brace_depth = brace_depth - 1
+                    if (brace_depth == 0) {
+                        in_comptime = false
+                    }
+                }
+                j = j + 1
+            }
+        }
+        
+        // Check for imports in comptime
+        if (in_comptime) {
+            if (string.contains(line, "@std") || string.contains(line, "build.import")) {
+                checker.line = i + 1
+                add_error(checker, "Import statements are not allowed inside comptime blocks")
+            }
+        }
+        
+        i = i + 1
+    }
+}
+
+// Main checking function
+check_syntax = (input: string) CheckResult {
+    checker := new_checker(input)
+    
+    // Run various checks
+    check_balanced_braces(&mut checker)
+    check_import_placement(&mut checker)
+    
+    // Return result
+    if (checker.errors.is_empty()) {
+        return CheckResult.Success
+    } else {
+        return CheckResult.SyntaxErrors(checker.errors)
+    }
+}
+
+// Print errors
+print_errors = (errors: Vec<SyntaxError>) void {
+    io.print("Syntax errors found:\n\n")
+    
+    i := 0
+    loop (i < errors.len()) {
+        error := errors[i]
+        io.print("  Line ")
+        io.print_int(error.line)
+        io.print(":")
+        io.print_int(error.column)
+        io.print(" - ")
+        io.print(error.message)
+        io.print("\n")
+        
+        if (error.context != "") {
+            io.print("    ")
+            io.print(error.context)
+            io.print("\n")
+        }
+        
+        i = i + 1
+    }
+}
+
+// Main entry point
+main = (argc: i32, argv: **i8) i32 {
+    if (argc < 2) {
+        io.print("Usage: zen-check <file.zen>\n")
+        return 1
+    }
+    
+    // Get filename from args
+    filename := string.from_cstr(argv[1])
+    
+    // Read file
+    result := fs.read_file(filename)
+    
+    match result {
+        | Result<string, string>.Ok(content) => {
+            // Check syntax
+            check_result := check_syntax(content)
+            
+            match check_result {
+                | CheckResult.Success => {
+                    io.print("✓ No syntax errors found in ")
+                    io.print(filename)
+                    io.print("\n")
+                    return 0
+                }
+                | CheckResult.SyntaxErrors(errors) => {
+                    io.print("✗ Syntax errors in ")
+                    io.print(filename)
+                    io.print(":\n")
+                    print_errors(errors)
+                    return 1
+                }
+                | CheckResult.FileError(msg) => {
+                    io.print("File error: ")
+                    io.print(msg)
+                    io.print("\n")
+                    return 1
+                }
+            }
+        }
+        | Result<string, string>.Err(error) => {
+            io.print("Error reading file: ")
+            io.print(error)
+            io.print("\n")
+            return 1
+        }
+    }
+}
