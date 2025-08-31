@@ -1,0 +1,10 @@
+// Test module-level imports without comptime
+core := @std.core
+build := @std.build
+io := build.import("io")
+math := @std.math
+
+main = () i32 {
+    io.print("Testing module imports\n")
+    return 0
+}

@@ -33,7 +33,7 @@ Zen is a systems programming language with:
 - build: Build system utilities
 
 ## Current Tasks
-- Fix import system (move imports out of comptime)
-- Complete self-hosting compiler
-- Comprehensive testing
+- ✅ Import system fixed (imports at module level work correctly)
+- Bootstrap self-hosting compiler (lexer, parser, type checker, codegen complete)
+- Comprehensive testing in progress
 - LSP implementation for code checking

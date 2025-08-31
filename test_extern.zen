@@ -1,0 +1,8 @@
+// Test extern function parsing
+extern printf = (ptr, ...) i32
+extern puts = (ptr) i32
+
+main = () i32 {
+    puts("Hello")
+    return 0
+}

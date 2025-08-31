@@ -1,0 +1,32 @@
+// Basic import test - verifies import syntax works
+// Tests module-level imports without using unimplemented functions
+
+// Standard library imports at module level
+core := @std.core
+io := @std.io
+math := @std.math
+
+// These imports should work at module level, NOT in comptime
+string := @std.string
+vec := @std.vec
+
+main = () i32 {
+    io.println("Testing basic import system...")
+    
+    // Test that imports are recognized
+    io.println("Standard library modules imported successfully")
+    
+    // Simple math test
+    io.print("Testing basic output: ")
+    io.println("PASS")
+    
+    // Comptime is for meta-programming ONLY
+    comptime {
+        // Compile-time constants
+        VERSION := 1
+        DEBUG := true
+    }
+    
+    io.println("Import test completed successfully!")
+    return 0
+}

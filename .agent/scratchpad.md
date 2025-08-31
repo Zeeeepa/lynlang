@@ -38,8 +38,9 @@ cargo run --bin zen-lsp
 
 ## Next Implementation Priority
 1. ✅ Lexer complete
-2. ✅ Parser complete
-3. ✅ Bootstrap tests created
-4. 🚧 Type checker framework
-5. TODO: Code generator in Zen
+2. ✅ Parser complete  
+3. ✅ Type checker complete
+4. ✅ Code generator complete
+5. 🚧 Bootstrap testing in progress
 6. TODO: Full bootstrap compilation
+7. TODO: LSP enhancements

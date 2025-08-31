@@ -1,0 +1,42 @@
+// Bootstrap test - compile the self-hosting compiler
+// This tests that our Zen compiler can compile itself
+
+core := @std.core
+io := @std.io
+compiler := @std.compiler
+
+main = () i32 {
+    io.println("Starting Zen compiler bootstrap test...")
+    
+    // Create a lexer instance
+    lexer := compiler.lexer.new("test := 42")
+    
+    // Test tokenization
+    token := lexer.next_token()
+    io.print("First token: ")
+    io.println(token.to_string())
+    
+    // Create a parser instance
+    parser := compiler.parser.new(lexer)
+    
+    // Test parsing
+    ast := parser.parse_program()
+    io.println("Successfully parsed program!")
+    
+    // Create type checker
+    checker := compiler.type_checker.new()
+    
+    // Type check the AST
+    typed_ast := checker.check_program(ast)
+    io.println("Type checking complete!")
+    
+    // Create code generator
+    codegen := compiler.codegen.new()
+    
+    // Generate code
+    output := codegen.generate(typed_ast)
+    io.println("Code generation complete!")
+    
+    io.println("Bootstrap test successful!")
+    return 0
+}

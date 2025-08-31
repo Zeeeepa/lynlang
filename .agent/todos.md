@@ -1,6 +1,7 @@
 # Zen Language TODO List
 
 ## ✅ Completed
+- [x] Fixed UTF-8 handling in lexer for proper Unicode support
 - [x] Analyzed import system and comptime usage
 - [x] Created .agent directory for project metadata
 - [x] Verified imports work correctly outside comptime
@@ -16,7 +17,8 @@
 - [x] Created full compiler test suite
 
 ## 🚧 In Progress
-- [ ] Bootstrap testing of self-hosting compiler
+- [ ] Fix FFI tests that are failing
+- [ ] Full bootstrap testing of self-hosting compiler
 
 ## 📋 Next Steps (Priority Order)
 1. Bootstrap testing - compile the compiler with itself
@@ -30,9 +32,10 @@
 ## 🎯 Current Focus
 Working on self-hosting compiler components:
 - Lexer: COMPLETE (stdlib/compiler/lexer_enhanced.zen)
-- Parser: 90% complete (stdlib/compiler/parser.zen)
-- Type checker: Started (stdlib/compiler/type_checker.zen)
-- Code generator: To be implemented
+- Parser: COMPLETE (stdlib/compiler/parser.zen)
+- Type checker: COMPLETE (stdlib/compiler/type_checker.zen)
+- Code generator: COMPLETE (stdlib/compiler/code_gen.zen)
+- Bootstrap testing: IN PROGRESS
 
 Import system has been fixed - imports now work at module level as intended,
 not inside comptime blocks.

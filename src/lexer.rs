@@ -62,18 +62,21 @@ impl<'a> Lexer<'a> {
         if self.read_position >= self.input.len() {
             self.current_char = None;
         } else {
-            self.current_char = self.input[self.read_position..].chars().next();
-        }
-        self.position = self.read_position;
-        self.read_position += 1;
-        
-        // Update line and column tracking
-        if let Some(c) = self.current_char {
-            if c == '\n' {
-                self.line += 1;
-                self.column = 1;
+            if let Some((idx, ch)) = self.input[self.read_position..].char_indices().next() {
+                self.current_char = Some(ch);
+                self.position = self.read_position;
+                self.read_position += ch.len_utf8();
+                
+                // Update line and column tracking
+                if ch == '\n' {
+                    self.line += 1;
+                    self.column = 1;
+                } else {
+                    self.column += 1;
+                }
             } else {
-                self.column += 1;
+                self.current_char = None;
+                self.position = self.read_position;
             }
         }
     }
