@@ -35,11 +35,13 @@ Zen is a systems programming language being developed with a focus on simplicity
 - Math module fully integrated and working ✅
 - Struct field mutability syntax fixed (field:: type) ✅
 - Module import resolution working for stdlib modules ✅
+- Pointer-to-struct field access support added (p.x syntax) ✅
+- Pattern matching improvements for non-exhaustive patterns ✅
 
 ## Known Issues
-- Some language tests failing due to pointer/struct field access in codegen
-- Pattern matching with Vec needs parser improvements
+- Pattern matching: Nested conditionals not branching correctly (test_nested_pattern_matching)
 - Multiple return values need type system improvements
+- Array operations test failures in language features
 
 ## Git Workflow
 - Frequent commits with descriptive messages
