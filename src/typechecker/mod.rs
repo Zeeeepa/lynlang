@@ -542,7 +542,6 @@ impl TypeChecker {
             Expression::StringLength(_) => {
                 Ok(AstType::I64)
             }
-            _ => Ok(AstType::Void), // Default for unhandled cases
         }
     }
 

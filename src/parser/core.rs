@@ -60,7 +60,7 @@ impl<'a> Parser<'a> {
     
     /// Check if a statement contains an import
     pub fn is_import_in_statement(&self, stmt: &crate::ast::Statement) -> bool {
-        use crate::ast::{Statement, Expression};
+        use crate::ast::Statement;
         
         match stmt {
             Statement::VariableDeclaration { initializer, .. } => {

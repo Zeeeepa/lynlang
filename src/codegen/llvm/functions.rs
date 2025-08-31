@@ -445,7 +445,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Get or declare printf
         let printf_fn = self.module.get_function("printf").unwrap_or_else(|| {
             let i32_type = self.context.i32_type();
-            let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+            let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
             self.module.add_function("printf", fn_type, None)
         });
@@ -454,7 +454,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let arg_value = self.compile_expression(&args[0])?;
         
         // Call printf
-        let call = self.builder.build_call(
+        let _call = self.builder.build_call(
             printf_fn,
             &[arg_value.into()],
             "printf_call"
@@ -476,7 +476,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Get or declare puts (which adds a newline automatically)
         let puts_fn = self.module.get_function("puts").unwrap_or_else(|| {
             let i32_type = self.context.i32_type();
-            let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+            let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], false);
             self.module.add_function("puts", fn_type, None)
         });
@@ -485,7 +485,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let arg_value = self.compile_expression(&args[0])?;
         
         // Call puts
-        let call = self.builder.build_call(
+        let _call = self.builder.build_call(
             puts_fn,
             &[arg_value.into()],
             "puts_call"

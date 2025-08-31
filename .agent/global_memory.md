@@ -42,18 +42,18 @@ Zen is a systems programming language with:
 ```
 
 ## Current Status
-- Import system: ✅ Implemented correctly (no comptime wrapper)
-- Parser: ✅ Handles module-level imports
-- Semantic analyzer: ✅ Validates imports
+- Import system: ✅ Fully implemented (module-level only, no comptime wrapper)
+- Parser: ✅ Correctly rejects imports in comptime blocks  
+- Semantic analyzer: ✅ Validates imports at module level
 - LLVM codegen: ✅ Generates code correctly
-- Self-hosted lexer: ✅ Complete with all tokens
-- Self-hosted parser: ✅ Basic implementation
-- Self-hosted type checker: ✅ Basic implementation
-- Self-hosted codegen: ✅ Basic implementation
-- Standard library: ✅ Core modules (io, mem, math, string, vec)
-- LSP syntax checker: ✅ Basic implementation
-- Comprehensive tests: ✅ Added
-- Self-hosting: 🚧 In progress (needs integration)
+- Self-hosted lexer: ✅ Complete implementation with all tokens
+- Self-hosted parser: ✅ Complete implementation
+- Self-hosted type checker: ✅ Complete implementation
+- Self-hosted codegen: ✅ Complete implementation
+- Standard library: ✅ Full stdlib in Zen (io, mem, math, string, vec, fs, etc.)
+- LSP syntax checker: ✅ Working implementation with zen-lint.sh
+- Comprehensive tests: ✅ All tests passing
+- Self-hosting: ✅ Infrastructure complete, ready for bootstrap
 
 ## Build Commands
 ```bash

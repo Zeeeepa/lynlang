@@ -280,7 +280,20 @@ fn test_parse_conditional_expression() {
 
 #[test]
 fn test_parse_comptime_block() {
+    // Test that imports are rejected in comptime blocks
     let input = "comptime { build := @std.build io := build.import(\"io\") }";
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let result = parser.parse_program();
+    
+    // This should fail because imports are not allowed in comptime blocks
+    assert!(result.is_err());
+    if let Err(e) = result {
+        assert!(e.to_string().contains("Import statements are not allowed inside comptime blocks"));
+    }
+    
+    // Test a valid comptime block without imports
+    let input = "comptime { x := 42 y := x * 2 }";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
@@ -290,37 +303,38 @@ fn test_parse_comptime_block() {
     if let Declaration::ComptimeBlock(statements) = &program.declarations[0] {
         assert_eq!(statements.len(), 2);
         
-        // Check first statement: build := @std.build
+        // Check first statement: x := 42
         if let Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } = &statements[0] {
-            assert_eq!(name, "build");
+            assert_eq!(name, "x");
             assert_eq!(type_, &None);
             assert_eq!(*is_mutable, false);
             assert!(matches!(declaration_type, VariableDeclarationType::InferredImmutable));
-            if let Some(Expression::MemberAccess { object, member }) = initializer {
-                assert!(matches!(**object, Expression::Identifier(ref name) if name == "@std"));
-                assert_eq!(member, "build");
+            if let Some(Expression::Integer64(val)) = initializer {
+                assert_eq!(*val, 42);
+            } else if let Some(Expression::Integer32(val)) = initializer {
+                assert_eq!(*val, 42);
             } else {
-                panic!("Expected MemberAccess in build initialization");
+                panic!("Expected Integer64 or Integer32 in x initialization, got {:?}", initializer);
             }
         } else {
-            panic!("Expected VariableDeclaration for build");
+            panic!("Expected VariableDeclaration for x");
         }
         
-        // Check second statement: io := build.import("io")
+        // Check second statement: y := x * 2
         if let Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } = &statements[1] {
-            assert_eq!(name, "io");
+            assert_eq!(name, "y");
             assert_eq!(type_, &None);
             assert_eq!(*is_mutable, false);
             assert!(matches!(declaration_type, VariableDeclarationType::InferredImmutable));
-            if let Some(Expression::FunctionCall { name, args }) = initializer {
-                assert_eq!(name, "build.import");
-                assert_eq!(args.len(), 1);
-                assert!(matches!(args[0], Expression::String(ref s) if s == "io"));
+            if let Some(Expression::BinaryOp { left, op, right }) = initializer {
+                assert!(matches!(**left, Expression::Identifier(ref name) if name == "x"));
+                assert!(matches!(op, BinaryOperator::Multiply));
+                assert!(matches!(**right, Expression::Integer64(2)) || matches!(**right, Expression::Integer32(2)));
             } else {
-                panic!("Expected FunctionCall in io initialization");
+                panic!("Expected BinaryOp in y initialization");
             }
         } else {
-            panic!("Expected VariableDeclaration for io");
+            panic!("Expected VariableDeclaration for y");
         }
     } else {
         panic!("Expected ComptimeBlock declaration");
