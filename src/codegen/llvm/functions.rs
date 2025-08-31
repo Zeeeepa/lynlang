@@ -287,6 +287,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else if module == "math" {
                     // Handle math module functions
                     return self.compile_math_function(func, args);
+                } else if module == "core" {
+                    // Handle core module functions
+                    match func {
+                        "assert" => return self.compile_core_assert(args),
+                        "panic" => return self.compile_core_panic(args),
+                        _ => {}
+                    }
                 }
             }
         }
@@ -606,6 +613,106 @@ impl<'ctx> LLVMCompiler<'ctx> {
     
     /// Compile math module function calls
     fn compile_math_function(&mut self, func_name: &str, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Handle min and max functions
+        if func_name == "min" || func_name == "max" {
+            if args.len() != 2 {
+                return Err(CompileError::TypeError(
+                    format!("math.{} expects 2 arguments, got {}", func_name, args.len()),
+                    None,
+                ));
+            }
+            
+            let left = self.compile_expression(&args[0])?;
+            let right = self.compile_expression(&args[1])?;
+            
+            // Handle integer min/max
+            if left.is_int_value() && right.is_int_value() {
+                let left_int = left.into_int_value();
+                let right_int = right.into_int_value();
+                
+                // Make sure both integers are the same type
+                let (left_int, right_int) = if left_int.get_type() != right_int.get_type() {
+                    // Promote to i64 if types differ
+                    let i64_type = self.context.i64_type();
+                    let left_promoted = if left_int.get_type().get_bit_width() < 64 {
+                        self.builder.build_int_s_extend(left_int, i64_type, "extend_left")?
+                    } else {
+                        left_int
+                    };
+                    let right_promoted = if right_int.get_type().get_bit_width() < 64 {
+                        self.builder.build_int_s_extend(right_int, i64_type, "extend_right")?
+                    } else {
+                        right_int
+                    };
+                    (left_promoted, right_promoted)
+                } else {
+                    (left_int, right_int)
+                };
+                
+                let cmp = if func_name == "min" {
+                    self.builder.build_int_compare(
+                        inkwell::IntPredicate::SLT,
+                        left_int,
+                        right_int,
+                        "lt"
+                    )?
+                } else {
+                    self.builder.build_int_compare(
+                        inkwell::IntPredicate::SGT,
+                        left_int,
+                        right_int,
+                        "gt"
+                    )?
+                };
+                
+                let result = self.builder.build_select(cmp, left_int, right_int, func_name)?;
+                return Ok(result.try_into().unwrap());
+            }
+            
+            // Handle float min/max or mixed types
+            let left_float = match left {
+                BasicValueEnum::FloatValue(f) => f,
+                BasicValueEnum::IntValue(i) => {
+                    self.builder.build_signed_int_to_float(i, self.context.f64_type(), "int_to_float")?
+                }
+                _ => {
+                    return Err(CompileError::TypeError(
+                        format!("math.{} expects numeric arguments", func_name),
+                        None,
+                    ));
+                }
+            };
+            
+            let right_float = match right {
+                BasicValueEnum::FloatValue(f) => f,
+                BasicValueEnum::IntValue(i) => {
+                    self.builder.build_signed_int_to_float(i, self.context.f64_type(), "int_to_float")?
+                }
+                _ => {
+                    return Err(CompileError::TypeError(
+                        format!("math.{} expects numeric arguments", func_name),
+                        None,
+                    ));
+                }
+            };
+            
+            // Use fmin/fmax intrinsics for floats
+            let intrinsic_name = if func_name == "min" { "llvm.minnum.f64" } else { "llvm.maxnum.f64" };
+            let intrinsic = self.module.get_function(intrinsic_name).unwrap_or_else(|| {
+                let f64_type = self.context.f64_type();
+                let fn_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
+                self.module.add_function(intrinsic_name, fn_type, None)
+            });
+            
+            let result = self.builder.build_call(
+                intrinsic,
+                &[left_float.into(), right_float.into()],
+                func_name
+            )?;
+            
+            return Ok(result.try_as_basic_value().left().unwrap());
+        }
+        
         // Handle abs specially for integer types
         if func_name == "abs" {
             if args.len() != 1 {
@@ -740,5 +847,104 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(call_result.try_as_basic_value().left().unwrap_or_else(|| {
             self.context.f64_type().const_zero().into()
         }))
+    }
+    
+    /// Compile core.assert function call
+    fn compile_core_assert(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("core.assert expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        let condition = self.compile_expression(&args[0])?;
+        let condition = if condition.is_int_value() {
+            condition.into_int_value()
+        } else {
+            return Err(CompileError::TypeError(
+                "core.assert requires a boolean condition".to_string(),
+                None,
+            ));
+        };
+        
+        // Create basic blocks for assertion
+        let current_fn = self.current_function.ok_or_else(|| 
+            CompileError::InternalError("No current function".to_string(), None)
+        )?;
+        
+        let then_block = self.context.append_basic_block(current_fn, "assert_pass");
+        let else_block = self.context.append_basic_block(current_fn, "assert_fail");
+        
+        // Check condition
+        self.builder.build_conditional_branch(condition, then_block, else_block)?;
+        
+        // Assert fail block - call abort() or exit(1)
+        self.builder.position_at_end(else_block);
+        
+        // Get or declare exit function
+        let exit_fn = self.module.get_function("exit").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let fn_type = self.context.void_type().fn_type(&[i32_type.into()], false);
+            self.module.add_function("exit", fn_type, Some(inkwell::module::Linkage::External))
+        });
+        
+        // Call exit(1)
+        let exit_code = self.context.i32_type().const_int(1, false);
+        self.builder.build_call(exit_fn, &[exit_code.into()], "exit_call")?;
+        self.builder.build_unreachable()?;
+        
+        // Continue in pass block
+        self.builder.position_at_end(then_block);
+        
+        // Return void value
+        Ok(self.context.i32_type().const_int(0, false).into())
+    }
+    
+    /// Compile core.panic function call
+    fn compile_core_panic(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("core.panic expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // First print the panic message if it's a string
+        if let ast::Expression::String(msg) = &args[0] {
+            // Get or declare puts function
+            let puts = self.module.get_function("puts").unwrap_or_else(|| {
+                let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let fn_type = self.context.i32_type().fn_type(&[i8_ptr_type.into()], false);
+                self.module.add_function("puts", fn_type, Some(inkwell::module::Linkage::External))
+            });
+            
+            // Create panic message with "panic: " prefix
+            let panic_msg = format!("panic: {}", msg);
+            let string_value = self.builder.build_global_string_ptr(&panic_msg, "panic_msg")?;
+            self.builder.build_call(puts, &[string_value.as_pointer_value().into()], "puts_call")?;
+        }
+        
+        // Get or declare exit function
+        let exit_fn = self.module.get_function("exit").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let fn_type = self.context.void_type().fn_type(&[i32_type.into()], false);
+            self.module.add_function("exit", fn_type, Some(inkwell::module::Linkage::External))
+        });
+        
+        // Call exit(1)
+        let exit_code = self.context.i32_type().const_int(1, false);
+        self.builder.build_call(exit_fn, &[exit_code.into()], "exit_call")?;
+        self.builder.build_unreachable()?;
+        
+        // Create a new unreachable block to satisfy type system
+        let current_fn = self.current_function.ok_or_else(|| 
+            CompileError::InternalError("No current function".to_string(), None)
+        )?;
+        let unreachable_block = self.context.append_basic_block(current_fn, "after_panic");
+        self.builder.position_at_end(unreachable_block);
+        
+        // Return a dummy value (this code is unreachable)
+        Ok(self.context.i32_type().const_int(0, false).into())
     }
 } 

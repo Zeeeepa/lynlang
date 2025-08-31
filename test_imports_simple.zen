@@ -1,7 +1,0 @@
-core := @std.core
-io := @std.io
-
-main = () i32 {
-    io.print("Hello, Zen\!\n")
-    return 0
-}

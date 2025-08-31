@@ -1,7 +1,0 @@
-// Very simple test
-io := @std.io
-
-main = () i32 {
-    io.print("Hello!\n")
-    return 0
-}

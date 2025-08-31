@@ -1,8 +1,0 @@
-// Test @compiler imports at module level
-lexer := @compiler.lexer
-parser := @compiler.parser
-
-main = () i32 {
-    // These should work if @compiler is a valid module
-    return 0
-}
