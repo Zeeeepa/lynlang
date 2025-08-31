@@ -1,0 +1,398 @@
+// Zen Language - Code Generator Module
+// Generates C code from AST for bootstrapping
+
+core := @std.core
+build := @std.build
+io := build.import("io")
+string := build.import("string")
+fs := build.import("fs")
+parser := build.import("../compiler/parser")
+
+// Code generation context
+CodeGen := struct {
+    output: string.Builder
+    indent_level: u32
+    temp_counter: u32
+}
+
+// Create new code generator
+new_codegen = () CodeGen {
+    return CodeGen{
+        output: string.Builder.new(),
+        indent_level: 0,
+        temp_counter: 0
+    }
+}
+
+// Generate indentation
+gen_indent = (gen: &CodeGen) void {
+    i := 0
+    while (i < gen.indent_level) {
+        gen.output.append("    ")
+        i = i + 1
+    }
+}
+
+// Generate C code from AST
+generate_c = (gen: &CodeGen, ast: &parser.AST) string {
+    // Generate C header
+    gen.output.append("#include <stdio.h>\n")
+    gen.output.append("#include <stdlib.h>\n")
+    gen.output.append("#include <stdint.h>\n")
+    gen.output.append("#include <stdbool.h>\n")
+    gen.output.append("#include <string.h>\n\n")
+    
+    // Generate forward declarations
+    gen.output.append("// Forward declarations\n")
+    for (ast.functions) |func| {
+        gen_function_declaration(gen, func)
+    }
+    gen.output.append("\n")
+    
+    // Generate global variables
+    if (ast.globals.len > 0) {
+        gen.output.append("// Global variables\n")
+        for (ast.globals) |global| {
+            gen_global(gen, global)
+        }
+        gen.output.append("\n")
+    }
+    
+    // Generate structs
+    if (ast.structs.len > 0) {
+        gen.output.append("// Struct definitions\n")
+        for (ast.structs) |s| {
+            gen_struct(gen, s)
+        }
+        gen.output.append("\n")
+    }
+    
+    // Generate function implementations
+    gen.output.append("// Function implementations\n")
+    for (ast.functions) |func| {
+        gen_function(gen, func)
+    }
+    
+    return gen.output.to_string()
+}
+
+// Generate function declaration
+gen_function_declaration = (gen: &CodeGen, func: &parser.FunctionNode) void {
+    return_type := type_to_c(func.return_type)
+    gen.output.append(return_type)
+    gen.output.append(" ")
+    gen.output.append(func.name)
+    gen.output.append("(")
+    
+    if (func.params.len == 0) {
+        gen.output.append("void")
+    } else {
+        i := 0
+        while (i < func.params.len) {
+            if (i > 0) gen.output.append(", ")
+            param := func.params[i]
+            gen.output.append(type_to_c(param.type))
+            gen.output.append(" ")
+            gen.output.append(param.name)
+            i = i + 1
+        }
+    }
+    
+    gen.output.append(");\n")
+}
+
+// Generate function implementation
+gen_function = (gen: &CodeGen, func: &parser.FunctionNode) void {
+    // Function signature
+    return_type := type_to_c(func.return_type)
+    gen.output.append(return_type)
+    gen.output.append(" ")
+    gen.output.append(func.name)
+    gen.output.append("(")
+    
+    if (func.params.len == 0) {
+        gen.output.append("void")
+    } else {
+        i := 0
+        while (i < func.params.len) {
+            if (i > 0) gen.output.append(", ")
+            param := func.params[i]
+            gen.output.append(type_to_c(param.type))
+            gen.output.append(" ")
+            gen.output.append(param.name)
+            i = i + 1
+        }
+    }
+    
+    gen.output.append(") {\n")
+    gen.indent_level = gen.indent_level + 1
+    
+    // Generate function body
+    gen_block(gen, func.body)
+    
+    gen.indent_level = gen.indent_level - 1
+    gen.output.append("}\n\n")
+}
+
+// Generate block statement
+gen_block = (gen: &CodeGen, block: &parser.BlockNode) void {
+    for (block.statements) |stmt| {
+        gen_statement(gen, stmt)
+    }
+}
+
+// Generate statement
+gen_statement = (gen: &CodeGen, stmt: &parser.StatementNode) void {
+    gen_indent(gen)
+    
+    switch (stmt.kind) {
+        .Return => {
+            gen.output.append("return")
+            if (stmt.expr) {
+                gen.output.append(" ")
+                gen_expression(gen, stmt.expr)
+            }
+            gen.output.append(";\n")
+        }
+        .If => {
+            gen.output.append("if (")
+            gen_expression(gen, stmt.condition)
+            gen.output.append(") {\n")
+            gen.indent_level = gen.indent_level + 1
+            gen_block(gen, stmt.then_block)
+            gen.indent_level = gen.indent_level - 1
+            gen_indent(gen)
+            gen.output.append("}")
+            
+            if (stmt.else_block) {
+                gen.output.append(" else {\n")
+                gen.indent_level = gen.indent_level + 1
+                gen_block(gen, stmt.else_block)
+                gen.indent_level = gen.indent_level - 1
+                gen_indent(gen)
+                gen.output.append("}")
+            }
+            gen.output.append("\n")
+        }
+        .While => {
+            gen.output.append("while (")
+            gen_expression(gen, stmt.condition)
+            gen.output.append(") {\n")
+            gen.indent_level = gen.indent_level + 1
+            gen_block(gen, stmt.body)
+            gen.indent_level = gen.indent_level - 1
+            gen_indent(gen)
+            gen.output.append("}\n")
+        }
+        .For => {
+            gen.output.append("for (")
+            gen_statement_inline(gen, stmt.init)
+            gen.output.append("; ")
+            gen_expression(gen, stmt.condition)
+            gen.output.append("; ")
+            gen_statement_inline(gen, stmt.update)
+            gen.output.append(") {\n")
+            gen.indent_level = gen.indent_level + 1
+            gen_block(gen, stmt.body)
+            gen.indent_level = gen.indent_level - 1
+            gen_indent(gen)
+            gen.output.append("}\n")
+        }
+        .Expression => {
+            gen_expression(gen, stmt.expr)
+            gen.output.append(";\n")
+        }
+        .VarDecl => {
+            gen.output.append(type_to_c(stmt.var_type))
+            gen.output.append(" ")
+            gen.output.append(stmt.var_name)
+            if (stmt.init_expr) {
+                gen.output.append(" = ")
+                gen_expression(gen, stmt.init_expr)
+            }
+            gen.output.append(";\n")
+        }
+    }
+}
+
+// Generate inline statement (for for-loop parts)
+gen_statement_inline = (gen: &CodeGen, stmt: &parser.StatementNode) void {
+    switch (stmt.kind) {
+        .VarDecl => {
+            gen.output.append(type_to_c(stmt.var_type))
+            gen.output.append(" ")
+            gen.output.append(stmt.var_name)
+            if (stmt.init_expr) {
+                gen.output.append(" = ")
+                gen_expression(gen, stmt.init_expr)
+            }
+        }
+        .Expression => {
+            gen_expression(gen, stmt.expr)
+        }
+    }
+}
+
+// Generate expression
+gen_expression = (gen: &CodeGen, expr: &parser.ExpressionNode) void {
+    switch (expr.kind) {
+        .Literal => {
+            gen_literal(gen, expr.literal)
+        }
+        .Identifier => {
+            gen.output.append(expr.name)
+        }
+        .Binary => {
+            gen.output.append("(")
+            gen_expression(gen, expr.left)
+            gen.output.append(" ")
+            gen.output.append(operator_to_c(expr.op))
+            gen.output.append(" ")
+            gen_expression(gen, expr.right)
+            gen.output.append(")")
+        }
+        .Unary => {
+            gen.output.append(operator_to_c(expr.op))
+            gen_expression(gen, expr.operand)
+        }
+        .Call => {
+            // Handle special built-in functions
+            if (expr.func_name == "io.print") {
+                gen.output.append("printf")
+            } else {
+                gen.output.append(expr.func_name)
+            }
+            gen.output.append("(")
+            i := 0
+            while (i < expr.args.len) {
+                if (i > 0) gen.output.append(", ")
+                gen_expression(gen, expr.args[i])
+                i = i + 1
+            }
+            gen.output.append(")")
+        }
+        .Member => {
+            gen_expression(gen, expr.object)
+            gen.output.append(".")
+            gen.output.append(expr.member_name)
+        }
+        .Index => {
+            gen_expression(gen, expr.array)
+            gen.output.append("[")
+            gen_expression(gen, expr.index)
+            gen.output.append("]")
+        }
+    }
+}
+
+// Generate literal
+gen_literal = (gen: &CodeGen, lit: &parser.LiteralNode) void {
+    switch (lit.kind) {
+        .Integer => {
+            gen.output.append(lit.int_value.to_string())
+        }
+        .Float => {
+            gen.output.append(lit.float_value.to_string())
+        }
+        .String => {
+            gen.output.append("\"")
+            gen.output.append(escape_string(lit.string_value))
+            gen.output.append("\"")
+        }
+        .Bool => {
+            if (lit.bool_value) {
+                gen.output.append("true")
+            } else {
+                gen.output.append("false")
+            }
+        }
+        .Null => {
+            gen.output.append("NULL")
+        }
+    }
+}
+
+// Generate global variable
+gen_global = (gen: &CodeGen, global: &parser.GlobalNode) void {
+    gen.output.append(type_to_c(global.type))
+    gen.output.append(" ")
+    gen.output.append(global.name)
+    if (global.init_expr) {
+        gen.output.append(" = ")
+        gen_expression(gen, global.init_expr)
+    }
+    gen.output.append(";\n")
+}
+
+// Generate struct definition
+gen_struct = (gen: &CodeGen, s: &parser.StructNode) void {
+    gen.output.append("typedef struct ")
+    gen.output.append(s.name)
+    gen.output.append(" {\n")
+    
+    for (s.fields) |field| {
+        gen.output.append("    ")
+        gen.output.append(type_to_c(field.type))
+        gen.output.append(" ")
+        gen.output.append(field.name)
+        gen.output.append(";\n")
+    }
+    
+    gen.output.append("} ")
+    gen.output.append(s.name)
+    gen.output.append(";\n\n")
+}
+
+// Convert Zen type to C type
+type_to_c = (zen_type: string) string {
+    if (zen_type == "i8") return "int8_t"
+    if (zen_type == "i16") return "int16_t"
+    if (zen_type == "i32") return "int32_t"
+    if (zen_type == "i64") return "int64_t"
+    if (zen_type == "u8") return "uint8_t"
+    if (zen_type == "u16") return "uint16_t"
+    if (zen_type == "u32") return "uint32_t"
+    if (zen_type == "u64") return "uint64_t"
+    if (zen_type == "f32") return "float"
+    if (zen_type == "f64") return "double"
+    if (zen_type == "bool") return "bool"
+    if (zen_type == "void") return "void"
+    if (zen_type == "string") return "char*"
+    
+    // Pointer types
+    if (string.ends_with(zen_type, "*")) {
+        base := string.substring(zen_type, 0, zen_type.len - 1)
+        return type_to_c(base) ++ "*"
+    }
+    
+    // Array types
+    if (string.contains(zen_type, "[")) {
+        // Handle array type conversion
+        return zen_type // Keep as-is for now
+    }
+    
+    // User-defined types
+    return zen_type
+}
+
+// Convert Zen operator to C operator
+operator_to_c = (op: string) string {
+    // Most operators are the same
+    return op
+}
+
+// Escape string for C
+escape_string = (s: string) string {
+    result := string.Builder.new()
+    for (s) |ch| {
+        switch (ch) {
+            '\n' => result.append("\\n")
+            '\t' => result.append("\\t")
+            '\r' => result.append("\\r")
+            '\\' => result.append("\\\\")
+            '"' => result.append("\\\"")
+            else => result.append_char(ch)
+        }
+    }
+    return result.to_string()
+}
