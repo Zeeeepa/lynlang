@@ -280,6 +280,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return self.compile_io_print(args);
                 } else if module == "io" && func == "println" {
                     return self.compile_io_println(args);
+                } else if module == "math" {
+                    // Handle math module functions
+                    return self.compile_math_function(func, args);
                 }
             }
         }
@@ -490,5 +493,98 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Return void as unit value
         Ok(self.context.i32_type().const_zero().into())
+    }
+    
+    /// Compile math module function calls
+    fn compile_math_function(&mut self, func_name: &str, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Map math function names to their C math library equivalents
+        let c_func_name = match func_name {
+            "sqrt" => "sqrt",
+            "sin" => "sin",
+            "cos" => "cos",
+            "tan" => "tan",
+            "asin" => "asin",
+            "acos" => "acos",
+            "atan" => "atan",
+            "exp" => "exp",
+            "log" => "log",
+            "log10" => "log10",
+            "log2" => "log2",
+            "pow" => "pow",
+            "floor" => "floor",
+            "ceil" => "ceil",
+            "round" => "round",
+            "abs" => "fabs",  // Use fabs for floating point absolute value
+            "fabs" => "fabs",
+            _ => {
+                return Err(CompileError::UndeclaredFunction(
+                    format!("math.{}", func_name),
+                    None,
+                ));
+            }
+        };
+        
+        // Determine function signature based on the function
+        let (expected_args, fn_type) = match func_name {
+            "pow" | "atan2" | "fmod" | "hypot" => {
+                // Two-argument functions
+                (2, self.context.f64_type().fn_type(&[
+                    self.context.f64_type().into(),
+                    self.context.f64_type().into(),
+                ], false))
+            }
+            _ => {
+                // Single-argument functions
+                (1, self.context.f64_type().fn_type(&[
+                    self.context.f64_type().into(),
+                ], false))
+            }
+        };
+        
+        // Check argument count
+        if args.len() != expected_args {
+            return Err(CompileError::TypeError(
+                format!("math.{} expects {} argument(s), got {}", func_name, expected_args, args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare the math function
+        let math_fn = self.module.get_function(c_func_name).unwrap_or_else(|| {
+            self.module.add_function(c_func_name, fn_type, None)
+        });
+        
+        // Compile arguments
+        let mut compiled_args = Vec::new();
+        for arg in args {
+            let val = self.compile_expression(arg)?;
+            // Convert to f64 if needed
+            let f64_val = match val {
+                BasicValueEnum::FloatValue(f) => f,
+                BasicValueEnum::IntValue(i) => {
+                    // Cast int to float
+                    self.builder.build_signed_int_to_float(i, self.context.f64_type(), "int_to_float")?
+                }
+                _ => {
+                    return Err(CompileError::TypeError(
+                        format!("math.{} expects numeric arguments", func_name),
+                        None,
+                    ));
+                }
+            };
+            compiled_args.push(f64_val.into());
+        }
+        
+        // Call the math function
+        let call_result = self.builder.build_call(
+            math_fn,
+            &compiled_args,
+            &format!("{}_call", c_func_name),
+        )?;
+        
+        // Return the result
+        Ok(call_result.try_as_basic_value().left().unwrap_or_else(|| {
+            self.context.f64_type().const_zero().into()
+        }))
     }
 } 

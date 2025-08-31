@@ -1,0 +1,5 @@
+io := build.import("io")
+
+main = () void {
+    io.print("Hello from io module\n")
+}
