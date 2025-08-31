@@ -1,0 +1,416 @@
+// Path manipulation utilities for Zen
+// Provides cross-platform path handling and manipulation
+
+core := @std.core
+string := @std.string
+vec := @std.vec
+result := @std.result
+fs := @std.fs
+
+// Path separator for the current platform
+PATH_SEPARATOR := "/" // Unix-like systems
+PATH_LIST_SEPARATOR := ":" // Unix-like systems
+
+// Common path operations result type
+PathResult<T> := result.Result<T, string>
+
+// Check if a path is absolute
+is_absolute = (path: string) bool {
+    if (string.is_empty(path)) {
+        return false
+    }
+    return string.starts_with(path, "/")
+}
+
+// Check if a path is relative
+is_relative = (path: string) bool {
+    return !is_absolute(path)
+}
+
+// Join multiple path components
+join = (components: ...string) string {
+    if (components.len() == 0) {
+        return ""
+    }
+    
+    result := ""
+    for (i, component in components) {
+        if (string.is_empty(component)) {
+            continue
+        }
+        
+        if (i == 0) {
+            result = component
+        } else {
+            // Handle trailing separator in result
+            if (string.ends_with(result, PATH_SEPARATOR)) {
+                result = result
+            } else {
+                result = string.concat(result, PATH_SEPARATOR)
+            }
+            
+            // Handle leading separator in component
+            if (string.starts_with(component, PATH_SEPARATOR)) {
+                result = string.concat(result, string.substring(component, 1, component.len()))
+            } else {
+                result = string.concat(result, component)
+            }
+        }
+    }
+    
+    return result
+}
+
+// Get the directory name from a path
+dirname = (path: string) string {
+    if (string.is_empty(path)) {
+        return "."
+    }
+    
+    // Find the last separator
+    last_sep := string.last_index_of(path, PATH_SEPARATOR)
+    if (last_sep == -1) {
+        return "."
+    }
+    
+    if (last_sep == 0) {
+        return PATH_SEPARATOR
+    }
+    
+    return string.substring(path, 0, last_sep)
+}
+
+// Get the base name from a path
+basename = (path: string) string {
+    if (string.is_empty(path)) {
+        return ""
+    }
+    
+    // Remove trailing separators
+    clean_path := path
+    while (string.ends_with(clean_path, PATH_SEPARATOR) && clean_path.len() > 1) {
+        clean_path = string.substring(clean_path, 0, clean_path.len() - 1)
+    }
+    
+    // Find the last separator
+    last_sep := string.last_index_of(clean_path, PATH_SEPARATOR)
+    if (last_sep == -1) {
+        return clean_path
+    }
+    
+    return string.substring(clean_path, last_sep + 1, clean_path.len())
+}
+
+// Get the file extension
+extension = (path: string) string {
+    base := basename(path)
+    if (string.is_empty(base)) {
+        return ""
+    }
+    
+    // Find the last dot in the basename
+    last_dot := string.last_index_of(base, ".")
+    if (last_dot == -1 || last_dot == 0) {
+        return ""
+    }
+    
+    return string.substring(base, last_dot, base.len())
+}
+
+// Get the file name without extension
+stem = (path: string) string {
+    base := basename(path)
+    if (string.is_empty(base)) {
+        return ""
+    }
+    
+    ext := extension(path)
+    if (string.is_empty(ext)) {
+        return base
+    }
+    
+    return string.substring(base, 0, base.len() - ext.len())
+}
+
+// Split a path into its components
+split = (path: string) Vec<string> {
+    if (string.is_empty(path)) {
+        return vec.new<string>()
+    }
+    
+    components := vec.new<string>()
+    
+    // Handle absolute paths
+    if (is_absolute(path)) {
+        vec.push(components, PATH_SEPARATOR)
+        path = string.substring(path, 1, path.len())
+    }
+    
+    // Split by separator
+    parts := string.split(path, PATH_SEPARATOR)
+    for (part in parts) {
+        if (!string.is_empty(part)) {
+            vec.push(components, part)
+        }
+    }
+    
+    return components
+}
+
+// Normalize a path (remove . and .. components)
+normalize = (path: string) string {
+    if (string.is_empty(path)) {
+        return "."
+    }
+    
+    components := split(path)
+    normalized := vec.new<string>()
+    
+    for (component in components) {
+        if (component == ".") {
+            // Skip current directory references
+            continue
+        } else if (component == "..") {
+            // Go up one directory if possible
+            if (normalized.len() > 0 && normalized[normalized.len() - 1] != "..") {
+                vec.pop(normalized)
+            } else if (!is_absolute(path)) {
+                vec.push(normalized, "..")
+            }
+        } else {
+            vec.push(normalized, component)
+        }
+    }
+    
+    if (normalized.len() == 0) {
+        return if (is_absolute(path)) PATH_SEPARATOR else "."
+    }
+    
+    result := ""
+    for (i, component in normalized) {
+        if (i == 0) {
+            result = component
+        } else if (component == PATH_SEPARATOR) {
+            // Don't double up separators
+            continue
+        } else {
+            result = join(result, component)
+        }
+    }
+    
+    return result
+}
+
+// Make a path relative to a base path
+relative = (base: string, target: string) PathResult<string> {
+    // Both paths must be absolute or both relative
+    if (is_absolute(base) != is_absolute(target)) {
+        return result.err("Cannot compute relative path between absolute and relative paths")
+    }
+    
+    base_parts := split(normalize(base))
+    target_parts := split(normalize(target))
+    
+    // Find common prefix
+    common_len := 0
+    min_len := if (base_parts.len() < target_parts.len()) base_parts.len() else target_parts.len()
+    
+    for (i in 0..min_len) {
+        if (base_parts[i] == target_parts[i]) {
+            common_len = i + 1
+        } else {
+            break
+        }
+    }
+    
+    // Build relative path
+    relative_parts := vec.new<string>()
+    
+    // Add .. for each remaining base component
+    for (i in common_len..base_parts.len()) {
+        vec.push(relative_parts, "..")
+    }
+    
+    // Add remaining target components
+    for (i in common_len..target_parts.len()) {
+        vec.push(relative_parts, target_parts[i])
+    }
+    
+    if (relative_parts.len() == 0) {
+        return result.ok(".")
+    }
+    
+    result_path := ""
+    for (i, part in relative_parts) {
+        if (i == 0) {
+            result_path = part
+        } else {
+            result_path = join(result_path, part)
+        }
+    }
+    
+    return result.ok(result_path)
+}
+
+// Resolve a path to an absolute path
+resolve = (path: string) PathResult<string> {
+    if (is_absolute(path)) {
+        return result.ok(normalize(path))
+    }
+    
+    // Get current working directory
+    cwd := fs.get_cwd()?
+    resolved := join(cwd, path)
+    return result.ok(normalize(resolved))
+}
+
+// Check if a path exists
+exists = (path: string) bool {
+    return fs.exists(path)
+}
+
+// Check if a path is a directory
+is_dir = (path: string) bool {
+    stats := fs.stat(path)
+    return stats.is_ok() && stats.unwrap().is_directory
+}
+
+// Check if a path is a file
+is_file = (path: string) bool {
+    stats := fs.stat(path)
+    return stats.is_ok() && stats.unwrap().is_file
+}
+
+// Get the parent directory
+parent = (path: string) string {
+    return dirname(path)
+}
+
+// Create all parent directories if they don't exist
+ensure_parent = (path: string) PathResult<void> {
+    parent_dir := dirname(path)
+    if (parent_dir != "." && !exists(parent_dir)) {
+        fs.mkdir_all(parent_dir)?
+    }
+    return result.ok(void)
+}
+
+// Walk a directory tree
+walk = (root: string, callback: fn(path: string, is_dir: bool) bool) PathResult<void> {
+    if (!exists(root)) {
+        return result.err("Path does not exist: " + root)
+    }
+    
+    if (!is_dir(root)) {
+        callback(root, false)
+        return result.ok(void)
+    }
+    
+    walk_recursive(root, callback)?
+    return result.ok(void)
+}
+
+// Internal recursive walker
+walk_recursive = (dir: string, callback: fn(path: string, is_dir: bool) bool) PathResult<void> {
+    entries := fs.readdir(dir)?
+    
+    for (entry in entries) {
+        full_path := join(dir, entry.name)
+        should_continue := callback(full_path, entry.is_directory)
+        
+        if (!should_continue) {
+            return result.ok(void)
+        }
+        
+        if (entry.is_directory) {
+            walk_recursive(full_path, callback)?
+        }
+    }
+    
+    return result.ok(void)
+}
+
+// Common file path patterns
+is_hidden = (path: string) bool {
+    base := basename(path)
+    return string.starts_with(base, ".")
+}
+
+// Check if path matches a glob pattern (simple implementation)
+matches = (path: string, pattern: string) bool {
+    // Convert glob pattern to simple regex-like matching
+    // * matches any characters except /
+    // ** matches any characters including /
+    // ? matches single character
+    
+    if (pattern == "*") {
+        return true
+    }
+    
+    if (pattern == path) {
+        return true
+    }
+    
+    // Simple glob matching (can be enhanced)
+    if (string.contains(pattern, "*")) {
+        parts := string.split(pattern, "*")
+        current_pos := 0
+        
+        for (i, part in parts) {
+            if (string.is_empty(part)) {
+                continue
+            }
+            
+            index := string.index_of_from(path, part, current_pos)
+            if (index == -1) {
+                return false
+            }
+            
+            if (i == 0 && index != 0) {
+                return false
+            }
+            
+            current_pos = index + part.len()
+        }
+        
+        return true
+    }
+    
+    return false
+}
+
+// Path builder for fluent API
+PathBuilder := struct {
+    components: Vec<string>
+}
+
+// Create a new path builder
+builder = () PathBuilder {
+    return PathBuilder{
+        components: vec.new<string>()
+    }
+}
+
+// Add a component to the path
+PathBuilder.add = (self: &mut PathBuilder, component: string) &mut PathBuilder {
+    vec.push(self.components, component)
+    return self
+}
+
+// Build the final path
+PathBuilder.build = (self: &PathBuilder) string {
+    if (self.components.len() == 0) {
+        return ""
+    }
+    
+    result := ""
+    for (i, component in self.components) {
+        if (i == 0) {
+            result = component
+        } else {
+            result = join(result, component)
+        }
+    }
+    
+    return result
+}
