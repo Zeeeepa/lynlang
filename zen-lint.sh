@@ -50,33 +50,60 @@ check_syntax() {
 check_imports() {
     local file=$1
     local filename=$(basename "$file")
+    local has_errors=0
     
-    # Check for old-style comptime imports
-    if grep -q "comptime.*@std" "$file"; then
-        print_color "$YELLOW" "⚠ Old-style imports found in $filename"
-        print_color "$YELLOW" "  Use direct imports instead of comptime blocks for imports"
-        
-        if [ "$FIX_IMPORTS" = true ]; then
-            print_color "$CYAN" "  Attempting to fix imports..."
-            # This would need more sophisticated sed/awk to properly fix
-            print_color "$YELLOW" "  Auto-fix not yet implemented"
-        fi
-        return 1
+    # Check for imports in comptime blocks
+    if grep -q "comptime.*{[^}]*@std" "$file"; then
+        print_color "$RED" "✗ Imports found in comptime block in $filename"
+        print_color "$RED" "  Imports must be at module level, not in comptime blocks"
+        local lines=$(grep -n "comptime.*{[^}]*@std" "$file" | cut -d: -f1 | head -3)
+        echo "  Error at lines: $lines"
+        has_errors=1
     fi
     
-    # Check for proper import syntax
-    if grep -q "@std\." "$file"; then
-        # Check if imports are at top level
-        local import_lines=$(grep -n "@std\." "$file" | cut -d: -f1)
-        for line_num in $import_lines; do
-            # Simple heuristic: imports should be before line 50 and not indented
-            if [ "$line_num" -gt 50 ]; then
-                print_color "$YELLOW" "⚠ Import at line $line_num might be too late in file"
-            fi
+    # Check for imports inside functions
+    # Look for @std imports that are indented (indicating they're inside a block)
+    local indented_imports=$(grep -n "^[[:space:]]\+.*@std\." "$file" | head -5)
+    if [ ! -z "$indented_imports" ]; then
+        print_color "$RED" "✗ Imports found inside functions/blocks in $filename"
+        print_color "$RED" "  Imports must be at module level (not indented)"
+        echo "$indented_imports" | while read line; do
+            echo "  $line"
         done
+        has_errors=1
     fi
     
-    return 0
+    # Check for imports after function definitions
+    local first_func_line=$(grep -n "^[a-z_][a-zA-Z0-9_]* = (" "$file" | head -1 | cut -d: -f1)
+    if [ ! -z "$first_func_line" ]; then
+        local late_imports=$(grep -n "^[a-zA-Z_].*:= @std\." "$file" | while read line; do
+            line_num=$(echo "$line" | cut -d: -f1)
+            if [ "$line_num" -gt "$first_func_line" ]; then
+                echo "$line"
+            fi
+        done)
+        
+        if [ ! -z "$late_imports" ]; then
+            print_color "$YELLOW" "⚠ Imports found after function definitions in $filename"
+            print_color "$YELLOW" "  Consider moving imports to the top of the file"
+            echo "$late_imports" | head -3
+        fi
+    fi
+    
+    # Check for build.import usage
+    if grep -q "build\.import(" "$file"; then
+        # Verify build is imported first
+        if ! grep -q "^build := @std\.build" "$file"; then
+            print_color "$YELLOW" "⚠ Using build.import without importing build module"
+            print_color "$YELLOW" "  Add: build := @std.build"
+        fi
+    fi
+    
+    if [ $has_errors -eq 0 ]; then
+        print_color "$GREEN" "✓ Import structure OK: $filename"
+    fi
+    
+    return $has_errors
 }
 
 # Function to check code style
