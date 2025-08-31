@@ -179,6 +179,13 @@ check_ast_node = (checker: Ptr<TypeChecker>, node: AstNode) Type {
             check_return(checker, value)
         }
         
+        // Import statement
+        | AstNode.Import(path, alias) => {
+            // Imports are handled at module resolution phase
+            // They don't have a runtime type
+            Type.Void
+        }
+        
         // Other cases
         | _ => Type.Unknown
     }
