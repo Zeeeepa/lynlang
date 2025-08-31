@@ -42,8 +42,11 @@ comptime {
 
 ### Test Commands
 ```bash
-# Run tests
-cargo test test_imports_no_comptime
+# Run comprehensive test suite
+./run_tests.sh
+
+# Run individual Rust tests
+cargo test
 
 # Check syntax
 ./zen-check.sh examples/hello.zen
