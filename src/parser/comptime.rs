@@ -21,7 +21,42 @@ impl<'a> Parser<'a> {
         let mut statements = Vec::new();
         
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-            // Imports are now allowed inside comptime blocks
+            // Check for import attempts inside comptime blocks
+            if let Token::Identifier(name) = &self.current_token {
+                if self.peek_token == Token::Operator(":=".to_string()) {
+                    // Look ahead to see if this is an import
+                    let saved_current = self.current_token.clone();
+                    let saved_peek = self.peek_token.clone();
+                    let saved_pos = self.lexer.position;
+                    let saved_read = self.lexer.read_position;
+                    let saved_char = self.lexer.current_char;
+                    
+                    self.next_token(); // Move to :=
+                    self.next_token(); // Move past :=
+                    
+                    let is_import = if let Token::Identifier(id) = &self.current_token {
+                        id.starts_with("@std") || id == "@compiler" || id == "build"
+                    } else {
+                        false
+                    };
+                    
+                    // Restore state
+                    self.current_token = saved_current;
+                    self.peek_token = saved_peek;
+                    self.lexer.position = saved_pos;
+                    self.lexer.read_position = saved_read;
+                    self.lexer.current_char = saved_char;
+                    
+                    if is_import {
+                        return Err(CompileError::SyntaxError(
+                            "Import statements are not allowed inside comptime blocks. Move imports to module level.".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+            }
+            
+            // Parse regular statement
             let stmt = self.parse_statement()?;
             statements.push(stmt);
             
