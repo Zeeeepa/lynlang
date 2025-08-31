@@ -1,0 +1,439 @@
+// Zen Language - C Backend Code Generator
+// Generates compilable C code from Zen AST
+
+core := @std.core
+build := @std.build
+io := build.import("io")
+string := build.import("string")
+fs := build.import("fs")
+parser := build.import("parser")
+
+// C type mapping
+map_zen_type_to_c = (zen_type: string) string {
+    if (zen_type == "i8") return "int8_t"
+    if (zen_type == "i16") return "int16_t"
+    if (zen_type == "i32") return "int32_t"
+    if (zen_type == "i64") return "int64_t"
+    if (zen_type == "u8") return "uint8_t"
+    if (zen_type == "u16") return "uint16_t"
+    if (zen_type == "u32") return "uint32_t"
+    if (zen_type == "u64") return "uint64_t"
+    if (zen_type == "f32") return "float"
+    if (zen_type == "f64") return "double"
+    if (zen_type == "bool") return "bool"
+    if (zen_type == "void") return "void"
+    if (zen_type == "string") return "char*"
+    return zen_type  // For custom types
+}
+
+// C Backend Context
+CBackend := struct {
+    output: string.Builder
+    indent: u32
+    in_main: bool
+    temp_var_counter: u32
+    includes_written: bool
+}
+
+// Create new C backend
+new_c_backend = () CBackend {
+    return CBackend{
+        output: string.Builder.new(),
+        indent: 0,
+        in_main: false,
+        temp_var_counter: 0,
+        includes_written: false
+    }
+}
+
+// Write indentation
+write_indent = (c: &CBackend) void {
+    i := 0
+    while (i < c.indent) {
+        c.output.append("    ")
+        i = i + 1
+    }
+}
+
+// Write standard C includes
+write_includes = (c: &CBackend) void {
+    if (c.includes_written) return
+    
+    c.output.append("#include <stdio.h>\n")
+    c.output.append("#include <stdlib.h>\n")
+    c.output.append("#include <stdint.h>\n")
+    c.output.append("#include <stdbool.h>\n")
+    c.output.append("#include <string.h>\n\n")
+    
+    // Add Zen runtime helpers
+    c.output.append("// Zen runtime helpers\n")
+    c.output.append("typedef struct { char* data; size_t len; } zen_string;\n")
+    c.output.append("typedef struct { void* data; size_t len; size_t cap; } zen_slice;\n\n")
+    
+    c.includes_written = true
+}
+
+// Generate expression
+generate_expr = (c: &CBackend, expr: &parser.Expression) void {
+    match (expr.kind) {
+        .IntLiteral => {
+            c.output.append(expr.value)
+        }
+        .FloatLiteral => {
+            c.output.append(expr.value)
+        }
+        .StringLiteral => {
+            c.output.append("\"")
+            c.output.append(expr.value)
+            c.output.append("\"")
+        }
+        .BoolLiteral => {
+            c.output.append(if (expr.value == "true") "true" else "false")
+        }
+        .Identifier => {
+            c.output.append(expr.value)
+        }
+        .BinaryOp => {
+            c.output.append("(")
+            generate_expr(c, expr.left)
+            c.output.append(" ")
+            c.output.append(expr.op)
+            c.output.append(" ")
+            generate_expr(c, expr.right)
+            c.output.append(")")
+        }
+        .UnaryOp => {
+            c.output.append(expr.op)
+            c.output.append("(")
+            generate_expr(c, expr.operand)
+            c.output.append(")")
+        }
+        .FunctionCall => {
+            // Special case for print functions
+            if (expr.name == "io.print" || expr.name == "print") {
+                c.output.append("printf")
+            } else {
+                c.output.append(expr.name)
+            }
+            c.output.append("(")
+            i := 0
+            while (i < expr.args.len) {
+                if (i > 0) c.output.append(", ")
+                generate_expr(c, &expr.args[i])
+                i = i + 1
+            }
+            c.output.append(")")
+        }
+        .ArrayLiteral => {
+            c.output.append("{")
+            i := 0
+            while (i < expr.elements.len) {
+                if (i > 0) c.output.append(", ")
+                generate_expr(c, &expr.elements[i])
+                i = i + 1
+            }
+            c.output.append("}")
+        }
+        .StructLiteral => {
+            c.output.append("{")
+            i := 0
+            while (i < expr.fields.len) {
+                if (i > 0) c.output.append(", ")
+                c.output.append(".")
+                c.output.append(expr.fields[i].name)
+                c.output.append(" = ")
+                generate_expr(c, &expr.fields[i].value)
+                i = i + 1
+            }
+            c.output.append("}")
+        }
+        else => {
+            c.output.append("/* TODO: expr kind ")
+            c.output.append(expr.kind)
+            c.output.append(" */")
+        }
+    }
+}
+
+// Generate statement
+generate_stmt = (c: &CBackend, stmt: &parser.Statement) void {
+    write_indent(c)
+    
+    match (stmt.kind) {
+        .VarDecl => {
+            c_type := map_zen_type_to_c(stmt.var_type)
+            c.output.append(c_type)
+            c.output.append(" ")
+            c.output.append(stmt.name)
+            if (stmt.value != null) {
+                c.output.append(" = ")
+                generate_expr(c, stmt.value)
+            }
+            c.output.append(";\n")
+        }
+        .Assignment => {
+            c.output.append(stmt.name)
+            c.output.append(" = ")
+            generate_expr(c, stmt.value)
+            c.output.append(";\n")
+        }
+        .FunctionCall => {
+            generate_expr(c, stmt.expr)
+            c.output.append(";\n")
+        }
+        .Return => {
+            c.output.append("return")
+            if (stmt.value != null) {
+                c.output.append(" ")
+                generate_expr(c, stmt.value)
+            }
+            c.output.append(";\n")
+        }
+        .If => {
+            c.output.append("if (")
+            generate_expr(c, stmt.condition)
+            c.output.append(") {\n")
+            c.indent = c.indent + 1
+            generate_block(c, stmt.then_block)
+            c.indent = c.indent - 1
+            write_indent(c)
+            c.output.append("}")
+            if (stmt.else_block != null) {
+                c.output.append(" else {\n")
+                c.indent = c.indent + 1
+                generate_block(c, stmt.else_block)
+                c.indent = c.indent - 1
+                write_indent(c)
+                c.output.append("}")
+            }
+            c.output.append("\n")
+        }
+        .While => {
+            c.output.append("while (")
+            generate_expr(c, stmt.condition)
+            c.output.append(") {\n")
+            c.indent = c.indent + 1
+            generate_block(c, stmt.body)
+            c.indent = c.indent - 1
+            write_indent(c)
+            c.output.append("}\n")
+        }
+        .For => {
+            // Generate C-style for loop
+            c.output.append("for (")
+            if (stmt.init != null) {
+                generate_stmt(c, stmt.init)
+                c.output.seek(-2)  // Remove ";\n"
+                c.output.append("; ")
+            } else {
+                c.output.append("; ")
+            }
+            if (stmt.condition != null) {
+                generate_expr(c, stmt.condition)
+            }
+            c.output.append("; ")
+            if (stmt.update != null) {
+                generate_expr(c, stmt.update)
+            }
+            c.output.append(") {\n")
+            c.indent = c.indent + 1
+            generate_block(c, stmt.body)
+            c.indent = c.indent - 1
+            write_indent(c)
+            c.output.append("}\n")
+        }
+        .Block => {
+            c.output.append("{\n")
+            c.indent = c.indent + 1
+            generate_block(c, stmt.statements)
+            c.indent = c.indent - 1
+            write_indent(c)
+            c.output.append("}\n")
+        }
+        else => {
+            c.output.append("/* TODO: stmt kind ")
+            c.output.append(stmt.kind)
+            c.output.append(" */\n")
+        }
+    }
+}
+
+// Generate block of statements
+generate_block = (c: &CBackend, stmts: []parser.Statement) void {
+    i := 0
+    while (i < stmts.len) {
+        generate_stmt(c, &stmts[i])
+        i = i + 1
+    }
+}
+
+// Generate function
+generate_function = (c: &CBackend, func: &parser.Function) void {
+    // Skip if it's a Zen builtin that we handle specially
+    if (func.name == "main") {
+        c.in_main = true
+    }
+    
+    // Generate function signature
+    return_type := map_zen_type_to_c(func.return_type)
+    c.output.append(return_type)
+    c.output.append(" ")
+    c.output.append(func.name)
+    c.output.append("(")
+    
+    // Generate parameters
+    i := 0
+    while (i < func.params.len) {
+        if (i > 0) c.output.append(", ")
+        param_type := map_zen_type_to_c(func.params[i].type)
+        c.output.append(param_type)
+        c.output.append(" ")
+        c.output.append(func.params[i].name)
+        i = i + 1
+    }
+    
+    if (func.params.len == 0) {
+        c.output.append("void")
+    }
+    
+    c.output.append(") {\n")
+    c.indent = 1
+    
+    // Generate function body
+    generate_block(c, func.body)
+    
+    // Add default return for void functions
+    if (func.return_type == "void") {
+        write_indent(c)
+        c.output.append("return;\n")
+    }
+    
+    c.indent = 0
+    c.output.append("}\n\n")
+    
+    if (func.name == "main") {
+        c.in_main = false
+    }
+}
+
+// Generate struct definition
+generate_struct = (c: &CBackend, s: &parser.Struct) void {
+    c.output.append("typedef struct ")
+    c.output.append(s.name)
+    c.output.append(" {\n")
+    
+    c.indent = 1
+    i := 0
+    while (i < s.fields.len) {
+        write_indent(c)
+        field_type := map_zen_type_to_c(s.fields[i].type)
+        c.output.append(field_type)
+        c.output.append(" ")
+        c.output.append(s.fields[i].name)
+        c.output.append(";\n")
+        i = i + 1
+    }
+    
+    c.indent = 0
+    c.output.append("} ")
+    c.output.append(s.name)
+    c.output.append(";\n\n")
+}
+
+// Generate enum definition
+generate_enum = (c: &CBackend, e: &parser.Enum) void {
+    c.output.append("typedef enum {\n")
+    c.indent = 1
+    
+    i := 0
+    while (i < e.values.len) {
+        write_indent(c)
+        c.output.append(e.name)
+        c.output.append("_")
+        c.output.append(e.values[i])
+        if (i < e.values.len - 1) {
+            c.output.append(",")
+        }
+        c.output.append("\n")
+        i = i + 1
+    }
+    
+    c.indent = 0
+    c.output.append("} ")
+    c.output.append(e.name)
+    c.output.append(";\n\n")
+}
+
+// Main generation function
+generate_c_from_ast = (ast: &parser.AST) string {
+    backend := new_c_backend()
+    
+    // Write includes
+    write_includes(&backend)
+    
+    // Forward declare all structs and enums
+    backend.output.append("// Type declarations\n")
+    for (ast.structs) |s| {
+        backend.output.append("typedef struct ")
+        backend.output.append(s.name)
+        backend.output.append(" ")
+        backend.output.append(s.name)
+        backend.output.append(";\n")
+    }
+    backend.output.append("\n")
+    
+    // Generate structs
+    if (ast.structs.len > 0) {
+        backend.output.append("// Struct definitions\n")
+        for (ast.structs) |s| {
+            generate_struct(&backend, &s)
+        }
+    }
+    
+    // Generate enums
+    if (ast.enums.len > 0) {
+        backend.output.append("// Enum definitions\n")
+        for (ast.enums) |e| {
+            generate_enum(&backend, &e)
+        }
+    }
+    
+    // Forward declare functions
+    backend.output.append("// Function declarations\n")
+    for (ast.functions) |func| {
+        if (func.name != "main") {
+            return_type := map_zen_type_to_c(func.return_type)
+            backend.output.append(return_type)
+            backend.output.append(" ")
+            backend.output.append(func.name)
+            backend.output.append("(")
+            
+            i := 0
+            while (i < func.params.len) {
+                if (i > 0) backend.output.append(", ")
+                param_type := map_zen_type_to_c(func.params[i].type)
+                backend.output.append(param_type)
+                backend.output.append(" ")
+                backend.output.append(func.params[i].name)
+                i = i + 1
+            }
+            
+            if (func.params.len == 0) {
+                backend.output.append("void")
+            }
+            backend.output.append(");\n")
+        }
+    }
+    backend.output.append("\n")
+    
+    // Generate function implementations
+    backend.output.append("// Function implementations\n")
+    for (ast.functions) |func| {
+        generate_function(&backend, &func)
+    }
+    
+    return backend.output.to_string()
+}
+
+// Export the main function
+export { generate_c_from_ast, map_zen_type_to_c }
