@@ -63,4 +63,5 @@ io := @std.io
 - ✅ Self-hosted compiler implementation in bootstrap/compiler.zen
 - ✅ Fixed remaining comptime import issues in test files
 - ✅ LSP validation for imports already implemented and working
+- ✅ Updated all tests to properly reject imports in comptime blocks
 - ⚠️ Known issue: nested pattern matching test failure (parser limitation - requires parentheses)
