@@ -1,46 +1,53 @@
-# Zen Language Development - Global Memory
+# Zenlang Global Memory
 
-## Key Achievements
+## Project Overview
+Zenlang is a systems programming language with:
+- Clean import syntax (no comptime wrapping required)
+- Self-hosting compiler (in progress)
+- Comprehensive standard library
+- LSP support
 
-### Import System Overhaul
-- **Removed comptime requirement for imports** - Imports can now be used anywhere
-- Updated parser to accept imports at module level and in comptime blocks
-- Fixed all validation that prevented imports in comptime
-- Updated all tests to reflect new behavior
+## Key Locations
+- Parser: `src/parser/statements.rs:14-120`
+- Module System: `src/module_system/mod.rs`
+- Type Checker: `src/typechecker/validation.rs:160-181`
+- Self-hosted Compiler: `bootstrap/compiler.zen`
+- Standard Library: `stdlib/`
 
-### Code Changes Made
-1. **Parser Changes**
-   - `src/parser/statements.rs` - Removed import validation in comptime
-   - `src/parser/comptime.rs` - Removed import checks
-   
-2. **Type Checker Changes**
-   - `src/typechecker/validation.rs` - Disabled import validation function
-   
-3. **Tool Updates**
-   - `src/bin/zen-check.rs` - Removed import placement checks
-   - `src/lsp/mod.rs` - Disabled comptime import diagnostics
+## Import Syntax Evolution
+```zen
+// OLD (deprecated)
+comptime {
+    core := @std.core
+    io := build.import("io")
+}
 
-4. **Self-Hosted Parser**
-   - `compiler/parser.zen` - Updated to allow imports everywhere
+// NEW (current)
+core := @std.core
+io := @std.io
+```
 
-5. **Tests Updated**
-   - Fixed all import-related tests to accept new syntax
-   - Created comprehensive test file for new import behavior
+## Self-Hosting Status
+- ✅ Lexer (stdlib/compiler/lexer.zen)
+- ✅ Parser (compiler/parser.zen)
+- ✅ Type Checker (stdlib/compiler/type_checker.zen)
+- ✅ Symbol Table (stdlib/compiler/symbol_table.zen)
+- 🚧 Code Generator (transitioning from Rust)
+- 🚧 LLVM Backend (integration needed)
 
-### Stdlib Enhancements
-- Created `vec_enhanced.zen` with functional programming features:
-  - map, filter, fold/reduce operations
-  - find, any, all predicates
-  - partition, zip, flatten operations
-  - take, skip, reverse operations
+## Testing Strategy
+- Unit tests for each component
+- Integration tests for full compilation
+- Import validation tests
+- Self-hosting bootstrap tests
 
-## Next Steps
-1. Continue enhancing stdlib modules
-2. Implement basic LSP/checking tool
-3. Create more comprehensive tests
-4. Work on self-hosting capabilities
+## Known Issues
+- Type checker validation disabled (needs re-enabling)
+- Some examples still use old import syntax
+- LSP import validation incomplete
 
-## Important Notes
-- Imports now work like the user requested: `core := @std.core` directly at module level
-- No need for `comptime { }` wrapper for imports
-- Comptime is now purely for meta-programming, not imports
+## Recent Changes (2025-08-31)
+- Major import system refactoring
+- Added comprehensive stdlib modules
+- Enhanced self-hosting components
+- Improved test coverage
