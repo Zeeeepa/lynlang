@@ -1,0 +1,356 @@
+// Enhanced IO module for Zen standard library
+// Provides comprehensive input/output operations
+
+// Import dependencies
+string := @std.string
+result := @std.result
+vec := @std.vec
+
+// Standard file descriptors
+STDIN :: 0
+STDOUT :: 1
+STDERR :: 2
+
+// File modes
+FileMode = enum {
+    Read,
+    Write,
+    Append,
+    ReadWrite,
+}
+
+// Seek position
+SeekFrom = enum {
+    Start,
+    Current,
+    End,
+}
+
+// File handle
+File = {
+    fd: i32,
+    path: string,
+    mode: FileMode,
+    is_open: bool,
+}
+
+// Buffer for buffered IO
+Buffer = {
+    data: vec<u8>,
+    position: i32,
+    capacity: i32,
+}
+
+// Writer trait for anything that can be written to
+Writer = trait {
+    write: (self, data: []u8) result<i32, string>,
+    write_string: (self, s: string) result<i32, string>,
+    flush: (self) result<void, string>,
+}
+
+// Reader trait for anything that can be read from
+Reader = trait {
+    read: (self, buffer: []u8) result<i32, string>,
+    read_line: (self) result<string, string>,
+    read_all: (self) result<string, string>,
+}
+
+// Core print functions using compiler builtins
+print = (s: string) void {
+    @compiler.builtin("print", s)
+}
+
+println = (s: string) void {
+    print(s)
+    print("\n")
+}
+
+eprint = (s: string) void {
+    @compiler.builtin("eprint", s)
+}
+
+eprintln = (s: string) void {
+    eprint(s)
+    eprint("\n")
+}
+
+// Format printing
+printf = (format: string, args: ...any) void {
+    formatted := format_string(format, args)
+    print(formatted)
+}
+
+// Print various types
+print_int = (n: i32) void {
+    @compiler.builtin("print_int", n)
+}
+
+print_i64 = (n: i64) void {
+    @compiler.builtin("print_i64", n)
+}
+
+print_float = (f: f64) void {
+    @compiler.builtin("print_float", f)
+}
+
+print_bool = (b: bool) void {
+    if b {
+        print("true")
+    } else {
+        print("false")
+    }
+}
+
+// Input functions
+readline = () string {
+    return @compiler.builtin("readline")
+}
+
+read_int = () result<i32, string> {
+    line := readline()
+    return string.parse_i32(line)
+}
+
+read_float = () result<f64, string> {
+    line := readline()
+    return string.parse_f64(line)
+}
+
+// File operations
+open = (path: string, mode: FileMode) result<File, string> {
+    fd := @compiler.builtin("file_open", path, mode)
+    if fd < 0 {
+        return result.err("Failed to open file: " + path)
+    }
+    
+    return result.ok(File {
+        fd: fd,
+        path: path,
+        mode: mode,
+        is_open: true,
+    })
+}
+
+close = (file: File) result<void, string> {
+    if !file.is_open {
+        return result.err("File already closed")
+    }
+    
+    ret := @compiler.builtin("file_close", file.fd)
+    if ret < 0 {
+        return result.err("Failed to close file")
+    }
+    
+    return result.ok(void)
+}
+
+// File reading
+read = (file: File, buffer: []u8) result<i32, string> {
+    if !file.is_open {
+        return result.err("File is closed")
+    }
+    
+    bytes_read := @compiler.builtin("file_read", file.fd, buffer)
+    if bytes_read < 0 {
+        return result.err("Read error")
+    }
+    
+    return result.ok(bytes_read)
+}
+
+read_to_string = (file: File) result<string, string> {
+    if !file.is_open {
+        return result.err("File is closed")
+    }
+    
+    content := @compiler.builtin("file_read_all", file.fd)
+    return result.ok(content)
+}
+
+read_line = (file: File) result<string, string> {
+    if !file.is_open {
+        return result.err("File is closed")
+    }
+    
+    line := @compiler.builtin("file_read_line", file.fd)
+    if line == "" {
+        return result.err("EOF or read error")
+    }
+    
+    return result.ok(line)
+}
+
+// File writing
+write = (file: File, data: []u8) result<i32, string> {
+    if !file.is_open {
+        return result.err("File is closed")
+    }
+    
+    if file.mode == FileMode.Read {
+        return result.err("File opened for reading only")
+    }
+    
+    bytes_written := @compiler.builtin("file_write", file.fd, data)
+    if bytes_written < 0 {
+        return result.err("Write error")
+    }
+    
+    return result.ok(bytes_written)
+}
+
+write_string = (file: File, s: string) result<i32, string> {
+    return write(file, string.to_bytes(s))
+}
+
+writeln = (file: File, s: string) result<i32, string> {
+    res1 := write_string(file, s)
+    match res1 {
+        result.Ok(n1) => {
+            res2 := write_string(file, "\n")
+            match res2 {
+                result.Ok(n2) => return result.ok(n1 + n2),
+                result.Err(e) => return result.err(e),
+            }
+        },
+        result.Err(e) => return result.err(e),
+    }
+}
+
+// File positioning
+seek = (file: File, offset: i64, from: SeekFrom) result<i64, string> {
+    if !file.is_open {
+        return result.err("File is closed")
+    }
+    
+    new_pos := @compiler.builtin("file_seek", file.fd, offset, from)
+    if new_pos < 0 {
+        return result.err("Seek error")
+    }
+    
+    return result.ok(new_pos)
+}
+
+// Buffered IO
+create_buffer = (capacity: i32) Buffer {
+    return Buffer {
+        data: vec.with_capacity(capacity),
+        position: 0,
+        capacity: capacity,
+    }
+}
+
+buffer_write = (buf: Buffer, data: []u8) Buffer {
+    mut new_buf := buf
+    for byte in data {
+        new_buf.data = vec.push(new_buf.data, byte)
+    }
+    return new_buf
+}
+
+buffer_flush = (buf: Buffer, file: File) result<void, string> {
+    res := write(file, vec.to_slice(buf.data))
+    match res {
+        result.Ok(_) => return result.ok(void),
+        result.Err(e) => return result.err(e),
+    }
+}
+
+// Utility functions
+copy = (from: File, to: File) result<i64, string> {
+    buffer := create_buffer(8192)
+    mut total_copied := 0i64
+    
+    loop {
+        res := read(from, vec.to_slice(buffer.data))
+        match res {
+            result.Ok(n) => {
+                if n == 0 {
+                    break
+                }
+                write_res := write(to, vec.slice(buffer.data, 0, n))
+                match write_res {
+                    result.Ok(written) => {
+                        total_copied = total_copied + written
+                    },
+                    result.Err(e) => return result.err(e),
+                }
+            },
+            result.Err(e) => return result.err(e),
+        }
+    }
+    
+    return result.ok(total_copied)
+}
+
+// Read entire file to string
+read_file = (path: string) result<string, string> {
+    file_res := open(path, FileMode.Read)
+    match file_res {
+        result.Ok(file) => {
+            content_res := read_to_string(file)
+            close(file)
+            return content_res
+        },
+        result.Err(e) => return result.err(e),
+    }
+}
+
+// Write string to file
+write_file = (path: string, content: string) result<void, string> {
+    file_res := open(path, FileMode.Write)
+    match file_res {
+        result.Ok(file) => {
+            write_res := write_string(file, content)
+            close(file)
+            match write_res {
+                result.Ok(_) => return result.ok(void),
+                result.Err(e) => return result.err(e),
+            }
+        },
+        result.Err(e) => return result.err(e),
+    }
+}
+
+// Append string to file
+append_file = (path: string, content: string) result<void, string> {
+    file_res := open(path, FileMode.Append)
+    match file_res {
+        result.Ok(file) => {
+            write_res := write_string(file, content)
+            close(file)
+            match write_res {
+                result.Ok(_) => return result.ok(void),
+                result.Err(e) => return result.err(e),
+            }
+        },
+        result.Err(e) => return result.err(e),
+    }
+}
+
+// Helper to format strings with arguments
+format_string = (format: string, args: []any) string {
+    mut result := ""
+    mut arg_index := 0
+    mut i := 0
+    
+    while i < string.len(format) {
+        if string.char_at(format, i) == '{' && i + 1 < string.len(format) && string.char_at(format, i + 1) == '}' {
+            if arg_index < vec.len(args) {
+                result = string.append(result, to_string(args[arg_index]))
+                arg_index = arg_index + 1
+            }
+            i = i + 2
+        } else {
+            result = string.append_char(result, string.char_at(format, i))
+            i = i + 1
+        }
+    }
+    
+    return result
+}
+
+// Convert any value to string (basic implementation)
+to_string = (value: any) string {
+    // This would use type reflection in a real implementation
+    return @compiler.builtin("to_string", value)
+}

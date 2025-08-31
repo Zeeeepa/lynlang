@@ -1,0 +1,7 @@
+// Simple hello world to test binary compilation
+io := @std.io
+
+main = () i32 {
+    io.print("Hello from Zen binary!\n")
+    return 0
+}
