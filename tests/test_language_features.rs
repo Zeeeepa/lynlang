@@ -197,8 +197,8 @@ fn test_nested_pattern_matching() {
         
         classify = (x: i32, y: i32) i32 {
             return x == 0 ? 
-                | true => y == 0 ? | true => 0 | false => 1
-                | false => y == 0 ? | true => 2 | false => 3
+                | true => (y == 0 ? | true => 0 | false => 1)
+                | false => (y == 0 ? | true => 2 | false => 3)
         }
         
         main = () i32 {
