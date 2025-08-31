@@ -68,3 +68,6 @@ io := @std.io
 - ✅ Added binary compilation support (-o flag for native executables)
 - ✅ Successfully tested compilation: hello.zen, minimal_test.zen
 - ⚠️ Known issue: Complex pattern matching in blocks needs LLVM fixes
+- ✅ Fixed parser to reject imports inside comptime blocks (2025-08-31 - Latest)
+- ✅ Added proper import validation at parse time
+- ⚠️ Self-hosting tests still failing (need more work on stdlib)
