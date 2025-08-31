@@ -102,11 +102,10 @@ loop (condition) {
 
 #### Module System
 ```zen
-comptime {
-    core := @std.core      // Compiler intrinsics
-    build := @std.build    // Build system
-    io := build.import("io")
-}
+// Direct module imports - no comptime wrapper needed
+core := @std.core      // Compiler intrinsics
+build := @std.build    // Build system
+io := build.import("io")
 ```
 
 ## Standard Library Structure
@@ -159,14 +158,13 @@ comptime {
 1. **Prepare the compiler module**:
 ```zen
 // stdlib/compiler.zen
-comptime {
-    core := @std.core
-    build := @std.build
-    lexer := build.import("lexer")
-    parser := build.import("parser")
-    type_checker := build.import("type_checker")
-    codegen := build.import("codegen")
-}
+// Direct module imports - no comptime wrapper needed
+core := @std.core
+build := @std.build
+lexer := build.import("lexer")
+parser := build.import("parser")
+type_checker := build.import("type_checker")
+codegen := build.import("codegen")
 
 main = (args: **i8, argc: i32) i32 {
     argc < 2 ? | true => {
