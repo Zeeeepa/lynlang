@@ -1,0 +1,9 @@
+// Simplest possible Zen program for self-hosting test
+// This should be compilable by our bootstrap compiler
+
+io := @std.io
+
+main = () i32 {
+    io.print("Hello from self-hosted Zen!\n")
+    return 0
+}
