@@ -159,12 +159,18 @@ fn test_import_error_comptime_wrapper() {
     
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
-    let program = parser.parse_program().expect("Failed to parse program");
     
-    let imports = get_imports(&program);
+    // Parser should reject imports inside comptime blocks
+    let result = parser.parse_program();
+    assert!(result.is_err(), "Parser should reject imports inside comptime blocks");
     
-    // Should have no imports since they're inside comptime
-    assert_eq!(imports.len(), 0, "Imports inside comptime should not be recognized as module imports");
+    if let Err(err) = result {
+        // Check that the error message is about imports in comptime
+        let error_msg = format!("{:?}", err);
+        assert!(error_msg.contains("Import statements are not allowed inside comptime blocks") ||
+                error_msg.contains("Move imports to module level"),
+                "Error should mention that imports are not allowed in comptime blocks");
+    }
 }
 
 #[test]

@@ -86,20 +86,16 @@ fn test_comptime_import_rejection() {
     for input in invalid_cases {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
-        let program = parser.parse_program().unwrap();
         
-        // Parser should accept the syntax
-        assert!(!program.declarations.is_empty());
+        // Parser should reject imports in comptime blocks at parse time
+        let result = parser.parse_program();
+        assert!(result.is_err(), "Parser should reject imports in comptime blocks: {}", input);
         
-        // But type checker should reject it
-        let mut type_checker = TypeChecker::new();
-        let result = type_checker.check_program(&program);
-        
-        assert!(result.is_err(), "Expected error for: {}", input);
         if let Err(err) = result {
             let err_msg = format!("{:?}", err);
             assert!(
-                err_msg.contains("Module imports should not be inside comptime blocks"),
+                err_msg.contains("Import statements are not allowed inside comptime blocks") ||
+                err_msg.contains("Move imports to module level"),
                 "Expected import error message, got: {}",
                 err_msg
             );
