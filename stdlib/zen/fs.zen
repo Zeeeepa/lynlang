@@ -1,0 +1,567 @@
+// Zen Standard Library - File System Module
+// File and directory operations
+
+core := @std.core
+io := @std.io
+string := @std.string
+vec := @std.vec
+
+// File handle
+File = struct {
+    handle: *void
+    path: string
+    mode: FileMode
+}
+
+// File open modes
+FileMode = enum {
+    Read
+    Write
+    Append
+    ReadWrite
+}
+
+// File seek position
+SeekFrom = enum {
+    Start(offset: i64)
+    Current(offset: i64)
+    End(offset: i64)
+}
+
+// File metadata
+FileMetadata = struct {
+    size: u64
+    is_file: bool
+    is_dir: bool
+    is_symlink: bool
+    permissions: u32
+    modified_time: u64
+    created_time: u64
+    accessed_time: u64
+}
+
+// Directory entry
+DirEntry = struct {
+    name: string
+    path: string
+    metadata: FileMetadata
+}
+
+// Path utilities
+
+// Join path components
+path_join = (parts: []string) string {
+    if parts.len() == 0 {
+        return ""
+    }
+    
+    result := parts[0]
+    i := 1
+    
+    loop i < parts.len() {
+        if !string.ends_with(result, "/") {
+            result = string.concat(result, "/")
+        }
+        result = string.concat(result, parts[i])
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Get directory from path
+path_dir = (path: string) string {
+    last_sep := string.last_index_of(path, "/")
+    
+    if last_sep == -1 {
+        return "."
+    }
+    
+    if last_sep == 0 {
+        return "/"
+    }
+    
+    return string.substring(path, 0, last_sep)
+}
+
+// Get filename from path
+path_basename = (path: string) string {
+    last_sep := string.last_index_of(path, "/")
+    
+    if last_sep == -1 {
+        return path
+    }
+    
+    return string.substring(path, last_sep + 1, string.len(path))
+}
+
+// Get file extension
+path_extension = (path: string) string {
+    basename := path_basename(path)
+    last_dot := string.last_index_of(basename, ".")
+    
+    if last_dot == -1 || last_dot == 0 {
+        return ""
+    }
+    
+    return string.substring(basename, last_dot + 1, string.len(basename))
+}
+
+// Remove file extension
+path_without_extension = (path: string) string {
+    last_dot := string.last_index_of(path, ".")
+    last_sep := string.last_index_of(path, "/")
+    
+    // Don't remove if dot is before last separator or at start of filename
+    if last_dot == -1 || (last_sep != -1 && last_dot < last_sep) {
+        return path
+    }
+    
+    return string.substring(path, 0, last_dot)
+}
+
+// Check if path is absolute
+path_is_absolute = (path: string) bool {
+    return string.starts_with(path, "/")
+}
+
+// Normalize path (remove . and .. components)
+path_normalize = (path: string) string {
+    parts := string.split(path, "/")
+    result := vec.new<string>()
+    
+    for part in parts {
+        if part == "" || part == "." {
+            continue
+        }
+        
+        if part == ".." {
+            if result.len() > 0 && result.data[result.len() - 1] != ".." {
+                vec_pop(&result)
+            } else if !path_is_absolute(path) {
+                vec_push(&result, part)
+            }
+        } else {
+            vec_push(&result, part)
+        }
+    }
+    
+    if result.len() == 0 {
+        return path_is_absolute(path) ? "/" : "."
+    }
+    
+    normalized := path_is_absolute(path) ? "/" : ""
+    i := 0
+    
+    loop i < result.len() {
+        if i > 0 {
+            normalized = string.concat(normalized, "/")
+        }
+        normalized = string.concat(normalized, result.data[i])
+        i = i + 1
+    }
+    
+    vec_free(&result)
+    return normalized
+}
+
+// File operations (stubs - would be implemented with FFI)
+
+// Open file
+file_open = (path: string, mode: FileMode) Result<File> {
+    // This would call into C FFI
+    extern "C" fopen(path: *u8, mode: *u8) *void
+    
+    mode_str := match mode {
+        FileMode.Read => "r"
+        FileMode.Write => "w"
+        FileMode.Append => "a"
+        FileMode.ReadWrite => "r+"
+    }
+    
+    handle := fopen(path.data, mode_str.data)
+    
+    if handle == null {
+        return Result.Err("Failed to open file")
+    }
+    
+    return Result.Ok(File {
+        handle: handle
+        path: path
+        mode: mode
+    })
+}
+
+// Close file
+file_close = (file: *File) void {
+    extern "C" fclose(handle: *void) i32
+    
+    if file.handle != null {
+        fclose(file.handle)
+        file.handle = null
+    }
+}
+
+// Read file contents
+file_read = (file: *File, buffer: *u8, size: usize) Result<usize> {
+    extern "C" fread(buffer: *void, size: usize, count: usize, handle: *void) usize
+    
+    if file.handle == null {
+        return Result.Err("File not open")
+    }
+    
+    if file.mode != FileMode.Read && file.mode != FileMode.ReadWrite {
+        return Result.Err("File not open for reading")
+    }
+    
+    bytes_read := fread(buffer, 1, size, file.handle)
+    return Result.Ok(bytes_read)
+}
+
+// Write to file
+file_write = (file: *File, data: *u8, size: usize) Result<usize> {
+    extern "C" fwrite(data: *void, size: usize, count: usize, handle: *void) usize
+    
+    if file.handle == null {
+        return Result.Err("File not open")
+    }
+    
+    if file.mode == FileMode.Read {
+        return Result.Err("File not open for writing")
+    }
+    
+    bytes_written := fwrite(data, 1, size, file.handle)
+    return Result.Ok(bytes_written)
+}
+
+// Read entire file to string
+file_read_to_string = (path: string) Result<string> {
+    file := file_open(path, FileMode.Read)?
+    defer file_close(&file)
+    
+    // Get file size
+    metadata := file_metadata(path)?
+    size := metadata.size
+    
+    if size == 0 {
+        return Result.Ok("")
+    }
+    
+    buffer := core.alloc<u8>(size + 1)
+    defer core.free(buffer)
+    
+    bytes_read := file_read(&file, buffer, size)?
+    buffer[bytes_read] = 0  // Null terminate
+    
+    return Result.Ok(string.from_cstr(buffer))
+}
+
+// Write string to file
+file_write_string = (path: string, content: string) Result<void> {
+    file := file_open(path, FileMode.Write)?
+    defer file_close(&file)
+    
+    file_write(&file, content.data, string.len(content))?
+    return Result.Ok(void)
+}
+
+// Append string to file
+file_append_string = (path: string, content: string) Result<void> {
+    file := file_open(path, FileMode.Append)?
+    defer file_close(&file)
+    
+    file_write(&file, content.data, string.len(content))?
+    return Result.Ok(void)
+}
+
+// Check if file exists
+file_exists = (path: string) bool {
+    extern "C" access(path: *u8, mode: i32) i32
+    
+    return access(path.data, 0) == 0
+}
+
+// Delete file
+file_delete = (path: string) Result<void> {
+    extern "C" unlink(path: *u8) i32
+    
+    if unlink(path.data) != 0 {
+        return Result.Err("Failed to delete file")
+    }
+    
+    return Result.Ok(void)
+}
+
+// Rename file
+file_rename = (old_path: string, new_path: string) Result<void> {
+    extern "C" rename(old: *u8, new: *u8) i32
+    
+    if rename(old_path.data, new_path.data) != 0 {
+        return Result.Err("Failed to rename file")
+    }
+    
+    return Result.Ok(void)
+}
+
+// Copy file
+file_copy = (src: string, dst: string) Result<void> {
+    // Read source file
+    content := file_read_to_string(src)?
+    
+    // Write to destination
+    file_write_string(dst, content)?
+    
+    return Result.Ok(void)
+}
+
+// Get file metadata
+file_metadata = (path: string) Result<FileMetadata> {
+    // This would use stat() system call
+    extern "C" stat(path: *u8, buf: *void) i32
+    
+    // Simplified - would need proper stat struct
+    stat_buf: [144]u8  // Size of struct stat
+    
+    if stat(path.data, &stat_buf) != 0 {
+        return Result.Err("Failed to get file metadata")
+    }
+    
+    // Parse stat buffer (simplified)
+    return Result.Ok(FileMetadata {
+        size: 0  // Would extract from stat_buf
+        is_file: true
+        is_dir: false
+        is_symlink: false
+        permissions: 0644
+        modified_time: 0
+        created_time: 0
+        accessed_time: 0
+    })
+}
+
+// Directory operations
+
+// Create directory
+dir_create = (path: string) Result<void> {
+    extern "C" mkdir(path: *u8, mode: u32) i32
+    
+    if mkdir(path.data, 0755) != 0 {
+        return Result.Err("Failed to create directory")
+    }
+    
+    return Result.Ok(void)
+}
+
+// Create directory recursively
+dir_create_all = (path: string) Result<void> {
+    parts := string.split(path, "/")
+    current := ""
+    
+    for part in parts {
+        if part == "" {
+            continue
+        }
+        
+        if current == "" && path_is_absolute(path) {
+            current = "/"
+        }
+        
+        current = path_join([current, part])
+        
+        if !file_exists(current) {
+            dir_create(current)?
+        }
+    }
+    
+    return Result.Ok(void)
+}
+
+// Remove empty directory
+dir_remove = (path: string) Result<void> {
+    extern "C" rmdir(path: *u8) i32
+    
+    if rmdir(path.data) != 0 {
+        return Result.Err("Failed to remove directory")
+    }
+    
+    return Result.Ok(void)
+}
+
+// Remove directory recursively
+dir_remove_all = (path: string) Result<void> {
+    entries := dir_read(path)?
+    
+    for entry in entries {
+        full_path := path_join([path, entry.name])
+        
+        if entry.metadata.is_dir {
+            dir_remove_all(full_path)?
+        } else {
+            file_delete(full_path)?
+        }
+    }
+    
+    dir_remove(path)?
+    return Result.Ok(void)
+}
+
+// Read directory entries
+dir_read = (path: string) Result<Vec<DirEntry>> {
+    extern "C" opendir(path: *u8) *void
+    extern "C" readdir(dir: *void) *void
+    extern "C" closedir(dir: *void) i32
+    
+    dir := opendir(path.data)
+    if dir == null {
+        return Result.Err("Failed to open directory")
+    }
+    defer closedir(dir)
+    
+    entries := vec.new<DirEntry>()
+    
+    loop {
+        entry := readdir(dir)
+        if entry == null {
+            break
+        }
+        
+        // Parse dirent structure (simplified)
+        name := ""  // Would extract from entry
+        
+        if name == "." || name == ".." {
+            continue
+        }
+        
+        full_path := path_join([path, name])
+        metadata := file_metadata(full_path)?
+        
+        vec_push(&entries, DirEntry {
+            name: name
+            path: full_path
+            metadata: metadata
+        })
+    }
+    
+    return Result.Ok(entries)
+}
+
+// Walk directory tree
+dir_walk = (path: string, callback: fn(DirEntry) void) Result<void> {
+    entries := dir_read(path)?
+    
+    for entry in entries {
+        callback(entry)
+        
+        if entry.metadata.is_dir {
+            dir_walk(entry.path, callback)?
+        }
+    }
+    
+    return Result.Ok(void)
+}
+
+// Get current working directory
+get_cwd = () Result<string> {
+    extern "C" getcwd(buf: *u8, size: usize) *u8
+    
+    buffer: [4096]u8
+    
+    if getcwd(&buffer[0], 4096) == null {
+        return Result.Err("Failed to get current directory")
+    }
+    
+    return Result.Ok(string.from_cstr(&buffer[0]))
+}
+
+// Change current directory
+set_cwd = (path: string) Result<void> {
+    extern "C" chdir(path: *u8) i32
+    
+    if chdir(path.data) != 0 {
+        return Result.Err("Failed to change directory")
+    }
+    
+    return Result.Ok(void)
+}
+
+// Get home directory
+get_home_dir = () Result<string> {
+    extern "C" getenv(name: *u8) *u8
+    
+    home := getenv("HOME".data)
+    if home == null {
+        return Result.Err("HOME environment variable not set")
+    }
+    
+    return Result.Ok(string.from_cstr(home))
+}
+
+// Get temp directory
+get_temp_dir = () string {
+    // Try common temp directories
+    if file_exists("/tmp") {
+        return "/tmp"
+    }
+    if file_exists("/var/tmp") {
+        return "/var/tmp"
+    }
+    return "."
+}
+
+// Create temporary file
+create_temp_file = (prefix: string, suffix: string) Result<File> {
+    extern "C" mkstemp(template: *u8) i32
+    
+    temp_dir := get_temp_dir()
+    
+    // Generate template
+    template := string.format("{}/{}_XXXXXX{}", temp_dir, prefix, suffix)
+    
+    fd := mkstemp(template.data)
+    if fd == -1 {
+        return Result.Err("Failed to create temp file")
+    }
+    
+    // Convert fd to FILE* (would need fdopen)
+    return Result.Ok(File {
+        handle: null  // Would convert fd
+        path: template
+        mode: FileMode.ReadWrite
+    })
+}
+
+// File watching (simplified)
+FileWatcher = struct {
+    path: string
+    callback: fn(FileEvent) void
+}
+
+FileEvent = enum {
+    Created(path: string)
+    Modified(path: string)
+    Deleted(path: string)
+    Renamed(old: string, new: string)
+}
+
+// Create file watcher
+watch_file = (path: string, callback: fn(FileEvent) void) Result<FileWatcher> {
+    if !file_exists(path) {
+        return Result.Err("File does not exist")
+    }
+    
+    return Result.Ok(FileWatcher {
+        path: path
+        callback: callback
+    })
+}
+
+// Start watching (would use inotify on Linux)
+watch_start = (watcher: *FileWatcher) Result<void> {
+    // This would set up inotify or similar
+    return Result.Ok(void)
+}
+
+// Stop watching
+watch_stop = (watcher: *FileWatcher) void {
+    // Clean up watch resources
+}
