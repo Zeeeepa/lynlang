@@ -1,0 +1,299 @@
+// feature_showcase.zen - Comprehensive demonstration of Zen language features
+// Shows correct import syntax and modern language capabilities
+
+// Direct imports without comptime wrapper
+core := @std.core
+io := @std.io
+string := @std.string
+math := @std.math
+vec := @std.vec
+utils := @std.utils
+test := @std.test_framework
+
+// Example 1: Pattern Matching with ? operator
+grade_to_letter = (score: i32) string {
+    score ? | 90..=100 => "A"
+           | 80..=89  => "B"
+           | 70..=79  => "C"
+           | 60..=69  => "D"
+           | _        => "F"
+}
+
+// Example 2: Enums with payloads and pattern matching
+Message = enum {
+    Text(content: string)
+    Image(url: string, width: u32, height: u32)
+    Video(url: string, duration: u32)
+    Reaction(emoji: string)
+}
+
+process_message = (msg: Message) string {
+    msg ? | .Text -> content => string.format("Text: {}", content)
+         | .Image -> (url, w, h) => string.format("Image {}x{}: {}", w, h, url)
+         | .Video -> (url, dur) => string.format("Video ({}s): {}", dur, url)
+         | .Reaction -> emoji => string.format("Reaction: {}", emoji)
+}
+
+// Example 3: Generic data structures with behaviors
+Stack<T> = struct {
+    items: Vec<T>
+    max_size: usize
+}
+
+// Methods using UFCS (Uniform Function Call Syntax)
+new_stack = <T>(max_size: usize) Stack<T> {
+    return Stack<T> {
+        items: vec.new<T>()
+        max_size: max_size
+    }
+}
+
+push = <T>(stack: *Stack<T>, item: T) utils.Result<void, string> {
+    stack.items.len() >= stack.max_size ? 
+        | true => utils.err("Stack overflow")
+        | false => {
+            stack.items.push(item)
+            utils.ok(void)
+        }
+}
+
+pop = <T>(stack: *Stack<T>) utils.Option<T> {
+    stack.items.is_empty() ? 
+        | true => utils.none<T>()
+        | false => utils.some(stack.items.pop())
+}
+
+// Example 4: Advanced control flow with loops
+fibonacci_iter = (n: u32) u64 {
+    n <= 1 ? | true => return n as u64
+            | false => {}
+    
+    a ::= 0u64
+    b ::= 1u64
+    i ::= 2u32
+    
+    loop i <= n {
+        temp := a + b
+        a = b
+        b = temp
+        i = i + 1
+    }
+    
+    return b
+}
+
+// Example 5: Functional programming with higher-order functions
+map_filter_reduce = <T, U>(
+    items: Vec<T>,
+    mapper: (T) U,
+    filter: (U) bool,
+    reducer: (U, U) U,
+    initial: U
+) U {
+    result ::= initial
+    i ::= 0
+    
+    loop i < items.len() {
+        item := items.get(i)
+        mapped := mapper(item)
+        
+        filter(mapped) ? | true => result = reducer(result, mapped)
+                        | false => {}
+        
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Example 6: Error handling with Result type
+divide_safe = (a: f64, b: f64) utils.Result<f64, string> {
+    b == 0.0 ? | true => utils.err("Division by zero")
+              | false => utils.ok(a / b)
+}
+
+calculate_average = (numbers: Vec<f64>) utils.Result<f64, string> {
+    numbers.is_empty() ? 
+        | true => utils.err("Cannot calculate average of empty list")
+        | false => {
+            sum := vec.reduce(numbers, 0.0, (acc, x) f64 { acc + x })
+            utils.ok(sum / numbers.len() as f64)
+        }
+}
+
+// Example 7: Compile-time computation (metaprogramming)
+PRIMES_UNDER_100 := comptime {
+    primes := vec.new<i32>()
+    n ::= 2
+    
+    loop n < 100 {
+        is_prime ::= true
+        i ::= 2
+        
+        loop i * i <= n {
+            n % i == 0 ? | true => {
+                is_prime = false
+                break
+            } | false => {}
+            i = i + 1
+        }
+        
+        is_prime ? | true => primes.push(n)
+                  | false => {}
+        n = n + 1
+    }
+    
+    primes
+}
+
+// Example 8: String interpolation
+format_person = (name: string, age: u32, city: string) string {
+    return "$(name) is $(age) years old and lives in $(city)"
+}
+
+// Example 9: Defer mechanism for cleanup
+process_file = (path: string) utils.Result<string, string> {
+    defer_ctx := utils.defer_new()
+    
+    file := io.open(path) ? 
+        | .Ok -> f => f
+        | .Err -> e => return utils.err(e)
+    
+    utils.defer_add(&defer_ctx, () void { io.close(file) })
+    
+    content := io.read_all(file) ?
+        | .Ok -> c => c
+        | .Err -> e => {
+            utils.defer_run(&defer_ctx)
+            return utils.err(e)
+        }
+    
+    utils.defer_run(&defer_ctx)
+    return utils.ok(content)
+}
+
+// Example 10: Custom behaviors (traits/interfaces)
+Printable = behavior {
+    to_string: (Self) string
+}
+
+Point = struct {
+    x: f64
+    y: f64
+}
+
+// Implement Printable for Point
+to_string = (p: Point) string {
+    return string.format("Point({}, {})", p.x, p.y)
+}
+
+// Example 11: Advanced pattern matching with guards
+classify_number = (n: i32) string {
+    n ? | x if x < 0 => "negative"
+        | 0 => "zero"
+        | x if x % 2 == 0 => "positive even"
+        | _ => "positive odd"
+}
+
+// Example 12: Lazy evaluation
+expensive_computation = () i32 {
+    io.println("Computing expensive value...")
+    // Simulate expensive work
+    sum ::= 0
+    i ::= 0
+    loop i < 1000000 {
+        sum = sum + i
+        i = i + 1
+    }
+    return sum
+}
+
+lazy_example = () void {
+    lazy_val := utils.lazy(expensive_computation)
+    
+    io.println("Lazy value created")
+    io.println("Now forcing evaluation...")
+    result := utils.force(&lazy_val)
+    io.println(string.format("Result: {}", result))
+    
+    // Second force doesn't recompute
+    result2 := utils.force(&lazy_val)
+    io.println(string.format("Cached result: {}", result2))
+}
+
+// Main function demonstrating all features
+main = () i32 {
+    io.println("=== Zen Language Feature Showcase ===\n")
+    
+    // Pattern matching
+    io.println("1. Pattern Matching:")
+    io.println(string.format("  Score 85 -> Grade {}", grade_to_letter(85)))
+    
+    // Enums
+    io.println("\n2. Enums with Payloads:")
+    msg := Message.Text("Hello, Zen!")
+    io.println(string.format("  {}", process_message(msg)))
+    
+    // Generics
+    io.println("\n3. Generic Stack:")
+    stack := new_stack<i32>(5)
+    push(&stack, 10)
+    push(&stack, 20)
+    pop(&stack) ? | .Some -> val => io.println(string.format("  Popped: {}", val))
+                  | .None => io.println("  Stack empty")
+    
+    // Iterative algorithms
+    io.println("\n4. Fibonacci:")
+    io.println(string.format("  fib(10) = {}", fibonacci_iter(10)))
+    
+    // Functional programming
+    io.println("\n5. Functional Operations:")
+    numbers := vec.from_array([1, 2, 3, 4, 5])
+    result := map_filter_reduce(
+        numbers,
+        (x: i32) i32 { x * x },     // square
+        (x: i32) bool { x % 2 == 1 }, // keep odd
+        (a: i32, b: i32) i32 { a + b }, // sum
+        0
+    )
+    io.println(string.format("  Sum of squares of odd numbers: {}", result))
+    
+    // Error handling
+    io.println("\n6. Error Handling:")
+    divide_safe(10.0, 2.0) ? 
+        | .Ok -> val => io.println(string.format("  10/2 = {}", val))
+        | .Err -> msg => io.println(string.format("  Error: {}", msg))
+    
+    // Compile-time computation
+    io.println("\n7. Compile-time Primes:")
+    io.print("  First 10 primes: ")
+    i ::= 0
+    loop i < 10 && i < PRIMES_UNDER_100.len() {
+        io.print(string.format("{} ", PRIMES_UNDER_100.get(i)))
+        i = i + 1
+    }
+    io.println("")
+    
+    // String interpolation
+    io.println("\n8. String Interpolation:")
+    io.println(string.format("  {}", format_person("Alice", 30, "New York")))
+    
+    // Custom behaviors
+    io.println("\n9. Custom Behaviors:")
+    point := Point { x: 3.14, y: 2.71 }
+    io.println(string.format("  {}", to_string(point)))
+    
+    // Pattern matching with guards
+    io.println("\n10. Pattern Guards:")
+    io.println(string.format("  classify(-5) = {}", classify_number(-5)))
+    io.println(string.format("  classify(0) = {}", classify_number(0)))
+    io.println(string.format("  classify(4) = {}", classify_number(4)))
+    io.println(string.format("  classify(7) = {}", classify_number(7)))
+    
+    // Lazy evaluation
+    io.println("\n11. Lazy Evaluation:")
+    lazy_example()
+    
+    io.println("\n=== Showcase Complete ===")
+    return 0
+}
