@@ -1,70 +1,119 @@
-# Zen Language - Self-Hosting Plan
+# Zen Language Development Plan
 
-## Goal
-Bootstrap the Zen compiler in Zen itself, achieving self-hosting capability.
+## Project Vision
+Build a self-hosting systems programming language with minimal keywords and maximum expressiveness through composable primitives.
 
-## Current Progress
-✅ Import syntax simplified (no comptime required)
-✅ Basic token definitions created
-✅ Initial lexer implementation started
+## Current Status (2025-08-31)
+- ✅ Import system refactored - no comptime wrapper needed
+- ✅ All 66 tests passing
+- ✅ Test runner script created
+- ✅ Syntax checking tools implemented
+- ✅ Basic stdlib in Zen (io, math, collections, etc.)
+- 🔄 Working on self-hosting components
 
-## Phases
+## Architecture Overview
 
-### Phase 1: Lexer (In Progress)
-- [x] Token type definitions
-- [x] Basic lexer structure
-- [ ] Complete operator tokenization
-- [ ] Comment handling
-- [ ] Error reporting
-- [ ] Test suite for lexer
+### Phase 1: Foundation (COMPLETE)
+- [x] Core language features
+- [x] Import system without comptime
+- [x] Basic stdlib modules
+- [x] Test infrastructure
 
-### Phase 2: Parser
-- [ ] AST node definitions
-- [ ] Expression parser
-- [ ] Statement parser
-- [ ] Type parser
-- [ ] Error recovery
-- [ ] Test suite for parser
+### Phase 2: Tools & Validation (IN PROGRESS)
+- [x] Test runner (test_runner.sh)
+- [x] Syntax checker (zen-check.sh)
+- [x] Syntax validator in Zen (tools/syntax_checker.zen)
+- [ ] Type checker tool
+- [ ] LSP implementation
 
-### Phase 3: Type Checker
-- [ ] Type inference
-- [ ] Type checking rules
-- [ ] Generic type handling
-- [ ] Error reporting
-- [ ] Test suite for type checker
+### Phase 3: Self-Hosting (NEXT)
+- [ ] Complete lexer in Zen
+- [ ] Parser in Zen  
+- [ ] Type checker in Zen
+- [ ] Code generator in Zen
+- [ ] Full compiler bootstrap
 
-### Phase 4: Code Generator
-- [ ] LLVM bindings
-- [ ] Expression compilation
-- [ ] Statement compilation
-- [ ] Function compilation
-- [ ] Module compilation
-- [ ] Optimization passes
+### Phase 4: Optimization
+- [ ] Performance tuning
+- [ ] Memory optimization
+- [ ] Compile-time evaluation
+- [ ] Dead code elimination
+- [ ] Inline optimization
 
-### Phase 5: Bootstrap
-- [ ] Compile compiler with itself
-- [ ] Verify output matches
-- [ ] Performance benchmarks
-- [ ] Documentation
+## Technical Roadmap
 
-## Technical Challenges
-1. String handling without full stdlib
-2. Dynamic memory allocation
-3. LLVM FFI bindings
-4. Error handling patterns
-5. Module system implementation
+### Immediate Tasks (1-2 days)
+1. Fix remaining type system issues
+2. Complete stdlib testing
+3. Implement basic LSP
+4. Create type checking tool
+
+### Near-term Goals (1 week)
+1. Complete self-hosted lexer
+2. Implement self-hosted parser
+3. Create documentation generator
+4. Build package manager prototype
+
+### Long-term Goals (1 month)
+1. Full self-hosting compiler
+2. Advanced optimization passes
+3. Debug information generation
+4. Cross-compilation support
+5. Standard library completion
+
+## File Organization
+
+```
+zenlang/
+├── src/              # Rust compiler (transitioning out)
+├── stdlib/           # Standard library in Zen
+│   ├── io.zen       # I/O operations
+│   ├── math.zen     # Math functions
+│   ├── lexer.zen    # Self-hosted lexer
+│   ├── parser.zen   # Self-hosted parser
+│   └── ...
+├── tools/            # Development tools
+│   └── syntax_checker.zen
+├── tests/            # Test files
+├── examples/         # Example programs
+└── .agent/          # Project metadata
+```
+
+## Key Design Principles
+
+1. **Simplicity**: Minimal keywords, maximum expressiveness
+2. **Composability**: Small, composable primitives
+3. **Self-hosting**: Compiler written in Zen itself
+4. **Performance**: Zero-cost abstractions
+5. **Safety**: Memory safety without garbage collection
 
 ## Testing Strategy
-- Unit tests for each component
-- Integration tests for compilation
-- Bootstrap validation tests
-- Performance regression tests
 
-## Estimated Timeline
-- Phase 1: 1 week
-- Phase 2: 2 weeks  
-- Phase 3: 2 weeks
-- Phase 4: 3 weeks
-- Phase 5: 1 week
+- Unit tests for each compiler component
+- Integration tests for language features
+- Regression tests for bug fixes
+- Performance benchmarks
+- Self-hosting validation
 
-Total: ~9 weeks for full self-hosting
+## Success Metrics
+
+- [ ] 100% test coverage
+- [ ] Self-hosting compiler compiles itself
+- [ ] < 1s compile time for 10k LOC
+- [ ] Zero memory leaks
+- [ ] Full language specification compliance
+
+## Next Actions
+
+1. Run full test suite
+2. Fix any failing tests
+3. Continue lexer implementation
+4. Start parser implementation
+5. Document progress
+
+## Notes
+
+- Focus on correctness over performance initially
+- Keep backward compatibility during transition
+- Document all design decisions
+- Maintain clean git history with frequent commits
