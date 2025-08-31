@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+# Zen Language Server Protocol (LSP) Launcher
+# This script compiles and runs the Zen LSP server for IDE integration
+
+set -e
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ZEN_COMPILER="$SCRIPT_DIR/target/debug/zen"
+LSP_SOURCE="$SCRIPT_DIR/tools/zen-lsp-server.zen"
+LSP_BINARY="$SCRIPT_DIR/target/zen-lsp-server"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to print colored messages
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
+}
+
+print_info() {
+    echo -e "${YELLOW}[INFO]${NC} $1" >&2
+}
+
+# Check if Zen compiler exists
+if [ ! -f "$ZEN_COMPILER" ]; then
+    print_error "Zen compiler not found at: $ZEN_COMPILER"
+    print_info "Building Zen compiler..."
+    
+    cd "$SCRIPT_DIR"
+    cargo build
+    
+    if [ ! -f "$ZEN_COMPILER" ]; then
+        print_error "Failed to build Zen compiler"
+        exit 1
+    fi
+    
+    print_success "Zen compiler built successfully"
+fi
+
+# Check if LSP source exists
+if [ ! -f "$LSP_SOURCE" ]; then
+    print_error "LSP server source not found at: $LSP_SOURCE"
+    exit 1
+fi
+
+# Compile LSP server if needed or if source is newer
+if [ ! -f "$LSP_BINARY" ] || [ "$LSP_SOURCE" -nt "$LSP_BINARY" ]; then
+    print_info "Compiling Zen LSP server..."
+    
+    if "$ZEN_COMPILER" "$LSP_SOURCE" -o "$LSP_BINARY" 2>&1; then
+        print_success "LSP server compiled successfully"
+    else
+        print_error "Failed to compile LSP server"
+        print_info "Falling back to stdio mode for development..."
+        
+        # For development, we'll use a simple stdio relay
+        # This allows the LSP to work even if compilation fails
+        exec "$SCRIPT_DIR/tools/zen-lsp-stdio.sh"
+    fi
+fi
+
+# Run the LSP server
+if [ -f "$LSP_BINARY" ]; then
+    print_info "Starting Zen LSP server..." >&2
+    exec "$LSP_BINARY"
+else
+    print_error "LSP binary not found"
+    exit 1
+fi
