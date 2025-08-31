@@ -1,0 +1,264 @@
+// Test for the Zen stdlib test framework
+// Demonstrates usage of the new testing utilities
+
+test := @std.test
+core := @std.core
+io := @std.io
+
+// Test basic assertions
+test_basic_assertions = () void {
+    suite := test.suite("Basic Assertions")
+    
+    suite.add_test("assert true condition", () test.TestResult {
+        return test.assert(true, "True should pass")
+    })
+    
+    suite.add_test("assert equality", () test.TestResult {
+        return test.assert_eq(2 + 2, 4, "2 + 2 should equal 4")
+    })
+    
+    suite.add_test("assert inequality", () test.TestResult {
+        return test.assert_ne(3, 5, "3 should not equal 5")
+    })
+    
+    suite.add_test("assert less than", () test.TestResult {
+        return test.assert_lt(3, 5, "3 should be less than 5")
+    })
+    
+    suite.add_test("assert less than or equal", () test.TestResult {
+        return test.assert_le(5, 5, "5 should be less than or equal to 5")
+    })
+    
+    suite.add_test("assert greater than", () test.TestResult {
+        return test.assert_gt(10, 5, "10 should be greater than 5")
+    })
+    
+    suite.add_test("assert greater than or equal", () test.TestResult {
+        return test.assert_ge(7, 7, "7 should be greater than or equal to 7")
+    })
+    
+    test.register_suite(suite)
+}
+
+// Test core library functions
+test_core_functions = () void {
+    suite := test.suite("Core Library Functions")
+    
+    suite.add_test("min function", () test.TestResult {
+        result := core.min(3, 5)
+        return test.assert_eq(result, 3, "min(3, 5) should return 3")
+    })
+    
+    suite.add_test("max function", () test.TestResult {
+        result := core.max(3, 5)
+        return test.assert_eq(result, 5, "max(3, 5) should return 5")
+    })
+    
+    suite.add_test("abs function positive", () test.TestResult {
+        result := core.abs(42)
+        return test.assert_eq(result, 42, "abs(42) should return 42")
+    })
+    
+    suite.add_test("abs function negative", () test.TestResult {
+        result := core.abs(-42)
+        return test.assert_eq(result, 42, "abs(-42) should return 42")
+    })
+    
+    suite.add_test("clamp function", () test.TestResult {
+        result := core.clamp(15, 0, 10)
+        return test.assert_eq(result, 10, "clamp(15, 0, 10) should return 10")
+    })
+    
+    suite.add_test("sign function positive", () test.TestResult {
+        result := core.sign(42)
+        return test.assert_eq(result, 1, "sign(42) should return 1")
+    })
+    
+    suite.add_test("sign function negative", () test.TestResult {
+        result := core.sign(-42)
+        return test.assert_eq(result, -1, "sign(-42) should return -1")
+    })
+    
+    suite.add_test("sign function zero", () test.TestResult {
+        result := core.sign(0)
+        return test.assert_eq(result, 0, "sign(0) should return 0")
+    })
+    
+    suite.add_test("is_power_of_two", () test.TestResult {
+        is_pow2_8 := core.is_power_of_two(8)
+        is_pow2_10 := core.is_power_of_two(10)
+        
+        test.assert(is_pow2_8, "8 should be a power of 2") ?
+            | test.TestResult.Pass => {}
+            | fail => return fail
+        
+        return test.assert(!is_pow2_10, "10 should not be a power of 2")
+    })
+    
+    suite.add_test("next_power_of_two", () test.TestResult {
+        result := core.next_power_of_two(5)
+        return test.assert_eq(result, 8, "next_power_of_two(5) should return 8")
+    })
+    
+    test.register_suite(suite)
+}
+
+// Test Option type
+test_option_type = () void {
+    suite := test.suite("Option Type")
+    
+    suite.add_test("Option Some", () test.TestResult {
+        opt := core.Option<i32>.Some(42)
+        match opt {
+            | Some(value) => return test.assert_eq(value, 42, "Some should contain 42")
+            | None => return test.TestResult.Fail("Expected Some, got None")
+        }
+    })
+    
+    suite.add_test("Option None", () test.TestResult {
+        opt := core.Option<i32>.None
+        match opt {
+            | Some(_) => return test.TestResult.Fail("Expected None, got Some")
+            | None => return test.TestResult.Pass
+        }
+    })
+    
+    test.register_suite(suite)
+}
+
+// Test Result type
+test_result_type = () void {
+    suite := test.suite("Result Type")
+    
+    suite.add_test("Result Ok", () test.TestResult {
+        res := core.Result<i32, string>.Ok(42)
+        match res {
+            | Ok(value) => return test.assert_eq(value, 42, "Ok should contain 42")
+            | Err(_) => return test.TestResult.Fail("Expected Ok, got Err")
+        }
+    })
+    
+    suite.add_test("Result Err", () test.TestResult {
+        res := core.Result<i32, string>.Err("error message")
+        match res {
+            | Ok(_) => return test.TestResult.Fail("Expected Err, got Ok")
+            | Err(msg) => return test.assert_eq(msg, "error message", "Err should contain error message")
+        }
+    })
+    
+    test.register_suite(suite)
+}
+
+// Test Range functionality
+test_range = () void {
+    suite := test.suite("Range Functionality")
+    
+    suite.add_test("Range creation", () test.TestResult {
+        r := core.range(0, 10)
+        test.assert_eq(r.start, 0, "Range start should be 0") ?
+            | test.TestResult.Pass => {}
+            | fail => return fail
+        
+        test.assert_eq(r.end, 10, "Range end should be 10") ?
+            | test.TestResult.Pass => {}
+            | fail => return fail
+        
+        return test.assert_eq(r.step, 1, "Range step should be 1")
+    })
+    
+    suite.add_test("Range with custom step", () test.TestResult {
+        r := core.range_step(0, 20, 5)
+        return test.assert_eq(r.step, 5, "Range step should be 5")
+    })
+    
+    suite.add_test("Inclusive range", () test.TestResult {
+        r := core.range_inclusive(1, 5)
+        return test.assert_eq(r.end, 6, "Inclusive range(1, 5) should have end = 6")
+    })
+    
+    suite.add_test("Range loop", () test.TestResult {
+        r := core.range(0, 5)
+        sum := 0
+        r.loop((i: i64) void {
+            sum = sum + i
+        })
+        // Sum of 0+1+2+3+4 = 10
+        return test.assert_eq(sum, 10, "Sum of range(0, 5) should be 10")
+    })
+    
+    test.register_suite(suite)
+}
+
+// Test with setup and teardown
+test_with_setup_teardown = () void {
+    suite := test.suite("Setup and Teardown")
+    
+    // Shared state for tests
+    shared_value := 0
+    
+    suite.set_setup(() void {
+        shared_value = 42
+        io.println("  [Setup: initialized shared_value to 42]")
+    })
+    
+    suite.set_teardown(() void {
+        shared_value = 0
+        io.println("  [Teardown: reset shared_value to 0]")
+    })
+    
+    suite.add_test("test uses setup value", () test.TestResult {
+        return test.assert_eq(shared_value, 42, "Setup should have set value to 42")
+    })
+    
+    suite.add_test("test modifies value", () test.TestResult {
+        shared_value = 100
+        return test.assert_eq(shared_value, 100, "Should be able to modify value")
+    })
+    
+    test.register_suite(suite)
+}
+
+// Benchmark example
+test_benchmarks = () void {
+    io.println("\n=== Benchmarks ===")
+    
+    // Benchmark simple arithmetic
+    test.benchmark("Addition", 1000000, () void {
+        sum := 0
+        i := 0
+        loop i < 100 {
+            sum = sum + i
+            i = i + 1
+        }
+    })
+    
+    // Benchmark function calls
+    test.benchmark("Function calls", 100000, () void {
+        i := 0
+        loop i < 100 {
+            _ := core.abs(-42)
+            i = i + 1
+        }
+    })
+}
+
+// Main test runner
+main = () i32 {
+    io.println("=== Zen Standard Library Test Suite ===\n")
+    
+    // Register all test suites
+    test_basic_assertions()
+    test_core_functions()
+    test_option_type()
+    test_result_type()
+    test_range()
+    test_with_setup_teardown()
+    
+    // Run all tests
+    exit_code := test.run_all_tests()
+    
+    // Run benchmarks (optional)
+    test_benchmarks()
+    
+    return exit_code
+}

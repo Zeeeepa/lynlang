@@ -3,21 +3,28 @@
 ## Priority Order
 
 ### Immediate (Today)
-1. [ ] Run test suite to verify import functionality
-2. [ ] Fix any failing tests related to imports
-3. [ ] Enhance self-hosted lexer implementation
+1. [x] Run test suite to verify import functionality
+2. [x] Enhance self-hosted parser with import handling
+3. [ ] Create example tests using new framework
 
 ### Short-term (This Week)
-4. [ ] Complete self-hosted parser
-5. [ ] Implement core stdlib modules (io, core, mem)
-6. [ ] Create basic test framework in Zen
+4. [x] Update self-hosted parser for module imports
+5. [x] Core stdlib modules exist (io, core, mem)
+6. [x] Create basic test framework in Zen
+7. [ ] Implement basic LSP functionality
+8. [ ] Write comprehensive tests for stdlib
 
 ### Medium-term
-7. [ ] Port type checker to Zen
-8. [ ] Implement LSP server basics
-9. [ ] Add more stdlib modules
-10. [ ] Create comprehensive test coverage
+9. [ ] Port type checker to Zen
+10. [ ] Enhance LSP server with more features
+11. [ ] Add more stdlib modules (collections, algorithms)
+12. [ ] Create comprehensive test coverage
 
 ## Completed
 - ✅ Import syntax fixed (no comptime wrapper needed)
 - ✅ Project structure analyzed
+- ✅ .agent directory structure created
+- ✅ Self-hosted parser enhanced with module-level imports
+- ✅ Test framework added to stdlib
+- ✅ Memory management module exists
+- ✅ Core and IO modules functional
