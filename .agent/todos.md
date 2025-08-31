@@ -3,18 +3,19 @@
 ## Priority Order
 
 ### Immediate (Today)
-1. [x] Fix import syntax - remove comptime wrapper requirement
-2. [x] Enhance self-hosted parser and compiler
-3. [x] Expand stdlib implementation in Zen
-4. [x] Write comprehensive tests for stdlib and language features
-5. [x] Review LSP server implementation
+1. [x] Fix import syntax - remove comptime wrapper requirement ✅
+2. [x] Enhance self-hosted parser and compiler ✅
+3. [x] Expand stdlib implementation in Zen ✅
+4. [x] Write comprehensive tests for stdlib and language features ✅
+5. [x] Review LSP server implementation ✅
+6. [x] Add path module to stdlib ✅
 
 ### Short-term (This Week)
-6. [ ] Improve LSP server with more features
-7. [ ] Fix failing language tests (struct methods, pattern matching)
-8. [ ] Enhance type checker in self-hosted compiler
-9. [ ] Add more stdlib modules (network, crypto enhancements)
-10. [ ] Create integration test suite
+7. [ ] Fix pointer/struct field access in codegen
+8. [ ] Fix pattern matching with Vec in parser
+9. [ ] Implement multiple return values properly
+10. [ ] Add more stdlib modules (OS, environment, command execution)
+11. [ ] Create more integration tests
 
 ### Medium-term
 9. [ ] Port type checker to Zen
