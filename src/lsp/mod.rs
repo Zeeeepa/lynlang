@@ -39,9 +39,9 @@ impl ZenServer {
         let mut diagnostics = Vec::new();
         
         match self.parse_document(uri).await {
-            Ok(_program) => {
-                // Comptime import check is now disabled
-                // Imports are allowed anywhere
+            Ok(program) => {
+                // Check for import validation
+                diagnostics.extend(self.check_import_placement(&program));
             }
             Err(_) => {
                 // Add a generic error diagnostic
@@ -62,10 +62,153 @@ impl ZenServer {
         diagnostics
     }
     
-    #[allow(dead_code)]
-    fn check_comptime_imports(&self, _program: &Program) -> Vec<Diagnostic> {
-        // Imports are now allowed anywhere including comptime blocks
-        Vec::new()
+    fn check_import_placement(&self, program: &Program) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        
+        // Check declarations for improper import placement
+        for declaration in &program.declarations {
+            use crate::ast::Declaration;
+            
+            match declaration {
+                Declaration::Function(func) => {
+                    // Check function body for imports
+                    for stmt in &func.body {
+                        if let Some(diag) = self.check_statement_for_imports(stmt, true) {
+                            diagnostics.push(diag);
+                        }
+                    }
+                }
+                Declaration::ComptimeBlock(stmts) => {
+                    // Check comptime block for imports - these are NOT allowed
+                    for stmt in stmts {
+                        if let Some(diag) = self.check_statement_for_imports(stmt, true) {
+                            diagnostics.push(diag);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        diagnostics
+    }
+    
+    fn check_statement_for_imports(&self, statement: &crate::ast::Statement, in_nested_context: bool) -> Option<Diagnostic> {
+        use crate::ast::Statement;
+        
+        match statement {
+            Statement::ModuleImport { .. } => {
+                if in_nested_context {
+                    return Some(Diagnostic {
+                        range: Range::new(
+                            Position::new(0, 0),
+                            Position::new(0, 10),
+                        ),
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: None,
+                        code_description: None,
+                        source: Some("zen".to_string()),
+                        message: "Import statements must be at module level, not inside functions or blocks".to_string(),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    });
+                }
+            }
+            Statement::VariableDeclaration { initializer, .. } => {
+                if let Some(init) = initializer {
+                    if self.is_import_expression(init) && in_nested_context {
+                        return Some(Diagnostic {
+                            range: Range::new(
+                                Position::new(0, 0),
+                                Position::new(0, 10),
+                            ),
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: None,
+                            code_description: None,
+                            source: Some("zen".to_string()),
+                            message: "Import statements must be at module level, not inside functions or blocks".to_string(),
+                            related_information: None,
+                            tags: None,
+                            data: None,
+                        });
+                    }
+                }
+            }
+            Statement::VariableAssignment { value, .. } => {
+                if self.is_import_expression(value) && in_nested_context {
+                    return Some(Diagnostic {
+                        range: Range::new(
+                            Position::new(0, 0),
+                            Position::new(0, 10),
+                        ),
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: None,
+                        code_description: None,
+                        source: Some("zen".to_string()),
+                        message: "Import statements must be at module level, not inside functions or blocks".to_string(),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    });
+                }
+            }
+            Statement::Loop { body, .. } => {
+                // Check loop body for imports
+                for stmt in body {
+                    if let Some(diag) = self.check_statement_for_imports(stmt, true) {
+                        return Some(diag);
+                    }
+                }
+            }
+            Statement::ComptimeBlock(block) => {
+                // Check comptime block for imports - these are NOT allowed
+                for stmt in block {
+                    match stmt {
+                        Statement::ModuleImport { .. } => {
+                            return Some(Diagnostic {
+                                range: Range::new(
+                                    Position::new(0, 0),
+                                    Position::new(0, 10),
+                                ),
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: None,
+                                code_description: None,
+                                source: Some("zen".to_string()),
+                                message: "Imports are not allowed inside comptime blocks. Use comptime for meta-programming only.".to_string(),
+                                related_information: None,
+                                tags: None,
+                                data: None,
+                            });
+                        }
+                        Statement::VariableDeclaration { initializer, .. } => {
+                            if let Some(init) = initializer {
+                                if self.is_import_expression(init) {
+                                    return Some(Diagnostic {
+                                        range: Range::new(
+                                            Position::new(0, 0),
+                                            Position::new(0, 10),
+                                        ),
+                                        severity: Some(DiagnosticSeverity::ERROR),
+                                        code: None,
+                                        code_description: None,
+                                        source: Some("zen".to_string()),
+                                        message: "Imports are not allowed inside comptime blocks. Use comptime for meta-programming only.".to_string(),
+                                        related_information: None,
+                                        tags: None,
+                                        data: None,
+                                    });
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+        
+        None
     }
     
     fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {
