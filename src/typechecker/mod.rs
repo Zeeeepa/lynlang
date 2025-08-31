@@ -349,8 +349,22 @@ impl TypeChecker {
                         let func = parts[1];
                         
                         // Handle stdlib function return types
-                        if module == "io" && (func == "print" || func == "println") {
-                            return Ok(AstType::Void);
+                        match (module, func) {
+                            ("io", "print" | "println") => return Ok(AstType::Void),
+                            ("io", "read_line") => return Ok(AstType::String),
+                            ("math", "abs") => return Ok(AstType::I32),
+                            ("math", "sqrt") => return Ok(AstType::F64),
+                            ("math", "sin" | "cos" | "tan") => return Ok(AstType::F64),
+                            ("math", "floor" | "ceil") => return Ok(AstType::I32),
+                            ("math", "pow") => return Ok(AstType::F64),
+                            ("math", "min" | "max") => return Ok(AstType::I32),
+                            ("string", "len") => return Ok(AstType::I32),
+                            ("string", "concat") => return Ok(AstType::String),
+                            ("mem", "alloc") => return Ok(AstType::Pointer(Box::new(AstType::U8))),
+                            ("mem", "free") => return Ok(AstType::Void),
+                            ("fs", "read_file") => return Ok(AstType::String),
+                            ("fs", "write_file") => return Ok(AstType::Bool),
+                            _ => {}
                         }
                     }
                 }

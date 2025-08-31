@@ -497,6 +497,52 @@ impl<'ctx> LLVMCompiler<'ctx> {
     
     /// Compile math module function calls
     fn compile_math_function(&mut self, func_name: &str, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Handle abs specially for integer types
+        if func_name == "abs" {
+            if args.len() != 1 {
+                return Err(CompileError::TypeError(
+                    format!("math.abs expects 1 argument, got {}", args.len()),
+                    None,
+                ));
+            }
+            
+            let val = self.compile_expression(&args[0])?;
+            return match val {
+                BasicValueEnum::IntValue(i) => {
+                    // For integers, generate abs using conditional
+                    let zero = i.get_type().const_zero();
+                    let is_negative = self.builder.build_int_compare(
+                        inkwell::IntPredicate::SLT,
+                        i,
+                        zero,
+                        "is_negative"
+                    )?;
+                    let neg = self.builder.build_int_neg(i, "neg")?;
+                    let abs_val = self.builder.build_select(is_negative, neg, i, "abs")?;
+                    Ok(abs_val.try_into().unwrap())
+                }
+                BasicValueEnum::FloatValue(f) => {
+                    // For floats, use fabs
+                    let fabs_fn = self.module.get_function("fabs").unwrap_or_else(|| {
+                        let fn_type = self.context.f64_type().fn_type(&[
+                            self.context.f64_type().into(),
+                        ], false);
+                        self.module.add_function("fabs", fn_type, None)
+                    });
+                    let call = self.builder.build_call(
+                        fabs_fn,
+                        &[f.into()],
+                        "fabs_call"
+                    )?;
+                    Ok(call.try_as_basic_value().left().unwrap())
+                }
+                _ => Err(CompileError::TypeError(
+                    "math.abs expects a numeric argument".to_string(),
+                    None,
+                ))
+            };
+        }
+        
         // Map math function names to their C math library equivalents
         let c_func_name = match func_name {
             "sqrt" => "sqrt",
@@ -514,7 +560,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "floor" => "floor",
             "ceil" => "ceil",
             "round" => "round",
-            "abs" => "fabs",  // Use fabs for floating point absolute value
             "fabs" => "fabs",
             _ => {
                 return Err(CompileError::UndeclaredFunction(
