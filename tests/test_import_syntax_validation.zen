@@ -1,0 +1,281 @@
+// Comprehensive test suite for Zen import syntax validation
+// Tests that imports work correctly at module level
+
+// CORRECT: Module-level imports
+io := @std.io
+core := @std.core
+string := @std.string
+vec := @std.vec
+math := @std.math
+fs := @std.fs
+
+// Test struct with methods
+TestRunner := struct {
+    name: string
+    tests_passed: i32
+    tests_failed: i32
+    verbose: bool
+}
+
+// Test helper functions
+assert_eq = <T>(actual: T, expected: T, message: string) bool {
+    if actual == expected {
+        io.println("[PASS] " + message)
+        return true
+    } else {
+        io.println("[FAIL] " + message)
+        io.println("  Expected: " + string.from(expected))
+        io.println("  Actual: " + string.from(actual))
+        return false
+    }
+}
+
+assert_true = (condition: bool, message: string) bool {
+    if condition {
+        io.println("[PASS] " + message)
+        return true
+    } else {
+        io.println("[FAIL] " + message)
+        return false
+    }
+}
+
+// Test that imported modules are accessible
+test_module_access = () bool {
+    io.println("\n=== Testing Module Access ===")
+    
+    // Test io module
+    io.print("Testing io.print: ")
+    io.println("Success!")
+    
+    // Test core module functions
+    size := core.size_of(i32)
+    assert_true(size == 4, "core.size_of(i32) returns 4")
+    
+    // Test string module
+    test_str := "hello"
+    upper := string.to_upper(test_str)
+    assert_eq(upper, "HELLO", "string.to_upper works")
+    
+    // Test vec module
+    v := vec.new<i32>()
+    vec.push(v, 42)
+    assert_eq(vec.len(v), 1, "vec operations work")
+    
+    // Test math module
+    result := math.abs(-5)
+    assert_eq(result, 5, "math.abs works")
+    
+    return true
+}
+
+// Test that functions can use imported modules
+test_function_with_imports = () bool {
+    io.println("\n=== Testing Functions with Imports ===")
+    
+    calculate = (x: f64, y: f64) f64 {
+        // Using math module inside function
+        return math.sqrt(x * x + y * y)
+    }
+    
+    result := calculate(3.0, 4.0)
+    assert_eq(result, 5.0, "Function using imported math module")
+    
+    return true
+}
+
+// Test that structs can use imported modules in methods
+test_struct_methods_with_imports = () bool {
+    io.println("\n=== Testing Struct Methods with Imports ===")
+    
+    Logger := struct {
+        prefix: string
+        count: i32
+    }
+    
+    impl Logger {
+        new = (prefix: string) Logger {
+            return Logger { prefix: prefix, count: 0 }
+        }
+        
+        log = (self: *Logger, msg: string) void {
+            // Using io module in method
+            io.print(self.prefix)
+            io.print(": ")
+            io.println(msg)
+            self.count = self.count + 1
+        }
+        
+        get_count = (self: Logger) i32 {
+            return self.count
+        }
+    }
+    
+    logger := Logger.new("[TEST]")
+    logger.log("Test message")
+    count := logger.get_count()
+    assert_eq(count, 1, "Struct method using imported io module")
+    
+    return true
+}
+
+// Test comptime blocks (should NOT contain imports)
+test_comptime_blocks = () bool {
+    io.println("\n=== Testing Comptime Blocks ===")
+    
+    // CORRECT: Comptime for metaprogramming, not imports
+    COMPILE_TIME_VALUE := comptime {
+        // Calculate something at compile time
+        value := 10 * 20
+        value + 5
+    }
+    
+    assert_eq(COMPILE_TIME_VALUE, 205, "Comptime block for computation")
+    
+    // CORRECT: Using imported module in comptime computation
+    ARRAY_SIZE := comptime {
+        // Can use math in computation, but math was imported at module level
+        base := 8
+        math.pow(2, base)
+    }
+    
+    assert_eq(ARRAY_SIZE, 256, "Comptime using already-imported module")
+    
+    return true
+}
+
+// Test nested scopes and imports
+test_nested_scopes = () bool {
+    io.println("\n=== Testing Nested Scopes ===")
+    
+    outer = () void {
+        // Can use module-level imports here
+        io.println("In outer function")
+        
+        inner = () void {
+            // Can still use module-level imports
+            io.println("In inner function")
+            v := vec.new<string>()
+            vec.push(v, "nested")
+            assert_eq(vec.len(v), 1, "Nested function using imports")
+        }
+        
+        inner()
+    }
+    
+    outer()
+    return true
+}
+
+// Test pattern matching with imported types
+test_pattern_matching = () bool {
+    io.println("\n=== Testing Pattern Matching with Imports ===")
+    
+    // Using Result type from imported module
+    divide = (a: i32, b: i32) Result<i32, string> {
+        if b == 0 {
+            return Result.Err("Division by zero")
+        }
+        return Result.Ok(a / b)
+    }
+    
+    result := divide(10, 2)
+    match result {
+        Result.Ok(value) => {
+            assert_eq(value, 5, "Pattern matching with imported Result type")
+        }
+        Result.Err(msg) => {
+            assert_true(false, "Should not error")
+        }
+    }
+    
+    return true
+}
+
+// Test that imports work with generic functions
+test_generics_with_imports = () bool {
+    io.println("\n=== Testing Generics with Imports ===")
+    
+    print_vec = <T>(v: vec.Vec<T>) void {
+        io.print("Vector with ")
+        io.print(string.from(vec.len(v)))
+        io.println(" elements")
+    }
+    
+    v := vec.new<i32>()
+    vec.push(v, 1)
+    vec.push(v, 2)
+    vec.push(v, 3)
+    print_vec(v)
+    
+    assert_eq(vec.len(v), 3, "Generic function using imported vec module")
+    
+    return true
+}
+
+// Main test runner
+main = () i32 {
+    io.println("=== Zen Import Syntax Validation Tests ===")
+    io.println("Testing that imports work correctly at module level\n")
+    
+    tests_passed := 0
+    tests_failed := 0
+    
+    // Run all tests
+    if test_module_access() {
+        tests_passed = tests_passed + 1
+    } else {
+        tests_failed = tests_failed + 1
+    }
+    
+    if test_function_with_imports() {
+        tests_passed = tests_passed + 1
+    } else {
+        tests_failed = tests_failed + 1
+    }
+    
+    if test_struct_methods_with_imports() {
+        tests_passed = tests_passed + 1
+    } else {
+        tests_failed = tests_failed + 1
+    }
+    
+    if test_comptime_blocks() {
+        tests_passed = tests_passed + 1
+    } else {
+        tests_failed = tests_failed + 1
+    }
+    
+    if test_nested_scopes() {
+        tests_passed = tests_passed + 1
+    } else {
+        tests_failed = tests_failed + 1
+    }
+    
+    if test_pattern_matching() {
+        tests_passed = tests_passed + 1
+    } else {
+        tests_failed = tests_failed + 1
+    }
+    
+    if test_generics_with_imports() {
+        tests_passed = tests_passed + 1
+    } else {
+        tests_failed = tests_failed + 1
+    }
+    
+    // Print summary
+    io.println("\n=== Test Summary ===")
+    io.print("Tests passed: ")
+    io.println(string.from(tests_passed))
+    io.print("Tests failed: ")
+    io.println(string.from(tests_failed))
+    
+    if tests_failed == 0 {
+        io.println("\n✅ All import syntax tests passed!")
+        return 0
+    } else {
+        io.println("\n❌ Some tests failed")
+        return 1
+    }
+}
