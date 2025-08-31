@@ -7,13 +7,12 @@
 // ============================================================================
 // The @std namespace provides bootstrap access
 core := @std.core
-build := @std.build
 
 // Import standard library modules
-io := build.import("io")
-mem := build.import("mem")
-math := build.import("math")
-collections := build.import("collections")
+io := @std.io
+mem := @std.mem
+math := @std.math
+collections := @std.collections
 
 // ============================================================================
 // Basic Types & Literals (Section 3)

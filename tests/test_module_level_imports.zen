@@ -10,9 +10,8 @@ vec := @std.vec
 fs := @std.fs
 
 // Build system imports
-build := @std.build
-json := build.import("json")
-network := build.import("network")
+json := @std.json
+network := @std.network
 
 // Compiler module imports
 lexer := @compiler.lexer

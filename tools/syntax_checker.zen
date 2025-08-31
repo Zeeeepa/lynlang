@@ -2,10 +2,9 @@
 // This tool validates Zen source files for basic syntax errors
 
 core := @std.core
-build := @std.build
-io := build.import("io")
-fs := build.import("fs")
-string := build.import("string")
+io := @std.io
+fs := @std.fs
+string := @std.string
 
 // Error types for syntax checking
 SyntaxError = 

@@ -3,8 +3,7 @@
 
 // Direct imports at module level - this is the correct way
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 // Main function demonstrating usage
 main = () i32 {

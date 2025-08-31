@@ -2,8 +2,7 @@
 // Demonstrates different ways to declare variables and constants
 
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 main = () void {
     // Immutable bindings (constants)

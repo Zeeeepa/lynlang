@@ -1,9 +1,8 @@
 // Zen Language Example: Structs and Methods
 // Demonstrates struct definitions and UFCS
 
-build := @std.build
-io := build.import("io")
-math := build.import("math")
+io := @std.io
+math := @std.math
 
 // Simple struct
 Point = {

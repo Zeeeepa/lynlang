@@ -2,8 +2,7 @@
 // Demonstrates the unified conditional syntax without if/else keywords
 
 core := @std.core
-build := @std.build
-io := build.import("io")
+io := @std.io
 
 // Function to get grade from score using pattern matching
 get_grade = (score: int) string {

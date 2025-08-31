@@ -8,13 +8,12 @@
 
 // The @std namespace is globally available - our bootstrap mechanism
 core := @std.core
-build := @std.build
 
 // Import standard library modules
-io := build.import("io")
-mem := build.import("mem")
-math := build.import("math")
-collections := build.import("collections")
+io := @std.io
+mem := @std.mem
+math := @std.math
+collections := @std.collections
 
 // ============================================================================
 // Section 2: Basic Types and Declarations

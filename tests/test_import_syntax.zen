@@ -15,10 +15,9 @@ parser := @compiler.parser
 codegen := @compiler.codegen
 
 // Test 3: Import with build.import() pattern
-build := @std.build
-json := build.import("json")
-network := build.import("network")
-http := build.import("http")
+json := @std.json
+network := @std.network
+http := @std.http
 
 // Test 4: Custom module imports
 // These would be user modules in a real project

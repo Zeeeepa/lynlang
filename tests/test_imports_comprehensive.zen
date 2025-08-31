@@ -49,9 +49,9 @@ test_build_imports = () bool {
     build := @std.build
     
     // Import modules via build system
-    process := build.import("process")
-    json := build.import("json")
-    regex := build.import("regex")
+    process := @std.process
+    json := @std.json
+    regex := @std.regex
     
     io.println("Build system imports working!")
     return true

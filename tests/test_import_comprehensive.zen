@@ -3,13 +3,12 @@
 
 // Module-level imports (correct way)
 core := @std.core
-build := @std.build
-io := build.import("io")
-mem := build.import("mem")
-math := build.import("math")
-string := build.import("string")
-vec := build.import("vec")
-hashmap := build.import("hashmap")
+io := @std.io
+mem := @std.mem
+math := @std.math
+string := @std.string
+vec := @std.vec
+hashmap := @std.hashmap
 
 // Test that comptime is for meta-programming, not imports
 comptime {
