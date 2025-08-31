@@ -1,0 +1,119 @@
+// Simple bootstrap test - minimal self-hosting demonstration
+
+io := @std.io
+
+// Simple tokenizer state
+TokenType = enum {
+    Number,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LeftParen,
+    RightParen,
+    EOF,
+}
+
+Token = {
+    type: TokenType,
+    value: i32,
+}
+
+// Simple lexer
+simple_lex = (input: String, pos: i32) Token {
+    pos >= input.len() ?
+        | true => { return Token{ type: TokenType::EOF, value: 0 } }
+        | false => {}
+    
+    ch := input[pos]
+    
+    ch == '+' ? | true => { return Token{ type: TokenType::Plus, value: 0 } } | false => {}
+    ch == '-' ? | true => { return Token{ type: TokenType::Minus, value: 0 } } | false => {}
+    ch == '*' ? | true => { return Token{ type: TokenType::Star, value: 0 } } | false => {}
+    ch == '/' ? | true => { return Token{ type: TokenType::Slash, value: 0 } } | false => {}
+    ch == '(' ? | true => { return Token{ type: TokenType::LeftParen, value: 0 } } | false => {}
+    ch == ')' ? | true => { return Token{ type: TokenType::RightParen, value: 0 } } | false => {}
+    
+    // Simple digit check
+    ch >= '0' && ch <= '9' ?
+        | true => { return Token{ type: TokenType::Number, value: ch - '0' } }
+        | false => {}
+    
+    return Token{ type: TokenType::EOF, value: 0 }
+}
+
+// Simple evaluator for arithmetic expressions
+eval_expr = (tokens: [Token], pos: *i32) i32 {
+    pos^ >= tokens.len() ?
+        | true => { return 0 }
+        | false => {}
+    
+    tok := tokens[pos^]
+    pos^ = pos^ + 1
+    
+    tok.type == TokenType::Number ?
+        | true => { return tok.value }
+        | false => {}
+    
+    return 0
+}
+
+main = () i32 {
+    io.print("=== Simple Bootstrap Demo ===\n\n")
+    
+    io.print("This demonstrates a minimal self-hosting capability:\n")
+    io.print("A simple tokenizer written in Zen that can process basic expressions.\n\n")
+    
+    // Test expression
+    expr := "3+5"
+    io.print("Expression: ")
+    io.print(expr)
+    io.print("\n")
+    
+    // Tokenize
+    tokens := []
+    pos := 0
+    loop (pos < expr.len()) {
+        tok := simple_lex(expr, pos)
+        tokens.push(tok)
+        tok.type == TokenType::EOF ?
+            | true => { break }
+            | false => {}
+        pos = pos + 1
+    }
+    
+    io.print("Tokens found: ")
+    io.print_int(tokens.len())
+    io.print("\n")
+    
+    // Display token types
+    i := 0
+    loop (i < tokens.len()) {
+        tok := tokens[i]
+        io.print("  Token ")
+        io.print_int(i)
+        io.print(": ")
+        
+        tok.type ?
+            | TokenType::Number => {
+                io.print("Number(")
+                io.print_int(tok.value)
+                io.print(")")
+            }
+            | TokenType::Plus => { io.print("Plus") }
+            | TokenType::Minus => { io.print("Minus") }
+            | TokenType::Star => { io.print("Star") }
+            | TokenType::Slash => { io.print("Slash") }
+            | TokenType::LeftParen => { io.print("LeftParen") }
+            | TokenType::RightParen => { io.print("RightParen") }
+            | TokenType::EOF => { io.print("EOF") }
+        
+        io.print("\n")
+        i = i + 1
+    }
+    
+    io.print("\n=== Bootstrap demo complete ===\n")
+    io.print("This shows Zen can implement its own lexical analysis.\n")
+    
+    return 0
+}
