@@ -1,36 +1,31 @@
-# Zen Language Implementation Plan
+# Zen Language Development Plan
 
-## Current Focus: Import System Reform
-Remove comptime requirement for imports - make them top-level statements
+## Current Phase: Self-Hosting & Stdlib Development
 
-## Priority Order (80% implementation, 20% testing)
-1. Fix import syntax parser changes
-2. Update existing code to new syntax  
-3. Self-hosting progress
-4. Stdlib implementation in Zen
-5. Testing infrastructure
-6. LSP/syntax checking tools
+### Immediate Goals
+1. ✅ Fix import syntax (comptime should be for metaprogramming only)
+2. 🔄 Develop self-hosted parser in Zen
+3. 🔄 Build comprehensive stdlib in Zen  
+4. 🔄 Create testing framework
+5. 🔄 Implement LSP or syntax checker
 
-## Key Principles
-- Simplicity, elegance, practicality
-- DRY & KISS
-- Frequent commits
-- Work at ~40% context window (100-140k)
-- Merge to main when stable
+### Import Syntax Status
+- ✅ Parser handles imports without comptime wrapper
+- ✅ Examples updated to show correct syntax
+- ✅ Type checker validates import placement
+- ✅ LSP includes import syntax checking
 
-## Import Syntax Change
-From:
-```zen
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
-```
+### Self-Hosting Progress
+Key components to port:
+- [ ] Lexer (partial implementation exists)
+- [ ] Parser (basic structure exists)
+- [ ] Type checker (foundation exists)
+- [ ] Code generator
+- [ ] Module system
 
-To:
-```zen
-core := @std.core
-build := @std.build
-io := build.import("io")
-```
+### Development Principles
+- Simplicity, elegance, practicality, intelligence
+- DRY (Don't Repeat Yourself) & KISS (Keep It Simple, Stupid)
+- 80% implementation, 20% testing
+- Frequent commits and pushes
+- Work best at 40% context window (100K-140K tokens)
