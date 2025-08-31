@@ -1,6 +1,6 @@
-# Scratchpad - Import System Work
+# Scratchpad - Import System & Self-Hosting
 
-## Session: 2025-08-31
+## Session: 2025-08-31 21:00
 
 ### Completed Tasks
 
@@ -52,9 +52,20 @@
 - Type checker enforces semantics (validates placement)
 - Clear separation of concerns
 
+### Recent Work (21:00)
+
+5. **Enhanced stdlib module registration** ✅
+   - Fixed handling of @std.module imports
+   - Registered math, io, core functions
+   - Fixed function names (print_int not print_i64)
+   - Created working test examples
+
+**Latest Commit:** 119c218 - fix: Enhance stdlib module registration for @std imports
+
 ### Next Steps
 
-1. Create comprehensive git commit
-2. Work on self-hosted compiler enhancements
-3. Implement LSP import validation
-4. Continue self-hosting efforts
+1. Enhance self-hosted compiler components
+2. Create comprehensive import test suite
+3. Update all demo programs with correct syntax
+4. Work on LSP improvements
+5. Add more stdlib modules

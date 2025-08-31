@@ -1,9 +1,14 @@
 # Zenlang Import System & Self-Hosting Plan
 
+## Current Focus (2025-08-31 20:52)
+- Fix import syntax to remove comptime wrapper requirement
+- Enhance self-hosting capabilities
+- Improve testing and diagnostics
+
 ## ✅ Phase 1: Import System Cleanup (COMPLETED)
 - Parser supports new import syntax
 - All comptime imports removed from codebase
-- Tests updated and passing (except known parser limitation)
+- Tests updated and passing
 
 ## 🚧 Phase 2: Self-Hosting Enhancement (IN PROGRESS)
 
