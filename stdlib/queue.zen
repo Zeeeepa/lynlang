@@ -3,6 +3,7 @@
 
 core := @std.core
 mem := @std.mem
+array := @std.array
 
 // Queue node
 QueueNode = struct(T: type) {
@@ -94,7 +95,6 @@ clear = (T: type, q: *Queue(T)) void {
 
 // Convert to array
 to_array = (T: type, q: *Queue(T)) Array(T) {
-    array := @std.array
     result := array.new(T, q.size)
     
     current := q.head
@@ -166,7 +166,6 @@ PQItem = struct(T: type) {
 
 // Create new priority queue
 new_priority = (T: type, compare: fn(T, T) i32) PriorityQueue(T) {
-    array := @std.array
     return PriorityQueue(T){
         data: array.new(PQItem(T), 16),
         compare: compare,
@@ -175,7 +174,6 @@ new_priority = (T: type, compare: fn(T, T) i32) PriorityQueue(T) {
 
 // Enqueue with priority
 enqueue_priority = (T: type, pq: *PriorityQueue(T), value: T, priority: i32) void {
-    array := @std.array
     item := PQItem(T){
         value: value,
         priority: priority,
@@ -198,7 +196,6 @@ enqueue_priority = (T: type, pq: *PriorityQueue(T), value: T, priority: i32) voi
 
 // Dequeue highest priority
 dequeue_priority = (T: type, pq: *PriorityQueue(T)) ?T {
-    array := @std.array
     if (pq.data.len == 0) {
         return null
     }
@@ -227,12 +224,10 @@ len_priority = (T: type, pq: *PriorityQueue(T)) usize {
 
 // Clear priority queue
 clear_priority = (T: type, pq: *PriorityQueue(T)) void {
-    array := @std.array
     array.clear(PQItem(T), &pq.data)
 }
 
 // Free priority queue
 free_priority = (T: type, pq: *PriorityQueue(T)) void {
-    array := @std.array
     array.free(PQItem(T), &pq.data)
 }
