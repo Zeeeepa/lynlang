@@ -1,0 +1,65 @@
+// Test for self-hosting compilation pipeline
+// This validates that the Zen compiler can process Zen code
+
+// Module-level imports (correct syntax - no comptime)
+io := @std.io
+core := @std.core
+
+// Simple test program
+main = () i32 {
+    io.print("=== Self-Hosting Test ===\n")
+    
+    // Test basic operations
+    x := 10
+    y := 20
+    result := x + y
+    
+    io.print("Basic math: 10 + 20 = ")
+    io.print_int(result)
+    io.print("\n")
+    
+    // Test control flow
+    result == 30 ?
+        | true => io.print("✓ Math check passed\n")
+        | false => {
+            io.print("✗ Math check failed\n")
+            return 1
+        }
+    
+    // Test functions
+    message := get_message()
+    io.print("Message: ")
+    io.print(message)
+    io.print("\n")
+    
+    // Test pattern matching
+    status := check_value(result)
+    match status {
+        | Status.Success => io.print("✓ Pattern matching works\n")
+        | Status.Failure => {
+            io.print("✗ Pattern matching failed\n")
+            return 1
+        }
+    }
+    
+    io.print("=== All tests passed! ===\n")
+    return 0
+}
+
+// Helper function
+get_message = () string {
+    return "Hello from self-hosted Zen!"
+}
+
+// Enum for testing
+Status = enum {
+    Success,
+    Failure,
+}
+
+// Pattern matching test
+check_value = (val: i32) Status {
+    val == 30 ?
+        | true => { return Status.Success }
+        | false => { return Status.Failure }
+}
