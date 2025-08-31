@@ -31,6 +31,9 @@ Zen is a systems programming language being developed with a focus on simplicity
 - Comprehensive stdlib with 40+ modules implemented
 - Test framework and comprehensive test suites added
 - LSP server with advanced features implemented
+- Math module fully integrated and working
+- Struct field mutability syntax fixed (field:: type)
+- Module import resolution working for stdlib modules
 
 ## Git Workflow
 - Frequent commits with descriptive messages
