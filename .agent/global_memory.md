@@ -1,52 +1,70 @@
-# Global Memory - Zen Language Project
+# Zen Language Global Memory
 
 ## Project Overview
-Zen is a systems programming language being developed with a focus on simplicity and self-hosting.
+Zen is a systems programming language with:
+- Modern syntax inspired by Zig/Rust/Go
+- Self-hosting compiler written in Rust (transitioning to Zen)
+- LLVM backend for native code generation
+- Standard library with core utilities
+- LSP server for IDE support
 
-## Key Architectural Decisions
-- **Import Syntax**: Direct module-level imports without comptime wrapper ✅
-- **Self-Hosting**: Progressive migration from Rust to Zen (parser, lexer, type checker in progress)
-- **Stdlib**: Pure Zen implementations prioritized (comprehensive stdlib with 40+ modules)
-- **Testing**: Comprehensive test framework and test suites for all stdlib modules
-- **LSP**: Enhanced LSP server with hover, go-to-definition, and symbol tracking
+## Key Language Features
+1. **Import System**: Module-level imports without comptime blocks
+   - `core := @std.core` - Standard library imports
+   - `io := build.import("io")` - Build system imports
+   
+2. **Comptime**: For meta-programming and compile-time evaluation
+   - NOT for imports
+   - Used for generating lookup tables, constants, etc.
 
-## Current Working Directory
-`/home/ubuntu/zenlang`
+3. **Type System**:
+   - Strong static typing with inference
+   - Structs, enums, traits/behaviors
+   - Generics support
+   - Option types for null safety
 
-## Important Files
-- Parser: `src/parser/statements.rs` (handles import parsing)
-- Examples: `examples/02_imports_example.zen` (correct import syntax)
-- Self-hosted components: `compiler/` directory
-- Stdlib: `stdlib/` directory
+4. **Memory Management**:
+   - Manual memory management
+   - Stack/heap allocation control
+   - No garbage collector
 
-## Testing Commands
-- Run tests: `cargo test`
-- Zen-specific tests: `./test_zen.sh`
-- Integration tests: `./test_integration.sh`
-- Stdlib tests: Located in `tests/stdlib/` directory
+## Project Structure
+```
+/home/ubuntu/zenlang/
+├── src/           # Rust compiler implementation
+├── compiler/      # Self-hosted Zen compiler
+├── stdlib/        # Standard library in Zen
+├── tools/         # Build tools and utilities
+├── lsp/           # Language server
+├── tests/         # Test suite
+├── examples/      # Example Zen programs
+└── .agent/        # Meta information for AI assistance
+```
 
-## Recent Achievements
-- Import syntax fixed - no comptime wrapper needed for imports ✅
-- Self-hosted parser handles module-level imports correctly ✅
-- Comprehensive stdlib with 40+ modules implemented ✅
-- Path module added with complete file path manipulation utilities ✅
-- Test framework and comprehensive test suites added ✅
-- LSP server with advanced features implemented ✅
-- Math module fully integrated and working ✅
-- Struct field mutability syntax fixed (field:: type) ✅
-- Module import resolution working for stdlib modules ✅
-- Pointer-to-struct field access support added (p.x syntax) ✅
-- Pattern matching improvements for non-exhaustive patterns ✅
-- Import syntax tests added and passing ✅
-- LLVM codegen crashes temporarily resolved with test ignores ✅
-- Self-hosted lexer and parser components exist in stdlib/compiler ✅
+## Current Status
+- Import system: ✅ Implemented correctly
+- Parser: ✅ Handles module-level imports
+- Semantic analyzer: ✅ Validates imports
+- LLVM codegen: ✅ Generates code correctly
+- Self-hosting: 🚧 In progress
+- Stdlib: 🚧 Being expanded
 
-## Known Issues
-- Pattern matching: Nested conditionals not branching correctly (test_nested_pattern_matching)
-- Multiple return values need type system improvements
-- Array operations test failures in language features
+## Build Commands
+```bash
+cargo build          # Build the Rust compiler
+cargo test           # Run all tests
+cargo test import    # Run import-specific tests
+./zen-lint.sh        # Run linter
+```
 
-## Git Workflow
-- Frequent commits with descriptive messages
-- Main branch for stable code
-- Feature branches for experimental work
+## Testing Strategy
+- Unit tests in Rust (src/**/*.rs)
+- Integration tests (tests/*.rs)
+- Zen test files (tests/*.zen)
+- Self-hosted component tests
+
+## Code Principles
+- DRY (Don't Repeat Yourself)
+- KISS (Keep It Simple, Stupid)
+- Simplicity and elegance
+- Practical solutions
