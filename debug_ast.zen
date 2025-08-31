@@ -1,0 +1,9 @@
+main = () i32 {
+    x := 1
+    y := 0
+    // x != 0, y == 0 should give 2
+    result := x == 0 ? 
+        | true => y == 0 ? | true => 0 | false => 1
+        | false => y == 0 ? | true => 2 | false => 3
+    return result
+}

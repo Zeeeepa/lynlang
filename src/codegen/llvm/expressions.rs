@@ -149,6 +149,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let mut _current_block = self.builder.get_insert_block().unwrap();
         let mut unmatched_block = None;
         
+        // Check if we have exhaustive boolean patterns (true and false) for the entire conditional
+        let is_exhaustive_boolean = arms.len() == 2 && {
+            let has_true = arms.iter().any(|a| {
+                if let crate::ast::Pattern::Literal(expr) = &a.pattern {
+                    matches!(expr, crate::ast::Expression::Boolean(true))
+                } else {
+                    false
+                }
+            });
+            let has_false = arms.iter().any(|a| {
+                if let crate::ast::Pattern::Literal(expr) = &a.pattern {
+                    matches!(expr, crate::ast::Expression::Boolean(false))
+                } else {
+                    false
+                }
+            });
+            has_true && has_false
+        };
+        
         for (i, arm) in arms.iter().enumerate() {
             let is_last = i == arms.len() - 1;
             
@@ -189,8 +208,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             let next_bb = if !is_last {
                 self.context.append_basic_block(parent_function, &format!("test_{}", i + 1))
-            } else if is_wildcard {
-                // Wildcard is exhaustive, both branches go to match
+            } else if is_wildcard || is_exhaustive_boolean {
+                // Wildcard or exhaustive boolean patterns don't need unmatched block
                 match_bb
             } else {
                 // Non-wildcard last pattern needs somewhere to go if it doesn't match

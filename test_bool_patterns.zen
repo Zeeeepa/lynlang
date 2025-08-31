@@ -1,0 +1,23 @@
+extern printf = (format: *i8, ...) i32
+
+main = () i32 {
+    b := true
+    
+    // Test that boolean patterns are exhaustive
+    result1 := b ? | true => 1 | false => 2
+    printf("b=true: result=%d (expected 1)\n", result1)
+    
+    b = false
+    result2 := b ? | true => 1 | false => 2
+    printf("b=false: result=%d (expected 2)\n", result2)
+    
+    // Test with comparison
+    x := 5
+    result3 := x > 3 ? | true => 10 | false => 20
+    printf("5 > 3: result=%d (expected 10)\n", result3)
+    
+    result4 := x < 3 ? | true => 10 | false => 20
+    printf("5 < 3: result=%d (expected 20)\n", result4)
+    
+    return 0
+}
