@@ -288,12 +288,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 if let Some((_, var_type)) = self.variables.get(name) {
                     match var_type {
                         AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),
-                        AstType::Pointer(inner) => {
-                            // Handle pointer to struct
-                            if let AstType::Struct { name: struct_name, .. } = &**inner {
-                                Ok(struct_name.clone())
+                        AstType::Generic { name: type_name, .. } => {
+                            // Check if this generic is actually a registered struct type
+                            if self.struct_types.contains_key(type_name) {
+                                Ok(type_name.clone())
                             } else {
                                 Err(CompileError::TypeError(
+                                    format!("Type '{}' is not a registered struct type", type_name),
+                                    None
+                                ))
+                            }
+                        },
+                        AstType::Pointer(inner) => {
+                            // Handle pointer to struct
+                            match &**inner {
+                                AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),
+                                AstType::Generic { name: type_name, .. } => {
+                                    // Check if this generic is actually a registered struct type
+                                    if self.struct_types.contains_key(type_name) {
+                                        Ok(type_name.clone())
+                                    } else {
+                                        Err(CompileError::TypeError(
+                                            format!("Variable '{}' is not a struct or pointer to struct", name),
+                                            None
+                                        ))
+                                    }
+                                },
+                                _ => Err(CompileError::TypeError(
                                     format!("Variable '{}' is not a struct or pointer to struct", name),
                                     None
                                 ))

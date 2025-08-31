@@ -170,6 +170,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     fields: vec![],
                                 }
                             }
+                        } else if let Expression::TypeCast { target_type, .. } = init_expr {
+                            // For type casts, use the target type
+                            target_type.clone()
                         } else {
                             match value {
                                 BasicValueEnum::IntValue(int_val) => {
