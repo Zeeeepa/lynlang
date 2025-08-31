@@ -1,0 +1,906 @@
+// Zen Language Server Protocol Implementation
+// Provides IDE support for Zen language
+
+io := @std.io
+json := @std.json
+net := @std.net
+string := @std.string
+vec := @std.vec
+hashmap := @std.hashmap
+thread := @std.thread
+fs := @std.fs
+result := @std.result
+
+// Import compiler components
+build := @std.build
+lexer := build.import("lexer")
+parser := build.import("parser")
+type_checker := build.import("type_checker")
+
+// LSP message types
+MessageType := enum {
+    Request,
+    Response,
+    Notification
+}
+
+// LSP request methods
+RequestMethod := enum {
+    Initialize,
+    Initialized,
+    Shutdown,
+    Exit,
+    TextDocumentDidOpen,
+    TextDocumentDidChange,
+    TextDocumentDidSave,
+    TextDocumentDidClose,
+    TextDocumentCompletion,
+    TextDocumentHover,
+    TextDocumentDefinition,
+    TextDocumentReferences,
+    TextDocumentDocumentSymbol,
+    TextDocumentFormatting,
+    TextDocumentRangeFormatting,
+    TextDocumentCodeAction,
+    WorkspaceSymbol,
+    WorkspaceExecuteCommand
+}
+
+// Position in a text document
+Position := struct {
+    line: u32,
+    character: u32
+}
+
+// Range in a text document
+Range := struct {
+    start: Position,
+    end: Position
+}
+
+// Location in a text document
+Location := struct {
+    uri: string,
+    range: Range
+}
+
+// Diagnostic severity
+DiagnosticSeverity := enum {
+    Error = 1,
+    Warning = 2,
+    Information = 3,
+    Hint = 4
+}
+
+// Diagnostic information
+Diagnostic := struct {
+    range: Range,
+    severity: DiagnosticSeverity,
+    code: ?string,
+    source: string,
+    message: string,
+    related_information: vec.Vec<DiagnosticRelatedInformation>
+}
+
+// Related diagnostic information
+DiagnosticRelatedInformation := struct {
+    location: Location,
+    message: string
+}
+
+// Text document item
+TextDocumentItem := struct {
+    uri: string,
+    language_id: string,
+    version: i32,
+    text: string
+}
+
+// Text document identifier
+TextDocumentIdentifier := struct {
+    uri: string
+}
+
+// Versioned text document identifier
+VersionedTextDocumentIdentifier := struct {
+    uri: string,
+    version: i32
+}
+
+// Text document position params
+TextDocumentPositionParams := struct {
+    text_document: TextDocumentIdentifier,
+    position: Position
+}
+
+// Completion item kind
+CompletionItemKind := enum {
+    Text = 1,
+    Method = 2,
+    Function = 3,
+    Constructor = 4,
+    Field = 5,
+    Variable = 6,
+    Class = 7,
+    Interface = 8,
+    Module = 9,
+    Property = 10,
+    Unit = 11,
+    Value = 12,
+    Enum = 13,
+    Keyword = 14,
+    Snippet = 15,
+    Color = 16,
+    File = 17,
+    Reference = 18,
+    Folder = 19,
+    EnumMember = 20,
+    Constant = 21,
+    Struct = 22,
+    Event = 23,
+    Operator = 24,
+    TypeParameter = 25
+}
+
+// Completion item
+CompletionItem := struct {
+    label: string,
+    kind: CompletionItemKind,
+    detail: ?string,
+    documentation: ?string,
+    insert_text: ?string,
+    insert_text_format: ?i32,
+    filter_text: ?string,
+    sort_text: ?string
+}
+
+// Symbol kind
+SymbolKind := enum {
+    File = 1,
+    Module = 2,
+    Namespace = 3,
+    Package = 4,
+    Class = 5,
+    Method = 6,
+    Property = 7,
+    Field = 8,
+    Constructor = 9,
+    Enum = 10,
+    Interface = 11,
+    Function = 12,
+    Variable = 13,
+    Constant = 14,
+    String = 15,
+    Number = 16,
+    Boolean = 17,
+    Array = 18,
+    Object = 19,
+    Key = 20,
+    Null = 21,
+    EnumMember = 22,
+    Struct = 23,
+    Event = 24,
+    Operator = 25,
+    TypeParameter = 26
+}
+
+// Document symbol
+DocumentSymbol := struct {
+    name: string,
+    detail: ?string,
+    kind: SymbolKind,
+    deprecated: bool,
+    range: Range,
+    selection_range: Range,
+    children: vec.Vec<DocumentSymbol>
+}
+
+// Hover information
+Hover := struct {
+    contents: string,
+    range: ?Range
+}
+
+// Server capabilities
+ServerCapabilities := struct {
+    text_document_sync: i32,
+    hover_provider: bool,
+    completion_provider: bool,
+    definition_provider: bool,
+    references_provider: bool,
+    document_symbol_provider: bool,
+    workspace_symbol_provider: bool,
+    code_action_provider: bool,
+    document_formatting_provider: bool,
+    document_range_formatting_provider: bool,
+    execute_command_provider: ?ExecuteCommandOptions
+}
+
+// Execute command options
+ExecuteCommandOptions := struct {
+    commands: vec.Vec<string>
+}
+
+// Language server state
+LanguageServer := struct {
+    initialized: bool,
+    root_uri: ?string,
+    documents: hashmap.HashMap<string, TextDocumentItem>,
+    diagnostics: hashmap.HashMap<string, vec.Vec<Diagnostic>>,
+    symbols: hashmap.HashMap<string, vec.Vec<DocumentSymbol>>,
+    capabilities: ServerCapabilities
+}
+
+// Create a new language server
+new_server = () *LanguageServer {
+    server := LanguageServer{
+        initialized: false,
+        root_uri: null,
+        documents: hashmap.new<string, TextDocumentItem>(),
+        diagnostics: hashmap.new<string, vec.Vec<Diagnostic>>(),
+        symbols: hashmap.new<string, vec.Vec<DocumentSymbol>>(),
+        capabilities: ServerCapabilities{
+            text_document_sync: 1,  // Full sync
+            hover_provider: true,
+            completion_provider: true,
+            definition_provider: true,
+            references_provider: true,
+            document_symbol_provider: true,
+            workspace_symbol_provider: true,
+            code_action_provider: true,
+            document_formatting_provider: true,
+            document_range_formatting_provider: true,
+            execute_command_provider: ExecuteCommandOptions{
+                commands: vec.from_slice(["zen.compile", "zen.format", "zen.check"])
+            }
+        }
+    }
+    
+    return &server
+}
+
+// Handle initialize request
+handle_initialize = (server: *LanguageServer, params: json.Value) json.Value {
+    // Extract root URI
+    if (params.has("rootUri")) {
+        server.root_uri = params.get("rootUri").as_string()
+    }
+    
+    server.initialized = true
+    
+    // Return server capabilities
+    return json.object([
+        ("capabilities", json.object([
+            ("textDocumentSync", json.number(1)),
+            ("hoverProvider", json.bool(true)),
+            ("completionProvider", json.object([
+                ("triggerCharacters", json.array([json.string("."), json.string(":")])
+            ])),
+            ("definitionProvider", json.bool(true)),
+            ("referencesProvider", json.bool(true)),
+            ("documentSymbolProvider", json.bool(true)),
+            ("workspaceSymbolProvider", json.bool(true)),
+            ("codeActionProvider", json.bool(true)),
+            ("documentFormattingProvider", json.bool(true)),
+            ("documentRangeFormattingProvider", json.bool(true)),
+            ("executeCommandProvider", json.object([
+                ("commands", json.array([
+                    json.string("zen.compile"),
+                    json.string("zen.format"),
+                    json.string("zen.check")
+                ]))
+            ]))
+        ]))
+    ])
+}
+
+// Handle text document did open
+handle_did_open = (server: *LanguageServer, params: json.Value) void {
+    doc := extract_text_document(params)
+    server.documents.insert(doc.uri, doc)
+    
+    // Analyze document
+    analyze_document(server, doc.uri)
+}
+
+// Handle text document did change
+handle_did_change = (server: *LanguageServer, params: json.Value) void {
+    uri := params.get("textDocument").get("uri").as_string()
+    version := params.get("textDocument").get("version").as_i32()
+    
+    if (server.documents.contains(uri)) {
+        doc := server.documents.get(uri)
+        doc.version = version
+        
+        // Update text from content changes
+        changes := params.get("contentChanges")
+        if (changes.is_array() && changes.len() > 0) {
+            // For simplicity, we only handle full document updates
+            new_text := changes.get(0).get("text").as_string()
+            doc.text = new_text
+            server.documents.insert(uri, doc)
+        }
+        
+        // Re-analyze document
+        analyze_document(server, uri)
+    }
+}
+
+// Analyze a document and generate diagnostics
+analyze_document = (server: *LanguageServer, uri: string) void {
+    if (!server.documents.contains(uri)) {
+        return
+    }
+    
+    doc := server.documents.get(uri)
+    diagnostics := vec.Vec.new<Diagnostic>()
+    
+    // Tokenize
+    tokens_result := lexer.tokenize(doc.text)
+    if (tokens_result.is_error()) {
+        // Add lexer error as diagnostic
+        diagnostic := Diagnostic{
+            range: Range{
+                start: Position{line: 0, character: 0},
+                end: Position{line: 0, character: 0}
+            },
+            severity: DiagnosticSeverity.Error,
+            code: null,
+            source: "zen-lexer",
+            message: tokens_result.unwrap_error(),
+            related_information: vec.Vec.new()
+        }
+        diagnostics.push(diagnostic)
+    } else {
+        tokens := tokens_result.unwrap()
+        
+        // Parse
+        ast_result := parser.parse(tokens)
+        if (ast_result.is_error()) {
+            // Add parser error as diagnostic
+            diagnostic := Diagnostic{
+                range: Range{
+                    start: Position{line: 0, character: 0},
+                    end: Position{line: 0, character: 0}
+                },
+                severity: DiagnosticSeverity.Error,
+                code: null,
+                source: "zen-parser",
+                message: ast_result.unwrap_error(),
+                related_information: vec.Vec.new()
+            }
+            diagnostics.push(diagnostic)
+        } else {
+            ast := ast_result.unwrap()
+            
+            // Type check
+            type_result := type_checker.check(ast)
+            if (type_result.is_error()) {
+                // Add type error as diagnostic
+                diagnostic := Diagnostic{
+                    range: Range{
+                        start: Position{line: 0, character: 0},
+                        end: Position{line: 0, character: 0}
+                    },
+                    severity: DiagnosticSeverity.Error,
+                    code: null,
+                    source: "zen-type-checker",
+                    message: type_result.unwrap_error(),
+                    related_information: vec.Vec.new()
+                }
+                diagnostics.push(diagnostic)
+            }
+            
+            // Extract symbols
+            symbols := extract_symbols(ast)
+            server.symbols.insert(uri, symbols)
+        }
+    }
+    
+    // Check for style issues
+    check_style(doc.text, &diagnostics)
+    
+    // Store diagnostics
+    server.diagnostics.insert(uri, diagnostics)
+    
+    // Send diagnostics notification
+    publish_diagnostics(uri, diagnostics)
+}
+
+// Check style issues
+check_style = (text: string, diagnostics: *vec.Vec<Diagnostic>) void {
+    lines := string.split(text, "\n")
+    
+    for (line_num, line in lines) {
+        // Check line length
+        if (line.len() > 100) {
+            diagnostic := Diagnostic{
+                range: Range{
+                    start: Position{line: line_num, character: 100},
+                    end: Position{line: line_num, character: line.len()}
+                },
+                severity: DiagnosticSeverity.Warning,
+                code: "line-too-long",
+                source: "zen-style",
+                message: "Line exceeds 100 characters",
+                related_information: vec.Vec.new()
+            }
+            diagnostics.push(diagnostic)
+        }
+        
+        // Check for tabs vs spaces
+        if (string.contains(line, "\t") && string.contains(line, "    ")) {
+            diagnostic := Diagnostic{
+                range: Range{
+                    start: Position{line: line_num, character: 0},
+                    end: Position{line: line_num, character: line.len()}
+                },
+                severity: DiagnosticSeverity.Warning,
+                code: "mixed-indentation",
+                source: "zen-style",
+                message: "Mixed tabs and spaces for indentation",
+                related_information: vec.Vec.new()
+            }
+            diagnostics.push(diagnostic)
+        }
+        
+        // Check for TODO comments
+        if (string.contains(line, "TODO") || string.contains(line, "FIXME")) {
+            start_col := string.index_of(line, "TODO")
+            if (start_col == -1) {
+                start_col = string.index_of(line, "FIXME")
+            }
+            
+            diagnostic := Diagnostic{
+                range: Range{
+                    start: Position{line: line_num, character: start_col},
+                    end: Position{line: line_num, character: line.len()}
+                },
+                severity: DiagnosticSeverity.Information,
+                code: "todo-comment",
+                source: "zen-style",
+                message: "TODO comment found",
+                related_information: vec.Vec.new()
+            }
+            diagnostics.push(diagnostic)
+        }
+    }
+}
+
+// Extract symbols from AST
+extract_symbols = (ast: ASTNode) vec.Vec<DocumentSymbol> {
+    symbols := vec.Vec.new<DocumentSymbol>()
+    
+    // Walk AST and extract symbols
+    for (node in ast.children) {
+        match (node.type) {
+            Function => {
+                symbol := DocumentSymbol{
+                    name: node.name,
+                    detail: node.signature,
+                    kind: SymbolKind.Function,
+                    deprecated: false,
+                    range: node_to_range(node),
+                    selection_range: node_to_range(node),
+                    children: vec.Vec.new()
+                }
+                symbols.push(symbol)
+            },
+            Struct => {
+                symbol := DocumentSymbol{
+                    name: node.name,
+                    detail: "struct",
+                    kind: SymbolKind.Struct,
+                    deprecated: false,
+                    range: node_to_range(node),
+                    selection_range: node_to_range(node),
+                    children: extract_struct_fields(node)
+                }
+                symbols.push(symbol)
+            },
+            Enum => {
+                symbol := DocumentSymbol{
+                    name: node.name,
+                    detail: "enum",
+                    kind: SymbolKind.Enum,
+                    deprecated: false,
+                    range: node_to_range(node),
+                    selection_range: node_to_range(node),
+                    children: extract_enum_members(node)
+                }
+                symbols.push(symbol)
+            },
+            Variable => {
+                symbol := DocumentSymbol{
+                    name: node.name,
+                    detail: node.type_str,
+                    kind: SymbolKind.Variable,
+                    deprecated: false,
+                    range: node_to_range(node),
+                    selection_range: node_to_range(node),
+                    children: vec.Vec.new()
+                }
+                symbols.push(symbol)
+            },
+            _ => {}
+        }
+    }
+    
+    return symbols
+}
+
+// Handle completion request
+handle_completion = (server: *LanguageServer, params: json.Value) json.Value {
+    uri := params.get("textDocument").get("uri").as_string()
+    position := extract_position(params.get("position"))
+    
+    if (!server.documents.contains(uri)) {
+        return json.array([])
+    }
+    
+    doc := server.documents.get(uri)
+    
+    // Get context at position
+    context := get_context_at_position(doc.text, position)
+    
+    // Generate completions
+    items := vec.Vec.new<json.Value>()
+    
+    // Add keywords
+    keywords := ["if", "else", "while", "for", "return", "struct", "enum", "fn", "const", "let", "match", "comptime"]
+    for (keyword in keywords) {
+        item := json.object([
+            ("label", json.string(keyword)),
+            ("kind", json.number(CompletionItemKind.Keyword)),
+            ("detail", json.string("Keyword")),
+            ("insertText", json.string(keyword))
+        ])
+        items.push(item)
+    }
+    
+    // Add types
+    types := ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string", "void"]
+    for (type_name in types) {
+        item := json.object([
+            ("label", json.string(type_name)),
+            ("kind", json.number(CompletionItemKind.Class)),
+            ("detail", json.string("Built-in type")),
+            ("insertText", json.string(type_name))
+        ])
+        items.push(item)
+    }
+    
+    // Add standard library modules
+    if (string.starts_with(context, "@std.")) {
+        modules := ["core", "io", "math", "string", "vec", "fs", "net", "thread", "json"]
+        for (module in modules) {
+            item := json.object([
+                ("label", json.string(module)),
+                ("kind", json.number(CompletionItemKind.Module)),
+                ("detail", json.string("Standard library module")),
+                ("insertText", json.string(module))
+            ])
+            items.push(item)
+        }
+    }
+    
+    // Add document symbols
+    if (server.symbols.contains(uri)) {
+        symbols := server.symbols.get(uri)
+        for (symbol in symbols) {
+            item := json.object([
+                ("label", json.string(symbol.name)),
+                ("kind", json.number(symbol_kind_to_completion_kind(symbol.kind))),
+                ("detail", json.string(symbol.detail)),
+                ("insertText", json.string(symbol.name))
+            ])
+            items.push(item)
+        }
+    }
+    
+    return json.array(items.to_slice())
+}
+
+// Handle hover request
+handle_hover = (server: *LanguageServer, params: json.Value) json.Value {
+    uri := params.get("textDocument").get("uri").as_string()
+    position := extract_position(params.get("position"))
+    
+    if (!server.documents.contains(uri)) {
+        return json.null()
+    }
+    
+    doc := server.documents.get(uri)
+    
+    // Get word at position
+    word := get_word_at_position(doc.text, position)
+    
+    // Look up symbol information
+    hover_text := ""
+    
+    // Check if it's a keyword
+    if (is_keyword(word)) {
+        hover_text = "**Keyword**: `" + word + "`"
+    }
+    // Check if it's a type
+    else if (is_builtin_type(word)) {
+        hover_text = "**Built-in type**: `" + word + "`"
+    }
+    // Check if it's a symbol in the document
+    else if (server.symbols.contains(uri)) {
+        symbols := server.symbols.get(uri)
+        for (symbol in symbols) {
+            if (symbol.name == word) {
+                hover_text = "**" + symbol_kind_to_string(symbol.kind) + "**: `" + symbol.name + "`"
+                if (symbol.detail != null) {
+                    hover_text += "\n\n" + symbol.detail
+                }
+                break
+            }
+        }
+    }
+    
+    if (hover_text == "") {
+        return json.null()
+    }
+    
+    return json.object([
+        ("contents", json.string(hover_text))
+    ])
+}
+
+// Publish diagnostics notification
+publish_diagnostics = (uri: string, diagnostics: vec.Vec<Diagnostic>) void {
+    diag_array := vec.Vec.new<json.Value>()
+    
+    for (diagnostic in diagnostics) {
+        diag_json := json.object([
+            ("range", range_to_json(diagnostic.range)),
+            ("severity", json.number(diagnostic.severity as i32)),
+            ("source", json.string(diagnostic.source)),
+            ("message", json.string(diagnostic.message))
+        ])
+        
+        if (diagnostic.code != null) {
+            diag_json.set("code", json.string(diagnostic.code))
+        }
+        
+        diag_array.push(diag_json)
+    }
+    
+    notification := json.object([
+        ("jsonrpc", json.string("2.0")),
+        ("method", json.string("textDocument/publishDiagnostics")),
+        ("params", json.object([
+            ("uri", json.string(uri)),
+            ("diagnostics", json.array(diag_array.to_slice()))
+        ]))
+    ])
+    
+    send_message(notification)
+}
+
+// Helper functions
+extract_text_document = (params: json.Value) TextDocumentItem {
+    doc_json := params.get("textDocument")
+    return TextDocumentItem{
+        uri: doc_json.get("uri").as_string(),
+        language_id: doc_json.get("languageId").as_string(),
+        version: doc_json.get("version").as_i32(),
+        text: doc_json.get("text").as_string()
+    }
+}
+
+extract_position = (pos_json: json.Value) Position {
+    return Position{
+        line: pos_json.get("line").as_u32(),
+        character: pos_json.get("character").as_u32()
+    }
+}
+
+range_to_json = (range: Range) json.Value {
+    return json.object([
+        ("start", json.object([
+            ("line", json.number(range.start.line)),
+            ("character", json.number(range.start.character))
+        ])),
+        ("end", json.object([
+            ("line", json.number(range.end.line)),
+            ("character", json.number(range.end.character))
+        ]))
+    ])
+}
+
+node_to_range = (node: ASTNode) Range {
+    return Range{
+        start: Position{
+            line: node.start_line,
+            character: node.start_column
+        },
+        end: Position{
+            line: node.end_line,
+            character: node.end_column
+        }
+    }
+}
+
+symbol_kind_to_completion_kind = (kind: SymbolKind) CompletionItemKind {
+    match (kind) {
+        SymbolKind.Function => CompletionItemKind.Function,
+        SymbolKind.Struct => CompletionItemKind.Struct,
+        SymbolKind.Enum => CompletionItemKind.Enum,
+        SymbolKind.Variable => CompletionItemKind.Variable,
+        SymbolKind.Constant => CompletionItemKind.Constant,
+        _ => CompletionItemKind.Text
+    }
+}
+
+symbol_kind_to_string = (kind: SymbolKind) string {
+    match (kind) {
+        SymbolKind.Function => "Function",
+        SymbolKind.Struct => "Struct",
+        SymbolKind.Enum => "Enum",
+        SymbolKind.Variable => "Variable",
+        SymbolKind.Constant => "Constant",
+        _ => "Symbol"
+    }
+}
+
+is_keyword = (word: string) bool {
+    keywords := ["if", "else", "while", "for", "return", "struct", "enum", "fn", "const", "let", "match", "comptime"]
+    for (kw in keywords) {
+        if (word == kw) return true
+    }
+    return false
+}
+
+is_builtin_type = (word: string) bool {
+    types := ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string", "void"]
+    for (t in types) {
+        if (word == t) return true
+    }
+    return false
+}
+
+get_word_at_position = (text: string, pos: Position) string {
+    lines := string.split(text, "\n")
+    if (pos.line >= lines.len()) {
+        return ""
+    }
+    
+    line := lines[pos.line]
+    if (pos.character >= line.len()) {
+        return ""
+    }
+    
+    // Find word boundaries
+    start := pos.character
+    while (start > 0 && is_word_char(line[start - 1])) {
+        start -= 1
+    }
+    
+    end := pos.character
+    while (end < line.len() && is_word_char(line[end])) {
+        end += 1
+    }
+    
+    return string.slice(line, start, end)
+}
+
+get_context_at_position = (text: string, pos: Position) string {
+    lines := string.split(text, "\n")
+    if (pos.line >= lines.len()) {
+        return ""
+    }
+    
+    line := lines[pos.line]
+    if (pos.character > line.len()) {
+        return ""
+    }
+    
+    return string.slice(line, 0, pos.character)
+}
+
+is_word_char = (c: u8) bool {
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+           (c >= '0' && c <= '9') ||
+           c == '_'
+}
+
+extract_struct_fields = (node: ASTNode) vec.Vec<DocumentSymbol> {
+    fields := vec.Vec.new<DocumentSymbol>()
+    // Implementation would extract fields from struct AST node
+    return fields
+}
+
+extract_enum_members = (node: ASTNode) vec.Vec<DocumentSymbol> {
+    members := vec.Vec.new<DocumentSymbol>()
+    // Implementation would extract members from enum AST node
+    return members
+}
+
+// Message handling
+send_message = (msg: json.Value) void {
+    content := json.stringify(msg)
+    header := "Content-Length: " + content.len().to_string() + "\r\n\r\n"
+    io.print(header + content)
+    io.flush()
+}
+
+// Main server loop
+main = () i32 {
+    server := new_server()
+    
+    io.eprintln("Zen Language Server starting...")
+    
+    // Main message loop
+    while (true) {
+        // Read message header
+        header := io.read_line()
+        if (header == null) {
+            break
+        }
+        
+        // Parse content length
+        if (!string.starts_with(header, "Content-Length: ")) {
+            continue
+        }
+        
+        length_str := string.slice(header, 16, header.len() - 2)
+        content_length := string.parse_usize(length_str).unwrap_or(0)
+        
+        // Skip empty line
+        io.read_line()
+        
+        // Read message content
+        content := io.read_bytes(content_length)
+        
+        // Parse JSON
+        msg_result := json.parse(content)
+        if (msg_result.is_error()) {
+            io.eprintln("Failed to parse message: " + msg_result.unwrap_error())
+            continue
+        }
+        
+        msg := msg_result.unwrap()
+        
+        // Handle message
+        if (msg.has("method")) {
+            method := msg.get("method").as_string()
+            params := msg.get("params")
+            
+            response := match (method) {
+                "initialize" => handle_initialize(server, params),
+                "textDocument/didOpen" => {
+                    handle_did_open(server, params)
+                    null
+                },
+                "textDocument/didChange" => {
+                    handle_did_change(server, params)
+                    null
+                },
+                "textDocument/completion" => handle_completion(server, params),
+                "textDocument/hover" => handle_hover(server, params),
+                "shutdown" => {
+                    io.eprintln("Shutting down...")
+                    break
+                },
+                _ => null
+            }
+            
+            // Send response if needed
+            if (response != null && msg.has("id")) {
+                response_msg := json.object([
+                    ("jsonrpc", json.string("2.0")),
+                    ("id", msg.get("id")),
+                    ("result", response)
+                ])
+                send_message(response_msg)
+            }
+        }
+    }
+    
+    io.eprintln("Zen Language Server stopped")
+    return 0
+}

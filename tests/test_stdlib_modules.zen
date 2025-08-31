@@ -1,0 +1,407 @@
+// Comprehensive test suite for Zen standard library modules
+// Tests new modules and verifies integration
+
+io := @std.io
+test := @std.test
+vec := @std.vec
+string := @std.string
+result := @std.result
+thread := @std.thread
+
+// Import new modules
+build := @std.build
+task_executor := build.import("task_executor")
+url := build.import("url")
+
+// Test URL parsing
+test_url_parsing = () bool {
+    io.println("Testing URL parsing...")
+    
+    // Test simple URL
+    simple_url := "https://example.com/path"
+    parsed := url.parse(simple_url)
+    if (parsed.is_error()) {
+        io.println("Failed to parse simple URL")
+        return false
+    }
+    
+    u := parsed.unwrap()
+    if (u.scheme != "https" || u.host != "example.com" || u.path != "/path") {
+        io.println("URL components incorrect")
+        return false
+    }
+    
+    // Test complex URL with auth and query
+    complex_url := "https://user:pass@example.com:8080/path?key=value&foo=bar#section"
+    parsed2 := url.parse(complex_url)
+    if (parsed2.is_error()) {
+        io.println("Failed to parse complex URL")
+        return false
+    }
+    
+    u2 := parsed2.unwrap()
+    if (u2.username != "user" || u2.password != "pass") {
+        io.println("URL auth incorrect")
+        return false
+    }
+    
+    if (u2.port != 8080) {
+        io.println("URL port incorrect")
+        return false
+    }
+    
+    if (!u2.query.contains("key") || u2.query.get("key") != "value") {
+        io.println("URL query incorrect")
+        return false
+    }
+    
+    if (u2.fragment != "section") {
+        io.println("URL fragment incorrect")
+        return false
+    }
+    
+    io.println("✓ URL parsing tests passed")
+    return true
+}
+
+// Test URL building
+test_url_building = () bool {
+    io.println("Testing URL building...")
+    
+    // Create URL from components
+    u := url.URL{
+        scheme: "https",
+        username: "",
+        password: "",
+        host: "api.example.com",
+        port: null,
+        path: "/v1/users",
+        query: url.hashmap.new<string, string>(),
+        fragment: "",
+        raw: ""
+    }
+    
+    u.query.insert("limit", "10")
+    u.query.insert("offset", "20")
+    
+    built := url.build(u)
+    expected := "https://api.example.com/v1/users?limit=10&offset=20"
+    
+    if (!string.contains(built, "api.example.com")) {
+        io.println("Built URL incorrect: " + built)
+        return false
+    }
+    
+    io.println("✓ URL building tests passed")
+    return true
+}
+
+// Test URL encoding/decoding
+test_url_encoding = () bool {
+    io.println("Testing URL encoding/decoding...")
+    
+    // Test encoding
+    original := "hello world & special=chars"
+    encoded := url.url_encode(original)
+    
+    if (!string.contains(encoded, "%20") && !string.contains(encoded, "+")) {
+        io.println("URL encoding failed")
+        return false
+    }
+    
+    // Test decoding
+    decoded := url.url_decode(encoded)
+    if (decoded != original) {
+        io.println("URL decoding failed")
+        return false
+    }
+    
+    io.println("✓ URL encoding tests passed")
+    return true
+}
+
+// Test task executor basic functionality
+test_task_executor_basic = () bool {
+    io.println("Testing task executor basic functionality...")
+    
+    // Create executor with 2 threads
+    config := task_executor.ExecutorConfig{
+        num_threads: 2,
+        queue_size: 100,
+        enable_metrics: true,
+        panic_handler: null
+    }
+    
+    executor := task_executor.new(config)
+    
+    // Submit a simple task
+    counter := 0
+    task_func = () task_executor.TaskResult<i32> {
+        thread.sleep(10)
+        return task_executor.TaskResult.Success(42)
+    }
+    
+    task_id := task_executor.submit(
+        executor,
+        "test_task",
+        task_executor.Priority.Normal,
+        task_func
+    )
+    
+    // Wait for task completion
+    result := task_executor.wait_for(executor, task_id)
+    if (result == null) {
+        io.println("Task execution failed - null result")
+        return false
+    }
+    
+    match (result) {
+        Success(value) => {
+            if (value != 42) {
+                io.println("Task returned wrong value")
+                return false
+            }
+        },
+        _ => {
+            io.println("Task execution failed")
+            return false
+        }
+    }
+    
+    // Shutdown executor
+    task_executor.shutdown(executor, true)
+    
+    io.println("✓ Task executor basic tests passed")
+    return true
+}
+
+// Test task executor priorities
+test_task_executor_priorities = () bool {
+    io.println("Testing task executor priorities...")
+    
+    config := task_executor.default_config()
+    config.num_threads = 1  // Single thread to ensure ordering
+    executor := task_executor.new(config)
+    
+    results := vec.Vec.new<i32>()
+    
+    // Submit tasks with different priorities
+    low_task = () task_executor.TaskResult<i32> {
+        return task_executor.TaskResult.Success(1)
+    }
+    
+    normal_task = () task_executor.TaskResult<i32> {
+        return task_executor.TaskResult.Success(2)
+    }
+    
+    high_task = () task_executor.TaskResult<i32> {
+        return task_executor.TaskResult.Success(3)
+    }
+    
+    critical_task = () task_executor.TaskResult<i32> {
+        return task_executor.TaskResult.Success(4)
+    }
+    
+    // Submit in reverse priority order
+    id1 := task_executor.submit(executor, "low", task_executor.Priority.Low, low_task)
+    id2 := task_executor.submit(executor, "normal", task_executor.Priority.Normal, normal_task)
+    id3 := task_executor.submit(executor, "high", task_executor.Priority.High, high_task)
+    id4 := task_executor.submit(executor, "critical", task_executor.Priority.Critical, critical_task)
+    
+    // Critical tasks should execute first
+    critical_result := task_executor.wait_for(executor, id4)
+    if (critical_result == null) {
+        io.println("Critical task failed")
+        return false
+    }
+    
+    task_executor.shutdown(executor, true)
+    
+    io.println("✓ Task executor priority tests passed")
+    return true
+}
+
+// Test task groups
+test_task_groups = () bool {
+    io.println("Testing task groups...")
+    
+    config := task_executor.default_config()
+    executor := task_executor.new(config)
+    
+    // Create a task group
+    group := task_executor.new_group(executor, "test_group")
+    
+    // Add tasks to group
+    task1 = () task_executor.TaskResult<i32> {
+        return task_executor.TaskResult.Success(10)
+    }
+    
+    task2 = () task_executor.TaskResult<i32> {
+        return task_executor.TaskResult.Success(20)
+    }
+    
+    task3 = () task_executor.TaskResult<i32> {
+        return task_executor.TaskResult.Success(30)
+    }
+    
+    task_executor.add_to_group(group, "task1", task_executor.Priority.Normal, task1)
+    task_executor.add_to_group(group, "task2", task_executor.Priority.Normal, task2)
+    task_executor.add_to_group(group, "task3", task_executor.Priority.Normal, task3)
+    
+    // Wait for all tasks in group
+    results := task_executor.wait_group(group)
+    
+    if (results.len() != 3) {
+        io.println("Not all group tasks completed")
+        return false
+    }
+    
+    sum := 0
+    for (result in results) {
+        match (result) {
+            Success(value) => sum += value,
+            _ => {
+                io.println("Group task failed")
+                return false
+            }
+        }
+    }
+    
+    if (sum != 60) {
+        io.println("Group tasks returned wrong sum")
+        return false
+    }
+    
+    task_executor.shutdown(executor, true)
+    
+    io.println("✓ Task group tests passed")
+    return true
+}
+
+// Test batch operations
+test_batch_operations = () bool {
+    io.println("Testing batch operations...")
+    
+    config := task_executor.default_config()
+    executor := task_executor.new(config)
+    
+    // Create batch of tasks
+    tasks := vec.Vec.new()
+    
+    i := 0
+    while (i < 5) {
+        task_num := i
+        task_func = () task_executor.TaskResult<i32> {
+            return task_executor.TaskResult.Success(task_num * 10)
+        }
+        
+        tasks.push(struct{
+            name: "batch_task_" + i.to_string(),
+            priority: task_executor.Priority.Normal,
+            func: task_func
+        })
+        
+        i += 1
+    }
+    
+    // Submit batch
+    task_ids := task_executor.batch_submit(executor, tasks.to_slice())
+    
+    if (task_ids.len() != 5) {
+        io.println("Batch submit failed")
+        return false
+    }
+    
+    // Wait for batch completion
+    results := task_executor.wait_for_batch(executor, task_ids)
+    
+    if (results.len() != 5) {
+        io.println("Not all batch tasks completed")
+        return false
+    }
+    
+    task_executor.shutdown(executor, true)
+    
+    io.println("✓ Batch operation tests passed")
+    return true
+}
+
+// Test metrics collection
+test_metrics = () bool {
+    io.println("Testing metrics collection...")
+    
+    config := task_executor.ExecutorConfig{
+        num_threads: 2,
+        queue_size: 100,
+        enable_metrics: true,
+        panic_handler: null
+    }
+    
+    executor := task_executor.new(config)
+    
+    // Submit some tasks
+    task_func = () task_executor.TaskResult<bool> {
+        thread.sleep(5)
+        return task_executor.TaskResult.Success(true)
+    }
+    
+    i := 0
+    while (i < 10) {
+        task_executor.submit(executor, "metric_task", task_executor.Priority.Normal, task_func)
+        i += 1
+    }
+    
+    // Wait for completion
+    thread.sleep(100)
+    
+    // Get metrics
+    metrics := task_executor.get_metrics(executor)
+    if (metrics == null) {
+        io.println("Metrics not available")
+        return false
+    }
+    
+    if (metrics.tasks_submitted.load() != 10) {
+        io.println("Incorrect submitted count in metrics")
+        return false
+    }
+    
+    task_executor.shutdown(executor, true)
+    
+    io.println("✓ Metrics tests passed")
+    return true
+}
+
+// Main test runner
+main = () i32 {
+    io.println("=== Zen Standard Library Module Tests ===\n")
+    
+    total_tests := 0
+    passed_tests := 0
+    
+    // URL tests
+    total_tests += 3
+    if (test_url_parsing()) passed_tests += 1
+    if (test_url_building()) passed_tests += 1
+    if (test_url_encoding()) passed_tests += 1
+    
+    // Task executor tests
+    total_tests += 5
+    if (test_task_executor_basic()) passed_tests += 1
+    if (test_task_executor_priorities()) passed_tests += 1
+    if (test_task_groups()) passed_tests += 1
+    if (test_batch_operations()) passed_tests += 1
+    if (test_metrics()) passed_tests += 1
+    
+    // Print summary
+    io.println("\n=== Test Summary ===")
+    io.println("Passed: " + passed_tests.to_string() + "/" + total_tests.to_string())
+    
+    if (passed_tests == total_tests) {
+        io.println("✓ All tests passed!")
+        return 0
+    } else {
+        io.println("✗ Some tests failed")
+        return 1
+    }
+}

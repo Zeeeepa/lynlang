@@ -1,0 +1,374 @@
+// Task Executor - Concurrent task execution system for Zen
+// Provides async task execution with thread pool management
+
+thread := @std.thread
+vec := @std.vec
+result := @std.result
+sync := @std.sync
+io := @std.io
+core := @std.core
+
+// Task status enum
+TaskStatus := enum {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Cancelled
+}
+
+// Task priority levels
+Priority := enum {
+    Low = 0,
+    Normal = 1,
+    High = 2,
+    Critical = 3
+}
+
+// Generic task result
+TaskResult<T> := union {
+    Success(T),
+    Failure(string),
+    Cancelled
+}
+
+// Task structure
+Task<T> := struct {
+    id: u64,
+    name: string,
+    priority: Priority,
+    status: TaskStatus,
+    func: fn() -> TaskResult<T>,
+    result: ?TaskResult<T>,
+    created_at: u64,
+    started_at: ?u64,
+    completed_at: ?u64
+}
+
+// Task executor configuration
+ExecutorConfig := struct {
+    num_threads: usize,
+    queue_size: usize,
+    enable_metrics: bool,
+    panic_handler: ?fn(string) -> void
+}
+
+// Default configuration
+default_config = () ExecutorConfig {
+    return ExecutorConfig{
+        num_threads: thread.hardware_concurrency(),
+        queue_size: 1024,
+        enable_metrics: false,
+        panic_handler: null
+    }
+}
+
+// Task executor
+TaskExecutor := struct {
+    config: ExecutorConfig,
+    thread_pool: vec.Vec<thread.Thread>,
+    task_queue: sync.Queue<Task<any>>,
+    active_tasks: sync.Map<u64, Task<any>>,
+    completed_tasks: vec.Vec<Task<any>>,
+    next_task_id: sync.Atomic<u64>,
+    shutdown: sync.Atomic<bool>,
+    metrics: ?ExecutorMetrics
+}
+
+// Executor metrics
+ExecutorMetrics := struct {
+    tasks_submitted: sync.Atomic<u64>,
+    tasks_completed: sync.Atomic<u64>,
+    tasks_failed: sync.Atomic<u64>,
+    tasks_cancelled: sync.Atomic<u64>,
+    total_execution_time: sync.Atomic<u64>,
+    average_wait_time: sync.Atomic<u64>
+}
+
+// Create a new task executor
+new = (config: ExecutorConfig) *TaskExecutor {
+    executor := core.alloc<TaskExecutor>()
+    executor.config = config
+    executor.task_queue = sync.Queue.new(config.queue_size)
+    executor.active_tasks = sync.Map.new()
+    executor.completed_tasks = vec.Vec.new()
+    executor.next_task_id = sync.Atomic.new(1)
+    executor.shutdown = sync.Atomic.new(false)
+    
+    if (config.enable_metrics) {
+        executor.metrics = create_metrics()
+    }
+    
+    // Start worker threads
+    executor.thread_pool = vec.Vec.new()
+    i := 0
+    while (i < config.num_threads) {
+        worker := thread.spawn(worker_loop, executor)
+        executor.thread_pool.push(worker)
+        i += 1
+    }
+    
+    return executor
+}
+
+// Create metrics instance
+create_metrics = () *ExecutorMetrics {
+    metrics := core.alloc<ExecutorMetrics>()
+    metrics.tasks_submitted = sync.Atomic.new(0)
+    metrics.tasks_completed = sync.Atomic.new(0)
+    metrics.tasks_failed = sync.Atomic.new(0)
+    metrics.tasks_cancelled = sync.Atomic.new(0)
+    metrics.total_execution_time = sync.Atomic.new(0)
+    metrics.average_wait_time = sync.Atomic.new(0)
+    return metrics
+}
+
+// Submit a task for execution
+submit<T> = (executor: *TaskExecutor, name: string, priority: Priority, func: fn() -> TaskResult<T>) u64 {
+    task_id := executor.next_task_id.fetch_add(1)
+    
+    task := Task<T>{
+        id: task_id,
+        name: name,
+        priority: priority,
+        status: TaskStatus.Pending,
+        func: func,
+        result: null,
+        created_at: thread.current_time_millis(),
+        started_at: null,
+        completed_at: null
+    }
+    
+    // Update metrics
+    if (executor.metrics != null) {
+        executor.metrics.tasks_submitted.fetch_add(1)
+    }
+    
+    // Add to queue based on priority
+    if (priority == Priority.Critical) {
+        executor.task_queue.push_front(task)
+    } else {
+        executor.task_queue.push(task)
+    }
+    
+    return task_id
+}
+
+// Worker thread loop
+worker_loop = (executor: *TaskExecutor) void {
+    while (!executor.shutdown.load()) {
+        // Try to get a task from the queue
+        task_opt := executor.task_queue.pop_timeout(100)
+        
+        if (task_opt.is_some()) {
+            task := task_opt.unwrap()
+            
+            // Mark task as running
+            task.status = TaskStatus.Running
+            task.started_at = thread.current_time_millis()
+            executor.active_tasks.insert(task.id, task)
+            
+            // Execute the task
+            try {
+                task.result = task.func()
+                task.status = TaskStatus.Completed
+                
+                if (executor.metrics != null) {
+                    executor.metrics.tasks_completed.fetch_add(1)
+                }
+            } catch (e: any) {
+                task.result = TaskResult.Failure(e.to_string())
+                task.status = TaskStatus.Failed
+                
+                if (executor.metrics != null) {
+                    executor.metrics.tasks_failed.fetch_add(1)
+                }
+                
+                // Call panic handler if configured
+                if (executor.config.panic_handler != null) {
+                    executor.config.panic_handler(e.to_string())
+                }
+            }
+            
+            // Mark task as completed
+            task.completed_at = thread.current_time_millis()
+            
+            // Update metrics
+            if (executor.metrics != null) {
+                execution_time := task.completed_at - task.started_at
+                executor.metrics.total_execution_time.fetch_add(execution_time)
+                
+                wait_time := task.started_at - task.created_at
+                current_avg := executor.metrics.average_wait_time.load()
+                completed := executor.metrics.tasks_completed.load()
+                new_avg := ((current_avg * (completed - 1)) + wait_time) / completed
+                executor.metrics.average_wait_time.store(new_avg)
+            }
+            
+            // Move to completed tasks
+            executor.active_tasks.remove(task.id)
+            executor.completed_tasks.push(task)
+        }
+    }
+}
+
+// Wait for a specific task to complete
+wait_for = (executor: *TaskExecutor, task_id: u64) ?TaskResult<any> {
+    // Check if already completed
+    for (task in executor.completed_tasks) {
+        if (task.id == task_id) {
+            return task.result
+        }
+    }
+    
+    // Wait for task to complete
+    while (true) {
+        if (executor.active_tasks.contains(task_id)) {
+            thread.sleep(10)
+        } else {
+            // Check completed tasks again
+            for (task in executor.completed_tasks) {
+                if (task.id == task_id) {
+                    return task.result
+                }
+            }
+            return null
+        }
+    }
+}
+
+// Cancel a task
+cancel = (executor: *TaskExecutor, task_id: u64) bool {
+    // Check if task is still pending
+    queue_tasks := executor.task_queue.to_vec()
+    for (i, task in queue_tasks) {
+        if (task.id == task_id) {
+            task.status = TaskStatus.Cancelled
+            task.result = TaskResult.Cancelled
+            executor.task_queue.remove(i)
+            
+            if (executor.metrics != null) {
+                executor.metrics.tasks_cancelled.fetch_add(1)
+            }
+            
+            return true
+        }
+    }
+    
+    // Cannot cancel running or completed tasks
+    return false
+}
+
+// Get task status
+get_status = (executor: *TaskExecutor, task_id: u64) ?TaskStatus {
+    // Check active tasks
+    if (executor.active_tasks.contains(task_id)) {
+        task := executor.active_tasks.get(task_id)
+        return task.status
+    }
+    
+    // Check completed tasks
+    for (task in executor.completed_tasks) {
+        if (task.id == task_id) {
+            return task.status
+        }
+    }
+    
+    // Check queue
+    queue_tasks := executor.task_queue.to_vec()
+    for (task in queue_tasks) {
+        if (task.id == task_id) {
+            return task.status
+        }
+    }
+    
+    return null
+}
+
+// Shutdown the executor
+shutdown = (executor: *TaskExecutor, wait_for_completion: bool) void {
+    if (wait_for_completion) {
+        // Wait for all tasks to complete
+        while (executor.task_queue.size() > 0 || executor.active_tasks.size() > 0) {
+            thread.sleep(100)
+        }
+    }
+    
+    // Signal shutdown
+    executor.shutdown.store(true)
+    
+    // Join all worker threads
+    for (worker in executor.thread_pool) {
+        worker.join()
+    }
+}
+
+// Get executor metrics
+get_metrics = (executor: *TaskExecutor) ?ExecutorMetrics {
+    return executor.metrics
+}
+
+// Batch submit multiple tasks
+batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priority: Priority, func: fn() -> TaskResult<T>}) []u64 {
+    task_ids := vec.Vec.new()
+    
+    for (task_info in tasks) {
+        id := submit(executor, task_info.name, task_info.priority, task_info.func)
+        task_ids.push(id)
+    }
+    
+    return task_ids.to_slice()
+}
+
+// Wait for all tasks in a batch
+wait_for_batch = (executor: *TaskExecutor, task_ids: []u64) []TaskResult<any> {
+    results := vec.Vec.new()
+    
+    for (id in task_ids) {
+        result := wait_for(executor, id)
+        if (result != null) {
+            results.push(result)
+        }
+    }
+    
+    return results.to_slice()
+}
+
+// Create a task group for related tasks
+TaskGroup := struct {
+    executor: *TaskExecutor,
+    task_ids: vec.Vec<u64>,
+    name: string
+}
+
+// Create a new task group
+new_group = (executor: *TaskExecutor, name: string) *TaskGroup {
+    group := core.alloc<TaskGroup>()
+    group.executor = executor
+    group.task_ids = vec.Vec.new()
+    group.name = name
+    return group
+}
+
+// Add a task to the group
+add_to_group<T> = (group: *TaskGroup, name: string, priority: Priority, func: fn() -> TaskResult<T>) u64 {
+    task_id := submit(group.executor, group.name + "." + name, priority, func)
+    group.task_ids.push(task_id)
+    return task_id
+}
+
+// Wait for all tasks in the group
+wait_group = (group: *TaskGroup) []TaskResult<any> {
+    return wait_for_batch(group.executor, group.task_ids.to_slice())
+}
+
+// Cancel all tasks in the group
+cancel_group = (group: *TaskGroup) i32 {
+    cancelled := 0
+    for (id in group.task_ids) {
+        if (cancel(group.executor, id)) {
+            cancelled += 1
+        }
+    }
+    return cancelled
+}

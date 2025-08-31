@@ -1,0 +1,562 @@
+// URL Parser and Builder for Zen
+// Provides URL parsing, validation, and manipulation utilities
+
+string := @std.string
+vec := @std.vec
+result := @std.result
+hashmap := @std.hashmap
+io := @std.io
+
+// URL components
+URL := struct {
+    scheme: string,
+    username: string,
+    password: string,
+    host: string,
+    port: ?u16,
+    path: string,
+    query: hashmap.HashMap<string, string>,
+    fragment: string,
+    raw: string
+}
+
+// URL parsing errors
+URLError := enum {
+    InvalidScheme,
+    InvalidHost,
+    InvalidPort,
+    InvalidPath,
+    InvalidQuery,
+    InvalidFragment,
+    MalformedURL
+}
+
+// Parse a URL string
+parse = (url_str: string) result.Result<URL, URLError> {
+    url := URL{
+        scheme: "",
+        username: "",
+        password: "",
+        host: "",
+        port: null,
+        path: "/",
+        query: hashmap.new<string, string>(),
+        fragment: "",
+        raw: url_str
+    }
+    
+    remaining := url_str
+    
+    // Parse scheme
+    scheme_result := parse_scheme(&remaining)
+    if (scheme_result.is_error()) {
+        return result.error(scheme_result.unwrap_error())
+    }
+    url.scheme = scheme_result.unwrap()
+    
+    // Parse authority (user:pass@host:port)
+    if (string.starts_with(remaining, "//")) {
+        remaining = string.slice(remaining, 2, remaining.len())
+        
+        authority_result := parse_authority(&remaining)
+        if (authority_result.is_error()) {
+            return result.error(authority_result.unwrap_error())
+        }
+        
+        auth := authority_result.unwrap()
+        url.username = auth.username
+        url.password = auth.password
+        url.host = auth.host
+        url.port = auth.port
+    }
+    
+    // Parse path
+    path_result := parse_path(&remaining)
+    if (path_result.is_error()) {
+        return result.error(path_result.unwrap_error())
+    }
+    url.path = path_result.unwrap()
+    
+    // Parse query
+    if (string.contains(remaining, "?")) {
+        query_result := parse_query(&remaining)
+        if (query_result.is_error()) {
+            return result.error(query_result.unwrap_error())
+        }
+        url.query = query_result.unwrap()
+    }
+    
+    // Parse fragment
+    if (string.contains(remaining, "#")) {
+        fragment_result := parse_fragment(&remaining)
+        if (fragment_result.is_error()) {
+            return result.error(fragment_result.unwrap_error())
+        }
+        url.fragment = fragment_result.unwrap()
+    }
+    
+    return result.ok(url)
+}
+
+// Authority components
+Authority := struct {
+    username: string,
+    password: string,
+    host: string,
+    port: ?u16
+}
+
+// Parse URL scheme
+parse_scheme = (url: *string) result.Result<string, URLError> {
+    colon_idx := string.index_of(*url, ":")
+    if (colon_idx == -1) {
+        return result.error(URLError.InvalidScheme)
+    }
+    
+    scheme := string.slice(*url, 0, colon_idx)
+    
+    // Validate scheme
+    if (!is_valid_scheme(scheme)) {
+        return result.error(URLError.InvalidScheme)
+    }
+    
+    *url = string.slice(*url, colon_idx + 1, url.len())
+    return result.ok(scheme)
+}
+
+// Parse authority section
+parse_authority = (url: *string) result.Result<Authority, URLError> {
+    auth := Authority{
+        username: "",
+        password: "",
+        host: "",
+        port: null
+    }
+    
+    // Find end of authority
+    end_idx := find_authority_end(*url)
+    authority_str := string.slice(*url, 0, end_idx)
+    
+    // Check for userinfo
+    at_idx := string.index_of(authority_str, "@")
+    if (at_idx != -1) {
+        userinfo := string.slice(authority_str, 0, at_idx)
+        
+        // Split username and password
+        colon_idx := string.index_of(userinfo, ":")
+        if (colon_idx != -1) {
+            auth.username = string.slice(userinfo, 0, colon_idx)
+            auth.password = string.slice(userinfo, colon_idx + 1, userinfo.len())
+        } else {
+            auth.username = userinfo
+        }
+        
+        authority_str = string.slice(authority_str, at_idx + 1, authority_str.len())
+    }
+    
+    // Parse host and port
+    if (string.starts_with(authority_str, "[")) {
+        // IPv6 address
+        close_idx := string.index_of(authority_str, "]")
+        if (close_idx == -1) {
+            return result.error(URLError.InvalidHost)
+        }
+        
+        auth.host = string.slice(authority_str, 1, close_idx)
+        
+        if (close_idx + 1 < authority_str.len() && authority_str[close_idx + 1] == ':') {
+            port_str := string.slice(authority_str, close_idx + 2, authority_str.len())
+            port_result := string.parse_u16(port_str)
+            if (port_result.is_error()) {
+                return result.error(URLError.InvalidPort)
+            }
+            auth.port = port_result.unwrap()
+        }
+    } else {
+        // IPv4 or domain name
+        colon_idx := string.last_index_of(authority_str, ":")
+        if (colon_idx != -1) {
+            auth.host = string.slice(authority_str, 0, colon_idx)
+            port_str := string.slice(authority_str, colon_idx + 1, authority_str.len())
+            port_result := string.parse_u16(port_str)
+            if (port_result.is_error()) {
+                return result.error(URLError.InvalidPort)
+            }
+            auth.port = port_result.unwrap()
+        } else {
+            auth.host = authority_str
+        }
+    }
+    
+    // Validate host
+    if (!is_valid_host(auth.host)) {
+        return result.error(URLError.InvalidHost)
+    }
+    
+    *url = string.slice(*url, end_idx, url.len())
+    return result.ok(auth)
+}
+
+// Parse URL path
+parse_path = (url: *string) result.Result<string, URLError> {
+    // Find end of path
+    query_idx := string.index_of(*url, "?")
+    fragment_idx := string.index_of(*url, "#")
+    
+    end_idx := url.len()
+    if (query_idx != -1 && (fragment_idx == -1 || query_idx < fragment_idx)) {
+        end_idx = query_idx
+    } else if (fragment_idx != -1) {
+        end_idx = fragment_idx
+    }
+    
+    path := string.slice(*url, 0, end_idx)
+    
+    // Validate path
+    if (!is_valid_path(path)) {
+        return result.error(URLError.InvalidPath)
+    }
+    
+    // Default to root path if empty
+    if (path == "") {
+        path = "/"
+    }
+    
+    *url = string.slice(*url, end_idx, url.len())
+    return result.ok(path)
+}
+
+// Parse query parameters
+parse_query = (url: *string) result.Result<hashmap.HashMap<string, string>, URLError> {
+    query_map := hashmap.new<string, string>()
+    
+    if (!string.starts_with(*url, "?")) {
+        return result.ok(query_map)
+    }
+    
+    *url = string.slice(*url, 1, url.len())
+    
+    // Find end of query
+    fragment_idx := string.index_of(*url, "#")
+    end_idx := if (fragment_idx != -1) fragment_idx else url.len()
+    
+    query_str := string.slice(*url, 0, end_idx)
+    
+    // Parse key-value pairs
+    pairs := string.split(query_str, "&")
+    for (pair in pairs) {
+        if (pair == "") continue
+        
+        eq_idx := string.index_of(pair, "=")
+        if (eq_idx != -1) {
+            key := url_decode(string.slice(pair, 0, eq_idx))
+            value := url_decode(string.slice(pair, eq_idx + 1, pair.len()))
+            query_map.insert(key, value)
+        } else {
+            // Key without value
+            query_map.insert(url_decode(pair), "")
+        }
+    }
+    
+    *url = string.slice(*url, end_idx, url.len())
+    return result.ok(query_map)
+}
+
+// Parse fragment
+parse_fragment = (url: *string) result.Result<string, URLError> {
+    if (!string.starts_with(*url, "#")) {
+        return result.ok("")
+    }
+    
+    fragment := string.slice(*url, 1, url.len())
+    
+    // Validate fragment
+    if (!is_valid_fragment(fragment)) {
+        return result.error(URLError.InvalidFragment)
+    }
+    
+    return result.ok(fragment)
+}
+
+// Build a URL string from components
+build = (url: URL) string {
+    result := ""
+    
+    // Add scheme
+    if (url.scheme != "") {
+        result += url.scheme + ":"
+    }
+    
+    // Add authority
+    if (url.host != "") {
+        result += "//"
+        
+        // Add userinfo
+        if (url.username != "") {
+            result += url.username
+            if (url.password != "") {
+                result += ":" + url.password
+            }
+            result += "@"
+        }
+        
+        // Add host
+        if (string.contains(url.host, ":")) {
+            // IPv6 address
+            result += "[" + url.host + "]"
+        } else {
+            result += url.host
+        }
+        
+        // Add port
+        if (url.port != null) {
+            result += ":" + url.port.to_string()
+        }
+    }
+    
+    // Add path
+    result += url.path
+    
+    // Add query
+    if (url.query.size() > 0) {
+        result += "?"
+        first := true
+        for (key, value in url.query) {
+            if (!first) {
+                result += "&"
+            }
+            result += url_encode(key)
+            if (value != "") {
+                result += "=" + url_encode(value)
+            }
+            first = false
+        }
+    }
+    
+    // Add fragment
+    if (url.fragment != "") {
+        result += "#" + url.fragment
+    }
+    
+    return result
+}
+
+// URL encoding (percent-encoding)
+url_encode = (s: string) string {
+    result := ""
+    
+    for (c in s) {
+        if (is_unreserved(c)) {
+            result += c
+        } else {
+            result += "%" + to_hex(c)
+        }
+    }
+    
+    return result
+}
+
+// URL decoding
+url_decode = (s: string) string {
+    result := ""
+    i := 0
+    
+    while (i < s.len()) {
+        if (s[i] == '%' && i + 2 < s.len()) {
+            hex_str := string.slice(s, i + 1, i + 3)
+            char_result := from_hex(hex_str)
+            if (char_result.is_ok()) {
+                result += char_result.unwrap()
+                i += 3
+            } else {
+                result += s[i]
+                i += 1
+            }
+        } else if (s[i] == '+') {
+            result += " "
+            i += 1
+        } else {
+            result += s[i]
+            i += 1
+        }
+    }
+    
+    return result
+}
+
+// Check if character is unreserved in URLs
+is_unreserved = (c: u8) bool {
+    return (c >= 'A' && c <= 'Z') ||
+           (c >= 'a' && c <= 'z') ||
+           (c >= '0' && c <= '9') ||
+           c == '-' || c == '_' || c == '.' || c == '~'
+}
+
+// Convert byte to hex string
+to_hex = (c: u8) string {
+    hex_chars := "0123456789ABCDEF"
+    high := (c >> 4) & 0x0F
+    low := c & 0x0F
+    return string.from_chars([hex_chars[high], hex_chars[low]])
+}
+
+// Convert hex string to byte
+from_hex = (hex: string) result.Result<u8, string> {
+    if (hex.len() != 2) {
+        return result.error("Invalid hex string")
+    }
+    
+    high := hex_digit_value(hex[0])
+    low := hex_digit_value(hex[1])
+    
+    if (high == -1 || low == -1) {
+        return result.error("Invalid hex digit")
+    }
+    
+    return result.ok((high << 4) | low)
+}
+
+// Get hex digit value
+hex_digit_value = (c: u8) i8 {
+    if (c >= '0' && c <= '9') {
+        return c - '0'
+    } else if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10
+    } else if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10
+    }
+    return -1
+}
+
+// Validation functions
+is_valid_scheme = (scheme: string) bool {
+    if (scheme == "") return false
+    
+    // Must start with letter
+    if (!string.is_alpha(scheme[0])) return false
+    
+    // Can contain letters, digits, +, -, .
+    for (c in scheme) {
+        if (!string.is_alnum(c) && c != '+' && c != '-' && c != '.') {
+            return false
+        }
+    }
+    
+    return true
+}
+
+is_valid_host = (host: string) bool {
+    if (host == "") return false
+    
+    // Check for IPv6
+    if (string.contains(host, ":")) {
+        return is_valid_ipv6(host)
+    }
+    
+    // Check for IPv4
+    if (is_valid_ipv4(host)) {
+        return true
+    }
+    
+    // Check for domain name
+    return is_valid_domain(host)
+}
+
+is_valid_ipv4 = (ip: string) bool {
+    parts := string.split(ip, ".")
+    if (parts.len() != 4) return false
+    
+    for (part in parts) {
+        num_result := string.parse_u8(part)
+        if (num_result.is_error()) return false
+    }
+    
+    return true
+}
+
+is_valid_ipv6 = (ip: string) bool {
+    // Simplified IPv6 validation
+    // Should handle full, compressed, and mixed notation
+    return string.contains(ip, ":")
+}
+
+is_valid_domain = (domain: string) bool {
+    if (domain == "") return false
+    
+    labels := string.split(domain, ".")
+    for (label in labels) {
+        if (label == "") return false
+        if (label.len() > 63) return false
+        
+        // Must start and end with alphanumeric
+        if (!string.is_alnum(label[0]) || !string.is_alnum(label[label.len() - 1])) {
+            return false
+        }
+    }
+    
+    return true
+}
+
+is_valid_path = (path: string) bool {
+    // Simplified path validation
+    return true
+}
+
+is_valid_fragment = (fragment: string) bool {
+    // Simplified fragment validation
+    return true
+}
+
+// Helper to find end of authority section
+find_authority_end = (s: string) usize {
+    for (i, c in s) {
+        if (c == '/' || c == '?' || c == '#') {
+            return i
+        }
+    }
+    return s.len()
+}
+
+// Join URL paths
+join_path = (base: string, relative: string) string {
+    if (string.starts_with(relative, "/")) {
+        return relative
+    }
+    
+    if (!string.ends_with(base, "/")) {
+        base += "/"
+    }
+    
+    return base + relative
+}
+
+// Get URL without query and fragment
+without_query = (url: URL) URL {
+    return URL{
+        scheme: url.scheme,
+        username: url.username,
+        password: url.password,
+        host: url.host,
+        port: url.port,
+        path: url.path,
+        query: hashmap.new<string, string>(),
+        fragment: "",
+        raw: ""
+    }
+}
+
+// Get default port for scheme
+default_port = (scheme: string) ?u16 {
+    if (scheme == "http") return 80
+    if (scheme == "https") return 443
+    if (scheme == "ftp") return 21
+    if (scheme == "ssh") return 22
+    if (scheme == "telnet") return 23
+    if (scheme == "smtp") return 25
+    if (scheme == "dns") return 53
+    if (scheme == "pop3") return 110
+    if (scheme == "imap") return 143
+    if (scheme == "ldap") return 389
+    if (scheme == "smb") return 445
+    return null
+}
