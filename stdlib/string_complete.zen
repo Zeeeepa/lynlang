@@ -1,0 +1,525 @@
+// Complete String Module for Zen Standard Library
+// Provides string manipulation and utilities
+
+core := @std.core
+vec := @std.vec
+
+// String builder for efficient string construction
+StringBuilder = struct {
+    buffer: vec.Vec<char>,
+}
+
+// Create new string builder
+builder_new = () StringBuilder {
+    return StringBuilder{
+        buffer: vec.new<char>(),
+    }
+}
+
+// Append string to builder
+builder_append = (sb: *StringBuilder, s: string) void {
+    i := 0
+    loop i < s.len {
+        sb.buffer.push(s[i])
+        i = i + 1
+    }
+}
+
+// Append character to builder
+builder_append_char = (sb: *StringBuilder, c: char) void {
+    sb.buffer.push(c)
+}
+
+// Build final string
+builder_to_string = (sb: *StringBuilder) string {
+    return from_vec(sb.buffer)
+}
+
+// Get string length
+len = (s: string) usize {
+    return s.len
+}
+
+// Check if string is empty
+is_empty = (s: string) bool {
+    return s.len == 0
+}
+
+// Get character at index
+char_at = (s: string, index: usize) Option<char> {
+    index >= s.len ? {
+        return Option.None
+    } : {
+        return Option.Some -> value: s[index]
+    }
+}
+
+// Get substring
+substring = (s: string, start: usize, end: usize) string {
+    start >= s.len || end > s.len || start >= end ? {
+        return ""
+    } : {}
+    
+    result := vec.with_capacity<char>(end - start)
+    i := start
+    loop i < end {
+        result.push(s[i])
+        i = i + 1
+    }
+    
+    return from_vec(result)
+}
+
+// Check if string starts with prefix
+starts_with = (s: string, prefix: string) bool {
+    prefix.len > s.len ? { return false } : {}
+    
+    i := 0
+    loop i < prefix.len {
+        s[i] != prefix[i] ? { return false } : {}
+        i = i + 1
+    }
+    
+    return true
+}
+
+// Check if string ends with suffix
+ends_with = (s: string, suffix: string) bool {
+    suffix.len > s.len ? { return false } : {}
+    
+    offset := s.len - suffix.len
+    i := 0
+    loop i < suffix.len {
+        s[offset + i] != suffix[i] ? { return false } : {}
+        i = i + 1
+    }
+    
+    return true
+}
+
+// Find first occurrence of substring
+index_of = (s: string, needle: string) Option<usize> {
+    needle.len == 0 ? { return Option.Some -> value: 0 } : {}
+    needle.len > s.len ? { return Option.None } : {}
+    
+    i := 0
+    loop i <= s.len - needle.len {
+        found := true
+        j := 0
+        loop j < needle.len {
+            s[i + j] != needle[j] ? {
+                found = false
+                break
+            } : {}
+            j = j + 1
+        }
+        
+        found ? { return Option.Some -> value: i } : {}
+        i = i + 1
+    }
+    
+    return Option.None
+}
+
+// Find last occurrence of substring
+last_index_of = (s: string, needle: string) Option<usize> {
+    needle.len == 0 ? { return Option.Some -> value: s.len } : {}
+    needle.len > s.len ? { return Option.None } : {}
+    
+    i := s.len - needle.len
+    loop {
+        found := true
+        j := 0
+        loop j < needle.len {
+            s[i + j] != needle[j] ? {
+                found = false
+                break
+            } : {}
+            j = j + 1
+        }
+        
+        found ? { return Option.Some -> value: i } : {}
+        i == 0 ? { break } : { i = i - 1 }
+    }
+    
+    return Option.None
+}
+
+// Check if string contains substring
+contains = (s: string, needle: string) bool {
+    match index_of(s, needle) {
+        | Option.Some -> _ => true
+        | Option.None => false
+    }
+}
+
+// Replace all occurrences of old with new
+replace = (s: string, old: string, new: string) string {
+    old.len == 0 ? { return s } : {}
+    
+    result := builder_new()
+    i := 0
+    
+    loop i < s.len {
+        // Check if we found the old string
+        i <= s.len - old.len ? {
+            found := true
+            j := 0
+            loop j < old.len {
+                s[i + j] != old[j] ? {
+                    found = false
+                    break
+                } : {}
+                j = j + 1
+            }
+            
+            found ? {
+                // Append replacement
+                builder_append(&result, new)
+                i = i + old.len
+            } : {
+                // Append current character
+                builder_append_char(&result, s[i])
+                i = i + 1
+            }
+        } : {
+            builder_append_char(&result, s[i])
+            i = i + 1
+        }
+    }
+    
+    return builder_to_string(&result)
+}
+
+// Replace first occurrence
+replace_first = (s: string, old: string, new: string) string {
+    match index_of(s, old) {
+        | Option.Some -> idx => {
+            result := builder_new()
+            builder_append(&result, substring(s, 0, idx))
+            builder_append(&result, new)
+            builder_append(&result, substring(s, idx + old.len, s.len))
+            return builder_to_string(&result)
+        }
+        | Option.None => s
+    }
+}
+
+// Split string by delimiter
+split = (s: string, delimiter: string) vec.Vec<string> {
+    result := vec.new<string>()
+    
+    delimiter.len == 0 ? {
+        // Split into characters
+        i := 0
+        loop i < s.len {
+            result.push(from_char(s[i]))
+            i = i + 1
+        }
+        return result
+    } : {}
+    
+    start := 0 as usize
+    i := 0
+    
+    loop i <= s.len - delimiter.len {
+        found := true
+        j := 0
+        loop j < delimiter.len {
+            s[i + j] != delimiter[j] ? {
+                found = false
+                break
+            } : {}
+            j = j + 1
+        }
+        
+        found ? {
+            result.push(substring(s, start, i))
+            i = i + delimiter.len
+            start = i
+        } : {
+            i = i + 1
+        }
+    }
+    
+    // Add remaining part
+    start < s.len ? {
+        result.push(substring(s, start, s.len))
+    } : {}
+    
+    return result
+}
+
+// Join strings with separator
+join = (strings: vec.Vec<string>, separator: string) string {
+    strings.is_empty() ? { return "" } : {}
+    
+    result := builder_new()
+    i := 0
+    loop i < strings.len {
+        builder_append(&result, strings[i])
+        i + 1 < strings.len ? {
+            builder_append(&result, separator)
+        } : {}
+        i = i + 1
+    }
+    
+    return builder_to_string(&result)
+}
+
+// Trim whitespace from both ends
+trim = (s: string) string {
+    s.len == 0 ? { return s } : {}
+    
+    start := 0 as usize
+    loop start < s.len && is_whitespace(s[start]) {
+        start = start + 1
+    }
+    
+    end := s.len
+    loop end > start && is_whitespace(s[end - 1]) {
+        end = end - 1
+    }
+    
+    return substring(s, start, end)
+}
+
+// Trim whitespace from start
+trim_start = (s: string) string {
+    start := 0 as usize
+    loop start < s.len && is_whitespace(s[start]) {
+        start = start + 1
+    }
+    return substring(s, start, s.len)
+}
+
+// Trim whitespace from end
+trim_end = (s: string) string {
+    end := s.len
+    loop end > 0 && is_whitespace(s[end - 1]) {
+        end = end - 1
+    }
+    return substring(s, 0, end)
+}
+
+// Convert to uppercase
+to_uppercase = (s: string) string {
+    result := vec.with_capacity<char>(s.len)
+    i := 0
+    loop i < s.len {
+        c := s[i]
+        c >= 'a' && c <= 'z' ? {
+            result.push((c - 'a' + 'A') as char)
+        } : {
+            result.push(c)
+        }
+        i = i + 1
+    }
+    return from_vec(result)
+}
+
+// Convert to lowercase
+to_lowercase = (s: string) string {
+    result := vec.with_capacity<char>(s.len)
+    i := 0
+    loop i < s.len {
+        c := s[i]
+        c >= 'A' && c <= 'Z' ? {
+            result.push((c - 'A' + 'a') as char)
+        } : {
+            result.push(c)
+        }
+        i = i + 1
+    }
+    return from_vec(result)
+}
+
+// Repeat string n times
+repeat = (s: string, n: usize) string {
+    n == 0 ? { return "" } : {}
+    
+    result := builder_new()
+    i := 0
+    loop i < n {
+        builder_append(&result, s)
+        i = i + 1
+    }
+    
+    return builder_to_string(&result)
+}
+
+// Pad string to length with fill character on left
+pad_left = (s: string, length: usize, fill: char) string {
+    s.len >= length ? { return s } : {}
+    
+    padding := length - s.len
+    result := builder_new()
+    
+    i := 0
+    loop i < padding {
+        builder_append_char(&result, fill)
+        i = i + 1
+    }
+    builder_append(&result, s)
+    
+    return builder_to_string(&result)
+}
+
+// Pad string to length with fill character on right
+pad_right = (s: string, length: usize, fill: char) string {
+    s.len >= length ? { return s } : {}
+    
+    padding := length - s.len
+    result := builder_new()
+    
+    builder_append(&result, s)
+    i := 0
+    loop i < padding {
+        builder_append_char(&result, fill)
+        i = i + 1
+    }
+    
+    return builder_to_string(&result)
+}
+
+// Parse integer from string
+parse_int = (s: string) Option<i64> {
+    s.is_empty() ? { return Option.None } : {}
+    
+    negative := false
+    start := 0 as usize
+    
+    s[0] == '-' ? {
+        negative = true
+        start = 1
+        start >= s.len ? { return Option.None } : {}
+    } : s[0] == '+' ? {
+        start = 1
+        start >= s.len ? { return Option.None } : {}
+    } : {}
+    
+    result := 0 as i64
+    i := start
+    loop i < s.len {
+        c := s[i]
+        c >= '0' && c <= '9' ? {
+            digit := (c - '0') as i64
+            result = result * 10 + digit
+        } : {
+            return Option.None
+        }
+        i = i + 1
+    }
+    
+    negative ? {
+        return Option.Some -> value: -result
+    } : {
+        return Option.Some -> value: result
+    }
+}
+
+// Convert integer to string
+from_int = (n: i64) string {
+    n == 0 ? { return "0" } : {}
+    
+    negative := n < 0
+    abs_n := negative ? -n : n
+    
+    // Build digits in reverse
+    digits := vec.new<char>()
+    loop abs_n > 0 {
+        digit := (abs_n % 10) as u8
+        digits.push(('0' + digit) as char)
+        abs_n = abs_n / 10
+    }
+    
+    // Build result string
+    result := builder_new()
+    negative ? { builder_append_char(&result, '-') } : {}
+    
+    // Add digits in correct order
+    i := digits.len
+    loop i > 0 {
+        i = i - 1
+        builder_append_char(&result, digits[i])
+    }
+    
+    return builder_to_string(&result)
+}
+
+// Create string from single character
+from_char = (c: char) string {
+    result := vec.with_capacity<char>(1)
+    result.push(c)
+    return from_vec(result)
+}
+
+// Create string from byte array
+from_bytes = (bytes: *u8, len: usize) string {
+    result := vec.with_capacity<char>(len)
+    i := 0
+    loop i < len {
+        result.push(bytes[i] as char)
+        i = i + 1
+    }
+    return from_vec(result)
+}
+
+// Create string from vector of characters
+from_vec = (chars: vec.Vec<char>) string {
+    // In real implementation, this would create a proper string
+    // For now, we assume string type has data and len fields
+    return string{ data: chars.data, len: chars.len }
+}
+
+// Convert string to byte array
+to_bytes = (s: string) vec.Vec<u8> {
+    result := vec.with_capacity<u8>(s.len)
+    i := 0
+    loop i < s.len {
+        result.push(s[i] as u8)
+        i = i + 1
+    }
+    return result
+}
+
+// Check if character is whitespace
+is_whitespace = (c: char) bool {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+// Check if character is digit
+is_digit = (c: char) bool {
+    return c >= '0' && c <= '9'
+}
+
+// Check if character is letter
+is_letter = (c: char) bool {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+// Check if character is alphanumeric
+is_alphanumeric = (c: char) bool {
+    return is_letter(c) || is_digit(c)
+}
+
+// Compare strings lexicographically
+compare = (a: string, b: string) i32 {
+    min_len := a.len < b.len ? a.len : b.len
+    
+    i := 0
+    loop i < min_len {
+        a[i] < b[i] ? { return -1 } : {}
+        a[i] > b[i] ? { return 1 } : {}
+        i = i + 1
+    }
+    
+    a.len < b.len ? { return -1 } : {}
+    a.len > b.len ? { return 1 } : {}
+    return 0
+}
+
+// Check string equality
+equals = (a: string, b: string) bool {
+    return compare(a, b) == 0
+}
