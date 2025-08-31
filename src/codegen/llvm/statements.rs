@@ -302,12 +302,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     if let Expression::Identifier(name) = &**object {
                         // Get the variable info (clone to avoid borrow issues)
                         let var_info = self.variables.get(name).map(|(a, t)| (*a, t.clone()));
+                        
                         if let Some((alloca, var_type)) = var_info {
                             // Handle pointer to struct (p.x = value where p is *Point)
                             if let AstType::Pointer(inner_type) = &var_type {
-                                if let AstType::Struct { name: struct_name, .. } = &**inner_type {
+                                // Check if inner type is a struct or a generic representing a struct
+                                let struct_name = match &**inner_type {
+                                    AstType::Struct { name, .. } => Some(name.clone()),
+                                    AstType::Generic { name, type_args } if type_args.is_empty() => {
+                                        // Check if this generic name is a known struct
+                                        if self.struct_types.contains_key(name) {
+                                            Some(name.clone())
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    _ => None,
+                                };
+                                
+                                if let Some(struct_name) = struct_name {
                                     // Get struct type info
-                                    let struct_info = self.struct_types.get(struct_name)
+                                    let struct_info = self.struct_types.get(&struct_name)
                                         .ok_or_else(|| CompileError::TypeError(
                                             format!("Struct type '{}' not found", struct_name),
                                             None
