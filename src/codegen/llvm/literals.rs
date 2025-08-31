@@ -1,7 +1,7 @@
 use super::LLVMCompiler;
 use crate::ast::AstType;
 use crate::error::CompileError;
-use inkwell::values::{BasicValueEnum, BasicValue};
+use inkwell::values::BasicValueEnum;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     // Expression compilation methods for literals
