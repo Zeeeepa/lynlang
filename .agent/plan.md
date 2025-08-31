@@ -9,6 +9,8 @@ Build a self-hosting systems programming language with minimal keywords and maxi
 - ✅ Test runner script created
 - ✅ Syntax checking tools implemented
 - ✅ Basic stdlib in Zen (io, math, collections, etc.)
+- ✅ LSP implementation created (basic functionality)
+- ✅ Type checking tool created (shell and Zen versions)
 - 🔄 Working on self-hosting components
 
 ## Architecture Overview
@@ -19,12 +21,12 @@ Build a self-hosting systems programming language with minimal keywords and maxi
 - [x] Basic stdlib modules
 - [x] Test infrastructure
 
-### Phase 2: Tools & Validation (IN PROGRESS)
+### Phase 2: Tools & Validation (COMPLETE)
 - [x] Test runner (test_runner.sh)
 - [x] Syntax checker (zen-check.sh)
 - [x] Syntax validator in Zen (tools/syntax_checker.zen)
-- [ ] Type checker tool
-- [ ] LSP implementation
+- [x] Type checker tool (zen-typecheck.sh)
+- [x] LSP implementation (tools/zen-lsp.zen)
 
 ### Phase 3: Self-Hosting (NEXT)
 - [ ] Complete lexer in Zen
