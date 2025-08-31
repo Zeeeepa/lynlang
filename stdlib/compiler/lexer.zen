@@ -5,7 +5,7 @@ core := @std.core
 io := @std.io
 
 // Import our token definitions
-// token := @compiler.token
+token := @compiler.token
 
 // Lexer state
 Lexer = {
@@ -64,9 +64,7 @@ lexer_peek_char = (l: *Lexer) i8 {
 
 // Skip whitespace
 lexer_skip_whitespace = (l: *Lexer) void {
-    loop {
-
-        l.ch == ' ' || l.ch == '\t' || l.ch == '\r' ? | false => { break } | true => {}
+    loop (l.ch == ' ' || l.ch == '\t' || l.ch == '\r' || l.ch == '\n') {
         lexer_read_char(l)
     }
 }
@@ -136,62 +134,170 @@ lexer_read_string = (l: *Lexer) String {
     return result
 }
 
+// Get the next token
+lexer_next_token = (l: *Lexer) token.Token {
+    lexer_skip_whitespace(l)
+    
+    tok_line := l.line
+    tok_column := l.column
+    
+    // EOF
+    l.ch == 0 ? | true => {
+        return token.create_token(token.TokenType.EOF, "", tok_line, tok_column)
+    } | false => {}
+    
+    // Identifiers and keywords
+    is_letter(l.ch) ? | true => {
+        ident := lexer_read_identifier(l)
+        token.is_keyword(ident) ? | true => {
+            return token.create_token(token.TokenType.Keyword, ident, tok_line, tok_column)
+        } | false => {
+            return token.create_token(token.TokenType.Identifier, ident, tok_line, tok_column)
+        }
+    } | false => {}
+    
+    // Numbers
+    is_digit(l.ch) ? | true => {
+        num := lexer_read_number(l)
+        // Check if it contains a decimal point
+        has_dot := false
+        i := 0
+        loop (i < num.len()) {
+            num[i] == '.' ? | true => { 
+                has_dot = true
+                break 
+            } | false => {}
+            i = i + 1
+        }
+        has_dot ? | true => {
+            return token.create_token(token.TokenType.Float, num, tok_line, tok_column)
+        } | false => {
+            return token.create_token(token.TokenType.Integer, num, tok_line, tok_column)
+        }
+    } | false => {}
+    
+    // Strings
+    l.ch == '"' ? | true => {
+        str := lexer_read_string(l)
+        return token.create_token(token.TokenType.String, str, tok_line, tok_column)
+    } | false => {}
+    
+    // Two-character operators
+    l.ch == ':' && lexer_peek_char(l) == '=' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.AssignConst, ":=", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '=' && lexer_peek_char(l) == '=' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.Equals, "==", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '!' && lexer_peek_char(l) == '=' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.NotEquals, "!=", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '<' && lexer_peek_char(l) == '=' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.LessThanEquals, "<=", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '>' && lexer_peek_char(l) == '=' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.GreaterThanEquals, ">=", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '&' && lexer_peek_char(l) == '&' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.And, "&&", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '|' && lexer_peek_char(l) == '|' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.Or, "||", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '-' && lexer_peek_char(l) == '>' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.Arrow, "->", tok_line, tok_column)
+    } | false => {}
+    
+    l.ch == '=' && lexer_peek_char(l) == '>' ? | true => {
+        lexer_read_char(l)
+        lexer_read_char(l)
+        return token.create_token(token.TokenType.FatArrow, "=>", tok_line, tok_column)
+    } | false => {}
+    
+    // Single-character tokens
+    current_ch := l.ch
+    lexer_read_char(l)
+    
+    current_ch == '+' ? | true => { return token.create_token(token.TokenType.Plus, "+", tok_line, tok_column) } | false => {}
+    current_ch == '-' ? | true => { return token.create_token(token.TokenType.Minus, "-", tok_line, tok_column) } | false => {}
+    current_ch == '*' ? | true => { return token.create_token(token.TokenType.Star, "*", tok_line, tok_column) } | false => {}
+    current_ch == '/' ? | true => { return token.create_token(token.TokenType.Slash, "/", tok_line, tok_column) } | false => {}
+    current_ch == '%' ? | true => { return token.create_token(token.TokenType.Percent, "%", tok_line, tok_column) } | false => {}
+    current_ch == '=' ? | true => { return token.create_token(token.TokenType.Assign, "=", tok_line, tok_column) } | false => {}
+    current_ch == '<' ? | true => { return token.create_token(token.TokenType.LessThan, "<", tok_line, tok_column) } | false => {}
+    current_ch == '>' ? | true => { return token.create_token(token.TokenType.GreaterThan, ">", tok_line, tok_column) } | false => {}
+    current_ch == '!' ? | true => { return token.create_token(token.TokenType.Not, "!", tok_line, tok_column) } | false => {}
+    current_ch == '(' ? | true => { return token.create_token(token.TokenType.LeftParen, "(", tok_line, tok_column) } | false => {}
+    current_ch == ')' ? | true => { return token.create_token(token.TokenType.RightParen, ")", tok_line, tok_column) } | false => {}
+    current_ch == '{' ? | true => { return token.create_token(token.TokenType.LeftBrace, "{", tok_line, tok_column) } | false => {}
+    current_ch == '}' ? | true => { return token.create_token(token.TokenType.RightBrace, "}", tok_line, tok_column) } | false => {}
+    current_ch == '[' ? | true => { return token.create_token(token.TokenType.LeftBracket, "[", tok_line, tok_column) } | false => {}
+    current_ch == ']' ? | true => { return token.create_token(token.TokenType.RightBracket, "]", tok_line, tok_column) } | false => {}
+    current_ch == ',' ? | true => { return token.create_token(token.TokenType.Comma, ",", tok_line, tok_column) } | false => {}
+    current_ch == ';' ? | true => { return token.create_token(token.TokenType.Semicolon, ";", tok_line, tok_column) } | false => {}
+    current_ch == ':' ? | true => { return token.create_token(token.TokenType.Colon, ":", tok_line, tok_column) } | false => {}
+    current_ch == '.' ? | true => { return token.create_token(token.TokenType.Dot, ".", tok_line, tok_column) } | false => {}
+    current_ch == '?' ? | true => { return token.create_token(token.TokenType.Question, "?", tok_line, tok_column) } | false => {}
+    current_ch == '|' ? | true => { return token.create_token(token.TokenType.Pipe, "|", tok_line, tok_column) } | false => {}
+    current_ch == '@' ? | true => { return token.create_token(token.TokenType.At, "@", tok_line, tok_column) } | false => {}
+    
+    // Unknown character
+    ch_str := "?"  // Placeholder for unknown char
+    return token.create_token(token.TokenType.Identifier, ch_str, tok_line, tok_column)
+}
+
 // Main function for testing
 main = () i32 {
     io.print("Zen Lexer - Self-hosting component\n")
+    io.print("===================================\n\n")
     
     // Test input
-    input := "x := 42 + 3.14"
+    input := "x := 42\ny := x + 3.14\nif x > 10 { io.print(\"Hello\") }"
+    io.print("Input:\n")
+    io.print(input)
+    io.print("\n\nTokens:\n")
+    
     l := lexer_new(input)
     
-    io.print("Lexing: ")
-    io.print(input)
-    io.print("\n")
-    
-    // Simple token extraction test
+    // Tokenize and display
     loop {
-
-        l.ch != 0 ? | false => { break } | true => {}
-        lexer_skip_whitespace(&l)
+        tok := lexer_next_token(&l)
         
-        is_letter(l.ch) ? 
-            | true => {
-                id := lexer_read_identifier(&l)
-                io.print("Identifier: ")
-                io.print(id)
-                io.print("\n")
-            }
-            | false => {}
+        tok.type == token.TokenType.EOF ? | true => { 
+            io.print("EOF\n")
+            break 
+        } | false => {}
         
-        is_digit(l.ch) ?
-            | true => {
-                num := lexer_read_number(&l)
-                io.print("Number: ")
-                io.print(num)
-                io.print("\n")
-            }
-            | false => {}
-        
-        // Handle operators
-        l.ch == ':' && lexer_peek_char(&l) == '=' ?
-            | true => {
-                io.print("Operator: :=\n")
-                lexer_read_char(&l)
-                lexer_read_char(&l)
-            }
-            | false => {}
-        
-        l.ch == '+' ?
-            | true => {
-                io.print("Operator: +\n")
-                lexer_read_char(&l)
-            }
-            | false => {}
-        
-        // Move to next if we haven't processed this char
-        l.ch != 0 && !is_letter(l.ch) && !is_digit(l.ch) && l.ch != ':' && l.ch != '+' ?
-            | true => { lexer_read_char(&l) }
-            | false => {}
+        io.print("Token: ")
+        io.print(tok.value)
+        io.print(" (line ")
+        io.print_int(tok.line)
+        io.print(", col ")
+        io.print_int(tok.column)
+        io.print(")\n")
     }
     
     return 0
