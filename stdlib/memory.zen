@@ -53,10 +53,8 @@ allocate = <T>(count: usize) Ptr<T> {
     }
     
     // Track allocation in debug mode
-    @comptime {
-        if (@debug) {
-            track_allocation(ptr, size, @line, @file)
-        }
+    if (@debug) {
+        track_allocation(ptr, size, @line, @file)
     }
     
     return @ptrcast(Ptr<T>, ptr)
@@ -71,10 +69,8 @@ allocate_zeroed = <T>(count: usize) Ptr<T> {
     }
     
     // Track allocation in debug mode
-    @comptime {
-        if (@debug) {
-            track_allocation(ptr, count * @sizeof(T), @line, @file)
-        }
+    if (@debug) {
+        track_allocation(ptr, count * @sizeof(T), @line, @file)
     }
     
     return @ptrcast(Ptr<T>, ptr)
@@ -90,11 +86,9 @@ reallocate = <T>(ptr: Ptr<T>, new_count: usize) Ptr<T> {
     }
     
     // Update tracking in debug mode
-    @comptime {
-        if (@debug) {
-            untrack_allocation(@ptrcast(Ptr<void>, ptr))
-            track_allocation(new_ptr, new_size, @line, @file)
-        }
+    if (@debug) {
+        untrack_allocation(@ptrcast(Ptr<void>, ptr))
+        track_allocation(new_ptr, new_size, @line, @file)
     }
     
     return @ptrcast(Ptr<T>, new_ptr)
@@ -107,10 +101,8 @@ deallocate = <T>(ptr: Ptr<T>) void {
     }
     
     // Untrack allocation in debug mode
-    @comptime {
-        if (@debug) {
-            untrack_allocation(@ptrcast(Ptr<void>, ptr))
-        }
+    if (@debug) {
+        untrack_allocation(@ptrcast(Ptr<void>, ptr))
     }
     
     deallocate_raw(@ptrcast(Ptr<void>, ptr))
@@ -464,10 +456,8 @@ panic = (message: string) void {
     io.eprintln("PANIC: " + message)
     
     // Print memory stats in debug mode
-    @comptime {
-        if (@debug) {
-            print_memory_stats()
-        }
+    if (@debug) {
+        print_memory_stats()
     }
     
     @exit(1)
