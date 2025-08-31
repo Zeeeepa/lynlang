@@ -1,0 +1,79 @@
+// Fibonacci sequence example using Zen stdlib
+
+io := @std.io
+core := @std.core
+
+// Calculate fibonacci number recursively
+fib_recursive = (n: i32) i32 {
+    n <= 1 ?
+        | true => n
+        | false => fib_recursive(n - 1) + fib_recursive(n - 2)
+}
+
+// Calculate fibonacci number iteratively
+fib_iterative = (n: i32) i32 {
+    n <= 1 ?
+        | true => n
+        | false => {}
+    
+    prev: i32 = 0
+    curr: i32 = 1
+    i: i32 = 2
+    
+    loop i <= n {
+        next: i32 = prev + curr
+        prev = curr
+        curr = next
+        i = i + 1
+    }
+    
+    return curr
+}
+
+// Print fibonacci sequence up to n terms
+print_fib_sequence = (n: i32) void {
+    io.print("Fibonacci sequence (")
+    io.print_int(n)
+    io.println(" terms):")
+    
+    i: i32 = 0
+    loop i < n {
+        fib: i32 = fib_iterative(i)
+        io.print("  fib(")
+        io.print_int(i)
+        io.print(") = ")
+        io.print_int(fib)
+        io.print("\n")
+        i = i + 1
+    }
+}
+
+// Main function
+main = () i32 {
+    io.println("=== Fibonacci Calculator ===\n")
+    
+    // Test recursive implementation
+    io.println("Recursive implementation:")
+    n: i32 = 10
+    result: i32 = fib_recursive(n)
+    io.print("  fib(")
+    io.print_int(n)
+    io.print(") = ")
+    io.print_int(result)
+    io.print("\n\n")
+    
+    // Test iterative implementation
+    io.println("Iterative implementation:")
+    result = fib_iterative(n)
+    io.print("  fib(")
+    io.print_int(n)
+    io.print(") = ")
+    io.print_int(result)
+    io.print("\n\n")
+    
+    // Print sequence
+    print_fib_sequence(15)
+    
+    io.println("\n✓ Program completed successfully")
+    return 0
+}
