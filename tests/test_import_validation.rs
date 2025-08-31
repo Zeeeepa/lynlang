@@ -68,9 +68,9 @@ fs := build.import("fs")
 }
 
 #[test]
-fn test_comptime_import_acceptance() {
-    // Test that imports inside comptime blocks are now accepted
-    let valid_cases = vec![
+fn test_comptime_import_rejection() {
+    // Test that imports inside comptime blocks are rejected
+    let invalid_cases = vec![
         "comptime { core := @std.core }",
         "comptime { build := @std.build }",
         r#"comptime { 
@@ -82,13 +82,17 @@ fn test_comptime_import_acceptance() {
         }"#,
     ];
     
-    for input in valid_cases {
+    for input in invalid_cases {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
         
-        // Parser should now accept imports in comptime blocks
-        let result = parser.parse_program();
-        assert!(result.is_ok(), "Parser should accept imports in comptime blocks: {}", input);
+        // Even if parser accepts it, type checker should reject imports in comptime
+        if let Ok(prog) = program {
+            let mut type_checker = TypeChecker::new();
+            let result = type_checker.check_program(&prog);
+            assert!(result.is_err(), "Type checker should reject imports in comptime blocks: {}", input);
+        }
     }
 }
 

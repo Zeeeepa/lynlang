@@ -1,6 +1,7 @@
 use zen::ast::{Program, Statement, Declaration};
 use zen::parser::Parser;
 use zen::lexer::Lexer;
+use zen::typechecker::TypeChecker;
 
 fn get_imports(program: &Program) -> Vec<(String, String)> {
     program.declarations.iter().filter_map(|d| {
@@ -145,8 +146,8 @@ fn test_mixed_imports_and_declarations() {
 }
 
 #[test]
-fn test_import_in_comptime_accepted() {
-    // Test that imports in comptime blocks are now accepted
+fn test_import_in_comptime_rejected() {
+    // Test that imports in comptime blocks are rejected by type checker
     let input = r#"
         comptime {
             core := @std.core
@@ -160,9 +161,13 @@ fn test_import_in_comptime_accepted() {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     
-    // Parser should now accept imports inside comptime blocks
+    // Parser may accept it, but type checker should reject
     let result = parser.parse_program();
-    assert!(result.is_ok(), "Parser should accept imports inside comptime blocks");
+    if let Ok(program) = result {
+        let mut type_checker = TypeChecker::new();
+        let check_result = type_checker.check_program(&program);
+        assert!(check_result.is_err(), "Type checker should reject imports inside comptime blocks");
+    }
 }
 
 #[test]
