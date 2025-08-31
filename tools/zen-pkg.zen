@@ -1,0 +1,422 @@
+// Zen Package Manager (zen-pkg)
+// Package management for the Zen ecosystem
+
+core := @std.core
+build := @std.build
+io := build.import("io")
+fs := build.import("fs")
+string := build.import("string")
+process := build.import("process")
+http := build.import("http")
+json := build.import("json")
+
+// Package manifest structure
+PackageManifest := struct {
+    name: string
+    version: string
+    description: string
+    author: string
+    license: string
+    repository: string
+    dependencies: Map<string, string>
+    dev_dependencies: Map<string, string>
+    scripts: Map<string, string>
+    entry_point: string
+    zen_version: string
+}
+
+// Global package registry
+REGISTRY_URL := "https://registry.zenlang.org"
+CACHE_DIR := expand_home("~/.zen/cache")
+PACKAGES_DIR := expand_home("~/.zen/packages")
+MANIFEST_FILE := "zen.toml"
+
+// Command structure
+Command := enum {
+    Init
+    Install
+    Uninstall
+    Update
+    Search
+    Publish
+    Run
+    Build
+    Test
+    Clean
+    List
+    Info
+    Help
+}
+
+// Parse command line arguments
+parse_args = (args: []string) (Command, Map<string, string>) {
+    if (args.len < 2) {
+        return (Command.Help, Map.new())
+    }
+    
+    cmd_str := args[1]
+    options := Map<string, string>.new()
+    
+    // Parse options
+    i := 2
+    while (i < args.len) {
+        arg := args[i]
+        if (string.starts_with(arg, "--")) {
+            key := string.substring(arg, 2, arg.len)
+            value := if (i + 1 < args.len && !string.starts_with(args[i + 1], "-")) {
+                i += 1
+                args[i]
+            } else {
+                "true"
+            }
+            options.set(key, value)
+        } else if (string.starts_with(arg, "-")) {
+            key := string.substring(arg, 1, arg.len)
+            options.set(key, "true")
+        } else {
+            options.set("package", arg)
+        }
+        i += 1
+    }
+    
+    // Map command string to enum
+    cmd := match (cmd_str) {
+        "init" => Command.Init
+        "install" | "i" => Command.Install
+        "uninstall" | "remove" | "rm" => Command.Uninstall
+        "update" | "upgrade" => Command.Update
+        "search" | "find" => Command.Search
+        "publish" | "pub" => Command.Publish
+        "run" | "r" => Command.Run
+        "build" | "b" => Command.Build
+        "test" | "t" => Command.Test
+        "clean" => Command.Clean
+        "list" | "ls" => Command.List
+        "info" | "show" => Command.Info
+        _ => Command.Help
+    }
+    
+    return (cmd, options)
+}
+
+// Initialize a new package
+init_package = (options: Map<string, string>) i32 {
+    io.println("Initializing new Zen package...")
+    
+    // Check if manifest already exists
+    if (fs.exists(MANIFEST_FILE)) {
+        io.eprintln("Error: " + MANIFEST_FILE + " already exists")
+        return 1
+    }
+    
+    // Get package information
+    name := options.get_or("name", prompt("Package name: "))
+    version := options.get_or("version", "0.1.0")
+    description := options.get_or("description", prompt("Description: "))
+    author := options.get_or("author", get_git_user())
+    license := options.get_or("license", "MIT")
+    
+    // Create manifest
+    manifest := PackageManifest{
+        name: name,
+        version: version,
+        description: description,
+        author: author,
+        license: license,
+        repository: "",
+        dependencies: Map.new(),
+        dev_dependencies: Map.new(),
+        scripts: Map.new(),
+        entry_point: "src/main.zen",
+        zen_version: "^0.1.0"
+    }
+    
+    // Write manifest
+    write_manifest(manifest)
+    
+    // Create directory structure
+    fs.create_dir("src")
+    fs.create_dir("tests")
+    fs.create_dir("docs")
+    
+    // Create main file
+    main_content := "// " + name + " - " + description + "\n\n"
+    main_content += "core := @std.core\n"
+    main_content += "build := @std.build\n"
+    main_content += "io := build.import(\"io\")\n\n"
+    main_content += "main = () i32 {\n"
+    main_content += "    io.println(\"Hello from " + name + "!\")\n"
+    main_content += "    return 0\n"
+    main_content += "}\n"
+    
+    fs.write_file("src/main.zen", main_content)
+    
+    // Create README
+    readme := "# " + name + "\n\n"
+    readme += description + "\n\n"
+    readme += "## Installation\n\n"
+    readme += "```bash\n"
+    readme += "zen-pkg install\n"
+    readme += "```\n\n"
+    readme += "## Usage\n\n"
+    readme += "```bash\n"
+    readme += "zen-pkg run\n"
+    readme += "```\n"
+    
+    fs.write_file("README.md", readme)
+    
+    // Create .gitignore
+    gitignore := "# Zen package files\n"
+    gitignore += "zen_modules/\n"
+    gitignore += "*.zen.lock\n"
+    gitignore += "build/\n"
+    gitignore += "dist/\n"
+    
+    fs.write_file(".gitignore", gitignore)
+    
+    io.println("✓ Package initialized successfully!")
+    io.println("  Name: " + name)
+    io.println("  Version: " + version)
+    io.println("  Entry: " + manifest.entry_point)
+    
+    return 0
+}
+
+// Install packages
+install_packages = (options: Map<string, string>) i32 {
+    // Read manifest
+    manifest := read_manifest()
+    if (manifest.is_error()) {
+        io.eprintln("Error reading manifest: " + manifest.error())
+        return 1
+    }
+    
+    m := manifest.unwrap()
+    
+    // Determine what to install
+    package_name := options.get("package")
+    if (package_name.is_some()) {
+        // Install specific package
+        version := options.get_or("version", "latest")
+        return install_package(package_name.unwrap(), version, false)
+    } else {
+        // Install all dependencies
+        io.println("Installing dependencies...")
+        
+        // Create zen_modules directory
+        fs.create_dir_all("zen_modules")
+        
+        // Install each dependency
+        for (dep in m.dependencies) {
+            result := install_package(dep.key, dep.value, false)
+            if (result != 0) return result
+        }
+        
+        // Install dev dependencies if requested
+        if (options.get_or("dev", "false") == "true") {
+            for (dep in m.dev_dependencies) {
+                result := install_package(dep.key, dep.value, true)
+                if (result != 0) return result
+            }
+        }
+        
+        io.println("✓ All dependencies installed")
+        return 0
+    }
+}
+
+// Install a single package
+install_package = (name: string, version: string, is_dev: bool) i32 {
+    io.println("Installing " + name + "@" + version + "...")
+    
+    // Check cache first
+    cache_path := CACHE_DIR + "/" + name + "-" + version + ".tar.gz"
+    if (!fs.exists(cache_path)) {
+        // Download from registry
+        url := REGISTRY_URL + "/packages/" + name + "/" + version
+        result := download_package(url, cache_path)
+        if (result != 0) {
+            io.eprintln("Failed to download " + name)
+            return 1
+        }
+    }
+    
+    // Extract to zen_modules
+    target_dir := "zen_modules/" + name
+    fs.create_dir_all(target_dir)
+    
+    extract_result := extract_tarball(cache_path, target_dir)
+    if (extract_result != 0) {
+        io.eprintln("Failed to extract " + name)
+        return 1
+    }
+    
+    io.println("✓ Installed " + name + "@" + version)
+    
+    // Update manifest if installing new package
+    if (!is_dev) {
+        add_dependency(name, version, false)
+    } else {
+        add_dependency(name, version, true)
+    }
+    
+    return 0
+}
+
+// Search for packages
+search_packages = (options: Map<string, string>) i32 {
+    query := options.get_or("package", "")
+    if (query == "") {
+        io.eprintln("Please specify a search query")
+        return 1
+    }
+    
+    io.println("Searching for packages matching '" + query + "'...")
+    
+    // Query registry
+    url := REGISTRY_URL + "/search?q=" + url_encode(query)
+    response := http.get(url)
+    if (response.is_error()) {
+        io.eprintln("Failed to search registry: " + response.error())
+        return 1
+    }
+    
+    // Parse results
+    results := json.parse(response.unwrap())
+    if (results.is_error()) {
+        io.eprintln("Invalid response from registry")
+        return 1
+    }
+    
+    packages := results.unwrap().as_array()
+    if (packages.len == 0) {
+        io.println("No packages found")
+        return 0
+    }
+    
+    // Display results
+    io.println("\nFound " + string.from_u32(packages.len) + " packages:\n")
+    for (pkg in packages) {
+        name := pkg.get("name").as_string()
+        version := pkg.get("version").as_string()
+        desc := pkg.get("description").as_string()
+        
+        io.println("  " + name + " (" + version + ")")
+        io.println("    " + desc)
+        io.println("")
+    }
+    
+    return 0
+}
+
+// Run a script
+run_script = (options: Map<string, string>) i32 {
+    manifest := read_manifest()
+    if (manifest.is_error()) {
+        io.eprintln("Error reading manifest: " + manifest.error())
+        return 1
+    }
+    
+    m := manifest.unwrap()
+    script_name := options.get_or("package", "start")
+    
+    // Check if script exists
+    script := m.scripts.get(script_name)
+    if (script.is_none()) {
+        // If no script, try to run entry point
+        if (script_name == "start" && fs.exists(m.entry_point)) {
+            return process.exec("zen " + m.entry_point)
+        }
+        io.eprintln("Script '" + script_name + "' not found")
+        return 1
+    }
+    
+    // Execute script
+    io.println("Running script '" + script_name + "'...")
+    return process.exec(script.unwrap())
+}
+
+// Build the package
+build_package = (options: Map<string, string>) i32 {
+    manifest := read_manifest()
+    if (manifest.is_error()) {
+        io.eprintln("Error reading manifest: " + manifest.error())
+        return 1
+    }
+    
+    m := manifest.unwrap()
+    io.println("Building " + m.name + " v" + m.version + "...")
+    
+    // Create build directory
+    fs.create_dir_all("build")
+    
+    // Compile entry point
+    output := options.get_or("output", "build/" + m.name)
+    result := process.exec("zen-compile " + m.entry_point + " -o " + output)
+    
+    if (result == 0) {
+        io.println("✓ Build successful: " + output)
+    } else {
+        io.eprintln("✗ Build failed")
+    }
+    
+    return result
+}
+
+// Print help
+print_help = () void {
+    io.println("Zen Package Manager (zen-pkg)")
+    io.println("")
+    io.println("Usage: zen-pkg <command> [options]")
+    io.println("")
+    io.println("Commands:")
+    io.println("  init              Initialize a new package")
+    io.println("  install [pkg]     Install dependencies or a specific package")
+    io.println("  uninstall <pkg>   Remove a package")
+    io.println("  update [pkg]      Update dependencies or a specific package")
+    io.println("  search <query>    Search for packages")
+    io.println("  publish           Publish package to registry")
+    io.println("  run [script]      Run a script from package.json")
+    io.println("  build             Build the package")
+    io.println("  test              Run tests")
+    io.println("  clean             Remove build artifacts")
+    io.println("  list              List installed packages")
+    io.println("  info <pkg>        Show package information")
+    io.println("  help              Show this help message")
+    io.println("")
+    io.println("Options:")
+    io.println("  --version <ver>   Specify package version")
+    io.println("  --dev             Include dev dependencies")
+    io.println("  --global          Install globally")
+    io.println("  --output <path>   Output path for build")
+}
+
+// Main entry point
+main = (args: []string) i32 {
+    // Ensure directories exist
+    fs.create_dir_all(CACHE_DIR)
+    fs.create_dir_all(PACKAGES_DIR)
+    
+    // Parse command and options
+    (cmd, options) := parse_args(args)
+    
+    // Execute command
+    return match (cmd) {
+        .Init => init_package(options)
+        .Install => install_packages(options)
+        .Uninstall => uninstall_package(options)
+        .Update => update_packages(options)
+        .Search => search_packages(options)
+        .Publish => publish_package(options)
+        .Run => run_script(options)
+        .Build => build_package(options)
+        .Test => run_tests(options)
+        .Clean => clean_build(options)
+        .List => list_packages(options)
+        .Info => show_package_info(options)
+        .Help => {
+            print_help()
+            0
+        }
+    }
+}
