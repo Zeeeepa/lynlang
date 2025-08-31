@@ -1,6 +1,11 @@
 use inkwell::context::Context;
+use inkwell::execution_engine::ExecutionEngine;
+use inkwell::targets::{Target, TargetMachine, RelocMode, CodeModel, FileType};
+use inkwell::OptimizationLevel;
 use std::io::{self, Write, BufRead};
 use std::env;
+use std::path::Path;
+use std::process::Command;
 
 mod ast;
 mod codegen;
@@ -22,7 +27,7 @@ use zen::error::{Result, CompileError};
 
 fn main() -> std::io::Result<()> {
     // Initialize LLVM
-    inkwell::targets::Target::initialize_native(&inkwell::targets::InitializationConfig::default())
+    Target::initialize_native(&inkwell::targets::InitializationConfig::default())
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("LLVM initialization failed: {}", e)))?;
     
     let args: Vec<String> = env::args().collect();
@@ -33,13 +38,23 @@ fn main() -> std::io::Result<()> {
             run_repl()?;
         }
         2 => {
-            // One argument - treat as file path
-            let file_path = &args[1];
-            if file_path == "--help" || file_path == "-h" {
+            // One argument
+            let arg = &args[1];
+            if arg == "--help" || arg == "-h" {
                 print_usage();
                 return Ok(());
             }
-            run_file(file_path)?;
+            // Compile and run the file
+            run_file(arg)?;
+        }
+        3 | 4 => {
+            // Multiple arguments - check for -o flag
+            if args.contains(&"-o".to_string()) {
+                compile_file(&args)?;
+            } else {
+                print_usage();
+                return Ok(());
+            }
         }
         _ => {
             print_usage();
@@ -54,13 +69,16 @@ fn print_usage() {
     println!("Zen Language Compiler");
     println!();
     println!("Usage:");
-    println!("  zen                    Start interactive REPL");
-    println!("  zen <file.zen>         Compile and run a Zen file");
-    println!("  zen --help             Show this help message");
+    println!("  zen                           Start interactive REPL");
+    println!("  zen <file.zen>                Compile and run a Zen file");
+    println!("  zen <file.zen> -o <output>    Compile to executable");
+    println!("  zen -o <output> <file.zen>    Compile to executable");
+    println!("  zen --help                    Show this help message");
     println!();
     println!("Examples:");
-    println!("  zen                    # Start REPL");
-    println!("  zen hello.zen          # Run hello.zen file");
+    println!("  zen                           # Start REPL");
+    println!("  zen hello.zen                 # Run hello.zen file");
+    println!("  zen hello.zen -o hello        # Compile to executable");
 }
 
 fn run_repl() -> std::io::Result<()> {
@@ -133,19 +151,112 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
         .map_err(|e| io::Error::new(io::ErrorKind::NotFound, format!("Failed to read file: {}", e)))?;
     
     let context = Context::create();
-    let mut compiler = Compiler::new(&context);
+    let compiler = Compiler::new(&context);
     
-    match execute_zen_code(&mut compiler, &source) {
-        Ok(result) => {
-            if let Some(value) = result {
-                println!("{}", value);
+    // Parse the source
+    let lexer = Lexer::new(&source);
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Parse error: {}", e)))?;
+    
+    // Get the LLVM module
+    let module = compiler.get_module(&program)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
+    
+    // Create execution engine and run
+    let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to create execution engine: {}", e)))?;
+    
+    // Find and run main function
+    match execution_engine.get_function_value("main") {
+        Ok(main_fn) => {
+            let result = unsafe { execution_engine.run_function(main_fn, &[]) };
+            let exit_code = result.as_int(true) as i32;
+            if exit_code != 0 {
+                std::process::exit(exit_code);
             }
         }
-        Err(e) => {
-            eprintln!("Compilation error: {}", e);
-            std::process::exit(1);
+        Err(_) => {
+            eprintln!("Warning: No main function found");
         }
     }
+    
+    Ok(())
+}
+
+fn compile_file(args: &[String]) -> std::io::Result<()> {
+    // Parse arguments
+    let (input_file, output_file) = if args[1] == "-o" {
+        (&args[3], &args[2])
+    } else if args[2] == "-o" {
+        (&args[1], &args[3])
+    } else {
+        print_usage();
+        return Ok(());
+    };
+    
+    // Read the source file
+    let source = std::fs::read_to_string(input_file)
+        .map_err(|e| io::Error::new(io::ErrorKind::NotFound, format!("Failed to read file: {}", e)))?;
+    
+    let context = Context::create();
+    let compiler = Compiler::new(&context);
+    
+    // Parse the source
+    let lexer = Lexer::new(&source);
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Parse error: {}", e)))?;
+    
+    // Get the LLVM module
+    let module = compiler.get_module(&program)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
+    
+    // Write LLVM IR for debugging
+    let ir_path = format!("{}.ll", output_file);
+    module.print_to_file(&ir_path)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to write IR: {}", e)))?;
+    
+    // Get target machine
+    let target_triple = TargetMachine::get_default_triple();
+    let target = Target::from_triple(&target_triple)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to get target: {}", e)))?;
+    
+    let target_machine = target
+        .create_target_machine(
+            &target_triple,
+            "generic",
+            "",
+            OptimizationLevel::Default,
+            RelocMode::Default,
+            CodeModel::Default,
+        )
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to create target machine"))?;
+    
+    // Write object file
+    let obj_path = format!("{}.o", output_file);
+    target_machine.write_to_file(&module, FileType::Object, Path::new(&obj_path))
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to write object file: {}", e)))?;
+    
+    // Link with system libraries to create executable
+    let mut cmd = Command::new("cc");
+    cmd.arg(&obj_path)
+        .arg("-o")
+        .arg(output_file)
+        .arg("-no-pie")  // Disable PIE for compatibility
+        .arg("-lm");  // Link math library
+    
+    let status = cmd.status()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to link: {}", e)))?;
+    
+    if !status.success() {
+        return Err(io::Error::new(io::ErrorKind::Other, "Linking failed"));
+    }
+    
+    // Clean up object file
+    std::fs::remove_file(&obj_path).ok();
+    
+    println!("✅ Successfully compiled to: {}", output_file);
     
     Ok(())
 }

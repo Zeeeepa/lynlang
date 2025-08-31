@@ -1,0 +1,143 @@
+// Zen Test Runner
+// Simple test program to verify the compiler works
+
+io := @std.io
+core := @std.core
+math := @std.math
+
+// Test basic arithmetic
+test_arithmetic = () bool {
+    a := 10
+    b := 20
+    c := a + b
+    
+    if c != 30 {
+        io.println("FAIL: arithmetic test - expected 30, got something else")
+        return false
+    }
+    
+    io.println("PASS: arithmetic test")
+    return true
+}
+
+// Test function calls
+fibonacci = (n: i32) i32 {
+    if n <= 1 {
+        return n
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+test_fibonacci = () bool {
+    result := fibonacci(10)
+    expected := 55
+    
+    if result != expected {
+        io.println("FAIL: fibonacci test")
+        return false
+    }
+    
+    io.println("PASS: fibonacci test")
+    return true
+}
+
+// Test structs
+Point = {
+    x: i32,
+    y: i32,
+}
+
+test_structs = () bool {
+    p := Point { x: 10, y: 20 }
+    
+    if p.x != 10 || p.y != 20 {
+        io.println("FAIL: struct test")
+        return false
+    }
+    
+    io.println("PASS: struct test")
+    return true
+}
+
+// Test arrays
+test_arrays = () bool {
+    arr := [1, 2, 3, 4, 5]
+    sum := 0
+    
+    for i := 0; i < 5; i = i + 1 {
+        sum = sum + arr[i]
+    }
+    
+    if sum != 15 {
+        io.println("FAIL: array test")
+        return false
+    }
+    
+    io.println("PASS: array test")
+    return true
+}
+
+// Test string operations
+test_strings = () bool {
+    str1 := "Hello"
+    str2 := "World"
+    combined := str1 + ", " + str2 + "!"
+    
+    // Just test that we can create and combine strings
+    io.println("PASS: string test")
+    return true
+}
+
+// Main test runner
+main = () i32 {
+    io.println("=== Running Zen Tests ===")
+    io.println("")
+    
+    passed := 0
+    failed := 0
+    
+    // Run all tests
+    if test_arithmetic() {
+        passed = passed + 1
+    } else {
+        failed = failed + 1
+    }
+    
+    if test_fibonacci() {
+        passed = passed + 1
+    } else {
+        failed = failed + 1
+    }
+    
+    if test_structs() {
+        passed = passed + 1
+    } else {
+        failed = failed + 1
+    }
+    
+    if test_arrays() {
+        passed = passed + 1
+    } else {
+        failed = failed + 1
+    }
+    
+    if test_strings() {
+        passed = passed + 1
+    } else {
+        failed = failed + 1
+    }
+    
+    io.println("")
+    io.println("=== Test Results ===")
+    io.print("Passed: ")
+    io.print_int(passed)
+    io.print(" Failed: ")
+    io.print_int(failed)
+    io.println("")
+    
+    if failed > 0 {
+        return 1
+    }
+    
+    return 0
+}

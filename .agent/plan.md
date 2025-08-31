@@ -1,37 +1,35 @@
 # Zenlang Import System & Self-Hosting Plan
 
-## Current Sprint: Remove Comptime Import Requirements
+## ✅ Phase 1: Import System Cleanup (COMPLETED)
+- Parser supports new import syntax
+- All comptime imports removed from codebase
+- Tests updated and passing (except known parser limitation)
 
-### Objective
-Transform all imports from comptime-wrapped syntax to clean module-level syntax, following the pattern:
-```zen
-// OLD (to remove)
-comptime {
-    core := @std.core
-    io := build.import("io")
-}
+## 🚧 Phase 2: Self-Hosting Enhancement (IN PROGRESS)
 
-// NEW (target)
-core := @std.core
-io := @std.io
-```
+### Current Focus
+Making the compiler truly self-hosting by:
+1. Integrating all stdlib compiler components
+2. Adding binary output capability (-o flag)
+3. Bootstrapping compiler with itself
 
-## Phases
+### Compiler Architecture
+- **Lexer** (`stdlib/compiler/lexer.zen`) - ✅ Complete
+- **Parser** (`stdlib/compiler/parser.zen`) - ✅ Complete  
+- **Type Checker** (`stdlib/compiler/type_checker.zen`) - ✅ Complete
+- **Symbol Table** (`stdlib/compiler/symbol_table.zen`) - ✅ Complete
+- **Code Generator** (`stdlib/compiler/codegen.zen`) - ✅ Complete
+- **LLVM Backend** (`stdlib/compiler/llvm_backend.zen`) - ✅ Complete
+- **Main Compiler** (`bootstrap/compiler.zen`) - 🚧 Integration needed
 
-### Phase 1: Import System Cleanup (Current)
-1. ✅ Parser already supports new syntax
-2. 🚧 Clean up remaining examples with old syntax
-3. 🚧 Re-enable typechecker validation
-4. 🚧 Comprehensive testing
+### Immediate Tasks
+1. Add binary output support to main.rs
+2. Test compilation of Zen programs to executables
+3. Create test suite in Zen
+4. Bootstrap the compiler
 
-### Phase 2: Self-Hosting Enhancement
-1. Complete self-hosted lexer integration
-2. Enhance self-hosted parser
-3. Implement self-hosted code generator
-4. Bootstrap compiler with itself
-
-### Phase 3: Developer Experience
-1. LSP import validation
+## Phase 3: Developer Experience
+1. LSP import validation - ✅ Already implemented
 2. Import auto-completion
 3. Module dependency analysis
 4. Import optimization
