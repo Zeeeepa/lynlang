@@ -1,10 +1,11 @@
 # Zen Language TODO List
 
 ## High Priority (Current Focus)
-- [x] Fix import system - use module-level imports instead of comptime
-- [x] Update parser for new import syntax
-- [x] Update semantic analyzer for imports
-- [x] Fix LLVM codegen for imports
+- [x] Fix import system - use module-level imports instead of comptime ✅
+- [x] Update parser for new import syntax ✅
+- [x] Update semantic analyzer for imports ✅ 
+- [x] Fix LLVM codegen for imports ✅
+- [ ] Fix nested pattern matching (last failing test)
 - [ ] Complete self-hosted compiler components
 - [ ] Expand standard library in Zen
 - [ ] Comprehensive test coverage

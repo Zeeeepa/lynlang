@@ -1,0 +1,12 @@
+extern printf = (format: *i8, ...) i32
+
+main = () i32 {
+    x := 1
+    
+    // Simple case: x == 0 is false, so should return 42
+    result := x == 0 ? | true => 10 | false => 42
+    
+    printf("result = %d (expected 42)\n", result)
+    
+    return 0
+}

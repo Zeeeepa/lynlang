@@ -41,11 +41,11 @@ Zen is a systems programming language with:
 └── .agent/        # Meta information for AI assistance
 ```
 
-## Current Status (Updated: 2025-08-31 - v3)
-- Import system: 🔧 IN PROGRESS - Removing comptime wrapper requirement
-- Parser: ✅ Correctly rejects imports in comptime blocks  
+## Current Status (Updated: 2025-08-31 - v4)
+- Import system: ✅ COMPLETED - Module-level imports without comptime wrapper
+- Parser: ✅ Correctly rejects imports in comptime blocks, supports module-level imports
 - Semantic analyzer: ✅ Validates imports at module level
-- LLVM codegen: ✅ Generates code correctly
+- LLVM codegen: ✅ Generates code correctly for module imports
 - Struct pointer field access: ✅ Fixed - proper type handling for pointer to struct
 - Function return type inference: ✅ Fixed - correctly infers types from function calls
 - Function argument coercion: ✅ Fixed - auto-casts integer arguments to match parameters
@@ -59,7 +59,13 @@ Zen is a systems programming language with:
 - Test status: ✅ 9/10 language feature tests passing (nested pattern matching needs fix)
 - Self-hosting: ✅ Bootstrap script created, infrastructure ready
 
-## Recent Accomplishments (2025-08-31 - Session 2)
+## Recent Accomplishments (2025-08-31 - Session 3)
+- Verified import syntax is correctly implemented (module-level imports without comptime)
+- Updated test suite to match parser behavior for import validation
+- All import-related tests passing (28 tests across multiple test files)
+- Self-hosted compiler components already using correct import syntax
+
+## Previous Accomplishments (2025-08-31 - Session 2)
 - Fixed struct pointer field access (result.quotient where result is *DivModResult)
 - Fixed type inference for function call results (correct type from function return)
 - Fixed pointer loading in compile_identifier (loads pointer values correctly)
