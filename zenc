@@ -1,0 +1,105 @@
+#!/bin/bash
+# Zen Compiler Wrapper Script
+# Makes it easier to compile Zen programs
+
+# Check if cargo is available
+if ! command -v cargo &> /dev/null; then
+    echo "Error: cargo not found. Please install Rust and Cargo."
+    exit 1
+fi
+
+# Check if at least one argument is provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <input.zen> [options]"
+    echo ""
+    echo "Options:"
+    echo "  -o <output>    Specify output file name"
+    echo "  -O<level>      Set optimization level (0-3)"
+    echo "  --debug        Include debug information"
+    echo "  --verbose      Enable verbose output"
+    echo "  --help         Show this help message"
+    exit 1
+fi
+
+# Parse arguments
+INPUT_FILE=""
+OUTPUT_FILE=""
+EXTRA_ARGS=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -o)
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
+        -O*)
+            EXTRA_ARGS="$EXTRA_ARGS $1"
+            shift
+            ;;
+        --debug)
+            EXTRA_ARGS="$EXTRA_ARGS $1"
+            shift
+            ;;
+        --verbose)
+            EXTRA_ARGS="$EXTRA_ARGS $1"
+            shift
+            ;;
+        --help)
+            echo "Zen Compiler"
+            echo ""
+            echo "Usage: $0 <input.zen> [options]"
+            echo ""
+            echo "Options:"
+            echo "  -o <output>    Specify output file name"
+            echo "  -O<level>      Set optimization level (0-3)"
+            echo "  --debug        Include debug information"
+            echo "  --verbose      Enable verbose output"
+            echo "  --help         Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0 main.zen                  # Compile main.zen"
+            echo "  $0 main.zen -o myprogram     # Compile to specific output"
+            echo "  $0 main.zen -O3              # Compile with max optimization"
+            exit 0
+            ;;
+        *.zen)
+            INPUT_FILE="$1"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Check if input file was provided
+if [ -z "$INPUT_FILE" ]; then
+    echo "Error: No input file specified"
+    exit 1
+fi
+
+# Check if input file exists
+if [ ! -f "$INPUT_FILE" ]; then
+    echo "Error: File '$INPUT_FILE' not found"
+    exit 1
+fi
+
+# Set default output file if not specified
+if [ -z "$OUTPUT_FILE" ]; then
+    # Remove .zen extension and use as output name
+    OUTPUT_FILE="${INPUT_FILE%.zen}"
+fi
+
+# Run the Zen compiler
+echo "Compiling $INPUT_FILE..."
+cargo run --bin zen -- "$INPUT_FILE" $EXTRA_ARGS
+
+# Check if compilation was successful
+if [ $? -eq 0 ]; then
+    echo "Compilation successful!"
+    echo "Output: $OUTPUT_FILE"
+else
+    echo "Compilation failed!"
+    exit 1
+fi
