@@ -418,11 +418,9 @@ value ? | .Some -> x => use(x)
 // String interpolation
 "Hello $(name), score: $(score)"
 
-// Comptime
+// Comptime (for meta-programming only, NOT for imports)
 comptime { /* compile-time code */ }
 
-// Module imports
-comptime {
-    io := @std.build.import("io")
-}
+// Module imports (at module level, NOT in comptime)
+io := @std.build.import("io")
 ```
