@@ -12,6 +12,7 @@ ariadne = "0.4.1"
 colored = "2.0"
 rustyline = "14.0"
 glob = "0.3"
+clap = { version = "4.0", features = ["derive"] }
 
 # LSP dependencies
 tower-lsp = "0.20"
@@ -30,6 +31,10 @@ path = "src/lsp/main.rs"
 [[bin]]
 name = "zen-check"
 path = "src/bin/zen-check.rs"
+
+[[bin]]
+name = "zen-format"
+path = "src/bin/zen-format.rs"
 
 [[test]]
 name = "codegen"

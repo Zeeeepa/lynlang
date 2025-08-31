@@ -1,77 +1,44 @@
-# Zenlang Import System & Self-Hosting Plan
+# Zen Language Development Plan
 
-## Current Focus (2025-08-31 20:52)
-- Fix import syntax to remove comptime wrapper requirement
-- Enhance self-hosting capabilities
-- Improve testing and diagnostics
+## Current Goal
+Fix import system to work without comptime blocks and continue self-hosting efforts.
 
-## ✅ Phase 1: Import System Cleanup (COMPLETED)
-- Parser supports new import syntax
-- All comptime imports removed from codebase
-- Tests updated and passing
+## Key Changes Needed
 
-## 🚧 Phase 2: Self-Hosting Enhancement (IN PROGRESS)
+### 1. Import System Reform
+**Current State:**
+```zen
+comptime {
+    core := @std.core
+    build := @std.build
+    io := build.import("io")
+}
+```
 
-### Current Focus
-Making the compiler truly self-hosting by:
-1. Integrating all stdlib compiler components
-2. Adding binary output capability (-o flag)
-3. Bootstrapping compiler with itself
+**Target State:**
+```zen
+core := @std.core
+build := @std.build
+io := build.import("io")
 
-### Compiler Architecture
-- **Lexer** (`stdlib/compiler/lexer.zen`) - ✅ Complete
-- **Parser** (`stdlib/compiler/parser.zen`) - ✅ Complete  
-- **Type Checker** (`stdlib/compiler/type_checker.zen`) - ✅ Complete
-- **Symbol Table** (`stdlib/compiler/symbol_table.zen`) - ✅ Complete
-- **Code Generator** (`stdlib/compiler/codegen.zen`) - ✅ Complete
-- **LLVM Backend** (`stdlib/compiler/llvm_backend.zen`) - ✅ Complete
-- **Main Compiler** (`bootstrap/compiler.zen`) - 🚧 Integration needed
+main = () i32 {
+    io.print("Hello, Zen!\n");
+    return 0
+}
+```
 
-### Immediate Tasks
-1. Add binary output support to main.rs
-2. Test compilation of Zen programs to executables
-3. Create test suite in Zen
-4. Bootstrap the compiler
+### 2. Implementation Steps
+1. **Parser Changes**: Allow top-level import statements
+2. **AST Updates**: Add import nodes at module level
+3. **Module Resolution**: Handle imports during compilation not comptime
+4. **Stdlib in Zen**: Rewrite core modules in Zen itself
+5. **Testing**: Comprehensive test suite
+6. **Tooling**: Basic LSP or checker
 
-## Phase 3: Developer Experience
-1. LSP import validation - ✅ Already implemented
-2. Import auto-completion
-3. Module dependency analysis
-4. Import optimization
+## Architecture Notes
+- Comptime should be for metaprogramming only
+- Imports are compile-time resolution but not comptime evaluation
+- Module system should be separate from comptime system
 
-## Technical Details
-
-### Parser Status
-- Location: `src/parser/statements.rs:14-120`
-- Feature: Lookahead for `identifier := @std.module`
-- Status: ✅ Working
-
-### Module System
-- Location: `src/module_system/mod.rs`
-- Features: Module resolution, stdlib handling
-- Status: ✅ Working
-
-### Validation
-- Location: `src/typechecker/validation.rs:160-181`
-- Status: ⚠️ Disabled (needs re-enabling)
-
-### Test Coverage
-- Import rejection tests: ✅
-- No-comptime import tests: ✅
-- Integration tests: 🚧 Need updates
-
-## Success Metrics
-1. Zero comptime-wrapped imports in codebase
-2. All tests passing
-3. Self-hosted compiler can compile itself
-4. LSP provides import validation
-
-## Git Strategy
-- Frequent commits (every significant change)
-- Clear commit messages
-- Test before commit
-- Merge to main when stable
-
-## Time Allocation
-- 80% Implementation
-- 20% Testing & Validation
+## Progress Tracking
+See todos.md for current task status
