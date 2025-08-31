@@ -24,7 +24,7 @@ main = () i32 {
     io.print("Tokens:\n")
     count := 0
     loop {
-        tok := lexer.lexer_next_token(&lex)
+        tok := lexer.lexer_next_token(lex)
         
         tok.type == token.TokenType.EOF ?
             | true => { break }
