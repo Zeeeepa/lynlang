@@ -1,0 +1,639 @@
+// Enhanced String module for Zen standard library
+// Provides comprehensive string manipulation operations
+
+// Import dependencies
+vec := @std.vec
+result := @std.result
+option := @std.option
+
+// String builder for efficient string concatenation
+StringBuilder = {
+    buffer: vec<u8>,
+    length: i32,
+}
+
+// String iterator
+StringIterator = {
+    string: string,
+    position: i32,
+}
+
+// Core string functions
+new = (s: string) string {
+    return s
+}
+
+from_cstr = (ptr: *u8) string {
+    return @compiler.builtin("string_from_cstr", ptr)
+}
+
+from_bytes = (bytes: []u8) string {
+    return @compiler.builtin("string_from_bytes", bytes)
+}
+
+to_bytes = (s: string) []u8 {
+    return @compiler.builtin("string_to_bytes", s)
+}
+
+// Length and size operations
+len = (s: string) i32 {
+    return @compiler.builtin("string_len", s)
+}
+
+is_empty = (s: string) bool {
+    return len(s) == 0
+}
+
+byte_len = (s: string) i32 {
+    return @compiler.builtin("string_byte_len", s)
+}
+
+// Character operations
+char_at = (s: string, index: i32) option<char> {
+    if index < 0 || index >= len(s) {
+        return option.none()
+    }
+    return option.some(@compiler.builtin("string_char_at", s, index))
+}
+
+char_code_at = (s: string, index: i32) option<i32> {
+    if index < 0 || index >= len(s) {
+        return option.none()
+    }
+    return option.some(@compiler.builtin("string_char_code_at", s, index))
+}
+
+// Comparison operations
+equals = (s1: string, s2: string) bool {
+    return @compiler.builtin("string_equals", s1, s2)
+}
+
+compare = (s1: string, s2: string) i32 {
+    return @compiler.builtin("string_compare", s1, s2)
+}
+
+starts_with = (s: string, prefix: string) bool {
+    if len(prefix) > len(s) {
+        return false
+    }
+    return equals(substring(s, 0, len(prefix)), prefix)
+}
+
+ends_with = (s: string, suffix: string) bool {
+    s_len := len(s)
+    suffix_len := len(suffix)
+    if suffix_len > s_len {
+        return false
+    }
+    return equals(substring(s, s_len - suffix_len, suffix_len), suffix)
+}
+
+// Substring operations
+substring = (s: string, start: i32, length: i32) string {
+    return @compiler.builtin("string_substring", s, start, length)
+}
+
+slice = (s: string, start: i32, end: i32) string {
+    if start < 0 || end < start || end > len(s) {
+        return ""
+    }
+    return substring(s, start, end - start)
+}
+
+// Concatenation
+append = (s1: string, s2: string) string {
+    return @compiler.builtin("string_concat", s1, s2)
+}
+
+append_char = (s: string, c: char) string {
+    return @compiler.builtin("string_append_char", s, c)
+}
+
+concat = (strings: []string) string {
+    mut result := ""
+    for s in strings {
+        result = append(result, s)
+    }
+    return result
+}
+
+join = (strings: []string, separator: string) string {
+    if vec.len(strings) == 0 {
+        return ""
+    }
+    
+    mut result := strings[0]
+    mut i := 1
+    while i < vec.len(strings) {
+        result = append(result, separator)
+        result = append(result, strings[i])
+        i = i + 1
+    }
+    return result
+}
+
+// Search operations
+index_of = (s: string, needle: string) option<i32> {
+    return index_of_from(s, needle, 0)
+}
+
+index_of_from = (s: string, needle: string, start: i32) option<i32> {
+    pos := @compiler.builtin("string_index_of", s, needle, start)
+    if pos < 0 {
+        return option.none()
+    }
+    return option.some(pos)
+}
+
+last_index_of = (s: string, needle: string) option<i32> {
+    pos := @compiler.builtin("string_last_index_of", s, needle)
+    if pos < 0 {
+        return option.none()
+    }
+    return option.some(pos)
+}
+
+contains = (s: string, needle: string) bool {
+    match index_of(s, needle) {
+        option.Some(_) => return true,
+        option.None => return false,
+    }
+}
+
+count = (s: string, needle: string) i32 {
+    mut count := 0
+    mut pos := 0
+    needle_len := len(needle)
+    
+    if needle_len == 0 {
+        return 0
+    }
+    
+    loop {
+        match index_of_from(s, needle, pos) {
+            option.Some(index) => {
+                count = count + 1
+                pos = index + needle_len
+            },
+            option.None => break,
+        }
+    }
+    
+    return count
+}
+
+// Split operations
+split = (s: string, delimiter: string) vec<string> {
+    mut result := vec.new()
+    mut start := 0
+    delimiter_len := len(delimiter)
+    
+    if delimiter_len == 0 {
+        // Split into characters
+        mut i := 0
+        while i < len(s) {
+            result = vec.push(result, substring(s, i, 1))
+            i = i + 1
+        }
+        return result
+    }
+    
+    loop {
+        match index_of_from(s, delimiter, start) {
+            option.Some(index) => {
+                result = vec.push(result, substring(s, start, index - start))
+                start = index + delimiter_len
+            },
+            option.None => {
+                result = vec.push(result, substring(s, start, len(s) - start))
+                break
+            },
+        }
+    }
+    
+    return result
+}
+
+split_n = (s: string, delimiter: string, n: i32) vec<string> {
+    mut result := vec.new()
+    mut start := 0
+    mut count := 0
+    delimiter_len := len(delimiter)
+    
+    if delimiter_len == 0 || n <= 0 {
+        return vec.push(result, s)
+    }
+    
+    while count < n - 1 {
+        match index_of_from(s, delimiter, start) {
+            option.Some(index) => {
+                result = vec.push(result, substring(s, start, index - start))
+                start = index + delimiter_len
+                count = count + 1
+            },
+            option.None => break,
+        }
+    }
+    
+    // Add remaining part
+    result = vec.push(result, substring(s, start, len(s) - start))
+    return result
+}
+
+lines = (s: string) vec<string> {
+    return split(s, "\n")
+}
+
+// Replace operations
+replace = (s: string, old: string, new: string) string {
+    return replace_n(s, old, new, -1)
+}
+
+replace_n = (s: string, old: string, new: string, n: i32) string {
+    if len(old) == 0 || n == 0 {
+        return s
+    }
+    
+    mut result := ""
+    mut start := 0
+    mut count := 0
+    old_len := len(old)
+    
+    loop {
+        if n > 0 && count >= n {
+            result = append(result, substring(s, start, len(s) - start))
+            break
+        }
+        
+        match index_of_from(s, old, start) {
+            option.Some(index) => {
+                result = append(result, substring(s, start, index - start))
+                result = append(result, new)
+                start = index + old_len
+                count = count + 1
+            },
+            option.None => {
+                result = append(result, substring(s, start, len(s) - start))
+                break
+            },
+        }
+    }
+    
+    return result
+}
+
+// Trim operations
+trim = (s: string) string {
+    return trim_right(trim_left(s))
+}
+
+trim_left = (s: string) string {
+    mut start := 0
+    s_len := len(s)
+    
+    while start < s_len {
+        match char_at(s, start) {
+            option.Some(c) => {
+                if !is_whitespace(c) {
+                    break
+                }
+                start = start + 1
+            },
+            option.None => break,
+        }
+    }
+    
+    return substring(s, start, s_len - start)
+}
+
+trim_right = (s: string) string {
+    mut end := len(s)
+    
+    while end > 0 {
+        match char_at(s, end - 1) {
+            option.Some(c) => {
+                if !is_whitespace(c) {
+                    break
+                }
+                end = end - 1
+            },
+            option.None => break,
+        }
+    }
+    
+    return substring(s, 0, end)
+}
+
+trim_chars = (s: string, chars: string) string {
+    return trim_right_chars(trim_left_chars(s, chars), chars)
+}
+
+trim_left_chars = (s: string, chars: string) string {
+    mut start := 0
+    s_len := len(s)
+    
+    while start < s_len {
+        match char_at(s, start) {
+            option.Some(c) => {
+                if !contains_char(chars, c) {
+                    break
+                }
+                start = start + 1
+            },
+            option.None => break,
+        }
+    }
+    
+    return substring(s, start, s_len - start)
+}
+
+trim_right_chars = (s: string, chars: string) string {
+    mut end := len(s)
+    
+    while end > 0 {
+        match char_at(s, end - 1) {
+            option.Some(c) => {
+                if !contains_char(chars, c) {
+                    break
+                }
+                end = end - 1
+            },
+            option.None => break,
+        }
+    }
+    
+    return substring(s, 0, end)
+}
+
+// Case conversion
+to_lower = (s: string) string {
+    return @compiler.builtin("string_to_lower", s)
+}
+
+to_upper = (s: string) string {
+    return @compiler.builtin("string_to_upper", s)
+}
+
+capitalize = (s: string) string {
+    if is_empty(s) {
+        return s
+    }
+    
+    first_char := substring(s, 0, 1)
+    rest := substring(s, 1, len(s) - 1)
+    return append(to_upper(first_char), to_lower(rest))
+}
+
+// Padding
+pad_left = (s: string, width: i32, pad_char: char) string {
+    current_len := len(s)
+    if current_len >= width {
+        return s
+    }
+    
+    mut padding := ""
+    mut i := 0
+    while i < width - current_len {
+        padding = append_char(padding, pad_char)
+        i = i + 1
+    }
+    
+    return append(padding, s)
+}
+
+pad_right = (s: string, width: i32, pad_char: char) string {
+    current_len := len(s)
+    if current_len >= width {
+        return s
+    }
+    
+    mut result := s
+    mut i := current_len
+    while i < width {
+        result = append_char(result, pad_char)
+        i = i + 1
+    }
+    
+    return result
+}
+
+pad_center = (s: string, width: i32, pad_char: char) string {
+    current_len := len(s)
+    if current_len >= width {
+        return s
+    }
+    
+    total_padding := width - current_len
+    left_padding := total_padding / 2
+    right_padding := total_padding - left_padding
+    
+    mut result := s
+    mut i := 0
+    
+    // Add left padding
+    while i < left_padding {
+        result = append_char(pad_char, result)
+        i = i + 1
+    }
+    
+    // Add right padding
+    i = 0
+    while i < right_padding {
+        result = append_char(result, pad_char)
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Repeat
+repeat = (s: string, count: i32) string {
+    if count <= 0 {
+        return ""
+    }
+    
+    mut result := ""
+    mut i := 0
+    while i < count {
+        result = append(result, s)
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Parsing functions
+parse_i32 = (s: string) result<i32, string> {
+    trimmed := trim(s)
+    if is_empty(trimmed) {
+        return result.err("Empty string")
+    }
+    
+    value := @compiler.builtin("string_parse_i32", trimmed)
+    if @compiler.builtin("parse_failed") {
+        return result.err("Invalid integer: " + s)
+    }
+    
+    return result.ok(value)
+}
+
+parse_i64 = (s: string) result<i64, string> {
+    trimmed := trim(s)
+    if is_empty(trimmed) {
+        return result.err("Empty string")
+    }
+    
+    value := @compiler.builtin("string_parse_i64", trimmed)
+    if @compiler.builtin("parse_failed") {
+        return result.err("Invalid integer: " + s)
+    }
+    
+    return result.ok(value)
+}
+
+parse_f32 = (s: string) result<f32, string> {
+    trimmed := trim(s)
+    if is_empty(trimmed) {
+        return result.err("Empty string")
+    }
+    
+    value := @compiler.builtin("string_parse_f32", trimmed)
+    if @compiler.builtin("parse_failed") {
+        return result.err("Invalid float: " + s)
+    }
+    
+    return result.ok(value)
+}
+
+parse_f64 = (s: string) result<f64, string> {
+    trimmed := trim(s)
+    if is_empty(trimmed) {
+        return result.err("Empty string")
+    }
+    
+    value := @compiler.builtin("string_parse_f64", trimmed)
+    if @compiler.builtin("parse_failed") {
+        return result.err("Invalid float: " + s)
+    }
+    
+    return result.ok(value)
+}
+
+parse_bool = (s: string) result<bool, string> {
+    lower := to_lower(trim(s))
+    
+    if equals(lower, "true") || equals(lower, "1") || equals(lower, "yes") {
+        return result.ok(true)
+    }
+    
+    if equals(lower, "false") || equals(lower, "0") || equals(lower, "no") {
+        return result.ok(false)
+    }
+    
+    return result.err("Invalid boolean: " + s)
+}
+
+// StringBuilder operations
+builder_new = () StringBuilder {
+    return StringBuilder {
+        buffer: vec.new(),
+        length: 0,
+    }
+}
+
+builder_with_capacity = (capacity: i32) StringBuilder {
+    return StringBuilder {
+        buffer: vec.with_capacity(capacity),
+        length: 0,
+    }
+}
+
+builder_append = (sb: StringBuilder, s: string) StringBuilder {
+    bytes := to_bytes(s)
+    mut new_buffer := sb.buffer
+    
+    for byte in bytes {
+        new_buffer = vec.push(new_buffer, byte)
+    }
+    
+    return StringBuilder {
+        buffer: new_buffer,
+        length: sb.length + len(s),
+    }
+}
+
+builder_append_char = (sb: StringBuilder, c: char) StringBuilder {
+    mut new_buffer := vec.push(sb.buffer, c as u8)
+    
+    return StringBuilder {
+        buffer: new_buffer,
+        length: sb.length + 1,
+    }
+}
+
+builder_to_string = (sb: StringBuilder) string {
+    return from_bytes(vec.to_slice(sb.buffer))
+}
+
+// Iterator operations
+iter = (s: string) StringIterator {
+    return StringIterator {
+        string: s,
+        position: 0,
+    }
+}
+
+iter_next = (it: StringIterator) option<(char, StringIterator)> {
+    if it.position >= len(it.string) {
+        return option.none()
+    }
+    
+    match char_at(it.string, it.position) {
+        option.Some(c) => {
+            new_it := StringIterator {
+                string: it.string,
+                position: it.position + 1,
+            }
+            return option.some((c, new_it))
+        },
+        option.None => return option.none(),
+    }
+}
+
+// Helper functions
+is_whitespace = (c: char) bool {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+is_digit = (c: char) bool {
+    return c >= '0' && c <= '9'
+}
+
+is_alpha = (c: char) bool {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+is_alphanumeric = (c: char) bool {
+    return is_alpha(c) || is_digit(c)
+}
+
+contains_char = (s: string, c: char) bool {
+    mut i := 0
+    while i < len(s) {
+        match char_at(s, i) {
+            option.Some(ch) => {
+                if ch == c {
+                    return true
+                }
+            },
+            option.None => break,
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// Format functions
+format = (template: string, args: []any) string {
+    return @compiler.builtin("string_format", template, args)
+}
