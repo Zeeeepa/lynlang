@@ -46,15 +46,18 @@ impl<'a> Parser<'a> {
                 } else {
                     break;
                 }
+            } else if self.current_token == Token::Symbol('?') {
+                // Handle pattern matching with low precedence (but higher than assignment)
+                // This ensures x < y ? ... parses as (x < y) ? ...
+                if precedence < 1 {  // Pattern match has very low precedence
+                    self.next_token(); // consume '?'
+                    left = self.parse_pattern_match(left)?;
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
-        }
-        
-        // After parsing binary expressions, check for postfix '?' operator
-        if self.current_token == Token::Symbol('?') {
-            self.next_token(); // consume '?'
-            left = self.parse_pattern_match(left)?;
         }
         
         Ok(left)
@@ -88,11 +91,8 @@ impl<'a> Parser<'a> {
     fn parse_postfix_expression(&mut self) -> Result<Expression> {
         let mut expr = self.parse_primary_expression()?;
         
-        // Handle pattern matching operator which can apply to any expression
-        if self.current_token == Token::Symbol('?') {
-            self.next_token(); // consume '?'
-            expr = self.parse_pattern_match(expr)?;
-        }
+        // Pattern matching is now handled in binary expression parsing
+        // to get correct precedence
         
         Ok(expr)
     }
