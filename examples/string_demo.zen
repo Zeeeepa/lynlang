@@ -1,0 +1,115 @@
+// String manipulation example using Zen stdlib
+
+io := @std.io
+string := @std.string
+core := @std.core
+
+// Demonstrate string operations
+main = () i32 {
+    io.println("=== Zen String Operations Demo ===\n")
+    
+    // Basic string operations
+    text := "Hello, Zen Programming!"
+    io.print("Original text: ")
+    io.println(text)
+    
+    // Length
+    len := string.len(text)
+    io.print("Length: ")
+    io.print_int(len as i32)
+    io.print("\n")
+    
+    // Check if empty
+    io.print("Is empty: ")
+    io.print_bool(string.is_empty(text))
+    io.print("\n")
+    
+    // Character at index
+    io.print("Character at index 7: '")
+    c := string.char_at(text, 7)
+    // Print as character (ASCII)
+    buffer: [1]u8 = [c]
+    io.write_fd(1, &buffer[0], 1)
+    io.print("' (ASCII ")
+    io.print_int(c as i32)
+    io.println(")")
+    
+    // Test equality
+    io.println("\n--- String Comparison ---")
+    s1 := "test"
+    s2 := "test"
+    s3 := "Test"
+    
+    io.print("\"test\" == \"test\": ")
+    io.print_bool(string.equals(s1, s2))
+    io.print("\n")
+    
+    io.print("\"test\" == \"Test\": ")
+    io.print_bool(string.equals(s1, s3))
+    io.print("\n")
+    
+    // Test starts_with and ends_with
+    io.println("\n--- Prefix/Suffix Tests ---")
+    io.print("Starts with \"Hello\": ")
+    io.print_bool(string.starts_with(text, "Hello"))
+    io.print("\n")
+    
+    io.print("Ends with \"Programming!\": ")
+    io.print_bool(string.ends_with(text, "Programming!"))
+    io.print("\n")
+    
+    io.print("Contains \"Zen\": ")
+    io.print_bool(string.contains(text, "Zen"))
+    io.print("\n")
+    
+    // Test substring operations
+    io.println("\n--- Substring Operations ---")
+    sub1 := string.substring(text, 7, 3)  // "Zen"
+    io.print("substring(7, 3): ")
+    io.println(sub1)
+    
+    sub2 := string.slice(text, 0, 5)  // "Hello"
+    io.print("slice(0, 5): ")
+    io.println(sub2)
+    
+    // Test integer parsing
+    io.println("\n--- Number Parsing ---")
+    num_str := "42"
+    neg_str := "-123"
+    
+    io.print("parse_int(\"42\"): ")
+    io.print_int(string.parse_int(num_str))
+    io.print("\n")
+    
+    io.print("parse_int(\"-123\"): ")
+    io.print_int(string.parse_int(neg_str))
+    io.print("\n")
+    
+    // Character classification
+    io.println("\n--- Character Classification ---")
+    digit := 53  // '5'
+    letter := 65  // 'A'
+    space := 32   // ' '
+    
+    io.print("is_digit('5'): ")
+    io.print_bool(string.is_digit(digit as u8))
+    io.print("\n")
+    
+    io.print("is_letter('A'): ")
+    io.print_bool(string.is_letter(letter as u8))
+    io.print("\n")
+    
+    io.print("is_whitespace(' '): ")
+    io.print_bool(string.is_whitespace(space as u8))
+    io.print("\n")
+    
+    // Find substring
+    io.println("\n--- String Search ---")
+    idx := string.index_of(text, "Zen")
+    io.print("index_of(\"Zen\"): ")
+    io.print_int(idx)
+    io.print("\n")
+    
+    io.println("\n✓ String operations demo completed")
+    return 0
+}
