@@ -35,7 +35,26 @@ impl<'a> Parser<'a> {
                     self.next_token(); // Move past :=
                     
                     let is_import = if let Token::Identifier(id) = &self.current_token {
-                        id.starts_with("@") || id == "build"
+                        // Check if it's an import (@std, @compiler, build)
+                        if id.starts_with("@") {
+                            // Any @ import is not allowed in comptime
+                            true
+                        } else if id == "build" {
+                            // Need to check if it's build.import
+                            let next_saved_current = self.current_token.clone();
+                            let next_saved_peek = self.peek_token.clone();
+                            self.next_token();
+                            let is_build_import = self.current_token == Token::Symbol('.') && {
+                                self.next_token();
+                                matches!(&self.current_token, Token::Identifier(name) if name == "import")
+                            };
+                            // Restore for proper error handling
+                            self.current_token = next_saved_current;
+                            self.peek_token = next_saved_peek;
+                            is_build_import
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     };
