@@ -102,22 +102,19 @@ fn test_typecheck_std_module() {
 
 #[test]
 fn test_comptime_import_error() {
-    // Test that imports inside comptime blocks are rejected
+    // Test that imports inside comptime blocks are rejected by the parser
     let input = "comptime { core := @std.core }";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     
-    // Parser should still accept the syntax
-    let program = parser.parse_program().unwrap();
-    
-    // But typechecker should reject it
-    let mut type_checker = zen::typechecker::TypeChecker::new();
-    let result = type_checker.check_program(&program);
+    // Parser should reject imports in comptime blocks
+    let result = parser.parse_program();
     
     // Should error with appropriate message
     assert!(result.is_err());
     if let Err(err) = result {
         let err_msg = format!("{:?}", err);
-        assert!(err_msg.contains("Module imports should not be inside comptime blocks"));
+        assert!(err_msg.contains("Import statements are not allowed inside comptime blocks") || 
+                err_msg.contains("imports to module level"));
     }
 }
