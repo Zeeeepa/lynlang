@@ -1,0 +1,14 @@
+// Basic test for import system
+io := @std.io
+
+test_function = () i32 {
+    io.print("Test function called\n");
+    return 42
+}
+
+main = () i32 {
+    io.print("Testing basic imports\n");
+    result := test_function();
+    io.print("Test complete\n");
+    return result
+}
