@@ -1,0 +1,141 @@
+// Test for LLVM Code Generation Module
+
+core := @std.core
+io := @std.io
+string := @std.string
+
+// Import the codegen module
+codegen := @compiler.codegen_llvm
+
+// Test basic LLVM IR generation
+test_basic_ir_generation = () bool {
+    gen := codegen.new_codegen("test_module")
+    
+    // Test register allocation
+    reg1 := codegen.alloc_register(&mut gen)
+    reg2 := codegen.alloc_register(&mut gen)
+    
+    reg1 == 0 && reg2 == 1 ? {
+        io.print("[PASS] Register allocation works\n")
+        return true
+    } : {
+        io.print("[FAIL] Register allocation failed\n")
+        return false
+    }
+}
+
+// Test type conversion
+test_type_conversion = () bool {
+    // Test basic types
+    i32_type := codegen.zen_type_to_llvm(Type.Named("i32"))
+    i64_type := codegen.zen_type_to_llvm(Type.Named("i64"))
+    bool_type := codegen.zen_type_to_llvm(Type.Named("bool"))
+    string_type := codegen.zen_type_to_llvm(Type.Named("string"))
+    
+    all_correct := i32_type == "i32" && 
+                   i64_type == "i64" && 
+                   bool_type == "i1" &&
+                   string_type == "i8*"
+    
+    all_correct ? {
+        io.print("[PASS] Type conversion works\n")
+        return true
+    } : {
+        io.print("[FAIL] Type conversion failed\n")
+        return false
+    }
+}
+
+// Test emit function
+test_emit_function = () bool {
+    gen := codegen.new_codegen("test_emit")
+    
+    codegen.emit(&mut gen, "test line 1")
+    codegen.emit(&mut gen, "test line 2")
+    
+    // Check if output contains both lines
+    string.contains(gen.output, "test line 1") && 
+    string.contains(gen.output, "test line 2") ? {
+        io.print("[PASS] Emit function works\n")
+        return true
+    } : {
+        io.print("[FAIL] Emit function failed\n")
+        return false
+    }
+}
+
+// Test number to string conversions
+test_number_to_string = () bool {
+    // Test u32_to_string
+    str0 := codegen.u32_to_string(0)
+    str42 := codegen.u32_to_string(42)
+    str100 := codegen.u32_to_string(100)
+    
+    // Test i64_to_string
+    str_neg := codegen.i64_to_string(-42)
+    str_pos := codegen.i64_to_string(42)
+    
+    // Test f64_to_string
+    str_float := codegen.f64_to_string(0.0)
+    
+    str0 == "0" && str_float == "0.0" ? {
+        io.print("[PASS] Number to string conversion works\n")
+        return true
+    } : {
+        io.print("[FAIL] Number to string conversion failed\n")
+        return false
+    }
+}
+
+// Test module generation
+test_module_generation = () bool {
+    gen := codegen.new_codegen("test_gen_module")
+    
+    // Create empty AST
+    ast := vec_new<AstNode>()
+    
+    // Generate module
+    codegen.gen_module(&mut gen, ast)
+    
+    // Check if module header is generated
+    string.contains(gen.output, "ModuleID") &&
+    string.contains(gen.output, "source_filename") &&
+    string.contains(gen.output, "target triple") &&
+    string.contains(gen.output, "declare i32 @printf") ? {
+        io.print("[PASS] Module generation works\n")
+        return true
+    } : {
+        io.print("[FAIL] Module generation failed\n")
+        return false
+    }
+}
+
+// Main test runner
+main = () i32 {
+    io.print("Testing LLVM Code Generator\n")
+    io.print("============================\n\n")
+    
+    total_tests := 5
+    passed_tests := 0
+    
+    test_basic_ir_generation() ? { passed_tests = passed_tests + 1 } : {}
+    test_type_conversion() ? { passed_tests = passed_tests + 1 } : {}
+    test_emit_function() ? { passed_tests = passed_tests + 1 } : {}
+    test_number_to_string() ? { passed_tests = passed_tests + 1 } : {}
+    test_module_generation() ? { passed_tests = passed_tests + 1 } : {}
+    
+    io.print("\n")
+    io.print("Results: ")
+    io.print_int(passed_tests)
+    io.print(" / ")
+    io.print_int(total_tests)
+    io.print(" tests passed\n")
+    
+    passed_tests == total_tests ? {
+        io.print("\nAll tests passed!\n")
+        return 0
+    } : {
+        io.print("\nSome tests failed.\n")
+        return 1
+    }
+}
