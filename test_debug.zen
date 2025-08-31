@@ -1,0 +1,10 @@
+io := build.import("io")
+math := build.import("math")
+
+main = () f64 {
+    io.print("Testing math module\n")
+    x := 16.0
+    result := math.sqrt(x)
+    io.print("Result computed\n")
+    return result
+}

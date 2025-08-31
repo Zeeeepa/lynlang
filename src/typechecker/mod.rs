@@ -142,7 +142,13 @@ impl TypeChecker {
                 // Track module imports
                 self.module_imports.insert(alias.clone(), module_path.clone());
                 // Register stdlib functions if this is a known stdlib module
-                self.register_stdlib_module(alias, module_path)?;
+                // Handle both "math" and "std.math" formats
+                let module_name = if module_path.starts_with("std.") {
+                    &module_path[4..]
+                } else {
+                    module_path.as_str()
+                };
+                self.register_stdlib_module(alias, module_name)?;
             }
             _ => {}
         }

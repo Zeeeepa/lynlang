@@ -1,0 +1,3 @@
+main = () void {
+    // No imports, just a simple program
+}

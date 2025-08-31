@@ -1,0 +1,10 @@
+io := build.import("io")
+
+test_func = () void {
+    io.print("In test function\n")
+}
+
+main = () void {
+    io.print("In main\n")
+    test_func()
+}
