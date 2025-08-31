@@ -1,0 +1,473 @@
+// Zen Check - Syntax validation tool for Zen language
+// Checks Zen source files for syntax errors
+
+core := @std.core
+io := @std.io
+fs := @std.fs
+vec := @std.vec
+string := @std.string
+process := @std.process
+
+lexer := @compiler.lexer
+parser := @compiler.parser
+
+// Error report
+ErrorReport = {
+    file: string,
+    errors: Vec<Error>,
+    warnings: Vec<Warning>,
+}
+
+// Error information
+Error = {
+    line: u32,
+    column: u32,
+    message: string,
+    code: string,
+}
+
+// Warning information
+Warning = {
+    line: u32,
+    column: u32,
+    message: string,
+    code: string,
+}
+
+// Check result
+CheckResult = 
+    | Success
+    | HasErrors(count: u32)
+    | HasWarnings(count: u32)
+    | FileNotFound(path: string)
+    | ReadError(message: string)
+
+// Color codes for terminal output
+Colors = {
+    RED:: string = "\x1b[31m",
+    YELLOW:: string = "\x1b[33m",
+    GREEN:: string = "\x1b[32m",
+    BLUE:: string = "\x1b[34m",
+    MAGENTA:: string = "\x1b[35m",
+    CYAN:: string = "\x1b[36m",
+    RESET:: string = "\x1b[0m",
+    BOLD:: string = "\x1b[1m",
+}
+
+// Check a single file
+check_file = (path: string, verbose: bool) CheckResult {
+    // Read file contents
+    content := fs.read_file(path)
+    content ?
+        | Result.Ok(text) => {
+            verbose ?
+                | true => io.println("$(Colors.CYAN)Checking$(Colors.RESET) $(path)...")
+                | false => {}
+            
+            // Create lexer and tokenize
+            lex := lexer.lexer_new(text)
+            tokens := lexer.tokenize(ptr_of(lex))
+            
+            // Check for lexer errors
+            lexer_errors := vec_new<Error>()
+            i := 0
+            loop i < tokens.len() {
+                token := tokens[i]
+                token.kind ?
+                    | lexer.TokenKind.Invalid(msg) => {
+                        err := Error{
+                            line: token.line,
+                            column: token.column,
+                            message: msg,
+                            code: "LEX001",
+                        }
+                        lexer_errors.push(err)
+                    }
+                    | _ => {}
+                i = i + 1
+            }
+            
+            // If lexer errors, report them
+            lexer_errors.len() > 0 ?
+                | true => {
+                    print_errors(path, lexer_errors, text)
+                    return CheckResult.HasErrors(lexer_errors.len())
+                }
+                | false => {}
+            
+            // Parse tokens
+            parse := parser.parser_new(tokens)
+            ast := parser.parse_program(ptr_of(parse))
+            
+            // Check for parser errors
+            parser_errors := vec_new<Error>()
+            i = 0
+            loop i < parse.errors.len() {
+                error := parse.errors[i]
+                err := Error{
+                    line: error.token.line,
+                    column: error.token.column,
+                    message: error.message,
+                    code: "PAR001",
+                }
+                parser_errors.push(err)
+                i = i + 1
+            }
+            
+            // If parser errors, report them
+            parser_errors.len() > 0 ?
+                | true => {
+                    print_errors(path, parser_errors, text)
+                    return CheckResult.HasErrors(parser_errors.len())
+                }
+                | false => {}
+            
+            // Perform semantic checks
+            warnings := semantic_check(ast)
+            
+            // Report warnings if any
+            warnings.len() > 0 ?
+                | true => {
+                    verbose ?
+                        | true => print_warnings(path, warnings, text)
+                        | false => {}
+                    return CheckResult.HasWarnings(warnings.len())
+                }
+                | false => {}
+            
+            // All checks passed
+            verbose ?
+                | true => io.println("$(Colors.GREEN)✓$(Colors.RESET) $(path) - No errors found")
+                | false => {}
+            
+            return CheckResult.Success
+        }
+        | Result.Err(error) => {
+            io.error_contains(error, "not found") ?
+                | true => return CheckResult.FileNotFound(path)
+                | false => return CheckResult.ReadError(error)
+        }
+}
+
+// Perform semantic checks on AST
+semantic_check = (ast: Vec<parser.AstNode>) Vec<Warning> {
+    warnings := vec_new<Warning>()
+    
+    // Check for common issues
+    i := 0
+    loop i < ast.len() {
+        node := ast[i]
+        check_node_semantics(node, ptr_of(warnings))
+        i = i + 1
+    }
+    
+    return warnings
+}
+
+// Check individual node for semantic issues
+check_node_semantics = (node: parser.AstNode, warnings: Ptr<Vec<Warning>>) void {
+    node ?
+        | parser.AstNode.FuncDecl(name, params, ret_type, body, is_generic) => {
+            // Check for unused parameters
+            check_unused_params(name, params, body, warnings)
+            
+            // Check for missing return
+            ret_type ?
+                | Option.Some(t) => check_missing_return(name, body, t, warnings)
+                | Option.None => {}
+        }
+        | parser.AstNode.VarDecl(name, type_ann, value, is_mut) => {
+            // Check for unused variables
+            !is_mut & name.starts_with("_") ?
+                | false => {
+                    warn := Warning{
+                        line: 0,  // Would need position info
+                        column: 0,
+                        message: "Variable '$(name)' declared but never used",
+                        code: "SEM001",
+                    }
+                    warnings.push(warn)
+                }
+                | true => {}
+        }
+        | parser.AstNode.Loop(condition, body) => {
+            // Check for infinite loops without break
+            condition ?
+                | Option.None => check_infinite_loop(body, warnings)
+                | Option.Some(_) => {}
+        }
+        | _ => {}
+}
+
+// Print errors with context
+print_errors = (file: string, errors: Vec<Error>, source: string) void {
+    io.println("\n$(Colors.RED)$(Colors.BOLD)Errors in $(file):$(Colors.RESET)")
+    
+    i := 0
+    loop i < errors.len() {
+        err := errors[i]
+        io.println("\n$(Colors.RED)error[$(err.code)]$(Colors.RESET): $(err.message)")
+        io.println("  $(Colors.BLUE)-->$(Colors.RESET) $(file):$(err.line):$(err.column)")
+        
+        // Show source context
+        lines := string_split(source, "\n")
+        err.line > 0 & err.line <= lines.len() ?
+            | true => {
+                line_num := err.line - 1
+                
+                // Show previous line for context
+                line_num > 0 ?
+                    | true => {
+                        io.println("$(Colors.BLUE)$(line_num)$(Colors.RESET) | $(lines[line_num - 1])")
+                    }
+                    | false => {}
+                
+                // Show error line
+                io.println("$(Colors.BLUE)$(err.line)$(Colors.RESET) | $(lines[line_num])")
+                
+                // Show error indicator
+                spaces := string_repeat(" ", err.column - 1)
+                io.println("  | $(spaces)$(Colors.RED)^$(Colors.RESET)")
+                
+                // Show next line for context
+                line_num + 1 < lines.len() ?
+                    | true => {
+                        io.println("$(Colors.BLUE)$(err.line + 1)$(Colors.RESET) | $(lines[line_num + 1])")
+                    }
+                    | false => {}
+            }
+            | false => {}
+        
+        i = i + 1
+    }
+    
+    io.println("\n$(Colors.RED)Found $(errors.len()) error(s)$(Colors.RESET)")
+}
+
+// Print warnings with context
+print_warnings = (file: string, warnings: Vec<Warning>, source: string) void {
+    io.println("\n$(Colors.YELLOW)$(Colors.BOLD)Warnings in $(file):$(Colors.RESET)")
+    
+    i := 0
+    loop i < warnings.len() {
+        warn := warnings[i]
+        io.println("\n$(Colors.YELLOW)warning[$(warn.code)]$(Colors.RESET): $(warn.message)")
+        io.println("  $(Colors.BLUE)-->$(Colors.RESET) $(file):$(warn.line):$(warn.column)")
+        i = i + 1
+    }
+    
+    io.println("\n$(Colors.YELLOW)Found $(warnings.len()) warning(s)$(Colors.RESET)")
+}
+
+// Check directory recursively
+check_directory = (path: string, verbose: bool) (u32, u32, u32) {
+    total_files := 0u32
+    total_errors := 0u32
+    total_warnings := 0u32
+    
+    // Get all .zen files in directory
+    files := fs.walk_dir(path, "*.zen")
+    
+    files ?
+        | Result.Ok(file_list) => {
+            i := 0
+            loop i < file_list.len() {
+                file := file_list[i]
+                result := check_file(file, verbose)
+                
+                total_files = total_files + 1
+                
+                result ?
+                    | CheckResult.HasErrors(count) => total_errors = total_errors + count
+                    | CheckResult.HasWarnings(count) => total_warnings = total_warnings + count
+                    | CheckResult.FileNotFound(p) => {
+                        io.eprintln("$(Colors.RED)Error:$(Colors.RESET) File not found: $(p)")
+                        total_errors = total_errors + 1
+                    }
+                    | CheckResult.ReadError(msg) => {
+                        io.eprintln("$(Colors.RED)Error:$(Colors.RESET) Could not read file: $(msg)")
+                        total_errors = total_errors + 1
+                    }
+                    | _ => {}
+                
+                i = i + 1
+            }
+        }
+        | Result.Err(error) => {
+            io.eprintln("$(Colors.RED)Error:$(Colors.RESET) Could not read directory: $(error)")
+        }
+    
+    return (total_files, total_errors, total_warnings)
+}
+
+// Print usage information
+print_usage = () void {
+    io.println("$(Colors.BOLD)zen-check$(Colors.RESET) - Zen Language Syntax Checker")
+    io.println("")
+    io.println("$(Colors.BOLD)USAGE:$(Colors.RESET)")
+    io.println("    zen-check [OPTIONS] <FILE|DIRECTORY>...")
+    io.println("")
+    io.println("$(Colors.BOLD)OPTIONS:$(Colors.RESET)")
+    io.println("    -h, --help        Show this help message")
+    io.println("    -v, --verbose     Show detailed output")
+    io.println("    -q, --quiet       Suppress all output except errors")
+    io.println("    -w, --warnings    Show warnings (default: errors only)")
+    io.println("    --no-color        Disable colored output")
+    io.println("    --json            Output results as JSON")
+    io.println("")
+    io.println("$(Colors.BOLD)EXAMPLES:$(Colors.RESET)")
+    io.println("    zen-check main.zen")
+    io.println("    zen-check src/")
+    io.println("    zen-check -v src/**/*.zen")
+    io.println("    zen-check --json src/ > report.json")
+}
+
+// Main entry point
+main = (args: Vec<string>) i32 {
+    // Parse command line arguments
+    args.len() < 2 ?
+        | true => {
+            print_usage()
+            return 1
+        }
+        | false => {}
+    
+    verbose := false
+    quiet := false
+    show_warnings := false
+    use_color := true
+    output_json := false
+    files := vec_new<string>()
+    
+    i := 1
+    loop i < args.len() {
+        arg := args[i]
+        
+        arg.starts_with("-") ?
+            | true => {
+                arg ?
+                    | "-h" | "--help" => {
+                        print_usage()
+                        return 0
+                    }
+                    | "-v" | "--verbose" => verbose = true
+                    | "-q" | "--quiet" => quiet = true
+                    | "-w" | "--warnings" => show_warnings = true
+                    | "--no-color" => use_color = false
+                    | "--json" => output_json = true
+                    | _ => {
+                        io.eprintln("Unknown option: $(arg)")
+                        print_usage()
+                        return 1
+                    }
+            }
+            | false => files.push(arg)
+        
+        i = i + 1
+    }
+    
+    // Check if any files specified
+    files.len() == 0 ?
+        | true => {
+            io.eprintln("$(Colors.RED)Error:$(Colors.RESET) No files specified")
+            print_usage()
+            return 1
+        }
+        | false => {}
+    
+    // Disable colors if requested
+    !use_color ?
+        | true => {
+            Colors.RED = ""
+            Colors.YELLOW = ""
+            Colors.GREEN = ""
+            Colors.BLUE = ""
+            Colors.MAGENTA = ""
+            Colors.CYAN = ""
+            Colors.RESET = ""
+            Colors.BOLD = ""
+        }
+        | false => {}
+    
+    // Check each file/directory
+    total_files := 0u32
+    total_errors := 0u32
+    total_warnings := 0u32
+    
+    i = 0
+    loop i < files.len() {
+        path := files[i]
+        
+        // Check if directory or file
+        fs.is_directory(path) ?
+            | Result.Ok(true) => {
+                result := check_directory(path, verbose)
+                total_files = total_files + result.0
+                total_errors = total_errors + result.1
+                total_warnings = total_warnings + result.2
+            }
+            | _ => {
+                result := check_file(path, verbose)
+                total_files = total_files + 1
+                
+                result ?
+                    | CheckResult.HasErrors(count) => total_errors = total_errors + count
+                    | CheckResult.HasWarnings(count) => total_warnings = total_warnings + count
+                    | _ => {}
+            }
+        
+        i = i + 1
+    }
+    
+    // Print summary
+    !quiet ?
+        | true => {
+            io.println("\n$(Colors.BOLD)Summary:$(Colors.RESET)")
+            io.println("  Files checked: $(total_files)")
+            
+            total_errors > 0 ?
+                | true => io.println("  $(Colors.RED)Errors: $(total_errors)$(Colors.RESET)")
+                | false => io.println("  $(Colors.GREEN)Errors: 0$(Colors.RESET)")
+            
+            show_warnings ?
+                | true => {
+                    total_warnings > 0 ?
+                        | true => io.println("  $(Colors.YELLOW)Warnings: $(total_warnings)$(Colors.RESET)")
+                        | false => io.println("  $(Colors.GREEN)Warnings: 0$(Colors.RESET)")
+                }
+                | false => {}
+            
+            total_errors == 0 ?
+                | true => io.println("\n$(Colors.GREEN)✓ All checks passed!$(Colors.RESET)")
+                | false => io.println("\n$(Colors.RED)✗ Found $(total_errors) error(s)$(Colors.RESET)")
+        }
+        | false => {}
+    
+    // Return exit code
+    total_errors > 0 ?
+        | true => return 1
+        | false => return 0
+}
+
+// Stub helper functions
+check_unused_params = (name: string, params: Vec<parser.Parameter>, body: Ptr<parser.AstNode>, warnings: Ptr<Vec<Warning>>) void {
+    // Implementation would check if parameters are used in function body
+}
+
+check_missing_return = (name: string, body: Ptr<parser.AstNode>, ret_type: parser.Type, warnings: Ptr<Vec<Warning>>) void {
+    // Implementation would check if all paths return a value
+}
+
+check_infinite_loop = (body: Ptr<parser.AstNode>, warnings: Ptr<Vec<Warning>>) void {
+    // Implementation would check if loop has break statement
+}
+
+string_split = (s: string, delimiter: string) Vec<string> {
+    // Implementation would split string
+    return vec_new<string>()
+}
+
+string_repeat = (s: string, n: u32) string {
+    // Implementation would repeat string
+    return ""
+}

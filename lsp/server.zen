@@ -1,0 +1,774 @@
+// Zen Language Server Protocol Implementation
+// Provides IDE support for Zen language
+
+core := @std.core
+io := @std.io
+json := @std.json
+net := @std.net
+vec := @std.vec
+hashmap := @std.hashmap
+string := @std.string
+fs := @std.fs
+
+lexer := @compiler.lexer
+parser := @compiler.parser
+
+// LSP Message Types
+Message = {
+    jsonrpc: string,
+    id: Option<i32>,
+    method: Option<string>,
+    params: Option<JsonValue>,
+    result: Option<JsonValue>,
+    error: Option<ResponseError>,
+}
+
+ResponseError = {
+    code: i32,
+    message: string,
+    data: Option<JsonValue>,
+}
+
+// LSP Error Codes
+ErrorCode = {
+    PARSE_ERROR:: i32 = -32700,
+    INVALID_REQUEST:: i32 = -32600,
+    METHOD_NOT_FOUND:: i32 = -32601,
+    INVALID_PARAMS:: i32 = -32602,
+    INTERNAL_ERROR:: i32 = -32603,
+    SERVER_NOT_INITIALIZED:: i32 = -32002,
+    UNKNOWN_ERROR_CODE:: i32 = -32001,
+}
+
+// Document Position
+Position = {
+    line: u32,
+    character: u32,
+}
+
+// Document Range
+Range = {
+    start: Position,
+    end: Position,
+}
+
+// Document Location
+Location = {
+    uri: string,
+    range: Range,
+}
+
+// Text Document Item
+TextDocumentItem = {
+    uri: string,
+    languageId: string,
+    version: i32,
+    text: string,
+}
+
+// Text Document Identifier
+TextDocumentIdentifier = {
+    uri: string,
+}
+
+// Versioned Text Document Identifier
+VersionedTextDocumentIdentifier = {
+    uri: string,
+    version: i32,
+}
+
+// Text Document Position Params
+TextDocumentPositionParams = {
+    textDocument: TextDocumentIdentifier,
+    position: Position,
+}
+
+// Diagnostic Severity
+DiagnosticSeverity = 
+    | Error
+    | Warning
+    | Information
+    | Hint
+
+// Diagnostic
+Diagnostic = {
+    range: Range,
+    severity: DiagnosticSeverity,
+    code: Option<string>,
+    source: string,
+    message: string,
+    relatedInformation: Vec<DiagnosticRelatedInformation>,
+}
+
+// Diagnostic Related Information
+DiagnosticRelatedInformation = {
+    location: Location,
+    message: string,
+}
+
+// Completion Item Kind
+CompletionItemKind = 
+    | Text
+    | Method
+    | Function
+    | Constructor
+    | Field
+    | Variable
+    | Class
+    | Interface
+    | Module
+    | Property
+    | Unit
+    | Value
+    | Enum
+    | Keyword
+    | Snippet
+    | Color
+    | File
+    | Reference
+    | Folder
+    | EnumMember
+    | Constant
+    | Struct
+    | Event
+    | Operator
+    | TypeParameter
+
+// Completion Item
+CompletionItem = {
+    label: string,
+    kind: CompletionItemKind,
+    detail: Option<string>,
+    documentation: Option<string>,
+    insertText: Option<string>,
+    sortText: Option<string>,
+    filterText: Option<string>,
+}
+
+// Hover Information
+Hover = {
+    contents: string,
+    range: Option<Range>,
+}
+
+// Symbol Kind
+SymbolKind = 
+    | File
+    | Module
+    | Namespace
+    | Package
+    | Class
+    | Method
+    | Property
+    | Field
+    | Constructor
+    | Enum
+    | Interface
+    | Function
+    | Variable
+    | Constant
+    | String
+    | Number
+    | Boolean
+    | Array
+    | Object
+    | Key
+    | Null
+    | EnumMember
+    | Struct
+    | Event
+    | Operator
+    | TypeParameter
+
+// Document Symbol
+DocumentSymbol = {
+    name: string,
+    detail: Option<string>,
+    kind: SymbolKind,
+    range: Range,
+    selectionRange: Range,
+    children: Vec<DocumentSymbol>,
+}
+
+// Server Capabilities
+ServerCapabilities = {
+    textDocumentSync: i32,  // 1 = Full sync
+    completionProvider: bool,
+    hoverProvider: bool,
+    definitionProvider: bool,
+    referencesProvider: bool,
+    documentSymbolProvider: bool,
+    workspaceSymbolProvider: bool,
+    codeActionProvider: bool,
+    renameProvider: bool,
+    foldingRangeProvider: bool,
+    diagnosticProvider: bool,
+}
+
+// Language Server State
+LanguageServer = {
+    initialized: bool,
+    root_uri: Option<string>,
+    capabilities: ServerCapabilities,
+    documents: HashMap<string, Document>,
+    diagnostics: HashMap<string, Vec<Diagnostic>>,
+}
+
+// Document State
+Document = {
+    uri: string,
+    version: i32,
+    content: string,
+    tokens: Vec<lexer.Token>,
+    ast: Option<Vec<parser.AstNode>>,
+    symbols: Vec<DocumentSymbol>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+// Create new language server
+server_new = () LanguageServer {
+    LanguageServer{
+        initialized: false,
+        root_uri: Option<string>.None,
+        capabilities: ServerCapabilities{
+            textDocumentSync: 1,  // Full sync
+            completionProvider: true,
+            hoverProvider: true,
+            definitionProvider: true,
+            referencesProvider: true,
+            documentSymbolProvider: true,
+            workspaceSymbolProvider: true,
+            codeActionProvider: true,
+            renameProvider: true,
+            foldingRangeProvider: true,
+            diagnosticProvider: true,
+        },
+        documents: hashmap_new<string, Document>(),
+        diagnostics: hashmap_new<string, Vec<Diagnostic>>(),
+    }
+}
+
+// Handle LSP request
+handle_request = (server: Ptr<LanguageServer>, msg: Message) Message {
+    msg.method ?
+        | Option.Some(method) => {
+            method ?
+                | "initialize" => return handle_initialize(server, msg)
+                | "initialized" => return handle_initialized(server, msg)
+                | "shutdown" => return handle_shutdown(server, msg)
+                | "textDocument/didOpen" => return handle_did_open(server, msg)
+                | "textDocument/didChange" => return handle_did_change(server, msg)
+                | "textDocument/didSave" => return handle_did_save(server, msg)
+                | "textDocument/didClose" => return handle_did_close(server, msg)
+                | "textDocument/completion" => return handle_completion(server, msg)
+                | "textDocument/hover" => return handle_hover(server, msg)
+                | "textDocument/definition" => return handle_definition(server, msg)
+                | "textDocument/references" => return handle_references(server, msg)
+                | "textDocument/documentSymbol" => return handle_document_symbol(server, msg)
+                | "textDocument/rename" => return handle_rename(server, msg)
+                | "textDocument/codeAction" => return handle_code_action(server, msg)
+                | "textDocument/formatting" => return handle_formatting(server, msg)
+                | _ => return error_response(msg, ErrorCode.METHOD_NOT_FOUND, "Method not found")
+        }
+        | Option.None => return error_response(msg, ErrorCode.INVALID_REQUEST, "No method specified")
+}
+
+// Handle initialize request
+handle_initialize = (server: Ptr<LanguageServer>, msg: Message) Message {
+    server.initialized = true
+    
+    // Extract root URI from params if available
+    msg.params ?
+        | Option.Some(params) => {
+            // Parse root URI from params
+            // server.root_uri = extract_root_uri(params)
+        }
+        | Option.None => {}
+    
+    // Return server capabilities
+    result := json_object([
+        ("capabilities", json_object([
+            ("textDocumentSync", json_number(1)),
+            ("completionProvider", json_object([
+                ("triggerCharacters", json_array([json_string("."), json_string("::")]))
+            ])),
+            ("hoverProvider", json_bool(true)),
+            ("definitionProvider", json_bool(true)),
+            ("referencesProvider", json_bool(true)),
+            ("documentSymbolProvider", json_bool(true)),
+            ("workspaceSymbolProvider", json_bool(true)),
+            ("codeActionProvider", json_bool(true)),
+            ("renameProvider", json_bool(true)),
+            ("foldingRangeProvider", json_bool(true)),
+            ("diagnosticProvider", json_bool(true)),
+        ])),
+        ("serverInfo", json_object([
+            ("name", json_string("Zen Language Server")),
+            ("version", json_string("0.1.0"))
+        ]))
+    ])
+    
+    return success_response(msg, result)
+}
+
+// Handle initialized notification
+handle_initialized = (server: Ptr<LanguageServer>, msg: Message) Message {
+    // No response needed for notifications
+    return Message{
+        jsonrpc: "2.0",
+        id: Option<i32>.None,
+        method: Option<string>.None,
+        params: Option<JsonValue>.None,
+        result: Option<JsonValue>.None,
+        error: Option<ResponseError>.None,
+    }
+}
+
+// Handle shutdown request
+handle_shutdown = (server: Ptr<LanguageServer>, msg: Message) Message {
+    server.initialized = false
+    return success_response(msg, json_null())
+}
+
+// Handle textDocument/didOpen notification
+handle_did_open = (server: Ptr<LanguageServer>, msg: Message) Message {
+    msg.params ?
+        | Option.Some(params) => {
+            // Extract document from params
+            doc_item := extract_text_document_item(params)
+            
+            // Create new document
+            doc := Document{
+                uri: doc_item.uri,
+                version: doc_item.version,
+                content: doc_item.text,
+                tokens: vec_new<lexer.Token>(),
+                ast: Option<Vec<parser.AstNode>>.None,
+                symbols: vec_new<DocumentSymbol>(),
+                diagnostics: vec_new<Diagnostic>(),
+            }
+            
+            // Analyze document
+            analyze_document(ptr_of(doc))
+            
+            // Store document
+            server.documents.insert(doc_item.uri, doc)
+            
+            // Send diagnostics
+            publish_diagnostics(server, doc_item.uri, doc.diagnostics)
+        }
+        | Option.None => {}
+    
+    // No response for notification
+    return empty_message()
+}
+
+// Handle textDocument/didChange notification
+handle_did_change = (server: Ptr<LanguageServer>, msg: Message) Message {
+    msg.params ?
+        | Option.Some(params) => {
+            // Extract document and changes
+            doc_id := extract_text_document_identifier(params)
+            changes := extract_content_changes(params)
+            
+            // Update document
+            server.documents.get(doc_id.uri) ?
+                | Option.Some(doc) => {
+                    // Apply changes to document content
+                    apply_content_changes(ptr_of(doc), changes)
+                    
+                    // Re-analyze document
+                    analyze_document(ptr_of(doc))
+                    
+                    // Send updated diagnostics
+                    publish_diagnostics(server, doc_id.uri, doc.diagnostics)
+                }
+                | Option.None => {}
+        }
+        | Option.None => {}
+    
+    return empty_message()
+}
+
+// Handle textDocument/completion request
+handle_completion = (server: Ptr<LanguageServer>, msg: Message) Message {
+    msg.params ?
+        | Option.Some(params) => {
+            pos_params := extract_position_params(params)
+            
+            // Get document
+            server.documents.get(pos_params.textDocument.uri) ?
+                | Option.Some(doc) => {
+                    // Get completions at position
+                    completions := get_completions(doc, pos_params.position)
+                    
+                    // Return completion list
+                    result := json_object([
+                        ("isIncomplete", json_bool(false)),
+                        ("items", completions_to_json(completions))
+                    ])
+                    
+                    return success_response(msg, result)
+                }
+                | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Document not found")
+        }
+        | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Missing params")
+}
+
+// Handle textDocument/hover request
+handle_hover = (server: Ptr<LanguageServer>, msg: Message) Message {
+    msg.params ?
+        | Option.Some(params) => {
+            pos_params := extract_position_params(params)
+            
+            // Get document
+            server.documents.get(pos_params.textDocument.uri) ?
+                | Option.Some(doc) => {
+                    // Get hover info at position
+                    hover := get_hover_info(doc, pos_params.position)
+                    
+                    hover ?
+                        | Option.Some(info) => {
+                            result := json_object([
+                                ("contents", json_string(info.contents)),
+                                ("range", range_to_json(info.range))
+                            ])
+                            return success_response(msg, result)
+                        }
+                        | Option.None => return success_response(msg, json_null())
+                }
+                | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Document not found")
+        }
+        | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Missing params")
+}
+
+// Handle textDocument/definition request
+handle_definition = (server: Ptr<LanguageServer>, msg: Message) Message {
+    msg.params ?
+        | Option.Some(params) => {
+            pos_params := extract_position_params(params)
+            
+            // Get document
+            server.documents.get(pos_params.textDocument.uri) ?
+                | Option.Some(doc) => {
+                    // Find definition at position
+                    definition := find_definition(doc, pos_params.position)
+                    
+                    definition ?
+                        | Option.Some(loc) => {
+                            result := location_to_json(loc)
+                            return success_response(msg, result)
+                        }
+                        | Option.None => return success_response(msg, json_null())
+                }
+                | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Document not found")
+        }
+        | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Missing params")
+}
+
+// Handle textDocument/documentSymbol request
+handle_document_symbol = (server: Ptr<LanguageServer>, msg: Message) Message {
+    msg.params ?
+        | Option.Some(params) => {
+            doc_id := extract_text_document_identifier(params)
+            
+            // Get document
+            server.documents.get(doc_id.uri) ?
+                | Option.Some(doc) => {
+                    // Return document symbols
+                    result := symbols_to_json(doc.symbols)
+                    return success_response(msg, result)
+                }
+                | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Document not found")
+        }
+        | Option.None => return error_response(msg, ErrorCode.INVALID_PARAMS, "Missing params")
+}
+
+// Analyze document (tokenize, parse, extract symbols)
+analyze_document = (doc: Ptr<Document>) void {
+    // Tokenize
+    lex := lexer.lexer_new(doc.content)
+    doc.tokens = lexer.tokenize(ptr_of(lex))
+    
+    // Parse
+    parse := parser.parser_new(doc.tokens)
+    ast := parser.parse_program(ptr_of(parse))
+    doc.ast = Option<Vec<parser.AstNode>>.Some(ast)
+    
+    // Extract symbols
+    doc.symbols = extract_symbols(ast)
+    
+    // Generate diagnostics
+    doc.diagnostics = vec_new<Diagnostic>()
+    
+    // Add lexer errors as diagnostics
+    i := 0
+    loop i < doc.tokens.len() {
+        token := doc.tokens[i]
+        token.kind ?
+            | lexer.TokenKind.Invalid(msg) => {
+                diag := Diagnostic{
+                    range: Range{
+                        start: Position{ line: token.line - 1, character: token.column - 1 },
+                        end: Position{ line: token.line - 1, character: token.column },
+                    },
+                    severity: DiagnosticSeverity.Error,
+                    code: Option<string>.Some("lexer_error"),
+                    source: "zen",
+                    message: msg,
+                    relatedInformation: vec_new<DiagnosticRelatedInformation>(),
+                }
+                doc.diagnostics.push(diag)
+            }
+            | _ => {}
+        i = i + 1
+    }
+    
+    // Add parser errors as diagnostics
+    i = 0
+    loop i < parse.errors.len() {
+        error := parse.errors[i]
+        diag := Diagnostic{
+            range: Range{
+                start: Position{ line: error.token.line - 1, character: error.token.column - 1 },
+                end: Position{ line: error.token.line - 1, character: error.token.column },
+            },
+            severity: DiagnosticSeverity.Error,
+            code: Option<string>.Some("parser_error"),
+            source: "zen",
+            message: error.message,
+            relatedInformation: vec_new<DiagnosticRelatedInformation>(),
+        }
+        doc.diagnostics.push(diag)
+        i = i + 1
+    }
+}
+
+// Extract symbols from AST
+extract_symbols = (ast: Vec<parser.AstNode>) Vec<DocumentSymbol> {
+    symbols := vec_new<DocumentSymbol>()
+    
+    i := 0
+    loop i < ast.len() {
+        node := ast[i]
+        symbol := ast_node_to_symbol(node)
+        symbol ?
+            | Option.Some(sym) => symbols.push(sym)
+            | Option.None => {}
+        i = i + 1
+    }
+    
+    return symbols
+}
+
+// Convert AST node to document symbol
+ast_node_to_symbol = (node: parser.AstNode) Option<DocumentSymbol> {
+    node ?
+        | parser.AstNode.FuncDecl(name, params, ret_type, body, is_generic) => {
+            return Option<DocumentSymbol>.Some(DocumentSymbol{
+                name: name,
+                detail: Option<string>.Some(function_signature(name, params, ret_type)),
+                kind: SymbolKind.Function,
+                range: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                selectionRange: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                children: vec_new<DocumentSymbol>(),
+            })
+        }
+        | parser.AstNode.StructDecl(name, fields, generics) => {
+            return Option<DocumentSymbol>.Some(DocumentSymbol{
+                name: name,
+                detail: Option<string>.Some("struct"),
+                kind: SymbolKind.Struct,
+                range: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                selectionRange: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                children: fields_to_symbols(fields),
+            })
+        }
+        | parser.AstNode.EnumDecl(name, variants, generics) => {
+            return Option<DocumentSymbol>.Some(DocumentSymbol{
+                name: name,
+                detail: Option<string>.Some("enum"),
+                kind: SymbolKind.Enum,
+                range: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                selectionRange: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                children: variants_to_symbols(variants),
+            })
+        }
+        | parser.AstNode.VarDecl(name, type_ann, value, is_mut) => {
+            kind := is_mut ?
+                | true => SymbolKind.Variable
+                | false => SymbolKind.Constant
+            
+            return Option<DocumentSymbol>.Some(DocumentSymbol{
+                name: name,
+                detail: type_to_string(type_ann),
+                kind: kind,
+                range: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                selectionRange: Range{ start: Position{ line: 0, character: 0 }, end: Position{ line: 0, character: 0 } },
+                children: vec_new<DocumentSymbol>(),
+            })
+        }
+        | _ => return Option<DocumentSymbol>.None
+}
+
+// Get completions at position
+get_completions = (doc: Document, pos: Position) Vec<CompletionItem> {
+    completions := vec_new<CompletionItem>()
+    
+    // Add keyword completions
+    keywords := [
+        "fn", "struct", "enum", "trait", "impl", "type", "const", "let", "var",
+        "if", "else", "match", "loop", "while", "for", "return", "break", "continue",
+        "pub", "priv", "mut", "ref", "defer", "async", "await", "comptime",
+    ]
+    
+    i := 0
+    loop i < keywords.len() {
+        item := CompletionItem{
+            label: keywords[i],
+            kind: CompletionItemKind.Keyword,
+            detail: Option<string>.Some("keyword"),
+            documentation: Option<string>.None,
+            insertText: Option<string>.Some(keywords[i]),
+            sortText: Option<string>.None,
+            filterText: Option<string>.None,
+        }
+        completions.push(item)
+        i = i + 1
+    }
+    
+    // Add symbol completions from document
+    i = 0
+    loop i < doc.symbols.len() {
+        symbol := doc.symbols[i]
+        item := symbol_to_completion_item(symbol)
+        completions.push(item)
+        i = i + 1
+    }
+    
+    return completions
+}
+
+// Publish diagnostics notification
+publish_diagnostics = (server: Ptr<LanguageServer>, uri: string, diagnostics: Vec<Diagnostic>) void {
+    // Create notification message
+    params := json_object([
+        ("uri", json_string(uri)),
+        ("diagnostics", diagnostics_to_json(diagnostics))
+    ])
+    
+    notification := Message{
+        jsonrpc: "2.0",
+        id: Option<i32>.None,
+        method: Option<string>.Some("textDocument/publishDiagnostics"),
+        params: Option<JsonValue>.Some(params),
+        result: Option<JsonValue>.None,
+        error: Option<ResponseError>.None,
+    }
+    
+    // Send notification (would write to stdout in real implementation)
+    send_message(notification)
+}
+
+// Helper functions
+success_response = (req: Message, result: JsonValue) Message {
+    Message{
+        jsonrpc: "2.0",
+        id: req.id,
+        method: Option<string>.None,
+        params: Option<JsonValue>.None,
+        result: Option<JsonValue>.Some(result),
+        error: Option<ResponseError>.None,
+    }
+}
+
+error_response = (req: Message, code: i32, message: string) Message {
+    Message{
+        jsonrpc: "2.0",
+        id: req.id,
+        method: Option<string>.None,
+        params: Option<JsonValue>.None,
+        result: Option<JsonValue>.None,
+        error: Option<ResponseError>.Some(ResponseError{
+            code: code,
+            message: message,
+            data: Option<JsonValue>.None,
+        }),
+    }
+}
+
+empty_message = () Message {
+    Message{
+        jsonrpc: "2.0",
+        id: Option<i32>.None,
+        method: Option<string>.None,
+        params: Option<JsonValue>.None,
+        result: Option<JsonValue>.None,
+        error: Option<ResponseError>.None,
+    }
+}
+
+// Send message to client (write to stdout)
+send_message = (msg: Message) void {
+    // Serialize message to JSON
+    json_str := message_to_json(msg)
+    
+    // Write LSP header
+    content_length := string_len(json_str)
+    io.print("Content-Length: $(content_length)\r\n\r\n")
+    
+    // Write JSON body
+    io.print(json_str)
+    io.flush()
+}
+
+// Main entry point
+main = () i32 {
+    // Create language server
+    server := server_new()
+    
+    io.eprint("Zen Language Server starting...\n")
+    
+    // Main message loop
+    loop {
+        // Read message from stdin
+        msg := read_message()
+        
+        msg ?
+            | Option.Some(m) => {
+                // Handle message
+                response := handle_request(ptr_of(server), m)
+                
+                // Send response if needed
+                response.id ?
+                    | Option.Some(_) => send_message(response)
+                    | Option.None => {
+                        // Check if it's a notification that needs sending
+                        response.method ?
+                            | Option.Some(_) => send_message(response)
+                            | Option.None => {}
+                    }
+            }
+            | Option.None => {
+                // EOF or error reading message
+                break
+            }
+    }
+    
+    io.eprint("Zen Language Server shutting down...\n")
+    
+    return 0
+}
+
+// Stub implementations for helper functions
+read_message = () Option<Message> {
+    // In real implementation, would read from stdin
+    return Option<Message>.None
+}
+
+message_to_json = (msg: Message) string {
+    // In real implementation, would serialize to JSON
+    return "{}"
+}
+
+// More stub implementations would go here...
