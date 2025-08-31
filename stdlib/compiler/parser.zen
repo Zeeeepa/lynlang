@@ -255,7 +255,7 @@ parser_parse_primary = (p: *Parser) *AstNode {
     
     // If we get here, we have an error
     p.errors.append("Unexpected token in expression")
-    return &AstNode { type: NodeType.Literal }  // Return error node
+    return &AstNode { type = NodeType.Literal }  // Return error node
 }
 
 // Parse expression (simplified for now)

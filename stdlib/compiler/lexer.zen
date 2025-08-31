@@ -20,12 +20,12 @@ Lexer = {
 // Create a new lexer
 lexer_new = (input: String) Lexer {
     l := Lexer {
-        input: input,
-        position: 0,
-        read_position: 0,
-        ch: 0,
-        line: 1,
-        column: 1,
+        input = input,
+        position = 0,
+        read_position = 0,
+        ch = 0,
+        line = 1,
+        column = 1,
     }
     // Read the first character
     lexer_read_char(&l)

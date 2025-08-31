@@ -18,12 +18,12 @@ Lexer = {
 // Create a new lexer
 lexer_new = (input: String) Lexer {
     l := Lexer {
-        input: input,
-        position: 0,
-        read_position: 0,
-        ch: 0,
-        line: 1,
-        column: 1,
+        input = input,
+        position = 0,
+        read_position = 0,
+        ch = 0,
+        line = 1,
+        column = 1,
     }
     // Read the first character
     lexer_read_char(&l)
@@ -178,7 +178,7 @@ lexer_read_number = (l: *Lexer) NumberResult {
             loop (is_digit(l.ch) || (l.ch >= 'a' && l.ch <= 'f') || (l.ch >= 'A' && l.ch <= 'F')) {
                 lexer_read_char(l)
             }
-            return NumberResult{ text: l.input.substring(start_pos, l.position), is_float: false }
+            return NumberResult { text = l.input.substring(start_pos, l.position), is_float = false }
         }
         | false => {}
     
@@ -192,7 +192,7 @@ lexer_read_number = (l: *Lexer) NumberResult {
                 l.ch == '0' || l.ch == '1' ? | false => { break } | true => {}
                 lexer_read_char(l)
             }
-            return NumberResult{ text: l.input.substring(start_pos, l.position), is_float: false }
+            return NumberResult { text = l.input.substring(start_pos, l.position), is_float = false }
         }
         | false => {}
     
@@ -238,7 +238,7 @@ lexer_read_number = (l: *Lexer) NumberResult {
         }
         | false => {}
     
-    return NumberResult{ text: l.input.substring(start_pos, l.position), is_float: is_float }
+    return NumberResult { text = l.input.substring(start_pos, l.position), is_float = is_float }
 }
 
 // Read a string literal
