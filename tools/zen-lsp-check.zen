@@ -1,0 +1,407 @@
+// Zen Language Server Protocol Checker
+// Provides syntax and semantic checking for Zen files
+
+io := @std.io
+fs := @std.fs
+string := @std.string
+path := @std.path
+args := @std.args
+vec := @std.vec
+
+// Diagnostic severity levels
+enum Severity {
+    Error
+    Warning
+    Info
+    Hint
+}
+
+// Diagnostic structure
+struct Diagnostic {
+    file: string
+    line: i32
+    column: i32
+    severity: Severity
+    message: string
+    code: Option<string>
+}
+
+// Check result
+struct CheckResult {
+    file: string
+    passed: bool
+    diagnostics: vec<Diagnostic>
+}
+
+// Configuration for checker
+struct CheckConfig {
+    check_syntax: bool
+    check_imports: bool
+    check_types: bool
+    check_style: bool
+    verbose: bool
+    fix_issues: bool
+}
+
+// Create default configuration
+default_config = () CheckConfig {
+    return CheckConfig {
+        check_syntax: true,
+        check_imports: true,
+        check_types: true,
+        check_style: true,
+        verbose: false,
+        fix_issues: false
+    }
+}
+
+// Check if line contains import statement
+is_import_line = (line: string) bool {
+    trimmed := string.trim(line)
+    
+    // Check for @std imports
+    if string.starts_with(trimmed, "@std") {
+        return true
+    }
+    
+    // Check for := @std pattern
+    if string.contains(trimmed, ":= @std") {
+        return true
+    }
+    
+    // Check for build.import pattern
+    if string.contains(trimmed, "build.import(") {
+        return true
+    }
+    
+    // Check for @compiler imports
+    if string.starts_with(trimmed, "@compiler") {
+        return true
+    }
+    
+    return false
+}
+
+// Check if import is in valid context
+check_import_context = (lines: []string, line_num: i32) Option<Diagnostic> {
+    if line_num == 0 {
+        return Option<Diagnostic>.None
+    }
+    
+    // Check if we're inside a function
+    mut brace_depth := 0
+    for i := 0; i < line_num; i = i + 1 {
+        line := lines[i]
+        for j := 0; j < string.len(line); j = j + 1 {
+            ch := string.char_at(line, j)
+            if ch == '{' {
+                brace_depth = brace_depth + 1
+            } else if ch == '}' {
+                brace_depth = brace_depth - 1
+            }
+        }
+    }
+    
+    if brace_depth > 0 {
+        return Option<Diagnostic>.Some(Diagnostic {
+            file: "",
+            line: line_num + 1,
+            column: 1,
+            severity: Severity.Error,
+            message: "Import statements must be at module level, not inside functions or blocks",
+            code: Option<string>.Some("E001")
+        })
+    }
+    
+    // Check if inside comptime block
+    mut in_comptime := false
+    for i := line_num - 1; i >= 0; i = i - 1 {
+        line := lines[i]
+        if string.contains(line, "comptime {") || string.contains(line, "@comptime {") {
+            in_comptime = true
+            break
+        }
+        if string.contains(line, "}") {
+            // We've exited a block
+            break
+        }
+    }
+    
+    if in_comptime {
+        return Option<Diagnostic>.Some(Diagnostic {
+            file: "",
+            line: line_num + 1,
+            column: 1,
+            severity: Severity.Error,
+            message: "Import statements are not allowed inside comptime blocks",
+            code: Option<string>.Some("E002")
+        })
+    }
+    
+    return Option<Diagnostic>.None
+}
+
+// Check syntax of a single file
+check_syntax = (file_path: string) vec<Diagnostic> {
+    mut diagnostics := vec.new<Diagnostic>()
+    
+    // Read file contents
+    content := fs.read_file(file_path)
+    if content == "" {
+        vec.push(&mut diagnostics, Diagnostic {
+            file: file_path,
+            line: 0,
+            column: 0,
+            severity: Severity.Error,
+            message: "Failed to read file",
+            code: Option<string>.Some("E100")
+        })
+        return diagnostics
+    }
+    
+    lines := string.split(content, "\n")
+    
+    // Check each line
+    for i := 0; i < lines.len(); i = i + 1 {
+        line := lines[i]
+        
+        // Check for common syntax errors
+        if string.contains(line, "comptime {") {
+            // Check if there's an import inside
+            mut j := i + 1
+            mut depth := 1
+            while j < lines.len() && depth > 0 {
+                inner_line := lines[j]
+                if is_import_line(inner_line) {
+                    vec.push(&mut diagnostics, Diagnostic {
+                        file: file_path,
+                        line: j + 1,
+                        column: 1,
+                        severity: Severity.Error,
+                        message: "Import statements not allowed in comptime blocks",
+                        code: Option<string>.Some("E002")
+                    })
+                }
+                if string.contains(inner_line, "{") {
+                    depth = depth + 1
+                }
+                if string.contains(inner_line, "}") {
+                    depth = depth - 1
+                }
+                j = j + 1
+            }
+        }
+        
+        // Check for missing semicolons (style check)
+        if !string.ends_with(string.trim(line), ";") && 
+           !string.ends_with(string.trim(line), "{") && 
+           !string.ends_with(string.trim(line), "}") &&
+           string.len(string.trim(line)) > 0 &&
+           !string.starts_with(string.trim(line), "//") {
+            // This might be a multi-line statement, so it's just a warning
+            vec.push(&mut diagnostics, Diagnostic {
+                file: file_path,
+                line: i + 1,
+                column: string.len(line),
+                severity: Severity.Warning,
+                message: "Statement might be missing semicolon",
+                code: Option<string>.Some("W001")
+            })
+        }
+    }
+    
+    return diagnostics
+}
+
+// Check imports in a file
+check_imports = (file_path: string) vec<Diagnostic> {
+    mut diagnostics := vec.new<Diagnostic>()
+    
+    content := fs.read_file(file_path)
+    if content == "" {
+        return diagnostics
+    }
+    
+    lines := string.split(content, "\n")
+    
+    for i := 0; i < lines.len(); i = i + 1 {
+        line := lines[i]
+        
+        if is_import_line(line) {
+            // Check if import is in valid context
+            match check_import_context(lines, i) {
+                | Option<Diagnostic>.Some(mut diag) => {
+                    diag.file = file_path
+                    vec.push(&mut diagnostics, diag)
+                }
+                | Option<Diagnostic>.None => {}
+            }
+        }
+    }
+    
+    return diagnostics
+}
+
+// Format diagnostic for output
+format_diagnostic = (diag: Diagnostic) string {
+    mut result := diag.file
+    result = string.concat(result, ":")
+    result = string.concat(result, string.from_int(diag.line))
+    result = string.concat(result, ":")
+    result = string.concat(result, string.from_int(diag.column))
+    result = string.concat(result, ": ")
+    
+    severity_str := match diag.severity {
+        | Severity.Error => "error"
+        | Severity.Warning => "warning"
+        | Severity.Info => "info"
+        | Severity.Hint => "hint"
+    }
+    
+    result = string.concat(result, severity_str)
+    
+    match diag.code {
+        | Option<string>.Some(code) => {
+            result = string.concat(result, "[")
+            result = string.concat(result, code)
+            result = string.concat(result, "]")
+        }
+        | Option<string>.None => {}
+    }
+    
+    result = string.concat(result, ": ")
+    result = string.concat(result, diag.message)
+    
+    return result
+}
+
+// Check a single file
+check_file = (file_path: string, config: CheckConfig) CheckResult {
+    mut all_diagnostics := vec.new<Diagnostic>()
+    
+    if config.check_syntax {
+        syntax_diags := check_syntax(file_path)
+        for i := 0; i < vec.len(syntax_diags); i = i + 1 {
+            vec.push(&mut all_diagnostics, vec.get(syntax_diags, i))
+        }
+    }
+    
+    if config.check_imports {
+        import_diags := check_imports(file_path)
+        for i := 0; i < vec.len(import_diags); i = i + 1 {
+            vec.push(&mut all_diagnostics, vec.get(import_diags, i))
+        }
+    }
+    
+    // Count errors
+    mut has_errors := false
+    for i := 0; i < vec.len(all_diagnostics); i = i + 1 {
+        diag := vec.get(all_diagnostics, i)
+        match diag.severity {
+            | Severity.Error => has_errors = true
+            | _ => {}
+        }
+    }
+    
+    return CheckResult {
+        file: file_path,
+        passed: !has_errors,
+        diagnostics: all_diagnostics
+    }
+}
+
+// Main entry point
+main = () i32 {
+    // Parse command line arguments
+    parser := args.new_parser("zen-lsp-check", "Zen Language Server Protocol Checker")
+    
+    args.add_flag(&mut parser, args.flag_short('v', "verbose", "Enable verbose output"))
+    args.add_flag(&mut parser, args.flag_short('q', "quiet", "Suppress non-error output"))
+    args.add_flag(&mut parser, args.flag_long("no-syntax", "Skip syntax checking"))
+    args.add_flag(&mut parser, args.flag_long("no-imports", "Skip import checking"))
+    args.add_flag(&mut parser, args.flag_long("no-style", "Skip style checking"))
+    args.add_flag(&mut parser, args.flag_long("fix", "Attempt to fix issues"))
+    args.add_flag(&mut parser, args.flag_value('o', "output", "FORMAT", "Output format (text|json)"))
+    
+    parsed := args.parse(&parser, args.get_args())
+    
+    match parsed {
+        | Result<args.ParsedArgs, string>.Err(msg) => {
+            io.eprint("Error: ")
+            io.eprint(msg)
+            io.eprint("\n")
+            return 1
+        }
+        | Result<args.ParsedArgs, string>.Ok(opts) => {
+            // Build configuration
+            mut config := default_config()
+            
+            if args.has_flag(&opts, "verbose") {
+                config.verbose = true
+            }
+            if args.has_flag(&opts, "no-syntax") {
+                config.check_syntax = false
+            }
+            if args.has_flag(&opts, "no-imports") {
+                config.check_imports = false
+            }
+            if args.has_flag(&opts, "no-style") {
+                config.check_style = false
+            }
+            if args.has_flag(&opts, "fix") {
+                config.fix_issues = true
+            }
+            
+            // Get files to check
+            files := opts.positional
+            if vec.len(files) == 0 {
+                io.print("Usage: zen-lsp-check [OPTIONS] <files...>\n")
+                return 0
+            }
+            
+            // Check each file
+            mut total_errors := 0
+            mut total_warnings := 0
+            
+            for i := 0; i < vec.len(files); i = i + 1 {
+                file := vec.get(files, i)
+                
+                if config.verbose {
+                    io.print("Checking: ")
+                    io.print(file)
+                    io.print("\n")
+                }
+                
+                result := check_file(file, config)
+                
+                // Print diagnostics
+                for j := 0; j < vec.len(result.diagnostics); j = j + 1 {
+                    diag := vec.get(result.diagnostics, j)
+                    io.print(format_diagnostic(diag))
+                    io.print("\n")
+                    
+                    match diag.severity {
+                        | Severity.Error => total_errors = total_errors + 1
+                        | Severity.Warning => total_warnings = total_warnings + 1
+                        | _ => {}
+                    }
+                }
+            }
+            
+            // Print summary
+            if !args.has_flag(&opts, "quiet") {
+                io.print("\n")
+                io.print("Summary: ")
+                io.print_int(total_errors)
+                io.print(" errors, ")
+                io.print_int(total_warnings)
+                io.print(" warnings\n")
+            }
+            
+            if total_errors > 0 {
+                return 1
+            }
+            return 0
+        }
+    }
+}

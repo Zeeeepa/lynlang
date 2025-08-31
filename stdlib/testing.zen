@@ -1,0 +1,242 @@
+// Simple testing framework for Zen
+// Provides basic test runner and assertion utilities
+
+io := @std.io
+string := @std.string
+time := @std.time
+
+// Test result structure
+struct TestResult {
+    name: string
+    passed: bool
+    duration: time.Duration
+    error_message: Option<string>
+}
+
+// Test suite structure
+struct TestSuite {
+    name: string
+    tests: vec<TestResult>
+    total: i32
+    passed: i32
+    failed: i32
+}
+
+// Create a new test suite
+new_suite = (name: string) TestSuite {
+    return TestSuite {
+        name: name,
+        tests: vec.new<TestResult>(),
+        total: 0,
+        passed: 0,
+        failed: 0
+    }
+}
+
+// Run a single test
+run_test = (suite: &mut TestSuite, name: string, test_fn: () bool) void {
+    io.print("  Running: ")
+    io.print(name)
+    io.print("... ")
+    
+    start := time.now()
+    passed := test_fn()
+    duration := time.since(start)
+    
+    result := TestResult {
+        name: name,
+        passed: passed,
+        duration: duration,
+        error_message: Option<string>.None
+    }
+    
+    if passed {
+        io.print("✓ PASS")
+        suite.passed = suite.passed + 1
+    } else {
+        io.print("✗ FAIL")
+        suite.failed = suite.failed + 1
+    }
+    
+    io.print(" (")
+    io.print(time.format_duration(duration))
+    io.print(")\n")
+    
+    vec.push(&mut suite.tests, result)
+    suite.total = suite.total + 1
+}
+
+// Run test with custom error message
+run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result<bool, string>) void {
+    io.print("  Running: ")
+    io.print(name)
+    io.print("... ")
+    
+    start := time.now()
+    result_val := test_fn()
+    duration := time.since(start)
+    
+    match result_val {
+        | Result<bool, string>.Ok(passed) => {
+            result := TestResult {
+                name: name,
+                passed: passed,
+                duration: duration,
+                error_message: Option<string>.None
+            }
+            
+            if passed {
+                io.print("✓ PASS")
+                suite.passed = suite.passed + 1
+            } else {
+                io.print("✗ FAIL")
+                suite.failed = suite.failed + 1
+            }
+            
+            vec.push(&mut suite.tests, result)
+        }
+        | Result<bool, string>.Err(msg) => {
+            result := TestResult {
+                name: name,
+                passed: false,
+                duration: duration,
+                error_message: Option<string>.Some(msg)
+            }
+            
+            io.print("✗ ERROR: ")
+            io.print(msg)
+            suite.failed = suite.failed + 1
+            vec.push(&mut suite.tests, result)
+        }
+    }
+    
+    io.print(" (")
+    io.print(time.format_duration(duration))
+    io.print(")\n")
+    
+    suite.total = suite.total + 1
+}
+
+// Print test suite summary
+print_summary = (suite: &TestSuite) void {
+    io.print("\n")
+    io.print("=" * 50)
+    io.print("\n")
+    io.print("Test Suite: ")
+    io.print(suite.name)
+    io.print("\n")
+    io.print("=" * 50)
+    io.print("\n\n")
+    
+    io.print("Total: ")
+    io.print_int(suite.total)
+    io.print(" | Passed: ")
+    io.print_int(suite.passed)
+    io.print(" | Failed: ")
+    io.print_int(suite.failed)
+    io.print("\n")
+    
+    if suite.failed > 0 {
+        io.print("\nFailed tests:\n")
+        for i := 0; i < vec.len(suite.tests); i = i + 1 {
+            test := vec.get(suite.tests, i)
+            if !test.passed {
+                io.print("  - ")
+                io.print(test.name)
+                match test.error_message {
+                    | Option<string>.Some(msg) => {
+                        io.print(": ")
+                        io.print(msg)
+                    }
+                    | Option<string>.None => {}
+                }
+                io.print("\n")
+            }
+        }
+    }
+    
+    io.print("\n")
+    if suite.failed == 0 {
+        io.print("✅ All tests passed!\n")
+    } else {
+        io.print("❌ Some tests failed.\n")
+    }
+}
+
+// Basic assertions
+assert_true = (condition: bool, message: string) Result<bool, string> {
+    if condition {
+        return Result<bool, string>.Ok(true)
+    } else {
+        return Result<bool, string>.Err(message)
+    }
+}
+
+assert_false = (condition: bool, message: string) Result<bool, string> {
+    if !condition {
+        return Result<bool, string>.Ok(true)
+    } else {
+        return Result<bool, string>.Err(message)
+    }
+}
+
+assert_eq = <T>(actual: T, expected: T, message: string) Result<bool, string> {
+    if actual == expected {
+        return Result<bool, string>.Ok(true)
+    } else {
+        msg := string.concat(message, " - Expected: ")
+        msg = string.concat(msg, string.to_string(expected))
+        msg = string.concat(msg, ", Got: ")
+        msg = string.concat(msg, string.to_string(actual))
+        return Result<bool, string>.Err(msg)
+    }
+}
+
+assert_ne = <T>(actual: T, not_expected: T, message: string) Result<bool, string> {
+    if actual != not_expected {
+        return Result<bool, string>.Ok(true)
+    } else {
+        return Result<bool, string>.Err(message)
+    }
+}
+
+// Benchmark a function
+benchmark = (name: string, iterations: i32, fn: () void) void {
+    io.print("Benchmarking: ")
+    io.print(name)
+    io.print(" (")
+    io.print_int(iterations)
+    io.print(" iterations)\n")
+    
+    start := time.now()
+    for i := 0; i < iterations; i = i + 1 {
+        fn()
+    }
+    total_duration := time.since(start)
+    
+    avg_duration := time.divide_duration(total_duration, iterations)
+    
+    io.print("  Total: ")
+    io.print(time.format_duration(total_duration))
+    io.print("\n  Average: ")
+    io.print(time.format_duration(avg_duration))
+    io.print("\n")
+}
+
+// Test runner helper
+run_tests = (name: string, tests: [](() bool)) i32 {
+    mut suite := new_suite(name)
+    
+    for i := 0; i < tests.len(); i = i + 1 {
+        test_name := string.concat("Test ", string.from_int(i + 1))
+        run_test(&mut suite, test_name, tests[i])
+    }
+    
+    print_summary(&suite)
+    
+    if suite.failed > 0 {
+        return 1
+    } else {
+        return 0
+    }
+}
