@@ -1,0 +1,361 @@
+// Zen Standard Library - Cryptography Module
+// Cryptographic functions and utilities implemented in pure Zen
+
+core := @std.core
+math := @std.math
+
+// Hash algorithms
+HashAlgorithm := enum {
+    MD5
+    SHA1
+    SHA256
+    SHA512
+    Blake2b
+}
+
+// Hash result container
+HashResult := struct {
+    algorithm: HashAlgorithm
+    digest: []u8
+    hex_string: core.String
+}
+
+// Simple hash interface
+Hash := struct {
+    algorithm: HashAlgorithm
+    state: *void
+    block_size: usize
+    digest_size: usize
+}
+
+// Create a new hash instance
+new_hash = (algorithm: HashAlgorithm) Hash {
+    block_size := switch algorithm {
+        .MD5 => 64
+        .SHA1 => 64
+        .SHA256 => 64
+        .SHA512 => 128
+        .Blake2b => 128
+    }
+    
+    digest_size := switch algorithm {
+        .MD5 => 16
+        .SHA1 => 20
+        .SHA256 => 32
+        .SHA512 => 64
+        .Blake2b => 64
+    }
+    
+    return Hash{
+        algorithm: algorithm
+        state: @builtin.crypto_init(algorithm)
+        block_size: block_size
+        digest_size: digest_size
+    }
+}
+
+// Update hash with data
+update = (h: *Hash, data: []u8) void {
+    @builtin.crypto_update(h.state, data.ptr, data.len)
+}
+
+// Finalize hash and get result
+finalize = (h: *Hash) HashResult {
+    digest := core.alloc(u8, h.digest_size)
+    @builtin.crypto_finalize(h.state, digest.ptr)
+    
+    // Convert to hex string
+    hex := core.String.with_capacity(h.digest_size * 2)
+    i := 0
+    while i < h.digest_size {
+        byte := digest[i]
+        hex.append(to_hex_char(byte >> 4))
+        hex.append(to_hex_char(byte & 0x0F))
+        i = i + 1
+    }
+    
+    return HashResult{
+        algorithm: h.algorithm
+        digest: digest
+        hex_string: hex
+    }
+}
+
+// Helper to convert nibble to hex char
+to_hex_char = (nibble: u8) u8 {
+    if nibble < 10 {
+        return '0' + nibble
+    } else {
+        return 'a' + (nibble - 10)
+    }
+}
+
+// Convenience functions for common hashes
+sha256 = (data: []u8) HashResult {
+    h := new_hash(.SHA256)
+    update(&h, data)
+    return finalize(&h)
+}
+
+sha512 = (data: []u8) HashResult {
+    h := new_hash(.SHA512)
+    update(&h, data)
+    return finalize(&h)
+}
+
+// Random number generation
+Random := struct {
+    state: u64
+    seed: u64
+}
+
+// Create new random generator with seed
+new_random = (seed: u64) Random {
+    return Random{
+        state: seed ^ 0x5DEECE66D
+        seed: seed
+    }
+}
+
+// Get next random u64
+next_u64 = (r: *Random) u64 {
+    r.state = r.state * 0x5DEECE66D + 0xB
+    return r.state
+}
+
+// Get random bytes
+random_bytes = (r: *Random, buf: []u8) void {
+    i := 0
+    while i < buf.len {
+        val := next_u64(r)
+        j := 0
+        while j < 8 and i < buf.len {
+            buf[i] = (val >> (j * 8)) & 0xFF
+            i = i + 1
+            j = j + 1
+        }
+    }
+}
+
+// Cryptographically secure random bytes
+secure_random_bytes = (buf: []u8) void {
+    @builtin.crypto_secure_random(buf.ptr, buf.len)
+}
+
+// Simple XOR cipher for demonstration
+xor_cipher = (data: []u8, key: []u8) []u8 {
+    result := core.alloc(u8, data.len)
+    i := 0
+    while i < data.len {
+        result[i] = data[i] ^ key[i % key.len]
+        i = i + 1
+    }
+    return result
+}
+
+// Base64 encoding
+base64_encode = (data: []u8) core.String {
+    chars := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    result := core.String.with_capacity((data.len + 2) / 3 * 4)
+    
+    i := 0
+    while i < data.len {
+        // Get 3 bytes
+        b1 := data[i]
+        b2 := if i + 1 < data.len { data[i + 1] } else { 0 }
+        b3 := if i + 2 < data.len { data[i + 2] } else { 0 }
+        
+        // Convert to 4 base64 chars
+        result.append(chars[(b1 >> 2) & 0x3F])
+        result.append(chars[((b1 << 4) | (b2 >> 4)) & 0x3F])
+        
+        if i + 1 < data.len {
+            result.append(chars[((b2 << 2) | (b3 >> 6)) & 0x3F])
+        } else {
+            result.append('=')
+        }
+        
+        if i + 2 < data.len {
+            result.append(chars[b3 & 0x3F])
+        } else {
+            result.append('=')
+        }
+        
+        i = i + 3
+    }
+    
+    return result
+}
+
+// Base64 decoding
+base64_decode = (encoded: core.String) ?[]u8 {
+    // Validation and padding check
+    if encoded.len % 4 != 0 {
+        return null
+    }
+    
+    // Calculate output size
+    padding := 0
+    if encoded[encoded.len - 1] == '=' { padding = padding + 1 }
+    if encoded[encoded.len - 2] == '=' { padding = padding + 1 }
+    out_len := (encoded.len / 4) * 3 - padding
+    
+    result := core.alloc(u8, out_len)
+    
+    // Decode
+    i := 0
+    j := 0
+    while i < encoded.len {
+        // Get 4 base64 chars and convert to 3 bytes
+        c1 := decode_base64_char(encoded[i])
+        c2 := decode_base64_char(encoded[i + 1])
+        c3 := decode_base64_char(encoded[i + 2])
+        c4 := decode_base64_char(encoded[i + 3])
+        
+        if c1 == 255 or c2 == 255 {
+            return null  // Invalid character
+        }
+        
+        result[j] = (c1 << 2) | (c2 >> 4)
+        j = j + 1
+        
+        if c3 != 64 and j < out_len {  // 64 is padding
+            result[j] = ((c2 << 4) & 0xF0) | (c3 >> 2)
+            j = j + 1
+        }
+        
+        if c4 != 64 and j < out_len {
+            result[j] = ((c3 << 6) & 0xC0) | c4
+            j = j + 1
+        }
+        
+        i = i + 4
+    }
+    
+    return result
+}
+
+// Helper for base64 decoding
+decode_base64_char = (c: u8) u8 {
+    if c >= 'A' and c <= 'Z' {
+        return c - 'A'
+    } else if c >= 'a' and c <= 'z' {
+        return c - 'a' + 26
+    } else if c >= '0' and c <= '9' {
+        return c - '0' + 52
+    } else if c == '+' {
+        return 62
+    } else if c == '/' {
+        return 63
+    } else if c == '=' {
+        return 64  // Padding
+    } else {
+        return 255  // Invalid
+    }
+}
+
+// HMAC (Hash-based Message Authentication Code)
+hmac = (key: []u8, message: []u8, algorithm: HashAlgorithm) HashResult {
+    h := new_hash(algorithm)
+    block_size := h.block_size
+    
+    // Prepare key
+    work_key := core.alloc(u8, block_size)
+    if key.len > block_size {
+        // Hash the key if it's too long
+        key_hash := switch algorithm {
+            .SHA256 => sha256(key)
+            .SHA512 => sha512(key)
+            _ => sha256(key)  // Default to SHA256
+        }
+        core.mem_copy(work_key.ptr, key_hash.digest.ptr, key_hash.digest.len)
+    } else {
+        core.mem_copy(work_key.ptr, key.ptr, key.len)
+    }
+    
+    // Create inner and outer padding
+    i_pad := core.alloc(u8, block_size)
+    o_pad := core.alloc(u8, block_size)
+    
+    i := 0
+    while i < block_size {
+        i_pad[i] = work_key[i] ^ 0x36
+        o_pad[i] = work_key[i] ^ 0x5C
+        i = i + 1
+    }
+    
+    // Inner hash
+    inner := new_hash(algorithm)
+    update(&inner, i_pad)
+    update(&inner, message)
+    inner_result := finalize(&inner)
+    
+    // Outer hash
+    outer := new_hash(algorithm)
+    update(&outer, o_pad)
+    update(&outer, inner_result.digest)
+    
+    return finalize(&outer)
+}
+
+// Password hashing using PBKDF2
+pbkdf2 = (password: []u8, salt: []u8, iterations: u32, key_len: usize, algorithm: HashAlgorithm) []u8 {
+    result := core.alloc(u8, key_len)
+    block_count := (key_len + 31) / 32  // Number of 32-byte blocks needed
+    
+    block := 0
+    while block < block_count {
+        // Calculate this block
+        block_start := block * 32
+        block_len := if (block + 1) * 32 <= key_len { 32 } else { key_len - block_start }
+        
+        // First iteration
+        block_num := core.alloc(u8, 4)
+        block_num[0] = (block >> 24) & 0xFF
+        block_num[1] = (block >> 16) & 0xFF
+        block_num[2] = (block >> 8) & 0xFF
+        block_num[3] = block & 0xFF
+        
+        salt_plus := core.alloc(u8, salt.len + 4)
+        core.mem_copy(salt_plus.ptr, salt.ptr, salt.len)
+        core.mem_copy(salt_plus.ptr + salt.len, block_num.ptr, 4)
+        
+        u := hmac(password, salt_plus, algorithm).digest
+        core.mem_copy(result.ptr + block_start, u.ptr, block_len)
+        
+        // Remaining iterations
+        iter := 1
+        while iter < iterations {
+            u = hmac(password, u, algorithm).digest
+            
+            // XOR with result
+            i := 0
+            while i < block_len {
+                result[block_start + i] = result[block_start + i] ^ u[i]
+                i = i + 1
+            }
+            
+            iter = iter + 1
+        }
+        
+        block = block + 1
+    }
+    
+    return result
+}
+
+// Constant-time comparison to prevent timing attacks
+secure_compare = (a: []u8, b: []u8) bool {
+    if a.len != b.len {
+        return false
+    }
+    
+    diff := 0
+    i := 0
+    while i < a.len {
+        diff = diff | (a[i] ^ b[i])
+        i = i + 1
+    }
+    
+    return diff == 0
+}
