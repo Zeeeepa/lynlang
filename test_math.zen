@@ -1,0 +1,7 @@
+math := build.import("math")
+
+main = () f64 {
+    x := 16.0
+    result := math.sqrt(x)
+    return result
+}
