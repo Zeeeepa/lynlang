@@ -35,7 +35,7 @@ impl<'a> Parser<'a> {
                     self.next_token(); // Move past :=
                     
                     let is_import = if let Token::Identifier(id) = &self.current_token {
-                        id.starts_with("@std") || id == "@compiler" || id == "build"
+                        id.starts_with("@") || id == "build"
                     } else {
                         false
                     };

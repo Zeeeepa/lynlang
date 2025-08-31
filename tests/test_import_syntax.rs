@@ -45,7 +45,7 @@ comptime {
     let mut parser = Parser::new(lexer);
     let result = parser.parse_program();
     
-    assert!(result.is_ok(), "Imports in comptime blocks should now be accepted");
+    assert!(result.is_err(), "Imports in comptime blocks should be rejected");
 }
 
 #[test]
@@ -62,7 +62,7 @@ comptime {
     let mut parser = Parser::new(lexer);
     let result = parser.parse_program();
     
-    assert!(result.is_ok(), "build imports in comptime blocks should now be accepted");
+    assert!(result.is_err(), "build imports in comptime blocks should be rejected");
 }
 
 #[test]
@@ -78,7 +78,7 @@ comptime {
     let mut parser = Parser::new(lexer);
     let result = parser.parse_program();
     
-    assert!(result.is_ok(), "@compiler imports in comptime blocks should now be accepted");
+    assert!(result.is_err(), "@compiler imports in comptime blocks should be rejected");
 }
 
 #[test]
