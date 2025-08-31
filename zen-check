@@ -1,0 +1,84 @@
+#!/bin/bash
+# Zen syntax checker - validates Zen source files
+
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check if file is provided
+if [ $# -eq 0 ]; then
+    echo "Usage: zen-check <file.zen>"
+    echo "       zen-check *.zen"
+    exit 1
+fi
+
+# Path to zen compiler
+ZEN_COMPILER="./target/release/zen"
+
+# Build compiler if not exists
+if [ ! -f "$ZEN_COMPILER" ]; then
+    echo -e "${YELLOW}Building Zen compiler...${NC}"
+    cargo build --release --quiet
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Failed to build compiler${NC}"
+        exit 1
+    fi
+fi
+
+# Check each file
+TOTAL_FILES=0
+PASSED_FILES=0
+FAILED_FILES=0
+
+for FILE in "$@"; do
+    if [ ! -f "$FILE" ]; then
+        echo -e "${YELLOW}Warning: $FILE not found${NC}"
+        continue
+    fi
+    
+    TOTAL_FILES=$((TOTAL_FILES + 1))
+    echo -n "Checking $FILE... "
+    
+    # Run the compiler in check mode (just parse, don't generate code)
+    OUTPUT=$($ZEN_COMPILER "$FILE" 2>&1)
+    EXIT_CODE=$?
+    
+    if [ $EXIT_CODE -eq 0 ]; then
+        # Check if it's valid LLVM IR (basic syntax check)
+        if echo "$OUTPUT" | grep -q "^; ModuleID"; then
+            echo -e "${GREEN}✓ Valid${NC}"
+            PASSED_FILES=$((PASSED_FILES + 1))
+        else
+            echo -e "${YELLOW}⚠ Parsed but no output${NC}"
+            PASSED_FILES=$((PASSED_FILES + 1))
+        fi
+    else
+        echo -e "${RED}✗ Error${NC}"
+        # Show first error only
+        ERROR=$(echo "$OUTPUT" | grep -i "error" | head -1)
+        if [ ! -z "$ERROR" ]; then
+            echo "  └─ $ERROR"
+        fi
+        FAILED_FILES=$((FAILED_FILES + 1))
+    fi
+done
+
+# Summary
+echo ""
+echo "═══════════════════════════════════"
+echo "Syntax Check Summary:"
+echo "  Total files:  $TOTAL_FILES"
+echo -e "  ${GREEN}Passed:      $PASSED_FILES${NC}"
+if [ $FAILED_FILES -gt 0 ]; then
+    echo -e "  ${RED}Failed:      $FAILED_FILES${NC}"
+else
+    echo -e "  Failed:      $FAILED_FILES"
+fi
+echo "═══════════════════════════════════"
+
+# Exit with error if any files failed
+if [ $FAILED_FILES -gt 0 ]; then
+    exit 1
+fi

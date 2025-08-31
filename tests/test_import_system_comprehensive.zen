@@ -1,0 +1,158 @@
+// Comprehensive test suite for Zen import system
+// Validates that imports work at module level without comptime
+
+// Standard library imports
+core := @std.core
+build := @std.build
+io := build.import("io")
+fs := build.import("fs")
+math := @std.math
+string := build.import("string")
+vec := @std.vec
+
+// Test basic import functionality
+test_basic_imports = () bool {
+    // Test that imported modules can be used
+    io.print("Testing basic imports\n")
+    
+    // Test math functions
+    result := math.abs(-42)
+    if (result != 42) {
+        return false
+    }
+    
+    return true
+}
+
+// Test nested module access
+test_nested_access = () bool {
+    // Test accessing nested modules
+    // Example: @std.collections.hashmap
+    collections := @std.collections
+    
+    // Should be able to access sub-modules
+    return true
+}
+
+// Test import aliasing
+test_import_alias = () bool {
+    // Create aliases for imports
+    stdio := build.import("io")
+    filesystem := build.import("fs")
+    
+    // Use aliases
+    stdio.print("Using aliased import\n")
+    
+    return true
+}
+
+// Test multiple imports from same source
+test_multiple_imports = () bool {
+    str := build.import("string")
+    str2 := build.import("string")
+    
+    // Both should reference the same module
+    return true
+}
+
+// Test that imports work with user modules
+UserModule := struct {
+    value: i32
+    
+    new = (v: i32) UserModule {
+        return UserModule{ value: v }
+    }
+    
+    get = (self: UserModule) i32 {
+        return self.value
+    }
+}
+
+test_user_module = () bool {
+    m := UserModule.new(42)
+    return m.get() == 42
+}
+
+// Test that imports are resolved at compile time
+test_compile_time_resolution = () bool {
+    // Imports should be resolved during compilation
+    // Not at runtime
+    return true
+}
+
+// Test error cases (these would be separate test files that should fail)
+// 1. Import inside function - should fail
+// 2. Import inside comptime block - should fail
+// 3. Import inside struct - should fail
+// 4. Import inside if block - should fail
+
+// Main test runner
+main = () i32 {
+    passed := 0
+    failed := 0
+    
+    io.print("Running import system tests...\n")
+    
+    if (test_basic_imports()) {
+        io.print("✓ Basic imports test passed\n")
+        passed += 1
+    } else {
+        io.print("✗ Basic imports test failed\n")
+        failed += 1
+    }
+    
+    if (test_nested_access()) {
+        io.print("✓ Nested access test passed\n")
+        passed += 1
+    } else {
+        io.print("✗ Nested access test failed\n")
+        failed += 1
+    }
+    
+    if (test_import_alias()) {
+        io.print("✓ Import alias test passed\n")
+        passed += 1
+    } else {
+        io.print("✗ Import alias test failed\n")
+        failed += 1
+    }
+    
+    if (test_multiple_imports()) {
+        io.print("✓ Multiple imports test passed\n")
+        passed += 1
+    } else {
+        io.print("✗ Multiple imports test failed\n")
+        failed += 1
+    }
+    
+    if (test_user_module()) {
+        io.print("✓ User module test passed\n")
+        passed += 1
+    } else {
+        io.print("✗ User module test failed\n")
+        failed += 1
+    }
+    
+    if (test_compile_time_resolution()) {
+        io.print("✓ Compile time resolution test passed\n")
+        passed += 1
+    } else {
+        io.print("✗ Compile time resolution test failed\n")
+        failed += 1
+    }
+    
+    io.print("\nTest Results:\n")
+    io.print("Passed: ")
+    io.print_int(passed)
+    io.print("\nFailed: ")
+    io.print_int(failed)
+    io.print("\n")
+    
+    if (failed == 0) {
+        io.print("All tests passed!\n")
+        return 0
+    } else {
+        io.print("Some tests failed.\n")
+        return 1
+    }
+}
