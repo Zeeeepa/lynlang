@@ -280,14 +280,19 @@ fn test_parse_conditional_expression() {
 
 #[test]
 fn test_parse_comptime_block() {
-    // Test that parser accepts comptime syntax (type checker will validate imports)
+    // Test that parser rejects imports in comptime blocks
     let input = "comptime { build := @std.build io := build.import(\"io\") }";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let result = parser.parse_program();
     
-    // Parser should accept the syntax, type checker handles semantic validation
-    assert!(result.is_ok(), "Parser should accept comptime block syntax");
+    // Parser should reject imports in comptime blocks
+    assert!(result.is_err(), "Parser should reject imports in comptime blocks");
+    if let Err(err) = result {
+        let error_msg = err.to_string();
+        assert!(error_msg.contains("not allowed inside comptime block"), 
+                "Error should mention imports not allowed in comptime: {}", error_msg);
+    }
     
     // Test a valid comptime block without imports
     let input = "comptime { x := 42 y := x * 2 }";
