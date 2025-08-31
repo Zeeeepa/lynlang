@@ -252,25 +252,155 @@ find_variable = (gen: &CodeGen, name: string) Option<LocalVar> {
     return Option<LocalVar>.None
 }
 
-// Helper functions (stubs for now)
+// Generate code for statement
+gen_statement = (gen: &mut CodeGen, stmt: AstNode) {
+    match stmt {
+        | AstNode.VarDecl(name, ty, init) => {
+            // Allocate local variable
+            llvm_ty := zen_type_to_llvm(ty)
+            var_reg := alloc_register(gen)
+            emit(gen, "  %" + u32_to_string(var_reg) + " = alloca " + llvm_ty)
+            
+            // Store initial value if present
+            match init {
+                | Option<AstNode>.Some(expr) => {
+                    val_reg := gen_expression(gen, expr)
+                    emit(gen, "  store " + llvm_ty + " %" + u32_to_string(val_reg) + 
+                         ", " + llvm_ty + "* %" + u32_to_string(var_reg))
+                }
+                | Option<AstNode>.None => {}
+            }
+            
+            // Add to locals table
+            var := LocalVar{
+                name: name,
+                llvm_type: llvm_ty,
+                register: var_reg,
+            }
+            vec_push(gen.locals, var)
+        }
+        | AstNode.Return(expr) => {
+            match expr {
+                | Option<AstNode>.Some(e) => {
+                    val_reg := gen_expression(gen, e)
+                    emit(gen, "  ret i32 %" + u32_to_string(val_reg))
+                }
+                | Option<AstNode>.None => {
+                    emit(gen, "  ret void")
+                }
+            }
+        }
+        | AstNode.Expression(expr) => {
+            // Generate expression (result discarded)
+            gen_expression(gen, expr)
+        }
+        | AstNode.Block(stmts) => {
+            // Generate each statement in block
+            i := 0
+            loop i < vec_len(stmts) {
+                gen_statement(gen, vec_get(stmts, i))
+                i = i + 1
+            }
+        }
+        | _ => {}
+    }
+}
+
+// Generate function definition
+gen_function = (gen: &mut CodeGen, func: AstNode) {
+    match func {
+        | AstNode.FnDecl(name, params, ret_ty, body) => {
+            // Clear locals for new function
+            gen.locals = vec_new<LocalVar>()
+            gen.next_register = 0
+            
+            // Generate function signature
+            ret_type := zen_type_to_llvm(ret_ty)
+            emit(gen, "")
+            emit(gen, "define " + ret_type + " @" + name + "(")
+            
+            // Generate parameters
+            i := 0
+            loop i < vec_len(params) {
+                param := vec_get(params, i)
+                param_type := zen_type_to_llvm(param.ty)
+                emit(gen, "  " + param_type + " %" + param.name)
+                i < vec_len(params) - 1 ? {
+                    emit(gen, ",")
+                } : {}
+                
+                // Add parameter to locals
+                var := LocalVar{
+                    name: param.name,
+                    llvm_type: param_type,
+                    register: i,
+                }
+                vec_push(gen.locals, var)
+                
+                i = i + 1
+            }
+            
+            emit(gen, ") {")
+            emit(gen, "entry:")
+            gen.indent_level = 1
+            
+            // Generate function body
+            match body {
+                | Option<AstNode>.Some(b) => {
+                    gen_statement(gen, b)
+                }
+                | Option<AstNode>.None => {}
+            }
+            
+            // Add implicit return if needed
+            ret_type == "void" ? {
+                emit(gen, "  ret void")
+            } : {}
+            
+            gen.indent_level = 0
+            emit(gen, "}")
+        }
+        | _ => {}
+    }
+}
+
+// Helper functions (improved implementations)
 u32_to_string = (n: u32) string {
-    // Convert u32 to string
-    return "0"
+    n == 0 ? { return "0" } : {}
+    
+    // Simple implementation for now
+    // In real implementation, would use proper conversion
+    n < 10 ? { return "" + (n + 48) } : 
+    n < 100 ? { return u32_to_string(n / 10) + u32_to_string(n % 10) } :
+    n < 1000 ? { return u32_to_string(n / 100) + u32_to_string((n / 10) % 10) + u32_to_string(n % 10) } :
+    { return "999" }  // Truncate for now
 }
 
 i64_to_string = (n: i64) string {
-    // Convert i64 to string
-    return "0"
+    n < 0 ? { return "-" + i64_to_string(-n) } : {}
+    n == 0 ? { return "0" } : {}
+    
+    // Convert positive number
+    n < 10 ? { return "" + (n + 48) } :
+    { return i64_to_string(n / 10) + i64_to_string(n % 10) }
 }
 
 f64_to_string = (n: f64) string {
-    // Convert f64 to string
-    return "0.0"
+    // Simple implementation - just return fixed strings for now
+    n == 0.0 ? { return "0.0" } :
+    n == 1.0 ? { return "1.0" } :
+    { return "0.0" }  // Default
 }
 
 string_len = (s: string) u32 {
-    // Get string length
-    return 0
+    // Count characters until null terminator
+    len := 0
+    i := 0
+    loop s[i] != 0 {
+        len = len + 1
+        i = i + 1
+    }
+    return len
 }
 
 vec_len = <T>(v: Vec<T>) u32 {
@@ -293,6 +423,60 @@ vec_new = <T>() Vec<T> {
     return Vec<T>{}
 }
 
+// Generate complete module
+gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>) {
+    // Generate module header
+    emit(gen, "; ModuleID = '" + gen.module_name + "'")
+    emit(gen, "source_filename = \"" + gen.module_name + ".zen\"")
+    emit(gen, "target datalayout = \"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128\"")
+    emit(gen, "target triple = \"x86_64-unknown-linux-gnu\"")
+    emit(gen, "")
+    
+    // Generate external function declarations
+    emit(gen, "; External function declarations")
+    emit(gen, "declare i32 @printf(i8*, ...)")
+    emit(gen, "declare i8* @malloc(i64)")
+    emit(gen, "declare void @free(i8*)")
+    emit(gen, "declare void @exit(i32)")
+    emit(gen, "")
+    
+    // Process all top-level declarations
+    i := 0
+    loop i < vec_len(ast) {
+        node := vec_get(ast, i)
+        match node {
+            | AstNode.FnDecl(_, _, _, _) => {
+                gen_function(gen, node)
+            }
+            | AstNode.GlobalVar(name, ty, init) => {
+                // Generate global variable
+                llvm_ty := zen_type_to_llvm(ty)
+                init_val := match init {
+                    | Option<AstNode>.Some(e) => "0"  // TODO: evaluate constant
+                    | Option<AstNode>.None => "zeroinitializer"
+                }
+                emit(gen, "@" + name + " = global " + llvm_ty + " " + init_val)
+            }
+            | _ => {}
+        }
+        i = i + 1
+    }
+    
+    // Generate string constants
+    vec_len(gen.string_constants) > 0 ? {
+        emit(gen, "")
+        emit(gen, "; String constants")
+        i = 0
+        loop i < vec_len(gen.string_constants) {
+            str_const := vec_get(gen.string_constants, i)
+            len := string_len(str_const.value) + 1
+            emit(gen, str_const.global_name + " = private unnamed_addr constant [" +
+                 u32_to_string(len) + " x i8] c\"" + str_const.value + "\\00\"")
+            i = i + 1
+        }
+    } : {}
+}
+
 // Main entry point for testing
 main = () i32 {
     io.print("Zen LLVM Code Generator\n")
@@ -300,23 +484,20 @@ main = () i32 {
     
     gen := new_codegen("test_module")
     
-    // Generate module header
-    emit(&mut gen, "; ModuleID = '" + gen.module_name + "'")
-    emit(&mut gen, "source_filename = \"" + gen.module_name + ".zen\"")
-    emit(&mut gen, "")
+    // Create sample AST for testing
+    test_ast := vec_new<AstNode>()
     
-    // Generate a simple main function
-    emit(&mut gen, "define i32 @main() {")
-    emit(&mut gen, "entry:")
-    gen.indent_level = 1
+    // Add a simple main function to test AST
+    main_body := AstNode.Block(vec_new<AstNode>())
+    main_func := AstNode.FnDecl("main", vec_new<Param>(), Type.Named("i32"), Option<AstNode>.Some(main_body))
+    vec_push(test_ast, main_func)
     
-    // Generate return statement
-    emit(&mut gen, "ret i32 0")
-    
-    gen.indent_level = 0
-    emit(&mut gen, "}")
+    // Generate LLVM IR for the module
+    gen_module(&mut gen, test_ast)
     
     // Output the generated LLVM IR
+    io.print("Generated LLVM IR:\n")
+    io.print("------------------\n")
     io.print(gen.output)
     
     return 0
