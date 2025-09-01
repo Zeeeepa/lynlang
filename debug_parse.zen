@@ -1,8 +1,0 @@
-// Simple test to debug parsing
-test = () i32 {
-    return 5
-}
-
-main = () i32 {
-    return 0
-}
