@@ -1,44 +1,30 @@
-# Zen Language Development Plan
+# Zen Language Import Syntax Fix and Self-Hosting Plan
 
-## Current Goal
-Fix import system to work without comptime blocks and continue self-hosting efforts.
+## Current Sprint: Fix Import Syntax
+Move imports outside of comptime blocks to be regular top-level statements.
 
-## Key Changes Needed
+### Phase 1: Parser Changes (Current)
+1. Update parser to handle top-level imports
+2. Remove requirement for comptime wrapper around imports
+3. Ensure backwards compatibility during transition
 
-### 1. Import System Reform
-**Current State:**
-```zen
-comptime {
-    core := @std.core
-    build := @std.build
-    io := build.import("io")
-}
-```
+### Phase 2: Semantic Analysis
+1. Update semantic analyzer to process top-level imports
+2. Ensure proper module resolution
+3. Update type checking for imported symbols
 
-**Target State:**
-```zen
-core := @std.core
-build := @std.build
-io := build.import("io")
+### Phase 3: Update Codebase
+1. Fix all test files
+2. Update stdlib modules
+3. Update examples and documentation
 
-main = () i32 {
-    io.print("Hello, Zen!\n");
-    return 0
-}
-```
+### Phase 4: Self-Hosting Validation
+1. Run self-hosting tests
+2. Bootstrap compiler with itself
+3. Validate all features work correctly
 
-### 2. Implementation Steps
-1. **Parser Changes**: Allow top-level import statements
-2. **AST Updates**: Add import nodes at module level
-3. **Module Resolution**: Handle imports during compilation not comptime
-4. **Stdlib in Zen**: Rewrite core modules in Zen itself
-5. **Testing**: Comprehensive test suite
-6. **Tooling**: Basic LSP or checker
-
-## Architecture Notes
-- Comptime should be for metaprogramming only
-- Imports are compile-time resolution but not comptime evaluation
-- Module system should be separate from comptime system
-
-## Progress Tracking
-See todos.md for current task status
+## Long-term Goals
+- Complete self-hosting
+- Stdlib written in Zen
+- Comprehensive test suite
+- LSP support for development

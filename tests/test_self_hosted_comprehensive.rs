@@ -262,19 +262,22 @@ fn test_complete_self_hosting_chain() {
         
         fibonacci = (n: i32) i32 {
             n <= 1 ?
-                | true => return n
-                | false => return fibonacci(n - 1) + fibonacci(n - 2)
+                | true => n
+                | false => fibonacci(n - 1) + fibonacci(n - 2)
         }
         
         main = () i32 {
             result := fibonacci(10)
             io.print_int(result)
-            return 0
+            0
         }
     "#;
     
     // First, compile with Rust compiler
     let rust_result = compile_zen_module(test_program);
+    if let Err(e) = &rust_result {
+        eprintln!("Failed to compile test program: {:?}", e);
+    }
     assert!(rust_result.is_ok(), "Rust compiler should compile test program");
     
     // TODO: Once self-hosting is complete, compile with Zen compiler
