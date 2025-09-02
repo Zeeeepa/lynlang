@@ -9,6 +9,8 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::ast::{Program, Declaration};
 
+mod enhanced;
+
 #[derive(Debug)]
 pub struct ZenServer {
     client: Client,
@@ -253,6 +255,13 @@ impl LanguageServer for ZenServer {
                 }),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 definition_provider: Some(OneOf::Left(true)),
+                document_symbol_provider: Some(OneOf::Left(true)),
+                references_provider: Some(OneOf::Left(true)),
+                rename_provider: Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options: Default::default(),
+                })),
+                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 diagnostic_provider: Some(DiagnosticServerCapabilities::Options(DiagnosticOptions {
                     identifier: Some("zen".to_string()),
                     inter_file_dependencies: true,
@@ -512,6 +521,74 @@ impl LanguageServer for ZenServer {
                     })));
                 }
                 _ => {}
+            }
+        }
+        
+        Ok(None)
+    }
+
+    async fn document_symbol(&self, params: DocumentSymbolParams) -> Result<Option<DocumentSymbolResponse>> {
+        let uri = params.text_document.uri.to_string();
+        let documents = self.documents.read().await;
+        
+        if let Some(content) = documents.get(&uri) {
+            let symbols = enhanced::get_document_symbols(content);
+            if !symbols.is_empty() {
+                return Ok(Some(DocumentSymbolResponse::Nested(symbols)));
+            }
+        }
+        
+        Ok(None)
+    }
+
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+        let documents = self.documents.read().await;
+        
+        if let Some(content) = documents.get(&uri) {
+            let references = enhanced::find_references(content, position);
+            if !references.is_empty() {
+                return Ok(Some(references.into_iter().map(|range| Location {
+                    uri: params.text_document_position.text_document.uri.clone(),
+                    range,
+                }).collect()));
+            }
+        }
+        
+        Ok(None)
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+        let new_name = params.new_name;
+        let documents = self.documents.read().await;
+        
+        if let Some(content) = documents.get(&uri) {
+            if let Some(edits) = enhanced::rename_symbol(content, position, &new_name) {
+                let mut changes = HashMap::new();
+                changes.insert(params.text_document_position.text_document.uri, edits);
+                return Ok(Some(WorkspaceEdit {
+                    changes: Some(changes),
+                    document_changes: None,
+                    change_annotations: None,
+                }));
+            }
+        }
+        
+        Ok(None)
+    }
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = params.text_document.uri.to_string();
+        let range = params.range;
+        let documents = self.documents.read().await;
+        
+        if let Some(content) = documents.get(&uri) {
+            let actions = enhanced::get_code_actions(content, range, &params.context);
+            if !actions.is_empty() {
+                return Ok(Some(actions));
             }
         }
         
