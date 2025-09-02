@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use tower_lsp::lsp_types::*;
-use crate::ast::{Program, Declaration, Statement, Expression, AstType};
+use crate::ast::{Program, Declaration};
 use crate::parser::Parser;
 use crate::lexer::Lexer;
 
@@ -445,9 +445,9 @@ fn get_text_in_range(content: &str, range: Range) -> String {
 /// Semantic tokens for syntax highlighting
 pub fn get_semantic_tokens(content: &str) -> SemanticTokens {
     let lexer = Lexer::new(content);
-    let mut parser = Parser::new(lexer);
+    let parser = Parser::new(lexer);
     
-    let mut tokens = Vec::new();
+    let tokens = Vec::new();
     
     // This would be filled with actual semantic token data
     // based on parsing results
