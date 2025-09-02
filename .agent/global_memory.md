@@ -51,8 +51,9 @@
 - Custom modules loaded from filesystem
 
 ### 📊 Recent Commits
-- 6fb1623: docs: Clarify that imports must not be in comptime blocks
-- d85adcc: fix: Restore import validation in zen-check tool
+- f17e8e0: feat: Clean up project and enhance LSP implementation
+- 35370a6: feat: Enhance stdlib and add LSP design documentation
+- ecbb5d8: fix: Fix self-hosting test syntax and ensure all tests pass
 
 ### ✅ Session Accomplishments (Latest)
 1. **Import System** - Verified all examples use correct syntax ✅
