@@ -45,10 +45,10 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
             let mut children = Vec::new();
             
             // Add parameters as children
-            for (i, param) in func.parameters.iter().enumerate() {
+            for (i, (name, param_type)) in func.args.iter().enumerate() {
                 children.push(DocumentSymbol {
-                    name: param.name.clone(),
-                    detail: Some(format!("{:?}", param.param_type)),
+                    name: name.clone(),
+                    detail: Some(format!("{:?}", param_type)),
                     kind: SymbolKind::VARIABLE,
                     range: Range::new(
                         Position::new(line as u32, 10 + (i as u32 * 10)),
@@ -88,7 +88,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
             for (i, field) in s.fields.iter().enumerate() {
                 children.push(DocumentSymbol {
                     name: field.name.clone(),
-                    detail: Some(format!("{:?}", field.field_type)),
+                    detail: Some(format!("{:?}", field.type_)),
                     kind: SymbolKind::FIELD,
                     range: Range::new(
                         Position::new(line as u32 + 1 + i as u32, 4),
@@ -128,11 +128,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
             for (i, variant) in e.variants.iter().enumerate() {
                 children.push(DocumentSymbol {
                     name: variant.name.clone(),
-                    detail: if variant.fields.is_empty() {
-                        None
-                    } else {
-                        Some(format!("{}(...)", variant.name))
-                    },
+                    detail: variant.payload.as_ref().map(|p| format!("{:?}", p)),
                     kind: SymbolKind::ENUM_MEMBER,
                     range: Range::new(
                         Position::new(line as u32 + 1 + i as u32, 4),
@@ -209,14 +205,50 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
     }
 }
 
+/// Extract symbol name at a given position in a line
+fn extract_symbol_at_position(line: &str, char_pos: usize) -> String {
+    if char_pos >= line.len() {
+        return String::new();
+    }
+    
+    let chars: Vec<char> = line.chars().collect();
+    
+    // Find start of symbol
+    let mut start = char_pos;
+    while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
+        start -= 1;
+    }
+    
+    // Find end of symbol
+    let mut end = char_pos;
+    while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
+        end += 1;
+    }
+    
+    chars[start..end].iter().collect()
+}
+
 /// Find all references to a symbol
-pub fn find_references(content: &str, symbol_name: &str) -> Vec<Location> {
+pub fn find_references(content: &str, position: Position) -> Vec<Range> {
     let mut references = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
     
+    // First, extract the symbol name at the position
+    if position.line >= lines.len() as u32 {
+        return references;
+    }
+    
+    let line = lines[position.line as usize];
+    let symbol_name = extract_symbol_at_position(line, position.character as usize);
+    
+    if symbol_name.is_empty() {
+        return references;
+    }
+    
+    // Now find all references to this symbol
     for (line_num, line) in lines.iter().enumerate() {
         let mut start = 0;
-        while let Some(pos) = line[start..].find(symbol_name) {
+        while let Some(pos) = line[start..].find(&symbol_name) {
             let abs_pos = start + pos;
             // Check if it's a whole word match
             let before_ok = abs_pos == 0 || !line.chars().nth(abs_pos - 1).unwrap().is_alphanumeric();
@@ -224,19 +256,34 @@ pub fn find_references(content: &str, symbol_name: &str) -> Vec<Location> {
                 || !line.chars().nth(abs_pos + symbol_name.len()).unwrap().is_alphanumeric();
             
             if before_ok && after_ok {
-                references.push(Location {
-                    uri: Url::parse("file:///current").unwrap(), // Will be replaced by actual URI
-                    range: Range::new(
-                        Position::new(line_num as u32, abs_pos as u32),
-                        Position::new(line_num as u32, (abs_pos + symbol_name.len()) as u32),
-                    ),
-                });
+                references.push(Range::new(
+                    Position::new(line_num as u32, abs_pos as u32),
+                    Position::new(line_num as u32, (abs_pos + symbol_name.len()) as u32),
+                ));
             }
             start = abs_pos + 1;
         }
     }
     
     references
+}
+
+/// Rename a symbol at the given position
+pub fn rename_symbol(content: &str, position: Position, new_name: &str) -> Option<Vec<TextEdit>> {
+    let references = find_references(content, position);
+    
+    if references.is_empty() {
+        return None;
+    }
+    
+    let edits: Vec<TextEdit> = references.into_iter().map(|range| {
+        TextEdit {
+            range,
+            new_text: new_name.to_string(),
+        }
+    }).collect();
+    
+    Some(edits)
 }
 
 /// Rename symbol support
@@ -285,13 +332,13 @@ pub fn prepare_rename(content: &str, position: Position) -> Option<(String, Rang
 }
 
 /// Generate code actions for quick fixes
-pub fn get_code_actions(content: &str, range: Range, diagnostics: &[Diagnostic]) -> Vec<CodeAction> {
+pub fn get_code_actions(content: &str, range: Range, context: &CodeActionContext) -> Vec<CodeActionOrCommand> {
     let mut actions = Vec::new();
     
-    for diagnostic in diagnostics {
+    for diagnostic in &context.diagnostics {
         // Quick fix for import placement errors
         if diagnostic.message.contains("Import statements must be at module level") {
-            actions.push(CodeAction {
+            actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                 title: "Move import to module level".to_string(),
                 kind: Some(CodeActionKind::QUICKFIX),
                 diagnostics: Some(vec![diagnostic.clone()]),
@@ -304,12 +351,12 @@ pub fn get_code_actions(content: &str, range: Range, diagnostics: &[Diagnostic])
                 is_preferred: Some(true),
                 disabled: None,
                 data: None,
-            });
+            }));
         }
         
         // Quick fix for missing type annotations
         if diagnostic.message.contains("type annotation") {
-            actions.push(CodeAction {
+            actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                 title: "Add type annotation".to_string(),
                 kind: Some(CodeActionKind::QUICKFIX),
                 diagnostics: Some(vec![diagnostic.clone()]),
@@ -318,7 +365,7 @@ pub fn get_code_actions(content: &str, range: Range, diagnostics: &[Diagnostic])
                 is_preferred: Some(false),
                 disabled: None,
                 data: None,
-            });
+            }));
         }
     }
     
@@ -328,7 +375,7 @@ pub fn get_code_actions(content: &str, range: Range, diagnostics: &[Diagnostic])
     if !selected_text.is_empty() {
         // Extract function
         if selected_text.lines().count() > 1 {
-            actions.push(CodeAction {
+            actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                 title: "Extract function".to_string(),
                 kind: Some(CodeActionKind::REFACTOR_EXTRACT),
                 diagnostics: None,
@@ -337,12 +384,12 @@ pub fn get_code_actions(content: &str, range: Range, diagnostics: &[Diagnostic])
                 is_preferred: Some(false),
                 disabled: None,
                 data: None,
-            });
+            }));
         }
         
         // Extract variable
         if selected_text.lines().count() == 1 && selected_text.contains('=') {
-            actions.push(CodeAction {
+            actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                 title: "Extract variable".to_string(),
                 kind: Some(CodeActionKind::REFACTOR_EXTRACT),
                 diagnostics: None,
@@ -351,7 +398,7 @@ pub fn get_code_actions(content: &str, range: Range, diagnostics: &[Diagnostic])
                 is_preferred: Some(false),
                 disabled: None,
                 data: None,
-            });
+            }));
         }
     }
     
