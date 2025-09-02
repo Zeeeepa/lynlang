@@ -5,3 +5,27 @@ output.o
 agent/
 .agent/claude_output.jsonl
 test_output/
+
+# Build artifacts
+build/stage*/
+build/**/*.o
+build/**/*.ll
+build/**/*.out
+build/**/*.exe
+build/**/zen
+build/**/zen-compile
+*.o
+*.ll
+*.out
+*.exe
+*.debug
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Compiled binaries without extension
+/zen
+/zenc
+/zen-check
+/zen-lsp
