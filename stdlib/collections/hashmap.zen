@@ -1,0 +1,197 @@
+// HashMap - Simple hash map implementation in Zen
+// A key-value store using chaining for collision resolution
+
+core := @std.core
+mem := @std.mem
+hash := @std.hash
+
+// HashMap entry (key-value pair)
+HashEntry = struct {
+    key: string,
+    value: i32,
+    next: *HashEntry,
+}
+
+// HashMap structure
+HashMap = struct {
+    buckets: []*HashEntry,
+    size: u32,
+    capacity: u32,
+}
+
+// Default initial capacity
+DEFAULT_CAPACITY := 16
+
+// Create a new empty hashmap
+new = () HashMap {
+    buckets := mem.alloc_array(*HashEntry, DEFAULT_CAPACITY)
+    
+    // Initialize all buckets to null
+    i := 0
+    while i < DEFAULT_CAPACITY {
+        buckets[i] = null
+        i = i + 1
+    }
+    
+    return HashMap {
+        buckets: buckets,
+        size: 0,
+        capacity: DEFAULT_CAPACITY,
+    }
+}
+
+// Hash function for strings (simple djb2)
+hash_string = (key: string) u32 {
+    hash_value := 5381u32
+    i := 0
+    
+    while i < key.len() {
+        c := key[i]
+        hash_value = ((hash_value << 5) + hash_value) + c
+        i = i + 1
+    }
+    
+    return hash_value
+}
+
+// Insert or update a key-value pair
+put = (map: *HashMap, key: string, value: i32) void {
+    index := hash_string(key) % map.capacity
+    
+    // Check if key already exists
+    current := map.buckets[index]
+    while current != null {
+        if current.key == key {
+            // Update existing value
+            current.value = value
+            return
+        }
+        current = current.next
+    }
+    
+    // Create new entry
+    entry := mem.alloc(HashEntry)
+    entry.key = key
+    entry.value = value
+    entry.next = map.buckets[index]
+    map.buckets[index] = entry
+    map.size = map.size + 1
+    
+    // Check if resize is needed (load factor > 0.75)
+    if map.size * 4 > map.capacity * 3 {
+        resize(map)
+    }
+}
+
+// Get value for a key
+get = (map: *HashMap, key: string) i32 {
+    index := hash_string(key) % map.capacity
+    current := map.buckets[index]
+    
+    while current != null {
+        if current.key == key {
+            return current.value
+        }
+        current = current.next
+    }
+    
+    return 0  // Default value if not found
+}
+
+// Check if key exists
+contains_key = (map: *HashMap, key: string) bool {
+    index := hash_string(key) % map.capacity
+    current := map.buckets[index]
+    
+    while current != null {
+        if current.key == key {
+            return true
+        }
+        current = current.next
+    }
+    
+    return false
+}
+
+// Remove a key-value pair
+remove = (map: *HashMap, key: string) bool {
+    index := hash_string(key) % map.capacity
+    current := map.buckets[index]
+    prev := null as *HashEntry
+    
+    while current != null {
+        if current.key == key {
+            if prev == null {
+                map.buckets[index] = current.next
+            } else {
+                prev.next = current.next
+            }
+            mem.free(current)
+            map.size = map.size - 1
+            return true
+        }
+        prev = current
+        current = current.next
+    }
+    
+    return false
+}
+
+// Get the size of the hashmap
+len = (map: *HashMap) u32 {
+    return map.size
+}
+
+// Check if hashmap is empty
+is_empty = (map: *HashMap) bool {
+    return map.size == 0
+}
+
+// Clear all entries
+clear = (map: *HashMap) void {
+    i := 0
+    while i < map.capacity {
+        current := map.buckets[i]
+        while current != null {
+            next := current.next
+            mem.free(current)
+            current = next
+        }
+        map.buckets[i] = null
+        i = i + 1
+    }
+    map.size = 0
+}
+
+// Resize the hashmap when load factor is too high
+resize = (map: *HashMap) void {
+    old_capacity := map.capacity
+    old_buckets := map.buckets
+    
+    // Double the capacity
+    map.capacity = old_capacity * 2
+    map.buckets = mem.alloc_array(*HashEntry, map.capacity)
+    map.size = 0
+    
+    // Initialize new buckets
+    i := 0
+    while i < map.capacity {
+        map.buckets[i] = null
+        i = i + 1
+    }
+    
+    // Rehash all entries
+    i = 0
+    while i < old_capacity {
+        current := old_buckets[i]
+        while current != null {
+            next := current.next
+            put(map, current.key, current.value)
+            mem.free(current)
+            current = next
+        }
+        i = i + 1
+    }
+    
+    mem.free(old_buckets)
+}

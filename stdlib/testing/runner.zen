@@ -1,0 +1,191 @@
+// Test Runner - Simple testing framework for Zen
+// Provides basic unit testing capabilities
+
+io := @std.io
+core := @std.core
+vec := @std.vec
+
+// Test result enumeration
+TestResult = enum {
+    Pass,
+    Fail,
+    Skip,
+}
+
+// Test case structure
+TestCase = struct {
+    name: string,
+    test_fn: fn() bool,
+    result: TestResult,
+    error_msg: string,
+}
+
+// Test suite structure
+TestSuite = struct {
+    name: string,
+    tests: Vec<TestCase>,
+    passed: u32,
+    failed: u32,
+    skipped: u32,
+}
+
+// Create a new test suite
+new_suite = (name: string) TestSuite {
+    return TestSuite {
+        name: name,
+        tests: vec.new(),
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+    }
+}
+
+// Add a test case to the suite
+add_test = (suite: *TestSuite, name: string, test_fn: fn() bool) void {
+    test := TestCase {
+        name: name,
+        test_fn: test_fn,
+        result: TestResult.Skip,
+        error_msg: "",
+    }
+    vec.push(suite.tests, test)
+}
+
+// Run all tests in the suite
+run = (suite: *TestSuite) bool {
+    io.print("Running test suite: ")
+    io.print(suite.name)
+    io.print("\n")
+    io.print("=" * 50)
+    io.print("\n")
+    
+    i := 0
+    while i < vec.len(suite.tests) {
+        test := vec.get(suite.tests, i)
+        run_test(suite, test)
+        i = i + 1
+    }
+    
+    // Print summary
+    print_summary(suite)
+    
+    return suite.failed == 0
+}
+
+// Run a single test
+run_test = (suite: *TestSuite, test: *TestCase) void {
+    io.print("  Running: ")
+    io.print(test.name)
+    io.print(" ... ")
+    
+    // Run the test function
+    success := test.test_fn()
+    
+    if success {
+        test.result = TestResult.Pass
+        suite.passed = suite.passed + 1
+        io.print("PASS\n")
+    } else {
+        test.result = TestResult.Fail
+        suite.failed = suite.failed + 1
+        io.print("FAIL\n")
+        if test.error_msg != "" {
+            io.print("    Error: ")
+            io.print(test.error_msg)
+            io.print("\n")
+        }
+    }
+}
+
+// Print test suite summary
+print_summary = (suite: *TestSuite) void {
+    io.print("\n")
+    io.print("=" * 50)
+    io.print("\n")
+    io.print("Test Results:\n")
+    io.print("  Passed:  ")
+    io.print_u32(suite.passed)
+    io.print("\n")
+    io.print("  Failed:  ")
+    io.print_u32(suite.failed)
+    io.print("\n")
+    io.print("  Skipped: ")
+    io.print_u32(suite.skipped)
+    io.print("\n")
+    
+    total := suite.passed + suite.failed + suite.skipped
+    io.print("  Total:   ")
+    io.print_u32(total)
+    io.print("\n")
+    
+    if suite.failed == 0 {
+        io.print("\nAll tests passed!\n")
+    } else {
+        io.print("\nSome tests failed.\n")
+    }
+}
+
+// Assertion functions
+assert = (condition: bool, msg: string) bool {
+    if !condition {
+        io.print("Assertion failed: ")
+        io.print(msg)
+        io.print("\n")
+        return false
+    }
+    return true
+}
+
+assert_eq = (a: i32, b: i32, msg: string) bool {
+    if a != b {
+        io.print("Assertion failed: ")
+        io.print(msg)
+        io.print("\n  Expected: ")
+        io.print_i32(b)
+        io.print("\n  Got: ")
+        io.print_i32(a)
+        io.print("\n")
+        return false
+    }
+    return true
+}
+
+assert_ne = (a: i32, b: i32, msg: string) bool {
+    if a == b {
+        io.print("Assertion failed: ")
+        io.print(msg)
+        io.print("\n  Values should not be equal: ")
+        io.print_i32(a)
+        io.print("\n")
+        return false
+    }
+    return true
+}
+
+assert_true = (value: bool, msg: string) bool {
+    if !value {
+        io.print("Assertion failed: ")
+        io.print(msg)
+        io.print("\n  Expected: true\n  Got: false\n")
+        return false
+    }
+    return true
+}
+
+assert_false = (value: bool, msg: string) bool {
+    if value {
+        io.print("Assertion failed: ")
+        io.print(msg)
+        io.print("\n  Expected: false\n  Got: true\n")
+        return false
+    }
+    return true
+}
+
+// Helper to run a test and expect it to panic
+expect_panic = (test_fn: fn() void) bool {
+    // In a real implementation, this would catch panics
+    // For now, this is a placeholder
+    test_fn()
+    return false  // Should have panicked
+}
