@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::ast::Program;
+use crate::ast::{Program, Declaration};
 
 #[derive(Debug)]
 pub struct ZenServer {
@@ -376,20 +376,145 @@ impl LanguageServer for ZenServer {
         
         // Get document content
         let documents = self.documents.read().await;
-        let _content = documents.get(&uri)
+        let content = documents.get(&uri)
             .ok_or_else(|| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))?;
         
-        // Simple hover information
-        let hover_text = format!("Position: {:?}", position);
+        // Parse to find what's at the position
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return Ok(None);
+        }
+        
+        let line = lines[position.line as usize];
+        let char_pos = position.character as usize;
+        
+        // Find the identifier at the position
+        let mut start = char_pos;
+        let mut end = char_pos;
+        let chars: Vec<char> = line.chars().collect();
+        
+        // Find start of identifier
+        while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_' || chars[start - 1] == '@') {
+            start -= 1;
+        }
+        
+        // Find end of identifier
+        while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_' || chars[end] == '.') {
+            end += 1;
+        }
+        
+        if start >= end {
+            return Ok(None);
+        }
+        
+        let identifier: String = chars[start..end].iter().collect();
+        
+        // Provide hover information based on identifier
+        let hover_content = match identifier.as_str() {
+            s if s.starts_with("@std") => {
+                format!("**Standard Library Module**\n\n`{}`\n\nBuilt-in Zen standard library module", identifier)
+            }
+            "comptime" => {
+                "**comptime**\n\nCompile-time evaluation block.\n\n⚠️ **Note**: Imports are NOT allowed inside comptime blocks".to_string()
+            }
+            "loop" => {
+                "**loop**\n\nInfinite loop construct. Use `break` to exit.".to_string()
+            }
+            "struct" => {
+                "**struct**\n\nDefines a structured data type with fields.".to_string()
+            }
+            "enum" => {
+                "**enum**\n\nDefines an enumeration with variants.".to_string()
+            }
+            "behavior" => {
+                "**behavior**\n\nDefines a trait or interface for types.".to_string()
+            }
+            _ => {
+                format!("**{}**\n\nIdentifier at position {}:{}", identifier, position.line, position.character)
+            }
+        };
         
         Ok(Some(Hover {
-            contents: HoverContents::Scalar(MarkedString::String(hover_text)),
-            range: None,
+            contents: HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: hover_content,
+            }),
+            range: Some(Range::new(
+                Position::new(position.line, start as u32),
+                Position::new(position.line, end as u32),
+            )),
         }))
     }
 
-    async fn goto_definition(&self, _params: GotoDefinitionParams) -> Result<Option<GotoDefinitionResponse>> {
-        // For now, return None - we'll implement this later
+    async fn goto_definition(&self, params: GotoDefinitionParams) -> Result<Option<GotoDefinitionResponse>> {
+        let uri = params.text_document_position_params.text_document.uri.to_string();
+        let position = params.text_document_position_params.position;
+        
+        // Parse the document to find definitions
+        let program = match self.parse_document(&uri).await {
+            Ok(prog) => prog,
+            Err(_) => return Ok(None),
+        };
+        
+        // Get document content to find identifier at position
+        let documents = self.documents.read().await;
+        let content = documents.get(&uri)
+            .ok_or_else(|| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))?;
+        
+        let lines: Vec<&str> = content.lines().collect();
+        if position.line as usize >= lines.len() {
+            return Ok(None);
+        }
+        
+        let line = lines[position.line as usize];
+        let char_pos = position.character as usize;
+        
+        // Find the identifier at the position
+        let mut start = char_pos;
+        let mut end = char_pos;
+        let chars: Vec<char> = line.chars().collect();
+        
+        while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
+            start -= 1;
+        }
+        
+        while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
+            end += 1;
+        }
+        
+        if start >= end {
+            return Ok(None);
+        }
+        
+        let identifier: String = chars[start..end].iter().collect();
+        
+        // Search for the definition in the AST
+        for (idx, decl) in program.declarations.iter().enumerate() {
+            match decl {
+                Declaration::Function(func) if func.name == identifier => {
+                    // Found function definition
+                    return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                        uri: params.text_document_position_params.text_document.uri.clone(),
+                        range: Range::new(
+                            Position::new(idx as u32, 0),
+                            Position::new(idx as u32, 10),
+                        ),
+                    })));
+                }
+                Declaration::Struct(s) if s.name == identifier => {
+                    // Found struct definition
+                    return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                        uri: params.text_document_position_params.text_document.uri.clone(),
+                        range: Range::new(
+                            Position::new(idx as u32, 0),
+                            Position::new(idx as u32, 10),
+                        ),
+                    })));
+                }
+                _ => {}
+            }
+        }
+        
         Ok(None)
     }
 }

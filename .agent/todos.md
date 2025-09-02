@@ -2,38 +2,42 @@
 
 ## Priority Order (Estimated)
 
-### Immediate (Today)
-- [x] Set up .agent directory with meta-information files
-- [ ] Review and fix remaining comptime import usage in examples
-- [ ] Re-enable import validation in typechecker
-- [ ] Create git commit for import system fixes
+### Completed Today
+- [x] Clean up auxiliary files in root directory
+- [x] Review and commit clean project state
+- [x] Run library tests - all passing
+
+### Immediate (Now)
+- [ ] Continue self-hosting improvements
+- [ ] Work on LSP enhancements
+- [ ] Fix hanging parser tests
 
 ### Short-term (This Week)
-- [ ] Update and run comprehensive import tests
-- [ ] Run full test suite and fix any failures
-- [ ] Enhance self-hosted compiler components
-- [ ] Implement basic LSP import validation
+- [ ] Complete self-hosted compiler components
+- [ ] Enhance LSP with goto definition, refactoring
+- [ ] Implement module dependency visualization
+- [ ] Create comprehensive test framework in Zen
 
 ### Medium-term (Next Sprint)
-- [ ] Complete self-hosted lexer
-- [ ] Complete self-hosted parser
-- [ ] Start self-hosted code generator
-- [ ] Implement import auto-completion in LSP
+- [ ] Full bootstrap capability
+- [ ] Performance optimizations
+- [ ] Package manager design
+- [ ] Import optimization pass
 
 ### Long-term (Future)
-- [ ] Full bootstrap capability
-- [ ] Module dependency visualization
-- [ ] Import optimization pass
-- [ ] Package manager integration
+- [ ] Module package registry
+- [ ] Cross-compilation support
+- [ ] IDE integrations
+- [ ] Documentation generator
 
 ## Testing Checklist
-- [ ] All import tests pass
-- [ ] No comptime-wrapped imports remain
-- [ ] Self-hosted compiler builds
-- [ ] LSP validates imports correctly
+- [x] Library tests pass
+- [ ] Parser tests need fixing (hanging)
+- [ ] Integration tests
+- [ ] Self-hosted compiler tests
 
 ## Code Quality
-- [ ] Follow DRY principle
-- [ ] Keep implementations simple (KISS)
+- [x] Follow DRY principle
+- [x] Keep implementations simple (KISS)
 - [ ] Document complex logic
-- [ ] Add tests for new features
+- [x] Add tests for new features
