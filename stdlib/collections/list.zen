@@ -1,0 +1,101 @@
+// List - Simple linked list implementation in Zen
+// A basic collections module for the standard library
+
+core := @std.core
+mem := @std.mem
+
+// List node structure (simplified)
+// In real implementation this would use generics
+ListNode = struct {
+    value: i32,
+    next: *ListNode,
+}
+
+// List structure
+List = struct {
+    head: *ListNode,
+    size: u32,
+}
+
+// Create a new empty list
+new = () List {
+    return List {
+        head: null,
+        size: 0,
+    }
+}
+
+// Add element to the front of the list
+push_front = (list: *List, value: i32) void {
+    node := mem.alloc(ListNode)
+    node.value = value
+    node.next = list.head
+    list.head = node
+    list.size = list.size + 1
+}
+
+// Remove element from front of the list
+pop_front = (list: *List) i32 {
+    if list.head == null {
+        return 0  // Error case
+    }
+    
+    node := list.head
+    value := node.value
+    list.head = node.next
+    list.size = list.size - 1
+    mem.free(node)
+    
+    return value
+}
+
+// Get the size of the list
+len = (list: *List) u32 {
+    return list.size
+}
+
+// Check if list is empty
+is_empty = (list: *List) bool {
+    return list.size == 0
+}
+
+// Clear all elements from the list
+clear = (list: *List) void {
+    while list.head != null {
+        node := list.head
+        list.head = node.next
+        mem.free(node)
+    }
+    list.size = 0
+}
+
+// Find an element in the list
+contains = (list: *List, value: i32) bool {
+    current := list.head
+    while current != null {
+        if current.value == value {
+            return true
+        }
+        current = current.next
+    }
+    return false
+}
+
+// Convert list to array (for debugging)
+to_array = (list: *List) []i32 {
+    if list.size == 0 {
+        return []
+    }
+    
+    array := mem.alloc_array(i32, list.size)
+    current := list.head
+    i := 0
+    
+    while current != null {
+        array[i] = current.value
+        current = current.next
+        i = i + 1
+    }
+    
+    return array
+}
