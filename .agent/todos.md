@@ -2,14 +2,18 @@
 
 ## Priority Order (Estimated)
 
-### Completed Today
+### Completed Today (2025-09-02)
 - [x] Clean up auxiliary files in root directory
 - [x] Review and commit clean project state
-- [x] Run library tests - all passing
+- [x] Run library tests - all passing (11/11)
+- [x] Fix LSP enhanced module compilation errors
+- [x] Create zen-check validation tool (bash & Rust)
+- [x] Add stdlib collections modules (list, hashmap)
+- [x] Add testing framework module (runner)
 
 ### Immediate (Now)
-- [ ] Continue self-hosting improvements
-- [ ] Work on LSP enhancements
+- [ ] Integrate enhanced LSP features fully
+- [ ] Write integration tests for self-hosted compiler
 - [ ] Fix hanging parser tests
 
 ### Short-term (This Week)
