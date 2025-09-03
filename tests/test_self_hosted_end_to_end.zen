@@ -17,7 +17,7 @@ const TEST_PROGRAM: string = `
     // Simple test program
     io := @std.io
     
-    fn main() {
+    main = () {
         message: string = "Hello from self-hosted compiler!"
         io.println(message)
         
@@ -34,7 +34,7 @@ const TEST_PROGRAM: string = `
 `
 
 // Test lexical analysis
-fn test_lexer() {
+test_lexer = () {
     test.describe("Lexer Tests")
     
     // Create lexer instance
@@ -60,13 +60,13 @@ fn test_lexer() {
         }
     }
     
-    test.assert(has_fn, "Should have fn keyword")
+    test.assert(has_fn, "Should have function declaration")
     test.assert(has_main, "Should have main identifier")
     test.assert(has_loop, "Should have loop keyword")
 }
 
 // Test parsing
-fn test_parser() {
+test_parser = () {
     test.describe("Parser Tests")
     
     // Create lexer and parser
@@ -94,7 +94,7 @@ fn test_parser() {
 }
 
 // Test type checking
-fn test_type_checker() {
+test_type_checker = () {
     test.describe("Type Checker Tests")
     
     // Create full pipeline
@@ -125,7 +125,7 @@ fn test_type_checker() {
 }
 
 // Test code generation
-fn test_codegen() {
+test_codegen = () {
     test.describe("Code Generation Tests")
     
     // Create full pipeline
@@ -151,7 +151,7 @@ fn test_codegen() {
 }
 
 // Test full compilation pipeline
-fn test_full_pipeline() {
+test_full_pipeline = () {
     test.describe("Full Pipeline Test")
     
     // Create temporary file for test program
@@ -172,7 +172,7 @@ fn test_full_pipeline() {
 }
 
 // Helper function to compile a file
-fn compile_file(path: string) -> Result<string, string> {
+compile_file = (path: string) Result<string, string> {
     // Read source file
     source := fs.read_file(path)?
     
@@ -201,7 +201,7 @@ fn compile_file(path: string) -> Result<string, string> {
 }
 
 // Main test runner
-fn main() {
+main = () {
     io.println("Running Self-Hosted Compiler Tests")
     io.println("===================================")
     
