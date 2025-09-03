@@ -1,0 +1,494 @@
+// Build system API for ZenLang
+// Provides build configuration and management
+
+std := @import("std")
+fs := @import("fs")
+process := @import("process")
+
+// Target platform configuration
+Target = {
+    cpu_arch: CpuArch
+    os_tag: OsTag
+    abi: ?Abi
+}
+
+CpuArch = enum {
+    x86_64,
+    x86,
+    aarch64,
+    arm,
+    wasm32,
+    wasm64,
+    riscv64,
+    native
+}
+
+OsTag = enum {
+    linux,
+    macos,
+    windows,
+    freebsd,
+    openbsd,
+    wasm,
+    native
+}
+
+Abi = enum {
+    none,
+    gnu,
+    musl,
+    msvc,
+    wasi
+}
+
+// Optimization modes
+OptimizeMode = enum {
+    Debug,
+    ReleaseSafe,
+    ReleaseFast,
+    ReleaseSmall
+}
+
+// Build step types
+StepKind = enum {
+    Exe,
+    Lib,
+    Test,
+    Run,
+    Install,
+    System,
+    Custom
+}
+
+// Build step
+Step = {
+    name: String
+    description: String
+    kind: StepKind
+    dependencies: []* Step
+    
+    dependOn: (other: *Step) void {
+        self.dependencies.append(other)
+    }
+    
+    execute: () !void {
+        // Execute dependencies first
+        loop i := 0; i < self.dependencies.len; i += 1 {
+            try self.dependencies[i].execute()
+        }
+        
+        // Execute this step
+        self.kind ?
+            | .Exe => try self.buildExecutable()
+            | .Lib => try self.buildLibrary()
+            | .Test => try self.runTests()
+            | .Run => try self.runExecutable()
+            | .Install => try self.installArtifacts()
+            | .System => try self.runSystemCommand()
+            | .Custom => try self.runCustom()
+    }
+    
+    buildExecutable: () !void
+    buildLibrary: () !void
+    runTests: () !void
+    runExecutable: () !void
+    installArtifacts: () !void
+    runSystemCommand: () !void
+    runCustom: () !void
+}
+
+// Executable configuration
+ExecutableOptions = {
+    name: String
+    root_source_file: String
+    target: ?Target
+    optimize: ?OptimizeMode
+    link_libc: bool = false
+}
+
+Executable = {
+    options: ExecutableOptions
+    step: Step
+    symbols: []Symbol
+    packages: []Package
+    libraries: []String
+    include_paths: []String
+    library_paths: []String
+    frameworks: []String  // macOS
+    export_symbol_names: []String  // WASM
+    enable_stack_traces: bool = true
+    strip: bool = false
+    
+    Symbol = {
+        name: String
+        value: String
+    }
+    
+    defineSymbol: (name: String, value: String) void {
+        self.symbols.append(Symbol{ name: name, value: value })
+    }
+    
+    addPackage: (name: String, path: String) void {
+        self.packages.append(Package{ name: name, path: path })
+    }
+    
+    linkLibrary: (name: String) void {
+        self.libraries.append(name)
+    }
+    
+    linkSystemLibrary: (name: String) void {
+        self.libraries.append(name)
+    }
+    
+    linkFramework: (name: String) void {
+        self.frameworks.append(name)
+    }
+    
+    addIncludePath: (path: String) void {
+        self.include_paths.append(path)
+    }
+    
+    addLibraryPath: (path: String) void {
+        self.library_paths.append(path)
+    }
+    
+    linkLibC: () void {
+        self.options.link_libc = true
+    }
+    
+    run: () RunStep {
+        return RunStep{
+            executable: self,
+            step: Step{
+                name: "run",
+                description: "Run " ++ self.options.name,
+                kind: .Run,
+                dependencies: []*Step{ &self.step }
+            }
+        }
+    }
+}
+
+// Library configuration
+LibraryOptions = {
+    name: String
+    root_source_file: String
+    target: ?Target
+    optimize: ?OptimizeMode
+    version: ?Version
+}
+
+Version = {
+    major: u32
+    minor: u32
+    patch: u32
+}
+
+Library = {
+    options: LibraryOptions
+    step: Step
+    is_static: bool
+    export_headers: []String
+    
+    addExportHeader: (path: String) void {
+        self.export_headers.append(path)
+    }
+}
+
+// Test configuration
+Test = {
+    root_source: String
+    step: Step
+    target: ?Target
+    symbols: []Executable.Symbol
+    
+    setTarget: (target: Target) void {
+        self.target = target
+    }
+    
+    defineSymbol: (name: String, value: String) void {
+        self.symbols.append(Executable.Symbol{ name: name, value: value })
+    }
+}
+
+// Run step for executing built artifacts
+RunStep = {
+    executable: *Executable
+    step: Step
+    args: []String
+    
+    addArg: (arg: String) void {
+        self.args.append(arg)
+    }
+}
+
+// System command execution
+SystemCommand = {
+    argv: []String
+    step: Step
+    
+    execute: () !void {
+        result := try process.exec(self.argv)
+        result.status != 0 ? {
+            return error.SystemCommandFailed
+        } : {}
+    }
+}
+
+// Package/dependency management
+Package = {
+    name: String
+    path: String
+}
+
+Module = {
+    name: String
+    source_file: String
+}
+
+DependencyOptions = {
+    url: String
+    commit: ?String
+    tag: ?String
+    branch: ?String
+}
+
+ModuleOptions = {
+    source_file: String
+}
+
+// Main Build type
+Build = {
+    // Metadata
+    name: String
+    version: String
+    author: String
+    
+    // Build configuration
+    target: Target
+    optimize: OptimizeMode
+    install_prefix: String
+    build_dir: String
+    cache_dir: String
+    
+    // Build artifacts
+    executables: []*Executable
+    libraries: []*Library
+    tests: []*Test
+    steps: []*Step
+    
+    // Options
+    options_map: std.HashMap(String, anytype)
+    
+    // Methods
+    standardTargetOptions: (options: TargetOptions) Target {
+        // Check command line args or use defaults
+        return Target{
+            cpu_arch: .native,
+            os_tag: .native,
+            abi: null
+        }
+    }
+    
+    standardOptimizeOption: (options: OptimizeOptions) OptimizeMode {
+        // Check command line args or use defaults
+        @env("RELEASE") ? {
+            return .ReleaseFast
+        } : {
+            return .Debug
+        }
+    }
+    
+    addExecutable: (options: ExecutableOptions) *Executable {
+        exe := Executable{
+            options: options,
+            step: Step{
+                name: options.name,
+                description: "Build executable " ++ options.name,
+                kind: .Exe,
+                dependencies: []*Step{}
+            },
+            symbols: []Executable.Symbol{},
+            packages: []Package{},
+            libraries: []String{},
+            include_paths: []String{},
+            library_paths: []String{},
+            frameworks: []String{},
+            export_symbol_names: []String{},
+            enable_stack_traces: true,
+            strip: false
+        }
+        
+        self.executables.append(&exe)
+        return &exe
+    }
+    
+    addStaticLibrary: (options: LibraryOptions) *Library {
+        lib := Library{
+            options: options,
+            step: Step{
+                name: options.name,
+                description: "Build static library " ++ options.name,
+                kind: .Lib,
+                dependencies: []*Step{}
+            },
+            is_static: true,
+            export_headers: []String{}
+        }
+        
+        self.libraries.append(&lib)
+        return &lib
+    }
+    
+    addSharedLibrary: (options: LibraryOptions) *Library {
+        lib := Library{
+            options: options,
+            step: Step{
+                name: options.name,
+                description: "Build shared library " ++ options.name,
+                kind: .Lib,
+                dependencies: []*Step{}
+            },
+            is_static: false,
+            export_headers: []String{}
+        }
+        
+        self.libraries.append(&lib)
+        return &lib
+    }
+    
+    addTest: (root_source: String) *Test {
+        test := Test{
+            root_source: root_source,
+            step: Step{
+                name: "test",
+                description: "Run tests from " ++ root_source,
+                kind: .Test,
+                dependencies: []*Step{}
+            },
+            target: null,
+            symbols: []Executable.Symbol{}
+        }
+        
+        self.tests.append(&test)
+        return &test
+    }
+    
+    option: (comptime T: type, name: String, description: String) ?T {
+        // Check if option was provided
+        self.options_map.get(name) ?
+            | .Some -> value => return @as(T, value)
+            | .None => return null
+    }
+    
+    installArtifact: (artifact: anytype) void {
+        install_step := Step{
+            name: "install",
+            description: "Install " ++ artifact.options.name,
+            kind: .Install,
+            dependencies: []*Step{ &artifact.step }
+        }
+        
+        self.steps.append(&install_step)
+    }
+    
+    installFile: (source: String, dest: String) void {
+        install_step := Step{
+            name: "install-file",
+            description: "Install " ++ source ++ " to " ++ dest,
+            kind: .Install,
+            dependencies: []*Step{}
+        }
+        
+        self.steps.append(&install_step)
+    }
+    
+    step: (name: String, description: String) *Step {
+        new_step := Step{
+            name: name,
+            description: description,
+            kind: .Custom,
+            dependencies: []*Step{}
+        }
+        
+        self.steps.append(&new_step)
+        return &new_step
+    }
+    
+    getInstallStep: () *Step {
+        // Find or create install step
+        loop i := 0; i < self.steps.len; i += 1 {
+            self.steps[i].name == "install" ? {
+                return self.steps[i]
+            } : {}
+        }
+        
+        return self.step("install", "Install all artifacts")
+    }
+    
+    getInstallPath: (install_dir: InstallDir, name: String) String {
+        base := install_dir ?
+            | .bin => self.install_prefix ++ "/bin/"
+            | .lib => self.install_prefix ++ "/lib/"
+            | .include => self.install_prefix ++ "/include/"
+            | .share => self.install_prefix ++ "/share/"
+        
+        return base ++ name
+    }
+    
+    dependency: (name: String, options: DependencyOptions) *Package {
+        // Fetch and cache dependency
+        pkg := Package{
+            name: name,
+            path: self.cache_dir ++ "/" ++ name
+        }
+        
+        // Would fetch from git if not cached
+        return &pkg
+    }
+    
+    addModule: (name: String, options: ModuleOptions) *Module {
+        mod := Module{
+            name: name,
+            source_file: options.source_file
+        }
+        
+        return &mod
+    }
+    
+    addSystemCommand: (argv: []String) *SystemCommand {
+        cmd := SystemCommand{
+            argv: argv,
+            step: Step{
+                name: "system",
+                description: argv[0],
+                kind: .System,
+                dependencies: []*Step{}
+            }
+        }
+        
+        return &cmd
+    }
+}
+
+// Additional types
+TargetOptions = {}
+OptimizeOptions = {}
+
+InstallDir = enum {
+    bin,
+    lib,
+    include,
+    share
+}
+
+// Helper to read environment variables
+@env = (name: String) ?String {
+    return process.getEnv(name)
+}
+
+// Helper to get type ID (for serialization)
+@typeId = (comptime T: type) u64 {
+    // Would compute a stable hash of the type
+    return 0
+}
