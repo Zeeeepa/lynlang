@@ -656,11 +656,11 @@ main = () i32 {
     
     // Test compilation
     test_source := "
-fn add(a: i32, b: i32) i32 {
+add = (a: i32, b: i32) i32 {
     return a + b
 }
 
-fn main() i32 {
+main = () i32 {
     x := 10
     y := 20
     result := add(x, y)

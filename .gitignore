@@ -29,3 +29,25 @@ build/**/zen-compile
 /zenc
 /zen-check
 /zen-lsp
+
+# Security and sensitive files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+config/secrets/
+secrets.json
+secrets.yaml
+secrets.yml
+
+# API Keys and sensitive data patterns
+*AIzaSy*
+*sk-*
+*Bearer*
+*Authorization*
