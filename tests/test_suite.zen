@@ -104,7 +104,7 @@ test_parser_variable = () void {
 }
 
 test_parser_function = () void {
-    source := "fn add(a: i32, b: i32) i32 { return a + b }"
+    source := "add = (a: i32, b: i32) i32 { return a + b }"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
     

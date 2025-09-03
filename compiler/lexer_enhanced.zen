@@ -15,7 +15,7 @@ TokenType = enum {
     Char -> value: char,
     
     // Keywords
-    Fn, Return, Loop, Break, Continue,
+    Return, Loop, Break, Continue,
     Struct, Enum, Trait, Impl,
     Comptime, Type, Const, Let,
     True, False, Null,
@@ -318,7 +318,6 @@ is_alphanumeric = (c: char) bool {
 // Get keyword token type or identifier
 get_keyword_type = (text: string) TokenType {
     match text {
-        | "fn" => TokenType.Fn
         | "return" => TokenType.Return
         | "loop" => TokenType.Loop
         | "break" => TokenType.Break
