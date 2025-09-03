@@ -1,0 +1,528 @@
+// ZenLang CLI tool
+// Main entry point for zen command
+
+std := @import("std")
+Build := @import("std").Build
+fs := @import("fs")
+process := @import("process")
+io := @import("io")
+
+// CLI commands
+Command = enum {
+    Build,
+    Run,
+    Test,
+    Check,
+    Fmt,
+    Clean,
+    Init,
+    Version,
+    Help
+}
+
+// CLI arguments
+Args = {
+    command: Command
+    target: ?String
+    release: bool
+    target_arch: ?String
+    args: []String
+    verbose: bool
+}
+
+// Parse command line arguments
+parseArgs = (args: []String) !Args {
+    args.len < 2 ? {
+        return Args{
+            command: .Help,
+            target: null,
+            release: false,
+            target_arch: null,
+            args: []String{},
+            verbose: false
+        }
+    } : {}
+    
+    command_str := args[1]
+    command := command_str ?
+        | "build" => .Build
+        | "run" => .Run
+        | "test" => .Test
+        | "check" => .Check
+        | "fmt" => .Fmt
+        | "clean" => .Clean
+        | "init" => .Init
+        | "version" => .Version
+        | "help" => .Help
+        | _ => return error.UnknownCommand
+    
+    result := Args{
+        command: command,
+        target: null,
+        release: false,
+        target_arch: null,
+        args: []String{},
+        verbose: false
+    }
+    
+    // Parse remaining args
+    i := 2
+    loop i < args.len {
+        arg := args[i]
+        
+        arg == "--release" ? {
+            result.release = true
+        } : arg == "--target" && i + 1 < args.len ? {
+            result.target_arch = args[i + 1]
+            i += 1
+        } : arg == "--verbose" || arg == "-v" ? {
+            result.verbose = true
+        } : arg == "--" ? {
+            // Rest are program args
+            result.args = args[i + 1..]
+            break
+        } : !arg.startsWith("--") && !result.target ? {
+            result.target = arg
+        } : {}
+        
+        i += 1
+    }
+    
+    return result
+}
+
+// Find build.zen file
+findBuildFile = () ?String {
+    // Check current directory
+    fs.exists("build.zen") ? {
+        return "build.zen"
+    } : {}
+    
+    // Check src directory
+    fs.exists("src/build.zen") ? {
+        return "src/build.zen"
+    } : {}
+    
+    return null
+}
+
+// Load and execute build.zen
+executeBuildFile = (build_file: String, args: Args) !void {
+    // Read build file
+    content := try fs.readFile(build_file)
+    
+    // Create build context
+    b := Build{
+        name: "project",
+        version: "0.1.0",
+        author: "",
+        target: Build.Target{
+            cpu_arch: .native,
+            os_tag: .native,
+            abi: null
+        },
+        optimize: args.release ? .ReleaseFast : .Debug,
+        install_prefix: "./build",
+        build_dir: "./build",
+        cache_dir: "./.cache",
+        executables: []*Build.Executable{},
+        libraries: []*Build.Library{},
+        tests: []*Build.Test{},
+        steps: []*Build.Step{},
+        options_map: std.HashMap(String, anytype).init()
+    }
+    
+    // Parse target architecture if provided
+    args.target_arch ? {
+        b.target = parseTarget(args.target_arch.?)
+    } : {}
+    
+    // Would compile and execute build.zen here
+    // For now, we'll simulate it
+    io.print("Building project with build.zen\n")
+    io.print("  Mode: {}\n", args.release ? "release" : "debug")
+    io.print("  Target: {}\n", formatTarget(b.target))
+}
+
+// Parse target string
+parseTarget = (target_str: String) Build.Target {
+    // Parse format: arch-os-abi
+    parts := target_str.split("-")
+    
+    cpu_arch := parts.len > 0 ? parseCpuArch(parts[0]) : .native
+    os_tag := parts.len > 1 ? parseOsTag(parts[1]) : .native
+    abi := parts.len > 2 ? parseAbi(parts[2]) : null
+    
+    return Build.Target{
+        cpu_arch: cpu_arch,
+        os_tag: os_tag,
+        abi: abi
+    }
+}
+
+parseCpuArch = (s: String) Build.CpuArch {
+    return s ?
+        | "x86_64" => .x86_64
+        | "x86" => .x86
+        | "aarch64" => .aarch64
+        | "arm" => .arm
+        | "wasm32" => .wasm32
+        | "wasm64" => .wasm64
+        | "riscv64" => .riscv64
+        | _ => .native
+}
+
+parseOsTag = (s: String) Build.OsTag {
+    return s ?
+        | "linux" => .linux
+        | "macos" => .macos
+        | "windows" => .windows
+        | "freebsd" => .freebsd
+        | "openbsd" => .openbsd
+        | "wasm" => .wasm
+        | _ => .native
+}
+
+parseAbi = (s: String) Build.Abi {
+    return s ?
+        | "none" => .none
+        | "gnu" => .gnu
+        | "musl" => .musl
+        | "msvc" => .msvc
+        | "wasi" => .wasi
+        | _ => .none
+}
+
+formatTarget = (target: Build.Target) String {
+    arch_str := target.cpu_arch ?
+        | .x86_64 => "x86_64"
+        | .x86 => "x86"
+        | .aarch64 => "aarch64"
+        | .arm => "arm"
+        | .wasm32 => "wasm32"
+        | .wasm64 => "wasm64"
+        | .riscv64 => "riscv64"
+        | .native => "native"
+    
+    os_str := target.os_tag ?
+        | .linux => "linux"
+        | .macos => "macos"
+        | .windows => "windows"
+        | .freebsd => "freebsd"
+        | .openbsd => "openbsd"
+        | .wasm => "wasm"
+        | .native => "native"
+    
+    target.abi ? {
+        abi_str := target.abi.? ?
+            | .none => "none"
+            | .gnu => "gnu"
+            | .musl => "musl"
+            | .msvc => "msvc"
+            | .wasi => "wasi"
+        
+        return arch_str ++ "-" ++ os_str ++ "-" ++ abi_str
+    } : {
+        return arch_str ++ "-" ++ os_str
+    }
+}
+
+// Command handlers
+handleBuild = (args: Args) !void {
+    build_file := findBuildFile()
+    
+    build_file ? {
+        try executeBuildFile(build_file.?, args)
+    } : {
+        // No build.zen, compile single file
+        args.target ? {
+            io.print("Compiling {}\n", args.target.?)
+            
+            // Invoke compiler
+            compiler_args := []String{
+                "zenc",
+                args.target.?,
+                "-o",
+                removeExtension(args.target.?) ++ ".out"
+            }
+            
+            args.release ? {
+                compiler_args.append("--release")
+            } : {}
+            
+            result := try process.exec(compiler_args)
+            result.status != 0 ? {
+                return error.CompilationFailed
+            } : {}
+            
+            io.print("Build successful\n")
+        } : {
+            io.print("Error: No build.zen file found and no target specified\n")
+            return error.NoBuildTarget
+        }
+    }
+}
+
+handleRun = (args: Args) !void {
+    // Build first if needed
+    try handleBuild(args)
+    
+    // Find executable to run
+    exe_path := args.target ? {
+        // Direct file specified
+        removeExtension(args.target.?) ++ ".out"
+    } : {
+        // Look for default executable
+        "./build/main"
+    }
+    
+    io.print("Running {}\n", exe_path)
+    
+    // Execute the program
+    run_args := []String{ exe_path }
+    run_args.appendAll(args.args)
+    
+    result := try process.exec(run_args)
+    process.exit(result.status)
+}
+
+handleTest = (args: Args) !void {
+    build_file := findBuildFile()
+    
+    build_file ? {
+        // Use build.zen test configuration
+        io.print("Running tests via build.zen\n")
+        // Would execute build.zen with test target
+    } : {
+        // Find and run test files
+        test_files := try fs.glob("**/*test*.zen")
+        test_files.len == 0 ? {
+            test_files = try fs.glob("tests/**/*.zen")
+        } : {}
+        
+        io.print("Found {} test files\n", test_files.len)
+        
+        passed := 0
+        failed := 0
+        
+        loop i := 0; i < test_files.len; i += 1 {
+            io.print("Testing {}\n", test_files[i])
+            
+            result := try process.exec([]String{
+                "zen",
+                "run",
+                test_files[i]
+            })
+            
+            result.status == 0 ? {
+                passed += 1
+                io.print("  ✓ Passed\n")
+            } : {
+                failed += 1
+                io.print("  ✗ Failed\n")
+            }
+        }
+        
+        io.print("\nTest Results: {} passed, {} failed\n", passed, failed)
+        
+        failed > 0 ? {
+            return error.TestsFailed
+        } : {}
+    }
+}
+
+handleCheck = (args: Args) !void {
+    target := args.target orelse "."
+    
+    io.print("Type checking {}\n", target)
+    
+    // Invoke type checker
+    result := try process.exec([]String{
+        "zen-check",
+        target
+    })
+    
+    result.status != 0 ? {
+        return error.TypeCheckFailed
+    } : {}
+    
+    io.print("Type check passed\n")
+}
+
+handleFmt = (args: Args) !void {
+    target := args.target orelse "."
+    
+    io.print("Formatting {}\n", target)
+    
+    // Find all .zen files
+    files := fs.isDirectory(target) ? {
+        try fs.glob(target ++ "/**/*.zen")
+    } : {
+        []String{ target }
+    }
+    
+    loop i := 0; i < files.len; i += 1 {
+        args.verbose ? {
+            io.print("  Formatting {}\n", files[i])
+        } : {}
+        
+        // Read file
+        content := try fs.readFile(files[i])
+        
+        // Format (would use actual formatter)
+        formatted := content  // Placeholder
+        
+        // Write back if changed
+        formatted != content ? {
+            try fs.writeFile(files[i], formatted)
+        } : {}
+    }
+    
+    io.print("Formatted {} files\n", files.len)
+}
+
+handleClean = (args: Args) !void {
+    io.print("Cleaning build artifacts\n")
+    
+    // Remove build directories
+    fs.exists("build") ? {
+        try fs.removeDir("build")
+    } : {}
+    
+    fs.exists(".cache") ? {
+        try fs.removeDir(".cache")
+    } : {}
+    
+    // Remove compiled outputs
+    outputs := try fs.glob("**/*.out")
+    loop i := 0; i < outputs.len; i += 1 {
+        try fs.remove(outputs[i])
+    }
+    
+    io.print("Clean complete\n")
+}
+
+handleInit = (args: Args) !void {
+    name := args.target orelse "my-project"
+    
+    io.print("Initializing new Zen project: {}\n", name)
+    
+    // Create project directory
+    try fs.createDir(name)
+    
+    // Create build.zen
+    build_content := `Build := @import("std").Build
+
+build = (b: *Build) void {
+    target := b.standardTargetOptions(.{})
+    optimize := b.standardOptimizeOption(.{})
+    
+    exe := b.addExecutable(.{
+        .name = "` ++ name ++ `",
+        .root_source_file = "src/main.zen",
+        .target = target,
+        .optimize = optimize,
+    })
+    
+    b.installArtifact(exe)
+    
+    run_cmd := exe.run()
+    run_cmd.step.dependOn(b.getInstallStep())
+    
+    run_step := b.step("run", "Run the app")
+    run_step.dependOn(&run_cmd.step)
+}
+`
+    
+    try fs.writeFile(name ++ "/build.zen", build_content)
+    
+    // Create src directory
+    try fs.createDir(name ++ "/src")
+    
+    // Create main.zen
+    main_content := `std := @import("std")
+
+main = () void {
+    std.io.print("Hello, Zen!\n")
+}
+`
+    
+    try fs.writeFile(name ++ "/src/main.zen", main_content)
+    
+    // Create .gitignore
+    gitignore_content := `build/
+.cache/
+*.out
+`
+    
+    try fs.writeFile(name ++ "/.gitignore", gitignore_content)
+    
+    io.print("Project initialized successfully\n")
+    io.print("To get started:\n")
+    io.print("  cd {}\n", name)
+    io.print("  zen build\n")
+    io.print("  zen run\n")
+}
+
+handleVersion = () void {
+    io.print("Zen Language Compiler\n")
+    io.print("Version: 0.1.0-dev\n")
+    io.print("LLVM: 18.1\n")
+}
+
+handleHelp = () void {
+    io.print("Zen - A systems programming language\n\n")
+    io.print("Usage: zen <command> [options] [target] [-- args]\n\n")
+    io.print("Commands:\n")
+    io.print("  build [target]     Build project or target file\n")
+    io.print("  run [target]       Build and run project or target\n")
+    io.print("  test [pattern]     Run tests\n")
+    io.print("  check [target]     Type check without building\n")
+    io.print("  fmt [target]       Format source files\n")
+    io.print("  clean              Remove build artifacts\n")
+    io.print("  init [name]        Initialize new project\n")
+    io.print("  version            Show version information\n")
+    io.print("  help               Show this help message\n\n")
+    io.print("Options:\n")
+    io.print("  --release          Build in release mode\n")
+    io.print("  --target <arch>    Target architecture (e.g., x86_64-linux-gnu)\n")
+    io.print("  --verbose, -v      Verbose output\n")
+    io.print("  --                 Pass remaining args to program\n")
+}
+
+// Utility functions
+removeExtension = (path: String) String {
+    last_dot := path.lastIndexOf(".")
+    last_dot ? {
+        return path[0..last_dot.?]
+    } : {
+        return path
+    }
+}
+
+// Main entry point
+main = () void {
+    args := process.args()
+    
+    parsed := parseArgs(args) catch |err| {
+        io.print("Error: {}\n", err)
+        handleHelp()
+        process.exit(1)
+    }
+    
+    result := parsed.command ?
+        | .Build => handleBuild(parsed)
+        | .Run => handleRun(parsed)
+        | .Test => handleTest(parsed)
+        | .Check => handleCheck(parsed)
+        | .Fmt => handleFmt(parsed)
+        | .Clean => handleClean(parsed)
+        | .Init => handleInit(parsed)
+        | .Version => { handleVersion(); Ok({}) }
+        | .Help => { handleHelp(); Ok({}) }
+    
+    result catch |err| {
+        io.print("Error: {}\n", err)
+        process.exit(1)
+    }
+}

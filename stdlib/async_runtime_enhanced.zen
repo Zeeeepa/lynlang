@@ -1,0 +1,315 @@
+// Enhanced async runtime with allocator integration
+// Implements colorless async/sync execution
+
+std := @import("std")
+allocator := @import("allocator")
+io := @import("io")
+
+// Task status
+TaskStatus = enum {
+    Pending,
+    Running,
+    Suspended,
+    Completed,
+    Failed
+}
+
+// Task structure
+Task = {
+    id: u64
+    status: TaskStatus
+    continuation: ?allocator.Continuation
+    result: ?*void
+    error: ?String
+    alloc: *allocator.Allocator
+}
+
+// I/O event types
+IoEvent = 
+    | ReadReady(fd: i32)
+    | WriteReady(fd: i32)
+    | Timer(id: u64)
+    | Signal(sig: i32)
+
+// Event loop for async execution
+EventLoop = {
+    tasks: []Task
+    io_events: []IoEvent
+    next_task_id: u64
+    runtime: *allocator.Runtime
+    alloc: *allocator.Allocator
+    
+    init: (alloc: *allocator.Allocator) EventLoop {
+        return EventLoop{
+            tasks: []Task{},
+            io_events: []IoEvent{},
+            next_task_id: 1,
+            runtime: alloc.is_async ? 
+                | true => @fieldParentPtr(allocator.AsyncAllocator, "allocator", alloc).runtime
+                | false => null,
+            alloc: alloc
+        }
+    }
+    
+    spawn: (task_fn: () void) u64 {
+        task := Task{
+            id: self.next_task_id,
+            status: .Pending,
+            continuation: null,
+            result: null,
+            error: null,
+            alloc: self.alloc
+        }
+        self.next_task_id += 1
+        self.tasks.append(task)
+        
+        // Schedule task execution
+        self.alloc.is_async ? {
+            // Create continuation for async execution
+            cont := allocator.Continuation{
+                state: &task,
+                resume_fn: (state) => {
+                    t := @ptrCast(*Task, state)
+                    t.status = .Running
+                    task_fn()
+                    t.status = .Completed
+                }
+            }
+            self.runtime.?.schedule(cont)
+        } : {
+            // Execute synchronously
+            task.status = .Running
+            task_fn()
+            task.status = .Completed
+        }
+        
+        return task.id
+    }
+    
+    run: () void {
+        self.alloc.is_async ? {
+            // Run async event loop
+            loop {
+                // Process ready tasks
+                self.runtime.?.run()
+                
+                // Check for I/O events
+                self.poll_io()
+                
+                // Check if all tasks completed
+                all_done := true
+                loop i := 0; i < self.tasks.len; i += 1 {
+                    self.tasks[i].status != .Completed && self.tasks[i].status != .Failed ? {
+                        all_done = false
+                        break
+                    } : {}
+                }
+                
+                all_done ? break : {}
+                
+                // Wait for events
+                self.runtime.?.wait()
+            }
+        } : {
+            // Sync execution - tasks already completed
+        }
+    }
+    
+    poll_io: () void {
+        // Platform-specific I/O polling
+        // Would use epoll on Linux, kqueue on macOS, IOCP on Windows
+    }
+    
+    await_task: (task_id: u64) ?*void {
+        loop i := 0; i < self.tasks.len; i += 1 {
+            self.tasks[i].id == task_id ? {
+                // Wait for task completion
+                loop {
+                    self.tasks[i].status == .Completed || self.tasks[i].status == .Failed ? {
+                        break
+                    } : {}
+                    
+                    self.alloc.is_async ? {
+                        // Suspend current task
+                        cont := self.alloc.suspend()
+                        cont ? {
+                            self.runtime.?.schedule(cont.?)
+                            self.runtime.?.wait()
+                        } : {}
+                    } : {
+                        // Sync mode - task should already be done
+                        break
+                    }
+                }
+                
+                return self.tasks[i].result
+            } : {}
+        }
+        return null
+    }
+}
+
+// Async I/O operations using allocator
+async_read = (fd: i32, buffer: []u8, alloc: *allocator.Allocator) usize {
+    alloc.is_async ? {
+        // Async path: suspend and resume
+        cont := alloc.suspend()
+        cont ? {
+            // Register I/O interest and suspend
+            register_read_interest(fd, cont.?)
+            alloc.resume(cont.?)
+            // Will resume here when I/O is ready
+        } : {}
+    } : {}
+    
+    // Perform actual read (either after resume or in sync mode)
+    return io.read(fd, buffer)
+}
+
+async_write = (fd: i32, data: []const u8, alloc: *allocator.Allocator) usize {
+    alloc.is_async ? {
+        // Async path: suspend and resume
+        cont := alloc.suspend()
+        cont ? {
+            // Register I/O interest and suspend
+            register_write_interest(fd, cont.?)
+            alloc.resume(cont.?)
+            // Will resume here when I/O is ready
+        } : {}
+    } : {}
+    
+    // Perform actual write (either after resume or in sync mode)
+    return io.write(fd, data)
+}
+
+// Platform-specific I/O registration (would be implemented per OS)
+register_read_interest = (fd: i32, cont: allocator.Continuation) void {
+    // Register with epoll/kqueue/IOCP
+}
+
+register_write_interest = (fd: i32, cont: allocator.Continuation) void {
+    // Register with epoll/kqueue/IOCP
+}
+
+// Timer support
+sleep = (ms: u64, alloc: *allocator.Allocator) void {
+    alloc.is_async ? {
+        // Async sleep
+        cont := alloc.suspend()
+        cont ? {
+            register_timer(ms, cont.?)
+            alloc.resume(cont.?)
+        } : {}
+    } : {
+        // Sync sleep
+        std.time.sleep(ms)
+    }
+}
+
+register_timer = (ms: u64, cont: allocator.Continuation) void {
+    // Register timer with event loop
+}
+
+// Channel for communication between tasks
+Channel = (comptime T: type) => {
+    buffer: []T
+    read_pos: usize
+    write_pos: usize
+    capacity: usize
+    closed: bool
+    readers: []allocator.Continuation
+    writers: []allocator.Continuation
+    alloc: *allocator.Allocator
+    
+    init: (capacity: usize, alloc: *allocator.Allocator) Channel(T) {
+        return Channel(T){
+            buffer: alloc.alloc_slice(T, capacity),
+            read_pos: 0,
+            write_pos: 0,
+            capacity: capacity,
+            closed: false,
+            readers: []allocator.Continuation{},
+            writers: []allocator.Continuation{},
+            alloc: alloc
+        }
+    }
+    
+    send: (value: T) bool {
+        self.closed ? return false : {}
+        
+        // Check if buffer full
+        next_write := (self.write_pos + 1) % self.capacity
+        next_write == self.read_pos ? {
+            // Buffer full, need to wait
+            self.alloc.is_async ? {
+                cont := self.alloc.suspend()
+                cont ? {
+                    self.writers.append(cont.?)
+                    self.alloc.resume(cont.?)
+                    // Will resume here when space available
+                } : {}
+            } : {
+                // Sync mode - would block
+                return false
+            }
+        } : {}
+        
+        // Write value
+        self.buffer[self.write_pos] = value
+        self.write_pos = next_write
+        
+        // Wake up waiting readers
+        self.readers.len > 0 ? {
+            reader := self.readers[0]
+            self.readers = self.readers[1..]
+            self.alloc.resume(reader)
+        } : {}
+        
+        return true
+    }
+    
+    receive: () ?T {
+        self.closed && self.read_pos == self.write_pos ? return null : {}
+        
+        // Check if buffer empty
+        self.read_pos == self.write_pos ? {
+            // Buffer empty, need to wait
+            self.alloc.is_async ? {
+                cont := self.alloc.suspend()
+                cont ? {
+                    self.readers.append(cont.?)
+                    self.alloc.resume(cont.?)
+                    // Will resume here when data available
+                } : {}
+            } : {
+                // Sync mode - would block
+                return null
+            }
+        } : {}
+        
+        // Read value
+        value := self.buffer[self.read_pos]
+        self.read_pos = (self.read_pos + 1) % self.capacity
+        
+        // Wake up waiting writers
+        self.writers.len > 0 ? {
+            writer := self.writers[0]
+            self.writers = self.writers[1..]
+            self.alloc.resume(writer)
+        } : {}
+        
+        return value
+    }
+    
+    close: () void {
+        self.closed = true
+        
+        // Wake up all waiting tasks
+        loop i := 0; i < self.readers.len; i += 1 {
+            self.alloc.resume(self.readers[i])
+        }
+        loop i := 0; i < self.writers.len; i += 1 {
+            self.alloc.resume(self.writers[i])
+        }
+    }
+}
