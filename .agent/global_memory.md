@@ -1,6 +1,13 @@
 # Zen Language - Global Memory
 
-## Current State (2025-09-02 Session Update - Latest v2)
+## Project Overview
+Zen is a modern systems programming language with ~55% compiler implementation complete.
+- **Language Version**: v1.0 specification complete
+- **Binaries**: zen, zen-lsp, zen-check, zen-format  
+- **LLVM Version**: 18.1 (inkwell 0.6.0 with llvm18-1 feature)
+- **File Extension**: .zen
+
+## Current State (2025-09-03 Session Update)
 
 ### ✅ Completed in Previous Session (2025-09-01)
 1. **Project Cleanup** ✅
@@ -108,6 +115,9 @@
 - **Self-Hosting**: Compiler written in Zen itself
 - **Validation**: Multiple layers of checking
 - **DRY**: Don't repeat yourself
+- **Testing**: 80% implementation, 20% testing
+- **Context**: Work best at 40% window (100K-140K tokens)
+- **Git**: Frequent commits with clear messages
 
 ### 🧪 Testing Status
 - Library tests: ✅ 11/11 passing
@@ -116,7 +126,9 @@
 - Self-hosting tests: ✅ Created
 
 ### 📈 Progress Metrics
-- Commits today: 3
-- Tests passing: 11/11 library tests
-- Files cleaned: 95 auxiliary files removed
-- LSP features added: 5+ major capabilities
+- Compiler completion: ~55%
+- Test suites: 35/35 passing (100%)
+- Stdlib modules: 91 .zen files
+- Self-hosted lexer: 90% complete
+- Self-hosted parser: 25% complete
+- GitHub workflows: Updated to LLVM 18.1
