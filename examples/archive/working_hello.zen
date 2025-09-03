@@ -1,6 +1,0 @@
-// Simple working example with current parser
-
-main = () i32 {
-    x := 42
-    return x
-}
