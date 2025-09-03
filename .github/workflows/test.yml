@@ -9,7 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: full
-  LLVM_SYS_18_1_PREFIX: /usr/lib/llvm-18
+  LLVM_SYS_181_PREFIX: /usr/lib/llvm-18
 
 jobs:
   unit-tests:
@@ -44,18 +44,18 @@ jobs:
     
     - name: Build Debug
       run: |
-        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
         cargo build --verbose
     
     - name: Run Unit Tests
       run: |
-        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
         cargo test --lib --verbose -- --nocapture
       timeout-minutes: 10
     
     - name: Run Doc Tests
       run: |
-        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
         cargo test --doc --verbose
   
   integration-tests:
@@ -89,12 +89,12 @@ jobs:
     
     - name: Build Release
       run: |
-        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
         cargo build --release
     
     - name: Run Integration Tests
       run: |
-        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
         cargo test --test '*' --verbose -- --nocapture
       timeout-minutes: 15
     
@@ -163,12 +163,12 @@ jobs:
         wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
         echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
         sudo apt-get update
-        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18
+        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18 libpolly-18-dev libllvm18
         echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
     
     - name: Build Compiler
       run: |
-        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
         cargo build --release
     
     - name: Check Self-Hosted Modules
