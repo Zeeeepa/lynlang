@@ -58,7 +58,7 @@ test_literals = () bool {
 
 // Test identifiers and keywords
 test_identifiers_keywords = () bool {
-    input := "myVar _private fn struct if loop @std.core"
+    input := "myVar _private struct if loop @std.core"
     l := lexer::lexer_new(input)
     
     // Regular identifier
@@ -68,10 +68,6 @@ test_identifiers_keywords = () bool {
     // Underscore identifier
     tok = lexer::lexer_next_token(&l)
     verify_token(tok, token::TokenType::Identifier, "_private") ? | false => { return false } | true => {}
-    
-    // Keyword: fn
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Keyword, "fn") ? | false => { return false } | true => {}
     
     // Keyword: struct
     tok = lexer::lexer_next_token(&l)
@@ -344,7 +340,7 @@ test_string_escapes = () bool {
 
 // Test complex expression
 test_complex_expression = () bool {
-    input := "fn factorial(n: i32) i32 { n <= 1 ? | true => 1 | false => n * factorial(n - 1) }"
+    input := "factorial = (n: i32) i32 { n <= 1 ? | true => 1 | false => n * factorial(n - 1) }"
     l := lexer::lexer_new(input)
     
     // Verify we can tokenize the entire expression

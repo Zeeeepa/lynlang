@@ -241,7 +241,6 @@ parse_declaration = (p: *Parser) Result<*AstNode, string> {
     current := peek(p)
     
     match current.type {
-        | lexer.TokenType.Fn => parse_function(p)
         | lexer.TokenType.Struct => parse_struct(p)
         | lexer.TokenType.Enum => parse_enum(p)
         | lexer.TokenType.Trait => parse_trait(p)
@@ -260,12 +259,10 @@ parse_declaration = (p: *Parser) Result<*AstNode, string> {
 
 // Parse function declaration
 parse_function = (p: *Parser) Result<*AstNode, string> {
-    start_token := advance(p) // consume 'fn' or identifier
+    start_token := advance(p) // consume identifier
     
     // Parse function name
-    name := start_token.type == lexer.TokenType.Fn ?
-        { consume(p, lexer.TokenType.Identifier, "Expected function name")?.lexeme } :
-        { start_token.lexeme }
+    name := start_token.lexeme
     
     // Parse = 
     consume(p, lexer.TokenType.Assign, "Expected '=' after function name")?
@@ -381,7 +378,7 @@ synchronize = (p: *Parser) void {
         previous(p).type == lexer.TokenType.Semicolon ? { return } : {}
         
         match peek(p).type {
-            | lexer.TokenType.Fn | lexer.TokenType.Struct | 
+            | lexer.TokenType.Struct | 
               lexer.TokenType.Enum | lexer.TokenType.Trait |
               lexer.TokenType.Type | lexer.TokenType.Const |
               lexer.TokenType.Let => return

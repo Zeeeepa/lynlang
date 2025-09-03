@@ -14,8 +14,12 @@ Nested conditional expressions without parentheses are parsed incorrectly. The p
 ```zen
 classify = (x: i32, y: i32) i32 {
     return x == 0 ? 
-        | true => y == 0 ? | true => 0 | false => 1
-        | false => y == 0 ? | true => 2 | false => 3
+        | true => y == 0 ?
+            | true => 0 
+            | false => 1
+        | false => y == 0 ? 
+            | true => 2 
+            | false => 3
 }
 ```
 
@@ -34,8 +38,12 @@ Use parentheses to explicitly delimit nested conditionals:
 // This works correctly:
 classify = (x: i32, y: i32) i32 {
     return x == 0 ? 
-        | true => (y == 0 ? | true => 0 | false => 1)
-        | false => (y == 0 ? | true => 2 | false => 3)
+        | true => (y == 0 ? 
+            | true => 0 
+            | false => 1)
+        | false => (y == 0 ? 
+            | true => 2 
+            | false => 3)
 }
 ```
 
