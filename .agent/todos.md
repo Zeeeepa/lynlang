@@ -1,37 +1,33 @@
 # Zen Language - TODOs
 
-## Current Session (2025-09-03)
-1. ✅ Consolidate .agent directory files  
-2. ✅ Fix GitHub workflows for LLVM 18.1
-3. ⏳ Send summary email via SendGrid
+## Immediate Priority (This Week)
+1. [ ] Fix hanging parser tests
+2. [ ] Complete self-hosted parser (25% → 100%)
+3. [ ] Fix missing test scripts (test_runner.sh, bootstrap.sh)
+4. [ ] Enhance error diagnostics
 
-## High Priority Tasks
-- [ ] Complete self-hosted parser (currently 25%)
-- [ ] Fix hanging parser tests
-- [ ] Complete integration test suite
-- [ ] Implement code generation in Zen
-- [ ] Bootstrap compiler process
+## High Priority (This Month)  
+1. [ ] Port TypeChecker to Zen
+2. [ ] Port CodeGen to Zen
+3. [ ] Complete bootstrap process
+4. [ ] Package manager design (zen-pkg)
+5. [ ] Performance optimizations
 
-## Medium Priority  
-- [ ] Enhanced error messages and diagnostics
-- [ ] Complete remaining stdlib modules
-- [ ] Performance optimizations
-- [ ] Package manager design
-- [ ] Documentation improvements
+## Medium Priority
+1. [ ] Complete remaining stdlib modules
+2. [ ] Documentation improvements
+3. [ ] IDE plugin development
+4. [ ] Web playground
 
-## Low Priority
-- [ ] Tutorial creation
-- [ ] Example programs expansion
-- [ ] IDE plugin development
-
-## Known Issues to Address
-- Missing test scripts (test_integration.sh, test_runner.sh, bootstrap.sh)
-- Parser tests hanging
-- Self-hosted components incomplete (parser 25%, codegen 0%)
+## Known Issues
+- Parser tests hanging (timeout needed?)
+- Missing test scripts in CI/CD
+- Self-hosted components incomplete
+- Some stdlib modules stub implementations
 
 ## Development Guidelines
-- Use gh CLI for GitHub management
-- Frequent git commits (DRY & KISS)
-- 80% implementation, 20% testing
-- Work at 40% context window
-- Simplicity, elegance, practicality
+- Use `gh` CLI for GitHub management
+- Frequent commits (every feature/fix)
+- Test before committing
+- Keep PRs focused and small
+- Document breaking changes
