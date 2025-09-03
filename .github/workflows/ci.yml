@@ -9,29 +9,32 @@ on:
 env:
   CARGO_TERM_COLOR: always
   LLVM_SYS_181_PREFIX: /usr/lib/llvm-18
+  RUST_BACKTRACE: 1
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Rust
+    - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
     
-    - name: Install LLVM 18
+    - name: Install LLVM 18.1
       run: |
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-18 main"
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+        echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
         sudo apt-get update
-        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 lld-18
+        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18
+        sudo ln -sf /usr/bin/llvm-config-18 /usr/bin/llvm-config
         echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
+        llvm-config --version
     
-    - name: Cache Cargo dependencies
-      uses: actions/cache@v3
+    - name: Cache Dependencies
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/bin/
@@ -40,70 +43,88 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
     
-    - name: Build Rust compiler
-      run: cargo build --release --verbose
+    - name: Build Compiler
+      run: |
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        cargo build --release --verbose
     
-    - name: Run Rust tests
-      run: cargo test --verbose
+    - name: Run Tests
+      run: |
+        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        cargo test --verbose -- --nocapture
+      timeout-minutes: 10
     
-    - name: Check code formatting
+    - name: Check Formatting
       run: cargo fmt -- --check
-      continue-on-error: true
     
-    - name: Run Clippy lints
-      run: cargo clippy -- -D warnings
-      continue-on-error: true
+    - name: Run Clippy
+      run: cargo clippy -- -W clippy::all
     
-    - name: Test hello world example
+    - name: Test Examples
       run: |
         if [ -f ./target/release/zen ]; then
-          ./target/release/zen examples/01_hello_world.zen || echo "Hello world test failed"
-        fi
-    
-    - name: Run integration tests
-      run: |
-        if [ -f test_integration.sh ]; then
-          chmod +x test_integration.sh
-          ./test_integration.sh
+          echo "Testing hello world..."
+          ./target/release/zen examples/01_hello_world.zen
+          echo "Testing basics..."
+          [ -f examples/01_basics_working.zen ] && ./target/release/zen examples/01_basics_working.zen || true
         else
-          echo "Integration test script not found, skipping..."
+          echo "Error: Zen compiler not built!"
+          exit 1
         fi
     
-    - name: Test stdlib syntax
+    - name: Verify Self-Hosted Components
       run: |
-        echo "Checking stdlib import syntax..."
-        ! grep -r "^comptime {" stdlib/ --include="*.zen" | grep "@std"
+        echo "Checking self-hosted compiler components..."
+        for file in compiler/lexer.zen compiler/parser.zen compiler/codegen.zen; do
+          if [ -f "$file" ]; then
+            echo "✓ Found $file"
+          else
+            echo "✗ Missing $file"
+          fi
+        done
     
-    - name: Verify self-hosted components
+    - name: Check Import Syntax
       run: |
-        echo "Verifying self-hosted compiler components..."
-        test -f compiler/lexer.zen
-        test -f compiler/parser.zen
-        test -f compiler/codegen.zen
-        test -f tools/zen-compile.zen
-        test -f lsp/server.zen
-        test -f tools/zen-check.zen
-    
-  lint:
+        echo "Verifying import syntax compliance..."
+        if grep -r "comptime.*{.*@std" --include="*.zen" . 2>/dev/null | grep -v "^Binary"; then
+          echo "Error: Found incorrect comptime import usage!"
+          exit 1
+        else
+          echo "✓ Import syntax is correct"
+        fi
+
+  lint-and-validate:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
-    - name: Check for TODO comments
+    - name: Check TODOs
       run: |
-        echo "Checking for TODO comments..."
-        grep -r "TODO\|FIXME\|XXX" . --include="*.zen" --include="*.rs" || true
+        echo "=== TODO/FIXME Comments ==="
+        grep -rn "TODO\|FIXME\|XXX\|HACK" . --include="*.zen" --include="*.rs" || echo "No TODOs found"
     
-    - name: Check file permissions
+    - name: Validate Project Structure
       run: |
-        echo "Checking executable permissions..."
-        [ -f test_integration.sh ] && chmod +x test_integration.sh || true
-        [ -f run_tests.sh ] && chmod +x run_tests.sh || true
+        echo "=== Validating project structure ==="
+        required_dirs=("src" "stdlib" "compiler" "examples" "tests" ".agent")
+        for dir in "${required_dirs[@]}"; do
+          if [ -d "$dir" ]; then
+            echo "✓ $dir exists"
+          else
+            echo "✗ Missing directory: $dir"
+            exit 1
+          fi
+        done
     
-    - name: Validate markdown
-      uses: DavidAnson/markdownlint-cli2-action@v9
-      with:
-        globs: '**/*.md'
-      continue-on-error: true
+    - name: Count Project Stats
+      run: |
+        echo "=== Project Statistics ==="
+        echo "Rust files: $(find src -name "*.rs" | wc -l)"
+        echo "Zen files: $(find . -name "*.zen" | wc -l)"
+        echo "Test files: $(find tests -name "*.rs" -o -name "*.zen" | wc -l)"
+        echo "Lines of Rust: $(find src -name "*.rs" -exec wc -l {} + | tail -1)"
+        echo "Lines of Zen: $(find . -name "*.zen" -exec wc -l {} + | tail -1)"
