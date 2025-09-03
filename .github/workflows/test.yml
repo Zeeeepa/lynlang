@@ -29,7 +29,7 @@ jobs:
         wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
         echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
         sudo apt-get update
-        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18
+        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18 libpolly-18-dev libllvm18
         sudo ln -sf /usr/bin/llvm-config-18 /usr/bin/llvm-config
         echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
     
@@ -74,7 +74,7 @@ jobs:
         wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
         echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
         sudo apt-get update
-        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18
+        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18 libpolly-18-dev libllvm18
         sudo ln -sf /usr/bin/llvm-config-18 /usr/bin/llvm-config
         echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
     
