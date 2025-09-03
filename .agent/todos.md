@@ -1,33 +1,38 @@
-# Zen Language - TODOs
+# ZenLang TODOs
 
-## Immediate Priority (This Week)
-1. [ ] Fix hanging parser tests
-2. [ ] Complete self-hosted parser (25% → 100%)
-3. [ ] Fix missing test scripts (test_runner.sh, bootstrap.sh)
-4. [ ] Enhance error diagnostics
+## Priority 1 - Immediate (Current Sprint)
+1. ✅ Consolidate .agent directory documentation
+2. ✅ Fix GitHub workflows for LLVM 18.1
+3. ⏳ Send status email via SendGrid
 
-## High Priority (This Month)  
-1. [ ] Port TypeChecker to Zen
-2. [ ] Port CodeGen to Zen
-3. [ ] Complete bootstrap process
-4. [ ] Package manager design (zen-pkg)
-5. [ ] Performance optimizations
+## Priority 2 - Core Compiler
+1. Complete self-hosting transition
+   - Implement lexer.zen
+   - Implement parser.zen
+   - Implement codegen.zen
+   - Implement type_checker.zen
+2. Improve error messages with better diagnostics
+3. Add more comprehensive type inference
 
-## Medium Priority
-1. [ ] Complete remaining stdlib modules
-2. [ ] Documentation improvements
-3. [ ] IDE plugin development
-4. [ ] Web playground
+## Priority 3 - Standard Library
+1. Complete core modules (io, string, math, collections)
+2. Add concurrency primitives
+3. Implement memory management utilities
+4. Add file system operations
 
-## Known Issues
-- Parser tests hanging (timeout needed?)
-- Missing test scripts in CI/CD
-- Self-hosted components incomplete
-- Some stdlib modules stub implementations
+## Priority 4 - Tooling
+1. Enhance LSP with more features
+2. Implement zen-format properly
+3. Add zen-doc for documentation generation
+4. Create package manager
 
-## Development Guidelines
-- Use `gh` CLI for GitHub management
-- Frequent commits (every feature/fix)
-- Test before committing
-- Keep PRs focused and small
-- Document breaking changes
+## Priority 5 - Testing & Documentation
+1. Increase test coverage to 80%+
+2. Write comprehensive language documentation
+3. Create tutorial series
+4. Build example projects
+
+## Completed
+- ✅ Remove fn keyword syntax
+- ✅ Update to LLVM 18.1
+- ✅ Basic CI/CD setup

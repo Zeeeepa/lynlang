@@ -1,57 +1,56 @@
-# Zen Language - Scratchpad
+# ZenLang Scratchpad
 
-## Quick Notes
-- LLVM 18.1 is critical - DO NOT change (see Cargo.toml comment)
-- Import syntax: `module := @std.module` (NO comptime wrapping)
-- Use `zen` binary for compilation, `zen-lsp` for IDE support
-- Test with: `cargo test` and `./target/release/zen examples/01_hello_world.zen`
+## Current Work Session Notes
 
-## Common Commands
+### GitHub Workflows Issues
+- LLVM version mismatch (using 18.1, workflows may have wrong config)
+- Environment variable LLVM_SYS_181_PREFIX needs proper setting
+- APT repository for LLVM 18 might need updating
+
+### Quick Commands
 ```bash
-# Build compiler
-cargo build --release
+# Build debug
+export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 && cargo build
+
+# Build release
+export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 && cargo build --release
 
 # Run tests
-cargo test
+export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 && cargo test
 
 # Format code
 cargo fmt
 
 # Lint
 cargo clippy
-
-# Test example
-./target/release/zen examples/01_hello_world.zen
-
-# Git workflow
-git add .
-git commit -m "feat: Description"
-git push
 ```
 
-## File Locations
-- Compiler source: src/
-- Standard library: stdlib/
-- Examples: examples/
-- Tests: tests/
-- Self-hosted compiler: stdlib/compiler/
-- LSP server: src/lsp/
+### Git Workflow
+```bash
+# Frequent commits
+git add -A && git commit -m "feat: description"
+git push origin main
 
-## Current Focus Areas
-1. Self-hosted parser completion (stdlib/compiler/parser.zen)
-2. Test infrastructure improvements
-3. Error diagnostics enhancement
-4. GitHub Actions CI/CD
+# Check status
+git status
+git diff
 
-## Gotchas & Reminders
-- Parser tests hang - needs investigation
-- Missing test scripts need creation
-- Always test imports don't use comptime
-- Frequent commits (every significant change)
-- Keep context under 140K tokens
+# Branch management
+gh pr create --title "Title" --body "Description"
+```
 
-## Recent Achievements
-- ✅ Updated GitHub workflows to LLVM 18.1
-- ✅ Consolidated project documentation
-- ✅ Created .agent directory structure
-- ✅ 100% test pass rate maintained
+### Known Issues
+1. Self-hosted compiler components don't exist yet
+2. Some examples may be missing or broken
+3. Stdlib is incomplete
+
+### Ideas & Notes
+- Consider using WASM target for browser-based playground
+- Look into incremental compilation for faster builds
+- Add property-based testing with proptest
+- Consider TreeSitter grammar for better IDE support
+
+### Resources
+- LLVM 18.1 docs: https://llvm.org/docs/
+- Inkwell examples: https://github.com/TheDan64/inkwell
+- Language design inspiration: Zig, Rust, Odin
