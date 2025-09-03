@@ -1,9 +1,0 @@
-// Hello World example in Zen
-// Demonstrates basic function declaration and string output
-
-io := @std.io
-
-main = () i32 {
-    io.print("Hello, Zen!\n");
-    return 0
-}
