@@ -9,7 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: full
-  LLVM_SYS_181_PREFIX: /usr/lib/llvm-18
+  LLVM_SYS_18_1_PREFIX: /usr/lib/llvm-18
 
 jobs:
   unit-tests:
@@ -44,18 +44,18 @@ jobs:
     
     - name: Build Debug
       run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
         cargo build --verbose
     
     - name: Run Unit Tests
       run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
         cargo test --lib --verbose -- --nocapture
       timeout-minutes: 10
     
     - name: Run Doc Tests
       run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
         cargo test --doc --verbose
   
   integration-tests:
@@ -89,12 +89,12 @@ jobs:
     
     - name: Build Release
       run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
         cargo build --release
     
     - name: Run Integration Tests
       run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
         cargo test --test '*' --verbose -- --nocapture
       timeout-minutes: 15
     
@@ -134,14 +134,18 @@ jobs:
           echo "Warning: Expected more stdlib modules"
         fi
         
-        # Check core modules exist
-        for module in stdlib/core.zen stdlib/io.zen stdlib/string.zen stdlib/math.zen; do
-          if [ -f "$module" ]; then
-            echo "✓ $module exists"
-          else
-            echo "✗ Missing core module: $module"
-          fi
-        done
+        # Check core modules exist (if stdlib exists)
+        if [ -d "stdlib" ]; then
+          for module in stdlib/core.zen stdlib/io.zen stdlib/string.zen stdlib/math.zen; do
+            if [ -f "$module" ]; then
+              echo "✓ $module exists"
+            else
+              echo "ℹ Module not yet implemented: $module"
+            fi
+          done
+        else
+          echo "ℹ stdlib directory not found - skipping module checks"
+        fi
   
   self-host-tests:
     name: Self-Hosting Tests
@@ -164,7 +168,7 @@ jobs:
     
     - name: Build Compiler
       run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+        export LLVM_SYS_18_1_PREFIX=/usr/lib/llvm-18
         cargo build --release
     
     - name: Check Self-Hosted Modules
