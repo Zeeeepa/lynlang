@@ -1,38 +1,41 @@
-# ZenLang TODOs
+# Zenlang Project Todos
 
-## Priority 1 - Immediate (Current Sprint)
-1. ✅ Consolidate .agent directory documentation
-2. ✅ Fix GitHub workflows for LLVM 18.1
-3. ✅ Send status email via SendGrid (completed)
+## High Priority
+- [ ] Complete pattern matching codegen (parser done, codegen WIP)
+- [ ] Implement comptime execution framework
+- [ ] Finish self-hosted lexer (30% complete)
+- [ ] Finish self-hosted parser (20% complete)
+- [ ] Implement behaviors (traits) system
 
-## Priority 2 - Core Compiler
-1. Complete self-hosting transition
-   - Implement lexer.zen
-   - Implement parser.zen
-   - Implement codegen.zen
-   - Implement type_checker.zen
-2. Improve error messages with better diagnostics
-3. Add more comprehensive type inference
+## Medium Priority  
+- [ ] Complete UFCS implementation
+- [ ] Add string interpolation to codegen
+- [ ] Implement async/await with Task<T>
+- [ ] Add smart pointers (Ptr<T>, Ref<T>)
+- [ ] Custom allocator interface
 
-## Priority 3 - Standard Library
-1. Complete core modules (io, string, math, collections)
-2. Add concurrency primitives
-3. Implement memory management utilities
-4. Add file system operations
+## Low Priority
+- [ ] Package management system
+- [ ] Improved C FFI
+- [ ] Documentation generation
+- [ ] IDE support improvements
 
-## Priority 4 - Tooling
-1. Enhance LSP with more features
-2. Implement zen-format properly
-3. Add zen-doc for documentation generation
-4. Create package manager
+## Testing & Quality
+- [ ] Reach 100% test pass rate (currently 99.6%)
+- [ ] Add integration tests for standard library
+- [ ] Performance benchmarks
+- [ ] Fuzz testing for parser
 
-## Priority 5 - Testing & Documentation
-1. Increase test coverage to 80%+
-2. Write comprehensive language documentation
-3. Create tutorial series
-4. Build example projects
+## Self-Hosting Milestones
+1. ✅ Core language features
+2. ✅ Standard library in Zen
+3. 🚧 Self-hosted lexer (30%)
+4. 🚧 Self-hosted parser (20%)
+5. ⏳ Comptime execution
+6. ⏳ Bootstrap with Zen stdlib
 
-## Completed
-- ✅ Remove fn keyword syntax
-- ✅ Update to LLVM 18.1
-- ✅ Basic CI/CD setup
+## Documentation
+- [x] Language specification (LANGUAGE_SPEC.md)
+- [ ] Tutorial series
+- [ ] Standard library API docs
+- [ ] Compiler internals guide
