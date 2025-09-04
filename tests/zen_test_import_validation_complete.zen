@@ -79,12 +79,11 @@ test_no_struct_imports = () bool {
 }
 
 // Test that imports cannot be inside enums
-TestEnum = enum {
+TestEnum = |
     First,
     Second,
     // This would be a compile error:
     // crypto := @std.crypto  // ERROR: Imports must be at module level
-}
 
 test_no_enum_imports = () bool {
     e := TestEnum.First

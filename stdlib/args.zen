@@ -51,11 +51,10 @@ ParsedArgs = {
 }
 
 // Flag value types
-FlagValue = enum {
+FlagValue = |
     Present,                  // Flag was present (no value)
     Single(string),          // Single value
     Multiple(Vec<string>),   // Multiple values
-}
 
 // Create new argument parser
 new_parser = (name: string, desc: string) ArgParser {

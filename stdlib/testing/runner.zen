@@ -6,11 +6,10 @@ core := @std.core
 vec := @std.vec
 
 // Test result enumeration
-TestResult = enum {
+TestResult = |
     Pass,
     Fail,
     Skip,
-}
 
 // Test case structure
 TestCase = struct {

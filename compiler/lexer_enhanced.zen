@@ -7,7 +7,7 @@ vec := @std.vec
 core := @std.core
 
 // Token types covering all Zen syntax
-TokenType = enum {
+TokenType = |
     // Literals
     Identifier -> value: string,
     Number -> value: string,
@@ -36,7 +36,6 @@ TokenType = enum {
     
     // Special
     Newline, Eof, Invalid,
-}
 
 // Token with position information
 Token = struct {

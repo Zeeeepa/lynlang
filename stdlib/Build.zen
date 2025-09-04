@@ -12,7 +12,7 @@ Target = {
     abi: ?Abi
 }
 
-CpuArch = enum {
+CpuArch = |
     x86_64,
     x86,
     aarch64,
@@ -21,9 +21,8 @@ CpuArch = enum {
     wasm64,
     riscv64,
     native
-}
 
-OsTag = enum {
+OsTag = |
     linux,
     macos,
     windows,
@@ -31,26 +30,23 @@ OsTag = enum {
     openbsd,
     wasm,
     native
-}
 
-Abi = enum {
+Abi = |
     none,
     gnu,
     musl,
     msvc,
     wasi
-}
 
 // Optimization modes
-OptimizeMode = enum {
+OptimizeMode = |
     Debug,
     ReleaseSafe,
     ReleaseFast,
     ReleaseSmall
-}
 
 // Build step types
-StepKind = enum {
+StepKind = |
     Exe,
     Lib,
     Test,
@@ -58,7 +54,6 @@ StepKind = enum {
     Install,
     System,
     Custom
-}
 
 // Build step
 Step = {
@@ -475,12 +470,11 @@ Build = {
 TargetOptions = {}
 OptimizeOptions = {}
 
-InstallDir = enum {
+InstallDir = |
     bin,
     lib,
     include,
     share
-}
 
 // Helper to read environment variables
 @env = (name: String) ?String {

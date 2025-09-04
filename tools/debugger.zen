@@ -11,13 +11,12 @@ process := @std.process
 colors := @std.colors
 
 // Debugger state
-DebuggerState := enum {
+DebuggerState := |
     Idle
     Running
     Paused
     Stepping
     Finished
-}
 
 // Breakpoint information
 Breakpoint := struct {
@@ -39,7 +38,7 @@ StackFrame := struct {
 }
 
 // Variable value representation
-Value := enum {
+Value := |
     Null
     Bool(val: bool)
     I8(val: i8)
@@ -56,7 +55,6 @@ Value := enum {
     Pointer(addr: usize)
     Struct(fields: HashMap<string, Value>)
     Array(elements: Vec<Value>)
-}
 
 // Watch expression
 WatchExpression := struct {
@@ -81,12 +79,11 @@ Debugger := struct {
 }
 
 // Step modes
-StepMode := enum {
+StepMode := |
     None
     StepOver
     StepInto
     StepOut
-}
 
 // Create new debugger instance
 new_debugger = (program_path: string) Ptr<Debugger> {

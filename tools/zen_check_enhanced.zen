@@ -47,12 +47,11 @@ Hint = {
 }
 
 // Severity levels
-Severity = enum {
+Severity = |
     Error,
     Warning,
     Info,
     Hint,
-}
 
 // File statistics
 FileStats = {
@@ -66,7 +65,7 @@ FileStats = {
 }
 
 // Linter rules
-LintRule = enum {
+LintRule = |
     UnusedVariable,
     UnusedImport,
     UnusedFunction,
@@ -82,7 +81,6 @@ LintRule = enum {
     UnhandledError,
     EmptyBlock,
     DuplicateCase,
-}
 
 // Checker configuration
 CheckerConfig = {
@@ -98,12 +96,11 @@ CheckerConfig = {
 }
 
 // Naming conventions
-NamingConvention = enum {
+NamingConvention = |
     SnakeCase,
     CamelCase,
     PascalCase,
     Mixed,
-}
 
 // Enhanced syntax checker
 SyntaxChecker = {

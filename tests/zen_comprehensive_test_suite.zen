@@ -136,21 +136,19 @@ test_structs = test("Structs", () void => {
 // Test enums
 test_enums = test("Enums", () void => {
     // Simple enum
-    Color = enum {
+    Color = |
         Red,
         Green,
         Blue,
-    }
     
     c := Color.Red;
     test.assert(c == Color.Red);
     
     // Enum with payloads
-    Message = enum {
+    Message = |
         Text -> content: string,
         Number -> value: i32,
         Binary -> data: []u8,
-    }
     
     msg := Message.Text -> content: "Hello";
     

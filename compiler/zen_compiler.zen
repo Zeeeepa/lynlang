@@ -31,22 +31,20 @@ CompilerOptions = {
 }
 
 // What kind of output to emit
-EmitType = enum {
+EmitType = |
     Binary,
     LLVM_IR,
     AST,
     C_Code,
-}
 
 // Compilation result
-CompilationResult = enum {
+CompilationResult = |
     Success,
     LexerError -> msg: string,
     ParserError -> msg: string,
     TypeError -> msg: string,
     CodegenError -> msg: string,
     IOError -> msg: string,
-}
 
 // Main compiler driver
 compile = (options: CompilerOptions) CompilationResult {

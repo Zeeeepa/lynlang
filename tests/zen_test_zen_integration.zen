@@ -19,12 +19,11 @@ Rectangle = {
     bottom_right: Point,
 }
 
-Color = enum {
+Color = |
     Red,
     Green,
     Blue,
     RGB(r: u8, g: u8, b: u8),
-}
 
 // Test behaviors
 Drawable = behavior {

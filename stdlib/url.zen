@@ -21,7 +21,7 @@ URL := struct {
 }
 
 // URL parsing errors
-URLError := enum {
+URLError := |
     InvalidScheme,
     InvalidHost,
     InvalidPort,
@@ -29,7 +29,6 @@ URLError := enum {
     InvalidQuery,
     InvalidFragment,
     MalformedURL
-}
 
 // Parse a URL string
 parse = (url_str: string) result.Result<URL, URLError> {
