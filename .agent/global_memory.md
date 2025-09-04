@@ -8,6 +8,7 @@ ZenLang is a systems programming language compiler built in Rust, using LLVM 18.
 - **LLVM Version**: 18.1 (locked in Cargo.toml with feature flag)
 - **Language Server**: LSP implementation for IDE support
 - **Tools**: zen-check, zen-format, zen-lsp binaries
+- **VS Code Extension**: Created at vscode-zenlang/ with syntax highlighting and LSP client
 
 ## Architecture
 - Frontend: Lexer, Parser (nom-based)
@@ -37,4 +38,18 @@ Currently transitioning to self-hosted compiler with components:
 - Core compiler working in Rust
 - Stdlib modules being developed
 - LSP server functional
+- VS Code extension created with:
+  - Full syntax highlighting for .zen files
+  - LSP client integration
+  - Support for all Zenlang constructs
 - CI/CD workflows need fixes for LLVM 18.1
+
+## VS Code Extension Features
+- Syntax highlighting with comprehensive TextMate grammar
+- LSP integration for code completion, hover, diagnostics
+- Support for Zenlang-specific syntax:
+  - Immutable (`:=`) and mutable (`::=`) bindings
+  - Pattern matching with `?` operator
+  - Struct and enum declarations
+  - Import statements with `@` prefix
+  - All primitive and custom types

@@ -90,7 +90,7 @@ MarkupContent := struct {
 }
 
 // Symbol kinds
-SymbolKind := enum {
+SymbolKind := |
     File = 1
     Module = 2
     Namespace = 3
@@ -117,7 +117,6 @@ SymbolKind := enum {
     Event = 24
     Operator = 25
     TypeParameter = 26
-}
 
 // Diagnostic types
 Diagnostic := struct {
@@ -130,17 +129,15 @@ Diagnostic := struct {
     relatedInformation: Vec<DiagnosticRelatedInformation>
 }
 
-DiagnosticSeverity := enum {
+DiagnosticSeverity := |
     Error = 1
     Warning = 2
     Information = 3
     Hint = 4
-}
 
-DiagnosticTag := enum {
+DiagnosticTag := |
     Unnecessary = 1
     Deprecated = 2
-}
 
 DiagnosticRelatedInformation := struct {
     location: Location

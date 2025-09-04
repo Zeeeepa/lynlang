@@ -16,12 +16,11 @@ Duration = {
 }
 
 // Clock types
-ClockType = enum {
+ClockType = |
     Realtime,
     Monotonic,
     ProcessCPU,
     ThreadCPU,
-}
 
 // Time constants
 NANOS_PER_MICRO := 1000

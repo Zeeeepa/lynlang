@@ -5,7 +5,7 @@ core := @std.core
 io := @std.io
 
 // Token types
-TokenType = enum {
+TokenType = |
     // Literals
     IntLiteral
     FloatLiteral
@@ -63,7 +63,6 @@ TokenType = enum {
     
     // Error
     Error
-}
 
 // Token structure
 Token = struct {

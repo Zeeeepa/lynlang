@@ -8,18 +8,16 @@ json := @std.json
 io := @std.io
 
 // Diagnostic severity levels (LSP spec)
-DiagnosticSeverity = enum {
+DiagnosticSeverity = |
     Error = 1,
     Warning = 2,
     Information = 3,
     Hint = 4,
-}
 
 // Diagnostic tags (LSP spec)
-DiagnosticTag = enum {
+DiagnosticTag = |
     Unnecessary = 1,
     Deprecated = 2,
-}
 
 // Position in document
 Position = struct {

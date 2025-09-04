@@ -6,13 +6,12 @@ allocator := @import("allocator")
 io := @import("io")
 
 // Task status
-TaskStatus = enum {
+TaskStatus = |
     Pending,
     Running,
     Suspended,
     Completed,
     Failed
-}
 
 // Task structure
 Task = {

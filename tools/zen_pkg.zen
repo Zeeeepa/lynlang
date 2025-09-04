@@ -33,13 +33,12 @@ Package = {
 }
 
 // Version requirement
-VersionReq = enum {
+VersionReq = |
     Exact -> version: string,
     Range -> min: string, max: string,
     Latest,
     Git -> url: string, ref: string,
     Path -> path: string,
-}
 
 // Package lock entry
 LockEntry = {
@@ -51,14 +50,13 @@ LockEntry = {
 }
 
 // Where package came from
-PackageSource = enum {
+PackageSource = |
     Registry,
     Git -> url: string, commit: string,
     Local -> path: string,
-}
 
 // Package manager commands
-Command = enum {
+Command = |
     Init,
     Install,
     Update,
@@ -69,7 +67,6 @@ Command = enum {
     List,
     Clean,
     Doctor,
-}
 
 // Initialize a new package
 init_package = (name: string, path: string) Result<void, string> {

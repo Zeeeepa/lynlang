@@ -9,21 +9,19 @@ io := @std.io
 core := @std.core
 
 // Task status enum
-TaskStatus := enum {
+TaskStatus := |
     Pending,
     Running,
     Completed,
     Failed,
     Cancelled
-}
 
 // Task priority levels
-Priority := enum {
+Priority := |
     Low = 0,
     Normal = 1,
     High = 2,
     Critical = 3
-}
 
 // Generic task result
 TaskResult<T> := union {

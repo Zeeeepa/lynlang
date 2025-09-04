@@ -16,14 +16,13 @@ SyntaxError = struct {
 }
 
 // Check result
-CheckResult = enum {
+CheckResult = |
     Success,
     SyntaxErrors(Vec<SyntaxError>),
     FileError(string),
-}
 
 // Token types for basic checking
-TokenType = enum {
+TokenType = |
     Identifier,
     Number,
     String,
@@ -31,7 +30,6 @@ TokenType = enum {
     Symbol,
     Keyword,
     EOF,
-}
 
 // Basic syntax checker
 SyntaxChecker = struct {

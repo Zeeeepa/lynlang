@@ -22,7 +22,7 @@ LLVMContext := struct {
 }
 
 // LLVM types
-LLVMType := enum {
+LLVMType := |
     Void
     I1
     I8
@@ -35,18 +35,16 @@ LLVMType := enum {
     Array(element: Ptr<LLVMType>, size: u64)
     Struct(fields: Vec<LLVMType>)
     Function(ret: Ptr<LLVMType>, params: Vec<LLVMType>)
-}
 
 // LLVM value representation
-LLVMValue := enum {
+LLVMValue := |
     Register(id: u32)
     Constant(val: LLVMConstant)
     Global(name: string)
     Argument(index: u32)
-}
 
 // LLVM constants
-LLVMConstant := enum {
+LLVMConstant := |
     I1(val: bool)
     I8(val: i8)
     I16(val: i16)
@@ -57,7 +55,6 @@ LLVMConstant := enum {
     String(id: u32)
     Null
     Undef
-}
 
 // String constant tracking
 StringConstant := struct {
@@ -100,7 +97,7 @@ LLVMBlock := struct {
 }
 
 // LLVM instructions
-LLVMInstruction := enum {
+LLVMInstruction := |
     // Memory operations
     Alloca(dest: u32, type_: LLVMType, align: Option<u32>)
     Load(dest: u32, type_: LLVMType, ptr: LLVMValue, align: Option<u32>)
@@ -144,16 +141,14 @@ LLVMInstruction := enum {
     GetElementPtr(dest: u32, type_: LLVMType, ptr: LLVMValue, indices: Vec<LLVMValue>)
     Phi(dest: u32, type_: LLVMType, incoming: Vec<(LLVMValue, string)>)
     Select(dest: u32, cond: LLVMValue, true_val: LLVMValue, false_val: LLVMValue, type_: LLVMType)
-}
 
 // Block terminators
-LLVMTerminator := enum {
+LLVMTerminator := |
     Ret(value: Option<LLVMValue>, type_: LLVMType)
     Br(target: string)
     CondBr(cond: LLVMValue, true_target: string, false_target: string)
     Switch(value: LLVMValue, default: string, cases: Vec<(LLVMConstant, string)>)
     Unreachable
-}
 
 // Create new LLVM context
 new_context = (module_name: string) LLVMContext {

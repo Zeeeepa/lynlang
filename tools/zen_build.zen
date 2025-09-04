@@ -32,11 +32,10 @@ Dependency = {
 }
 
 // Where to get dependencies from
-DependencySource = enum {
+DependencySource = |
     Local -> path: string,
     Git -> url: string, branch: string,
     Registry -> package: string,
-}
 
 // Build target
 Target = {
@@ -48,19 +47,17 @@ Target = {
 }
 
 // Type of build target
-TargetType = enum {
+TargetType = |
     Executable,
     Library,
     SharedLibrary,
     Test,
-}
 
 // Build result
-BuildResult = enum {
+BuildResult = |
     Success -> artifacts: []string,
     Failed -> error: string,
     Skipped -> reason: string,
-}
 
 // Build system state
 BuildSystem = {

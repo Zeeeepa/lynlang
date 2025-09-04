@@ -133,11 +133,10 @@ ServerCapabilities := struct {
     semantic_tokens_provider: Option<SemanticTokensOptions>
 }
 
-TextDocumentSyncKind := enum {
+TextDocumentSyncKind := |
     None = 0
     Full = 1
     Incremental = 2
-}
 
 CompletionOptions := struct {
     resolve_provider: bool
@@ -201,17 +200,15 @@ Diagnostic := struct {
     related_information: Vec<DiagnosticRelatedInformation>
 }
 
-DiagnosticSeverity := enum {
+DiagnosticSeverity := |
     Error = 1
     Warning = 2
     Information = 3
     Hint = 4
-}
 
-DiagnosticTag := enum {
+DiagnosticTag := |
     Unnecessary = 1
     Deprecated = 2
-}
 
 DiagnosticRelatedInformation := struct {
     location: Location
@@ -236,7 +233,7 @@ CompletionItem := struct {
     command: Option<Command>
 }
 
-CompletionItemKind := enum {
+CompletionItemKind := |
     Text = 1
     Method = 2
     Function = 3
@@ -262,12 +259,10 @@ CompletionItemKind := enum {
     Event = 23
     Operator = 24
     TypeParameter = 25
-}
 
-InsertTextFormat := enum {
+InsertTextFormat := |
     PlainText = 1
     Snippet = 2
-}
 
 TextEdit := struct {
     range: Range
@@ -291,10 +286,9 @@ MarkupContent := struct {
     value: string
 }
 
-MarkupKind := enum {
+MarkupKind := |
     PlainText
     Markdown
-}
 
 // Signature Help
 SignatureHelp := struct {
@@ -325,7 +319,7 @@ DocumentSymbol := struct {
     children: Vec<DocumentSymbol>
 }
 
-SymbolKind := enum {
+SymbolKind := |
     File = 1
     Module = 2
     Namespace = 3
@@ -352,7 +346,6 @@ SymbolKind := enum {
     Event = 24
     Operator = 25
     TypeParameter = 26
-}
 
 // Code Actions
 CodeAction := struct {
@@ -364,7 +357,7 @@ CodeAction := struct {
     command: Option<Command>
 }
 
-CodeActionKind := enum {
+CodeActionKind := |
     QuickFix
     Refactor
     RefactorExtract
@@ -373,7 +366,6 @@ CodeActionKind := enum {
     Source
     SourceOrganizeImports
     SourceFixAll
-}
 
 WorkspaceEdit := struct {
     changes: HashMap<string, Vec<TextEdit>>

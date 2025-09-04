@@ -15,22 +15,20 @@ SourceLocation = struct {
 }
 
 // Error severity levels
-ErrorSeverity = enum {
+ErrorSeverity = |
     Error
     Warning
     Info
     Hint
-}
 
 // Error categories
-ErrorCategory = enum {
+ErrorCategory = |
     Syntax
     Type
     Semantic
     Import
     Comptime
     Internal
-}
 
 // Diagnostic information
 Diagnostic = struct {
@@ -360,10 +358,9 @@ validate_import = (stmt: string, line_num: u32) Option<Diagnostic> {
 }
 
 // Create error result type
-Result<T> = enum {
-    Ok(value: T)
-    Err(diagnostic: Diagnostic)
-}
+Result<T> = 
+    | Ok(value: T)
+    | Err(diagnostic: Diagnostic)
 
 // Helper to create Ok result
 ok = <T>(value: T) Result<T> {

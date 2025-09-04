@@ -1,0 +1,121 @@
+{
+  "name": "zenlang",
+  "displayName": "Zenlang",
+  "description": "Language support for Zenlang programming language",
+  "version": "0.1.0",
+  "publisher": "zenlang",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Programming Languages"],
+  "keywords": ["zen", "zenlang"],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:zenlang"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "zenlang",
+      "aliases": ["Zenlang", "zen"],
+      "extensions": [".zen"],
+      "configuration": "./language-configuration.json",
+      "icon": {
+        "light": "./icons/zen-light.svg",
+        "dark": "./icons/zen-dark.svg"
+      }
+    }],
+    "grammars": [{
+      "language": "zenlang",
+      "scopeName": "source.zen",
+      "path": "./syntaxes/zenlang.tmLanguage.json"
+    }],
+    "commands": [
+      {
+        "command": "zenlang.restartLSP",
+        "title": "Restart Zenlang Language Server",
+        "category": "Zenlang"
+      },
+      {
+        "command": "zenlang.showLSPOutput",
+        "title": "Show Language Server Output",
+        "category": "Zenlang"
+      },
+      {
+        "command": "zenlang.build",
+        "title": "Build Zen Project",
+        "category": "Zenlang"
+      },
+      {
+        "command": "zenlang.run",
+        "title": "Run Zen Project",
+        "category": "Zenlang"
+      },
+      {
+        "command": "zenlang.test",
+        "title": "Run Zen Tests",
+        "category": "Zenlang"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Zenlang",
+      "properties": {
+        "zenlang.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Zenlang Language Server"
+        },
+        "zenlang.lsp.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Zenlang Language Server executable (leave empty to auto-detect)"
+        },
+        "zenlang.lsp.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server"
+        },
+        "zenlang.compiler.path": {
+          "type": "string",
+          "default": "zen",
+          "description": "Path to the Zen compiler"
+        },
+        "zenlang.format.onSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Format Zen files on save"
+        }
+      }
+    },
+    "taskDefinitions": [
+      {
+        "type": "zen",
+        "required": ["command"],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The Zen command to run"
+          },
+          "args": {
+            "type": "array",
+            "description": "Additional arguments to pass to the command"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^4.9.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  }
+}

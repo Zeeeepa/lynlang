@@ -8,16 +8,14 @@ vec := @std.vec
 math := @std.math
 
 // Option type for nullable values
-Option<T> = enum {
-    Some(value: T)
-    None
-}
+Option<T> = 
+    | Some(value: T)
+    | None
 
 // Result type for error handling
-Result<T, E> = enum {
-    Ok(value: T)
-    Err(error: E)
-}
+Result<T, E> = 
+    | Ok(value: T)
+    | Err(error: E)
 
 // Helper to create Some variant
 some = <T>(value: T) Option<T> {

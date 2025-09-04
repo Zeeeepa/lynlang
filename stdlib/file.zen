@@ -16,19 +16,17 @@ File = {
 }
 
 // File modes
-FileMode = enum {
+FileMode = |
     Read,
     Write,
     Append,
     ReadWrite,
-}
 
 // File seek positions
-SeekFrom = enum {
+SeekFrom = |
     Start -> offset: i64,
     Current -> offset: i64,
     End -> offset: i64,
-}
 
 // File metadata
 FileMetadata = {

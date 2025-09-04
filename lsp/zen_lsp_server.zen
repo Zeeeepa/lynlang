@@ -17,14 +17,13 @@ parser := @compiler.parser
 type_checker := @compiler.type_checker
 
 // LSP message types
-MessageType := enum {
+MessageType := |
     Request,
     Response,
     Notification
-}
 
 // LSP request methods
-RequestMethod := enum {
+RequestMethod := |
     Initialize,
     Initialized,
     Shutdown,
@@ -43,7 +42,6 @@ RequestMethod := enum {
     TextDocumentCodeAction,
     WorkspaceSymbol,
     WorkspaceExecuteCommand
-}
 
 // Position in a text document
 Position := struct {
@@ -64,12 +62,11 @@ Location := struct {
 }
 
 // Diagnostic severity
-DiagnosticSeverity := enum {
+DiagnosticSeverity := |
     Error = 1,
     Warning = 2,
     Information = 3,
     Hint = 4
-}
 
 // Diagnostic information
 Diagnostic := struct {
@@ -113,7 +110,7 @@ TextDocumentPositionParams := struct {
 }
 
 // Completion item kind
-CompletionItemKind := enum {
+CompletionItemKind := |
     Text = 1,
     Method = 2,
     Function = 3,
@@ -139,7 +136,6 @@ CompletionItemKind := enum {
     Event = 23,
     Operator = 24,
     TypeParameter = 25
-}
 
 // Completion item
 CompletionItem := struct {
@@ -154,7 +150,7 @@ CompletionItem := struct {
 }
 
 // Symbol kind
-SymbolKind := enum {
+SymbolKind := |
     File = 1,
     Module = 2,
     Namespace = 3,
@@ -181,7 +177,6 @@ SymbolKind := enum {
     Event = 24,
     Operator = 25,
     TypeParameter = 26
-}
 
 // Document symbol
 DocumentSymbol := struct {

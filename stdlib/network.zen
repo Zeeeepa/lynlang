@@ -9,17 +9,15 @@ file := @std.file
 concurrency := @std.concurrency
 
 // Socket types
-SocketType = enum {
+SocketType = |
     TCP,
     UDP,
     Unix,
-}
 
 // IP Address representation
-IpAddr = enum {
+IpAddr = |
     V4 -> addr: [4]u8,
     V6 -> addr: [16]u8,
-}
 
 // Socket address
 SocketAddr = {
@@ -66,7 +64,7 @@ HttpResponse = {
 }
 
 // HTTP Methods
-HttpMethod = enum {
+HttpMethod = |
     GET,
     POST,
     PUT,
@@ -76,7 +74,6 @@ HttpMethod = enum {
     PATCH,
     CONNECT,
     TRACE,
-}
 
 // HTTP Header
 Header = {

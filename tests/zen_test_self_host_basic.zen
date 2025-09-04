@@ -17,10 +17,9 @@ Point = struct {
 }
 
 // Test enum declaration
-Status = enum {
+Status = |
     Ok,
     Error -> code: i32,
-}
 
 // Test pattern matching
 check_status = (s: Status) string {

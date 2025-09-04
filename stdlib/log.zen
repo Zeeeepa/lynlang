@@ -7,14 +7,13 @@ string := @std.string
 time := @std.time
 
 // Log levels
-LogLevel = enum {
+LogLevel = |
     Trace,
     Debug,
     Info,
     Warn,
     Error,
     Fatal,
-}
 
 // Log entry structure
 LogEntry = {
@@ -37,11 +36,10 @@ LogConfig = {
 }
 
 // Output formats
-LogFormat = enum {
+LogFormat = |
     Text,
     JSON,
     Compact,
-}
 
 // Global logger instance
 Logger = {

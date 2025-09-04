@@ -8,7 +8,7 @@ core := @std.core
 lexer := @compiler.lexer_enhanced
 
 // AST Node Types
-AstNodeType = enum {
+AstNodeType = |
     // Declarations
     FunctionDecl,
     VariableDecl,
@@ -44,7 +44,6 @@ AstNodeType = enum {
     ArrayType,
     FunctionType,
     GenericType,
-}
 
 // AST Node
 AstNode = struct {
@@ -55,7 +54,7 @@ AstNode = struct {
 }
 
 // AST Data variants
-AstData = enum {
+AstData = |
     FunctionDecl -> {
         name: string,
         params: vec.Vec<Parameter>,
@@ -116,10 +115,9 @@ AstData = enum {
         value: *AstNode,
         arms: vec.Vec<MatchArm>,
     },
-}
 
 // Type representation
-Type = enum {
+Type = |
     Named -> name: string,
     Pointer -> inner: *Type,
     Array -> element: *Type,
@@ -127,38 +125,33 @@ Type = enum {
     Function -> { params: vec.Vec<*Type>, ret: *Type },
     Generic -> { base: string, args: vec.Vec<*Type> },
     Primitive -> kind: PrimitiveKind,
-}
 
 // Primitive types
-PrimitiveKind = enum {
+PrimitiveKind = |
     I8, I16, I32, I64,
     U8, U16, U32, U64,
     F32, F64,
     Bool, Char, String,
     Void,
-}
 
 // Binary operators
-BinaryOp = enum {
+BinaryOp = |
     Add, Sub, Mul, Div, Mod,
     Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
     And, Or,
     Assign,
-}
 
 // Unary operators
-UnaryOp = enum {
+UnaryOp = |
     Not, Negate, Deref, AddressOf,
-}
 
 // Literal values
-LiteralValue = enum {
+LiteralValue = |
     Number -> value: string,
     String -> value: string,
     Char -> value: char,
     Bool -> value: bool,
     Null,
-}
 
 // Function parameter
 Parameter = struct {
@@ -187,13 +180,12 @@ MatchArm = struct {
 }
 
 // Pattern for match expressions
-Pattern = enum {
+Pattern = |
     Wildcard,
     Identifier -> name: string,
     Literal -> value: LiteralValue,
     Struct -> { name: string, fields: vec.Vec<FieldPattern> },
     Enum -> { name: string, variant: string, fields: Option<vec.Vec<*Pattern>> },
-}
 
 // Field pattern for struct destructuring
 FieldPattern = struct {

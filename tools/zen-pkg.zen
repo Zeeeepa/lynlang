@@ -31,7 +31,7 @@ PACKAGES_DIR := expand_home("~/.zen/packages")
 MANIFEST_FILE := "zen.toml"
 
 // Command structure
-Command := enum {
+Command := |
     Init
     Install
     Uninstall
@@ -45,7 +45,6 @@ Command := enum {
     List
     Info
     Help
-}
 
 // Parse command line arguments
 parse_args = (args: []string) (Command, Map<string, string>) {

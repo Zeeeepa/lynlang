@@ -397,12 +397,11 @@ test_structs_enums = () TestSuite {
     assert(&suite, "Struct method", math.approx_equal(d, 5.0, 0.001), "distance(3,4) ≈ 5")
     
     // Enum definition and usage
-    Color = enum {
+    Color = |
         Red
         Green
         Blue
         RGB(r: u8, g: u8, b: u8)
-    }
     
     c := Color.Red
     is_red := match c {

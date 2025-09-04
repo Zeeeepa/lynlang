@@ -9,14 +9,13 @@ io := @import("io")
 net := @import("net")
 
 // HTTP types
-HttpMethod = enum {
+HttpMethod = |
     GET,
     POST,
     PUT,
     DELETE,
     HEAD,
     OPTIONS
-}
 
 HttpRequest = {
     method: HttpMethod
