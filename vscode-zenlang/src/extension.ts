@@ -18,20 +18,23 @@ export function activate(context: vscode.ExtensionContext) {
     // Get the workspace root path
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     
-    // Try to find zen-lsp.sh in the workspace or use the configured path
+    // Try to find zen-lsp binary in the workspace or use the configured path
     let lspPath = config.get<string>('lsp.path', '');
     if (!lspPath) {
-        // Try to find zen-lsp.sh in the tools directory
+        // Try to find zen-lsp binary in target/release or target/debug
         if (workspaceRoot) {
-            const toolsPath = path.join(workspaceRoot, 'tools', 'zen-lsp.sh');
-            if (require('fs').existsSync(toolsPath)) {
-                lspPath = toolsPath;
+            const releasePath = path.join(workspaceRoot, 'target', 'release', 'zen-lsp');
+            const debugPath = path.join(workspaceRoot, 'target', 'debug', 'zen-lsp');
+            if (require('fs').existsSync(releasePath)) {
+                lspPath = releasePath;
+            } else if (require('fs').existsSync(debugPath)) {
+                lspPath = debugPath;
             } else {
-                // Fallback to assuming zen-lsp.sh is in PATH
-                lspPath = 'zen-lsp.sh';
+                // Fallback to assuming zen-lsp is in PATH
+                lspPath = 'zen-lsp';
             }
         } else {
-            lspPath = 'zen-lsp.sh';
+            lspPath = 'zen-lsp';
         }
     }
     
@@ -40,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Server options - running the LSP server
     const serverExecutable: Executable = {
         command: lspPath,
-        args: ['stdio'],  // Use stdio mode for communication
+        args: [],  // zen-lsp expects no args for stdio mode
         options: {
             env: process.env,
             cwd: workspaceRoot || process.cwd()

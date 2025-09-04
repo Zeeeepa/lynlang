@@ -262,12 +262,8 @@ impl LanguageServer for ZenServer {
                     work_done_progress_options: Default::default(),
                 })),
                 code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(DiagnosticOptions {
-                    identifier: Some("zen".to_string()),
-                    inter_file_dependencies: true,
-                    workspace_diagnostics: true,
-                    work_done_progress_options: Default::default(),
-                })),
+                // Disable pull-based diagnostics for now - we use push-based via publish_diagnostics
+                diagnostic_provider: None,
                 ..Default::default()
             },
         })
