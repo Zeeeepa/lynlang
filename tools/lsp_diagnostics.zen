@@ -8,16 +8,16 @@ json := @std.json
 io := @std.io
 
 // Diagnostic severity levels (LSP spec)
-DiagnosticSeverity = |
-    Error = 1,
-    Warning = 2,
-    Information = 3,
-    Hint = 4,
+DiagnosticSeverity = 
+    | Error
+    | Warning
+    | Information
+    | Hint
 
 // Diagnostic tags (LSP spec)
-DiagnosticTag = |
-    Unnecessary = 1,
-    Deprecated = 2,
+DiagnosticTag = 
+    | Unnecessary
+    | Deprecated
 
 // Position in document
 Position = struct {
@@ -320,6 +320,24 @@ diagnostics_to_json = (ctx: *DiagnosticContext) String {
     return result
 }
 
+// Helper to get severity numeric value for LSP
+severity_to_int = (severity: DiagnosticSeverity) i32 {
+    match severity {
+        | DiagnosticSeverity.Error => 1
+        | DiagnosticSeverity.Warning => 2
+        | DiagnosticSeverity.Information => 3
+        | DiagnosticSeverity.Hint => 4
+    }
+}
+
+// Helper to get tag numeric value for LSP
+tag_to_int = (tag: DiagnosticTag) i32 {
+    match tag {
+        | DiagnosticTag.Unnecessary => 1
+        | DiagnosticTag.Deprecated => 2
+    }
+}
+
 // Convert single diagnostic to JSON
 diagnostic_to_json = (diag: *Diagnostic) String {
     result := string.from_literal("{")
@@ -331,7 +349,7 @@ diagnostic_to_json = (diag: *Diagnostic) String {
     
     // Severity
     result = string.concat(result, "\"severity\":")
-    result = string.concat(result, string.from_int(diag.severity as i32))
+    result = string.concat(result, string.from_int(severity_to_int(diag.severity)))
     result = string.concat(result, ",")
     
     // Source
@@ -360,7 +378,7 @@ diagnostic_to_json = (diag: *Diagnostic) String {
             if (i > 0) {
                 result = string.concat(result, ",")
             }
-            result = string.concat(result, string.from_int(diag.tags.data[i] as i32))
+            result = string.concat(result, string.from_int(tag_to_int(diag.tags.data[i])))
         }
         result = string.concat(result, "]")
     }
