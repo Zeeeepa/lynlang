@@ -1,56 +1,78 @@
-# ZenLang Scratchpad
+# Zenlang Scratchpad
 
-## Current Work Session Notes
+## Quick Notes
+- Test failure at 285/286 - investigate remaining test
+- Pattern matching parser complete (src/parser/expressions.rs:373-429)
+- LLVM 18.1 configured with inkwell
+- VSCode extension exists but needs work
 
-### GitHub Workflows Issues
-- LLVM version mismatch (using 18.1, workflows may have wrong config)
-- Environment variable LLVM_SYS_181_PREFIX needs proper setting
-- APT repository for LLVM 18 might need updating
+## Code Patterns to Remember
 
-### Quick Commands
+### Variable Declaration
+```zen
+// Immutable
+value := 42
+PI: f64 = 3.14159
+
+// Mutable  
+counter ::= 0
+buffer:: [1024]u8
+```
+
+### Pattern Matching (NO if/else!)
+```zen
+score ? | 90..=100 => "A"
+        | 80..=89  => "B"
+        | _ => "F"
+
+result ? | .Ok -> val => process(val)
+         | .Err -> err => handle(err)
+```
+
+### Functions
+```zen
+add = (a: i32, b: i32) i32 { a + b }
+greet = (name: string = "World") void {
+    print("Hello, $(name)!")
+}
+```
+
+## Important Paths
+- Compiler source: `/src/`
+- Standard library: `/std/`
+- Examples: `/examples/`
+- Tests: `/tests/`
+- Self-hosted code: `/self_hosted/`
+
+## Compiler Commands
 ```bash
-# Build debug
-export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 && cargo build
-
-# Build release
-export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 && cargo build --release
+# Build compiler
+cargo build --release
 
 # Run tests
-export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18 && cargo test
+cargo test
 
-# Format code
-cargo fmt
+# Compile zen file
+cargo run --bin zen file.zen
 
-# Lint
-cargo clippy
+# With verbose output
+RUST_LOG=debug cargo run --bin zen file.zen
 ```
 
-### Git Workflow
-```bash
-# Frequent commits
-git add -A && git commit -m "feat: description"
-git push origin main
+## Git Workflow
+- Frequent commits (every significant change)
+- Descriptive messages
+- Push to remote regularly
+- Use gh CLI for PRs
 
-# Check status
-git status
-git diff
+## Performance Notes
+- LLVM optimization passes enabled
+- Inline small functions
+- Const propagation working
+- Dead code elimination active
 
-# Branch management
-gh pr create --title "Title" --body "Description"
-```
-
-### Known Issues
-1. Self-hosted compiler components don't exist yet
-2. Some examples may be missing or broken
-3. Stdlib is incomplete
-
-### Ideas & Notes
-- Consider using WASM target for browser-based playground
-- Look into incremental compilation for faster builds
-- Add property-based testing with proptest
-- Consider TreeSitter grammar for better IDE support
-
-### Resources
-- LLVM 18.1 docs: https://llvm.org/docs/
-- Inkwell examples: https://github.com/TheDan64/inkwell
-- Language design inspiration: Zig, Rust, Odin
+## Known Issues
+- String interpolation parser done, codegen incomplete
+- Pattern matching codegen needs work
+- One test failing (investigate)
+- LSP diagnostics need fixing

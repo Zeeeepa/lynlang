@@ -1,60 +1,56 @@
-# ZenLang Development Plan
+# Zenlang Development Plan
 
-## Current Phase: Infrastructure & Stability
-**Goal**: Fix CI/CD, organize project, establish development workflow
+## Current Phase: Stabilization & Self-Hosting
 
-### Immediate Actions
-1. Fix GitHub workflows for LLVM 18.1 compatibility
-2. Organize .agent directory for persistent memory
-3. Establish git workflow with frequent commits
+### Immediate Goals (Next 2 Weeks)
+1. **Fix Remaining Test** - Get to 100% test pass rate
+2. **Complete Pattern Matching** - Finish codegen for `?` operator
+3. **Comptime Framework** - Enable compile-time code execution
 
-## Next Phase: Self-Hosting (Q1 2025)
-**Goal**: Complete self-hosted compiler in ZenLang
+### Q1 2025 Roadmap
+1. **Self-Hosted Compiler** (Month 1-2)
+   - Complete lexer in Zen (70% remaining)
+   - Complete parser in Zen (80% remaining)
+   - Integrate with existing type checker
 
-### Milestones
-1. **Lexer Migration** (2 weeks)
-   - Port Rust lexer to ZenLang
-   - Maintain compatibility with existing parser
-   - Add comprehensive tests
+2. **Language Features** (Month 2-3)
+   - Behaviors (traits) implementation
+   - Complete UFCS
+   - String interpolation in codegen
+   - Smart pointers (Ptr<T>, Ref<T>)
 
-2. **Parser Migration** (3 weeks)
-   - Implement recursive descent parser in ZenLang
-   - Support full language syntax
-   - Error recovery and reporting
+3. **Tooling & Ecosystem** (Month 3)
+   - Package manager design
+   - LSP improvements
+   - Documentation generator
 
-3. **Code Generation** (4 weeks)
-   - LLVM bindings in ZenLang
-   - IR generation
-   - Optimization passes
+### Long-Term Vision
+- **Year 1**: Fully self-hosted compiler, stable 1.0 release
+- **Year 2**: Production-ready ecosystem, major adoption
+- **Year 3**: Industry standard for systems programming
 
-4. **Type System** (3 weeks)
-   - Type inference engine
-   - Constraint solving
-   - Generic support
+## Technical Strategy
 
-## Future Phases
+### Architecture Decisions
+- LLVM backend (keep for performance)
+- Incremental compilation support
+- Module-based standard library
+- Zero-cost abstractions throughout
 
-### Phase 3: Ecosystem (Q2 2025)
-- Package manager
-- Build system
-- Documentation generator
-- Testing framework
+### Quality Standards
+- 100% test coverage for core features
+- All examples must compile and run
+- Performance within 10% of C
+- Compilation speed < 100ms for small programs
 
-### Phase 4: Advanced Features (Q3 2025)
-- Async/await
-- Macros system
-- Compile-time execution
-- Advanced optimizations
+### Community Building
+- Clear documentation
+- Interactive tutorials
+- Example projects
+- Active GitHub discussions
 
-### Phase 5: Production Ready (Q4 2025)
-- Performance optimizations
-- Security audit
-- Stable API
-- 1.0 release
-
-## Development Principles
-- **Simplicity**: Keep design minimal and elegant
-- **Practicality**: Focus on real-world use cases
-- **Performance**: Zero-cost abstractions where possible
-- **Safety**: Memory safety without garbage collection
-- **Interop**: Seamless C/LLVM integration
+## Risk Mitigation
+- **Self-hosting complexity**: Incremental approach, keep Rust fallback
+- **Performance regression**: Continuous benchmarking
+- **Feature creep**: Strict adherence to spec
+- **Adoption barriers**: Focus on developer experience

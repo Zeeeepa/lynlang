@@ -12,11 +12,11 @@ colors := @std.colors
 
 // Debugger state
 DebuggerState := |
-    Idle
-    Running
-    Paused
-    Stepping
-    Finished
+    | Idle
+    | Running
+    | Paused
+    | Stepping
+    | Finished
 
 // Breakpoint information
 Breakpoint := struct {
@@ -80,10 +80,10 @@ Debugger := struct {
 
 // Step modes
 StepMode := |
-    None
-    StepOver
-    StepInto
-    StepOut
+    | None
+    | StepOver
+    | StepInto
+    | StepOut
 
 // Create new debugger instance
 new_debugger = (program_path: string) Ptr<Debugger> {

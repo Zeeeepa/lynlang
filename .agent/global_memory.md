@@ -1,55 +1,42 @@
-# ZenLang Global Memory
+# Zenlang Project Global Memory
 
 ## Project Overview
-ZenLang is a systems programming language compiler built in Rust, using LLVM 18.1 for code generation.
+- **Language**: Zenlang (zen) - A modern systems programming language
+- **Philosophy**: Clarity, explicitness, minimal syntax, errors as values
+- **Key Feature**: NO if/else keywords - uses `?` operator exclusively
+- **Status**: ~80% implemented, moving toward self-hosting
 
-## Key Components
-- **Compiler**: Rust-based compiler using inkwell for LLVM bindings
-- **LLVM Version**: 18.1 (locked in Cargo.toml with feature flag)
-- **Language Server**: LSP implementation for IDE support
-- **Tools**: zen-check, zen-format, zen-lsp binaries
-- **VS Code Extension**: Created at vscode-zenlang/ with syntax highlighting and LSP client
+## Critical Design Decisions
+1. **Pattern Matching Only**: All conditionals use `?` operator
+2. **No Exceptions**: All errors are values (Result/Option types)
+3. **Explicit Memory**: No hidden allocations
+4. **UFCS**: Uniform Function Call Syntax for method-like calls
+5. **Single Loop Keyword**: Only `loop` for all iteration
 
-## Architecture
-- Frontend: Lexer, Parser (nom-based)
-- Middle: Type checker, semantic analysis
-- Backend: LLVM IR generation via inkwell
-- Runtime: Links with LLVM runtime
+## Implementation Status
+- Parser: ~90% complete
+- Type Checker: ~85% complete  
+- Code Generator: ~80% complete (LLVM backend)
+- Standard Library: ~70% complete (written in Zen)
+- Self-Hosting: ~25% complete
 
-## Self-Hosting Progress
-Currently transitioning to self-hosted compiler with components:
-- compiler/lexer.zen (pending)
-- compiler/parser.zen (pending)
-- compiler/codegen.zen (pending)
-- compiler/type_checker.zen (pending)
+## Key Files
+- `/LANGUAGE_SPEC.md` - Authoritative language specification
+- `/docs/lang.md` - Original conceptual specification
+- `/examples/WORKING_FEATURES.md` - Current implementation status
+- `/src/` - Rust implementation (being replaced)
+- `/std/` - Standard library (written in Zen)
 
-## Build System
-- Uses cargo with specific LLVM 18.1 configuration
-- Environment variable: LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
-- GitHub Actions CI/CD with Ubuntu latest
+## Development Principles
+- DRY (Don't Repeat Yourself)
+- KISS (Keep It Simple, Stupid)
+- Test coverage target: 80% implementation, 20% testing
+- Frequent git commits
+- Simplicity, elegance, practicality, intelligence
 
-## Testing Strategy
-- Unit tests via cargo test --lib
-- Integration tests via cargo test --test
-- Example programs in examples/ directory
-- Self-hosting validation checks
-
-## Current State
-- Core compiler working in Rust
-- Stdlib modules being developed
-- LSP server functional
-- VS Code extension created with:
-  - Full syntax highlighting for .zen files
-  - LSP client integration
-  - Support for all Zenlang constructs
-- CI/CD workflows need fixes for LLVM 18.1
-
-## VS Code Extension Features
-- Syntax highlighting with comprehensive TextMate grammar
-- LSP integration for code completion, hover, diagnostics
-- Support for Zenlang-specific syntax:
-  - Immutable (`:=`) and mutable (`::=`) bindings
-  - Pattern matching with `?` operator
-  - Struct and enum declarations
-  - Import statements with `@` prefix
-  - All primitive and custom types
+## Important Reminders
+- Work best at 40% context window (100K-140K tokens)
+- Use gh CLI for GitHub operations
+- Store metadata in .agent directory
+- No random file creation - be intentional
+- Email reports to l.leong1618@gmail.com with subject: ralph-zenlang-[topic]
