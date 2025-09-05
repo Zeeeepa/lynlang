@@ -9,14 +9,14 @@ collections := @std.collections
 fs := @std.fs
 
 // Test result tracking
-TestResult = struct {
+TestResult = {
     name: string
     passed: bool
     message: string
 }
 
 // Test suite
-TestSuite = struct {
+TestSuite = {
     name: string
     tests: Vec<TestResult>
     passed: u32
@@ -379,7 +379,7 @@ test_structs_enums = () TestSuite {
     suite := suite_new("Structs and Enums")
     
     // Struct definition and usage
-    Point = struct {
+    Point = {
         x: i32
         y: i32
     }
@@ -486,7 +486,7 @@ test_generics = () TestSuite {
     assert_eq(&suite, "Generic swap y", 10, y)
     
     // Generic struct
-    Pair<T, U> = struct {
+    Pair<T, U> = {
         first: T
         second: U
     }

@@ -19,7 +19,7 @@ DebuggerState := |
     | Finished
 
 // Breakpoint information
-Breakpoint := struct {
+Breakpoint := {
     id: u32
     file: string
     line: u32
@@ -29,7 +29,7 @@ Breakpoint := struct {
 }
 
 // Stack frame
-StackFrame := struct {
+StackFrame := {
     function: string
     file: string
     line: u32
@@ -57,14 +57,14 @@ Value := |
     Array(elements: Vec<Value>)
 
 // Watch expression
-WatchExpression := struct {
+WatchExpression := {
     id: u32
     expression: string
     value: Option<Value>
 }
 
 // Debugger context
-Debugger := struct {
+Debugger := {
     state: DebuggerState
     program_path: string
     source_files: HashMap<string, Vec<string>>

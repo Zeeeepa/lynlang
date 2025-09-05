@@ -127,7 +127,7 @@ test_build_import = () bool {
 }
 
 // Test that imports can be used in structs
-TestStruct = struct {
+TestStruct = {
     data: vec.Vec<i32>
     name: string
 }
@@ -238,7 +238,7 @@ Printable = behavior {
     to_string: () string
 }
 
-MyType = struct {
+MyType = {
     value: i32
 }
 

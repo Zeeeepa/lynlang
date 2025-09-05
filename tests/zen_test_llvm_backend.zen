@@ -55,7 +55,7 @@ sum_array = (arr: []i32, size: i32) i32 {
 }
 
 // Test struct operations
-Point := struct {
+Point := {
     x: f64
     y: f64
 }

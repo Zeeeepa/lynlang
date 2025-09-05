@@ -11,7 +11,7 @@ type_checker := @compiler.type_checker
 interpreter := @compiler.interpreter
 
 // REPL state
-ReplState := struct {
+ReplState := {
     line_number: u32
     history: []string
     variables: Map<string, Value>

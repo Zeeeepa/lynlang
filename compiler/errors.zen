@@ -7,7 +7,7 @@ io := @std.io
 vec := @std.vec
 
 // Source location information
-SourceLocation = struct {
+SourceLocation = {
     file: string
     line: u32
     column: u32
@@ -31,7 +31,7 @@ ErrorCategory = |
     Internal
 
 // Diagnostic information
-Diagnostic = struct {
+Diagnostic = {
     severity: ErrorSeverity
     category: ErrorCategory
     message: string
@@ -42,7 +42,7 @@ Diagnostic = struct {
 }
 
 // Error context for better reporting
-ErrorContext = struct {
+ErrorContext = {
     source_file: string
     source_content: string
     diagnostics: Vec<Diagnostic>

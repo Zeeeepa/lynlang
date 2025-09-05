@@ -12,7 +12,7 @@ TestResult = |
     Skip,
 
 // Test case structure
-TestCase = struct {
+TestCase = {
     name: string,
     test_fn: fn() bool,
     result: TestResult,
@@ -20,7 +20,7 @@ TestCase = struct {
 }
 
 // Test suite structure
-TestSuite = struct {
+TestSuite = {
     name: string,
     tests: Vec<TestCase>,
     passed: u32,

@@ -44,19 +44,19 @@ RequestMethod := |
     WorkspaceExecuteCommand
 
 // Position in a text document
-Position := struct {
+Position := {
     line: u32,
     character: u32
 }
 
 // Range in a text document
-Range := struct {
+Range := {
     start: Position,
     end: Position
 }
 
 // Location in a text document
-Location := struct {
+Location := {
     uri: string,
     range: Range
 }
@@ -69,7 +69,7 @@ DiagnosticSeverity := |
     Hint = 4
 
 // Diagnostic information
-Diagnostic := struct {
+Diagnostic := {
     range: Range,
     severity: DiagnosticSeverity,
     code: ?string,
@@ -79,13 +79,13 @@ Diagnostic := struct {
 }
 
 // Related diagnostic information
-DiagnosticRelatedInformation := struct {
+DiagnosticRelatedInformation := {
     location: Location,
     message: string
 }
 
 // Text document item
-TextDocumentItem := struct {
+TextDocumentItem := {
     uri: string,
     language_id: string,
     version: i32,
@@ -93,18 +93,18 @@ TextDocumentItem := struct {
 }
 
 // Text document identifier
-TextDocumentIdentifier := struct {
+TextDocumentIdentifier := {
     uri: string
 }
 
 // Versioned text document identifier
-VersionedTextDocumentIdentifier := struct {
+VersionedTextDocumentIdentifier := {
     uri: string,
     version: i32
 }
 
 // Text document position params
-TextDocumentPositionParams := struct {
+TextDocumentPositionParams := {
     text_document: TextDocumentIdentifier,
     position: Position
 }
@@ -138,7 +138,7 @@ CompletionItemKind := |
     TypeParameter = 25
 
 // Completion item
-CompletionItem := struct {
+CompletionItem := {
     label: string,
     kind: CompletionItemKind,
     detail: ?string,
@@ -179,7 +179,7 @@ SymbolKind := |
     TypeParameter = 26
 
 // Document symbol
-DocumentSymbol := struct {
+DocumentSymbol := {
     name: string,
     detail: ?string,
     kind: SymbolKind,
@@ -190,13 +190,13 @@ DocumentSymbol := struct {
 }
 
 // Hover information
-Hover := struct {
+Hover := {
     contents: string,
     range: ?Range
 }
 
 // Server capabilities
-ServerCapabilities := struct {
+ServerCapabilities := {
     text_document_sync: i32,
     hover_provider: bool,
     completion_provider: bool,
@@ -211,12 +211,12 @@ ServerCapabilities := struct {
 }
 
 // Execute command options
-ExecuteCommandOptions := struct {
+ExecuteCommandOptions := {
     commands: vec.Vec<string>
 }
 
 // Language server state
-LanguageServer := struct {
+LanguageServer := {
     initialized: bool,
     root_uri: ?string,
     documents: hashmap.HashMap<string, TextDocumentItem>,

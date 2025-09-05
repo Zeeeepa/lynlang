@@ -17,7 +17,7 @@ type_checker := @compiler.type_checker
 ast := @compiler.ast
 
 // Symbol information for tracking definitions and references
-Symbol := struct {
+Symbol := {
     name: string
     kind: SymbolKind
     type_info: Option<ast.Type>
@@ -29,7 +29,7 @@ Symbol := struct {
 }
 
 // Enhanced document with symbol table
-EnhancedDocument := struct {
+EnhancedDocument := {
     uri: string
     version: i32
     content: string
@@ -43,7 +43,7 @@ EnhancedDocument := struct {
 }
 
 // Import tracking
-ImportInfo := struct {
+ImportInfo := {
     module_name: string
     alias: Option<string>
     location: Location
@@ -51,7 +51,7 @@ ImportInfo := struct {
 }
 
 // Enhanced Language Server
-EnhancedLanguageServer := struct {
+EnhancedLanguageServer := {
     initialized: bool
     root_uri: Option<string>
     capabilities: ServerCapabilities
@@ -63,28 +63,28 @@ EnhancedLanguageServer := struct {
 }
 
 // Position and location types (reuse from original)
-Position := struct {
+Position := {
     line: u32
     character: u32
 }
 
-Range := struct {
+Range := {
     start: Position
     end: Position
 }
 
-Location := struct {
+Location := {
     uri: string
     range: Range
 }
 
 // Hover information
-Hover := struct {
+Hover := {
     contents: MarkupContent
     range: Option<Range>
 }
 
-MarkupContent := struct {
+MarkupContent := {
     kind: string  // "plaintext" or "markdown"
     value: string
 }
@@ -119,7 +119,7 @@ SymbolKind := |
     TypeParameter = 26
 
 // Diagnostic types
-Diagnostic := struct {
+Diagnostic := {
     range: Range
     severity: DiagnosticSeverity
     code: Option<string>
@@ -139,7 +139,7 @@ DiagnosticTag := |
     Unnecessary = 1
     Deprecated = 2
 
-DiagnosticRelatedInformation := struct {
+DiagnosticRelatedInformation := {
     location: Location
     message: string
 }

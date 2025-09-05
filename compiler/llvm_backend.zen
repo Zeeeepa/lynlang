@@ -9,7 +9,7 @@ mem := @std.mem
 ast := @std.ast
 
 // LLVM IR Builder context
-LLVMContext := struct {
+LLVMContext := {
     module_name: string
     target_triple: string
     data_layout: string
@@ -57,14 +57,14 @@ LLVMConstant := |
     Undef
 
 // String constant tracking
-StringConstant := struct {
+StringConstant := {
     id: u32
     value: string
     global_name: string
 }
 
 // LLVM global variable
-LLVMGlobal := struct {
+LLVMGlobal := {
     name: string
     type_: LLVMType
     initializer: Option<LLVMConstant>
@@ -73,7 +73,7 @@ LLVMGlobal := struct {
 }
 
 // LLVM function
-LLVMFunction := struct {
+LLVMFunction := {
     name: string
     return_type: LLVMType
     params: Vec<LLVMParam>
@@ -84,13 +84,13 @@ LLVMFunction := struct {
 }
 
 // Function parameter
-LLVMParam := struct {
+LLVMParam := {
     name: string
     type_: LLVMType
 }
 
 // Basic block
-LLVMBlock := struct {
+LLVMBlock := {
     label: string
     instructions: Vec<LLVMInstruction>
     terminator: Option<LLVMTerminator>

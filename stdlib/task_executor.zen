@@ -31,7 +31,7 @@ TaskResult<T> := union {
 }
 
 // Task structure
-Task<T> := struct {
+Task<T> := {
     id: u64,
     name: string,
     priority: Priority,
@@ -44,7 +44,7 @@ Task<T> := struct {
 }
 
 // Task executor configuration
-ExecutorConfig := struct {
+ExecutorConfig := {
     num_threads: usize,
     queue_size: usize,
     enable_metrics: bool,
@@ -62,7 +62,7 @@ default_config = () ExecutorConfig {
 }
 
 // Task executor
-TaskExecutor := struct {
+TaskExecutor := {
     config: ExecutorConfig,
     thread_pool: vec.Vec<thread.Thread>,
     task_queue: sync.Queue<Task<any>>,
@@ -74,7 +74,7 @@ TaskExecutor := struct {
 }
 
 // Executor metrics
-ExecutorMetrics := struct {
+ExecutorMetrics := {
     tasks_submitted: sync.Atomic<u64>,
     tasks_completed: sync.Atomic<u64>,
     tasks_failed: sync.Atomic<u64>,
@@ -333,7 +333,7 @@ wait_for_batch = (executor: *TaskExecutor, task_ids: []u64) []TaskResult<any> {
 }
 
 // Create a task group for related tasks
-TaskGroup := struct {
+TaskGroup := {
     executor: *TaskExecutor,
     task_ids: vec.Vec<u64>,
     name: string

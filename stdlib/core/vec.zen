@@ -2,7 +2,7 @@
 // Dynamic array with automatic resizing
 
 // Vector struct
-Vec = <T> struct {
+Vec = <T> {
     data: Ptr<T>
     len: usize
     capacity: usize

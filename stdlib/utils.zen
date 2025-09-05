@@ -90,7 +90,7 @@ map_result = <T, U, E>(result: Result<T, E>, f: (T) U) Result<U, E> {
 }
 
 // Defer mechanism for cleanup
-Defer = struct {
+Defer = {
     callbacks: Vec<() void>
 }
 
@@ -117,7 +117,7 @@ defer_run = (d: *Defer) void {
 }
 
 // Range type for iteration
-Range = struct {
+Range = {
     start: i32
     end: i32
     step: i32
@@ -151,7 +151,7 @@ range_iter = (r: Range, f: (i32) void) void {
 }
 
 // Lazy evaluation wrapper
-Lazy<T> = struct {
+Lazy<T> = {
     computed: bool
     value: T
     compute: () T
@@ -176,7 +176,7 @@ force = <T>(l: *Lazy<T>) T {
 }
 
 // Memoization wrapper
-Memo<K, V> = struct {
+Memo<K, V> = {
     cache: HashMap<K, V>
     compute: (K) V
 }
@@ -382,7 +382,7 @@ assert_eq = <T>(actual: T, expected: T, message: string) void {
 }
 
 // Timing guard for measuring scope duration
-TimingGuard = struct {
+TimingGuard = {
     name: string
     start: u64
 }

@@ -10,7 +10,7 @@ http := @std.http
 json := @std.json
 
 // Package manifest structure
-PackageManifest := struct {
+PackageManifest := {
     name: string
     version: string
     description: string

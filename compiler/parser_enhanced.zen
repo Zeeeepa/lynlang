@@ -46,7 +46,7 @@ AstNodeType = |
     GenericType,
 
 // AST Node
-AstNode = struct {
+AstNode = {
     type: AstNodeType,
     data: AstData,
     line: u32,
@@ -154,26 +154,26 @@ LiteralValue = |
     Null,
 
 // Function parameter
-Parameter = struct {
+Parameter = {
     name: string,
     type: *Type,
     is_mutable: bool,
 }
 
 // Struct field
-Field = struct {
+Field = {
     name: string,
     type: *Type,
 }
 
 // Enum variant
-EnumVariant = struct {
+EnumVariant = {
     name: string,
     data: Option<vec.Vec<Field>>,
 }
 
 // Match arm
-MatchArm = struct {
+MatchArm = {
     pattern: *Pattern,
     guard: Option<*AstNode>,
     body: *AstNode,
@@ -188,13 +188,13 @@ Pattern = |
     Enum -> { name: string, variant: string, fields: Option<vec.Vec<*Pattern>> },
 
 // Field pattern for struct destructuring
-FieldPattern = struct {
+FieldPattern = {
     name: string,
     pattern: *Pattern,
 }
 
 // Parser state
-Parser = struct {
+Parser = {
     tokens: vec.Vec<lexer.Token>,
     current: u32,
     errors: vec.Vec<string>,

@@ -15,7 +15,7 @@ io := @std.io
 @extern("memcmp") compare_memory_raw = (ptr1: Ptr<void>, ptr2: Ptr<void>, size: usize) i32
 
 // Memory allocation tracking
-AllocationInfo := struct {
+AllocationInfo := {
     ptr: Ptr<void>
     size: usize
     line: u32
@@ -24,7 +24,7 @@ AllocationInfo := struct {
 }
 
 // Global allocation tracker (for debug mode)
-MemoryTracker := struct {
+MemoryTracker := {
     head: Option<Ptr<AllocationInfo>>
     total_allocated: usize
     total_freed: usize
@@ -180,7 +180,7 @@ untrack_allocation = (ptr: Ptr<void>) void {
 }
 
 // Arena allocator for temporary allocations
-Arena := struct {
+Arena := {
     buffer: Ptr<u8>
     capacity: usize
     offset: usize
@@ -227,18 +227,18 @@ arena_destroy = (arena: Ptr<Arena>) void {
 }
 
 // Pool allocator for fixed-size objects
-Pool := <T> struct {
+Pool := <T> {
     block_size: usize
     blocks_per_chunk: usize
     free_list: Option<Ptr<PoolNode<T>>>
     chunks: Option<Ptr<PoolChunk<T>>>
 }
 
-PoolNode := <T> struct {
+PoolNode := <T> {
     next: Option<Ptr<PoolNode<T>>>
 }
 
-PoolChunk := <T> struct {
+PoolChunk := <T> {
     memory: Ptr<u8>
     next: Option<Ptr<PoolChunk<T>>>
 }
@@ -311,7 +311,7 @@ pool_destroy = <T>(pool: Ptr<Pool<T>>) void {
 }
 
 // Smart pointer with reference counting
-Rc := <T> struct {
+Rc := <T> {
     ptr: Ptr<T>
     count: Ptr<u32>
 }
@@ -354,7 +354,7 @@ rc_count = <T>(rc: Ptr<Rc<T>>) u32 {
 }
 
 // Unique pointer (move-only)
-Unique := <T> struct {
+Unique := <T> {
     ptr: Ptr<T>
 }
 
@@ -399,7 +399,7 @@ get_memory_stats = () MemoryStats {
     }
 }
 
-MemoryStats := struct {
+MemoryStats := {
     total_allocated: usize
     total_freed: usize
     current_usage: usize

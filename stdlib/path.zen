@@ -380,7 +380,7 @@ matches = (path: string, pattern: string) bool {
 }
 
 // Path builder for fluent API
-PathBuilder := struct {
+PathBuilder := {
     components: Vec<string>
 }
 

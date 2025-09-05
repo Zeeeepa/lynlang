@@ -55,7 +55,7 @@ test_multiple_import_styles = () void {
 }
 
 // Test 5: Imports work with type definitions
-MyStruct = struct {
+MyStruct = {
     data: vec.Vec(i32),  // Using imported type
     name: string,        // Built-in type (not an import)
 }

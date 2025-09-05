@@ -13,7 +13,7 @@ codegen := @compiler.codegen
 type_checker := @compiler.type_checker
 
 // Compiler options
-CompilerOptions := struct {
+CompilerOptions := {
     input_file: string
     output_file: string
     emit_c: bool

@@ -38,7 +38,7 @@ TokenType = |
     Newline, Eof, Invalid,
 
 // Token with position information
-Token = struct {
+Token = {
     type: TokenType,
     lexeme: string,
     line: u32,
@@ -46,7 +46,7 @@ Token = struct {
 }
 
 // Lexer state
-Lexer = struct {
+Lexer = {
     input: string,
     tokens: vec.Vec<Token>,
     current: u32,
