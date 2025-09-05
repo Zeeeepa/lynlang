@@ -9,7 +9,7 @@ json := @std.json
 net := @std.net
 
 // LSP Message types
-LspMessage := struct {
+LspMessage := {
     jsonrpc: string
     id: Option<i32>
     method: Option<string>
@@ -18,25 +18,25 @@ LspMessage := struct {
     error: Option<LspError>
 }
 
-LspError := struct {
+LspError := {
     code: i32
     message: string
     data: Option<json.Value>
 }
 
 // Initialize request parameters
-InitializeParams := struct {
+InitializeParams := {
     process_id: Option<i32>
     root_uri: Option<string>
     capabilities: ClientCapabilities
 }
 
-ClientCapabilities := struct {
+ClientCapabilities := {
     text_document: Option<TextDocumentClientCapabilities>
     workspace: Option<WorkspaceClientCapabilities>
 }
 
-TextDocumentClientCapabilities := struct {
+TextDocumentClientCapabilities := {
     completion: Option<CompletionCapabilities>
     hover: Option<HoverCapabilities>
     signature_help: Option<SignatureHelpCapabilities>
@@ -46,18 +46,18 @@ TextDocumentClientCapabilities := struct {
     semantic_tokens: Option<SemanticTokensCapabilities>
 }
 
-WorkspaceClientCapabilities := struct {
+WorkspaceClientCapabilities := {
     apply_edit: bool
     workspace_folders: bool
     configuration: bool
 }
 
-CompletionCapabilities := struct {
+CompletionCapabilities := {
     dynamic_registration: bool
     completion_item: Option<CompletionItemCapabilities>
 }
 
-CompletionItemCapabilities := struct {
+CompletionItemCapabilities := {
     snippet_support: bool
     commit_characters_support: bool
     documentation_format: Vec<string>
@@ -65,39 +65,39 @@ CompletionItemCapabilities := struct {
     preselect_support: bool
 }
 
-HoverCapabilities := struct {
+HoverCapabilities := {
     dynamic_registration: bool
     content_format: Vec<string>
 }
 
-SignatureHelpCapabilities := struct {
+SignatureHelpCapabilities := {
     dynamic_registration: bool
     signature_information: Option<SignatureInformationCapabilities>
 }
 
-SignatureInformationCapabilities := struct {
+SignatureInformationCapabilities := {
     documentation_format: Vec<string>
     parameter_information: Option<ParameterInformationCapabilities>
 }
 
-ParameterInformationCapabilities := struct {
+ParameterInformationCapabilities := {
     label_offset_support: bool
 }
 
-ReferenceCapabilities := struct {
+ReferenceCapabilities := {
     dynamic_registration: bool
 }
 
-DefinitionCapabilities := struct {
+DefinitionCapabilities := {
     dynamic_registration: bool
     link_support: bool
 }
 
-FormattingCapabilities := struct {
+FormattingCapabilities := {
     dynamic_registration: bool
 }
 
-SemanticTokensCapabilities := struct {
+SemanticTokensCapabilities := {
     dynamic_registration: bool
     requests: SemanticTokensRequests
     token_types: Vec<string>
@@ -105,17 +105,17 @@ SemanticTokensCapabilities := struct {
     formats: Vec<string>
 }
 
-SemanticTokensRequests := struct {
+SemanticTokensRequests := {
     range: bool
     full: Option<SemanticTokensFullOptions>
 }
 
-SemanticTokensFullOptions := struct {
+SemanticTokensFullOptions := {
     delta: bool
 }
 
 // Server capabilities
-ServerCapabilities := struct {
+ServerCapabilities := {
     text_document_sync: TextDocumentSyncKind
     completion_provider: Option<CompletionOptions>
     hover_provider: bool
@@ -138,59 +138,59 @@ TextDocumentSyncKind := |
     Full = 1
     Incremental = 2
 
-CompletionOptions := struct {
+CompletionOptions := {
     resolve_provider: bool
     trigger_characters: Vec<string>
 }
 
-SignatureHelpOptions := struct {
+SignatureHelpOptions := {
     trigger_characters: Vec<string>
     retrigger_characters: Vec<string>
 }
 
-CodeLensOptions := struct {
+CodeLensOptions := {
     resolve_provider: bool
 }
 
-DocumentLinkOptions := struct {
+DocumentLinkOptions := {
     resolve_provider: bool
 }
 
-SemanticTokensOptions := struct {
+SemanticTokensOptions := {
     legend: SemanticTokensLegend
     range: bool
     full: Option<SemanticTokensFullOptions>
 }
 
-SemanticTokensLegend := struct {
+SemanticTokensLegend := {
     token_types: Vec<string>
     token_modifiers: Vec<string>
 }
 
 // Document management
-TextDocument := struct {
+TextDocument := {
     uri: string
     language_id: string
     version: i32
     content: string
 }
 
-Position := struct {
+Position := {
     line: i32
     character: i32
 }
 
-Range := struct {
+Range := {
     start: Position
     end: Position
 }
 
-Location := struct {
+Location := {
     uri: string
     range: Range
 }
 
-Diagnostic := struct {
+Diagnostic := {
     range: Range
     severity: DiagnosticSeverity
     code: Option<string>
@@ -210,13 +210,13 @@ DiagnosticTag := |
     Unnecessary = 1
     Deprecated = 2
 
-DiagnosticRelatedInformation := struct {
+DiagnosticRelatedInformation := {
     location: Location
     message: string
 }
 
 // Completion
-CompletionItem := struct {
+CompletionItem := {
     label: string
     kind: CompletionItemKind
     detail: Option<string>
@@ -264,24 +264,24 @@ InsertTextFormat := |
     PlainText = 1
     Snippet = 2
 
-TextEdit := struct {
+TextEdit := {
     range: Range
     new_text: string
 }
 
-Command := struct {
+Command := {
     title: string
     command: string
     arguments: Vec<json.Value>
 }
 
 // Hover
-Hover := struct {
+Hover := {
     contents: MarkupContent
     range: Option<Range>
 }
 
-MarkupContent := struct {
+MarkupContent := {
     kind: MarkupKind
     value: string
 }
@@ -291,25 +291,25 @@ MarkupKind := |
     Markdown
 
 // Signature Help
-SignatureHelp := struct {
+SignatureHelp := {
     signatures: Vec<SignatureInformation>
     active_signature: Option<i32>
     active_parameter: Option<i32>
 }
 
-SignatureInformation := struct {
+SignatureInformation := {
     label: string
     documentation: Option<MarkupContent>
     parameters: Vec<ParameterInformation>
 }
 
-ParameterInformation := struct {
+ParameterInformation := {
     label: string
     documentation: Option<MarkupContent>
 }
 
 // Document Symbols
-DocumentSymbol := struct {
+DocumentSymbol := {
     name: string
     detail: Option<string>
     kind: SymbolKind
@@ -348,7 +348,7 @@ SymbolKind := |
     TypeParameter = 26
 
 // Code Actions
-CodeAction := struct {
+CodeAction := {
     title: string
     kind: Option<CodeActionKind>
     diagnostics: Vec<Diagnostic>
@@ -367,12 +367,12 @@ CodeActionKind := |
     SourceOrganizeImports
     SourceFixAll
 
-WorkspaceEdit := struct {
+WorkspaceEdit := {
     changes: HashMap<string, Vec<TextEdit>>
 }
 
 // Language Server State
-LanguageServer := struct {
+LanguageServer := {
     initialized: bool
     root_uri: Option<string>
     documents: HashMap<string, TextDocument>

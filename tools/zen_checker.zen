@@ -10,7 +10,7 @@ lexer := @compiler.lexer_enhanced
 parser := @compiler.parser_enhanced
 
 // Checker result
-CheckResult = struct {
+CheckResult = {
     file: string,
     errors: vec.Vec<Error>,
     warnings: vec.Vec<Warning>,
@@ -18,7 +18,7 @@ CheckResult = struct {
 }
 
 // Error information
-Error = struct {
+Error = {
     line: u32,
     column: u32,
     message: string,
@@ -26,7 +26,7 @@ Error = struct {
 }
 
 // Warning information
-Warning = struct {
+Warning = {
     line: u32,
     column: u32,
     message: string,

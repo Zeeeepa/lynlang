@@ -10,7 +10,7 @@ math := @std.math
 fs := @std.fs
 
 // Test struct with methods
-TestRunner := struct {
+TestRunner := {
     name: string
     tests_passed: i32
     tests_failed: i32
@@ -88,7 +88,7 @@ test_function_with_imports = () bool {
 test_struct_methods_with_imports = () bool {
     io.println("\n=== Testing Struct Methods with Imports ===")
     
-    Logger := struct {
+    Logger := {
         prefix: string
         count: i32
     }

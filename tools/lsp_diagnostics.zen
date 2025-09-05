@@ -20,36 +20,36 @@ DiagnosticTag =
     | Deprecated
 
 // Position in document
-Position = struct {
+Position = {
     line: u32,
     character: u32,
 }
 
 // Range in document
-Range = struct {
+Range = {
     start: Position,
     end: Position,
 }
 
 // Location in document
-Location = struct {
+Location = {
     uri: String,
     range: Range,
 }
 
 // Diagnostic related information
-DiagnosticRelatedInformation = struct {
+DiagnosticRelatedInformation = {
     location: Location,
     message: String,
 }
 
 // Code action kind
-CodeActionKind = struct {
+CodeActionKind = {
     value: String,
 }
 
 // Code action kinds constants
-CodeActionKinds = struct {
+CodeActionKinds = {
     quickfix: CodeActionKind = CodeActionKind{value: "quickfix"},
     refactor: CodeActionKind = CodeActionKind{value: "refactor"},
     refactor_extract: CodeActionKind = CodeActionKind{value: "refactor.extract"},
@@ -61,7 +61,7 @@ CodeActionKinds = struct {
 }
 
 // Diagnostic structure
-Diagnostic = struct {
+Diagnostic = {
     range: Range,
     severity: DiagnosticSeverity,
     code: ?String,
@@ -74,19 +74,19 @@ Diagnostic = struct {
 }
 
 // Code description
-CodeDescription = struct {
+CodeDescription = {
     href: String,
 }
 
 // Diagnostic context for collecting diagnostics
-DiagnosticContext = struct {
+DiagnosticContext = {
     diagnostics: Array(Diagnostic),
     current_file: String,
     max_diagnostics: usize,
 }
 
 // JSON value placeholder
-JsonValue = struct {
+JsonValue = {
     data: String,
 }
 

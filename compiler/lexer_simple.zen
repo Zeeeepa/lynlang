@@ -65,7 +65,7 @@ TokenType = |
     Error
 
 // Token structure
-Token = struct {
+Token = {
     type: TokenType
     value: string
     line: i32
@@ -73,7 +73,7 @@ Token = struct {
 }
 
 // Lexer state
-Lexer = struct {
+Lexer = {
     input: string
     position: i32
     read_position: i32

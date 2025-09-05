@@ -26,7 +26,7 @@ map_zen_type_to_c = (zen_type: string) string {
 }
 
 // C Backend Context
-CBackend := struct {
+CBackend := {
     output: string.Builder
     indent: u32
     in_main: bool

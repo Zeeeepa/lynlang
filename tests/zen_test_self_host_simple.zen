@@ -8,7 +8,7 @@ fs := @std.fs
 string := @std.string
 
 // Test data structure to verify imports work
-TestResult = struct {
+TestResult = {
     name: string,
     passed: bool,
     message: string,

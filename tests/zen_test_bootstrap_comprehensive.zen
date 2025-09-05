@@ -105,7 +105,7 @@ test_parser_comprehensive = () bool {
     io.print("  ✓ Function declarations\n")
     
     // Test 3: Struct declarations
-    input3 := "Point = struct { x: f64, y: f64 }"
+    input3 := "Point = { x: f64, y: f64 }"
     lex3 := lexer.new(input3)
     tokens3 := lexer.tokenize(lex3)
     p3 := parser.new(tokens3)
@@ -196,7 +196,7 @@ test_type_checker_comprehensive = () bool {
     io.print("  ✓ Type mismatch detection\n")
     
     // Test 4: Struct field access
-    input4 := "Point = struct { x: f64, y: f64 }\np := Point{ x: 1.0, y: 2.0 }\ndist := p.x"
+    input4 := "Point = { x: f64, y: f64 }\np := Point{ x: 1.0, y: 2.0 }\ndist := p.x"
     lex4 := lexer.new(input4)
     tokens4 := lexer.tokenize(lex4)
     p4 := parser.new(tokens4)

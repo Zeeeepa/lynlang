@@ -8,7 +8,7 @@ hashmap := @std.hashmap
 io := @std.io
 
 // URL components
-URL := struct {
+URL := {
     scheme: string,
     username: string,
     password: string,
@@ -98,7 +98,7 @@ parse = (url_str: string) result.Result<URL, URLError> {
 }
 
 // Authority components
-Authority := struct {
+Authority := {
     username: string,
     password: string,
     host: string,

@@ -6,14 +6,14 @@ mem := @std.mem
 hash := @std.hash
 
 // HashMap entry (key-value pair)
-HashEntry = struct {
+HashEntry = {
     key: string,
     value: i32,
     next: *HashEntry,
 }
 
 // HashMap structure
-HashMap = struct {
+HashMap = {
     buckets: []*HashEntry,
     size: u32,
     capacity: u32,

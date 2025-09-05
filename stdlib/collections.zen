@@ -5,7 +5,7 @@ core := @std.core
 memory := @std.memory
 
 // Dynamic array (vector) implementation
-Vector := struct {
+Vector := {
     data: []T
     len: usize
     capacity: usize
@@ -132,13 +132,13 @@ Vector.grow = (self: &Vector) void {
 }
 
 // Linked list node
-ListNode := struct {
+ListNode := {
     value: T
     next: ?&ListNode
 }
 
 // Linked list implementation
-LinkedList := struct {
+LinkedList := {
     head: ?&ListNode
     tail: ?&ListNode
     len: usize
@@ -204,7 +204,7 @@ LinkedList.pop_front = (self: &LinkedList) ?T {
 }
 
 // Stack implementation using vector
-Stack := struct {
+Stack := {
     data: Vector
 }
 
@@ -239,7 +239,7 @@ Stack.is_empty = (self: &Stack) bool {
 }
 
 // Queue implementation using linked list
-Queue := struct {
+Queue := {
     list: LinkedList
 }
 
@@ -274,14 +274,14 @@ Queue.is_empty = (self: &Queue) bool {
 }
 
 // Hash map bucket
-HashBucket := struct {
+HashBucket := {
     key: K
     value: V
     next: ?&HashBucket
 }
 
 // Hash map implementation
-HashMap := struct {
+HashMap := {
     buckets: []?&HashBucket
     len: usize
     capacity: usize
@@ -405,7 +405,7 @@ HashMap.resize = (self: &HashMap) void {
 }
 
 // Set implementation using hash map
-HashSet := struct {
+HashSet := {
     map: HashMap
 }
 

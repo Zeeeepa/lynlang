@@ -6,13 +6,13 @@ mem := @std.mem
 
 // List node structure (simplified)
 // In real implementation this would use generics
-ListNode = struct {
+ListNode = {
     value: i32,
     next: *ListNode,
 }
 
 // List structure
-List = struct {
+List = {
     head: *ListNode,
     size: u32,
 }

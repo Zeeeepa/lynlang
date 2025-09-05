@@ -13,7 +13,7 @@ llvm_backend := @compiler.llvm_backend
 type_checker := @compiler.type_checker
 
 // Compiler options
-CompilerOptions := struct {
+CompilerOptions := {
     input_file: string,
     output_file: string,
     backend: string,  // "c", "llvm", "wasm"

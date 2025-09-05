@@ -8,7 +8,7 @@ args := @std.args
 string := @std.string
 
 // Error types
-SyntaxError = struct {
+SyntaxError = {
     line: i32,
     column: i32,
     message: string,
@@ -32,7 +32,7 @@ TokenType = |
     EOF,
 
 // Basic syntax checker
-SyntaxChecker = struct {
+SyntaxChecker = {
     input: string,
     position: i32,
     line: i32,
