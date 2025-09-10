@@ -28,7 +28,7 @@ new = () HashMap {
     
     // Initialize all buckets to null
     i := 0
-    while i < DEFAULT_CAPACITY {
+    loop (i < DEFAULT_CAPACITY) {
         buckets[i] = null
         i = i + 1
     }
@@ -45,7 +45,7 @@ hash_string = (key: string) u32 {
     hash_value := 5381u32
     i := 0
     
-    while i < key.len() {
+    loop (i < key.len()) {
         c := key[i]
         hash_value = ((hash_value << 5) + hash_value) + c
         i = i + 1
@@ -60,8 +60,8 @@ put = (map: *HashMap, key: string, value: i32) void {
     
     // Check if key already exists
     current := map.buckets[index]
-    while current != null {
-        if current.key == key {
+    loop (current != null) {
+        (current.key == key) ? {
             // Update existing value
             current.value = value
             return
@@ -78,7 +78,7 @@ put = (map: *HashMap, key: string, value: i32) void {
     map.size = map.size + 1
     
     // Check if resize is needed (load factor > 0.75)
-    if map.size * 4 > map.capacity * 3 {
+    (map.size * 4 > map.capacity * 3) ? {
         resize(map)
     }
 }
@@ -88,8 +88,8 @@ get = (map: *HashMap, key: string) i32 {
     index := hash_string(key) % map.capacity
     current := map.buckets[index]
     
-    while current != null {
-        if current.key == key {
+    loop (current != null) {
+        (current.key == key) ? {
             return current.value
         }
         current = current.next
@@ -103,8 +103,8 @@ contains_key = (map: *HashMap, key: string) bool {
     index := hash_string(key) % map.capacity
     current := map.buckets[index]
     
-    while current != null {
-        if current.key == key {
+    loop (current != null) {
+        (current.key == key) ? {
             return true
         }
         current = current.next
@@ -119,11 +119,11 @@ remove = (map: *HashMap, key: string) bool {
     current := map.buckets[index]
     prev := null as *HashEntry
     
-    while current != null {
-        if current.key == key {
-            if prev == null {
+    loop (current != null) {
+        (current.key == key) ? {
+            (prev == null) ? {
                 map.buckets[index] = current.next
-            } else {
+            } : {
                 prev.next = current.next
             }
             mem.free(current)
@@ -150,9 +150,9 @@ is_empty = (map: *HashMap) bool {
 // Clear all entries
 clear = (map: *HashMap) void {
     i := 0
-    while i < map.capacity {
+    loop (i < map.capacity) {
         current := map.buckets[i]
-        while current != null {
+        loop (current != null) {
             next := current.next
             mem.free(current)
             current = next
@@ -175,16 +175,16 @@ resize = (map: *HashMap) void {
     
     // Initialize new buckets
     i := 0
-    while i < map.capacity {
+    loop (i < map.capacity) {
         map.buckets[i] = null
         i = i + 1
     }
     
     // Rehash all entries
     i = 0
-    while i < old_capacity {
+    loop (i < old_capacity) {
         current := old_buckets[i]
-        while current != null {
+        loop (current != null) {
             next := current.next
             put(map, current.key, current.value)
             mem.free(current)

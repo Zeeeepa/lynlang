@@ -154,9 +154,9 @@ new_server = () LSPServer {
 
 // Handle incoming LSP message
 handle_message = (server: &mut LSPServer, msg: Message) result.Result<Message, string> {
-    if msg.method? {
+    msg.method? ? 
         | some(method) => {
-            method match {
+            method ? 
                 | "initialize" => handle_initialize(server, msg)
                 | "initialized" => handle_initialized(server, msg)
                 | "shutdown" => handle_shutdown(server, msg)
@@ -174,12 +174,10 @@ handle_message = (server: &mut LSPServer, msg: Message) result.Result<Message, s
                 | _ => {
                     return result.err("Method not found: " + method)
                 }
-            }
         }
         | none => {
             return result.err("No method specified")
         }
-    }
 }
 
 // Initialize request handler
@@ -253,7 +251,7 @@ analyze_document = (server: &mut LSPServer, uri: string) result.Result<(), strin
     map.insert(server.parsers, uri.clone(), p)
     
     // Type check if parsing succeeded
-    ast match {
+    ast ? 
         | ok(program) => {
             let tc = type_checker.new()
             let typed_ast = type_checker.check(tc, program)
@@ -262,7 +260,6 @@ analyze_document = (server: &mut LSPServer, uri: string) result.Result<(), strin
         | err(e) => {
             // Store error for diagnostics
         }
-    }
     
     return result.ok(())
 }
@@ -362,7 +359,7 @@ get_completions = (server: &LSPServer, uri: string, pos: Position) result.Result
 // Add keyword completions
 add_keyword_completions = (items: &mut vec.Vec<CompletionItem>) {
     let keywords = [
-        "if", "else", "match", "return", "break", "continue",
+        "return", "break", "continue", "loop",
         "struct", "enum", "type", "comptime", "pub", "mut",
         "true", "false", "none", "some",
     ]
@@ -431,9 +428,7 @@ main = () i32 {
     // Main message loop
     loop {
         let input = io.read_line()?
-        if input.is_empty() {
-            break
-        }
+        input.is_empty() ? { break }
         
         // Parse JSON-RPC message
         let msg = parse_message(input)?
@@ -441,16 +436,13 @@ main = () i32 {
         // Handle message
         let response = handle_message(&mut server, msg)
         
-        response match {
+        response ? 
             | ok(resp) => send_message(resp)
             | err(e) => {
                 io.eprint("Error handling message: " + e + "\n")
             }
-        }
         
-        if server.shutdown_requested {
-            break
-        }
+        server.shutdown_requested ? { break }
     }
     
     io.print("Zen Language Server stopped\n")

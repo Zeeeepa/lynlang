@@ -41,7 +41,7 @@ This document serves as the definitive language specification for Zenlang. All i
 6. **Colorless async** - No function coloring with async/await
 
 ### Non-Negotiable Rules
-- **NO** `if`/`else` keywords - Use `?` operator exclusively
+- **NO** `if`/`else/match` keywords - Use `?` operator exclusively
 - **NO** exceptions - All errors are values
 - **NO** null pointers - Use Option<T> for optional values
 - **NO** implicit conversions - All type conversions must be explicit
@@ -312,6 +312,25 @@ value ? | i32 -> n => "Integer: $(n)"
         | _ => "Unknown type"
 ```
 
+**7. Bool Patters**
+```zen
+
+func_that_returns_bool ? { Do this }
+
+// or
+func_that_returns_bool ? 
+    | 1 => { Do this }
+
+// or 
+
+func_that_returns_bool ? 
+    | 1 => { Do this }
+    | 0 => { Do that }
+
+func_that_returns_bool ? 
+    | true => { Do this }
+
+
 ### Loops
 
 **Only ONE loop keyword: `loop`**
@@ -337,6 +356,8 @@ loop {
 
 #### Range Iteration
 ```zen
+range(0,10) // or 0..10
+
 // Iterate over range
 (0..10).loop((i) => {
     print("Index: $(i)")
@@ -945,7 +966,9 @@ fast_multiply = (a: u64, b: u64) u128 {
 test, assert, expect_panic = @std.testing
 // Test blocks
 test("array operations") {
-    arr := [5, i32]{ 1, 2, 3, 4, 5 }
+    arr : [5, i32]
+    arr = [ 1, 2, 3, 4, 5 ]
+
     assert(arr.len() == 5)
     assert(arr[0] == 1)
     assert(arr[4] == 5)

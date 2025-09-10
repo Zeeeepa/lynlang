@@ -14,12 +14,12 @@ result := @std.result
 
 // Compiler pipeline stages
 CompilerStage = |
-    Lexing,
-    Parsing,
-    TypeChecking,
-    Optimization,
-    CodeGeneration,
-    Linking,
+    | Lexing,
+    | Parsing,
+    | TypeChecking,
+    | Optimization,
+    | CodeGeneration,
+    | Linking,
 
 // Compiler configuration
 CompilerConfig = {
@@ -194,110 +194,76 @@ compile = (compiler: *Compiler) CompilationResult {
     start_time := core.time_now()
     
     // Read source file
-    match fs.read_file(compiler.config.input_file) {
-        | Ok(content) => {
-            compiler.source_code = content
+    fs.read_file(compiler.config.input_file) ? 
+        | .Ok -> content => compiler.source_code = content
+        | .Err -> err => return CompilationResult {
+            success = false,
+            output_path = "",
+            warnings = vec.new<string>(),
+            errors = vec.of(string.format("Failed to read input file: {}", err)),
+            stats = empty_stats(),
         }
-        | Err(err) => {
-            return CompilationResult {
-                success = false,
-                output_path = "",
-                warnings = vec.new<string>(),
-                errors = vec.of(string.format("Failed to read input file: {}", err)),
-                stats = empty_stats(),
-            }
-        }
-    }
     
     // Lexical analysis
     compiler.current_stage = CompilerStage.Lexing
-    if compiler.config.verbose {
-        io.print("Stage 1: Lexical Analysis\n")
-    }
+    compiler.config.verbose ? { io.print("Stage 1: Lexical Analysis\n") }
     
-    match lex(compiler.source_code) {
-        | Ok(tokens) => {
+    lex(compiler.source_code) ?
+        | .Ok -> tokens => {
             compiler.tokens = tokens
-            if compiler.config.verbose {
-                io.print(string.format("  Generated {} tokens\n", tokens.len()))
-            }
+            compiler.config.verbose ? { io.print(string.format("  Generated {} tokens\n", tokens.len())) }
         }
-        | Err(err) => {
-            return compilation_error(err, compiler)
-        }
-    }
+        | .Err -> err => return compilation_error(err, compiler)
     
     // Parsing
     compiler.current_stage = CompilerStage.Parsing
-    if compiler.config.verbose {
-        io.print("Stage 2: Parsing\n")
-    }
+    compiler.config.verbose ? { io.print("Stage 2: Parsing\n") }
     
-    match parse(compiler.tokens) {
-        | Ok(ast) => {
+    parse(compiler.tokens) ?
+        | .Ok -> ast => {
             compiler.ast = Option.Some(ast)
-            if compiler.config.emit_ast {
-                emit_ast(ast, compiler.config.output_file + ".ast")
-            }
+            compiler.config.emit_ast ? { emit_ast(ast, compiler.config.output_file + ".ast") }
         }
-        | Err(err) => {
-            return compilation_error(err, compiler)
-        }
-    }
+        | .Err -> err => return compilation_error(err, compiler)
     
     // Type checking
     compiler.current_stage = CompilerStage.TypeChecking
-    if compiler.config.verbose {
-        io.print("Stage 3: Type Checking\n")
-    }
+    compiler.config.verbose ? { io.print("Stage 3: Type Checking\n") }
     
-    match type_check(compiler.ast.unwrap(), &compiler.type_env) {
-        | Ok(typed_ast) => {
-            compiler.ast = Option.Some(typed_ast)
-        }
-        | Err(err) => {
-            return compilation_error(err, compiler)
-        }
-    }
+    type_check(compiler.ast.unwrap(), &compiler.type_env) ?
+        | .Ok -> typed_ast => compiler.ast = Option.Some(typed_ast)
+        | .Err -> err => return compilation_error(err, compiler)
     
     // Optimization
-    if compiler.config.optimization_level > 0 {
+    compiler.config.optimization_level > 0 ? {
         compiler.current_stage = CompilerStage.Optimization
-        if compiler.config.verbose {
+        compiler.config.verbose ? { 
             io.print(string.format("Stage 4: Optimization (level {})\n", 
                                   compiler.config.optimization_level))
         }
-        
         compiler.ast = Option.Some(optimize(compiler.ast.unwrap(), 
                                            compiler.config.optimization_level))
     }
     
     // Code generation
     compiler.current_stage = CompilerStage.CodeGeneration
-    if compiler.config.verbose {
-        io.print("Stage 5: Code Generation\n")
-    }
+    compiler.config.verbose ? { io.print("Stage 5: Code Generation\n") }
     
-    match generate_code(compiler.ast.unwrap(), compiler.config.target) {
-        | Ok(ir) => {
+    generate_code(compiler.ast.unwrap(), compiler.config.target) ?
+        | .Ok -> ir => {
             compiler.ir_code = ir
-            if compiler.config.emit_ir {
-                fs.write_file(compiler.config.output_file + ".ir", ir)
-            }
+            compiler.config.emit_ir ? { fs.write_file(compiler.config.output_file + ".ir", ir) }
         }
-        | Err(err) => {
-            return compilation_error(err, compiler)
+        | .Err -> err => return compilation_error(err, compiler)
         }
     }
     
     // Linking
     compiler.current_stage = CompilerStage.Linking
-    if compiler.config.verbose {
-        io.print("Stage 6: Linking\n")
-    }
+    compiler.config.verbose ? { io.print("Stage 6: Linking\n") }
     
-    match link(compiler.ir_code, compiler.config.output_file, compiler.config.target) {
-        | Ok(output_path) => {
+    link(compiler.ir_code, compiler.config.output_file, compiler.config.target) ?
+        | .Ok -> output_path => {
             end_time := core.time_now()
             
             return CompilationResult {
@@ -314,10 +280,7 @@ compile = (compiler: *Compiler) CompilationResult {
                 },
             }
         }
-        | Err(err) => {
-            return compilation_error(err, compiler)
-        }
-    }
+        | .Err -> err => return compilation_error(err, compiler)
 }
 
 // Lexical analysis
@@ -329,9 +292,7 @@ lex = (source: string) Result<vec<Token>, string> {
         token := lexer_next_token(&lexer)
         tokens.push(token)
         
-        if token.type == TokenType.Eof {
-            break
-        }
+        token.type == TokenType.Eof ? { break }
     }
     
     return Result.Ok(tokens)
@@ -355,19 +316,19 @@ optimize = (ast: ASTNode, level: i32) ASTNode {
     // Apply optimization passes based on level
     optimized := ast
     
-    if level >= 1 {
+    level >= 1 ? {
         // Basic optimizations: constant folding, dead code elimination
         optimized = optimize_constants(optimized)
         optimized = eliminate_dead_code(optimized)
     }
     
-    if level >= 2 {
+    level >= 2 ? {
         // Intermediate optimizations: inlining, loop unrolling
         optimized = inline_functions(optimized)
         optimized = unroll_loops(optimized)
     }
     
-    if level >= 3 {
+    level >= 3 ? {
         // Advanced optimizations: vectorization, register allocation
         optimized = vectorize_operations(optimized)
         optimized = allocate_registers(optimized)
@@ -378,30 +339,25 @@ optimize = (ast: ASTNode, level: i32) ASTNode {
 
 // Code generator
 generate_code = (ast: ASTNode, target: string) Result<string, string> {
-    match target {
+    target ?
         | "native" => generate_native_code(ast)
         | "wasm" => generate_wasm_code(ast)
         | "llvm-ir" => generate_llvm_ir(ast)
         | _ => Result.Err(string.format("Unknown target: {}", target))
-    }
 }
 
 // Linker
 link = (ir: string, output: string, target: string) Result<string, string> {
     // Link the generated code with runtime and produce executable
-    match target {
+    target ?
         | "native" => {
             // Use system linker (ld, lld, etc.)
             cmd := string.format("ld -o {} {}.o", output, output)
             process.execute(cmd)
-            return Result.Ok(output)
+            Result.Ok(output)
         }
-        | "wasm" => {
-            // Generate WASM module
-            return Result.Ok(output + ".wasm")
-        }
+        | "wasm" => Result.Ok(output + ".wasm")
         | _ => Result.Err("Unsupported target for linking")
-    }
 }
 
 // Helper functions
@@ -429,9 +385,7 @@ empty_stats = () CompilationStats {
 count_lines = (text: string) i32 {
     count := 1
     for ch in text {
-        if ch == '\n' {
-            count = count + 1
-        }
+        ch == '\n' ? { count = count + 1 }
     }
     return count
 }
@@ -489,7 +443,7 @@ ast_to_string = (node: ASTNode, indent: i32) string {
 main = (args: vec<string>) i32 {
     io.print("Zen Self-Hosted Compiler v1.0.0\n")
     
-    if args.len() < 2 {
+    args.len() < 2 ? {
         io.print("Usage: zenc <input.zen> [options]\n")
         io.print("Options:\n")
         io.print("  -o <output>    Set output file name\n")
@@ -516,32 +470,32 @@ main = (args: vec<string>) i32 {
     
     // Process optional arguments
     i := 2
-    while i < args.len() {
+    loop (i < args.len()) {
         arg := args[i]
         
-        if arg == "-o" && i + 1 < args.len() {
+        arg == "-o" && i + 1 < args.len() ? {
             config.output_file = args[i + 1]
             i = i + 2
-        } else if arg.starts_with("-O") {
+        } : arg.starts_with("-O") ? {
             level_str := arg.substring(2)
             config.optimization_level = string.to_int(level_str)
             i = i + 1
-        } else if arg == "--target" && i + 1 < args.len() {
+        } : arg == "--target" && i + 1 < args.len() ? {
             config.target = args[i + 1]
             i = i + 2
-        } else if arg == "--debug" {
+        } : arg == "--debug" ? {
             config.debug_info = true
             i = i + 1
-        } else if arg == "--verbose" {
+        } : arg == "--verbose" ? {
             config.verbose = true
             i = i + 1
-        } else if arg == "--emit-ast" {
+        } : arg == "--emit-ast" ? {
             config.emit_ast = true
             i = i + 1
-        } else if arg == "--emit-ir" {
+        } : arg == "--emit-ir" ? {
             config.emit_ir = true
             i = i + 1
-        } else {
+        } : {
             io.print(string.format("Unknown option: {}\n", arg))
             return 1
         }
@@ -551,9 +505,9 @@ main = (args: vec<string>) i32 {
     compiler := compiler_new(config)
     result := compile(&compiler)
     
-    if result.success {
+    result.success ? {
         io.print(string.format("Compilation successful: {}\n", result.output_path))
-        if config.verbose {
+        config.verbose ? {
             io.print(string.format("  Lines processed: {}\n", result.stats.lines_processed))
             io.print(string.format("  Tokens generated: {}\n", result.stats.tokens_generated))
             io.print(string.format("  AST nodes created: {}\n", result.stats.ast_nodes_created))
@@ -561,7 +515,7 @@ main = (args: vec<string>) i32 {
             io.print(string.format("  Memory used: {} bytes\n", result.stats.memory_used_bytes))
         }
         return 0
-    } else {
+    } : {
         io.print("Compilation failed:\n")
         for err in result.errors {
             io.print(string.format("  Error: {}\n", err))

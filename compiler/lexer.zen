@@ -48,7 +48,7 @@ make_token = (tag: string, start: u32, end: u32, line: u32, column: u32) Token {
 
 // Keywords in Zen
 KEYWORDS := [
-    "if", "else", "loop", "while", "for", "match", "return", "break", "continue",
+    "loop", "return", "break", "continue",
     "fn", "struct", "enum", "trait", "impl", "type", "const", "let", "var",
     "pub", "priv", "mut", "ref", "defer", "async", "await", "yield",
     "import", "export", "module", "package", "use", "as",
@@ -73,10 +73,10 @@ lexer_new = (source: string) Lexer {
 
 // Check if character is whitespace
 is_whitespace = (c: char) bool {
-    if c == ' ' { return true }
-    if c == '\t' { return true }
-    if c == '\r' { return true }
-    if c == '\n' { return true }
+    (c == ' ') ? { return true }
+    (c == '\t') ? { return true }
+    (c == '\r') ? { return true }
+    (c == '\n') ? { return true }
     return false
 }
 

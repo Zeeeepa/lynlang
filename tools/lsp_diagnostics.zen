@@ -117,9 +117,7 @@ make_range = (start_line: u32, start_char: u32, end_line: u32, end_char: u32) Ra
 
 // Add error diagnostic
 add_error = (ctx: *DiagnosticContext, range: Range, message: String) void {
-    if (ctx.diagnostics.len >= ctx.max_diagnostics) {
-        return
-    }
+    ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
         range: range,
@@ -138,9 +136,7 @@ add_error = (ctx: *DiagnosticContext, range: Range, message: String) void {
 
 // Add warning diagnostic
 add_warning = (ctx: *DiagnosticContext, range: Range, message: String) void {
-    if (ctx.diagnostics.len >= ctx.max_diagnostics) {
-        return
-    }
+    ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
         range: range,
@@ -159,9 +155,7 @@ add_warning = (ctx: *DiagnosticContext, range: Range, message: String) void {
 
 // Add information diagnostic
 add_info = (ctx: *DiagnosticContext, range: Range, message: String) void {
-    if (ctx.diagnostics.len >= ctx.max_diagnostics) {
-        return
-    }
+    ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
         range: range,
@@ -180,9 +174,7 @@ add_info = (ctx: *DiagnosticContext, range: Range, message: String) void {
 
 // Add hint diagnostic
 add_hint = (ctx: *DiagnosticContext, range: Range, message: String) void {
-    if (ctx.diagnostics.len >= ctx.max_diagnostics) {
-        return
-    }
+    ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
         range: range,
@@ -203,9 +195,7 @@ add_hint = (ctx: *DiagnosticContext, range: Range, message: String) void {
 add_diagnostic_with_code = (ctx: *DiagnosticContext, range: Range, 
                            severity: DiagnosticSeverity, code: String, 
                            message: String) void {
-    if (ctx.diagnostics.len >= ctx.max_diagnostics) {
-        return
-    }
+    ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
         range: range,
@@ -224,9 +214,7 @@ add_diagnostic_with_code = (ctx: *DiagnosticContext, range: Range,
 
 // Add related information to last diagnostic
 add_related_info = (ctx: *DiagnosticContext, location: Location, message: String) void {
-    if (ctx.diagnostics.len == 0) {
-        return
-    }
+    ctx.diagnostics.len == 0 ? { return }
     
     last_diag := &ctx.diagnostics.data[ctx.diagnostics.len - 1]
     
@@ -240,9 +228,7 @@ add_related_info = (ctx: *DiagnosticContext, location: Location, message: String
 
 // Mark diagnostic as deprecated
 mark_deprecated = (ctx: *DiagnosticContext, index: usize) void {
-    if (index >= ctx.diagnostics.len) {
-        return
-    }
+    index >= ctx.diagnostics.len ? { return }
     
     diag := &ctx.diagnostics.data[index]
     array.push(DiagnosticTag, &diag.tags, DiagnosticTag.Deprecated)
@@ -250,9 +236,7 @@ mark_deprecated = (ctx: *DiagnosticContext, index: usize) void {
 
 // Mark diagnostic as unnecessary
 mark_unnecessary = (ctx: *DiagnosticContext, index: usize) void {
-    if (index >= ctx.diagnostics.len) {
-        return
-    }
+    index >= ctx.diagnostics.len ? { return }
     
     diag := &ctx.diagnostics.data[index]
     array.push(DiagnosticTag, &diag.tags, DiagnosticTag.Unnecessary)
@@ -310,9 +294,7 @@ diagnostics_to_json = (ctx: *DiagnosticContext) String {
     result := string.from_literal("[")
     
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
-        if (i > 0) {
-            result = string.concat(result, ",")
-        }
+        i > 0 ? { result = string.concat(result, ",") }
         result = string.concat(result, diagnostic_to_json(&ctx.diagnostics.data[i]))
     }
     
@@ -322,20 +304,18 @@ diagnostics_to_json = (ctx: *DiagnosticContext) String {
 
 // Helper to get severity numeric value for LSP
 severity_to_int = (severity: DiagnosticSeverity) i32 {
-    match severity {
+    severity ?
         | DiagnosticSeverity.Error => 1
         | DiagnosticSeverity.Warning => 2
         | DiagnosticSeverity.Information => 3
         | DiagnosticSeverity.Hint => 4
-    }
 }
 
 // Helper to get tag numeric value for LSP
 tag_to_int = (tag: DiagnosticTag) i32 {
-    match tag {
+    tag ?
         | DiagnosticTag.Unnecessary => 1
         | DiagnosticTag.Deprecated => 2
-    }
 }
 
 // Convert single diagnostic to JSON
@@ -353,14 +333,14 @@ diagnostic_to_json = (diag: *Diagnostic) String {
     result = string.concat(result, ",")
     
     // Source
-    if (diag.source != null) {
+    diag.source != null ? {
         result = string.concat(result, "\"source\":\"")
         result = string.concat(result, diag.source)
         result = string.concat(result, "\",")
     }
     
     // Code
-    if (diag.code != null) {
+    diag.code != null ? {
         result = string.concat(result, "\"code\":\"")
         result = string.concat(result, diag.code)
         result = string.concat(result, "\",")
@@ -372,24 +352,20 @@ diagnostic_to_json = (diag: *Diagnostic) String {
     result = string.concat(result, "\"")
     
     // Tags
-    if (diag.tags.len > 0) {
+    diag.tags.len > 0 ? {
         result = string.concat(result, ",\"tags\":[")
         for (i := 0; i < diag.tags.len; i += 1) {
-            if (i > 0) {
-                result = string.concat(result, ",")
-            }
+            i > 0 ? { result = string.concat(result, ",") }
             result = string.concat(result, string.from_int(tag_to_int(diag.tags.data[i])))
         }
         result = string.concat(result, "]")
     }
     
     // Related information
-    if (diag.related_information.len > 0) {
+    diag.related_information.len > 0 ? {
         result = string.concat(result, ",\"relatedInformation\":[")
         for (i := 0; i < diag.related_information.len; i += 1) {
-            if (i > 0) {
-                result = string.concat(result, ",")
-            }
+            i > 0 ? { result = string.concat(result, ",") }
             result = string.concat(result, 
                                  related_info_to_json(&diag.related_information.data[i]))
         }
@@ -444,9 +420,7 @@ diagnostic_count = (ctx: *DiagnosticContext) usize {
 error_count = (ctx: *DiagnosticContext) usize {
     count := 0
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
-        if (ctx.diagnostics.data[i].severity == DiagnosticSeverity.Error) {
-            count += 1
-        }
+        ctx.diagnostics.data[i].severity == DiagnosticSeverity.Error ? { count += 1 }
     }
     return count
 }
@@ -455,9 +429,7 @@ error_count = (ctx: *DiagnosticContext) usize {
 warning_count = (ctx: *DiagnosticContext) usize {
     count := 0
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
-        if (ctx.diagnostics.data[i].severity == DiagnosticSeverity.Warning) {
-            count += 1
-        }
+        ctx.diagnostics.data[i].severity == DiagnosticSeverity.Warning ? { count += 1 }
     }
     return count
 }
