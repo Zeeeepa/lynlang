@@ -8,42 +8,41 @@ core := @std.core
 lexer := @compiler.lexer_enhanced
 
 // AST Node Types
-AstNodeType = |
-    // Declarations
-    FunctionDecl,
-    VariableDecl,
-    StructDecl,
-    EnumDecl,
-    TraitDecl,
-    ImplBlock,
-    TypeAlias,
+AstNodeType = 
+    | FunctionDecl,
+    | VariableDecl,
+    | StructDecl,
+    | EnumDecl,
+    | TraitDecl,
+    | ImplBlock,
+    | TypeAlias,
     
     // Statements
-    ExpressionStmt,
-    ReturnStmt,
-    BreakStmt,
-    ContinueStmt,
-    LoopStmt,
-    BlockStmt,
+    | ExpressionStmt,
+    | ReturnStmt,
+    | BreakStmt,
+    | ContinueStmt,
+    | LoopStmt,
+    | BlockStmt,
     
     // Expressions
-    BinaryExpr,
-    UnaryExpr,
-    CallExpr,
-    MemberExpr,
-    IndexExpr,
-    IdentifierExpr,
-    LiteralExpr,
-    MatchExpr,
-    IfExpr,
-    ComptimeExpr,
+    | BinaryExpr,
+    | UnaryExpr,
+    | CallExpr,
+    | MemberExpr,
+    | IndexExpr,
+    | IdentifierExpr,
+    | LiteralExpr,
+    | MatchExpr,
+    | IfExpr,
+    | ComptimeExpr,
     
     // Types
-    NamedType,
-    PointerType,
-    ArrayType,
-    FunctionType,
-    GenericType,
+    | NamedType,
+    | PointerType,
+    | ArrayType,
+    | FunctionType,
+    | GenericType,
 
 // AST Node
 AstNode = {
@@ -54,104 +53,105 @@ AstNode = {
 }
 
 // AST Data variants
-AstData = |
-    FunctionDecl -> {
+AstData = 
+    | FunctionDecl -> {
         name: string,
         params: vec.Vec<Parameter>,
         return_type: *Type,
         body: *AstNode,
         is_generic: bool,
     },
-    VariableDecl -> {
+    | VariableDecl -> {
         name: string,
         type: *Type,
         value: *AstNode,
         is_mutable: bool,
     },
-    StructDecl -> {
+    | StructDecl -> {
         name: string,
         fields: vec.Vec<Field>,
         generics: vec.Vec<string>,
     },
-    EnumDecl -> {
+    | EnumDecl -> {
         name: string,
         variants: vec.Vec<EnumVariant>,
         generics: vec.Vec<string>,
     },
-    BinaryExpr -> {
+    | BinaryExpr -> {
         left: *AstNode,
         operator: BinaryOp,
         right: *AstNode,
     },
-    UnaryExpr -> {
+    | UnaryExpr -> {
         operator: UnaryOp,
         operand: *AstNode,
     },
-    CallExpr -> {
+    | CallExpr -> {
         callee: *AstNode,
         args: vec.Vec<*AstNode>,
     },
-    MemberExpr -> {
+    | MemberExpr -> {
         object: *AstNode,
         member: string,
     },
-    IdentifierExpr -> {
+    | IdentifierExpr -> {
         name: string,
     },
-    LiteralExpr -> {
+    | LiteralExpr -> {
         value: LiteralValue,
     },
-    BlockStmt -> {
+    | BlockStmt -> {
         statements: vec.Vec<*AstNode>,
     },
-    ReturnStmt -> {
+    | ReturnStmt -> {
         value: Option<*AstNode>,
     },
-    LoopStmt -> {
+    | LoopStmt -> {
         condition: Option<*AstNode>,
         body: *AstNode,
     },
-    MatchExpr -> {
+    | MatchExpr -> {
         value: *AstNode,
         arms: vec.Vec<MatchArm>,
     },
 
 // Type representation
-Type = |
-    Named -> name: string,
-    Pointer -> inner: *Type,
-    Array -> element: *Type,
-    FixedArray -> { element: *Type, size: u32 },
-    Function -> { params: vec.Vec<*Type>, ret: *Type },
-    Generic -> { base: string, args: vec.Vec<*Type> },
-    Primitive -> kind: PrimitiveKind,
+Type = 
+|   | Named -> name: string,
+    | Pointer -> inner: *Type,
+    | Array -> element: *Type,
+    | FixedArray -> { element: *Type, size: u32 },
+    | Function -> { params: vec.Vec<*Type>, ret: *Type },
+    | Generic -> { base: string, args: vec.Vec<*Type> },
+    | Primitive -> kind: PrimitiveKind,
 
 // Primitive types
-PrimitiveKind = |
-    I8, I16, I32, I64,
-    U8, U16, U32, U64,
-    F32, F64,
-    Bool, Char, String,
-    Void,
+PrimitiveKind = 
+    | I8, | I16, | I32, | I64,
+    | I8, | I16, | I32, | I64,
+    | U8, | U16, | U32, | U64,
+    | F32, | F64,
+    | Bool, | Char, | String,
+    | Void, |
 
 // Binary operators
-BinaryOp = |
-    Add, Sub, Mul, Div, Mod,
-    Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
-    And, Or,
-    Assign,
+BinaryOp = 
+    | Add, | Sub, | Mul, | Div, | Mod,
+    | Equal, | NotEqual, | Less, | Greater, | LessEqual, | GreaterEqual,
+    | And, | Or,
+    | Assign,
 
 // Unary operators
-UnaryOp = |
-    Not, Negate, Deref, AddressOf,
+UnaryOp = 
+    | Not, | Negate, | Deref, | AddressOf,
 
 // Literal values
-LiteralValue = |
-    Number -> value: string,
-    String -> value: string,
-    Char -> value: char,
-    Bool -> value: bool,
-    Null,
+LiteralValue = 
+    | Number -> value: string,
+    | String -> value: string,
+    | Char -> value: char,
+    | Bool -> value: bool,
+    | Null,
 
 // Function parameter
 Parameter = {
@@ -214,13 +214,12 @@ parse = (p: *Parser) Result<vec.Vec<*AstNode>, vec.Vec<string>> {
     nodes := vec.new<*AstNode>()
     
     loop !is_at_end(p) {
-        match parse_declaration(p) {
-            | Ok -> node => nodes.push(node)
-            | Err -> msg => {
+        parse_declaration(p) ?
+            | .Ok -> node => nodes.push(node)
+            | .Err -> msg => {
                 p.errors.push(msg)
                 synchronize(p)
             }
-        }
     }
     
     p.errors.is_empty() ? 
@@ -232,7 +231,7 @@ parse = (p: *Parser) Result<vec.Vec<*AstNode>, vec.Vec<string>> {
 parse_declaration = (p: *Parser) Result<*AstNode, string> {
     current := peek(p)
     
-    match current.type {
+    current.type ? 
         | lexer.TokenType.Struct => parse_struct(p)
         | lexer.TokenType.Enum => parse_enum(p)
         | lexer.TokenType.Trait => parse_trait(p)
@@ -246,7 +245,6 @@ parse_declaration = (p: *Parser) Result<*AstNode, string> {
                 { parse_variable(p) } : { parse_statement(p) }
         }
         | _ => parse_statement(p)
-    }
 }
 
 // Parse function declaration
@@ -369,13 +367,12 @@ synchronize = (p: *Parser) void {
     loop !is_at_end(p) {
         previous(p).type == lexer.TokenType.Semicolon ? { return } : {}
         
-        match peek(p).type {
+        peek(p).type ?
             | lexer.TokenType.Struct | 
               lexer.TokenType.Enum | lexer.TokenType.Trait |
               lexer.TokenType.Type | lexer.TokenType.Const |
               lexer.TokenType.Let => return
             | _ => {}
-        }
         
         advance(p)
     }

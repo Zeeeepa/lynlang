@@ -48,14 +48,10 @@ allocate = <T>(count: usize) Ptr<T> {
     size := count * @sizeof(T)
     ptr := allocate_raw(size)
     
-    if (ptr == null) {
-        panic("Memory allocation failed")
-    }
+    (ptr == null) ? { panic("Memory allocation failed") }
     
     // Track allocation in debug mode
-    if (@debug) {
-        track_allocation(ptr, size, @line, @file)
-    }
+    @debug ? { track_allocation(ptr, size, @line, @file) }
     
     return @ptrcast(Ptr<T>, ptr)
 }
@@ -64,14 +60,10 @@ allocate = <T>(count: usize) Ptr<T> {
 allocate_zeroed = <T>(count: usize) Ptr<T> {
     ptr := allocate_zeroed_raw(count, @sizeof(T))
     
-    if (ptr == null) {
-        panic("Memory allocation failed")
-    }
+    (ptr == null) ? { panic("Memory allocation failed") }
     
     // Track allocation in debug mode
-    if (@debug) {
-        track_allocation(ptr, count * @sizeof(T), @line, @file)
-    }
+    @debug ? { track_allocation(ptr, count * @sizeof(T), @line, @file) }
     
     return @ptrcast(Ptr<T>, ptr)
 }
@@ -81,12 +73,10 @@ reallocate = <T>(ptr: Ptr<T>, new_count: usize) Ptr<T> {
     new_size := new_count * @sizeof(T)
     new_ptr := reallocate_raw(@ptrcast(Ptr<void>, ptr), new_size)
     
-    if (new_ptr == null) {
-        panic("Memory reallocation failed")
-    }
+    (new_ptr == null) ? { panic("Memory reallocation failed") }
     
     // Update tracking in debug mode
-    if (@debug) {
+    @debug ? {
         untrack_allocation(@ptrcast(Ptr<void>, ptr))
         track_allocation(new_ptr, new_size, @line, @file)
     }
@@ -96,14 +86,10 @@ reallocate = <T>(ptr: Ptr<T>, new_count: usize) Ptr<T> {
 
 // Deallocate memory
 deallocate = <T>(ptr: Ptr<T>) void {
-    if (ptr == null) {
-        return
-    }
+    (ptr == null) ? { return }
     
     // Untrack allocation in debug mode
-    if (@debug) {
-        untrack_allocation(@ptrcast(Ptr<void>, ptr))
-    }
+    @debug ? { untrack_allocation(@ptrcast(Ptr<void>, ptr)) }
     
     deallocate_raw(@ptrcast(Ptr<void>, ptr))
 }
@@ -146,7 +132,7 @@ track_allocation = (ptr: Ptr<void>, size: usize, line: u32, file: string) void {
     memory_tracker.allocation_count += 1
     
     current_usage := memory_tracker.total_allocated - memory_tracker.total_freed
-    if (current_usage > memory_tracker.peak_usage) {
+    (current_usage > memory_tracker.peak_usage) ? {
         memory_tracker.peak_usage = current_usage
     }
 }
@@ -156,15 +142,14 @@ untrack_allocation = (ptr: Ptr<void>) void {
     prev: Option<Ptr<AllocationInfo>> = Option.None
     current := memory_tracker.head
     
-    while (current) {
-        match current {
-            Option.Some(info) => {
-                if (info.ptr == ptr) {
+    loop (current) {
+        current ? 
+            | Option.Some(info) => {
+                (info.ptr == ptr) ? {
                     // Remove from list
-                    match prev {
-                        Option.Some(p) => p.next = info.next
-                        Option.None => memory_tracker.head = info.next
-                    }
+                    prev ? 
+                        | Option.Some(p) => p.next = info.next
+                        | Option.None => memory_tracker.head = info.next
                     
                     memory_tracker.total_freed += info.size
                     memory_tracker.deallocation_count += 1
@@ -174,8 +159,7 @@ untrack_allocation = (ptr: Ptr<void>) void {
                 prev = current
                 current = info.next
             }
-            Option.None => break
-        }
+            | Option.None => break
     }
 }
 
@@ -205,7 +189,7 @@ arena_allocate = <T>(arena: Ptr<Arena>, count: usize) Ptr<T> {
     // Align offset
     aligned_offset := (arena.offset + alignment - 1) & ~(alignment - 1)
     
-    if (aligned_offset + size > arena.capacity) {
+    (aligned_offset + size > arena.capacity) ? {
         panic("Arena out of memory")
     }
     
@@ -256,17 +240,16 @@ pool_new = <T>(blocks_per_chunk: usize) Ptr<Pool<T>> {
 // Allocate from pool
 pool_allocate = <T>(pool: Ptr<Pool<T>>) Ptr<T> {
     // Check free list first
-    match pool.free_list {
-        Option.Some(node) => {
+    pool.free_list ? 
+        | Option.Some(node) => {
             pool.free_list = node.next
             return @ptrcast(Ptr<T>, node)
         }
-        Option.None => {
+        | Option.None => {
             // Allocate new chunk
             allocate_pool_chunk(pool)
             return pool_allocate(pool)
         }
-    }
 }
 
 // Allocate new chunk for pool
@@ -278,7 +261,7 @@ allocate_pool_chunk = <T>(pool: Ptr<Pool<T>>) void {
     
     // Add all blocks to free list
     i := 0
-    while (i < pool.blocks_per_chunk) {
+    loop (i < pool.blocks_per_chunk) {
         node := @ptrcast(Ptr<PoolNode<T>>, chunk.memory + i * pool.block_size)
         node.next = pool.free_list
         pool.free_list = Option.Some(node)
@@ -296,16 +279,15 @@ pool_deallocate = <T>(pool: Ptr<Pool<T>>, ptr: Ptr<T>) void {
 // Destroy pool
 pool_destroy = <T>(pool: Ptr<Pool<T>>) void {
     current := pool.chunks
-    while (current) {
-        match current {
-            Option.Some(chunk) => {
+    loop (current) {
+        current ? 
+            | Option.Some(chunk) => {
                 next := chunk.next
                 deallocate(chunk.memory)
                 deallocate(chunk)
                 current = next
             }
-            Option.None => break
-        }
+            | Option.None => break
     }
     deallocate(pool)
 }
@@ -342,7 +324,7 @@ rc_clone = <T>(rc: Ptr<Rc<T>>) Rc<T> {
 // Drop reference-counted pointer
 rc_drop = <T>(rc: Ptr<Rc<T>>) void {
     *rc.count -= 1
-    if (*rc.count == 0) {
+    (*rc.count == 0) ? {
         deallocate(rc.ptr)
         deallocate(rc.count)
     }
@@ -381,7 +363,7 @@ unique_release = <T>(unique: Ptr<Unique<T>>) Ptr<T> {
 
 // Destroy unique pointer
 unique_destroy = <T>(unique: Ptr<Unique<T>>) void {
-    if (unique.ptr != null) {
+    (unique.ptr != null) ? {
         deallocate(unique.ptr)
         unique.ptr = null
     }
@@ -421,7 +403,7 @@ print_memory_stats = () void {
     io.printf("Deallocations: {}\n", stats.deallocation_count)
     
     // Check for leaks
-    if (stats.current_usage > 0) {
+    (stats.current_usage > 0) ? {
         io.println("WARNING: Potential memory leak detected!")
         print_allocations()
     }
@@ -434,19 +416,18 @@ print_allocations = () void {
     current := memory_tracker.head
     index := 0
     
-    while (current) {
-        match current {
-            Option.Some(info) => {
+    loop (current) {
+        current ? 
+            | Option.Some(info) => {
                 io.printf("[{}] {} bytes at {}:{}\n", 
                          index, info.size, info.file, info.line)
                 current = info.next
                 index += 1
             }
-            Option.None => break
-        }
+            | Option.None => break
     }
     
-    if (index == 0) {
+    (index == 0) ? {
         io.println("No active allocations")
     }
 }
@@ -456,7 +437,7 @@ panic = (message: string) void {
     io.eprintln("PANIC: " + message)
     
     // Print memory stats in debug mode
-    if (@debug) {
+    @debug ? {
         print_memory_stats()
     }
     

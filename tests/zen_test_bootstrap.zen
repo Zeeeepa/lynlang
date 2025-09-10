@@ -11,15 +11,15 @@ main = () i32 {
     result := x + y
     
     // Test control flow
-    if (result > 50) {
+    (result > 50) ? {
         io.print("Result is greater than 50\n")
-    } else {
+    } : {
         io.print("Result is less than or equal to 50\n")
     }
     
     // Test loop
     i := 0
-    while (i < 5) {
+    loop (i < 5) {
         io.print("Iteration: ")
         io.print_int(i)
         io.print("\n")
