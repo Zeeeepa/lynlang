@@ -1,9 +1,10 @@
 // Array/Slice operations for Zen
 // Provides dynamic array functionality with automatic resizing
 
-core := @std.core
-mem := @std.mem
-math := @std.math
+build := @std.build
+core := build.import("core")
+mem := build.import("mem")
+math := build.import("math")
 
 // Dynamic array structure
 Array = struct(T: type) {
@@ -14,11 +15,9 @@ Array = struct(T: type) {
 
 // Create a new array with initial capacity
 new = (T: type, initial_capacity: usize) Array(T) {
-    data := if (initial_capacity > 0) {
-        mem.alloc(T, initial_capacity)
-    } else {
-        null
-    }
+    data := initial_capacity > 0 ? 
+        | true => mem.alloc(T, initial_capacity)
+        | false => null
     
     return Array(T){
         data: data,
@@ -31,13 +30,13 @@ new = (T: type, initial_capacity: usize) Array(T) {
 from_slice = (T: type, slice: []T) Array(T) {
     arr := new(T, slice.len)
     arr.len = slice.len
-    mem.copy(arr.data, slice.ptr, slice.len * @sizeof(T))
+    mem.copy(arr.data, slice.ptr, slice.len * core.sizeof(T))
     return arr
 }
 
 // Push element to array
 push = (T: type, arr: *Array(T), value: T) void {
-    if (arr.len >= arr.capacity) {
+    arr.len >= arr.capacity ? {
         grow(T, arr)
     }
     arr.data[arr.len] = value
@@ -46,7 +45,7 @@ push = (T: type, arr: *Array(T), value: T) void {
 
 // Pop element from array
 pop = (T: type, arr: *Array(T)) ?T {
-    if (arr.len == 0) {
+    arr.len == 0 ? {
         return null
     }
     arr.len -= 1
@@ -55,7 +54,7 @@ pop = (T: type, arr: *Array(T)) ?T {
 
 // Get element at index
 get = (T: type, arr: *Array(T), index: usize) ?T {
-    if (index >= arr.len) {
+    index >= arr.len ? {
         return null
     }
     return arr.data[index]
@@ -63,7 +62,7 @@ get = (T: type, arr: *Array(T), index: usize) ?T {
 
 // Set element at index
 set = (T: type, arr: *Array(T), index: usize, value: T) bool {
-    if (index >= arr.len) {
+    index >= arr.len ? {
         return false
     }
     arr.data[index] = value
@@ -72,20 +71,20 @@ set = (T: type, arr: *Array(T), index: usize, value: T) bool {
 
 // Insert element at index
 insert = (T: type, arr: *Array(T), index: usize, value: T) bool {
-    if (index > arr.len) {
+    index > arr.len ? {
         return false
     }
     
-    if (arr.len >= arr.capacity) {
+    arr.len >= arr.capacity ? {
         grow(T, arr)
     }
     
     // Shift elements right
-    if (index < arr.len) {
+    index < arr.len ? {
         mem.move(
             arr.data + index + 1,
             arr.data + index,
-            (arr.len - index) * @sizeof(T)
+            (arr.len - index) * core.sizeof(T))
         )
     }
     
@@ -96,14 +95,14 @@ insert = (T: type, arr: *Array(T), index: usize, value: T) bool {
 
 // Remove element at index
 remove = (T: type, arr: *Array(T), index: usize) ?T {
-    if (index >= arr.len) {
+    index >= arr.len ? {
         return null
     }
     
     value := arr.data[index]
     
     // Shift elements left
-    if (index < arr.len - 1) {
+    index < arr.len - 1 ? {
         mem.move(
             arr.data + index,
             arr.data + index + 1,
@@ -122,7 +121,7 @@ clear = (T: type, arr: *Array(T)) void {
 
 // Resize array to exact size
 resize = (T: type, arr: *Array(T), new_size: usize) void {
-    if (new_size > arr.capacity) {
+    new_size > arr.capacity ? {
         reserve(T, arr, new_size)
     }
     arr.len = new_size
@@ -130,12 +129,12 @@ resize = (T: type, arr: *Array(T), new_size: usize) void {
 
 // Reserve capacity
 reserve = (T: type, arr: *Array(T), new_capacity: usize) void {
-    if (new_capacity <= arr.capacity) {
+    new_capacity <= arr.capacity ? {
         return
     }
     
     new_data := mem.alloc(T, new_capacity)
-    if (arr.data != null and arr.len > 0) {
+    (arr.data != null and arr.len > 0) ? {
         mem.copy(new_data, arr.data, arr.len * @sizeof(T))
         mem.free(arr.data)
     }
@@ -146,9 +145,9 @@ reserve = (T: type, arr: *Array(T), new_capacity: usize) void {
 
 // Grow array capacity (internal)
 grow = (T: type, arr: *Array(T)) void {
-    new_capacity := if (arr.capacity == 0) {
+    new_capacity := arr.capacity == 0 ? {
         8
-    } else {
+    } : {
         arr.capacity * 2
     }
     reserve(T, arr, new_capacity)
@@ -156,12 +155,12 @@ grow = (T: type, arr: *Array(T)) void {
 
 // Shrink to fit
 shrink_to_fit = (T: type, arr: *Array(T)) void {
-    if (arr.len == arr.capacity) {
+    arr.len == arr.capacity ? {
         return
     }
     
-    if (arr.len == 0) {
-        if (arr.data != null) {
+    arr.len == 0 ? {
+        arr.data != null ? {
             mem.free(arr.data)
         }
         arr.data = null
@@ -178,7 +177,7 @@ shrink_to_fit = (T: type, arr: *Array(T)) void {
 
 // Get slice of array
 slice = (T: type, arr: *Array(T), start: usize, end: usize) []T {
-    if (start > end or end > arr.len) {
+    (start > end or end > arr.len) ? {
         return []T{}
     }
     return arr.data[start..end]
@@ -186,14 +185,14 @@ slice = (T: type, arr: *Array(T), start: usize, end: usize) []T {
 
 // Reverse array in place
 reverse = (T: type, arr: *Array(T)) void {
-    if (arr.len <= 1) {
+    arr.len <= 1 ? {
         return
     }
     
     left := 0
     right := arr.len - 1
     
-    while (left < right) {
+    loop (left < right) {
         temp := arr.data[left]
         arr.data[left] = arr.data[right]
         arr.data[right] = temp
@@ -204,10 +203,12 @@ reverse = (T: type, arr: *Array(T)) void {
 
 // Find element in array
 find = (T: type, arr: *Array(T), value: T) ?usize {
-    for (i := 0; i < arr.len; i += 1) {
-        if (arr.data[i] == value) {
+    i := 0
+    loop (i < arr.len) {
+        arr.data[i] == value ? {
             return i
         }
+        i += 1
     }
     return null
 }
@@ -222,8 +223,10 @@ map = (T: type, U: type, arr: *Array(T), f: fn(T) U) Array(U) {
     result := new(U, arr.len)
     result.len = arr.len
     
-    for (i := 0; i < arr.len; i += 1) {
+    i := 0
+    loop (i < arr.len) {
         result.data[i] = f(arr.data[i])
+        i += 1
     }
     
     return result
@@ -233,10 +236,12 @@ map = (T: type, U: type, arr: *Array(T), f: fn(T) U) Array(U) {
 filter = (T: type, arr: *Array(T), predicate: fn(T) bool) Array(T) {
     result := new(T, arr.len)
     
-    for (i := 0; i < arr.len; i += 1) {
-        if (predicate(arr.data[i])) {
+    i := 0
+    loop (i < arr.len) {
+        predicate(arr.data[i]) ? {
             push(T, &result, arr.data[i])
         }
+        i += 1
     }
     
     return result
@@ -245,15 +250,17 @@ filter = (T: type, arr: *Array(T), predicate: fn(T) bool) Array(T) {
 // Reduce array
 reduce = (T: type, U: type, arr: *Array(T), initial: U, f: fn(U, T) U) U {
     result := initial
-    for (i := 0; i < arr.len; i += 1) {
+    i := 0
+    loop (i < arr.len) {
         result = f(result, arr.data[i])
+        i += 1
     }
     return result
 }
 
 // Sort array (quicksort)
 sort = (T: type, arr: *Array(T), compare: fn(T, T) i32) void {
-    if (arr.len <= 1) {
+    arr.len <= 1 ? {
         return
     }
     quicksort(T, arr.data, 0, arr.len - 1, compare)
@@ -261,12 +268,12 @@ sort = (T: type, arr: *Array(T), compare: fn(T, T) i32) void {
 
 // Quicksort implementation
 quicksort = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) void {
-    if (low >= high) {
+    low >= high ? {
         return
     }
     
     pivot_index := partition(T, data, low, high, compare)
-    if (pivot_index > 0) {
+    pivot_index > 0 ? {
         quicksort(T, data, low, pivot_index - 1, compare)
     }
     quicksort(T, data, pivot_index + 1, high, compare)
@@ -277,13 +284,15 @@ partition = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) 
     pivot := data[high]
     i := low
     
-    for (j := low; j < high; j += 1) {
-        if (compare(data[j], pivot) <= 0) {
+    j := low
+    loop (j < high) {
+        compare(data[j], pivot) <= 0 ? {
             temp := data[i]
             data[i] = data[j]
             data[j] = temp
             i += 1
         }
+        j += 1
     }
     
     temp := data[i]
@@ -295,23 +304,23 @@ partition = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) 
 
 // Binary search (array must be sorted)
 binary_search = (T: type, arr: *Array(T), value: T, compare: fn(T, T) i32) ?usize {
-    if (arr.len == 0) {
+    arr.len == 0 ? {
         return null
     }
     
     left := 0
     right := arr.len - 1
     
-    while (left <= right) {
+    loop (left <= right) {
         mid := left + (right - left) / 2
         cmp := compare(arr.data[mid], value)
         
-        if (cmp == 0) {
+        cmp == 0 ? {
             return mid
-        } else if (cmp < 0) {
+        } : cmp < 0 ? {
             left = mid + 1
-        } else {
-            if (mid == 0) break
+        } : {
+            mid == 0 ? break
             right = mid - 1
         }
     }
@@ -324,7 +333,7 @@ clone = (T: type, arr: *Array(T)) Array(T) {
     result := new(T, arr.capacity)
     result.len = arr.len
     
-    if (arr.len > 0) {
+    arr.len > 0 ? {
         mem.copy(result.data, arr.data, arr.len * @sizeof(T))
     }
     
@@ -333,12 +342,12 @@ clone = (T: type, arr: *Array(T)) Array(T) {
 
 // Extend array with another array
 extend = (T: type, arr: *Array(T), other: *Array(T)) void {
-    if (other.len == 0) {
+    other.len == 0 ? {
         return
     }
     
     required_capacity := arr.len + other.len
-    if (required_capacity > arr.capacity) {
+    required_capacity > arr.capacity ? {
         reserve(T, arr, required_capacity)
     }
     
@@ -348,7 +357,7 @@ extend = (T: type, arr: *Array(T), other: *Array(T)) void {
 
 // Free array memory
 free = (T: type, arr: *Array(T)) void {
-    if (arr.data != null) {
+    arr.data != null ? {
         mem.free(arr.data)
     }
     arr.data = null
@@ -372,7 +381,7 @@ ArrayIterator = struct(T: type) {
 }
 
 next = (T: type, it: *ArrayIterator(T)) ?T {
-    if (it.index >= it.len) {
+    it.index >= it.len ? {
         return null
     }
     value := it.data[it.index]

@@ -1,9 +1,10 @@
 // Zen Check - Simple diagnostic tool for Zen files
 // Provides basic syntax checking and import validation
 
-io := @std.io
-fs := @std.fs
-string := @std.string
+build := @std.build
+io := build.import("io")
+fs := build.import("fs")
+string := build.import("string")
 
 // Diagnostic types
 DiagnosticSeverity = 
@@ -36,13 +37,13 @@ check_comptime_imports = (content: string) i32 {
     line_count := 1;
     i := 0;
     loop {
-        if i >= 1000 {  // Safety limit
+        i >= 1000 ? {  // Safety limit
             break
         }
         // Count newlines (simplified)
         line_count = line_count + 1;
         i = i + 1;
-        if i >= 100 {
+        i >= 100 ? {
             break
         }
     }
@@ -78,15 +79,17 @@ analyze_file = (filename: string) bool {
     
     total_issues := import_issues + comptime_issues;
     
-    if total_issues == 0 {
-        io.print("  ✅ No issues found\n");
-        return true
-    } else {
-        io.print("  ⚠️  Found ");
-        io.print_int(total_issues);
-        io.print(" issues\n");
-        return false
-    }
+    total_issues == 0 ? 
+        | true => {
+            io.print("  ✅ No issues found\n");
+            return true
+        }
+        | false => {
+            io.print("  ⚠️  Found ");
+            io.print_int(total_issues);
+            io.print(" issues\n");
+            return false
+        }
 }
 
 // Main entry point
@@ -100,10 +103,10 @@ main = () i32 {
     success := analyze_file(test_file);
     
     io.print("\n");
-    if success {
+    success ? {
         io.print("✨ Analysis complete - no issues found!\n");
         return 0
-    } else {
+    } : {
         io.print("⚠️  Analysis complete - issues detected\n");
         return 1
     }

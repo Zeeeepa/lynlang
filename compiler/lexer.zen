@@ -1,10 +1,11 @@
 // Self-hosted Zen Lexer
 // This module tokenizes Zen source code
 
-core := @std.core
-vec := @std.vec
-string := @std.string
-char := @std.char
+build := @std.build
+core := build.import("core")
+vec := build.import("vec")
+string := build.import("string")
+char := build.import("char")
 
 // Token types
 // Note: Using struct representation since enum syntax is not yet supported
@@ -82,29 +83,29 @@ is_whitespace = (c: char) bool {
 
 // Check if character is a digit
 is_digit = (c: char) bool {
-    if c < '0' { return false }
-    if c > '9' { return false }
+    c < '0' ? { return false }
+    c > '9' ? { return false }
     return true
 }
 
 // Check if character is alphabetic
 is_alpha = (c: char) bool {
-    if c >= 'a' && c <= 'z' { return true }
-    if c >= 'A' && c <= 'Z' { return true }
+    (c >= 'a' && c <= 'z') ? { return true }
+    (c >= 'A' && c <= 'Z') ? { return true }
     return false
 }
 
 // Check if character can start an identifier
 is_ident_start = (c: char) bool {
-    if is_alpha(c) { return true }
-    if c == '_' { return true }
+    is_alpha(c) ? { return true }
+    c == '_' ? { return true }
     return false
 }
 
 // Check if character can continue an identifier
 is_ident_continue = (c: char) bool {
-    if is_ident_start(c) { return true }
-    if is_digit(c) { return true }
+    is_ident_start(c) ? { return true }
+    is_digit(c) ? { return true }
     return false
 }
 
