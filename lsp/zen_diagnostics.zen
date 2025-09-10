@@ -1,25 +1,25 @@
 // zen_diagnostics.zen - LSP diagnostics for Zen language
 
-io := @std.io
-string := @std.string
-vec := @std.vec
+build := @std.build
+io := build.import("io")
+string := build.import("string")
+vec := build.import("vec")
 
 // Import compiler modules for analysis
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-errors := @compiler.errors
+lexer := build.import("compiler/lexer")
+parser := build.import("compiler/parser")
+type_checker := build.import("compiler/type_checker")
+errors := build.import("compiler/errors")
 
 // Diagnostic severity levels (LSP standard)
-enum DiagnosticSeverity {
-    Error = 1,
-    Warning = 2,
-    Information = 3,
-    Hint = 4,
-}
+DiagnosticSeverity =
+    | Error
+    | Warning
+    | Information
+    | Hint
 
 // Diagnostic structure (LSP standard)
-struct Diagnostic {
+Diagnostic = {
     range: Range,
     severity: DiagnosticSeverity,
     code: Option<string>,
@@ -29,33 +29,32 @@ struct Diagnostic {
     related_information: Vec<DiagnosticRelatedInformation>,
 }
 
-struct Range {
+Range = {
     start: Position,
     end: Position,
 }
 
-struct Position {
+Position = {
     line: u32,     // 0-based
     character: u32, // 0-based UTF-16 code unit
 }
 
-enum DiagnosticTag {
-    Unnecessary = 1,
-    Deprecated = 2,
-}
+DiagnosticTag =
+    | Unnecessary
+    | Deprecated
 
-struct DiagnosticRelatedInformation {
+DiagnosticRelatedInformation = {
     location: Location,
     message: string,
 }
 
-struct Location {
+Location = {
     uri: string,
     range: Range,
 }
 
 // Diagnostic analyzer
-struct DiagnosticAnalyzer {
+DiagnosticAnalyzer = {
     source_code: string,
     file_uri: string,
     diagnostics: Vec<Diagnostic>,
@@ -63,7 +62,7 @@ struct DiagnosticAnalyzer {
 
 // Create new analyzer
 new_analyzer = (source: string, uri: string) DiagnosticAnalyzer {
-    return DiagnosticAnalyzer {
+    DiagnosticAnalyzer {
         source_code: source,
         file_uri: uri,
         diagnostics: vec.new<Diagnostic>(),
@@ -71,7 +70,7 @@ new_analyzer = (source: string, uri: string) DiagnosticAnalyzer {
 }
 
 // Main analysis function
-analyze = (analyzer: *DiagnosticAnalyzer) Vec<Diagnostic> {
+analyze = (analyzer: Ptr<DiagnosticAnalyzer>) Vec<Diagnostic> {
     // Lexical analysis
     perform_lexical_analysis(analyzer)
     
@@ -87,21 +86,21 @@ analyze = (analyzer: *DiagnosticAnalyzer) Vec<Diagnostic> {
     // Type checking
     perform_type_checking(analyzer)
     
-    return analyzer.diagnostics
+    analyzer.value.diagnostics
 }
 
 // Lexical analysis - check for invalid tokens
-perform_lexical_analysis = (analyzer: *DiagnosticAnalyzer) void {
+perform_lexical_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
     lex := lexer.new_lexer(analyzer.source_code)
     
     loop {
         token := lexer.next_token(lex)
-        if token.type == lexer.TokenType.Eof {
-            break
-        }
+        token.type == lexer.TokenType.Eof ? 
+            | true => break
+            | false => {}
         
-        if token.type == lexer.TokenType.Error {
-            add_diagnostic(analyzer, 
+        token.type == lexer.TokenType.Error ?
+            | true => add_diagnostic(analyzer, 
                 create_error_diagnostic(
                     "Invalid token",
                     token.line - 1,  // Convert to 0-based
@@ -109,21 +108,21 @@ perform_lexical_analysis = (analyzer: *DiagnosticAnalyzer) void {
                     token.column - 1 + string.len(token.value)
                 )
             )
-        }
+            | false => {}
     }
 }
 
 // Syntax analysis - parse and check for syntax errors
-perform_syntax_analysis = (analyzer: *DiagnosticAnalyzer) void {
+perform_syntax_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
     lex := lexer.new_lexer(analyzer.source_code)
     tokens := lexer.tokenize(lex)
     
     p := parser.new_parser(tokens)
     result := parser.parse_program(p)
     
-    match result {
-        Err(errors) => {
-            for error in errors {
+    result ?
+        | .Err -> errors => {
+            errors.loop((error) => {
                 add_diagnostic(analyzer,
                     create_error_diagnostic(
                         error.message,
@@ -132,23 +131,22 @@ perform_syntax_analysis = (analyzer: *DiagnosticAnalyzer) void {
                         error.column
                     )
                 )
-            }
-        },
-        Ok(program) => {
+            })
+        }
+        | .Ok -> program => {
             // Check for additional syntax issues
             check_syntax_patterns(analyzer, program)
         }
-    }
 }
 
 // Check common syntax patterns and issues
-check_syntax_patterns = (analyzer: *DiagnosticAnalyzer, program: parser.Program) void {
-    for decl in program.declarations {
-        match decl {
-            parser.Declaration.Function(func) => {
+check_syntax_patterns = (analyzer: Ptr<DiagnosticAnalyzer>, program: parser.Program) void {
+    program.declarations.loop((decl) => {
+        decl ?
+            | .Function -> func => {
                 // Check for missing return statements
-                if func.return_type && !has_return_statement(func.body) {
-                    add_diagnostic(analyzer,
+                (func.return_type && !has_return_statement(func.body)) ?
+                    | true => add_diagnostic(analyzer,
                         create_warning_diagnostic(
                             "Function may not return a value on all paths",
                             func.base.line - 1,
@@ -156,73 +154,78 @@ check_syntax_patterns = (analyzer: *DiagnosticAnalyzer, program: parser.Program)
                             func.base.column + string.len(func.name)
                         )
                     )
-                }
-            },
-            parser.Declaration.Variable(var) => {
+                    | false => {}
+            }
+            | .Variable -> var => {
                 // Check for unused variables (simple check)
-                if string.starts_with(var.name, "_") {
-                    // Intentionally unused
-                } else if !var.is_comptime && !is_variable_used(var.name, program) {
-                    add_diagnostic(analyzer,
-                        create_warning_diagnostic(
-                            string.format("Unused variable '{}'", var.name),
-                            var.base.line - 1,
-                            var.base.column - 1,
-                            var.base.column + string.len(var.name)
-                        ).with_tag(DiagnosticTag.Unnecessary)
-                    )
-                }
-            },
-            _ => {}
-        }
-    }
+                string.starts_with(var.name, "_") ?
+                    | true => {}
+                    | false => (!var.is_comptime && !is_variable_used(var.name, program)) ?
+                        | true => add_diagnostic(analyzer,
+                            create_warning_diagnostic(
+                                string.format("Unused variable '{}'", var.name),
+                                var.base.line - 1,
+                                var.base.column - 1,
+                                var.base.column + string.len(var.name)
+                            ).with_tag(DiagnosticTag::Unnecessary)
+                        )
+                        | false => {}
+            }
+            | _ => {}
+    })
 }
 
 // Validate imports
-validate_imports = (analyzer: *DiagnosticAnalyzer) void {
+validate_imports = (analyzer: Ptr<DiagnosticAnalyzer>) void {
     lines := string.split(analyzer.source_code, '\n')
     in_comptime := false
     brace_depth := 0
     
-    for i, line in lines {
+    lines.enumerate().loop((i, line) => {
         trimmed := string.trim(line)
         
         // Track comptime blocks
-        if string.contains(trimmed, "comptime") && string.contains(trimmed, "{") {
-            in_comptime = true
-            brace_depth = 1
-        }
+        (string.contains(trimmed, "comptime") && string.contains(trimmed, "{")) ?
+            | true => {
+                in_comptime = true
+                brace_depth = 1
+            }
+            | false => {}
         
-        if in_comptime {
-            // Count braces to track nesting
-            for char in trimmed {
-                if char == '{' {
-                    brace_depth = brace_depth + 1
-                } else if char == '}' {
-                    brace_depth = brace_depth - 1
-                    if brace_depth == 0 {
-                        in_comptime = false
-                    }
-                }
+        in_comptime ?
+            | true => {
+                // Count braces to track nesting
+                trimmed.loop((char) => {
+                    char == '{' ?
+                        | true => brace_depth = brace_depth + 1
+                        | false => char == '}' ?
+                            | true => {
+                                brace_depth = brace_depth - 1
+                                brace_depth == 0 ?
+                                    | true => in_comptime = false
+                                    | false => {}
+                            }
+                            | false => {}
+                })
+                
+                // Check for imports in comptime
+                (string.contains(trimmed, "@std") || string.contains(trimmed, "@compiler")) ?
+                    | true => add_diagnostic(analyzer,
+                        create_error_diagnostic(
+                            "Imports cannot be placed inside comptime blocks",
+                            i as u32,
+                            0,
+                            string.len(trimmed) as u32
+                        ).with_suggestion("Move import to module level")
+                    )
+                    | false => {}
             }
-            
-            // Check for imports in comptime
-            if string.contains(trimmed, "@std") || string.contains(trimmed, "@compiler") {
-                add_diagnostic(analyzer,
-                    create_error_diagnostic(
-                        "Imports cannot be placed inside comptime blocks",
-                        i as u32,
-                        0,
-                        string.len(trimmed) as u32
-                    ).with_suggestion("Move import to module level")
-                )
-            }
-        }
+            | false => {}
         
         // Check for imports inside functions (simple heuristic)
-        if !in_comptime && is_inside_function(lines, i) {
-            if string.contains(trimmed, ":= @std") || string.contains(trimmed, ":= @compiler") {
-                add_diagnostic(analyzer,
+        (!in_comptime && is_inside_function(lines, i)) ?
+            | true => (string.contains(trimmed, ":= @std") || string.contains(trimmed, ":= @compiler")) ?
+                | true => add_diagnostic(analyzer,
                     create_error_diagnostic(
                         "Imports must be at module level",
                         i as u32,
@@ -230,13 +233,13 @@ validate_imports = (analyzer: *DiagnosticAnalyzer) void {
                         string.len(trimmed) as u32
                     ).with_suggestion("Move import to top of file")
                 )
-            }
-        }
-    }
+                | false => {}
+            | false => {}
+    })
 }
 
 // Semantic analysis
-perform_semantic_analysis = (analyzer: *DiagnosticAnalyzer) void {
+perform_semantic_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
     // Check for unreachable code
     check_unreachable_code(analyzer)
     
@@ -248,51 +251,50 @@ perform_semantic_analysis = (analyzer: *DiagnosticAnalyzer) void {
 }
 
 // Type checking
-perform_type_checking = (analyzer: *DiagnosticAnalyzer) void {
+perform_type_checking = (analyzer: Ptr<DiagnosticAnalyzer>) void {
     lex := lexer.new_lexer(analyzer.source_code)
     tokens := lexer.tokenize(lex)
     p := parser.new_parser(tokens)
     
     parse_result := parser.parse_program(p)
-    if parse_result.is_ok() {
-        program := parse_result.unwrap()
-        tc := type_checker.new()
-        type_result := type_checker.check(tc, program)
-        
-        match type_result {
-            Err(type_errors) => {
-                for error in type_errors {
-                    severity := if string.contains(error.message, "warning") {
-                        DiagnosticSeverity.Warning
-                    } else {
-                        DiagnosticSeverity.Error
-                    }
-                    
-                    add_diagnostic(analyzer,
-                        Diagnostic {
-                            range: Range {
-                                start: Position { 
-                                    line: error.line - 1, 
-                                    character: error.column - 1 
+    parse_result.is_ok() ?
+        | true => {
+            program := parse_result.unwrap()
+            tc := type_checker.new()
+            type_result := type_checker.check(tc, program)
+            
+            type_result ?
+                | .Err -> type_errors => {
+                    type_errors.loop((error) => {
+                        severity := string.contains(error.message, "warning") ?
+                            | true => DiagnosticSeverity::Warning
+                            | false => DiagnosticSeverity::Error
+                        
+                        add_diagnostic(analyzer,
+                            Diagnostic {
+                                range: Range {
+                                    start: Position { 
+                                        line: error.line - 1, 
+                                        character: error.column - 1 
+                                    },
+                                    end: Position { 
+                                        line: error.line - 1, 
+                                        character: error.column 
+                                    },
                                 },
-                                end: Position { 
-                                    line: error.line - 1, 
-                                    character: error.column 
-                                },
-                            },
-                            severity: severity,
-                            code: Some("type_error"),
-                            source: "zen_type_checker",
-                            message: error.message,
-                            tags: vec.new<DiagnosticTag>(),
-                            related_information: vec.new<DiagnosticRelatedInformation>(),
-                        }
-                    )
+                                severity: severity,
+                                code: Some("type_error"),
+                                source: "zen_type_checker",
+                                message: error.message,
+                                tags: vec.new<DiagnosticTag>(),
+                                related_information: vec.new<DiagnosticRelatedInformation>(),
+                            }
+                        )
+                    })
                 }
-            },
-            Ok(_) => {}
+                | .Ok -> _ => {}
         }
-    }
+        | false => {}
 }
 
 // Helper functions
@@ -334,7 +336,7 @@ with_tag = (diag: Diagnostic, tag: DiagnosticTag) Diagnostic {
 with_suggestion = (diag: Diagnostic, suggestion: string) Diagnostic {
     // Add suggestion to message
     diag.message = string.format("{}\nSuggestion: {}", diag.message, suggestion)
-    return diag
+    diag
 }
 
 add_diagnostic = (analyzer: *DiagnosticAnalyzer, diag: Diagnostic) void {
@@ -444,7 +446,7 @@ main = () i32 {
     
     io.print_int(y)
     
-    return 0
+    0
 }
 
 // Unused variable warning
@@ -470,5 +472,5 @@ needs_return = () i32 {
         io.print("\n")
     }
     
-    return 0
+    0
 }
