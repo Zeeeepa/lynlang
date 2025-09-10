@@ -34,6 +34,9 @@
   - Created language spec compliance test suite
   - Fixed pattern matching syntax (? | pattern => result)
   - Removed non-@std @ references (replaced with build.import)
+  - Fixed zen_diagnostics.zen to comply with language spec
+  - Found 147 files still containing if/else/match violations
+  - Tests failing due to stdlib compilation issues
 
 ## Key Files
 - `/LANGUAGE_SPEC.md` - Authoritative language specification
