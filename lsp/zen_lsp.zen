@@ -1,20 +1,21 @@
 // Zen Language Server Protocol Implementation
 // This LSP server provides IDE features for Zen language development
 
-io := @std.io
-json := @std.json
-net := @std.net
-fs := @std.fs
-string := @std.string
-vec := @std.vec
-map := @std.map
-result := @std.result
+build := @std.build
+io := build.import("io")
+json := build.import("json")
+net := build.import("net")
+fs := build.import("fs")
+string := build.import("string")
+vec := build.import("vec")
+map := build.import("map")
+result := build.import("result")
 
 // Import compiler modules for analysis
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-errors := @compiler.errors
+lexer := build.import("../compiler/lexer")
+parser := build.import("../compiler/parser")
+type_checker := build.import("../compiler/type_checker")
+errors := build.import("../compiler/errors")
 
 // LSP Message Types
 struct Message {

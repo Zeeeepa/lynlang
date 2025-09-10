@@ -1,0 +1,205 @@
+// Foreign Function Interface (FFI) Builder for Zen
+// Provides safe C interop using builder pattern as per language spec
+
+build := @std.build
+core := build.import("core")
+mem := build.import("mem")
+string := build.import("string")
+
+// Function signature for FFI
+FnSignature = {
+    params: Slice<Type>,
+    returns: Type,
+}
+
+// Type representation for FFI
+Type = 
+    | Void
+    | Bool
+    | I8 | I16 | I32 | I64
+    | U8 | U16 | U32 | U64
+    | F32 | F64
+    | Pointer(inner: Ptr<Type>)
+    | String
+    | RawPointer
+
+// Library handle
+Library = {
+    handle: RawPtr<void>,
+    name: string,
+    functions: HashMap<string, FnPtr>,
+    constants: HashMap<string, Value>,
+}
+
+// Function pointer wrapper
+FnPtr = {
+    ptr: RawPtr<void>,
+    signature: FnSignature,
+}
+
+// Generic value holder for constants
+Value = {
+    type_tag: Type,
+    data: RawPtr<void>,
+}
+
+// Library builder for safe configuration
+LibBuilder = {
+    name: string,
+    lib_path: Option<string>,
+    functions: Vec<(string, FnSignature)>,
+    constants: Vec<(string, Type)>,
+    
+    // Builder methods
+    path: (self: Ptr<LibBuilder>, p: string) Ptr<LibBuilder> {
+        self.value.lib_path = Some(p)
+        self
+    },
+    
+    function: (self: Ptr<LibBuilder>, name: string, sig: FnSignature) Ptr<LibBuilder> {
+        self.value.functions.push((name, sig))
+        self
+    },
+    
+    constant: (self: Ptr<LibBuilder>, name: string, type: Type) Ptr<LibBuilder> {
+        self.value.constants.push((name, type))
+        self
+    },
+    
+    build: (self: Ptr<LibBuilder>) Result<Library, string> {
+        // Load the library
+        lib_path := self.value.lib_path ?
+            | .Some -> path => path
+            | .None => default_lib_path(self.value.name)
+        
+        handle := load_library(lib_path) ?
+            | .Ok -> h => h
+            | .Err -> err => return .Err(err)
+        
+        // Create the library object
+        lib := Library{
+            handle: handle,
+            name: self.value.name,
+            functions: HashMap::new(),
+            constants: HashMap::new(),
+        }
+        
+        // Load all functions
+        (0..self.value.functions.len()).loop((i) => {
+            func_def := self.value.functions[i]
+            symbol := load_symbol(handle, func_def.0) ?
+                | .Ok -> s => {
+                    fn_ptr := FnPtr{
+                        ptr: s,
+                        signature: func_def.1,
+                    }
+                    lib.functions.insert(func_def.0, fn_ptr)
+                }
+                | .Err -> _ => {} // Skip missing symbols
+        })
+        
+        // Load all constants
+        (0..self.value.constants.len()).loop((i) => {
+            const_def := self.value.constants[i]
+            symbol := load_symbol(handle, const_def.0) ?
+                | .Ok -> s => {
+                    value := Value{
+                        type_tag: const_def.1,
+                        data: s,
+                    }
+                    lib.constants.insert(const_def.0, value)
+                }
+                | .Err -> _ => {} // Skip missing constants
+        })
+        
+        .Ok(lib)
+    },
+}
+
+// Main FFI interface
+FFI = {
+    // Create a new library builder
+    lib: (name: string) Ptr<LibBuilder> {
+        Ptr::new(LibBuilder{
+            name: name,
+            lib_path: None,
+            functions: Vec::new(),
+            constants: Vec::new(),
+        })
+    },
+}
+
+// Platform-specific library loading
+load_library = (path: string) Result<RawPtr<void>, string> {
+    // This would use platform-specific code
+    @std.target.os ?
+        | .linux => load_library_linux(path)
+        | .windows => load_library_windows(path)
+        | .macos => load_library_macos(path)
+        | _ => .Err("Unsupported platform")
+}
+
+// Platform-specific symbol loading
+load_symbol = (lib: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+    @std.target.os ?
+        | .linux => load_symbol_linux(lib, name)
+        | .windows => load_symbol_windows(lib, name)
+        | .macos => load_symbol_macos(lib, name)
+        | _ => .Err("Unsupported platform")
+}
+
+// Get default library path for platform
+default_lib_path = (name: string) string {
+    @std.target.os ?
+        | .linux => "/usr/lib/lib$(name).so"
+        | .windows => "$(name).dll"
+        | .macos => "/usr/lib/lib$(name).dylib"
+        | _ => name
+}
+
+// Linux implementation
+load_library_linux = (path: string) Result<RawPtr<void>, string> {
+    // Would use dlopen
+    .Err("Not yet implemented")
+}
+
+load_symbol_linux = (lib: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+    // Would use dlsym
+    .Err("Not yet implemented")
+}
+
+// Windows implementation
+load_library_windows = (path: string) Result<RawPtr<void>, string> {
+    // Would use LoadLibrary
+    .Err("Not yet implemented")
+}
+
+load_symbol_windows = (lib: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+    // Would use GetProcAddress
+    .Err("Not yet implemented")
+}
+
+// macOS implementation
+load_library_macos = (path: string) Result<RawPtr<void>, string> {
+    // Would use dlopen
+    .Err("Not yet implemented")
+}
+
+load_symbol_macos = (lib: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+    // Would use dlsym
+    .Err("Not yet implemented")
+}
+
+// Example usage (from language spec):
+// sqlite := FFI.lib("sqlite3")
+//     .path("/usr/lib/libsqlite3.so")
+//     .function("sqlite3_open", { 
+//         params: [string, Ptr<RawPtr<void>>],
+//         returns: i32,
+//     })
+//     .function("sqlite3_close", {
+//         params: [RawPtr<void>],
+//         returns: i32,
+//     })
+//     .constant("SQLITE_OK", i32)
+//     .build()

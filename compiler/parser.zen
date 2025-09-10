@@ -1,11 +1,12 @@
 // Self-hosted Zen Parser
 // This module parses tokens into an AST
 
-core := @std.core
-vec := @std.vec
-string := @std.string
-lexer := @compiler.lexer
-errors := @compiler.errors
+build := @std.build
+core := build.import("core")
+vec := build.import("vec")
+string := build.import("string")
+lexer := build.import("../compiler/lexer")
+errors := build.import("../compiler/errors")
 
 // Import token types from lexer
 Token := lexer.Token
@@ -292,19 +293,17 @@ parse_item = (parser: Ptr<Parser>) AstNode {
     token := peek(parser)
     
     // Check for module-level imports (name := @std.module or name := build.import("module"))
-    match token.kind {
+    token.kind ?
         | TokenKind.Identifier(name) => {
             next := peek_next(parser)
-            match next.kind {
+            next.kind ?
                 | TokenKind.ColonAssign => {
                     // This could be a module import or a constant
                     return parse_module_level_declaration(parser)
                 }
                 | _ => {}
-            }
         }
         | _ => {}
-    }
     
     token.kind ?
         | TokenKind.Keyword("fn") => return parse_function(parser)
@@ -933,13 +932,12 @@ parse_type = (parser: Ptr<Parser>) Type {
         } | {
             // Parse array size
             size_token := advance(parser)
-            size := match size_token.kind {
-                | TokenKind.IntegerLit(n) => Option<u32>.Some(n as u32)
+            size := size_token.kind ?
+                | .IntegerLit(n) => Option<u32>.Some(n as u32)
                 | _ => {
                     add_error(parser, "Expected array size")
                     Option<u32>.None
                 }
-            }
             expect(parser, TokenKind.RightBracket, "Expected ']' after array size")
             return Type.Array(ptr_new(base_type), size)
         }
@@ -967,8 +965,8 @@ parse_type = (parser: Ptr<Parser>) Type {
 parse_base_type = (parser: Ptr<Parser>) Type {
     token := advance(parser)
     
-    match token.kind {
-        | TokenKind.Identifier(name) => {
+    token.kind ?
+        | .Identifier(name) => {
             // Check for generic parameters
             check(parser, TokenKind.Less) ? {
                 advance(parser)
@@ -1004,7 +1002,7 @@ parse_base_type = (parser: Ptr<Parser>) Type {
             
             return Type.Named(name)
         }
-        | TokenKind.LeftParen => {
+        | .LeftParen => {
             // Parse tuple type or function type
             types := vec_new<Type>()
             
@@ -1036,24 +1034,23 @@ parse_base_type = (parser: Ptr<Parser>) Type {
             add_error(parser, "Expected type")
             return Type.Named("unknown")
         }
-    }
 }
 
 parse_pattern = (parser: Ptr<Parser>) Pattern {
     token := peek(parser)
     
-    match token.kind {
-        | TokenKind.Underscore => {
+    token.kind ?
+        | .Underscore => {
             advance(parser)
             return Pattern.Wildcard
         }
-        | TokenKind.IntegerLit(_) | TokenKind.FloatLit(_) | 
-          TokenKind.StringLit(_) | TokenKind.CharLit(_) |
-          TokenKind.BoolLit(_) => {
+        | .IntegerLit(_) | .FloatLit(_) | 
+          .StringLit(_) | .CharLit(_) |
+          .BoolLit(_) => {
             literal := parse_primary_expression(parser)
             return Pattern.Literal(literal)
         }
-        | TokenKind.Identifier(name) => {
+        | .Identifier(name) => {
             advance(parser)
             
             // Check if it's an enum variant or struct pattern
@@ -1101,7 +1098,7 @@ parse_pattern = (parser: Ptr<Parser>) Pattern {
             // Simple identifier pattern
             return Pattern.Ident(name)
         }
-        | TokenKind.LeftParen => {
+        | .LeftParen => {
             // Tuple pattern
             advance(parser)
             elements := vec_new<Pattern>()
@@ -1125,7 +1122,6 @@ parse_pattern = (parser: Ptr<Parser>) Pattern {
             add_error(parser, "Invalid pattern")
             return Pattern.Wildcard
         }
-    }
 }
 
 parse_var_statement = (parser: Ptr<Parser>) AstNode {
@@ -1562,13 +1558,12 @@ parse_builtin_import = (parser: Ptr<Parser>) AstNode {
     
     // First component (e.g., "std" or "compiler")
     first_token := expect(parser, TokenKind.Identifier(""), "Expected module name after @")
-    first := match first_token.kind {
-        | TokenKind.Identifier(name) => name
+    first := first_token.kind ?
+        | .Identifier(name) => name
         | _ => {
             add_error(parser, "Invalid builtin module name")
             return AstNode.IntLit(0)
         }
-    }
     path.push(first)
     
     // Parse additional components separated by dots
@@ -1577,10 +1572,9 @@ parse_builtin_import = (parser: Ptr<Parser>) AstNode {
             | true => {
                 advance(parser)  // consume '.'
                 component_token := expect(parser, TokenKind.Identifier(""), "Expected module component after '.'")
-                component := match component_token.kind {
-                    | TokenKind.Identifier(name) => name
+                component := component_token.kind ?
+                    | .Identifier(name) => name
                     | _ => break
-                }
                 path.push(component)
             }
             | false => break
@@ -1595,22 +1589,21 @@ parse_builtin_import = (parser: Ptr<Parser>) AstNode {
 parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
     // Get the identifier name
     name_token := advance(parser)
-    name := match name_token.kind {
-        | TokenKind.Identifier(n) => n
+    name := name_token.kind ?
+        | .Identifier(n) => n
         | _ => {
             add_error(parser, "Expected identifier")
             return AstNode.IntLit(0)
         }
-    }
     
     // Consume :=
     expect(parser, TokenKind.ColonAssign, "Expected ':=' after identifier")
     
     // Check what follows
     token := peek(parser)
-    match token.kind {
+    token.kind ?
         // @std.module pattern
-        | TokenKind.At => {
+        | .At => {
             // Imports are now allowed everywhere, including in comptime blocks
             advance(parser)  // consume '@'
             
@@ -1619,26 +1612,25 @@ parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
             return AstNode.Import(path, Option<string>.Some(name))
         }
         // build.import("module") pattern
-        | TokenKind.Identifier(id) if id == "build" => {
+        | .Identifier(id) if id == "build" => {
             // Imports are now allowed everywhere, including in comptime blocks
             
             advance(parser)  // consume 'build'
             expect(parser, TokenKind.Dot, "Expected '.' after 'build'")
             
             import_token := advance(parser)
-            match import_token.kind {
-                | TokenKind.Identifier(func) if func == "import" => {
+            import_token.kind ?
+                | .Identifier(func) if func == "import" => {
                     expect(parser, TokenKind.LeftParen, "Expected '(' after 'import'")
                     
                     // Get module name from string literal
                     module_token := advance(parser)
-                    module_name := match module_token.kind {
-                        | TokenKind.StringLit(s) => s
+                    module_name := module_token.kind ?
+                        | .StringLit(s) => s
                         | _ => {
                             add_error(parser, "Expected string literal for module name")
                             return AstNode.IntLit(0)
                         }
-                    }
                     
                     expect(parser, TokenKind.RightParen, "Expected ')' after module name")
                     
@@ -1649,14 +1641,12 @@ parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
                     add_error(parser, "Expected 'import' after 'build.'")
                     return AstNode.IntLit(0)
                 }
-            }
         }
         // Otherwise it's a constant declaration
         | _ => {
             value := parse_expression(parser)
             return AstNode.VarDecl(name, Option<Type>.None, Option<Ptr<AstNode>>.Some(ptr_new(value)), false)
         }
-    }
 }
 
 // Parse module path (e.g., std.core, std.io)
@@ -1665,29 +1655,27 @@ parse_module_path = (parser: Ptr<Parser>) string {
     
     // Expect identifier
     token := advance(parser)
-    match token.kind {
-        | TokenKind.Identifier(id) => {
+    token.kind ?
+        | .Identifier(id) => {
             path = id
         }
         | _ => {
             add_error(parser, "Expected module path")
             return ""
         }
-    }
     
     // Parse additional segments
     loop check(parser, TokenKind.Dot) {
         advance(parser)  // consume '.'
         segment_token := advance(parser)
-        match segment_token.kind {
-            | TokenKind.Identifier(seg) => {
+        segment_token.kind ?
+            | .Identifier(seg) => {
                 path = path + "." + seg
             }
             | _ => {
                 add_error(parser, "Expected identifier after '.'")
                 break
             }
-        }
     }
     
     return path
@@ -1699,23 +1687,21 @@ parse_import = (parser: Ptr<Parser>) AstNode {
     
     // Parse the import path (string literal expected)
     path_token := expect(parser, TokenKind.StringLit(""), "Expected import path as string")
-    path := match path_token.kind {
-        | TokenKind.StringLit(s) => s
+    path := path_token.kind ?
+        | .StringLit(s) => s
         | _ => {
             add_error(parser, "Invalid import path")
             return AstNode.IntLit(0)
         }
-    }
     
     // Check for optional alias
     alias := check(parser, TokenKind.Keyword("as")) ?
         | true => {
             advance(parser)  // consume 'as'
             alias_token := expect(parser, TokenKind.Identifier(""), "Expected alias name")
-            match alias_token.kind {
-                | TokenKind.Identifier(name) => Option<string>.Some(name)
+            alias_token.kind ?
+                | .Identifier(name) => Option<string>.Some(name)
                 | _ => Option<string>.None
-            }
         }
         | false => Option<string>.None
     

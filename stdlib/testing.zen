@@ -1,9 +1,10 @@
 // Simple testing framework for Zen
 // Provides basic test runner and assertion utilities
 
-io := @std.io
-string := @std.string
-time := @std.time
+build := @std.build
+io := build.import("io")
+string := build.import("string")
+time := build.import("time")
 
 // Test result structure
 struct TestResult {
@@ -50,13 +51,15 @@ run_test = (suite: &mut TestSuite, name: string, test_fn: () bool) void {
         error_message: Option<string>.None
     }
     
-    if passed {
-        io.print("✓ PASS")
-        suite.passed = suite.passed + 1
-    } else {
-        io.print("✗ FAIL")
-        suite.failed = suite.failed + 1
-    }
+    passed ? 
+        | true => {
+            io.print("✓ PASS")
+            suite.passed = suite.passed + 1
+        }
+        | false => {
+            io.print("✗ FAIL")
+            suite.failed = suite.failed + 1
+        }
     
     io.print(" (")
     io.print(time.format_duration(duration))
@@ -76,8 +79,8 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
     result_val := test_fn()
     duration := time.since(start)
     
-    match result_val {
-        | Result<bool, string>.Ok(passed) => {
+    result_val ?
+        | .Ok -> passed => {
             result := TestResult {
                 name: name,
                 passed: passed,
@@ -85,17 +88,19 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
                 error_message: Option<string>.None
             }
             
-            if passed {
-                io.print("✓ PASS")
-                suite.passed = suite.passed + 1
-            } else {
-                io.print("✗ FAIL")
-                suite.failed = suite.failed + 1
-            }
+            passed ? 
+                | true => {
+                    io.print("✓ PASS")
+                    suite.passed = suite.passed + 1
+                }
+                | false => {
+                    io.print("✗ FAIL")
+                    suite.failed = suite.failed + 1
+                }
             
             vec.push(&mut suite.tests, result)
         }
-        | Result<bool, string>.Err(msg) => {
+        | .Err -> msg => {
             result := TestResult {
                 name: name,
                 passed: false,
@@ -136,68 +141,65 @@ print_summary = (suite: &TestSuite) void {
     io.print_int(suite.failed)
     io.print("\n")
     
-    if suite.failed > 0 {
-        io.print("\nFailed tests:\n")
-        for i := 0; i < vec.len(suite.tests); i = i + 1 {
-            test := vec.get(suite.tests, i)
-            if !test.passed {
-                io.print("  - ")
-                io.print(test.name)
-                match test.error_message {
-                    | Option<string>.Some(msg) => {
-                        io.print(": ")
-                        io.print(msg)
+    (suite.failed > 0) ? 
+        | true => {
+            io.print("\nFailed tests:\n")
+            i := 0
+            loop (i < vec.len(suite.tests)) {
+                test := vec.get(suite.tests, i)
+                (!test.passed) ? 
+                    | true => {
+                        io.print("  - ")
+                        io.print(test.name)
+                        test.error_message ? 
+                            | .Some -> msg => {
+                                io.print(": ")
+                                io.print(msg)
+                            }
+                            | .None => {}
+                        io.print("\n")
                     }
-                    | Option<string>.None => {}
-                }
-                io.print("\n")
+                    | false => {}
+                i = i + 1
             }
         }
-    }
+        | false => {}
     
     io.print("\n")
-    if suite.failed == 0 {
-        io.print("✅ All tests passed!\n")
-    } else {
-        io.print("❌ Some tests failed.\n")
-    }
+    (suite.failed == 0) ? 
+        | true => io.print("✅ All tests passed!\n")
+        | false => io.print("❌ Some tests failed.\n")
 }
 
 // Basic assertions
 assert_true = (condition: bool, message: string) Result<bool, string> {
-    if condition {
-        return Result<bool, string>.Ok(true)
-    } else {
-        return Result<bool, string>.Err(message)
-    }
+    condition ? 
+        | true => Result<bool, string>.Ok(true)
+        | false => Result<bool, string>.Err(message)
 }
 
 assert_false = (condition: bool, message: string) Result<bool, string> {
-    if !condition {
-        return Result<bool, string>.Ok(true)
-    } else {
-        return Result<bool, string>.Err(message)
-    }
+    (!condition) ? 
+        | true => Result<bool, string>.Ok(true)
+        | false => Result<bool, string>.Err(message)
 }
 
 assert_eq = <T>(actual: T, expected: T, message: string) Result<bool, string> {
-    if actual == expected {
-        return Result<bool, string>.Ok(true)
-    } else {
-        msg := string.concat(message, " - Expected: ")
-        msg = string.concat(msg, string.to_string(expected))
-        msg = string.concat(msg, ", Got: ")
-        msg = string.concat(msg, string.to_string(actual))
-        return Result<bool, string>.Err(msg)
-    }
+    (actual == expected) ? 
+        | true => Result<bool, string>.Ok(true)
+        | false => {
+            msg := string.concat(message, " - Expected: ")
+            msg = string.concat(msg, string.to_string(expected))
+            msg = string.concat(msg, ", Got: ")
+            msg = string.concat(msg, string.to_string(actual))
+            Result<bool, string>.Err(msg)
+        }
 }
 
 assert_ne = <T>(actual: T, not_expected: T, message: string) Result<bool, string> {
-    if actual != not_expected {
-        return Result<bool, string>.Ok(true)
-    } else {
-        return Result<bool, string>.Err(message)
-    }
+    (actual != not_expected) ? 
+        | true => Result<bool, string>.Ok(true)
+        | false => Result<bool, string>.Err(message)
 }
 
 // Benchmark a function
@@ -209,8 +211,10 @@ benchmark = (name: string, iterations: i32, fn: () void) void {
     io.print(" iterations)\n")
     
     start := time.now()
-    for i := 0; i < iterations; i = i + 1 {
+    i := 0
+    loop (i < iterations) {
         fn()
+        i = i + 1
     }
     total_duration := time.since(start)
     
@@ -227,16 +231,16 @@ benchmark = (name: string, iterations: i32, fn: () void) void {
 run_tests = (name: string, tests: [](() bool)) i32 {
     mut suite := new_suite(name)
     
-    for i := 0; i < tests.len(); i = i + 1 {
+    i := 0
+    loop (i < tests.len()) {
         test_name := string.concat("Test ", string.from_int(i + 1))
         run_test(&mut suite, test_name, tests[i])
+        i = i + 1
     }
     
     print_summary(&suite)
     
-    if suite.failed > 0 {
-        return 1
-    } else {
-        return 0
-    }
+    (suite.failed > 0) ? 
+        | true => 1
+        | false => 0
 }
