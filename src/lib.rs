@@ -9,6 +9,7 @@ pub mod codegen;
 pub mod compiler;
 pub mod comptime;
 pub mod error;
+pub mod ffi;
 pub mod lexer;
 pub mod module_system;
 pub mod parser;
