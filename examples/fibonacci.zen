@@ -13,14 +13,14 @@ fib_recursive = (n: i32) i32 {
 // Calculate fibonacci number iteratively
 fib_iterative = (n: i32) i32 {
     n <= 1 ?
-        | true => n
-        | false => {}
+        | true => return n
+        | false => 0  // Continue to iterative calculation
     
     prev: i32 = 0
     curr: i32 = 1
     i: i32 = 2
     
-    loop i <= n {
+    loop (i <= n) {
         next: i32 = prev + curr
         prev = curr
         curr = next
@@ -37,7 +37,7 @@ print_fib_sequence = (n: i32) void {
     io.println(" terms):")
     
     i: i32 = 0
-    loop i < n {
+    loop (i < n) {
         fib: i32 = fib_iterative(i)
         io.print("  fib(")
         io.print_int(i)
