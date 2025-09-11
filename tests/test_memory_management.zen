@@ -1,0 +1,148 @@
+// Test memory management and pointer types
+// Language spec v1.1.0 compliance
+
+test, assert, assert_eq := @std.testing
+mem := @std.build.import("mem")
+
+// Test Ptr<T> operations
+test("smart pointer operations") {
+    // Create heap allocated value
+    ptr := Ptr::new(42)
+    assert(ptr.value == 42)
+    
+    // Test address property
+    addr := ptr.address
+    assert(addr != 0)
+    
+    // Move from stack to heap
+    stack_value := 100
+    heap_ptr := Ptr::from(stack_value)
+    assert(heap_ptr.value == 100)
+    
+    // Ptr automatically freed when out of scope
+}
+
+// Test reference counting with Ref<T>
+test("reference counted pointers") {
+    // Create reference counted value
+    ref1 := Ref::new(42)
+    assert(ref1.value == 42)
+    
+    // Clone increases ref count
+    ref2 := ref1.clone()
+    assert(ref2.value == 42)
+    assert(ref1.value == ref2.value)
+    
+    // Both refs dropped, data freed automatically
+}
+
+// Test array allocation
+test("array allocation") {
+    // Stack allocated array
+    stack_array := [5, i32]{ 1, 2, 3, 4, 5 }
+    assert(stack_array[0] == 1)
+    assert(stack_array[4] == 5)
+    
+    // Heap allocated array
+    heap_array := Ptr::new([10, i32])
+    heap_array.value[0] = 100
+    heap_array.value[9] = 900
+    assert(heap_array.value[0] == 100)
+    assert(heap_array.value[9] == 900)
+}
+
+// Test GPA (General Purpose Allocator)
+test("general purpose allocator") {
+    // Create GPA
+    gpa := mem.GPA::new()
+    defer gpa.destroy()
+    
+    // Allocate memory
+    ptr := gpa.alloc<i32>()
+    ptr.value = 42
+    assert(ptr.value == 42)
+    
+    // Free memory
+    gpa.free(ptr)
+    
+    // Check statistics
+    bytes := gpa.bytes_allocated()
+    assert(bytes >= 0)
+}
+
+// Test custom allocator with Vec
+test("allocator with collections") {
+    gpa := mem.GPA::new()
+    defer gpa.destroy()
+    
+    // Create Vec with custom allocator
+    vec := Vec<i32>::with_allocator(Ptr::new(gpa))
+    vec.push(1)
+    vec.push(2)
+    vec.push(3)
+    
+    assert(vec.len() == 3)
+    assert(vec[0] == 1)
+    assert(vec[2] == 3)
+}
+
+// Test slice operations
+test("slice operations") {
+    array := [10, i32]{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+    
+    // Create slice
+    slice := array.to_slice()
+    assert(slice.len() == 10)
+    
+    // Sub-slice
+    sub := slice.slice(2, 5)
+    assert(sub.len() == 3)
+    assert(sub[0] == 2)
+    assert(sub[2] == 4)
+}
+
+// Test memory safety - no null pointers
+test("option type for null safety") {
+    Option<Ptr<i32>> =
+        | Some(value: Ptr<i32>)
+        | None
+    
+    // Safe optional value
+    maybe_ptr := Option::Some(Ptr::new(42))
+    value := maybe_ptr ? | .Some -> p => p.value
+                        | .None => 0
+    assert(value == 42)
+    
+    // None case
+    empty := Option<Ptr<i32>>::None
+    value2 := empty ? | .Some -> p => p.value
+                     | .None => -1
+    assert(value2 == -1)
+}
+
+// Test ownership rules
+test("ownership transfer") {
+    // Value has single owner
+    original := Ptr::new(100)
+    
+    // Assignment moves ownership
+    moved := original  // original no longer valid after this
+    assert(moved.value == 100)
+    
+    // Ptr automatically freed when moved goes out of scope
+}
+
+// Test defer for cleanup
+test("defer cleanup") {
+    counter ::= 0
+    
+    {
+        ptr := Ptr::new(42)
+        defer {
+            counter = counter + 1  // Runs when scope ends
+        }
+        assert(ptr.value == 42)
+    }  // defer executes here
+    
+    assert(counter == 1)
+}

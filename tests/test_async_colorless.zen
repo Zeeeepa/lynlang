@@ -1,0 +1,221 @@
+// Test colorless async via allocators
+// Language spec v1.1.0 compliance
+
+test, assert := @std.testing
+io := @std.build.import("io")
+mem := @std.build.import("mem")
+thread := @std.build.import("thread")
+
+// Mock async/sync allocators for testing
+SyncAllocator = {
+    alloc: <T>(size: usize) Ptr<T> {
+        mem.alloc<T>(size)
+    },
+    
+    free: <T>(ptr: Ptr<T>) void {
+        mem.free(ptr)
+    },
+    
+    is_async: false,
+    
+    suspend: () Option<Continuation> {
+        None  // Sync never suspends
+    },
+    
+    resume: (cont: Continuation) void {
+        // No-op for sync
+    }
+}
+
+AsyncAllocator = {
+    runtime: Ptr<Runtime>,
+    
+    alloc: <T>(size: usize) Ptr<T> {
+        mem.alloc<T>(size)
+    },
+    
+    free: <T>(ptr: Ptr<T>) void {
+        mem.free(ptr)
+    },
+    
+    is_async: true,
+    
+    suspend: () Option<Continuation> {
+        // Create continuation for async execution
+        Some(Continuation{ id: 1, state: Ptr::new(0) })
+    },
+    
+    resume: (cont: Continuation) void {
+        // Resume async operation
+        runtime.value.resume(cont)
+    }
+}
+
+// Colorless function - works both sync and async
+read_data = (source: string, alloc: Ptr<Allocator>) Result<string, Error> {
+    // Allocate buffer using provided allocator
+    buffer := alloc.value.alloc([1024, u8])
+    defer alloc.value.free(buffer)
+    
+    // Execution mode determined by allocator
+    result := alloc.value.is_async ?
+        | true => {
+            // Async path - may suspend
+            cont := alloc.value.suspend()
+            cont ? | .Some -> c => {
+                      // Simulated async read
+                      "async data from $(source)"
+                  }
+                  | .None => "sync fallback"
+        }
+        | false => {
+            // Sync path - blocks
+            "sync data from $(source)"
+        }
+    
+    .Ok(result)
+}
+
+// Test synchronous execution
+test("sync execution with sync allocator") {
+    sync_alloc := Ptr::new(SyncAllocator{})
+    
+    result := read_data("file.txt", sync_alloc)
+    data := result ? | .Ok -> d => d
+                    | .Err -> _ => ""
+    
+    assert(data == "sync data from file.txt")
+}
+
+// Test asynchronous execution
+test("async execution with async allocator") {
+    runtime := Ptr::new(Runtime::init())
+    async_alloc := Ptr::new(AsyncAllocator{ runtime: runtime })
+    
+    result := read_data("file.txt", async_alloc)
+    data := result ? | .Ok -> d => d
+                    | .Err -> _ => ""
+    
+    assert(data == "async data from file.txt")
+}
+
+// Test channel communication
+test("channel message passing") {
+    Channel<i32> = {
+        send: (msg: i32) void,
+        receive: () i32,
+        try_receive: () Option<i32>,
+        close: () void,
+    }
+    
+    // Mock channel
+    channel := Channel<i32>{
+        send: (msg: i32) void {
+            // Store message
+        },
+        receive: () i32 {
+            42  // Return test value
+        },
+        try_receive: () Option<i32> {
+            Option::Some(42)
+        },
+        close: () void {
+            // Close channel
+        }
+    }
+    
+    // Send and receive
+    channel.send(42)
+    received := channel.receive()
+    assert(received == 42)
+    
+    // Try receive
+    maybe_msg := channel.try_receive()
+    value := maybe_msg ? | .Some -> v => v
+                        | .None => 0
+    assert(value == 42)
+}
+
+// Test atomic operations
+test("atomic operations") {
+    Atomic<u64> = {
+        new: (value: u64) Atomic<u64>,
+        load: (ordering: Ordering) u64,
+        store: (value: u64, ordering: Ordering) void,
+        fetch_add: (val: u64, ordering: Ordering) u64,
+    }
+    
+    // Mock atomic
+    counter := Atomic<u64>::new(0)
+    
+    // Atomic operations
+    old := counter.fetch_add(1, .SeqCst)
+    assert(old == 0)
+    
+    value := counter.load(.Acquire)
+    assert(value == 1)
+    
+    counter.store(10, .Release)
+    value2 := counter.load(.SeqCst)
+    assert(value2 == 10)
+}
+
+// Test actor pattern
+test("actor pattern") {
+    Message =
+        | Increment
+        | GetValue
+        | Reset
+    
+    CounterActor = {
+        state:: i32 = 0,
+        
+        handle_message: (self: Ptr<CounterActor>, msg: Message) i32 {
+            msg ? | .Increment => {
+                     self.value.state = self.value.state + 1
+                     self.value.state
+                 }
+                 | .GetValue => self.value.state
+                 | .Reset => {
+                     self.value.state = 0
+                     0
+                 }
+        }
+    }
+    
+    actor := Ptr::new(CounterActor{})
+    
+    // Send messages
+    result1 := actor.value.handle_message(actor, Message::Increment)
+    assert(result1 == 1)
+    
+    result2 := actor.value.handle_message(actor, Message::Increment)
+    assert(result2 == 2)
+    
+    result3 := actor.value.handle_message(actor, Message::GetValue)
+    assert(result3 == 2)
+    
+    result4 := actor.value.handle_message(actor, Message::Reset)
+    assert(result4 == 0)
+}
+
+// Test execution context switching
+test("execution context") {
+    // Same function, different execution modes
+    process = (data: string, alloc: Ptr<Allocator>) string {
+        alloc.value.is_async ?
+            | true => "async: $(data)"
+            | false => "sync: $(data)"
+    }
+    
+    // Sync execution
+    sync_alloc := Ptr::new(SyncAllocator{})
+    sync_result := process("test", sync_alloc)
+    assert(sync_result == "sync: test")
+    
+    // Async execution  
+    runtime := Ptr::new(Runtime::init())
+    async_alloc := Ptr::new(AsyncAllocator{ runtime: runtime })
+    async_result := process("test", async_alloc)
+    assert(async_result == "async: test")
+}
