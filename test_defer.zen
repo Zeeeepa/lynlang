@@ -1,0 +1,14 @@
+// Test defer statement parsing
+test_defer = () void {
+    file := open_file("test.txt")
+    defer file.close()
+    
+    buffer := allocate(1024)
+    defer {
+        free(buffer)
+    }
+    
+    // Use file and buffer
+    data := file.read(buffer)
+    process(data)
+}

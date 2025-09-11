@@ -272,6 +272,8 @@ pub enum Statement {
         alias: String,
         module_path: String,
     },
+    // Defer statement for cleanup
+    Defer(Box<Statement>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -14,6 +14,7 @@ pub enum Keyword {
     Continue,
     Return,
     Type,
+    Defer,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -359,6 +360,7 @@ impl<'a> Lexer<'a> {
             "continue" => Some(Keyword::Continue),
             "return" => Some(Keyword::Return),
             "type" => Some(Keyword::Type),
+            "defer" => Some(Keyword::Defer),
             _ => None,
         }
     }
