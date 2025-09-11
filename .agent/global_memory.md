@@ -8,9 +8,9 @@ Implementing Zenlang - a minimalist systems programming language with:
 - Smart pointers (no raw & or *)
 - Behaviors instead of traits
 
-## Recent Progress (2025-09-11)
+## Recent Progress (2025-09-11 21:25)
 - ✅ FFI builder pattern fully implemented in stdlib/ffi.zen
-- ✅ LSP server implemented and working (src/lsp/)
+- ✅ LSP server implemented with --version flag fix
 - ✅ Colorless async runtime implemented (src/async_runtime/)
 - ✅ Behaviors system implemented (src/behaviors/)
 - ✅ Range patterns implemented (0..10, 0..=10)
@@ -18,6 +18,7 @@ Implementing Zenlang - a minimalist systems programming language with:
 - ✅ Guard patterns implemented (v -> v > 100)
 - ✅ Fixed compiler warnings in async_runtime and behaviors
 - ✅ All tests passing (200+ tests across all suites)
+- ✅ Email summary sent to l.leong1618@gmail.com
 
 ## Architecture
 - Implementation language: Rust (not Zig as previously noted)
@@ -76,9 +77,11 @@ cargo build --release  # Release build
 - Import validation
 
 ## Known Issues
-- OOM issues during builds (need memory optimization) - Still present but manageable
+- OOM issues during builds - Memory spikes during LLVM codegen
+- LSP binary may hang on certain operations
 - Some advanced pattern matching features not fully implemented
 - Build system (build.zen) not fully implemented
+- Some dead code warnings in AST types
 
 ## Next Steps
 - Implement remaining pattern matching features
