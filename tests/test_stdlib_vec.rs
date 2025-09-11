@@ -1,11 +1,9 @@
-use zen::ast::{Declaration, AstType};
+use zen::ast::Declaration;
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use zen::compiler::Compiler;
-use inkwell::context::Context;
 
 mod test_output_verification;
-use test_output_verification::{ExecutionHelper, CapturedOutput};
+use test_output_verification::ExecutionHelper;
 
 #[test]
 fn test_vec_implementation_parses() {

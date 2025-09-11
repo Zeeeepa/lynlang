@@ -1,4 +1,4 @@
-use zen::ast::{Expression, ConditionalArm, Pattern};
+use zen::ast::{Expression, Pattern};
 use zen::lexer::Lexer;
 use zen::parser::Parser;
 

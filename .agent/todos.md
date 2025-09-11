@@ -1,47 +1,59 @@
-# Zenlang Project Todos
+# Zenlang Implementation TODOs
 
-## High Priority
-- [x] Implement core types (Option, Result, Vec, HashMap) - DONE
-- [x] Fix FFI builder pattern to use core types - DONE
-- [x] Create spec-compliant LSP implementation - DONE
-- [ ] Fix all if/else/match violations (1,692 remaining)
-- [ ] Complete pattern matching codegen (parser done, codegen WIP)
-- [ ] Implement comptime execution framework
-- [ ] Finish self-hosted lexer (30% complete)
-- [ ] Finish self-hosted parser (20% complete)
-- [ ] Implement behaviors (traits) system
+## High Priority (Core Language Features)
+- [ ] **Pattern Matching Enhancements**
+  - [ ] Implement range patterns (0..=12)
+  - [ ] Add or-patterns (1 | 2 | 3)
+  - [ ] Implement type patterns
+  - [ ] Add guard conditions with ->
+  
+- [ ] **Behaviors System**
+  - [ ] Define behavior struct format
+  - [ ] Implement behavior registration
+  - [ ] Add automatic derivation support
+  - [ ] Create standard behaviors (Comparable, Hashable, Serializable)
 
-## Medium Priority  
-- [ ] Complete UFCS implementation
-- [ ] Add string interpolation to codegen
-- [ ] Implement async/await with Task<T>
-- [x] Add smart pointers (Ptr<T>, Ref<T>) - DONE
-- [ ] Custom allocator interface
-- [ ] Implement GPA (General Purpose Allocator)
-- [ ] Complete stdlib modules (io, fs, net, etc.)
+- [ ] **Memory Management**
+  - [ ] Implement Ptr<T> type fully
+  - [ ] Add Ref<T> for reference counting
+  - [ ] Create GPA (General Purpose Allocator)
+  - [ ] Implement ownership rules enforcement
 
-## Low Priority
-- [ ] Package management system
-- [ ] Improved C FFI
-- [ ] Documentation generation
-- [ ] IDE support improvements
+## Medium Priority (Standard Library)
+- [ ] **Core Modules**
+  - [ ] io module (print, read_line, File operations)
+  - [ ] mem module (allocators)
+  - [ ] collections (Vec<T>, HashMap<K,V>, List<T>, Set<T>)
+  - [ ] math module (trig functions, constants)
+  - [ ] string utilities (split, join, format, parse)
+  
+- [ ] **Async Support**
+  - [ ] Implement colorless async via allocators
+  - [ ] Create Channel<T> for message passing
+  - [ ] Add Actor pattern support
+  - [ ] Implement Thread and Atomic types
 
-## Testing & Quality
-- [ ] Reach 100% test pass rate (currently 99.6%)
-- [ ] Add integration tests for standard library
-- [ ] Performance benchmarks
-- [ ] Fuzz testing for parser
+## Low Priority (Tooling & Polish)
+- [ ] **Build System**
+  - [ ] Implement build.zen configuration
+  - [ ] Add cross-compilation support
+  - [ ] Create package manager integration
+  
+- [ ] **Developer Experience**
+  - [ ] Enhance LSP with more features
+  - [ ] Add code formatting (zen fmt)
+  - [ ] Improve error messages
+  - [ ] Create documentation generator
 
-## Self-Hosting Milestones
-1. ✅ Core language features
-2. ✅ Standard library in Zen
-3. 🚧 Self-hosted lexer (30%)
-4. 🚧 Self-hosted parser (20%)
-5. ⏳ Comptime execution
-6. ⏳ Bootstrap with Zen stdlib
+## Completed Today (2025-09-11)
+- [x] Implemented FFI builder pattern
+- [x] Fixed LSP deprecation warnings
+- [x] Cleaned up unused imports and variables
+- [x] Verified all tests passing
 
-## Documentation
-- [x] Language specification (LANGUAGE_SPEC.md)
-- [ ] Tutorial series
-- [ ] Standard library API docs
-- [ ] Compiler internals guide
+## Notes
+- Language spec v1.1.0 is the authoritative reference
+- NO if/else keywords - only ? operator
+- All errors must be values (Result/Option)
+- No lifetime annotations - use smart pointers
+- Tests should be added for each new feature

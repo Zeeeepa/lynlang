@@ -1,6 +1,6 @@
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use zen::ast::{Statement, Expression, VariableDeclarationType};
+use zen::ast::Expression;
 
 #[test]
 fn test_parse_std_namespace() {

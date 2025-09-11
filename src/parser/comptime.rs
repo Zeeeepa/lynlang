@@ -22,7 +22,7 @@ impl<'a> Parser<'a> {
         
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
             // Check for import attempts inside comptime blocks
-            if let Token::Identifier(name) = &self.current_token {
+            if let Token::Identifier(_name) = &self.current_token {
                 if self.peek_token == Token::Operator(":=".to_string()) {
                     // Look ahead to see if this is an import
                     let saved_current = self.current_token.clone();

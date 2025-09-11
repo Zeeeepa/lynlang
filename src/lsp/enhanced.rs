@@ -447,7 +447,7 @@ fn get_text_in_range(content: &str, range: Range) -> String {
 /// Semantic tokens for syntax highlighting
 pub fn get_semantic_tokens(content: &str) -> SemanticTokens {
     let lexer = Lexer::new(content);
-    let parser = Parser::new(lexer);
+    let _parser = Parser::new(lexer);
     
     let tokens = Vec::new();
     

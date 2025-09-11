@@ -1,11 +1,8 @@
 extern crate test_utils;
 
-use zen::ast::{self, AstType, Expression, Statement, BinaryOperator, ConditionalArm, Pattern, VariableDeclarationType};
+use zen::ast::{self, AstType, Expression, Statement, BinaryOperator, ConditionalArm, Pattern};
 use test_utils::TestContext;
-use zen::error::CompileError;
 use inkwell::context::Context;
-use inkwell::OptimizationLevel;
-use inkwell::execution_engine::JitFunction;
 use test_utils::test_context;
 
 #[test]

@@ -1,4 +1,3 @@
-use zen::ast;
 use std::process::Command;
 use std::fs;
 use tempfile::TempDir;

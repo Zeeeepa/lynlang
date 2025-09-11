@@ -1,5 +1,4 @@
 use inkwell::context::Context;
-use inkwell::execution_engine::ExecutionEngine;
 use inkwell::targets::{Target, TargetMachine, RelocMode, CodeModel, FileType};
 use inkwell::OptimizationLevel;
 use std::io::{self, Write, BufRead};

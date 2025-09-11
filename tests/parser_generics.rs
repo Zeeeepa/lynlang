@@ -1,6 +1,6 @@
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use zen::ast::{AstType, TypeParameter, Program, Declaration, Statement, Function};
+use zen::ast::{AstType, Declaration, Statement};
 
 #[test]
 fn test_parse_generic_type_instantiation() {

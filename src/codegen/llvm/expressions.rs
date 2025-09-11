@@ -157,7 +157,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let mut unmatched_block = None;
         
         // Check if we have exhaustive boolean patterns (true and false) for the entire conditional
-        let is_exhaustive_boolean = arms.len() == 2 && {
+        let _is_exhaustive_boolean = arms.len() == 2 && {
             let has_true = arms.iter().any(|a| {
                 if let crate::ast::Pattern::Literal(expr) = &a.pattern {
                     matches!(expr, crate::ast::Expression::Boolean(true))
