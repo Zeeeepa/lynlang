@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::ast::{AstType, Expression, Function};
+use crate::ast::{AstType, Expression};
 use crate::error::{CompileError, Result};
 
 /// Represents a behavior definition - a struct of function pointers
@@ -241,7 +241,7 @@ impl BehaviorRegistry {
     /// Auto-derive Comparable for a type
     fn derive_comparable(&mut self, type_name: &str) -> Result<()> {
         // Generate comparison function based on type structure
-        let compare_fn = Arc::new(move |args: &[Expression]| -> Expression {
+        let compare_fn = Arc::new(move |_args: &[Expression]| -> Expression {
             // Basic lexicographic comparison for structs
             // This would be expanded based on actual type structure
             Expression::Integer32(0)
@@ -262,7 +262,7 @@ impl BehaviorRegistry {
     /// Auto-derive Hashable for a type
     fn derive_hashable(&mut self, type_name: &str) -> Result<()> {
         // Generate hash function based on type structure
-        let hash_fn = Arc::new(move |args: &[Expression]| -> Expression {
+        let hash_fn = Arc::new(move |_args: &[Expression]| -> Expression {
             // Basic hash combining for structs
             // This would be expanded based on actual type structure
             Expression::Integer64(0)
@@ -283,7 +283,7 @@ impl BehaviorRegistry {
 
 /// Helper to create behavior instances for generic functions
 pub fn create_behavior_instance<T>(
-    behavior_name: &str,
+    _behavior_name: &str,
     compare_fn: impl Fn(&T, &T) -> i32 + Send + Sync + 'static,
 ) -> Arc<dyn Fn(&T, &T) -> i32 + Send + Sync> {
     Arc::new(compare_fn)

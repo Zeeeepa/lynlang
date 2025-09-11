@@ -271,6 +271,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     matches
                 }
             }
+            
+            Pattern::Type { type_name: _, binding } => {
+                // Type patterns check if the scrutinee matches a specific type
+                // For now, we'll just bind the value if there's a binding
+                if let Some(bind_name) = binding {
+                    bindings.push((bind_name.clone(), *scrutinee_val));
+                }
+                // TODO: Implement actual type checking
+                // For now, assume it matches
+                self.context.bool_type().const_int(1, false)
+            }
+            
+            Pattern::Guard { pattern, condition } => {
+                // First check if the pattern matches
+                let (pattern_match, mut pattern_bindings) = self.compile_pattern_test(scrutinee_val, pattern)?;
+                
+                // If pattern matches, evaluate the guard condition
+                // For now, we need to set up the bindings before evaluating the condition
+                for (name, value) in &pattern_bindings {
+                    // Store the value in memory so we can use it
+                    let alloca = self.builder.build_alloca(value.get_type(), &name)?;
+                    self.builder.build_store(alloca, *value)?;
+                    self.symbols.insert(name.clone(), symbols::Symbol::Variable(alloca));
+                }
+                
+                // Compile the guard condition
+                let condition_val = self.compile_expression(condition)?;
+                
+                // The condition should be a boolean
+                if !condition_val.is_int_value() {
+                    return Err(CompileError::TypeMismatch {
+                        expected: "boolean condition in guard".to_string(),
+                        found: format!("{:?}", condition_val.get_type()),
+                        span: None,
+                    });
+                }
+                
+                // Combine pattern match with guard condition
+                let guard_result = self.builder.build_and(
+                    pattern_match,
+                    condition_val.into_int_value(),
+                    "guard_match"
+                )?;
+                
+                bindings.append(&mut pattern_bindings);
+                guard_result
+            }
         };
         
         Ok((matches, bindings))
