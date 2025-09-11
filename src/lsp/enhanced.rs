@@ -60,7 +60,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                     ),
                     children: None,
                     tags: None,
-                    deprecated: None,
+                    deprecated: None
                 });
             }
             
@@ -78,7 +78,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                 ),
                 children: if children.is_empty() { None } else { Some(children) },
                 tags: None,
-                deprecated: None,
+                deprecated: None
             })
         }
         Declaration::Struct(s) => {
@@ -100,7 +100,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                     ),
                     children: None,
                     tags: None,
-                    deprecated: None,
+                    deprecated: None
                 });
             }
             
@@ -118,7 +118,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                 ),
                 children: if children.is_empty() { None } else { Some(children) },
                 tags: None,
-                deprecated: None,
+                deprecated: None
             })
         }
         Declaration::Enum(e) => {
@@ -140,7 +140,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                     ),
                     children: None,
                     tags: None,
-                    deprecated: None,
+                    deprecated: None
                 });
             }
             
@@ -158,7 +158,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                 ),
                 children: if children.is_empty() { None } else { Some(children) },
                 tags: None,
-                deprecated: None,
+                deprecated: None
             })
         }
         Declaration::Behavior(b) => {
@@ -180,7 +180,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                     ),
                     children: None,
                     tags: None,
-                    deprecated: None,
+                    deprecated: None
                 });
             }
             
@@ -198,7 +198,7 @@ fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymb
                 ),
                 children: if children.is_empty() { None } else { Some(children) },
                 tags: None,
-                deprecated: None,
+                deprecated: None
             })
         }
         _ => None,
