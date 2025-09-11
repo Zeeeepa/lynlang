@@ -8,7 +8,7 @@ Implementing Zenlang - a minimalist systems programming language with:
 - Smart pointers (no raw & or *)
 - Behaviors instead of traits
 
-## Recent Progress (2025-01-11 Session)
+## Recent Progress (2025-09-11 Session)
 ### Completed in Latest Session:
 - ✅ **FFI Builder Pattern Fully Validated**
   - All validation logic working correctly
@@ -44,8 +44,11 @@ Implementing Zenlang - a minimalist systems programming language with:
 ### Core Status:
 - ✅ FFI builder pattern - Complete with full validation
 - ✅ LSP server - Compiles and ready for use
-- ✅ All tests passing - 68 test suites, zero failures
-- ✅ Core language features - Stable foundation
+- ✅ All Rust tests passing - 68 test suites, zero failures
+- ✅ Parser with position tracking - Integrated and working
+- ✅ Comptime blocks - Implemented in parser
+- ✅ Method call parsing - Working via MemberAccess
+- ⚠️ Runtime execution - Needs work (example programs don't run correctly)
 
 ## Architecture
 - Implementation language: Rust (not Zig as previously noted)
@@ -118,22 +121,19 @@ cargo build --release  # Release build
 
 ## Known Issues
 - OOM issues during builds - Memory spikes during LLVM codegen (currently monitoring)
-- Method call parsing needs fixing (fs.close(fd) type calls)
-- Colorless async tests still failing (partial progress)
+- Example Zen files have syntax issues and need updating to match spec
 - Build system (build.zen) not fully implemented
 - Some dead code warnings in AST types
-- Comptime blocks not fully parsed
-- LSP position tracking needs integration with parser
+- Runtime execution of Zen programs needs more work
 
 ## Remaining Work
-- Integrate position tracking into parser for accurate diagnostics
-- Fix method call parsing for UFCS
-- Complete comptime block implementation
+- Fix Zen example files to match current language spec
+- Complete runtime execution engine for Zen programs
 - Enable self-hosting tests
-- Fix remaining colorless async test failures
 - Implement proper defer semantics with scope tracking
 - Add Block expression type for multi-statement expressions
 - Complete LSP semantic highlighting and formatting
+- Fix codegen for proper program execution
 
 ## Next Steps
 1. Integrate position tracking into parser
