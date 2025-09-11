@@ -1,6 +1,11 @@
 // FFI Module - Foreign Function Interface with Builder Pattern
 // Based on Zenlang Language Specification v1.1.0
 
+// Import core types
+build := @std.build
+core := build.import("core")
+{ Option, Result, Vec, HashMap, Ptr } := core
+
 // Core FFI types for safe C interop
 FnSignature = {
     params: Vec<Type>,
@@ -16,7 +21,7 @@ LibBuilder = {
     
     // Set library path
     path: (self: Ptr<LibBuilder>, p: string) Ptr<LibBuilder> {
-        self.value.path = Some(p)
+        self.value.path = Option::Some(p)
         self
     },
     
@@ -34,12 +39,16 @@ LibBuilder = {
     
     // Build the library
     build: (self: Ptr<LibBuilder>) Library {
+        path := self.value.path ?
+            | Some -> p => p
+            | None => default_lib_path(self.value.name)
+        
         Library{
             name: self.value.name,
-            path: self.value.path ?? default_lib_path(self.value.name),
+            path: path,
             functions: self.value.functions,
             constants: self.value.constants,
-            handle: None,
+            handle: Option::None,
         }
     },
 }
@@ -55,12 +64,12 @@ Library = {
     // Load the library
     load: (self: Ptr<Library>) Result<void, Error> {
         handle := dlopen(self.value.path, RTLD_LAZY)
-        handle ? 
-            | RawPtr<void> -> h => {
-                self.value.handle = Some(h)
-                .Ok(void)
+        handle.is_null() ?
+            | false => {
+                self.value.handle = Option::Some(handle)
+                Result::Ok(void)
             }
-            | _ => .Err(Error::LibraryNotFound(self.value.path))
+            | true => Result::Err(Error::LibraryNotFound(self.value.path))
     },
     
     // Get a function pointer
@@ -68,11 +77,11 @@ Library = {
         self.value.handle ?
             | Some -> h => {
                 sym := dlsym(h, name)
-                sym ?
-                    | RawPtr<void> -> s => .Ok(s)
-                    | _ => .Err(Error::SymbolNotFound(name))
+                sym.is_null() ?
+                    | false => Result::Ok(sym)
+                    | true => Result::Err(Error::SymbolNotFound(name))
             }
-            | None => .Err(Error::LibraryNotLoaded)
+            | None => Result::Err(Error::LibraryNotLoaded)
     },
     
     // Get a constant value
@@ -85,7 +94,7 @@ Library = {
         self.value.handle ?
             | Some -> h => {
                 dlclose(h)
-                self.value.handle = None
+                self.value.handle = Option::None
             }
             | None => {}
     },
@@ -97,9 +106,9 @@ FFI = {
     lib: (name: string) Ptr<LibBuilder> {
         Ptr::new(LibBuilder{
             name: name,
-            path: None,
-            functions: HashMap::new(),
-            constants: HashMap::new(),
+            path: Option::None,
+            functions: HashMap<string, FnSignature>::new(),
+            constants: HashMap<string, Type>::new(),
         })
     },
 }
@@ -168,7 +177,7 @@ type_u64 = () Type { Type::U64 }
 type_f32 = () Type { Type::F32 }
 type_f64 = () Type { Type::F64 }
 type_string = () Type { Type::String }
-type_ptr<T> = () Type { Type::RawPointer(Ptr::new(T)) }
+type_raw_ptr = (inner: Type) Type { Type::RawPointer(Ptr::new(inner)) }
 
 // Export public API
 export {
@@ -187,5 +196,5 @@ export {
     type_f32,
     type_f64,
     type_string,
-    type_ptr,
+    type_raw_ptr,
 }
