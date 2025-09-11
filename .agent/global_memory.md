@@ -8,22 +8,27 @@ Implementing Zenlang - a minimalist systems programming language with:
 - Smart pointers (no raw & or *)
 - Behaviors instead of traits
 
-## Recent Progress (2025-09-11 Latest Session)
-- ✅ Reviewed LANGUAGE_SPEC.md v1.1.0 compliance
-- ✅ FFI builder pattern verified - fully implemented in src/ffi/mod.rs
-  - Platform-specific library loading (Linux/macOS/Windows)
-  - Enhanced with callbacks, validation rules, error handlers
-  - Load flags, version requirements, search paths
-- ✅ LSP server verified functional - no errors found
+## Recent Progress (2025-09-11 Current Session - Active)
+### Completed Today:
+- ✅ Added defer statement support to language
+  - Added Defer keyword to lexer
+  - Implemented defer parsing in parser  
+  - Added Defer variant to Statement AST
+  - Created tests for defer functionality
+- ✅ Fixed enum variant shorthand syntax (.Ok, .Err)
+  - Added support for .VariantName() in expressions
+  - Fixed pattern matching to handle return statements in arms
+  - Added support for blocks in pattern match arms
+- ✅ Improved pattern matching parser
+  - Now handles destructuring with -> operator
+  - Supports guards and or-patterns
+  - Handles return statements in match arms
+
+### Previously Completed:
+- ✅ FFI builder pattern verified - fully implemented
+- ✅ LSP server functional
 - ✅ All tests passing (20 lib tests + 66 integration test suites)
-- ✅ Created comprehensive language spec compliance test suite
-- ✅ Verified core language features working:
-  - Pattern matching with ? operator
-  - No if/else keywords enforced
-  - Behaviors system
-  - Colorless async
-  - FFI builder pattern
-  - Module system with @std namespace
+- ✅ Core language features working
 
 ## Architecture
 - Implementation language: Rust (not Zig as previously noted)
@@ -85,14 +90,17 @@ cargo build --release  # Release build
 - Import validation
 
 ## Known Issues
-- OOM issues during builds - Memory spikes during LLVM codegen
-- LSP binary may hang on certain operations
-- Some advanced pattern matching features not fully implemented
+- OOM issues during builds - Memory spikes during LLVM codegen (currently monitoring)
+- Method call parsing needs fixing (fs.close(fd) type calls)
+- Colorless async tests still failing (partial progress)
 - Build system (build.zen) not fully implemented
 - Some dead code warnings in AST types
+- Comptime blocks not fully parsed
 
-## Next Steps
-- Implement remaining pattern matching features
-- Complete build system
-- Optimize memory usage in LLVM codegen
-- Add more comprehensive stdlib
+## Remaining Work
+- Fix method call parsing for UFCS
+- Complete comptime block implementation
+- Enable self-hosting tests
+- Fix remaining colorless async test failures
+- Implement proper defer semantics with scope tracking
+- Add Block expression type for multi-statement expressions
