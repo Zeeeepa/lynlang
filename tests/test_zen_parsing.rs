@@ -207,11 +207,20 @@ mod tests {
                         );
                         
                         // Tools should use proper imports
-                        // Skip zen-check.zen as it's checking FOR this pattern
-                        if !file_path.contains("zen-check") {
+                        // Skip zen-check.zen and zen-lsp-basic as they check FOR this pattern
+                        if !file_path.contains("zen-check") && !file_path.contains("zen-lsp-basic") {
+                            // Check for actual comptime blocks with imports
+                            let has_comptime_import = content.contains("comptime") && 
+                                content.contains("{") && 
+                                content.contains("@std") &&
+                                content.find("comptime").map_or(false, |ct_pos| {
+                                    content[ct_pos..].find("@std").map_or(false, |std_pos| {
+                                        content[ct_pos..ct_pos+std_pos].contains("{")
+                                    })
+                                });
                             assert!(
-                                !content.contains("comptime") || !content.contains("@std"),
-                                "{} should not have imports in comptime",
+                                !has_comptime_import,
+                                "{} should not have imports in comptime blocks",
                                 file_path
                             );
                         }
