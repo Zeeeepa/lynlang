@@ -2,6 +2,7 @@
 // Provides IDE support for the Zen programming language
 
 use anyhow::{Context, Result};
+use std::io::{self, Write};
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument};
 use lsp_types::request::{
@@ -173,7 +174,32 @@ impl LspServer {
     }
 }
 
-fn main() -> Result<()> {
+fn main() {
+    // Handle command line arguments BEFORE creating connection
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        if args[1] == "--version" || args[1] == "-v" {
+            println!("zen-lsp 0.1.0");
+            std::process::exit(0);
+        }
+        if args[1] == "--help" || args[1] == "-h" {
+            println!("Zen Language Server");
+            println!("Usage: zen-lsp [options]");
+            println!("Options:");
+            println!("  --version, -v  Show version");
+            println!("  --help, -h     Show this help");
+            std::process::exit(0);
+        }
+    }
+    
+    // Run the LSP server
+    if let Err(e) = run_server() {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run_server() -> Result<()> {
     eprintln!("Starting Zen Language Server...");
     
     // Create the transport
