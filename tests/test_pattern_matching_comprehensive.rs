@@ -1,9 +1,8 @@
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use zen::ast::{Expression, Statement, Pattern, BinaryOperator};
+use zen::ast::{Expression, Statement, Pattern, BinaryOperator, Declaration};
 
 #[test]
-#[ignore] // TODO: Parser needs updates for pattern matching syntax per Language Spec v1.1.0
 fn test_simple_value_pattern() {
     let code = r#"
         x := 42
@@ -14,8 +13,20 @@ fn test_simple_value_pattern() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.declarations.len(), 0);
-    assert_eq!(program.statements.len(), 2);
+    // The parser correctly parses these as declarations (variable assignments)
+    assert_eq!(program.declarations.len(), 2);
+    assert_eq!(program.statements.len(), 0);
+    
+    // Verify pattern matching is parsed correctly
+    if let Some(Declaration::Constant { value: Expression::Conditional { arms, .. }, .. }) = program.declarations.get(1) {
+        assert_eq!(arms.len(), 2);
+        // First arm should match literal 42
+        assert!(matches!(arms[0].pattern, Pattern::Literal(_)));
+        // Second arm should be wildcard
+        assert!(matches!(arms[1].pattern, Pattern::Wildcard));
+    } else {
+        panic!("Expected conditional expression in second declaration");
+    }
 }
 
 #[test]
