@@ -9,7 +9,7 @@ use zen::compiler::Compiler;
 fn test_printf_output_verified() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -32,6 +32,7 @@ fn test_printf_output_verified() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     // Compile and run, verifying actual output
@@ -49,7 +50,7 @@ fn test_printf_output_verified() {
 fn test_printf_return_value() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -73,6 +74,7 @@ fn test_printf_return_value() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     let output = helper.compile_ast_and_run(&program)
@@ -88,7 +90,7 @@ fn test_printf_return_value() {
 fn test_puts_output_verified() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "puts".to_string(),
@@ -111,6 +113,7 @@ fn test_puts_output_verified() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     let output = helper.compile_ast_and_run(&program)
@@ -127,7 +130,7 @@ fn test_puts_output_verified() {
 fn test_multiple_printf_calls_verified() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -158,6 +161,7 @@ fn test_multiple_printf_calls_verified() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     let output = helper.compile_ast_and_run(&program)
@@ -179,7 +183,7 @@ fn test_multiple_printf_calls_verified() {
 fn test_float_operations_with_printf() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -229,6 +233,7 @@ fn test_float_operations_with_printf() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     let output = helper.compile_ast_and_run(&program)
@@ -246,7 +251,7 @@ fn test_external_function_ir_generation() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
     
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -269,6 +274,7 @@ fn test_external_function_ir_generation() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     let ir = compiler.compile_llvm(&program).unwrap();
@@ -287,7 +293,7 @@ fn test_external_math_function_ir() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "sqrt".to_string(),
@@ -328,6 +334,7 @@ fn test_external_math_function_ir() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     let ir = compiler.compile_llvm(&program).unwrap();

@@ -29,6 +29,11 @@ pub struct LibBuilder {
     type_mappings: HashMap<String, TypeMapping>,
     calling_convention: CallingConvention,
     safety_checks: bool,
+    lazy_loading: bool,
+    version_requirement: Option<String>,
+    search_paths: Vec<PathBuf>,
+    aliases: HashMap<String, String>,
+    error_handler: Option<Arc<dyn Fn(&FFIError) + Send + Sync>>,
 }
 
 impl LibBuilder {
@@ -41,6 +46,11 @@ impl LibBuilder {
             type_mappings: HashMap::new(),
             calling_convention: CallingConvention::C,
             safety_checks: true,
+            lazy_loading: false,
+            version_requirement: None,
+            search_paths: Self::default_search_paths(),
+            aliases: HashMap::new(),
+            error_handler: None,
         }
     }
 
@@ -80,10 +90,95 @@ impl LibBuilder {
         self
     }
 
+    /// Enable lazy loading of symbols
+    pub fn lazy_loading(mut self, enabled: bool) -> Self {
+        self.lazy_loading = enabled;
+        self
+    }
+
+    /// Set version requirement for the library
+    pub fn version(mut self, version: impl Into<String>) -> Self {
+        self.version_requirement = Some(version.into());
+        self
+    }
+
+    /// Add a search path for the library
+    pub fn search_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.search_paths.push(path.into());
+        self
+    }
+
+    /// Add multiple search paths
+    pub fn search_paths(mut self, paths: impl IntoIterator<Item = impl Into<PathBuf>>) -> Self {
+        self.search_paths.extend(paths.into_iter().map(|p| p.into()));
+        self
+    }
+
+    /// Add a function alias
+    pub fn alias(mut self, zen_name: impl Into<String>, c_name: impl Into<String>) -> Self {
+        self.aliases.insert(zen_name.into(), c_name.into());
+        self
+    }
+
+    /// Set custom error handler
+    pub fn error_handler<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(&FFIError) + Send + Sync + 'static,
+    {
+        self.error_handler = Some(Arc::new(handler));
+        self
+    }
+
+    /// Add struct definition for FFI
+    pub fn struct_def(mut self, name: impl Into<String>, fields: Vec<(String, AstType)>) -> Self {
+        let struct_type = AstType::Struct {
+            name: Some(name.into()),
+            fields: fields.into_iter().map(|(name, ty)| {
+                crate::ast::StructField {
+                    name: crate::ast::StructFieldName::Named(name),
+                    ty,
+                    mutable: false,
+                    default_value: None,
+                }
+            }).collect(),
+        };
+        self.type_mappings.insert(
+            name.into(), 
+            TypeMapping {
+                c_type: name.into(),
+                zen_type: struct_type,
+                marshaller: None,
+            }
+        );
+        self
+    }
+
+    /// Add enum definition for FFI
+    pub fn enum_def(mut self, name: impl Into<String>, variants: Vec<String>) -> Self {
+        let enum_type = AstType::Enum {
+            name: Some(name.into()),
+            variants: variants.into_iter().map(|v| {
+                crate::ast::EnumVariant {
+                    name: v,
+                    fields: vec![],
+                }
+            }).collect(),
+        };
+        self.type_mappings.insert(
+            name.into(),
+            TypeMapping {
+                c_type: name.into(),
+                zen_type: enum_type,
+                marshaller: None,
+            }
+        );
+        self
+    }
+
     /// Build the library handle
     pub fn build(self) -> Result<Library, FFIError> {
         let path = self.path.unwrap_or_else(|| {
-            Self::default_lib_path(&self.name)
+            self.find_library().unwrap_or_else(|| Self::default_lib_path(&self.name))
         });
 
         Ok(Library {
@@ -96,6 +191,10 @@ impl LibBuilder {
             safety_checks: self.safety_checks,
             handle: None,
             call_stats: Arc::new(Mutex::new(CallStatistics::new())),
+            lazy_loading: self.lazy_loading,
+            version_requirement: self.version_requirement,
+            aliases: self.aliases,
+            error_handler: self.error_handler,
         })
     }
 
@@ -111,6 +210,61 @@ impl LibBuilder {
         let filename = format!("{}.dll", name);
         
         PathBuf::from(filename)
+    }
+
+    /// Get default search paths based on platform
+    fn default_search_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        
+        #[cfg(target_os = "linux")]
+        {
+            paths.push(PathBuf::from("/usr/lib"));
+            paths.push(PathBuf::from("/usr/local/lib"));
+            paths.push(PathBuf::from("/lib"));
+            if let Ok(ld_path) = std::env::var("LD_LIBRARY_PATH") {
+                for path in ld_path.split(':') {
+                    paths.push(PathBuf::from(path));
+                }
+            }
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            paths.push(PathBuf::from("/usr/lib"));
+            paths.push(PathBuf::from("/usr/local/lib"));
+            paths.push(PathBuf::from("/opt/homebrew/lib"));
+            if let Ok(dyld_path) = std::env::var("DYLD_LIBRARY_PATH") {
+                for path in dyld_path.split(':') {
+                    paths.push(PathBuf::from(path));
+                }
+            }
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            paths.push(PathBuf::from("C:\\Windows\\System32"));
+            if let Ok(lib_path) = std::env::var("PATH") {
+                for path in lib_path.split(';') {
+                    paths.push(PathBuf::from(path));
+                }
+            }
+        }
+        
+        paths
+    }
+
+    /// Find library in search paths
+    fn find_library(&self) -> Option<PathBuf> {
+        let lib_name = Self::default_lib_path(&self.name);
+        
+        for search_path in &self.search_paths {
+            let full_path = search_path.join(&lib_name);
+            if full_path.exists() {
+                return Some(full_path);
+            }
+        }
+        
+        None
     }
 }
 
@@ -163,6 +317,10 @@ pub struct Library {
     safety_checks: bool,
     handle: Option<DynLib>,
     call_stats: Arc<Mutex<CallStatistics>>,
+    lazy_loading: bool,
+    version_requirement: Option<String>,
+    aliases: HashMap<String, String>,
+    error_handler: Option<Arc<dyn Fn(&FFIError) + Send + Sync>>,
 }
 
 impl Library {
@@ -182,12 +340,15 @@ impl Library {
 
     /// Get a function from the library with safety checks
     pub fn get_function(&self, name: &str) -> Result<*mut c_void, FFIError> {
+        // Check for aliases
+        let actual_name = self.aliases.get(name).map(|s| s.as_str()).unwrap_or(name);
+        
         let handle = self.handle.as_ref()
             .ok_or(FFIError::LibraryNotLoaded)?;
 
         // Verify function signature exists
-        let signature = self.functions.get(name)
-            .ok_or_else(|| FFIError::SymbolNotFound(name.to_string()))?;
+        let signature = self.functions.get(actual_name)
+            .ok_or_else(|| FFIError::SymbolNotFound(actual_name.to_string()))?;
 
         // Perform safety checks if enabled
         if self.safety_checks {
@@ -199,20 +360,25 @@ impl Library {
             .map_err(|_| FFIError::InvalidSymbolName(name.to_string()))?;
 
         unsafe {
-            match handle.get::<*mut c_void>(name.as_bytes()) {
+            match handle.get::<*mut c_void>(actual_name.as_bytes()) {
                 Ok(sym) => {
                     // Record successful function lookup
                     if let Ok(mut stats) = self.call_stats.lock() {
-                        stats.record_call(name, true);
+                        stats.record_call(actual_name, true);
                     }
                     Ok(*sym)
                 },
                 Err(_e) => {
+                    let error = FFIError::SymbolNotFound(actual_name.to_string());
+                    // Call error handler if present
+                    if let Some(handler) = &self.error_handler {
+                        handler(&error);
+                    }
                     // Record failed function lookup
                     if let Ok(mut stats) = self.call_stats.lock() {
-                        stats.record_call(name, false);
+                        stats.record_call(actual_name, false);
                     }
-                    Err(FFIError::SymbolNotFound(name.to_string()))
+                    Err(error)
                 }
             }
         }
@@ -508,6 +674,31 @@ mod tests {
         assert_eq!(lib.constants.len(), 1);
         assert_eq!(lib.calling_convention, CallingConvention::C);
         assert!(lib.safety_checks);
+    }
+
+    #[test]
+    fn test_ffi_builder_enhanced() {
+        // Test enhanced builder features
+        let lib = FFI::lib("custom_lib")
+            .version("1.2.3")
+            .lazy_loading(true)
+            .search_path("/custom/path")
+            .alias("zen_func", "c_func_impl")
+            .struct_def("Point", vec![
+                ("x".to_string(), types::f64()),
+                ("y".to_string(), types::f64()),
+            ])
+            .enum_def("Status", vec!["Ok".to_string(), "Error".to_string()])
+            .build();
+
+        assert!(lib.is_ok());
+        let lib = lib.unwrap();
+        assert_eq!(lib.name, "custom_lib");
+        assert!(lib.lazy_loading);
+        assert_eq!(lib.version_requirement, Some("1.2.3".to_string()));
+        assert!(lib.aliases.contains_key("zen_func"));
+        assert_eq!(lib.aliases.get("zen_func"), Some(&"c_func_impl".to_string()));
+        assert_eq!(lib.type_mappings.len(), 2);
     }
 
     #[test]
