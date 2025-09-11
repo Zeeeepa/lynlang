@@ -34,8 +34,8 @@ fn test_colorless_async_function_with_allocator() {
     match &program.declarations[0] {
         Declaration::Function(func) => {
             assert_eq!(func.name, "read_file");
-            assert_eq!(func.params.len(), 2);
-            assert_eq!(func.params[1].0, "alloc");
+            assert_eq!(func.args.len(), 2);
+            assert_eq!(func.args[1].0, "alloc");
         }
         _ => panic!("Expected function declaration"),
     }

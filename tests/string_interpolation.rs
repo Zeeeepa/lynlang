@@ -9,7 +9,7 @@ fn test_simple_string_interpolation() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -47,6 +47,7 @@ fn test_simple_string_interpolation() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     // Compile to LLVM IR
@@ -89,7 +90,7 @@ fn test_multiple_interpolations() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    let program = ast::Program::new(
+    let program = ast::Program {
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -136,6 +137,7 @@ fn test_multiple_interpolations() {
                 is_async: false,
             }),
         ],
+        statements: vec![],
     };
 
     // Compile to LLVM IR

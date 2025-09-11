@@ -189,6 +189,55 @@ impl<'a> Parser<'a> {
                     Ok(AstType::Pointer(Box::new(pointee_type)))
                 }
             }
+            Token::Symbol('(') => {
+                // Function type: (params) ReturnType (for behaviors)
+                self.next_token();
+                let mut param_types = Vec::new();
+                
+                // Parse parameter types
+                while self.current_token != Token::Symbol(')') {
+                    // Check if it's a parameter with name (name: Type)
+                    if let Token::Identifier(param_name) = &self.current_token {
+                        let _name = param_name.clone();
+                        self.next_token();
+                        
+                        // Expect colon after parameter name
+                        if self.current_token == Token::Symbol(':') {
+                            self.next_token();
+                            param_types.push(self.parse_type()?);
+                        } else {
+                            // It was actually a type name, go back
+                            return Err(CompileError::SyntaxError(
+                                "Expected ':' after parameter name in function type".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    } else {
+                        // Just parse the type directly
+                        param_types.push(self.parse_type()?);
+                    }
+                    
+                    if self.current_token == Token::Symbol(',') {
+                        self.next_token();
+                    } else if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ',' or ')' in function type parameters".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+                
+                // Skip ')'
+                self.next_token();
+                
+                // Parse return type
+                let return_type = self.parse_type()?;
+                
+                Ok(AstType::FunctionPointer {
+                    param_types,
+                    return_type: Box::new(return_type),
+                })
+            }
             Token::Symbol('&') => {
                 // Reference type: &T
                 self.next_token();
