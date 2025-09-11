@@ -1,6 +1,10 @@
 # Zenlang Project Todos
 
 ## High Priority
+- [x] Implement core types (Option, Result, Vec, HashMap) - DONE
+- [x] Fix FFI builder pattern to use core types - DONE
+- [x] Create spec-compliant LSP implementation - DONE
+- [ ] Fix all if/else/match violations (1,692 remaining)
 - [ ] Complete pattern matching codegen (parser done, codegen WIP)
 - [ ] Implement comptime execution framework
 - [ ] Finish self-hosted lexer (30% complete)
@@ -11,8 +15,10 @@
 - [ ] Complete UFCS implementation
 - [ ] Add string interpolation to codegen
 - [ ] Implement async/await with Task<T>
-- [ ] Add smart pointers (Ptr<T>, Ref<T>)
+- [x] Add smart pointers (Ptr<T>, Ref<T>) - DONE
 - [ ] Custom allocator interface
+- [ ] Implement GPA (General Purpose Allocator)
+- [ ] Complete stdlib modules (io, fs, net, etc.)
 
 ## Low Priority
 - [ ] Package management system
