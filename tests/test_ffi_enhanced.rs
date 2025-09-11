@@ -367,3 +367,76 @@ fn test_ffi_builder_comprehensive() {
     assert!(lib.lazy_loading());
     assert_eq!(lib.calling_convention(), CallingConvention::C);
 }
+
+#[test]
+fn test_ffi_callback_registration() {
+    let mut lib = FFI::lib("callback_test")
+        .path("/tmp/libcallback_test.so")
+        .callback("on_event", CallbackDefinition {
+            signature: FnSignature::new(
+                vec![types::i32(), types::c_string()],
+                types::void(),
+            ),
+            trampoline: None,
+        })
+        .callback("on_data", CallbackDefinition {
+            signature: FnSignature::new(
+                vec![types::slice(types::u8())],
+                types::i32(),
+            ),
+            trampoline: None,
+        })
+        .build()
+        .unwrap();
+    
+    // Test callback registration
+    let result = lib.register_callback("on_event", Box::new(|data| {
+        // Simple echo callback
+        data.to_vec()
+    }));
+    assert!(result.is_ok());
+    
+    // Test registering non-existent callback
+    let result = lib.register_callback("non_existent", Box::new(|data| {
+        data.to_vec()
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_ffi_platform_auto_configuration() {
+    use zen::ffi::Platform;
+    
+    let lib = FFI::lib("auto_config")
+        .platform_config(Platform::Linux, PlatformConfig {
+            path_override: Some(PathBuf::from("/usr/lib/libauto.so")),
+            calling_convention_override: None,
+            additional_search_paths: vec![],
+        })
+        .platform_config(Platform::MacOS, PlatformConfig {
+            path_override: Some(PathBuf::from("/usr/local/lib/libauto.dylib")),
+            calling_convention_override: None,
+            additional_search_paths: vec![],
+        })
+        .platform_config(Platform::Windows, PlatformConfig {
+            path_override: Some(PathBuf::from("C:\\Windows\\System32\\auto.dll")),
+            calling_convention_override: Some(CallingConvention::Stdcall),
+            additional_search_paths: vec![],
+        })
+        .auto_configure()
+        .build()
+        .unwrap();
+    
+    // Check that the correct platform configuration was applied
+    #[cfg(target_os = "linux")]
+    assert_eq!(lib.path().to_str().unwrap(), "/usr/lib/libauto.so");
+    
+    #[cfg(target_os = "macos")]
+    assert_eq!(lib.path().to_str().unwrap(), "/usr/local/lib/libauto.dylib");
+    
+    #[cfg(target_os = "windows")]
+    {
+        assert_eq!(lib.path().to_str().unwrap(), "C:\\Windows\\System32\\auto.dll");
+        assert_eq!(lib.calling_convention(), CallingConvention::Stdcall);
+    }
+}
