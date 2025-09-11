@@ -131,21 +131,15 @@ impl LibBuilder {
 
     /// Add struct definition for FFI
     pub fn struct_def(mut self, name: impl Into<String>, fields: Vec<(String, AstType)>) -> Self {
+        let name_str = name.into();
         let struct_type = AstType::Struct {
-            name: Some(name.into()),
-            fields: fields.into_iter().map(|(name, ty)| {
-                crate::ast::StructField {
-                    name: crate::ast::StructFieldName::Named(name),
-                    ty,
-                    mutable: false,
-                    default_value: None,
-                }
-            }).collect(),
+            name: name_str.clone(),
+            fields,
         };
         self.type_mappings.insert(
-            name.into(), 
+            name_str.clone(), 
             TypeMapping {
-                c_type: name.into(),
+                c_type: name_str,
                 zen_type: struct_type,
                 marshaller: None,
             }
@@ -155,19 +149,20 @@ impl LibBuilder {
 
     /// Add enum definition for FFI
     pub fn enum_def(mut self, name: impl Into<String>, variants: Vec<String>) -> Self {
+        let name_str = name.into();
         let enum_type = AstType::Enum {
-            name: Some(name.into()),
+            name: name_str.clone(),
             variants: variants.into_iter().map(|v| {
                 crate::ast::EnumVariant {
                     name: v,
-                    fields: vec![],
+                    payload: None,
                 }
             }).collect(),
         };
         self.type_mappings.insert(
-            name.into(),
+            name_str.clone(),
             TypeMapping {
-                c_type: name.into(),
+                c_type: name_str,
                 zen_type: enum_type,
                 marshaller: None,
             }
@@ -177,9 +172,11 @@ impl LibBuilder {
 
     /// Build the library handle
     pub fn build(self) -> Result<Library, FFIError> {
-        let path = self.path.unwrap_or_else(|| {
+        let path = if let Some(p) = self.path {
+            p
+        } else {
             self.find_library().unwrap_or_else(|| Self::default_lib_path(&self.name))
-        });
+        };
 
         Ok(Library {
             name: self.name,
