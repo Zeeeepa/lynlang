@@ -1,405 +1,295 @@
 // Self-hosted Zen Compiler Error Handling
 // Enhanced error reporting with detailed diagnostics
+// Compliant with Language Spec v1.1.0
 
-core := @std.core
-string := @std.string
-io := @std.io
-vec := @std.vec
+// Option and Result types
+Option<T> =
+    | Some(value: T)
+    | None
+
+Vec<T> = {
+    data: Ptr<[?, T]>,
+    len: usize,
+    capacity: usize,
+}
+
+Ptr<T> = {
+    value: T,
+    address: usize,
+}
 
 // Source location information
 SourceLocation = {
-    file: string
-    line: u32
-    column: u32
-    offset: u32
+    file: string,
+    line: u32,
+    column: u32,
+    offset: u32,
 }
 
 // Error severity levels
-ErrorSeverity = |
-    Error
-    Warning
-    Info
-    Hint
+ErrorSeverity =
+    | Error
+    | Warning
+    | Info
+    | Hint
 
 // Error categories
-ErrorCategory = |
-    Syntax
-    Type
-    Semantic
-    Import
-    Comptime
-    Internal
+ErrorCategory =
+    | Syntax
+    | Type
+    | Semantic
+    | Import
+    | Comptime
+    | Internal
 
 // Diagnostic information
 Diagnostic = {
-    severity: ErrorSeverity
-    category: ErrorCategory
-    message: string
-    location: SourceLocation
-    notes: Vec<string>
-    suggestion: Option<string>
-    code_snippet: Option<string>
+    severity: ErrorSeverity,
+    category: ErrorCategory,
+    message: string,
+    location: SourceLocation,
+    notes: Vec<string>,
+    suggestion: Option<string>,
+    code_snippet: Option<string>,
 }
 
 // Error context for better reporting
 ErrorContext = {
-    source_file: string
-    source_content: string
-    diagnostics: Vec<Diagnostic>
-    error_count: u32
-    warning_count: u32
+    source_file: string,
+    source_content: string,
+    diagnostics: Vec<Diagnostic>,
+    error_count:: u32,
+    warning_count:: u32,
 }
 
 // Create a new error context
 create_context = (file: string, content: string) ErrorContext {
-    return ErrorContext {
-        source_file: file
-        source_content: content
-        diagnostics: vec.new<Diagnostic>()
-        error_count: 0
-        warning_count: 0
+    ErrorContext {
+        source_file: file,
+        source_content: content,
+        diagnostics: Vec::new(),
+        error_count: 0,
+        warning_count: 0,
     }
 }
 
 // Add a diagnostic to the context
-add_diagnostic = (ctx: *ErrorContext, diag: Diagnostic) void {
-    ctx.diagnostics.push(diag)
+add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void {
+    ctx.value.diagnostics.push(diag)
     
-    match diag.severity {
-        ErrorSeverity.Error => ctx.error_count += 1
-        ErrorSeverity.Warning => ctx.warning_count += 1
-        _ => {}
-    }
+    diag.severity ?
+        | .Error => ctx.value.error_count = ctx.value.error_count + 1
+        | .Warning => ctx.value.warning_count = ctx.value.warning_count + 1
+        | _ => {}
 }
 
 // Create a syntax error
 syntax_error = (message: string, loc: SourceLocation) Diagnostic {
-    return Diagnostic {
-        severity: ErrorSeverity.Error
-        category: ErrorCategory.Syntax
-        message: message
-        location: loc
-        notes: vec.new<string>()
-        suggestion: none
-        code_snippet: none
+    Diagnostic {
+        severity: ErrorSeverity::Error,
+        category: ErrorCategory::Syntax,
+        message: message,
+        location: loc,
+        notes: Vec::new(),
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
 // Create a type error
 type_error = (message: string, loc: SourceLocation) Diagnostic {
-    return Diagnostic {
-        severity: ErrorSeverity.Error
-        category: ErrorCategory.Type
-        message: message
-        location: loc
-        notes: vec.new<string>()
-        suggestion: none
-        code_snippet: none
+    Diagnostic {
+        severity: ErrorSeverity::Error,
+        category: ErrorCategory::Type,
+        message: message,
+        location: loc,
+        notes: Vec::new(),
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
 // Create an import error
 import_error = (message: string, loc: SourceLocation) Diagnostic {
-    return Diagnostic {
-        severity: ErrorSeverity.Error
-        category: ErrorCategory.Import
-        message: message
-        location: loc
-        notes: vec.new<string>()
-        suggestion: none
-        code_snippet: none
+    Diagnostic {
+        severity: ErrorSeverity::Error,
+        category: ErrorCategory::Import,
+        message: message,
+        location: loc,
+        notes: Vec::new(),
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
 // Create a warning
 warning = (message: string, loc: SourceLocation) Diagnostic {
-    return Diagnostic {
-        severity: ErrorSeverity.Warning
-        category: ErrorCategory.Semantic
-        message: message
-        location: loc
-        notes: vec.new<string>()
-        suggestion: none
-        code_snippet: none
+    Diagnostic {
+        severity: ErrorSeverity::Warning,
+        category: ErrorCategory::Semantic,
+        message: message,
+        location: loc,
+        notes: Vec::new(),
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
 // Add a note to a diagnostic
-add_note = (diag: *Diagnostic, note: string) void {
-    diag.notes.push(note)
+add_note = (diag: Ptr<Diagnostic>, note: string) void {
+    diag.value.notes.push(note)
 }
 
 // Add a suggestion to a diagnostic
-add_suggestion = (diag: *Diagnostic, suggestion: string) void {
-    diag.suggestion = some(suggestion)
+add_suggestion = (diag: Ptr<Diagnostic>, suggestion: string) void {
+    diag.value.suggestion = Some(suggestion)
 }
 
 // Extract code snippet around error location
 extract_snippet = (content: string, loc: SourceLocation) string {
-    lines := string.split(content, "\n")
+    lines := split_lines(content)
     
-    if loc.line == 0 || loc.line > lines.len() {
-        return ""
-    }
-    
-    line_idx := loc.line - 1
-    line := lines[line_idx]
-    
-    // Create snippet with error marker
-    snippet := string.format("{}: {}\n", loc.line, line)
-    
-    // Add pointer to error column
-    spaces := string.repeat(" ", loc.column + string.len(string.format("{}: ", loc.line)) - 1)
-    snippet = string.concat(snippet, spaces)
-    snippet = string.concat(snippet, "^")
-    
-    return snippet
+    loc.line == 0 || loc.line > lines.len() ?
+        | true => ""
+        | false => {
+            line_idx := loc.line - 1
+            line := lines[line_idx]
+            
+            // Create snippet with error marker
+            line_num_str := format_u32(loc.line)
+            snippet := concat(line_num_str, ": ")
+            snippet = concat(snippet, line)
+            snippet = concat(snippet, "\n")
+            
+            // Add pointer to error column
+            prefix_len := string_len(line_num_str) + 2
+            spaces := repeat_char(' ', loc.column + prefix_len - 1)
+            snippet = concat(snippet, spaces)
+            concat(snippet, "^")
+        }
 }
 
 // Format severity for display
 format_severity = (severity: ErrorSeverity) string {
-    return match severity {
-        ErrorSeverity.Error => "error"
-        ErrorSeverity.Warning => "warning"
-        ErrorSeverity.Info => "info"
-        ErrorSeverity.Hint => "hint"
-    }
+    severity ?
+        | .Error => "error"
+        | .Warning => "warning"
+        | .Info => "info"
+        | .Hint => "hint"
 }
 
 // Format category for display
 format_category = (category: ErrorCategory) string {
-    return match category {
-        ErrorCategory.Syntax => "syntax"
-        ErrorCategory.Type => "type"
-        ErrorCategory.Semantic => "semantic"
-        ErrorCategory.Import => "import"
-        ErrorCategory.Comptime => "comptime"
-        ErrorCategory.Internal => "internal"
-    }
-}
-
-// Get color code for severity
-get_severity_color = (severity: ErrorSeverity) string {
-    return match severity {
-        ErrorSeverity.Error => "\x1b[31m"     // Red
-        ErrorSeverity.Warning => "\x1b[33m"   // Yellow
-        ErrorSeverity.Info => "\x1b[34m"      // Blue
-        ErrorSeverity.Hint => "\x1b[36m"      // Cyan
-    }
-}
-
-// Reset color
-reset_color = () string {
-    return "\x1b[0m"
+    category ?
+        | .Syntax => "syntax"
+        | .Type => "type"
+        | .Semantic => "semantic"
+        | .Import => "import"
+        | .Comptime => "comptime"
+        | .Internal => "internal"
 }
 
 // Format a diagnostic for display
-format_diagnostic = (diag: Diagnostic, source_content: string) string {
-    color := get_severity_color(diag.severity)
-    reset := reset_color()
-    
-    // Build the main error message
-    result := string.format("{}{}[{}]{}: {}\n", 
-        color,
-        format_severity(diag.severity),
-        format_category(diag.category),
-        reset,
-        diag.message
-    )
-    
-    // Add location information
-    result = string.concat(result, string.format("  --> {}:{}:{}\n", 
-        diag.location.file,
-        diag.location.line,
-        diag.location.column
-    ))
+format_diagnostic = (diag: Diagnostic) string {
+    // Format: file:line:column: severity[category]: message
+    result := concat(diag.location.file, ":")
+    result = concat(result, format_u32(diag.location.line))
+    result = concat(result, ":")
+    result = concat(result, format_u32(diag.location.column))
+    result = concat(result, ": ")
+    result = concat(result, format_severity(diag.severity))
+    result = concat(result, "[")
+    result = concat(result, format_category(diag.category))
+    result = concat(result, "]: ")
+    result = concat(result, diag.message)
     
     // Add code snippet if available
-    snippet := diag.code_snippet || extract_snippet(source_content, diag.location)
-    if snippet != "" {
-        result = string.concat(result, "   |\n")
-        result = string.concat(result, string.format("   | {}\n", snippet))
-        result = string.concat(result, "   |\n")
-    }
+    diag.code_snippet ?
+        | .Some -> snippet => {
+            result = concat(result, "\n")
+            result = concat(result, snippet)
+        }
+        | .None => {}
     
     // Add notes
-    for note in diag.notes {
-        result = string.concat(result, string.format("   = note: {}\n", note))
-    }
+    diag.notes.len() > 0 ?
+        | true => {
+            (0..diag.notes.len()).loop((i) => {
+                result = concat(result, "\n  note: ")
+                result = concat(result, diag.notes[i])
+            })
+        }
+        | false => {}
     
     // Add suggestion
-    if let some(suggestion) = diag.suggestion {
-        result = string.concat(result, string.format("   = help: {}\n", suggestion))
-    }
+    diag.suggestion ?
+        | .Some -> sugg => {
+            result = concat(result, "\n  suggestion: ")
+            result = concat(result, sugg)
+        }
+        | .None => {}
     
-    return result
+    result
 }
 
-// Print all diagnostics
+// Print all diagnostics in context
 print_diagnostics = (ctx: ErrorContext) void {
-    for diag in ctx.diagnostics {
-        io.print(format_diagnostic(diag, ctx.source_content))
-    }
-    
-    // Print summary
-    if ctx.error_count > 0 || ctx.warning_count > 0 {
-        io.print("\n")
-        
-        if ctx.error_count > 0 {
-            color := get_severity_color(ErrorSeverity.Error)
-            reset := reset_color()
-            io.print(string.format("{}error{}: ", color, reset))
-            io.print(string.format("aborting due to {} previous error", ctx.error_count))
-            if ctx.error_count > 1 {
-                io.print("s")
-            }
+    ctx.diagnostics.len() == 0 ?
+        | true => {}
+        | false => {
+            (0..ctx.diagnostics.len()).loop((i) => {
+                formatted := format_diagnostic(ctx.diagnostics[i])
+                print_line(formatted)
+            })
             
-            if ctx.warning_count > 0 {
-                io.print(string.format("; {} warning", ctx.warning_count))
-                if ctx.warning_count > 1 {
-                    io.print("s")
-                }
-                io.print(" emitted")
-            }
-            io.print("\n")
-        } else if ctx.warning_count > 0 {
-            color := get_severity_color(ErrorSeverity.Warning)
-            reset := reset_color()
-            io.print(string.format("{}warning{}: {} warning", color, reset, ctx.warning_count))
-            if ctx.warning_count > 1 {
-                io.print("s")
-            }
-            io.print(" emitted\n")
+            // Print summary
+            summary := concat("Summary: ", format_u32(ctx.error_count))
+            summary = concat(summary, " error(s), ")
+            summary = concat(summary, format_u32(ctx.warning_count))
+            summary = concat(summary, " warning(s)")
+            print_line(summary)
         }
-    }
 }
 
-// Check for comptime import errors
-check_comptime_imports = (content: string) Vec<Diagnostic> {
-    diagnostics := vec.new<Diagnostic>()
-    lines := string.split(content, "\n")
-    
-    in_comptime := false
-    comptime_start_line := 0
-    
-    for i, line in lines {
-        trimmed := string.trim(line)
-        
-        // Check for comptime block start
-        if string.starts_with(trimmed, "comptime") && string.contains(trimmed, "{") {
-            in_comptime = true
-            comptime_start_line = i + 1
-        }
-        
-        // Check for imports inside comptime
-        if in_comptime {
-            if string.contains(line, "@std") || string.contains(line, ".import(") {
-                diag := import_error(
-                    "imports should not be wrapped in comptime blocks",
-                    SourceLocation {
-                        file: "unknown"
-                        line: i + 1
-                        column: string.index_of(line, "@std") || string.index_of(line, ".import(") || 1
-                        offset: 0
-                    }
-                )
-                
-                add_note(&diag, "comptime blocks are for metaprogramming, not imports")
-                add_suggestion(&diag, "move this import outside the comptime block")
-                diag.code_snippet = some(extract_snippet(content, diag.location))
-                
-                diagnostics.push(diag)
-            }
-        }
-        
-        // Check for comptime block end
-        if in_comptime && string.contains(trimmed, "}") {
-            in_comptime = false
-        }
-    }
-    
-    return diagnostics
+// Check if compilation should stop
+should_stop_compilation = (ctx: ErrorContext) bool {
+    ctx.error_count > 0
 }
 
-// Validate import statement
-validate_import = (stmt: string, line_num: u32) Option<Diagnostic> {
-    trimmed := string.trim(stmt)
-    
-    // Check for correct import patterns
-    if string.starts_with(trimmed, "comptime") {
-        return some(import_error(
-            "import statements should not be wrapped in comptime",
-            SourceLocation {
-                file: "unknown"
-                line: line_num
-                column: 1
-                offset: 0
-            }
-        ))
-    }
-    
-    // Check for @std usage
-    if string.contains(trimmed, "@std") {
-        // Make sure it's a direct assignment
-        if !string.contains(trimmed, ":=") {
-            return some(syntax_error(
-                "imports should use := binding syntax",
-                SourceLocation {
-                    file: "unknown"
-                    line: line_num
-                    column: 1
-                    offset: 0
-                }
-            ))
-        }
-    }
-    
-    return none
+// Helper functions (would be imported from string module in real implementation)
+split_lines = (s: string) Vec<string> {
+    @intrinsic("string_split_lines", s)
 }
 
-// Create error result type
-Result<T> = 
-    | Ok(value: T)
-    | Err(diagnostic: Diagnostic)
-
-// Helper to create Ok result
-ok = <T>(value: T) Result<T> {
-    return Result.Ok(value)
+concat = (a: string, b: string) string {
+    @intrinsic("string_concat", a, b)
 }
 
-// Helper to create Err result
-err = <T>(diagnostic: Diagnostic) Result<T> {
-    return Result.Err(diagnostic)
+format_u32 = (n: u32) string {
+    @intrinsic("format_u32", n)
 }
 
-// Check if result is ok
-is_ok = <T>(result: Result<T>) bool {
-    return match result {
-        Result.Ok(_) => true
-        Result.Err(_) => false
-    }
+string_len = (s: string) u32 {
+    @intrinsic("string_len", s)
 }
 
-// Check if result is error
-is_err = <T>(result: Result<T>) bool {
-    return !is_ok(result)
+repeat_char = (c: u8, count: u32) string {
+    @intrinsic("repeat_char", c, count)
 }
 
-// Get value from result or panic
-unwrap = <T>(result: Result<T>) T {
-    return match result {
-        Result.Ok(value) => value
-        Result.Err(diag) => {
-            io.print(format_diagnostic(diag, ""))
-            core.panic("unwrap called on error result")
-        }
-    }
+print_line = (s: string) void {
+    @intrinsic("print_line", s)
 }
 
-// Get value from result or return default
-unwrap_or = <T>(result: Result<T>, default: T) T {
-    return match result {
-        Result.Ok(value) => value
-        Result.Err(_) => default
-    }
+// Vec implementation helpers
+Vec::new<T> = () Vec<T> {
+    @intrinsic("vec_new")
+}
+
+Vec::push<T> = (self: Ptr<Vec<T>>, item: T) void {
+    @intrinsic("vec_push", self, item)
+}
+
+Vec::len<T> = (self: Vec<T>) usize {
+    self.len
 }
