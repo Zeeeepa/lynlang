@@ -914,7 +914,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let ast::Expression::String(msg) = &args[0] {
             // Get or declare puts function
             let puts = self.module.get_function("puts").unwrap_or_else(|| {
-                let i8_ptr_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let fn_type = self.context.i32_type().fn_type(&[i8_ptr_type.into()], false);
                 self.module.add_function("puts", fn_type, Some(inkwell::module::Linkage::External))
             });

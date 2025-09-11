@@ -1,11 +1,13 @@
 // Basic Zen Language Server
 // Minimal LSP implementation for syntax checking and diagnostics
 
+// Standard library imports
+build := @std.build
 core := @std.core
-io := @std.io
-string := @std.string
-vec := @std.vec
-json := @std.json
+io := build.import("io")
+string := build.import("string")
+vec := build.import("vec")
+json := build.import("json")
 
 // JSON-RPC message structure
 JsonRpcMessage = {
