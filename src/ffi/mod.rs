@@ -216,7 +216,7 @@ impl LibBuilder {
         self
     }
 
-    /// Build the library handle
+    /// Build the library handle with enhanced validation
     pub fn build(mut self) -> Result<Library, FFIError> {
         // Apply platform-specific configurations
         self = self.auto_configure();
@@ -226,10 +226,24 @@ impl LibBuilder {
             rule.validate(&self)?;
         }
         
+        // Validate function signatures
+        for (name, sig) in &self.functions {
+            self.validate_signature(name, sig)?;
+        }
+        
+        // Validate type mappings
+        for (name, mapping) in &self.type_mappings {
+            self.validate_type_mapping(name, mapping)?;
+        }
+        
         let path = if let Some(p) = self.path {
             p
         } else {
-            self.find_library().unwrap_or_else(|| Self::default_lib_path(&self.name))
+            self.find_library()
+                .ok_or_else(|| FFIError::LibraryNotFound {
+                    path: self.name.clone(),
+                    error: format!("Could not find library '{}' in search paths", self.name),
+                })?
         };
 
         Ok(Library {
@@ -306,18 +320,142 @@ impl LibBuilder {
         paths
     }
 
-    /// Find library in search paths
+    /// Find library in search paths with better error reporting
     fn find_library(&self) -> Option<PathBuf> {
         let lib_name = Self::default_lib_path(&self.name);
         
+        // Try exact path first
+        if let Some(ref path) = self.path {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        
+        // Try with version-specific names
+        if let Some(ref version) = self.version_requirement {
+            let versioned_names = vec![
+                format!("lib{}.so.{}", self.name, version),
+                format!("lib{}-{}.so", self.name, version),
+                format!("{}-{}.dll", self.name, version),
+                format!("lib{}.{}.dylib", self.name, version),
+            ];
+            
+            for versioned_name in versioned_names {
+                for search_path in &self.search_paths {
+                    let full_path = search_path.join(&versioned_name);
+                    if full_path.exists() {
+                        return Some(full_path);
+                    }
+                }
+            }
+        }
+        
+        // Try standard library names
         for search_path in &self.search_paths {
             let full_path = search_path.join(&lib_name);
             if full_path.exists() {
                 return Some(full_path);
             }
+            
+            // Try without lib prefix on Windows
+            #[cfg(target_os = "windows")]
+            {
+                let alt_name = format!("{}.dll", self.name);
+                let alt_path = search_path.join(&alt_name);
+                if alt_path.exists() {
+                    return Some(alt_path);
+                }
+            }
         }
         
         None
+    }
+    
+    /// Validate function signature
+    fn validate_signature(&self, name: &str, sig: &FnSignature) -> Result<(), FFIError> {
+        // Check for unsupported types in FFI
+        for param in &sig.params {
+            if !self.is_ffi_compatible_type(param) {
+                return Err(FFIError::ValidationError(
+                    format!("Function '{}' has incompatible parameter type for FFI", name)
+                ));
+            }
+        }
+        
+        if !self.is_ffi_compatible_type(&sig.returns) {
+            return Err(FFIError::ValidationError(
+                format!("Function '{}' has incompatible return type for FFI", name)
+            ));
+        }
+        
+        // Warn about variadic functions without safety checks
+        if sig.variadic && self.safety_checks && sig.safety != FunctionSafety::Unsafe {
+            eprintln!("Warning: Variadic function '{}' should be marked as Unsafe", name);
+        }
+        
+        Ok(())
+    }
+    
+    /// Validate type mapping
+    fn validate_type_mapping(&self, name: &str, mapping: &TypeMapping) -> Result<(), FFIError> {
+        // Ensure the Zen type is compatible with the C type
+        match &mapping.zen_type {
+            AstType::Struct { fields, .. } => {
+                // Check that all fields are FFI-compatible
+                for (field_name, field_type) in fields {
+                    if !self.is_ffi_compatible_type(field_type) {
+                        return Err(FFIError::ValidationError(
+                            format!("Struct '{}' field '{}' has incompatible type for FFI", name, field_name)
+                        ));
+                    }
+                }
+            }
+            AstType::Enum { .. } => {
+                // Enums are generally OK for FFI as they map to integers
+            }
+            _ => {
+                if !self.is_ffi_compatible_type(&mapping.zen_type) {
+                    return Err(FFIError::ValidationError(
+                        format!("Type mapping '{}' has incompatible type for FFI", name)
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+    
+    /// Check if a type is FFI-compatible
+    fn is_ffi_compatible_type(&self, ast_type: &AstType) -> bool {
+        match ast_type {
+            // Primitive types are always FFI-compatible
+            AstType::Void | AstType::Bool |
+            AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 |
+            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 |
+            AstType::F32 | AstType::F64 => true,
+            
+            // Pointers are FFI-compatible
+            AstType::Pointer(_) => true,
+            
+            // Strings need special handling but are allowed
+            AstType::String => true,
+            
+            // Arrays with known size are OK
+            AstType::Array { .. } => true,
+            
+            // Fixed arrays with known size are OK
+            AstType::FixedArray { .. } => true,
+            
+            // Function pointers are FFI-compatible
+            AstType::FunctionPointer { .. } => true,
+            
+            // Structs and enums need to be in type_mappings
+            AstType::Struct { name, .. } | AstType::Enum { name, .. } => {
+                self.type_mappings.contains_key(name)
+            }
+            
+            // Other types may not be FFI-compatible
+            _ => false,
+        }
     }
 }
 
@@ -379,6 +517,51 @@ pub struct Library {
 }
 
 impl Library {
+    /// Create standard marshallers for common types
+    pub fn create_standard_marshallers() -> HashMap<String, TypeMarshaller> {
+        let mut marshallers = HashMap::new();
+        
+        // String marshaller (Zen string <-> C string)
+        marshallers.insert("string".to_string(), TypeMarshaller {
+            to_c: Arc::new(|data| {
+                // Convert Zen string to null-terminated C string
+                let mut result = data.to_vec();
+                if !result.ends_with(&[0]) {
+                    result.push(0);
+                }
+                result
+            }),
+            from_c: Arc::new(|data| {
+                // Convert C string to Zen string (remove null terminator)
+                let mut result = data.to_vec();
+                if let Some(pos) = result.iter().position(|&x| x == 0) {
+                    result.truncate(pos);
+                }
+                result
+            }),
+        });
+        
+        // Bool marshaller (ensure 0 or 1)
+        marshallers.insert("bool".to_string(), TypeMarshaller {
+            to_c: Arc::new(|data| {
+                if data.is_empty() {
+                    vec![0]
+                } else {
+                    vec![if data[0] != 0 { 1 } else { 0 }]
+                }
+            }),
+            from_c: Arc::new(|data| {
+                if data.is_empty() {
+                    vec![0]
+                } else {
+                    vec![if data[0] != 0 { 1 } else { 0 }]
+                }
+            }),
+        });
+        
+        marshallers
+    }
+    
     /// Load the dynamic library
     pub fn load(&mut self) -> Result<(), FFIError> {
         // Apply load flags if needed
@@ -595,6 +778,32 @@ impl Library {
     /// Check if safety checks are enabled
     pub fn safety_checks(&self) -> bool {
         self.safety_checks
+    }
+    
+    /// Get version requirement
+    pub fn version_requirement(&self) -> Option<&str> {
+        self.version_requirement.as_deref()
+    }
+    
+    /// Get callbacks
+    pub fn callbacks(&self) -> &HashMap<String, CallbackDefinition> {
+        &self.callbacks
+    }
+    
+    /// Get load flags
+    pub fn load_flags(&self) -> &LoadFlags {
+        &self.load_flags
+    }
+    
+    /// Check if lazy loading is enabled
+    pub fn lazy_loading(&self) -> bool {
+        self.lazy_loading
+    }
+    
+    /// Get search paths (derived from builder, not stored in Library)
+    pub fn search_paths(&self) -> Vec<PathBuf> {
+        // Return default search paths as Library doesn't store them
+        LibBuilder::default_search_paths()
     }
     
     /// Register a callback function
@@ -881,12 +1090,32 @@ pub mod types {
     }
 
     pub fn usize() -> AstType {
-        // Use U64 as platform-specific usize equivalent
-        AstType::U64
+        // Use platform-specific size
+        #[cfg(target_pointer_width = "64")]
+        return AstType::U64;
+        #[cfg(target_pointer_width = "32")]
+        return AstType::U32;
+        #[cfg(not(any(target_pointer_width = "64", target_pointer_width = "32")))]
+        return AstType::U64; // Default to 64-bit
+    }
+
+    pub fn isize() -> AstType {
+        // Use platform-specific size
+        #[cfg(target_pointer_width = "64")]
+        return AstType::I64;
+        #[cfg(target_pointer_width = "32")]
+        return AstType::I32;
+        #[cfg(not(any(target_pointer_width = "64", target_pointer_width = "32")))]
+        return AstType::I64; // Default to 64-bit
     }
 
     pub fn string() -> AstType {
         AstType::String
+    }
+
+    pub fn c_string() -> AstType {
+        // C string is a pointer to char (u8)
+        AstType::Pointer(Box::new(AstType::U8))
     }
 
     pub fn raw_ptr(inner: AstType) -> AstType {
@@ -897,6 +1126,26 @@ pub mod types {
     pub fn ptr(inner: AstType) -> AstType {
         // Use regular Pointer type
         AstType::Pointer(Box::new(inner))
+    }
+    
+    pub fn array(size: usize, element_type: AstType) -> AstType {
+        // Use FixedArray for arrays with known size
+        AstType::FixedArray {
+            element_type: Box::new(element_type),
+            size,
+        }
+    }
+    
+    pub fn slice(element_type: AstType) -> AstType {
+        // A slice is a dynamic array
+        AstType::Array(Box::new(element_type))
+    }
+    
+    pub fn function(params: Vec<AstType>, returns: AstType) -> AstType {
+        AstType::FunctionPointer {
+            param_types: params,
+            return_type: Box::new(returns),
+        }
     }
 }
 
@@ -934,8 +1183,9 @@ mod tests {
 
     #[test]
     fn test_ffi_builder_enhanced() {
-        // Test enhanced builder features
+        // Test enhanced builder features - with explicit path to avoid lookup
         let lib = FFI::lib("custom_lib")
+            .path("/tmp/libcustom.so")  // Use explicit path to bypass find_library
             .version("1.2.3")
             .lazy_loading(true)
             .search_path("/custom/path")
