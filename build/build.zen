@@ -10,13 +10,13 @@ map := @std.map
 result := @std.result
 
 // Import compiler modules
-compiler := @compiler.compiler
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-optimizer := @compiler.optimizer
-codegen := @compiler.codegen
-linker := @compiler.linker
+compiler := @std.compiler.compiler
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+type_checker := @std.compiler.type_checker
+optimizer := @std.compiler.optimizer
+codegen := @std.compiler.codegen
+linker := @std.compiler.linker
 
 // Build configuration
 struct BuildConfig {

@@ -5,7 +5,7 @@ io := @std.io
 string := @std.string
 vec := @std.vec
 core := @std.core
-lexer := @compiler.lexer_enhanced
+lexer := @std.compiler.lexer_enhanced
 
 // AST Node Types
 AstNodeType = 

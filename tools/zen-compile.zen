@@ -7,10 +7,10 @@ fs := @std.fs
 os := @std.os
 string := @std.string
 path := @std.path
-lexer := @compiler.lexer
-parser := @compiler.parser
-codegen := @compiler.codegen
-type_checker := @compiler.type_checker
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+codegen := @std.compiler.codegen
+type_checker := @std.compiler.type_checker
 
 // Compiler options
 CompilerOptions := {

@@ -47,7 +47,7 @@ make_token = (tag: string, start: u32, end: u32, line: u32, column: u32) Token {
     }
 }
 
-// Keywords in Zen
+// Keywords in Zen (if/else/match removed per language spec)
 KEYWORDS := [
     "loop", "return", "break", "continue",
     "fn", "struct", "enum", "trait", "impl", "type", "const", "let", "var",

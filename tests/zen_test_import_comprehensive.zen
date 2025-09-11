@@ -11,10 +11,10 @@ fs := build.import("fs")
 math := @std.math
 meta := @std.meta
 reflect := build.import("reflect")
-ast := @compiler.ast
+ast := @std.compiler.ast
 outer_meta := @std.meta
 inner_reflect := @std.reflect
-inner_ast := @compiler.ast
+inner_ast := @std.compiler.ast
 
 // Test imports inside functions
 test_function_imports = () void {

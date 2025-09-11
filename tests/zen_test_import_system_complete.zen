@@ -15,11 +15,11 @@ test_framework := @std.test_framework
 // custom := build.import("custom_module")
 
 // Test 4: Compiler module imports (for self-hosting)
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-codegen := @compiler.codegen
-errors := @compiler.errors
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+type_checker := @std.compiler.type_checker
+codegen := @std.compiler.codegen
+errors := @std.compiler.errors
 
 // Test function to verify imports work correctly
 test_std_imports = () bool {

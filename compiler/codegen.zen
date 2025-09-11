@@ -5,7 +5,7 @@ core := @std.core
 io := @std.io
 string := @std.string
 fs := @std.fs
-parser := @compiler.parser
+parser := @std.compiler.parser
 
 // Code generation context (simplified)
 CodeGen = {

@@ -113,13 +113,13 @@ free = <T>(vec: &Vec<T>) void {
 
 // Helper functions (would be implemented in core)
 null_ptr = <T>() Ptr<T> {
-    @ptr_cast<T>(0)
+    @std.ptr_cast<T>(0)
 }
 
 allocate = <T>(count: usize) Ptr<T> {
-    @allocate(T, count)
+    @std.allocate(T, count)
 }
 
 deallocate = <T>(ptr: Ptr<T>) void {
-    @deallocate(ptr)
+    @std.deallocate(ptr)
 }

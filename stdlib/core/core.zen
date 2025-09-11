@@ -18,9 +18,9 @@ assert = (condition: bool, message: string) void {
 }
 
 // Memory management (placeholders for now)
-extern malloc = (size: usize) *void
-extern free = (ptr: *void) void
-extern realloc = (ptr: *void, size: usize) *void
+extern malloc = (size: usize) RawPtr<void>
+extern free = (ptr: RawPtr<void>) void
+extern realloc = (ptr: RawPtr<void>, size: usize) RawPtr<void>
 
 // Process control
 extern exit = (code: i32) void
@@ -58,10 +58,10 @@ clamp = (value: i32, min_val: i32, max_val: i32) i32 {
 }
 
 // Swap two values
-swap = (a: *i32, b: *i32) void {
-    temp := *a
-    *a = *b
-    *b = temp
+swap = (a: Ptr<i32>, b: Ptr<i32>) void {
+    temp := a.value
+    a.value = b.value
+    b.value = temp
 }
 
 // Generic comparison result

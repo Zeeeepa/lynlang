@@ -11,10 +11,10 @@ json := @std.json
 result := @std.result
 
 // Import compiler modules
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-ast := @compiler.ast
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+type_checker := @std.compiler.type_checker
+ast := @std.compiler.ast
 
 // Symbol information for tracking definitions and references
 Symbol := {

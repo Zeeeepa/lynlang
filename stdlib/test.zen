@@ -64,8 +64,8 @@ TestSuite.add_test = (self: *TestSuite, name: string, test_fn: () TestResult) vo
     test := TestCase{
         name: name,
         test_fn: test_fn,
-        file: @file(),
-        line: @line(),
+        file: @std.file(),
+        line: @std.line(),
     }
     self.tests.push(test)
 }
@@ -97,7 +97,7 @@ assert_eq = <T>(actual: T, expected: T, message: string) TestResult {
         | true => return TestResult.Pass
         | false => {
             // Format error message
-            msg := "Assertion failed: " + message + "\n  Expected: " + @str(expected) + "\n  Actual: " + @str(actual)
+            msg := "Assertion failed: " + message + "\n  Expected: " + @std.str(expected) + "\n  Actual: " + @std.str(actual)
             return TestResult.Fail(msg)
         }
 }
@@ -106,7 +106,7 @@ assert_ne = <T>(actual: T, expected: T, message: string) TestResult {
     actual != expected ?
         | true => return TestResult.Pass
         | false => {
-            msg := "Assertion failed: " + message + "\n  Values should not be equal: " + @str(actual)
+            msg := "Assertion failed: " + message + "\n  Values should not be equal: " + @std.str(actual)
             return TestResult.Fail(msg)
         }
 }
@@ -115,7 +115,7 @@ assert_lt = <T>(actual: T, expected: T, message: string) TestResult {
     actual < expected ?
         | true => return TestResult.Pass
         | false => {
-            msg := "Assertion failed: " + message + "\n  " + @str(actual) + " should be less than " + @str(expected)
+            msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be less than " + @std.str(expected)
             return TestResult.Fail(msg)
         }
 }
@@ -124,7 +124,7 @@ assert_le = <T>(actual: T, expected: T, message: string) TestResult {
     actual <= expected ?
         | true => return TestResult.Pass
         | false => {
-            msg := "Assertion failed: " + message + "\n  " + @str(actual) + " should be less than or equal to " + @str(expected)
+            msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be less than or equal to " + @std.str(expected)
             return TestResult.Fail(msg)
         }
 }
@@ -133,7 +133,7 @@ assert_gt = <T>(actual: T, expected: T, message: string) TestResult {
     actual > expected ?
         | true => return TestResult.Pass
         | false => {
-            msg := "Assertion failed: " + message + "\n  " + @str(actual) + " should be greater than " + @str(expected)
+            msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be greater than " + @std.str(expected)
             return TestResult.Fail(msg)
         }
 }
@@ -142,7 +142,7 @@ assert_ge = <T>(actual: T, expected: T, message: string) TestResult {
     actual >= expected ?
         | true => return TestResult.Pass
         | false => {
-            msg := "Assertion failed: " + message + "\n  " + @str(actual) + " should be greater than or equal to " + @str(expected)
+            msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be greater than or equal to " + @std.str(expected)
             return TestResult.Fail(msg)
         }
 }
@@ -201,7 +201,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void {
                 runner.failed = runner.failed + 1
                 io.println("FAILED: " + test.name)
                 io.println("  " + reason)
-                io.println("  at " + test.file + ":" + @str(test.line))
+                io.println("  at " + test.file + ":" + @std.str(test.line))
                 
                 runner.stop_on_failure ?
                     | true => return
@@ -251,13 +251,13 @@ run_all_tests = () i32 {
     
     // Print summary
     io.println("\n=== Test Summary ===")
-    io.println("Passed:  " + @str(global_runner.passed))
-    io.println("Failed:  " + @str(global_runner.failed))
-    io.println("Skipped: " + @str(global_runner.skipped))
-    io.println("Panicked: " + @str(global_runner.panicked))
+    io.println("Passed:  " + @std.str(global_runner.passed))
+    io.println("Failed:  " + @std.str(global_runner.failed))
+    io.println("Skipped: " + @std.str(global_runner.skipped))
+    io.println("Panicked: " + @std.str(global_runner.panicked))
     
     total := global_runner.passed + global_runner.failed + global_runner.skipped + global_runner.panicked
-    io.println("Total:   " + @str(total))
+    io.println("Total:   " + @std.str(total))
     
     // Return exit code (0 for success, 1 for failure)
     global_runner.failed > 0 || global_runner.panicked > 0 ?
@@ -272,8 +272,8 @@ test = (name: string, test_fn: () TestResult) void {
     test_case := TestCase{
         name: name,
         test_fn: test_fn,
-        file: @file(),
-        line: @line(),
+        file: @std.file(),
+        line: @std.line(),
     }
     // For now, create a default suite
     default_suite := suite("default")
@@ -324,11 +324,11 @@ benchmark = (name: string, iterations: i64, bench_fn: () void) Benchmark {
     avg_time := total_time / (iterations as f64)
     
     // Print results
-    io.println("  Iterations: " + @str(iterations))
-    io.println("  Total time: " + @str(total_time) + " seconds")
-    io.println("  Average:    " + @str(avg_time) + " seconds")
-    io.println("  Min:        " + @str(min_time) + " seconds")
-    io.println("  Max:        " + @str(max_time) + " seconds")
+    io.println("  Iterations: " + @std.str(iterations))
+    io.println("  Total time: " + @std.str(total_time) + " seconds")
+    io.println("  Average:    " + @std.str(avg_time) + " seconds")
+    io.println("  Min:        " + @std.str(min_time) + " seconds")
+    io.println("  Max:        " + @std.str(max_time) + " seconds")
     
     return Benchmark{
         name: name,

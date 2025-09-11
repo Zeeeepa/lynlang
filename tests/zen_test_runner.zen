@@ -9,10 +9,10 @@ vec := @std.vec
 result := @std.result
 
 // Import compiler for testing
-compiler := @compiler.compiler
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
+compiler := @std.compiler.compiler
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+type_checker := @std.compiler.type_checker
 
 // Test case structure
 struct TestCase {

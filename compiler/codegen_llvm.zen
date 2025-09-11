@@ -5,7 +5,7 @@ core := @std.core
 io := @std.io
 string := @std.string
 vec := @std.vec
-parser := @compiler.parser
+parser := @std.compiler.parser
 
 // Import AST types from parser
 AstNode := parser.AstNode

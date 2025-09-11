@@ -7,9 +7,9 @@ fs := @std.fs
 core := @std.core
 
 // Import compiler components
-lexer := @compiler.lexer
-parser := @compiler.parser
-codegen := @compiler.codegen
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+codegen := @std.compiler.codegen
 
 // Compiler pipeline stages
 CompilerStage = 

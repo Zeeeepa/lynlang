@@ -36,7 +36,7 @@ set_new<T> = (hash_fn: (T) i64, eq_fn: (T, T) bool) *Set<T> {
     loop {
 
         i < initial_capacity ? | false => { break } | true => {}
-        set.buckets[i].items = @null
+        set.buckets[i].items = @std.null
         set.buckets[i].count = 0
         set.buckets[i].capacity = 0
         i = i + 1
@@ -183,7 +183,7 @@ set_resize<T> = (set: *Set<T>, new_capacity: i64) void {
     loop {
 
         i < new_capacity ? | false => { break } | true => {}
-        set.buckets[i].items = @null
+        set.buckets[i].items = @std.null
         set.buckets[i].count = 0
         set.buckets[i].capacity = 0
         i = i + 1
@@ -216,7 +216,7 @@ set_resize<T> = (set: *Set<T>, new_capacity: i64) void {
 // Convert set to array
 set_to_array<T> = (set: *Set<T>) *T {
     set.size == 0 ? | true => {
-        return @null
+        return @std.null
     } | false => {}
     
     array := mem.alloc(@sizeof(T) * set.size) as *T

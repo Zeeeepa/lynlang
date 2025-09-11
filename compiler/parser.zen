@@ -53,11 +53,8 @@ AstNode =
     // Block expression
     | Block(statements: Vec<AstNode>)
     
-    // If expression
-    | If(condition: Ptr<AstNode>, then_branch: Ptr<AstNode>, else_branch: Option<Ptr<AstNode>>)
-    
-    // Match expression
-    | Match(expr: Ptr<AstNode>, arms: Vec<MatchArm>)
+    // Pattern match expression (replaces if/else and match)
+    | PatternMatch(expr: Ptr<AstNode>, arms: Vec<MatchArm>)
     
     // Loop expression
     | Loop(condition: Option<Ptr<AstNode>>, body: Ptr<AstNode>)
@@ -441,8 +438,7 @@ parse_statement = (parser: Ptr<Parser>) AstNode {
         | TokenKind.Keyword("return") => return parse_return_statement(parser)
         | TokenKind.Keyword("break") => return parse_break_statement(parser)
         | TokenKind.Keyword("continue") => return parse_continue_statement(parser)
-        | TokenKind.Keyword("if") => return parse_if_expression(parser)
-        | TokenKind.Keyword("match") => return parse_match_expression(parser)
+        // Note: if/else/match keywords are not allowed per language spec
         | TokenKind.Keyword("loop") => return parse_loop_expression(parser)
         | TokenKind.Keyword("while") => return parse_while_expression(parser)
         | TokenKind.Keyword("comptime") => return parse_comptime_block(parser)
@@ -529,7 +525,7 @@ parse_ternary_expression = (parser: Ptr<Parser>) AstNode {
                 body: ptr_new(false_expr),
             })
             
-            return AstNode.Match(ptr_new(expr), arms)
+            return AstNode.PatternMatch(ptr_new(expr), arms)
         }
         | false => return expr
 }
@@ -794,12 +790,7 @@ parse_primary_expression = (parser: Ptr<Parser>) AstNode {
             // Block expression
             return parse_block_expr(parser)
         }
-        | TokenKind.Keyword("if") => {
-            return parse_if_expression(parser)
-        }
-        | TokenKind.Keyword("match") => {
-            return parse_match_expression(parser)
-        }
+        // Note: if/else/match keywords are not allowed per language spec
         | TokenKind.Keyword("loop") => {
             return parse_loop_expression(parser)
         }
@@ -1181,68 +1172,9 @@ parse_continue_statement = (parser: Ptr<Parser>) AstNode {
     return AstNode.Continue
 }
 
-parse_if_expression = (parser: Ptr<Parser>) AstNode {
-    advance(parser)  // consume 'if'
-    
-    condition := parse_expression(parser)
-    then_branch := parse_block_expr(parser)
-    
-    else_branch := Option<Ptr<AstNode>>.None
-    check(parser, TokenKind.Keyword("else")) ?
-        | true => {
-            advance(parser)
-            
-            check(parser, TokenKind.Keyword("if")) ?
-                | true => else_branch = Option<Ptr<AstNode>>.Some(ptr_new(parse_if_expression(parser)))
-                | false => else_branch = Option<Ptr<AstNode>>.Some(ptr_new(parse_block_expr(parser)))
-        }
-        | false => {}
-    
-    return AstNode.If(ptr_new(condition), ptr_new(then_branch), else_branch)
-}
+// Note: if/else expressions are not allowed per language spec - use ? operator instead
 
-parse_match_expression = (parser: Ptr<Parser>) AstNode {
-    advance(parser)  // consume 'match'
-    
-    expr := parse_expression(parser)
-    expect(parser, TokenKind.LeftBrace, "Expected '{' after match expression")
-    
-    arms := vec_new<MatchArm>()
-    
-    loop !check(parser, TokenKind.RightBrace) && !is_at_end(parser) {
-        pattern := parse_pattern(parser)
-        
-        // Optional guard
-        guard := Option<Ptr<AstNode>>.None
-        check(parser, TokenKind.Keyword("if")) ?
-            | true => {
-                advance(parser)
-                guard = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser)))
-            }
-            | false => {}
-        
-        expect(parser, TokenKind.FatArrow, "Expected '=>' after pattern")
-        
-        body := parse_expression(parser)
-        
-        arm := MatchArm{
-            pattern: pattern,
-            guard: guard,
-            body: ptr_new(body),
-        }
-        
-        arms.push(arm)
-        
-        // Optional comma
-        check(parser, TokenKind.Comma) ?
-            | true => advance(parser)
-            | false => {}
-    }
-    
-    expect(parser, TokenKind.RightBrace, "Expected '}' after match arms")
-    
-    return AstNode.Match(ptr_new(expr), arms)
-}
+// Note: match expressions are not allowed per language spec - use ? operator instead
 
 parse_loop_expression = (parser: Ptr<Parser>) AstNode {
     advance(parser)  // consume 'loop'
@@ -1730,7 +1662,7 @@ parse_module = (parser: Ptr<Parser>) AstNode {
 // Helper functions for memory management (stubs)
 ptr_new = <T>(value: T) Ptr<T> {
     // In real implementation, would allocate on heap
-    return @ptr_of(value)
+    return @std.ptr_of(value)
 }
 
 vec_new = <T>() Vec<T> {

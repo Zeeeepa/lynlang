@@ -10,9 +10,9 @@ vec := @std.vec
 fs := @std.fs
 
 // Test 2: Compiler module imports
-lexer := @compiler.lexer
-parser := @compiler.parser
-codegen := @compiler.codegen
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+codegen := @std.compiler.codegen
 
 // Test 3: Import with build.import() pattern
 json := @std.json

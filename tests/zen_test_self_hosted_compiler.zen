@@ -8,11 +8,11 @@ test := @std.test
 string := @std.string
 
 // Import compiler modules
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-symbol_table := @compiler.symbol_table
-codegen := @compiler.codegen
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+type_checker := @std.compiler.type_checker
+symbol_table := @std.compiler.symbol_table
+codegen := @std.compiler.codegen
 
 // Test compilation of simple program
 test_compile_simple = () bool {
