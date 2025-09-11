@@ -4,10 +4,9 @@
 use std::sync::Arc;
 use std::pin::Pin;
 use std::future::Future;
-use std::task::{Context as TaskContext, Poll, Waker};
+use std::task::Waker;
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use crate::ast::AstType;
 
 /// Allocator trait that includes execution context
 /// This enables colorless async - same functions work sync or async

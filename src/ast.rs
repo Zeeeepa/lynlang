@@ -224,6 +224,14 @@ pub enum Pattern {
         name: String,
         pattern: Box<Pattern>,
     }, // For -> binding in patterns
+    Type {
+        type_name: String,
+        binding: Option<String>, // Optional binding like: i32 -> n
+    },
+    Guard {
+        pattern: Box<Pattern>,
+        condition: Box<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

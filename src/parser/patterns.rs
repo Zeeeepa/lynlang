@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{Pattern, Expression};
+use crate::ast::{Pattern, Expression, BinaryOperator};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -7,8 +7,23 @@ impl<'a> Parser<'a> {
     pub fn parse_pattern(&mut self) -> Result<Pattern> {
         match &self.current_token {
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {
-                // Literal pattern
+                // Literal pattern or range pattern
                 let expr = self.parse_expression()?;
+                
+                // Check for range pattern: 0..10 or 0..=10
+                if let Token::Operator(op) = &self.current_token {
+                    if op == ".." || op == "..=" {
+                        let inclusive = op == "..=";
+                        self.next_token(); // consume range operator
+                        let end_expr = self.parse_expression()?;
+                        return Ok(Pattern::Range {
+                            start: Box::new(expr),
+                            end: Box::new(end_expr),
+                            inclusive,
+                        });
+                    }
+                }
+                
                 Ok(Pattern::Literal(expr))
             }
             Token::Symbol('.') => {
@@ -115,6 +130,45 @@ impl<'a> Parser<'a> {
                     
                     self.next_token(); // consume '}'
                     return Ok(Pattern::Struct { name, fields });
+                }
+                
+                // Check for guard pattern with ->
+                if self.current_token == Token::Operator("->".to_string()) {
+                    self.next_token();
+                    
+                    // This could be a type pattern binding (i32 -> n) or a guard (v -> v > 100)
+                    // We need to look ahead to determine which
+                    let condition_expr = self.parse_expression()?;
+                    
+                    // If the expression is a boolean comparison, it's a guard
+                    // Otherwise, it's a type pattern binding
+                    if matches!(&condition_expr, 
+                        Expression::BinaryOp { op: BinaryOperator::GreaterThan, .. } |
+                        Expression::BinaryOp { op: BinaryOperator::GreaterThanEquals, .. } |
+                        Expression::BinaryOp { op: BinaryOperator::LessThan, .. } |
+                        Expression::BinaryOp { op: BinaryOperator::LessThanEquals, .. } |
+                        Expression::BinaryOp { op: BinaryOperator::Equals, .. } |
+                        Expression::BinaryOp { op: BinaryOperator::NotEquals, .. }) {
+                        // It's a guard pattern
+                        return Ok(Pattern::Guard {
+                            pattern: Box::new(Pattern::Identifier(name.clone())),
+                            condition: Box::new(condition_expr),
+                        });
+                    } else {
+                        // It's a type pattern binding
+                        return Ok(Pattern::Type {
+                            type_name: name,
+                            binding: Some(match condition_expr {
+                                Expression::Identifier(binding_name) => binding_name,
+                                _ => {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected identifier after -> in type pattern".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            }),
+                        });
+                    }
                 }
                 
                 // Check if it's an enum variant pattern: EnumName::Variant(pattern)
