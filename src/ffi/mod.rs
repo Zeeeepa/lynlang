@@ -139,7 +139,7 @@ impl Library {
         unsafe {
             match handle.get::<*mut c_void>(name.as_bytes()) {
                 Ok(sym) => Ok(*sym),
-                Err(e) => Err(FFIError::SymbolNotFound(name.to_string()))
+                Err(_e) => Err(FFIError::SymbolNotFound(name.to_string()))
             }
         }
     }
