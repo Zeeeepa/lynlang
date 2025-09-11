@@ -13,7 +13,11 @@ Implementing Zenlang - a minimalist systems programming language with:
 - ✅ LSP server implemented and working (src/lsp/)
 - ✅ Colorless async runtime implemented (src/async_runtime/)
 - ✅ Behaviors system implemented (src/behaviors/)
-- ✅ All tests passing (66 test suites)
+- ✅ Range patterns implemented (0..10, 0..=10)
+- ✅ Type patterns with binding implemented (i32 -> n)
+- ✅ Guard patterns implemented (v -> v > 100)
+- ✅ Fixed compiler warnings in async_runtime and behaviors
+- ✅ All tests passing (200+ tests across all suites)
 
 ## Architecture
 - Implementation language: Rust (not Zig as previously noted)
