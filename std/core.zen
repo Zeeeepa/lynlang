@@ -1,0 +1,368 @@
+// Core Types and Utilities for Zen Language
+// Based on Zenlang Language Specification v1.1.0
+
+// Option type - represents optional values
+Option<T> =
+    | Some(value: T)
+    | None
+
+// Result type - for error handling
+Result<T, E> =
+    | Ok(value: T)
+    | Err(error: E)
+
+// Vec - Dynamic array implementation
+Vec<T> = {
+    data: Ptr<Slice<T>>,
+    len: usize,
+    capacity: usize,
+    
+    // Create new empty vector
+    new: () Vec<T> {
+        Vec<T>{
+            data: Ptr::null(),
+            len: 0,
+            capacity: 0,
+        }
+    },
+    
+    // Create with initial capacity
+    with_capacity: (cap: usize) Vec<T> {
+        cap > 0 ?
+            | true => {
+                data := Ptr::alloc_slice(cap)
+                Vec<T>{
+                    data: data,
+                    len: 0,
+                    capacity: cap,
+                }
+            }
+            | false => Vec<T>::new()
+    },
+    
+    // Push element to vector
+    push: (self: Ptr<Vec<T>>, value: T) void {
+        self.value.len >= self.value.capacity ?
+            | true => {
+                new_cap := self.value.capacity == 0 ? 
+                    | true => 4
+                    | false => self.value.capacity * 2
+                self.value.resize(new_cap)
+            }
+            | false => {}
+        
+        self.value.data.value[self.value.len] = value
+        self.value.len = self.value.len + 1
+    },
+    
+    // Get element at index
+    get: (self: Ptr<Vec<T>>, index: usize) Option<T> {
+        index < self.value.len ?
+            | true => Option::Some(self.value.data.value[index])
+            | false => Option::None
+    },
+    
+    // Set element at index
+    set: (self: Ptr<Vec<T>>, index: usize, value: T) Result<void, string> {
+        index < self.value.len ?
+            | true => {
+                self.value.data.value[index] = value
+                Result::Ok(void)
+            }
+            | false => Result::Err("Index out of bounds")
+    },
+    
+    // Get length
+    len: (self: Ptr<Vec<T>>) usize {
+        self.value.len
+    },
+    
+    // Check if empty
+    is_empty: (self: Ptr<Vec<T>>) bool {
+        self.value.len == 0
+    },
+    
+    // Clear vector
+    clear: (self: Ptr<Vec<T>>) void {
+        self.value.len = 0
+    },
+    
+    // Resize vector
+    resize: (self: Ptr<Vec<T>>, new_cap: usize) void {
+        new_data := Ptr::alloc_slice(new_cap)
+        
+        // Copy existing data
+        min_len := self.value.len < new_cap ?
+            | true => self.value.len
+            | false => new_cap
+        
+        (0..min_len).loop((i) => {
+            new_data.value[i] = self.value.data.value[i]
+        })
+        
+        // Free old data if exists
+        self.value.data.is_null() ?
+            | false => self.value.data.free()
+            | true => {}
+        
+        self.value.data = new_data
+        self.value.capacity = new_cap
+        
+        // Adjust length if necessary
+        self.value.len > new_cap ?
+            | true => { self.value.len = new_cap }
+            | false => {}
+    },
+}
+
+// HashMap - Key-value map implementation
+HashMap<K, V> = {
+    buckets: Ptr<Vec<Bucket<K, V>>>,
+    count: usize,
+    
+    // Bucket for hash collision resolution
+    Bucket<K, V> =
+        | Empty
+        | Entry(key: K, value: V, next: Option<Ptr<Bucket<K, V>>>)
+    
+    // Create new empty map
+    new: () HashMap<K, V> {
+        HashMap<K, V>{
+            buckets: Ptr::new(Vec<Bucket<K, V>>::with_capacity(16)),
+            count: 0,
+        }
+    },
+    
+    // Insert key-value pair
+    insert: (self: Ptr<HashMap<K, V>>, key: K, value: V) Option<V> {
+        hash := compute_hash(key)
+        index := hash % self.value.buckets.value.capacity
+        
+        bucket := self.value.buckets.value.get(index)
+        
+        bucket ?
+            | Some -> b => {
+                // Check if key exists and update
+                b ?
+                    | .Entry -> k -> v -> next => {
+                        k == key ?
+                            | true => {
+                                old_value := v
+                                self.value.buckets.value.set(index, Bucket::Entry(key, value, next))
+                                Option::Some(old_value)
+                            }
+                            | false => {
+                                // Continue searching in chain
+                                self.insert_in_chain(next, key, value)
+                            }
+                    }
+                    | .Empty => {
+                        self.value.buckets.value.set(index, Bucket::Entry(key, value, Option::None))
+                        self.value.count = self.value.count + 1
+                        Option::None
+                    }
+            }
+            | None => {
+                // Should not happen with proper initialization
+                Option::None
+            }
+    },
+    
+    // Get value by key
+    get: (self: Ptr<HashMap<K, V>>, key: K) Option<V> {
+        hash := compute_hash(key)
+        index := hash % self.value.buckets.value.capacity
+        
+        bucket := self.value.buckets.value.get(index)
+        
+        bucket ?
+            | Some -> b => {
+                self.find_in_bucket(b, key)
+            }
+            | None => Option::None
+    },
+    
+    // Remove key-value pair
+    remove: (self: Ptr<HashMap<K, V>>, key: K) Option<V> {
+        hash := compute_hash(key)
+        index := hash % self.value.buckets.value.capacity
+        
+        bucket := self.value.buckets.value.get(index)
+        
+        bucket ?
+            | Some -> b => {
+                result := self.remove_from_bucket(b, key)
+                result ?
+                    | Some -> v => {
+                        self.value.count = self.value.count - 1
+                        Option::Some(v)
+                    }
+                    | None => Option::None
+            }
+            | None => Option::None
+    },
+    
+    // Check if key exists
+    contains_key: (self: Ptr<HashMap<K, V>>, key: K) bool {
+        self.get(key) ?
+            | Some -> _ => true
+            | None => false
+    },
+    
+    // Get number of entries
+    len: (self: Ptr<HashMap<K, V>>) usize {
+        self.value.count
+    },
+    
+    // Check if empty
+    is_empty: (self: Ptr<HashMap<K, V>>) bool {
+        self.value.count == 0
+    },
+    
+    // Clear all entries
+    clear: (self: Ptr<HashMap<K, V>>) void {
+        self.value.buckets.value.clear()
+        self.value.count = 0
+    },
+}
+
+// Slice type - view into an array or vector
+Slice<T> = {
+    ptr: Ptr<T>,
+    len: usize,
+    
+    // Get element at index
+    get: (self: Ptr<Slice<T>>, index: usize) Option<T> {
+        index < self.value.len ?
+            | true => Option::Some(self.value.ptr.offset(index).value)
+            | false => Option::None
+    },
+    
+    // Get subslice
+    slice: (self: Ptr<Slice<T>>, start: usize, end: usize) Option<Slice<T>> {
+        start <= end && end <= self.value.len ?
+            | true => Option::Some(Slice<T>{
+                ptr: self.value.ptr.offset(start),
+                len: end - start,
+            })
+            | false => Option::None
+    },
+}
+
+// Smart pointer implementation
+Ptr<T> = {
+    raw: RawPtr<T>,
+    
+    // Create new heap allocated value
+    new: (value: T) Ptr<T> {
+        raw := allocate<T>(1)
+        raw.value = value
+        Ptr<T>{ raw: raw }
+    },
+    
+    // Create null pointer
+    null: () Ptr<T> {
+        Ptr<T>{ raw: RawPtr::null() }
+    },
+    
+    // Allocate slice
+    alloc_slice: (count: usize) Ptr<Slice<T>> {
+        raw := allocate<T>(count)
+        slice := Slice<T>{
+            ptr: Ptr<T>{ raw: raw },
+            len: count,
+        }
+        Ptr::new(slice)
+    },
+    
+    // Check if null
+    is_null: (self: Ptr<T>) bool {
+        self.raw.is_null()
+    },
+    
+    // Get value (dereference)
+    value: (self: Ptr<T>) T {
+        self.raw.value
+    },
+    
+    // Get address
+    address: (self: Ptr<T>) usize {
+        self.raw.address()
+    },
+    
+    // Offset pointer
+    offset: (self: Ptr<T>, offset: usize) Ptr<T> {
+        Ptr<T>{ raw: self.raw.offset(offset) }
+    },
+    
+    // Free memory
+    free: (self: Ptr<T>) void {
+        deallocate(self.raw)
+    },
+}
+
+// Reference-counted pointer
+Ref<T> = {
+    ptr: Ptr<RefCell<T>>,
+    
+    RefCell<T> = {
+        value: T,
+        count: usize,
+    },
+    
+    // Create new reference
+    new: (value: T) Ref<T> {
+        cell := RefCell<T>{
+            value: value,
+            count: 1,
+        }
+        Ref<T>{ ptr: Ptr::new(cell) }
+    },
+    
+    // Clone reference (increase count)
+    clone: (self: Ptr<Ref<T>>) Ref<T> {
+        self.value.ptr.value.count = self.value.ptr.value.count + 1
+        Ref<T>{ ptr: self.value.ptr }
+    },
+    
+    // Get value
+    value: (self: Ptr<Ref<T>>) T {
+        self.value.ptr.value.value
+    },
+    
+    // Drop reference (decrease count)
+    drop: (self: Ptr<Ref<T>>) void {
+        self.value.ptr.value.count = self.value.ptr.value.count - 1
+        self.value.ptr.value.count == 0 ?
+            | true => self.value.ptr.free()
+            | false => {}
+    },
+}
+
+// Helper functions (compiler intrinsics)
+allocate<T> = (count: usize) RawPtr<T> {
+    @intrinsic("allocate", size_of<T>() * count)
+}
+
+deallocate<T> = (ptr: RawPtr<T>) void {
+    @intrinsic("deallocate", ptr)
+}
+
+size_of<T> = () usize {
+    @intrinsic("size_of", T)
+}
+
+compute_hash<T> = (value: T) usize {
+    @intrinsic("hash", value)
+}
+
+// Export public API
+export {
+    Option,
+    Result,
+    Vec,
+    HashMap,
+    Slice,
+    Ptr,
+    Ref,
+}

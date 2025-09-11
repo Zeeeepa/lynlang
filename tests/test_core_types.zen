@@ -1,0 +1,337 @@
+// Tests for Core Types
+// Validates Option, Result, Vec, HashMap, Ptr, and Ref implementations
+
+build := @std.build
+core := build.import("../std/core")
+{ Option, Result, Vec, HashMap, Ptr, Ref } := core
+test := build.import("test")
+{ assert, assert_eq, test_case } := test
+
+// Test Option type
+test_case("Option type operations") {
+    // Test Some variant
+    some_value := Option::Some(42)
+    some_value ?
+        | Some -> v => assert_eq(v, 42)
+        | None => assert(false, "Expected Some, got None")
+    
+    // Test None variant
+    none_value := Option<i32>::None
+    none_value ?
+        | Some -> _ => assert(false, "Expected None, got Some")
+        | None => assert(true)
+    
+    // Test pattern matching
+    result := some_value ?
+        | Some -> v => v * 2
+        | None => 0
+    assert_eq(result, 84)
+}
+
+// Test Result type
+test_case("Result type operations") {
+    // Test Ok variant
+    ok_result := Result::Ok(100)
+    ok_result ?
+        | Ok -> v => assert_eq(v, 100)
+        | Err -> _ => assert(false, "Expected Ok, got Err")
+    
+    // Test Err variant
+    err_result := Result<i32, string>::Err("Error message")
+    err_result ?
+        | Ok -> _ => assert(false, "Expected Err, got Ok")
+        | Err -> e => assert_eq(e, "Error message")
+    
+    // Test chaining
+    doubled := ok_result ?
+        | Ok -> v => Result::Ok(v * 2)
+        | Err -> e => Result::Err(e)
+    
+    doubled ?
+        | Ok -> v => assert_eq(v, 200)
+        | Err -> _ => assert(false, "Unexpected error")
+}
+
+// Test Vec type
+test_case("Vec operations") {
+    // Create and push
+    vec := Vec<i32>::new()
+    vec_ptr := Ptr::new(vec)
+    
+    vec_ptr.push(10)
+    vec_ptr.push(20)
+    vec_ptr.push(30)
+    
+    assert_eq(vec_ptr.len(), 3)
+    assert_eq(vec_ptr.is_empty(), false)
+    
+    // Test get
+    vec_ptr.get(0) ?
+        | Some -> v => assert_eq(v, 10)
+        | None => assert(false, "Expected value at index 0")
+    
+    vec_ptr.get(1) ?
+        | Some -> v => assert_eq(v, 20)
+        | None => assert(false, "Expected value at index 1")
+    
+    vec_ptr.get(2) ?
+        | Some -> v => assert_eq(v, 30)
+        | None => assert(false, "Expected value at index 2")
+    
+    vec_ptr.get(3) ?
+        | Some -> _ => assert(false, "Should not have value at index 3")
+        | None => assert(true)
+    
+    // Test set
+    vec_ptr.set(1, 25) ?
+        | Ok -> _ => {
+            vec_ptr.get(1) ?
+                | Some -> v => assert_eq(v, 25)
+                | None => assert(false, "Value should exist")
+        }
+        | Err -> _ => assert(false, "Set should succeed")
+    
+    // Test clear
+    vec_ptr.clear()
+    assert_eq(vec_ptr.len(), 0)
+    assert_eq(vec_ptr.is_empty(), true)
+}
+
+// Test HashMap type
+test_case("HashMap operations") {
+    // Create and insert
+    map := HashMap<string, i32>::new()
+    map_ptr := Ptr::new(map)
+    
+    map_ptr.insert("one", 1)
+    map_ptr.insert("two", 2)
+    map_ptr.insert("three", 3)
+    
+    assert_eq(map_ptr.len(), 3)
+    assert_eq(map_ptr.is_empty(), false)
+    
+    // Test get
+    map_ptr.get("one") ?
+        | Some -> v => assert_eq(v, 1)
+        | None => assert(false, "Expected value for 'one'")
+    
+    map_ptr.get("two") ?
+        | Some -> v => assert_eq(v, 2)
+        | None => assert(false, "Expected value for 'two'")
+    
+    map_ptr.get("three") ?
+        | Some -> v => assert_eq(v, 3)
+        | None => assert(false, "Expected value for 'three'")
+    
+    map_ptr.get("four") ?
+        | Some -> _ => assert(false, "Should not have value for 'four'")
+        | None => assert(true)
+    
+    // Test contains_key
+    assert_eq(map_ptr.contains_key("one"), true)
+    assert_eq(map_ptr.contains_key("four"), false)
+    
+    // Test update
+    old_value := map_ptr.insert("two", 22)
+    old_value ?
+        | Some -> v => assert_eq(v, 2)
+        | None => assert(false, "Should return old value")
+    
+    map_ptr.get("two") ?
+        | Some -> v => assert_eq(v, 22)
+        | None => assert(false, "Value should exist")
+    
+    // Test remove
+    removed := map_ptr.remove("one")
+    removed ?
+        | Some -> v => assert_eq(v, 1)
+        | None => assert(false, "Should return removed value")
+    
+    assert_eq(map_ptr.len(), 2)
+    assert_eq(map_ptr.contains_key("one"), false)
+    
+    // Test clear
+    map_ptr.clear()
+    assert_eq(map_ptr.len(), 0)
+    assert_eq(map_ptr.is_empty(), true)
+}
+
+// Test Ptr type
+test_case("Ptr operations") {
+    // Create pointer
+    ptr := Ptr::new(42)
+    assert_eq(ptr.value, 42)
+    assert_eq(ptr.is_null(), false)
+    
+    // Test null pointer
+    null_ptr := Ptr<i32>::null()
+    assert_eq(null_ptr.is_null(), true)
+    
+    // Test address
+    addr := ptr.address()
+    assert(addr > 0, "Address should be non-zero")
+    
+    // Test struct pointer
+    Point = {
+        x: i32,
+        y: i32,
+    }
+    
+    point_ptr := Ptr::new(Point { x: 10, y: 20 })
+    assert_eq(point_ptr.value.x, 10)
+    assert_eq(point_ptr.value.y, 20)
+}
+
+// Test Ref type (reference counting)
+test_case("Ref operations") {
+    // Create reference
+    ref1 := Ref::new(100)
+    ref1_ptr := Ptr::new(ref1)
+    assert_eq(ref1_ptr.value(), 100)
+    
+    // Clone reference
+    ref2 := ref1_ptr.clone()
+    ref2_ptr := Ptr::new(ref2)
+    assert_eq(ref2_ptr.value(), 100)
+    
+    // Both references point to same value
+    assert_eq(ref1_ptr.value(), ref2_ptr.value())
+    
+    // Drop references
+    ref1_ptr.drop()
+    // ref2 still valid
+    assert_eq(ref2_ptr.value(), 100)
+    
+    ref2_ptr.drop()
+    // All references dropped, memory should be freed
+}
+
+// Test Vec with custom types
+test_case("Vec with custom types") {
+    Person = {
+        name: string,
+        age: i32,
+    }
+    
+    people := Vec<Person>::new()
+    people_ptr := Ptr::new(people)
+    
+    people_ptr.push(Person { name: "Alice", age: 30 })
+    people_ptr.push(Person { name: "Bob", age: 25 })
+    
+    assert_eq(people_ptr.len(), 2)
+    
+    people_ptr.get(0) ?
+        | Some -> p => {
+            assert_eq(p.name, "Alice")
+            assert_eq(p.age, 30)
+        }
+        | None => assert(false, "Expected person at index 0")
+    
+    people_ptr.get(1) ?
+        | Some -> p => {
+            assert_eq(p.name, "Bob")
+            assert_eq(p.age, 25)
+        }
+        | None => assert(false, "Expected person at index 1")
+}
+
+// Test HashMap with custom types
+test_case("HashMap with custom types") {
+    Color = 
+        | Red
+        | Green
+        | Blue
+    
+    color_map := HashMap<string, Color>::new()
+    color_map_ptr := Ptr::new(color_map)
+    
+    color_map_ptr.insert("stop", Color::Red)
+    color_map_ptr.insert("go", Color::Green)
+    color_map_ptr.insert("sky", Color::Blue)
+    
+    color_map_ptr.get("stop") ?
+        | Some -> c => {
+            c ?
+                | .Red => assert(true)
+                | _ => assert(false, "Expected Red")
+        }
+        | None => assert(false, "Expected color for 'stop'")
+    
+    color_map_ptr.get("go") ?
+        | Some -> c => {
+            c ?
+                | .Green => assert(true)
+                | _ => assert(false, "Expected Green")
+        }
+        | None => assert(false, "Expected color for 'go'")
+}
+
+// Test error propagation with Result
+test_case("Result error propagation") {
+    divide = (a: i32, b: i32) Result<i32, string> {
+        b == 0 ?
+            | true => Result::Err("Division by zero")
+            | false => Result::Ok(a / b)
+    }
+    
+    calculate = (x: i32, y: i32, z: i32) Result<i32, string> {
+        // Chain multiple operations that might fail
+        r1 := divide(x, y) ?
+            | Ok -> v => v
+            | Err -> e => return Result::Err(e)
+        
+        r2 := divide(r1, z) ?
+            | Ok -> v => v
+            | Err -> e => return Result::Err(e)
+        
+        Result::Ok(r2)
+    }
+    
+    // Test successful calculation
+    calculate(100, 10, 2) ?
+        | Ok -> v => assert_eq(v, 5)  // (100 / 10) / 2 = 5
+        | Err -> _ => assert(false, "Should succeed")
+    
+    // Test error in first division
+    calculate(100, 0, 2) ?
+        | Ok -> _ => assert(false, "Should fail")
+        | Err -> e => assert_eq(e, "Division by zero")
+    
+    // Test error in second division
+    calculate(100, 10, 0) ?
+        | Ok -> _ => assert(false, "Should fail")
+        | Err -> e => assert_eq(e, "Division by zero")
+}
+
+// Test Vec resize
+test_case("Vec resize and capacity") {
+    vec := Vec<i32>::with_capacity(2)
+    vec_ptr := Ptr::new(vec)
+    
+    // Initial capacity is 2
+    vec_ptr.push(1)
+    vec_ptr.push(2)
+    // Should resize automatically
+    vec_ptr.push(3)
+    vec_ptr.push(4)
+    vec_ptr.push(5)
+    
+    assert_eq(vec_ptr.len(), 5)
+    
+    // All values should be preserved
+    (0..5).loop((i) => {
+        vec_ptr.get(i) ?
+            | Some -> v => assert_eq(v, i + 1)
+            | None => assert(false, "Value should exist at index $(i)")
+    })
+}
+
+// Run all tests
+main = () void {
+    io := build.import("io")
+    
+    io.print("Running core types tests...")
+    test.run_all()
+    io.print("All tests passed!")
+}
