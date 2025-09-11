@@ -5,6 +5,8 @@ pub fn add(left: u64, right: u64) -> u64 {
 }
 
 pub mod ast;
+pub mod async_runtime;
+pub mod behaviors;
 pub mod codegen;
 pub mod compiler;
 pub mod comptime;
