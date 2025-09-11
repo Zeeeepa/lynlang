@@ -275,6 +275,41 @@ impl Library {
         // For now, return an error
         Err(FFIError::InvalidSymbolName("Direct calling not yet implemented".to_string()))
     }
+    
+    /// Get the library name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the library path
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+    
+    /// Get the functions map
+    pub fn functions(&self) -> &HashMap<String, FnSignature> {
+        &self.functions
+    }
+    
+    /// Get the constants map
+    pub fn constants(&self) -> &HashMap<String, AstType> {
+        &self.constants
+    }
+    
+    /// Get the type mappings
+    pub fn type_mappings(&self) -> &HashMap<String, TypeMapping> {
+        &self.type_mappings
+    }
+    
+    /// Get the calling convention
+    pub fn calling_convention(&self) -> CallingConvention {
+        self.calling_convention
+    }
+    
+    /// Check if safety checks are enabled
+    pub fn safety_checks(&self) -> bool {
+        self.safety_checks
+    }
 }
 
 impl Drop for Library {
