@@ -252,9 +252,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         return Err(CompileError::MissingReturnStatement(function.name.clone(), None));
                     }
                 }
-            } else {
             }
-        } else {
         }
 
         self.current_function = None;

@@ -158,10 +158,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             
             // Add implicit return if needed
-            if matches!(llvm_return_type, super::Type::Void) {
-                if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
-                    self.builder.build_return(None)?;
-                }
+            if matches!(llvm_return_type, super::Type::Void) && self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                self.builder.build_return(None)?;
             }
             
             // Clean up

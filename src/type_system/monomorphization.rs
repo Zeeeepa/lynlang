@@ -226,11 +226,9 @@ impl Monomorphizer {
     fn collect_instantiations_from_type(&mut self, ast_type: &AstType) -> Result<(), String> {
         match ast_type {
             AstType::Generic { name, type_args } => {
-                if !type_args.is_empty() {
-                    if self.env.get_generic_struct(name).is_some() || 
-                       self.env.get_generic_enum(name).is_some() {
-                        self.pending_instantiations.push((name.clone(), type_args.clone()));
-                    }
+                if !type_args.is_empty() && (self.env.get_generic_struct(name).is_some() || 
+                   self.env.get_generic_enum(name).is_some()) {
+                    self.pending_instantiations.push((name.clone(), type_args.clone()));
                 }
                 
                 for arg in type_args {
