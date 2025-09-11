@@ -1,0 +1,14 @@
+// Test string interpolation
+main = () i32 {
+    name := "World"
+    age := 42
+    pi := 3.14159
+    
+    message := "Hello $(name)! You are $(age) years old."
+    io.println(message)
+    
+    math_msg := "Pi is approximately $(pi)"
+    io.println(math_msg)
+    
+    return 0
+}
