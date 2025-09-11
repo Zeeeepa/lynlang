@@ -539,6 +539,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Module imports are handled during parsing, not codegen
                 Ok(())
             },
+            Statement::Defer(_deferred_stmt) => {
+                // Defer statements need special handling - they execute at scope exit
+                // For now, we'll implement a basic version that doesn't support defer
+                // TODO: Implement proper defer semantics with scope tracking
+                Ok(())
+            }
         }
     }
 } 

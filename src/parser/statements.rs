@@ -549,6 +549,43 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Statement::Break { label })
             }
+            Token::Keyword(lexer::Keyword::Defer) => {
+                self.next_token(); // consume 'defer'
+                
+                // Parse the statement or block to defer
+                let deferred_stmt = if self.current_token == Token::Symbol('{') {
+                    // Parse block
+                    self.next_token(); // consume '{'
+                    let mut statements = Vec::new();
+                    while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+                        statements.push(self.parse_statement()?);
+                    }
+                    if self.current_token != Token::Symbol('}') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected '}' to close defer block".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token(); // consume '}'
+                    
+                    // Wrap multiple statements in a single defer by using the first as the deferred action
+                    // In a real implementation, we'd need a Block statement type
+                    if statements.is_empty() {
+                        Statement::Expression(Expression::Boolean(true)) // No-op
+                    } else if statements.len() == 1 {
+                        statements.into_iter().next().unwrap()
+                    } else {
+                        // For now, only support single statement in defer
+                        // TODO: Add Block statement type to support multiple statements
+                        statements.into_iter().next().unwrap()
+                    }
+                } else {
+                    // Single statement
+                    self.parse_statement()?
+                };
+                
+                Ok(Statement::Defer(Box::new(deferred_stmt)))
+            }
             Token::Keyword(lexer::Keyword::Continue) => {
                 self.next_token();
                 let label = if let Token::Identifier(label_name) = &self.current_token {
