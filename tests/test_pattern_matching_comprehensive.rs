@@ -30,7 +30,6 @@ fn test_simple_value_pattern() {
 }
 
 #[test]
-#[ignore] // TODO: Parser needs updates for pattern matching syntax per Language Spec v1.1.0
 fn test_range_pattern() {
     let code = r#"
         age := 25
@@ -44,11 +43,24 @@ fn test_range_pattern() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.statements.len(), 2);
+    // These are declarations (variable assignments), not statements
+    assert_eq!(program.declarations.len(), 2);
+    
+    // Check the second declaration has pattern matching
+    if let Some(Declaration::Constant { value: Expression::Conditional { arms, .. }, .. }) = program.declarations.get(1) {
+        assert_eq!(arms.len(), 4); // Four arms: 0..=12, 13..=19, 20..=64, _
+        
+        // Check patterns (simplified for now - just verify they parsed)
+        println!("Parsed {} pattern match arms", arms.len());
+        for (i, arm) in arms.iter().enumerate() {
+            println!("Arm {}: {:?}", i, arm.pattern);
+        }
+    } else {
+        panic!("Expected conditional expression in second declaration");
+    }
 }
 
 #[test]
-#[ignore] // TODO: Parser needs updates for pattern matching syntax per Language Spec v1.1.0
 fn test_enum_destructuring_pattern() {
     let code = r#"
         result := value ? | .Ok -> val => process(val)
@@ -59,11 +71,17 @@ fn test_enum_destructuring_pattern() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.statements.len(), 1);
+    assert_eq!(program.declarations.len(), 1);
+    
+    // Verify pattern matching with enum destructuring
+    if let Some(Declaration::Constant { value: Expression::Conditional { arms, .. }, .. }) = program.declarations.get(0) {
+        assert_eq!(arms.len(), 2); // Two arms: .Ok and .Err
+    } else {
+        panic!("Expected conditional expression in first declaration");
+    }
 }
 
 #[test]
-#[ignore] // TODO: Parser needs updates for pattern matching syntax per Language Spec v1.1.0
 fn test_guard_pattern() {
     let code = r#"
         result := value ? | v -> v > 100 => "large"
@@ -75,11 +93,17 @@ fn test_guard_pattern() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.statements.len(), 1);
+    assert_eq!(program.declarations.len(), 1);
+    
+    // Verify guard patterns
+    if let Some(Declaration::Constant { value: Expression::Conditional { arms, .. }, .. }) = program.declarations.get(0) {
+        assert_eq!(arms.len(), 3); // Three arms with guards
+    } else {
+        panic!("Expected conditional expression");
+    }
 }
 
 #[test]
-#[ignore] // TODO: Parser needs updates for pattern matching syntax per Language Spec v1.1.0
 fn test_multiple_patterns() {
     let code = r#"
         day_type := day ? | 1 | 2 | 3 | 4 | 5 => "weekday"
@@ -91,7 +115,14 @@ fn test_multiple_patterns() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.statements.len(), 1);
+    assert_eq!(program.declarations.len(), 1);
+    
+    // Verify multiple patterns (or-patterns)
+    if let Some(Declaration::Constant { value: Expression::Conditional { arms, .. }, .. }) = program.declarations.get(0) {
+        assert_eq!(arms.len(), 3); // Three arms: weekdays, weekend, invalid
+    } else {
+        panic!("Expected conditional expression");
+    }
 }
 
 #[test]
