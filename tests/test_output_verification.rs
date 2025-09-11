@@ -117,6 +117,7 @@ fn test_printf_output_verification() {
                 is_async: false,
             }),
         ],
+        statements: Vec::new(),
     };
 
     // Compile and run the program, capturing output
@@ -157,6 +158,7 @@ fn test_puts_output_verification() {
                 is_async: false,
             }),
         ],
+        statements: Vec::new(),
     };
 
     let output = helper.compile_ast_and_run(&program)
@@ -204,6 +206,7 @@ fn test_multiple_printf_calls() {
                 is_async: false,
             }),
         ],
+        statements: Vec::new(),
     };
 
     let output = helper.compile_ast_and_run(&program)
@@ -258,6 +261,7 @@ fn test_printf_with_format_specifiers() {
                 is_async: false,
             }),
         ],
+        statements: Vec::new(),
     };
 
     let output = helper.compile_ast_and_run(&program)

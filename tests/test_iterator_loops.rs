@@ -66,8 +66,8 @@ fn test_loop_iterator_array_literal() {
         is_async: false,
     };
     
-    let program = zen::ast::Program {
-        declarations: vec![malloc_decl, Declaration::Function(main_function)],
+    let program = zen::ast::Program::new(
+vec![malloc_decl, Declaration::Function(main_function)]),
     };
     
     let output = helper.compile_ast_and_run(&program)
@@ -127,8 +127,8 @@ fn test_loop_iterator_empty_array() {
         is_async: false,
     };
     
-    let program = zen::ast::Program {
-        declarations: vec![malloc_decl, Declaration::Function(main_function)],
+    let program = zen::ast::Program::new(
+vec![malloc_decl, Declaration::Function(main_function)]),
     };
     
     let output = helper.compile_ast_and_run(&program)
@@ -193,8 +193,8 @@ fn test_loop_iterator_with_printf() {
         is_async: false,
     };
     
-    let program = zen::ast::Program {
-        declarations: vec![malloc_decl, printf_decl, Declaration::Function(main_function)],
+    let program = zen::ast::Program::new(
+vec![malloc_decl, printf_decl, Declaration::Function(main_function)]),
     };
     
     // Compile and verify output

@@ -384,16 +384,25 @@ pub enum Declaration {
     TypeAlias(TypeAlias),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Program {
     pub declarations: Vec<Declaration>,
+    pub statements: Vec<Statement>, // Top-level statements (for testing/REPL)
 }
 
 // Convenience methods for backward compatibility
 impl Program {
+    pub fn new(declarations: Vec<Declaration>) -> Self {
+        Self {
+            declarations,
+            statements: Vec::new(),
+        }
+    }
+    
     pub fn from_functions(functions: Vec<Function>) -> Self {
         Self {
             declarations: functions.into_iter().map(Declaration::Function).collect(),
+            statements: Vec::new(),
         }
     }
 

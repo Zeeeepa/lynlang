@@ -10,7 +10,7 @@ fn test_simple_pattern_match_codegen() {
     let compiler = Compiler::new(&context);
     
     // Create a simple pattern matching function
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             ast::Declaration::Function(ast::Function {
                 type_params: vec![],

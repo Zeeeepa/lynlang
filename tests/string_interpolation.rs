@@ -9,7 +9,7 @@ fn test_simple_string_interpolation() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -89,7 +89,7 @@ fn test_multiple_interpolations() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),

@@ -450,7 +450,10 @@ impl<'a> Parser<'a> {
             }
         }
         
-        Ok(Program { declarations })
+        Ok(Program { 
+            declarations,
+            statements: Vec::new(),
+        })
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement> {

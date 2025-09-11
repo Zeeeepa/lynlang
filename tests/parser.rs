@@ -9,7 +9,7 @@ fn test_parse_empty_program() {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
-    assert_eq!(program, Program { declarations: vec![] });
+    assert_eq!(program, Program { declarations: vec![], statements: vec![] });
 }
 
 #[test]
@@ -19,8 +19,8 @@ fn test_parse_simple_function() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    let expected = Program {
-        declarations: vec![
+    let expected = Program::new(
+        vec![
             Declaration::Function(Function { type_params: vec![],
                 name: "main".to_string(),
                 args: vec![],
@@ -31,7 +31,7 @@ fn test_parse_simple_function() {
                 is_async: false,
             })
         ],
-    };
+    );
     assert_eq!(program, expected);
 }
 
@@ -42,8 +42,8 @@ fn test_parse_variable_declaration() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    let expected = Program {
-        declarations: vec![
+    let expected = Program::new(
+        vec![
             Declaration::Function(Function { type_params: vec![],
                 name: "main".to_string(),
                 args: vec![],
@@ -61,7 +61,7 @@ fn test_parse_variable_declaration() {
                 is_async: false,
             })
         ],
-    };
+    );
     assert_eq!(program, expected);
 }
 
@@ -72,8 +72,8 @@ fn test_parse_binary_expression() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    let expected = Program {
-        declarations: vec![
+    let expected = Program::new(
+        vec![
             Declaration::Function(Function { type_params: vec![],
                 name: "main".to_string(),
                 args: vec![],
@@ -88,7 +88,7 @@ fn test_parse_binary_expression() {
                 is_async: false,
             })
         ],
-    };
+    );
     assert_eq!(program, expected);
 }
 
@@ -126,8 +126,8 @@ fn test_parse_loop_with_condition() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    let expected = Program {
-        declarations: vec![
+    let expected = Program::new(
+        vec![
             Declaration::Function(Function { type_params: vec![],
                 name: "countdown".to_string(),
                 args: vec![],
@@ -162,7 +162,7 @@ fn test_parse_loop_with_condition() {
                 is_async: false,
             })
         ],
-    };
+    );
     assert_eq!(program, expected);
 }
 
@@ -415,8 +415,8 @@ fn test_parse_function_with_return() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    let expected = Program {
-        declarations: vec![
+    let expected = Program::new(
+        vec![
             Declaration::Function(Function { type_params: vec![],
                 name: "test".to_string(),
                 args: vec![], // Empty args since input has ()
@@ -445,7 +445,7 @@ fn test_parse_function_with_return() {
                 is_async: false,
             })
         ],
-    };
+    );
     assert_eq!(program, expected);
 }
 
@@ -456,8 +456,8 @@ fn test_parse_loop_with_return() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    let expected = Program {
-        declarations: vec![
+    let expected = Program::new(
+        vec![
             Declaration::Function(Function { type_params: vec![],
                 name: "test".to_string(),
                 args: vec![], // Empty args since input has ()
@@ -492,7 +492,7 @@ fn test_parse_loop_with_return() {
                 is_async: false,
             })
         ],
-    };
+    );
     assert_eq!(program, expected);
 }
 

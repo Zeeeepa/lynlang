@@ -94,8 +94,8 @@ impl CapturedOutput {
 fn test_string_interpolation_integer_output() {
     let helper = ExecutionHelper::new();
 
-    let program = ast::Program {
-        declarations: vec![
+    let program = ast::Program::new(
+        vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
                 args: vec![AstType::String],
@@ -132,7 +132,7 @@ fn test_string_interpolation_integer_output() {
                 is_async: false,
             }),
         ],
-    };
+    );
 
     let output = helper.compile_ast_and_run(&program)
         .expect("Failed to compile and run program");
@@ -148,8 +148,8 @@ fn test_string_interpolation_integer_output() {
 fn test_string_interpolation_string_var_output() {
     let helper = ExecutionHelper::new();
 
-    let program = ast::Program {
-        declarations: vec![
+    let program = ast::Program::new(
+        vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
                 args: vec![AstType::String],
@@ -186,7 +186,7 @@ fn test_string_interpolation_string_var_output() {
                 is_async: false,
             }),
         ],
-    };
+    );
 
     let output = helper.compile_ast_and_run(&program)
         .expect("Failed to compile and run program");
@@ -202,8 +202,8 @@ fn test_string_interpolation_string_var_output() {
 fn test_string_interpolation_multiple_vars_output() {
     let helper = ExecutionHelper::new();
 
-    let program = ast::Program {
-        declarations: vec![
+    let program = ast::Program::new(
+        vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
                 args: vec![AstType::String],
@@ -255,7 +255,7 @@ fn test_string_interpolation_multiple_vars_output() {
                 is_async: false,
             }),
         ],
-    };
+    );
 
     let output = helper.compile_ast_and_run(&program)
         .expect("Failed to compile and run program");

@@ -9,7 +9,7 @@ use zen::compiler::Compiler;
 fn test_printf_output_verified() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -49,7 +49,7 @@ fn test_printf_output_verified() {
 fn test_printf_return_value() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -88,7 +88,7 @@ fn test_printf_return_value() {
 fn test_puts_output_verified() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "puts".to_string(),
@@ -127,7 +127,7 @@ fn test_puts_output_verified() {
 fn test_multiple_printf_calls_verified() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -179,7 +179,7 @@ fn test_multiple_printf_calls_verified() {
 fn test_float_operations_with_printf() {
     let helper = ExecutionHelper::new();
     
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -246,7 +246,7 @@ fn test_external_function_ir_generation() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
     
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "printf".to_string(),
@@ -287,7 +287,7 @@ fn test_external_math_function_ir() {
     let context = Context::create();
     let compiler = Compiler::new(&context);
 
-    let program = ast::Program {
+    let program = ast::Program::new(
         declarations: vec![
             Declaration::ExternalFunction(ExternalFunction {
                 name: "sqrt".to_string(),

@@ -625,9 +625,8 @@ fn test_struct_creation_and_access() {
                 }),
             ],
         };
-        let program = ast::Program {
-            declarations: vec![struct_decl, ast::Declaration::Function(func)],
-        };
+        let program = ast::Program::new(
+            vec![struct_decl, ast::Declaration::Function(func)]);
         test_context.compile(&program).unwrap();
         let ir = test_context.get_ir().expect("Failed to get IR");
         assert!(ir.contains("define i64 @main"), "IR should contain main function definition");
@@ -699,9 +698,8 @@ fn test_struct_pointer() {
                 }),
             ],
         };
-        let program = ast::Program {
-            declarations: vec![struct_decl, ast::Declaration::Function(func)],
-        };
+        let program = ast::Program::new(
+            vec![struct_decl, ast::Declaration::Function(func)]);
         test_context.compile(&program).unwrap();
         let ir = test_context.module().unwrap().print_to_string().to_string();
         assert!(ir.contains("define i64 @test_struct_ptr"));
@@ -764,9 +762,8 @@ fn test_struct_field_assignment() {
                 }),
             ],
         };
-        let program = ast::Program {
-            declarations: vec![struct_decl, ast::Declaration::Function(func)],
-        };
+        let program = ast::Program::new(
+            vec![struct_decl, ast::Declaration::Function(func)]);
         test_context.compile(&program).unwrap();
         let ir = test_context.module().unwrap().print_to_string().to_string();
         assert!(ir.contains("define i64 @test_struct_assign"));

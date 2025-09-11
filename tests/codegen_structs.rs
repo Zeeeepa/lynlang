@@ -70,8 +70,8 @@ fn test_struct_creation_and_access() {
                 }),
             ],
         };
-        let program = ast::Program {
-            declarations: vec![struct_decl, ast::Declaration::Function(func)],
+        let program = ast::Program::new(
+vec![struct_decl, ast::Declaration::Function(func)]),
         };
         let result = test_context.compile(&program);
         assert!(result.is_ok());
@@ -143,8 +143,8 @@ fn test_struct_pointer() {
                 }),
             ],
         };
-        let program = ast::Program {
-            declarations: vec![struct_decl, ast::Declaration::Function(func)],
+        let program = ast::Program::new(
+vec![struct_decl, ast::Declaration::Function(func)]),
         };
         let result = test_context.compile(&program);
         assert!(result.is_ok());
@@ -207,8 +207,8 @@ fn test_struct_field_assignment() {
                 }),
             ],
         };
-        let program = ast::Program {
-            declarations: vec![struct_decl, ast::Declaration::Function(func)],
+        let program = ast::Program::new(
+vec![struct_decl, ast::Declaration::Function(func)]),
         };
         let result = test_context.compile(&program);
         assert!(result.is_ok());
