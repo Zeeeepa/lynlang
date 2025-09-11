@@ -95,7 +95,7 @@ fn test_function_pointer() {
 }
 
 #[test]
-#[ignore = "LLVM physreg copy instruction error - needs investigation"]
+// Fixed: LLVM physreg copy instruction error
 fn test_recursive_function() {
     test_context!(|test_context: &mut TestContext| {
         let program = ast::Program::from_functions(vec![
