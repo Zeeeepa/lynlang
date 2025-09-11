@@ -131,6 +131,7 @@ impl<'ctx> Compiler<'ctx> {
         
         Ok(Program {
             declarations: new_declarations,
+            statements: Vec::new(),
         })
     }
     

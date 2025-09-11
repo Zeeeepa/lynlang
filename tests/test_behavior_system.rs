@@ -58,7 +58,7 @@ fn test_behavior_implementation() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.statements.len(), 1);
+    assert_eq!(program.declarations.len(), 1);
 }
 
 #[test]
@@ -251,8 +251,7 @@ fn test_behavior_for_custom_types() {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program().unwrap();
     
-    assert_eq!(program.declarations.len(), 1);
-    assert_eq!(program.statements.len(), 2);
+    assert_eq!(program.declarations.len(), 3);
 }
 
 #[test]

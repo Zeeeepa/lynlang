@@ -102,9 +102,8 @@ fn test_nested_struct_field_access() {
             ],
         };
         
-        let program = ast::Program {
-            declarations: vec![inner_struct, outer_struct, ast::Declaration::Function(func)],
-        };
+        let program = ast::Program::new(
+            vec![inner_struct, outer_struct, ast::Declaration::Function(func)]);
         
         let result = test_context.compile(&program);
         if let Err(e) = &result {
@@ -184,13 +183,13 @@ fn test_struct_field_from_function_return() {
             ],
         };
         
-        let program = ast::Program {
-            declarations: vec![
+        let program = ast::Program::new(
+            vec![
                 point_struct,
                 ast::Declaration::Function(make_point),
                 ast::Declaration::Function(func),
             ],
-        };
+        );
         
         let result = test_context.compile(&program);
         if let Err(e) = &result {
@@ -249,9 +248,8 @@ fn test_struct_field_from_literal() {
             ],
         };
         
-        let program = ast::Program {
-            declarations: vec![point_struct, ast::Declaration::Function(func)],
-        };
+        let program = ast::Program::new(
+            vec![point_struct, ast::Declaration::Function(func)]);
         
         let result = test_context.compile(&program);
         if let Err(e) = &result {

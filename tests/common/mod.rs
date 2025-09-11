@@ -150,8 +150,8 @@ impl CapturedOutput {
 macro_rules! test_program {
     (extern { $($extern:tt)* } main { $($body:tt)* }) => {{
         use zen::ast::{Program, Declaration};
-        Program {
-            declarations: vec![
+        Program::new(
+            vec![
                 $($extern)*,
                 Declaration::Function(Function {
                     type_params: vec![],
@@ -162,6 +162,6 @@ macro_rules! test_program {
                     is_async: false,
                 })
             ]
-        }
+        )
     }};
 }

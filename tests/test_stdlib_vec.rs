@@ -279,6 +279,7 @@ fn test_vec_compilation_basic() {
     
     let program = Program {
         declarations: vec![struct_decl, printf_decl, main_func],
+        statements: Vec::new(),
     };
     
     let output = helper.compile_ast_and_run(&program)

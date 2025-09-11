@@ -57,6 +57,7 @@ impl ModuleSystem {
             // The actual functionality is provided by the compiler's stdlib module
             let empty_program = Program {
                 declarations: Vec::new(),
+                statements: Vec::new(),
             };
             self.modules.insert(module_path.to_string(), empty_program);
             return Ok(&self.modules[module_path]);

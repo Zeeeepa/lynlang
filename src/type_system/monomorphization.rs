@@ -80,7 +80,10 @@ impl Monomorphizer {
         // Transform all function calls to use monomorphized names
         let transformed_declarations = self.transform_declarations(declarations)?;
         
-        Ok(Program { declarations: transformed_declarations })
+        Ok(Program { 
+            declarations: transformed_declarations,
+            statements: Vec::new(),
+        })
     }
 
     fn collect_instantiations_from_declaration(&mut self, decl: &Declaration) -> Result<(), String> {
