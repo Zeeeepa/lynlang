@@ -140,6 +140,44 @@ impl<'a> Parser<'a> {
                     Ok(Expression::String(value))
                 }
             }
+            Token::Symbol('.') => {
+                // Shorthand enum variant syntax: .VariantName or .VariantName(payload)
+                self.next_token(); // consume '.'
+                
+                let variant = match &self.current_token {
+                    Token::Identifier(v) => v.clone(),
+                    _ => {
+                        return Err(CompileError::SyntaxError(
+                            "Expected variant name after '.'".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                };
+                self.next_token();
+                
+                // Check for variant payload
+                let payload = if self.current_token == Token::Symbol('(') {
+                    self.next_token(); // consume '('
+                    let expr = self.parse_expression()?;
+                    if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ')' after enum variant payload".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token(); // consume ')'
+                    Some(Box::new(expr))
+                } else {
+                    None
+                };
+                
+                // Use empty string for enum_name - it will be inferred from context
+                return Ok(Expression::EnumVariant {
+                    enum_name: String::new(),
+                    variant,
+                    payload,
+                });
+            }
             Token::Identifier(name) => {
                 let name = name.clone();
                 self.next_token();
@@ -535,8 +573,61 @@ impl<'a> Parser<'a> {
             }
             self.next_token(); // consume '=>'
             
-            // Parse the result expression
-            let body = self.parse_expression()?;
+            // Parse the result expression or block
+            let body = if self.current_token == Token::Symbol('{') {
+                // Parse block as expression
+                self.next_token(); // consume '{'
+                
+                let mut statements = Vec::new();
+                let mut final_expr = None;
+                
+                while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+                    // Check if this could be the final expression
+                    if self.peek_token == Token::Symbol('}') {
+                        // This might be the final expression (no semicolon)
+                        let expr = self.parse_expression()?;
+                        if self.current_token == Token::Symbol(';') {
+                            // It's a statement, not the final expression
+                            self.next_token();
+                            statements.push(crate::ast::Statement::Expression(expr));
+                        } else {
+                            // It's the final expression
+                            final_expr = Some(expr);
+                        }
+                    } else {
+                        // Parse as statement - for now just parse expressions
+                        // In a full implementation, we'd need to handle statements properly
+                        let expr = self.parse_expression()?;
+                        if self.current_token == Token::Symbol(';') {
+                            self.next_token();
+                        }
+                        statements.push(crate::ast::Statement::Expression(expr));
+                    }
+                }
+                
+                if self.current_token != Token::Symbol('}') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '}' to close block in match arm".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '}'
+                
+                // For now, treat blocks as the final expression or a default value
+                final_expr.unwrap_or(Expression::Boolean(true))
+            } else {
+                // Handle return statement in pattern arm specially
+                if let Token::Keyword(crate::lexer::Keyword::Return) = self.current_token {
+                    self.next_token(); // consume 'return'
+                    let return_expr = self.parse_expression()?;
+                    // Wrap return in a special expression type or handle it differently
+                    // For now, we'll just use the return expression directly
+                    // In a full implementation, we'd need a Block expression type with statements
+                    return_expr
+                } else {
+                    self.parse_expression()?
+                }
+            };
             
             arms.push(crate::ast::ConditionalArm {
                 pattern,
