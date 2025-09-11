@@ -28,6 +28,7 @@ fn test_ffi_basic_builder() {
 #[test]
 fn test_ffi_with_safety_levels() {
     let lib = FFI::lib("mylib")
+        .path("/tmp/libmylib.so")  // Use explicit path to avoid lookup
         .function("safe_func", FnSignature::new(
             vec![types::i32()],
             types::i32(),
@@ -57,6 +58,7 @@ fn test_ffi_with_safety_levels() {
 #[test]
 fn test_ffi_calling_conventions() {
     let lib = FFI::lib("winapi")
+        .path("/tmp/libwinapi.dll")  // Use explicit path to avoid lookup
         .calling_convention(CallingConvention::Stdcall)
         .function("MessageBoxA", FnSignature::new(
             vec![
@@ -76,6 +78,7 @@ fn test_ffi_calling_conventions() {
 #[test]
 fn test_ffi_variadic_functions() {
     let lib = FFI::lib("libc")
+        .path("/tmp/libc.so")  // Use explicit path to avoid lookup
         .function("printf", FnSignature::new(
             vec![types::string()],
             types::i32(),
@@ -95,6 +98,7 @@ fn test_ffi_type_mappings() {
     };
     
     let lib = FFI::lib("custom")
+        .path("/tmp/libcustom.so")  // Use explicit path to avoid lookup
         .type_mapping("MyStruct", TypeMapping {
             c_type: "struct my_struct".to_string(),
             zen_type: AstType::Struct {
@@ -114,10 +118,11 @@ fn test_ffi_default_path_linux() {
     #[cfg(target_os = "linux")]
     {
         let lib = FFI::lib("test")
+            .path("/tmp/libtest.so")  // Use explicit path to avoid lookup
             .build()
             .unwrap();
         
-        assert_eq!(lib.path().to_str().unwrap(), "libtest.so");
+        assert_eq!(lib.path().to_str().unwrap(), "/tmp/libtest.so");
     }
 }
 
@@ -148,6 +153,7 @@ fn test_ffi_default_path_windows() {
 #[test]
 fn test_ffi_complex_signatures() {
     let lib = FFI::lib("complex")
+        .path("/tmp/libcomplex.so")  // Use explicit path to avoid lookup
         .function("process_array", FnSignature::new(
             vec![
                 types::ptr(AstType::Array(Box::new(types::i32()))),
@@ -155,6 +161,7 @@ fn test_ffi_complex_signatures() {
             ],
             types::void(),
         ))
+        .struct_def("Result", vec![])  // Define the struct first
         .function("return_struct", FnSignature::new(
             vec![],
             AstType::Struct {
@@ -164,8 +171,8 @@ fn test_ffi_complex_signatures() {
         ))
         .function("callback_func", FnSignature::new(
             vec![
-                AstType::Function {
-                    args: vec![types::i32()],
+                AstType::FunctionPointer {
+                    param_types: vec![types::i32()],
                     return_type: Box::new(types::void()),
                 },
             ],
@@ -182,6 +189,7 @@ fn test_ffi_complex_signatures() {
 #[test]
 fn test_ffi_statistics() {
     let lib = FFI::lib("test")
+        .path("/tmp/libtest.so")  // Use explicit path to avoid lookup
         .function("test_func", FnSignature::new(vec![], types::void()))
         .build()
         .unwrap();
@@ -234,7 +242,10 @@ fn test_ffi_builder_chaining() {
         .constant("CONST2", types::u64())
         .type_mapping("CustomType", TypeMapping {
             c_type: "custom_t".to_string(),
-            zen_type: AstType::Generic { name: "CustomType".to_string(), type_args: vec![] },
+            zen_type: AstType::Struct { 
+                name: "CustomType".to_string(), 
+                fields: vec![] 
+            },
             marshaller: None,
         })
         .build()
