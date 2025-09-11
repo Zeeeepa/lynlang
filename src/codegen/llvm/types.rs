@@ -103,7 +103,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Convert BasicTypeEnum to BasicMetadataTypeEnum for function signatures
                 let arg_metadata_types: Vec<BasicMetadataTypeEnum<'ctx>> = arg_llvm_types.iter().map(|ty| (*ty).into()).collect();
                 
-                let function_type = match return_llvm_type {
+                let _function_type = match return_llvm_type {
                     Type::Basic(basic_type) => basic_type.fn_type(&arg_metadata_types, false),
                     Type::Void => self.context.void_type().fn_type(&arg_metadata_types, false),
                     _ => self.context.i64_type().fn_type(&arg_metadata_types, false),

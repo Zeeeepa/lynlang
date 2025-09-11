@@ -1,6 +1,6 @@
 mod common;
 
-use common::{ExecutionHelper, CapturedOutput};
+use common::ExecutionHelper;
 use inkwell::context::Context;
 use zen::ast::{self, Declaration, ExternalFunction, Function, Statement, Expression, AstType, VariableDeclarationType};
 use zen::compiler::Compiler;

@@ -228,7 +228,7 @@ impl BehaviorResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{BehaviorMethod, Function, Parameter, TypeParameter};
+    use crate::ast::{BehaviorMethod, Function, Parameter};
 
     #[test]
     fn test_register_behavior() {

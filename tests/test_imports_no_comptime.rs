@@ -4,7 +4,7 @@
 mod tests {
     use zen::lexer::Lexer;
     use zen::parser::Parser;
-    use zen::ast::{Declaration, Statement};
+    use zen::ast::Declaration;
 
     #[test]
     fn test_direct_std_import() {

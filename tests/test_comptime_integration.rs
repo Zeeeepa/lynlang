@@ -3,8 +3,6 @@ mod common;
 use common::ExecutionHelper;
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use zen::compiler::Compiler;
-use inkwell::context::Context;
 
 #[test]
 fn test_comptime_constant_folding() {

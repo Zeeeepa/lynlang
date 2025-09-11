@@ -1,4 +1,3 @@
-use zen::ast::{self, *};
 use zen::codegen::llvm::LLVMCompiler;
 use zen::lexer::Lexer;
 use zen::parser::Parser;
