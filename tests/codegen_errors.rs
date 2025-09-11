@@ -1,6 +1,7 @@
 extern crate test_utils;
 
 use zen::ast::{self, AstType, Expression, Statement, BinaryOperator};
+use zen::error::CompileError;
 use test_utils::TestContext;
 use inkwell::context::Context;
 use test_utils::test_context;
