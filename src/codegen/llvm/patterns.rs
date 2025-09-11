@@ -282,10 +282,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
         val2: &BasicValueEnum<'ctx>,
     ) -> Result<IntValue<'ctx>, CompileError> {
         if val1.is_int_value() && val2.is_int_value() {
+            let int1 = val1.into_int_value();
+            let int2 = val2.into_int_value();
+            
+            // Ensure both integers have the same bit width for comparison
+            let (int1, int2) = if int1.get_type().get_bit_width() != int2.get_type().get_bit_width() {
+                // Cast to the larger width
+                let target_width = std::cmp::max(int1.get_type().get_bit_width(), int2.get_type().get_bit_width());
+                let target_type = self.context.custom_width_int_type(target_width);
+                
+                let int1 = if int1.get_type().get_bit_width() < target_width {
+                    self.builder.build_int_z_extend(int1, target_type, "ext1")?
+                } else {
+                    int1
+                };
+                
+                let int2 = if int2.get_type().get_bit_width() < target_width {
+                    self.builder.build_int_z_extend(int2, target_type, "ext2")?
+                } else {
+                    int2
+                };
+                
+                (int1, int2)
+            } else {
+                (int1, int2)
+            };
+            
             Ok(self.builder.build_int_compare(
                 IntPredicate::EQ,
-                val1.into_int_value(),
-                val2.into_int_value(),
+                int1,
+                int2,
                 "int_eq"
             )?)
         } else if val1.is_float_value() && val2.is_float_value() {

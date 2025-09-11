@@ -1,6 +1,5 @@
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use zen::error::CompileError;
 
 #[test]
 fn test_missing_closing_brace() {

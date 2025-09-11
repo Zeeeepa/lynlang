@@ -258,9 +258,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(unmatched_bb);
             // For now, just return a default value (0) and branch to merge
             // In a complete implementation, this would be a runtime error
-            let default_val = self.context.i32_type().const_int(0, false);
+            // Use the same type as the first arm to ensure type consistency
+            let default_val = if !phi_values.is_empty() {
+                // Create a zero value of the same type as the first arm
+                match phi_values[0].0.get_type() {
+                    inkwell::types::BasicTypeEnum::IntType(int_type) => {
+                        int_type.const_int(0, false).into()
+                    }
+                    inkwell::types::BasicTypeEnum::FloatType(float_type) => {
+                        float_type.const_float(0.0).into()
+                    }
+                    _ => {
+                        // For other types, use a null pointer or similar default
+                        self.context.i32_type().const_int(0, false).into()
+                    }
+                }
+            } else {
+                self.context.i32_type().const_int(0, false).into()
+            };
             self.builder.build_unconditional_branch(merge_bb)?;
-            phi_values.push((default_val.into(), unmatched_bb));
+            phi_values.push((default_val, unmatched_bb));
         }
         
         // Position at merge block and create phi node
@@ -528,9 +545,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(unmatched_bb);
             // For now, just return a default value (0) and branch to merge
             // In a complete implementation, this would be a runtime error
-            let default_val = self.context.i32_type().const_int(0, false);
+            // Use the same type as the first arm to ensure type consistency
+            let default_val = if !phi_values.is_empty() {
+                // Create a zero value of the same type as the first arm
+                match phi_values[0].0.get_type() {
+                    inkwell::types::BasicTypeEnum::IntType(int_type) => {
+                        int_type.const_int(0, false).into()
+                    }
+                    inkwell::types::BasicTypeEnum::FloatType(float_type) => {
+                        float_type.const_float(0.0).into()
+                    }
+                    _ => {
+                        // For other types, use a null pointer or similar default
+                        self.context.i32_type().const_int(0, false).into()
+                    }
+                }
+            } else {
+                self.context.i32_type().const_int(0, false).into()
+            };
             self.builder.build_unconditional_branch(merge_bb)?;
-            phi_values.push((default_val.into(), unmatched_bb));
+            phi_values.push((default_val, unmatched_bb));
         }
         
         // Position at merge block and create phi node
