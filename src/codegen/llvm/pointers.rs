@@ -31,6 +31,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_dereference(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // First, check if expr is an identifier for a pointer variable
+        if let Expression::Identifier(name) = expr {
+            if let Ok((alloca, ast_type)) = self.get_variable(name) {
+                if let AstType::Pointer(inner) = ast_type {
+                    // This is a pointer variable, so we need to:
+                    // 1. Load the pointer value from the alloca
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let ptr_value = self.builder.build_load(ptr_type, alloca, "load_ptr")?;
+                    let ptr = ptr_value.into_pointer_value();
+                    
+                    // 2. Load the value from the address stored in the pointer
+                    let llvm_type = self.to_llvm_type(&inner)?;
+                    return match llvm_type {
+                        super::Type::Basic(basic_type) => {
+                            Ok(self.builder.build_load(basic_type, ptr, "deref_value")?.into())
+                        }
+                        super::Type::Struct(struct_type) => {
+                            Ok(self.builder.build_load(struct_type, ptr, "deref_struct")?.into())
+                        }
+                        _ => Err(CompileError::TypeError(
+                            "Cannot dereference non-basic/non-struct type".to_string(),
+                            None,
+                        )),
+                    };
+                } else {
+                    return Err(CompileError::TypeMismatch {
+                        expected: "pointer".to_string(),
+                        found: format!("{:?}", ast_type),
+                        span: None,
+                    });
+                }
+            }
+        }
+        
+        // For other expressions, compile them and check if they return a pointer
         let ptr_val = self.compile_expression(expr)?;
         if !ptr_val.is_pointer_value() {
             return Err(CompileError::TypeMismatch {
@@ -41,46 +76,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         let ptr = ptr_val.into_pointer_value();
         
-        // Get the pointed-to type from the variable table
-        let pointed_type = if let Expression::Identifier(name) = expr {
-            if let Ok((_, ast_type)) = self.get_variable(name) {
-                if let AstType::Pointer(inner) = ast_type {
-                    Some(*inner.clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        
-        let llvm_type = if let Some(ref ast_type) = pointed_type {
-            self.to_llvm_type(ast_type)?
-        } else {
-            // Final fallback: i64
-            super::Type::Basic(self.context.i64_type().as_basic_type_enum())
-        };
-        
-        // If expr is an identifier for a pointer variable, load twice
-        if let (Expression::Identifier(_name), Some(ref ast_type)) = (expr, pointed_type.as_ref()) {
-            // First load: get the address stored in the pointer variable
-            let llvm_ptr_type = match self.to_llvm_type(ast_type)? {
-                super::Type::Basic(_) => self.context.ptr_type(inkwell::AddressSpace::default()),
-                super::Type::Struct(_) => self.context.ptr_type(inkwell::AddressSpace::default()),
-                _ => return Err(CompileError::TypeError("Cannot dereference non-basic/non-struct pointer type".to_string(), None)),
-            };
-            let address = self.builder.build_load(llvm_ptr_type, ptr, "deref_ptr_addr")?;
-            let address_ptr = address.into_pointer_value();
-            // Second load: get the value at that address
-            return match llvm_type {
-                super::Type::Basic(basic_type) => Ok(self.builder.build_load(basic_type, address_ptr, "load_tmp")?.into()),
-                super::Type::Struct(struct_type) => Ok(self.builder.build_load(struct_type, address_ptr, "load_struct_tmp")?.into()),
-                _ => Err(CompileError::TypeError("Cannot dereference non-basic/non-struct type".to_string(), None)),
-            };
-        }
-        
+        // Since we don't have type info, assume i64 for now
+        let llvm_type = super::Type::Basic(self.context.i64_type().as_basic_type_enum());
         match llvm_type {
             super::Type::Basic(basic_type) => Ok(self.builder.build_load(basic_type, ptr, "load_tmp")?.into()),
             super::Type::Struct(struct_type) => Ok(self.builder.build_load(struct_type, ptr, "load_struct_tmp")?.into()),
