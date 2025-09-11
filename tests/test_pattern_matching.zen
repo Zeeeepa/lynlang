@@ -1,0 +1,128 @@
+// Test pattern matching using ? operator
+// Language spec v1.1.0 compliance
+
+test := @std.testing
+
+// Test basic value patterns
+test("value patterns") {
+    score := 100
+    result := score ? | 100 => "Perfect"
+                     | 0 => "Failed"
+                     | _ => "In progress"
+    assert(result == "Perfect")
+    
+    score2 := 50
+    result2 := score2 ? | 100 => "Perfect"
+                       | 0 => "Failed"
+                       | _ => "In progress"
+    assert(result2 == "In progress")
+}
+
+// Test range patterns
+test("range patterns") {
+    age := 15
+    category := age ? | 0..=12 => "Child"
+                     | 13..=19 => "Teen"
+                     | 20..=64 => "Adult"
+                     | _ => "Senior"
+    assert(category == "Teen")
+    
+    age2 := 70
+    category2 := age2 ? | 0..=12 => "Child"
+                       | 13..=19 => "Teen"
+                       | 20..=64 => "Adult"
+                       | _ => "Senior"
+    assert(category2 == "Senior")
+}
+
+// Test enum destructuring
+test("enum patterns") {
+    Result<i32, string> =
+        | Ok(value: i32)
+        | Err(error: string)
+    
+    result := Result::Ok(42)
+    value := result ? | .Ok -> v => v
+                     | .Err -> _ => 0
+    assert(value == 42)
+    
+    error_result := Result::Err("error")
+    value2 := error_result ? | .Ok -> v => v
+                            | .Err -> _ => -1
+    assert(value2 == -1)
+}
+
+// Test guards with pattern matching
+test("pattern guards") {
+    value := 75
+    category := value ? | v -> v > 100 => "Large"
+                       | v -> v > 50 => "Medium"
+                       | v -> v > 0 => "Small"
+                       | _ => "Zero or negative"
+    assert(category == "Medium")
+    
+    value2 := -5
+    category2 := value2 ? | v -> v > 100 => "Large"
+                         | v -> v > 50 => "Medium"
+                         | v -> v > 0 => "Small"
+                         | _ => "Zero or negative"
+    assert(category2 == "Zero or negative")
+}
+
+// Test multiple patterns (or-patterns)
+test("multiple patterns") {
+    day := 3
+    type := day ? | 1 | 2 | 3 | 4 | 5 => "Weekday"
+                 | 6 | 7 => "Weekend"
+                 | _ => "Invalid day"
+    assert(type == "Weekday")
+    
+    day2 := 7
+    type2 := day2 ? | 1 | 2 | 3 | 4 | 5 => "Weekday"
+                   | 6 | 7 => "Weekend"
+                   | _ => "Invalid day"
+    assert(type2 == "Weekend")
+}
+
+// Test struct destructuring (no tuples in Zen)
+test("struct patterns") {
+    Point = { x: i32, y: i32 }
+    
+    point := Point{ x: 10, y: 20 }
+    description := point ? | { x -> x_val, y -> y_val } => "Point($(x_val), $(y_val))"
+    assert(description == "Point(10, 20)")
+}
+
+// Test bool patterns (simple form)
+test("bool patterns") {
+    is_valid := true
+    
+    // Simple bool pattern
+    result := is_valid ? { "Valid" }
+    assert(result == "Valid")
+    
+    // Explicit bool pattern
+    result2 := is_valid ? | true => "Valid"
+                         | false => "Invalid"
+    assert(result2 == "Valid")
+    
+    is_valid2 := false
+    result3 := is_valid2 ? | true => "Valid"
+                          | false => "Invalid"
+    assert(result3 == "Invalid")
+}
+
+// Test nested patterns
+test("nested patterns") {
+    Option<Result<i32, string>> =
+        | Some(value: Result<i32, string>)
+        | None
+    
+    nested := Option::Some(Result::Ok(42))
+    value := nested ? | .Some -> result => {
+                          result ? | .Ok -> v => v
+                                  | .Err -> _ => -1
+                      }
+                     | .None => 0
+    assert(value == 42)
+}

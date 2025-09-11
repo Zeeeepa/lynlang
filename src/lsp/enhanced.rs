@@ -1,6 +1,7 @@
 // Enhanced LSP features for Zen language server
 
 use std::collections::HashMap;
+#[allow(deprecated)]
 use tower_lsp::lsp_types::*;
 use crate::ast::{Program, Declaration};
 use crate::parser::Parser;
@@ -39,6 +40,7 @@ fn extract_symbols(program: &Program) -> Vec<DocumentSymbol> {
     symbols
 }
 
+#[allow(deprecated)]
 fn declaration_to_symbol(decl: &Declaration, line: usize) -> Option<DocumentSymbol> {
     match decl {
         Declaration::Function(func) => {
