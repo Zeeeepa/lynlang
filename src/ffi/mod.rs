@@ -34,6 +34,10 @@ pub struct LibBuilder {
     search_paths: Vec<PathBuf>,
     aliases: HashMap<String, String>,
     error_handler: Option<Arc<dyn Fn(&FFIError) + Send + Sync>>,
+    callbacks: HashMap<String, CallbackDefinition>,
+    platform_overrides: HashMap<Platform, PlatformConfig>,
+    validation_rules: Vec<ValidationRule>,
+    load_flags: LoadFlags,
 }
 
 impl LibBuilder {
@@ -51,6 +55,10 @@ impl LibBuilder {
             search_paths: Self::default_search_paths(),
             aliases: HashMap::new(),
             error_handler: None,
+            callbacks: HashMap::new(),
+            platform_overrides: HashMap::new(),
+            validation_rules: Vec::new(),
+            load_flags: LoadFlags::default(),
         }
     }
 
@@ -170,8 +178,54 @@ impl LibBuilder {
         self
     }
 
+    /// Add callback definition
+    pub fn callback(mut self, name: impl Into<String>, def: CallbackDefinition) -> Self {
+        self.callbacks.insert(name.into(), def);
+        self
+    }
+
+    /// Add platform-specific configuration
+    pub fn platform_config(mut self, platform: Platform, config: PlatformConfig) -> Self {
+        self.platform_overrides.insert(platform, config);
+        self
+    }
+
+    /// Add validation rule
+    pub fn validation_rule(mut self, rule: ValidationRule) -> Self {
+        self.validation_rules.push(rule);
+        self
+    }
+
+    /// Set load flags for library loading behavior
+    pub fn load_flags(mut self, flags: LoadFlags) -> Self {
+        self.load_flags = flags;
+        self
+    }
+
+    /// Configure for current platform automatically
+    pub fn auto_configure(mut self) -> Self {
+        let current_platform = Platform::current();
+        if let Some(config) = self.platform_overrides.get(&current_platform) {
+            if let Some(path) = &config.path_override {
+                self.path = Some(path.clone());
+            }
+            if let Some(conv) = config.calling_convention_override {
+                self.calling_convention = conv;
+            }
+        }
+        self
+    }
+
     /// Build the library handle
-    pub fn build(self) -> Result<Library, FFIError> {
+    pub fn build(mut self) -> Result<Library, FFIError> {
+        // Apply platform-specific configurations
+        self = self.auto_configure();
+        
+        // Run validation rules
+        for rule in &self.validation_rules {
+            rule.validate(&self)?;
+        }
+        
         let path = if let Some(p) = self.path {
             p
         } else {
@@ -192,6 +246,8 @@ impl LibBuilder {
             version_requirement: self.version_requirement,
             aliases: self.aliases,
             error_handler: self.error_handler,
+            callbacks: self.callbacks,
+            load_flags: self.load_flags,
         })
     }
 
@@ -318,14 +374,33 @@ pub struct Library {
     version_requirement: Option<String>,
     aliases: HashMap<String, String>,
     error_handler: Option<Arc<dyn Fn(&FFIError) + Send + Sync>>,
+    callbacks: HashMap<String, CallbackDefinition>,
+    load_flags: LoadFlags,
 }
 
 impl Library {
     /// Load the dynamic library
     pub fn load(&mut self) -> Result<(), FFIError> {
-        match unsafe { DynLib::new(&self.path) } {
+        // Apply load flags if needed
+        #[cfg(unix)]
+        let lib_result = if self.load_flags.lazy_binding {
+            unsafe { 
+                use libloading::os::unix::{Library as UnixLib, RTLD_LAZY};
+                UnixLib::open(Some(&self.path), RTLD_LAZY)
+                    .map(|lib| DynLib::from(lib))
+            }
+        } else {
+            unsafe { DynLib::new(&self.path) }
+        };
+        
+        #[cfg(not(unix))]
+        let lib_result = unsafe { DynLib::new(&self.path) };
+        
+        match lib_result {
             Ok(lib) => {
                 self.handle = Some(lib);
+                self.verify_version()?;
+                self.initialize_callbacks()?;
                 Ok(())
             }
             Err(e) => Err(FFIError::LibraryNotFound {
@@ -333,6 +408,25 @@ impl Library {
                 error: e.to_string(),
             })
         }
+    }
+    
+    /// Verify library version if required
+    fn verify_version(&self) -> Result<(), FFIError> {
+        if let Some(required_version) = &self.version_requirement {
+            // TODO: Implement version checking logic
+            // This would typically involve calling a version function in the library
+            eprintln!("Version requirement: {} (not yet verified)", required_version);
+        }
+        Ok(())
+    }
+    
+    /// Initialize callbacks
+    fn initialize_callbacks(&mut self) -> Result<(), FFIError> {
+        for (name, _def) in &self.callbacks {
+            // TODO: Set up callback trampolines
+            eprintln!("Callback {} registered (implementation pending)", name);
+        }
+        Ok(())
     }
 
     /// Get a function from the library with safety checks
@@ -473,11 +567,128 @@ impl Library {
     pub fn safety_checks(&self) -> bool {
         self.safety_checks
     }
+    
+    /// Register a callback function
+    pub fn register_callback(&mut self, name: &str, _callback: Box<dyn Fn(&[u8]) -> Vec<u8>>) -> Result<(), FFIError> {
+        if let Some(def) = self.callbacks.get(name) {
+            // TODO: Implement actual callback registration
+            eprintln!("Registering callback {} with signature {:?}", name, def.signature);
+            Ok(())
+        } else {
+            Err(FFIError::InvalidSymbolName(format!("Unknown callback: {}", name)))
+        }
+    }
 }
 
 impl Drop for Library {
     fn drop(&mut self) {
         self.unload();
+    }
+}
+
+/// Callback definition for FFI
+#[derive(Clone)]
+pub struct CallbackDefinition {
+    pub signature: FnSignature,
+    pub trampoline: Option<Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>>,
+}
+
+impl std::fmt::Debug for CallbackDefinition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CallbackDefinition")
+            .field("signature", &self.signature)
+            .field("trampoline", &self.trampoline.as_ref().map(|_| "<function>"))
+            .finish()
+    }
+}
+
+/// Platform-specific configuration
+#[derive(Debug, Clone)]
+pub struct PlatformConfig {
+    pub path_override: Option<PathBuf>,
+    pub calling_convention_override: Option<CallingConvention>,
+    pub additional_search_paths: Vec<PathBuf>,
+}
+
+/// Platform enumeration
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Platform {
+    Linux,
+    MacOS,
+    Windows,
+    FreeBSD,
+    Android,
+    IOs,
+    Wasm,
+    Other(String),
+}
+
+impl Platform {
+    pub fn current() -> Self {
+        #[cfg(target_os = "linux")]
+        return Platform::Linux;
+        #[cfg(target_os = "macos")]
+        return Platform::MacOS;
+        #[cfg(target_os = "windows")]
+        return Platform::Windows;
+        #[cfg(target_os = "freebsd")]
+        return Platform::FreeBSD;
+        #[cfg(target_os = "android")]
+        return Platform::Android;
+        #[cfg(target_os = "ios")]
+        return Platform::IOs;
+        #[cfg(target_arch = "wasm32")]
+        return Platform::Wasm;
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows",
+            target_os = "freebsd",
+            target_os = "android",
+            target_os = "ios",
+            target_arch = "wasm32"
+        )))]
+        return Platform::Other(std::env::consts::OS.to_string());
+    }
+}
+
+/// Validation rule for library configuration
+pub struct ValidationRule {
+    pub name: String,
+    pub validator: Arc<dyn Fn(&LibBuilder) -> Result<(), FFIError> + Send + Sync>,
+}
+
+impl ValidationRule {
+    pub fn new<F>(name: impl Into<String>, validator: F) -> Self
+    where
+        F: Fn(&LibBuilder) -> Result<(), FFIError> + Send + Sync + 'static,
+    {
+        Self {
+            name: name.into(),
+            validator: Arc::new(validator),
+        }
+    }
+    
+    pub fn validate(&self, builder: &LibBuilder) -> Result<(), FFIError> {
+        (self.validator)(builder)
+    }
+}
+
+/// Load flags for library loading behavior
+#[derive(Debug, Clone)]
+pub struct LoadFlags {
+    pub lazy_binding: bool,
+    pub global_symbols: bool,
+    pub no_delete: bool,
+}
+
+impl Default for LoadFlags {
+    fn default() -> Self {
+        Self {
+            lazy_binding: false,
+            global_symbols: false,
+            no_delete: false,
+        }
     }
 }
 
@@ -489,6 +700,7 @@ pub enum FFIError {
     LibraryNotLoaded,
     InvalidSignature { expected: FnSignature, got: FnSignature },
     InvalidSymbolName(String),
+    ValidationError(String),
 }
 
 impl std::fmt::Display for FFIError {
@@ -504,6 +716,8 @@ impl std::fmt::Display for FFIError {
                 write!(f, "Invalid function signature: expected {:?}, got {:?}", expected, got),
             FFIError::InvalidSymbolName(name) => 
                 write!(f, "Invalid symbol name: '{}'", name),
+            FFIError::ValidationError(msg) =>
+                write!(f, "Validation error: {}", msg),
         }
     }
 }
