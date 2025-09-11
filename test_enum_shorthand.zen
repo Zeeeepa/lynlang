@@ -1,0 +1,9 @@
+// Test enum shorthand syntax
+test = () void {
+    result := .Ok(42)
+    error := .Err("failed")
+    
+    result ? 
+        | .Ok -> val => print(val)
+        | .Err -> err => return .Err(err)
+}
