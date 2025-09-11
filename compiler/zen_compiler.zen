@@ -9,11 +9,11 @@ process := @std.process
 string := @std.string
 
 // Import compiler modules
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-codegen := @compiler.codegen
-llvm_backend := @compiler.llvm_backend
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+type_checker := @std.compiler.type_checker
+codegen := @std.compiler.codegen
+llvm_backend := @std.compiler.llvm_backend
 
 // Compiler version
 VERSION := "1.0.0"

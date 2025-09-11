@@ -5,7 +5,7 @@ io := @std.io
 string := @std.string
 
 // Import the codegen module
-codegen := @compiler.codegen_llvm
+codegen := @std.compiler.codegen_llvm
 
 // Test basic LLVM IR generation
 test_basic_ir_generation = () bool {

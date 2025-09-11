@@ -1,9 +1,10 @@
 // Enhanced async runtime with allocator integration
 // Implements colorless async/sync execution
 
-std := @import("std")
-allocator := @import("allocator")
-io := @import("io")
+build := @std.build
+std := build.import("std")
+allocator := build.import("allocator")
+io := build.import("io")
 
 // Task status
 TaskStatus = |
@@ -44,7 +45,7 @@ EventLoop = {
             io_events: []IoEvent{},
             next_task_id: 1,
             runtime: alloc.is_async ? 
-                | true => @fieldParentPtr(allocator.AsyncAllocator, "allocator", alloc).runtime
+                | true => @std.fieldParentPtr(allocator.AsyncAllocator, "allocator", alloc).runtime
                 | false => null,
             alloc: alloc
         }
@@ -68,7 +69,7 @@ EventLoop = {
             cont := allocator.Continuation{
                 state: &task,
                 resume_fn: (state) => {
-                    t := @ptrCast(*Task, state)
+                    t := @std.ptrCast(*Task, state)
                     t.status = .Running
                     task_fn()
                     t.status = .Completed

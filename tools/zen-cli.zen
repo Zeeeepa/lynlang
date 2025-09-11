@@ -1,11 +1,12 @@
 // ZenLang CLI tool
 // Main entry point for zen command
 
-std := @import("std")
-Build := @import("std").Build
-fs := @import("fs")
-process := @import("process")
-io := @import("io")
+build := @std.build
+std := build.import("std")
+Build := std.Build
+fs := build.import("fs")
+process := build.import("process")
+io := build.import("io")
 
 // CLI commands
 Command = |

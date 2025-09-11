@@ -14,9 +14,9 @@ json := @std.json
 network := @std.network
 
 // Compiler module imports
-lexer := @compiler.lexer
-parser := @compiler.parser
-codegen := @compiler.codegen
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+codegen := @std.compiler.codegen
 
 // Test that imports work correctly
 test_std_imports = () bool {

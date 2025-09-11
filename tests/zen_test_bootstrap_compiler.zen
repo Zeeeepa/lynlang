@@ -103,7 +103,7 @@ test_args_module = () bool {
 
 // Test LLVM codegen module
 test_llvm_codegen = () bool {
-    codegen_llvm := @compiler.codegen_llvm
+    codegen_llvm := @std.compiler.codegen_llvm
     
     // Create code generator
     gen := codegen_llvm.new_codegen("test_module")
@@ -128,10 +128,10 @@ test_llvm_codegen = () bool {
 // Test compiler driver structure
 test_compiler_driver = () bool {
     // Test that compiler modules can be imported
-    lexer := @compiler.lexer
-    parser := @compiler.parser
-    type_checker := @compiler.type_checker
-    codegen := @compiler.codegen
+    lexer := @std.compiler.lexer
+    parser := @std.compiler.parser
+    type_checker := @std.compiler.type_checker
+    codegen := @std.compiler.codegen
     
     // Basic smoke test - modules exist and can be referenced
     io.print("[PASS] Compiler driver modules accessible\n")

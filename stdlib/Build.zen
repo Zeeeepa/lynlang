@@ -1,9 +1,10 @@
 // Build system API for ZenLang
 // Provides build configuration and management
 
-std := @import("std")
-fs := @import("fs")
-process := @import("process")
+build := @std.build
+std := build.import("std")
+fs := build.import("fs")
+process := build.import("process")
 
 // Target platform configuration
 Target = {

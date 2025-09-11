@@ -1,11 +1,12 @@
 // Tests for the allocator-based colorless async system
 
-std := @import("std")
-test := @import("std").test
-allocator := @import("allocator")
-async := @import("async_runtime_enhanced")
-actor := @import("actor")
-io := @import("io")
+build := @std.build
+std := build.import("std")
+test := std.test
+allocator := build.import("allocator")
+async := build.import("async_runtime_enhanced")
+actor := build.import("actor")
+io := build.import("io")
 
 // Test basic sync allocator
 test "sync allocator memory operations" {

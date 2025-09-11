@@ -1,12 +1,13 @@
 // Example web server using allocator-based colorless async
 // Demonstrates the progressive enhancement from sync to async
 
-std := @import("std")
-allocator := @import("allocator")
-async := @import("async_runtime_enhanced")
-actor := @import("actor")
-io := @import("io")
-net := @import("net")
+build := @std.build
+std := build.import("std")
+allocator := build.import("allocator")
+async := build.import("async_runtime_enhanced")
+actor := build.import("actor")
+io := build.import("io")
+net := build.import("net")
 
 // HTTP types
 HttpMethod = |

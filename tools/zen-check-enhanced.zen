@@ -163,7 +163,7 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void {
             | false => {}
         
         // Check for imports in comptime
-        in_comptime && (string.contains(line, "@std.") || string.contains(line, "@compiler.")) ?
+        in_comptime && (string.contains(line, "@std.") || string.contains(line, "@std.compiler.")) ?
             | true => {
                 diag := diagnostic_new(
                     line_num, 

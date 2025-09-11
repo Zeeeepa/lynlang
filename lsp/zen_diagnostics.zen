@@ -354,46 +354,45 @@ is_inside_function = (lines: Vec<string>, line_index: usize) bool {
         line := lines[i]
         
         // Count braces
-        for char in line {
-            if char == '{' {
-                brace_count = brace_count - 1
-            } else if char == '}' {
-                brace_count = brace_count + 1
-            }
-        }
+        line.loop((char) => {
+            char == '{' ?
+                | true => brace_count = brace_count - 1
+                | false => char == '}' ?
+                    | true => brace_count = brace_count + 1
+                    | false => {}
+        })
         
         // Check for function pattern
-        if string.contains(line, "= (") && string.contains(line, ")") {
-            return brace_count < 0  // We're inside if we've seen more { than }
-        }
+        (string.contains(line, "= (") && string.contains(line, ")")) ?
+            | true => return brace_count < 0  // We're inside ? we've seen more { than }
+            | false => {}
         
-        // Stop if we reach module level
-        if brace_count == 0 && (string.contains(line, "struct") || 
+        // Stop ? we reach module level
+        (brace_count == 0 && (string.contains(line, "struct") || 
                                 string.contains(line, "enum") || 
-                                string.contains(line, "type")) {
-            return false
-        }
+                                string.contains(line, "type"))) ?
+            | true => return false
+            | false => {}
     }
     
     return false
 }
 
 has_return_statement = (block: parser.Block) bool {
-    for stmt in block.statements {
-        match stmt {
-            parser.Statement.Return(_) => return true,
-            parser.Statement.Block(b) => {
-                if has_return_statement(b) {
-                    return true
-                }
-            },
-            parser.Statement.If(if_stmt) => {
-                // Check both branches
+    block.statements.loop((stmt) => {
+        stmt ?
+            | parser.Statement.Return(_) => return true
+            | parser.Statement.Block(b) => {
+                has_return_statement(b) ?
+                    | true => return true
+                    | false => {}
+            }
+            | parser.Statement.PatternMatch(pattern_stmt) => {
+                // Check all branches
                 // TODO: Implement proper control flow analysis
-            },
-            _ => {}
-        }
-    }
+            }
+            | _ => {}
+    })
     return false
 }
 
@@ -413,12 +412,11 @@ check_duplicate_definitions = (analyzer: *DiagnosticAnalyzer) void {
 
 // Format diagnostics for output
 format_diagnostic = (diag: *Diagnostic) string {
-    severity_str := match diag.severity {
-        DiagnosticSeverity.Error => "Error",
-        DiagnosticSeverity.Warning => "Warning",
-        DiagnosticSeverity.Information => "Info",
-        DiagnosticSeverity.Hint => "Hint",
-    }
+    severity_str := diag.severity ?
+        | DiagnosticSeverity.Error => "Error"
+        | DiagnosticSeverity.Warning => "Warning"
+        | DiagnosticSeverity.Information => "Info"
+        | DiagnosticSeverity.Hint => "Hint"
     
     return string.format("[{}] {}:{} - {}", 
                          severity_str,
@@ -466,11 +464,11 @@ needs_return = () i32 {
     io.print_int(vec.len(diagnostics))
     io.print(" diagnostic(s):\n\n")
     
-    for diag in diagnostics {
+    diagnostics.loop((diag) => {
         formatted := format_diagnostic(&diag)
         io.print(formatted)
         io.print("\n")
-    }
+    })
     
     0
 }

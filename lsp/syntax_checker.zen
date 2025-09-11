@@ -7,8 +7,8 @@ string := @std.string
 io := @std.io
 
 // Import compiler components
-lexer := @compiler.lexer
-parser := @compiler.parser
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
 
 // Diagnostic severity levels
 DiagnosticSeverity = 

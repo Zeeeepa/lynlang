@@ -403,18 +403,18 @@ benchmark_run = (bench:: Ptr<Benchmark>) void {
 
 // Test macro helpers
 // Note: Test and benchmark registration happens via attributes at compile-time,
-// not through comptime blocks. The compiler handles @test and @bench attributes.
+// not through comptime blocks. The compiler handles @std.test and @std.bench attributes.
 
 // Register test function (compile-time attribute)
-@test
+@std.test
 test_register = (name: string, fn: () void) void {
-    // The compiler processes @test attributes during compilation
+    // The compiler processes @std.test attributes during compilation
 }
 
 // Register benchmark (compile-time attribute)
-@bench
+@std.bench
 bench_register = (name: string, fn: () void) void {
-    // The compiler processes @bench attributes during compilation
+    // The compiler processes @std.bench attributes during compilation
 }
 
 // Helper to get current time in nanoseconds (stub)

@@ -2,11 +2,11 @@
 // Verifies that lexer, parser, and other components work correctly
 
 // Import self-hosted compiler components (no comptime!)
-lexer := @compiler.lexer
-parser := @compiler.parser
-errors := @compiler.errors
-codegen := @compiler.codegen
-type_checker := @compiler.type_checker
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+errors := @std.compiler.errors
+codegen := @std.compiler.codegen
+type_checker := @std.compiler.type_checker
 
 // Import standard library
 core := @std.core

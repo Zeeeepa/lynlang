@@ -6,8 +6,8 @@ io := @std.io
 json := @std.json
 net := @std.net
 fs := @std.fs
-lexer := @compiler.lexer
-parser := @compiler.parser
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
 
 // LSP Message Types
 LSPMessage = {

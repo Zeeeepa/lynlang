@@ -11,11 +11,11 @@ log := @std.log
 time := @std.time
 
 // Import compiler modules
-lexer := @compiler.lexer
-parser := @compiler.parser
-type_checker := @compiler.type_checker
-codegen := @compiler.codegen
-codegen_llvm := @compiler.codegen_llvm
+lexer := @std.compiler.lexer
+parser := @std.compiler.parser
+type_checker := @std.compiler.type_checker
+codegen := @std.compiler.codegen
+codegen_llvm := @std.compiler.codegen_llvm
 
 // Compiler configuration
 CompilerConfig = {

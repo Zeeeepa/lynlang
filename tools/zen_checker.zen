@@ -6,8 +6,8 @@ fs := @std.fs
 string := @std.string
 vec := @std.vec
 process := @std.process
-lexer := @compiler.lexer_enhanced
-parser := @compiler.parser_enhanced
+lexer := @std.compiler.lexer_enhanced
+parser := @std.compiler.parser_enhanced
 
 // Checker result
 CheckResult = {

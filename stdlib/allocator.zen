@@ -1,7 +1,8 @@
 // Core allocator trait for colorless async/sync execution
 // Based on the design in agent/zen-allocator-async.md
 
-std := @import("std")
+build := @std.build
+std := build.import("std")
 
 // Continuation type for async execution
 Continuation = {
@@ -25,21 +26,21 @@ Allocator = {
     
     // Utility functions
     create: (comptime T: type) *T {
-        ptr := self.alloc(@sizeOf(T))
-        return @ptrCast(*T, ptr)
+        ptr := self.alloc(@std.sizeOf(T))
+        return @std.ptrCast(*T, ptr)
     }
     
     destroy: (ptr: anytype) void {
-        self.free(@ptrCast(*void, ptr))
+        self.free(@std.ptrCast(*void, ptr))
     }
     
     alloc_slice: (comptime T: type, n: usize) []T {
-        bytes := self.alloc(@sizeOf(T) * n)
-        return @ptrCast([*]T, bytes)[0..n]
+        bytes := self.alloc(@std.sizeOf(T) * n)
+        return @std.ptrCast([*]T, bytes)[0..n]
     }
     
     free_slice: (slice: anytype) void {
-        self.free(@ptrCast(*void, slice.ptr))
+        self.free(@std.ptrCast(*void, slice.ptr))
     }
 }
 
