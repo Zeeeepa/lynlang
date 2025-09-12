@@ -39,81 +39,26 @@ impl ZenServer {
                 let lines: Vec<&str> = content.lines().collect();
                 let mut err = tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::ParseError);
                 
-                // Provide more specific error messages based on error type
-                let error_msg = match &e {
-                    crate::error::CompileError::SyntaxError(msg, span) => {
-                        if let Some(s) = span {
-                            let context = if s.line > 0 && s.line <= lines.len() {
-                                let line_content = lines[s.line - 1];
-                                format!("\n  at: {}\n  {}", line_content, " ".repeat(s.column.saturating_sub(1)) + "^")
-                            } else {
-                                String::new()
-                            };
-                            format!("Syntax error at line {}, column {}: {}{}", s.line, s.column, msg, context)
+                // Use the enhanced detailed_message method for better error reporting
+                let error_msg = e.detailed_message(&lines);
+                
+                // Also add specific handling for common error patterns
+                let enhanced_msg = match &e {
+                    crate::error::CompileError::InvalidSyntax { message: _, suggestion, .. } => {
+                        format!("{}\n\nSuggestion: {}", error_msg, suggestion)
+                    },
+                    crate::error::CompileError::UnexpectedToken { expected, found, .. } => {
+                        let expected_list = if expected.len() > 3 {
+                            format!("{}...", expected[..3].join(", "))
                         } else {
-                            format!("Syntax error: {}", msg)
-                        }
-                    }
-                    crate::error::CompileError::ParseError(msg, span) => {
-                        if let Some(s) = span {
-                            let context = if s.line > 0 && s.line <= lines.len() {
-                                let line_content = lines[s.line - 1];
-                                let pointer = " ".repeat(s.column.saturating_sub(1)) + "^";
-                                format!("\n  at: {}\n      {}--- {}", line_content, pointer, msg)
-                            } else {
-                                String::new()
-                            };
-                            format!("Parse error at line {}, column {}: {}{}", s.line, s.column, msg, context)
-                        } else {
-                            format!("Parse error: {}\nHint: Check your syntax matches the Zen language specification.", msg)
-                        }
-                    }
-                    crate::error::CompileError::TypeMismatch { expected, found, span } => {
-                        if let Some(s) = span {
-                            let context = if s.line > 0 && s.line <= lines.len() {
-                                let line_content = lines[s.line - 1];
-                                format!("\n  at: {}\n      {}^^^ expected: {}, found: {}", 
-                                       line_content, " ".repeat(s.column.saturating_sub(1)), expected, found)
-                            } else {
-                                String::new()
-                            };
-                            format!("Type mismatch at line {}, column {}{}", s.line, s.column, context)
-                        } else {
-                            format!("Type mismatch: expected {}, found {}\nHint: Ensure your types match the expected signature.", expected, found)
-                        }
-                    }
-                    crate::error::CompileError::UndeclaredVariable(name, span) => {
-                        if let Some(s) = span {
-                            let context = if s.line > 0 && s.line <= lines.len() {
-                                let line_content = lines[s.line - 1];
-                                format!("\n  at: {}\n      {}^^^ variable '{}' not found", 
-                                       line_content, " ".repeat(s.column.saturating_sub(1)), name)
-                            } else {
-                                String::new()
-                            };
-                            format!("Undeclared variable '{}' at line {}, column {}{}", name, s.line, s.column, context)
-                        } else {
-                            format!("Undeclared variable: '{}'\nHint: Use ':=' for immutable or '::=' for mutable declaration.", name)
-                        }
-                    }
-                    crate::error::CompileError::UndeclaredFunction(name, span) => {
-                        if let Some(s) = span {
-                            let context = if s.line > 0 && s.line <= lines.len() {
-                                let line_content = lines[s.line - 1];
-                                format!("\n  at: {}\n      {}^^^ function '{}' not found", 
-                                       line_content, " ".repeat(s.column.saturating_sub(1)), name)
-                            } else {
-                                String::new()
-                            };
-                            format!("Undeclared function '{}' at line {}, column {}{}", name, s.line, s.column, context)
-                        } else {
-                            format!("Undeclared function: '{}'\nHint: Define functions with 'name = (params) ReturnType {{ body }}'.", name)
-                        }
-                    }
-                    _ => format!("Compilation error: {}\nHint: Review the Zen language specification for correct syntax.", e),
+                            expected.join(", ")
+                        };
+                        format!("{}\n\nExpected: {}\nFound: '{}'", error_msg, expected_list, found)
+                    },
+                    _ => error_msg,
                 };
                 
-                err.message = error_msg.into();
+                err.message = enhanced_msg.into();
                 err
             })
     }
@@ -154,7 +99,11 @@ impl ZenServer {
                         None
                     };
                     
-                    // Create a more informative error message with context and hints
+                    // Use the enhanced detailed_message for comprehensive error reporting
+                    let lines_for_error: Vec<&str> = content.lines().collect();
+                    let _detailed_error = parse_error.detailed_message(&lines_for_error);
+                    
+                    // Add additional LSP-specific formatting
                     let error_message = match &parse_error {
                         crate::error::CompileError::SyntaxError(msg, _) => {
                             let hint = if msg.contains("unexpected") || msg.contains("expected") {

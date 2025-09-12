@@ -607,8 +607,8 @@ impl Library {
                         }
                         _ => {
                             return Err(FFIError::InvalidSignature {
-                                expected: version_fn_sig.clone(),
-                                got: version_fn_sig.clone(),
+                                function: "version".to_string(),
+                                reason: format!("Unexpected signature for version function"),
                             });
                         }
                     }
@@ -840,6 +840,123 @@ impl Drop for Library {
     }
 }
 
+/// Type mapping between Zen and C types
+#[derive(Debug, Clone)]
+pub struct TypeMapping {
+    pub c_type: String,
+    pub zen_type: AstType,
+    pub marshaller: Option<Arc<TypeMarshaller>>,
+}
+
+/// Type marshaller for converting between Zen and C representations
+pub struct TypeMarshaller {
+    pub to_c: Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>,
+    pub from_c: Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>,
+}
+
+impl std::fmt::Debug for TypeMarshaller {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TypeMarshaller")
+            .field("to_c", &"<function>")
+            .field("from_c", &"<function>")
+            .finish()
+    }
+}
+
+/// Calling convention for FFI functions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CallingConvention {
+    C,
+    Stdcall,
+    Fastcall,
+    Vectorcall,
+    Thiscall,
+    System,
+}
+
+/// Load flags for library loading behavior
+#[derive(Debug, Clone)]
+pub struct LoadFlags {
+    pub lazy_binding: bool,
+    pub global_symbols: bool,
+    pub local_symbols: bool,
+    pub nodelete: bool,
+}
+
+impl Default for LoadFlags {
+    fn default() -> Self {
+        Self {
+            lazy_binding: false,
+            global_symbols: false,
+            local_symbols: true,
+            nodelete: false,
+        }
+    }
+}
+
+/// Validation rule for FFI configuration
+pub struct ValidationRule {
+    pub name: String,
+    pub validator: Arc<dyn Fn(&LibBuilder) -> Result<(), FFIError> + Send + Sync>,
+}
+
+impl ValidationRule {
+    pub fn validate(&self, builder: &LibBuilder) -> Result<(), FFIError> {
+        (self.validator)(builder)
+    }
+}
+
+impl std::fmt::Debug for ValidationRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ValidationRule")
+            .field("name", &self.name)
+            .field("validator", &"<function>")
+            .finish()
+    }
+}
+
+/// FFI-specific errors
+#[derive(Debug, Clone)]
+pub enum FFIError {
+    LibraryNotFound { path: String, error: String },
+    SymbolNotFound(String),
+    InvalidSignature { function: String, reason: String },
+    InvalidSymbolName(String),
+    ValidationError(String),
+    LibraryNotLoaded,
+    CallFailed { function: String, error: String },
+}
+
+impl std::fmt::Display for FFIError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            FFIError::LibraryNotFound { path, error } => {
+                write!(f, "Library not found at '{}': {}", path, error)
+            },
+            FFIError::SymbolNotFound(name) => {
+                write!(f, "Symbol '{}' not found in library", name)
+            },
+            FFIError::InvalidSignature { function, reason } => {
+                write!(f, "Invalid signature for function '{}': {}", function, reason)
+            },
+            FFIError::InvalidSymbolName(name) => {
+                write!(f, "Invalid symbol name: '{}'", name)
+            },
+            FFIError::ValidationError(msg) => {
+                write!(f, "Validation error: {}", msg)
+            },
+            FFIError::LibraryNotLoaded => {
+                write!(f, "Library not loaded")
+            },
+            FFIError::CallFailed { function, error } => {
+                write!(f, "Call to function '{}' failed: {}", function, error)
+            },
+        }
+    }
+}
+
+impl std::error::Error for FFIError {}
+
 /// Callback definition for FFI
 #[derive(Clone)]
 pub struct CallbackDefinition {
@@ -906,111 +1023,7 @@ impl Platform {
     }
 }
 
-/// Validation rule for library configuration
-pub struct ValidationRule {
-    pub name: String,
-    pub validator: Arc<dyn Fn(&LibBuilder) -> Result<(), FFIError> + Send + Sync>,
-}
-
-impl ValidationRule {
-    pub fn new<F>(name: impl Into<String>, validator: F) -> Self
-    where
-        F: Fn(&LibBuilder) -> Result<(), FFIError> + Send + Sync + 'static,
-    {
-        Self {
-            name: name.into(),
-            validator: Arc::new(validator),
-        }
-    }
-    
-    pub fn validate(&self, builder: &LibBuilder) -> Result<(), FFIError> {
-        (self.validator)(builder)
-    }
-}
-
-/// Load flags for library loading behavior
-#[derive(Debug, Clone)]
-pub struct LoadFlags {
-    pub lazy_binding: bool,
-    pub global_symbols: bool,
-    pub no_delete: bool,
-}
-
-impl Default for LoadFlags {
-    fn default() -> Self {
-        Self {
-            lazy_binding: false,
-            global_symbols: false,
-            no_delete: false,
-        }
-    }
-}
-
-/// FFI Error types
-#[derive(Debug, Clone)]
-pub enum FFIError {
-    LibraryNotFound { path: String, error: String },
-    SymbolNotFound(String),
-    LibraryNotLoaded,
-    InvalidSignature { expected: FnSignature, got: FnSignature },
-    InvalidSymbolName(String),
-    ValidationError(String),
-}
-
-impl std::fmt::Display for FFIError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FFIError::LibraryNotFound { path, error } => 
-                write!(f, "Library not found at '{}': {}", path, error),
-            FFIError::SymbolNotFound(name) => 
-                write!(f, "Symbol '{}' not found in library", name),
-            FFIError::LibraryNotLoaded => 
-                write!(f, "Library not loaded"),
-            FFIError::InvalidSignature { expected, got } => 
-                write!(f, "Invalid function signature: expected {:?}, got {:?}", expected, got),
-            FFIError::InvalidSymbolName(name) => 
-                write!(f, "Invalid symbol name: '{}'", name),
-            FFIError::ValidationError(msg) =>
-                write!(f, "Validation error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for FFIError {}
-
-/// Calling convention for FFI functions
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CallingConvention {
-    C,
-    System,
-    Stdcall,
-    Fastcall,
-    Vectorcall,
-}
-
-/// Type mapping for complex types
-#[derive(Debug, Clone)]
-pub struct TypeMapping {
-    pub c_type: String,
-    pub zen_type: AstType,
-    pub marshaller: Option<TypeMarshaller>,
-}
-
-/// Type marshalling functions
-#[derive(Clone)]
-pub struct TypeMarshaller {
-    pub to_c: Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>,
-    pub from_c: Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>,
-}
-
-impl std::fmt::Debug for TypeMarshaller {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TypeMarshaller")
-            .field("to_c", &"<function>")
-            .field("from_c", &"<function>")
-            .finish()
-    }
-}
+// Removed duplicate type definitions - they are already defined above
 
 /// Statistics for FFI calls
 #[derive(Debug, Default, Clone)]

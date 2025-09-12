@@ -137,13 +137,13 @@ fn test_ffi_callback_definitions() {
 
 #[test]
 fn test_ffi_validation_rules() {
-    let rule = ValidationRule::new(
-        "check_functions",
-        |_builder| {
+    let rule = ValidationRule {
+        name: "check_functions".to_string(),
+        validator: Arc::new(|_builder| {
             // Validation rule test simplified
             Ok(())
-        }
-    );
+        }),
+    };
     
     // This should pass validation
     let result = FFI::lib("with_function")
@@ -160,7 +160,8 @@ fn test_ffi_load_flags() {
     let flags = LoadFlags {
         lazy_binding: true,
         global_symbols: true,
-        no_delete: false,
+        local_symbols: false,
+        nodelete: false,
     };
     
     let lib = FFI::lib("flagged")
@@ -171,7 +172,7 @@ fn test_ffi_load_flags() {
     
     assert_eq!(lib.load_flags().lazy_binding, true);
     assert_eq!(lib.load_flags().global_symbols, true);
-    assert_eq!(lib.load_flags().no_delete, false);
+    assert_eq!(lib.load_flags().nodelete, false);
 }
 
 #[test]
@@ -353,7 +354,8 @@ fn test_ffi_builder_comprehensive() {
         .load_flags(LoadFlags {
             lazy_binding: true,
             global_symbols: false,
-            no_delete: true,
+            local_symbols: true,
+            nodelete: true,
         })
         .build()
         .unwrap();

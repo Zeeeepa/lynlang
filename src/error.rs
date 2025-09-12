@@ -28,6 +28,26 @@ pub enum CompileError {
     FileNotFound(String, Option<String>),
     ParseError(String, Option<Span>),
     ComptimeError(String),
+    // Enhanced error types for better LSP diagnostics
+    UnexpectedToken {
+        expected: Vec<String>,
+        found: String,
+        span: Option<Span>,
+    },
+    InvalidPattern(String, Option<Span>),
+    ImportError(String, Option<Span>),
+    FFIError(String, Option<Span>),
+    InvalidSyntax {
+        message: String,
+        suggestion: String,
+        span: Option<Span>,
+    },
+    MissingTypeAnnotation(String, Option<Span>),
+    DuplicateDeclaration {
+        name: String,
+        first_location: Option<Span>,
+        duplicate_location: Option<Span>,
+    },
 }
 
 impl From<BuilderError> for CompileError {
@@ -63,6 +83,29 @@ impl fmt::Display for CompileError {
             CompileError::FileNotFound(path, detail) => write!(f, "File not found: {}{}", path, detail.as_ref().map(|d| format!(" ({})", d)).unwrap_or_default()),
             CompileError::ParseError(msg, span) => write!(f, "Parse error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
             CompileError::ComptimeError(msg) => write!(f, "Compile-time error: {}", msg),
+            CompileError::UnexpectedToken { expected, found, span } => {
+                let expected_str = if expected.len() == 1 {
+                    expected[0].clone()
+                } else {
+                    format!("one of {}", expected.join(", "))
+                };
+                write!(f, "Unexpected token: expected {}, found '{}'{}", expected_str, found, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default())
+            },
+            CompileError::InvalidPattern(msg, span) => write!(f, "Invalid pattern: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::ImportError(msg, span) => write!(f, "Import error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::FFIError(msg, span) => write!(f, "FFI error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::InvalidSyntax { message, suggestion, span } => write!(f, "Invalid syntax: {}. Suggestion: {}{}", message, suggestion, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::MissingTypeAnnotation(name, span) => write!(f, "Missing type annotation for '{}'{}", name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::DuplicateDeclaration { name, first_location, duplicate_location } => {
+                write!(f, "Duplicate declaration of '{}'", name)?;
+                if let Some(first) = first_location {
+                    write!(f, ", first declared at line {} column {}", first.line, first.column)?;
+                }
+                if let Some(dup) = duplicate_location {
+                    write!(f, ", duplicate at line {} column {}", dup.line, dup.column)?;
+                }
+                Ok(())
+            },
         }
     }
 }
@@ -79,11 +122,82 @@ impl CompileError {
             CompileError::InternalError(_, span) |
             CompileError::UnsupportedFeature(_, span) |
             CompileError::TypeError(_, span) |
-            CompileError::ParseError(_, span) => span.as_ref(),
-            CompileError::TypeMismatch { span, .. } => span.as_ref(),
+            CompileError::ParseError(_, span) |
+            CompileError::InvalidPattern(_, span) |
+            CompileError::ImportError(_, span) |
+            CompileError::FFIError(_, span) |
+            CompileError::MissingTypeAnnotation(_, span) => span.as_ref(),
+            CompileError::TypeMismatch { span, .. } |
+            CompileError::UnexpectedToken { span, .. } |
+            CompileError::InvalidSyntax { span, .. } => span.as_ref(),
+            CompileError::DuplicateDeclaration { duplicate_location, .. } => duplicate_location.as_ref(),
             CompileError::FileNotFound(_, _) |
             CompileError::ComptimeError(_) => None,
         }
+    }
+    
+    /// Get a detailed error message with suggestions for fixing
+    pub fn detailed_message(&self, source_lines: &[&str]) -> String {
+        let mut result = self.to_string();
+        
+        // Add context and suggestions based on error type
+        match self {
+            CompileError::SyntaxError(msg, _span) => {
+                if msg.contains("if") || msg.contains("else") || msg.contains("match") {
+                    result.push_str("\n\nNote: Zen uses the '?' operator for pattern matching instead of if/else/match keywords.");
+                    result.push_str("\nExample: value ? | true => action1 | false => action2");
+                }
+            },
+            CompileError::UndeclaredVariable(name, _) => {
+                result.push_str(&format!("\n\nDid you mean to declare '{}'?", name));
+                result.push_str("\n  - Use ':=' for immutable variables: name := value");
+                result.push_str("\n  - Use '::=' for mutable variables: name ::= value");
+            },
+            CompileError::InvalidPattern(_msg, _) => {
+                result.push_str("\n\nZen pattern matching syntax:");
+                result.push_str("\n  value ? | pattern1 => result1");
+                result.push_str("\n          | pattern2 => result2");
+                result.push_str("\n          | _ => default");
+            },
+            CompileError::ImportError(msg, _) => {
+                if msg.contains("comptime") {
+                    result.push_str("\n\nImports are not allowed inside comptime blocks.");
+                    result.push_str("\nMove import statements to module level.");
+                } else if msg.contains("function") {
+                    result.push_str("\n\nImports must be at module level, not inside functions.");
+                }
+            },
+            CompileError::FFIError(_msg, _) => {
+                result.push_str("\n\nFFI usage in Zen:");
+                result.push_str("\n  lib := FFI.lib(\"library_name\")");
+                result.push_str("\n    .path(\"/path/to/library\")");
+                result.push_str("\n    .function(\"func_name\", signature)");
+                result.push_str("\n    .build()");
+            },
+            _ => {}
+        }
+        
+        // Add source context if available
+        if let Some(span) = self.position() {
+            if span.line > 0 && span.line <= source_lines.len() {
+                result.push_str("\n\nSource context:");
+                let start = span.line.saturating_sub(2).max(1);
+                let end = (span.line + 1).min(source_lines.len());
+                
+                for i in start..=end {
+                    let line = source_lines[i - 1];
+                    if i == span.line {
+                        result.push_str(&format!("\n> {} | {}", i, line));
+                        result.push_str(&format!("\n  {} | {}{}", " ".repeat(i.to_string().len()), 
+                                                 " ".repeat(span.column), "^--- error here"));
+                    } else {
+                        result.push_str(&format!("\n  {} | {}", i, line));
+                    }
+                }
+            }
+        }
+        
+        result
     }
 }
 
