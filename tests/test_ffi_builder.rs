@@ -105,7 +105,7 @@ fn test_ffi_type_mappings() {
                 name: "MyStruct".to_string(),
                 fields: vec![],
             },
-            marshaller: Some(marshaller),
+            marshaller: Some(Arc::new(marshaller)),
         })
         .build()
         .unwrap();
