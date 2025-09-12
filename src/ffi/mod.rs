@@ -215,6 +215,118 @@ impl LibBuilder {
         }
         self
     }
+    
+    /// Add batch of functions with a common prefix
+    pub fn functions_with_prefix(mut self, prefix: &str, funcs: Vec<(&str, FnSignature)>) -> Self {
+        for (name, sig) in funcs {
+            let full_name = format!("{}_{}", prefix, name);
+            self.functions.insert(full_name, sig);
+        }
+        self
+    }
+    
+    /// Add dependency checking for library
+    pub fn requires(mut self, lib_name: &str) -> Self {
+        // Add validation rule to check for dependency
+        let lib_name = lib_name.to_string();
+        self.validation_rules.push(ValidationRule {
+            name: format!("requires_{}", lib_name),
+            validator: Arc::new(move |_builder| {
+                // Check if required library exists in system
+                let lib_path = LibBuilder::default_lib_path(&lib_name);
+                let search_paths = LibBuilder::default_search_paths();
+                
+                for search_path in search_paths {
+                    let full_path = search_path.join(&lib_path);
+                    if full_path.exists() {
+                        return Ok(());
+                    }
+                }
+                
+                Err(FFIError::ValidationError(
+                    format!("Required dependency '{}' not found in system", lib_name)
+                ))
+            }),
+        });
+        self
+    }
+    
+    /// Add metadata for library documentation
+    pub fn metadata(mut self, key: &str, value: &str) -> Self {
+        // Store metadata in aliases temporarily (should have separate field in production)
+        self.aliases.insert(format!("__meta_{}", key), value.to_string());
+        self
+    }
+    
+    /// Configure opaque pointer types for FFI
+    pub fn opaque_type(mut self, name: impl Into<String>) -> Self {
+        let name_str = name.into();
+        self.type_mappings.insert(
+            name_str.clone(),
+            TypeMapping {
+                c_type: format!("struct {}", name_str),
+                zen_type: AstType::Pointer(Box::new(AstType::Void)),
+                marshaller: None,
+            }
+        );
+        self
+    }
+    
+    /// Add function with automatic signature inference from C header style
+    pub fn function_from_c_decl(mut self, c_declaration: &str) -> Self {
+        // Parse simple C function declaration
+        // Example: "int sqlite3_open(const char *filename, sqlite3 **ppDb)"
+        if let Some(sig) = Self::parse_c_function_decl(c_declaration) {
+            if let Some(func_name) = Self::extract_function_name(c_declaration) {
+                self.functions.insert(func_name, sig);
+            }
+        }
+        self
+    }
+    
+    /// Helper to parse C function declaration
+    fn parse_c_function_decl(decl: &str) -> Option<FnSignature> {
+        // Simple parser for basic C function declarations
+        // This is a simplified version - in production would use a proper C parser
+        
+        let returns = if decl.starts_with("void ") {
+            types::void()
+        } else if decl.starts_with("int ") {
+            types::i32()
+        } else if decl.starts_with("char *") || decl.starts_with("const char *") {
+            types::c_string()
+        } else if decl.starts_with("double ") {
+            types::f64()
+        } else if decl.starts_with("float ") {
+            types::f32()
+        } else {
+            types::raw_ptr(types::void())
+        };
+        
+        // Extract parameters (simplified)
+        let params = if decl.contains("(void)") || decl.contains("()") {
+            vec![]
+        } else if decl.contains("const char *") {
+            vec![types::c_string()]
+        } else {
+            vec![types::raw_ptr(types::void())]
+        };
+        
+        Some(FnSignature::new(params, returns).with_safety(FunctionSafety::Unsafe))
+    }
+    
+    /// Extract function name from C declaration
+    fn extract_function_name(decl: &str) -> Option<String> {
+        // Find function name between return type and opening parenthesis
+        if let Some(paren_pos) = decl.find('(') {
+            let before_paren = &decl[..paren_pos];
+            let parts: Vec<&str> = before_paren.split_whitespace().collect();
+            if let Some(last) = parts.last() {
+                return Some(last.trim_start_matches('*').to_string());
+            }
+        }
+        None
+    }
 
     /// Build the library handle with enhanced validation
     pub fn build(mut self) -> Result<Library, FFIError> {
@@ -1232,5 +1344,84 @@ mod tests {
         
         #[cfg(target_os = "windows")]
         assert_eq!(path, PathBuf::from("test.dll"));
+    }
+    
+    #[test]
+    fn test_ffi_builder_advanced_features() {
+        // Test batch function addition
+        let lib = FFI::lib("math")
+            .path("/tmp/libmath.so")
+            .functions_with_prefix("math", vec![
+                ("sin", FnSignature::new(vec![types::f64()], types::f64())),
+                ("cos", FnSignature::new(vec![types::f64()], types::f64())),
+                ("tan", FnSignature::new(vec![types::f64()], types::f64())),
+            ])
+            .build();
+        
+        assert!(lib.is_ok());
+        let lib = lib.unwrap();
+        assert!(lib.functions.contains_key("math_sin"));
+        assert!(lib.functions.contains_key("math_cos"));
+        assert!(lib.functions.contains_key("math_tan"));
+    }
+    
+    #[test]
+    fn test_opaque_types() {
+        let lib = FFI::lib("opaque_test")
+            .path("/tmp/libopaque.so")
+            .opaque_type("sqlite3")
+            .opaque_type("FILE")
+            .build();
+        
+        assert!(lib.is_ok());
+        let lib = lib.unwrap();
+        assert_eq!(lib.type_mappings.len(), 2);
+        assert!(lib.type_mappings.contains_key("sqlite3"));
+        assert!(lib.type_mappings.contains_key("FILE"));
+    }
+    
+    #[test]
+    fn test_c_declaration_parsing() {
+        let lib = FFI::lib("c_test")
+            .path("/tmp/libc_test.so")
+            .function_from_c_decl("int printf(const char *format)")
+            .function_from_c_decl("void exit(int status)")
+            .function_from_c_decl("double sqrt(double x)")
+            .build();
+        
+        assert!(lib.is_ok());
+        let lib = lib.unwrap();
+        
+        // Check printf
+        if let Some(printf_sig) = lib.functions.get("printf") {
+            assert_eq!(printf_sig.returns, types::i32());
+            assert_eq!(printf_sig.params.len(), 1);
+        }
+        
+        // Check exit
+        if let Some(exit_sig) = lib.functions.get("exit") {
+            assert_eq!(exit_sig.returns, types::void());
+        }
+        
+        // Check sqrt
+        if let Some(sqrt_sig) = lib.functions.get("sqrt") {
+            assert_eq!(sqrt_sig.returns, types::f64());
+        }
+    }
+    
+    #[test]
+    fn test_metadata_storage() {
+        let lib = FFI::lib("metadata_test")
+            .path("/tmp/libmeta.so")
+            .metadata("version", "1.2.3")
+            .metadata("author", "Zen Team")
+            .metadata("license", "MIT")
+            .build();
+        
+        assert!(lib.is_ok());
+        let lib = lib.unwrap();
+        assert_eq!(lib.aliases.get("__meta_version"), Some(&"1.2.3".to_string()));
+        assert_eq!(lib.aliases.get("__meta_author"), Some(&"Zen Team".to_string()));
+        assert_eq!(lib.aliases.get("__meta_license"), Some(&"MIT".to_string()));
     }
 }

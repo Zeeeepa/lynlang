@@ -1,48 +1,59 @@
 # Zen Programming Language
 
-A modern systems programming language designed for clarity, performance, and joy. Zen prioritizes explicit, consistent, and elegant syntax that composes into powerful patterns.
+A modern systems programming language designed for clarity, performance, and safety. Zen prioritizes explicit, consistent, and elegant syntax without traditional if/else/match keywords, using a unified `?` pattern matching operator instead.
 
 ## Core Philosophy
 
-- **Clarity over cleverness**: Code is read more often than written
-- **Explicit is better than implicit**: No hidden control flow or allocations
-- **Minimal but composable**: Small set of powerful primitives
+- **NO keywords for control flow**: No `if`, `else`, `match` - only `?` operator
+- **Clarity over cleverness**: Code readability is paramount
+- **Explicit over implicit**: No hidden control flow or allocations
 - **Errors as values**: No exceptions, use Result/Option types
-- **Powerful compile-time**: Deep metaprogramming capabilities
+- **Zero-cost abstractions**: Performance without compromise
+- **Colorless async**: No function coloring with async/await
+
+## Language Specification
+
+Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defines:
+- **NO** `if`/`else`/`match` keywords - Use `?` operator exclusively
+- **NO** exceptions - All errors are values
+- **NO** null pointers - Use Option<T> for optional values
+- **NO** implicit conversions - All type conversions must be explicit
+- **NO** lifetime annotations - Smart pointers handle safety
+- **NO** raw `&` or `*` - Use Ptr<T> and .value/.address
+- **NO** tuples - Use structs for all product types
 
 ## Key Features
 
 ### ✅ Implemented
-- Functions with `=` syntax: `name = (params) ReturnType { }`
-- Variables (mutable/immutable) with `:=` and `::=` operators
-- Basic types (integers, floats, strings, bool, void)
-- Structs with mutable fields and defaults
-- Enums with payloads and anonymous structs
-- Conditional loops (`loop condition { }`)
-- Fixed-size arrays `[T; N]` and slices
-- Type aliases (`type Name = Type`)
-- Generic type parsing
-- Basic arithmetic and comparison operators
-- Function calls and returns
-- LLVM backend for native code generation
+- **Functions**: `name = (params) ReturnType { }` syntax
+- **Variables**: Immutable `:=` and mutable `::=` declarations
+- **Pattern Matching**: Unified `?` operator for all conditionals
+- **Types**: Full numeric types, strings, bool, void, arrays, structs, enums
+- **Loops**: Single `loop` keyword with conditions and ranges
+- **String Interpolation**: `$(expr)` syntax in strings
+- **FFI Builder Pattern**: Safe C interop with validation
+- **LSP Server**: Enhanced error messages with context
+- **LLVM Backend**: Native code generation
+
+### 🔧 Recent Enhancements
+- **Enhanced FFI Builder**: Batch function addition, opaque types, C declaration parsing
+- **Improved LSP Diagnostics**: Detailed error messages with suggestions and source context
+- **Better Error Handling**: Context-aware error messages with fix suggestions
 
 ### 🚧 In Progress
-- Pattern matching with unified `?` operator (parser complete, codegen WIP)
-- Range expressions (`..` and `..=`)
-- String interpolation with `$(expr)` syntax
-- Compile-time evaluation (`comptime`)
-- Type checker improvements
-- Generic type instantiation and monomorphization
-- Behaviors (traits/interfaces)
-- Module system with `@std` namespace
-- UFCS (Uniform Function Call Syntax)
+- **UFCS**: Uniform Function Call Syntax for method-like calls
+- **Bool Patterns**: Special syntax for boolean pattern matching
+- **Compile-time Evaluation**: `comptime` blocks for metaprogramming
+- **Behaviors**: Structural contracts that types can satisfy
+- **Module System**: `@std` namespace and import system
+- **Self-Hosting**: Compiler components being rewritten in Zen
 
-### 📋 Planned
-- Memory management (Ptr<T>, Ref<T>, allocators)
-- Error handling improvements
-- Async/await
-- Package management
-- C FFI improvements
+### 📋 Roadmap
+- **Memory Management**: Smart pointers (Ptr<T>, Ref<T>)
+- **Colorless Async**: Allocator-based async without function coloring
+- **Package Management**: Modern dependency management
+- **Cross-compilation**: Multiple target platforms
+- **Standard Library**: Comprehensive stdlib modules
 
 ## Self-Hosting Progress
 
