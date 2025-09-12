@@ -34,30 +34,52 @@ impl ZenServer {
         let mut parser = Parser::new(lexer);
         
         parser.parse_program()
-            .map_err(|_e| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::ParseError))
+            .map_err(|e| {
+                // Create a JSON-RPC error with the actual parse error message
+                let mut err = tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::ParseError);
+                err.message = format!("Parse error: {}", e).into();
+                err
+            })
     }
 
     async fn get_diagnostics(&self, uri: &str) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         
-        match self.parse_document(uri).await {
-            Ok(program) => {
-                // Check for import validation
-                diagnostics.extend(self.check_import_placement(&program));
-            }
-            Err(_) => {
-                // Add a generic error diagnostic
-                diagnostics.push(Diagnostic {
-                    range: Range::new(Position::new(0, 0), Position::new(0, 0)),
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: None,
-                    code_description: None,
-                    source: Some("zen".to_string()),
-                    message: "Failed to parse document".to_string(),
-                    related_information: None,
-                    tags: None,
-                    data: None,
-                });
+        // Try to parse the document for more detailed error messages
+        let documents = self.documents.read().await;
+        if let Some(content) = documents.get(uri) {
+            let lexer = Lexer::new(content);
+            let mut parser = Parser::new(lexer);
+            
+            match parser.parse_program() {
+                Ok(program) => {
+                    // Check for import validation
+                    diagnostics.extend(self.check_import_placement(&program));
+                }
+                Err(parse_error) => {
+                    // Extract position information from the parse error if available
+                    let (line, column) = if let Some(span) = parse_error.position() {
+                        (span.line as u32, span.column as u32)
+                    } else {
+                        (0, 0)
+                    };
+                    
+                    // Add a detailed error diagnostic with actual parse error message
+                    diagnostics.push(Diagnostic {
+                        range: Range::new(
+                            Position::new(line, column),
+                            Position::new(line, column + 1)
+                        ),
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: None,
+                        code_description: None,
+                        source: Some("zen".to_string()),
+                        message: parse_error.to_string(),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    });
+                }
             }
         }
         

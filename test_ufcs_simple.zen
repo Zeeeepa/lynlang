@@ -1,0 +1,34 @@
+// Simple UFCS test
+
+Rectangle = {
+    width: f64,
+    height: f64,
+}
+
+// Define function with receiver as first param
+area = (rect: Rectangle) f64 {
+    rect.width * rect.height
+}
+
+perimeter = (rect: Rectangle) f64 {
+    2.0 * (rect.width + rect.height)
+}
+
+main = () i32 {
+    my_rect := Rectangle{ width: 10.0, height: 5.0 }
+    
+    // Test UFCS - call function as method
+    a := my_rect.area()
+    p := my_rect.perimeter()
+    
+    // Test that results are correct
+    // area should be 50.0
+    // perimeter should be 30.0
+    
+    a_int := a as i32
+    p_int := p as i32
+    
+    // Return a simple check value
+    result := a_int + p_int  // 50 + 30 = 80
+    return result - 80  // Should return 0 if correct
+}
