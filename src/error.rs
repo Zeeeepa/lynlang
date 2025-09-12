@@ -146,18 +146,43 @@ impl CompileError {
                 if msg.contains("if") || msg.contains("else") || msg.contains("match") {
                     result.push_str("\n\nNote: Zen uses the '?' operator for pattern matching instead of if/else/match keywords.");
                     result.push_str("\nExample: value ? | true => action1 | false => action2");
+                } else if msg.contains("function") {
+                    result.push_str("\n\nFunction syntax in Zen:");
+                    result.push_str("\n  name = (params) ReturnType { body }");
+                    result.push_str("\nExample: add = (a: i32, b: i32) i32 { a + b }");
+                } else if msg.contains("struct") {
+                    result.push_str("\n\nStruct syntax in Zen:");
+                    result.push_str("\n  StructName = { field1: Type, field2: Type }");
+                } else if msg.contains("loop") {
+                    result.push_str("\n\nLoop syntax in Zen:");
+                    result.push_str("\n  loop (condition) { body }  // conditional loop");
+                    result.push_str("\n  loop { body }              // infinite loop");
                 }
             },
             CompileError::UndeclaredVariable(name, _) => {
                 result.push_str(&format!("\n\nDid you mean to declare '{}'?", name));
                 result.push_str("\n  - Use ':=' for immutable variables: name := value");
                 result.push_str("\n  - Use '::=' for mutable variables: name ::= value");
+                result.push_str("\n  - Use ': Type =' for typed immutable: name: Type = value");
+                result.push_str("\n  - Use ':: Type =' for typed mutable: name:: Type = value");
             },
-            CompileError::InvalidPattern(_msg, _) => {
+            CompileError::InvalidPattern(msg, _) => {
                 result.push_str("\n\nZen pattern matching syntax:");
                 result.push_str("\n  value ? | pattern1 => result1");
                 result.push_str("\n          | pattern2 => result2");
                 result.push_str("\n          | _ => default");
+                result.push_str("\n\nPatterns can include:");
+                result.push_str("\n  - Literals: 42, \"hello\"");
+                result.push_str("\n  - Ranges: 0..=10");
+                result.push_str("\n  - Destructuring: .Ok -> val");
+                result.push_str("\n  - Guards: x -> x > 0");
+                
+                if msg.contains("bool") {
+                    result.push_str("\n\nBool patterns (special syntax):");
+                    result.push_str("\n  condition ? { true_branch }  // simple bool check");
+                    result.push_str("\n  condition ? | 1 => { true_branch }");
+                    result.push_str("\n              | 0 => { false_branch }");
+                }
             },
             CompileError::ImportError(msg, _) => {
                 if msg.contains("comptime") {
@@ -165,14 +190,84 @@ impl CompileError {
                     result.push_str("\nMove import statements to module level.");
                 } else if msg.contains("function") {
                     result.push_str("\n\nImports must be at module level, not inside functions.");
+                } else {
+                    result.push_str("\n\nImport syntax in Zen:");
+                    result.push_str("\n  build := @std.build");
+                    result.push_str("\n  io := build.import(\"io\")");
+                    result.push_str("\n  { Vec, HashMap } := build.import(\"collections\")");
                 }
             },
-            CompileError::FFIError(_msg, _) => {
+            CompileError::FFIError(msg, _) => {
                 result.push_str("\n\nFFI usage in Zen:");
                 result.push_str("\n  lib := FFI.lib(\"library_name\")");
                 result.push_str("\n    .path(\"/path/to/library\")");
                 result.push_str("\n    .function(\"func_name\", signature)");
+                result.push_str("\n    .constant(\"CONST_NAME\", type)");
                 result.push_str("\n    .build()");
+                
+                if msg.contains("signature") {
+                    result.push_str("\n\nFunction signature example:");
+                    result.push_str("\n  FnSignature::new(vec![types::i32()], types::void())");
+                }
+            },
+            CompileError::TypeMismatch { expected, found, .. } => {
+                result.push_str(&format!("\n\nType conversion needed:"));
+                result.push_str(&format!("\n  Expected: {}", expected));
+                result.push_str(&format!("\n  Found: {}", found));
+                
+                // Suggest common conversions
+                if expected == "i32" && found == "f64" {
+                    result.push_str("\n  Try: value as i32");
+                } else if expected == "string" && found.contains("str") {
+                    result.push_str("\n  Try: value.to_string()");
+                }
+            },
+            CompileError::UnexpectedToken { expected, found, .. } => {
+                result.push_str("\n\nExpected tokens:");
+                for exp in expected {
+                    result.push_str(&format!("\n  - {}", exp));
+                }
+                result.push_str(&format!("\nFound: '{}'", found));
+                
+                // Common fixes
+                if expected.contains(&"=".to_string()) {
+                    result.push_str("\n\nDid you forget '=' in a function or variable declaration?");
+                } else if expected.contains(&")".to_string()) {
+                    result.push_str("\n\nCheck for unclosed parentheses");
+                } else if expected.contains(&"}".to_string()) {
+                    result.push_str("\n\nCheck for unclosed braces");
+                }
+            },
+            CompileError::MissingTypeAnnotation(name, _) => {
+                result.push_str(&format!("\n\nVariable '{}' needs a type annotation.", name));
+                result.push_str("\n\nOptions:");
+                result.push_str("\n  1. Use type inference: name := value");
+                result.push_str("\n  2. Explicit type: name: Type = value");
+                result.push_str("\n  3. Mutable with type: name:: Type = value");
+            },
+            CompileError::DuplicateDeclaration { name, .. } => {
+                result.push_str(&format!("\n\n'{}' has already been declared.", name));
+                result.push_str("\n\nPossible solutions:");
+                result.push_str("\n  1. Use a different name");
+                result.push_str("\n  2. Remove the duplicate declaration");
+                result.push_str("\n  3. Use shadowing in a nested scope");
+            },
+            CompileError::InvalidLoopCondition(msg, _) => {
+                result.push_str("\n\nValid loop forms:");
+                result.push_str("\n  loop { ... }           // infinite loop");
+                result.push_str("\n  loop (condition) { ... } // conditional loop");
+                result.push_str("\n  (0..10).loop((i) => { ... }) // range iteration");
+                
+                if msg.contains("bool") {
+                    result.push_str("\n\nLoop condition must evaluate to bool");
+                }
+            },
+            CompileError::MissingReturnStatement(func, _) => {
+                result.push_str(&format!("\n\nFunction '{}' must return a value.", func));
+                result.push_str("\n\nOptions:");
+                result.push_str("\n  1. Add explicit return: return value");
+                result.push_str("\n  2. Use implicit return (no semicolon on last expression)");
+                result.push_str("\n  3. Change return type to void if no value needed");
             },
             _ => {}
         }
@@ -188,8 +283,18 @@ impl CompileError {
                     let line = source_lines[i - 1];
                     if i == span.line {
                         result.push_str(&format!("\n> {} | {}", i, line));
-                        result.push_str(&format!("\n  {} | {}{}", " ".repeat(i.to_string().len()), 
-                                                 " ".repeat(span.column), "^--- error here"));
+                        
+                        // Show precise error location with better visual indicator
+                        let indicator = if span.end > span.start && span.end - span.start < 50 {
+                            "^".repeat(span.end - span.start)
+                        } else {
+                            "^".to_string()
+                        };
+                        
+                        result.push_str(&format!("\n  {} | {}{} error here", 
+                                                 " ".repeat(i.to_string().len()), 
+                                                 " ".repeat(span.column), 
+                                                 indicator));
                     } else {
                         result.push_str(&format!("\n  {} | {}", i, line));
                     }
