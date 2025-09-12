@@ -48,10 +48,12 @@ fn test_parse_member_access_with_function_call() {
     
     let expr = parser.parse_expression().unwrap();
     
-    // Should parse as a function call with object.method name
+    // UFCS: obj.method() becomes method(obj)
+    // Should parse as a function call with object.method name and obj as first argument
     if let Expression::FunctionCall { name, args } = expr {
         assert_eq!(name, "obj.method");
-        assert_eq!(args.len(), 0);
+        assert_eq!(args.len(), 1); // obj is the first argument
+        assert!(matches!(&args[0], Expression::Identifier(n) if n == "obj"));
     } else {
         panic!("Expected FunctionCall expression, got {:?}", expr);
     }
@@ -65,11 +67,13 @@ fn test_parse_member_access_with_args() {
     
     let expr = parser.parse_expression().unwrap();
     
+    // UFCS: obj.method(1, 2) becomes method(obj, 1, 2)
     if let Expression::FunctionCall { name, args } = expr {
         assert_eq!(name, "obj.method");
-        assert_eq!(args.len(), 2);
-        assert!(matches!(&args[0], Expression::Integer32(1)));
-        assert!(matches!(&args[1], Expression::Integer32(2)));
+        assert_eq!(args.len(), 3); // obj is the first argument, then 1, 2
+        assert!(matches!(&args[0], Expression::Identifier(n) if n == "obj"));
+        assert!(matches!(&args[1], Expression::Integer32(1)));
+        assert!(matches!(&args[2], Expression::Integer32(2)));
     } else {
         panic!("Expected FunctionCall expression");
     }

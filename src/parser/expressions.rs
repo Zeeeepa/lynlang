@@ -461,16 +461,37 @@ impl<'a> Parser<'a> {
             }
         }
         self.next_token(); // consume ')'
-        Ok(Expression::FunctionCall {
-            name: format!("{}.{}", match &object {
-                Expression::Identifier(name) => name.clone(),
-                _ => return Err(CompileError::SyntaxError(
-                    "Expected identifier for object in method call".to_string(),
-                    Some(self.current_span.clone()),
-                )),
-            }, method_name),
-            args: arguments,
-        })
+        
+        // UFCS implementation: Transform object.method(args) into method(object, args)
+        // First, check if this is a stdlib method call (contains '.')
+        if method_name.contains('.') {
+            // This is a stdlib call like io.print, keep the original format
+            Ok(Expression::FunctionCall {
+                name: format!("{}.{}", match &object {
+                    Expression::Identifier(name) => name.clone(),
+                    _ => return Err(CompileError::SyntaxError(
+                        "Expected identifier for object in method call".to_string(),
+                        Some(self.current_span.clone()),
+                    )),
+                }, method_name),
+                args: arguments,
+            })
+        } else {
+            // This is UFCS: transform object.method(args) into method(object, args)
+            // But preserve the full qualified name for debugging/display purposes
+            let full_name = match &object {
+                Expression::Identifier(obj_name) => format!("{}.{}", obj_name, method_name),
+                _ => method_name.clone(),
+            };
+            
+            let mut ufcs_args = vec![object];
+            ufcs_args.extend(arguments);
+            
+            Ok(Expression::FunctionCall {
+                name: full_name,
+                args: ufcs_args,
+            })
+        }
     }
     
     fn parse_struct_literal(&mut self, name: String) -> Result<Expression> {

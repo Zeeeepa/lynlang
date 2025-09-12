@@ -67,6 +67,26 @@ impl fmt::Display for CompileError {
     }
 }
 
+impl CompileError {
+    /// Extract position information from the error if available
+    pub fn position(&self) -> Option<&Span> {
+        match self {
+            CompileError::SyntaxError(_, span) |
+            CompileError::UndeclaredVariable(_, span) |
+            CompileError::UndeclaredFunction(_, span) |
+            CompileError::InvalidLoopCondition(_, span) |
+            CompileError::MissingReturnStatement(_, span) |
+            CompileError::InternalError(_, span) |
+            CompileError::UnsupportedFeature(_, span) |
+            CompileError::TypeError(_, span) |
+            CompileError::ParseError(_, span) => span.as_ref(),
+            CompileError::TypeMismatch { span, .. } => span.as_ref(),
+            CompileError::FileNotFound(_, _) |
+            CompileError::ComptimeError(_) => None,
+        }
+    }
+}
+
 impl std::error::Error for CompileError {}
 
 pub type Result<T> = std::result::Result<T, CompileError>; 
