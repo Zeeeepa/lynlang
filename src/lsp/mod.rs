@@ -35,9 +35,37 @@ impl ZenServer {
         
         parser.parse_program()
             .map_err(|e| {
-                // Create a JSON-RPC error with the actual parse error message
+                // Create a JSON-RPC error with detailed context
                 let mut err = tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::ParseError);
-                err.message = format!("Parse error: {}", e).into();
+                
+                // Provide more specific error messages based on error type
+                let error_msg = match &e {
+                    crate::error::CompileError::SyntaxError(msg, span) => {
+                        if let Some(s) = span {
+                            format!("Syntax error at line {}, column {}: {}", s.line, s.column, msg)
+                        } else {
+                            format!("Syntax error: {}", msg)
+                        }
+                    }
+                    crate::error::CompileError::ParseError(msg, span) => {
+                        if let Some(s) = span {
+                            format!("Parse error at line {}, column {}: {}", s.line, s.column, msg)
+                        } else {
+                            format!("Parse error: {}", msg)
+                        }
+                    }
+                    crate::error::CompileError::TypeMismatch { expected, found, span } => {
+                        if let Some(s) = span {
+                            format!("Type mismatch at line {}, column {}: expected {}, found {}", 
+                                    s.line, s.column, expected, found)
+                        } else {
+                            format!("Type mismatch: expected {}, found {}", expected, found)
+                        }
+                    }
+                    _ => format!("{}", e),
+                };
+                
+                err.message = error_msg.into();
                 err
             })
     }
@@ -58,23 +86,49 @@ impl ZenServer {
                 }
                 Err(parse_error) => {
                     // Extract position information from the parse error if available
-                    let (line, column) = if let Some(span) = parse_error.position() {
-                        (span.line as u32, span.column as u32)
+                    let (line, column, end_column) = if let Some(span) = parse_error.position() {
+                        // Use the full span information for better error highlighting
+                        let end_col = if span.end > span.start {
+                            span.column + (span.end - span.start)
+                        } else {
+                            span.column + 1
+                        };
+                        (span.line as u32, span.column as u32, end_col as u32)
                     } else {
-                        (0, 0)
+                        (0, 0, 1)
+                    };
+                    
+                    // Create a more informative error message with context
+                    let error_message = match &parse_error {
+                        crate::error::CompileError::SyntaxError(msg, _) => {
+                            format!("Syntax error: {}", msg)
+                        }
+                        crate::error::CompileError::ParseError(msg, _) => {
+                            format!("Parse error: {}", msg)
+                        }
+                        crate::error::CompileError::TypeMismatch { expected, found, .. } => {
+                            format!("Type mismatch: expected {}, found {}", expected, found)
+                        }
+                        crate::error::CompileError::UndeclaredVariable(name, _) => {
+                            format!("Undeclared variable: '{}'. Did you forget to declare it?", name)
+                        }
+                        crate::error::CompileError::UndeclaredFunction(name, _) => {
+                            format!("Undeclared function: '{}'. Did you forget to define it?", name)
+                        }
+                        _ => parse_error.to_string(),
                     };
                     
                     // Add a detailed error diagnostic with actual parse error message
                     diagnostics.push(Diagnostic {
                         range: Range::new(
                             Position::new(line, column),
-                            Position::new(line, column + 1)
+                            Position::new(line, end_column)
                         ),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: None,
                         code_description: None,
                         source: Some("zen".to_string()),
-                        message: parse_error.to_string(),
+                        message: error_message,
                         related_information: None,
                         tags: None,
                         data: None,

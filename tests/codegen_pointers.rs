@@ -92,8 +92,8 @@ fn test_pointer_assignment() {
                     name: "x".to_string(),
                     type_: Some(AstType::I64),
                     initializer: Some(Expression::Integer64(42)),
-                    is_mutable: false,
-                    declaration_type: VariableDeclarationType::ExplicitImmutable,
+                    is_mutable: true,  // Changed to mutable
+                    declaration_type: VariableDeclarationType::ExplicitMutable,  // Changed to mutable
                 },
                 Statement::VariableDeclaration { 
                     name: "ptr".to_string(),
