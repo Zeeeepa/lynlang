@@ -42,10 +42,48 @@ impl ZenServer {
                 // Use the enhanced detailed_message method for better error reporting
                 let error_msg = e.detailed_message(&lines);
                 
+                // Analyze the error context for better suggestions
+                let context_msg = if let Some(span) = e.position() {
+                    if span.line > 0 && span.line <= lines.len() {
+                        let line = lines[span.line - 1];
+                        let trimmed = line.trim();
+                        
+                        // Provide context-specific help based on what's in the line
+                        let mut help = String::new();
+                        if trimmed.starts_with("if ") || trimmed.contains(" if ") {
+                            help.push_str("\n\n🚫 'if' keyword not allowed in Zen!\n");
+                            help.push_str("Use: condition ? | true => action | false => other_action");
+                        } else if trimmed.starts_with("else") {
+                            help.push_str("\n\n🚫 'else' keyword not allowed in Zen!\n");
+                            help.push_str("Pattern matching handles all cases with '?'");
+                        } else if trimmed.starts_with("match ") {
+                            help.push_str("\n\n🚫 'match' keyword not allowed in Zen!\n");
+                            help.push_str("Use: value ? | pattern1 => result1 | pattern2 => result2");
+                        } else if trimmed.starts_with("fn ") || trimmed.starts_with("func ") {
+                            help.push_str("\n\n🚫 No 'fn' or 'func' keywords in Zen!\n");
+                            help.push_str("Use: name = (params) ReturnType { body }");
+                        } else if trimmed.starts_with("let ") || trimmed.starts_with("var ") || trimmed.starts_with("const ") {
+                            help.push_str("\n\n🚫 No 'let', 'var', or 'const' keywords in Zen!\n");
+                            help.push_str("Use: name := value (immutable) or name ::= value (mutable)");
+                        } else if trimmed.contains("while ") {
+                            help.push_str("\n\n🚫 No 'while' keyword in Zen!\n");
+                            help.push_str("Use: loop (condition) { body }");
+                        } else if trimmed.contains("for ") {
+                            help.push_str("\n\n🚫 No 'for' keyword in Zen!\n");
+                            help.push_str("Use: (0..10).loop((i) => { body }) or items.loop((item) => { body })");
+                        }
+                        help
+                    } else {
+                        String::new()
+                    }
+                } else {
+                    String::new()
+                };
+                
                 // Also add specific handling for common error patterns
                 let enhanced_msg = match &e {
                     crate::error::CompileError::InvalidSyntax { message: _, suggestion, .. } => {
-                        format!("{}\n\nSuggestion: {}", error_msg, suggestion)
+                        format!("{}{}\n\nSuggestion: {}", error_msg, context_msg, suggestion)
                     },
                     crate::error::CompileError::UnexpectedToken { expected, found, .. } => {
                         let expected_list = if expected.len() > 3 {
@@ -53,9 +91,9 @@ impl ZenServer {
                         } else {
                             expected.join(", ")
                         };
-                        format!("{}\n\nExpected: {}\nFound: '{}'", error_msg, expected_list, found)
+                        format!("{}{}\n\nExpected: {}\nFound: '{}'", error_msg, context_msg, expected_list, found)
                     },
-                    _ => error_msg,
+                    _ => format!("{}{}", error_msg, context_msg),
                 };
                 
                 err.message = enhanced_msg.into();

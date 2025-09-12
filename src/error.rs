@@ -196,6 +196,21 @@ impl CompileError {
                     result.push_str("\n\nLoop syntax in Zen:");
                     result.push_str("\n  loop (condition) { body }  // conditional loop");
                     result.push_str("\n  loop { body }              // infinite loop");
+                } else if msg.contains("variable") || msg.contains("binding") {
+                    result.push_str("\n\nVariable declaration in Zen:");
+                    result.push_str("\n  • Immutable: name := value  or  name: Type = value");
+                    result.push_str("\n  • Mutable: name ::= value  or  name:: Type = value");
+                    result.push_str("\n  • Example: counter ::= 0  // mutable counter");
+                } else if msg.contains("pattern") {
+                    result.push_str("\n\nPattern matching in Zen:");
+                    result.push_str("\n  • Basic: value ? | pattern => result");
+                    result.push_str("\n  • Multiple: value ? | 1 => \"one\" | 2 => \"two\" | _ => \"other\"");
+                    result.push_str("\n  • With binding: value ? | .Some -> x => use_x(x)");
+                } else if msg.contains("import") || msg.contains("module") {
+                    result.push_str("\n\nModule system in Zen:");
+                    result.push_str("\n  • Import: io := @std.build.import(\"io\")");
+                    result.push_str("\n  • Destructure: { Vec, HashMap } := @std.build.import(\"collections\")");
+                    result.push_str("\n  • Note: Imports must be at module level, not inside functions");
                 }
             },
             CompileError::UndeclaredVariable(name, _) => {
