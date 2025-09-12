@@ -48,25 +48,29 @@ Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defi
 | **Type System** | ✅ Working | All primitive and composite types |
 | **Pattern Matching** | ✅ Complete | `?` operator with full pattern support |
 | **LLVM Codegen** | ✅ Working | Native code generation |
-| **FFI** | ✅ Enhanced | Builder pattern with safety checks |
+| **FFI** | ✅ Enhanced | Builder pattern with comprehensive safety |
 | **LSP Server** | ✅ Enhanced | Rich diagnostics with fix suggestions |
-| **Parser** | ✅ Complete | Full language spec compliance |
+| **Parser** | ✅ Complete | Full language spec v1.1.0 compliance |
 | **String Interpolation** | ✅ Working | `$(expr)` syntax |
+| **Error Handling** | ✅ Complete | Result/Option types, no exceptions |
 
 ### 🎉 Recent Improvements (2025-09-12)
 - **Enhanced LSP Error Reporting**: Context-aware error messages with keyword detection and Zen-specific suggestions
-- **FFI Builder Pattern**: Complete with platform detection, validation rules, and automatic C declaration parsing
+- **FFI Builder Pattern**: Complete with platform detection, validation rules, and automatic C declaration parsing  
 - **Comprehensive Test Suite**: LSP tests for all invalid keyword detection and error scenarios
 - **Improved Error Messages**: Detailed source location, multi-line context, and actionable fix suggestions
+- **Pattern Matching Tests**: Comprehensive test coverage for all pattern types including guards, destructuring, and nested patterns
+- **FFI Test Suite**: Complete test coverage for builder pattern, platform configs, callbacks, and opaque types
 
 ### 🚧 Active Development
 | Feature | Progress | Next Steps |
 |---------|----------|------------|
 | **Comptime** | 60% | Complete interpreter implementation |
 | **Behaviors** | 70% | Finish automatic derivation |
-| **Module System** | 80% | Complete `@std` namespace |
+| **Module System** | 85% | Finalize `@std` namespace |
 | **UFCS** | 85% | Finalize method resolution |
 | **Self-Hosting** | 75% | Port code generator to Zen |
+| **Async System** | 40% | Implement colorless async via allocators |
 
 ### 📋 Roadmap Q1 2025
 - [ ] Complete comptime interpreter
@@ -133,19 +137,33 @@ loop { break }                    // Infinite
 loop (i < 10) { i = i + 1 }      // Conditional
 (0..10).loop((i) => print(i))    // Range iteration
 items.loop((item) => process(item)) // Collection iteration
+
 ```
+
+### Meta programing
+```zen
+// please fill this out @claude
+```
+
+
+### allcators & asynchronous programing, concurrency, threading
+```zen
+// please fill this out
+```
+
+
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Rust 1.70+ (for building the compiler)
-- LLVM 14+ (for code generation)
+- LLVM 19+ (for code generation)
 - Git
 
 ### Build & Run
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/zenlang
+git clone https://github.com/lantos1618/zenlang
 cd zenlang
 
 # Build the compiler (optimized)
@@ -249,7 +267,7 @@ We welcome contributions! Areas needing help:
 - Testing on different platforms
 
 ### Resources
-- [GitHub Issues](https://github.com/anthropics/zenlang/issues)
+- [GitHub Issues](https://github.com/lantos1618/zenlang/issues)
 - [ROADMAP.md](ROADMAP.md) - Development priorities
 - [STYLE_GUIDE.md](docs/STYLE_GUIDE.md) - Code style guidelines
 
@@ -268,9 +286,8 @@ MIT License (pending final decision)
 
 ## 📧 Contact
 
-- **Issues**: [GitHub Issues](https://github.com/anthropics/zenlang/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/anthropics/zenlang/discussions)
-- **Email**: agent@lambda.run (for urgent matters)
+- **Issues**: [GitHub Issues](https://github.com/lantos1618/zenlang/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/lantos1618/zenlang/discussions)
 
 ---
 
