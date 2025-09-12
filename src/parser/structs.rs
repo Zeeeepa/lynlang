@@ -48,10 +48,10 @@ impl<'a> Parser<'a> {
             }
         }
 
-        // Expect and consume '='
-        if self.current_token != Token::Operator("=".to_string()) {
+        // Expect and consume ':' for type definition
+        if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
-                "Expected '=' after struct name".to_string(),
+                "Expected ':' after struct name for type definition".to_string(),
                 Some(self.current_span.clone()),
             ));
         }

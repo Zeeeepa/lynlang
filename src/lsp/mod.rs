@@ -9,7 +9,7 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::ast::{Program, Declaration};
 
-mod enhanced;
+pub mod enhanced;
 
 #[derive(Debug)]
 pub struct ZenServer {
@@ -163,21 +163,73 @@ impl ZenServer {
                 Err(parse_error) => {
                     // Extract position information from the parse error if available
                     let (line, column, end_column) = if let Some(span) = parse_error.position() {
-                        // Use the full span information for better error highlighting
-                        let end_col = if span.end > span.start {
-                            span.column + (span.end - span.start)
+                        // IMPORTANT: Lexer uses 1-indexed lines 
+                        // LSP uses 0-indexed lines and columns
+                        // The span.column is now stored as 0-based internally (fixed in lexer)
+                        let lsp_line = if span.line > 0 { (span.line - 1) as u32 } else { 0 };
+                        
+                        // The column in span is the START position of the token
+                        // It's now stored as 0-based already, so use directly for LSP
+                        let lsp_column = span.column as u32;
+                        
+                        // Calculate end column based on the span's end position
+                        // The span contains both start and end positions
+                        let lines: Vec<&str> = content.lines().collect();
+                        
+                        // Use the span's end position if available, otherwise calculate
+                        let end_col = if (lsp_line as usize) < lines.len() {
+                            let line_content = lines[lsp_line as usize];
+                            
+                            // If we have span.end, we can calculate the actual end column
+                            // by looking at the difference between start and end
+                            let token_length = if span.end > span.start {
+                                span.end - span.start
+                            } else {
+                                // Fallback: try to find the token length by scanning forward
+                                let chars: Vec<char> = line_content.chars().collect();
+                                let start_idx = lsp_column as usize;
+                                let mut token_end = start_idx;
+                                
+                                if start_idx < chars.len() {
+                                    // If we're on an identifier or keyword, find its end
+                                    if chars[start_idx].is_alphanumeric() || chars[start_idx] == '_' || chars[start_idx] == '@' {
+                                        while token_end < chars.len() && (chars[token_end].is_alphanumeric() || chars[token_end] == '_') {
+                                            token_end += 1;
+                                        }
+                                    } else if chars[start_idx] == ':' || chars[start_idx] == '.' || chars[start_idx] == '=' {
+                                        // Check for multi-character operators
+                                        token_end += 1;
+                                        if token_end < chars.len() && 
+                                           ((chars[start_idx] == ':' && (chars[token_end] == '=' || chars[token_end] == ':')) ||
+                                            (chars[start_idx] == '.' && chars[token_end] == '.') ||
+                                            (chars[start_idx] == '=' && chars[token_end] == '=')) {
+                                            token_end += 1;
+                                            if token_end < chars.len() && chars[start_idx] == ':' && chars[token_end-1] == ':' && chars[token_end] == '=' {
+                                                token_end += 1; // Handle ::=
+                                            }
+                                        }
+                                    } else {
+                                        // For other operators or symbols
+                                        token_end += 1;
+                                    }
+                                }
+                                token_end - start_idx
+                            };
+                            
+                            (lsp_column + token_length as u32).min(line_content.len() as u32)
                         } else {
-                            span.column + 1
+                            lsp_column + 1
                         };
-                        (span.line as u32, span.column as u32, end_col as u32)
+                        
+                        (lsp_line, lsp_column, end_col)
                     } else {
                         (0, 0, 1)
                     };
                     
                     // Get the error line for context
                     let lines: Vec<&str> = content.lines().collect();
-                    let error_line = if line > 0 && (line as usize) <= lines.len() {
-                        Some(lines[(line - 1) as usize])
+                    let error_line = if (line as usize) < lines.len() {
+                        Some(lines[line as usize])
                     } else {
                         None
                     };
@@ -583,60 +635,83 @@ impl LanguageServer for ZenServer {
         let content = documents.get(&uri)
             .ok_or_else(|| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))?;
         
-        // Parse to find what's at the position
+        // Try to parse the document for enhanced hover info with type information
+        match self.parse_document(&uri).await {
+            Ok(program) => {
+                // Use the enhanced hover that includes type information
+                if let Some(hover) = enhanced::enhanced_hover(&program, content, position) {
+                    return Ok(Some(hover));
+                }
+            }
+            Err(_) => {
+                // Even if parsing fails, try to provide basic hover
+                // This helps when the file has syntax errors
+            }
+        }
+        
+        // Fallback to keyword-based hover for unparseable content
         let lines: Vec<&str> = content.lines().collect();
         if position.line as usize >= lines.len() {
             return Ok(None);
         }
         
         let line = lines[position.line as usize];
-        let char_pos = position.character as usize;
+        let identifier = enhanced::extract_symbol_at_position(line, position.character as usize);
         
-        // Find the identifier at the position
-        let mut start = char_pos;
-        let mut end = char_pos;
-        let chars: Vec<char> = line.chars().collect();
-        
-        // Find start of identifier
-        while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_' || chars[start - 1] == '@') {
-            start -= 1;
-        }
-        
-        // Find end of identifier
-        while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_' || chars[end] == '.') {
-            end += 1;
-        }
-        
-        if start >= end {
+        if identifier.is_empty() {
             return Ok(None);
         }
-        
-        let identifier: String = chars[start..end].iter().collect();
         
         // Provide hover information based on identifier
         let hover_content = match identifier.as_str() {
             s if s.starts_with("@std") => {
-                format!("**Standard Library Module**\n\n`{}`\n\nBuilt-in Zen standard library module", identifier)
+                enhanced::get_std_module_info(s).to_string()
             }
             "comptime" => {
-                "**comptime**\n\nCompile-time evaluation block.\n\n⚠️ **Note**: Imports are NOT allowed inside comptime blocks".to_string()
+                "**comptime**\n\nCompile-time evaluation block.\n\n⚠️ **Note**: Imports are NOT allowed inside comptime blocks\n\n**Example:**\n```zen\ncomptime {\n    const_value := 42;\n    static_assert(const_value > 0);\n}\n```".to_string()
             }
             "loop" => {
-                "**loop**\n\nInfinite loop construct. Use `break` to exit.".to_string()
+                "**loop**\n\nLooping construct in Zen.\n\n**Variants:**\n- Infinite: `loop { ... }`\n- Conditional: `loop (condition) { ... }`\n- Range: `(0..10).loop((i) => { ... })`\n\n**Example:**\n```zen\nloop (count < 10) {\n    print(count);\n    count = count + 1;\n}\n```".to_string()
             }
             "struct" => {
-                "**struct**\n\nDefines a structured data type with fields.".to_string()
+                "**struct**\n\nDefines a structured data type.\n\n**Example:**\n```zen\nstruct Point {\n    x: f64,\n    y: f64,\n}\n```".to_string()
             }
             "enum" => {
-                "**enum**\n\nDefines an enumeration with variants.".to_string()
+                "**enum**\n\nDefines an enumeration with variants.\n\n**Example:**\n```zen\nenum Result<T, E> {\n    Ok -> T,\n    Err -> E,\n}\n```".to_string()
             }
             "behavior" => {
-                "**behavior**\n\nDefines a trait or interface for types.".to_string()
+                "**behavior**\n\nDefines a trait/interface for types.\n\n**Example:**\n```zen\nbehavior Drawable {\n    draw = (self: Self) void;\n}\n```".to_string()
+            }
+            "impl" => {
+                "**impl**\n\nImplements a behavior for a type.\n\n**Example:**\n```zen\nimpl Point for Drawable {\n    draw = (self: Point) void { ... }\n}\n```".to_string()
+            }
+            "defer" => {
+                "**defer**\n\nDefers execution until scope exit (LIFO order).\n\n**Example:**\n```zen\nfile := open(\"data.txt\");\ndefer file.close();\n// file.close() called automatically at scope end\n```".to_string()
+            }
+            "async" => {
+                "**async**\n\nDefines an asynchronous function.\n\n**Example:**\n```zen\nasync fetch_data = (url: string) Result<string, Error> {\n    response := await http.get(url);\n    return Result.Ok(response.body);\n}\n```".to_string()
+            }
+            "await" => {
+                "**await**\n\nWaits for an async operation to complete.\n\n**Example:**\n```zen\ndata := await fetch_data(\"https://api.example.com\");\n```".to_string()
             }
             _ => {
-                format!("**{}**\n\nIdentifier at position {}:{}", identifier, position.line, position.character)
+                format!("**{}**\n\nSymbol in Zen code", identifier)
             }
         };
+        
+        // Calculate proper range for the identifier
+        let char_pos = position.character as usize;
+        let line_chars: Vec<char> = line.chars().collect();
+        let mut start = char_pos;
+        let mut end = char_pos;
+        
+        // Find actual bounds of the identifier
+        while start > 0 && (line_chars[start - 1].is_alphanumeric() || line_chars[start - 1] == '_' || line_chars[start - 1] == '@') {
+            start -= 1;
+        }
+        while end < line_chars.len() && (line_chars[end].is_alphanumeric() || line_chars[end] == '_' || line_chars[end] == '.') {
+            end += 1;
+        }
         
         Ok(Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
@@ -665,6 +740,15 @@ impl LanguageServer for ZenServer {
         let content = documents.get(&uri)
             .ok_or_else(|| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))?;
         
+        // Use enhanced goto definition
+        if let Some(location) = enhanced::enhanced_goto_definition(&program, content, position, &params.text_document_position_params.text_document.uri) {
+            // Update the URI to match the current document
+            let mut loc = location;
+            loc.uri = params.text_document_position_params.text_document.uri.clone();
+            return Ok(Some(GotoDefinitionResponse::Scalar(loc)));
+        }
+        
+        // Fallback to basic search if enhanced fails
         let lines: Vec<&str> = content.lines().collect();
         if position.line as usize >= lines.len() {
             return Ok(None);

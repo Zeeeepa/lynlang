@@ -186,7 +186,7 @@ impl<'a> Parser<'a> {
                 } else if self.peek_token == Token::Operator("::".to_string()) {
                     // Function with type annotation: name :: (params) -> returnType { ... }
                     declarations.push(Declaration::Function(self.parse_function()?));
-                } else if self.peek_token == Token::Operator("=".to_string()) || self.peek_token == Token::Operator("<".to_string()) {
+                } else if self.peek_token == Token::Symbol(':') || self.peek_token == Token::Operator("<".to_string()) {
                     // Check if it's a struct, enum, or function definition
                     let _name = if let Token::Identifier(name) = &self.current_token {
                         name.clone()
@@ -231,13 +231,13 @@ impl<'a> Parser<'a> {
                             self.next_token(); // Move past >
                             
                             // Check what comes after the generics
-                            let is_struct = self.current_token == Token::Operator("=".to_string()) 
+                            let is_struct = self.current_token == Token::Symbol(':') 
                                 && self.peek_token == Token::Symbol('{');
-                            let is_enum = self.current_token == Token::Operator("=".to_string())
-                                && self.peek_token == Token::Symbol('|');
-                            let is_function = self.current_token == Token::Operator("=".to_string()) 
+                            let is_enum = self.current_token == Token::Symbol(':')
+                                && (self.peek_token == Token::Symbol('|') || matches!(&self.peek_token, Token::Identifier(_)));
+                            let is_function = self.current_token == Token::Symbol(':') 
                                 && self.peek_token == Token::Symbol('(');
-                            let is_behavior = self.current_token == Token::Operator("=".to_string()) 
+                            let is_behavior = self.current_token == Token::Symbol(':') 
                                 && self.peek_token == Token::Keyword(lexer::Keyword::Behavior);
                             
                             // Restore lexer state
@@ -274,12 +274,12 @@ impl<'a> Parser<'a> {
                         }
                     } else {
                         // Need to look ahead to determine if it's a struct, enum, behavior, or function
-                        self.next_token(); // Move to '='
-                        self.next_token(); // Move past '=' to see what comes after
+                        self.next_token(); // Move to ':'
+                        self.next_token(); // Move past ':' to see what comes after
                         
-                        // Check what comes after '='
+                        // Check what comes after ':'
                         let is_struct = matches!(&self.current_token, Token::Symbol('{'));
-                        let is_enum = matches!(&self.current_token, Token::Symbol('|'));
+                        let is_enum = matches!(&self.current_token, Token::Symbol('|')) || matches!(&self.current_token, Token::Identifier(_));
                         let is_function = matches!(&self.current_token, Token::Symbol('('));
                         let is_behavior = matches!(&self.current_token, Token::Keyword(lexer::Keyword::Behavior));
 

@@ -23,24 +23,28 @@ impl<'a> Parser<'a> {
             Vec::new()
         };
         
-        // Skip the '=' operator
-        if self.current_token != Token::Operator("=".to_string()) {
+        // Expect ':' for type definition
+        if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
-                "Expected '=' after enum name".to_string(),
+                "Expected ':' after enum name for type definition".to_string(),
                 Some(self.current_span.clone()),
             ));
         }
         self.next_token();
         
         let mut variants = vec![];
+        let mut first_variant = true;
         
-        // Parse variants
+        // Parse variants - no leading | for definition
         while self.current_token != Token::Eof {
-            // Each variant starts with |
-            if self.current_token != Token::Symbol('|') {
-                break;
+            // First variant doesn't need |, subsequent ones do
+            if !first_variant {
+                if self.current_token != Token::Symbol('|') {
+                    break;
+                }
+                self.next_token();
             }
-            self.next_token();
+            first_variant = false;
             
             // Variant name
             let variant_name = if let Token::Identifier(name) = &self.current_token {

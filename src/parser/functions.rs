@@ -48,10 +48,10 @@ impl<'a> Parser<'a> {
             }
         }
         
-        // Expect '=' operator for function declaration
-        if self.current_token != Token::Operator("=".to_string()) {
+        // Expect ':' for function type definition
+        if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
-                "Expected '=' after function name".to_string(),
+                "Expected ':' after function name for type definition".to_string(),
                 Some(self.current_span.clone()),
             ));
         }
@@ -107,13 +107,26 @@ impl<'a> Parser<'a> {
         self.next_token(); // consume ')'
         
         // Parse return type (required in zen, comes directly after parentheses)
-        let return_type = if self.current_token == Token::Symbol('{') {
-            // If we see '{' immediately, default to void
+        let return_type = if self.current_token == Token::Operator("=".to_string()) {
+            // If we see '=' immediately, default to void
             crate::ast::AstType::Void
         } else {
             // Parse the return type
-            self.parse_type()?
+            let ret_type = self.parse_type()?;
+            // After return type, expect '=' before body
+            if self.current_token != Token::Operator("=".to_string()) {
+                return Err(CompileError::SyntaxError(
+                    "Expected '=' after return type before function body".to_string(),
+                    Some(self.current_span.clone()),
+                ));
+            }
+            ret_type
         };
+        
+        // Skip '=' if we haven't already
+        if self.current_token == Token::Operator("=".to_string()) {
+            self.next_token();
+        }
         
         // Function body
         if self.current_token != Token::Symbol('{') {

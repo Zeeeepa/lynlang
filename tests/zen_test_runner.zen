@@ -15,7 +15,7 @@ parser := @std.compiler.parser
 type_checker := @std.compiler.type_checker
 
 // Test case structure
-struct TestCase {
+TestCase: {
     name: string,
     file: string,
     expected_output: ?string,
@@ -24,7 +24,7 @@ struct TestCase {
 }
 
 // Test result
-struct TestResult {
+TestResult: {
     test: TestCase,
     passed: bool,
     output: string,
@@ -32,7 +32,7 @@ struct TestResult {
 }
 
 // Test suite
-struct TestSuite {
+TestSuite: {
     name: string,
     tests: vec.Vec<TestCase>,
     results: vec.Vec<TestResult>,

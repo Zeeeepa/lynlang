@@ -1,0 +1,31 @@
+// Test file to check LSP position reporting
+
+// This will cause an error - using 'if' keyword
+if x > 5 {
+    print("test")
+}
+
+// This will cause an error - using 'fn' keyword
+fn test() {
+    return 42
+}
+
+// This will cause an error - using 'let'
+let value = 10
+
+// This will cause an error - using 'match'
+match result {
+    Ok(v) => v,
+    Err(e) => panic(e)
+}
+
+// Valid Zen syntax for comparison
+test := x > 5 ? { print("test") }
+
+// Valid function syntax
+test_func = () i32 {
+    return 42
+}
+
+// Valid variable declaration
+value := 10

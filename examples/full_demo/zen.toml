@@ -1,0 +1,49 @@
+# Zenlang project configuration
+[package]
+name = "full_demo"
+version = "0.1.0"
+authors = ["Zen Developer"]
+description = "Comprehensive demonstration of Zenlang features"
+license = "MIT"
+
+# Entry points
+main = "main.zen"
+lib = "lib.zen"
+
+# Dependencies
+[dependencies]
+# Example of a local dependency
+# math_utils = { path = "../math_utils" }
+
+# Build dependencies (used for build scripts)
+[build-dependencies]
+
+# Compiler and linker flags
+[build]
+compiler_flags = ["-O2", "-g"]
+linker_flags = []
+build_script = "build.zen"
+
+# Features
+[features]
+default = ["std", "async"]
+std = []
+async = []
+experimental = []
+
+# Target configurations
+[target.native]
+platform = "Linux"
+arch = "X86_64"
+optimization = "Standard"
+debug = true
+strip = false
+lto = false
+
+[target.wasm]
+platform = "Wasm"
+arch = "Wasm32"
+optimization = "Size"
+debug = false
+strip = true
+lto = true

@@ -5,25 +5,25 @@ core := @std.core
 io := @std.io
 
 // Simple struct
-Point = { x: f64, y: f64 }
+Point: { x: f64, y: f64 }
 
 // Enum with variants
-Shape =
-    | Circle(radius: f64)
-    | Rectangle(width: f64, height: f64)
-    | Triangle(base: f64, height: f64)
+Shape:
+    | Circle: { radius: f64 }
+    | Rectangle: { width: f64, height: f64 }
+    | Triangle: { base: f64, height: f64 }
 
 // Function calculating area using pattern matching
-calculate_area = (shape: Shape) f64 {
+calculate_area: (shape: Shape) f64 = {
     // No if/else - only pattern matching with ?
     area := shape ? | .Circle -> r => 3.14159 * r * r
-                   | .Rectangle -> w, h => w * h
-                   | .Triangle -> b, h => 0.5 * b * h
+                   | .Rectangle -> (w, h) => w * h
+                   | .Triangle -> (b, h) => 0.5 * b * h
     return area
 }
 
 // Main function
-main = () void {
+main: () void = {
     // Immutable binding with :=
     pi := 3.14159
     
@@ -31,7 +31,7 @@ main = () void {
     total_area ::= 0.0
     
     // Create shapes
-    shapes := [
+    shapes: Array<Shape> = [
         Shape.Circle(5.0),
         Shape.Rectangle(10.0, 20.0),
         Shape.Triangle(8.0, 6.0)
@@ -48,7 +48,7 @@ main = () void {
                        | .Triangle -> b, h => "Triangle base=$(b) height=$(h)"
         
         io.print("$(desc): area = $(area)\n")
-    }
+    })
     
     io.print("Total area: $(total_area)\n")
 }

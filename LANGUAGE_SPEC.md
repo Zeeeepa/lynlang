@@ -131,9 +131,9 @@ ptr.address       // Get memory address
 
 ### Type Aliases
 ```zen
-type UserId = u64
-type Point2D = { x: f64, y: f64 }
-type Handler = (Request) Response
+type UserId: u64
+type Point2D: { x: f64, y: f64 }
+type Handler: (Request) Response
 ```
 
 ### Generic Types
@@ -194,7 +194,7 @@ counter = counter + 1
 
 ### Function Definition Syntax
 ```zen
-name = (parameters) ReturnType {
+name: (parameters) ReturnType = {
     // body
 }
 ```
@@ -202,35 +202,35 @@ name = (parameters) ReturnType {
 ### Parameter Forms
 ```zen
 // No parameters
-greet = () void { }
+greet: () void = { }
 
 // Single parameter
-double = (x: i32) i32 { x * 2 }
+double: (x: i32) i32 = { x * 2 }
 
 // Multiple parameters
-add = (a: i32, b: i32) i32 { a + b }
+add: (a: i32, b: i32) i32 = { a + b }
 
 // Default parameters
-format = (value: i32, base: u8 = 10) string { }
+format: (value: i32, base: u8 = 10) string = { }
 
 // Generic parameters
-swap<T> = (a: Ptr<T>, b: Ptr<T>) void { }
+swap<T>: (a: Ptr<T>, b: Ptr<T>) void = { }
 
 // Allocator parameter (for colorless async)
-read = (path: string, alloc: Ptr<Allocator>) Slice<u8> { }
+read: (path: string, alloc: Ptr<Allocator>) Slice<u8> = { }
 ```
 
 ### Return Rules
 ```zen
 // Explicit return
-factorial = (n: u64) u64 {
+factorial: (n: u64) u64 = {
     n <= 1 ? 
         | true => return 1
         | false => return n * factorial(n - 1)
 }
 
 // Implicit return (last expression)
-square = (x: i32) i32 {
+square: (x: i32) i32 = {
     x * x  // No semicolon, implicitly returned
 }
 ```
@@ -238,7 +238,7 @@ square = (x: i32) i32 {
 ### UFCS (Uniform Function Call Syntax)
 ```zen
 // Define function with receiver as first param
-area = (rect: Rectangle) f64 {
+area: (rect: Rectangle) f64 = {
     rect.width * rect.height
 }
 
@@ -395,14 +395,14 @@ items.enumerate().loop((index, value) => {
 
 #### Definition
 ```zen
-Person = {
+Person: {
     name: string,
     age: u32,
     email:: Option<string> = None,  // Mutable with default
 }
 
 // Generic struct
-Point<T> = {
+Point<T>: {
     x: T,
     y: T,
 }
@@ -440,12 +440,9 @@ distance := origin.calculate_distance(target)
 
 #### Definition
 ```zen
-Result<T, E> =
-    | Ok(value: T)
-    | Err(error: E)
+Result<T, E>: Ok(value: T) | Err(error: E)
 
-Message =
-    | Text(content: string)
+Message: Text(content: string) 
     | Image({ url: string, width: u32, height: u32 })
     | Video(url: string)
     | Empty
@@ -480,15 +477,15 @@ Instead of traditional traits/interfaces, Zen uses behaviors - structural contra
 
 ```zen
 // Behaviors are structs containing function pointers
-Comparable<T> = {
+Comparable<T>: {
     compare: (a: T, b: T) i32,
 }
 
-Hashable<T> = {
+Hashable<T>: {
     hash: (value: T) u64,
 }
 
-Serializable<T> = {
+Serializable<T>: {
     serialize: (value: T, writer: Ptr<Writer>) Result<void, Error>,
     deserialize: (reader: Ptr<Reader>) Result<T, Error>,
 }
@@ -538,7 +535,7 @@ sort(Ptr::new(numbers.to_slice()), i32_comparable)
 ```zen
 // Compiler can auto-generate common behaviors
 #derive(Comparable, Hashable)
-Point = {
+Point: {
     x: f64,
     y: f64,
 }
@@ -559,7 +556,7 @@ Zen uses allocator-based colorless async - functions aren't marked async/await. 
 
 ```zen
 // Allocator trait includes execution context
-Allocator = {
+Allocator: {
     // Memory operations
     alloc: <T>(size: usize) Ptr<T>,
     free: <T>(ptr: Ptr<T>) void,
@@ -638,7 +635,7 @@ Actor<State, Msg> = {
 
 ```zen
 // Spawn threads
-Thread = {
+Thread: {
     spawn: <T>(func: () T) ThreadHandle<T>,
     current: () ThreadId,
     yield_now: () void,
@@ -699,7 +696,7 @@ sin = (angle: f64) f64 { /* implementation */ }
 helper = (x: f64) f64 { /* internal use only */ }
 
 // Nested namespace
-Trig = {
+Trig: {
     sin: sin,
     cos: (angle: f64) f64 { /* implementation */ },
     tan: (angle: f64) f64 { sin(angle) / cos(angle) },
@@ -774,7 +771,7 @@ defer alloc.free(ptr)
 ### GPA (General Purpose Allocator)
 
 ```zen
-GPA = {
+GPA: {
     // Core allocation
     alloc: <T>() Ptr<T>,
     alloc_array: <T>(count: usize) Ptr<[?, T]>,
@@ -876,11 +873,11 @@ defer {
 
 ```zen
 // FFI builder for safe C interop
-FFI = {
+FFI: {
     lib: (name: string) LibBuilder,
 }
 
-LibBuilder = {
+LibBuilder: {
     path: (p: string) LibBuilder,
     function: (name: string, sig: FnSignature) LibBuilder,
     constant: (name: string, type: Type) LibBuilder,
@@ -916,7 +913,7 @@ defer sqlite.sqlite3_close(db_ptr)
 
 ```zen
 // Conditional compilation based on target
-get_home = () string {
+get_home: () string = {
     @std.target.os ?
         | .linux => @env("HOME") ?? "/home/user"
         | .windows => @env("USERPROFILE") ?? "C:\\Users\\User"  
@@ -939,7 +936,7 @@ comptime {
 }
 
 // Architecture-specific optimizations
-fast_multiply = (a: u64, b: u64) u128 {
+fast_multiply: (a: u64, b: u64) u128 = {
     @std.target.arch ?
         | .x86_64 => {
             // Use x86-64 specific instructions
@@ -1170,7 +1167,7 @@ mem := build.import("mem")
 { Vec, HashMap } := build.import("collections")
 
 // Use imported functionality
-main = () void {
+main: () void = {
     gpa := mem.GPA::new()
     defer gpa.destroy()
     
@@ -1245,7 +1242,7 @@ main = () void {
 
 ```zen
 // Good Zen style
-HttpServer = {
+HttpServer: {
     port: u16,
     handler:: Option<Handler>,
     max_connections: usize = 1000,
