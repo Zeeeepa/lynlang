@@ -41,6 +41,8 @@ Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defi
 
 ## ⚡ Current Status
 
+**Version**: 0.1.0 (Alpha) | **License**: MIT | **Platform**: Linux/macOS/Windows
+
 ### ✅ Production Ready
 | Feature | Status | Description |
 |---------|--------|-------------|
@@ -54,7 +56,7 @@ Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defi
 | **String Interpolation** | ✅ Working | `$(expr)` syntax |
 | **Error Handling** | ✅ Complete | Result/Option types, no exceptions |
 
-### 🎉 Recent Improvements (2025-09-12)
+### 🎉 Recent Improvements (2025-01-12)
 - **Enhanced LSP Error Reporting**: Context-aware error messages with keyword detection and Zen-specific suggestions
 - **FFI Builder Pattern**: Complete with platform detection, validation rules, and automatic C declaration parsing  
 - **Comprehensive Test Suite**: LSP tests for all invalid keyword detection and error scenarios
@@ -140,15 +142,44 @@ items.loop((item) => process(item)) // Collection iteration
 
 ```
 
-### Meta programing
+### Metaprogramming with Comptime
 ```zen
-// please fill this out @claude
+// Compile-time code execution
+LOOKUP_TABLE := comptime {
+    table:: [256, u8]
+    (0..256).loop((i) => {
+        table[i] = compute_crc_byte(i)
+    })
+    table  // Return computed table
+}
+
+// Compile-time type generation
+comptime {
+    @std.target.os == .windows ?
+        | true => { Handle := Ptr<void> }
+        | false => { Handle := i32 }
+}
 ```
 
 
-### allcators & asynchronous programing, concurrency, threading
+### Colorless Async & Concurrency
 ```zen
-// please fill this out
+// Same function works sync or async based on allocator
+read_file = (path: string, alloc: Ptr<Allocator>) Result<Slice<u8>, Error> {
+    // Allocator determines execution mode - no async/await keywords!
+    file := fs.open(path, alloc)?
+    defer file.close()
+    file.read_all(alloc)
+}
+
+// Channels for message passing
+chan := Channel<Message>::new()
+chan.send(Message::Data("Hello"))
+msg := chan.receive()  // Blocks until message available
+
+// Atomic operations
+counter := Atomic<u64>::new(0)
+old := counter.fetch_add(1, .SeqCst)
 ```
 
 
