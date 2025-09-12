@@ -1,0 +1,5 @@
+// Test LSP error position - 'if' should be on line 3, column 0
+// Line 2  
+if true {
+    x := 5
+}

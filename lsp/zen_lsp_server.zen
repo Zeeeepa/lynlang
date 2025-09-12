@@ -23,25 +23,25 @@ MessageType := |
     Notification
 
 // LSP request methods
-RequestMethod := |
-    Initialize,
-    Initialized,
-    Shutdown,
-    Exit,
-    TextDocumentDidOpen,
-    TextDocumentDidChange,
-    TextDocumentDidSave,
-    TextDocumentDidClose,
-    TextDocumentCompletion,
-    TextDocumentHover,
-    TextDocumentDefinition,
-    TextDocumentReferences,
-    TextDocumentDocumentSymbol,
-    TextDocumentFormatting,
-    TextDocumentRangeFormatting,
-    TextDocumentCodeAction,
-    WorkspaceSymbol,
-    WorkspaceExecuteCommand
+RequestMethod : |
+    | Initialize,
+    | Initialized,
+    | Shutdown,
+    | Exit,
+    | TextDocumentDidOpen,
+    | TextDocumentDidChange,
+    | TextDocumentDidSave,
+    | TextDocumentDidClose,
+    | TextDocumentCompletion,
+    | TextDocumentHover,
+    | TextDocumentDefinition,
+    | TextDocumentReferences,
+    | TextDocumentDocumentSymbol,
+    | TextDocumentFormatting,
+    | TextDocumentRangeFormatting,
+    | TextDocumentCodeAction,
+    | WorkspaceSymbol,
+    | WorkspaceExecuteCommand
 
 // Position in a text document
 Position := {

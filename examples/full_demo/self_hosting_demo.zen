@@ -7,56 +7,55 @@ string := @std.build.import("string")
 result := @std.build.import("result")
 
 // Token types for lexer
-enum TokenType {
+TokenType: |
     // Literals
-    Integer,
-    Float,
-    String,
-    Char,
-    Bool,
+    Integer
+    | Float
+    | String
+    | Char
+    | Bool
     
     // Identifiers and Keywords
-    Identifier,
-    Keyword,
+    | Identifier
+    | Keyword
     
     // Operators
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Percent,
-    Equal,
-    NotEqual,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
+    | Plus
+    | Minus
+    | Star
+    | Slash
+    | Percent
+    | Equal
+    | NotEqual
+    | Less
+    | Greater
+    | LessEqual
+    | GreaterEqual
     
     // Delimiters
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    LeftBracket,
-    RightBracket,
-    Comma,
-    Semicolon,
-    Colon,
-    DoubleColon,
-    ColonEqual,
-    DoubleColonEqual,
-    Arrow,
-    FatArrow,
-    Question,
-    Pipe,
+    | LeftParen
+    | RightParen
+    | LeftBrace
+    | RightBrace
+    | LeftBracket
+    | RightBracket
+    | Comma
+    | Semicolon
+    | Colon
+    | DoubleColon
+    | ColonEqual
+    | DoubleColonEqual
+    | Arrow
+    | FatArrow
+    | Question
+    | Pipe
     
     // Special
-    Eof,
-    Error
-}
+    | Eof
+    | Error
 
 // Token structure
-struct Token {
+Token: {
     token_type: TokenType,
     lexeme: string,
     line: u32,
@@ -64,7 +63,7 @@ struct Token {
 }
 
 // Lexer structure
-struct Lexer {
+Lexer: {
     input: string,
     position: usize,
     current: Option<char>,
@@ -469,41 +468,40 @@ Lexer::next_token = (self) Token {
 }
 
 // AST Nodes
-enum AstNode {
+AstNode: |
     // Literals
-    IntegerLiteral(i64),
-    FloatLiteral(f64),
-    StringLiteral(string),
-    BoolLiteral(bool),
+    IntegerLiteral(i64)
+    | FloatLiteral(f64)
+    | StringLiteral(string)
+    | BoolLiteral(bool)
     
     // Variables
-    Identifier(string),
-    VariableDecl { name: string, value: Box<AstNode>, mutable: bool },
+    | Identifier(string)
+    | VariableDecl { name: string, value: Box<AstNode>, mutable: bool }
     
     // Binary operations
-    BinaryOp { op: TokenType, left: Box<AstNode>, right: Box<AstNode> },
+    | BinaryOp { op: TokenType, left: Box<AstNode>, right: Box<AstNode> }
     
     // Function
-    FunctionDef { name: string, params: Vec<string>, body: Vec<AstNode> },
-    FunctionCall { name: string, args: Vec<AstNode> },
+    | FunctionDef { name: string, params: Vec<string>, body: Vec<AstNode> }
+    | FunctionCall { name: string, args: Vec<AstNode> }
     
     // Control flow
-    PatternMatch { expr: Box<AstNode>, cases: Vec<(AstNode, AstNode)> },
-    Loop { condition: Option<Box<AstNode>>, body: Vec<AstNode> },
-    Break,
-    Continue,
-    Return(Option<Box<AstNode>>),
+    | PatternMatch { expr: Box<AstNode>, cases: Vec<(AstNode, AstNode)> }
+    | Loop { condition: Option<Box<AstNode>>, body: Vec<AstNode> }
+    | Break
+    | Continue
+    | Return(Option<Box<AstNode>>)
     
     // Structures
-    StructDef { name: string, fields: Vec<(string, string)> },
-    EnumDef { name: string, variants: Vec<string> },
+    | StructDef { name: string, fields: Vec<(string, string)> }
+    | EnumDef { name: string, variants: Vec<string> }
     
     // Program
-    Program(Vec<AstNode>)
-}
+    | Program(Vec<AstNode>)
 
 // Parser structure
-struct Parser {
+Parser: {
     lexer: Lexer,
     current: Token,
     peek: Token
@@ -721,7 +719,7 @@ Parser::parse_program = (self) Result<AstNode, string> {
 }
 
 // Code generator (simplified)
-struct CodeGen {
+CodeGen: {
     output: string
 }
 

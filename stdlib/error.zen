@@ -6,18 +6,17 @@ string := @std.string
 io := @std.io
 
 // Common error types
-struct Error {
+Error: {
     message: string
     code: i32
     source: Option<string>
 }
 
 // Error severity levels
-enum ErrorLevel {
+ErrorLevel: |
     Warning
-    Error
-    Fatal
-}
+    | Error
+    | Fatal
 
 // Create a new error
 new_error = (message: string, code: i32) Error {

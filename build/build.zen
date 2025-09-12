@@ -19,7 +19,7 @@ codegen := @std.compiler.codegen
 linker := @std.compiler.linker
 
 // Build configuration
-struct BuildConfig {
+BuildConfig: {
     // Source directories
     src_dir: string,
     stdlib_dir: string,
@@ -44,14 +44,13 @@ struct BuildConfig {
 }
 
 // Build target
-enum Target {
-    Native,
-    Wasm,
-    LLVM,
-}
+Target: |
+    Native
+    | Wasm
+    | LLVM
 
 // Build artifact
-struct Artifact {
+Artifact: {
     name: string,
     path: string,
     kind: ArtifactKind,
@@ -59,14 +58,13 @@ struct Artifact {
     source_files: vec.Vec<string>,
 }
 
-enum ArtifactKind {
-    Executable,
-    Library,
-    Object,
-}
+ArtifactKind: |
+    Executable
+    | Library
+    | Object
 
 // Build task
-struct BuildTask {
+BuildTask: {
     name: string,
     action: () result.Result<(), string>,
     dependencies: vec.Vec<string>,
@@ -74,7 +72,7 @@ struct BuildTask {
 }
 
 // Build system state
-struct BuildSystem {
+BuildSystem: {
     config: BuildConfig,
     artifacts: map.Map<string, Artifact>,
     tasks: map.Map<string, BuildTask>,

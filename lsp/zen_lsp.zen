@@ -18,7 +18,7 @@ type_checker := build.import("../compiler/type_checker")
 errors := build.import("../compiler/errors")
 
 // LSP Message Types
-struct Message {
+Message: {
     jsonrpc: string,
     id: ?i32,
     method: ?string,
@@ -27,25 +27,25 @@ struct Message {
     error: ?ErrorResponse,
 }
 
-struct ErrorResponse {
+ErrorResponse: {
     code: i32,
     message: string,
     data: ?json.Value,
 }
 
 // LSP Initialize params
-struct InitializeParams {
+InitializeParams: {
     processId: ?i32,
     rootUri: ?string,
     capabilities: ClientCapabilities,
 }
 
-struct ClientCapabilities {
+ClientCapabilities: {
     textDocument: ?TextDocumentClientCapabilities,
     workspace: ?WorkspaceClientCapabilities,
 }
 
-struct TextDocumentClientCapabilities {
+TextDocumentClientCapabilities: {
     synchronization: ?SynchronizationCapabilities,
     completion: ?CompletionCapabilities,
     hover: ?HoverCapabilities,
@@ -54,7 +54,7 @@ struct TextDocumentClientCapabilities {
 }
 
 // Server capabilities
-struct ServerCapabilities {
+ServerCapabilities: {
     textDocumentSync: i32,
     completionProvider: ?CompletionOptions,
     hoverProvider: bool,
@@ -67,45 +67,45 @@ struct ServerCapabilities {
     diagnosticProvider: bool,
 }
 
-struct CompletionOptions {
+CompletionOptions: {
     resolveProvider: bool,
     triggerCharacters: vec.Vec<string>,
 }
 
 // Text document types
-struct TextDocumentItem {
+TextDocumentItem: {
     uri: string,
     languageId: string,
     version: i32,
     text: string,
 }
 
-struct TextDocumentIdentifier {
+TextDocumentIdentifier: {
     uri: string,
 }
 
-struct VersionedTextDocumentIdentifier {
+VersionedTextDocumentIdentifier: {
     uri: string,
     version: i32,
 }
 
-struct Position {
+Position: {
     line: i32,
     character: i32,
 }
 
-struct Range {
+Range: {
     start: Position,
     end: Position,
 }
 
-struct Location {
+Location: {
     uri: string,
     range: Range,
 }
 
 // Diagnostic types
-struct Diagnostic {
+Diagnostic: {
     range: Range,
     severity: i32,
     code: ?string,
@@ -114,13 +114,13 @@ struct Diagnostic {
     relatedInformation: ?vec.Vec<DiagnosticRelatedInformation>,
 }
 
-struct DiagnosticRelatedInformation {
+DiagnosticRelatedInformation: {
     location: Location,
     message: string,
 }
 
 // Completion types
-struct CompletionItem {
+CompletionItem: {
     label: string,
     kind: i32,
     detail: ?string,
@@ -130,7 +130,7 @@ struct CompletionItem {
 }
 
 // LSP Server state
-struct LSPServer {
+LSPServer: {
     documents: map.Map<string, TextDocumentItem>,
     root_uri: ?string,
     initialized: bool,

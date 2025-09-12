@@ -13,16 +13,16 @@ math := @std.build.import("math")
 // 1. Pattern Matching - The Heart of Zen
 // ==========================================
 
-demonstrate_pattern_matching = () void {
+demonstrate_pattern_matching: () void = {
     io.print("\n=== Pattern Matching Demo ===\n")
     
     // Simple boolean pattern
-    is_adult := (age: i32) bool {
+    is_adult: (age: i32) bool = {
         age >= 18 ? | true => true | false => false
     }
     
     // Range patterns
-    categorize_age := (age: i32) string {
+    categorize_age: (age: i32) string = {
         age ? | 0..=12 => "Child"
               | 13..=19 => "Teenager"
               | 20..=64 => "Adult"
@@ -30,7 +30,7 @@ demonstrate_pattern_matching = () void {
     }
     
     // Destructuring with Result types
-    divide := (a: f64, b: f64) Result<f64, string> {
+    divide: (a: f64, b: f64) Result<f64, string> = {
         b == 0.0 ? 
             | true => Err("Division by zero")
             | false => Ok(a / b)
@@ -41,7 +41,7 @@ demonstrate_pattern_matching = () void {
              | .Err -> error => io.print("Error: $(error)\n")
     
     // Option pattern matching
-    find_user := (id: u32) Option<string> {
+    find_user: (id: u32) Option<string> = {
         id ? | 1 => Some("Alice")
              | 2 => Some("Bob")
              | _ => None
@@ -52,7 +52,7 @@ demonstrate_pattern_matching = () void {
            | .None => io.print("User not found\n")
     
     // Guards in patterns
-    classify_number := (n: i32) string {
+    classify_number: (n: i32) string = {
         n ? | x -> x < 0 => "Negative"
             | x -> x == 0 => "Zero"
             | x -> x > 0 && x < 10 => "Single digit"
@@ -67,11 +67,11 @@ demonstrate_pattern_matching = () void {
 // 2. Memory Management & Smart Pointers
 // ==========================================
 
-demonstrate_memory_management = () void {
+demonstrate_memory_management: () void = {
     io.print("\n=== Memory Management Demo ===\n")
     
     // Using Ptr<T> instead of raw pointers
-    allocate_int := () Ptr<i32> {
+    allocate_int: () Ptr<i32> = {
         ptr := Ptr<i32>::new(42)
         io.print("Allocated value: $(ptr.value)\n")
         io.print("Address: $(ptr.address)\n")
@@ -79,12 +79,12 @@ demonstrate_memory_management = () void {
     }
     
     // Reference counting
-    struct SharedData {
+    SharedData: {
         value: i32,
         refs: Atomic<u32>
     }
     
-    SharedData::create = (val: i32) Ptr<SharedData> {
+    SharedData::create: (val: i32) Ptr<SharedData> = {
         data := Ptr<SharedData>::new(SharedData{
             value: val,
             refs: Atomic<u32>::new(1)
@@ -92,11 +92,11 @@ demonstrate_memory_management = () void {
         data
     }
     
-    SharedData::retain = (self) void {
+    SharedData::retain: (self) void = {
         self.refs.fetch_add(1, .SeqCst)
     }
     
-    SharedData::release = (self) void {
+    SharedData::release: (self) void = {
         old_refs := self.refs.fetch_sub(1, .SeqCst)
         old_refs == 1 ? {
             io.print("Freeing shared data with value: $(self.value)\n")
@@ -105,7 +105,7 @@ demonstrate_memory_management = () void {
     }
     
     // RAII with defer
-    use_resource := () void {
+    use_resource: () void = {
         resource := SharedData::create(100)
         defer resource.release()
         
@@ -120,24 +120,24 @@ demonstrate_memory_management = () void {
 // 3. Behaviors (Traits/Interfaces)
 // ==========================================
 
-behavior Printable {
-    format = (self) string
+Printable: behavior {
+    format: (self) string
 }
 
-behavior Comparable<T> {
-    compare = (self, other: T) i32
+Comparable<T>: behavior {
+    compare: (self, other: T) i32
 }
 
-struct Person {
+Person: {
     name: string,
     age: u32
 }
 
-Person::format = (self) string {
+Person::format: (self) string = {
     "Person { name: $(self.name), age: $(self.age) }"
 }
 
-Person::compare = (self, other: Person) i32 {
+Person::compare: (self, other: Person) i32 = {
     self.age < other.age ? | true => -1
                           | false => {
         self.age > other.age ? | true => 1
@@ -145,7 +145,7 @@ Person::compare = (self, other: Person) i32 {
     }
 }
 
-demonstrate_behaviors = () void {
+demonstrate_behaviors: () void = {
     io.print("\n=== Behaviors Demo ===\n")
     
     alice := Person{ name: "Alice", age: 30 }
@@ -165,7 +165,7 @@ demonstrate_behaviors = () void {
 // 4. Comptime - Compile-Time Evaluation
 // ==========================================
 
-demonstrate_comptime = () void {
+demonstrate_comptime: () void = {
     io.print("\n=== Comptime Demo ===\n")
     
     // Compile-time computed lookup table
@@ -209,11 +209,11 @@ demonstrate_comptime = () void {
 // 5. Colorless Async & Concurrency
 // ==========================================
 
-demonstrate_async = () void {
+demonstrate_async: () void = {
     io.print("\n=== Colorless Async Demo ===\n")
     
     // Same function works sync or async based on allocator
-    fetch_data := (url: string, alloc: Ptr<Allocator>) Result<string, string> {
+    fetch_data: (url: string, alloc: Ptr<Allocator>) Result<string, string> = {
         // Allocator determines if this runs sync or async
         connection := net.connect(url, alloc)?
         defer connection.close()
@@ -223,11 +223,11 @@ demonstrate_async = () void {
     }
     
     // Channel communication
-    process_items := () void {
+    process_items: () void = {
         chan := Channel<i32>::new(10)
         
         // Producer
-        producer := () void {
+        producer: () void = {
             (0..5).loop((i) => {
                 chan.send(i)
                 io.print("Sent: $(i)\n")
@@ -236,7 +236,7 @@ demonstrate_async = () void {
         }
         
         // Consumer
-        consumer := () void {
+        consumer: () void = {
             loop {
                 item := chan.receive()
                 item ? | .Some -> val => io.print("Received: $(val)\n")
@@ -252,7 +252,7 @@ demonstrate_async = () void {
     // Atomic operations
     counter := Atomic<u64>::new(0)
     
-    increment_counter := () void {
+    increment_counter: () void = {
         (0..10).loop((_) => {
             old := counter.fetch_add(1, .SeqCst)
             io.print("Counter incremented from $(old) to $(old + 1)\n")
@@ -267,11 +267,11 @@ demonstrate_async = () void {
 // ==========================================
 
 // Free functions that can be called as methods
-square = (x: i32) i32 { x * x }
-double = (x: i32) i32 { x * 2 }
-is_even = (x: i32) bool { x % 2 == 0 }
+square: (x: i32) i32 = { x * x }
+double: (x: i32) i32 = { x * 2 }
+is_even: (x: i32) bool = { x % 2 == 0 }
 
-demonstrate_ufcs = () void {
+demonstrate_ufcs: () void = {
     io.print("\n=== UFCS Demo ===\n")
     
     value := 5
@@ -299,11 +299,11 @@ demonstrate_ufcs = () void {
 // 7. Error Handling Without Exceptions
 // ==========================================
 
-demonstrate_error_handling = () void {
+demonstrate_error_handling: () void = {
     io.print("\n=== Error Handling Demo ===\n")
     
     // File operations with Result types
-    read_config := (path: string) Result<string, string> {
+    read_config: (path: string) Result<string, string> = {
         file := fs.open(path)?
         defer file.close()
         
@@ -312,7 +312,7 @@ demonstrate_error_handling = () void {
     }
     
     // Chain operations with ?
-    process_config := (path: string) Result<void, string> {
+    process_config: (path: string) Result<void, string> = {
         content := read_config(path)?
         lines := content.split('\n')
         
@@ -337,7 +337,7 @@ demonstrate_error_handling = () void {
 // 8. String Interpolation
 // ==========================================
 
-demonstrate_string_interpolation = () void {
+demonstrate_string_interpolation: () void = {
     io.print("\n=== String Interpolation Demo ===\n")
     
     name := "Zen"
@@ -353,7 +353,7 @@ demonstrate_string_interpolation = () void {
     io.print("$(stats)\n")
     
     // Nested interpolation
-    format_user := (name: string, id: u32) string {
+    format_user: (name: string, id: u32) string = {
         "User[id=$(id), name=\"$(name)\"]"
     }
     
@@ -365,7 +365,7 @@ demonstrate_string_interpolation = () void {
 // 9. Loop Patterns
 // ==========================================
 
-demonstrate_loops = () void {
+demonstrate_loops: () void = {
     io.print("\n=== Loop Patterns Demo ===\n")
     
     // Infinite loop with break
@@ -413,7 +413,7 @@ demonstrate_loops = () void {
 // Main Entry Point
 // ==========================================
 
-main = () void {
+main: () void = {
     io.print("\n")
     io.print("╔══════════════════════════════════════╗\n")
     io.print("║    Zenlang Comprehensive Demo       ║\n")

@@ -48,6 +48,9 @@ pub enum CompileError {
         first_location: Option<Span>,
         duplicate_location: Option<Span>,
     },
+    BuildError(String),
+    FileError(String),
+    CyclicDependency(String),
 }
 
 impl From<BuilderError> for CompileError {
@@ -71,17 +74,17 @@ impl From<LLVMString> for CompileError {
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CompileError::SyntaxError(msg, span) => write!(f, "Syntax Error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::UndeclaredVariable(name, span) => write!(f, "Undeclared variable: '{}'{}", name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::UndeclaredFunction(name, span) => write!(f, "Undeclared function: '{}'{}", name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::TypeMismatch { expected, found, span } => write!(f, "Type mismatch: Expected {}, found {}{}", expected, found, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::InvalidLoopCondition(msg, span) => write!(f, "Invalid loop condition: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::MissingReturnStatement(func_name, span) => write!(f, "Missing return statement in function '{}'{}", func_name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::InternalError(msg, span) => write!(f, "Internal Compiler Error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::SyntaxError(msg, span) => write!(f, "Syntax Error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::UndeclaredVariable(name, span) => write!(f, "Undeclared variable: '{}'{}", name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::UndeclaredFunction(name, span) => write!(f, "Undeclared function: '{}'{}", name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::TypeMismatch { expected, found, span } => write!(f, "Type mismatch: Expected {}, found {}{}", expected, found, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::InvalidLoopCondition(msg, span) => write!(f, "Invalid loop condition: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::MissingReturnStatement(func_name, span) => write!(f, "Missing return statement in function '{}'{}", func_name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::InternalError(msg, span) => write!(f, "Internal Compiler Error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
             CompileError::UnsupportedFeature(msg, _) => write!(f, "Unsupported feature: {}", msg),
-            CompileError::TypeError(msg, span) => write!(f, "Type error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::TypeError(msg, span) => write!(f, "Type error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
             CompileError::FileNotFound(path, detail) => write!(f, "File not found: {}{}", path, detail.as_ref().map(|d| format!(" ({})", d)).unwrap_or_default()),
-            CompileError::ParseError(msg, span) => write!(f, "Parse error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::ParseError(msg, span) => write!(f, "Parse error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
             CompileError::ComptimeError(msg) => write!(f, "Compile-time error: {}", msg),
             CompileError::UnexpectedToken { expected, found, span } => {
                 let expected_str = if expected.len() == 1 {
@@ -89,23 +92,26 @@ impl fmt::Display for CompileError {
                 } else {
                     format!("one of {}", expected.join(", "))
                 };
-                write!(f, "Unexpected token: expected {}, found '{}'{}", expected_str, found, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default())
+                write!(f, "Unexpected token: expected {}, found '{}'{}", expected_str, found, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default())
             },
-            CompileError::InvalidPattern(msg, span) => write!(f, "Invalid pattern: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::ImportError(msg, span) => write!(f, "Import error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::FFIError(msg, span) => write!(f, "FFI error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::InvalidSyntax { message, suggestion, span } => write!(f, "Invalid syntax: {}. Suggestion: {}{}", message, suggestion, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
-            CompileError::MissingTypeAnnotation(name, span) => write!(f, "Missing type annotation for '{}'{}", name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column)).unwrap_or_default()),
+            CompileError::InvalidPattern(msg, span) => write!(f, "Invalid pattern: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::ImportError(msg, span) => write!(f, "Import error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::FFIError(msg, span) => write!(f, "FFI error: {}{}", msg, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::InvalidSyntax { message, suggestion, span } => write!(f, "Invalid syntax: {}. Suggestion: {}{}", message, suggestion, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
+            CompileError::MissingTypeAnnotation(name, span) => write!(f, "Missing type annotation for '{}'{}", name, span.as_ref().map(|s| format!(" at line {} column {}", s.line, s.column + 1)).unwrap_or_default()),
             CompileError::DuplicateDeclaration { name, first_location, duplicate_location } => {
                 write!(f, "Duplicate declaration of '{}'", name)?;
                 if let Some(first) = first_location {
-                    write!(f, ", first declared at line {} column {}", first.line, first.column)?;
+                    write!(f, ", first declared at line {} column {}", first.line, first.column + 1)?;
                 }
                 if let Some(dup) = duplicate_location {
-                    write!(f, ", duplicate at line {} column {}", dup.line, dup.column)?;
+                    write!(f, ", duplicate at line {} column {}", dup.line, dup.column + 1)?;
                 }
                 Ok(())
             },
+            CompileError::BuildError(msg) => write!(f, "Build error: {}", msg),
+            CompileError::FileError(msg) => write!(f, "File error: {}", msg),
+            CompileError::CyclicDependency(module) => write!(f, "Cyclic dependency detected: {}", module),
         }
     }
 }
@@ -132,7 +138,10 @@ impl CompileError {
             CompileError::InvalidSyntax { span, .. } => span.as_ref(),
             CompileError::DuplicateDeclaration { duplicate_location, .. } => duplicate_location.as_ref(),
             CompileError::FileNotFound(_, _) |
-            CompileError::ComptimeError(_) => None,
+            CompileError::ComptimeError(_) |
+            CompileError::BuildError(_) |
+            CompileError::FileError(_) |
+            CompileError::CyclicDependency(_) => None,
         }
     }
     
@@ -150,14 +159,14 @@ impl CompileError {
                 result.push_str("\n\n📍 Error Location:");
                 result.push_str(&format!("\n   {} | {}", span.line, line));
                 
-                // Add pointer to exact column
+                // Add pointer to exact column (convert from 0-based to display position)
                 let prefix_len = format!("   {} | ", span.line).len();
                 let pointer = " ".repeat(prefix_len + span.column) + "^";
                 
                 // For multi-character errors, show the full span
                 if span.end > span.start {
                     let error_len = span.end - span.start;
-                    let underline = "^".repeat(error_len.min(line.len() - span.column));
+                    let underline = "^".repeat(error_len.min(line.len().saturating_sub(span.column)));
                     result.push_str(&format!("\n{}{}\n", " ".repeat(prefix_len + span.column), underline));
                 } else {
                     result.push_str(&format!("\n{}\n", pointer));

@@ -313,7 +313,7 @@ build_system_bindings = () ffi.Library {
 }
 
 // Database wrapper using FFI
-struct Database {
+Database: {
     handle: Ptr<SQLiteDB>,
     lib: ffi.Library
 }
@@ -377,7 +377,7 @@ Database::close = (self) Result<void, string> {
 }
 
 // OpenGL Renderer using FFI
-struct Renderer {
+Renderer: {
     context: Ptr<void>,
     lib: ffi.Library
 }

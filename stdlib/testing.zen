@@ -7,7 +7,7 @@ string := build.import("string")
 time := build.import("time")
 
 // Test result structure
-struct TestResult {
+TestResult: {
     name: string
     passed: bool
     duration: time.Duration
@@ -15,7 +15,7 @@ struct TestResult {
 }
 
 // Test suite structure
-struct TestSuite {
+TestSuite: {
     name: string
     tests: vec<TestResult>
     total: i32

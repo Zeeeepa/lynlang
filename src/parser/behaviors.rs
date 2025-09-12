@@ -23,10 +23,10 @@ impl<'a> Parser<'a> {
             Vec::new()
         };
         
-        // Expect '='
-        if self.current_token != Token::Operator("=".to_string()) {
+        // Expect ':' for type definition
+        if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
-                format!("Expected '=' after behavior name, got {:?}", self.current_token),
+                format!("Expected ':' after behavior name for type definition, got {:?}", self.current_token),
                 Some(self.current_span.clone()),
             ));
         }
@@ -91,10 +91,10 @@ impl<'a> Parser<'a> {
         };
         self.next_token();
         
-        // Expect '='
-        if self.current_token != Token::Operator("=".to_string()) {
+        // Expect ':' for method type definition
+        if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
-                format!("Expected '=' after method name, got {:?}", self.current_token),
+                format!("Expected ':' after method name for type definition, got {:?}", self.current_token),
                 Some(self.current_span.clone()),
             ));
         }
@@ -145,7 +145,7 @@ impl<'a> Parser<'a> {
     }
     
     pub fn parse_impl_block_from_type(&mut self, type_name: String) -> Result<ImplBlock> {
-        // 'impl' keyword already consumed, expect '='
+        // 'impl' keyword already consumed, expect '=' for value assignment (impl is defining methods)
         if self.current_token != Token::Operator("=".to_string()) {
             return Err(CompileError::SyntaxError(
                 format!("Expected '=' after 'impl', got {:?}", self.current_token),

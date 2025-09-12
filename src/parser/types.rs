@@ -300,10 +300,10 @@ impl<'a> Parser<'a> {
             }
         }
         
-        // Expect '='
-        if self.current_token != Token::Operator("=".to_string()) {
+        // Expect ':' for type definition
+        if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
-                "Expected '=' in type alias definition".to_string(),
+                "Expected ':' in type alias definition".to_string(),
                 Some(self.current_span.clone()),
             ));
         }

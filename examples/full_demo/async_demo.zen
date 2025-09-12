@@ -1,0 +1,230 @@
+// Async/Await and Concurrency Demonstration
+// Shows Zenlang's colorless async model
+
+io := @std.io
+async_lib := @std.async
+time := @std.time
+
+// Async task structure
+AsyncTask<T>: {
+    id: i32,
+    result: Option<T>,
+    status: TaskStatus,
+}
+
+TaskStatus: |
+    Pending
+    | Running
+    | Completed
+    | Failed -> {error: string}
+
+// Simulated async operations
+fetch_data = async (url: string) Result<string, string> {
+    @std.io.println("Fetching from: " + url);
+    
+    // Simulate network delay
+    @std.time.sleep(100);
+    
+    // Return mock data
+    url.contains("error") ?
+        | true => .Err -> "Network error"
+        | false => .Ok -> "Data from " + url
+};
+
+process_data = async (data: string) Result<i32, string> {
+    @std.io.println("Processing: " + data);
+    
+    // Simulate processing time
+    @std.time.sleep(50);
+    
+    // Return processed result
+    .Ok -> data.len()
+};
+
+// Run multiple async tasks concurrently
+run_async_tasks = async () i32 {
+    @std.io.println("Starting async tasks...");
+    
+    // Launch multiple concurrent tasks
+    task1 := async fetch_data("https://api.example.com/data1");
+    task2 := async fetch_data("https://api.example.com/data2");
+    task3 := async fetch_data("https://api.example.com/data3");
+    
+    // Wait for all tasks to complete
+    results := @std.async.join_all([task1, task2, task3]);
+    
+    // Process results
+    total_length ::= 0;
+    results.loop((result) => {
+        result ? 
+            | .Ok -> data => {
+                processed := process_data(data).await;
+                processed ? 
+                    | .Ok -> len => total_length = total_length + len
+                    | .Err -> _ => {}
+            }
+            | .Err -> err => @std.io.println("Error: " + err)
+    });
+    
+    @std.io.println("Total processed length: " + total_length);
+    total_length
+};
+
+// Channel-based communication
+demonstrate_channels = async () void {
+    // Create a channel with buffer size 10
+    chan := @std.async.Channel<i32>::new(10);
+    
+    // Producer task
+    producer := async {
+        (1..=5).loop((i) => {
+            chan.send(i).await;
+            @std.io.println("Sent: " + i);
+            @std.time.sleep(10);
+        });
+        chan.close();
+    };
+    
+    // Consumer task
+    consumer := async {
+        loop {
+            value := chan.receive().await;
+            value ?
+                | .Some -> v => @std.io.println("Received: " + v)
+                | .None => break;
+        }
+    };
+    
+    // Run both tasks concurrently
+    @std.async.join(producer, consumer).await;
+};
+
+// Select over multiple channels
+demonstrate_select = async () void {
+    chan1 := @std.async.Channel<i32>::new(1);
+    chan2 := @std.async.Channel<string>::new(1);
+    timeout := @std.async.Timer::new(1000);
+    
+    // Send to channels after delays
+    @std.async.spawn(async {
+        @std.time.sleep(200);
+        chan1.send(42).await;
+    });
+    
+    @std.async.spawn(async {
+        @std.time.sleep(300);
+        chan2.send("Hello").await;
+    });
+    
+    // Select from multiple sources
+    @std.async.select {
+        value := chan1.receive() => {
+            @std.io.println("Received from chan1: " + value);
+        },
+        msg := chan2.receive() => {
+            @std.io.println("Received from chan2: " + msg);
+        },
+        _ := timeout.wait() => {
+            @std.io.println("Timeout!");
+        }
+    }
+};
+
+// Actor model implementation
+behavior Actor<M> {
+    handle = async (self:: Self, msg: M) void;
+}
+
+Counter: {
+    value:: i32,
+    mailbox: @std.async.Channel<CounterMsg>,
+}
+
+CounterMsg: |
+    Increment
+    | Decrement
+    | Get -> {reply: @std.async.Channel<i32>}
+
+impl Actor<CounterMsg> for Counter {
+    handle = async (self:: Self, msg: CounterMsg) void {
+        msg ?
+            | .Increment => self.value = self.value + 1
+            | .Decrement => self.value = self.value - 1
+            | .Get -> {reply} => reply.send(self.value).await;
+    };
+}
+
+Counter::spawn = () @std.async.ActorHandle<Counter> {
+    counter := Counter{
+        value: 0,
+        mailbox: @std.async.Channel<CounterMsg>::new(100),
+    };
+    
+    // Start actor loop
+    @std.async.spawn(async {
+        loop {
+            msg := counter.mailbox.receive().await;
+            msg ?
+                | .Some -> m => counter.handle(m).await
+                | .None => break;
+        }
+    });
+    
+    @std.async.ActorHandle<Counter>{
+        mailbox: counter.mailbox,
+    }
+};
+
+// Demonstrate async stream processing
+process_stream = async () void {
+    // Create an async stream
+    stream := @std.async.Stream<i32>::from_iter((1..=10));
+    
+    // Process stream with async operations
+    result := stream
+        .map(async (x) => {
+            @std.time.sleep(10);
+            x * 2
+        })
+        .filter(async (x) => {
+            @std.time.sleep(5);
+            x % 3 == 0
+        })
+        .collect().await;
+    
+    @std.io.println("Stream result: " + result);
+};
+
+// Demonstrate async mutex
+demonstrate_mutex = async () void {
+    mutex := @std.async.Mutex<i32>::new(0);
+    
+    // Spawn multiple tasks that access the mutex
+    tasks := (0..5).map((i) => {
+        @std.async.spawn(async {
+            guard := mutex.lock().await;
+            old_value := guard.value;
+            guard.value = old_value + 1;
+            @std.io.println("Task " + i + " incremented to " + guard.value);
+            // Lock automatically released when guard goes out of scope
+        })
+    });
+    
+    // Wait for all tasks
+    @std.async.join_all(tasks).await;
+    
+    final_value := mutex.lock().await.value;
+    @std.io.println("Final mutex value: " + final_value);
+};
+
+// Export the main demo function
+run_async_demo = () void {
+    // Run async demonstrations
+    @std.async.block_on(async {
+        run_async_tasks().await;
+        demonstrate_channels().await;
+        demonstrate_select().await;
+        process_stream().await;
+        demonstrate_mutex().await;
+    });
+}

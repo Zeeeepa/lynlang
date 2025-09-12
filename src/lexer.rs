@@ -53,7 +53,7 @@ impl<'a> Lexer<'a> {
             read_position: 0,
             current_char: None,
             line: 1,
-            column: 1,
+            column: 0,  // Start at 0 for 0-based column tracking
         };
         lexer.read_char();
         lexer
@@ -62,7 +62,7 @@ impl<'a> Lexer<'a> {
     fn read_char(&mut self) {
         if self.read_position >= self.input.len() {
             self.current_char = None;
-            self.position = self.read_position;  // Important: update position when at end
+            self.position = self.read_position;
         } else if let Some((_idx, ch)) = self.input[self.read_position..].char_indices().next() {
             self.current_char = Some(ch);
             self.position = self.read_position;
@@ -71,7 +71,7 @@ impl<'a> Lexer<'a> {
             // Update line and column tracking
             if ch == '\n' {
                 self.line += 1;
-                self.column = 1;
+                self.column = 0;  // Reset to 0 for 0-based columns
             } else {
                 self.column += 1;
             }
@@ -86,11 +86,13 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn next_token_with_span(&mut self) -> TokenWithSpan {
+        self.skip_whitespace_and_comments();
+        
+        // Record position AFTER skipping whitespace/comments
         let start_pos = self.position;
         let start_line = self.line;
+        // Column is already 0-based now
         let start_column = self.column;
-        
-        self.skip_whitespace_and_comments();
         
         let token = match self.current_char {
             Some(c) if c.is_ascii_alphabetic() || c == '_' || c == '@' => {

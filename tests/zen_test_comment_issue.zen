@@ -1,0 +1,14 @@
+// This comment contains a brace {
+// This comment should not cause an error
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Another comment with struct notation: struct Token {...}
+// The above should not trigger an error
+
+main: () void = {
+    // Test comment with symbol {
+    x := 5;
+}

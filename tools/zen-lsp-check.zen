@@ -9,15 +9,14 @@ args := @std.args
 vec := @std.vec
 
 // Diagnostic severity levels
-enum Severity {
+Severity: |
     Error
-    Warning
-    Info
-    Hint
-}
+    | Warning
+    | Info
+    | Hint
 
 // Diagnostic structure
-struct Diagnostic {
+Diagnostic: {
     file: string
     line: i32
     column: i32
@@ -27,14 +26,14 @@ struct Diagnostic {
 }
 
 // Check result
-struct CheckResult {
+CheckResult: {
     file: string
     passed: bool
     diagnostics: vec<Diagnostic>
 }
 
 // Configuration for checker
-struct CheckConfig {
+CheckConfig: {
     check_syntax: bool
     check_imports: bool
     check_types: bool
