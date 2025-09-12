@@ -541,11 +541,71 @@ impl<'a> Parser<'a> {
 
     fn parse_pattern_match(&mut self, scrutinee: Expression) -> Result<Expression> {
         // Parse: scrutinee ? | pattern => expr | pattern => expr ...
+        // OR bool short form: scrutinee ? { block }
         let scrutinee = Box::new(scrutinee);
-        // Expect first arm to start with |
+        
+        // Check for bool pattern short form: expr ? { block }
+        if self.current_token == Token::Symbol('{') {
+            // Bool pattern short form - execute block if scrutinee is true
+            self.next_token(); // consume '{'
+            
+            let mut statements = Vec::new();
+            let mut final_expr = None;
+            
+            while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+                // Check if this could be the final expression
+                if self.peek_token == Token::Symbol('}') {
+                    // This might be the final expression (no semicolon)
+                    let expr = self.parse_expression()?;
+                    if self.current_token == Token::Symbol(';') {
+                        // It's a statement, not the final expression
+                        self.next_token();
+                        statements.push(crate::ast::Statement::Expression(expr));
+                    } else {
+                        // It's the final expression
+                        final_expr = Some(expr);
+                    }
+                } else {
+                    // Parse as statement
+                    let expr = self.parse_expression()?;
+                    if self.current_token == Token::Symbol(';') {
+                        self.next_token();
+                    }
+                    statements.push(crate::ast::Statement::Expression(expr));
+                }
+            }
+            
+            if self.current_token != Token::Symbol('}') {
+                return Err(CompileError::SyntaxError(
+                    "Expected '}' to close block in bool pattern".to_string(),
+                    Some(self.current_span.clone()),
+                ));
+            }
+            self.next_token(); // consume '}'
+            
+            let body = final_expr.unwrap_or(Expression::Boolean(true));
+            
+            // Convert to standard pattern match with true pattern
+            let arms = vec![
+                crate::ast::ConditionalArm {
+                    pattern: Pattern::Literal(Expression::Boolean(true)),
+                    guard: None,
+                    body,
+                },
+                crate::ast::ConditionalArm {
+                    pattern: Pattern::Wildcard,
+                    guard: None,
+                    body: Expression::Boolean(false), // Default to false for else case
+                },
+            ];
+            
+            return Ok(Expression::Conditional { scrutinee, arms });
+        }
+        
+        // Standard pattern matching with | pattern => expr
         if self.current_token != Token::Symbol('|') {
             return Err(CompileError::SyntaxError(
-                "Expected '|' to start pattern matching arms".to_string(),
+                "Expected '|' to start pattern matching arms or '{' for bool pattern".to_string(),
                 Some(self.current_span.clone()),
             ));
         }
