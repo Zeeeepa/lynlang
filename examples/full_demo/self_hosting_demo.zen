@@ -1,0 +1,878 @@
+// Zenlang Self-Hosting Demo
+// Demonstrates key language features for building a compiler in Zenlang
+
+io := @std.build.import("io")
+vec := @std.build.import("vec")
+string := @std.build.import("string")
+result := @std.build.import("result")
+
+// Token types for lexer
+enum TokenType {
+    // Literals
+    Integer,
+    Float,
+    String,
+    Char,
+    Bool,
+    
+    // Identifiers and Keywords
+    Identifier,
+    Keyword,
+    
+    // Operators
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Equal,
+    NotEqual,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    
+    // Delimiters
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    Comma,
+    Semicolon,
+    Colon,
+    DoubleColon,
+    ColonEqual,
+    DoubleColonEqual,
+    Arrow,
+    FatArrow,
+    Question,
+    Pipe,
+    
+    // Special
+    Eof,
+    Error
+}
+
+// Token structure
+struct Token {
+    token_type: TokenType,
+    lexeme: string,
+    line: u32,
+    column: u32
+}
+
+// Lexer structure
+struct Lexer {
+    input: string,
+    position: usize,
+    current: Option<char>,
+    line: u32,
+    column: u32
+}
+
+Lexer::new = (input: string) Lexer {
+    lexer := Lexer{
+        input: input,
+        position: 0,
+        current: None,
+        line: 1,
+        column: 1
+    }
+    lexer.advance()
+    lexer
+}
+
+Lexer::advance = (self) void {
+    self.position < self.input.len() ?
+        | true => {
+            self.current = Some(self.input[self.position])
+            self.current ?
+                | .Some -> c => {
+                    c == '\n' ?
+                        | true => {
+                            self.line = self.line + 1
+                            self.column = 1
+                        }
+                        | false => {
+                            self.column = self.column + 1
+                        }
+                }
+                | .None => {}
+            self.position = self.position + 1
+        }
+        | false => {
+            self.current = None
+        }
+}
+
+Lexer::peek = (self) Option<char> {
+    self.position < self.input.len() ?
+        | true => Some(self.input[self.position])
+        | false => None
+}
+
+Lexer::skip_whitespace = (self) void {
+    loop {
+        self.current ?
+            | .Some -> c => {
+                c.is_whitespace() ?
+                    | true => self.advance()
+                    | false => break
+            }
+            | .None => break
+    }
+}
+
+Lexer::skip_comment = (self) void {
+    self.current ?
+        | .Some -> c => {
+            c == '/' ?
+                | true => {
+                    self.peek() ?
+                        | .Some -> next => {
+                            next == '/' ?
+                                | true => {
+                                    // Single-line comment
+                                    loop {
+                                        self.current ?
+                                            | .Some -> ch => {
+                                                ch == '\n' ?
+                                                    | true => break
+                                                    | false => self.advance()
+                                            }
+                                            | .None => break
+                                    }
+                                }
+                                | false => {}
+                        }
+                        | .None => {}
+                }
+                | false => {}
+        }
+        | .None => {}
+}
+
+Lexer::read_string = (self) string {
+    result ::= ""
+    self.advance() // Skip opening quote
+    
+    loop {
+        self.current ?
+            | .Some -> c => {
+                c == '"' ?
+                    | true => {
+                        self.advance() // Skip closing quote
+                        break
+                    }
+                    | false => {
+                        c == '\\' ?
+                            | true => {
+                                self.advance()
+                                self.current ?
+                                    | .Some -> esc => {
+                                        escaped := esc ?
+                                            | 'n' => '\n'
+                                            | 't' => '\t'
+                                            | 'r' => '\r'
+                                            | '\\' => '\\'
+                                            | '"' => '"'
+                                            | _ => esc
+                                        result = result + escaped
+                                        self.advance()
+                                    }
+                                    | .None => break
+                            }
+                            | false => {
+                                result = result + c
+                                self.advance()
+                            }
+                    }
+            }
+            | .None => break
+    }
+    
+    result
+}
+
+Lexer::read_number = (self) Token {
+    start_line := self.line
+    start_column := self.column
+    num_str ::= ""
+    is_float := false
+    
+    loop {
+        self.current ?
+            | .Some -> c => {
+                c.is_digit() ?
+                    | true => {
+                        num_str = num_str + c
+                        self.advance()
+                    }
+                    | false => {
+                        c == '.' && !is_float ?
+                            | true => {
+                                self.peek() ?
+                                    | .Some -> next => {
+                                        next.is_digit() ?
+                                            | true => {
+                                                is_float = true
+                                                num_str = num_str + c
+                                                self.advance()
+                                            }
+                                            | false => break
+                                    }
+                                    | .None => break
+                            }
+                            | false => break
+                    }
+            }
+            | .None => break
+    }
+    
+    Token{
+        token_type: is_float ? | true => TokenType::Float | false => TokenType::Integer,
+        lexeme: num_str,
+        line: start_line,
+        column: start_column
+    }
+}
+
+Lexer::read_identifier = (self) Token {
+    start_line := self.line
+    start_column := self.column
+    ident ::= ""
+    
+    loop {
+        self.current ?
+            | .Some -> c => {
+                (c.is_alphanumeric() || c == '_') ?
+                    | true => {
+                        ident = ident + c
+                        self.advance()
+                    }
+                    | false => break
+            }
+            | .None => break
+    }
+    
+    // Check if it's a keyword
+    token_type := ident ?
+        | "struct" => TokenType::Keyword
+        | "enum" => TokenType::Keyword
+        | "behavior" => TokenType::Keyword
+        | "loop" => TokenType::Keyword
+        | "break" => TokenType::Keyword
+        | "continue" => TokenType::Keyword
+        | "return" => TokenType::Keyword
+        | "comptime" => TokenType::Keyword
+        | "defer" => TokenType::Keyword
+        | "true" => TokenType::Bool
+        | "false" => TokenType::Bool
+        | _ => TokenType::Identifier
+    
+    Token{
+        token_type: token_type,
+        lexeme: ident,
+        line: start_line,
+        column: start_column
+    }
+}
+
+Lexer::next_token = (self) Token {
+    self.skip_whitespace()
+    self.skip_comment()
+    self.skip_whitespace()
+    
+    start_line := self.line
+    start_column := self.column
+    
+    self.current ?
+        | .None => Token{
+            token_type: TokenType::Eof,
+            lexeme: "",
+            line: start_line,
+            column: start_column
+        }
+        | .Some -> c => {
+            // Single character tokens
+            single_char := c ?
+                | '+' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Plus, lexeme: "+", line: start_line, column: start_column }
+                }
+                | '-' => {
+                    self.advance()
+                    self.current ?
+                        | .Some -> next if next == '>' => {
+                            self.advance()
+                            Token{ token_type: TokenType::Arrow, lexeme: "->", line: start_line, column: start_column }
+                        }
+                        | _ => Token{ token_type: TokenType::Minus, lexeme: "-", line: start_line, column: start_column }
+                }
+                | '*' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Star, lexeme: "*", line: start_line, column: start_column }
+                }
+                | '/' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Slash, lexeme: "/", line: start_line, column: start_column }
+                }
+                | '%' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Percent, lexeme: "%", line: start_line, column: start_column }
+                }
+                | '(' => {
+                    self.advance()
+                    Token{ token_type: TokenType::LeftParen, lexeme: "(", line: start_line, column: start_column }
+                }
+                | ')' => {
+                    self.advance()
+                    Token{ token_type: TokenType::RightParen, lexeme: ")", line: start_line, column: start_column }
+                }
+                | '{' => {
+                    self.advance()
+                    Token{ token_type: TokenType::LeftBrace, lexeme: "{", line: start_line, column: start_column }
+                }
+                | '}' => {
+                    self.advance()
+                    Token{ token_type: TokenType::RightBrace, lexeme: "}", line: start_line, column: start_column }
+                }
+                | '[' => {
+                    self.advance()
+                    Token{ token_type: TokenType::LeftBracket, lexeme: "[", line: start_line, column: start_column }
+                }
+                | ']' => {
+                    self.advance()
+                    Token{ token_type: TokenType::RightBracket, lexeme: "]", line: start_line, column: start_column }
+                }
+                | ',' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Comma, lexeme: ",", line: start_line, column: start_column }
+                }
+                | ';' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Semicolon, lexeme: ";", line: start_line, column: start_column }
+                }
+                | '?' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Question, lexeme: "?", line: start_line, column: start_column }
+                }
+                | '|' => {
+                    self.advance()
+                    Token{ token_type: TokenType::Pipe, lexeme: "|", line: start_line, column: start_column }
+                }
+                | _ => {
+                    // Multi-character tokens and special cases
+                    c == ':' ?
+                        | true => {
+                            self.advance()
+                            self.current ?
+                                | .Some -> next => {
+                                    next == ':' ?
+                                        | true => {
+                                            self.advance()
+                                            self.current ?
+                                                | .Some -> next2 if next2 == '=' => {
+                                                    self.advance()
+                                                    Token{ token_type: TokenType::DoubleColonEqual, lexeme: "::=", line: start_line, column: start_column }
+                                                }
+                                                | _ => Token{ token_type: TokenType::DoubleColon, lexeme: "::", line: start_line, column: start_column }
+                                        }
+                                        | false => {
+                                            next == '=' ?
+                                                | true => {
+                                                    self.advance()
+                                                    Token{ token_type: TokenType::ColonEqual, lexeme: ":=", line: start_line, column: start_column }
+                                                }
+                                                | false => Token{ token_type: TokenType::Colon, lexeme: ":", line: start_line, column: start_column }
+                                        }
+                                }
+                                | .None => Token{ token_type: TokenType::Colon, lexeme: ":", line: start_line, column: start_column }
+                        }
+                        | false => {
+                            c == '=' ?
+                                | true => {
+                                    self.advance()
+                                    self.current ?
+                                        | .Some -> next if next == '>' => {
+                                            self.advance()
+                                            Token{ token_type: TokenType::FatArrow, lexeme: "=>", line: start_line, column: start_column }
+                                        }
+                                        | .Some -> next if next == '=' => {
+                                            self.advance()
+                                            Token{ token_type: TokenType::Equal, lexeme: "==", line: start_line, column: start_column }
+                                        }
+                                        | _ => Token{ token_type: TokenType::Equal, lexeme: "=", line: start_line, column: start_column }
+                                }
+                                | false => {
+                                    c == '!' ?
+                                        | true => {
+                                            self.advance()
+                                            self.current ?
+                                                | .Some -> next if next == '=' => {
+                                                    self.advance()
+                                                    Token{ token_type: TokenType::NotEqual, lexeme: "!=", line: start_line, column: start_column }
+                                                }
+                                                | _ => Token{ token_type: TokenType::Error, lexeme: "!", line: start_line, column: start_column }
+                                        }
+                                        | false => {
+                                            c == '<' ?
+                                                | true => {
+                                                    self.advance()
+                                                    self.current ?
+                                                        | .Some -> next if next == '=' => {
+                                                            self.advance()
+                                                            Token{ token_type: TokenType::LessEqual, lexeme: "<=", line: start_line, column: start_column }
+                                                        }
+                                                        | _ => Token{ token_type: TokenType::Less, lexeme: "<", line: start_line, column: start_column }
+                                                }
+                                                | false => {
+                                                    c == '>' ?
+                                                        | true => {
+                                                            self.advance()
+                                                            self.current ?
+                                                                | .Some -> next if next == '=' => {
+                                                                    self.advance()
+                                                                    Token{ token_type: TokenType::GreaterEqual, lexeme: ">=", line: start_line, column: start_column }
+                                                                }
+                                                                | _ => Token{ token_type: TokenType::Greater, lexeme: ">", line: start_line, column: start_column }
+                                                        }
+                                                        | false => {
+                                                            c == '"' ?
+                                                                | true => {
+                                                                    lexeme := self.read_string()
+                                                                    Token{ token_type: TokenType::String, lexeme: lexeme, line: start_line, column: start_column }
+                                                                }
+                                                                | false => {
+                                                                    c.is_digit() ?
+                                                                        | true => self.read_number()
+                                                                        | false => {
+                                                                            c.is_alphabetic() || c == '_' ?
+                                                                                | true => self.read_identifier()
+                                                                                | false => {
+                                                                                    self.advance()
+                                                                                    Token{ token_type: TokenType::Error, lexeme: c.to_string(), line: start_line, column: start_column }
+                                                                                }
+                                                                        }
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                }
+            
+            single_char
+        }
+}
+
+// AST Nodes
+enum AstNode {
+    // Literals
+    IntegerLiteral(i64),
+    FloatLiteral(f64),
+    StringLiteral(string),
+    BoolLiteral(bool),
+    
+    // Variables
+    Identifier(string),
+    VariableDecl { name: string, value: Box<AstNode>, mutable: bool },
+    
+    // Binary operations
+    BinaryOp { op: TokenType, left: Box<AstNode>, right: Box<AstNode> },
+    
+    // Function
+    FunctionDef { name: string, params: Vec<string>, body: Vec<AstNode> },
+    FunctionCall { name: string, args: Vec<AstNode> },
+    
+    // Control flow
+    PatternMatch { expr: Box<AstNode>, cases: Vec<(AstNode, AstNode)> },
+    Loop { condition: Option<Box<AstNode>>, body: Vec<AstNode> },
+    Break,
+    Continue,
+    Return(Option<Box<AstNode>>),
+    
+    // Structures
+    StructDef { name: string, fields: Vec<(string, string)> },
+    EnumDef { name: string, variants: Vec<string> },
+    
+    // Program
+    Program(Vec<AstNode>)
+}
+
+// Parser structure
+struct Parser {
+    lexer: Lexer,
+    current: Token,
+    peek: Token
+}
+
+Parser::new = (input: string) Parser {
+    lexer ::= Lexer::new(input)
+    current := lexer.next_token()
+    peek := lexer.next_token()
+    
+    Parser{
+        lexer: lexer,
+        current: current,
+        peek: peek
+    }
+}
+
+Parser::advance = (self) void {
+    self.current = self.peek
+    self.peek = self.lexer.next_token()
+}
+
+Parser::expect = (self, token_type: TokenType) Result<void, string> {
+    self.current.token_type == token_type ?
+        | true => {
+            self.advance()
+            Ok(void)
+        }
+        | false => Err("Expected $(token_type), found $(self.current.token_type)")
+}
+
+Parser::parse_primary = (self) Result<AstNode, string> {
+    self.current.token_type ?
+        | TokenType::Integer => {
+            value := self.current.lexeme.parse_int()
+            self.advance()
+            Ok(AstNode::IntegerLiteral(value))
+        }
+        | TokenType::Float => {
+            value := self.current.lexeme.parse_float()
+            self.advance()
+            Ok(AstNode::FloatLiteral(value))
+        }
+        | TokenType::String => {
+            value := self.current.lexeme
+            self.advance()
+            Ok(AstNode::StringLiteral(value))
+        }
+        | TokenType::Bool => {
+            value := self.current.lexeme == "true"
+            self.advance()
+            Ok(AstNode::BoolLiteral(value))
+        }
+        | TokenType::Identifier => {
+            name := self.current.lexeme
+            self.advance()
+            Ok(AstNode::Identifier(name))
+        }
+        | TokenType::LeftParen => {
+            self.advance()
+            expr := self.parse_expression()?
+            self.expect(TokenType::RightParen)?
+            Ok(expr)
+        }
+        | _ => Err("Unexpected token: $(self.current.lexeme)")
+}
+
+Parser::parse_expression = (self) Result<AstNode, string> {
+    // Simplified expression parsing
+    self.parse_primary()
+}
+
+Parser::parse_statement = (self) Result<AstNode, string> {
+    self.current.token_type ?
+        | TokenType::Identifier => {
+            name := self.current.lexeme
+            self.advance()
+            
+            self.current.token_type ?
+                | TokenType::ColonEqual => {
+                    self.advance()
+                    value := self.parse_expression()?
+                    Ok(AstNode::VariableDecl{ name: name, value: Box::new(value), mutable: false })
+                }
+                | TokenType::DoubleColonEqual => {
+                    self.advance()
+                    value := self.parse_expression()?
+                    Ok(AstNode::VariableDecl{ name: name, value: Box::new(value), mutable: true })
+                }
+                | _ => Ok(AstNode::Identifier(name))
+        }
+        | TokenType::Keyword => {
+            self.current.lexeme ?
+                | "struct" => self.parse_struct()
+                | "enum" => self.parse_enum()
+                | "loop" => self.parse_loop()
+                | "break" => {
+                    self.advance()
+                    Ok(AstNode::Break)
+                }
+                | "continue" => {
+                    self.advance()
+                    Ok(AstNode::Continue)
+                }
+                | "return" => {
+                    self.advance()
+                    self.current.token_type != TokenType::Semicolon ?
+                        | true => {
+                            expr := self.parse_expression()?
+                            Ok(AstNode::Return(Some(Box::new(expr))))
+                        }
+                        | false => Ok(AstNode::Return(None))
+                }
+                | _ => Err("Unknown keyword: $(self.current.lexeme)")
+        }
+        | _ => self.parse_expression()
+}
+
+Parser::parse_struct = (self) Result<AstNode, string> {
+    self.expect(TokenType::Keyword)? // struct
+    name := self.current.lexeme
+    self.expect(TokenType::Identifier)?
+    self.expect(TokenType::LeftBrace)?
+    
+    fields ::= Vec<(string, string)>::new()
+    
+    loop {
+        self.current.token_type == TokenType::RightBrace ?
+            | true => break
+            | false => {
+                field_name := self.current.lexeme
+                self.expect(TokenType::Identifier)?
+                self.expect(TokenType::Colon)?
+                field_type := self.current.lexeme
+                self.expect(TokenType::Identifier)?
+                fields.push((field_name, field_type))
+                
+                self.current.token_type == TokenType::Comma ?
+                    | true => self.advance()
+                    | false => {}
+            }
+    }
+    
+    self.expect(TokenType::RightBrace)?
+    Ok(AstNode::StructDef{ name: name, fields: fields })
+}
+
+Parser::parse_enum = (self) Result<AstNode, string> {
+    self.expect(TokenType::Keyword)? // enum
+    name := self.current.lexeme
+    self.expect(TokenType::Identifier)?
+    self.expect(TokenType::LeftBrace)?
+    
+    variants ::= Vec<string>::new()
+    
+    loop {
+        self.current.token_type == TokenType::RightBrace ?
+            | true => break
+            | false => {
+                variant := self.current.lexeme
+                self.expect(TokenType::Identifier)?
+                variants.push(variant)
+                
+                self.current.token_type == TokenType::Comma ?
+                    | true => self.advance()
+                    | false => {}
+            }
+    }
+    
+    self.expect(TokenType::RightBrace)?
+    Ok(AstNode::EnumDef{ name: name, variants: variants })
+}
+
+Parser::parse_loop = (self) Result<AstNode, string> {
+    self.expect(TokenType::Keyword)? // loop
+    
+    condition := self.current.token_type == TokenType::LeftParen ?
+        | true => {
+            self.advance()
+            cond := self.parse_expression()?
+            self.expect(TokenType::RightParen)?
+            Some(Box::new(cond))
+        }
+        | false => None
+    
+    self.expect(TokenType::LeftBrace)?
+    body ::= Vec<AstNode>::new()
+    
+    loop {
+        self.current.token_type == TokenType::RightBrace ?
+            | true => break
+            | false => {
+                stmt := self.parse_statement()?
+                body.push(stmt)
+            }
+    }
+    
+    self.expect(TokenType::RightBrace)?
+    Ok(AstNode::Loop{ condition: condition, body: body })
+}
+
+Parser::parse_program = (self) Result<AstNode, string> {
+    statements ::= Vec<AstNode>::new()
+    
+    loop {
+        self.current.token_type == TokenType::Eof ?
+            | true => break
+            | false => {
+                stmt := self.parse_statement()?
+                statements.push(stmt)
+            }
+    }
+    
+    Ok(AstNode::Program(statements))
+}
+
+// Code generator (simplified)
+struct CodeGen {
+    output: string
+}
+
+CodeGen::new = () CodeGen {
+    CodeGen{ output: "" }
+}
+
+CodeGen::emit = (self, code: string) void {
+    self.output = self.output + code
+}
+
+CodeGen::emit_line = (self, code: string) void {
+    self.output = self.output + code + "\n"
+}
+
+CodeGen::generate = (self, node: AstNode) void {
+    node ?
+        | AstNode::IntegerLiteral -> n => self.emit(n.to_string())
+        | AstNode::FloatLiteral -> f => self.emit(f.to_string())
+        | AstNode::StringLiteral -> s => self.emit("\"$(s)\"")
+        | AstNode::BoolLiteral -> b => self.emit(b.to_string())
+        | AstNode::Identifier -> name => self.emit(name)
+        | AstNode::VariableDecl -> decl => {
+            self.emit(decl.name)
+            self.emit(decl.mutable ? | true => " ::= " | false => " := ")
+            self.generate(*decl.value)
+        }
+        | AstNode::Loop -> loop_node => {
+            self.emit("loop ")
+            loop_node.condition ?
+                | .Some -> cond => {
+                    self.emit("(")
+                    self.generate(*cond)
+                    self.emit(") ")
+                }
+                | .None => {}
+            self.emit_line("{")
+            loop_node.body.loop((stmt) => {
+                self.emit("    ")
+                self.generate(stmt)
+                self.emit_line("")
+            })
+            self.emit("}")
+        }
+        | AstNode::Break => self.emit("break")
+        | AstNode::Continue => self.emit("continue")
+        | AstNode::Return -> ret => {
+            self.emit("return")
+            ret ?
+                | .Some -> expr => {
+                    self.emit(" ")
+                    self.generate(*expr)
+                }
+                | .None => {}
+        }
+        | AstNode::Program -> stmts => {
+            stmts.loop((stmt) => {
+                self.generate(stmt)
+                self.emit_line("")
+            })
+        }
+        | _ => self.emit("// TODO: Generate code for this node")
+}
+
+// Main compiler pipeline
+compile = (source: string) Result<string, string> {
+    // Parse the source code
+    parser ::= Parser::new(source)
+    ast := parser.parse_program()?
+    
+    // Generate code
+    codegen := CodeGen::new()
+    codegen.generate(ast)
+    
+    Ok(codegen.output)
+}
+
+// Test the self-hosting compiler
+main = () void {
+    io.print("=== Zenlang Self-Hosting Compiler Demo ===\n\n")
+    
+    // Test lexer
+    io.print("1. Lexer Test\n")
+    io.print("-" * 40 + "\n")
+    
+    test_input := "x := 42\ny ::= 3.14\nname := \"Zen\""
+    lexer ::= Lexer::new(test_input)
+    
+    io.print("Input:\n$(test_input)\n\n")
+    io.print("Tokens:\n")
+    
+    loop {
+        token := lexer.next_token()
+        token.token_type == TokenType::Eof ?
+            | true => break
+            | false => {
+                io.print("  $(token.token_type): '$(token.lexeme)' at $(token.line):$(token.column)\n")
+            }
+    }
+    
+    io.print("\n")
+    
+    // Test parser
+    io.print("2. Parser Test\n")
+    io.print("-" * 40 + "\n")
+    
+    test_program := "
+x := 10
+y ::= 20
+loop (x < y) {
+    x = x + 1
+    x == 15 ? | true => break
+}
+"
+    
+    io.print("Input:\n$(test_program)\n")
+    
+    parser := Parser::new(test_program)
+    parse_result := parser.parse_program()
+    
+    parse_result ?
+        | .Ok -> ast => {
+            io.print("✓ Parsing successful!\n")
+            io.print("AST nodes created\n")
+        }
+        | .Err -> e => io.print("✗ Parse error: $(e)\n")
+    
+    io.print("\n")
+    
+    // Test code generation
+    io.print("3. Code Generation Test\n")
+    io.print("-" * 40 + "\n")
+    
+    simple_program := "
+count := 0
+loop {
+    count = count + 1
+    count >= 10 ? | true => break
+}
+"
+    
+    io.print("Input:\n$(simple_program)\n")
+    
+    compile_result := compile(simple_program)
+    compile_result ?
+        | .Ok -> output => {
+            io.print("Generated code:\n")
+            io.print(output)
+        }
+        | .Err -> e => io.print("✗ Compilation error: $(e)\n")
+    
+    io.print("\n")
+    io.print("=== Demo Complete ===\n")
+}

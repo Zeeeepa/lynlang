@@ -42,9 +42,9 @@ main = () void {
     
     // Test age categories
     ages := [5, 15, 25, 65]
-    ages.iter().loop(age -> {
+    ages.iter().loop(age => {
         io.print("Age $(age): $(categorize_age(age))\n")
-    }
+    })
     io.print("\n")
     
     // Test enum matching
@@ -54,9 +54,9 @@ main = () void {
         Status.Error(404),
     ]
     
-    statuses.iter().loop(status -> {
+    statuses.iter().loop(status => {
         io.print("$(handle_status(status))\n")
-    }
+    })
     
     // Inline pattern matching
     score := 85

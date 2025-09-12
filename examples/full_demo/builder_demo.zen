@@ -1,0 +1,529 @@
+// Comprehensive FFI Builder Demo
+// Demonstrates the complete FFI builder pattern in Zenlang
+
+ffi := @std.build.import("ffi")
+io := @std.build.import("io")
+fs := @std.build.import("fs")
+
+// Define opaque types for FFI
+opaque SQLiteDB
+opaque SQLiteStmt
+
+// Build SQLite3 bindings with complete feature set
+build_sqlite_bindings = () ffi.Library {
+    sqlite := ffi.FFI.lib("sqlite3")
+        .platform_path({
+            .linux => "/usr/lib/x86_64-linux-gnu/libsqlite3.so.0",
+            .macos => "/usr/local/lib/libsqlite3.dylib",
+            .windows => "sqlite3.dll"
+        })
+        // Core database functions
+        .function("sqlite3_open_v2", ffi.FnSignature{
+            params: vec![
+                ffi.Type::String,                           // filename
+                ffi.Type::Pointer(Ptr<SQLiteDB>),          // ppDb
+                ffi.Type::I32,                              // flags
+                ffi.Type::String                            // zVfs
+            ],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("sqlite3_close_v2", ffi.FnSignature{
+            params: vec![ffi.Type::Pointer(Ptr<SQLiteDB>)],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // Prepared statements
+        .function("sqlite3_prepare_v2", ffi.FnSignature{
+            params: vec![
+                ffi.Type::Pointer(Ptr<SQLiteDB>),          // db
+                ffi.Type::String,                           // zSql
+                ffi.Type::I32,                              // nByte
+                ffi.Type::Pointer(Ptr<SQLiteStmt>),        // ppStmt
+                ffi.Type::Pointer(Ptr<String>)              // pzTail
+            ],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("sqlite3_step", ffi.FnSignature{
+            params: vec![ffi.Type::Pointer(Ptr<SQLiteStmt>)],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("sqlite3_finalize", ffi.FnSignature{
+            params: vec![ffi.Type::Pointer(Ptr<SQLiteStmt>)],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // Binding parameters
+        .function("sqlite3_bind_text", ffi.FnSignature{
+            params: vec![
+                ffi.Type::Pointer(Ptr<SQLiteStmt>),        // stmt
+                ffi.Type::I32,                              // index
+                ffi.Type::String,                           // text
+                ffi.Type::I32,                              // nByte
+                ffi.Type::Pointer(Ptr<void>)                // destructor
+            ],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("sqlite3_bind_int64", ffi.FnSignature{
+            params: vec![
+                ffi.Type::Pointer(Ptr<SQLiteStmt>),
+                ffi.Type::I32,
+                ffi.Type::I64
+            ],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // Getting results
+        .function("sqlite3_column_text", ffi.FnSignature{
+            params: vec![
+                ffi.Type::Pointer(Ptr<SQLiteStmt>),
+                ffi.Type::I32
+            ],
+            returns: ffi.Type::String,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("sqlite3_column_int64", ffi.FnSignature{
+            params: vec![
+                ffi.Type::Pointer(Ptr<SQLiteStmt>),
+                ffi.Type::I32
+            ],
+            returns: ffi.Type::I64,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // Error handling
+        .function("sqlite3_errmsg", ffi.FnSignature{
+            params: vec![ffi.Type::Pointer(Ptr<SQLiteDB>)],
+            returns: ffi.Type::String,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // Constants
+        .constant("SQLITE_OK", ffi.Type::I32)
+        .constant("SQLITE_ERROR", ffi.Type::I32)
+        .constant("SQLITE_BUSY", ffi.Type::I32)
+        .constant("SQLITE_ROW", ffi.Type::I32)
+        .constant("SQLITE_DONE", ffi.Type::I32)
+        .constant("SQLITE_OPEN_READWRITE", ffi.Type::I32)
+        .constant("SQLITE_OPEN_CREATE", ffi.Type::I32)
+        // Callbacks
+        .callback("sqlite3_exec_callback", ffi.FnSignature{
+            params: vec![
+                ffi.Type::Pointer(Ptr<void>),              // user data
+                ffi.Type::I32,                              // number of columns
+                ffi.Type::Pointer(Ptr<String>),             // column values
+                ffi.Type::Pointer(Ptr<String>)              // column names
+            ],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .validate()
+        .build()
+    
+    sqlite
+}
+
+// Build OpenGL bindings
+build_opengl_bindings = () ffi.Library {
+    gl := ffi.FFI.lib("GL")
+        .platform_path({
+            .linux => "/usr/lib/x86_64-linux-gnu/libGL.so.1",
+            .macos => "/System/Library/Frameworks/OpenGL.framework/OpenGL",
+            .windows => "opengl32.dll"
+        })
+        // Context management
+        .function("glCreateContext", ffi.FnSignature{
+            params: vec![ffi.Type::Pointer(Ptr<void>)],
+            returns: ffi.Type::Pointer(Ptr<void>),
+            calling_convention: Some(ffi.CallingConvention::StdCall),
+            variadic: false
+        })
+        .function("glMakeCurrent", ffi.FnSignature{
+            params: vec![
+                ffi.Type::Pointer(Ptr<void>),
+                ffi.Type::Pointer(Ptr<void>)
+            ],
+            returns: ffi.Type::Bool,
+            calling_convention: Some(ffi.CallingConvention::StdCall),
+            variadic: false
+        })
+        // Rendering
+        .function("glClear", ffi.FnSignature{
+            params: vec![ffi.Type::U32],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("glClearColor", ffi.FnSignature{
+            params: vec![ffi.Type::F32, ffi.Type::F32, ffi.Type::F32, ffi.Type::F32],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // Vertex operations
+        .function("glBegin", ffi.FnSignature{
+            params: vec![ffi.Type::U32],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("glEnd", ffi.FnSignature{
+            params: vec![],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("glVertex3f", ffi.FnSignature{
+            params: vec![ffi.Type::F32, ffi.Type::F32, ffi.Type::F32],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("glColor3f", ffi.FnSignature{
+            params: vec![ffi.Type::F32, ffi.Type::F32, ffi.Type::F32],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // Buffer operations
+        .function("glSwapBuffers", ffi.FnSignature{
+            params: vec![ffi.Type::Pointer(Ptr<void>)],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::StdCall),
+            variadic: false
+        })
+        // Constants
+        .constant("GL_COLOR_BUFFER_BIT", ffi.Type::U32)
+        .constant("GL_DEPTH_BUFFER_BIT", ffi.Type::U32)
+        .constant("GL_TRIANGLES", ffi.Type::U32)
+        .constant("GL_QUADS", ffi.Type::U32)
+        .constant("GL_LINES", ffi.Type::U32)
+        .validate()
+        .build()
+    
+    gl
+}
+
+// Build system library bindings
+build_system_bindings = () ffi.Library {
+    system := ffi.FFI.lib("system")
+        .platform({
+            .linux => {
+                lib.path("/lib/x86_64-linux-gnu/libc.so.6")
+                   .version("2.31")
+            },
+            .macos => {
+                lib.path("/usr/lib/libc.dylib")
+            },
+            .windows => {
+                lib.path("kernel32.dll")
+            }
+        })
+        // Process management
+        .function("fork", ffi.FnSignature{
+            params: vec![],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false,
+            platform: Some(vec![.linux, .macos])
+        })
+        .function("exec", ffi.FnSignature{
+            params: vec![ffi.Type::String, ffi.Type::Pointer(Ptr<String>)],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false,
+            platform: Some(vec![.linux, .macos])
+        })
+        .function("CreateProcess", ffi.FnSignature{
+            params: vec![
+                ffi.Type::String,                           // lpApplicationName
+                ffi.Type::String,                           // lpCommandLine
+                ffi.Type::Pointer(Ptr<void>),              // lpProcessAttributes
+                ffi.Type::Pointer(Ptr<void>),              // lpThreadAttributes
+                ffi.Type::Bool,                            // bInheritHandles
+                ffi.Type::U32,                             // dwCreationFlags
+                ffi.Type::Pointer(Ptr<void>),              // lpEnvironment
+                ffi.Type::String,                           // lpCurrentDirectory
+                ffi.Type::Pointer(Ptr<void>),              // lpStartupInfo
+                ffi.Type::Pointer(Ptr<void>)               // lpProcessInformation
+            ],
+            returns: ffi.Type::Bool,
+            calling_convention: Some(ffi.CallingConvention::StdCall),
+            variadic: false,
+            platform: Some(vec![.windows])
+        })
+        // Memory management
+        .function("malloc", ffi.FnSignature{
+            params: vec![ffi.Type::USize],
+            returns: ffi.Type::Pointer(Ptr<void>),
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        .function("free", ffi.FnSignature{
+            params: vec![ffi.Type::Pointer(Ptr<void>)],
+            returns: ffi.Type::Void,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false
+        })
+        // File operations
+        .function("open", ffi.FnSignature{
+            params: vec![ffi.Type::String, ffi.Type::I32, ffi.Type::I32],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: true,
+            platform: Some(vec![.linux, .macos])
+        })
+        .function("read", ffi.FnSignature{
+            params: vec![ffi.Type::I32, ffi.Type::Pointer(Ptr<void>), ffi.Type::USize],
+            returns: ffi.Type::ISize,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false,
+            platform: Some(vec![.linux, .macos])
+        })
+        .function("write", ffi.FnSignature{
+            params: vec![ffi.Type::I32, ffi.Type::Pointer(Ptr<void>), ffi.Type::USize],
+            returns: ffi.Type::ISize,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false,
+            platform: Some(vec![.linux, .macos])
+        })
+        .function("close", ffi.FnSignature{
+            params: vec![ffi.Type::I32],
+            returns: ffi.Type::I32,
+            calling_convention: Some(ffi.CallingConvention::CDecl),
+            variadic: false,
+            platform: Some(vec![.linux, .macos])
+        })
+        .validate()
+        .build()
+    
+    system
+}
+
+// Database wrapper using FFI
+struct Database {
+    handle: Ptr<SQLiteDB>,
+    lib: ffi.Library
+}
+
+Database::open = (path: string) Result<Database, string> {
+    lib := build_sqlite_bindings()
+    
+    // Load the library
+    lib.load() ?
+        | .Ok -> _ => {
+            db_ptr: Ptr<SQLiteDB> = None
+            flags := lib.get_constant("SQLITE_OPEN_READWRITE") | lib.get_constant("SQLITE_OPEN_CREATE")
+            
+            result := lib.call("sqlite3_open_v2", vec![path, &db_ptr, flags, None])
+            result == lib.get_constant("SQLITE_OK") ?
+                | true => Ok(Database{ handle: db_ptr, lib: lib })
+                | false => {
+                    error_msg := lib.call("sqlite3_errmsg", vec![db_ptr])
+                    lib.call("sqlite3_close_v2", vec![db_ptr])
+                    Err("Failed to open database: $(error_msg)")
+                }
+        }
+        | .Err -> e => Err("Failed to load SQLite library: $(e)")
+}
+
+Database::execute = (self, query: string) Result<void, string> {
+    stmt_ptr: Ptr<SQLiteStmt> = None
+    
+    // Prepare statement
+    result := self.lib.call("sqlite3_prepare_v2", vec![
+        self.handle, query, -1, &stmt_ptr, None
+    ])
+    
+    result == self.lib.get_constant("SQLITE_OK") ?
+        | true => {
+            // Execute statement
+            step_result := self.lib.call("sqlite3_step", vec![stmt_ptr])
+            self.lib.call("sqlite3_finalize", vec![stmt_ptr])
+            
+            step_result == self.lib.get_constant("SQLITE_DONE") ?
+                | true => Ok(void)
+                | false => {
+                    error_msg := self.lib.call("sqlite3_errmsg", vec![self.handle])
+                    Err("Execution failed: $(error_msg)")
+                }
+        }
+        | false => {
+            error_msg := self.lib.call("sqlite3_errmsg", vec![self.handle])
+            Err("Failed to prepare statement: $(error_msg)")
+        }
+}
+
+Database::close = (self) Result<void, string> {
+    result := self.lib.call("sqlite3_close_v2", vec![self.handle])
+    result == self.lib.get_constant("SQLITE_OK") ?
+        | true => {
+            self.lib.unload()
+            Ok(void)
+        }
+        | false => Err("Failed to close database")
+}
+
+// OpenGL Renderer using FFI
+struct Renderer {
+    context: Ptr<void>,
+    lib: ffi.Library
+}
+
+Renderer::create = () Result<Renderer, string> {
+    lib := build_opengl_bindings()
+    
+    lib.load() ?
+        | .Ok -> _ => {
+            context := lib.call("glCreateContext", vec![None])
+            context != None ?
+                | true => {
+                    lib.call("glMakeCurrent", vec![None, context])
+                    Ok(Renderer{ context: context, lib: lib })
+                }
+                | false => Err("Failed to create OpenGL context")
+        }
+        | .Err -> e => Err("Failed to load OpenGL library: $(e)")
+}
+
+Renderer::clear = (self, r: f32, g: f32, b: f32, a: f32) void {
+    self.lib.call("glClearColor", vec![r, g, b, a])
+    buffer_bits := self.lib.get_constant("GL_COLOR_BUFFER_BIT") | 
+                   self.lib.get_constant("GL_DEPTH_BUFFER_BIT")
+    self.lib.call("glClear", vec![buffer_bits])
+}
+
+Renderer::draw_triangle = (self) void {
+    self.lib.call("glBegin", vec![self.lib.get_constant("GL_TRIANGLES")])
+    
+    // Vertex 1 - Red
+    self.lib.call("glColor3f", vec![1.0, 0.0, 0.0])
+    self.lib.call("glVertex3f", vec![-0.5, -0.5, 0.0])
+    
+    // Vertex 2 - Green
+    self.lib.call("glColor3f", vec![0.0, 1.0, 0.0])
+    self.lib.call("glVertex3f", vec![0.5, -0.5, 0.0])
+    
+    // Vertex 3 - Blue
+    self.lib.call("glColor3f", vec![0.0, 0.0, 1.0])
+    self.lib.call("glVertex3f", vec![0.0, 0.5, 0.0])
+    
+    self.lib.call("glEnd", vec![])
+}
+
+Renderer::swap_buffers = (self) void {
+    self.lib.call("glSwapBuffers", vec![None])
+}
+
+// Main demonstration
+main = () void {
+    io.print("=== Zenlang FFI Builder Comprehensive Demo ===\n\n")
+    
+    // Demo 1: Database Operations
+    io.print("1. Database Operations Demo\n")
+    io.print("-" * 40 + "\n")
+    
+    db_result := Database::open("demo.db")
+    db_result ?
+        | .Ok -> db => {
+            io.print("✓ Database opened successfully\n")
+            
+            // Create table
+            create_table := db.execute("
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE
+                )
+            ")
+            
+            create_table ?
+                | .Ok -> _ => io.print("✓ Table created\n")
+                | .Err -> e => io.print("✗ Table creation failed: $(e)\n")
+            
+            // Insert data
+            insert_data := db.execute("
+                INSERT INTO users (name, email) 
+                VALUES ('Alice', 'alice@example.com')
+            ")
+            
+            insert_data ?
+                | .Ok -> _ => io.print("✓ Data inserted\n")
+                | .Err -> e => io.print("✗ Insert failed: $(e)\n")
+            
+            // Close database
+            db.close() ?
+                | .Ok -> _ => io.print("✓ Database closed\n")
+                | .Err -> e => io.print("✗ Close failed: $(e)\n")
+        }
+        | .Err -> e => io.print("✗ Failed to open database: $(e)\n")
+    
+    io.print("\n")
+    
+    // Demo 2: Graphics Rendering
+    io.print("2. OpenGL Rendering Demo\n")
+    io.print("-" * 40 + "\n")
+    
+    renderer_result := Renderer::create()
+    renderer_result ?
+        | .Ok -> renderer => {
+            io.print("✓ OpenGL context created\n")
+            
+            // Clear screen with blue background
+            renderer.clear(0.0, 0.0, 0.5, 1.0)
+            io.print("✓ Screen cleared\n")
+            
+            // Draw a triangle
+            renderer.draw_triangle()
+            io.print("✓ Triangle rendered\n")
+            
+            // Swap buffers
+            renderer.swap_buffers()
+            io.print("✓ Buffers swapped\n")
+        }
+        | .Err -> e => io.print("✗ Failed to create renderer: $(e)\n")
+    
+    io.print("\n")
+    
+    // Demo 3: System Operations
+    io.print("3. System Operations Demo\n")
+    io.print("-" * 40 + "\n")
+    
+    system := build_system_bindings()
+    system.load() ?
+        | .Ok -> _ => {
+            io.print("✓ System library loaded\n")
+            
+            // Allocate memory
+            size := 1024
+            mem := system.call("malloc", vec![size])
+            mem != None ?
+                | true => {
+                    io.print("✓ Allocated $(size) bytes\n")
+                    
+                    // Free memory
+                    system.call("free", vec![mem])
+                    io.print("✓ Memory freed\n")
+                }
+                | false => io.print("✗ Memory allocation failed\n")
+            
+            system.unload()
+            io.print("✓ System library unloaded\n")
+        }
+        | .Err -> e => io.print("✗ Failed to load system library: $(e)\n")
+    
+    io.print("\n")
+    io.print("=== Demo Complete ===\n")
+}
