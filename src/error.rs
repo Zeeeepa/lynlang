@@ -140,16 +140,55 @@ impl CompileError {
     pub fn detailed_message(&self, source_lines: &[&str]) -> String {
         let mut result = self.to_string();
         
+        // Add source code context if we have position information
+        if let Some(span) = self.position() {
+            if span.line > 0 && span.line <= source_lines.len() {
+                let line_idx = span.line - 1;
+                let line = source_lines[line_idx];
+                
+                // Show context with error location
+                result.push_str("\n\n📍 Error Location:");
+                result.push_str(&format!("\n   {} | {}", span.line, line));
+                
+                // Add pointer to exact column
+                let prefix_len = format!("   {} | ", span.line).len();
+                let pointer = " ".repeat(prefix_len + span.column) + "^";
+                
+                // For multi-character errors, show the full span
+                if span.end > span.start {
+                    let error_len = span.end - span.start;
+                    let underline = "^".repeat(error_len.min(line.len() - span.column));
+                    result.push_str(&format!("\n{}{}\n", " ".repeat(prefix_len + span.column), underline));
+                } else {
+                    result.push_str(&format!("\n{}\n", pointer));
+                }
+                
+                // Add surrounding context (lines before and after)
+                if line_idx > 0 {
+                    let prev_line = source_lines[line_idx - 1];
+                    result.insert_str(result.find("📍 Error Location:").unwrap() + 18,
+                        &format!("\n   {} | {}", span.line - 1, prev_line));
+                }
+                if line_idx + 1 < source_lines.len() {
+                    let next_line = source_lines[line_idx + 1];
+                    result.push_str(&format!("   {} | {}", span.line + 1, next_line));
+                }
+            }
+        }
+        
         // Add context and suggestions based on error type
         match self {
             CompileError::SyntaxError(msg, _span) => {
+                result.push_str("\n\n💡 Suggestions:");
                 if msg.contains("if") || msg.contains("else") || msg.contains("match") {
-                    result.push_str("\n\nNote: Zen uses the '?' operator for pattern matching instead of if/else/match keywords.");
-                    result.push_str("\nExample: value ? | true => action1 | false => action2");
+                    result.push_str("\n  • Zen uses the '?' operator for pattern matching instead of if/else/match keywords.");
+                    result.push_str("\n  • Example: value ? | true => action1 | false => action2");
+                    result.push_str("\n  • For boolean checks: condition ? { do_something() }");
                 } else if msg.contains("function") {
-                    result.push_str("\n\nFunction syntax in Zen:");
-                    result.push_str("\n  name = (params) ReturnType { body }");
-                    result.push_str("\nExample: add = (a: i32, b: i32) i32 { a + b }");
+                    result.push_str("\n  • Function syntax in Zen: name = (params) ReturnType { body }");
+                    result.push_str("\n  • Example: add = (a: i32, b: i32) i32 { a + b }");
+                    result.push_str("\n  • No parameters: greet = () void { print(\"Hello\") }");
+                    result.push_str("\n  • With generics: identity<T> = (value: T) T { value }");
                 } else if msg.contains("struct") {
                     result.push_str("\n\nStruct syntax in Zen:");
                     result.push_str("\n  StructName = { field1: Type, field2: Type }");
@@ -269,37 +308,22 @@ impl CompileError {
                 result.push_str("\n  2. Use implicit return (no semicolon on last expression)");
                 result.push_str("\n  3. Change return type to void if no value needed");
             },
-            _ => {}
-        }
-        
-        // Add source context if available
-        if let Some(span) = self.position() {
-            if span.line > 0 && span.line <= source_lines.len() {
-                result.push_str("\n\nSource context:");
-                let start = span.line.saturating_sub(2).max(1);
-                let end = (span.line + 1).min(source_lines.len());
+            CompileError::ComptimeError(msg) => {
+                result.push_str("\n\n💡 Comptime Requirements:");
+                result.push_str("\n  • Code must be deterministic");
+                result.push_str("\n  • No side effects allowed");
+                result.push_str("\n  • Only pure computations");
+                result.push_str("\n  • No imports in comptime blocks");
                 
-                for i in start..=end {
-                    let line = source_lines[i - 1];
-                    if i == span.line {
-                        result.push_str(&format!("\n> {} | {}", i, line));
-                        
-                        // Show precise error location with better visual indicator
-                        let indicator = if span.end > span.start && span.end - span.start < 50 {
-                            "^".repeat(span.end - span.start)
-                        } else {
-                            "^".to_string()
-                        };
-                        
-                        result.push_str(&format!("\n  {} | {}{} error here", 
-                                                 " ".repeat(i.to_string().len()), 
-                                                 " ".repeat(span.column), 
-                                                 indicator));
-                    } else {
-                        result.push_str(&format!("\n  {} | {}", i, line));
-                    }
+                if msg.contains("import") {
+                    result.push_str("\n\n⚠️ Imports must be at module level, outside comptime blocks");
                 }
-            }
+            },
+            CompileError::InvalidSyntax { suggestion, .. } => {
+                result.push_str("\n\n💡 Suggestion: ");
+                result.push_str(suggestion);
+            },
+            _ => {}
         }
         
         result
