@@ -1,95 +1,77 @@
-# Zenlang Project Global Memory
+# Zenlang Global Memory
 
-## Project Status
-- **Date**: 2025-09-12
-- **Language Spec Version**: 1.1.0
-- **Build Status**: ✅ All tests passing
-- **FFI Status**: ✅ Builder pattern fully implemented
-- **LSP Status**: ✅ Enhanced error reporting implemented
+## Project Overview
+Zenlang is a modern systems programming language with a focus on clarity, safety, and performance. It follows a unique philosophy of no traditional control flow keywords (if/else/match), instead using the `?` operator for all pattern matching.
 
-## Key Components
+## Key Language Features
+- **No if/else/match keywords** - Use `?` operator exclusively for pattern matching
+- **No exceptions** - All errors are values (Result/Option types)
+- **No null pointers** - Use Option<T> for optional values
+- **No implicit conversions** - All type conversions must be explicit
+- **No lifetime annotations** - Smart pointers handle safety
+- **No raw `&` or `*`** - Use Ptr<T> and .value/.address
+- **No tuples** - Use structs for all product types
+- **Colorless async** - No function coloring with async/await
 
-### FFI (Foreign Function Interface)
-- Location: `src/ffi/mod.rs`
-- Status: Complete with builder pattern
-- Features:
-  - Library loading with platform-specific paths
-  - Function and constant declarations
-  - Type mappings for structs and enums
-  - Safety checks and validation
-  - Callbacks and marshallers
-  - Platform-specific configurations
-  - Version requirements
-  - Error handling with detailed context
-
-### LSP (Language Server Protocol)
-- Location: `src/lsp/mod.rs`, `src/lsp/enhanced.rs`
-- Status: Functional with detailed error messages
-- Features:
-  - Comprehensive parse error reporting with line context
-  - Helpful hints for common syntax errors
-  - Import validation
-  - Semantic token support
-  - Document synchronization
-  - Hover information
-  - Go to definition
-  - Find references
-  - Rename support
-
-### Test Suite
-- All unit tests passing
-- All integration tests passing
-- Example programs parsing correctly
-- No test failures identified
-
-## Language Implementation Status
+## Current Implementation Status (as of 2025-09-12)
 
 ### Completed Features
-- ✅ Basic syntax parsing
-- ✅ Pattern matching with `?` operator
-- ✅ Variable declarations (`:=` and `::=`)
-- ✅ Functions and UFCS
-- ✅ Structs and enums
-- ✅ Arrays and slices
-- ✅ String interpolation
-- ✅ Module system with `@std` namespace
-- ✅ FFI with builder pattern
-- ✅ LSP with enhanced error reporting
+✅ Lexer and Parser with comprehensive error handling
+✅ Type system with generics
+✅ Pattern matching with `?` operator
+✅ Loop constructs (no while/for keywords)
+✅ FFI builder pattern for safe C interop
+✅ Enhanced LSP with detailed error diagnostics
+✅ Module system with @std namespace
+✅ Behaviors (structural contracts)
+✅ Compile-time evaluation (comptime blocks)
+✅ String interpolation
+✅ Fixed arrays and slices
+✅ LLVM code generation backend
 
-### Known Issues
-- Many compiler warnings about unused code (not critical)
-- Some LLVM codegen functions not yet utilized
-- Comptime interpreter partially implemented
+### In Progress
+🔄 Self-hosting compiler
+🔄 Standard library implementation
+🔄 Async system with allocators
+🔄 Complete test coverage
+
+### TODO
+- [ ] Full stdlib modules (io, fs, net, etc.)
+- [ ] Package manager
+- [ ] Documentation generator
+- [ ] REPL improvements
+- [ ] Debugger integration
+- [ ] Cross-compilation support
+- [ ] Optimization passes
+
+## Technical Details
+
+### Build System
+- Primary compiler: Rust-based implementation in `src/`
+- LLVM backend for code generation
+- Self-hosted compiler in progress in `bootstrap/` and `compiler/`
+
+### Testing
+- Rust tests in `tests/` directory
+- Zen test files prefixed with `zen_` in `tests/` directory
+- Integration tests for all major features
+
+### LSP Features
+- Syntax error detection with helpful suggestions
+- Keyword rejection (if/else/match/fn/let/var/const/while/for)
+- Import validation (must be at module level)
+- Pattern matching validation
+- Type checking integration
 
 ## Important Files
-- `LANGUAGE_SPEC.md` - Authoritative language specification
-- `src/ffi/mod.rs` - FFI implementation with builder pattern
-- `src/lsp/mod.rs` - Main LSP server implementation
-- `src/parser.rs` - Core parser implementation
-- `src/lexer.rs` - Lexical analysis
-- `src/ast.rs` - Abstract syntax tree definitions
+- `LANGUAGE_SPEC.md` - Authoritative language specification (v1.1.0)
+- `src/main.rs` - Main compiler entry point
+- `src/lsp/mod.rs` - Language server implementation
+- `src/ffi/mod.rs` - FFI builder pattern implementation
+- `src/error.rs` - Enhanced error handling with detailed messages
 
-## Build Commands
-```bash
-# Build release version
-cargo build --release
-
-# Run tests
-cargo test
-
-# Run specific example
-cargo run --bin zen -- run examples/01_hello_world.zen
-
-# Start LSP server
-cargo run --bin zen-lsp
-
-# Check syntax
-cargo run --bin zen-check -- <file.zen>
-```
-
-## Next Steps
-- Address compiler warnings for cleaner codebase
-- Complete LLVM codegen implementation
-- Finish comptime interpreter
-- Add more comprehensive test coverage
-- Implement remaining standard library modules
+## Development Notes
+- Memory safety without lifetime annotations through smart pointers
+- Zero-cost abstractions as a core principle
+- Emphasis on compile-time computation where possible
+- Strong focus on developer experience through LSP
