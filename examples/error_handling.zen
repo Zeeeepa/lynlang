@@ -1,6 +1,6 @@
 // error_handling.zen - Error handling with Result and Option
-core := @std.core
-io := @std.io
+core {  } = @std.core
+io {  } = @std.io
 
 // Error types
 ParseError: {

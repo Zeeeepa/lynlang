@@ -1,8 +1,8 @@
 // Zen Language Quickstart
 // A concise introduction to core language features
 
-core := @std.core
-io := @std.io
+core {  } = @std.core
+io {  } = @std.io
 
 // Simple struct
 Point: { x: f64, y: f64 }
