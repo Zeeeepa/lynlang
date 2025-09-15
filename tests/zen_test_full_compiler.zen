@@ -9,9 +9,9 @@ type_checker := @std.compiler.type_checker
 codegen := @std.compiler.codegen
 
 // Test simple program compilation
-test_simple_program = () bool {
+test_simple_program: () bool  = {
     input := "
-main = () i32 {
+main: () i32  = {
     x := 10
     y := 20
     result := x + y
@@ -113,9 +113,9 @@ main = () i32 {
 }
 
 // Test complex program with functions
-test_complex_program = () bool {
+test_complex_program: () bool  = {
     input := "
-fibonacci = (n: i32) i32 {
+fibonacci: (n: i32) i32  = {
     n <= 1 ? | true => {
         return n
     } | false => {
@@ -125,7 +125,7 @@ fibonacci = (n: i32) i32 {
     }
 }
 
-main = () i32 {
+main: () i32  = {
     result := fibonacci(10)
     return result
 }"
@@ -178,9 +178,9 @@ main = () i32 {
 }
 
 // Test error handling
-test_error_handling = () bool {
+test_error_handling: () bool  = {
     input := "
-main = () i32 {
+main: () i32  = {
     x := \"hello\"
     y := 42
     result := x + y  // Type error: can't add string and int
@@ -219,7 +219,7 @@ main = () i32 {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("===========================================\n")
     io.print("   Self-Hosted Compiler Full Test Suite   \n")
     io.print("===========================================\n\n")

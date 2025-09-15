@@ -7,7 +7,7 @@ mem := @std.build.import("mem")
 // Test Ptr<T> operations
 test("smart pointer operations") {
     // Create heap allocated value
-    ptr := Ptr::new(42)
+    ptr := Ptr:new(42)
     assert(ptr.value == 42)
     
     // Test address property
@@ -16,7 +16,7 @@ test("smart pointer operations") {
     
     // Move from stack to heap
     stack_value := 100
-    heap_ptr := Ptr::from(stack_value)
+    heap_ptr := Ptr:from(stack_value)
     assert(heap_ptr.value == 100)
     
     // Ptr automatically freed when out of scope
@@ -25,7 +25,7 @@ test("smart pointer operations") {
 // Test reference counting with Ref<T>
 test("reference counted pointers") {
     // Create reference counted value
-    ref1 := Ref::new(42)
+    ref1 := Ref:new(42)
     assert(ref1.value == 42)
     
     // Clone increases ref count
@@ -44,7 +44,7 @@ test("array allocation") {
     assert(stack_array[4] == 5)
     
     // Heap allocated array
-    heap_array := Ptr::new([10, i32])
+    heap_array := Ptr:new([10, i32])
     heap_array.value[0] = 100
     heap_array.value[9] = 900
     assert(heap_array.value[0] == 100)
@@ -54,7 +54,7 @@ test("array allocation") {
 // Test GPA (General Purpose Allocator)
 test("general purpose allocator") {
     // Create GPA
-    gpa := mem.GPA::new()
+    gpa := mem.GPA:new()
     defer gpa.destroy()
     
     // Allocate memory
@@ -72,11 +72,11 @@ test("general purpose allocator") {
 
 // Test custom allocator with Vec
 test("allocator with collections") {
-    gpa := mem.GPA::new()
+    gpa := mem.GPA:new()
     defer gpa.destroy()
     
     // Create Vec with custom allocator
-    vec := Vec<i32>::with_allocator(Ptr::new(gpa))
+    vec := Vec<i32>:with_allocator(Ptr:new(gpa))
     vec.push(1)
     vec.push(2)
     vec.push(3)
@@ -108,13 +108,13 @@ test("option type for null safety") {
         | None
     
     // Safe optional value
-    maybe_ptr := Option::Some(Ptr::new(42))
+    maybe_ptr := Option:Some(Ptr:new(42))
     value := maybe_ptr ? | .Some -> p => p.value
                         | .None => 0
     assert(value == 42)
     
     // None case
-    empty := Option<Ptr<i32>>::None
+    empty := Option<Ptr<i32>>:None
     value2 := empty ? | .Some -> p => p.value
                      | .None => -1
     assert(value2 == -1)
@@ -123,7 +123,7 @@ test("option type for null safety") {
 // Test ownership rules
 test("ownership transfer") {
     // Value has single owner
-    original := Ptr::new(100)
+    original := Ptr:new(100)
     
     // Assignment moves ownership
     moved := original  // original no longer valid after this
@@ -134,10 +134,10 @@ test("ownership transfer") {
 
 // Test defer for cleanup
 test("defer cleanup") {
-    counter ::= 0
+    counter := 0
     
     {
-        ptr := Ptr::new(42)
+        ptr := Ptr:new(42)
         defer {
             counter = counter + 1  // Runs when scope ends
         }

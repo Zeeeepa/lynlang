@@ -57,20 +57,17 @@ TCP_NODELAY := 1
 DEFAULT_BUFFER_SIZE := 4096
 
 // Address family type
-AddressFamily = 
-    | IPv4
+AddressFamily: IPv4
     | IPv6
     | Unix
 
 // Socket type
-SocketType = 
-    | TCP
+SocketType: TCP
     | UDP
     | Raw
 
 // Network errors
-NetError = 
-    | ConnectionRefused
+NetError: ConnectionRefused
     | ConnectionReset
     | ConnectionAborted
     | NotConnected
@@ -90,18 +87,17 @@ NetResult<T> =
     | Err(error: NetError)
 
 // IP Address representation
-IpAddr = 
-    | V4(a: i8, b: i8, c: i8, d: i8)
+IpAddr: V4(a: i8, b: i8, c: i8, d: i8)
     | V6(addr: *i8)  // Simplified for now
 
 // Socket address
-SocketAddr = {
+SocketAddr: {
     ip: IpAddr,
     port: i16,
 }
 
 // TCP Socket
-TcpSocket = {
+TcpSocket: {
     fd: i32,
     local_addr: SocketAddr,
     peer_addr: SocketAddr,
@@ -109,120 +105,120 @@ TcpSocket = {
 }
 
 // UDP Socket
-UdpSocket = {
+UdpSocket: {
     fd: i32,
     local_addr: SocketAddr,
     is_bound: bool,
 }
 
 // TCP Listener
-TcpListener = {
+TcpListener: {
     fd: i32,
     local_addr: SocketAddr,
     is_listening: bool,
 }
 
 // Create a new TCP socket
-tcp_socket_new = () NetResult<TcpSocket> {
+tcp_socket_new: () NetResult<TcpSocket>  = {
     fd := socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     fd < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
             sock := TcpSocket {
                 fd: fd,
                 local_addr: SocketAddr {
-                    ip: IpAddr::V4(0, 0, 0, 0),
+                    ip: IpAddr:V4(0, 0, 0, 0),
                     port: 0,
                 },
                 peer_addr: SocketAddr {
-                    ip: IpAddr::V4(0, 0, 0, 0),
+                    ip: IpAddr:V4(0, 0, 0, 0),
                     port: 0,
                 },
                 is_connected: false,
             }
-            return NetResult::Ok(sock)
+            return NetResult:Ok(sock)
         }
 }
 
 // Connect TCP socket to address
-tcp_connect = (sock: TcpSocket, addr: SocketAddr) NetResult<TcpSocket> {
+tcp_connect: (sock: TcpSocket, addr: SocketAddr) NetResult<TcpSocket>  = {
     // Simplified - would need proper sockaddr_in structure
     // This is a placeholder implementation
     result := 0  // connect(sock.fd, addr_struct, sizeof(addr_struct))
     
     result < 0 ?
         | true => {
-            return NetResult::Err(NetError::ConnectionRefused)
+            return NetResult:Err(NetError:ConnectionRefused)
         }
         | false => {
             sock.peer_addr = addr
             sock.is_connected = true
-            return NetResult::Ok(sock)
+            return NetResult:Ok(sock)
         }
 }
 
 // Send data over TCP socket
-tcp_send = (sock: TcpSocket, data: *i8, len: i64) NetResult<i64> {
+tcp_send: (sock: TcpSocket, data: *i8, len: i64) NetResult<i64>  = {
     sock.is_connected ?
         | false => {
-            return NetResult::Err(NetError::NotConnected)
+            return NetResult:Err(NetError:NotConnected)
         }
         | true => {}
     
     sent := send(sock.fd, data, len, 0)
     sent < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
-            return NetResult::Ok(sent)
+            return NetResult:Ok(sent)
         }
 }
 
 // Receive data from TCP socket
-tcp_recv = (sock: TcpSocket, buffer: *i8, max_len: i64) NetResult<i64> {
+tcp_recv: (sock: TcpSocket, buffer: *i8, max_len: i64) NetResult<i64>  = {
     sock.is_connected ?
         | false => {
-            return NetResult::Err(NetError::NotConnected)
+            return NetResult:Err(NetError:NotConnected)
         }
         | true => {}
     
     received := recv(sock.fd, buffer, max_len, 0)
     received < 0 ?
         | true => {
-            return NetResult::Err(NetError::ConnectionReset)
+            return NetResult:Err(NetError:ConnectionReset)
         }
         | false => {
             received == 0 ?
                 | true => {
-                    return NetResult::Err(NetError::ConnectionAborted)
+                    return NetResult:Err(NetError:ConnectionAborted)
                 }
                 | false => {
-                    return NetResult::Ok(received)
+                    return NetResult:Ok(received)
                 }
         }
 }
 
 // Close TCP socket
-tcp_close = (sock: TcpSocket) NetResult<bool> {
+tcp_close: (sock: TcpSocket) NetResult<bool>  = {
     result := close(sock.fd)
     result < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
-            return NetResult::Ok(true)
+            return NetResult:Ok(true)
         }
 }
 
 // Create TCP listener
-tcp_listener_new = (addr: SocketAddr) NetResult<TcpListener> {
+tcp_listener_new: (addr: SocketAddr) NetResult<TcpListener>  = {
     fd := socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     fd < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {}
     
@@ -236,7 +232,7 @@ tcp_listener_new = (addr: SocketAddr) NetResult<TcpListener> {
     bind_result < 0 ?
         | true => {
             close(fd)
-            return NetResult::Err(NetError::AddrInUse)
+            return NetResult:Err(NetError:AddrInUse)
         }
         | false => {}
     
@@ -244,7 +240,7 @@ tcp_listener_new = (addr: SocketAddr) NetResult<TcpListener> {
     listen_result < 0 ?
         | true => {
             close(fd)
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {}
     
@@ -254,14 +250,14 @@ tcp_listener_new = (addr: SocketAddr) NetResult<TcpListener> {
         is_listening: true,
     }
     
-    return NetResult::Ok(listener)
+    return NetResult:Ok(listener)
 }
 
 // Accept connection on TCP listener
-tcp_accept = (listener: TcpListener) NetResult<TcpSocket> {
+tcp_accept: (listener: TcpListener) NetResult<TcpSocket>  = {
     listener.is_listening ?
         | false => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | true => {}
     
@@ -269,102 +265,102 @@ tcp_accept = (listener: TcpListener) NetResult<TcpSocket> {
     client_fd := accept(listener.fd, 0, 0)
     client_fd < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
             sock := TcpSocket {
                 fd: client_fd,
                 local_addr: listener.local_addr,
                 peer_addr: SocketAddr {
-                    ip: IpAddr::V4(0, 0, 0, 0),
+                    ip: IpAddr:V4(0, 0, 0, 0),
                     port: 0,
                 },
                 is_connected: true,
             }
-            return NetResult::Ok(sock)
+            return NetResult:Ok(sock)
         }
 }
 
 // Create UDP socket
-udp_socket_new = () NetResult<UdpSocket> {
+udp_socket_new: () NetResult<UdpSocket>  = {
     fd := socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
     fd < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
             sock := UdpSocket {
                 fd: fd,
                 local_addr: SocketAddr {
-                    ip: IpAddr::V4(0, 0, 0, 0),
+                    ip: IpAddr:V4(0, 0, 0, 0),
                     port: 0,
                 },
                 is_bound: false,
             }
-            return NetResult::Ok(sock)
+            return NetResult:Ok(sock)
         }
 }
 
 // Bind UDP socket to address
-udp_bind = (sock: UdpSocket, addr: SocketAddr) NetResult<UdpSocket> {
+udp_bind: (sock: UdpSocket, addr: SocketAddr) NetResult<UdpSocket>  = {
     // Simplified - would need proper sockaddr_in structure
     bind_result := 0  // bind(sock.fd, addr_struct, sizeof(addr_struct))
     bind_result < 0 ?
         | true => {
-            return NetResult::Err(NetError::AddrInUse)
+            return NetResult:Err(NetError:AddrInUse)
         }
         | false => {
             sock.local_addr = addr
             sock.is_bound = true
-            return NetResult::Ok(sock)
+            return NetResult:Ok(sock)
         }
 }
 
 // Send data to address via UDP
-udp_send_to = (sock: UdpSocket, data: *i8, len: i64, addr: SocketAddr) NetResult<i64> {
+udp_send_to: (sock: UdpSocket, data: *i8, len: i64, addr: SocketAddr) NetResult<i64>  = {
     // Simplified - would need proper sockaddr_in structure
     sent := sendto(sock.fd, data, len, 0, 0, 0)
     sent < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
-            return NetResult::Ok(sent)
+            return NetResult:Ok(sent)
         }
 }
 
 // Receive data from UDP socket
-udp_recv_from = (sock: UdpSocket, buffer: *i8, max_len: i64) NetResult<i64> {
+udp_recv_from: (sock: UdpSocket, buffer: *i8, max_len: i64) NetResult<i64>  = {
     // Simplified - would also return sender address
     received := recvfrom(sock.fd, buffer, max_len, 0, 0, 0)
     received < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
-            return NetResult::Ok(received)
+            return NetResult:Ok(received)
         }
 }
 
 // Close UDP socket
-udp_close = (sock: UdpSocket) NetResult<bool> {
+udp_close: (sock: UdpSocket) NetResult<bool>  = {
     result := close(sock.fd)
     result < 0 ?
         | true => {
-            return NetResult::Err(NetError::Other)
+            return NetResult:Err(NetError:Other)
         }
         | false => {
-            return NetResult::Ok(true)
+            return NetResult:Ok(true)
         }
 }
 
 // Helper to create IPv4 address
-ipv4_addr = (a: i8, b: i8, c: i8, d: i8) IpAddr {
-    return IpAddr::V4(a, b, c, d)
+ipv4_addr: (a: i8, b: i8, c: i8, d: i8) IpAddr  = {
+    return IpAddr:V4(a, b, c, d)
 }
 
 // Helper to create socket address
-socket_addr = (ip: IpAddr, port: i16) SocketAddr {
+socket_addr: (ip: IpAddr, port: i16) SocketAddr  = {
     return SocketAddr {
         ip: ip,
         port: port,

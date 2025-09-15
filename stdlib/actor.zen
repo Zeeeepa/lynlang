@@ -1,10 +1,10 @@
 // Actor system with allocator-based execution
-// Supports both sync and async modes via allocator
+// Supports both sync and concurrent modes via allocator
 
 build := @std.build
 std := build.import("std")
 allocator := build.import("allocator")
-async := build.import("async_runtime_enhanced")
+runtime := build.import("concurrent_runtime_enhanced")
 
 // Generic message type for actors
 Message = (comptime T: type) => T
@@ -15,7 +15,7 @@ Behavior = (comptime State: type, comptime Msg: type) => {
 }
 
 // Actor context for handling messages
-ActorContext = {
+ActorContext: {
     self_ref: ActorRef
     alloc: *allocator.Allocator
     system: *ActorSystem
@@ -34,13 +34,13 @@ ActorContext = {
 }
 
 // Actor reference for sending messages
-ActorRef = {
+ActorRef: {
     id: u64
     mailbox: *Mailbox
 }
 
 // Mailbox for actor messages
-Mailbox = {
+Mailbox: {
     messages: []u8  // Serialized messages
     message_types: []u64  // Type IDs for deserialization
     lock: std.sync.Mutex
@@ -100,8 +100,8 @@ Mailbox = {
                 return (msg_data, type_id)
             } : {}
             
-            // No messages, wait if async
-            self.alloc.is_async ? {
+            // No messages, wait if concurrent mode
+            self.alloc.is_concurrent ? {
                 cont := self.alloc.suspend()
                 cont ? {
                     self.waiting = cont
@@ -121,7 +121,7 @@ Mailbox = {
 }
 
 // Actor instance
-Actor = {
+Actor: {
     id: u64
     mailbox: Mailbox
     behavior: *void  // Type-erased behavior
@@ -144,7 +144,7 @@ Actor = {
                 // the behavior's handle method with proper typing
             } : {
                 // No message available
-                self.alloc.is_async ? {
+                self.alloc.is_concurrent ? {
                     // Already suspended in receive_raw
                 } : {
                     // Sync mode - stop if no messages
@@ -165,18 +165,18 @@ Actor = {
 }
 
 // Actor system managing all actors
-ActorSystem = {
+ActorSystem: {
     actors: []Actor
     next_actor_id: u64
-    event_loop: ?async.EventLoop
+    event_loop: ?runtime.EventLoop
     alloc: *allocator.Allocator
     
     init: (alloc: *allocator.Allocator) ActorSystem {
         return ActorSystem{
             actors: []Actor{},
             next_actor_id: 1,
-            event_loop: alloc.is_async ? 
-                async.EventLoop.init(alloc) : null,
+            event_loop: alloc.is_concurrent ? 
+                runtime.EventLoop.init(alloc) : null,
             alloc: alloc
         }
     }
@@ -205,8 +205,8 @@ ActorSystem = {
         self.actors.append(actor)
         
         // Start actor execution
-        actor_alloc.is_async && self.event_loop ? {
-            // Spawn async task
+        actor_alloc.is_concurrent && self.event_loop ? {
+            // Spawn concurrent task
             self.event_loop.?.spawn(() => actor.run())
         } : {
             // For sync mode, actors process messages on send
@@ -240,7 +240,7 @@ ActorSystem = {
             self.actors[i].stop()
         }
         
-        // Wait for completion if async
+        // Wait for completion if concurrent
         self.event_loop ? {
             self.event_loop.?.run()
         } : {}
@@ -248,12 +248,11 @@ ActorSystem = {
 }
 
 // Example actor behaviors
-PingPongMsg = 
-    | Ping(count: u32)
+PingPongMsg: Ping(count: u32)
     | Pong(count: u32)
     | Stop
 
-PingActor = {
+PingActor: {
     pong_ref: ?ActorRef
     
     behavior: Behavior(PingActor, PingPongMsg) = {
@@ -285,7 +284,7 @@ PingActor = {
     }
 }
 
-PongActor = {
+PongActor: {
     behavior: Behavior(void, PingPongMsg) = {
         handle: (state, msg, ctx) => {
             msg ?

@@ -5,13 +5,13 @@
 // Result type is already defined in result.zen
 
 // Panic and assertion functions
-panic = (message: string) void {
+panic: (message: string) void  = {
     io := @std.io
     io.eprintln("PANIC: " + message)
     exit(1)
 }
 
-assert = (condition: bool, message: string) void {
+assert: (condition: bool, message: string) void  = {
     !condition ?
         | true => panic("Assertion failed: " + message)
         | false => {}
@@ -27,25 +27,25 @@ extern exit = (code: i32) void
 extern abort = () void
 
 // Math utilities
-abs = (n: i32) i32 {
+abs: (n: i32) i32  = {
     n < 0 ?
         | true => return -n
         | false => return n
 }
 
-min = (a: i32, b: i32) i32 {
+min: (a: i32, b: i32) i32  = {
     a < b ?
         | true => return a
         | false => return b
 }
 
-max = (a: i32, b: i32) i32 {
+max: (a: i32, b: i32) i32  = {
     a > b ?
         | true => return a
         | false => return b
 }
 
-clamp = (value: i32, min_val: i32, max_val: i32) i32 {
+clamp: (value: i32, min_val: i32, max_val: i32) i32  = {
     value < min_val ?
         | true => return min_val
         | false => {}
@@ -58,38 +58,37 @@ clamp = (value: i32, min_val: i32, max_val: i32) i32 {
 }
 
 // Swap two values
-swap = (a: Ptr<i32>, b: Ptr<i32>) void {
+swap: (a: Ptr<i32>, b: Ptr<i32>) void  = {
     temp := a.value
     a.value = b.value
     b.value = temp
 }
 
 // Generic comparison result
-Ordering = 
-    | Less
+Ordering: Less
     | Equal
     | Greater
 
 // Compare two integers
-compare = (a: i32, b: i32) Ordering {
+compare: (a: i32, b: i32) Ordering  = {
     a < b ?
-        | true => return Ordering::Less
+        | true => return Ordering:Less
         | false => {}
     
     a > b ?
-        | true => return Ordering::Greater
+        | true => return Ordering:Greater
         | false => {}
     
-    return Ordering::Equal
+    return Ordering:Equal
 }
 
 // Identity function
-id = (x: i32) i32 {
+id: (x: i32) i32  = {
     return x
 }
 
 // Const function (returns first argument, ignores second)
-const_fn = (x: i32, y: i32) i32 {
+const_fn: (x: i32, y: i32) i32  = {
     return x
 }
 
@@ -116,13 +115,13 @@ apply_n = (f: (i32) i32, n: i32, initial: i32) i32 {
 }
 
 // Range iterator (simplified)
-Range = {
+Range: {
     start: i32,
     end: i32,
     current: i32,
 }
 
-range = (start: i32, end: i32) Range {
+range: (start: i32, end: i32) Range  = {
     return Range {
         start: start,
         end: end,
@@ -130,14 +129,14 @@ range = (start: i32, end: i32) Range {
     }
 }
 
-range_next = (r: *Range) Option<i32> {
+range_next: (r: *Range) Option<i32>  = {
     r.current >= r.end ?
-        | true => return Option<i32>::None
+        | true => return Option<i32>:None
         | false => {}
     
     value := r.current
     r.current = r.current + 1
-    return Option<i32>::Some(value)
+    return Option<i32>:Some(value)
 }
 
 // For each in range
@@ -182,12 +181,12 @@ fold_range = (start: i32, end: i32, initial: i32, f: (i32, i32) i32) i32 {
 }
 
 // Sum range
-sum_range = (start: i32, end: i32) i32 {
+sum_range: (start: i32, end: i32) i32  = {
     return fold_range(start, end, 0, (acc: i32, x: i32) i32 { return acc + x })
 }
 
 // Product range
-product_range = (start: i32, end: i32) i32 {
+product_range: (start: i32, end: i32) i32  = {
     return fold_range(start, end, 1, (acc: i32, x: i32) i32 { return acc * x })
 }
 
@@ -220,21 +219,21 @@ find_in_range = (start: i32, end: i32, predicate: (i32) bool) Option<i32> {
     i := start
     loop i < end {
         predicate(i) ?
-            | true => return Option<i32>::Some(i)
+            | true => return Option<i32>:Some(i)
             | false => {}
         i = i + 1
     }
-    return Option<i32>::None
+    return Option<i32>:None
 }
 
 // Utility to get size of type (simplified)
-size_of_i32 = () usize { return 4 }
-size_of_i64 = () usize { return 8 }
-size_of_bool = () usize { return 1 }
-size_of_ptr = () usize { return 8 }  // Assuming 64-bit
+size_of_i32: () usize  = { return 4 }
+size_of_i64: () usize  = { return 8 }
+size_of_bool: () usize  = { return 1 }
+size_of_ptr: () usize  = { return 8 }  // Assuming 64-bit
 
 // Memory utilities
-memcpy = (dest: *void, src: *void, n: usize) void {
+memcpy: (dest: *void, src: *void, n: usize) void  = {
     d := dest as *u8
     s := src as *u8
     i := 0
@@ -244,7 +243,7 @@ memcpy = (dest: *void, src: *void, n: usize) void {
     }
 }
 
-memset = (dest: *void, value: u8, n: usize) void {
+memset: (dest: *void, value: u8, n: usize) void  = {
     d := dest as *u8
     i := 0
     loop i < n {
@@ -253,7 +252,7 @@ memset = (dest: *void, value: u8, n: usize) void {
     }
 }
 
-memcmp = (ptr1: *void, ptr2: *void, n: usize) i32 {
+memcmp: (ptr1: *void, ptr2: *void, n: usize) i32  = {
     p1 := ptr1 as *u8
     p2 := ptr2 as *u8
     i := 0
@@ -271,13 +270,13 @@ memcmp = (ptr1: *void, ptr2: *void, n: usize) i32 {
 }
 
 // Type casting helpers (placeholders)
-as_i32 = (value: i64) i32 { return value as i32 }
-as_i64 = (value: i32) i64 { return value as i64 }
-as_usize = (value: i32) usize { return value as usize }
+as_i32: (value: i64) i32  = { return value as i32 }
+as_i64: (value: i32) i64  = { return value as i64 }
+as_usize: (value: i32) usize  = { return value as usize }
 as_ptr = (value: usize) *void { return value as *void }
 
 // Debug utilities
-debug_print = (label: string, value: i32) void {
+debug_print: (label: string, value: i32) void  = {
     io := @std.io
     io.print(label)
     io.print(": ")
@@ -300,7 +299,7 @@ lazy_new = (compute: () i32) Lazy<i32> {
     }
 }
 
-lazy_get = (lazy: *Lazy<i32>) i32 {
+lazy_get: (lazy: *Lazy<i32>) i32  = {
     !lazy.computed ?
         | true => {
             lazy.value = lazy.compute()
@@ -311,7 +310,7 @@ lazy_get = (lazy: *Lazy<i32>) i32 {
 }
 
 // Simple hash function for integers
-hash_i32 = (value: i32) u32 {
+hash_i32: (value: i32) u32  = {
     // Simple mixing function
     h := value as u32
     h = h ^ (h >> 16)

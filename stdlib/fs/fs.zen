@@ -6,7 +6,7 @@ string := @std.string
 core := @std.core
 
 // File metadata
-FileInfo = {
+FileInfo: {
     path: string,
     size: i64,
     is_dir: bool,
@@ -16,14 +16,14 @@ FileInfo = {
 }
 
 // Directory entry
-DirEntry = {
+DirEntry: {
     name: string,
     path: string,
     is_dir: bool,
 }
 
 // Path utilities
-path_join = (parts: []string) string {
+path_join: (parts: []string) string  = {
     parts.len == 0 ?
         | true => return ""
         | false => {}
@@ -43,7 +43,7 @@ path_join = (parts: []string) string {
     return result
 }
 
-path_dir = (path: string) string {
+path_dir: (path: string) string  = {
     last_slash := -1
     i := path.len as i32 - 1
     
@@ -64,7 +64,7 @@ path_dir = (path: string) string {
     return string.slice(path, 0, last_slash as usize)
 }
 
-path_base = (path: string) string {
+path_base: (path: string) string  = {
     last_slash := -1
     i := path.len as i32 - 1
     
@@ -85,7 +85,7 @@ path_base = (path: string) string {
     return string.slice(path, (last_slash + 1) as usize, path.len)
 }
 
-path_ext = (path: string) string {
+path_ext: (path: string) string  = {
     base := path_base(path)
     last_dot := -1
     i := base.len as i32 - 1
@@ -107,7 +107,7 @@ path_ext = (path: string) string {
     return string.slice(base, last_dot as usize, base.len)
 }
 
-path_without_ext = (path: string) string {
+path_without_ext: (path: string) string  = {
     ext := path_ext(path)
     ext.len == 0 ?
         | true => return path
@@ -116,7 +116,7 @@ path_without_ext = (path: string) string {
     return string.slice(path, 0, path.len - ext.len)
 }
 
-is_absolute = (path: string) bool {
+is_absolute: (path: string) bool  = {
     path.len == 0 ?
         | true => return false
         | false => {}
@@ -124,21 +124,21 @@ is_absolute = (path: string) bool {
     return path.data[0] == 47  // '/'
 }
 
-is_relative = (path: string) bool {
+is_relative: (path: string) bool  = {
     return !is_absolute(path)
 }
 
 // Normalize path (remove . and .. components)
-path_normalize = (path: string) string {
+path_normalize: (path: string) string  = {
     // Simplified implementation
     // TODO: Implement proper path normalization
     return path
 }
 
 // Check if file exists
-exists = (path: string) bool {
+exists: (path: string) bool  = {
     // Use stat syscall
-    // For now, try to open and check
+    // For now, attempt to open and check
     file := io.open(path, io.O_RDONLY)
     file.is_open ?
         | true => {
@@ -149,55 +149,55 @@ exists = (path: string) bool {
 }
 
 // Check if path is a directory
-is_dir = (path: string) bool {
+is_dir: (path: string) bool  = {
     // TODO: Use stat syscall to check file type
     // For now, simplified check
     return string.ends_with(path, "/")
 }
 
 // Check if path is a file
-is_file = (path: string) bool {
+is_file: (path: string) bool  = {
     return exists(path) && !is_dir(path)
 }
 
 // Create directory
-mkdir = (path: string) bool {
+mkdir: (path: string) bool  = {
     // TODO: Implement mkdir syscall
     return false
 }
 
 // Create directory and all parent directories
-mkdir_all = (path: string) bool {
+mkdir_all: (path: string) bool  = {
     // TODO: Implement recursive directory creation
     return false
 }
 
 // Remove file
-remove = (path: string) bool {
+remove: (path: string) bool  = {
     // TODO: Implement unlink syscall
     return false
 }
 
 // Remove directory
-rmdir = (path: string) bool {
+rmdir: (path: string) bool  = {
     // TODO: Implement rmdir syscall
     return false
 }
 
 // Remove directory and all contents
-remove_all = (path: string) bool {
+remove_all: (path: string) bool  = {
     // TODO: Implement recursive removal
     return false
 }
 
 // Rename file or directory
-rename = (old_path: string, new_path: string) bool {
+rename: (old_path: string, new_path: string) bool  = {
     // TODO: Implement rename syscall
     return false
 }
 
 // Copy file
-copy = (src: string, dst: string) bool {
+copy: (src: string, dst: string) bool  = {
     // Read source file
     content := io.read_file(src)
     content.len == 0 ?
@@ -209,13 +209,13 @@ copy = (src: string, dst: string) bool {
 }
 
 // Copy directory recursively
-copy_dir = (src: string, dst: string) bool {
+copy_dir: (src: string, dst: string) bool  = {
     // TODO: Implement recursive directory copy
     return false
 }
 
 // Get file info
-stat = (path: string) FileInfo {
+stat: (path: string) FileInfo  = {
     // TODO: Implement stat syscall
     return FileInfo {
         path: path,
@@ -228,7 +228,7 @@ stat = (path: string) FileInfo {
 }
 
 // List directory contents
-read_dir = (path: string) []DirEntry {
+read_dir: (path: string) []DirEntry  = {
     // TODO: Implement readdir syscall
     return []
 }
@@ -239,36 +239,36 @@ walk = (path: string, callback: (string, FileInfo) void) void {
 }
 
 // Get current working directory
-get_cwd = () string {
+get_cwd: () string  = {
     // TODO: Implement getcwd syscall
     return "."
 }
 
 // Change current working directory
-set_cwd = (path: string) bool {
+set_cwd: (path: string) bool  = {
     // TODO: Implement chdir syscall
     return false
 }
 
 // Get home directory
-get_home = () string {
+get_home: () string  = {
     // TODO: Get from environment variable
     return "/home/user"
 }
 
 // Get temp directory
-get_temp = () string {
+get_temp: () string  = {
     return "/tmp"
 }
 
 // Create temporary file
-temp_file = (prefix: string, suffix: string) string {
+temp_file: (prefix: string, suffix: string) string  = {
     // TODO: Implement proper temp file creation
     return path_join([get_temp(), prefix + "XXXXXX" + suffix])
 }
 
 // Create temporary directory
-temp_dir = (prefix: string) string {
+temp_dir: (prefix: string) string  = {
     // TODO: Implement proper temp dir creation
     return path_join([get_temp(), prefix + "XXXXXX"])
 }
@@ -290,37 +290,37 @@ PERM_DIR_DEFAULT: u32 = 0o755
 PERM_FILE_DEFAULT: u32 = 0o644
 
 // Change file permissions
-chmod = (path: string, mode: u32) bool {
+chmod: (path: string, mode: u32) bool  = {
     // TODO: Implement chmod syscall
     return false
 }
 
 // Change file ownership
-chown = (path: string, uid: i32, gid: i32) bool {
+chown: (path: string, uid: i32, gid: i32) bool  = {
     // TODO: Implement chown syscall
     return false
 }
 
 // Create symbolic link
-symlink = (target: string, link_path: string) bool {
+symlink: (target: string, link_path: string) bool  = {
     // TODO: Implement symlink syscall
     return false
 }
 
 // Read symbolic link
-readlink = (path: string) string {
+readlink: (path: string) string  = {
     // TODO: Implement readlink syscall
     return ""
 }
 
 // Check if path is a symbolic link
-is_symlink = (path: string) bool {
+is_symlink: (path: string) bool  = {
     // TODO: Use lstat syscall
     return false
 }
 
 // Get absolute path
-abs_path = (path: string) string {
+abs_path: (path: string) string  = {
     is_absolute(path) ?
         | true => return path_normalize(path)
         | false => {}
@@ -330,18 +330,18 @@ abs_path = (path: string) string {
 }
 
 // Get relative path from base to target
-rel_path = (base: string, target: string) string {
+rel_path: (base: string, target: string) string  = {
     // TODO: Implement relative path calculation
     return target
 }
 
 // File locking
-lock_file = (path: string, exclusive: bool) bool {
+lock_file: (path: string, exclusive: bool) bool  = {
     // TODO: Implement file locking
     return false
 }
 
-unlock_file = (path: string) bool {
+unlock_file: (path: string) bool  = {
     // TODO: Implement file unlocking
     return false
 }
@@ -352,7 +352,7 @@ watch = (path: string, callback: (string) void) void {
 }
 
 // Glob pattern matching
-glob = (pattern: string) []string {
+glob: (pattern: string) []string  = {
     // TODO: Implement glob pattern matching
     return []
 }

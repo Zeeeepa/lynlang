@@ -4,14 +4,14 @@
 io := @std.io
 
 // Simple value matching
-get_day_type = (day_num: i32) string {
+get_day_type: (day_num: i32) string  = {
     return day_num ? | 1..=5 => "Weekday"
                     | 6..=7 => "Weekend"
                     | _ => "Invalid day"
 }
 
 // Pattern with guards using ->
-categorize_age = (age: i32) string {
+categorize_age: (age: i32) string  = {
     return age ? | a -> a < 0 => "Invalid"
                 | a -> a < 13 => "Child"
                 | a -> a < 20 => "Teenager"
@@ -20,19 +20,18 @@ categorize_age = (age: i32) string {
 }
 
 // Enum for demonstration
-Status =
-    | Success
+Status: Success
     | Warning(message: string)
     | Error(code: i32)
 
 // Enum pattern matching with destructuring
-handle_status = (status: Status) string {
+handle_status: (status: Status) string  = {
     return status ? | .Success => "All good!"
                    | .Warning -> msg => "Warning: $(msg)"
                    | .Error -> code => "Error code: $(code)"
 }
 
-main = () void {
+main: () void  = {
     io.print("=== Pattern Matching Examples ===\n\n")
     
     // Test day types

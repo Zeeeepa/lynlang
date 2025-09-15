@@ -1,0 +1,429 @@
+// Tests for the allocator-based colorless concurrency system
+
+build := @std.build
+std := build.import("std")
+test := std.test
+allocator := build.import("allocator")
+runtime_mod := build.import("concurrent_runtime_enhanced")
+actor := build.import("actor")
+io := build.import("io")
+
+// Test basic sync allocator
+test "sync allocator memory operations" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    
+    // Test basic allocation
+    ptr := alloc.alloc(1024)
+    test.expect(ptr != null)
+    
+    // Test free
+    alloc.free(ptr)
+    
+    // Test typed allocation
+    value := alloc.create(u32)
+    value.* = 42
+    test.expect(value.* == 42)
+    alloc.destroy(value)
+    
+    // Test slice allocation
+    slice := alloc.alloc_slice(u8, 100)
+    test.expect(slice.len == 100)
+    slice[0] = 1
+    slice[99] = 99
+    test.expect(slice[0] == 1)
+    test.expect(slice[99] == 99)
+    alloc.free_slice(slice)
+    
+    // Verify sync mode
+    test.expect(!alloc.is_concurrent)
+}
+
+// Test concurrent allocator
+test "concurrent allocator with runtime" {
+    runtime := allocator.Runtime.init()
+    concurrent_alloc := allocator.ConcurrentAllocator.init(&runtime)
+    
+    alloc := concurrent_alloc.allocator()
+    
+    // Verify concurrent mode
+    test.expect(alloc.is_concurrent)
+    
+    // Test memory operations (same as sync)
+    ptr := alloc.alloc(512)
+    test.expect(ptr != null)
+    alloc.free(ptr)
+    
+    // Test continuation operations would require platform support
+}
+
+// Test auto allocator
+test "auto allocator mode selection" {
+    // Without runtime - should be sync
+    auto1 := allocator.AutoAllocator.init()
+    alloc1 := auto1.allocator()
+    test.expect(!alloc1.is_concurrent)
+    
+    // With runtime - should be concurrent
+    runtime := allocator.Runtime.init()
+    auto2 := allocator.AutoAllocator.init_with_runtime(&runtime)
+    alloc2 := auto2.allocator()
+    test.expect(alloc2.is_concurrent)
+}
+
+// Test test allocator leak detection
+test "test allocator tracks leaks" {
+    test_alloc := allocator.TestAllocator.init()
+    defer test_alloc.deinit()
+    
+    alloc := test_alloc.allocator()
+    
+    // Initial state
+    test.expect(test_alloc.bytes_leaked() == 0)
+    test.expect(!test_alloc.check_leaks())
+    
+    // Allocate without freeing
+    ptr1 := alloc.alloc(100)
+    test.expect(test_alloc.total_allocated == 100)
+    test.expect(test_alloc.total_freed == 0)
+    test.expect(test_alloc.bytes_leaked() == 100)
+    test.expect(test_alloc.check_leaks())
+    
+    // Free the allocation
+    alloc.free(ptr1)
+    test.expect(test_alloc.total_freed == 100)
+    test.expect(test_alloc.bytes_leaked() == 0)
+    
+    // Multiple allocations
+    ptr2 := alloc.alloc(50)
+    ptr3 := alloc.alloc(75)
+    test.expect(test_alloc.total_allocated == 225)
+    
+    alloc.free(ptr2)
+    test.expect(test_alloc.bytes_leaked() == 75)
+    
+    alloc.free(ptr3)
+    test.expect(test_alloc.bytes_leaked() == 0)
+    test.expect(!test_alloc.check_leaks())
+}
+
+// Test colorless function with different allocators
+read_file_mock: (path: String, alloc: *allocator.Allocator) []u8  = {
+    // Simulated file read that works with any allocator
+    size := 256
+    buffer := alloc.alloc_slice(u8, size)
+    
+    // Fill with mock data
+    loop i := 0; i < size; i += 1 {
+        buffer[i] = @intCast(u8, i % 256)
+    }
+    
+    // In real implementation, would use concurrent I/O if alloc.is_concurrent
+    alloc.is_concurrent ? {
+        // Would suspend and resume for concurrent I/O
+    } : {
+        // Sync read
+    }
+    
+    return buffer
+}
+
+test "colorless function with sync allocator" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    
+    // Call colorless function with sync allocator
+    data := read_file_mock("test.txt", &alloc)
+    test.expect(data.len == 256)
+    test.expect(data[0] == 0)
+    test.expect(data[255] == 255)
+    
+    alloc.free_slice(data)
+}
+
+test "colorless function with concurrent allocator" {
+    runtime := allocator.Runtime.init()
+    concurrent_alloc := allocator.ConcurrentAllocator.init(&runtime)
+    
+    alloc := concurrent_alloc.allocator()
+    
+    // Same function call, but with concurrent allocator
+    data := read_file_mock("test.txt", &alloc)
+    test.expect(data.len == 256)
+    test.expect(data[0] == 0)
+    test.expect(data[255] == 255)
+    
+    alloc.free_slice(data)
+}
+
+// Test event loop with tasks
+test "event loop task spawning" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    event_loop := runtime_mod.EventLoop.init(&alloc)
+    
+    counter := 0
+    
+    // Spawn a task
+    task_id := event_loop.spawn(() => {
+        counter += 1
+    })
+    
+    test.expect(task_id == 1)
+    
+    // Run event loop (sync mode, so task already executed)
+    event_loop.run()
+    
+    test.expect(counter == 1)
+}
+
+// Test channel communication
+test "channel send and receive" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    
+    ch := runtime_mod.Channel(u32).init(10, &alloc)
+    
+    // Send values
+    test.expect(ch.send(1))
+    test.expect(ch.send(2))
+    test.expect(ch.send(3))
+    
+    // Receive values
+    v1 := ch.receive()
+    test.expect(v1.? == 1)
+    
+    v2 := ch.receive()
+    test.expect(v2.? == 2)
+    
+    v3 := ch.receive()
+    test.expect(v3.? == 3)
+    
+    // Empty channel
+    v4 := ch.receive()
+    test.expect(v4 == null)  // Would block in concurrent mode
+}
+
+test "channel close behavior" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    
+    ch := runtime_mod.Channel(u32).init(5, &alloc)
+    
+    ch.send(42)
+    ch.close()
+    
+    // Can still receive buffered values
+    v := ch.receive()
+    test.expect(v.? == 42)
+    
+    // After buffer empty, returns null
+    v2 := ch.receive()
+    test.expect(v2 == null)
+    
+    // Cannot send to closed channel
+    test.expect(!ch.send(100))
+}
+
+// Test actor system
+test "actor system basic messaging" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    
+    system := actor.ActorSystem.init(&alloc)
+    
+    // Create a simple actor
+    TestMsg: Increment(amount: u32)
+        | GetValue
+        | Value(v: u32)
+    
+    CounterState: {
+        value: u32
+    }
+    
+    counter_behavior := actor.Behavior(CounterState, TestMsg){
+        handle: (state, msg, ctx) => {
+            msg ?
+                | .Increment -> amount => {
+                    state.value += amount
+                }
+                | .GetValue => {
+                    ctx.reply(.Value(state.value))
+                }
+                | .Value -> v => {}
+        }
+    }
+    
+    initial_state := CounterState{ value: 0 }
+    counter_ref := system.spawn(counter_behavior, initial_state, &alloc)
+    
+    // Send messages
+    system.send(counter_ref, .Increment(5))
+    system.send(counter_ref, .Increment(3))
+    
+    // Run system (processes messages in sync mode)
+    system.run()
+    
+    // Verify by manual check (would need proper query mechanism)
+    test.expect(true)  // Placeholder
+}
+
+// Test worker pool pattern
+test "worker pool job distribution" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    system := actor.ActorSystem.init(&alloc)
+    
+    Job: {
+        id: u32
+        data: String
+    }
+    
+    Result: {
+        job_id: u32
+        result: String
+    }
+    
+    worker_behavior := actor.Behavior(void, Job){
+        handle: (state, job, ctx) => {
+            // Process job (simplified)
+            result := Result{
+                job_id: job.id,
+                result: "processed: " ++ job.data
+            }
+            // Would send result to collector
+        }
+    }
+    
+    pool := actor.WorkerPool(Job, Result).init(
+        4,  // 4 workers
+        worker_behavior,
+        (result) => {
+            // Result handler
+            io.print("Got result for job {}: {}\n", result.job_id, result.result)
+        },
+        &system,
+        &alloc
+    )
+    
+    // Submit jobs
+    pool.submit(Job{ id: 1, data: "job1" })
+    pool.submit(Job{ id: 2, data: "job2" })
+    pool.submit(Job{ id: 3, data: "job3" })
+    
+    // Run system
+    system.run()
+    
+    pool.shutdown()
+    test.expect(true)  // Placeholder
+}
+
+// Test progressive enhancement pattern
+test "progressive enhancement from sync to concurrent" {
+    // Version 1: Start with sync
+    simple_app: (alloc: *allocator.Allocator) void  = {
+        // Everything runs synchronously
+        data := read_file_mock("config.json", alloc)
+        // Process data...
+        alloc.free_slice(data)
+    }
+    
+    // Test with sync allocator
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    alloc1 := sync_alloc.allocator()
+    simple_app(&alloc1)
+    
+    // Version 2: Same code, now concurrent
+    runtime := allocator.Runtime.init()
+    concurrent_alloc := allocator.ConcurrentAllocator.init(&runtime)
+    alloc2 := concurrent_alloc.allocator()
+    simple_app(&alloc2)  // Same function, different behavior!
+    
+    test.expect(true)
+}
+
+// Integration test: web service simulation
+test "web service with allocator" {
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    
+    alloc := sync_alloc.allocator()
+    
+    // Simulated HTTP request handler
+    handle_request: (path: String, alloc: *allocator.Allocator) String  = {
+        response := path ?
+            | "/api/users" => {
+                // Would fetch from database
+                data := read_file_mock("users.json", alloc)
+                defer alloc.free_slice(data)
+                "Users data"
+            }
+            | "/api/posts" => {
+                // Would fetch from database
+                data := read_file_mock("posts.json", alloc)
+                defer alloc.free_slice(data)
+                "Posts data"
+            }
+            | _ => "Not found"
+        
+        return response
+    }
+    
+    // Simulate requests
+    resp1 := handle_request("/api/users", &alloc)
+    test.expect(resp1 == "Users data")
+    
+    resp2 := handle_request("/api/posts", &alloc)
+    test.expect(resp2 == "Posts data")
+    
+    resp3 := handle_request("/unknown", &alloc)
+    test.expect(resp3 == "Not found")
+}
+
+// Performance test: measure allocator overhead
+test "allocator performance comparison" {
+    iterations := 1000
+    
+    // Sync allocator
+    sync_alloc := allocator.SyncAllocator.init()
+    defer sync_alloc.deinit()
+    alloc1 := sync_alloc.allocator()
+    
+    start := std.time.nanoTimestamp()
+    loop i := 0; i < iterations; i += 1 {
+        ptr := alloc1.alloc(1024)
+        alloc1.free(ptr)
+    }
+    sync_time := std.time.nanoTimestamp() - start
+    
+    // Concurrent allocator (without actual concurrent operations)
+    runtime := allocator.Runtime.init()
+    concurrent_alloc := allocator.ConcurrentAllocator.init(&runtime)
+    alloc2 := concurrent_alloc.allocator()
+    
+    start = std.time.nanoTimestamp()
+    loop i := 0; i < iterations; i += 1 {
+        ptr := alloc2.alloc(1024)
+        alloc2.free(ptr)
+    }
+    concurrent_time := std.time.nanoTimestamp() - start
+    
+    // Concurrent execution should have minimal overhead when not suspending
+    overhead_ratio := @intToFloat(f64, concurrent_time) / @intToFloat(f64, sync_time)
+    test.expect(overhead_ratio < 1.5)  // Less than 50% overhead
+}

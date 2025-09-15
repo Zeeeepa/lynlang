@@ -8,7 +8,7 @@ args := @std.args
 string := @std.string
 
 // Error types
-SyntaxError = {
+SyntaxError: {
     line: i32,
     column: i32,
     message: string,
@@ -16,13 +16,13 @@ SyntaxError = {
 }
 
 // Check result
-CheckResult = |
+CheckResult: 
     Success,
     SyntaxErrors(Vec<SyntaxError>),
     FileError(string),
 
 // Token types for basic checking
-TokenType = |
+TokenType: 
     Identifier,
     Number,
     String,
@@ -32,7 +32,7 @@ TokenType = |
     EOF,
 
 // Basic syntax checker
-SyntaxChecker = {
+SyntaxChecker: {
     input: string,
     position: i32,
     line: i32,
@@ -41,7 +41,7 @@ SyntaxChecker = {
 }
 
 // Create a new syntax checker
-new_checker = (input: string) SyntaxChecker {
+new_checker: (input: string) SyntaxChecker  = {
     return SyntaxChecker {
         input: input,
         position: 0,
@@ -52,7 +52,7 @@ new_checker = (input: string) SyntaxChecker {
 }
 
 // Add an error
-add_error = (checker: &mut SyntaxChecker, message: string) void {
+add_error: (checker: &mut SyntaxChecker, message: string) void  = {
     error := SyntaxError {
         line: checker.line,
         column: checker.column,
@@ -63,7 +63,7 @@ add_error = (checker: &mut SyntaxChecker, message: string) void {
 }
 
 // Get context for error reporting
-get_line_context = (input: string, line_num: i32) string {
+get_line_context: (input: string, line_num: i32) string  = {
     lines := string.split(input, "\n")
     if (line_num > 0 && line_num <= lines.len()) {
         return lines[line_num - 1]
@@ -72,7 +72,7 @@ get_line_context = (input: string, line_num: i32) string {
 }
 
 // Check for balanced braces
-check_balanced_braces = (checker: &mut SyntaxChecker) void {
+check_balanced_braces: (checker: &mut SyntaxChecker) void  = {
     brace_count := 0
     paren_count := 0
     bracket_count := 0
@@ -126,7 +126,7 @@ check_balanced_braces = (checker: &mut SyntaxChecker) void {
 }
 
 // Check for invalid import placement
-check_import_placement = (checker: &mut SyntaxChecker) void {
+check_import_placement: (checker: &mut SyntaxChecker) void  = {
     lines := string.split(checker.input, "\n")
     in_comptime := false
     brace_depth := 0
@@ -170,7 +170,7 @@ check_import_placement = (checker: &mut SyntaxChecker) void {
 }
 
 // Main checking function
-check_syntax = (input: string) CheckResult {
+check_syntax: (input: string) CheckResult  = {
     checker := new_checker(input)
     
     // Run various checks
@@ -186,7 +186,7 @@ check_syntax = (input: string) CheckResult {
 }
 
 // Print errors
-print_errors = (errors: Vec<SyntaxError>) void {
+print_errors: (errors: Vec<SyntaxError>) void  = {
     io.print("Syntax errors found:\n\n")
     
     i := 0
@@ -211,7 +211,7 @@ print_errors = (errors: Vec<SyntaxError>) void {
 }
 
 // Main entry point
-main = (argc: i32, argv: **i8) i32 {
+main: (argc: i32, argv: **i8) i32  = {
     if (argc < 2) {
         io.print("Usage: zen-check <file.zen>\n")
         return 1

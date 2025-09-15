@@ -6,12 +6,12 @@ io := @std.io
 math := @std.math
 
 // Simple function to test arithmetic operations
-add_numbers = (a: i32, b: i32) i32 {
+add_numbers: (a: i32, b: i32) i32  = {
     return a + b
 }
 
 // Test function with multiple operations
-calculate = (x: i32, y: i32) i32 {
+calculate: (x: i32, y: i32) i32  = {
     sum := x + y
     diff := x - y
     product := sum * diff
@@ -19,13 +19,13 @@ calculate = (x: i32, y: i32) i32 {
 }
 
 // Test floating point operations
-calculate_float = (a: f64, b: f64) f64 {
+calculate_float: (a: f64, b: f64) f64  = {
     result := (a + b) * 2.0
     return result / 3.14159
 }
 
 // Test conditional logic
-max_value = (a: i32, b: i32) i32 {
+max_value: (a: i32, b: i32) i32  = {
     if (a > b) 
         return a
     else 
@@ -33,7 +33,7 @@ max_value = (a: i32, b: i32) i32 {
 }
 
 // Test loops
-factorial = (n: i32) i32 {
+factorial: (n: i32) i32  = {
     result := 1
     i := 1
     while (i <= n) {
@@ -44,7 +44,7 @@ factorial = (n: i32) i32 {
 }
 
 // Test array operations
-sum_array = (arr: []i32, size: i32) i32 {
+sum_array: (arr: []i32, size: i32) i32  = {
     sum := 0
     i := 0
     while (i < size) {
@@ -60,14 +60,14 @@ Point := {
     y: f64
 }
 
-distance = (p1: Point, p2: Point) f64 {
+distance: (p1: Point, p2: Point) f64  = {
     dx := p2.x - p1.x
     dy := p2.y - p1.y
     return math.sqrt(dx * dx + dy * dy)
 }
 
 // Main function
-main = () i32 {
+main: () i32  = {
     // Test arithmetic
     result1 := add_numbers(10, 20)
     io.printf("10 + 20 = %d\n", result1)

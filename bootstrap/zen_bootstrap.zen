@@ -9,8 +9,7 @@ vec := @std.vec
 core := @std.core
 
 // Token types for the lexer
-TokenType = 
-    | Identifier
+TokenType: Identifier
     | Number
     | String
     | Keyword
@@ -19,7 +18,7 @@ TokenType =
     | Eof
 
 // Token structure
-Token = {
+Token: {
     type: TokenType,
     value: string,
     line: i32,
@@ -27,7 +26,7 @@ Token = {
 }
 
 // Lexer state
-Lexer = {
+Lexer: {
     input: string,
     position: i32,
     read_position: i32,
@@ -37,7 +36,7 @@ Lexer = {
 }
 
 // Create a new lexer
-lexer_new = (input: string) Lexer {
+lexer_new: (input: string) Lexer  = {
     l := Lexer {
         input = input,
         position = 0,
@@ -51,7 +50,7 @@ lexer_new = (input: string) Lexer {
 }
 
 // Read the next character
-lexer_read_char = (l: *Lexer) void {
+lexer_read_char: (l: *Lexer) void  = {
     l.read_position >= l.input.len() ?
         | true => { l.current_char = '\0' }
         | false => {
@@ -71,14 +70,14 @@ lexer_read_char = (l: *Lexer) void {
 }
 
 // Peek at the next character
-lexer_peek_char = (l: *Lexer) char {
+lexer_peek_char: (l: *Lexer) char  = {
     l.read_position >= l.input.len() ?
         | true => { return '\0' }
         | false => { return l.input[l.read_position] }
 }
 
 // Skip whitespace
-lexer_skip_whitespace = (l: *Lexer) void {
+lexer_skip_whitespace: (l: *Lexer) void  = {
     loop (l.current_char == ' ' || l.current_char == '\t' || 
           l.current_char == '\r' || l.current_char == '\n') {
         lexer_read_char(l)
@@ -86,17 +85,17 @@ lexer_skip_whitespace = (l: *Lexer) void {
 }
 
 // Check if character is a letter
-is_letter = (ch: char) bool {
+is_letter: (ch: char) bool  = {
     return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 }
 
 // Check if character is a digit
-is_digit = (ch: char) bool {
+is_digit: (ch: char) bool  = {
     return ch >= '0' && ch <= '9'
 }
 
 // Read an identifier
-lexer_read_identifier = (l: *Lexer) string {
+lexer_read_identifier: (l: *Lexer) string  = {
     start := l.position
     loop (is_letter(l.current_char) || is_digit(l.current_char)) {
         lexer_read_char(l)
@@ -105,7 +104,7 @@ lexer_read_identifier = (l: *Lexer) string {
 }
 
 // Read a number
-lexer_read_number = (l: *Lexer) string {
+lexer_read_number: (l: *Lexer) string  = {
     start := l.position
     loop is_digit(l.current_char) {
         lexer_read_char(l)
@@ -125,7 +124,7 @@ lexer_read_number = (l: *Lexer) string {
 }
 
 // Read a string literal
-lexer_read_string = (l: *Lexer) string {
+lexer_read_string: (l: *Lexer) string  = {
     lexer_read_char(l) // skip opening quote
     start := l.position
     
@@ -146,7 +145,7 @@ lexer_read_string = (l: *Lexer) string {
 }
 
 // Get next token
-lexer_next_token = (l: *Lexer) Token {
+lexer_next_token: (l: *Lexer) Token  = {
     lexer_skip_whitespace(l)
     
     tok := Token {
@@ -216,7 +215,7 @@ lexer_next_token = (l: *Lexer) Token {
 }
 
 // Check if a string is a keyword
-is_keyword = (s: string) bool {
+is_keyword: (s: string) bool  = {
     return s == "if" || s == "else" || s == "loop" || s == "return" ||
            s == "true" || s == "false" || s == "void" || s == "i32" ||
            s == "i64" || s == "f32" || s == "f64" || s == "bool" ||
@@ -224,8 +223,7 @@ is_keyword = (s: string) bool {
 }
 
 // AST Node types
-AstNode = 
-    | Program(declarations: Vec<AstNode>)
+AstNode: Program(declarations: Vec<AstNode>)
     | Function(name: string, params: Vec<(string, string)>, return_type: string, body: Vec<AstNode>)
     | Variable(name: string, type: string, value: AstNode)
     | IntLiteral(value: i64)
@@ -237,13 +235,13 @@ AstNode =
     | If(condition: AstNode, then_body: Vec<AstNode>, else_body: Vec<AstNode>)
 
 // Parser state
-Parser = {
+Parser: {
     tokens: Vec<Token>,
     current: i32,
 }
 
 // Create a new parser
-parser_new = (tokens: Vec<Token>) Parser {
+parser_new: (tokens: Vec<Token>) Parser  = {
     return Parser {
         tokens = tokens,
         current = 0,
@@ -251,33 +249,33 @@ parser_new = (tokens: Vec<Token>) Parser {
 }
 
 // Get current token
-parser_current = (p: *Parser) Token {
+parser_current: (p: *Parser) Token  = {
     p.current >= p.tokens.len() ?
         | true => { return Token { type = TokenType.Eof, value = "", line = 0, column = 0 } }
         | false => { return p.tokens[p.current] }
 }
 
 // Advance to next token
-parser_advance = (p: *Parser) void {
+parser_advance: (p: *Parser) void  = {
     p.current < p.tokens.len() ?
         | true => { p.current = p.current + 1 }
         | false => {}
 }
 
 // Check if current token matches
-parser_check = (p: *Parser, type: TokenType) bool {
+parser_check: (p: *Parser, type: TokenType) bool  = {
     tok := parser_current(p)
     return tok.type == type
 }
 
 // Check if current token is a specific value
-parser_check_value = (p: *Parser, value: string) bool {
+parser_check_value: (p: *Parser, value: string) bool  = {
     tok := parser_current(p)
     return tok.value == value
 }
 
 // Parse the program
-parser_parse = (p: *Parser) AstNode {
+parser_parse: (p: *Parser) AstNode  = {
     declarations := vec.new<AstNode>()
     
     loop !parser_check(p, TokenType.Eof) {
@@ -289,7 +287,7 @@ parser_parse = (p: *Parser) AstNode {
 }
 
 // Parse a declaration (function or variable)
-parser_parse_declaration = (p: *Parser) AstNode {
+parser_parse_declaration: (p: *Parser) AstNode  = {
     // For now, just handle simple function declarations
     name_tok := parser_current(p)
     parser_advance(p)
@@ -317,7 +315,7 @@ parser_parse_declaration = (p: *Parser) AstNode {
 }
 
 // Parse a function
-parser_parse_function = (p: *Parser, name: string) AstNode {
+parser_parse_function: (p: *Parser, name: string) AstNode  = {
     parser_advance(p) // skip '('
     
     // Parse parameters (simplified)
@@ -379,7 +377,7 @@ parser_parse_function = (p: *Parser, name: string) AstNode {
 }
 
 // Parse a statement
-parser_parse_statement = (p: *Parser) AstNode {
+parser_parse_statement: (p: *Parser) AstNode  = {
     parser_check(p, TokenType.Keyword) ?
         | true => {
             tok := parser_current(p)
@@ -399,7 +397,7 @@ parser_parse_statement = (p: *Parser) AstNode {
 }
 
 // Parse an expression (simplified)
-parser_parse_expression = (p: *Parser) AstNode {
+parser_parse_expression: (p: *Parser) AstNode  = {
     left := parser_parse_primary(p)
     
     // Check for binary operators
@@ -416,7 +414,7 @@ parser_parse_expression = (p: *Parser) AstNode {
 }
 
 // Parse primary expression
-parser_parse_primary = (p: *Parser) AstNode {
+parser_parse_primary: (p: *Parser) AstNode  = {
     tok := parser_current(p)
     
     tok.type ?
@@ -465,7 +463,7 @@ parser_parse_primary = (p: *Parser) AstNode {
 }
 
 // Code generator - generates simple C code
-codegen_generate = (ast: AstNode) string {
+codegen_generate: (ast: AstNode) string  = {
     ast ?
         | AstNode.Program(declarations) => {
             output := "#include <stdio.h>\n\n"
@@ -538,7 +536,7 @@ codegen_generate = (ast: AstNode) string {
 }
 
 // Main compiler function
-compile_file = (input_path: string, output_path: string) i32 {
+compile_file: (input_path: string, output_path: string) i32  = {
     // Read input file
     input := fs.read_file(input_path)
     input.is_error() ?
@@ -592,7 +590,7 @@ compile_file = (input_path: string, output_path: string) i32 {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Zen Bootstrap Compiler v0.1\n")
     io.print("===========================\n\n")
     

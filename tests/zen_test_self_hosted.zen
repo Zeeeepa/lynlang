@@ -17,14 +17,14 @@ extern malloc = (size: i64) *void
 extern free = (ptr: *void) void
 
 // Test result tracking
-TestResult = {
+TestResult: {
     passed: i32,
     failed: i32,
     total: i32,
 }
 
 // Enhanced assert with better error reporting
-assert = (condition: bool, test_name: string) bool {
+assert: (condition: bool, test_name: string) bool  = {
     condition ? | true => {
         printf("[PASS] %s\n", test_name)
         return true
@@ -34,7 +34,7 @@ assert = (condition: bool, test_name: string) bool {
     }
 }
 
-assert_eq = (actual: i64, expected: i64, test_name: string) bool {
+assert_eq: (actual: i64, expected: i64, test_name: string) bool  = {
     actual == expected ? | true => {
         printf("[PASS] %s\n", test_name)
         return true
@@ -45,26 +45,26 @@ assert_eq = (actual: i64, expected: i64, test_name: string) bool {
 }
 
 // Test functional loop iteration patterns
-test_functional_loops = () bool {
+test_functional_loops: () bool  = {
     puts("\n=== Testing Functional Loop Patterns ===")
     passed := true
     
     // Test range with callback
-    sum ::= 0
+    sum := 0
     core.range(1, 6).loop((i: i64) void {
         sum = sum + i
     })
     passed = passed && assert_eq(sum, 15, "Range loop sum (1+2+3+4+5)")
     
     // Test range with step
-    evens ::= 0
+    evens := 0
     core.range_step(0, 10, 2).loop((i: i64) void {
         evens = evens + 1
     })
     passed = passed && assert_eq(evens, 5, "Range step count (0,2,4,6,8)")
     
     // Test nested functional loops
-    product ::= 0
+    product := 0
     core.range(1, 4).loop((i: i64) void {
         core.range(1, 4).loop((j: i64) void {
             product = product + (i * j)
@@ -76,13 +76,13 @@ test_functional_loops = () bool {
 }
 
 // Test conditional loops with complex conditions
-test_conditional_loops = () bool {
+test_conditional_loops: () bool  = {
     puts("\n=== Testing Conditional Loops ===")
     passed := true
     
     // Simple conditional loop
-    counter ::= 10
-    iterations ::= 0
+    counter := 10
+    iterations := 0
     loop counter > 0 {
         counter = counter - 1
         iterations = iterations + 1
@@ -91,8 +91,8 @@ test_conditional_loops = () bool {
     passed = passed && assert_eq(counter, 0, "Loop counter final value")
     
     // Complex conditional with early exit
-    value ::= 100
-    steps ::= 0
+    value := 100
+    steps := 0
     loop value > 10 {
         value = value / 2
         steps = steps + 1
@@ -105,7 +105,7 @@ test_conditional_loops = () bool {
 }
 
 // Test Vec collection with functional patterns
-test_vec_functional = () bool {
+test_vec_functional: () bool  = {
     puts("\n=== Testing Vec with Functional Patterns ===")
     passed := true
     
@@ -117,27 +117,27 @@ test_vec_functional = () bool {
     passed = passed && assert_eq(vec.vec_len(&v), 10, "Vec populated with squares")
     
     // Sum all elements using functional iteration
-    sum ::= 0
-    i ::= 0
+    sum := 0
+    i := 0
     loop i < vec.vec_len(&v) {
         elem := vec.vec_get(&v, i)
-        elem ? | core.Option::Some(val) => {
+        elem ? | core.Option:Some(val) => {
             sum = sum + val
-        } | core.Option::None => {}
+        } | core.Option:None => {}
         i = i + 1
     }
     passed = passed && assert_eq(sum, 385, "Sum of squares 1-10")
     
     // Filter-like operation
     filtered := vec.vec_new<i64>()
-    j ::= 0
+    j := 0
     loop j < vec.vec_len(&v) {
         elem := vec.vec_get(&v, j)
-        elem ? | core.Option::Some(val) => {
+        elem ? | core.Option:Some(val) => {
             val > 25 ? | true => {
                 vec.vec_push(&filtered, val)
             } | false => {}
-        } | core.Option::None => {}
+        } | core.Option:None => {}
         j = j + 1
     }
     passed = passed && assert_eq(vec.vec_len(&filtered), 5, "Filtered vec size")
@@ -149,7 +149,7 @@ test_vec_functional = () bool {
 }
 
 // Test HashMap with complex operations
-test_hashmap_advanced = () bool {
+test_hashmap_advanced: () bool  = {
     puts("\n=== Testing HashMap Advanced Operations ===")
     passed := true
     
@@ -158,13 +158,13 @@ test_hashmap_advanced = () bool {
     
     // Simulate counting occurrences
     data := [1, 2, 3, 2, 1, 3, 3, 4, 1, 2]
-    idx ::= 0
+    idx := 0
     loop idx < 10 {
         key := data[idx]
         current := hashmap.hashmap_get(&map, key)
-        current ? | core.Option::Some(count) => {
+        current ? | core.Option:Some(count) => {
             hashmap.hashmap_insert(&map, key, count + 1)
-        } | core.Option::None => {
+        } | core.Option:None => {
             hashmap.hashmap_insert(&map, key, 1)
         }
         idx = idx + 1
@@ -172,16 +172,16 @@ test_hashmap_advanced = () bool {
     
     // Verify frequencies
     freq1 := hashmap.hashmap_get(&map, 1)
-    freq1 ? | core.Option::Some(count) => {
+    freq1 ? | core.Option:Some(count) => {
         passed = passed && assert_eq(count, 3, "Frequency of 1")
-    } | core.Option::None => {
+    } | core.Option:None => {
         passed = false
     }
     
     freq3 := hashmap.hashmap_get(&map, 3)
-    freq3 ? | core.Option::Some(count) => {
+    freq3 ? | core.Option:Some(count) => {
         passed = passed && assert_eq(count, 3, "Frequency of 3")
-    } | core.Option::None => {
+    } | core.Option:None => {
         passed = false
     }
     
@@ -193,18 +193,18 @@ test_hashmap_advanced = () bool {
 }
 
 // Test algorithm implementations
-test_algorithms = () bool {
+test_algorithms: () bool  = {
     puts("\n=== Testing Algorithm Implementations ===")
     passed := true
     
     // Test sorting (bubble sort implementation)
-    arr ::= [64, 34, 25, 12, 22, 11, 90]
+    arr := [64, 34, 25, 12, 22, 11, 90]
     n := 7
     
     // Bubble sort using conditional loops
-    i ::= 0
+    i := 0
     loop i < n - 1 {
-        j ::= 0
+        j := 0
         loop j < n - i - 1 {
             arr[j] > arr[j + 1] ? | true => {
                 temp := arr[j]
@@ -221,10 +221,10 @@ test_algorithms = () bool {
     
     // Test binary search
     target := 25
-    left ::= 0
-    right ::= n - 1
-    found ::= false
-    position ::= -1
+    left := 0
+    right := n - 1
+    found := false
+    position := -1
     
     loop left <= right && !found {
         mid := (left + right) / 2
@@ -247,14 +247,14 @@ test_algorithms = () bool {
 }
 
 // Test string operations
-test_string_operations = () bool {
+test_string_operations: () bool  = {
     puts("\n=== Testing String Operations ===")
     passed := true
     
     // Test string length calculation
     str := "Hello, Zen!"
-    len ::= 0
-    idx ::= 0
+    len := 0
+    idx := 0
     loop str[idx] != 0 {
         len = len + 1
         idx = idx + 1
@@ -262,8 +262,8 @@ test_string_operations = () bool {
     passed = passed && assert_eq(len, 11, "String length calculation")
     
     // Test character counting
-    char_count ::= 0
-    i ::= 0
+    char_count := 0
+    i := 0
     loop str[i] != 0 {
         str[i] == 'l' ? | true => {
             char_count = char_count + 1
@@ -276,14 +276,14 @@ test_string_operations = () bool {
 }
 
 // Test math operations
-test_math_operations = () bool {
+test_math_operations: () bool  = {
     puts("\n=== Testing Math Operations ===")
     passed := true
     
     // Test factorial using loops
-    factorial = (n: i64) i64 {
-        result ::= 1
-        i ::= 1
+    factorial: (n: i64) i64  = {
+        result := 1
+        i := 1
         loop i <= n {
             result = result * i
             i = i + 1
@@ -295,12 +295,12 @@ test_math_operations = () bool {
     passed = passed && assert_eq(factorial(0), 1, "Factorial of 0")
     
     // Test fibonacci using loops
-    fibonacci = (n: i64) i64 {
+    fibonacci: (n: i64) i64  = {
         n <= 1 ? | true => { return n } | false => {}
         
-        prev ::= 0
-        curr ::= 1
-        i ::= 2
+        prev := 0
+        curr := 1
+        i := 2
         loop i <= n {
             next := prev + curr
             prev = curr
@@ -314,9 +314,9 @@ test_math_operations = () bool {
     passed = passed && assert_eq(fibonacci(15), 610, "Fibonacci of 15")
     
     // Test GCD using Euclidean algorithm
-    gcd = (a: i64, b: i64) i64 {
-        a_mut ::= a
-        b_mut ::= b
+    gcd: (a: i64, b: i64) i64  = {
+        a_mut := a
+        b_mut := b
         loop b_mut != 0 {
             temp := b_mut
             b_mut = a_mut % b_mut
@@ -332,7 +332,7 @@ test_math_operations = () bool {
 }
 
 // Test complex data structure operations
-test_complex_structures = () bool {
+test_complex_structures: () bool  = {
     puts("\n=== Testing Complex Data Structures ===")
     passed := true
     
@@ -346,12 +346,12 @@ test_complex_structures = () bool {
     passed = passed && assert_eq(vec.vec_len(&stack), 5, "Stack size after pushes")
     
     // Pop operations
-    sum ::= 0
+    sum := 0
     loop !vec.vec_is_empty(&stack) {
         popped := vec.vec_pop(&stack)
-        popped ? | core.Option::Some(val) => {
+        popped ? | core.Option:Some(val) => {
             sum = sum + val
-        } | core.Option::None => {}
+        } | core.Option:None => {}
     }
     passed = passed && assert_eq(sum, 150, "Sum of popped values")
     passed = passed && assert(vec.vec_is_empty(&stack), "Stack empty after pops")
@@ -362,7 +362,7 @@ test_complex_structures = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     puts("=================================================")
     puts("     Zen Language Self-Hosted Test Suite")
     puts("=================================================")
@@ -398,7 +398,7 @@ main = () i32 {
         "Complex Structures",
     ]
     
-    i ::= 0
+    i := 0
     loop i < 8 {
         test_func := tests[i]
         test_func() ? | true => {

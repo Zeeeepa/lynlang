@@ -29,7 +29,7 @@ fn test_printf_output_verified() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
@@ -71,7 +71,7 @@ fn test_printf_return_value() {
                     }),
                     Statement::Return(Expression::Integer64(42)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
@@ -110,7 +110,7 @@ fn test_puts_output_verified() {
                     }),
                     Statement::Return(Expression::Integer32(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
@@ -158,7 +158,7 @@ fn test_multiple_printf_calls_verified() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
@@ -230,7 +230,7 @@ fn test_float_operations_with_printf() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
@@ -271,7 +271,7 @@ fn test_external_function_ir_generation() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
@@ -331,7 +331,7 @@ fn test_external_math_function_ir() {
                         args: vec![Expression::Identifier("sum_squares".to_string())],
                     }),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],

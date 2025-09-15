@@ -12,7 +12,7 @@ parser := @std.compiler.parser
 type_checker := @std.compiler.type_checker
 
 // Check result
-CheckResult = {
+CheckResult: {
     file: string,
     errors: []Error,
     warnings: []Warning,
@@ -21,7 +21,7 @@ CheckResult = {
 }
 
 // Error information
-Error = {
+Error: {
     line: u32,
     column: u32,
     message: string,
@@ -30,7 +30,7 @@ Error = {
 }
 
 // Warning information
-Warning = {
+Warning: {
     line: u32,
     column: u32,
     message: string,
@@ -39,7 +39,7 @@ Warning = {
 }
 
 // Hint information
-Hint = {
+Hint: {
     line: u32,
     column: u32,
     message: string,
@@ -47,14 +47,14 @@ Hint = {
 }
 
 // Severity levels
-Severity = |
+Severity: 
     Error,
     Warning,
     Info,
     Hint,
 
 // File statistics
-FileStats = {
+FileStats: {
     lines: u32,
     functions: u32,
     structs: u32,
@@ -65,7 +65,7 @@ FileStats = {
 }
 
 // Linter rules
-LintRule = |
+LintRule: 
     UnusedVariable,
     UnusedImport,
     UnusedFunction,
@@ -83,7 +83,7 @@ LintRule = |
     DuplicateCase,
 
 // Checker configuration
-CheckerConfig = {
+CheckerConfig: {
     strict: bool,
     max_line_length: u32,
     max_function_length: u32,
@@ -96,14 +96,14 @@ CheckerConfig = {
 }
 
 // Naming conventions
-NamingConvention = |
+NamingConvention: 
     SnakeCase,
     CamelCase,
     PascalCase,
     Mixed,
 
 // Enhanced syntax checker
-SyntaxChecker = {
+SyntaxChecker: {
     config: CheckerConfig,
     results: []CheckResult,
     total_errors: u32,

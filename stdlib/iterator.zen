@@ -4,14 +4,14 @@
 core := @std.core
 
 // Range iterator for numeric ranges
-Range = {
+Range: {
     start: i64,
     end: i64,
     current: i64,
 }
 
 // Create a range from start to end (exclusive)
-range = (start: i64, end: i64) Range {
+range: (start: i64, end: i64) Range  = {
     return Range {
         start: start,
         end: end,
@@ -20,7 +20,7 @@ range = (start: i64, end: i64) Range {
 }
 
 // Loop method for Range - executes callback for each value
-Range.loop = (self:: *Range, callback: (i64) void) void {
+Range.loop = (self: *Range, callback: (i64) void) void {
     loop self.current < self.end {
         callback(self.current)
         self.current = self.current + 1
@@ -35,7 +35,7 @@ Iterator<T> = {
 }
 
 // Create iterator from array
-array_iter<T> = (arr: *T, size: i64) Iterator<T> {
+array_iter<T>: (arr: *T, size: i64) Iterator<T>  = {
     return Iterator<T> {
         data: arr,
         size: size,
@@ -49,20 +49,20 @@ Iterator<T>.has_next = (self: Iterator<T>) bool {
 }
 
 // Get next element
-Iterator<T>.next = (self:: *Iterator<T>) Option<T> {
+Iterator<T>.next = (self: *Iterator<T>) Option<T> {
     self.current >= self.size ? 
-        | true => return Option<T>::None
+        | true => return Option<T>:None
         | false => {
             idx := self.current
             self.current = self.current + 1
             // Note: Array indexing would be: self.data[idx]
             // For now using pointer arithmetic concept
-            return Option<T>::Some(*((self.data as i64) + idx * sizeof(T)))
+            return Option<T>:Some(*((self.data as i64) + idx * sizeof(T)))
         }
 }
 
 // Loop method for Iterator - executes callback for each element
-Iterator<T>.loop = (self:: *Iterator<T>, callback: (T) void) void {
+Iterator<T>.loop = (self: *Iterator<T>, callback: (T) void) void {
     loop self.current < self.size {
         // callback(self.data[self.current])
         self.current = self.current + 1
@@ -70,7 +70,7 @@ Iterator<T>.loop = (self:: *Iterator<T>, callback: (T) void) void {
 }
 
 // Functional iteration methods (alias for compatibility)
-Iterator<T>.for_each = (self:: *Iterator<T>, callback: (T) void) void {
+Iterator<T>.for_each = (self: *Iterator<T>, callback: (T) void) void {
     self.loop(callback)
 }
 
@@ -98,8 +98,8 @@ Iterator<T>.filter = (self: Iterator<T>, predicate: (T) bool) Iterator<T> {
 
 // Reduce/fold operation
 Iterator<T>.reduce<U> = (self: Iterator<T>, initial: U, accumulator: (U, T) U) U {
-    result ::= initial
-    i ::= 0
+    result := initial
+    i := 0
     loop i < self.size {
         // result = accumulator(result, self.data[i])
         i = i + 1
@@ -108,8 +108,8 @@ Iterator<T>.reduce<U> = (self: Iterator<T>, initial: U, accumulator: (U, T) U) U
 }
 
 // Sum numeric iterator (for i32)
-sum_i32 = (iter:: *Iterator<i32>) i32 {
-    sum ::= 0
+sum_i32: (iter: *Iterator<i32>) i32  = {
+    sum := 0
     iter.loop(value -> {
         sum = sum + value
     })
@@ -117,19 +117,19 @@ sum_i32 = (iter:: *Iterator<i32>) i32 {
 }
 
 // Find first element matching predicate
-Iterator<T>.find = (self:: *Iterator<T>, predicate: (T) bool) Option<T> {
-    result ::= Option<T>::None
+Iterator<T>.find = (self: *Iterator<T>, predicate: (T) bool) Option<T> {
+    result := Option<T>:None
     self.loop(value -> {
         predicate(value) ?
-            | true => result = Option<T>::Some(value)
+            | true => result = Option<T>:Some(value)
             | false => {}
     })
     return result
 }
 
 // Check if any element matches predicate
-Iterator<T>.any = (self:: *Iterator<T>, predicate: (T) bool) bool {
-    found ::= false
+Iterator<T>.any = (self: *Iterator<T>, predicate: (T) bool) bool {
+    found := false
     self.loop(value -> {
         predicate(value) ?
             | true => found = true
@@ -139,8 +139,8 @@ Iterator<T>.any = (self:: *Iterator<T>, predicate: (T) bool) bool {
 }
 
 // Check if all elements match predicate
-Iterator<T>.all = (self:: *Iterator<T>, predicate: (T) bool) bool {
-    all_match ::= true
+Iterator<T>.all = (self: *Iterator<T>, predicate: (T) bool) bool {
+    all_match := true
     self.loop(value -> {
         predicate(value) ?
             | false => all_match = false
@@ -150,8 +150,8 @@ Iterator<T>.all = (self:: *Iterator<T>, predicate: (T) bool) bool {
 }
 
 // Count elements matching predicate
-Iterator<T>.count = (self:: *Iterator<T>, predicate: (T) bool) i64 {
-    count ::= 0
+Iterator<T>.count = (self: *Iterator<T>, predicate: (T) bool) i64 {
+    count := 0
     self.loop(value -> {
         predicate(value) ?
             | true => count = count + 1
@@ -195,7 +195,7 @@ Iterator<T>.chain = (self: Iterator<T>, other: Iterator<T>) Iterator<T> {
 }
 
 // Zip two iterators into pairs
-zip<T, U> = (iter1: Iterator<T>, iter2: Iterator<U>) Iterator<Pair<T, U>> {
+zip<T, U>: (iter1: Iterator<T>, iter2: Iterator<U>) Iterator<Pair<T, U>>  = {
     // Placeholder for concept
     min_size := iter1.size < iter2.size ? 
         | true => iter1.size 
@@ -237,7 +237,7 @@ Iterator<T>.flat_map<U> = (self: Iterator<T>, f: (T) Iterator<U>) Iterator<U> {
 }
 
 // Partition iterator into two based on predicate
-Iterator<T>.partition = (self:: *Iterator<T>, predicate: (T) bool) (Iterator<T>, Iterator<T>) {
+Iterator<T>.partition = (self: *Iterator<T>, predicate: (T) bool) (Iterator<T>, Iterator<T>) {
     // Would split into (matching, non-matching)
     matching := Iterator<T> { data: 0 as *T, size: 0, current: 0 }
     non_matching := Iterator<T> { data: 0 as *T, size: 0, current: 0 }
@@ -245,8 +245,8 @@ Iterator<T>.partition = (self:: *Iterator<T>, predicate: (T) bool) (Iterator<T>,
 }
 
 // Collect iterator into a Vec
-Iterator<T>.collect = (self:: *Iterator<T>) Vec<T> {
-    result := Vec<T>::new()
+Iterator<T>.collect = (self: *Iterator<T>) Vec<T> {
+    result := Vec<T>:new()
     self.loop(item -> {
         result.push(item)
     })
@@ -254,16 +254,16 @@ Iterator<T>.collect = (self:: *Iterator<T>) Vec<T> {
 }
 
 // Find the maximum element (for comparable types)
-Iterator<T>.max = (self:: *Iterator<T>, compare: (T, T) i32) Option<T> {
-    self.size == 0 ? | true => return Option<T>::None
+Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
+    self.size == 0 ? | true => return Option<T>:None
                      | false => {}
     
-    max_val ::= Option<T>::None
+    max_val := Option<T>:None
     self.loop(value -> {
-        max_val ? | .None => max_val = Option<T>::Some(value)
+        max_val ? | .None => max_val = Option<T>:Some(value)
                  | .Some -> current => {
                      compare(value, current) > 0 ?
-                         | true => max_val = Option<T>::Some(value)
+                         | true => max_val = Option<T>:Some(value)
                          | false => {}
                  }
     })
@@ -271,16 +271,16 @@ Iterator<T>.max = (self:: *Iterator<T>, compare: (T, T) i32) Option<T> {
 }
 
 // Find the minimum element (for comparable types)
-Iterator<T>.min = (self:: *Iterator<T>, compare: (T, T) i32) Option<T> {
-    self.size == 0 ? | true => return Option<T>::None
+Iterator<T>.min = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
+    self.size == 0 ? | true => return Option<T>:None
                      | false => {}
     
-    min_val ::= Option<T>::None
+    min_val := Option<T>:None
     self.loop(value -> {
-        min_val ? | .None => min_val = Option<T>::Some(value)
+        min_val ? | .None => min_val = Option<T>:Some(value)
                  | .Some -> current => {
                      compare(value, current) < 0 ?
-                         | true => min_val = Option<T>::Some(value)
+                         | true => min_val = Option<T>:Some(value)
                          | false => {}
                  }
     })
@@ -310,10 +310,10 @@ Iterator<T>.cycle = (self: Iterator<T>) Iterator<T> {
 // Peek at next element without consuming
 Iterator<T>.peek = (self: Iterator<T>) Option<T> {
     self.current >= self.size ?
-        | true => return Option<T>::None
+        | true => return Option<T>:None
         | false => {
             // Return current element without advancing
-            return Option<T>::Some(self.data[self.current])
+            return Option<T>:Some(self.data[self.current])
         }
 }
 

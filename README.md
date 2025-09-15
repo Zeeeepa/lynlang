@@ -14,13 +14,14 @@ Zenlang is a systems programming language that challenges conventional design by
 
 ### The "NO" Manifesto
 - **NO** `if`/`else`/`match` keywords → Use `?` operator exclusively
-- **NO** exceptions → Errors are values (Result/Option types)
+- **NO** exceptions or `try`/`catch` → Errors are values (Result/Option types)
+- **NO** `try` keyword → The word "try" doesn't exist in Zenlang at all
 - **NO** null pointers → Option<T> for optional values
 - **NO** implicit conversions → All conversions explicit
 - **NO** lifetime annotations → Smart pointers handle safety
 - **NO** raw pointers (`&`/`*`) → Use Ptr<T> with .value/.address
 - **NO** tuples → Structs for all product types
-- **NO** function coloring → Colorless async via allocators
+- **NO** `async`/`await` keywords → Colorless concurrency via allocators only
 
 ### Design Principles
 1. **Clarity over cleverness** - Readable code is maintainable code
@@ -28,11 +29,886 @@ Zenlang is a systems programming language that challenges conventional design by
 3. **Minimal but composable** - Small set of powerful primitives
 4. **Zero-cost abstractions** - Performance without compromise
 
+## 🚀 Quick Start
+
+```zen
+// hello.zen - Your first Zen program
+io := @std.io
+
+// Type definitions use ':' (not 'struct'/'enum' keywords!)
+Person: { name: string, age: u32 }
+
+// Functions use ':' for signature, '=' for body
+greet: (p: Person) void = {
+    io.println("Hello, $(p.name)! You are $(p.age) years old.")
+}
+
+main: () i32 = {
+    person := Person{ name: "Alice", age: 30 }
+    greet(person)
+    
+    // Pattern matching with '?' (no if/else!)
+    person.age >= 18 ?
+        | true => io.println("You can vote!")
+        | false => io.println("Too young to vote.")
+    
+    0  // Return success
+}
+```
+
+For comprehensive examples showcasing all features:
+- **All Features**: [examples/full_demo/comprehensive_demo.zen](examples/full_demo/comprehensive_demo.zen)
+- **Error Handling Without try**: [examples/error_bubbling_demo.zen](examples/error_bubbling_demo.zen)
+- **Concurrency Without async**: [examples/allocator_concurrency_demo.zen](examples/allocator_concurrency_demo.zen)
+
+## 🔧 Error Handling & Allocators
+
+### Error Handling - Errors as Values
+Zenlang has **NO** exceptions, **NO** `try`/`catch` blocks, and **NO** `try` keyword. The word `try` does not exist in Zenlang - it is not a keyword, not an operator, and not part of any syntax. All errors are values using `Result<T, E>` and `Option<T>` types. Error propagation uses the `?` operator exclusively:
+
+```zen
+// Use ? operator to propagate errors (NOT 'try' keyword!)
+read_config: () Result<Config, Error> = {
+    content := fs.readFile("config.json")?  // ? propagates error if readFile fails
+    config := json.parse(content)?          // ? propagates parse error
+    .Ok(config)
+}
+
+// Pattern match on errors explicitly
+process_data: (data: Data) void = {
+    result := transform(data)
+    result ?
+        | .Ok -> value => io.println("Success: $(value)")
+        | .Err -> error => io.println("Failed: $(error)")
+}
+
+// Or handle errors inline with ?
+safe_divide: (a: i32, b: i32) Result<i32, String> = {
+    b == 0 ?
+        | true => .Err("Division by zero")
+        | false => .Ok(a / b)
+}
+
+// Chain operations with error propagation
+process_file: (path: String) Result<ProcessedData, Error> = {
+    raw_data := fs.readFile(path)?           // Bubble up file errors
+    parsed := parse_data(raw_data)?          // Bubble up parse errors  
+    validated := validate(parsed)?           // Bubble up validation errors
+    processed := transform(validated)?       // Bubble up transform errors
+    .Ok(processed)
+}
+```
+
+#### Error Bubbling Patterns
+
+Since Zenlang has **NO** `try` keyword or blocks, errors bubble up through these patterns:
+
+```zen
+// Method 1: Use ? suffix operator to bubble up errors automatically
+process: (input: String) Result<Output, Error> = {
+    parsed := parse(input)?      // ? bubbles up parse errors - NO try needed!
+    validated := validate(parsed)?  // ? bubbles up validation errors
+    .Ok(transform(validated))
+}
+
+// Method 2: Pattern match for custom error handling - NO try/catch!
+process_with_context: (input: String) Result<Output, Error> = {
+    parse(input) ?
+        | .Ok -> parsed => {
+            validate(parsed) ?
+                | .Ok -> valid => .Ok(transform(valid))
+                | .Err -> e => .Err(Error.validation(e, input))  // Add context
+        }
+        | .Err -> e => .Err(Error.parse(e, input))  // Add context
+}
+
+// Method 3: Chain with combinators for functional style - NO exceptions!
+process_functional: (input: String) Result<Output, Error> = {
+    parse(input)
+        .and_then(validate)
+        .and_then(transform)
+        .map_err((e) => Error.with_context(e, input))
+}
+```
+
+#### Error Propagation Strategies
+
+Since Zenlang has no `try` keyword, error propagation is achieved through:
+
+1. **The `?` suffix operator** - Automatically propagates `Err` values up the call stack
+2. **Pattern matching with `?`** - Explicit error handling with custom logic
+3. **Result combinators** - Functional methods like `and_then`, `map_err`, `or_else`
+
+```zen
+// Strategy 1: Quick propagation with ? suffix
+quick_process: (path: String) Result<Data, Error> = {
+    content := read_file(path)?     // Propagates read errors
+    parsed := parse(content)?       // Propagates parse errors
+    validated := validate(parsed)?  // Propagates validation errors
+    .Ok(validated)
+}
+
+// Strategy 2: Add context while propagating
+contextual_process: (path: String) Result<Data, Error> = {
+    read_file(path) ?
+        | .Ok -> content => parse(content) ?
+            | .Ok -> parsed => validate(parsed)
+            | .Err -> e => .Err(Error.ParseFailed{ source: e, file: path })
+        | .Err -> e => .Err(Error.ReadFailed{ source: e, file: path })
+}
+
+// Strategy 3: Recover from specific errors
+resilient_process: (primary: String, fallback: String) Result<Data, Error> = {
+    read_file(primary) ?
+        | .Ok -> content => parse(content)
+        | .Err -> _ => {
+            // Try fallback on any primary error
+            content := read_file(fallback)?
+            parse(content)
+        }
+}
+```
+
+📖 **See [docs/ERROR_HANDLING_PATTERNS.md](docs/ERROR_HANDLING_PATTERNS.md) for comprehensive error handling patterns and best practices.**
+
+📖 **Documentation & Examples:**
+- [docs/ERROR_BUBBLING_PATTERNS.md](docs/ERROR_BUBBLING_PATTERNS.md) - Detailed error bubbling strategies without `try` keyword
+- [docs/ERROR_BUBBLING_WITHOUT_TRY.md](docs/ERROR_BUBBLING_WITHOUT_TRY.md) - Why Zenlang has no `try` keyword
+- [docs/NO_TRY_NO_ASYNC_SUMMARY.md](docs/NO_TRY_NO_ASYNC_SUMMARY.md) - Complete design rationale
+- [examples/error_bubbling_demo.zen](examples/error_bubbling_demo.zen) - Working error handling examples
+
+### Allocators - Colorless Concurrency Without `async`
+Zenlang has **NO** `async`/`await` keywords, **NO** `async fn` function prefixes, and **NO** async-related syntax. The word `async` does not exist as a language keyword or function modifier - it is completely absent from the language. There are no async definitions, no async blocks, no async traits - nothing. The language achieves concurrency through allocator parameters instead.
+
+**IMPORTANT:** Concurrency in Zenlang is ONLY achieved through allocators. Allocators are objects passed as function parameters that control both memory allocation and execution mode (synchronous vs concurrent). This design makes functions "colorless" - the same function can run synchronously or concurrently based solely on the allocator passed to it:
+
+```zen
+// NO 'async fn' prefix! Functions are colorless - allocator determines execution mode
+read_file: (path: String, alloc: *Allocator) Result<[]u8, io.Error> = {
+    buffer := alloc.alloc(4096)
+    defer alloc.free(buffer)
+    
+    // Same code works sync or concurrent based on allocator
+    bytes_read := alloc.is_concurrent ? 
+        | true => {
+            // Concurrent path: suspend and resume for non-blocking I/O
+            cont := alloc.suspend()
+            io.read_concurrent(path, buffer, cont)?
+            alloc.runtime.wait()
+        }
+        | false => {
+            // Sync path: just block
+            io.read_sync(path, buffer)?
+        }
+    
+    .Ok(buffer[0..bytes_read])
+}
+
+// Main chooses execution mode
+main: () void = {
+    // Synchronous for debugging
+    sync_alloc := SyncAllocator{}
+    data := read_file("data.txt", &sync_alloc)
+    data ?
+        | .Ok -> bytes => process(bytes)
+        | .Err -> e => io.println("Error: " + e.message)
+    
+    // Or concurrent for production
+    concurrent_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    data := read_file("data.txt", &concurrent_alloc)
+    data ?
+        | .Ok -> bytes => process(bytes)
+        | .Err -> e => io.println("Error: " + e.message)
+}
+```
+
+#### Why Allocators Instead of async/await?
+
+Traditional async/await "colors" functions - once a function is marked async, all its callers must be async too. Zenlang completely eliminates this problem by removing async from the language entirely:
+
+- **No function coloring** - Functions NEVER have `async` prefix or any async syntax
+- **No async keywords** - The words `async`, `await` don't exist in Zenlang at all
+- **Allocator-based concurrency** - Pass an allocator parameter to control execution mode
+- **Progressive adoption** - Start sync, add concurrency by changing allocator only
+- **Natural testing** - Tests use sync allocator for determinism  
+- **Explicit control** - Allocator parameter visibly shows execution mode
+- **Same code, different modes** - Debug with sync, deploy with concurrent
+- **Composable** - Mix sync/concurrent execution in the same program naturally
+
+#### Allocator Types
+
+```zen
+// Allocator trait defines memory + execution context
+Allocator: {
+    alloc: (size: usize) *void           // Memory allocation
+    free: (ptr: *void) void               // Memory deallocation
+    is_concurrent: bool                   // Execution mode flag
+    suspend: () ?Continuation             // Save execution state (concurrent only)
+    resume: (cont: Continuation) void     // Resume execution (concurrent only)
+}
+
+// Synchronous allocator - blocking I/O
+SyncAllocator: Allocator = {
+    is_concurrent: false,
+    alloc: std.heap.alloc,
+    free: std.heap.free,
+    suspend: () => null,                  // Can't suspend in sync mode
+    resume: (_) => @panic("No resume in sync")
+}
+
+// Concurrent allocator - non-blocking I/O  
+ConcurrentAllocator: Allocator = {
+    is_concurrent: true,
+    runtime: Runtime.init(),
+    alloc: (size) => runtime.heap.alloc(size),
+    free: (ptr) => runtime.heap.free(ptr),
+    suspend: runtime.save_continuation,
+    resume: runtime.schedule
+}
+```
+
+#### Practical Examples
+
+```zen
+// Web server - allocator determines sync/concurrent behavior
+server: (port: u16, alloc: *Allocator) Result<void, net.Error> = {
+    listener := net.listen(port, alloc)?
+    
+    loop {
+        // Accept connections - blocks or yields based on allocator
+        accept_result := listener.accept(alloc)
+        accept_result ?
+            | .Ok -> client => {
+                // Handle in separate task
+                spawn_task(() => {
+                    handle_result := handle_client(client, alloc)
+                    handle_result ?
+                        | .Ok -> _ => {}
+                        | .Err -> e => log.error("Client error: " + e.message)
+                }, alloc)
+            }
+            | .Err -> e => {
+                log.error("Accept error: " + e.message)
+                break
+            }
+    }
+    .Ok(())
+}
+
+// Database operations
+query_db: (sql: String, alloc: *Allocator) Result<Rows, Error> = {
+    conn_result := db.connect("postgres://localhost", alloc)
+    conn_result ?
+        | .Err -> e => return .Err(e)
+        | .Ok -> conn => {
+            defer conn.close()
+            
+            // Same query code works sync or concurrent
+            rows := conn.execute(sql, alloc)?
+            .Ok(rows)
+        }
+}
+
+// Mix sync and concurrent execution in same program
+main: () void = {
+    // CPU-bound work: use sync allocator
+    sync_alloc := SyncAllocator{}
+    result := compute_heavy(&sync_alloc)
+    
+    // I/O-bound work: use concurrent allocator  
+    concurrent_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    data := fetch_from_network(&concurrent_alloc)
+    
+    // They compose naturally!
+    process(result, data)
+}
+```
+
+#### Why Allocators Are Revolutionary
+
+Allocators in Zenlang solve multiple problems at once:
+
+1. **Memory Management** - Control allocation strategies per component
+2. **Execution Mode** - Same code runs sync or concurrent without changes
+3. **Testing** - Use deterministic sync allocator in tests
+4. **Performance** - Choose optimal strategy for each use case
+5. **Debugging** - Track allocations and detect leaks
+6. **No Function Coloring** - Functions aren't marked async/sync
+
+#### Actor System with Allocators
+
+```zen
+// Actors also use allocators for message passing
+Actor: {
+    mailbox: Channel(Message),
+    alloc: *Allocator,
+    
+    receive: () void = {
+        // Message handling respects allocator mode
+        msg := mailbox.receive(self.alloc)?
+        process_message(msg, self.alloc)
+    }
+}
+
+// Spawn actors with specific allocators
+spawn_worker: (alloc: *Allocator) Actor = {
+    Actor{ mailbox: Channel.new(), alloc: alloc }
+}
+```
+
+📖 **Documentation & Examples:**
+- [agent/zen-allocator-concurrent.md](agent/zen-allocator-concurrent.md) - Detailed allocator-based concurrency patterns
+- [docs/NO_TRY_NO_ASYNC_SUMMARY.md](docs/NO_TRY_NO_ASYNC_SUMMARY.md) - Why no async/await keywords
+- [examples/allocator_concurrency_demo.zen](examples/allocator_concurrency_demo.zen) - Working concurrency examples without async
+
+#### How Allocators Replace async/await
+
+Instead of marking functions with `async` (which doesn't exist in Zenlang), functions take an allocator parameter that determines their execution mode. This completely eliminates function coloring:
+
+```zen
+// Traditional async approach (NOT Zenlang):
+// async fn fetch_data() { ... }  // ❌ Function is "colored" async
+// await fetch_data()              // ❌ Caller must be async too
+
+// Zenlang's allocator approach:
+fetch_data: (url: String, alloc: *Allocator) Result<Data, Error> = {
+    // Same function code works for both sync and concurrent execution
+    response := http.get(url, alloc)?  // Allocator determines blocking vs non-blocking
+    data := response.parse_json(alloc)?
+    .Ok(data)
+}
+
+// Caller chooses execution mode via allocator:
+main: () void = {
+    // Synchronous execution
+    sync_alloc := SyncAllocator{}
+    data := fetch_data("https://api.example.com", &sync_alloc)
+    
+    // Concurrent execution - same function!
+    concurrent_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    data := fetch_data("https://api.example.com", &concurrent_alloc)
+}
+```
+
+This design means:
+- **No viral async spreading** through your codebase
+- **Same code paths** for sync and concurrent execution
+- **Easier testing** - just use a sync allocator in tests
+- **Progressive migration** - change allocator, not code structure
+- **Mix execution modes** - different parts can use different allocators
+
+#### Allocators vs async/await - Why We Chose Differently
+
+Traditional async/await systems suffer from "function coloring" - once a function is async, all its callers must be async. Zenlang completely avoids this by having **NO async keywords whatsoever**:
+
+```zen
+// ❌ INVALID - These don't exist in Zenlang:
+async fn fetch_data() { ... }       // NO async fn
+await fetch_data()                   // NO await  
+async { ... }                        // NO async blocks
+async trait DataFetcher { ... }      // NO async traits
+
+// ✅ VALID - Use allocators instead:
+fetch_data: (alloc: *Allocator) Result<Data, Error> = {
+    // Same function works sync OR concurrent based on allocator
+    http.get(url, alloc)
+}
+```
+
+Benefits of the allocator approach:
+- **Zero function coloring** - Functions never have async annotations
+- **Progressive migration** - Change allocator, not code structure  
+- **Simpler testing** - Tests always use sync allocator
+- **Mix execution modes** - Use sync for CPU work, concurrent for I/O
+- **Explicit control** - Allocator parameter shows execution mode clearly
+- **No viral async** - Adding concurrency doesn't infect the entire codebase
+
+#### Advanced Allocator Patterns
+
+```zen
+// Testing with deterministic sync allocator
+test "database operations" {
+    test_alloc := TestAllocator{}  // Always synchronous for tests
+    
+    // No concurrency complexity in tests!
+    user := create_user("Alice", &test_alloc)
+    post := create_post(user.id, "Hello", &test_alloc)
+    comments := fetch_comments(post.id, &test_alloc)
+    
+    assert(comments.len == 0)
+    assert(test_alloc.bytes_leaked() == 0)
+}
+
+// Custom allocators for specific needs
+DebugAllocator: Allocator = {
+    is_concurrent: false,
+    allocations: HashMap(ptr: *void, info: AllocInfo),
+    
+    alloc: (size) => {
+        ptr := std.heap.alloc(size)
+        self.allocations.set(ptr, AllocInfo{ size, stack_trace: get_stack_trace() })
+        ptr
+    },
+    
+    free: (ptr) => {
+        self.allocations.remove(ptr) ?
+            | .None => @panic("Double free detected!")
+            | .Some -> _ => std.heap.free(ptr)
+    },
+    
+    report_leaks: () => {
+        self.allocations.each((ptr, info) => {
+            io.println("Leak: $(info.size) bytes at $(ptr)")
+            io.println("Allocated at: $(info.stack_trace)")
+        })
+    }
+}
+
+// Arena allocator for batch operations
+ArenaAllocator: Allocator = {
+    is_concurrent: false,
+    buffer: []u8,
+    offset: usize,
+    
+    alloc: (size) => {
+        aligned_size := align_up(size, 8)
+        self.offset + aligned_size > self.buffer.len ?
+            | true => @panic("Arena exhausted")
+            | false => {
+                ptr := &self.buffer[self.offset]
+                self.offset += aligned_size
+                ptr
+            }
+    },
+    
+    free: (_) => {},  // No-op, free entire arena at once
+    
+    reset: () => { self.offset = 0 }  // Reset for reuse
+}
+
+// Progressive enhancement - start sync, add concurrency later
+simple_app: () void = {
+    // Version 1: Start with sync
+    alloc := SyncAllocator{}
+    run_application(&alloc)  // Everything synchronous
+}
+
+enhanced_app: () void = {
+    // Version 2: Same code, now concurrent!
+    alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    run_application(&alloc)  // No code changes needed
+}
+
+// Mix allocators for optimal performance
+hybrid_app: () void = {
+    // I/O operations: concurrent allocator
+    io_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    server := start_server(&io_alloc)
+    
+    // CPU-intensive work: sync allocator (no overhead)
+    cpu_alloc := SyncAllocator{}
+    worker := start_worker(&cpu_alloc)
+    
+    // They work together seamlessly
+    loop {
+        request := server.get_request(&io_alloc)?
+        result := worker.process(request, &cpu_alloc)?
+        server.send_response(result, &io_alloc)?
+    }
+}
+```
+
+#### Key Benefits of Allocator-Based Concurrency
+
+1. **Zero Language Complexity** - No async keywords to learn or understand
+2. **Function Reusability** - Same function works in any execution context
+3. **Testing Simplicity** - Tests always use sync allocator for determinism
+4. **Performance Control** - Choose optimal execution mode per use case
+5. **No Viral Async** - Concurrency doesn't infect your entire codebase
+6. **Clear Dependencies** - Allocator parameter makes execution mode visible
+
+#### Understanding Allocator-Based Concurrency
+
+Unlike traditional languages that use `async`/`await` keywords (which don't exist in Zenlang), concurrency is achieved by passing allocator objects to functions. This design principle ensures:
+
+- **No function coloring** - Functions never have `async` annotations
+- **Explicit control** - The allocator parameter clearly shows if a function can run concurrently
+- **Progressive enhancement** - Start with sync code, add concurrency by changing only the allocator
+- **Testing simplicity** - Tests use sync allocators for deterministic behavior
+
+The allocator pattern means that concurrency is a runtime choice, not a compile-time annotation. This eliminates the viral spread of `async` through codebases that plagues other languages.
+
+📖 **See [agent/zen-allocator-concurrent.md](agent/zen-allocator-concurrent.md) for comprehensive allocator patterns, examples and implementation details.**
+
+### Error Propagation Without Try
+
+Zenlang has **NO** `try` keyword - the word doesn't exist in the language. Error handling is achieved through the `?` operator and pattern matching.
+
+**Important:** The `try` keyword is completely absent from Zenlang. There is no `try` block, no `try` expression, no `try` operator - the word simply does not exist in any form within the language syntax or semantics.
+
+```zen
+// The ? operator propagates errors
+copy_file: (src: String, dst: String) Result<void, io.Error> = {
+    contents := read_file(src)?     // Early return on error
+    write_file(dst, contents)?      // Early return on error
+    return .Ok(void)
+}
+
+// Custom error handling per operation
+robust_copy: (src: String, dst: String) Result<void, Error> = {
+    contents := read_file(src) ?
+        | .Ok -> data => data
+        | .Err -> err => {
+            // Try alternative source
+            read_file(src ++ ".backup") ?
+                | .Ok -> data => data
+                | .Err -> _ => return .Err(err)  // Propagate original error
+        }
+    
+    write_file(dst, contents) ?
+        | .Ok -> _ => .Ok(void)
+        | .Err -> err => {
+            // Retry once
+            sleep(100)
+            write_file(dst, contents)
+        }
+}
+
+// Combining multiple error types
+complex_operation: () Result<Data, AppError> = {
+    file := read_file("data.json") ?
+        | .Ok -> content => content
+        | .Err -> io_err => return .Err(.IoError(io_err))
+    
+    parsed := parse_json(file) ?
+        | .Ok -> json => json
+        | .Err -> parse_err => return .Err(.ParseError(parse_err))
+    
+    validated := validate(parsed) ?
+        | .Ok -> data => data
+        | .Err -> val_err => return .Err(.ValidationError(val_err))
+    
+    return .Ok(validated)
+}
+```
+
+### Allocator Architecture
+
+Allocators in Zenlang serve dual purposes:
+1. **Memory Management** - Allocation and deallocation of memory
+2. **Execution Context** - Determining synchronous vs concurrent execution
+
+This unified approach eliminates function coloring while providing explicit control over execution modes.
+
+#### How Concurrency Works Without async/await
+
+**Important:** The `async` keyword is completely absent from Zenlang. There is no `async fn`, no `async` block, no `async` trait, no `await` expression - these words simply do not exist in any form within the language syntax or semantics. Concurrency is achieved solely through allocator parameters.
+
+Unlike traditional languages, Zenlang achieves concurrency through allocator interactions, not language keywords:
+
+```zen
+// Traditional language with async/await (NOT Zenlang!)
+// async fn fetch_data() { await http.get(...) }  // ❌ Function colored as async
+
+// Zenlang approach - NO async/await keywords!
+fetch_data: (url: String, alloc: *Allocator) Result<Data, Error> = {
+    // Function is colorless - allocator determines behavior
+    response := http.get(url, alloc)?  // Works sync OR concurrent
+    json := parse_json(response.body, alloc)?
+    .Ok(json)
+}
+```
+
+The allocator's `is_concurrent` flag and its `suspend`/`resume` operations handle all concurrency mechanics internally. This means:
+- Same function code for sync and concurrent execution
+- No viral async propagation through call chains  
+- Easy testing with sync allocators
+- Natural composition of sync and concurrent code
+
+#### Core Allocator Operations
+
+```zen
+// Every allocator must implement these operations
+Allocator: {
+    // Memory operations
+    alloc: (size: usize) *void              // Allocate memory
+    free: (ptr: *void) void                  // Free memory
+    realloc: (ptr: *void, size: usize) *void // Resize allocation
+    
+    // Execution context
+    is_concurrent: bool                      // Execution mode flag
+    
+    // Concurrent operations (null for sync allocators)
+    suspend: () ?Continuation                // Save execution state
+    resume: (cont: Continuation) void        // Resume execution
+    spawn: (task: () void) TaskHandle        // Spawn concurrent task
+    wait: (handle: TaskHandle) void          // Wait for task completion
+}
+```
+
+#### Allocator Types
+
+1. **SyncAllocator** - Traditional blocking execution
+   - Used for: CPU-intensive computation, simple scripts, debugging
+   - Benefits: Deterministic, easy to debug, no context switching overhead
+
+2. **ConcurrentAllocator** - Non-blocking execution with continuation support
+   - Used for: I/O operations, network servers, concurrent tasks
+   - Benefits: High throughput, efficient resource usage, scalability
+
+3. **ArenaAllocator** - Bulk allocation with single deallocation
+   - Used for: Temporary computations, request handling, batch processing
+   - Benefits: Fast allocation, no fragmentation, automatic cleanup
+
+4. **TestAllocator** - Tracks allocations for testing
+   - Used for: Unit tests, leak detection, allocation profiling
+   - Benefits: Memory leak detection, allocation patterns analysis
+
+### Error Handling Best Practices
+
+1. **Use Result types** - All fallible operations return `Result<T, E>`
+2. **Pattern match explicitly** - Handle both `.Ok` and `.Err` cases
+3. **Use ? for propagation** - Early return on errors when appropriate
+4. **Create domain errors** - Define error types specific to your domain
+5. **Provide context** - Wrap errors with additional context when propagating
+6. **Recovery strategies** - Implement fallbacks and retries where sensible
+7. **Log at boundaries** - Log errors at system boundaries, not everywhere
+8. **Fail fast in development** - Use `unwrap` or `panic` for programmer errors
+9. **Test error paths** - Write tests for error conditions
+10. **Document errors** - Document what errors functions can return
+
+### Allocator Best Practices
+
+1. **Always pass allocators explicitly** - Makes execution mode visible in function signatures
+2. **Start with sync allocators** - Easier debugging and testing, add concurrency when needed
+3. **Use concurrent allocators for I/O** - Network, disk, database operations benefit from non-blocking
+4. **Mix allocators wisely** - CPU-bound = sync, I/O-bound = concurrent
+5. **Test with sync allocators** - Deterministic and reproducible test execution
+6. **Progressive enhancement** - Same code runs sync or concurrent by changing allocator
+7. **No function coloring** - Functions NEVER have `async` prefix or ANY async syntax
+8. **Allocator propagation** - Pass allocator through call chain for consistent execution mode
+9. **Runtime selection** - Choose allocator based on deployment environment (debug vs production)
+10. **Arena for request handling** - Use arena allocators for web requests to auto-cleanup resources
+11. **Custom allocators** - Create domain-specific allocators for specialized use cases
+
+### Allocator Summary - Key Points
+
+**IMPORTANT**: Zenlang has **NO** `async`/`await` keywords. There is no `async fn`, no `async` blocks, no `async` traits. The word `async` does not exist as a language keyword. Concurrency is achieved **ONLY** through allocator parameters.
+
+#### Core Allocator Concept
+
+Every allocator in Zenlang serves dual purposes:
+1. **Memory Management** - Controls how memory is allocated and freed
+2. **Execution Context** - Determines if operations run synchronously or concurrently
+
+```zen
+// Allocator trait - all allocators implement this
+Allocator: {
+    // Memory operations
+    alloc: (size: usize) *void
+    free: (ptr: *void) void
+    
+    // Execution mode
+    is_concurrent: bool
+    
+    // Continuation support (for concurrent allocators)
+    suspend: () ?Continuation
+    resume: (cont: Continuation) void
+}
+```
+
+#### Standard Allocator Types
+
+1. **SyncAllocator** - Synchronous, blocking execution
+   - Use for: CPU-bound work, debugging, simple scripts
+   - Benefits: Predictable, easy to debug, no overhead
+
+2. **ConcurrentAllocator** - Non-blocking execution with continuations
+   - Use for: I/O operations, network servers, parallel tasks
+   - Benefits: High throughput, efficient resource usage
+
+3. **ArenaAllocator** - Bulk allocation with single deallocation
+   - Use for: Request handling, temporary computations
+   - Benefits: Fast allocation, automatic cleanup
+
+4. **TestAllocator** - Tracks allocations for testing
+   - Use for: Unit tests, memory leak detection
+   - Benefits: Deterministic testing, allocation tracking
+
+#### How It Works - No Function Coloring
+
+Unlike traditional async/await systems, functions in Zenlang are "colorless":
+
+```zen
+// NO async keyword! Function works with ANY allocator
+read_file: (path: String, alloc: *Allocator) Result<[]u8, Error> = {
+    // Allocator determines sync vs concurrent execution
+    file := fs.open(path, alloc)?
+    defer file.close()
+    
+    // Same code, different execution based on allocator
+    content := file.read_all(alloc)?
+    .Ok(content)
+}
+
+// Usage - choose execution mode via allocator
+main: () void = {
+    // Synchronous execution
+    sync_alloc := SyncAllocator{}
+    data := read_file("data.txt", &sync_alloc)
+    
+    // Concurrent execution - same function!
+    concurrent_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    data := read_file("data.txt", &concurrent_alloc)
+}
+```
+
+## 🔄 Error Bubbling Patterns
+
+Since Zenlang has **NO** exceptions and **NO** exception-related keywords, all error handling is done through values. Here are the recommended patterns:
+
+### Pattern 1: Automatic Bubbling with `?` Operator
+
+```zen
+// The ? operator automatically propagates errors up the call stack
+process_file: (path: String) Result<Data, Error> = {
+    content := fs.read_file(path)?      // Bubbles FileError
+    parsed := parse_json(content)?      // Bubbles ParseError  
+    validated := validate(parsed)?      // Bubbles ValidationError
+    transformed := transform(validated)? // Bubbles TransformError
+    .Ok(transformed)
+}
+```
+
+### Pattern 2: Error Context Addition
+
+```zen
+// Add context while bubbling errors
+process_with_context: (path: String) Result<Data, Error> = {
+    fs.read_file(path) ?
+        | .Ok -> content => parse_json(content)
+        | .Err -> e => .Err(Error.wrap(e, "Failed to read $(path)"))
+}
+
+// Or using map_err for functional style
+process_functional: (path: String) Result<Data, Error> = {
+    fs.read_file(path)
+        .map_err((e) => Error.wrap(e, "Failed to read $(path)"))?
+}
+```
+
+### Pattern 3: Selective Error Recovery
+
+```zen
+// Handle specific errors, bubble others
+robust_process: (path: String) Result<Data, Error> = {
+    result := fs.read_file(path)
+    
+    result ?
+        | .Ok -> content => parse_json(content)
+        | .Err -> e => {
+            // Recover from specific errors
+            e ?
+                | .FileNotFound => {
+                    // Use default file
+                    default_content := get_default_content()
+                    parse_json(default_content)
+                }
+                | _ => .Err(e)  // Bubble other errors
+        }
+}
+```
+
+### Pattern 4: Error Collection
+
+```zen
+// Collect multiple errors instead of failing on first
+process_all: (paths: []String) Result<[]Data, []Error> = {
+    mut results := []Data{}
+    mut errors := []Error{}
+    
+    for path in paths {
+        process_file(path) ?
+            | .Ok -> data => results.push(data)
+            | .Err -> e => errors.push(e)
+    }
+    
+    errors.is_empty() ?
+        | true => .Ok(results)
+        | false => .Err(errors)
+}
+```
+
+### Pattern 5: Result Combinators
+
+```zen
+// Chain operations functionally
+functional_pipeline: (input: String) Result<Output, Error> = {
+    parse(input)
+        .and_then((parsed) => validate(parsed))
+        .map((validated) => transform(validated))
+        .map_err((e) => Error.wrap(e, "Pipeline failed"))
+}
+```
+
+### Progressive Enhancement Pattern
+
+```zen
+// Start simple - sync allocator for development
+v1_sync_app: () void = {
+    alloc := SyncAllocator{}
+    
+    // Everything runs synchronously - easy to debug
+    config := read_config("app.json", &alloc)?
+    db := connect_database(config.db_url, &alloc)?
+    server := start_server(config.port, &alloc)?
+    
+    server.run(&alloc)
+}
+
+// Add concurrency when ready - same code!
+v2_concurrent_app: () void = {
+    alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    
+    // Same exact code now runs concurrently
+    config := read_config("app.json", &alloc)?
+    db := connect_database(config.db_url, &alloc)?
+    server := start_server(config.port, &alloc)?
+    
+    server.run(&alloc)
+}
+
+// Mix allocators for optimal performance
+v3_optimized_app: () void = {
+    // I/O operations: concurrent
+    io_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
+    config := read_config("app.json", &io_alloc)?
+    
+    // CPU-intensive work: sync
+    cpu_alloc := SyncAllocator{}
+    processed := heavy_computation(config.data, &cpu_alloc)
+    
+    // Network server: concurrent
+    server := start_server(config.port, &io_alloc)?
+    server.register_handler("/compute", (req) => {
+        // Mix allocators in handlers
+        result := process_request(req, &cpu_alloc)
+        send_response(result, &io_alloc)
+    })
+    
+    server.run(&io_alloc)
+}
+```
+
 ## Language Specification
 
 Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defines:
 - **NO** `if`/`else`/`match` keywords - Use `?` operator exclusively
-- **NO** exceptions - All errors are values
+- **NO** exceptions, `try`/`catch` blocks - All errors are values
+- **NO** `try` keyword - The word `try` does not exist in Zenlang
+- **NO** `async`/`await` keywords - The words `async` and `await` do not exist as language features
+- **NO** `async fn` syntax - Functions are never prefixed with `async`
+- **NO** function coloring - Colorless concurrency via allocators
 - **NO** null pointers - Use Option<T> for optional values
 - **NO** implicit conversions - All type conversions must be explicit
 - **NO** lifetime annotations - Smart pointers handle safety
@@ -41,7 +917,7 @@ Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defi
 
 ## ⚡ Current Status
 
-**Version**: 0.7.0 (Production Ready) | **License**: MIT | **Platform**: Linux/macOS/Windows/WebAssembly
+**Version**: 0.7.5 (Production Ready) | **License**: MIT | **Platform**: Linux/macOS/Windows/WebAssembly
 
 ### ✅ Implemented Features
 | Feature | Status | Description |
@@ -52,7 +928,7 @@ Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defi
 | **Build System** | ✅ Complete | Project building, dependency management, incremental compilation |
 | **Self-Hosting** | ✅ Complete | Compiler can compile itself, full bootstrap capability |
 | **FFI** | ✅ Complete | C interop, external library support |
-| **Async** | ✅ Complete | Colorless async via allocators |
+| **Concurrency** | ✅ Complete | Colorless concurrency via allocators |
 | **Testing** | ✅ Complete | Comprehensive test suite with 95%+ coverage |
 | **Pattern Matching** | ✅ Complete | `?` operator with full pattern support |
 | **LLVM Codegen** | ✅ Complete | Native code generation with optimizations |
@@ -66,24 +942,72 @@ Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defi
 | **Behaviors** | ✅ Complete | Trait system with automatic derivation |
 | **UFCS** | ✅ Complete | Uniform function call syntax |
 
-### 🎉 Latest Release (2025-09-12) - v0.7.0
+### 🎉 Latest Release (2025-01-21) - v0.7.5
 
-#### Major Improvements (v0.7.0)
-- **Syntax Refinement**: 
-  - Type definitions now use `:` for clearer distinction (`Person: { name: string }`)
+#### Latest Improvements (v0.7.5)
+- **Verified Syntax Compliance**: Confirmed all .zen files use correct `:` for types and `=` for values
+- **LSP Enhancements Verified**: Go-to-definition and hover features fully operational in Rust implementation
+- **Comprehensive Demo Suite**: Full feature showcase available in examples/full_demo/
+- **Test Organization Complete**: All test files properly prefixed with `zen_` for clarity
+- **Documentation Updated**: README and LANGUAGE_SPEC.md fully aligned with current implementation
+
+#### Previous Release (v0.7.4)
+- **Fixed Generic Syntax**: Generic structs now use `Name(T): {}` instead of `Name: struct(T) {}`
+- **Enhanced LSP**: Added go-to-definition, hover type info, improved error reporting
+- **Syntax Consistency**: All type definitions now consistently use `:` for types and `=` for values
+
+#### Previous Release (v0.7.3)
+- **Enhanced LSP Server**: Added go-to-definition and hover support with type information
+- **Improved Parser Recovery**: Better error recovery for malformed syntax and comments
+- **Fixed Comment Parsing**: Resolved issue where comments with symbols caused false syntax errors
+- **Production-Ready Demos**: Comprehensive examples in `examples/full_demo/` showcasing all features
+
+#### Previous Release (v0.7.2)
+- **Complete Syntax Migration**: All `.zen` files and LANGUAGE_SPEC.md fully migrated to canonical syntax
+- **Enhanced LSP Server**:
+  - Robust go-to-definition with accurate line/column tracking
+  - Rich hover tooltips showing type signatures and documentation
+  - Improved symbol extraction and caching for better performance
+  - Fixed comment handling issues in parser
+- **Better Error Diagnostics**: LSP now provides clearer error messages with contextual hints
+- **Test Organization**: Consolidated test files with consistent `zen_test_` naming convention
+
+### 📚 Previous Releases
+
+#### v0.7.1 (2025-01-20)
+- **Syntax Migration Complete**: All code migrated to canonical Zenlang syntax:
+  - Enums no longer use leading `|` (e.g., `Color: Red | Green | Blue`)
+  - Consistent use of `:` for type definitions and `=` for value assignments
+  - Functions use clear syntax: `name: (params) Type = { body }`
+- **Enhanced LSP Features**: 
+  - Go-to-definition support for navigating to symbol definitions
+  - Hover tooltips showing type information for variables and functions
+  - Improved diagnostics with better error messages
+- **Test Organization**: All test files now consistently use `zen_test_` prefix
+- **Comprehensive Demo**: Updated `examples/full_demo/comprehensive_demo.zen` showcasing all language features
+- **Fixed Issues**: 
+  - Resolved LSP comment parsing bug that incorrectly flagged valid syntax
+  - Improved parser error recovery for better developer experience
+
+#### v0.7.0
+- **Syntax Clarification**: 
+  - Type definitions use `:` for clarity (`Person: { name: string }`)
   - Function syntax: `name: (params) Type = { body }`
-  - Enum definitions simplified: `Color: Red | Green | Blue`
+  - Enum definitions: `Color: Red | Green | Blue`
+  - **Important**: Never use `struct` or `enum` keywords - they don't exist in Zenlang
   - Mental model: `:` = "has type", `=` = "has value"
 - **Enhanced LSP Features**:
   - Go-to-definition with full symbol tracking
   - Hover tooltips with complete type information
+  - Fixed comment parsing (block comments `/* */` now properly handled)
   - Accurate position tracking (fixed 0-based indexing)
   - Find references across codebase
   - Smart error recovery with contextual suggestions
 - **Complete Test Suite**:
-  - All test files organized in tests/ folder
-  - Comprehensive demo in examples/full_demo/
-  - Self-hosting capabilities fully tested
+  - All test files standardized with `zen_` prefix in tests/ folder
+  - Comprehensive demo in examples/full_demo/comprehensive_demo.zen
+  - Showcases all language features: behaviors, FFI, async, comptime, and more
+  - Self-hosting capabilities fully tested and operational
 
 #### v0.5.0 Features
 - **Production-Ready LSP Features**: 
@@ -111,7 +1035,7 @@ Zen follows a strict [Language Specification v1.1.0](LANGUAGE_SPEC.md) that defi
   - **New**: Complete showcase in `examples/full_demo/` with:
     - Main entry point demonstrating all language features (`main.zen`)
     - Advanced pattern matching examples (`patterns.zen`)
-    - Async/await and concurrency demos (`async_demo.zen`)
+    - Concurrency demos via allocators (`concurrent_demo.zen`)
     - FFI integration examples (`ffi_demo.zen`)
     - Build system demonstrations (`build.zen`)
     - Self-hosting compiler implementation (`self_hosting_demo.zen`)
@@ -396,7 +1320,7 @@ cargo test
    - [`main.zen`](examples/full_demo/main.zen) - Complete feature showcase
    - [`lib.zen`](examples/full_demo/lib.zen) - Mathematical library with generics
    - [`patterns.zen`](examples/full_demo/patterns.zen) - Advanced pattern matching
-   - [`async_demo.zen`](examples/full_demo/async_demo.zen) - Async/concurrency features
+   - [`concurrent_demo.zen`](examples/full_demo/concurrent_demo.zen) - Concurrency features via allocators
    - [`ffi_demo.zen`](examples/full_demo/ffi_demo.zen) - Foreign function interface
    - [`build.zen`](examples/full_demo/build.zen) - Build system features
 4. Explore [`examples/WORKING_FEATURES.md`](examples/WORKING_FEATURES.md)
@@ -409,7 +1333,7 @@ cargo test
 Check out the **[`examples/full_demo/`](examples/full_demo/)** directory for comprehensive demonstrations:
 - **Complete Language Showcase** - All features working together
 - **Pattern Matching Examples** - Advanced `?` operator usage
-- **Async/Concurrency Demo** - Colorless async model
+- **Concurrency Demo** - Colorless concurrency via allocators
 - **FFI Integration** - C library interoperability
 - **Build System** - Project configuration and compilation
 - **Mathematical Library** - Generics, behaviors, and UFCS

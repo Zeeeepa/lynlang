@@ -245,7 +245,7 @@ fn test_vec_compilation_basic() {
     
     let main_func = Declaration::Function(Function {
         type_params: vec![],
-        is_async: false,
+        
         name: "main".to_string(),
         args: vec![],
         return_type: AstType::I32,

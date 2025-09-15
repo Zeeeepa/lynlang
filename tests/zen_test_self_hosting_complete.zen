@@ -23,7 +23,7 @@ string := std.string
 mem := std.mem
 process := std.process
 thread := std.thread
-async := std.async
+concurrency := std.concurrency
 
 extern puts = (s: *i8) i32
 extern printf = (format: *i8, ...) i32
@@ -31,7 +31,7 @@ extern malloc = (size: i64) *void
 extern free = (ptr: *void) void
 
 // Test lexer functionality
-test_lexer = () bool {
+test_lexer: () bool  = {
     puts("Testing Lexer...")
     
     // Create a simple token test
@@ -58,10 +58,10 @@ test_lexer = () bool {
 }
 
 // Test parser functionality
-test_parser = () bool {
+test_parser: () bool  = {
     puts("Testing Parser...")
     
-    input := "x := 42; y ::= x + 1"
+    input := "x := 42; y := x + 1"
     p := parser.Parser.new(input)
     
     // Parse the program
@@ -74,7 +74,7 @@ test_parser = () bool {
 }
 
 // Test AST functionality
-test_ast = () bool {
+test_ast: () bool  = {
     puts("Testing AST...")
     
     // Create a simple AST node
@@ -90,7 +90,7 @@ test_ast = () bool {
 }
 
 // Test type checker functionality
-test_type_checker = () bool {
+test_type_checker: () bool  = {
     puts("Testing Type Checker...")
     
     // Create type environment
@@ -108,7 +108,7 @@ test_type_checker = () bool {
 }
 
 // Test code generation functionality
-test_codegen = () bool {
+test_codegen: () bool  = {
     puts("Testing Code Generator...")
     
     // Create a code generator
@@ -127,7 +127,7 @@ test_codegen = () bool {
 }
 
 // Test Vec (dynamic array)
-test_vec = () bool {
+test_vec: () bool  = {
     puts("Testing Vec...")
     
     v := vec.Vec<i32>.new()
@@ -149,7 +149,7 @@ test_vec = () bool {
 }
 
 // Test HashMap
-test_hashmap = () bool {
+test_hashmap: () bool  = {
     puts("Testing HashMap...")
     
     map := hashmap.HashMap<string, i32>.new()
@@ -171,16 +171,16 @@ test_hashmap = () bool {
 }
 
 // Test functional loop syntax
-test_functional_loops = () bool {
+test_functional_loops: () bool  = {
     puts("Testing Functional Loops...")
     
-    sum ::= 0
+    sum := 0
     core.range(1, 6).loop(i -> {
         sum = sum + i
     })
     assert.equal(sum, 15)  // 1+2+3+4+5 = 15
     
-    sum2 ::= 0
+    sum2 := 0
     core.range_inclusive(1, 5).loop(i -> {
         sum2 = sum2 + i
     })
@@ -190,28 +190,29 @@ test_functional_loops = () bool {
     return true
 }
 
-// Test async/await functionality
-test_async = () bool {
-    puts("Testing Async...")
+// Test concurrency functionality
+test_concurrency: () bool  = {
+    puts("Testing Concurrency...")
     
-    // Create an async task
-    task := async.Task<i32>.new(() i32 {
+    // Create a concurrent task using allocator
+    alloc := std.allocator.SyncAllocator.init()
+    task := concurrency.task_new(() i32 {
         return 42
-    })
+    }, std.concurrency.get_default_executor())
     
     // Wait for result
-    result := task.await()
+    result := concurrency.await(task)
     assert.equal(result, 42)
     
-    puts("  ✓ Async tests passed")
+    puts("  ✓ Concurrency tests passed")
     return true
 }
 
 // Test thread functionality
-test_threads = () bool {
+test_threads: () bool  = {
     puts("Testing Threads...")
     
-    counter ::= 0
+    counter := 0
     mutex := thread.Mutex.new()
     
     // Create threads
@@ -237,7 +238,7 @@ test_threads = () bool {
 }
 
 // Test process functionality
-test_process = () bool {
+test_process: () bool  = {
     puts("Testing Process...")
     
     // Get current process ID
@@ -253,11 +254,11 @@ test_process = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     printf("\n=== Zen Self-Hosting Comprehensive Test Suite ===\n\n")
     
-    passed ::= 0
-    failed ::= 0
+    passed := 0
+    failed := 0
     
     tests := [
         ("Lexer", test_lexer),
@@ -268,12 +269,12 @@ main = () i32 {
         ("Vec", test_vec),
         ("HashMap", test_hashmap),
         ("Functional Loops", test_functional_loops),
-        ("Async", test_async),
+        ("Concurrency", test_concurrency),
         ("Threads", test_threads),
         ("Process", test_process)
     ]
     
-    i ::= 0
+    i := 0
     loop i < 11 {
         test := tests[i]
         printf("Running test: %s\n", test.0)

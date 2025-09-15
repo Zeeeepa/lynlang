@@ -159,7 +159,7 @@ macro_rules! test_program {
                     args: vec![],
                     return_type: AstType::I32,
                     body: vec![$($body)*],
-                    is_async: false,
+                    
                 })
             ]
         )

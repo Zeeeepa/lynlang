@@ -7,7 +7,7 @@ vec := @std.vec
 core := @std.core
 
 // Token types covering all Zen syntax
-TokenType = |
+TokenType: 
     // Literals
     Identifier -> value: string,
     Number -> value: string,
@@ -38,7 +38,7 @@ TokenType = |
     Newline, Eof, Invalid,
 
 // Token with position information
-Token = {
+Token: {
     type: TokenType,
     lexeme: string,
     line: u32,
@@ -46,7 +46,7 @@ Token = {
 }
 
 // Lexer state
-Lexer = {
+Lexer: {
     input: string,
     tokens: vec.Vec<Token>,
     current: u32,
@@ -56,7 +56,7 @@ Lexer = {
 }
 
 // Create a new lexer
-lexer_new = (input: string) Lexer {
+lexer_new: (input: string) Lexer  = {
     return Lexer{
         input: input,
         tokens: vec.new<Token>(),
@@ -86,22 +86,22 @@ lexer_scan_tokens = (l: *Lexer) vec.Vec<Token> {
 }
 
 // Check if at end of input
-is_at_end = (l: *Lexer) bool {
+is_at_end: (l: *Lexer) bool  = {
     return l.current >= l.input.len()
 }
 
 // Get current character
-peek = (l: *Lexer) char {
+peek: (l: *Lexer) char  = {
     is_at_end(l) ? { return '\0' } : { return l.input[l.current] }
 }
 
 // Get next character without advancing
-peek_next = (l: *Lexer) char {
+peek_next: (l: *Lexer) char  = {
     (l.current + 1) >= l.input.len() ? { return '\0' } : { return l.input[l.current + 1] }
 }
 
 // Advance and return current character
-advance = (l: *Lexer) char {
+advance: (l: *Lexer) char  = {
     ch := l.input[l.current]
     l.current = l.current + 1
     l.column = l.column + 1
@@ -109,7 +109,7 @@ advance = (l: *Lexer) char {
 }
 
 // Check if current matches expected and advance if so
-match_char = (l: *Lexer, expected: char) bool {
+match_char: (l: *Lexer, expected: char) bool  = {
     is_at_end(l) ? { return false } : {}
     l.input[l.current] != expected ? { return false } : {}
     l.current = l.current + 1
@@ -118,7 +118,7 @@ match_char = (l: *Lexer, expected: char) bool {
 }
 
 // Add a token
-add_token = (l: *Lexer, type: TokenType) void {
+add_token: (l: *Lexer, type: TokenType) void  = {
     text := string.substring(l.input, l.start, l.current)
     l.tokens.push(Token{
         type: type,
@@ -129,7 +129,7 @@ add_token = (l: *Lexer, type: TokenType) void {
 }
 
 // Scan a single token
-scan_token = (l: *Lexer) void {
+scan_token: (l: *Lexer) void  = {
     c := advance(l)
     
     match c {
@@ -195,8 +195,22 @@ scan_token = (l: *Lexer) void {
         }
         | '/' => {
             match_char(l, '/') ? {
-                // Comment - skip to end of line
+                // Single-line comment - skip to end of line
                 loop peek(l) != '\n' && !is_at_end(l) {
+                    advance(l)
+                }
+            } : match_char(l, '*') ? {
+                // Block comment - skip until */
+                loop !is_at_end(l) {
+                    peek(l) == '*' && peek_next(l) == '/' ? {
+                        advance(l)  // consume *
+                        advance(l)  // consume /
+                        break
+                    } : {}
+                    peek(l) == '\n' ? {
+                        l.line = l.line + 1
+                        l.column = 1
+                    } : {}
                     advance(l)
                 }
             } : { add_token(l, TokenType.Slash) }
@@ -225,7 +239,7 @@ scan_token = (l: *Lexer) void {
 }
 
 // Scan string literal
-scan_string = (l: *Lexer) void {
+scan_string: (l: *Lexer) void  = {
     loop peek(l) != '"' && !is_at_end(l) {
         peek(l) == '\n' ? {
             l.line = l.line + 1
@@ -248,7 +262,7 @@ scan_string = (l: *Lexer) void {
 }
 
 // Scan character literal
-scan_char = (l: *Lexer) void {
+scan_char: (l: *Lexer) void  = {
     peek(l) == '\\' ? {
         advance(l) // Skip backslash
         advance(l) // Skip escape character
@@ -269,7 +283,7 @@ scan_char = (l: *Lexer) void {
 }
 
 // Scan number literal
-scan_number = (l: *Lexer) void {
+scan_number: (l: *Lexer) void  = {
     loop is_digit(peek(l)) {
         advance(l)
     }
@@ -287,7 +301,7 @@ scan_number = (l: *Lexer) void {
 }
 
 // Scan identifier or keyword
-scan_identifier = (l: *Lexer) void {
+scan_identifier: (l: *Lexer) void  = {
     loop is_alphanumeric(peek(l)) {
         advance(l)
     }
@@ -298,24 +312,24 @@ scan_identifier = (l: *Lexer) void {
 }
 
 // Check if character is digit
-is_digit = (c: char) bool {
+is_digit: (c: char) bool  = {
     return c >= '0' && c <= '9'
 }
 
 // Check if character is alpha
-is_alpha = (c: char) bool {
+is_alpha: (c: char) bool  = {
     return (c >= 'a' && c <= 'z') || 
            (c >= 'A' && c <= 'Z') || 
            c == '_'
 }
 
 // Check if character is alphanumeric
-is_alphanumeric = (c: char) bool {
+is_alphanumeric: (c: char) bool  = {
     return is_alpha(c) || is_digit(c)
 }
 
 // Get keyword token type or identifier
-get_keyword_type = (text: string) TokenType {
+get_keyword_type: (text: string) TokenType  = {
     match text {
         | "return" => TokenType.Return
         | "loop" => TokenType.Loop

@@ -114,7 +114,7 @@ fn test_printf_output_verification() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: Vec::new(),
@@ -155,7 +155,7 @@ fn test_puts_output_verification() {
                     }),
                     Statement::Return(Expression::Integer32(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: Vec::new(),
@@ -203,7 +203,7 @@ fn test_multiple_printf_calls() {
                     }),
                     Statement::Return(Expression::Integer64(42)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: Vec::new(),
@@ -258,7 +258,7 @@ fn test_printf_with_format_specifiers() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: Vec::new(),

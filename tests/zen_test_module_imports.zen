@@ -9,14 +9,14 @@ mem := build.import("memory")
 string := build.import("string")
 
 // Test that imports work
-test_imports = () i32 {
+test_imports: () i32  = {
     // Use imported modules
     io.print("Testing module imports\n")
     
     // Test core module
     r := core.range(0, 5)
-    sum ::= 0
-    i ::= 0
+    sum := 0
+    i := 0
     loop {
         if i >= 5 {
             break
@@ -28,7 +28,7 @@ test_imports = () i32 {
     return sum  // Should return 10
 }
 
-main = () i32 {
+main: () i32  = {
     result := test_imports()
     io.print_int(result)
     return 0

@@ -7,7 +7,7 @@ io := @std.io
 math := @std.math
 
 // Test basic import usage
-test_basic_imports = () void {
+test_basic_imports: () void  = {
     // Use io module for printing
     io.print("Testing basic imports...\n")
     
@@ -22,7 +22,7 @@ test_basic_imports = () void {
 }
 
 // Test nested module access
-test_nested_access = () void {
+test_nested_access: () void  = {
     io.print("Testing nested module access...\n")
     
     // Access nested functionality
@@ -33,7 +33,7 @@ test_nested_access = () void {
 }
 
 // Main function
-main = () i32 {
+main: () i32  = {
     io.print("Starting import integration tests\n")
     io.print("================================\n\n")
     

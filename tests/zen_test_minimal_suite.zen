@@ -1,7 +1,7 @@
 // Minimal Test Suite for Zen
 io := @std.io
 
-main = () i32 {
+main: () i32  = {
     io.println("Running Zen tests...")
     
     // Test 1: Arithmetic

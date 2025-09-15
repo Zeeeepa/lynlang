@@ -7,28 +7,27 @@ extern memcpy = (dest: *void, src: *void, size: i64) *void
 extern strlen = (str: *i8) i64
 
 // JSON Value types
-JsonValue = 
-    | Null
+JsonValue: Null
     | Boolean(value: bool)
     | Number(value: f64)
     | String(value: *i8)
     | Array(elements: *JsonValue, count: i32)
     | Object(pairs: *JsonPair, count: i32)
 
-JsonPair = {
+JsonPair: {
     key: *i8,
     value: *JsonValue,
 }
 
 // JSON Parser state
-JsonParser = {
+JsonParser: {
     input: *i8,
     position: i32,
     length: i32,
 }
 
 // Create a new JSON parser
-json_parser_new = (input: *i8) JsonParser {
+json_parser_new: (input: *i8) JsonParser  = {
     return JsonParser {
         input: input,
         position: 0,
@@ -37,7 +36,7 @@ json_parser_new = (input: *i8) JsonParser {
 }
 
 // Skip whitespace in parser
-json_skip_whitespace = (parser: *JsonParser) void {
+json_skip_whitespace: (parser: *JsonParser) void  = {
     loop {
         parser.position >= parser.length ? | true => { break } | false => {}
         
@@ -84,7 +83,7 @@ json_parse_string = (parser: *JsonParser) *i8 {
 }
 
 // Parse a JSON number
-json_parse_number = (parser: *JsonParser) f64 {
+json_parse_number: (parser: *JsonParser) f64  = {
     start := parser.position
     has_decimal := false
     
@@ -120,7 +119,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     json_skip_whitespace(parser)
     
     parser.position >= parser.length ? | true => {
-        return &JsonValue::Null
+        return &JsonValue:Null
     } | false => {}
     
     ch := parser.input[parser.position]
@@ -128,13 +127,13 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     // Null
     ch == 110 ? | true => { // 'n'
         parser.position = parser.position + 4 // Skip "null"
-        return &JsonValue::Null
+        return &JsonValue:Null
     } | false => {}
     
     // Boolean true
     ch == 116 ? | true => { // 't'
         parser.position = parser.position + 4 // Skip "true"
-        value := JsonValue::Boolean(true)
+        value := JsonValue:Boolean(true)
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
@@ -143,7 +142,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     // Boolean false
     ch == 102 ? | true => { // 'f'
         parser.position = parser.position + 5 // Skip "false"
-        value := JsonValue::Boolean(false)
+        value := JsonValue:Boolean(false)
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
@@ -152,7 +151,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     // String
     ch == 34 ? | true => { // '"'
         str := json_parse_string(parser)
-        value := JsonValue::String(str)
+        value := JsonValue:String(str)
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
@@ -161,7 +160,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     // Number
     ch == 45 || (ch >= 48 && ch <= 57) ? | true => { // '-' or digit
         num := json_parse_number(parser)
-        value := JsonValue::Number(num)
+        value := JsonValue:Number(num)
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
@@ -179,7 +178,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
         return json_parse_object(parser)
     } | false => {}
     
-    return &JsonValue::Null
+    return &JsonValue:Null
 }
 
 // Parse JSON array
@@ -207,7 +206,7 @@ json_parse_array = (parser: *JsonParser) *JsonValue {
         count = count + 1
     }
     
-    value := JsonValue::Array(elements, count)
+    value := JsonValue:Array(elements, count)
     result := malloc(@sizeof(JsonValue)) as *JsonValue
     *result = value
     return result
@@ -251,7 +250,7 @@ json_parse_object = (parser: *JsonParser) *JsonValue {
         count = count + 1
     }
     
-    value := JsonValue::Object(pairs, count)
+    value := JsonValue:Object(pairs, count)
     result := malloc(@sizeof(JsonValue)) as *JsonValue
     *result = value
     return result
@@ -275,7 +274,7 @@ json_stringify = (value: *JsonValue) *i8 {
 }
 
 // Free JSON value memory
-json_free = (value: *JsonValue) void {
+json_free: (value: *JsonValue) void  = {
     value ? 
         | String(s) => { free(s as *void) }
         | Array(elements, count) => {

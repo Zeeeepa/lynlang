@@ -15,7 +15,7 @@ symbol_table := @std.compiler.symbol_table
 codegen := @std.compiler.codegen
 
 // Test compilation of simple program
-test_compile_simple = () bool {
+test_compile_simple: () bool  = {
     source := "main = () i32 { return 42 }"
     
     // Lexical analysis
@@ -60,7 +60,7 @@ test_compile_simple = () bool {
 }
 
 // Test compilation with imports
-test_compile_with_imports = () bool {
+test_compile_with_imports: () bool  = {
     source := "io := @std.io\n\nmain = () i32 {\n    io.print(\"Hello\")\n    return 0\n}"
     
     // Full pipeline
@@ -82,7 +82,7 @@ test_compile_with_imports = () bool {
 }
 
 // Test type checking
-test_type_checking = () bool {
+test_type_checking: () bool  = {
     // Test type mismatch detection
     bad_source := "main = () i32 { return \"hello\" }"
     
@@ -106,7 +106,7 @@ test_type_checking = () bool {
 }
 
 // Test LLVM IR generation
-test_llvm_generation = () bool {
+test_llvm_generation: () bool  = {
     source := "add = (a: i32, b: i32) i32 { return a + b }"
     
     tokens := lexer.tokenize(source)
@@ -135,7 +135,7 @@ test_llvm_generation = () bool {
 }
 
 // Test symbol table
-test_symbol_resolution = () bool {
+test_symbol_resolution: () bool  = {
     source := "x := 42\ny := x + 1\nz := y * 2"
     
     tokens := lexer.tokenize(source)
@@ -169,7 +169,7 @@ test_symbol_resolution = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=== Self-Hosted Compiler Tests ===\n\n")
     
     tests_passed := 0

@@ -7,16 +7,16 @@ io := @std.io
 assert := @std.assert
 
 // Test helper to verify token
-verify_token = (tok: token::Token, expected_type: token::TokenType, expected_value: String) bool {
+verify_token: (tok: token:Token, expected_type: token:TokenType, expected_value: String) bool  = {
     tok.type == expected_type && tok.value == expected_value ?
         | true => { return true }
         | false => {
             io.print("Token mismatch: expected ")
-            io.print(token::token_type_to_string(expected_type))
+            io.print(token:token_type_to_string(expected_type))
             io.print(" '")
             io.print(expected_value)
             io.print("', got ")
-            io.print(token::token_type_to_string(tok.type))
+            io.print(token:token_type_to_string(tok.type))
             io.print(" '")
             io.print(tok.value)
             io.print("'\n")
@@ -25,330 +25,330 @@ verify_token = (tok: token::Token, expected_type: token::TokenType, expected_val
 }
 
 // Test basic literals
-test_literals = () bool {
+test_literals: () bool  = {
     input := "42 3.14 \"hello\" 'a' true false"
-    l := lexer::lexer_new(input)
+    l := lexer:lexer_new(input)
     
     // Integer
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Integer, "42") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Integer, "42") ? | false => { return false } | true => {}
     
     // Float
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Float, "3.14") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Float, "3.14") ? | false => { return false } | true => {}
     
     // String
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::String, "hello") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:String, "hello") ? | false => { return false } | true => {}
     
     // Character
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Integer, "a") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Integer, "a") ? | false => { return false } | true => {}
     
     // Boolean true
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Boolean, "true") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Boolean, "true") ? | false => { return false } | true => {}
     
     // Boolean false
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Boolean, "false") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Boolean, "false") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test identifiers and keywords
-test_identifiers_keywords = () bool {
+test_identifiers_keywords: () bool  = {
     input := "myVar _private struct if loop @std.core"
-    l := lexer::lexer_new(input)
+    l := lexer:lexer_new(input)
     
     // Regular identifier
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Identifier, "myVar") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Identifier, "myVar") ? | false => { return false } | true => {}
     
     // Underscore identifier
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Identifier, "_private") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Identifier, "_private") ? | false => { return false } | true => {}
     
     // Keyword: struct
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Keyword, "struct") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Keyword, "struct") ? | false => { return false } | true => {}
     
     // Keyword: if
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Keyword, "if") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Keyword, "if") ? | false => { return false } | true => {}
     
     // Keyword: loop
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Keyword, "loop") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Keyword, "loop") ? | false => { return false } | true => {}
     
     // Namespace identifier
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Identifier, "@std.core") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Identifier, "@std.core") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test operators
-test_operators = () bool {
+test_operators: () bool  = {
     input := "+ - * / % == != < <= > >= && || ! & | ^ ~ << >> ="
-    l := lexer::lexer_new(input)
+    l := lexer:lexer_new(input)
     
     // Arithmetic
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Plus, "+") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Plus, "+") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Minus, "-") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Minus, "-") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Star, "*") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Star, "*") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Slash, "/") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Slash, "/") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Percent, "%") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Percent, "%") ? | false => { return false } | true => {}
     
     // Comparison
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Equals, "==") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Equals, "==") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::NotEquals, "!=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:NotEquals, "!=") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::LessThan, "<") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:LessThan, "<") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::LessThanEquals, "<=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:LessThanEquals, "<=") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::GreaterThan, ">") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:GreaterThan, ">") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::GreaterThanEquals, ">=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:GreaterThanEquals, ">=") ? | false => { return false } | true => {}
     
     // Logical
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::And, "&&") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:And, "&&") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Or, "||") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Or, "||") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Not, "!") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Not, "!") ? | false => { return false } | true => {}
     
     // Bitwise
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Ampersand, "&") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Ampersand, "&") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Pipe, "|") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Pipe, "|") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Caret, "^") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Caret, "^") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Tilde, "~") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Tilde, "~") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::LeftShift, "<<") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:LeftShift, "<<") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::RightShift, ">>") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:RightShift, ">>") ? | false => { return false } | true => {}
     
     // Assignment
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Assign, "=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Assign, "=") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test assignment operators
-test_assignments = () bool {
-    input := ":= ::= += -= *= /="
-    l := lexer::lexer_new(input)
+test_assignments: () bool  = {
+    input := ":= := += -= *= /="
+    l := lexer:lexer_new(input)
     
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::AssignConst, ":=") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:AssignConst, ":=") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::AssignMut, "::=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:AssignMut, ":=") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::PlusEquals, "+=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:PlusEquals, "+=") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::MinusEquals, "-=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:MinusEquals, "-=") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::StarEquals, "*=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:StarEquals, "*=") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::SlashEquals, "/=") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:SlashEquals, "/=") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test delimiters and punctuation
-test_delimiters = () bool {
-    input := "( ) { } [ ] , ; : :: . .. ... -> => ? @"
-    l := lexer::lexer_new(input)
+test_delimiters: () bool  = {
+    input := "( ) { } [ ] , ; : : . .. ... -> => ? @"
+    l := lexer:lexer_new(input)
     
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::LeftParen, "(") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:LeftParen, "(") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::RightParen, ")") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:RightParen, ")") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::LeftBrace, "{") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:LeftBrace, "{") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::RightBrace, "}") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:RightBrace, "}") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::LeftBracket, "[") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:LeftBracket, "[") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::RightBracket, "]") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:RightBracket, "]") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Comma, ",") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Comma, ",") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Semicolon, ";") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Semicolon, ";") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Colon, ":") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Colon, ":") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::DoubleColon, "::") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:DoubleColon, ":") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Dot, ".") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Dot, ".") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Range, "..") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Range, "..") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Ellipsis, "...") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Ellipsis, "...") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Arrow, "->") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Arrow, "->") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::FatArrow, "=>") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:FatArrow, "=>") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Question, "?") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Question, "?") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::At, "@") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:At, "@") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test comments
-test_comments = () bool {
+test_comments: () bool  = {
     input := "x // line comment\ny /* block\ncomment */ z"
-    l := lexer::lexer_new(input)
+    l := lexer:lexer_new(input)
     
     // First identifier
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Identifier, "x") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Identifier, "x") ? | false => { return false } | true => {}
     
     // Newline after comment
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Newline, "\n") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Newline, "\n") ? | false => { return false } | true => {}
     
     // Second identifier
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Identifier, "y") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Identifier, "y") ? | false => { return false } | true => {}
     
     // Third identifier (after block comment)
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Identifier, "z") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Identifier, "z") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test number formats
-test_number_formats = () bool {
+test_number_formats: () bool  = {
     input := "42 0x2A 0b101010 3.14 1.5e10 2e-5 123i32 456u64 3.14f32"
-    l := lexer::lexer_new(input)
+    l := lexer:lexer_new(input)
     
     // Decimal
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Integer, "42") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Integer, "42") ? | false => { return false } | true => {}
     
     // Hexadecimal
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Integer, "0x2A") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Integer, "0x2A") ? | false => { return false } | true => {}
     
     // Binary
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Integer, "0b101010") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Integer, "0b101010") ? | false => { return false } | true => {}
     
     // Float
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Float, "3.14") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Float, "3.14") ? | false => { return false } | true => {}
     
     // Scientific notation
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Float, "1.5e10") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Float, "1.5e10") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Float, "2e-5") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Float, "2e-5") ? | false => { return false } | true => {}
     
     // Type suffixed numbers
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Integer, "123i32") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Integer, "123i32") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Integer, "456u64") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Integer, "456u64") ? | false => { return false } | true => {}
     
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::Float, "3.14f32") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:Float, "3.14f32") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test string escapes
-test_string_escapes = () bool {
+test_string_escapes: () bool  = {
     input := "\"hello\\nworld\" \"tab\\there\" \"quote\\\"test\\\"\" \"backslash\\\\\""
-    l := lexer::lexer_new(input)
+    l := lexer:lexer_new(input)
     
     // Newline escape
-    tok := lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::String, "hello\\nworld") ? | false => { return false } | true => {}
+    tok := lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:String, "hello\\nworld") ? | false => { return false } | true => {}
     
     // Tab escape
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::String, "tab\\there") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:String, "tab\\there") ? | false => { return false } | true => {}
     
     // Quote escape
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::String, "quote\\\"test\\\"") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:String, "quote\\\"test\\\"") ? | false => { return false } | true => {}
     
     // Backslash escape
-    tok = lexer::lexer_next_token(&l)
-    verify_token(tok, token::TokenType::String, "backslash\\\\") ? | false => { return false } | true => {}
+    tok = lexer:lexer_next_token(&l)
+    verify_token(tok, token:TokenType:String, "backslash\\\\") ? | false => { return false } | true => {}
     
     return true
 }
 
 // Test complex expression
-test_complex_expression = () bool {
+test_complex_expression: () bool  = {
     input := "factorial = (n: i32) i32 { n <= 1 ? | true => 1 | false => n * factorial(n - 1) }"
-    l := lexer::lexer_new(input)
+    l := lexer:lexer_new(input)
     
     // Verify we can tokenize the entire expression
     tok_count := 0
     loop {
-        tok := lexer::lexer_next_token(&l)
+        tok := lexer:lexer_next_token(&l)
         tok_count = tok_count + 1
-        tok.type == token::TokenType::EOF ?
+        tok.type == token:TokenType:EOF ?
             | true => { break }
             | false => {}
     }
@@ -367,7 +367,7 @@ test_complex_expression = () bool {
 }
 
 // Run all tests
-main = () i32 {
+main: () i32  = {
     io.print("=== Zen Lexer Test Suite ===\n\n")
     
     passed := 0

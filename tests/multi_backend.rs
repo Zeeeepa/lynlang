@@ -20,7 +20,7 @@ fn test_multi_backend_interface() {
             args: vec![],
             return_type: AstType::I64,
             body: vec![Statement::Return(Expression::Integer64(42))],
-            is_async: false,
+            
         }
     ]);
     

@@ -14,7 +14,7 @@ type_checker := @std.compiler.type_checker
 codegen := @std.compiler.codegen
 
 // Test case structure
-TestCase = {
+TestCase: {
     name: string,
     input: string,
     expected_tokens: Option<Vec<Token>>,
@@ -24,13 +24,12 @@ TestCase = {
 }
 
 // Test results
-TestResult = 
-    | Pass(name: string)
+TestResult: Pass(name: string)
     | Fail(name: string, message: string)
     | Skip(name: string, reason: string)
 
 // Run a single test case
-run_test = (test_case: TestCase) TestResult {
+run_test: (test_case: TestCase) TestResult  = {
     io.print("Testing: ")
     io.println(test_case.name)
     
@@ -41,8 +40,8 @@ run_test = (test_case: TestCase) TestResult {
             tokens.is_err() ?
                 | true => {
                     test_case.should_fail ?
-                        | true => return TestResult::Pass(test_case.name)
-                        | false => return TestResult::Fail(
+                        | true => return TestResult:Pass(test_case.name)
+                        | false => return TestResult:Fail(
                             test_case.name,
                             "Lexer failed: " + tokens.unwrap_err()
                         )
@@ -54,7 +53,7 @@ run_test = (test_case: TestCase) TestResult {
             expected := test_case.expected_tokens.unwrap()
             
             actual.len() != expected.len() ?
-                | true => return TestResult::Fail(
+                | true => return TestResult:Fail(
                     test_case.name,
                     "Token count mismatch"
                 )
@@ -69,7 +68,7 @@ run_test = (test_case: TestCase) TestResult {
         | true => {
             tokens := lexer.tokenize(test_case.input)
             tokens.is_err() ?
-                | true => return TestResult::Fail(
+                | true => return TestResult:Fail(
                     test_case.name,
                     "Lexer failed in parser test"
                 )
@@ -79,8 +78,8 @@ run_test = (test_case: TestCase) TestResult {
             ast.is_err() ?
                 | true => {
                     test_case.should_fail ?
-                        | true => return TestResult::Pass(test_case.name)
-                        | false => return TestResult::Fail(
+                        | true => return TestResult:Pass(test_case.name)
+                        | false => return TestResult:Fail(
                             test_case.name,
                             "Parser failed: " + ast.unwrap_err()
                         )
@@ -91,20 +90,20 @@ run_test = (test_case: TestCase) TestResult {
         }
         | false => {}
     
-    return TestResult::Pass(test_case.name)
+    return TestResult:Pass(test_case.name)
 }
 
 // Test suite for basic language features
-test_basic_features = () Vec<TestResult> {
-    results := Vec<TestResult>::new()
+test_basic_features: () Vec<TestResult>  = {
+    results := Vec<TestResult>:new()
     
     // Test 1: Simple variable declaration
     test1 := TestCase {
         name: "Simple variable declaration",
         input: "x := 42",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test1))
@@ -113,9 +112,9 @@ test_basic_features = () Vec<TestResult> {
     test2 := TestCase {
         name: "Function declaration",
         input: "add = (a: i32, b: i32) i32 { return a + b }",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test2))
@@ -124,9 +123,9 @@ test_basic_features = () Vec<TestResult> {
     test3 := TestCase {
         name: "Module import",
         input: "io := @std.io",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test3))
@@ -135,9 +134,9 @@ test_basic_features = () Vec<TestResult> {
     test4 := TestCase {
         name: "Pattern matching",
         input: "x ? | true => 1 | false => 0",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test4))
@@ -146,9 +145,9 @@ test_basic_features = () Vec<TestResult> {
     test5 := TestCase {
         name: "Loop construct",
         input: "loop i < 10 { i = i + 1 }",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test5))
@@ -157,16 +156,16 @@ test_basic_features = () Vec<TestResult> {
 }
 
 // Test suite for type system
-test_type_system = () Vec<TestResult> {
-    results := Vec<TestResult>::new()
+test_type_system: () Vec<TestResult>  = {
+    results := Vec<TestResult>:new()
     
     // Test 1: Type inference
     test1 := TestCase {
         name: "Type inference",
         input: "x := 42  // Should infer i32",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test1))
@@ -175,9 +174,9 @@ test_type_system = () Vec<TestResult> {
     test2 := TestCase {
         name: "Explicit type annotation",
         input: "x: i64 = 42",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test2))
@@ -186,9 +185,9 @@ test_type_system = () Vec<TestResult> {
     test3 := TestCase {
         name: "Generic type",
         input: "Option<T> = | Some(value: T) | None",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test3))
@@ -197,9 +196,9 @@ test_type_system = () Vec<TestResult> {
     test4 := TestCase {
         name: "Struct type",
         input: "Point = { x: f64, y: f64 }",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: false,
     }
     results.push(run_test(test4))
@@ -208,16 +207,16 @@ test_type_system = () Vec<TestResult> {
 }
 
 // Test suite for error handling
-test_error_handling = () Vec<TestResult> {
-    results := Vec<TestResult>::new()
+test_error_handling: () Vec<TestResult>  = {
+    results := Vec<TestResult>:new()
     
     // Test 1: Invalid syntax
     test1 := TestCase {
         name: "Invalid syntax",
         input: "x := := 42",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: true,
     }
     results.push(run_test(test1))
@@ -226,9 +225,9 @@ test_error_handling = () Vec<TestResult> {
     test2 := TestCase {
         name: "Type mismatch",
         input: "x: i32 = \"string\"",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: true,
     }
     results.push(run_test(test2))
@@ -237,9 +236,9 @@ test_error_handling = () Vec<TestResult> {
     test3 := TestCase {
         name: "Undefined variable",
         input: "y := undefined_var + 1",
-        expected_tokens: Option::None,
-        expected_ast: Option::None,
-        expected_output: Option::None,
+        expected_tokens: Option:None,
+        expected_ast: Option:None,
+        expected_output: Option:None,
         should_fail: true,
     }
     results.push(run_test(test3))
@@ -248,8 +247,8 @@ test_error_handling = () Vec<TestResult> {
 }
 
 // Test self-hosting capability
-test_self_hosting = () Vec<TestResult> {
-    results := Vec<TestResult>::new()
+test_self_hosting: () Vec<TestResult>  = {
+    results := Vec<TestResult>:new()
     
     io.println("\n=== Self-Hosting Tests ===")
     
@@ -262,15 +261,15 @@ test_self_hosting = () Vec<TestResult> {
             tokens.is_ok() ?
                 | true => {
                     io.println("  ✓ Successfully tokenized lexer.zen")
-                    results.push(TestResult::Pass("Self-tokenization"))
+                    results.push(TestResult:Pass("Self-tokenization"))
                 }
                 | false => {
                     io.println("  ✗ Failed to tokenize lexer.zen")
-                    results.push(TestResult::Fail("Self-tokenization", tokens.unwrap_err()))
+                    results.push(TestResult:Fail("Self-tokenization", tokens.unwrap_err()))
                 }
         }
         | false => {
-            results.push(TestResult::Skip("Self-tokenization", "Could not read lexer.zen"))
+            results.push(TestResult:Skip("Self-tokenization", "Could not read lexer.zen"))
         }
     
     // Test 2: Can the compiler parse itself?
@@ -285,26 +284,26 @@ test_self_hosting = () Vec<TestResult> {
                     ast.is_ok() ?
                         | true => {
                             io.println("  ✓ Successfully parsed parser.zen")
-                            results.push(TestResult::Pass("Self-parsing"))
+                            results.push(TestResult:Pass("Self-parsing"))
                         }
                         | false => {
                             io.println("  ✗ Failed to parse parser.zen")
-                            results.push(TestResult::Fail("Self-parsing", ast.unwrap_err()))
+                            results.push(TestResult:Fail("Self-parsing", ast.unwrap_err()))
                         }
                 }
                 | false => {
-                    results.push(TestResult::Fail("Self-parsing", "Tokenization failed"))
+                    results.push(TestResult:Fail("Self-parsing", "Tokenization failed"))
                 }
         }
         | false => {
-            results.push(TestResult::Skip("Self-parsing", "Could not read parser.zen"))
+            results.push(TestResult:Skip("Self-parsing", "Could not read parser.zen"))
         }
     
     return results
 }
 
 // Run all test suites
-run_all_tests = () i32 {
+run_all_tests: () i32  = {
     io.println("Zen Self-Hosting Test Suite")
     io.println("===========================\n")
     
@@ -330,7 +329,7 @@ run_all_tests = () i32 {
     self_host_results := test_self_hosting()
     
     // Combine all results
-    all_results := Vec<TestResult>::new()
+    all_results := Vec<TestResult>:new()
     all_results.extend(basic_results)
     all_results.extend(type_results)
     all_results.extend(error_results)
@@ -391,6 +390,6 @@ run_all_tests = () i32 {
 }
 
 // Entry point
-main = () i32 {
+main: () i32  = {
     return run_all_tests()
 }

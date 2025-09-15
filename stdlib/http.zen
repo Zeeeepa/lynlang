@@ -8,8 +8,7 @@ extern strlen = (str: *i8) i64
 extern sprintf = (buffer: *i8, format: *i8, ...) i32
 
 // HTTP Methods
-HttpMethod = 
-    | GET
+HttpMethod: GET
     | POST
     | PUT
     | DELETE
@@ -18,8 +17,7 @@ HttpMethod =
     | PATCH
 
 // HTTP Status codes
-HttpStatus = 
-    | OK                    // 200
+HttpStatus: OK                    // 200
     | Created              // 201
     | Accepted             // 202
     | NoContent            // 204
@@ -37,13 +35,13 @@ HttpStatus =
     | ServiceUnavailable   // 503
 
 // HTTP Header
-HttpHeader = {
+HttpHeader: {
     name: *i8,
     value: *i8,
 }
 
 // HTTP Request
-HttpRequest = {
+HttpRequest: {
     method: HttpMethod,
     url: *i8,
     headers: *HttpHeader,
@@ -53,7 +51,7 @@ HttpRequest = {
 }
 
 // HTTP Response
-HttpResponse = {
+HttpResponse: {
     status: HttpStatus,
     status_code: i32,
     headers: *HttpHeader,
@@ -63,7 +61,7 @@ HttpResponse = {
 }
 
 // Create a new HTTP request
-http_request_new = (method: HttpMethod, url: *i8) HttpRequest {
+http_request_new: (method: HttpMethod, url: *i8) HttpRequest  = {
     return HttpRequest {
         method: method,
         url: url,
@@ -75,7 +73,7 @@ http_request_new = (method: HttpMethod, url: *i8) HttpRequest {
 }
 
 // Add header to request
-http_request_add_header = (req: *HttpRequest, name: *i8, value: *i8) void {
+http_request_add_header: (req: *HttpRequest, name: *i8, value: *i8) void  = {
     req.headers[req.header_count] = HttpHeader {
         name: name,
         value: value,
@@ -84,13 +82,13 @@ http_request_add_header = (req: *HttpRequest, name: *i8, value: *i8) void {
 }
 
 // Set request body
-http_request_set_body = (req: *HttpRequest, body: *i8) void {
+http_request_set_body: (req: *HttpRequest, body: *i8) void  = {
     req.body = body
     req.body_length = strlen(body) as i32
 }
 
 // Get status code from status enum
-http_status_code = (status: HttpStatus) i32 {
+http_status_code: (status: HttpStatus) i32  = {
     status ?
         | OK => { return 200 }
         | Created => { return 201 }
@@ -111,24 +109,24 @@ http_status_code = (status: HttpStatus) i32 {
 }
 
 // Get status from code
-http_status_from_code = (code: i32) HttpStatus {
-    code == 200 ? | true => { return HttpStatus::OK } | false => {}
-    code == 201 ? | true => { return HttpStatus::Created } | false => {}
-    code == 202 ? | true => { return HttpStatus::Accepted } | false => {}
-    code == 204 ? | true => { return HttpStatus::NoContent } | false => {}
-    code == 301 ? | true => { return HttpStatus::MovedPermanently } | false => {}
-    code == 302 ? | true => { return HttpStatus::Found } | false => {}
-    code == 304 ? | true => { return HttpStatus::NotModified } | false => {}
-    code == 400 ? | true => { return HttpStatus::BadRequest } | false => {}
-    code == 401 ? | true => { return HttpStatus::Unauthorized } | false => {}
-    code == 403 ? | true => { return HttpStatus::Forbidden } | false => {}
-    code == 404 ? | true => { return HttpStatus::NotFound } | false => {}
-    code == 405 ? | true => { return HttpStatus::MethodNotAllowed } | false => {}
-    code == 500 ? | true => { return HttpStatus::InternalServerError } | false => {}
-    code == 501 ? | true => { return HttpStatus::NotImplemented } | false => {}
-    code == 502 ? | true => { return HttpStatus::BadGateway } | false => {}
-    code == 503 ? | true => { return HttpStatus::ServiceUnavailable } | false => {}
-    return HttpStatus::InternalServerError
+http_status_from_code: (code: i32) HttpStatus  = {
+    code == 200 ? | true => { return HttpStatus:OK } | false => {}
+    code == 201 ? | true => { return HttpStatus:Created } | false => {}
+    code == 202 ? | true => { return HttpStatus:Accepted } | false => {}
+    code == 204 ? | true => { return HttpStatus:NoContent } | false => {}
+    code == 301 ? | true => { return HttpStatus:MovedPermanently } | false => {}
+    code == 302 ? | true => { return HttpStatus:Found } | false => {}
+    code == 304 ? | true => { return HttpStatus:NotModified } | false => {}
+    code == 400 ? | true => { return HttpStatus:BadRequest } | false => {}
+    code == 401 ? | true => { return HttpStatus:Unauthorized } | false => {}
+    code == 403 ? | true => { return HttpStatus:Forbidden } | false => {}
+    code == 404 ? | true => { return HttpStatus:NotFound } | false => {}
+    code == 405 ? | true => { return HttpStatus:MethodNotAllowed } | false => {}
+    code == 500 ? | true => { return HttpStatus:InternalServerError } | false => {}
+    code == 501 ? | true => { return HttpStatus:NotImplemented } | false => {}
+    code == 502 ? | true => { return HttpStatus:BadGateway } | false => {}
+    code == 503 ? | true => { return HttpStatus:ServiceUnavailable } | false => {}
+    return HttpStatus:InternalServerError
 }
 
 // Method to string
@@ -144,12 +142,12 @@ http_method_to_string = (method: HttpMethod) *i8 {
 }
 
 // Parse HTTP response (simplified)
-http_parse_response = (data: *i8) HttpResponse {
+http_parse_response: (data: *i8) HttpResponse  = {
     // This is a simplified parser
     // Real implementation would need proper HTTP parsing
     
     response := HttpResponse {
-        status: HttpStatus::OK,
+        status: HttpStatus:OK,
         status_code: 200,
         headers: malloc(32 * @sizeof(HttpHeader)) as *HttpHeader,
         header_count: 0,
@@ -299,13 +297,13 @@ http_build_query_string = (params: *HttpHeader, count: i32) *i8 {
 }
 
 // Free request
-http_request_free = (req: *HttpRequest) void {
+http_request_free: (req: *HttpRequest) void  = {
     free(req.headers as *void)
     req.body ? | 0 as *i8 => {} | _ => { free(req.body as *void) }
 }
 
 // Free response
-http_response_free = (res: *HttpResponse) void {
+http_response_free: (res: *HttpResponse) void  = {
     free(res.headers as *void)
     res.body ? | 0 as *i8 => {} | _ => { free(res.body as *void) }
 }

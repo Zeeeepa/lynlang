@@ -5,7 +5,7 @@ core := @std.core
 mem := @std.mem
 
 // Thread ID type
-ThreadId = i64
+ThreadId: i64
 
 // Thread handle
 Thread<T> = {
@@ -33,7 +33,7 @@ RwLock<T> = {
 }
 
 // Condition variable
-Condvar = {
+Condvar: {
     state: *void,  // Platform-specific state
 }
 
@@ -43,7 +43,7 @@ Atomic<T> = {
 }
 
 // Thread spawn options
-SpawnOptions = {
+SpawnOptions: {
     name: core.Option<string>,
     stack_size: core.Option<i64>,
 }
@@ -55,11 +55,11 @@ spawn = <T>(f: () T) core.Result<Thread<T>, core.Error> {
     
     thread := Thread<T> {
         id: thread_id,
-        name: core.Option::None,
+        name: core.Option:None,
         join_handle: core.nullptr(),
     }
     
-    core.Result::Ok(thread)
+    core.Result:Ok(thread)
 }
 
 // Spawn a thread with options
@@ -73,32 +73,32 @@ spawn_with = <T>(opts: SpawnOptions, f: () T) core.Result<Thread<T>, core.Error>
         join_handle: core.nullptr(),
     }
     
-    core.Result::Ok(thread)
+    core.Result:Ok(thread)
 }
 
 // Get current thread ID
-current_id = () ThreadId {
+current_id: () ThreadId  = {
     // Mock implementation
     1000
 }
 
 // Get current thread
-current = () Thread<void> {
+current: () Thread<void>  = {
     Thread<void> {
         id: current_id(),
-        name: core.Option::Some("main"),
+        name: core.Option:Some("main"),
         join_handle: core.nullptr(),
     }
 }
 
 // Sleep current thread
-sleep = (millis: i64) void {
+sleep: (millis: i64) void  = {
     // Mock implementation - would use system call
     // In real implementation: nanosleep or similar
 }
 
 // Yield current thread
-yield_now = () void {
+yield_now: () void  = {
     // Mock implementation - would use system call
     // In real implementation: sched_yield or similar
 }
@@ -107,7 +107,7 @@ yield_now = () void {
 join = <T>(thread: Thread<T>) core.Result<T, core.Error> {
     // Mock implementation
     // In real implementation, would wait for thread and get result
-    core.Result::Err(core.Error::NotImplemented("Thread join not implemented"))
+    core.Result:Err(core.Error:NotImplemented("Thread join not implemented"))
 }
 
 // Create a new mutex
@@ -124,17 +124,17 @@ mutex_lock = <T>(m: Ref<Mutex<T>>) MutexGuard<T> {
     // In real implementation, would acquire lock
     MutexGuard<T> {
         mutex: m,
-        data: Ref::new(m.data),
+        data: Ref:new(m.data),
     }
 }
 
-// Try to lock a mutex
+// Attempt to lock a mutex
 mutex_try_lock = <T>(m: Ref<Mutex<T>>) core.Option<MutexGuard<T>> {
     // Mock implementation
-    // In real implementation, would try to acquire lock
-    core.Option::Some(MutexGuard<T> {
+    // In real implementation, would attempt to acquire lock
+    core.Option:Some(MutexGuard<T> {
         mutex: m,
-        data: Ref::new(m.data),
+        data: Ref:new(m.data),
     })
 }
 
@@ -157,7 +157,7 @@ read_lock = <T>(rw: Ref<RwLock<T>>) ReadGuard<T> {
     // Mock implementation
     ReadGuard<T> {
         rwlock: rw,
-        data: Ref::new(rw.data),
+        data: Ref:new(rw.data),
     }
 }
 
@@ -166,7 +166,7 @@ write_lock = <T>(rw: Ref<RwLock<T>>) WriteGuard<T> {
     // Mock implementation
     WriteGuard<T> {
         rwlock: rw,
-        data: Ref::new(rw.data),
+        data: Ref:new(rw.data),
     }
 }
 
@@ -183,7 +183,7 @@ WriteGuard<T> = {
 }
 
 // Create a new condition variable
-condvar_new = () Condvar {
+condvar_new: () Condvar  = {
     Condvar {
         state: core.nullptr(),
     }
@@ -197,13 +197,13 @@ condvar_wait = <T>(cv: Ref<Condvar>, guard: MutexGuard<T>) MutexGuard<T> {
 }
 
 // Signal one waiting thread
-condvar_notify_one = (cv: Ref<Condvar>) void {
+condvar_notify_one: (cv: Ref<Condvar>) void  = {
     // Mock implementation
     // In real implementation, would signal one waiter
 }
 
 // Signal all waiting threads
-condvar_notify_all = (cv: Ref<Condvar>) void {
+condvar_notify_all: (cv: Ref<Condvar>) void  = {
     // Mock implementation
     // In real implementation, would signal all waiters
 }
@@ -234,14 +234,14 @@ atomic_cas = <T>(a: Ref<Atomic<T>>, expected: T, new_value: T) bool {
 }
 
 // Atomic add (for numeric types)
-atomic_add = (a: Ref<Atomic<i64>>, val: i64) i64 {
+atomic_add: (a: Ref<Atomic<i64>>, val: i64) i64  = {
     old := a.value
     a.value = old + val
     old
 }
 
 // Atomic subtract
-atomic_sub = (a: Ref<Atomic<i64>>, val: i64) i64 {
+atomic_sub: (a: Ref<Atomic<i64>>, val: i64) i64  = {
     old := a.value
     a.value = old - val
     old
@@ -260,7 +260,7 @@ thread_local_get = <T>(tls: Ref<ThreadLocal<T>>) Ref<T> {
     // Mock implementation
     // In real implementation, would get thread-specific value
     value := tls.initializer()
-    Ref::new(value)
+    Ref:new(value)
 }
 
 // Set thread-local value
@@ -288,13 +288,13 @@ parallel_map = <T, U>(items: [T], f: (T) U) [U] {
 }
 
 // Thread pool for work scheduling
-ThreadPool = {
+ThreadPool: {
     num_threads: i64,
     threads: [Thread<void>],
 }
 
 // Create thread pool
-thread_pool = (num_threads: i64) ThreadPool {
+thread_pool: (num_threads: i64) ThreadPool  = {
     ThreadPool {
         num_threads: num_threads,
         threads: [],
@@ -305,11 +305,11 @@ thread_pool = (num_threads: i64) ThreadPool {
 submit = <T>(pool: Ref<ThreadPool>, f: () T) core.Future<T> {
     // Mock implementation
     // In real implementation, would queue work
-    core.Future::Ready(f())
+    core.Future:Ready(f())
 }
 
 // Shutdown thread pool
-shutdown = (pool: Ref<ThreadPool>) void {
+shutdown: (pool: Ref<ThreadPool>) void  = {
     // Mock implementation
     // In real implementation, would stop all threads
 }

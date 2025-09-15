@@ -15,7 +15,7 @@ extern memcmp = (ptr1: *i8, ptr2: *i8, n: i64) i32
 ALIGNMENT := 8
 
 // Memory statistics tracking
-MemoryStats = {
+MemoryStats: {
     total_allocated: i64,
     total_freed: i64,
     current_usage: i64,
@@ -80,7 +80,7 @@ realloc_mem = (ptr: *i8, old_size: i64, new_size: i64) *i8 {
 }
 
 // Free memory with tracking
-dealloc = (ptr: *i8, size: i64) void {
+dealloc: (ptr: *i8, size: i64) void  = {
     ptr != null ? {
         free(ptr)
         global_stats.total_freed = global_stats.total_freed + size
@@ -90,52 +90,52 @@ dealloc = (ptr: *i8, size: i64) void {
 }
 
 // Copy memory
-copy = (dest: *i8, src: *i8, size: i64) void {
+copy: (dest: *i8, src: *i8, size: i64) void  = {
     memcpy(dest, src, size)
 }
 
 // Move memory (handles overlapping regions)
-move = (dest: *i8, src: *i8, size: i64) void {
+move: (dest: *i8, src: *i8, size: i64) void  = {
     memmove(dest, src, size)
 }
 
 // Set memory to a value
-set = (ptr: *i8, value: i8, size: i64) void {
+set: (ptr: *i8, value: i8, size: i64) void  = {
     memset(ptr, value, size)
 }
 
 // Compare memory regions
-compare = (ptr1: *i8, ptr2: *i8, size: i64) i32 {
+compare: (ptr1: *i8, ptr2: *i8, size: i64) i32  = {
     memcmp(ptr1, ptr2, size)
 }
 
 // Zero out memory
-zero = (ptr: *i8, size: i64) void {
+zero: (ptr: *i8, size: i64) void  = {
     memset(ptr, 0, size)
 }
 
 // Check if memory regions are equal
-equals = (ptr1: *i8, ptr2: *i8, size: i64) bool {
+equals: (ptr1: *i8, ptr2: *i8, size: i64) bool  = {
     memcmp(ptr1, ptr2, size) == 0
 }
 
 // Align size to boundary
-align_size = (size: i64, alignment: i64) i64 {
+align_size: (size: i64, alignment: i64) i64  = {
     (size + alignment - 1) & ~(alignment - 1)
 }
 
 // Check if pointer is aligned
-is_aligned = (ptr: *i8, alignment: i64) bool {
+is_aligned: (ptr: *i8, alignment: i64) bool  = {
     (ptr as i64) & (alignment - 1) == 0
 }
 
 // Get current memory statistics
-get_stats = () MemoryStats {
+get_stats: () MemoryStats  = {
     global_stats
 }
 
 // Reset memory statistics
-reset_stats = () void {
+reset_stats: () void  = {
     global_stats.total_allocated = 0
     global_stats.total_freed = 0
     global_stats.current_usage = 0
@@ -145,7 +145,7 @@ reset_stats = () void {
 }
 
 // Memory pool for efficient small allocations
-MemoryPool = {
+MemoryPool: {
     blocks: **i8,
     block_size: i64,
     block_count: i64,
@@ -154,7 +154,7 @@ MemoryPool = {
 }
 
 // Create a new memory pool
-pool_create = (block_size: i64, block_count: i64) MemoryPool {
+pool_create: (block_size: i64, block_count: i64) MemoryPool  = {
     aligned_size := align_size(block_size, ALIGNMENT)
     total_size := aligned_size * block_count
     
@@ -186,7 +186,7 @@ pool_alloc = (pool: &MemoryPool) *i8 {
 }
 
 // Free pool memory
-pool_destroy = (pool: &MemoryPool) void {
+pool_destroy: (pool: &MemoryPool) void  = {
     pool.blocks != null ? {
         dealloc(pool.blocks[0], pool.block_size * pool.block_count)
         dealloc(pool.blocks as *i8, pool.block_count * 8)

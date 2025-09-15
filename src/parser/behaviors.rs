@@ -487,7 +487,6 @@ impl<'a> Parser<'a> {
             args,
             return_type,
             body,
-            is_async: false, // TODO: Support async functions
         })
     }
 }

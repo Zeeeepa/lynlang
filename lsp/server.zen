@@ -14,7 +14,7 @@ lexer := @std.compiler.lexer
 parser := @std.compiler.parser
 
 // LSP Message Types
-Message = {
+Message: {
     jsonrpc: string,
     id: Option<i32>,
     method: Option<string>,
@@ -23,43 +23,43 @@ Message = {
     error: Option<ResponseError>,
 }
 
-ResponseError = {
+ResponseError: {
     code: i32,
     message: string,
     data: Option<JsonValue>,
 }
 
 // LSP Error Codes
-ErrorCode = {
-    PARSE_ERROR:: i32 = -32700,
-    INVALID_REQUEST:: i32 = -32600,
-    METHOD_NOT_FOUND:: i32 = -32601,
-    INVALID_PARAMS:: i32 = -32602,
-    INTERNAL_ERROR:: i32 = -32603,
-    SERVER_NOT_INITIALIZED:: i32 = -32002,
-    UNKNOWN_ERROR_CODE:: i32 = -32001,
+ErrorCode: {
+    PARSE_ERROR: i32 = -32700,
+    INVALID_REQUEST: i32 = -32600,
+    METHOD_NOT_FOUND: i32 = -32601,
+    INVALID_PARAMS: i32 = -32602,
+    INTERNAL_ERROR: i32 = -32603,
+    SERVER_NOT_INITIALIZED: i32 = -32002,
+    UNKNOWN_ERROR_CODE: i32 = -32001,
 }
 
 // Document Position
-Position = {
+Position: {
     line: u32,
     character: u32,
 }
 
 // Document Range
-Range = {
+Range: {
     start: Position,
     end: Position,
 }
 
 // Document Location
-Location = {
+Location: {
     uri: string,
     range: Range,
 }
 
 // Text Document Item
-TextDocumentItem = {
+TextDocumentItem: {
     uri: string,
     languageId: string,
     version: i32,
@@ -67,31 +67,30 @@ TextDocumentItem = {
 }
 
 // Text Document Identifier
-TextDocumentIdentifier = {
+TextDocumentIdentifier: {
     uri: string,
 }
 
 // Versioned Text Document Identifier
-VersionedTextDocumentIdentifier = {
+VersionedTextDocumentIdentifier: {
     uri: string,
     version: i32,
 }
 
 // Text Document Position Params
-TextDocumentPositionParams = {
+TextDocumentPositionParams: {
     textDocument: TextDocumentIdentifier,
     position: Position,
 }
 
 // Diagnostic Severity
-DiagnosticSeverity = 
-    | Error
+DiagnosticSeverity: Error
     | Warning
     | Information
     | Hint
 
 // Diagnostic
-Diagnostic = {
+Diagnostic: {
     range: Range,
     severity: DiagnosticSeverity,
     code: Option<string>,
@@ -101,14 +100,13 @@ Diagnostic = {
 }
 
 // Diagnostic Related Information
-DiagnosticRelatedInformation = {
+DiagnosticRelatedInformation: {
     location: Location,
     message: string,
 }
 
 // Completion Item Kind
-CompletionItemKind = 
-    | Text
+CompletionItemKind: Text
     | Method
     | Function
     | Constructor
@@ -135,7 +133,7 @@ CompletionItemKind =
     | TypeParameter
 
 // Completion Item
-CompletionItem = {
+CompletionItem: {
     label: string,
     kind: CompletionItemKind,
     detail: Option<string>,
@@ -146,14 +144,13 @@ CompletionItem = {
 }
 
 // Hover Information
-Hover = {
+Hover: {
     contents: string,
     range: Option<Range>,
 }
 
 // Symbol Kind
-SymbolKind = 
-    | File
+SymbolKind: File
     | Module
     | Namespace
     | Package
@@ -181,7 +178,7 @@ SymbolKind =
     | TypeParameter
 
 // Document Symbol
-DocumentSymbol = {
+DocumentSymbol: {
     name: string,
     detail: Option<string>,
     kind: SymbolKind,
@@ -191,7 +188,7 @@ DocumentSymbol = {
 }
 
 // Server Capabilities
-ServerCapabilities = {
+ServerCapabilities: {
     textDocumentSync: i32,  // 1 = Full sync
     completionProvider: bool,
     hoverProvider: bool,
@@ -206,7 +203,7 @@ ServerCapabilities = {
 }
 
 // Language Server State
-LanguageServer = {
+LanguageServer: {
     initialized: bool,
     root_uri: Option<string>,
     capabilities: ServerCapabilities,
@@ -215,7 +212,7 @@ LanguageServer = {
 }
 
 // Document State
-Document = {
+Document: {
     uri: string,
     version: i32,
     content: string,
@@ -226,7 +223,7 @@ Document = {
 }
 
 // Create new language server
-server_new = () LanguageServer {
+server_new: () LanguageServer  = {
     LanguageServer{
         initialized: false,
         root_uri: Option<string>.None,
@@ -249,7 +246,7 @@ server_new = () LanguageServer {
 }
 
 // Handle LSP request
-handle_request = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_request: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     msg.method ?
         | Option.Some(method) => {
             method ?
@@ -274,7 +271,7 @@ handle_request = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle initialize request
-handle_initialize = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_initialize: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     server.initialized = true
     
     // Extract root URI from params if available
@@ -290,7 +287,7 @@ handle_initialize = (server: Ptr<LanguageServer>, msg: Message) Message {
         ("capabilities", json_object([
             ("textDocumentSync", json_number(1)),
             ("completionProvider", json_object([
-                ("triggerCharacters", json_array([json_string("."), json_string("::")]))
+                ("triggerCharacters", json_array([json_string("."), json_string(":")]))
             ])),
             ("hoverProvider", json_bool(true)),
             ("definitionProvider", json_bool(true)),
@@ -312,7 +309,7 @@ handle_initialize = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle initialized notification
-handle_initialized = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_initialized: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     // No response needed for notifications
     return Message{
         jsonrpc: "2.0",
@@ -325,13 +322,13 @@ handle_initialized = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle shutdown request
-handle_shutdown = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_shutdown: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     server.initialized = false
     return success_response(msg, json_null())
 }
 
 // Handle textDocument/didOpen notification
-handle_did_open = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_did_open: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     msg.params ?
         | Option.Some(params) => {
             // Extract document from params
@@ -364,7 +361,7 @@ handle_did_open = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle textDocument/didChange notification
-handle_did_change = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_did_change: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     msg.params ?
         | Option.Some(params) => {
             // Extract document and changes
@@ -391,7 +388,7 @@ handle_did_change = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle textDocument/completion request
-handle_completion = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_completion: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     msg.params ?
         | Option.Some(params) => {
             pos_params := extract_position_params(params)
@@ -416,7 +413,7 @@ handle_completion = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle textDocument/hover request
-handle_hover = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_hover: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     msg.params ?
         | Option.Some(params) => {
             pos_params := extract_position_params(params)
@@ -443,7 +440,7 @@ handle_hover = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle textDocument/definition request
-handle_definition = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_definition: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     msg.params ?
         | Option.Some(params) => {
             pos_params := extract_position_params(params)
@@ -467,7 +464,7 @@ handle_definition = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Handle textDocument/documentSymbol request
-handle_document_symbol = (server: Ptr<LanguageServer>, msg: Message) Message {
+handle_document_symbol: (server: Ptr<LanguageServer>, msg: Message) Message  = {
     msg.params ?
         | Option.Some(params) => {
             doc_id := extract_text_document_identifier(params)
@@ -485,7 +482,7 @@ handle_document_symbol = (server: Ptr<LanguageServer>, msg: Message) Message {
 }
 
 // Analyze document (tokenize, parse, extract symbols)
-analyze_document = (doc: Ptr<Document>) void {
+analyze_document: (doc: Ptr<Document>) void  = {
     // Tokenize
     lex := lexer.lexer_new(doc.content)
     doc.tokens = lexer.tokenize(ptr_of(lex))
@@ -548,7 +545,7 @@ analyze_document = (doc: Ptr<Document>) void {
 }
 
 // Check for comptime import anti-pattern
-check_comptime_imports = (doc: Ptr<Document>) void {
+check_comptime_imports: (doc: Ptr<Document>) void  = {
     lines := string.split(doc.content, '\n')
     in_comptime_block := false
     comptime_start_line := 0
@@ -603,7 +600,7 @@ check_comptime_imports = (doc: Ptr<Document>) void {
 }
 
 // Extract symbols from AST
-extract_symbols = (ast: Vec<parser.AstNode>) Vec<DocumentSymbol> {
+extract_symbols: (ast: Vec<parser.AstNode>) Vec<DocumentSymbol>  = {
     symbols := vec_new<DocumentSymbol>()
     
     i := 0
@@ -620,7 +617,7 @@ extract_symbols = (ast: Vec<parser.AstNode>) Vec<DocumentSymbol> {
 }
 
 // Convert AST node to document symbol
-ast_node_to_symbol = (node: parser.AstNode) Option<DocumentSymbol> {
+ast_node_to_symbol: (node: parser.AstNode) Option<DocumentSymbol>  = {
     node ?
         | parser.AstNode.FuncDecl(name, params, ret_type, body, is_generic) => {
             return Option<DocumentSymbol>.Some(DocumentSymbol{
@@ -670,14 +667,14 @@ ast_node_to_symbol = (node: parser.AstNode) Option<DocumentSymbol> {
 }
 
 // Get completions at position
-get_completions = (doc: Document, pos: Position) Vec<CompletionItem> {
+get_completions: (doc: Document, pos: Position) Vec<CompletionItem>  = {
     completions := vec_new<CompletionItem>()
     
     // Add keyword completions
     keywords := [
         "fn", "struct", "enum", "trait", "impl", "type", "const", "let", "var",
         "if", "else", "match", "loop", "while", "for", "return", "break", "continue",
-        "pub", "priv", "mut", "ref", "defer", "async", "await", "comptime",
+        "pub", "priv", "mut", "ref", "defer", "comptime",
     ]
     
     i := 0
@@ -708,7 +705,7 @@ get_completions = (doc: Document, pos: Position) Vec<CompletionItem> {
 }
 
 // Publish diagnostics notification
-publish_diagnostics = (server: Ptr<LanguageServer>, uri: string, diagnostics: Vec<Diagnostic>) void {
+publish_diagnostics: (server: Ptr<LanguageServer>, uri: string, diagnostics: Vec<Diagnostic>) void  = {
     // Create notification message
     params := json_object([
         ("uri", json_string(uri)),
@@ -729,7 +726,7 @@ publish_diagnostics = (server: Ptr<LanguageServer>, uri: string, diagnostics: Ve
 }
 
 // Helper functions
-success_response = (req: Message, result: JsonValue) Message {
+success_response: (req: Message, result: JsonValue) Message  = {
     Message{
         jsonrpc: "2.0",
         id: req.id,
@@ -740,7 +737,7 @@ success_response = (req: Message, result: JsonValue) Message {
     }
 }
 
-error_response = (req: Message, code: i32, message: string) Message {
+error_response: (req: Message, code: i32, message: string) Message  = {
     Message{
         jsonrpc: "2.0",
         id: req.id,
@@ -755,7 +752,7 @@ error_response = (req: Message, code: i32, message: string) Message {
     }
 }
 
-empty_message = () Message {
+empty_message: () Message  = {
     Message{
         jsonrpc: "2.0",
         id: Option<i32>.None,
@@ -767,7 +764,7 @@ empty_message = () Message {
 }
 
 // Send message to client (write to stdout)
-send_message = (msg: Message) void {
+send_message: (msg: Message) void  = {
     // Serialize message to JSON
     json_str := message_to_json(msg)
     
@@ -781,7 +778,7 @@ send_message = (msg: Message) void {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     // Create language server
     server := server_new()
     
@@ -819,12 +816,12 @@ main = () i32 {
 }
 
 // Stub implementations for helper functions
-read_message = () Option<Message> {
+read_message: () Option<Message>  = {
     // In real implementation, would read from stdin
     return Option<Message>.None
 }
 
-message_to_json = (msg: Message) string {
+message_to_json: (msg: Message) string  = {
     // In real implementation, would serialize to JSON
     return "{}"
 }

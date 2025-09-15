@@ -3,13 +3,12 @@ core := @std.core
 io := @std.io
 
 // Error types
-ParseError = {
+ParseError: {
     message: string,
     position: usize,
 }
 
-FileError =
-    | NotFound(path: string)
+FileError: NotFound(path: string)
     | PermissionDenied
     | IOError(message: string)
 
@@ -24,13 +23,13 @@ Option<T> =
     | None
 
 // Function that can fail
-divide = (a: f64, b: f64) Result<f64, string> {
+divide: (a: f64, b: f64) Result<f64, string>  = {
     b == 0.0 ? | true => .Err("Division by zero")
               | false => .Ok(a / b)
 }
 
 // Parse integer with detailed error
-parse_int = (s: string) Result<i32, ParseError> {
+parse_int: (s: string) Result<i32, ParseError>  = {
     // Simplified example
     s ? | "42"  => .Ok(42)
         | "100" => .Ok(100)
@@ -42,14 +41,14 @@ parse_int = (s: string) Result<i32, ParseError> {
 }
 
 // File operation simulation
-read_file = (path: string) Result<string, FileError> {
+read_file: (path: string) Result<string, FileError>  = {
     path ? | "/etc/passwd" => .Err(.PermissionDenied)
            | "/tmp/test.txt" => .Ok("File contents here")
            | _ => .Err(.NotFound(path))
 }
 
 // Chain operations that can fail
-process_file = (path: string) Result<i32, string> {
+process_file: (path: string) Result<i32, string>  = {
     // Read file
     contents := read_file(path) ? | .Ok -> data => data
                                   | .Err -> .NotFound(p) => {
@@ -72,14 +71,14 @@ process_file = (path: string) Result<i32, string> {
 }
 
 // Function with optional return
-find_user = (id: u32) Option<string> {
+find_user: (id: u32) Option<string>  = {
     id ? | 1 => .Some("Alice")
          | 2 => .Some("Bob")
          | 3 => .Some("Charlie")
          | _ => .None
 }
 
-main = () void {
+main: () void  = {
     // Division example
     result1 := divide(10.0, 2.0)
     result2 := divide(10.0, 0.0)

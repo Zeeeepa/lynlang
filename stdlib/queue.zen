@@ -6,13 +6,13 @@ mem := @std.mem
 array := @std.array
 
 // Queue node
-QueueNode = struct(T: type) {
+QueueNode(T: type): {
     value: T,
     next: ?*QueueNode(T),
 }
 
 // Queue structure
-Queue = struct(T: type) {
+Queue(T: type): {
     head: ?*QueueNode(T),
     tail: ?*QueueNode(T),
     size: usize,
@@ -140,7 +140,7 @@ iter = (T: type, q: *Queue(T)) QueueIterator(T) {
     }
 }
 
-QueueIterator = struct(T: type) {
+QueueIterator(T: type): {
     current: ?*QueueNode(T),
 }
 
@@ -154,12 +154,12 @@ next = (T: type, it: *QueueIterator(T)) ?T {
 }
 
 // Priority Queue implementation
-PriorityQueue = struct(T: type) {
+PriorityQueue(T: type): {
     data: Array(PQItem(T)),
     compare: fn(T, T) i32,
 }
 
-PQItem = struct(T: type) {
+PQItem(T: type): {
     value: T,
     priority: i32,
 }

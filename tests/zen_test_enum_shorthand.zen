@@ -1,5 +1,5 @@
 // Test enum shorthand syntax
-test = () void {
+test: () void  = {
     result := .Ok(42)
     error := .Err("failed")
     

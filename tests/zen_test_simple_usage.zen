@@ -3,22 +3,22 @@ io := @std.io
 test := @std.test_simple
 
 // Example tests
-test_addition = () bool {
+test_addition: () bool  = {
     result := 2 + 2
     return test.assert_eq_i32(result, 4, "2 + 2 should equal 4")
 }
 
-test_subtraction = () bool {
+test_subtraction: () bool  = {
     result := 10 - 5
     return test.assert_eq_i32(result, 5, "10 - 5 should equal 5")
 }
 
-test_multiplication = () bool {
+test_multiplication: () bool  = {
     result := 3 * 7
     return test.assert_eq_i32(result, 21, "3 * 7 should equal 21")
 }
 
-main = () i32 {
+main: () i32  = {
     test.run_suite("Basic Math Tests");
     
     test.run_test("Addition", test_addition());

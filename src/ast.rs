@@ -349,7 +349,6 @@ pub struct Function {
     pub args: Vec<(String, AstType)>,
     pub return_type: AstType,
     pub body: Vec<Statement>,
-    pub is_async: bool, // For async functions
 }
 
 #[derive(Debug, Clone, PartialEq)]

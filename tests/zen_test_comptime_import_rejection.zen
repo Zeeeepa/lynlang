@@ -11,7 +11,7 @@ comptime {
     fs := @std.fs
 }
 
-main = () i32 {
+main: () i32  = {
     // This won't compile due to the errors above
     return 1
 }

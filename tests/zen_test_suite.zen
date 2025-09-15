@@ -8,7 +8,7 @@ vec := @std.vec
 hashmap := @std.hashmap
 
 // Test lexer functionality
-test_lexer_basic = () void {
+test_lexer_basic: () void  = {
     source := "let x = 42"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -33,7 +33,7 @@ test_lexer_basic = () void {
         | _ => test.assert_true(false, "Fourth token should be 42")
 }
 
-test_lexer_strings = () void {
+test_lexer_strings: () void  = {
     source := "\"hello world\" 'a'"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -47,7 +47,7 @@ test_lexer_strings = () void {
         | _ => test.assert_true(false, "Failed to parse char literal")
 }
 
-test_lexer_operators = () void {
+test_lexer_operators: () void  = {
     source := "+ - * / == != <= >= && || << >>"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -77,7 +77,7 @@ test_lexer_operators = () void {
 }
 
 // Test parser functionality
-test_parser_variable = () void {
+test_parser_variable: () void  = {
     source := "let x: i32 = 42"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -103,7 +103,7 @@ test_parser_variable = () void {
         | _ => test.assert_true(false, "Expected VarDecl node")
 }
 
-test_parser_function = () void {
+test_parser_function: () void  = {
     source := "add = (a: i32, b: i32) i32 { return a + b }"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -127,8 +127,8 @@ test_parser_function = () void {
         | _ => test.assert_true(false, "Expected FuncDecl node")
 }
 
-test_parser_struct = () void {
-    source := "struct Point { x: f32, y: f32 }"
+test_parser_struct: () void  = {
+    source := "Point: { x: f32, y: f32 }"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
     
@@ -148,7 +148,7 @@ test_parser_struct = () void {
 }
 
 // Test string operations
-test_string_operations = () void {
+test_string_operations: () void  = {
     // Test string length
     s := "hello"
     test.assert_eq(string.string_len(s), 5, "String length")
@@ -180,7 +180,7 @@ test_string_operations = () void {
 }
 
 // Test control flow
-test_control_flow = () void {
+test_control_flow: () void  = {
     // Test if-else
     x := 10
     result := x > 5 ?
@@ -206,7 +206,7 @@ test_control_flow = () void {
 }
 
 // Test arrays
-test_arrays = () void {
+test_arrays: () void  = {
     // Create array
     arr: [5]i32 = [1, 2, 3, 4, 5]
     
@@ -229,7 +229,7 @@ test_arrays = () void {
 }
 
 // Test vectors
-test_vectors = () void {
+test_vectors: () void  = {
     // Create vector
     v := vec.vec_new<i32>()
     
@@ -256,7 +256,7 @@ test_vectors = () void {
 }
 
 // Test hash maps
-test_hashmaps = () void {
+test_hashmaps: () void  = {
     // Create hashmap
     map := hashmap.hashmap_new<string, i32>()
     
@@ -287,7 +287,7 @@ test_hashmaps = () void {
 }
 
 // Test error handling
-test_error_handling = () void {
+test_error_handling: () void  = {
     // Test Option
     opt_some: Option<i32> = Option.Some(42)
     opt_none: Option<i32> = Option.None
@@ -314,7 +314,7 @@ test_error_handling = () void {
 }
 
 // Test generics
-test_generics = () void {
+test_generics: () void  = {
     // Generic function
     identity = <T>(value: T) T {
         return value
@@ -336,7 +336,7 @@ test_generics = () void {
 }
 
 // Test comptime evaluation
-test_comptime = () void {
+test_comptime: () void  = {
     // Compile-time constant
     CONST_VALUE := comptime {
         x := 10
@@ -363,7 +363,7 @@ test_comptime = () void {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.println("=== Zen Language Test Suite ===\n")
     
     // Create test runner

@@ -1,5 +1,5 @@
 // Test defer statement parsing
-test_defer = () void {
+test_defer: () void  = {
     file := open_file("test.txt")
     defer file.close()
     

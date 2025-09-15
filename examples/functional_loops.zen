@@ -5,7 +5,7 @@ std := @std
 io := std.io
 iter := std.iterator
 
-main = () i32 {
+main: () i32  = {
     // Simple range loop - print numbers 1 to 10
     io.println("Numbers from 1 to 10:")
     range(1, 11).loop(i -> {
@@ -26,7 +26,7 @@ main = () i32 {
     io.println("")
     
     // Simple conditional loop
-    count ::= 0
+    count := 0
     io.println("Counting to 5:")
     loop count < 5 {
         io.print(count)
@@ -36,7 +36,7 @@ main = () i32 {
     io.println("")
     
     // Infinite loop with break
-    n ::= 0
+    n := 0
     io.println("Infinite loop with break:")
     loop {
         io.print(n)

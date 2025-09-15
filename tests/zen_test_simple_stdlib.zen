@@ -2,7 +2,7 @@
 
 io := @std.io
 
-main = () i32 {
+main: () i32  = {
     io.print("Testing Basic Stdlib Functionality\n")
     io.print("==================================\n\n")
     

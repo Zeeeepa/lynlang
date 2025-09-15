@@ -12,81 +12,81 @@ parser := @std.parser_enhanced
 ast := @std.ast
 
 // LSP Message Types
-LspMessage = {
+LspMessage: {
     jsonrpc: string,
-    id:: Option<i32>,
-    method:: Option<string>,
-    params:: Option<json.Value>,
-    result:: Option<json.Value>,
-    error:: Option<LspError>,
+    id: Option<i32>,
+    method: Option<string>,
+    params: Option<json.Value>,
+    result: Option<json.Value>,
+    error: Option<LspError>,
 }
 
-LspError = {
+LspError: {
     code: i32,
     message: string,
-    data:: Option<json.Value>,
+    data: Option<json.Value>,
 }
 
 // LSP Error Codes
-ErrorCode = {
-    PARSE_ERROR:: i32 = -32700,
-    INVALID_REQUEST:: i32 = -32600,
-    METHOD_NOT_FOUND:: i32 = -32601,
-    INVALID_PARAMS:: i32 = -32602,
-    INTERNAL_ERROR:: i32 = -32603,
-    SERVER_ERROR_START:: i32 = -32099,
-    SERVER_ERROR_END:: i32 = -32000,
-    SERVER_NOT_INITIALIZED:: i32 = -32002,
-    UNKNOWN_ERROR_CODE:: i32 = -32001,
+ErrorCode: {
+    PARSE_ERROR: i32 = -32700,
+    INVALID_REQUEST: i32 = -32600,
+    METHOD_NOT_FOUND: i32 = -32601,
+    INVALID_PARAMS: i32 = -32602,
+    INTERNAL_ERROR: i32 = -32603,
+    SERVER_ERROR_START: i32 = -32099,
+    SERVER_ERROR_END: i32 = -32000,
+    SERVER_NOT_INITIALIZED: i32 = -32002,
+    UNKNOWN_ERROR_CODE: i32 = -32001,
 }
 
 // Document storage
-Document = {
+Document: {
     uri: string,
     version: i32,
     content: string,
-    tokens:: Vec<lexer.Token>,
-    ast:: Option<ast.Program>,
-    diagnostics:: Vec<Diagnostic>,
+    tokens: Vec<lexer.Token>,
+    ast: Option<ast.Program>,
+    diagnostics: Vec<Diagnostic>,
 }
 
-Diagnostic = {
+Diagnostic: {
     range: Range,
     severity: i32,
-    code:: Option<string>,
-    source:: Option<string>,
+    code: Option<string>,
+    source: Option<string>,
     message: string,
 }
 
-Range = {
+Range: {
     start: Position,
     end: Position,
 }
 
-Position = {
+Position: {
     line: u32,
     character: u32,
 }
 
 // LSP Server State
-LspServer = {
-    initialized:: bool,
-    shutdown_requested:: bool,
-    documents:: HashMap<string, Document>,
-    capabilities:: ServerCapabilities,
-    root_uri:: Option<string>,
+LspServer: {
+    initialized: bool,
+    shutdown_requested: bool,
+    documents: HashMap<string, Document>,
+    capabilities: ServerCapabilities,
+    root_uri: Option<string>,
 }
 
-ServerCapabilities = {
-    text_document_sync:: i32,  // 1 = Full sync
-    hover_provider:: bool,
-    completion_provider:: bool,
-    definition_provider:: bool,
-    diagnostic_provider:: bool,
+ServerCapabilities: {
+    text_document_sync: i32,  // 1 = Full sync
+    hover_provider: bool,
+    completion_provider: bool,
+    definition_provider: bool,
+    diagnostic_provider: bool,
 }
 
 // Create new LSP server
-lsp_server_new = () LspServer {
+lsp_server_new: () LspServer  = {
     LspServer{
         initialized: false,
         shutdown_requested: false,
@@ -103,7 +103,7 @@ lsp_server_new = () LspServer {
 }
 
 // Process incoming message
-lsp_process_message = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+lsp_process_message: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     msg.method ?
         | Some(method) => {
             method ?
@@ -153,7 +153,7 @@ lsp_process_message = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessa
 }
 
 // Handle initialize request
-handle_initialize = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_initialize: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     server.initialized = true
     
     // Extract root URI from params
@@ -200,13 +200,13 @@ handle_initialize = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage
 }
 
 // Handle initialized notification
-handle_initialized = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_initialized: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     // Send initial diagnostics or perform setup
     return None  // No response for notifications
 }
 
 // Handle shutdown request
-handle_shutdown = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_shutdown: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     server.shutdown_requested = true
     
     return Some(LspMessage{
@@ -220,14 +220,14 @@ handle_shutdown = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> 
 }
 
 // Handle exit notification
-handle_exit = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_exit: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     exit_code := server.shutdown_requested ? 0 : 1
     core.exit(exit_code)
     return None
 }
 
 // Handle textDocument/didOpen
-handle_did_open = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_did_open: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     msg.params ?
         | Some(params) => {
             text_doc := json.get_object(params, "textDocument")
@@ -268,7 +268,7 @@ handle_did_open = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> 
 }
 
 // Handle textDocument/didChange
-handle_did_change = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_did_change: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     msg.params ?
         | Some(params) => {
             text_doc := json.get_object(params, "textDocument")
@@ -316,7 +316,7 @@ handle_did_change = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage
 }
 
 // Handle textDocument/didClose
-handle_did_close = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_did_close: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     msg.params ?
         | Some(params) => {
             text_doc := json.get_object(params, "textDocument")
@@ -340,7 +340,7 @@ handle_did_close = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>
 }
 
 // Handle hover request
-handle_hover = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_hover: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     msg.params ?
         | Some(params) => {
             text_doc := json.get_object(params, "textDocument")
@@ -404,13 +404,13 @@ handle_hover = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
 }
 
 // Handle completion request
-handle_completion = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_completion: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     // Generate completion items based on context
     completions := vec_new<json.Value>()
     
     // Add keywords
     keywords := ["function", "struct", "enum", "if", "loop", "return", "true", "false", "null"]
-    i ::= 0
+    i := 0
     loop i < keywords.len() {
         item := json.object([
             ("label", json.string(keywords[i])),
@@ -450,7 +450,7 @@ handle_completion = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage
 }
 
 // Handle definition request
-handle_definition = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage> {
+handle_definition: (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>  = {
     // TODO: Implement go-to-definition
     return Some(LspMessage{
         jsonrpc: "2.0",
@@ -463,7 +463,7 @@ handle_definition = (server:: Ptr<LspServer>, msg: LspMessage) Option<LspMessage
 }
 
 // Analyze document
-analyze_document = (server:: Ptr<LspServer>, doc:: Ptr<Document>) void {
+analyze_document: (server: Ptr<LspServer>, doc: Ptr<Document>) void  = {
     // Tokenize
     doc.tokens = lexer.tokenize(doc.content)
     
@@ -477,7 +477,7 @@ analyze_document = (server:: Ptr<LspServer>, doc:: Ptr<Document>) void {
     doc.diagnostics.clear()
     
     parser.errors.len() > 0 ? | true => {
-        i ::= 0
+        i := 0
         loop i < parser.errors.len() {
             error := parser.errors.at(i)
             
@@ -505,12 +505,12 @@ analyze_document = (server:: Ptr<LspServer>, doc:: Ptr<Document>) void {
 }
 
 // Publish diagnostics
-publish_diagnostics = (server:: Ptr<LspServer>, uri: string) void {
+publish_diagnostics: (server: Ptr<LspServer>, uri: string) void  = {
     server.documents.get(uri) ?
         | Some(doc) => {
             diagnostics := json.array([])
             
-            i ::= 0
+            i := 0
             loop i < doc.diagnostics.len() {
                 diag := doc.diagnostics.at(i)
                 
@@ -555,7 +555,7 @@ publish_diagnostics = (server:: Ptr<LspServer>, uri: string) void {
 }
 
 // Clear diagnostics
-publish_diagnostics_clear = (server:: Ptr<LspServer>, uri: string) void {
+publish_diagnostics_clear: (server: Ptr<LspServer>, uri: string) void  = {
     notification := LspMessage{
         jsonrpc: "2.0",
         id: None,
@@ -572,8 +572,8 @@ publish_diagnostics_clear = (server:: Ptr<LspServer>, uri: string) void {
 }
 
 // Find token at position
-find_token_at = (server:: Ptr<LspServer>, doc:: Ptr<Document>, line: u32, character: u32) Option<lexer.Token> {
-    i ::= 0
+find_token_at: (server: Ptr<LspServer>, doc: Ptr<Document>, line: u32, character: u32) Option<lexer.Token> = {
+    i := 0
     loop i < doc.tokens.len() {
         token := doc.tokens.at(i)
         
@@ -590,7 +590,7 @@ find_token_at = (server:: Ptr<LspServer>, doc:: Ptr<Document>, line: u32, charac
 }
 
 // Generate hover text
-generate_hover = (server:: Ptr<LspServer>, token: lexer.Token) string {
+generate_hover: (server: Ptr<LspServer>, token: lexer.Token) string  = {
     token.type ?
         | lexer.TokenType.Identifier => {
             // Look up symbol information
@@ -614,7 +614,7 @@ generate_hover = (server:: Ptr<LspServer>, token: lexer.Token) string {
 }
 
 // Convert token to LSP range
-token_to_range = (server:: Ptr<LspServer>, token: lexer.Token) json.Value {
+token_to_range = (server: Ptr<LspServer>, token: lexer.Token) json.Value {
     return json.object([
         ("start", json.object([
             ("line", json.number(token.line)),
@@ -628,7 +628,7 @@ token_to_range = (server:: Ptr<LspServer>, token: lexer.Token) json.Value {
 }
 
 // Send message to client
-send_message = (server:: Ptr<LspServer>, msg: LspMessage) void {
+send_message: (server: Ptr<LspServer>, msg: LspMessage) void  = {
     // Serialize message to JSON
     json_str := server.serialize_message(msg)
     
@@ -639,7 +639,7 @@ send_message = (server:: Ptr<LspServer>, msg: LspMessage) void {
 }
 
 // Serialize message to JSON
-serialize_message = (server:: Ptr<LspServer>, msg: LspMessage) string {
+serialize_message: (server: Ptr<LspServer>, msg: LspMessage) string  = {
     obj := json.object([
         ("jsonrpc", json.string(msg.jsonrpc))
     ])
@@ -679,7 +679,7 @@ serialize_message = (server:: Ptr<LspServer>, msg: LspMessage) string {
 }
 
 // Main LSP server loop
-main = () i32 {
+main: () i32  = {
     server := lsp_server_new()
     
     io.eprintln("[zen-lsp] Starting Zen Language Server...")

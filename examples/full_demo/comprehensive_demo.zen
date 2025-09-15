@@ -1,0 +1,642 @@
+// Comprehensive Zenlang Demo
+// Showcases all major language features with the latest syntax
+
+// ========================================
+// Module System & Imports
+// ========================================
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ hashmap } = @std.hashmap
+{ math } = @std.math
+// Concurrent execution is handled through allocators
+// The allocator determines sync vs concurrent execution mode
+{ allocator } = @std.allocator
+{ result } = @std.result
+{ option } = @std.option
+{ thread } = @std.thread
+{ ffi } = @std.ffi
+{ mem } = @std.mem
+
+// ========================================
+// Type Definitions (New Syntax)
+// ========================================
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Complex struct with nested types
+Person: {
+    name: string,
+    age: u32,
+    email: string,
+    address: Address,
+}
+
+Address: {
+    street: string,
+    city: string,
+    country: string,
+}
+
+// Enum without leading | (new syntax)
+Color: Red | Green | Blue | Custom(u32)
+
+// Complex enum with associated data
+Message: Text(string) | Warning(string) | Error(i32) | Binary
+
+// Type aliases
+UserId: u64
+Score: f32
+Timestamp: i64
+
+// Generic types
+Container<T>: {
+    value: T,
+    tag: string,  // Simplified from HashMap
+}
+
+Pair<A, B>: {
+    first: A,
+    second: B,
+}
+
+// ========================================
+// Functions (New Syntax)
+// ========================================
+
+// Simple function with new syntax
+add: (a: i32, b: i32) i32 = {
+    return a + b
+}
+
+// Multiple parameters with same type
+max3: (a, b, c: i32) i32 = {
+    max := a
+    b > max ? { max = b } : {}
+    c > max ? { max = c } : {}
+    return max
+}
+
+// Function returning Result
+divide: (a: f64, b: f64) result.Result<f64, string> = {
+    b == 0.0 ? {
+        return result.Err("Division by zero")
+    } : {
+        return result.Ok(a / b)
+    }
+}
+
+// Generic function
+swap<T>: (a: T, b: T) Pair<T, T> = {
+    return Pair { first: b, second: a }
+}
+
+// Higher-order function
+map<T, U>: (items: vec.Vec<T>, f: (T) U) vec.Vec<U> = {
+    result := vec.new<U>()
+    i := 0
+    loop i < items.len() {
+        result.push(f(items[i]))
+        i = i + 1
+    }
+    return result
+}
+
+// Function with default parameters (simulated)
+greet: (name: string, greeting: ?string) string = {
+    g := greeting ? 
+        | .Some -> val => val
+        | .None => "Hello"
+    return g + ", " + name + "!"
+}
+
+// ========================================
+// Pattern Matching (? Operator)
+// ========================================
+
+// Fibonacci with pattern matching
+fibonacci: (n: u32) u32 = {
+    n ? 
+        | 0 => 0
+        | 1 => 1
+        | n => fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+// Color processing
+describe_color: (c: Color) string = {
+    c ?
+        | Red => "Primary: Red"
+        | Green => "Primary: Green"
+        | Blue => "Primary: Blue"
+        | RGB(r, g, b) => string.format("RGB({}, {}, {})", r, g, b)
+        | HSL(h, s, l) => string.format("HSL({:.1}, {:.1}%, {:.1}%)", h, s * 100, l * 100)
+}
+
+// Message handler with destructuring
+handle_message: (msg: Message) void = {
+    msg ?
+        | Text(content) => {
+            io.println("Text: " + content)
+        }
+        | Warning { msg: m, level: l } => {
+            io.println(string.format("[WARN {}] {}", l, m))
+        }
+        | Error { code: c, details: d } => {
+            io.eprintln(string.format("ERROR {}: {}", c, d))
+        }
+        | Data(bytes) => {
+            io.println(string.format("Received {} bytes", bytes.len()))
+        }
+}
+
+// Nested pattern matching
+process_result: (r: result.Result<i32, string>) string = {
+    r ?
+        | .Ok -> val => {
+            val > 0 ? {
+                return "Positive: " + string.from_int(val)
+            } : {
+                val < 0 ? {
+                    return "Negative: " + string.from_int(val)
+                } : {
+                    return "Zero"
+                }
+            }
+        }
+        | .Err -> err => return "Error: " + err
+}
+
+// ========================================
+// Variable Bindings
+// ========================================
+
+demo_bindings: () void = {
+    // Immutable binding
+    x := 42
+    
+    // Mutable binding
+    y ::= 100
+    y = y + 1
+    
+    // Destructuring
+    point := Point { x: 3.14, y: 2.71 }
+    {x: px, y: py} := point
+    
+    // Pattern matching in binding
+    result := divide(10.0, 2.0)
+    value := result ?
+        | .Ok -> v => v
+        | .Err -> _ => 0.0
+}
+
+// ========================================
+// Memory Management
+// ========================================
+
+// Smart pointers
+demo_pointers: () void = {
+    // Create a smart pointer
+    ptr := Ptr.new(42)
+    
+    // Access value
+    val := ptr.value
+    io.println(string.format("Value: {}", val))
+    
+    // Modify through pointer
+    ptr.value = 100
+    
+    // Get address
+    addr := ptr.address
+    io.println(string.format("Address: {:p}", addr))
+}
+
+// Reference counting
+SharedData: {
+    data: vec.Vec<i32>,
+    ref_count: u32,
+}
+
+create_shared: () Ptr<SharedData> = {
+    return Ptr.new(SharedData {
+        data: vec.new<i32>(),
+        ref_count: 1,
+    })
+}
+
+// ========================================
+// Colorless Concurrency
+// ========================================
+
+// Concurrent function using thread module for demonstration
+// Note: Real concurrency uses allocators - execution mode determined at runtime
+fetch_data: (url: string) string = {
+    // Simulate concurrent operation with thread.sleep
+    thread.sleep(100)
+    return "Data from " + url
+}
+
+// Parallel processing demonstration
+process_parallel: (items: vec.Vec<i32>) vec.Vec<i32> = {
+    // Simplified version - use allocators for true concurrency
+    results := vec.new<i32>()
+    
+    // Process items (would be parallel with concurrent allocator)
+    i := 0
+    loop i < items.len() {
+        item := items[i]
+        // Expensive computation
+        results.push(item * item)
+        i = i + 1
+    }
+    
+    return results
+}
+
+// ========================================
+// Error Handling
+// ========================================
+
+// Chain of operations that can fail
+process_string: (s: string) result.Result<i32, string> = {
+    // Validate
+    s.is_empty() ? {
+        return result.Err("Empty string")
+    } : {}
+    
+    // Parse
+    num := string.parse_int(s) ?
+        | .Ok -> n => n
+        | .Err -> _ => return result.Err("Invalid number")
+    
+    // Process
+    num < 0 ? {
+        return result.Err("Negative number not allowed")
+    } : {
+        return result.Ok(num * 2)
+    }
+}
+
+// Error propagation with ? operator
+calculate_safe: (a: string, b: string) result.Result<f64, string> = {
+    num_a := string.parse_float(a) ?
+        | .Ok -> n => n
+        | .Err -> e => return result.Err("First argument: " + e)
+    
+    num_b := string.parse_float(b) ?
+        | .Ok -> n => n
+        | .Err -> e => return result.Err("Second argument: " + e)
+    
+    return divide(num_a, num_b)
+}
+
+// ========================================
+// Behaviors (Traits/Interfaces)
+// ========================================
+
+Drawable: behavior {
+    draw: (self: Self) void,
+    get_bounds: (self: Self) {x: f64, y: f64, w: f64, h: f64},
+}
+
+Serializable: behavior {
+    serialize: (self: Self) string,
+    deserialize: (data: string) result.Result<Self, string>,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// Implement behavior
+Circle.impl(Drawable) = {
+    draw: (self: Circle) void = {
+        io.println(string.format("Circle at ({:.2}, {:.2}) r={:.2}", 
+            self.center.x, self.center.y, self.radius))
+    },
+    
+    get_bounds: (self: Circle) {x: f64, y: f64, w: f64, h: f64} = {
+        return {
+            x: self.center.x - self.radius,
+            y: self.center.y - self.radius,
+            w: self.radius * 2.0,
+            h: self.radius * 2.0,
+        }
+    },
+}
+
+// Generic behavior
+Comparable<T>: behavior {
+    compare: (self: Self, other: T) i32,
+}
+
+// ========================================
+// Builder Pattern
+// ========================================
+
+HttpRequestBuilder: {
+    url: string,
+    method: string,
+    headers: hashmap.HashMap<string, string>,
+    body: option.Option<string>,
+    timeout: u32,
+}
+
+HttpRequestBuilder.new: () HttpRequestBuilder = {
+    return HttpRequestBuilder {
+        url: "",
+        method: "GET",
+        headers: hashmap.new<string, string>(),
+        body: option.None,
+        timeout: 30000,
+    }
+}
+
+// Fluent interface methods
+HttpRequestBuilder.url: (self: HttpRequestBuilder, url: string) HttpRequestBuilder = {
+    self.url = url
+    return self
+}
+
+HttpRequestBuilder.method: (self: HttpRequestBuilder, method: string) HttpRequestBuilder = {
+    self.method = method
+    return self
+}
+
+HttpRequestBuilder.header: (self: HttpRequestBuilder, key: string, value: string) HttpRequestBuilder = {
+    self.headers.insert(key, value)
+    return self
+}
+
+HttpRequestBuilder.json: (self: HttpRequestBuilder, data: string) HttpRequestBuilder = {
+    self.body = option.Some(data)
+    self.headers.insert("Content-Type", "application/json")
+    return self
+}
+
+HttpRequestBuilder.timeout: (self: HttpRequestBuilder, ms: u32) HttpRequestBuilder = {
+    self.timeout = ms
+    return self
+}
+
+// ========================================
+// UFCS (Uniform Function Call Syntax)
+// ========================================
+
+// Extension methods
+times: (n: i32, f: () void) void = {
+    i := 0
+    loop i < n {
+        f()
+        i = i + 1
+    }
+}
+
+squared: (n: i32) i32 = {
+    return n * n
+}
+
+// Can be called as: 5.times({ io.println("Hi") })
+// Or: 10.squared()
+
+// ========================================
+// Loops and Iteration
+// ========================================
+
+demo_loops: () void = {
+    // Basic loop
+    i := 0
+    loop i < 10 {
+        io.print(string.format("{} ", i))
+        i = i + 1
+    }
+    io.println("")
+    
+    // Loop with break
+    loop {
+        i = i - 1
+        i <= 0 ? { break } : {}
+    }
+    
+    // Loop with continue
+    j := 0
+    loop j < 10 {
+        j = j + 1
+        j % 2 == 0 ? { continue } : {}
+        io.print(string.format("{} ", j))
+    }
+    io.println("")
+}
+
+// ========================================
+// Compile-time Execution
+// ========================================
+
+// Compile-time constants
+BUFFER_SIZE ::= 4096
+MAX_CONNECTIONS ::= 100
+
+// Compile-time function
+comptime compute_cache_size: () usize = {
+    return BUFFER_SIZE * 4
+}
+
+CACHE_SIZE ::= compute_cache_size()
+
+// Compile-time type generation
+comptime generate_tuple_type: (n: u32) type = {
+    // Would generate tuple types at compile time
+    return type  // Placeholder
+}
+
+// ========================================
+// Foreign Function Interface
+// ========================================
+
+// C function declarations
+@extern("c")
+malloc: (size: usize) *void
+
+@extern("c")
+free: (ptr: *void) void
+
+@extern("c")
+printf: (format: *u8, ...) i32
+
+// Safe wrappers
+allocate: (size: usize) Ptr<u8> = {
+    ptr := malloc(size)
+    ptr == null ? {
+        panic("Allocation failed")
+    } : {
+        return Ptr.from_raw(ptr as *u8)
+    }
+}
+
+// ========================================
+// Testing Framework
+// ========================================
+
+@test
+test_arithmetic: () void = {
+    assert(add(2, 3) == 5)
+    assert(add(-1, 1) == 0)
+    assert(max3(1, 5, 3) == 5)
+}
+
+@test
+test_pattern_matching: () void = {
+    assert(fibonacci(0) == 0)
+    assert(fibonacci(1) == 1)
+    assert(fibonacci(10) == 55)
+    
+    color := Color.RGB(255, 0, 0)
+    desc := describe_color(color)
+    assert(desc.contains("RGB"))
+}
+
+@test
+test_error_handling: () void = {
+    divide(10.0, 0.0) ?
+        | .Ok -> _ => panic("Should have failed")
+        | .Err -> e => assert(e == "Division by zero")
+    
+    divide(10.0, 2.0) ?
+        | .Ok -> v => assert(v == 5.0)
+        | .Err -> _ => panic("Should have succeeded")
+}
+
+@test
+test_builder_pattern: () void = {
+    request := HttpRequestBuilder.new()
+        .url("https://api.example.com")
+        .method("POST")
+        .header("Authorization", "Bearer token")
+        .json("{\"key\": \"value\"}")
+        .timeout(5000)
+    
+    assert(request.url == "https://api.example.com")
+    assert(request.method == "POST")
+    assert(request.timeout == 5000)
+}
+
+// ========================================
+// Defer Statement
+// ========================================
+
+demo_defer: () void = {
+    file := io.open("test.txt") ?
+        | .Ok -> f => f
+        | .Err -> _ => return
+    
+    defer file.close()  // Will be called when function exits
+    
+    // Use file...
+    content := file.read_all()
+    io.println(content)
+}
+
+// ========================================
+// Main Entry Point
+// ========================================
+
+main: () i32 = {
+    io.println("=== Zenlang Comprehensive Demo ===\n")
+    
+    // Arithmetic
+    io.println("Arithmetic:")
+    io.println(string.format("  2 + 3 = {}", add(2, 3)))
+    io.println(string.format("  max(1, 5, 3) = {}", max3(1, 5, 3)))
+    
+    // Pattern Matching
+    io.println("\nPattern Matching:")
+    io.println(string.format("  fibonacci(10) = {}", fibonacci(10)))
+    io.println("  " + describe_color(Color.Blue))
+    io.println("  " + describe_color(Color.RGB(128, 64, 255)))
+    
+    // Error Handling
+    io.println("\nError Handling:")
+    result1 := divide(10.0, 2.0)
+    io.println(string.format("  10 / 2 = {}", process_result(result1 as result.Result<i32, string>)))
+    
+    result2 := divide(10.0, 0.0)
+    result2 ?
+        | .Ok -> _ => {}
+        | .Err -> e => io.println("  Error: " + e)
+    
+    // Structs and Builders
+    io.println("\nStructs and Builders:")
+    point := Point { x: 3.14, y: 2.71 }
+    io.println(string.format("  Point: ({:.2}, {:.2})", point.x, point.y))
+    
+    request := HttpRequestBuilder.new()
+        .url("https://api.example.com/data")
+        .method("GET")
+        .header("Accept", "application/json")
+        .timeout(10000)
+    io.println(string.format("  Request: {} {}", request.method, request.url))
+    
+    // Behaviors
+    io.println("\nBehaviors:")
+    circle := Circle {
+        center: Point { x: 10.0, y: 10.0 },
+        radius: 5.0,
+    }
+    circle.draw()
+    bounds := circle.get_bounds()
+    io.println(string.format("  Bounds: ({:.1}, {:.1}) {}x{}", 
+        bounds.x, bounds.y, bounds.w, bounds.h))
+    
+    // Messages
+    io.println("\nMessage Handling:")
+    messages := vec.from_array([
+        Message.Text("Hello, World!"),
+        Message.Warning { msg: "Low memory", level: 2 },
+        Message.Error { code: 404, details: "Not found" },
+    ])
+    
+    i := 0
+    loop i < messages.len() {
+        handle_message(messages[i])
+        i = i + 1
+    }
+    
+    // UFCS
+    io.println("\nUFCS Examples:")
+    io.print("  Repeat 3 times: ")
+    3.times({ io.print("Hi! ") })
+    io.println("")
+    io.println(string.format("  5 squared = {}", 5.squared()))
+    
+    // Loops
+    io.println("\nLoops:")
+    demo_loops()
+    
+    // Compile-time constants
+    io.println("\nCompile-time:")
+    io.println(string.format("  BUFFER_SIZE = {}", BUFFER_SIZE))
+    io.println(string.format("  CACHE_SIZE = {}", CACHE_SIZE))
+    
+    // Memory
+    io.println("\nMemory Management:")
+    demo_pointers()
+    
+    // Concurrent execution (simulated)
+    io.println("\nConcurrent Operations:")
+    nums := vec.from_array([1, 2, 3, 4, 5])
+    squared := process_parallel(nums)
+    io.print("  Squared: ")
+    i = 0
+    loop i < squared.len() {
+        io.print(string.format("{} ", squared[i]))
+        i = i + 1
+    }
+    io.println("")
+    
+    io.println("\n=== Demo Complete ===")
+    return 0
+}

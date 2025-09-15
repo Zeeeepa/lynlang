@@ -17,8 +17,7 @@ Option<T> =
     | None
 
 // Basic error types
-Error = 
-    | OutOfMemory
+Error: OutOfMemory
     | InvalidArgument(msg: string)
     | IndexOutOfBounds(index: i64, len: i64)
     | NullPointer
@@ -31,7 +30,7 @@ extern memcpy = (dest: *void, src: *void, n: i64) *void
 extern memset = (ptr: *void, value: i32, n: i64) *void
 
 // Assertion for debugging
-assert = (condition: bool, message: string) void {
+assert: (condition: bool, message: string) void  = {
     condition ? | false => {
         // In the future, this would panic with the message
         // For now, we'll use a placeholder
@@ -42,46 +41,46 @@ assert = (condition: bool, message: string) void {
 }
 
 // Min/max functions
-min = (a: i64, b: i64) i64 {
+min: (a: i64, b: i64) i64  = {
     a < b ? | true => a | false => b
 }
 
-max = (a: i64, b: i64) i64 {
+max: (a: i64, b: i64) i64  = {
     a > b ? | true => a | false => b
 }
 
 // Absolute value
-abs = (n: i64) i64 {
+abs: (n: i64) i64  = {
     n < 0 ? | true => -n | false => n
 }
 
 // Swap two values (when we have references)
-swap = (a: *i64, b: *i64) void {
+swap: (a: *i64, b: *i64) void  = {
     temp := *a
     *a = *b
     *b = temp
 }
 
 // Range type for iteration
-Range = {
+Range: {
     start: i64,
     end: i64,
     step: i64,
 }
 
 // Create a range
-range = (start: i64, end: i64) Range {
+range: (start: i64, end: i64) Range  = {
     return Range { start: start, end: end, step: 1 }
 }
 
 // Create a range with custom step
-range_step = (start: i64, end: i64, step: i64) Range {
+range_step: (start: i64, end: i64, step: i64) Range  = {
     return Range { start: start, end: end, step: step }
 }
 
 // Functional loop method for Range
 Range.loop = (self: Range, callback: (i64) void) void {
-    i ::= self.start
+    i := self.start
     loop i < self.end {
         callback(i)
         i = i + self.step
@@ -89,36 +88,36 @@ Range.loop = (self: Range, callback: (i64) void) void {
 }
 
 // Inclusive range
-range_inclusive = (start: i64, end: i64) Range {
+range_inclusive: (start: i64, end: i64) Range  = {
     return Range { start: start, end: end + 1, step: 1 }
 }
 
 // ===== Additional Core Operations =====
 
 // Clamp a value between min and max
-clamp = (value: i64, min_val: i64, max_val: i64) i64 {
+clamp: (value: i64, min_val: i64, max_val: i64) i64  = {
     value < min_val ? | true => min_val
     | false => value > max_val ? | true => max_val
     | false => value
 }
 
 // Sign function
-sign = (n: i64) i64 {
+sign: (n: i64) i64  = {
     n < 0 ? | true => -1
     | false => n > 0 ? | true => 1
     | false => 0
 }
 
 // Power of 2 check
-is_power_of_two = (n: i64) bool {
+is_power_of_two: (n: i64) bool  = {
     n > 0 && (n & (n - 1)) == 0 ? | true => true | false => false
 }
 
 // Next power of 2
-next_power_of_two = (n: i64) i64 {
+next_power_of_two: (n: i64) i64  = {
     n <= 1 ? | true => return 1 | false => {}
     
-    result ::= 1
+    result := 1
     loop result < n {
         result = result << 1
     }
@@ -126,9 +125,9 @@ next_power_of_two = (n: i64) i64 {
 }
 
 // Bit counting operations
-count_ones = (n: i64) i64 {
-    count ::= 0
-    val ::= n
+count_ones: (n: i64) i64  = {
+    count := 0
+    val := n
     loop val != 0 {
         count = count + (val & 1)
         val = val >> 1
@@ -136,14 +135,14 @@ count_ones = (n: i64) i64 {
     return count
 }
 
-count_zeros = (n: i64) i64 {
+count_zeros: (n: i64) i64  = {
     return 64 - count_ones(n)
 }
 
 // Array/slice utilities
-reverse_array = (arr: *i64, len: i64) void {
-    i ::= 0
-    j ::= len - 1
+reverse_array: (arr: *i64, len: i64) void  = {
+    i := 0
+    j := len - 1
     loop i < j {
         swap(&arr[i], &arr[j])
         i = i + 1
@@ -152,11 +151,11 @@ reverse_array = (arr: *i64, len: i64) void {
 }
 
 // Find minimum in array
-array_min = (arr: *i64, len: i64) i64 {
+array_min: (arr: *i64, len: i64) i64  = {
     len == 0 ? | true => return 0 | false => {}
     
-    min_val ::= arr[0]
-    i ::= 1
+    min_val := arr[0]
+    i := 1
     loop i < len {
         arr[i] < min_val ? | true => { min_val = arr[i] } | false => {}
         i = i + 1
@@ -165,11 +164,11 @@ array_min = (arr: *i64, len: i64) i64 {
 }
 
 // Find maximum in array  
-array_max = (arr: *i64, len: i64) i64 {
+array_max: (arr: *i64, len: i64) i64  = {
     len == 0 ? | true => return 0 | false => {}
     
-    max_val ::= arr[0]
-    i ::= 1
+    max_val := arr[0]
+    i := 1
     loop i < len {
         arr[i] > max_val ? | true => { max_val = arr[i] } | false => {}
         i = i + 1
@@ -178,9 +177,9 @@ array_max = (arr: *i64, len: i64) i64 {
 }
 
 // Sum of array elements
-array_sum = (arr: *i64, len: i64) i64 {
-    sum ::= 0
-    i ::= 0
+array_sum: (arr: *i64, len: i64) i64  = {
+    sum := 0
+    i := 0
     loop i < len {
         sum = sum + arr[i]
         i = i + 1
@@ -189,8 +188,8 @@ array_sum = (arr: *i64, len: i64) i64 {
 }
 
 // Equality check for arrays
-arrays_equal = (a: *i64, b: *i64, len: i64) bool {
-    i ::= 0
+arrays_equal: (a: *i64, b: *i64, len: i64) bool  = {
+    i := 0
     loop i < len {
         a[i] != b[i] ? | true => return false | false => {}
         i = i + 1
@@ -199,8 +198,8 @@ arrays_equal = (a: *i64, b: *i64, len: i64) bool {
 }
 
 // Copy array
-array_copy = (dest: *i64, src: *i64, len: i64) void {
-    i ::= 0
+array_copy: (dest: *i64, src: *i64, len: i64) void  = {
+    i := 0
     loop i < len {
         dest[i] = src[i]
         i = i + 1
@@ -208,8 +207,8 @@ array_copy = (dest: *i64, src: *i64, len: i64) void {
 }
 
 // Fill array with value
-array_fill = (arr: *i64, len: i64, value: i64) void {
-    i ::= 0
+array_fill: (arr: *i64, len: i64, value: i64) void  = {
+    i := 0
     loop i < len {
         arr[i] = value
         i = i + 1
@@ -217,8 +216,8 @@ array_fill = (arr: *i64, len: i64, value: i64) void {
 }
 
 // Linear search
-array_find = (arr: *i64, len: i64, value: i64) i64 {
-    i ::= 0
+array_find: (arr: *i64, len: i64, value: i64) i64  = {
+    i := 0
     loop i < len {
         arr[i] == value ? | true => return i | false => {}
         i = i + 1
@@ -227,14 +226,14 @@ array_find = (arr: *i64, len: i64, value: i64) i64 {
 }
 
 // Contains check
-array_contains = (arr: *i64, len: i64, value: i64) bool {
+array_contains: (arr: *i64, len: i64, value: i64) bool  = {
     return array_find(arr, len, value) != -1
 }
 
 // GCD and LCM
-gcd = (a: i64, b: i64) i64 {
-    a_val ::= abs(a)
-    b_val ::= abs(b)
+gcd: (a: i64, b: i64) i64  = {
+    a_val := abs(a)
+    b_val := abs(b)
     
     loop b_val != 0 {
         temp := b_val
@@ -244,18 +243,18 @@ gcd = (a: i64, b: i64) i64 {
     return a_val
 }
 
-lcm = (a: i64, b: i64) i64 {
+lcm: (a: i64, b: i64) i64  = {
     a == 0 || b == 0 ? | true => return 0 | false => {}
     return abs(a * b) / gcd(a, b)
 }
 
 // Factorial
-factorial = (n: i64) i64 {
+factorial: (n: i64) i64  = {
     n < 0 ? | true => return 0 | false => {}
     n <= 1 ? | true => return 1 | false => {}
     
-    result ::= 1
-    i ::= 2
+    result := 1
+    i := 2
     loop i <= n {
         result = result * i
         i = i + 1
@@ -264,13 +263,13 @@ factorial = (n: i64) i64 {
 }
 
 // Fibonacci
-fibonacci = (n: i64) i64 {
+fibonacci: (n: i64) i64  = {
     n <= 0 ? | true => return 0 | false => {}
     n == 1 ? | true => return 1 | false => {}
     
-    a ::= 0
-    b ::= 1
-    i ::= 2
+    a := 0
+    b := 1
+    i := 2
     loop i <= n {
         temp := a + b
         a = b
@@ -281,12 +280,12 @@ fibonacci = (n: i64) i64 {
 }
 
 // Is prime
-is_prime = (n: i64) bool {
+is_prime: (n: i64) bool  = {
     n <= 1 ? | true => return false | false => {}
     n <= 3 ? | true => return true | false => {}
     n % 2 == 0 || n % 3 == 0 ? | true => return false | false => {}
     
-    i ::= 5
+    i := 5
     loop i * i <= n {
         n % i == 0 || n % (i + 2) == 0 ? | true => return false | false => {}
         i = i + 6
@@ -296,33 +295,33 @@ is_prime = (n: i64) bool {
 
 // Panic function for unrecoverable errors
 extern abort = () void
-panic = (message: string) void {
+panic: (message: string) void  = {
     // Would print the message in a real implementation
     abort()
 }
 
 // Unreachable marker
-unreachable = () void {
+unreachable: () void  = {
     panic("unreachable code executed")
 }
 
 // Type size information (platform-dependent, assuming 64-bit)
-size_of_i8 = () i64 { return 1 }
-size_of_i16 = () i64 { return 2 }
-size_of_i32 = () i64 { return 4 }
-size_of_i64 = () i64 { return 8 }
-size_of_ptr = () i64 { return 8 }  // 64-bit platform
-size_of_bool = () i64 { return 1 }
+size_of_i8: () i64  = { return 1 }
+size_of_i16: () i64  = { return 2 }
+size_of_i32: () i64  = { return 4 }
+size_of_i64: () i64  = { return 8 }
+size_of_ptr: () i64  = { return 8 }  // 64-bit platform
+size_of_bool: () i64  = { return 1 }
 
 // Alignment helpers
-align_up = (value: i64, alignment: i64) i64 {
+align_up: (value: i64, alignment: i64) i64  = {
     return (value + alignment - 1) & ~(alignment - 1)
 }
 
-align_down = (value: i64, alignment: i64) i64 {
+align_down: (value: i64, alignment: i64) i64  = {
     return value & ~(alignment - 1)
 }
 
-is_aligned = (value: i64, alignment: i64) bool {
+is_aligned: (value: i64, alignment: i64) bool  = {
     return (value & (alignment - 1)) == 0
 }

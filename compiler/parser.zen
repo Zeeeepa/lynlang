@@ -18,7 +18,7 @@ SourceLocation := errors.SourceLocation
 ErrorContext := errors.ErrorContext
 
 // AST Node Types
-AstNode = 
+AstNode:  
     // Literals
     | IntLit(value: i64)
     | FloatLit(value: f64)
@@ -102,8 +102,7 @@ AstNode =
     | Comptime(expr: Ptr<AstNode>)
 
 // Binary operators
-BinaryOperator = 
-    | Add | Sub | Mul | Div | Mod
+BinaryOperator: Add | Sub | Mul | Div | Mod
     | BitwiseAnd | BitwiseOr | BitwiseXor
     | LeftShift | RightShift
     | Equal | NotEqual
@@ -112,13 +111,11 @@ BinaryOperator =
     | Range | RangeInclusive
 
 // Unary operators
-UnaryOperator = 
-    | Negate | Not | BitwiseNot
+UnaryOperator: Negate | Not | BitwiseNot
     | Deref | AddressOf
 
 // Type representation
-Type = 
-    | Named(name: string)
+Type: Named(name: string)
     | Array(element: Ptr<Type>, size: Option<u32>)
     | Slice(element: Ptr<Type>)
     | Pointer(pointee: Ptr<Type>, is_mutable: bool)
@@ -129,15 +126,14 @@ Type =
     | Result(ok: Ptr<Type>, err: Ptr<Type>)
 
 // Match arm
-MatchArm = {
+MatchArm: {
     pattern: Pattern,
     guard: Option<Ptr<AstNode>>,
     body: Ptr<AstNode>,
 }
 
 // Pattern for match expressions
-Pattern = 
-    | Wildcard
+Pattern: Wildcard
     | Literal(value: AstNode)
     | Ident(name: string)
     | Struct(name: string, fields: Vec<(string, Pattern)>)
@@ -145,7 +141,7 @@ Pattern =
     | Enum(variant: string, inner: Option<Ptr<Pattern>>)
 
 // Function parameter
-Parameter = {
+Parameter: {
     name: string,
     type: Type,
     is_mutable: bool,
@@ -153,7 +149,7 @@ Parameter = {
 }
 
 // Struct field
-StructField = {
+StructField: {
     name: string,
     type: Type,
     is_public: bool,
@@ -161,18 +157,17 @@ StructField = {
 }
 
 // Enum variant
-EnumVariant = {
+EnumVariant: {
     name: string,
     data: Option<EnumVariantData>,
 }
 
-EnumVariantData = 
-    | Unit
+EnumVariantData: Unit
     | Tuple(types: Vec<Type>)
     | Struct(fields: Vec<StructField>)
 
 // Trait method
-TraitMethod = {
+TraitMethod: {
     name: string,
     params: Vec<Parameter>,
     return_type: Option<Type>,
@@ -181,7 +176,7 @@ TraitMethod = {
 }
 
 // Parser state
-Parser = {
+Parser: {
     tokens: Vec<Token>,
     current: u32,
     errors: Vec<ParseError>,
@@ -189,13 +184,13 @@ Parser = {
 }
 
 // Parse error
-ParseError = {
+ParseError: {
     message: string,
     token: Token,
 }
 
 // Create a new parser
-parser_new = (tokens: Vec<Token>) Parser {
+parser_new: (tokens: Vec<Token>) Parser  = {
     Parser{
         tokens: tokens,
         current: 0,
@@ -205,28 +200,28 @@ parser_new = (tokens: Vec<Token>) Parser {
 }
 
 // Check if at end of tokens
-is_at_end = (parser: Ptr<Parser>) bool {
+is_at_end: (parser: Ptr<Parser>) bool  = {
     peek(parser).kind ?
         | TokenKind.Eof => return true
         | _ => return false
 }
 
 // Peek at current token
-peek = (parser: Ptr<Parser>) Token {
+peek: (parser: Ptr<Parser>) Token  = {
     parser.current < parser.tokens.len() ?
         | true => return parser.tokens[parser.current]
         | false => return parser.tokens[parser.tokens.len() - 1]  // Return EOF
 }
 
 // Peek at next token
-peek_next = (parser: Ptr<Parser>) Token {
+peek_next: (parser: Ptr<Parser>) Token  = {
     parser.current + 1 < parser.tokens.len() ?
         | true => return parser.tokens[parser.current + 1]
         | false => return parser.tokens[parser.tokens.len() - 1]  // Return EOF
 }
 
 // Advance and return current token
-advance = (parser: Ptr<Parser>) Token {
+advance: (parser: Ptr<Parser>) Token  = {
     !is_at_end(parser) ?
         | true => {
             token := parser.tokens[parser.current]
@@ -237,14 +232,14 @@ advance = (parser: Ptr<Parser>) Token {
 }
 
 // Check if current token matches
-check = (parser: Ptr<Parser>, kind: TokenKind) bool {
+check: (parser: Ptr<Parser>, kind: TokenKind) bool  = {
     is_at_end(parser) ?
         | true => return false
         | false => return peek(parser).kind == kind
 }
 
 // Match and consume token if it matches
-match = (parser: Ptr<Parser>, kinds: Vec<TokenKind>) bool {
+match: (parser: Ptr<Parser>, kinds: Vec<TokenKind>) bool  = {
     i := 0
     loop i < kinds.len() {
         check(parser, kinds[i]) ?
@@ -259,7 +254,7 @@ match = (parser: Ptr<Parser>, kinds: Vec<TokenKind>) bool {
 }
 
 // Expect a specific token kind
-expect = (parser: Ptr<Parser>, kind: TokenKind, message: string) Token {
+expect: (parser: Ptr<Parser>, kind: TokenKind, message: string) Token  = {
     check(parser, kind) ?
         | true => return advance(parser)
         | false => {
@@ -274,7 +269,7 @@ expect = (parser: Ptr<Parser>, kind: TokenKind, message: string) Token {
 }
 
 // Parse program (entry point)
-parse_program = (parser: Ptr<Parser>) Vec<AstNode> {
+parse_program: (parser: Ptr<Parser>) Vec<AstNode>  = {
     items := vec_new<AstNode>()
     
     loop !is_at_end(parser) {
@@ -286,7 +281,7 @@ parse_program = (parser: Ptr<Parser>) Vec<AstNode> {
 }
 
 // Parse top-level item
-parse_item = (parser: Ptr<Parser>) AstNode {
+parse_item: (parser: Ptr<Parser>) AstNode  = {
     token := peek(parser)
     
     // Check for module-level imports (name := @std.module or name := build.import("module"))
@@ -316,7 +311,7 @@ parse_item = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse function declaration
-parse_function = (parser: Ptr<Parser>) AstNode {
+parse_function: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'fn'
     
     // Parse function name
@@ -352,7 +347,7 @@ parse_function = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse struct declaration
-parse_struct = (parser: Ptr<Parser>) AstNode {
+parse_struct: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'struct'
     
     name_token := expect(parser, TokenKind.Identifier(""), "Expected struct name")
@@ -429,7 +424,7 @@ parse_struct = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse statement
-parse_statement = (parser: Ptr<Parser>) AstNode {
+parse_statement: (parser: Ptr<Parser>) AstNode  = {
     token := peek(parser)
     
     token.kind ?
@@ -457,7 +452,7 @@ parse_statement = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse let statement
-parse_let_statement = (parser: Ptr<Parser>) AstNode {
+parse_let_statement: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'let'
     
     name_token := expect(parser, TokenKind.Identifier(""), "Expected variable name")
@@ -485,12 +480,12 @@ parse_let_statement = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse expression
-parse_expression = (parser: Ptr<Parser>) AstNode {
+parse_expression: (parser: Ptr<Parser>) AstNode  = {
     return parse_ternary_expression(parser)
 }
 
 // Parse ternary expression (? :)
-parse_ternary_expression = (parser: Ptr<Parser>) AstNode {
+parse_ternary_expression: (parser: Ptr<Parser>) AstNode  = {
     expr := parse_logical_or_expression(parser)
     
     check(parser, TokenKind.Question) ?
@@ -531,7 +526,7 @@ parse_ternary_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse logical OR expression
-parse_logical_or_expression = (parser: Ptr<Parser>) AstNode {
+parse_logical_or_expression: (parser: Ptr<Parser>) AstNode  = {
     left := parse_logical_and_expression(parser)
     
     loop check(parser, TokenKind.Pipe) && peek_next(parser).kind != TokenKind.Pipe {
@@ -544,7 +539,7 @@ parse_logical_or_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse logical AND expression
-parse_logical_and_expression = (parser: Ptr<Parser>) AstNode {
+parse_logical_and_expression: (parser: Ptr<Parser>) AstNode  = {
     left := parse_equality_expression(parser)
     
     loop check(parser, TokenKind.Ampersand) && peek_next(parser).kind != TokenKind.Ampersand {
@@ -557,7 +552,7 @@ parse_logical_and_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse equality expression
-parse_equality_expression = (parser: Ptr<Parser>) AstNode {
+parse_equality_expression: (parser: Ptr<Parser>) AstNode  = {
     left := parse_comparison_expression(parser)
     
     loop {
@@ -580,7 +575,7 @@ parse_equality_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse comparison expression
-parse_comparison_expression = (parser: Ptr<Parser>) AstNode {
+parse_comparison_expression: (parser: Ptr<Parser>) AstNode  = {
     left := parse_additive_expression(parser)
     
     loop {
@@ -613,7 +608,7 @@ parse_comparison_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse additive expression
-parse_additive_expression = (parser: Ptr<Parser>) AstNode {
+parse_additive_expression: (parser: Ptr<Parser>) AstNode  = {
     left := parse_multiplicative_expression(parser)
     
     loop {
@@ -636,7 +631,7 @@ parse_additive_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse multiplicative expression
-parse_multiplicative_expression = (parser: Ptr<Parser>) AstNode {
+parse_multiplicative_expression: (parser: Ptr<Parser>) AstNode  = {
     left := parse_unary_expression(parser)
     
     loop {
@@ -664,7 +659,7 @@ parse_multiplicative_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse unary expression
-parse_unary_expression = (parser: Ptr<Parser>) AstNode {
+parse_unary_expression: (parser: Ptr<Parser>) AstNode  = {
     token := peek(parser)
     
     token.kind ?
@@ -692,7 +687,7 @@ parse_unary_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse postfix expression
-parse_postfix_expression = (parser: Ptr<Parser>) AstNode {
+parse_postfix_expression: (parser: Ptr<Parser>) AstNode  = {
     expr := parse_primary_expression(parser)
     
     loop {
@@ -739,7 +734,7 @@ parse_postfix_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse primary expression
-parse_primary_expression = (parser: Ptr<Parser>) AstNode {
+parse_primary_expression: (parser: Ptr<Parser>) AstNode  = {
     token := peek(parser)
     
     token.kind ?
@@ -806,7 +801,7 @@ parse_primary_expression = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse block expression
-parse_block_expr = (parser: Ptr<Parser>) AstNode {
+parse_block_expr: (parser: Ptr<Parser>) AstNode  = {
     expect(parser, TokenKind.LeftBrace, "Expected '{'")
     
     statements := vec_new<AstNode>()
@@ -827,13 +822,13 @@ parse_block_expr = (parser: Ptr<Parser>) AstNode {
 }
 
 // Helper functions (stubs)
-extract_identifier = (token: Token) string {
+extract_identifier: (token: Token) string  = {
     token.kind ?
         | TokenKind.Identifier(name) => return name
         | _ => return ""
 }
 
-parse_generic_params = (parser: Ptr<Parser>) Vec<string> {
+parse_generic_params: (parser: Ptr<Parser>) Vec<string>  = {
     generics := vec_new<string>()
     
     check(parser, TokenKind.Less) ? {
@@ -857,7 +852,7 @@ parse_generic_params = (parser: Ptr<Parser>) Vec<string> {
     return generics
 }
 
-parse_parameters = (parser: Ptr<Parser>) Vec<Parameter> {
+parse_parameters: (parser: Ptr<Parser>) Vec<Parameter>  = {
     params := vec_new<Parameter>()
     
     expect(parser, TokenKind.LeftParen, "Expected '(' for parameters")
@@ -908,7 +903,7 @@ parse_parameters = (parser: Ptr<Parser>) Vec<Parameter> {
     return params
 }
 
-parse_type = (parser: Ptr<Parser>) Type {
+parse_type: (parser: Ptr<Parser>) Type  = {
     // Parse base type
     base_type := parse_base_type(parser)
     
@@ -953,7 +948,7 @@ parse_type = (parser: Ptr<Parser>) Type {
     return base_type
 }
 
-parse_base_type = (parser: Ptr<Parser>) Type {
+parse_base_type: (parser: Ptr<Parser>) Type  = {
     token := advance(parser)
     
     token.kind ?
@@ -1027,7 +1022,7 @@ parse_base_type = (parser: Ptr<Parser>) Type {
         }
 }
 
-parse_pattern = (parser: Ptr<Parser>) Pattern {
+parse_pattern: (parser: Ptr<Parser>) Pattern  = {
     token := peek(parser)
     
     token.kind ?
@@ -1115,7 +1110,7 @@ parse_pattern = (parser: Ptr<Parser>) Pattern {
         }
 }
 
-parse_var_statement = (parser: Ptr<Parser>) AstNode {
+parse_var_statement: (parser: Ptr<Parser>) AstNode  = {
     // Similar to let but mutable
     advance(parser)  // consume 'var'
     
@@ -1143,7 +1138,7 @@ parse_var_statement = (parser: Ptr<Parser>) AstNode {
     return AstNode.VarDecl(name, type_annotation, value, true)
 }
 
-parse_return_statement = (parser: Ptr<Parser>) AstNode {
+parse_return_statement: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'return'
     
     // Check if there's a value
@@ -1155,7 +1150,7 @@ parse_return_statement = (parser: Ptr<Parser>) AstNode {
     return AstNode.Return(value)
 }
 
-parse_break_statement = (parser: Ptr<Parser>) AstNode {
+parse_break_statement: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'break'
     
     // Check if there's a value
@@ -1167,7 +1162,7 @@ parse_break_statement = (parser: Ptr<Parser>) AstNode {
     return AstNode.Break(value)
 }
 
-parse_continue_statement = (parser: Ptr<Parser>) AstNode {
+parse_continue_statement: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'continue'
     return AstNode.Continue
 }
@@ -1176,7 +1171,7 @@ parse_continue_statement = (parser: Ptr<Parser>) AstNode {
 
 // Note: match expressions are not allowed per language spec - use ? operator instead
 
-parse_loop_expression = (parser: Ptr<Parser>) AstNode {
+parse_loop_expression: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'loop'
     
     // Check for condition
@@ -1190,7 +1185,7 @@ parse_loop_expression = (parser: Ptr<Parser>) AstNode {
     return AstNode.Loop(condition, ptr_new(body))
 }
 
-parse_while_expression = (parser: Ptr<Parser>) AstNode {
+parse_while_expression: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'while'
     
     condition := parse_expression(parser)
@@ -1199,7 +1194,7 @@ parse_while_expression = (parser: Ptr<Parser>) AstNode {
     return AstNode.Loop(Option<Ptr<AstNode>>.Some(ptr_new(condition)), ptr_new(body))
 }
 
-parse_comptime_block = (parser: Ptr<Parser>) AstNode {
+parse_comptime_block: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'comptime'
     
     // Save current comptime state and set to true
@@ -1214,7 +1209,7 @@ parse_comptime_block = (parser: Ptr<Parser>) AstNode {
     return AstNode.Comptime(ptr_new(expr))
 }
 
-parse_array_literal = (parser: Ptr<Parser>) AstNode {
+parse_array_literal: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume '['
     
     elements := vec_new<AstNode>()
@@ -1236,7 +1231,7 @@ parse_array_literal = (parser: Ptr<Parser>) AstNode {
     return AstNode.ArrayLit(elements)
 }
 
-parse_struct_literal = (parser: Ptr<Parser>, name: string) AstNode {
+parse_struct_literal: (parser: Ptr<Parser>, name: string) AstNode  = {
     advance(parser)  // consume '{'
     
     fields := vec_new<(string, AstNode)>()
@@ -1265,7 +1260,7 @@ parse_struct_literal = (parser: Ptr<Parser>, name: string) AstNode {
     return AstNode.StructLit(name, fields)
 }
 
-parse_enum = (parser: Ptr<Parser>) AstNode {
+parse_enum: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'enum'
     
     name_token := expect(parser, TokenKind.Identifier(""), "Expected enum name")
@@ -1355,7 +1350,7 @@ parse_enum = (parser: Ptr<Parser>) AstNode {
     return AstNode.EnumDecl(name, variants, generics)
 }
 
-parse_trait = (parser: Ptr<Parser>) AstNode {
+parse_trait: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'trait' or 'behavior'
     
     name_token := expect(parser, TokenKind.Identifier(""), "Expected trait name")
@@ -1405,7 +1400,7 @@ parse_trait = (parser: Ptr<Parser>) AstNode {
     return AstNode.TraitDecl(name, methods, generics)
 }
 
-parse_impl = (parser: Ptr<Parser>) AstNode {
+parse_impl: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'impl'
     
     // Check if implementing a trait
@@ -1441,12 +1436,12 @@ parse_impl = (parser: Ptr<Parser>) AstNode {
     return AstNode.ImplBlock(trait_name, type_name, methods)
 }
 
-parse_type_alias = (parser: Ptr<Parser>) AstNode {
+parse_type_alias: (parser: Ptr<Parser>) AstNode  = {
     // Stub implementation
     return AstNode.IntLit(0)
 }
 
-parse_const = (parser: Ptr<Parser>) AstNode {
+parse_const: (parser: Ptr<Parser>) AstNode  = {
     // Stub implementation for const declaration
     advance(parser)  // consume 'const'
     
@@ -1469,7 +1464,7 @@ parse_const = (parser: Ptr<Parser>) AstNode {
     return AstNode.VarDecl(name, type_annotation, Option<Ptr<AstNode>>.Some(ptr_new(value)), false)
 }
 
-parse_builtin_import = (parser: Ptr<Parser>) AstNode {
+parse_builtin_import: (parser: Ptr<Parser>) AstNode  = {
     // Check if we're inside a comptime block
     parser.in_comptime ?
         | true => {
@@ -1518,7 +1513,7 @@ parse_builtin_import = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse module-level declaration (could be import or constant)
-parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
+parse_module_level_declaration: (parser: Ptr<Parser>) AstNode  = {
     // Get the identifier name
     name_token := advance(parser)
     name := name_token.kind ?
@@ -1582,7 +1577,7 @@ parse_module_level_declaration = (parser: Ptr<Parser>) AstNode {
 }
 
 // Parse module path (e.g., std.core, std.io)
-parse_module_path = (parser: Ptr<Parser>) string {
+parse_module_path: (parser: Ptr<Parser>) string  = {
     path := ""
     
     // Expect identifier
@@ -1613,7 +1608,7 @@ parse_module_path = (parser: Ptr<Parser>) string {
     return path
 }
 
-parse_import = (parser: Ptr<Parser>) AstNode {
+parse_import: (parser: Ptr<Parser>) AstNode  = {
     // Imports are now allowed everywhere, including in comptime blocks
     advance(parser)  // consume 'import'
     
@@ -1640,7 +1635,7 @@ parse_import = (parser: Ptr<Parser>) AstNode {
     return AstNode.Import(path, alias)
 }
 
-parse_module = (parser: Ptr<Parser>) AstNode {
+parse_module: (parser: Ptr<Parser>) AstNode  = {
     advance(parser)  // consume 'module'
     
     name_token := expect(parser, TokenKind.Identifier(""), "Expected module name")

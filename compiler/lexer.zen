@@ -9,13 +9,13 @@ char := build.import("char")
 
 // Token types
 // Note: Using struct representation since enum syntax is not yet supported
-TokenKind = {
+TokenKind: {
     tag: string,    // Token type (e.g., "IntLiteral", "Plus", "Identifier")
     value: string,  // Optional value for literals/identifiers
 }
 
 // Token structure
-Token = {
+Token: {
     kind: TokenKind,
     span: Span,
     line: u32,
@@ -23,13 +23,13 @@ Token = {
 }
 
 // Source span for error reporting
-Span = {
+Span: {
     start: u32,
     end: u32,
 }
 
 // Lexer state
-Lexer = {
+Lexer: {
     source: string,
     pos: u32,
     line: u32,
@@ -38,7 +38,7 @@ Lexer = {
 }
 
 // Helper function to create simple tokens (operators, punctuation)
-make_token = (tag: string, start: u32, end: u32, line: u32, column: u32) Token {
+make_token: (tag: string, start: u32, end: u32, line: u32, column: u32) Token  = {
     return Token {
         kind: TokenKind { tag: tag, value: "" },
         span: Span { start: start, end: end },
@@ -51,7 +51,7 @@ make_token = (tag: string, start: u32, end: u32, line: u32, column: u32) Token {
 KEYWORDS := [
     "loop", "return", "break", "continue",
     "fn", "struct", "enum", "trait", "impl", "type", "const", "let", "var",
-    "pub", "priv", "mut", "ref", "defer", "async", "await", "yield",
+    "pub", "priv", "mut", "ref", "defer", "yield",
     "import", "export", "module", "package", "use", "as",
     "true", "false", "null", "void", "self", "Self",
     "i8", "i16", "i32", "i64", "i128",
@@ -62,7 +62,7 @@ KEYWORDS := [
 ]
 
 // Create a new lexer
-lexer_new = (source: string) Lexer {
+lexer_new: (source: string) Lexer  = {
     Lexer {
         source: source,
         pos: 0,
@@ -73,7 +73,7 @@ lexer_new = (source: string) Lexer {
 }
 
 // Check if character is whitespace
-is_whitespace = (c: char) bool {
+is_whitespace: (c: char) bool  = {
     (c == ' ') ? { return true }
     (c == '\t') ? { return true }
     (c == '\r') ? { return true }
@@ -82,35 +82,35 @@ is_whitespace = (c: char) bool {
 }
 
 // Check if character is a digit
-is_digit = (c: char) bool {
+is_digit: (c: char) bool  = {
     c < '0' ? { return false }
     c > '9' ? { return false }
     return true
 }
 
 // Check if character is alphabetic
-is_alpha = (c: char) bool {
+is_alpha: (c: char) bool  = {
     (c >= 'a' && c <= 'z') ? { return true }
     (c >= 'A' && c <= 'Z') ? { return true }
     return false
 }
 
 // Check if character can start an identifier
-is_ident_start = (c: char) bool {
+is_ident_start: (c: char) bool  = {
     is_alpha(c) ? { return true }
     c == '_' ? { return true }
     return false
 }
 
 // Check if character can continue an identifier
-is_ident_continue = (c: char) bool {
+is_ident_continue: (c: char) bool  = {
     is_ident_start(c) ? { return true }
     is_digit(c) ? { return true }
     return false
 }
 
 // Check if string is a keyword
-is_keyword = (s: string) bool {
+is_keyword: (s: string) bool  = {
     i := 0
     loop i < KEYWORDS.len() {
         KEYWORDS[i] == s ? | true => return true
@@ -121,19 +121,19 @@ is_keyword = (s: string) bool {
 }
 
 // Peek at current character without advancing
-peek = (lexer: Ptr<Lexer>) char {
+peek: (lexer: Ptr<Lexer>) char  = {
     lexer.pos >= lexer.source.len() ? | true => return '\0'
                                       | false => return lexer.source[lexer.pos]
 }
 
 // Peek at next character
-peek_next = (lexer: Ptr<Lexer>) char {
+peek_next: (lexer: Ptr<Lexer>) char  = {
     lexer.pos + 1 >= lexer.source.len() ? | true => return '\0'
                                           | false => return lexer.source[lexer.pos + 1]
 }
 
 // Advance position and return current character
-advance = (lexer: Ptr<Lexer>) char {
+advance: (lexer: Ptr<Lexer>) char  = {
     lexer.pos >= lexer.source.len() ? | true => return '\0'
                                       | false => {
             c := lexer.source[lexer.pos]
@@ -151,14 +151,14 @@ advance = (lexer: Ptr<Lexer>) char {
 }
 
 // Skip whitespace
-skip_whitespace = (lexer: Ptr<Lexer>) void {
+skip_whitespace: (lexer: Ptr<Lexer>) void  = {
     loop is_whitespace(peek(lexer)) {
         advance(lexer)
     }
 }
 
 // Skip line comment
-skip_line_comment = (lexer: Ptr<Lexer>) void {
+skip_line_comment: (lexer: Ptr<Lexer>) void  = {
     // Skip //
     advance(lexer)
     advance(lexer)
@@ -170,7 +170,7 @@ skip_line_comment = (lexer: Ptr<Lexer>) void {
 }
 
 // Skip block comment
-skip_block_comment = (lexer: Ptr<Lexer>) bool {
+skip_block_comment: (lexer: Ptr<Lexer>) bool  = {
     // Skip /*
     advance(lexer)
     advance(lexer)
@@ -190,7 +190,7 @@ skip_block_comment = (lexer: Ptr<Lexer>) bool {
 }
 
 // Lex a number literal
-lex_number = (lexer: Ptr<Lexer>) Token {
+lex_number: (lexer: Ptr<Lexer>) Token  = {
     start := lexer.pos
     start_line := lexer.line
     start_column := lexer.column
@@ -260,7 +260,7 @@ lex_number = (lexer: Ptr<Lexer>) Token {
 }
 
 // Lex a string literal
-lex_string = (lexer: Ptr<Lexer>) Token {
+lex_string: (lexer: Ptr<Lexer>) Token  = {
     start := lexer.pos
     start_line := lexer.line
     start_column := lexer.column
@@ -315,7 +315,7 @@ lex_string = (lexer: Ptr<Lexer>) Token {
 }
 
 // Lex an identifier or keyword
-lex_identifier = (lexer: Ptr<Lexer>) Token {
+lex_identifier: (lexer: Ptr<Lexer>) Token  = {
     start := lexer.pos
     start_line := lexer.line
     start_column := lexer.column
@@ -363,7 +363,7 @@ lex_identifier = (lexer: Ptr<Lexer>) Token {
 }
 
 // Get next token
-next_token = (lexer: Ptr<Lexer>) Token {
+next_token: (lexer: Ptr<Lexer>) Token  = {
     // Skip whitespace and comments
     loop {
         skip_whitespace(lexer)
@@ -575,7 +575,7 @@ next_token = (lexer: Ptr<Lexer>) Token {
 
 
 // Tokenize entire source
-tokenize = (lexer: Ptr<Lexer>) Vec<Token> {
+tokenize: (lexer: Ptr<Lexer>) Vec<Token>  = {
     loop {
         token := next_token(lexer)
         lexer.tokens.push(token)
@@ -589,17 +589,17 @@ tokenize = (lexer: Ptr<Lexer>) Vec<Token> {
 }
 
 // Helper functions (stubs - would be in string module)
-string_slice = (s: string, start: u32, end: u32) string {
+string_slice: (s: string, start: u32, end: u32) string  = {
     // Implementation would extract substring
     return ""
 }
 
-string_to_i64 = (s: string) i64 {
+string_to_i64: (s: string) i64  = {
     // Implementation would parse integer
     return 0
 }
 
-string_to_f64 = (s: string) f64 {
+string_to_f64: (s: string) f64  = {
     // Implementation would parse float
     return 0.0
 }

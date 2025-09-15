@@ -4,7 +4,7 @@ use zen::parser::Parser;
 
 #[test]
 fn test_parse_extern_function() {
-    let input = "extern printf = (ptr, ...) i32";
+    let input = "extern printf: (ptr, ...) i32";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     
@@ -24,7 +24,7 @@ fn test_parse_extern_function() {
 
 #[test]
 fn test_parse_simple_extern() {
-    let input = "extern puts = (ptr) i32";
+    let input = "extern puts: (ptr) i32";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     
@@ -44,7 +44,7 @@ fn test_parse_simple_extern() {
 
 #[test]
 fn test_parse_multi_arg_extern() {
-    let input = "extern memcpy = (ptr, ptr, u64) ptr";
+    let input = "extern memcpy: (ptr, ptr, u64) ptr";
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     
@@ -67,9 +67,9 @@ fn test_parse_multi_arg_extern() {
 #[test]
 fn test_extern_with_function_call() {
     let input = r#"
-extern puts = (ptr) i32
+extern puts: (ptr) i32
 
-main = () i32 {
+main: () i32 = {
     puts("Hello from C!")
     return 0
 }

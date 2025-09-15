@@ -11,7 +11,7 @@ json := @std.json
 hashmap := @std.hashmap
 
 // Build configuration
-BuildConfig = {
+BuildConfig: {
     name: string,
     version: string,
     source_dir: string,
@@ -25,20 +25,20 @@ BuildConfig = {
 }
 
 // Dependency specification
-Dependency = {
+Dependency: {
     name: string,
     version: string,
     source: DependencySource,
 }
 
 // Where to get dependencies from
-DependencySource = |
+DependencySource: 
     Local -> path: string,
     Git -> url: string, branch: string,
     Registry -> package: string,
 
 // Build target
-Target = {
+Target: {
     name: string,
     sources: []string,
     output: string,
@@ -47,20 +47,20 @@ Target = {
 }
 
 // Type of build target
-TargetType = |
+TargetType: 
     Executable,
     Library,
     SharedLibrary,
     Test,
 
 // Build result
-BuildResult = |
+BuildResult: 
     Success -> artifacts: []string,
     Failed -> error: string,
     Skipped -> reason: string,
 
 // Build system state
-BuildSystem = {
+BuildSystem: {
     config: BuildConfig,
     targets: HashMap<string, Target>,
     cache: BuildCache,
@@ -68,14 +68,14 @@ BuildSystem = {
 }
 
 // Build cache for incremental compilation
-BuildCache = {
+BuildCache: {
     hashes: HashMap<string, string>,
     timestamps: HashMap<string, i64>,
     artifacts: HashMap<string, []string>,
 }
 
 // Load build configuration from zen.toml
-load_config = (path: string) Result<BuildConfig, string> {
+load_config: (path: string) Result<BuildConfig, string>  = {
     content := fs.read_file(path) ?
         | .Ok -> data => data
         | .Err -> err => return .Err -> "Failed to read config: $(err)"
@@ -89,7 +89,7 @@ load_config = (path: string) Result<BuildConfig, string> {
 }
 
 // Parse build configuration
-parse_build_config = (content: string) Result<BuildConfig, string> {
+parse_build_config: (content: string) Result<BuildConfig, string>  = {
     // For now, parse a simplified JSON-like format
     // In a real implementation, this would parse TOML
     
@@ -131,7 +131,7 @@ parse_build_config = (content: string) Result<BuildConfig, string> {
 }
 
 // Initialize build system
-init_build_system = (config: BuildConfig, verbose: bool) BuildSystem {
+init_build_system: (config: BuildConfig, verbose: bool) BuildSystem  = {
     return BuildSystem {
         config: config,
         targets: hashmap.new<string, Target>(),
@@ -145,7 +145,7 @@ init_build_system = (config: BuildConfig, verbose: bool) BuildSystem {
 }
 
 // Discover targets in the project
-discover_targets = (bs: &BuildSystem) Result<void, string> {
+discover_targets: (bs: &BuildSystem) Result<void, string>  = {
     // Find all .zen files in source directory
     files := fs.walk(bs.config.source_dir, "*.zen") ?
         | .Ok -> list => list
@@ -181,7 +181,7 @@ discover_targets = (bs: &BuildSystem) Result<void, string> {
 }
 
 // Build a specific target
-build_target = (bs: &BuildSystem, target_name: string) BuildResult {
+build_target: (bs: &BuildSystem, target_name: string) BuildResult  = {
     target := bs.targets.get(target_name) ?
         | .Some -> t => t
         | .None => return .Failed -> error: "Unknown target: $(target_name)"
@@ -227,7 +227,7 @@ build_target = (bs: &BuildSystem, target_name: string) BuildResult {
 }
 
 // Check if target needs rebuilding
-check_needs_rebuild = (bs: &BuildSystem, target: Target) bool {
+check_needs_rebuild: (bs: &BuildSystem, target: Target) bool  = {
     // Check if output exists
     fs.exists(target.output) ? | false => return true
     
@@ -248,7 +248,7 @@ check_needs_rebuild = (bs: &BuildSystem, target: Target) bool {
 }
 
 // Compile a single file
-compile_file = (bs: &BuildSystem, source: string) Result<string, string> {
+compile_file: (bs: &BuildSystem, source: string) Result<string, string>  = {
     object := string.replace(source, ".zen", ".o");
     object = "$(bs.config.output_dir)/$(fs.basename(object))";
     
@@ -267,7 +267,7 @@ compile_file = (bs: &BuildSystem, source: string) Result<string, string> {
 }
 
 // Link object files
-link_objects = (bs: &BuildSystem, objects: []string, output: string) Result<void, string> {
+link_objects: (bs: &BuildSystem, objects: []string, output: string) Result<void, string>  = {
     // Build linker command
     cmd := ["zenc", "-o", output];
     cmd.extend(objects);
@@ -284,7 +284,7 @@ link_objects = (bs: &BuildSystem, objects: []string, output: string) Result<void
 }
 
 // Update build cache
-update_cache = (bs: &BuildSystem, target: Target, objects: []string) void {
+update_cache: (bs: &BuildSystem, target: Target, objects: []string) void  = {
     // Update timestamps
     loop source in target.sources {
         time := fs.get_modified_time(source) ?
@@ -299,7 +299,7 @@ update_cache = (bs: &BuildSystem, target: Target, objects: []string) void {
 }
 
 // Clean build artifacts
-clean = (bs: &BuildSystem) Result<void, string> {
+clean: (bs: &BuildSystem) Result<void, string>  = {
     io.print("Cleaning build artifacts...\n");
     
     fs.remove_dir_all(bs.config.output_dir) ?
@@ -315,7 +315,7 @@ clean = (bs: &BuildSystem) Result<void, string> {
 }
 
 // Run tests
-run_tests = (bs: &BuildSystem) Result<void, string> {
+run_tests: (bs: &BuildSystem) Result<void, string>  = {
     // Build test target
     result := build_target(bs, "test");
     
@@ -341,7 +341,7 @@ run_tests = (bs: &BuildSystem) Result<void, string> {
 }
 
 // Main build function
-build = (args: []string) i32 {
+build: (args: []string) i32  = {
     // Parse arguments
     verbose := false;
     clean_build := false;
@@ -448,6 +448,6 @@ build = (args: []string) i32 {
 }
 
 // Entry point
-main = (args: []string) i32 {
+main: (args: []string) i32  = {
     return build(args)
 }

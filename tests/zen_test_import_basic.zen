@@ -7,7 +7,7 @@ core := @std.core
 math := @std.math
 
 // Main test function
-main = () i32 {
+main: () i32  = {
     io.print("=== Basic Import Test ===\n\n");
     
     // Test 1: IO module works

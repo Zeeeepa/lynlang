@@ -10,7 +10,7 @@ fs := @std.fs
 string := @std.string
 
 // Test function using imports
-test_imports_work = () bool {
+test_imports_work: () bool  = {
     // Use imported modules
     io.print("Testing imports without comptime\n")
     
@@ -34,7 +34,7 @@ test_imports_work = () bool {
 }
 
 // Main function
-main = () i32 {
+main: () i32  = {
     io.print("=== Import System Test (No Comptime) ===\n")
     
     if (test_imports_work()) {

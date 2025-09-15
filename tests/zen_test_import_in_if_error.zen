@@ -1,6 +1,6 @@
 // This test should FAIL - imports not allowed inside if blocks
 
-main = () i32 {
+main: () i32  = {
     x := 10
     
     if (x > 5) {

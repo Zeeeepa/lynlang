@@ -11,7 +11,7 @@ extern memcpy = (dest: *void, src: *void, size: i64) void
 extern memset = (ptr: *void, value: i32, size: i64) void
 
 // Memory allocator interface
-Allocator = {
+Allocator: {
     alloc: (*void, i64) *void,
     free: (*void, *void) void,
     realloc: (*void, *void, i64) *void,
@@ -19,7 +19,7 @@ Allocator = {
 }
 
 // Default system allocator
-system_allocator = () Allocator {
+system_allocator: () Allocator  = {
     return Allocator {
         alloc: system_alloc,
         free: system_free,
@@ -32,7 +32,7 @@ system_alloc = (ctx: *void, size: i64) *void {
     return malloc(size)
 }
 
-system_free = (ctx: *void, ptr: *void) void {
+system_free: (ctx: *void, ptr: *void) void  = {
     free(ptr)
 }
 
@@ -59,7 +59,7 @@ Vec<T> = {
     allocator: Allocator,
 }
 
-vec_new<T> = () Vec<T> {
+vec_new<T>: () Vec<T>  = {
     return Vec<T> {
         data: 0,
         len: 0,
@@ -68,7 +68,7 @@ vec_new<T> = () Vec<T> {
     }
 }
 
-vec_with_capacity<T> = (capacity: i64) Vec<T> {
+vec_with_capacity<T>: (capacity: i64) Vec<T>  = {
     allocator := system_allocator()
     data := allocator.alloc(allocator.context, capacity * sizeof<T>())
     
@@ -80,7 +80,7 @@ vec_with_capacity<T> = (capacity: i64) Vec<T> {
     }
 }
 
-vec_push<T> = (vec: *Vec<T>, value: T) void {
+vec_push<T>: (vec: *Vec<T>, value: T) void  = {
     // Check if we need to grow
     vec.len >= vec.capacity ?
         | true => {
@@ -96,24 +96,24 @@ vec_push<T> = (vec: *Vec<T>, value: T) void {
     vec.len = vec.len + 1
 }
 
-vec_pop<T> = (vec: *Vec<T>) Option<T> {
+vec_pop<T>: (vec: *Vec<T>) Option<T>  = {
     vec.len > 0 ?
         | true => {
             vec.len = vec.len - 1
-            return Option::Some(vec.data[vec.len])
+            return Option:Some(vec.data[vec.len])
         }
         | false => {
-            return Option::None
+            return Option:None
         }
 }
 
-vec_get<T> = (vec: *Vec<T>, index: i64) Option<T> {
+vec_get<T>: (vec: *Vec<T>, index: i64) Option<T>  = {
     index >= 0 && index < vec.len ?
-        | true => return Option::Some(vec.data[index])
-        | false => return Option::None
+        | true => return Option:Some(vec.data[index])
+        | false => return Option:None
 }
 
-vec_set<T> = (vec: *Vec<T>, index: i64, value: T) bool {
+vec_set<T>: (vec: *Vec<T>, index: i64, value: T) bool  = {
     index >= 0 && index < vec.len ?
         | true => {
             vec.data[index] = value
@@ -124,7 +124,7 @@ vec_set<T> = (vec: *Vec<T>, index: i64, value: T) bool {
         }
 }
 
-vec_grow<T> = (vec: *Vec<T>, new_capacity: i64) void {
+vec_grow<T>: (vec: *Vec<T>, new_capacity: i64) void  = {
     new_capacity <= vec.capacity ?
         | true => return
         | false => {}
@@ -139,11 +139,11 @@ vec_grow<T> = (vec: *Vec<T>, new_capacity: i64) void {
     vec.capacity = new_capacity
 }
 
-vec_clear<T> = (vec: *Vec<T>) void {
+vec_clear<T>: (vec: *Vec<T>) void  = {
     vec.len = 0
 }
 
-vec_free<T> = (vec: *Vec<T>) void {
+vec_free<T>: (vec: *Vec<T>) void  = {
     vec.data != 0 ?
         | true => {
             vec.allocator.free(vec.allocator.context, vec.data)
@@ -156,7 +156,7 @@ vec_free<T> = (vec: *Vec<T>) void {
 
 // Iterator support for Vec
 vec_iter<T> = (vec: *Vec<T>, func: (T) void) void {
-    i ::= 0
+    i := 0
     loop i < vec.len {
         func(vec.data[i])
         i = i + 1
@@ -181,7 +181,7 @@ HashMap<K, V> = {
     allocator: Allocator,
 }
 
-hashmap_new<K, V> = () HashMap<K, V> {
+hashmap_new<K, V>: () HashMap<K, V>  = {
     initial_capacity := 16
     allocator := system_allocator()
     buckets := allocator.alloc(allocator.context, initial_capacity * sizeof<HashEntry<K, V>>())
@@ -197,13 +197,13 @@ hashmap_new<K, V> = () HashMap<K, V> {
     }
 }
 
-hashmap_hash<K> = (key: K) i64 {
+hashmap_hash<K>: (key: K) i64  = {
     // Simple hash function - would be specialized per type
     // This is a placeholder
     return 0
 }
 
-hashmap_insert<K, V> = (map: *HashMap<K, V>, key: K, value: V) void {
+hashmap_insert<K, V>: (map: *HashMap<K, V>, key: K, value: V) void  = {
     // Check load factor
     map.size * 4 >= map.capacity * 3 ?
         | true => hashmap_resize(map, map.capacity * 2)
@@ -235,13 +235,13 @@ hashmap_insert<K, V> = (map: *HashMap<K, V>, key: K, value: V) void {
     map.size = map.size + 1
 }
 
-hashmap_get<K, V> = (map: *HashMap<K, V>, key: K) Option<V> {
+hashmap_get<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
     hash := hashmap_hash(key)
     index := hash % map.capacity
     
     loop map.buckets[index].occupied {
         map.buckets[index].key == key ?
-            | true => return Option::Some(map.buckets[index].value)
+            | true => return Option:Some(map.buckets[index].value)
             | false => {}
         
         index = (index + 1) % map.capacity
@@ -252,10 +252,10 @@ hashmap_get<K, V> = (map: *HashMap<K, V>, key: K) Option<V> {
             | false => {}
     }
     
-    return Option::None
+    return Option:None
 }
 
-hashmap_remove<K, V> = (map: *HashMap<K, V>, key: K) Option<V> {
+hashmap_remove<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
     hash := hashmap_hash(key)
     index := hash % map.capacity
     
@@ -269,17 +269,17 @@ hashmap_remove<K, V> = (map: *HashMap<K, V>, key: K) Option<V> {
                 // Reinsert subsequent entries to maintain probing chain
                 hashmap_reinsert_chain(map, index)
                 
-                return Option::Some(value)
+                return Option:Some(value)
             }
             | false => {}
         
         index = (index + 1) % map.capacity
     }
     
-    return Option::None
+    return Option:None
 }
 
-hashmap_resize<K, V> = (map: *HashMap<K, V>, new_capacity: i64) void {
+hashmap_resize<K, V>: (map: *HashMap<K, V>, new_capacity: i64) void  = {
     old_buckets := map.buckets
     old_capacity := map.capacity
     
@@ -290,7 +290,7 @@ hashmap_resize<K, V> = (map: *HashMap<K, V>, new_capacity: i64) void {
     map.size = 0
     
     // Reinsert all entries
-    i ::= 0
+    i := 0
     loop i < old_capacity {
         old_buckets[i].occupied ?
             | true => hashmap_insert(map, old_buckets[i].key, old_buckets[i].value)
@@ -311,14 +311,14 @@ extern strcmp = (s1: *i8, s2: *i8) i32
 extern strcpy = (dest: *i8, src: *i8) *i8
 extern strcat = (dest: *i8, src: *i8) *i8
 
-String = {
+String: {
     data: *i8,
     len: i64,
     capacity: i64,
     allocator: Allocator,
 }
 
-string_new = () String {
+string_new: () String  = {
     return String {
         data: 0,
         len: 0,
@@ -327,7 +327,7 @@ string_new = () String {
     }
 }
 
-string_from_cstr = (cstr: *i8) String {
+string_from_cstr: (cstr: *i8) String  = {
     len := strlen(cstr)
     capacity := len + 1
     allocator := system_allocator()
@@ -342,7 +342,7 @@ string_from_cstr = (cstr: *i8) String {
     }
 }
 
-string_append = (s: *String, other: *i8) void {
+string_append: (s: *String, other: *i8) void  = {
     other_len := strlen(other)
     new_len := s.len + other_len
     
@@ -359,7 +359,7 @@ string_append = (s: *String, other: *i8) void {
     s.len = new_len
 }
 
-string_equals = (s1: String, s2: String) bool {
+string_equals: (s1: String, s2: String) bool  = {
     s1.len != s2.len ?
         | true => return false
         | false => {}
@@ -367,7 +367,7 @@ string_equals = (s1: String, s2: String) bool {
     return strcmp(s1.data, s2.data) == 0
 }
 
-string_free = (s: *String) void {
+string_free: (s: *String) void  = {
     s.data != 0 ?
         | true => {
             s.allocator.free(s.allocator.context, s.data)
@@ -390,45 +390,45 @@ Result<T, E> =
     | Ok(value: T)
     | Err(error: E)
 
-option_is_some<T> = (opt: Option<T>) bool {
+option_is_some<T>: (opt: Option<T>) bool  = {
     opt ?
         | Some(_) => return true
         | None => return false
 }
 
-option_is_none<T> = (opt: Option<T>) bool {
+option_is_none<T>: (opt: Option<T>) bool  = {
     return !option_is_some(opt)
 }
 
-option_unwrap<T> = (opt: Option<T>) T {
+option_unwrap<T>: (opt: Option<T>) T  = {
     opt ?
         | Some(value) => return value
         | None => panic("Attempted to unwrap None")
 }
 
-option_unwrap_or<T> = (opt: Option<T>, default: T) T {
+option_unwrap_or<T>: (opt: Option<T>, default: T) T  = {
     opt ?
         | Some(value) => return value
         | None => return default
 }
 
-result_is_ok<T, E> = (res: Result<T, E>) bool {
+result_is_ok<T, E>: (res: Result<T, E>) bool  = {
     res ?
         | Ok(_) => return true
         | Err(_) => return false
 }
 
-result_is_err<T, E> = (res: Result<T, E>) bool {
+result_is_err<T, E>: (res: Result<T, E>) bool  = {
     return !result_is_ok(res)
 }
 
-result_unwrap<T, E> = (res: Result<T, E>) T {
+result_unwrap<T, E>: (res: Result<T, E>) T  = {
     res ?
         | Ok(value) => return value
         | Err(_) => panic("Attempted to unwrap Err")
 }
 
-result_unwrap_err<T, E> = (res: Result<T, E>) E {
+result_unwrap_err<T, E>: (res: Result<T, E>) E  = {
     res ?
         | Ok(_) => panic("Attempted to unwrap_err on Ok")
         | Err(error) => return error
@@ -444,7 +444,7 @@ extern sizeof<T> = () i64
 // Test the standard library
 extern printf = (*i8, ...) i32
 
-test_stdlib = () void {
+test_stdlib: () void  = {
     printf("Testing Zen standard library...\n")
     
     // Test Vec
@@ -477,7 +477,7 @@ test_stdlib = () void {
     printf("Standard library tests complete!\n")
 }
 
-main = () i32 {
+main: () i32  = {
     test_stdlib()
     return 0
 }

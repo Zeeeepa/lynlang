@@ -6,7 +6,7 @@ lexer := @std.lexer
 io := @std.io
 
 // Test helper to print token info
-print_token = (tok: lexer.Token) void {
+print_token: (tok: lexer.Token) void  = {
     io.print("Token: ")
     tok.token_type ?
         | lexer.TokenType.Identifier => io.print("IDENT")
@@ -29,7 +29,7 @@ print_token = (tok: lexer.Token) void {
 }
 
 // Test basic tokenization
-test_basic_tokens = () void {
+test_basic_tokens: () void  = {
     io.print("=== Testing Basic Tokenization ===\n")
     
     // Test simple expression
@@ -57,7 +57,7 @@ test_basic_tokens = () void {
 }
 
 // Test keyword recognition
-test_keywords = () void {
+test_keywords: () void  = {
     io.print("\n=== Testing Keywords ===\n")
     
     input := "if loop return struct"
@@ -75,7 +75,7 @@ test_keywords = () void {
 }
 
 // Test string literals
-test_strings = () void {
+test_strings: () void  = {
     io.print("\n=== Testing String Literals ===\n")
     
     input := "\"hello\" \"world\\n\" \"test\""
@@ -92,7 +92,7 @@ test_strings = () void {
 }
 
 // Test operators
-test_operators = () void {
+test_operators: () void  = {
     io.print("\n=== Testing Operators ===\n")
     
     input := "+ - * / == != < > <= >= && ||"
@@ -109,7 +109,7 @@ test_operators = () void {
 }
 
 // Test comments
-test_comments = () void {
+test_comments: () void  = {
     io.print("\n=== Testing Comments ===\n")
     
     input := "x = 1 // This is a comment\ny = 2 /* block comment */ z = 3"
@@ -126,7 +126,7 @@ test_comments = () void {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("Self-Hosted Lexer Test Suite\n")
     io.print("============================\n\n")
     

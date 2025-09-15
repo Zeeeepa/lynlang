@@ -15,7 +15,7 @@ PATH_LIST_SEPARATOR := ":" // Unix-like systems
 PathResult<T> := result.Result<T, string>
 
 // Check if a path is absolute
-is_absolute = (path: string) bool {
+is_absolute: (path: string) bool  = {
     string.is_empty(path) ? {
         false
     } : {
@@ -24,12 +24,12 @@ is_absolute = (path: string) bool {
 }
 
 // Check if a path is relative
-is_relative = (path: string) bool {
+is_relative: (path: string) bool  = {
     return !is_absolute(path)
 }
 
 // Join multiple path components
-join = (components: ...string) string {
+join: (components: ...string) string  = {
     components.len() == 0 ? {
         return ""
     }
@@ -67,7 +67,7 @@ join = (components: ...string) string {
 }
 
 // Get the directory name from a path
-dirname = (path: string) string {
+dirname: (path: string) string  = {
     string.is_empty(path) ? {
         return "."
     }
@@ -86,7 +86,7 @@ dirname = (path: string) string {
 }
 
 // Get the base name from a path
-basename = (path: string) string {
+basename: (path: string) string  = {
     string.is_empty(path) ? {
         return ""
     }
@@ -107,7 +107,7 @@ basename = (path: string) string {
 }
 
 // Get the file extension
-extension = (path: string) string {
+extension: (path: string) string  = {
     base := basename(path)
     string.is_empty(base) ? {
         return ""
@@ -123,7 +123,7 @@ extension = (path: string) string {
 }
 
 // Get the file name without extension
-stem = (path: string) string {
+stem: (path: string) string  = {
     base := basename(path)
     string.is_empty(base) ? {
         return ""
@@ -138,7 +138,7 @@ stem = (path: string) string {
 }
 
 // Split a path into its components
-split = (path: string) Vec<string> {
+split: (path: string) Vec<string>  = {
     string.is_empty(path) ? {
         return vec.new<string>()
     }
@@ -166,7 +166,7 @@ split = (path: string) Vec<string> {
 }
 
 // Normalize a path (remove . and .. components)
-normalize = (path: string) string {
+normalize: (path: string) string  = {
     string.is_empty(path) ? {
         return "."
     }
@@ -218,7 +218,7 @@ normalize = (path: string) string {
 }
 
 // Make a path relative to a base path
-relative = (base: string, target: string) PathResult<string> {
+relative: (base: string, target: string) PathResult<string>  = {
     // Both paths must be absolute or both relative
     is_absolute(base) != is_absolute(target) ? {
         return result.err("Cannot compute relative path between absolute and relative paths")
@@ -278,7 +278,7 @@ relative = (base: string, target: string) PathResult<string> {
 }
 
 // Resolve a path to an absolute path
-resolve = (path: string) PathResult<string> {
+resolve: (path: string) PathResult<string>  = {
     is_absolute(path) ? {
         return result.ok(normalize(path))
     }
@@ -290,29 +290,29 @@ resolve = (path: string) PathResult<string> {
 }
 
 // Check if a path exists
-exists = (path: string) bool {
+exists: (path: string) bool  = {
     return fs.exists(path)
 }
 
 // Check if a path is a directory
-is_dir = (path: string) bool {
+is_dir: (path: string) bool  = {
     stats := fs.stat(path)
     return stats.is_ok() && stats.unwrap().is_directory
 }
 
 // Check if a path is a file
-is_file = (path: string) bool {
+is_file: (path: string) bool  = {
     stats := fs.stat(path)
     return stats.is_ok() && stats.unwrap().is_file
 }
 
 // Get the parent directory
-parent = (path: string) string {
+parent: (path: string) string  = {
     return dirname(path)
 }
 
 // Create all parent directories if they don't exist
-ensure_parent = (path: string) PathResult<void> {
+ensure_parent: (path: string) PathResult<void>  = {
     parent_dir := dirname(path)
     (parent_dir != "." && !exists(parent_dir)) ? {
         fs.mkdir_all(parent_dir)?
@@ -359,13 +359,13 @@ walk_recursive = (dir: string, callback: fn(path: string, is_dir: bool) bool) Pa
 }
 
 // Common file path patterns
-is_hidden = (path: string) bool {
+is_hidden: (path: string) bool  = {
     base := basename(path)
     return string.starts_with(base, ".")
 }
 
 // Check if path matches a glob pattern (simple implementation)
-matches = (path: string, pattern: string) bool {
+matches: (path: string, pattern: string) bool  = {
     // Convert glob pattern to simple regex-like matching
     // * matches any characters except /
     // ** matches any characters including /
@@ -417,7 +417,7 @@ PathBuilder := {
 }
 
 // Create a new path builder
-builder = () PathBuilder {
+builder: () PathBuilder  = {
     return PathBuilder{
         components: vec.new<string>()
     }

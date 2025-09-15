@@ -14,7 +14,7 @@ fs := @std.fs
 net := @std.net
 
 // Test that we can use imported modules
-main = () i32 {
+main: () i32  = {
     // Test io module
     io.print("Testing new import syntax\n");
     
@@ -33,12 +33,12 @@ main = () i32 {
 }
 
 // Test that imports can be used in function definitions
-test_imports_in_functions = () void {
+test_imports_in_functions: () void  = {
     io.print("Imports accessible in functions\n");
 }
 
 // Test that imports can be used in struct definitions
-TestStruct = {
+TestStruct: {
     value: i32,
 }
 

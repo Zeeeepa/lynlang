@@ -5,84 +5,84 @@ ffi := @std.build.import("ffi")
 io := @std.build.import("io")
 
 // Test building SQLite3 bindings
-test_sqlite_bindings = () void {
+test_sqlite_bindings: () void  = {
     // Build SQLite3 library configuration
     sqlite := ffi.FFI.lib("sqlite3")
         .path("/usr/lib/libsqlite3.so")
         .function("sqlite3_open", ffi.FnSignature{
-            params: vec![ffi.Type::String, ffi.Type::Pointer(Ptr::new(ffi.Type::Pointer(Ptr::new(ffi.Type::Void))))],
-            returns: ffi.Type::I32,
+            params: vec![ffi.Type:String, ffi.Type:Pointer(Ptr:new(ffi.Type:Pointer(Ptr:new(ffi.Type:Void))))],
+            returns: ffi.Type:I32,
             calling_convention: None,
             variadic: false,
         })
         .function("sqlite3_close", ffi.FnSignature{
-            params: vec![ffi.Type::Pointer(Ptr::new(ffi.Type::Void))],
-            returns: ffi.Type::I32,
+            params: vec![ffi.Type:Pointer(Ptr:new(ffi.Type:Void))],
+            returns: ffi.Type:I32,
             calling_convention: None,
             variadic: false,
         })
         .function("sqlite3_exec", ffi.FnSignature{
             params: vec![
-                ffi.Type::Pointer(Ptr::new(ffi.Type::Void)),
-                ffi.Type::String,
-                ffi.Type::Pointer(Ptr::new(ffi.Type::Void)),
-                ffi.Type::Pointer(Ptr::new(ffi.Type::Void)),
-                ffi.Type::Pointer(Ptr::new(ffi.Type::String)),
+                ffi.Type:Pointer(Ptr:new(ffi.Type:Void)),
+                ffi.Type:String,
+                ffi.Type:Pointer(Ptr:new(ffi.Type:Void)),
+                ffi.Type:Pointer(Ptr:new(ffi.Type:Void)),
+                ffi.Type:Pointer(Ptr:new(ffi.Type:String)),
             ],
-            returns: ffi.Type::I32,
+            returns: ffi.Type:I32,
             calling_convention: None,
             variadic: false,
         })
-        .constant("SQLITE_OK", ffi.Type::I32)
-        .constant("SQLITE_ERROR", ffi.Type::I32)
-        .constant("SQLITE_BUSY", ffi.Type::I32)
+        .constant("SQLITE_OK", ffi.Type:I32)
+        .constant("SQLITE_ERROR", ffi.Type:I32)
+        .constant("SQLITE_BUSY", ffi.Type:I32)
         .build()
     
     io.print("SQLite3 library configuration built successfully\n")
 }
 
 // Test building OpenGL bindings
-test_opengl_bindings = () void {
+test_opengl_bindings: () void  = {
     gl := ffi.FFI.lib("GL")
         .path("/usr/lib/libGL.so")
         .function("glClear", ffi.FnSignature{
-            params: vec![ffi.Type::U32],
-            returns: ffi.Type::Void,
-            calling_convention: Some(ffi.CallingConvention::CDecl),
+            params: vec![ffi.Type:U32],
+            returns: ffi.Type:Void,
+            calling_convention: Some(ffi.CallingConvention:CDecl),
             variadic: false,
         })
         .function("glClearColor", ffi.FnSignature{
-            params: vec![ffi.Type::F32, ffi.Type::F32, ffi.Type::F32, ffi.Type::F32],
-            returns: ffi.Type::Void,
-            calling_convention: Some(ffi.CallingConvention::CDecl),
+            params: vec![ffi.Type:F32, ffi.Type:F32, ffi.Type:F32, ffi.Type:F32],
+            returns: ffi.Type:Void,
+            calling_convention: Some(ffi.CallingConvention:CDecl),
             variadic: false,
         })
-        .constant("GL_COLOR_BUFFER_BIT", ffi.Type::U32)
-        .constant("GL_DEPTH_BUFFER_BIT", ffi.Type::U32)
+        .constant("GL_COLOR_BUFFER_BIT", ffi.Type:U32)
+        .constant("GL_DEPTH_BUFFER_BIT", ffi.Type:U32)
         .build()
     
     io.print("OpenGL library configuration built successfully\n")
 }
 
 // Test building libc bindings with variadic functions
-test_libc_bindings = () void {
+test_libc_bindings: () void  = {
     libc := ffi.FFI.lib("c")
         .path("/lib/libc.so.6")
         .function("printf", ffi.FnSignature{
-            params: vec![ffi.Type::String],
-            returns: ffi.Type::I32,
-            calling_convention: Some(ffi.CallingConvention::CDecl),
+            params: vec![ffi.Type:String],
+            returns: ffi.Type:I32,
+            calling_convention: Some(ffi.CallingConvention:CDecl),
             variadic: true,  // Variadic function
         })
         .function("malloc", ffi.FnSignature{
-            params: vec![ffi.Type::USize],
-            returns: ffi.Type::Pointer(Ptr::new(ffi.Type::Void)),
+            params: vec![ffi.Type:USize],
+            returns: ffi.Type:Pointer(Ptr:new(ffi.Type:Void)),
             calling_convention: None,
             variadic: false,
         })
         .function("free", ffi.FnSignature{
-            params: vec![ffi.Type::Pointer(Ptr::new(ffi.Type::Void))],
-            returns: ffi.Type::Void,
+            params: vec![ffi.Type:Pointer(Ptr:new(ffi.Type:Void))],
+            returns: ffi.Type:Void,
             calling_convention: None,
             variadic: false,
         })
@@ -92,19 +92,19 @@ test_libc_bindings = () void {
 }
 
 // Test struct bindings
-test_struct_bindings = () void {
+test_struct_bindings: () void  = {
     // Define a C struct: struct Point { int x; int y; }
     point_fields := vec![
-        ffi.FieldType{ name: "x", field_type: ffi.Type::I32 },
-        ffi.FieldType{ name: "y", field_type: ffi.Type::I32 },
+        ffi.FieldType{ name: "x", field_type: ffi.Type:I32 },
+        ffi.FieldType{ name: "y", field_type: ffi.Type:I32 },
     ]
     
     graphics := ffi.FFI.lib("graphics")
         .path("/usr/lib/libgraphics.so")
         .struct("Point", point_fields)
         .function("draw_point", ffi.FnSignature{
-            params: vec![ffi.Type::Struct(point_fields)],
-            returns: ffi.Type::Void,
+            params: vec![ffi.Type:Struct(point_fields)],
+            returns: ffi.Type:Void,
             calling_convention: None,
             variadic: false,
         })
@@ -114,19 +114,19 @@ test_struct_bindings = () void {
 }
 
 // Test actual library loading (if available)
-test_library_loading = () void {
+test_library_loading: () void  = {
     // Try to load a simple library
     math_lib := ffi.FFI.lib("m")
         .path("/usr/lib/libm.so")
         .function("sin", ffi.FnSignature{
-            params: vec![ffi.Type::F64],
-            returns: ffi.Type::F64,
+            params: vec![ffi.Type:F64],
+            returns: ffi.Type:F64,
             calling_convention: None,
             variadic: false,
         })
         .function("cos", ffi.FnSignature{
-            params: vec![ffi.Type::F64],
-            returns: ffi.Type::F64,
+            params: vec![ffi.Type:F64],
+            returns: ffi.Type:F64,
             calling_convention: None,
             variadic: false,
         })
@@ -153,7 +153,7 @@ test_library_loading = () void {
         | .Err -> e => io.print("Failed to load library: $(e)\n")
 }
 
-main = () void {
+main: () void  = {
     io.print("Testing FFI Builder Pattern\n")
     io.print("============================\n\n")
     

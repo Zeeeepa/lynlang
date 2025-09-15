@@ -7,7 +7,7 @@ process := @std.process
 string := @std.string
 
 // Build configuration
-BuildConfig = {
+BuildConfig: {
     source_dir: string,
     output_dir: string,
     target: string,
@@ -17,19 +17,18 @@ BuildConfig = {
 }
 
 // Compilation unit
-CompilationUnit = {
+CompilationUnit: {
     path: string,
     module_name: string,
     dependencies: Vec<string>,
 }
 
 // Build result
-BuildResult = 
-    | Success(output_path: string, warnings: Vec<string>)
+BuildResult: Success(output_path: string, warnings: Vec<string>)
     | Failure(errors: Vec<string>)
 
 // Module import system
-import = (module_name: string) Module {
+import: (module_name: string) Module  = {
     // This would be implemented by the compiler
     // For now, it's a placeholder that represents module loading
     Module {
@@ -39,19 +38,18 @@ import = (module_name: string) Module {
 }
 
 // Module representation
-Module = {
+Module: {
     name: string,
     exports: HashMap<string, Symbol>,
 }
 
 // Symbol in a module
-Symbol = 
-    | Function(name: string, type: Type)
+Symbol: Function(name: string, type: Type)
     | Type(name: string, definition: Type)
     | Constant(name: string, value: Value)
 
 // Create default build configuration
-default_config = () BuildConfig {
+default_config: () BuildConfig  = {
     BuildConfig {
         source_dir: "./src",
         output_dir: "./build",
@@ -63,7 +61,7 @@ default_config = () BuildConfig {
 }
 
 // Compile a single Zen file
-compile_file = (path: string, config: BuildConfig) BuildResult {
+compile_file: (path: string, config: BuildConfig) BuildResult  = {
     // Read the source file
     source := fs.read_file(path) ? 
         | Ok(content) => content
@@ -97,7 +95,7 @@ compile_file = (path: string, config: BuildConfig) BuildResult {
 }
 
 // Build an entire project
-build_project = (config: BuildConfig) BuildResult {
+build_project: (config: BuildConfig) BuildResult  = {
     // Find all .zen files in source directory
     files := fs.find_files(config.source_dir, "*.zen") ?
         | Ok(f) => f
@@ -125,7 +123,7 @@ build_project = (config: BuildConfig) BuildResult {
 }
 
 // Link object files into executable
-link_objects = (objects: Vec<string>, config: BuildConfig) Result<string, string> {
+link_objects: (objects: Vec<string>, config: BuildConfig) Result<string, string>  = {
     output_path := string.format("{}/output", config.output_dir)
     
     // Build linker command
@@ -146,12 +144,12 @@ link_objects = (objects: Vec<string>, config: BuildConfig) Result<string, string
 }
 
 // Clean build artifacts
-clean = (config: BuildConfig) Result<void, string> {
+clean: (config: BuildConfig) Result<void, string>  = {
     fs.remove_directory(config.output_dir)
 }
 
 // Run tests
-test = (config: BuildConfig) Result<TestResults, string> {
+test: (config: BuildConfig) Result<TestResults, string>  = {
     test_dir := string.format("{}/tests", config.source_dir)
     test_files := fs.find_files(test_dir, "*_test.zen") ?
         | Ok(f) => f
@@ -185,7 +183,7 @@ test = (config: BuildConfig) Result<TestResults, string> {
 }
 
 // Test results
-TestResults = {
+TestResults: {
     total: i64,
     passed: i64,
     failed: i64,
@@ -193,13 +191,13 @@ TestResults = {
     failures: Vec<TestFailure>,
 }
 
-TestFailure = {
+TestFailure: {
     name: string,
     message: string,
 }
 
 // Run a single test file
-run_test_file = (path: string, config: BuildConfig) Result<TestResults, string> {
+run_test_file: (path: string, config: BuildConfig) Result<TestResults, string>  = {
     // Compile and run the test file
     // This is simplified - in reality would need more infrastructure
     compile_file(path, config) ?

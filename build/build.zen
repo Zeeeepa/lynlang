@@ -44,7 +44,7 @@ BuildConfig: {
 }
 
 // Build target
-Target: |
+Target: 
     Native
     | Wasm
     | LLVM
@@ -58,7 +58,7 @@ Artifact: {
     source_files: vec.Vec<string>,
 }
 
-ArtifactKind: |
+ArtifactKind: 
     Executable
     | Library
     | Object
@@ -80,7 +80,7 @@ BuildSystem: {
 }
 
 // Initialize build system
-init_build_system = (config: BuildConfig) BuildSystem {
+init_build_system: (config: BuildConfig) BuildSystem  = {
     return BuildSystem {
         config: config,
         artifacts: map.new<string, Artifact>(),
@@ -308,7 +308,7 @@ compiler_target = (target: Target) compiler.Target {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Zen Build System v0.1.0\n")
     io.print("========================\n\n")
     

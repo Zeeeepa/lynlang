@@ -12,7 +12,7 @@ errors := @std.compiler.errors
 AstNode := parser.AstNode
 
 // Type representation
-Type = 
+Type:  
     // Primitive types
     | I8 | I16 | I32 | I64
     | U8 | U16 | U32 | U64
@@ -55,19 +55,18 @@ Type =
     | Error(msg: string)
 
 // Enum variant representation
-EnumVariant = {
+EnumVariant: {
     name: string,
     fields: Option<Vec<Type>>,
 }
 
 // Type constraints for generics
-TypeConstraint = 
-    | Trait(name: string)
+TypeConstraint: Trait(name: string)
     | Equals(type: Type)
     | SubtypeOf(type: Type)
 
 // Type environment for tracking variable types
-TypeEnv = {
+TypeEnv: {
     variables: Map<string, Type>,
     functions: Map<string, Type>,
     types: Map<string, Type>,
@@ -75,7 +74,7 @@ TypeEnv = {
 }
 
 // Type checker state
-TypeChecker = {
+TypeChecker: {
     env: TypeEnv,
     errors: Vec<errors.Diagnostic>,
     type_var_counter: u32,
@@ -83,7 +82,7 @@ TypeChecker = {
 }
 
 // Create a new type checker
-new_type_checker = () TypeChecker {
+new_type_checker: () TypeChecker  = {
     TypeChecker {
         env: TypeEnv {
             variables: map.new<string, Type>(),
@@ -137,7 +136,7 @@ check_module = (checker: Ptr<TypeChecker>, module: Vec<AstNode>) Result<(), Vec<
 }
 
 // Check types for an AST node
-check_ast_node = (checker: Ptr<TypeChecker>, node: AstNode) Type {
+check_ast_node: (checker: Ptr<TypeChecker>, node: AstNode) Type  = {
     match node {
         // Literals
         | AstNode.IntLit(value) => infer_int_type(value)
@@ -192,7 +191,7 @@ check_ast_node = (checker: Ptr<TypeChecker>, node: AstNode) Type {
 }
 
 // Infer integer type from literal value
-infer_int_type = (value: i64) Type {
+infer_int_type: (value: i64) Type  = {
     value >= -128 && value <= 127 ? Type.I8 :
     value >= -32768 && value <= 32767 ? Type.I16 :
     value >= -2147483648 && value <= 2147483647 ? Type.I32 :
@@ -200,7 +199,7 @@ infer_int_type = (value: i64) Type {
 }
 
 // Check binary operation types
-check_binary_op = (checker: Ptr<TypeChecker>, op: parser.BinaryOperator, left: Ptr<AstNode>, right: Ptr<AstNode>) Type {
+check_binary_op: (checker: Ptr<TypeChecker>, op: parser.BinaryOperator, left: Ptr<AstNode>, right: Ptr<AstNode>) Type  = {
     left_type := check_ast_node(checker, *left)
     right_type := check_ast_node(checker, *right)
     
@@ -245,7 +244,7 @@ check_binary_op = (checker: Ptr<TypeChecker>, op: parser.BinaryOperator, left: P
 }
 
 // Unify two types
-unify_types = (checker: Ptr<TypeChecker>, t1: Type, t2: Type) Result<Type, string> {
+unify_types: (checker: Ptr<TypeChecker>, t1: Type, t2: Type) Result<Type, string>  = {
     match (t1, t2) {
         | (Type.Unknown, t) | (t, Type.Unknown) => Result.Ok(t)
         | (Type.TypeVar(id1), Type.TypeVar(id2)) if id1 == id2 => Result.Ok(t1)
@@ -263,7 +262,7 @@ unify_types = (checker: Ptr<TypeChecker>, t1: Type, t2: Type) Result<Type, strin
 }
 
 // Convert type to string for error messages
-type_to_string = (t: Type) string {
+type_to_string: (t: Type) string  = {
     match t {
         | Type.I8 => "i8"
         | Type.I16 => "i16"
@@ -293,7 +292,7 @@ type_to_string = (t: Type) string {
 }
 
 // Check if type is boolean
-is_bool = (t: Type) bool {
+is_bool: (t: Type) bool  = {
     match t {
         | Type.Bool => true
         | _ => false
@@ -301,54 +300,54 @@ is_bool = (t: Type) bool {
 }
 
 // Helper functions (stubs for now)
-register_struct_type = (checker: Ptr<TypeChecker>, name: string, fields: Vec<parser.StructField>, generics: Vec<string>) void {
+register_struct_type: (checker: Ptr<TypeChecker>, name: string, fields: Vec<parser.StructField>, generics: Vec<string>) void  = {
     // TODO: Implement
 }
 
-register_enum_type = (checker: Ptr<TypeChecker>, name: string, variants: Vec<parser.EnumVariant>, generics: Vec<string>) void {
+register_enum_type: (checker: Ptr<TypeChecker>, name: string, variants: Vec<parser.EnumVariant>, generics: Vec<string>) void  = {
     // TODO: Implement
 }
 
-register_type_alias = (checker: Ptr<TypeChecker>, name: string, type: Type) void {
+register_type_alias: (checker: Ptr<TypeChecker>, name: string, type: Type) void  = {
     checker.env.types.insert(name, type)
 }
 
-register_function = (checker: Ptr<TypeChecker>, name: string, params: Vec<parser.Parameter>, return_type: Option<Type>, is_generic: bool) void {
+register_function: (checker: Ptr<TypeChecker>, name: string, params: Vec<parser.Parameter>, return_type: Option<Type>, is_generic: bool) void  = {
     // TODO: Implement
 }
 
-lookup_variable = (checker: Ptr<TypeChecker>, name: string) Type {
+lookup_variable: (checker: Ptr<TypeChecker>, name: string) Type  = {
     checker.env.variables.get(name) ?
         | Some(t) => t
         | None => Type.Unknown
 }
 
-check_function_call = (checker: Ptr<TypeChecker>, func: Ptr<AstNode>, args: Vec<AstNode>) Type {
+check_function_call: (checker: Ptr<TypeChecker>, func: Ptr<AstNode>, args: Vec<AstNode>) Type  = {
     // TODO: Implement
     Type.Unknown
 }
 
-check_var_decl = (checker: Ptr<TypeChecker>, name: string, type_annotation: Option<Type>, value: Option<Ptr<AstNode>>, is_mutable: bool) Type {
+check_var_decl: (checker: Ptr<TypeChecker>, name: string, type_annotation: Option<Type>, value: Option<Ptr<AstNode>>, is_mutable: bool) Type  = {
     // TODO: Implement
     Type.Unknown
 }
 
-check_if_expr = (checker: Ptr<TypeChecker>, condition: Ptr<AstNode>, then_branch: Ptr<AstNode>, else_branch: Option<Ptr<AstNode>>) Type {
+check_if_expr: (checker: Ptr<TypeChecker>, condition: Ptr<AstNode>, then_branch: Ptr<AstNode>, else_branch: Option<Ptr<AstNode>>) Type  = {
     // TODO: Implement
     Type.Unknown
 }
 
-check_block = (checker: Ptr<TypeChecker>, statements: Vec<AstNode>) Type {
+check_block: (checker: Ptr<TypeChecker>, statements: Vec<AstNode>) Type  = {
     // TODO: Implement
     Type.Unknown
 }
 
-check_return = (checker: Ptr<TypeChecker>, value: Option<Ptr<AstNode>>) Type {
+check_return: (checker: Ptr<TypeChecker>, value: Option<Ptr<AstNode>>) Type  = {
     // TODO: Implement
     Type.Void
 }
 
-add_error = (checker: Ptr<TypeChecker>, msg: string) void {
+add_error: (checker: Ptr<TypeChecker>, msg: string) void  = {
     diagnostic := errors.Diagnostic {
         level: errors.DiagnosticLevel.Error,
         message: msg,

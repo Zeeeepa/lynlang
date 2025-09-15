@@ -2,7 +2,7 @@
 io := @std.io
 
 // Test basic arithmetic
-test_math = () void {
+test_math: () void  = {
     io.print("Testing basic math operations\n");
     
     // Addition
@@ -36,7 +36,7 @@ test_math = () void {
         | false => io.print("[FAIL] Modulo failed\n")
 }
 
-main = () i32 {
+main: () i32  = {
     io.print("=== Basic Math Test Suite ===\n");
     test_math();
     io.print("=== Tests Complete ===\n");

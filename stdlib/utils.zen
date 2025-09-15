@@ -90,12 +90,12 @@ map_result = <T, U, E>(result: Result<T, E>, f: (T) U) Result<U, E> {
 }
 
 // Defer mechanism for cleanup
-Defer = {
+Defer: {
     callbacks: Vec<() void>
 }
 
 // Create new defer context
-defer_new = () Defer {
+defer_new: () Defer  = {
     return Defer {
         callbacks: vec.new<() void>()
     }
@@ -107,8 +107,8 @@ defer_add = (d: *Defer, callback: () void) void {
 }
 
 // Execute all deferred callbacks in reverse order
-defer_run = (d: *Defer) void {
-    i ::= d.callbacks.len()
+defer_run: (d: *Defer) void  = {
+    i := d.callbacks.len()
     loop i > 0 {
         i = i - 1
         callback := d.callbacks.get(i)
@@ -117,14 +117,14 @@ defer_run = (d: *Defer) void {
 }
 
 // Range type for iteration
-Range = {
+Range: {
     start: i32
     end: i32
     step: i32
 }
 
 // Create inclusive range
-range = (start: i32, end: i32) Range {
+range: (start: i32, end: i32) Range  = {
     return Range {
         start: start
         end: end
@@ -133,7 +133,7 @@ range = (start: i32, end: i32) Range {
 }
 
 // Create range with custom step
-range_step = (start: i32, end: i32, step: i32) Range {
+range_step: (start: i32, end: i32, step: i32) Range  = {
     return Range {
         start: start
         end: end
@@ -143,7 +143,7 @@ range_step = (start: i32, end: i32, step: i32) Range {
 
 // Iterator for range
 range_iter = (r: Range, f: (i32) void) void {
-    i ::= r.start
+    i := r.start
     loop i <= r.end {
         f(i)
         i = i + r.step
@@ -234,8 +234,8 @@ uncurry2 = <A, B, C>(f: (A) (B) C) (A, B) C {
 
 // Apply function n times
 repeat = <T>(n: i32, f: (T) T, initial: T) T {
-    result ::= initial
-    i ::= 0
+    result := initial
+    i := 0
     loop i < n {
         result = f(result)
         i = i + 1
@@ -264,7 +264,7 @@ clamp = <T>(value: T, min: T, max: T) T {
 }
 
 // Linear interpolation
-lerp = (a: f32, b: f32, t: f32) f32 {
+lerp: (a: f32, b: f32, t: f32) f32  = {
     return a + (b - a) * t
 }
 
@@ -286,19 +286,19 @@ min = <T>(a: T, b: T) T {
 }
 
 // Convert degrees to radians
-deg_to_rad = (degrees: f32) f32 {
+deg_to_rad: (degrees: f32) f32  = {
     return degrees * math.PI / 180.0
 }
 
 // Convert radians to degrees
-rad_to_deg = (radians: f32) f32 {
+rad_to_deg: (radians: f32) f32  = {
     return radians * 180.0 / math.PI
 }
 
 // Simple hash function for strings
-hash_string = (s: string) u32 {
-    hash ::= 5381u32
-    i ::= 0
+hash_string: (s: string) u32  = {
+    hash := 5381u32
+    i := 0
     loop i < string.len(s) {
         c := string.char_at(s, i)
         hash = ((hash << 5) + hash) + c
@@ -308,7 +308,7 @@ hash_string = (s: string) u32 {
 }
 
 // Format time duration in human-readable format
-format_duration = (seconds: i64) string {
+format_duration: (seconds: i64) string  = {
     seconds < 60 ? | true => string.format("{}s", seconds)
                    | false => {
         minutes := seconds / 60
@@ -330,8 +330,8 @@ format_duration = (seconds: i64) string {
 }
 
 // Generate unique ID
-next_id ::= 0u64
-unique_id = () u64 {
+next_id := 0u64
+unique_id: () u64  = {
     id := next_id
     next_id = next_id + 1
     return id
@@ -349,8 +349,8 @@ benchmark = <T>(name: string, f: () T) T {
 
 // Retry function with exponential backoff
 retry = <T, E>(f: () Result<T, E>, max_attempts: i32) Result<T, E> {
-    attempt ::= 0
-    delay ::= 100  // Start with 100ms
+    attempt := 0
+    delay := 100  // Start with 100ms
     
     loop attempt < max_attempts {
         result := f()
@@ -368,7 +368,7 @@ retry = <T, E>(f: () Result<T, E>, max_attempts: i32) Result<T, E> {
 }
 
 // Simple assert for testing
-assert = (condition: bool, message: string) void {
+assert: (condition: bool, message: string) void  = {
     !condition ? | true => core.panic(string.format("Assertion failed: {}", message))
                  | false => {}
 }
@@ -382,13 +382,13 @@ assert_eq = <T>(actual: T, expected: T, message: string) void {
 }
 
 // Timing guard for measuring scope duration
-TimingGuard = {
+TimingGuard: {
     name: string
     start: u64
 }
 
 // Start timing a scope
-time_scope = (name: string) TimingGuard {
+time_scope: (name: string) TimingGuard  = {
     return TimingGuard {
         name: name
         start: core.time_ns()
@@ -396,7 +396,7 @@ time_scope = (name: string) TimingGuard {
 }
 
 // Finish timing (called automatically via defer)
-finish_timing = (guard: TimingGuard) void {
+finish_timing: (guard: TimingGuard) void  = {
     end := core.time_ns()
     duration := (end - guard.start) / 1_000_000
     io.println(string.format("'{}' took {}ms", guard.name, duration))

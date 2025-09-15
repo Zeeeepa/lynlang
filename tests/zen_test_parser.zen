@@ -6,7 +6,7 @@ core := @std.core
 build := @std.build
 
 // Simple test of parser concepts
-test_ast = () i32 {
+test_ast: () i32  = {
     // Test that we can create AST-like structures
     node_type := 1  // Program
     line := 10
@@ -26,7 +26,7 @@ test_ast = () i32 {
     return result
 }
 
-main = () i32 {
+main: () i32  = {
     result := test_ast()
     return result
 }

@@ -8,24 +8,24 @@
 // }
 
 // Create a string from bytes
-from_bytes = (data: *u8, len: usize) string {
+from_bytes: (data: *u8, len: usize) string  = {
     // This would need runtime support
     // For now, assume it's a builtin
     return __builtin_string_from_bytes(data, len)
 }
 
 // Get string length
-len = (s: string) usize {
+len: (s: string) usize  = {
     return s.len
 }
 
 // Check if string is empty
-is_empty = (s: string) bool {
+is_empty: (s: string) bool  = {
     return s.len == 0
 }
 
 // Get character at index
-char_at = (s: string, index: usize) u8 {
+char_at: (s: string, index: usize) u8  = {
     index >= s.len ?
         | true => return 0
         | false => {}
@@ -34,7 +34,7 @@ char_at = (s: string, index: usize) u8 {
 }
 
 // Compare two strings for equality
-equals = (s1: string, s2: string) bool {
+equals: (s1: string, s2: string) bool  = {
     s1.len != s2.len ?
         | true => return false
         | false => {}
@@ -51,7 +51,7 @@ equals = (s1: string, s2: string) bool {
 }
 
 // Check if string starts with prefix
-starts_with = (s: string, prefix: string) bool {
+starts_with: (s: string, prefix: string) bool  = {
     prefix.len > s.len ?
         | true => return false
         | false => {}
@@ -68,7 +68,7 @@ starts_with = (s: string, prefix: string) bool {
 }
 
 // Check if string ends with suffix
-ends_with = (s: string, suffix: string) bool {
+ends_with: (s: string, suffix: string) bool  = {
     suffix.len > s.len ?
         | true => return false
         | false => {}
@@ -86,7 +86,7 @@ ends_with = (s: string, suffix: string) bool {
 }
 
 // Find first occurrence of substring
-index_of = (s: string, needle: string) i32 {
+index_of: (s: string, needle: string) i32  = {
     needle.len == 0 ?
         | true => return 0
         | false => {}
@@ -120,12 +120,12 @@ index_of = (s: string, needle: string) i32 {
 }
 
 // Check if string contains substring
-contains = (s: string, needle: string) bool {
+contains: (s: string, needle: string) bool  = {
     return index_of(s, needle) >= 0
 }
 
 // Create substring from start index with length
-substring = (s: string, start: usize, length: usize) string {
+substring: (s: string, start: usize, length: usize) string  = {
     start >= s.len ?
         | true => return ""
         | false => {}
@@ -139,7 +139,7 @@ substring = (s: string, start: usize, length: usize) string {
 }
 
 // Create substring from start to end index
-slice = (s: string, start: usize, end: usize) string {
+slice: (s: string, start: usize, end: usize) string  = {
     start >= s.len || start >= end ?
         | true => return ""
         | false => {}
@@ -153,14 +153,14 @@ slice = (s: string, start: usize, end: usize) string {
 }
 
 // Concatenate two strings
-concat = (s1: string, s2: string) string {
+concat: (s1: string, s2: string) string  = {
     // This needs memory allocation support
     // For now, assume it's a builtin
     return __builtin_string_concat(s1, s2)
 }
 
 // Concatenate multiple strings
-concat_many = (strings: []string) string {
+concat_many: (strings: []string) string  = {
     result := ""
     i := 0
     loop i < strings.len {
@@ -171,7 +171,7 @@ concat_many = (strings: []string) string {
 }
 
 // Join strings with separator
-join = (strings: []string, separator: string) string {
+join: (strings: []string, separator: string) string  = {
     strings.len == 0 ?
         | true => return ""
         | false => {}
@@ -188,7 +188,7 @@ join = (strings: []string, separator: string) string {
 }
 
 // Trim whitespace from both ends
-trim = (s: string) string {
+trim: (s: string) string  = {
     start := 0
     end := s.len
     
@@ -216,35 +216,35 @@ trim = (s: string) string {
 }
 
 // Convert string to uppercase
-to_upper = (s: string) string {
+to_upper: (s: string) string  = {
     // This needs memory allocation
     // For now, assume it's a builtin
     return __builtin_string_to_upper(s)
 }
 
 // Convert string to lowercase
-to_lower = (s: string) string {
+to_lower: (s: string) string  = {
     // This needs memory allocation
     // For now, assume it's a builtin
     return __builtin_string_to_lower(s)
 }
 
 // Replace all occurrences of old with new
-replace = (s: string, old: string, new: string) string {
+replace: (s: string, old: string, new: string) string  = {
     // This needs memory allocation and is complex
     // For now, assume it's a builtin
     return __builtin_string_replace(s, old, new)
 }
 
 // Split string by separator
-split = (s: string, separator: string) []string {
+split: (s: string, separator: string) []string  = {
     // This needs dynamic array support
     // For now, assume it's a builtin
     return __builtin_string_split(s, separator)
 }
 
 // Parse integer from string
-parse_int = (s: string) i32 {
+parse_int: (s: string) i32  = {
     s.len == 0 ?
         | true => return 0
         | false => {}
@@ -280,14 +280,14 @@ parse_int = (s: string) i32 {
 }
 
 // Convert integer to string
-from_int = (n: i32) string {
+from_int: (n: i32) string  = {
     // This needs memory allocation
     // For now, assume it's a builtin
     return __builtin_int_to_string(n)
 }
 
 // Format string with arguments (simplified)
-format = (template: string, args: []string) string {
+format: (template: string, args: []string) string  = {
     result := template
     i := 0
     loop i < args.len {
@@ -299,24 +299,24 @@ format = (template: string, args: []string) string {
 }
 
 // Check if character is digit
-is_digit = (c: u8) bool {
+is_digit: (c: u8) bool  = {
     return c >= 48 && c <= 57  // '0' to '9'
 }
 
 // Check if character is letter
-is_letter = (c: u8) bool {
+is_letter: (c: u8) bool  = {
     is_upper := c >= 65 && c <= 90   // 'A' to 'Z'
     is_lower := c >= 97 && c <= 122  // 'a' to 'z'
     return is_upper || is_lower
 }
 
 // Check if character is alphanumeric
-is_alnum = (c: u8) bool {
+is_alnum: (c: u8) bool  = {
     return is_digit(c) || is_letter(c)
 }
 
 // Check if character is whitespace
-is_whitespace = (c: u8) bool {
+is_whitespace: (c: u8) bool  = {
     return c == 32 || c == 9 || c == 10 || c == 13  // space, tab, \n, \r
 }
 

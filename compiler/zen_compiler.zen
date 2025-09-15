@@ -19,7 +19,7 @@ llvm_backend := @std.compiler.llvm_backend
 VERSION := "1.0.0"
 
 // Compilation options
-CompilerOptions = {
+CompilerOptions: {
     input_file: string,
     output_file: string,
     emit_type: EmitType,
@@ -31,14 +31,14 @@ CompilerOptions = {
 }
 
 // What kind of output to emit
-EmitType = |
+EmitType: 
     Binary,
     LLVM_IR,
     AST,
     C_Code,
 
 // Compilation result
-CompilationResult = |
+CompilationResult: 
     Success,
     LexerError -> msg: string,
     ParserError -> msg: string,
@@ -47,7 +47,7 @@ CompilationResult = |
     IOError -> msg: string,
 
 // Main compiler driver
-compile = (options: CompilerOptions) CompilationResult {
+compile: (options: CompilerOptions) CompilationResult  = {
     options.verbose ? | true => {
         io.print("Zen Compiler v$(VERSION)\n");
         io.print("Compiling: $(options.input_file)\n");
@@ -112,14 +112,14 @@ compile = (options: CompilerOptions) CompilationResult {
 }
 
 // AST dumper for debugging
-dump_ast = (ast: AST, output_file: string) void {
+dump_ast: (ast: AST, output_file: string) void  = {
     json := ast.to_json();
     fs.write_file(output_file, json) ?
         | .Err -> err => io.error("Failed to write AST: $(err)\n")
 }
 
 // Parse command line arguments
-parse_args = (args: []string) Result<CompilerOptions, string> {
+parse_args: (args: []string) Result<CompilerOptions, string>  = {
     args.len < 2 ? | true => return .Err -> "Usage: zenc <input.zen> [options]"
     
     options := CompilerOptions {
@@ -172,7 +172,7 @@ parse_args = (args: []string) Result<CompilerOptions, string> {
 }
 
 // Print help message
-print_help = () void {
+print_help: () void  = {
     io.print("Zen Compiler v$(VERSION)\n");
     io.print("Usage: zenc <input.zen> [options]\n\n");
     io.print("Options:\n");
@@ -189,7 +189,7 @@ print_help = () void {
 }
 
 // Main entry point
-main = (args: []string) i32 {
+main: (args: []string) i32  = {
     // Parse command line arguments
     options := parse_args(args) ?
         | .Ok -> opts => opts

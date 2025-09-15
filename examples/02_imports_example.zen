@@ -6,7 +6,7 @@ core := @std.core
 io := @std.io
 
 // Main function demonstrating usage
-main = () i32 {
+main: () i32  = {
     io.print("Hello, Zen!\n")
     return 0
 }

@@ -1,7 +1,7 @@
 extern printf = (format: string, ...) i64
 extern malloc = (size: i64) *void
 
-main = () i32 {
+main: () i32  = {
     // Test simple array
     arr := [10, 20, 30, 40, 50]
     printf("arr[0]: %d\n", arr[0])

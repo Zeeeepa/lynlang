@@ -5,7 +5,7 @@ Point: {
     y: f64,
 }
 
-// Another comment with struct notation: struct Token {...}
+// Another comment with type notation: Token: {...}
 // The above should not trigger an error
 
 main: () void = {

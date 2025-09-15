@@ -28,7 +28,7 @@ fn test_parse_simple_function() {
                 body: vec![
                     Statement::Expression(Expression::Integer32(42))
                 ],
-                is_async: false,
+                
             })
         ],
     );
@@ -58,7 +58,7 @@ fn test_parse_variable_declaration() {
                     },
                     Statement::Expression(Expression::Identifier("x".to_string())),
                 ],
-                is_async: false,
+                
             })
         ],
     );
@@ -85,7 +85,7 @@ fn test_parse_binary_expression() {
                         right: Box::new(Expression::Integer32(3)),
                     }),
                 ],
-                is_async: false,
+                
             })
         ],
     );
@@ -159,7 +159,7 @@ fn test_parse_loop_with_condition() {
                         label: None,
                     },
                 ],
-                is_async: false,
+                
             })
         ],
     );
@@ -442,7 +442,7 @@ fn test_parse_function_with_return() {
                         right: Box::new(Expression::Identifier("y".to_string())),
                     }),
                 ],
-                is_async: false,
+                
             })
         ],
     );
@@ -489,7 +489,7 @@ fn test_parse_loop_with_return() {
                         label: None,
                     },
                 ],
-                is_async: false,
+                
             })
         ],
     );

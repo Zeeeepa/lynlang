@@ -13,13 +13,13 @@ Error: {
 }
 
 // Error severity levels
-ErrorLevel: |
+ErrorLevel: 
     Warning
     | Error
     | Fatal
 
 // Create a new error
-new_error = (message: string, code: i32) Error {
+new_error: (message: string, code: i32) Error  = {
     return Error {
         message: message,
         code: code,
@@ -28,7 +28,7 @@ new_error = (message: string, code: i32) Error {
 }
 
 // Create an error with source information
-new_error_with_source = (message: string, code: i32, source: string) Error {
+new_error_with_source: (message: string, code: i32, source: string) Error  = {
     return Error {
         message: message,
         code: code,
@@ -37,7 +37,7 @@ new_error_with_source = (message: string, code: i32, source: string) Error {
 }
 
 // Format error for display
-format_error = (error: Error) string {
+format_error: (error: Error) string  = {
     mut result := "Error "
     result = string.concat(result, string.from_int(error.code))
     result = string.concat(result, ": ")
@@ -56,19 +56,19 @@ format_error = (error: Error) string {
 }
 
 // Print error to stderr
-print_error = (error: Error) void {
+print_error: (error: Error) void  = {
     message := format_error(error)
     io.eprint(message)
     io.eprint("\n")
 }
 
 // Check if error is fatal
-is_fatal = (code: i32) bool {
+is_fatal: (code: i32) bool  = {
     return code >= 1000
 }
 
 // Panic with error message
-panic = (message: string) void {
+panic: (message: string) void  = {
     io.eprint("PANIC: ")
     io.eprint(message)
     io.eprint("\n")
@@ -76,7 +76,7 @@ panic = (message: string) void {
 }
 
 // Assert with custom message
-assert_msg = (condition: bool, message: string) void {
+assert_msg: (condition: bool, message: string) void  = {
     if !condition {
         panic(message)
     }

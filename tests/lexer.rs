@@ -55,14 +55,38 @@ fn test_lexer_float_numbers() {
 
 #[test]
 fn test_lexer_more_keywords() {
-    let input = "loop comptime async await behavior impl";
+    let input = "loop comptime behavior impl";
     let mut lexer = Lexer::new(input);
     assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Loop));
     assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Comptime));
-    assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Async));
-    assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Await));
     assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Behavior));
     assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Impl));
+    assert_eq!(lexer.next_token(), Token::Eof);
+}
+
+#[test]
+fn test_async_await_as_identifiers() {
+    // async and await should now be treated as regular identifiers, not keywords
+    let input = "async await async_fn await_result";
+    let mut lexer = Lexer::new(input);
+    assert_eq!(lexer.next_token(), Token::Identifier("async".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("await".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("async_fn".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("await_result".to_string()));
+    assert_eq!(lexer.next_token(), Token::Eof);
+}
+
+#[test]
+fn test_try_catch_as_identifiers() {
+    // try, catch, throw should be treated as regular identifiers, not keywords
+    // Zenlang has NO exceptions - errors are values
+    let input = "try catch throw try_again catch_error";
+    let mut lexer = Lexer::new(input);
+    assert_eq!(lexer.next_token(), Token::Identifier("try".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("catch".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("throw".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("try_again".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("catch_error".to_string()));
     assert_eq!(lexer.next_token(), Token::Eof);
 }
 

@@ -63,7 +63,7 @@ fn test_loop_iterator_array_literal() {
             },
             Statement::Return(Expression::Identifier("sum".to_string())),
         ],
-        is_async: false,
+        
     };
     
     let program = zen::ast::Program::new(
@@ -124,7 +124,7 @@ fn test_loop_iterator_empty_array() {
             },
             Statement::Return(Expression::Identifier("count".to_string())),
         ],
-        is_async: false,
+        
     };
     
     let program = zen::ast::Program::new(
@@ -190,7 +190,7 @@ fn test_loop_iterator_with_printf() {
             },
             Statement::Return(Expression::Integer64(0)),
         ],
-        is_async: false,
+        
     };
     
     let program = zen::ast::Program::new(

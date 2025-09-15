@@ -6,7 +6,7 @@ mem := @std.mem
 io := @std.io
 
 // Test basic malloc/free
-test_basic_malloc = () bool {
+test_basic_malloc: () bool  = {
     // Allocate 100 bytes
     ptr := core.malloc(100)
     
@@ -17,7 +17,7 @@ test_basic_malloc = () bool {
     
     // Write some data
     bytes := ptr as *i8
-    i ::= 0
+    i := 0
     loop i < 100 {
         bytes[i] = i as i8
         i = i + 1
@@ -42,11 +42,11 @@ test_basic_malloc = () bool {
 }
 
 // Test aligned allocation
-test_aligned_alloc = () bool {
+test_aligned_alloc: () bool  = {
     // Test different alignments
     alignments := [8, 16, 32, 64]
     
-    i ::= 0
+    i := 0
     loop i < 4 {
         align := alignments[i]
         result := mem.alloc_aligned(256, align)
@@ -77,7 +77,7 @@ test_aligned_alloc = () bool {
 }
 
 // Test calloc (zero-initialized allocation)
-test_calloc = () bool {
+test_calloc: () bool  = {
     result := mem.calloc(10, 8)
     
     result ?
@@ -85,7 +85,7 @@ test_calloc = () bool {
             bytes := ptr as *i8
             
             // Check all bytes are zero
-            i ::= 0
+            i := 0
             loop i < 80 {
                 bytes[i] != 0 ? | true => {
                     io.print("ERROR: calloc memory not zeroed at index $(i)\n")
@@ -107,7 +107,7 @@ test_calloc = () bool {
 }
 
 // Test realloc
-test_realloc = () bool {
+test_realloc: () bool  = {
     // Start with small allocation
     result := mem.alloc(50)
     
@@ -115,7 +115,7 @@ test_realloc = () bool {
         | .Ok -> ptr => {
             // Write pattern
             bytes := ptr as *i8
-            i ::= 0
+            i := 0
             loop i < 50 {
                 bytes[i] = i as i8
                 i = i + 1
@@ -157,12 +157,12 @@ test_realloc = () bool {
 }
 
 // Test memory pool
-TestBlock = {
+TestBlock: {
     id: i32,
     data: i64,
 }
 
-test_memory_pool = () bool {
+test_memory_pool: () bool  = {
     // Create pool for 10 blocks
     pool_result := mem.pool_new<TestBlock>(10)
     
@@ -170,7 +170,7 @@ test_memory_pool = () bool {
         | .Ok -> pool => {
             // Allocate all blocks
             blocks: [10]Ptr<TestBlock>
-            i ::= 0
+            i := 0
             loop i < 10 {
                 alloc_result := mem.pool_alloc<TestBlock>(&pool)
                 
@@ -240,7 +240,7 @@ test_memory_pool = () bool {
 }
 
 // Test memory statistics
-test_memory_stats = () bool {
+test_memory_stats: () bool  = {
     // Reset stats
     mem.reset_stats()
     
@@ -316,10 +316,10 @@ test_memory_stats = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=== Zen Memory Management Tests ===\n\n")
     
-    all_passed ::= true
+    all_passed := true
     
     !test_basic_malloc() ? | true => all_passed = false | false => {}
     !test_aligned_alloc() ? | true => all_passed = false | false => {}

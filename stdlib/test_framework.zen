@@ -8,42 +8,41 @@ vec := @std.vec
 string := @std.string
 
 // TestResult represents the outcome of a test
-TestResult = 
-    | Passed
+TestResult: Passed
     | Failed(message: string)
     | Skipped(reason: string)
     | Panicked(error: string)
 
 // TestCase represents a single test
-TestCase = {
+TestCase: {
     name: string,
     test_fn: () void,
-    should_panic:: bool,
-    skip:: bool,
-    skip_reason:: string,
+    should_panic: bool,
+    skip: bool,
+    skip_reason: string,
 }
 
 // TestSuite represents a collection of tests
-TestSuite = {
+TestSuite: {
     name: string,
-    tests:: Vec<TestCase>,
-    setup:: Option<() void>,
-    teardown:: Option<() void>,
-    results:: Vec<(string, TestResult)>,
+    tests: Vec<TestCase>,
+    setup: Option<() void>,
+    teardown: Option<() void>,
+    results: Vec<(string, TestResult)>,
 }
 
 // TestRunner manages test execution
-TestRunner = {
-    suites:: Vec<TestSuite>,
-    total_tests:: u32,
-    passed:: u32,
-    failed:: u32,
-    skipped:: u32,
-    verbose:: bool,
+TestRunner: {
+    suites: Vec<TestSuite>,
+    total_tests: u32,
+    passed: u32,
+    failed: u32,
+    skipped: u32,
+    verbose: bool,
 }
 
 // Create a new test suite
-suite_new = (name: string) TestSuite {
+suite_new: (name: string) TestSuite  = {
     TestSuite{
         name: name,
         tests: vec_new<TestCase>(),
@@ -54,7 +53,7 @@ suite_new = (name: string) TestSuite {
 }
 
 // Add a test to the suite
-suite_add_test = (suite:: Ptr<TestSuite>, name: string, test_fn: () void) void {
+suite_add_test = (suite: Ptr<TestSuite>, name: string, test_fn: () void) void {
     test := TestCase{
         name: name,
         test_fn: test_fn,
@@ -66,7 +65,7 @@ suite_add_test = (suite:: Ptr<TestSuite>, name: string, test_fn: () void) void {
 }
 
 // Add a test that should panic
-suite_add_panic_test = (suite:: Ptr<TestSuite>, name: string, test_fn: () void) void {
+suite_add_panic_test = (suite: Ptr<TestSuite>, name: string, test_fn: () void) void {
     test := TestCase{
         name: name,
         test_fn: test_fn,
@@ -78,7 +77,7 @@ suite_add_panic_test = (suite:: Ptr<TestSuite>, name: string, test_fn: () void) 
 }
 
 // Skip a test
-suite_skip_test = (suite:: Ptr<TestSuite>, name: string, reason: string, test_fn: () void) void {
+suite_skip_test = (suite: Ptr<TestSuite>, name: string, reason: string, test_fn: () void) void {
     test := TestCase{
         name: name,
         test_fn: test_fn,
@@ -90,17 +89,17 @@ suite_skip_test = (suite:: Ptr<TestSuite>, name: string, reason: string, test_fn
 }
 
 // Set setup function for suite
-suite_setup = (suite:: Ptr<TestSuite>, setup_fn: () void) void {
+suite_setup = (suite: Ptr<TestSuite>, setup_fn: () void) void {
     suite.setup = Some(setup_fn)
 }
 
 // Set teardown function for suite
-suite_teardown = (suite:: Ptr<TestSuite>, teardown_fn: () void) void {
+suite_teardown = (suite: Ptr<TestSuite>, teardown_fn: () void) void {
     suite.teardown = Some(teardown_fn)
 }
 
 // Run a single test case
-run_test = (test: TestCase) TestResult {
+run_test: (test: TestCase) TestResult  = {
     // Check if test should be skipped
     test.skip ?
         | true => return TestResult.Skipped(test.skip_reason)
@@ -124,7 +123,7 @@ run_test = (test: TestCase) TestResult {
 }
 
 // Run all tests in a suite
-run_suite = (suite:: Ptr<TestSuite>) void {
+run_suite: (suite: Ptr<TestSuite>) void  = {
     io.println("\n=== Running test suite: $(suite.name) ===")
     
     // Run setup if provided
@@ -171,7 +170,7 @@ run_suite = (suite:: Ptr<TestSuite>) void {
 }
 
 // Create a new test runner
-runner_new = () TestRunner {
+runner_new: () TestRunner  = {
     TestRunner{
         suites: vec_new<TestSuite>(),
         total_tests: 0,
@@ -183,18 +182,18 @@ runner_new = () TestRunner {
 }
 
 // Add a suite to the runner
-runner_add_suite = (runner:: Ptr<TestRunner>, suite: TestSuite) void {
+runner_add_suite: (runner: Ptr<TestRunner>, suite: TestSuite) void  = {
     runner.suites.push(suite)
     runner.total_tests = runner.total_tests + suite.tests.len()
 }
 
 // Enable verbose output
-runner_verbose = (runner:: Ptr<TestRunner>, verbose: bool) void {
+runner_verbose: (runner: Ptr<TestRunner>, verbose: bool) void  = {
     runner.verbose = verbose
 }
 
 // Run all test suites
-runner_run = (runner:: Ptr<TestRunner>) bool {
+runner_run: (runner: Ptr<TestRunner>) bool  = {
     io.println("\n" + string_repeat("=", 60))
     io.println("Running $(runner.total_tests) tests in $(runner.suites.len()) suites")
     io.println(string_repeat("=", 60))
@@ -264,7 +263,7 @@ assert_ne = <T>(actual: T, expected: T, message: string = "") void {
         | true => {}
 }
 
-assert_true = (value: bool, message: string = "") void {
+assert_true: (value: bool, message: string = "") void  = {
     value ?
         | false => {
             msg := message.empty() ?
@@ -275,7 +274,7 @@ assert_true = (value: bool, message: string = "") void {
         | true => {}
 }
 
-assert_false = (value: bool, message: string = "") void {
+assert_false: (value: bool, message: string = "") void  = {
     value ?
         | true => {
             msg := message.empty() ?
@@ -331,12 +330,12 @@ assert_ge = <T>(a: T, b: T, message: string = "") void {
 }
 
 // Benchmark support
-Benchmark = {
+Benchmark: {
     name: string,
     fn: () void,
-    iterations:: u32,
-    warmup:: u32,
-    times:: Vec<u64>,
+    iterations: u32,
+    warmup: u32,
+    times: Vec<u64>,
 }
 
 // Create a new benchmark
@@ -351,7 +350,7 @@ benchmark_new = (name: string, fn: () void) Benchmark {
 }
 
 // Run a benchmark
-benchmark_run = (bench:: Ptr<Benchmark>) void {
+benchmark_run: (bench: Ptr<Benchmark>) void  = {
     io.println("\nRunning benchmark: $(bench.name)")
     
     // Warmup
@@ -418,14 +417,14 @@ bench_register = (name: string, fn: () void) void {
 }
 
 // Helper to get current time in nanoseconds (stub)
-time_now = () u64 {
+time_now: () u64  = {
     // In real implementation, would call system time function
     return 0
 }
 
 // Helper to repeat a string
-string_repeat = (s: string, n: u32) string {
-    result ::= ""
+string_repeat: (s: string, n: u32) string  = {
+    result := ""
     range(0, n).loop(i -> {
         result = result + s
     })

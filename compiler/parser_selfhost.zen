@@ -6,8 +6,7 @@ core := @std.core
 build := @std.build
 
 // AST Node Types
-AstNodeType =
-    | Program
+AstNodeType: Program
     | FunctionDecl
     | VariableDecl
     | StructDecl
@@ -19,8 +18,7 @@ AstNodeType =
     | Import
 
 // Expression types
-ExprType =
-    | Literal
+ExprType: Literal
     | Identifier
     | BinaryOp
     | UnaryOp
@@ -35,8 +33,7 @@ ExprType =
     | Array
 
 // Statement types
-StmtType =
-    | Expression
+StmtType: Expression
     | Return
     | Break
     | Continue
@@ -45,8 +42,7 @@ StmtType =
     | Declaration
 
 // Type kinds
-TypeKind =
-    | Basic      // i32, f64, bool, etc
+TypeKind: Basic      // i32, f64, bool, etc
     | Pointer
     | Array
     | Slice
@@ -56,14 +52,14 @@ TypeKind =
     | Generic
 
 // Basic AST nodes
-AstNode = {
+AstNode: {
     type_: AstNodeType,
     line: i32,
     column: i32,
 }
 
 // Program node - root of AST
-ProgramNode = {
+ProgramNode: {
     base: AstNode,
     imports: [ImportNode; 100],  // Fixed size array for now
     declarations: [DeclNode; 100],  // Fixed size array for now
@@ -72,21 +68,21 @@ ProgramNode = {
 }
 
 // Import node
-ImportNode = {
+ImportNode: {
     base: AstNode,
     alias: *i8,
     module_path: *i8,
 }
 
 // Declaration node
-DeclNode = {
+DeclNode: {
     base: AstNode,
     name: *i8,
     exported: bool,
 }
 
 // Function declaration
-FunctionDecl = {
+FunctionDecl: {
     decl: DeclNode,
     params: [ParamNode; 10],  // Fixed size array
     param_count: i32,
@@ -96,14 +92,14 @@ FunctionDecl = {
 }
 
 // Parameter node
-ParamNode = {
+ParamNode: {
     name: *i8,
     type_: TypeNode,
     is_comptime: bool,
 }
 
 // Variable declaration
-VariableDecl = {
+VariableDecl: {
     decl: DeclNode,
     type_: TypeNode,
     initializer: ExprNode,
@@ -111,7 +107,7 @@ VariableDecl = {
 }
 
 // Struct declaration
-StructDecl = {
+StructDecl: {
     decl: DeclNode,
     fields: [FieldNode; 20],  // Fixed size array
     field_count: i32,
@@ -120,14 +116,14 @@ StructDecl = {
 }
 
 // Field node
-FieldNode = {
+FieldNode: {
     name: *i8,
     type_: TypeNode,
     default_value: ExprNode,
 }
 
 // Enum declaration
-EnumDecl = {
+EnumDecl: {
     decl: DeclNode,
     variants: [VariantNode; 20],  // Fixed size array
     variant_count: i32,
@@ -136,34 +132,34 @@ EnumDecl = {
 }
 
 // Variant node
-VariantNode = {
+VariantNode: {
     name: *i8,
     fields: [FieldNode; 10],  // Fixed size array
     field_count: i32,
 }
 
 // Type node
-TypeNode = {
+TypeNode: {
     base: AstNode,
     kind: TypeKind,
     name: *i8,
 }
 
 // Expression node
-ExprNode = {
+ExprNode: {
     base: AstNode,
     expr_type: ExprType,
 }
 
 // Literal expression
-LiteralExpr = {
+LiteralExpr: {
     expr: ExprNode,
     value: *i8,
     literal_type: TypeNode,
 }
 
 // Binary operation
-BinaryExpr = {
+BinaryExpr: {
     expr: ExprNode,
     left: ExprNode,
     right: ExprNode,
@@ -171,14 +167,14 @@ BinaryExpr = {
 }
 
 // Unary operation
-UnaryExpr = {
+UnaryExpr: {
     expr: ExprNode,
     operand: ExprNode,
     operator: *i8,
 }
 
 // Function call
-CallExpr = {
+CallExpr: {
     expr: ExprNode,
     function: ExprNode,
     arguments: [ExprNode; 20],  // Fixed size array
@@ -186,14 +182,14 @@ CallExpr = {
 }
 
 // Field access
-FieldAccessExpr = {
+FieldAccessExpr: {
     expr: ExprNode,
     object: ExprNode,
     field: *i8,
 }
 
 // If expression
-IfExpr = {
+IfExpr: {
     expr: ExprNode,
     condition: ExprNode,
     then_branch: ExprNode,
@@ -201,7 +197,7 @@ IfExpr = {
 }
 
 // Block expression
-BlockExpr = {
+BlockExpr: {
     expr: ExprNode,
     statements: [StmtNode; 50],  // Fixed size array
     stmt_count: i32,
@@ -209,7 +205,7 @@ BlockExpr = {
 }
 
 // Match expression
-MatchExpr = {
+MatchExpr: {
     expr: ExprNode,
     scrutinee: ExprNode,
     arms: [MatchArm; 20],  // Fixed size array
@@ -217,21 +213,20 @@ MatchExpr = {
 }
 
 // Match arm
-MatchArm = {
+MatchArm: {
     pattern: PatternNode,
     guard: ExprNode,
     body: ExprNode,
 }
 
 // Pattern node
-PatternNode = {
+PatternNode: {
     base: AstNode,
     pattern_type: PatternType,
 }
 
 // Pattern types
-PatternType =
-    | Wildcard
+PatternType: Wildcard
     | Literal
     | Identifier
     | Struct
@@ -240,20 +235,20 @@ PatternType =
     | Or
 
 // Statement node
-StmtNode = {
+StmtNode: {
     base: AstNode,
     stmt_type: StmtType,
 }
 
 // Parser state
-Parser = {
+Parser: {
     tokens: [Token; 1000],  // Fixed size array
     current: i32,
     token_count: i32,
 }
 
 // Token (from lexer)
-Token = {
+Token: {
     type_: i32,  // TokenType
     value: *i8,
     line: i32,
@@ -261,7 +256,7 @@ Token = {
 }
 
 // Create a new parser
-parser_new = (tokens: [Token; 1000], count: i32) Parser {
+parser_new: (tokens: [Token; 1000], count: i32) Parser  = {
     return Parser {
         tokens: tokens,
         current: 0,
@@ -270,12 +265,12 @@ parser_new = (tokens: [Token; 1000], count: i32) Parser {
 }
 
 // Check if at end of tokens
-is_at_end = (parser: Parser) bool {
+is_at_end: (parser: Parser) bool  = {
     return parser.current >= parser.token_count
 }
 
 // Get current token
-current_token = (parser: Parser) Token {
+current_token: (parser: Parser) Token  = {
     parser.current < parser.token_count ?
         | true => return parser.tokens[parser.current]
         | false => {
@@ -290,14 +285,14 @@ current_token = (parser: Parser) Token {
 }
 
 // Advance to next token
-advance = (parser: *Parser) Token {
+advance: (parser: *Parser) Token  = {
     current := current_token(*parser)
     parser.current = parser.current + 1
     return current
 }
 
 // Peek at next token
-peek = (parser: Parser) Token {
+peek: (parser: Parser) Token  = {
     next_pos := parser.current + 1
     next_pos < parser.token_count ?
         | true => return parser.tokens[next_pos]
@@ -312,14 +307,14 @@ peek = (parser: Parser) Token {
 }
 
 // Check if current token matches type
-check = (parser: Parser, type_: i32) bool {
+check: (parser: Parser, type_: i32) bool  = {
     is_at_end(parser) ?
         | true => return false
         | false => return current_token(parser).type_ == type_
 }
 
 // Consume token of expected type
-consume = (parser: *Parser, type_: i32, message: *i8) Token {
+consume: (parser: *Parser, type_: i32, message: *i8) Token  = {
     check(*parser, type_) ?
         | true => return advance(parser)
         | false => {
@@ -330,10 +325,10 @@ consume = (parser: *Parser, type_: i32, message: *i8) Token {
 }
 
 // Parse program (entry point)
-parse_program = (parser: *Parser) ProgramNode {
+parse_program: (parser: *Parser) ProgramNode  = {
     program := ProgramNode {
         base: AstNode {
-            type_: AstNodeType::Program,
+            type_: AstNodeType:Program,
             line: 1,
             column: 1,
         },
@@ -361,12 +356,12 @@ parse_program = (parser: *Parser) ProgramNode {
 }
 
 // Parse import statement
-parse_import = (parser: *Parser) ImportNode {
+parse_import: (parser: *Parser) ImportNode  = {
     // alias := @std.module or alias := build.import("module")
     
     import := ImportNode {
         base: AstNode {
-            type_: AstNodeType::Import,
+            type_: AstNodeType:Import,
             line: current_token(*parser).line,
             column: current_token(*parser).column,
         },
@@ -389,11 +384,11 @@ parse_import = (parser: *Parser) ImportNode {
 }
 
 // Parse function declaration
-parse_function = (parser: *Parser) FunctionDecl {
+parse_function: (parser: *Parser) FunctionDecl  = {
     func := FunctionDecl {
         decl: DeclNode {
             base: AstNode {
-                type_: AstNodeType::FunctionDecl,
+                type_: AstNodeType:FunctionDecl,
                 line: current_token(*parser).line,
                 column: current_token(*parser).column,
             },
@@ -421,13 +416,13 @@ parse_function = (parser: *Parser) FunctionDecl {
 }
 
 // Parse expression
-parse_expression = (parser: *Parser) ExprNode {
+parse_expression: (parser: *Parser) ExprNode  = {
     // Start with primary expression
     return parse_primary(parser)
 }
 
 // Parse primary expression
-parse_primary = (parser: *Parser) ExprNode {
+parse_primary: (parser: *Parser) ExprNode  = {
     current := current_token(*parser)
     
     // Check for literals
@@ -435,11 +430,11 @@ parse_primary = (parser: *Parser) ExprNode {
     
     expr := ExprNode {
         base: AstNode {
-            type_: AstNodeType::Expression,
+            type_: AstNodeType:Expression,
             line: current.line,
             column: current.column,
         },
-        expr_type: ExprType::Literal,
+        expr_type: ExprType:Literal,
     }
     
     advance(parser)
@@ -447,14 +442,14 @@ parse_primary = (parser: *Parser) ExprNode {
 }
 
 // Parse type
-parse_type = (parser: *Parser) TypeNode {
+parse_type: (parser: *Parser) TypeNode  = {
     type_node := TypeNode {
         base: AstNode {
-            type_: AstNodeType::Type,
+            type_: AstNodeType:Type,
             line: current_token(*parser).line,
             column: current_token(*parser).column,
         },
-        kind: TypeKind::Basic,
+        kind: TypeKind:Basic,
         name: 0,
     }
     

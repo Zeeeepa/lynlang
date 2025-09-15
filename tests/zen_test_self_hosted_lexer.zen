@@ -8,7 +8,7 @@ io := @std.io
 // For now, we'll test basic concepts
 
 // Test token types
-test_token_recognition = () bool {
+test_token_recognition: () bool  = {
     // Test data - simplified for now
     // Will test with proper tuples when supported
     
@@ -29,10 +29,10 @@ test_token_recognition = () bool {
 }
 
 // Test operator recognition
-test_operators = () bool {
+test_operators: () bool  = {
     operators := [
         ":=",   // immutable assignment
-        "::=",  // mutable assignment  
+        ":=",  // mutable assignment  
         "=",    // definition
         "==",   // equality
         "!=",   // not equal
@@ -58,12 +58,12 @@ test_operators = () bool {
         "=>",   // pattern result
         "..",   // range
         "...",  // varargs
-        "::",   // type annotation
+        ":",   // type annotation
     ]
     
     io.print("Testing operator recognition...\n")
     
-    i ::= 0
+    i := 0
     loop i < 28 {
         io.print("  Operator: ")
         // Would print operators[i] when array indexing works fully
@@ -75,7 +75,7 @@ test_operators = () bool {
 }
 
 // Test keywords
-test_keywords = () bool {
+test_keywords: () bool  = {
     keywords := [
         "loop",     // iteration
         "break",    // loop break
@@ -101,7 +101,7 @@ test_keywords = () bool {
 }
 
 // Test string parsing
-test_string_parsing = () bool {
+test_string_parsing: () bool  = {
     io.print("Testing string parsing...\n")
     io.print("  Simple string\n")
     io.print("  String with newline\n")
@@ -114,7 +114,7 @@ test_string_parsing = () bool {
 }
 
 // Test number parsing
-test_number_parsing = () bool {
+test_number_parsing: () bool  = {
     io.print("Testing number parsing...\n")
     io.print("  Integer: 0\n")
     io.print("  Integer: 42\n")
@@ -130,7 +130,7 @@ test_number_parsing = () bool {
 }
 
 // Test comment handling
-test_comments = () bool {
+test_comments: () bool  = {
     io.print("Testing comment handling...\n")
     
     // Single-line comments
@@ -146,7 +146,7 @@ test_comments = () bool {
 }
 
 // Test error cases
-test_error_cases = () bool {
+test_error_cases: () bool  = {
     io.print("Testing error cases...\n")
     
     // Unterminated string
@@ -163,7 +163,7 @@ test_error_cases = () bool {
 }
 
 // Test position tracking
-test_position_tracking = () bool {
+test_position_tracking: () bool  = {
     io.print("Testing position tracking...\n")
     
     // Each token should track:
@@ -176,7 +176,7 @@ test_position_tracking = () bool {
 }
 
 // Main test runner
-main = () void {
+main: () void  = {
     io.print("=== Self-Hosted Lexer Tests ===\n\n")
     
     tests_passed := 0

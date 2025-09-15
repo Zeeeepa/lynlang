@@ -41,7 +41,7 @@ fn test_generic_function_instantiation() {
             type_args: vec![],
         },
         body: vec![Statement::Return(Expression::Identifier("value".to_string()))],
-        is_async: false,
+        
     };
     
     env.register_generic_function(generic_func.clone());
@@ -139,7 +139,7 @@ fn test_multiple_type_parameters() {
         ],
         return_type: AstType::Void,
         body: vec![],
-        is_async: false,
+        
     };
     
     env.register_generic_function(generic_func.clone());

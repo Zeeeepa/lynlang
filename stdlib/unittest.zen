@@ -7,14 +7,13 @@ core := @std.core
 time := @std.time
 
 // Test result types
-TestResult = 
-    | Pass
+TestResult: Pass
     | Fail(string)
     | Skip(string)
     | Error(string)
 
 // Test case structure
-TestCase = {
+TestCase: {
     name: string,
     test_fn: () TestResult,
     file: string,
@@ -22,7 +21,7 @@ TestCase = {
 }
 
 // Test suite structure
-TestSuite = {
+TestSuite: {
     name: string,
     tests: Vec<TestCase>,
     setup: Option<() void>,
@@ -30,7 +29,7 @@ TestSuite = {
 }
 
 // Test runner statistics
-TestStats = {
+TestStats: {
     total: u32,
     passed: u32,
     failed: u32,
@@ -50,7 +49,7 @@ COLOR_BLUE := "\x1b[34m"
 COLOR_RESET := "\x1b[0m"
 
 // Create a new test suite
-suite = (name: string) TestSuite {
+suite: (name: string) TestSuite  = {
     return TestSuite {
         name: name,
         tests: vec.new<TestCase>(),
@@ -81,19 +80,19 @@ add_test = (s: &mut TestSuite, name: string, test_fn: () TestResult) void {
 }
 
 // Register suite with global registry
-register_suite = (s: TestSuite) void {
+register_suite: (s: TestSuite) void  = {
     vec.push(&TEST_REGISTRY, s)
 }
 
 // Assertion functions
-assert = (condition: bool) TestResult {
+assert: (condition: bool) TestResult  = {
     if condition {
         return TestResult.Pass
     }
     return TestResult.Fail("Assertion failed")
 }
 
-assert_with_msg = (condition: bool, msg: string) TestResult {
+assert_with_msg: (condition: bool, msg: string) TestResult  = {
     if condition {
         return TestResult.Pass
     }
@@ -148,14 +147,14 @@ assert_ge = <T>(actual: T, limit: T) TestResult {
     return TestResult.Fail(msg)
 }
 
-assert_true = (value: bool) TestResult {
+assert_true: (value: bool) TestResult  = {
     if value {
         return TestResult.Pass
     }
     return TestResult.Fail("Expected true, got false")
 }
 
-assert_false = (value: bool) TestResult {
+assert_false: (value: bool) TestResult  = {
     if !value {
         return TestResult.Pass
     }
@@ -176,7 +175,7 @@ assert_not_nil = <T>(value: ?T) TestResult {
     return TestResult.Fail("Expected non-nil value")
 }
 
-assert_contains = (haystack: string, needle: string) TestResult {
+assert_contains: (haystack: string, needle: string) TestResult  = {
     if string.contains(haystack, needle) {
         return TestResult.Pass
     }
@@ -184,7 +183,7 @@ assert_contains = (haystack: string, needle: string) TestResult {
     return TestResult.Fail(msg)
 }
 
-assert_starts_with = (str: string, prefix: string) TestResult {
+assert_starts_with: (str: string, prefix: string) TestResult  = {
     if string.starts_with(str, prefix) {
         return TestResult.Pass
     }
@@ -192,7 +191,7 @@ assert_starts_with = (str: string, prefix: string) TestResult {
     return TestResult.Fail(msg)
 }
 
-assert_ends_with = (str: string, suffix: string) TestResult {
+assert_ends_with: (str: string, suffix: string) TestResult  = {
     if string.ends_with(str, suffix) {
         return TestResult.Pass
     }
@@ -201,7 +200,7 @@ assert_ends_with = (str: string, suffix: string) TestResult {
 }
 
 // Float comparison with epsilon
-assert_float_eq = (actual: f64, expected: f64, epsilon: f64) TestResult {
+assert_float_eq: (actual: f64, expected: f64, epsilon: f64) TestResult  = {
     diff := if actual > expected { actual - expected } else { expected - actual }
     if diff <= epsilon {
         return TestResult.Pass
@@ -229,23 +228,23 @@ assert_array_eq = <T>(actual: []T, expected: []T) TestResult {
 }
 
 // Skip test with reason
-skip = (reason: string) TestResult {
+skip: (reason: string) TestResult  = {
     return TestResult.Skip(reason)
 }
 
 // Mark test as error
-error = (msg: string) TestResult {
+error: (msg: string) TestResult  = {
     return TestResult.Error(msg)
 }
 
 // Run a single test case
-run_test = (test: &TestCase) TestResult {
+run_test: (test: &TestCase) TestResult  = {
     // TODO: Add timeout and panic recovery
     return test.test_fn()
 }
 
 // Run a test suite
-run_suite = (suite: &TestSuite) TestStats {
+run_suite: (suite: &TestSuite) TestStats  = {
     stats := TestStats {
         total: suite.tests.len as u32,
         passed: 0,
@@ -307,7 +306,7 @@ run_suite = (suite: &TestSuite) TestStats {
 }
 
 // Run all registered test suites
-run_all = () TestStats {
+run_all: () TestStats  = {
     total_stats := TestStats {
         total: 0,
         passed: 0,
@@ -374,7 +373,7 @@ define_tests = (name: string, tests_fn: (&mut TestSuite) void) void {
 }
 
 // Benchmark support
-Benchmark = {
+Benchmark: {
     name: string,
     iterations: u32,
     warmup: u32,
@@ -382,7 +381,7 @@ Benchmark = {
 }
 
 // Run benchmark
-bench = (b: &Benchmark) void {
+bench: (b: &Benchmark) void  = {
     io.printf("Benchmarking {}: ", b.name)
     
     // Warmup
@@ -409,8 +408,8 @@ assert_panics = (fn: () void) TestResult {
     return TestResult.Skip("Panic testing not yet implemented")
 }
 
-// Test helper for async functions
-assert_async = (fn: () Future<TestResult>) TestResult {
-    // TODO: Implement async test support
-    return TestResult.Skip("Async testing not yet implemented")
+// Test helper for concurrent functions using allocators
+assert_concurrent = (fn: (*Allocator) TestResult, alloc: *Allocator) TestResult {
+    // Use the provided allocator to determine execution mode
+    return fn(alloc)
 }

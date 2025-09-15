@@ -4,14 +4,14 @@
 extern printf = (*i8, ...) i32
 
 // Person struct for examples
-Person = {
+Person: {
     name: *i8,
     age: i32,
     height: f64,
 }
 
 // Demonstrate basic interpolation
-basic_interpolation = () void {
+basic_interpolation: () void  = {
     x := 42
     y := 17
     sum := x + y
@@ -26,11 +26,11 @@ basic_interpolation = () void {
 }
 
 // Temperature converter with formatted output
-celsius_to_fahrenheit = (celsius: f64) f64 {
+celsius_to_fahrenheit: (celsius: f64) f64  = {
     return celsius * 1.8 + 32.0
 }
 
-temperature_report = (celsius: f64) void {
+temperature_report: (celsius: f64) void  = {
     fahrenheit := celsius_to_fahrenheit(celsius)
     
     // With string interpolation:
@@ -40,7 +40,7 @@ temperature_report = (celsius: f64) void {
 }
 
 // Complex expressions in interpolation
-complex_expressions = () void {
+complex_expressions: () void  = {
     values: [i32; 3]
     values[0] = 10
     values[1] = 20
@@ -61,7 +61,7 @@ complex_expressions = () void {
 }
 
 // String building patterns
-build_report = (name: *i8, score: i32) void {
+build_report: (name: *i8, score: i32) void  = {
     // Grade calculation
     grade := 'F'
     score >= 90 ?
@@ -88,7 +88,7 @@ build_report = (name: *i8, score: i32) void {
     printf("Grade: %c\n", grade)
 }
 
-main = () i32 {
+main: () i32  = {
     printf("=== String Interpolation Examples ===\n\n")
     
     printf("Basic interpolation:\n")

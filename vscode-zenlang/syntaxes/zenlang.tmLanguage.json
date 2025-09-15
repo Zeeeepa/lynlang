@@ -58,11 +58,7 @@
       "patterns": [
         {
           "name": "keyword.control.zen",
-          "match": "\\b(if|else|while|for|loop|break|continue|return|match|defer|async|await|yield|try|catch|throw)\\b"
-        },
-        {
-          "name": "keyword.other.zen",
-          "match": "\\b(fn|struct|enum|type|trait|impl|pub|const|static|extern|unsafe|macro|mod|use|as|where|move)\\b"
+          "match": "\\b(loop|break|continue|return|defer|comptime|extern|type)\\b"
         },
         {
           "name": "constant.language.boolean.zen",

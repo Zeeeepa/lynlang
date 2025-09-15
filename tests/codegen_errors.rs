@@ -9,7 +9,7 @@ use test_utils::test_context;
 #[test]
 fn test_undefined_variable() {
     test_context!(|test_context: &mut TestContext| {
-        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], is_async: false, 
+        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![],  
             name: "test_undefined".to_string(),
             args: vec![],
             return_type: AstType::I64,
@@ -29,7 +29,7 @@ fn test_undefined_variable() {
 #[test]
 fn test_undefined_function() {
     test_context!(|test_context: &mut TestContext| {
-        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], is_async: false, 
+        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![],  
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I64,
@@ -52,7 +52,7 @@ fn test_undefined_function() {
 #[test]
 fn test_type_mismatch() {
     test_context!(|test_context: &mut TestContext| {
-        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], is_async: false, 
+        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![],  
             name: "test_type_mismatch".to_string(),
             args: vec![],
             return_type: AstType::I64,
@@ -77,7 +77,7 @@ fn test_type_mismatch() {
 #[test]
 fn test_invalid_function_type() {
     test_context!(|test_context: &mut TestContext| {
-        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], is_async: false, 
+        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![],  
             name: "main".to_string(),
             args: vec![
                 ("x".to_string(), AstType::Function {

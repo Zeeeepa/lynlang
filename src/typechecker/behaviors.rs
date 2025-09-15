@@ -301,7 +301,6 @@ mod tests {
                     })))],
                     return_type: AstType::F64,
                     body: vec![],
-                    is_async: false,
                     type_params: vec![],
                 }
             ],

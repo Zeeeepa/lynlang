@@ -364,10 +364,20 @@ impl<'a> Parser<'a> {
                         type_: None, // Type will be inferred
                     });
                 } else {
-                    return Err(CompileError::SyntaxError(
-                        format!("Unexpected token after identifier: {:?}", self.peek_token),
-                        Some(self.current_span.clone()),
-                    ));
+                    // Check if we're at EOF or if the identifier is alone (e.g., followed by comments)
+                    if self.peek_token == Token::Eof {
+                        // Skip standalone identifier at EOF (likely has trailing comments)
+                        self.next_token();
+                        continue;
+                    }
+                    
+                    // Skip standalone identifiers that aren't part of a declaration
+                    // This can happen with malformed syntax or comments
+                    // Try to recover by skipping to the next token
+                    eprintln!("Warning: Unexpected standalone identifier '{}' at line {}, column {}. Skipping.", 
+                        name, self.current_span.line, self.current_span.column);
+                    self.next_token();
+                    continue;
                 }
             } else if let Token::Keyword(keyword) = &self.current_token {
                 if matches!(keyword, crate::lexer::Keyword::Type) {

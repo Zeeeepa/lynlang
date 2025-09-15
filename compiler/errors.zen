@@ -19,7 +19,7 @@ Ptr<T> = {
 }
 
 // Source location information
-SourceLocation = {
+SourceLocation: {
     file: string,
     line: u32,
     column: u32,
@@ -27,15 +27,13 @@ SourceLocation = {
 }
 
 // Error severity levels
-ErrorSeverity =
-    | Error
+ErrorSeverity: Error
     | Warning
     | Info
     | Hint
 
 // Error categories
-ErrorCategory =
-    | Syntax
+ErrorCategory: Syntax
     | Type
     | Semantic
     | Import
@@ -43,7 +41,7 @@ ErrorCategory =
     | Internal
 
 // Diagnostic information
-Diagnostic = {
+Diagnostic: {
     severity: ErrorSeverity,
     category: ErrorCategory,
     message: string,
@@ -54,27 +52,27 @@ Diagnostic = {
 }
 
 // Error context for better reporting
-ErrorContext = {
+ErrorContext: {
     source_file: string,
     source_content: string,
     diagnostics: Vec<Diagnostic>,
-    error_count:: u32,
-    warning_count:: u32,
+    error_count: u32,
+    warning_count: u32,
 }
 
 // Create a new error context
-create_context = (file: string, content: string) ErrorContext {
+create_context: (file: string, content: string) ErrorContext  = {
     ErrorContext {
         source_file: file,
         source_content: content,
-        diagnostics: Vec::new(),
+        diagnostics: Vec:new(),
         error_count: 0,
         warning_count: 0,
     }
 }
 
 // Add a diagnostic to the context
-add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void {
+add_diagnostic: (ctx: Ptr<ErrorContext>, diag: Diagnostic) void  = {
     ctx.value.diagnostics.push(diag)
     
     diag.severity ?
@@ -84,69 +82,69 @@ add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void {
 }
 
 // Create a syntax error
-syntax_error = (message: string, loc: SourceLocation) Diagnostic {
+syntax_error: (message: string, loc: SourceLocation) Diagnostic  = {
     Diagnostic {
-        severity: ErrorSeverity::Error,
-        category: ErrorCategory::Syntax,
+        severity: ErrorSeverity:Error,
+        category: ErrorCategory:Syntax,
         message: message,
         location: loc,
-        notes: Vec::new(),
+        notes: Vec:new(),
         suggestion: None,
         code_snippet: None,
     }
 }
 
 // Create a type error
-type_error = (message: string, loc: SourceLocation) Diagnostic {
+type_error: (message: string, loc: SourceLocation) Diagnostic  = {
     Diagnostic {
-        severity: ErrorSeverity::Error,
-        category: ErrorCategory::Type,
+        severity: ErrorSeverity:Error,
+        category: ErrorCategory:Type,
         message: message,
         location: loc,
-        notes: Vec::new(),
+        notes: Vec:new(),
         suggestion: None,
         code_snippet: None,
     }
 }
 
 // Create an import error
-import_error = (message: string, loc: SourceLocation) Diagnostic {
+import_error: (message: string, loc: SourceLocation) Diagnostic  = {
     Diagnostic {
-        severity: ErrorSeverity::Error,
-        category: ErrorCategory::Import,
+        severity: ErrorSeverity:Error,
+        category: ErrorCategory:Import,
         message: message,
         location: loc,
-        notes: Vec::new(),
+        notes: Vec:new(),
         suggestion: None,
         code_snippet: None,
     }
 }
 
 // Create a warning
-warning = (message: string, loc: SourceLocation) Diagnostic {
+warning: (message: string, loc: SourceLocation) Diagnostic  = {
     Diagnostic {
-        severity: ErrorSeverity::Warning,
-        category: ErrorCategory::Semantic,
+        severity: ErrorSeverity:Warning,
+        category: ErrorCategory:Semantic,
         message: message,
         location: loc,
-        notes: Vec::new(),
+        notes: Vec:new(),
         suggestion: None,
         code_snippet: None,
     }
 }
 
 // Add a note to a diagnostic
-add_note = (diag: Ptr<Diagnostic>, note: string) void {
+add_note: (diag: Ptr<Diagnostic>, note: string) void  = {
     diag.value.notes.push(note)
 }
 
 // Add a suggestion to a diagnostic
-add_suggestion = (diag: Ptr<Diagnostic>, suggestion: string) void {
+add_suggestion: (diag: Ptr<Diagnostic>, suggestion: string) void  = {
     diag.value.suggestion = Some(suggestion)
 }
 
 // Extract code snippet around error location
-extract_snippet = (content: string, loc: SourceLocation) string {
+extract_snippet: (content: string, loc: SourceLocation) string  = {
     lines := split_lines(content)
     
     loc.line == 0 || loc.line > lines.len() ?
@@ -170,7 +168,7 @@ extract_snippet = (content: string, loc: SourceLocation) string {
 }
 
 // Format severity for display
-format_severity = (severity: ErrorSeverity) string {
+format_severity: (severity: ErrorSeverity) string  = {
     severity ?
         | .Error => "error"
         | .Warning => "warning"
@@ -179,7 +177,7 @@ format_severity = (severity: ErrorSeverity) string {
 }
 
 // Format category for display
-format_category = (category: ErrorCategory) string {
+format_category: (category: ErrorCategory) string  = {
     category ?
         | .Syntax => "syntax"
         | .Type => "type"
@@ -190,7 +188,7 @@ format_category = (category: ErrorCategory) string {
 }
 
 // Format a diagnostic for display
-format_diagnostic = (diag: Diagnostic) string {
+format_diagnostic: (diag: Diagnostic) string  = {
     // Format: file:line:column: severity[category]: message
     result := concat(diag.location.file, ":")
     result = concat(result, format_u32(diag.location.line))
@@ -233,7 +231,7 @@ format_diagnostic = (diag: Diagnostic) string {
 }
 
 // Print all diagnostics in context
-print_diagnostics = (ctx: ErrorContext) void {
+print_diagnostics: (ctx: ErrorContext) void  = {
     ctx.diagnostics.len() == 0 ?
         | true => {}
         | false => {
@@ -252,44 +250,44 @@ print_diagnostics = (ctx: ErrorContext) void {
 }
 
 // Check if compilation should stop
-should_stop_compilation = (ctx: ErrorContext) bool {
+should_stop_compilation: (ctx: ErrorContext) bool  = {
     ctx.error_count > 0
 }
 
 // Helper functions (would be imported from string module in real implementation)
-split_lines = (s: string) Vec<string> {
+split_lines: (s: string) Vec<string>  = {
     @intrinsic("string_split_lines", s)
 }
 
-concat = (a: string, b: string) string {
+concat: (a: string, b: string) string  = {
     @intrinsic("string_concat", a, b)
 }
 
-format_u32 = (n: u32) string {
+format_u32: (n: u32) string  = {
     @intrinsic("format_u32", n)
 }
 
-string_len = (s: string) u32 {
+string_len: (s: string) u32  = {
     @intrinsic("string_len", s)
 }
 
-repeat_char = (c: u8, count: u32) string {
+repeat_char: (c: u8, count: u32) string  = {
     @intrinsic("repeat_char", c, count)
 }
 
-print_line = (s: string) void {
+print_line: (s: string) void  = {
     @intrinsic("print_line", s)
 }
 
 // Vec implementation helpers
-Vec::new<T> = () Vec<T> {
+Vec:new<T> = () Vec<T> {
     @intrinsic("vec_new")
 }
 
-Vec::push<T> = (self: Ptr<Vec<T>>, item: T) void {
+Vec:push<T> = (self: Ptr<Vec<T>>, item: T) void {
     @intrinsic("vec_push", self, item)
 }
 
-Vec::len<T> = (self: Vec<T>) usize {
+Vec:len<T> = (self: Vec<T>) usize {
     self.len
 }

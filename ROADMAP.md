@@ -71,11 +71,13 @@
 - [ ] `$(expression)` syntax in string literals
 - [ ] ToString/Stringer behavior
 
-### 10. Async/Await
-- [ ] `async` functions
-- [ ] `Task<T>` type
-- [ ] `await` expressions
-- [ ] Runtime/scheduler integration
+### 10. Allocator-Based Concurrency
+- [x] Colorless functions (no async/await keywords)
+- [x] Allocator trait with suspend/resume operations
+- [x] SyncAllocator for synchronous execution
+- [x] ConcurrentAllocator for non-blocking execution
+- [x] Runtime/scheduler integration via allocators
+- [x] Task spawning through allocator.spawn()
 
 ### 11. Standard Library
 - [ ] Core types and functions

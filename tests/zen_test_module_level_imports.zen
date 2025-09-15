@@ -19,7 +19,7 @@ parser := @std.compiler.parser
 codegen := @std.compiler.codegen
 
 // Test that imports work correctly
-test_std_imports = () bool {
+test_std_imports: () bool  = {
     // Test core functionality
     min_val := core.min(5, 10)
     max_val := core.max(5, 10)
@@ -48,7 +48,7 @@ test_std_imports = () bool {
 }
 
 // Test string operations
-test_string_ops = () bool {
+test_string_ops: () bool  = {
     hello := "Hello"
     world := "World"
     
@@ -61,7 +61,7 @@ test_string_ops = () bool {
 }
 
 // Test vector operations
-test_vec_ops = () bool {
+test_vec_ops: () bool  = {
     // Create a new vector
     numbers := vec.new<i32>()
     
@@ -102,10 +102,10 @@ test_vec_ops = () bool {
 }
 
 // Test compiler module imports
-test_compiler_modules = () bool {
+test_compiler_modules: () bool  = {
     // Create a simple token
     token := lexer.Token {
-        kind: lexer.TokenKind::Identifier("test"),
+        kind: lexer.TokenKind:Identifier("test"),
         span: lexer.Span { start: 0, end: 4 },
         line: 1,
         column: 1,
@@ -116,7 +116,7 @@ test_compiler_modules = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.println("Testing module-level imports...")
     
     all_passed := true

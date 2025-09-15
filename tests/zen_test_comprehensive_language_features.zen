@@ -5,16 +5,16 @@
 // Test 1: Variable Declarations
 // ====================================
 
-test_variable_declarations = () void {
+test_variable_declarations: () void  = {
     // Immutable bindings
     x := 42
     name := "Zen"
     pi: f64 = 3.14159
     
     // Mutable bindings
-    counter ::= 0
-    buffer:: [1024, u8]
-    value:: i32 = 100
+    counter := 0
+    buffer: [1024, u8]
+    value: i32 = 100
     
     // Test mutation (only on mutable)
     counter = counter + 1
@@ -32,7 +32,7 @@ test_variable_declarations = () void {
 // Test 2: Pattern Matching (NO if/else/match)
 // ====================================
 
-test_pattern_matching = () void {
+test_pattern_matching: () void  = {
     // Basic value patterns
     score := 100
     result := score ? 
@@ -85,32 +85,32 @@ test_pattern_matching = () void {
 // ====================================
 
 // Basic function
-add = (a: i32, b: i32) i32 {
+add: (a: i32, b: i32) i32  = {
     a + b
 }
 
 // Generic function
-identity<T> = (value: T) T {
+identity<T>: (value: T) T  = {
     value
 }
 
 // Function with default parameter
-greet = (name: string, greeting: string = "Hello") string {
+greet: (name: string, greeting: string = "Hello") string  = {
     "$(greeting), $(name)!"
 }
 
 // Struct for UFCS testing
-Rectangle = {
+Rectangle: {
     width: f64,
     height: f64,
 }
 
 // UFCS-style function
-area = (rect: Rectangle) f64 {
+area: (rect: Rectangle) f64  = {
     rect.width * rect.height
 }
 
-test_functions_and_ufcs = () void {
+test_functions_and_ufcs: () void  = {
     // Test basic function
     sum := add(10, 20)
     assert(sum == 30)
@@ -137,10 +137,10 @@ test_functions_and_ufcs = () void {
 // Test 4: Loops (only 'loop' keyword)
 // ====================================
 
-test_loops = () void {
+test_loops: () void  = {
     // Conditional loop (while-like)
-    counter ::= 5
-    sum ::= 0
+    counter := 5
+    sum := 0
     loop (counter > 0) {
         sum = sum + counter
         counter = counter - 1
@@ -148,7 +148,7 @@ test_loops = () void {
     assert(sum == 15)  // 5+4+3+2+1
     
     // Infinite loop with break
-    value ::= 0
+    value := 0
     loop {
         value = value + 1
         value >= 10 ? | true => break
@@ -156,7 +156,7 @@ test_loops = () void {
     assert(value == 10)
     
     // Range iteration
-    total ::= 0
+    total := 0
     (0..5).loop((i) => {
         total = total + i
     })
@@ -164,14 +164,14 @@ test_loops = () void {
     
     // Collection iteration
     items := [3, i32]{ 10, 20, 30 }
-    product ::= 1
+    product := 1
     items.to_slice().loop((item) => {
         product = product * item
     })
     assert(product == 6000)
     
     // Loop with continue
-    even_sum ::= 0
+    even_sum := 0
     (0..10).loop((i) => {
         i % 2 != 0 ? | true => continue
         even_sum = even_sum + i
@@ -184,15 +184,14 @@ test_loops = () void {
 // ====================================
 
 // Struct definition
-Person = {
+Person: {
     name: string,
     age: u32,
-    email:: Option<string> = None,
+    email: Option<string> = None,
 }
 
 // Enum definition
-Status =
-    | Active
+Status: Active
     | Inactive(reason: string)
     | Pending(since: u64)
 
@@ -204,7 +203,7 @@ Option<T> =
     | Some(value: T)
     | None
 
-test_structs_and_enums = () void {
+test_structs_and_enums: () void  = {
     // Test struct creation and field access
     alice := Person{
         name: "Alice",
@@ -218,7 +217,7 @@ test_structs_and_enums = () void {
     alice.email = Some("newemail@example.com")
     
     // Test enum creation and pattern matching
-    status := Status::Active
+    status := Status:Active
     msg := status ?
         | .Active => "System is active"
         | .Inactive -> reason => "Inactive: $(reason)"
@@ -226,10 +225,10 @@ test_structs_and_enums = () void {
     assert(msg == "System is active")
     
     // Test Result type
-    divide = (a: i32, b: i32) Result<i32, string> {
+    divide: (a: i32, b: i32) Result<i32, string>  = {
         b == 0 ?
-            | true => Result::Err("Division by zero")
-            | false => Result::Ok(a / b)
+            | true => Result:Err("Division by zero")
+            | false => Result:Ok(a / b)
     }
     
     result := divide(10, 2)
@@ -243,13 +242,13 @@ test_structs_and_enums = () void {
 // Test 6: Error Handling (No exceptions)
 // ====================================
 
-test_error_handling = () void {
+test_error_handling: () void  = {
     // Function that returns Result
-    parse_int = (s: string) Result<i32, string> {
+    parse_int: (s: string) Result<i32, string>  = {
         // Simplified - would actually parse
         s == "42" ?
-            | true => Result::Ok(42)
-            | false => Result::Err("Invalid number")
+            | true => Result:Ok(42)
+            | false => Result:Err("Invalid number")
     }
     
     // Handle Result
@@ -264,10 +263,10 @@ test_error_handling = () void {
         | .Err -> e => assert(e == "Invalid number")
     
     // Option handling
-    find_value = (key: string) Option<i32> {
+    find_value: (key: string) Option<i32>  = {
         key == "exists" ?
-            | true => Option::Some(100)
-            | false => Option::None
+            | true => Option:Some(100)
+            | false => Option:None
     }
     
     opt1 := find_value("exists")
@@ -300,13 +299,13 @@ i32_comparable := Comparable<i32>{
 }
 
 // Generic sort using behavior
-sort_pair<T> = (a: T, b: T, cmp: Comparable<T>) { first: T, second: T } {
+sort_pair<T>: (a: T, b: T, cmp: Comparable<T>)   = { first: T, second: T } {
     cmp.compare(a, b) <= 0 ?
         | true => { first: a, second: b }
         | false => { first: b, second: a }
 }
 
-test_behaviors = () void {
+test_behaviors: () void  = {
     // Test behavior usage
     sorted := sort_pair(5, 3, i32_comparable)
     assert(sorted.first == 3)
@@ -321,13 +320,13 @@ test_behaviors = () void {
 // Test 8: Pointers and Memory
 // ====================================
 
-test_pointers = () void {
+test_pointers: () void  = {
     // Smart pointer creation
-    ptr := Ptr::new(42)
+    ptr := Ptr:new(42)
     assert(ptr.value == 42)
     
     // Reference counting
-    ref1 := Ref::new(100)
+    ref1 := Ref:new(100)
     ref2 := ref1.clone()
     assert(ref1.value == 100)
     assert(ref2.value == 100)
@@ -346,7 +345,7 @@ test_pointers = () void {
 // Test 9: String Interpolation
 // ====================================
 
-test_string_interpolation = () void {
+test_string_interpolation: () void  = {
     name := "Zen"
     version := 1
     
@@ -365,10 +364,10 @@ test_string_interpolation = () void {
 // Test 10: Defer and Cleanup
 // ====================================
 
-test_defer = () void {
-    counter ::= Ref::new(0)
+test_defer: () void  = {
+    counter := Ref:new(0)
     
-    process = () void {
+    process: () void  = {
         counter.value = counter.value + 1
         defer {
             counter.value = counter.value * 2
@@ -385,7 +384,7 @@ test_defer = () void {
 // Main Test Runner
 // ====================================
 
-main = () void {
+main: () void  = {
     io := @std.build.import("io")
     
     io.print("Running Zenlang Comprehensive Test Suite...")
@@ -427,7 +426,7 @@ main = () void {
 // Helper: Assert function
 // ====================================
 
-assert = (condition: bool, message: string = "") void {
+assert: (condition: bool, message: string = "") void  = {
     condition ? | false => {
         msg := message == "" ? 
             | true => "Assertion failed"
@@ -436,7 +435,7 @@ assert = (condition: bool, message: string = "") void {
     }
 }
 
-panic = (message: string) void {
+panic: (message: string) void  = {
     // In real implementation, would terminate with error
     // For testing, we'd use @std.core.panic
     @std.core.panic(message)

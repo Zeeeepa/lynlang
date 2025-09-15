@@ -16,10 +16,10 @@ impl<'a> Parser<'a> {
         };
         self.next_token();
         
-        // Skip the '=' operator
-        if self.current_token != Token::Operator("=".to_string()) {
+        // Skip the ':' symbol
+        if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
-                "Expected '=' after external function name".to_string(),
+                "Expected ':' after external function name".to_string(),
                 Some(self.current_span.clone()),
             ));
         }

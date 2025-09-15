@@ -13,7 +13,7 @@ process := @std.process
 result := @std.result
 
 // Compiler pipeline stages
-CompilerStage = |
+CompilerStage: 
     | Lexing,
     | Parsing,
     | TypeChecking,
@@ -22,7 +22,7 @@ CompilerStage = |
     | Linking,
 
 // Compiler configuration
-CompilerConfig = {
+CompilerConfig: {
     input_file: string,
     output_file: string,
     target: string,        // "native", "wasm", "llvm-ir"
@@ -34,7 +34,7 @@ CompilerConfig = {
 }
 
 // Compilation result
-CompilationResult = {
+CompilationResult: {
     success: bool,
     output_path: string,
     warnings: vec<string>,
@@ -43,7 +43,7 @@ CompilationResult = {
 }
 
 // Compilation statistics
-CompilationStats = {
+CompilationStats: {
     lines_processed: i32,
     tokens_generated: i32,
     ast_nodes_created: i32,
@@ -52,7 +52,7 @@ CompilationStats = {
 }
 
 // Main compiler structure
-Compiler = {
+Compiler: {
     config: CompilerConfig,
     source_code: string,
     tokens: vec<Token>,
@@ -63,7 +63,7 @@ Compiler = {
 }
 
 // Token definition for lexer
-Token = {
+Token: {
     type: TokenType,
     value: string,
     line: i32,
@@ -71,7 +71,7 @@ Token = {
     file: string,
 }
 
-TokenType = |
+TokenType: 
     // Literals
     Identifier,
     IntegerLiteral,
@@ -103,7 +103,7 @@ TokenType = |
     Newline, Eof,
 
 // AST Node types
-ASTNode = |
+ASTNode: 
     Program -> {
         imports: vec<Import>,
         declarations: vec<Declaration>,
@@ -127,10 +127,10 @@ ASTNode = |
         kind: StmtKind,
     },
 
-DeclKind = |
+DeclKind: 
     Function, Struct, Enum, Trait, TypeAlias, Const, Static,
 
-ExprKind = |
+ExprKind: 
     Literal -> value: LiteralValue,
     Identifier -> name: string,
     Binary -> { left: Box<ASTNode>, op: BinaryOp, right: Box<ASTNode> },
@@ -143,7 +143,7 @@ ExprKind = |
     Block -> statements: vec<ASTNode>,
     Lambda -> { params: vec<Parameter>, body: Box<ASTNode> },
 
-StmtKind = |
+StmtKind: 
     Expression -> expr: Box<ASTNode>,
     Return -> value: Option<Box<ASTNode>>,
     Break -> label: Option<string>,
@@ -152,7 +152,7 @@ StmtKind = |
     VariableDecl -> { name: string, type_annotation: Option<Type>, init: Option<Box<ASTNode>> },
 
 // Type system
-Type = |
+Type: 
     Primitive -> name: string,  // i32, f64, bool, char, etc.
     Array -> { element: Box<Type>, size: Option<i32> },
     Slice -> element: Box<Type>,
@@ -166,14 +166,14 @@ Type = |
     Never,
     Unknown,
 
-TypeEnvironment = {
+TypeEnvironment: {
     types: hashmap<string, Type>,
     scopes: vec<Scope>,
     current_scope: i32,
 }
 
 // Create a new compiler
-compiler_new = (config: CompilerConfig) Compiler {
+compiler_new: (config: CompilerConfig) Compiler  = {
     return Compiler {
         config = config,
         source_code = "",
@@ -190,7 +190,7 @@ compiler_new = (config: CompilerConfig) Compiler {
 }
 
 // Main compilation pipeline
-compile = (compiler: *Compiler) CompilationResult {
+compile: (compiler: *Compiler) CompilationResult  = {
     start_time := core.time_now()
     
     // Read source file
@@ -284,7 +284,7 @@ compile = (compiler: *Compiler) CompilationResult {
 }
 
 // Lexical analysis
-lex = (source: string) Result<vec<Token>, string> {
+lex: (source: string) Result<vec<Token>, string>  = {
     tokens := vec.new<Token>()
     lexer := lexer_new(source)
     
@@ -299,20 +299,20 @@ lex = (source: string) Result<vec<Token>, string> {
 }
 
 // Parser
-parse = (tokens: vec<Token>) Result<ASTNode, string> {
+parse: (tokens: vec<Token>) Result<ASTNode, string>  = {
     parser := parser_new(tokens)
     return parser_parse_program(&parser)
 }
 
 // Type checker
-type_check = (ast: ASTNode, env: *TypeEnvironment) Result<ASTNode, string> {
+type_check: (ast: ASTNode, env: *TypeEnvironment) Result<ASTNode, string>  = {
     // Type checking implementation
     // This would traverse the AST and assign types to all expressions
     return Result.Ok(ast)  // Placeholder
 }
 
 // Optimizer
-optimize = (ast: ASTNode, level: i32) ASTNode {
+optimize: (ast: ASTNode, level: i32) ASTNode  = {
     // Apply optimization passes based on level
     optimized := ast
     
@@ -338,7 +338,7 @@ optimize = (ast: ASTNode, level: i32) ASTNode {
 }
 
 // Code generator
-generate_code = (ast: ASTNode, target: string) Result<string, string> {
+generate_code: (ast: ASTNode, target: string) Result<string, string>  = {
     target ?
         | "native" => generate_native_code(ast)
         | "wasm" => generate_wasm_code(ast)
@@ -347,7 +347,7 @@ generate_code = (ast: ASTNode, target: string) Result<string, string> {
 }
 
 // Linker
-link = (ir: string, output: string, target: string) Result<string, string> {
+link: (ir: string, output: string, target: string) Result<string, string>  = {
     // Link the generated code with runtime and produce executable
     target ?
         | "native" => {
@@ -361,7 +361,7 @@ link = (ir: string, output: string, target: string) Result<string, string> {
 }
 
 // Helper functions
-compilation_error = (err: string, compiler: *Compiler) CompilationResult {
+compilation_error: (err: string, compiler: *Compiler) CompilationResult  = {
     return CompilationResult {
         success = false,
         output_path = "",
@@ -372,7 +372,7 @@ compilation_error = (err: string, compiler: *Compiler) CompilationResult {
     }
 }
 
-empty_stats = () CompilationStats {
+empty_stats: () CompilationStats  = {
     return CompilationStats {
         lines_processed = 0,
         tokens_generated = 0,
@@ -382,7 +382,7 @@ empty_stats = () CompilationStats {
     }
 }
 
-count_lines = (text: string) i32 {
+count_lines: (text: string) i32  = {
     count := 1
     for ch in text {
         ch == '\n' ? { count = count + 1 }
@@ -390,29 +390,29 @@ count_lines = (text: string) i32 {
     return count
 }
 
-count_ast_nodes = (ast: ASTNode) i32 {
+count_ast_nodes: (ast: ASTNode) i32  = {
     // Recursively count all nodes in the AST
     return 1  // Placeholder
 }
 
 // Placeholder functions for optimization passes
-optimize_constants = (ast: ASTNode) ASTNode { return ast }
-eliminate_dead_code = (ast: ASTNode) ASTNode { return ast }
-inline_functions = (ast: ASTNode) ASTNode { return ast }
-unroll_loops = (ast: ASTNode) ASTNode { return ast }
-vectorize_operations = (ast: ASTNode) ASTNode { return ast }
-allocate_registers = (ast: ASTNode) ASTNode { return ast }
+optimize_constants: (ast: ASTNode) ASTNode  = { return ast }
+eliminate_dead_code: (ast: ASTNode) ASTNode  = { return ast }
+inline_functions: (ast: ASTNode) ASTNode  = { return ast }
+unroll_loops: (ast: ASTNode) ASTNode  = { return ast }
+vectorize_operations: (ast: ASTNode) ASTNode  = { return ast }
+allocate_registers: (ast: ASTNode) ASTNode  = { return ast }
 
 // Placeholder functions for code generation
-generate_native_code = (ast: ASTNode) Result<string, string> {
+generate_native_code: (ast: ASTNode) Result<string, string>  = {
     return Result.Ok("// Native code generation placeholder")
 }
 
-generate_wasm_code = (ast: ASTNode) Result<string, string> {
+generate_wasm_code: (ast: ASTNode) Result<string, string>  = {
     return Result.Ok("// WASM code generation placeholder")
 }
 
-generate_llvm_ir = (ast: ASTNode) Result<string, string> {
+generate_llvm_ir: (ast: ASTNode) Result<string, string>  = {
     // Generate LLVM IR from AST
     ir := "; LLVM IR generated by Zen compiler\n"
     ir = ir + "target triple = \"x86_64-unknown-linux-gnu\"\n\n"
@@ -428,19 +428,19 @@ generate_llvm_ir = (ast: ASTNode) Result<string, string> {
 }
 
 // Emit AST to file
-emit_ast = (ast: ASTNode, path: string) void {
+emit_ast: (ast: ASTNode, path: string) void  = {
     // Convert AST to readable format and write to file
     ast_str := ast_to_string(ast, 0)
     fs.write_file(path, ast_str)
 }
 
-ast_to_string = (node: ASTNode, indent: i32) string {
+ast_to_string: (node: ASTNode, indent: i32) string  = {
     // Convert AST node to string representation
     return "// AST placeholder"
 }
 
 // Main entry point
-main = (args: vec<string>) i32 {
+main: (args: vec<string>) i32  = {
     io.print("Zen Self-Hosted Compiler v1.0.0\n")
     
     args.len() < 2 ? {

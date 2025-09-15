@@ -11,7 +11,7 @@ string := @std.string
 mem := @std.mem
 
 // Test the lexer component
-test_lexer = () bool {
+test_lexer: () bool  = {
     io.print("Testing lexer...\n")
     
     // Test basic tokenization
@@ -53,7 +53,7 @@ test_lexer = () bool {
 }
 
 // Test the parser component
-test_parser = () bool {
+test_parser: () bool  = {
     io.print("Testing parser...\n")
     
     // Parse a simple expression
@@ -90,7 +90,7 @@ test_parser = () bool {
 }
 
 // Test the type checker component
-test_type_checker = () bool {
+test_type_checker: () bool  = {
     io.print("Testing type checker...\n")
     
     // Create type environment
@@ -132,7 +132,7 @@ test_type_checker = () bool {
 }
 
 // Test the code generator component
-test_codegen = () bool {
+test_codegen: () bool  = {
     io.print("Testing code generator...\n")
     
     // Create code generator
@@ -169,16 +169,16 @@ test_codegen = () bool {
 }
 
 // Test integration of all components
-test_integration = () bool {
+test_integration: () bool  = {
     io.print("Testing full compilation pipeline...\n")
     
     // Compile a simple program
     program := "
-        add = (a: i32, b: i32) i32 {
+        add: (a: i32, b: i32) i32  = {
             return a + b
         }
         
-        main = () i32 {
+        main: () i32  = {
             result := add(10, 20)
             return result
         }
@@ -233,7 +233,7 @@ test_integration = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=== Self-Hosted Compiler Test Suite ===\n\n")
     
     passed := 0

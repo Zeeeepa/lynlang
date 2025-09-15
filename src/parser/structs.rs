@@ -220,7 +220,6 @@ impl<'a> Parser<'a> {
             args: parameters,
             return_type,
             body,
-            is_async: false, // Methods are not async for now
         })
     }
 }

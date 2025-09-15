@@ -40,7 +40,7 @@ fn test_struct_creation_and_access() {
             ],
             methods: vec![],
         });
-        let func = ast::Function { type_params: vec![], is_async: false, 
+        let func = ast::Function { type_params: vec![],  
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I64,
@@ -101,7 +101,7 @@ fn test_struct_pointer() {
             ],
             methods: vec![],
         });
-        let func = ast::Function { type_params: vec![], is_async: false, 
+        let func = ast::Function { type_params: vec![],  
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I64,
@@ -175,7 +175,7 @@ fn test_struct_field_assignment() {
             ],
             methods: vec![],
         });
-        let func = ast::Function { type_params: vec![], is_async: false, 
+        let func = ast::Function { type_params: vec![],  
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I64,

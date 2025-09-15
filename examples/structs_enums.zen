@@ -3,21 +3,21 @@ core := @std.core
 io := @std.io
 
 // Struct with default values and mutable fields
-Person = {
+Person: {
     name: string,
     age: i32,
     email: Option<string> = None,
-    score:: i32 = 0,  // Mutable field with default
+    score: i32 = 0,  // Mutable field with default
 }
 
 // Nested struct
-Address = {
+Address: {
     street: string,
     city: string,
     zip: string,
 }
 
-Employee = {
+Employee: {
     person: Person,
     address: Address,
     employee_id: u32,
@@ -29,13 +29,12 @@ Option<T> =
     | None
 
 // Complex enum with various variant types
-Status =
-    | Active
+Status: Active
     | Inactive
     | Pending(since: i64)
     | Error({ code: i32, message: string, recoverable: bool })
 
-main = () void {
+main: () void  = {
     // Create person with defaults
     alice := Person{ 
         name: "Alice", 

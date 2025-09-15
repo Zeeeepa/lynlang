@@ -12,20 +12,18 @@ parser := @std.compiler.parser
 codegen := @std.compiler.codegen
 
 // Compiler pipeline stages
-CompilerStage = 
-    | Lexing
+CompilerStage: Lexing
     | Parsing  
     | TypeChecking
     | CodeGeneration
     | Linking
 
 // Compilation result
-CompileResult = 
-    | Success(output: string)
+CompileResult: Success(output: string)
     | Error(stage: CompilerStage, message: string)
 
 // Main compiler function
-compile = (source_file: string) CompileResult {
+compile: (source_file: string) CompileResult  = {
     io.print("Compiling: ")
     io.print(source_file)
     io.print("\n")
@@ -75,7 +73,7 @@ compile = (source_file: string) CompileResult {
 }
 
 // Compile multiple files
-compile_project = (files: [100]string, file_count: i32) bool {
+compile_project: (files: [100]string, file_count: i32) bool  = {
     io.print("=== Zen Bootstrap Compiler ===\n\n")
     
     success_count := 0
@@ -116,7 +114,7 @@ compile_project = (files: [100]string, file_count: i32) bool {
 }
 
 // Helper to print stage name
-print_stage = (stage: CompilerStage) void {
+print_stage: (stage: CompilerStage) void  = {
     stage ?
         | CompilerStage.Lexing => io.print("Lexing")
         | CompilerStage.Parsing => io.print("Parsing")
@@ -126,7 +124,7 @@ print_stage = (stage: CompilerStage) void {
 }
 
 // Entry point
-main = () i32 {
+main: () i32  = {
     // For now, compile a test file
     test_files := ["test.zen"]
     

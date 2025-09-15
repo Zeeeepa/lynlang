@@ -1,0 +1,225 @@
+// Error Bubbling in Zen - No exceptions, just values!
+// This example demonstrates error handling without exceptions
+
+io := @std.io
+fs := @std.fs
+
+// Error types
+Error: 
+    | FileError(message: String)
+    | ParseError(line: u32, message: String)
+    | ValidationError(field: String, reason: String)
+    | NetworkError(code: u32, message: String)
+
+// User type
+User: {
+    id: u64
+    name: String
+    email: String
+}
+
+// Configuration type
+Config: {
+    server_url: String
+    port: u16
+    timeout_ms: u32
+}
+
+// Read and parse configuration file using ? operator for error bubbling
+read_config: (path: String) Result<Config, Error> = {
+    // The ? operator propagates errors automatically
+    content := fs.read_file(path)?  // Bubbles up FileError
+    
+    // Parse JSON content
+    json := parse_json(content)?    // Bubbles up ParseError
+    
+    // Extract fields with validation
+    server_url := json.get_string("server_url")?
+    port := json.get_u16("port")?
+    timeout := json.get_u32("timeout_ms")?
+    
+    // Validate configuration
+    validate_config(server_url, port, timeout)?
+    
+    // Return success
+    .Ok(Config{
+        server_url: server_url,
+        port: port,
+        timeout_ms: timeout
+    })
+}
+
+// Parse JSON (simplified example)
+parse_json: (content: String) Result<JsonObject, Error> = {
+    // Actual parsing logic would go here
+    content.is_empty() ?
+        | true => .Err(.ParseError(1, "Empty file"))
+        | false => .Ok(JsonObject{ data: content })
+}
+
+// Validate configuration values
+validate_config: (url: String, port: u16, timeout: u32) Result<void, Error> = {
+    // Check URL format
+    url.starts_with("http") ?
+        | false => return .Err(.ValidationError("server_url", "Must start with http"))
+        | true => {}
+    
+    // Check port range
+    port > 0 && port < 65536 ?
+        | false => return .Err(.ValidationError("port", "Invalid port number"))
+        | true => {}
+    
+    // Check timeout
+    timeout > 0 && timeout < 60000 ?
+        | false => return .Err(.ValidationError("timeout", "Must be between 1-60000ms"))
+        | true => {}
+    
+    .Ok(())
+}
+
+// Fetch user from network with error handling
+fetch_user: (id: u64, config: *Config) Result<User, Error> = {
+    // Connect to server
+    conn := connect(config.server_url, config.port)?  // Bubbles network errors
+    defer conn.close()
+    
+    // Send request
+    response := conn.send_request("/users/$(id)")?
+    
+    // Check response status
+    response.status == 200 ?
+        | false => return .Err(.NetworkError(response.status, "User not found"))
+        | true => {}
+    
+    // Parse response
+    user_json := parse_json(response.body)?
+    
+    // Extract user fields
+    name := user_json.get_string("name")?
+    email := user_json.get_string("email")?
+    
+    .Ok(User{
+        id: id,
+        name: name,
+        email: email
+    })
+}
+
+// Process multiple users with error collection
+process_users: (ids: []u64, config: *Config) Result<[]User, []Error> = {
+    mut users := []User{}
+    mut errors := []Error{}
+    
+    // Process each user ID
+    for id in ids {
+        result := fetch_user(id, config)
+        
+        // Pattern match on result
+        result ?
+            | .Ok -> user => users.push(user)
+            | .Err -> error => errors.push(error)
+    }
+    
+    // Return based on what we collected
+    errors.is_empty() ?
+        | true => .Ok(users)
+        | false => .Err(errors)
+}
+
+// Chain operations with early returns
+complex_operation: (path: String) Result<[]User, Error> = {
+    // Each ? automatically bubbles errors up
+    config := read_config(path)?
+    user_ids := load_user_ids("users.txt")?
+    users := process_users(user_ids, &config)?
+    
+    // Additional processing
+    validated_users := validate_users(users)?
+    
+    .Ok(validated_users)
+}
+
+// Handle errors with pattern matching
+handle_with_recovery: (path: String) []User = {
+    result := complex_operation(path)
+    
+    // Pattern match for custom error handling
+    result ?
+        | .Ok -> users => {
+            io.println("Successfully loaded $(users.len) users")
+            return users
+        }
+        | .Err -> error => {
+            // Handle specific error types
+            error ?
+                | .FileError -> msg => {
+                    io.println("File error: $(msg)")
+                    io.println("Using default configuration")
+                    return load_default_users()
+                }
+                | .NetworkError -> code, msg => {
+                    io.println("Network error $(code): $(msg)")
+                    io.println("Using cached data")
+                    return load_cached_users()
+                }
+                | _ => {
+                    io.println("Unexpected error: $(error)")
+                    return []User{}
+                }
+        }
+}
+
+// Using Result combinators for functional style
+functional_approach: (path: String) Result<[]User, Error> = {
+    read_config(path)
+        .and_then((config) => load_user_ids("users.txt")
+            .and_then((ids) => process_users(ids, &config)))
+        .map((users) => filter_active_users(users))
+        .map_err((e) => wrap_error(e, "Failed in functional pipeline"))
+}
+
+// Main function demonstrating error handling
+main: () i32 = {
+    io.println("=== Error Bubbling Demo ===")
+    io.println("Zenlang has no exceptions - errors are values!")
+    io.println("Errors are values, handled with ? and pattern matching\n")
+    
+    // Example 1: Simple error propagation
+    config_result := read_config("app.config")
+    config_result ?
+        | .Ok -> cfg => io.println("Config loaded: $(cfg.server_url):$(cfg.port)")
+        | .Err -> e => io.println("Config error: $(e)")
+    
+    // Example 2: Error recovery
+    users := handle_with_recovery("app.config")
+    io.println("Loaded $(users.len) users with recovery")
+    
+    // Example 3: Functional style
+    functional_result := functional_approach("app.config")
+    functional_result ?
+        | .Ok -> users => io.println("Functional: $(users.len) users")
+        | .Err -> e => io.println("Functional error: $(e)")
+    
+    0  // Success exit code
+}
+
+// Helper functions (stubs for demo)
+JsonObject: { data: String }
+JsonObject.get_string: (key: String) Result<String, Error> = .Ok("value")
+JsonObject.get_u16: (key: String) Result<u16, Error> = .Ok(8080)
+JsonObject.get_u32: (key: String) Result<u32, Error> = .Ok(5000)
+
+connect: (url: String, port: u16) Result<Connection, Error> = .Ok(Connection{})
+Connection: {}
+Connection.close: () void = {}
+Connection.send_request: (path: String) Result<Response, Error> = {
+    .Ok(Response{ status: 200, body: "{}" })
+}
+Response: { status: u32, body: String }
+
+load_user_ids: (path: String) Result<[]u64, Error> = .Ok([1, 2, 3])
+validate_users: (users: []User) Result<[]User, Error> = .Ok(users)
+load_default_users: () []User = []
+load_cached_users: () []User = []
+filter_active_users: (users: []User) []User = users
+wrap_error: (e: Error, msg: String) Error = e

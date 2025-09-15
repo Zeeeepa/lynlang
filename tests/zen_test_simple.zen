@@ -1,6 +1,6 @@
 // Simple test to verify compiler works
 
-main = () void {
+main: () void  = {
     // Test basic pattern matching - No if/else!
     value := 42
     result := value ?
@@ -8,7 +8,7 @@ main = () void {
         | _ => "Not the answer"
     
     // Test loop
-    counter ::= 3
+    counter := 3
     loop (counter > 0) {
         counter = counter - 1
     }

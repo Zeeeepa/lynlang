@@ -5,17 +5,17 @@ core := @std.core
 io := @std.io
 
 // Simple addition function
-add = (a: i32, b: i32) i32 {
+add: (a: i32, b: i32) i32  = {
     return a + b
 }
 
 // Multiplication function
-multiply = (x: i32, y: i32) i32 {
+multiply: (x: i32, y: i32) i32  = {
     return x * y
 }
 
 // Main function
-main = () i32 {
+main: () i32  = {
     // Test basic arithmetic
     result1 := add(10, 20);
     result2 := multiply(5, 6);

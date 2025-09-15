@@ -41,12 +41,12 @@ test("enum patterns") {
         | Ok(value: i32)
         | Err(error: string)
     
-    result := Result::Ok(42)
+    result := Result:Ok(42)
     value := result ? | .Ok -> v => v
                      | .Err -> _ => 0
     assert(value == 42)
     
-    error_result := Result::Err("error")
+    error_result := Result:Err("error")
     value2 := error_result ? | .Ok -> v => v
                             | .Err -> _ => -1
     assert(value2 == -1)
@@ -86,7 +86,7 @@ test("multiple patterns") {
 
 // Test struct destructuring (no tuples in Zen)
 test("struct patterns") {
-    Point = { x: i32, y: i32 }
+    Point: { x: i32, y: i32 }
     
     point := Point{ x: 10, y: 20 }
     description := point ? | { x -> x_val, y -> y_val } => "Point($(x_val), $(y_val))"
@@ -118,7 +118,7 @@ test("nested patterns") {
         | Some(value: Result<i32, string>)
         | None
     
-    nested := Option::Some(Result::Ok(42))
+    nested := Option:Some(Result:Ok(42))
     value := nested ? | .Some -> result => {
                           result ? | .Ok -> v => v
                                   | .Err -> _ => -1

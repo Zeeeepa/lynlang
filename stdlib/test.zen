@@ -5,14 +5,13 @@ core := @std.core
 io := @std.io
 
 // Test result types
-TestResult = 
-    | Pass
+TestResult: Pass
     | Fail(reason: string)
     | Skip(reason: string)
     | Panic(message: string)
 
 // Test case structure
-TestCase = {
+TestCase: {
     name: string,
     test_fn: () TestResult,
     file: string,
@@ -20,7 +19,7 @@ TestCase = {
 }
 
 // Test suite structure
-TestSuite = {
+TestSuite: {
     name: string,
     tests: Vec<TestCase>,
     setup: Option<() void>,
@@ -28,7 +27,7 @@ TestSuite = {
 }
 
 // Test runner state
-TestRunner = {
+TestRunner: {
     suites: Vec<TestSuite>,
     passed: i32,
     failed: i32,
@@ -50,7 +49,7 @@ global_runner := TestRunner{
 }
 
 // Create a new test suite
-suite = (name: string) TestSuite {
+suite: (name: string) TestSuite  = {
     return TestSuite{
         name: name,
         tests: Vec<TestCase>.new(),
@@ -81,12 +80,12 @@ TestSuite.set_teardown = (self: *TestSuite, teardown_fn: () void) void {
 }
 
 // Register a suite with the global runner
-register_suite = (suite: TestSuite) void {
+register_suite: (suite: TestSuite) void  = {
     global_runner.suites.push(suite)
 }
 
 // Assertion functions
-assert = (condition: bool, message: string) TestResult {
+assert: (condition: bool, message: string) TestResult  = {
     condition ?
         | true => return TestResult.Pass
         | false => return TestResult.Fail(message)
@@ -155,7 +154,7 @@ assert_panic = (fn: () void, message: string) TestResult {
 }
 
 // Run a single test case
-run_test = (test: TestCase, verbose: bool) TestResult {
+run_test: (test: TestCase, verbose: bool) TestResult  = {
     verbose ?
         | true => io.print("Running test: " + test.name + "...")
         | false => {}
@@ -179,7 +178,7 @@ run_test = (test: TestCase, verbose: bool) TestResult {
 }
 
 // Run a test suite
-run_suite = (suite: TestSuite, runner: *TestRunner) void {
+run_suite: (suite: TestSuite, runner: *TestRunner) void  = {
     io.println("\n=== Test Suite: " + suite.name + " ===")
     
     // Run setup if present
@@ -227,7 +226,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void {
 }
 
 // Run all registered test suites
-run_all_tests = () i32 {
+run_all_tests: () i32  = {
     io.println("=== Running Zen Tests ===")
     
     // Reset statistics
@@ -282,7 +281,7 @@ test = (name: string, test_fn: () TestResult) void {
 }
 
 // Benchmark support
-Benchmark = {
+Benchmark: {
     name: string,
     iterations: i64,
     total_time: f64,
@@ -341,7 +340,7 @@ benchmark = (name: string, iterations: i64, bench_fn: () void) Benchmark {
 }
 
 // Example test usage (would be in separate test files)
-example_test_suite = () void {
+example_test_suite: () void  = {
     s := suite("Example Tests")
     
     s.add_test("basic assertion", () TestResult {

@@ -1,63 +1,64 @@
 // Build script for the full_demo project
 // This script is executed at compile time
 
-io := @std.io
+{ io } = @std.io
+{ build } = @std.build
 
-comptime {
+@comptime {
     // Set build configuration
-    project_name := "full_demo";
-    version := "0.1.0";
-    target := "native";
-    entry_point := "main.zen";
+    project_name = "full_demo"
+    version = "0.1.0"
+    target = "native"
+    entry_point = "main.zen"
     
     // Configure features based on target
-    features := target ? 
-        | "native" => ["std", "async", "ffi"]
-        | "wasm" => ["std"]
-        | _ => ["std"];
+    features = target ?
+        | "native" { ["std", "concurrency", "ffi"] }
+        | "wasm" { ["std"] }
+        | _ { ["std"] }
     
     // Generate build metadata
-    build_timestamp := @std.build.timestamp();
-    git_hash := @std.build.git_hash();
+    build_timestamp = build.timestamp()
+    git_hash = build.git_hash()
     
     // Export build information
-    @std.build.export("BUILD_INFO", {
-        .name = project_name,
-        .version = version,
-        .timestamp = build_timestamp,
-        .git_hash = git_hash,
-        .features = features,
-    });
+    build.export("BUILD_INFO", {
+        name: project_name,
+        version: version,
+        timestamp: build_timestamp,
+        git_hash: git_hash,
+        features: features,
+    })
     
     // Custom build steps
-    @std.build.add_step("generate_bindings", () void {
+    build.add_step("generate_bindings", () void {
         // Generate FFI bindings
-        @std.build.exec("./scripts/generate_ffi.sh");
-    });
+        build.exec("./scripts/generate_ffi.sh")
+    })
     
-    @std.build.add_step("test", () void {
+    build.add_step("test", () void {
         // Run tests before building
-        @std.build.exec("zen test");
-    });
+        build.exec("zen test")
+    })
 }
 
 // Runtime build information display
-demonstrate_build = () string {
+demonstrate_build = (a: Allocator) string {
     // Access compile-time generated build info
-    info := @std.build.get_info();
+    info = build.get_info()
     
-    result := "Build Info:\n";
-    result = result + "    Name: " + info.name + "\n";
-    result = result + "    Version: " + info.version + "\n";
-    result = result + "    Timestamp: " + info.timestamp + "\n";
-    result = result + "    Git Hash: " + info.git_hash + "\n";
-    result = result + "    Features: " + info.features.join(", ");
+    result ::= "Build Info:\n"
+    result = result + "    Name: " + info.name + "\n"
+    result = result + "    Version: " + info.version + "\n"
+    result = result + "    Timestamp: " + info.timestamp + "\n"
+    result = result + "    Git Hash: " + info.git_hash + "\n"
+    result = result + "    Features: " + info.features.join(", ")
     
     result
 }
 
 // Export the main demo function
 show_build_info = () void {
-    result := demonstrate_build()
+    result = demonstrate_build()
     io.println(result)
 }

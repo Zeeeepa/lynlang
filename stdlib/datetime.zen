@@ -4,12 +4,12 @@ std := @std
 core := std.core
 
 // Time duration in nanoseconds
-Duration = {
+Duration: {
     nanos: i64,
 }
 
 // Date and time representation
-DateTime = {
+DateTime: {
     year: i32,
     month: u8,    // 1-12
     day: u8,      // 1-31
@@ -20,8 +20,7 @@ DateTime = {
 }
 
 // Day of week enumeration
-DayOfWeek = 
-    | Monday
+DayOfWeek: Monday
     | Tuesday
     | Wednesday
     | Thursday
@@ -30,8 +29,7 @@ DayOfWeek =
     | Sunday
 
 // Month enumeration
-Month = 
-    | January
+Month: January
     | February
     | March
     | April
@@ -55,54 +53,54 @@ DAY := 24 * HOUR
 WEEK := 7 * DAY
 
 // Create duration from components
-duration_from_secs = (secs: i64) Duration {
+duration_from_secs: (secs: i64) Duration  = {
     Duration { nanos: secs * SECOND }
 }
 
-duration_from_millis = (millis: i64) Duration {
+duration_from_millis: (millis: i64) Duration  = {
     Duration { nanos: millis * MILLISECOND }
 }
 
-duration_from_micros = (micros: i64) Duration {
+duration_from_micros: (micros: i64) Duration  = {
     Duration { nanos: micros * MICROSECOND }
 }
 
-duration_from_nanos = (nanos: i64) Duration {
+duration_from_nanos: (nanos: i64) Duration  = {
     Duration { nanos: nanos }
 }
 
 // Duration arithmetic
-duration_add = (a: Duration, b: Duration) Duration {
+duration_add: (a: Duration, b: Duration) Duration  = {
     Duration { nanos: a.nanos + b.nanos }
 }
 
-duration_sub = (a: Duration, b: Duration) Duration {
+duration_sub: (a: Duration, b: Duration) Duration  = {
     Duration { nanos: a.nanos - b.nanos }
 }
 
-duration_mul = (d: Duration, factor: i32) Duration {
+duration_mul: (d: Duration, factor: i32) Duration  = {
     Duration { nanos: d.nanos * factor: i64 }
 }
 
 // Duration conversions
-as_seconds = (d: Duration) f64 {
+as_seconds: (d: Duration) f64  = {
     d.nanos: f64 / SECOND: f64
 }
 
-as_millis = (d: Duration) i64 {
+as_millis: (d: Duration) i64  = {
     d.nanos / MILLISECOND
 }
 
-as_micros = (d: Duration) i64 {
+as_micros: (d: Duration) i64  = {
     d.nanos / MICROSECOND
 }
 
-as_nanos = (d: Duration) i64 {
+as_nanos: (d: Duration) i64  = {
     d.nanos
 }
 
 // Check if year is leap year
-is_leap_year = (year: i32) bool {
+is_leap_year: (year: i32) bool  = {
     year % 4 == 0 ? | true => {
         year % 100 == 0 ? | true => year % 400 == 0
                          | false => true
@@ -111,7 +109,7 @@ is_leap_year = (year: i32) bool {
 }
 
 // Days in month
-days_in_month = (year: i32, month: u8) u8 {
+days_in_month: (year: i32, month: u8) u8  = {
     month ? | 2 => is_leap_year(year) ? | true => 29: u8
                                        | false => 28: u8
            | 4 | 6 | 9 | 11 => 30: u8
@@ -119,12 +117,12 @@ days_in_month = (year: i32, month: u8) u8 {
 }
 
 // Validate date components
-is_valid_date = (year: i32, month: u8, day: u8) bool {
+is_valid_date: (year: i32, month: u8, day: u8) bool  = {
     month >= 1 && month <= 12 && day >= 1 && day <= days_in_month(year, month)
 }
 
 // Create new DateTime
-new_datetime = (year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8, nanos: u32) Option<DateTime> {
+new_datetime: (year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8, nanos: u32) Option<DateTime>  = {
     is_valid_date(year, month, day) && 
     hour < 24 && minute < 60 && second < 60 && nanos < 1000000000 ?
         | true => Some(DateTime {
@@ -140,7 +138,7 @@ new_datetime = (year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8,
 }
 
 // Format DateTime as string (ISO 8601 like)
-format_datetime = (dt: DateTime) string {
+format_datetime: (dt: DateTime) string  = {
     // Format: YYYY-MM-DD HH:MM:SS.nnnnnnnnn
     year_str := int_to_string(dt.year)
     month_str := dt.month < 10 ? | true => "0" + int_to_string(dt.month: i32)
@@ -159,7 +157,7 @@ format_datetime = (dt: DateTime) string {
 }
 
 // Add duration to datetime
-add_duration = (dt: DateTime, d: Duration) DateTime {
+add_duration: (dt: DateTime, d: Duration) DateTime  = {
     // Simplified implementation - would need proper calendar arithmetic
     total_seconds := dt.second: i64 + (d.nanos / SECOND)
     new_second := (total_seconds % 60): u8
@@ -188,7 +186,7 @@ add_duration = (dt: DateTime, d: Duration) DateTime {
 }
 
 // Compare DateTimes
-datetime_before = (a: DateTime, b: DateTime) bool {
+datetime_before: (a: DateTime, b: DateTime) bool  = {
     a.year < b.year ? | true => true
                      | false => {
         a.year > b.year ? | true => false
@@ -226,12 +224,12 @@ datetime_before = (a: DateTime, b: DateTime) bool {
     }
 }
 
-datetime_equal = (a: DateTime, b: DateTime) bool {
+datetime_equal: (a: DateTime, b: DateTime) bool  = {
     a.year == b.year && a.month == b.month && a.day == b.day &&
     a.hour == b.hour && a.minute == b.minute && a.second == b.second &&
     a.nanos == b.nanos
 }
 
-datetime_after = (a: DateTime, b: DateTime) bool {
+datetime_after: (a: DateTime, b: DateTime) bool  = {
     !datetime_before(a, b) && !datetime_equal(a, b)
 }
