@@ -1,8 +1,8 @@
 // Zen Language Example: Structs and Methods
 // Demonstrates struct definitions and UFCS
 
-io := @std.io
-math := @std.math
+io {  } = @std.io
+math {  } = @std.math
 
 // Simple struct
 Point: {

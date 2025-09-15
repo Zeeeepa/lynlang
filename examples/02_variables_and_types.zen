@@ -1,7 +1,7 @@
 // Zen Language Example: Variables and Types
 // Demonstrates the declaration system and basic types
 
-io := @std.io
+io {  } = @std.io
 
 main: () void = {
     // ===== Immutable Bindings (Constants) =====

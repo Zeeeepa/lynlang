@@ -1,8 +1,8 @@
 // Error Bubbling in Zen - No exceptions, just values!
 // This example demonstrates error handling without exceptions
 
-io := @std.io
-fs := @std.fs
+io {  } = @std.io
+fs {  } = @std.fs
 
 // Error types
 Error: 

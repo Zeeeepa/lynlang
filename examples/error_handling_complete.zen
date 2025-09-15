@@ -1,10 +1,10 @@
 // Complete Error Handling Example - NO try keyword, NO async keyword!
 // This demonstrates Zenlang's approach: errors as values with ? operator
 
-io := @std.io
-fs := @std.fs
-json := @std.json
-http := @std.http
+io {  } = @std.io
+fs {  } = @std.fs
+json {  } = @std.json
+http {  } = @std.http
 
 // Custom error types - errors are just values
 AppError = 

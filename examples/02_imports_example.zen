@@ -2,8 +2,8 @@
 // Demonstrates proper module imports without comptime blocks
 
 // Direct imports at module level - this is the correct way
-core := @std.core
-io := @std.io
+core {  } = @std.core
+io {  } = @std.io
 
 // Main function demonstrating usage
 main: () i32  = {
