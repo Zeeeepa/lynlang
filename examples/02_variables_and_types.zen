@@ -3,7 +3,7 @@
 
 io {  } = @std.io
 
-main: () void = {
+main = () void  {
     // ===== Immutable Bindings (Constants) =====
     
     // Type inference

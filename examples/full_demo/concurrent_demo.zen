@@ -85,7 +85,7 @@ fetch_data = (url: string, alloc: *Allocator) Result<string, string> {
     
     // Allocator determines execution mode
     alloc.is_concurrent ?
-        | true => {
+        | true { { }
             // Concurrent path: suspend and resume
             cont := alloc.suspend();
             // Simulate concurrent sleep with continuation
@@ -93,15 +93,15 @@ fetch_data = (url: string, alloc: *Allocator) Result<string, string> {
             @std.time.sleep(100);
             alloc.runtime.wait();
         }
-        | false => {
+        | false { { }
             // Sync path: just block
             @std.time.sleep(100);
         }
     
     // Return mock data
     url.contains("error") ?
-        | true => .Err -> "Network error"
-        | false => .Ok -> "Data from " + url
+        | true { .Err -> "Network error" }
+        | false { .Ok -> "Data from " + url }
 };
 
 process_data = (data: string, alloc: *Allocator) Result<i32, string> {
@@ -109,13 +109,13 @@ process_data = (data: string, alloc: *Allocator) Result<i32, string> {
     
     // Allocator determines execution mode
     alloc.is_concurrent ?
-        | true => {
+        | true { { }
             cont := alloc.suspend();
             // Simulate concurrent sleep with continuation
             @std.time.sleep(50);
             alloc.runtime.wait();
         }
-        | false => {
+        | false { { }
             @std.time.sleep(50);
         }
     
@@ -146,13 +146,13 @@ run_tasks = (alloc: *Allocator) i32 {
     total_length := 0;
     results.loop((result) => {
         result ? 
-            | .Ok -> data => {
+            | .Ok -> data { { }
                 processed := process_data(data, alloc);
                 processed ? 
-                    | .Ok -> len => total_length = total_length + len
-                    | .Err -> _ => {}
+                    | .Ok -> len { total_length = total_length + len }
+                    | .Err -> _ { { }}
             }
-            | .Err -> err => @std.io.println("Error: " + err)
+            | .Err -> err { @std.io.println("Error: " + err) }
     });
     
     @std.io.println("Total processed length: " + total_length);
@@ -172,12 +172,12 @@ demonstrate_channels = (alloc: *Allocator) void {
             
             // Use allocator for delays
             alloc.is_concurrent ?
-                | true => {
+                | true { { }
                     cont := alloc.suspend();
                     @std.time.sleep(10);
                     alloc.runtime.wait();
                 }
-                | false => @std.time.sleep(10);
+                | false { @std.time.sleep(10); }
         });
         chan.close();
     };
@@ -187,19 +187,19 @@ demonstrate_channels = (alloc: *Allocator) void {
         loop {
             value := chan.receive();
             value ?
-                | .Some -> v => @std.io.println("Received: " + v)
-                | .None => break;
+                | .Some -> v { @std.io.println("Received: " + v) }
+                | .None { break; }
         }
     };
     
     // Run tasks based on allocator mode
     alloc.is_concurrent ?
-        | true => {
+        | true { { }
             // Spawn concurrent tasks
             @std.spawn(producer_fn);
             @std.spawn(consumer_fn);
         }
-        | false => {
+        | false { { }
             // Run sequentially
             producer_fn();
             consumer_fn();
@@ -215,36 +215,36 @@ demonstrate_select = (alloc: *Allocator) void {
     // Send to channels after delays
     send_fn1 = () => {
         alloc.is_concurrent ?
-            | true => {
+            | true { { }
                 cont := alloc.suspend();
                 @std.time.sleep(200);
                 alloc.runtime.wait();
             }
-            | false => @std.time.sleep(200);
+            | false { @std.time.sleep(200); }
         chan1.send(42);
     };
     
     send_fn2 = () => {
         alloc.is_concurrent ?
-            | true => {
+            | true { { }
                 cont := alloc.suspend();
                 @std.time.sleep(300);
                 alloc.runtime.wait();
             }
-            | false => @std.time.sleep(300);
+            | false { @std.time.sleep(300); }
         chan2.send("Hello");
     };
     
     // Execute based on allocator mode
     alloc.is_concurrent ?
-        | true => {
+        | true { { }
             @std.spawn(send_fn1);
             @std.spawn(send_fn2);
             
             // Select from multiple sources
             select_channels(chan1, chan2, timeout, alloc);
         }
-        | false => {
+        | false { { }
             send_fn1();
             send_fn2();
         }
@@ -269,9 +269,9 @@ CounterMsg:
 impl Actor<CounterMsg> for Counter {
     handle = (self: Self, msg: CounterMsg, alloc: *Allocator) void {
         msg ?
-            | .Increment => self.value = self.value + 1
-            | .Decrement => self.value = self.value - 1
-            | .Get -> {reply} => reply.send(self.value);
+            | .Increment { self.value = self.value + 1 }
+            | .Decrement { self.value = self.value - 1 }
+            | .Get -> {reply} { reply.send(self.value); }
     };
 }
 
@@ -287,15 +287,15 @@ Counter:spawn = (alloc: *Allocator) ActorHandle<Counter> {
         loop {
             msg := counter.mailbox.receive();
             msg ?
-                | .Some -> m => counter.handle(m, alloc)
-                | .None => break;
+                | .Some -> m { counter.handle(m, alloc) }
+                | .None { break; }
         }
     };
     
     // Run based on allocator mode
     alloc.is_concurrent ?
-        | true => @std.spawn(actor_loop)
-        | false => actor_loop();
+        | true { @std.spawn(actor_loop) }
+        | false { actor_loop(); }
     
     ActorHandle<Counter>{
         mailbox: counter.mailbox,
@@ -312,23 +312,23 @@ process_stream = (alloc: *Allocator) void {
         .map((x) => {
             // Use allocator for delays
             alloc.is_concurrent ?
-                | true => {
+                | true { { }
                     cont := alloc.suspend();
                     @std.time.sleep(10);
                     alloc.runtime.wait();
                 }
-                | false => @std.time.sleep(10);
+                | false { @std.time.sleep(10); }
             x * 2
         })
         .filter((x) => {
             // Use allocator for delays
             alloc.is_concurrent ?
-                | true => {
+                | true { { }
                     cont := alloc.suspend();
                     @std.time.sleep(5);
                     alloc.runtime.wait();
                 }
-                | false => @std.time.sleep(5);
+                | false { @std.time.sleep(5); }
             x % 3 == 0
         })
         .collect();
@@ -351,13 +351,13 @@ demonstrate_mutex = (alloc: *Allocator) void {
     
     // Execute based on allocator mode
     alloc.is_concurrent ?
-        | true => {
+        | true { { }
             // Spawn concurrent tasks
             (0..5).loop((i) => {
                 @std.spawn(() => task_fn(i));
             });
         }
-        | false => {
+        | false { { }
             // Run sequentially
             (0..5).loop((i) => {
                 task_fn(i);
@@ -369,12 +369,12 @@ demonstrate_mutex = (alloc: *Allocator) void {
 };
 
 // Export the main demo function
-run_concurrent_demo: () void  = {
+run_concurrent_demo = () void   {
     // Choose allocator based on build flag or runtime preference
     alloc := @compileVar("EXECUTION_MODE") ?
-        | "sync" => SyncAllocator{}
-        | "concurrent" => ConcurrentAllocator{ runtime: @std.runtime.init() }
-        | _ => ConcurrentAllocator{ runtime: @std.runtime.init() }  // Default to concurrent
+        | "sync" { SyncAllocator{ }}
+        | "concurrent" { ConcurrentAllocator{ runtime: @std.runtime.init()  }}
+        | _ { ConcurrentAllocator{ runtime: @std.runtime.init()  }}  // Default to concurrent
     
     // Run demonstrations with allocator
     run_tasks(&alloc);

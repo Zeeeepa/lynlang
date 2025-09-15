@@ -40,7 +40,7 @@ ConcurrentAllocator: Allocator = {
 }
 
 // Functions are colorless - allocator determines behavior
-read_file: (path: String, alloc: *Allocator) Result<[]u8, io.Error> = {
+read_file = (path: String, alloc: *Allocator) Result<[]u8, io.Error>  {
     // Allocate buffer using provided allocator
     buffer := alloc.alloc(4096)
     defer alloc.free(buffer)
@@ -51,13 +51,13 @@ read_file: (path: String, alloc: *Allocator) Result<[]u8, io.Error> = {
     
     // Read file - execution mode depends on allocator
     bytes_read := alloc.is_concurrent ?
-        | true => {
+        | true { { }
             // Concurrent path: suspend and resume
             cont := alloc.suspend()
             io.read_concurrent(fd, buffer, cont)
             alloc.runtime.wait()
         }
-        | false => {
+        | false { { }
             // Sync path: just block
             io.read_sync(fd, buffer)
         }
@@ -66,37 +66,37 @@ read_file: (path: String, alloc: *Allocator) Result<[]u8, io.Error> = {
 }
 
 // HTTP handler - colorless function
-handle_request: (req: HttpRequest, alloc: *Allocator) Result<HttpResponse, Error> = {
+handle_request = (req: HttpRequest, alloc: *Allocator) Result<HttpResponse, Error>  {
     // Pattern match routes
     response := req.path ?
-        | "/users" => fetch_users(alloc)?
-        | "/posts" => fetch_posts(alloc)?
-        | "/api/data" => {
+        | "/users" { fetch_users(alloc)? }
+        | "/posts" { fetch_posts(alloc)? }
+        | "/api/data" { { }
             // Read from file - colorless!
             data := read_file("data.json", alloc)?
             HttpResponse.json(data)
         }
-        | _ => HttpResponse.not_found()
+        | _ { HttpResponse.not_found() }
     
     .Ok(response)
 }
 
 // Database operations - colorless
-query_database: (query: String, alloc: *Allocator) Result<[]Row, Error> = {
+query_database = (query: String, alloc: *Allocator) Result<[]Row, Error>  {
     // Connect to database
     conn := db.connect("postgres://localhost/mydb", alloc)?
     defer conn.close()
     
     // Execute query - sync or concurrent based on allocator
     rows := alloc.is_concurrent ?
-        | true => conn.execute_concurrent(query, alloc)?
-        | false => conn.execute_sync(query)?
+        | true { conn.execute_concurrent(query, alloc)? }
+        | false { conn.execute_sync(query)? }
     
     .Ok(rows)
 }
 
 // Web server - colorless server
-run_server: (port: u16, alloc: *Allocator) Result<void, Error> = {
+run_server = (port: u16, alloc: *Allocator) Result<void, Error>  {
     io.println("Starting server on port $(port)")
     io.println("Mode: $(alloc.is_concurrent ? \"concurrent\" : \"synchronous\")")
     
@@ -108,16 +108,16 @@ run_server: (port: u16, alloc: *Allocator) Result<void, Error> = {
         client_result := listener.accept(alloc)
         
         client_result ?
-            | .Ok -> client => {
+            | .Ok -> client { { }
                 // Spawn handler task
                 spawn_task(() => {
                     result := handle_client(client, alloc)
                     result ?
-                        | .Ok -> _ => io.println("Client handled successfully")
-                        | .Err -> e => io.println("Client error: $(e)")
+                        | .Ok -> _ { io.println("Client handled successfully") }
+                        | .Err -> e { io.println("Client error: $(e)") }
                 }, alloc)
             }
-            | .Err -> e => {
+            | .Err -> e { { }
                 io.println("Accept error: $(e)")
                 break
             }
@@ -127,7 +127,7 @@ run_server: (port: u16, alloc: *Allocator) Result<void, Error> = {
 }
 
 // Client handler
-handle_client: (client: Connection, alloc: *Allocator) Result<void, Error> = {
+handle_client = (client: Connection, alloc: *Allocator) Result<void, Error>  {
     // Read request
     request := read_request(client, alloc)?
     
@@ -141,20 +141,20 @@ handle_client: (client: Connection, alloc: *Allocator) Result<void, Error> = {
 }
 
 // Task spawning based on allocator
-spawn_task: (task: () void, alloc: *Allocator) void = {
+spawn_task = (task: () void, alloc: *Allocator) void  {
     alloc.is_concurrent ?
-        | true => {
+        | true { { }
             // Spawn as green thread/fiber
             alloc.runtime.spawn_fiber(task)
         }
-        | false => {
+        | false { { }
             // Execute immediately in sync mode
             task()
         }
 }
 
 // Pipeline processing - colorless!
-process_pipeline: (input: String, alloc: *Allocator) Result<String, Error> = {
+process_pipeline = (input: String, alloc: *Allocator) Result<String, Error>  {
     // Each step uses the same allocator
     parsed := parse_data(input, alloc)?
     validated := validate(parsed, alloc)?
@@ -165,7 +165,7 @@ process_pipeline: (input: String, alloc: *Allocator) Result<String, Error> = {
 }
 
 // Main demonstrates different execution modes
-main: () i32 = {
+main = () i32  {
     io.println("=== Colorless Concurrency Demo ===")
     io.println("Allocators control execution mode")
     io.println("Functions are colorless - same code for sync and concurrent\n")
@@ -174,12 +174,12 @@ main: () i32 = {
     debug_mode := @compileVar("DEBUG")
     
     debug_mode ?
-        | true => {
+        | true { { }
             io.println("Running in SYNC mode (debug)")
             sync_alloc := SyncAllocator{}
             run_demo(&sync_alloc)
         }
-        | false => {
+        | false { { }
             io.println("Running in CONCURRENT mode (production)")
             concurrent_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
             run_demo(&concurrent_alloc)
@@ -189,30 +189,30 @@ main: () i32 = {
 }
 
 // Demo function that works with any allocator
-run_demo: (alloc: *Allocator) void = {
+run_demo = (alloc: *Allocator) void  {
     io.println("\n1. Reading files...")
     file_result := read_file("test.txt", alloc)
     file_result ?
-        | .Ok -> data => io.println("Read $(data.len) bytes")
-        | .Err -> e => io.println("File error: $(e)")
+        | .Ok -> data { io.println("Read $(data.len) bytes") }
+        | .Err -> e { io.println("File error: $(e)") }
     
     io.println("\n2. Database query...")
     db_result := query_database("SELECT * FROM users", alloc)
     db_result ?
-        | .Ok -> rows => io.println("Found $(rows.len) rows")
-        | .Err -> e => io.println("DB error: $(e)")
+        | .Ok -> rows { io.println("Found $(rows.len) rows") }
+        | .Err -> e { io.println("DB error: $(e)") }
     
     io.println("\n3. Processing pipeline...")
     pipeline_result := process_pipeline("input data", alloc)
     pipeline_result ?
-        | .Ok -> output => io.println("Pipeline output: $(output)")
-        | .Err -> e => io.println("Pipeline error: $(e)")
+        | .Ok -> output { io.println("Pipeline output: $(output)") }
+        | .Err -> e { io.println("Pipeline error: $(e)") }
     
     io.println("\n4. Starting server...")
     server_result := run_server(8080, alloc)
     server_result ?
-        | .Ok -> _ => io.println("Server stopped gracefully")
-        | .Err -> e => io.println("Server error: $(e)")
+        | .Ok -> _ { io.println("Server stopped gracefully") }
+        | .Err -> e { io.println("Server error: $(e)") }
 }
 
 // Testing with sync allocator for determinism
@@ -225,15 +225,15 @@ test "database operations" {
     result := conn.execute("INSERT INTO users VALUES (1, 'Alice')", &test_alloc)
     
     result ?
-        | .Ok -> _ => assert(true)
-        | .Err -> e => assert(false, "Database error: $(e)")
+        | .Ok -> _ { assert(true) }
+        | .Err -> e { assert(false, "Database error: $(e)") }
     
     // Check for memory leaks
     assert(test_alloc.bytes_leaked() == 0)
 }
 
 // Progressive enhancement example
-enhanced_main: () void = {
+enhanced_main = () void  {
     // Start simple with sync
     io.println("Phase 1: Synchronous execution")
     sync_alloc := SyncAllocator{}
@@ -267,10 +267,10 @@ Connection: {}
 Row: { data: String }
 Runtime: { heap: Heap }
 Runtime.init: () Runtime = Runtime{ heap: Heap{} }
-Runtime.spawn_fiber: (task: () void) void = {}
+Runtime.spawn_fiber = (task: () void) void  {}
 Runtime.save_continuation: () Continuation = Continuation{}
-Runtime.schedule: (cont: Continuation) void = {}
-Runtime.wait: () void = {}
+Runtime.schedule = (cont: Continuation) void  {}
+Runtime.wait = () void  {}
 
 Continuation: {}
 Heap: {}
@@ -281,13 +281,13 @@ Error: { message: String }
 
 db: {}
 db.connect: (url: String, alloc: *Allocator) Result<Connection, Error> = .Ok(Connection{})
-Connection.close: () void = {}
+Connection.close = () void  {}
 Connection.execute_sync: (query: String) Result<[]Row, Error> = .Ok([])
 Connection.execute_concurrent: (query: String, alloc: *Allocator) Result<[]Row, Error> = .Ok([])
 
 fetch_users: (alloc: *Allocator) Result<HttpResponse, Error> = .Ok(HttpResponse.json([]))
 fetch_posts: (alloc: *Allocator) Result<HttpResponse, Error> = .Ok(HttpResponse.json([]))
-read_request: (client: Connection, alloc: *Allocator) Result<HttpRequest, Error> = {
+read_request = (client: Connection, alloc: *Allocator) Result<HttpRequest, Error>  {
     .Ok(HttpRequest{ path: "/", method: "GET", body: "" })
 }
 send_response: (client: Connection, response: HttpResponse, alloc: *Allocator) Result<void, Error> = .Ok(())
@@ -297,7 +297,7 @@ validate: (data: String, alloc: *Allocator) Result<String, Error> = .Ok(data)
 transform: (data: String, alloc: *Allocator) Result<String, Error> = .Ok(data)
 format_output: (data: String, alloc: *Allocator) Result<String, Error> = .Ok(data)
 
-simple_task: (alloc: *Allocator) void = {
+simple_task = (alloc: *Allocator) void  {
     io.println("Task executed with allocator mode: $(alloc.is_concurrent ? \"concurrent\" : \"sync\")")
 }
 

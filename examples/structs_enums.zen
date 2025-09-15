@@ -34,7 +34,7 @@ Status: Active
     | Pending(since: i64)
     | Error({ code: i32, message: string, recoverable: bool })
 
-main: () void  = {
+main = () void   {
     // Create person with defaults
     alice := Person{ 
         name: "Alice", 
@@ -72,10 +72,10 @@ main: () void  = {
     })
     
     // Pattern match on status
-    message := status3 ? | .Active => "System is active"
-                        | .Inactive => "System is inactive"
-                        | .Pending -> since => "Pending since $(since)"
-                        | .Error -> err => "Error $(err.code): $(err.message)"
+    message := status3 ? | .Active { "System is active" }
+                        | .Inactive { "System is inactive" }
+                        | .Pending -> since { "Pending since $(since)" }
+                        | .Error -> err { "Error $(err.code): $(err.message)" }
     
     io.print("Status: $(message)\n")
     io.print("Employee: $(employee.person.name) in $(employee.address.city)\n")
