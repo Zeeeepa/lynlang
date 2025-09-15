@@ -22,7 +22,7 @@ codegen := @std.compiler.codegen
 errors := @std.compiler.errors
 
 // Test function to verify imports work correctly
-test_std_imports = () bool {
+test_std_imports: () bool  = {
     io.print("Testing standard library imports...\n")
     
     // Test io module
@@ -41,7 +41,7 @@ test_std_imports = () bool {
     return true
 }
 
-test_compiler_imports = () bool {
+test_compiler_imports: () bool  = {
     io.print("Testing compiler module imports...\n")
     
     // Test lexer
@@ -76,7 +76,7 @@ test_compiler_imports = () bool {
 }
 
 // Test that imports work with pattern matching
-test_import_with_patterns = () bool {
+test_import_with_patterns: () bool  = {
     io.print("Testing imports with pattern matching...\n")
     
     result := 42
@@ -92,7 +92,7 @@ test_import_with_patterns = () bool {
 }
 
 // Test that imports are validated at compile time
-test_import_validation = () bool {
+test_import_validation: () bool  = {
     io.print("Testing import validation...\n")
     
     // These should all compile correctly:
@@ -105,7 +105,7 @@ test_import_validation = () bool {
 }
 
 // Test import error detection (via comments to show what would fail)
-test_import_errors = () bool {
+test_import_errors: () bool  = {
     io.print("Testing import error scenarios (via comments)...\n")
     
     // This would fail: imports inside function
@@ -122,7 +122,7 @@ test_import_errors = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("===========================================\n")
     io.print("    Comprehensive Import System Test\n")
     io.print("===========================================\n\n")

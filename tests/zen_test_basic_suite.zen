@@ -4,7 +4,7 @@
 io := @std.io
 
 // Test 1: Basic arithmetic
-test_arithmetic = () bool {
+test_arithmetic: () bool  = {
     a := 10
     b := 5
     
@@ -23,7 +23,7 @@ test_arithmetic = () bool {
 }
 
 // Test 2: Simple conditions
-test_conditions = () bool {
+test_conditions: () bool  = {
     x := 10
     
     x > 5 ?
@@ -38,7 +38,7 @@ test_conditions = () bool {
 }
 
 // Test 3: Simple loop
-test_loop = () bool {
+test_loop: () bool  = {
     mut count := 0
     mut i := 0
     
@@ -59,7 +59,7 @@ test_loop = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.println("=== Basic Zen Test Suite ===\n")
     
     mut passed := 0

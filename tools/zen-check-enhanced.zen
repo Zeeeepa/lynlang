@@ -9,13 +9,12 @@ core := @std.core
 path := @std.path
 
 // Error severity levels
-Severity = 
-    | Error
+Severity: Error
     | Warning
     | Info
 
 // Diagnostic information
-Diagnostic = {
+Diagnostic: {
     line: i32,
     column: i32,
     severity: Severity,
@@ -25,7 +24,7 @@ Diagnostic = {
 }
 
 // Check result
-CheckResult = {
+CheckResult: {
     filepath: string,
     diagnostics: Vec<Diagnostic>,
     error_count: i32,
@@ -34,8 +33,7 @@ CheckResult = {
 }
 
 // Token types for basic lexical analysis
-TokenType = 
-    | Identifier
+TokenType: Identifier
     | Keyword
     | Operator
     | Number
@@ -45,7 +43,7 @@ TokenType =
     | Unknown
 
 // Simple token
-Token = {
+Token: {
     type: TokenType,
     value: string,
     line: i32,
@@ -53,7 +51,7 @@ Token = {
 }
 
 // Create a new diagnostic
-diagnostic_new = (line: i32, column: i32, severity: Severity, code: string, message: string, suggestion: string) Diagnostic {
+diagnostic_new: (line: i32, column: i32, severity: Severity, code: string, message: string, suggestion: string) Diagnostic  = {
     return Diagnostic {
         line: line,
         column: column,
@@ -65,7 +63,7 @@ diagnostic_new = (line: i32, column: i32, severity: Severity, code: string, mess
 }
 
 // Print diagnostic with color
-print_diagnostic = (diag: Diagnostic, filepath: string, line_content: string) void {
+print_diagnostic: (diag: Diagnostic, filepath: string, line_content: string) void  = {
     // Color codes
     color := ""
     prefix := ""
@@ -134,7 +132,7 @@ print_diagnostic = (diag: Diagnostic, filepath: string, line_content: string) vo
 }
 
 // Check for syntax issues
-check_syntax = (lines: Vec<string>, result: *CheckResult) void {
+check_syntax: (lines: Vec<string>, result: *CheckResult) void  = {
     i := 0
     in_comptime := false
     in_function := false
@@ -302,7 +300,7 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void {
 }
 
 // Check for style issues
-check_style = (lines: Vec<string>, result: *CheckResult) void {
+check_style: (lines: Vec<string>, result: *CheckResult) void  = {
     i := 0
     uses_tabs := false
     uses_spaces := false
@@ -385,7 +383,7 @@ check_style = (lines: Vec<string>, result: *CheckResult) void {
 }
 
 // Check a single file
-check_file = (filepath: string) CheckResult {
+check_file: (filepath: string) CheckResult  = {
     result := CheckResult {
         filepath: filepath,
         diagnostics: vec.new<Diagnostic>(),
@@ -423,7 +421,7 @@ check_file = (filepath: string) CheckResult {
 }
 
 // Print summary
-print_summary = (results: Vec<CheckResult>) void {
+print_summary: (results: Vec<CheckResult>) void  = {
     total_errors := 0
     total_warnings := 0
     total_infos := 0
@@ -468,7 +466,7 @@ print_summary = (results: Vec<CheckResult>) void {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Enhanced Zen Code Checker v0.2.0\n")
     io.print("================================\n\n")
     

@@ -9,8 +9,7 @@ use test_utils::test_context;
 fn test_string_concatenation() {
     test_context!(|test_context: &mut TestContext| {
         let program = ast::Program::from_functions(vec![
-            ast::Function { type_params: vec![], 
-                is_async: false,
+            ast::Function { type_params: vec![],
                 name: "concat_strings".to_string(),
                 args: vec![
                     ("s1".to_string(), AstType::String),
@@ -23,8 +22,7 @@ fn test_string_concatenation() {
                     right: Box::new(Expression::Identifier("s2".to_string())),
                 })],
             },
-            ast::Function { type_params: vec![], 
-                is_async: false,
+            ast::Function { type_params: vec![],
                 name: "main".to_string(),
                 args: vec![],
                 return_type: AstType::I64,
@@ -57,8 +55,7 @@ fn test_string_concatenation() {
 fn test_string_comparison() {
     test_context!(|test_context: &mut TestContext| {
         let program = ast::Program::from_functions(vec![
-            ast::Function { type_params: vec![], 
-                is_async: false,
+            ast::Function { type_params: vec![],
                 name: "compare_strings".to_string(),
                 args: vec![
                     ("s1".to_string(), AstType::String),
@@ -71,8 +68,7 @@ fn test_string_comparison() {
                     right: Box::new(Expression::Identifier("s2".to_string())),
                 })],
             },
-            ast::Function { type_params: vec![], 
-                is_async: false,
+            ast::Function { type_params: vec![],
                 name: "main".to_string(),
                 args: vec![],
                 return_type: AstType::I64,
@@ -95,7 +91,7 @@ fn test_string_comparison() {
 #[test]
 fn test_string_length() {
     test_context!(|test_context: &mut TestContext| {
-        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], is_async: false, 
+        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], 
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I64,
@@ -120,7 +116,7 @@ fn test_string_length() {
 #[test]
 fn test_string_literal_ir() {
     test_context!(|test_context: &mut TestContext| {
-        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], is_async: false, 
+        let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![], 
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I64,

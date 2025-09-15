@@ -297,7 +297,7 @@ HashMap.new = () HashMap {
 }
 
 // Hash function (simple for now)
-hash = (key: K, capacity: usize) usize {
+hash: (key: K, capacity: usize) usize  = {
     // Simple hash for numeric types
     return key % capacity
 }

@@ -1,7 +1,7 @@
 // Simple arithmetic test without pattern matching
 io := @std.io
 
-main = () i32 {
+main: () i32  = {
     io.print("=== Arithmetic Test ===\n");
     
     // Test addition

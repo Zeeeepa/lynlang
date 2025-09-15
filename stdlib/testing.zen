@@ -24,7 +24,7 @@ TestSuite: {
 }
 
 // Create a new test suite
-new_suite = (name: string) TestSuite {
+new_suite: (name: string) TestSuite  = {
     return TestSuite {
         name: name,
         tests: vec.new<TestResult>(),
@@ -123,7 +123,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
 }
 
 // Print test suite summary
-print_summary = (suite: &TestSuite) void {
+print_summary: (suite: &TestSuite) void  = {
     io.print("\n")
     io.print("=" * 50)
     io.print("\n")
@@ -172,13 +172,13 @@ print_summary = (suite: &TestSuite) void {
 }
 
 // Basic assertions
-assert_true = (condition: bool, message: string) Result<bool, string> {
+assert_true: (condition: bool, message: string) Result<bool, string>  = {
     condition ? 
         | true => Result<bool, string>.Ok(true)
         | false => Result<bool, string>.Err(message)
 }
 
-assert_false = (condition: bool, message: string) Result<bool, string> {
+assert_false: (condition: bool, message: string) Result<bool, string>  = {
     (!condition) ? 
         | true => Result<bool, string>.Ok(true)
         | false => Result<bool, string>.Err(message)

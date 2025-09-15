@@ -18,7 +18,7 @@ codegen := @std.compiler.codegen
 codegen_llvm := @std.compiler.codegen_llvm
 
 // Compiler configuration
-CompilerConfig = {
+CompilerConfig: {
     input_file: string,
     output_file: Option<string>,
     output_type: OutputType,
@@ -32,14 +32,14 @@ CompilerConfig = {
 }
 
 // Output types
-OutputType = |
+OutputType: 
     Executable,
     ObjectFile,
     Assembly,
     LLVMIR,
 
 // Compilation result
-CompileResult = |
+CompileResult: 
     Success,
     LexerError(string),
     ParserError(string),
@@ -48,7 +48,7 @@ CompileResult = |
     FileError(string),
 
 // Create default configuration
-default_config = () CompilerConfig {
+default_config: () CompilerConfig  = {
     return CompilerConfig{
         input_file: "",
         output_file: Option<string>.None,
@@ -64,7 +64,7 @@ default_config = () CompilerConfig {
 }
 
 // Parse command line arguments
-parse_args = (argv: Vec<string>) Result<CompilerConfig, string> {
+parse_args: (argv: Vec<string>) Result<CompilerConfig, string>  = {
     parser := args.new_parser("zenc", "The Zen compiler")
     
     // Add flags
@@ -155,7 +155,7 @@ parse_args = (argv: Vec<string>) Result<CompilerConfig, string> {
 }
 
 // Read source file
-read_source = (path: string) Result<string, string> {
+read_source: (path: string) Result<string, string>  = {
     config.verbose ? {
         log.info("Reading source file: " + path)
     } : {}
@@ -177,7 +177,7 @@ read_source = (path: string) Result<string, string> {
 }
 
 // Compile source code
-compile = (config: &CompilerConfig, source: string) CompileResult {
+compile: (config: &CompilerConfig, source: string) CompileResult  = {
     timer := time.start_timer()
     
     config.verbose ? {
@@ -341,7 +341,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult {
 }
 
 // Get module name from file path
-get_module_name = (path: string) string {
+get_module_name: (path: string) string  = {
     // Extract filename without extension
     last_slash := string.last_index_of(path, "/")
     filename := last_slash >= 0 ? {
@@ -359,7 +359,7 @@ get_module_name = (path: string) string {
 }
 
 // Get default output filename
-get_default_output = (config: &CompilerConfig) string {
+get_default_output: (config: &CompilerConfig) string  = {
     base_name := get_module_name(config.input_file)
     
     match config.output_type {
@@ -371,7 +371,7 @@ get_default_output = (config: &CompilerConfig) string {
 }
 
 // Helper function
-int_to_string = (n: i32) string {
+int_to_string: (n: i32) string  = {
     n == 0 ? { return "0" } : {}
     n < 0 ? { return "-" + int_to_string(-n) } : {}
     n < 10 ? { return "" + (n + 48) as u8 } : {
@@ -380,7 +380,7 @@ int_to_string = (n: i32) string {
 }
 
 // Main entry point
-main = (argc: i32, argv: Vec<string>) i32 {
+main: (argc: i32, argv: Vec<string>) i32  = {
     // Configure logging
     log.set_level(log.LogLevel.Info)
     

@@ -6,19 +6,19 @@ mem := @std.mem
 
 // List node structure (simplified)
 // In real implementation this would use generics
-ListNode = {
+ListNode: {
     value: i32,
     next: *ListNode,
 }
 
 // List structure
-List = {
+List: {
     head: *ListNode,
     size: u32,
 }
 
 // Create a new empty list
-new = () List {
+new: () List  = {
     return List {
         head: null,
         size: 0,
@@ -26,7 +26,7 @@ new = () List {
 }
 
 // Add element to the front of the list
-push_front = (list: *List, value: i32) void {
+push_front: (list: *List, value: i32) void  = {
     node := mem.alloc(ListNode)
     node.value = value
     node.next = list.head
@@ -35,7 +35,7 @@ push_front = (list: *List, value: i32) void {
 }
 
 // Remove element from front of the list
-pop_front = (list: *List) i32 {
+pop_front: (list: *List) i32  = {
     if list.head == null {
         return 0  // Error case
     }
@@ -50,17 +50,17 @@ pop_front = (list: *List) i32 {
 }
 
 // Get the size of the list
-len = (list: *List) u32 {
+len: (list: *List) u32  = {
     return list.size
 }
 
 // Check if list is empty
-is_empty = (list: *List) bool {
+is_empty: (list: *List) bool  = {
     return list.size == 0
 }
 
 // Clear all elements from the list
-clear = (list: *List) void {
+clear: (list: *List) void  = {
     while list.head != null {
         node := list.head
         list.head = node.next
@@ -70,7 +70,7 @@ clear = (list: *List) void {
 }
 
 // Find an element in the list
-contains = (list: *List, value: i32) bool {
+contains: (list: *List, value: i32) bool  = {
     current := list.head
     while current != null {
         if current.value == value {
@@ -82,7 +82,7 @@ contains = (list: *List, value: i32) bool {
 }
 
 // Convert list to array (for debugging)
-to_array = (list: *List) []i32 {
+to_array: (list: *List) []i32  = {
     if list.size == 0 {
         return []
     }

@@ -7,7 +7,7 @@ testing := build.import("testing")
 io := build.import("io")
 
 // Test pattern matching with ? operator
-test_pattern_matching = () bool {
+test_pattern_matching: () bool  = {
     // Test basic value patterns
     score := 100
     result := score ? 
@@ -58,7 +58,7 @@ test_pattern_matching = () bool {
 }
 
 // Test that there are no if/else keywords
-test_no_if_else_keywords = () bool {
+test_no_if_else_keywords: () bool  = {
     // All conditionals must use ? operator
     condition := true
     result := condition ?
@@ -77,10 +77,10 @@ test_no_if_else_keywords = () bool {
 }
 
 // Test Result/Option types for error handling
-test_error_as_values = () bool {
+test_error_as_values: () bool  = {
     // Create a Result
-    success := Result::Ok(42)
-    failure := Result::Err("error")
+    success := Result:Ok(42)
+    failure := Result:Err("error")
     
     // Pattern match on Result
     success ?
@@ -100,8 +100,8 @@ test_error_as_values = () bool {
         }
     
     // Create an Option
-    some_value := Option::Some(10)
-    none_value := Option::None
+    some_value := Option:Some(10)
+    none_value := Option:None
     
     // Pattern match on Option
     some_value ?
@@ -120,10 +120,10 @@ test_error_as_values = () bool {
 }
 
 // Test loop keyword (only loop, no while/for)
-test_loop_keyword = () bool {
+test_loop_keyword: () bool  = {
     // Conditional loop (while-like)
-    counter ::= 5
-    sum ::= 0
+    counter := 5
+    sum := 0
     
     loop (counter > 0) {
         sum = sum + counter
@@ -135,7 +135,7 @@ test_loop_keyword = () bool {
         | false => return false
     
     // Range iteration
-    range_sum ::= 0
+    range_sum := 0
     (0..5).loop((i) => {
         range_sum = range_sum + i
     })
@@ -145,7 +145,7 @@ test_loop_keyword = () bool {
         | false => return false
     
     // Break from infinite loop
-    count ::= 0
+    count := 0
     loop {
         count = count + 1
         count >= 3 ? 
@@ -161,7 +161,7 @@ test_loop_keyword = () bool {
 }
 
 // Test struct syntax (no tuples allowed)
-test_struct_syntax = () bool {
+test_struct_syntax: () bool  = {
     // Structs are the only product type
     Point := {
         x: f64,
@@ -190,12 +190,12 @@ test_struct_syntax = () bool {
 }
 
 // Test variable declarations
-test_variable_declarations = () bool {
+test_variable_declarations: () bool  = {
     // Immutable binding
     PI := 3.14159
     
     // Mutable binding
-    counter ::= 0
+    counter := 0
     counter = counter + 1
     
     counter == 1 ?
@@ -210,7 +210,7 @@ test_variable_declarations = () bool {
         | false => return false
     
     // Typed mutable
-    buffer:: [10, u8]
+    buffer: [10, u8]
     buffer[0] = 65  // 'A'
     
     buffer[0] == 65 ?
@@ -221,7 +221,7 @@ test_variable_declarations = () bool {
 }
 
 // Test @std namespace (only allowed namespace)
-test_std_namespace = () bool {
+test_std_namespace: () bool  = {
     // All imports must go through @std.build
     // This test verifies the pattern works
     
@@ -236,20 +236,20 @@ test_std_namespace = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("🧪 Zen Language Specification Compliance Tests\n")
     io.print("=" * 50 + "\n\n")
     
     suite := testing.new_suite("Language Spec Compliance")
     
     // Run all tests
-    testing.run_test(Ptr::new(suite), "Pattern Matching (?)", test_pattern_matching)
-    testing.run_test(Ptr::new(suite), "No if/else Keywords", test_no_if_else_keywords)
-    testing.run_test(Ptr::new(suite), "Errors as Values", test_error_as_values)
-    testing.run_test(Ptr::new(suite), "Loop Keyword Only", test_loop_keyword)
-    testing.run_test(Ptr::new(suite), "Struct Syntax (No Tuples)", test_struct_syntax)
-    testing.run_test(Ptr::new(suite), "Variable Declarations", test_variable_declarations)
-    testing.run_test(Ptr::new(suite), "@std Namespace Only", test_std_namespace)
+    testing.run_test(Ptr:new(suite), "Pattern Matching (?)", test_pattern_matching)
+    testing.run_test(Ptr:new(suite), "No if/else Keywords", test_no_if_else_keywords)
+    testing.run_test(Ptr:new(suite), "Errors as Values", test_error_as_values)
+    testing.run_test(Ptr:new(suite), "Loop Keyword Only", test_loop_keyword)
+    testing.run_test(Ptr:new(suite), "Struct Syntax (No Tuples)", test_struct_syntax)
+    testing.run_test(Ptr:new(suite), "Variable Declarations", test_variable_declarations)
+    testing.run_test(Ptr:new(suite), "@std Namespace Only", test_std_namespace)
     
     // Print summary
     io.print("\n" + "=" * 50 + "\n")

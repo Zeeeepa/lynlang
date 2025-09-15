@@ -142,7 +142,7 @@ LSPServer: {
 }
 
 // Create a new LSP server
-new_server = () LSPServer {
+new_server: () LSPServer  = {
     return LSPServer {
         documents: map.new<string, TextDocumentItem>(),
         root_uri: none,
@@ -358,7 +358,7 @@ get_completions = (server: &LSPServer, uri: string, pos: Position) result.Result
 }
 
 // Add keyword completions
-add_keyword_completions = (items: &mut vec.Vec<CompletionItem>) {
+add_keyword_completions: (items: &mut vec.Vec<CompletionItem>)   = {
     let keywords = [
         "return", "break", "continue", "loop",
         "struct", "enum", "type", "comptime", "pub", "mut",
@@ -378,7 +378,7 @@ add_keyword_completions = (items: &mut vec.Vec<CompletionItem>) {
 }
 
 // Add type completions
-add_type_completions = (items: &mut vec.Vec<CompletionItem>) {
+add_type_completions: (items: &mut vec.Vec<CompletionItem>)   = {
     let types = [
         "i8", "i16", "i32", "i64", "i128",
         "u8", "u16", "u32", "u64", "u128",
@@ -399,12 +399,12 @@ add_type_completions = (items: &mut vec.Vec<CompletionItem>) {
 }
 
 // Add stdlib completions
-add_stdlib_completions = (items: &mut vec.Vec<CompletionItem>) {
+add_stdlib_completions: (items: &mut vec.Vec<CompletionItem>)   = {
     let modules = [
         "@std.io", "@std.fs", "@std.net", "@std.math",
         "@std.string", "@std.vec", "@std.map", "@std.set",
         "@std.json", "@std.xml", "@std.csv", "@std.yaml",
-        "@std.http", "@std.async", "@std.thread", "@std.sync",
+        "@std.http", "@std.concurrency", "@std.thread", "@std.sync",
         "@std.regex", "@std.test", "@std.bench", "@std.build",
     ]
     
@@ -421,7 +421,7 @@ add_stdlib_completions = (items: &mut vec.Vec<CompletionItem>) {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Zen Language Server starting...\n")
     
     let server = new_server()

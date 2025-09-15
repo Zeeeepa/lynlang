@@ -8,8 +8,7 @@ core := @std.core
 lexer := @std.compiler.lexer_enhanced
 
 // AST Node Types
-AstNodeType = 
-    | FunctionDecl,
+AstNodeType: FunctionDecl,
     | VariableDecl,
     | StructDecl,
     | EnumDecl,
@@ -45,7 +44,7 @@ AstNodeType =
     | GenericType,
 
 // AST Node
-AstNode = {
+AstNode: {
     type: AstNodeType,
     data: AstData,
     line: u32,
@@ -53,8 +52,7 @@ AstNode = {
 }
 
 // AST Data variants
-AstData = 
-    | FunctionDecl -> {
+AstData: FunctionDecl -> {
         name: string,
         params: vec.Vec<Parameter>,
         return_type: *Type,
@@ -116,8 +114,7 @@ AstData =
     },
 
 // Type representation
-Type = 
-|   | Named -> name: string,
+Type: | Named -> name: string,
     | Pointer -> inner: *Type,
     | Array -> element: *Type,
     | FixedArray -> { element: *Type, size: u32 },
@@ -126,8 +123,7 @@ Type =
     | Primitive -> kind: PrimitiveKind,
 
 // Primitive types
-PrimitiveKind = 
-    | I8, | I16, | I32, | I64,
+PrimitiveKind: I8, | I16, | I32, | I64,
     | I8, | I16, | I32, | I64,
     | U8, | U16, | U32, | U64,
     | F32, | F64,
@@ -135,52 +131,49 @@ PrimitiveKind =
     | Void, |
 
 // Binary operators
-BinaryOp = 
-    | Add, | Sub, | Mul, | Div, | Mod,
+BinaryOp: Add, | Sub, | Mul, | Div, | Mod,
     | Equal, | NotEqual, | Less, | Greater, | LessEqual, | GreaterEqual,
     | And, | Or,
     | Assign,
 
 // Unary operators
-UnaryOp = 
-    | Not, | Negate, | Deref, | AddressOf,
+UnaryOp: Not, | Negate, | Deref, | AddressOf,
 
 // Literal values
-LiteralValue = 
-    | Number -> value: string,
+LiteralValue: Number -> value: string,
     | String -> value: string,
     | Char -> value: char,
     | Bool -> value: bool,
     | Null,
 
 // Function parameter
-Parameter = {
+Parameter: {
     name: string,
     type: *Type,
     is_mutable: bool,
 }
 
 // Struct field
-Field = {
+Field: {
     name: string,
     type: *Type,
 }
 
 // Enum variant
-EnumVariant = {
+EnumVariant: {
     name: string,
     data: Option<vec.Vec<Field>>,
 }
 
 // Match arm
-MatchArm = {
+MatchArm: {
     pattern: *Pattern,
     guard: Option<*AstNode>,
     body: *AstNode,
 }
 
 // Pattern for match expressions
-Pattern = |
+Pattern: 
     Wildcard,
     Identifier -> name: string,
     Literal -> value: LiteralValue,
@@ -188,20 +181,20 @@ Pattern = |
     Enum -> { name: string, variant: string, fields: Option<vec.Vec<*Pattern>> },
 
 // Field pattern for struct destructuring
-FieldPattern = {
+FieldPattern: {
     name: string,
     pattern: *Pattern,
 }
 
 // Parser state
-Parser = {
+Parser: {
     tokens: vec.Vec<lexer.Token>,
     current: u32,
     errors: vec.Vec<string>,
 }
 
 // Create a new parser
-parser_new = (tokens: vec.Vec<lexer.Token>) Parser {
+parser_new: (tokens: vec.Vec<lexer.Token>) Parser  = {
     return Parser{
         tokens: tokens,
         current: 0,
@@ -228,7 +221,7 @@ parse = (p: *Parser) Result<vec.Vec<*AstNode>, vec.Vec<string>> {
 }
 
 // Parse a declaration
-parse_declaration = (p: *Parser) Result<*AstNode, string> {
+parse_declaration: (p: *Parser) Result<*AstNode, string> = {
     current := peek(p)
     
     current.type ? 
@@ -248,7 +241,7 @@ parse_declaration = (p: *Parser) Result<*AstNode, string> {
 }
 
 // Parse function declaration
-parse_function = (p: *Parser) Result<*AstNode, string> {
+parse_function: (p: *Parser) Result<*AstNode, string> = {
     start_token := advance(p) // consume identifier
     
     // Parse function name
@@ -283,7 +276,7 @@ parse_function = (p: *Parser) Result<*AstNode, string> {
 }
 
 // Parse struct declaration
-parse_struct = (p: *Parser) Result<*AstNode, string> {
+parse_struct: (p: *Parser) Result<*AstNode, string> = {
     start_token := advance(p) // consume 'struct' or identifier
     
     name := start_token.type == lexer.TokenType.Struct ?
@@ -331,7 +324,7 @@ parse_struct = (p: *Parser) Result<*AstNode, string> {
 
 // Helper functions
 
-is_at_end = (p: *Parser) bool {
+is_at_end: (p: *Parser) bool  = {
     return peek(p).type == lexer.TokenType.Eof
 }
 
@@ -351,17 +344,17 @@ advance = (p: *Parser) lexer.Token {
     return p.tokens[p.current - 1]
 }
 
-check = (p: *Parser, type: lexer.TokenType) bool {
+check: (p: *Parser, type: lexer.TokenType) bool  = {
     is_at_end(p) ? { return false } : { return peek(p).type == type }
 }
 
-consume = (p: *Parser, type: lexer.TokenType, message: string) Result<lexer.Token, string> {
+consume: (p: *Parser, type: lexer.TokenType, message: string) Result<lexer.Token, string> = {
     check(p, type) ? 
         { return Result.Ok(advance(p)) } : 
         { return Result.Err(message + " at line " + string.from_u32(peek(p).line)) }
 }
 
-synchronize = (p: *Parser) void {
+synchronize: (p: *Parser) void  = {
     advance(p)
     
     loop !is_at_end(p) {

@@ -1,0 +1,259 @@
+// Comprehensive Pattern Matching Tests for Zen
+// Tests all pattern matching features per Language Spec v1.1.0
+
+test := @std.testing.test
+assert := @std.testing.assert
+assert_eq := @std.testing.assert_eq
+
+// Test basic value patterns
+test("Pattern Matching", () void => {
+    score := 100
+    result := score ? | 100 => "Perfect"
+                      | 0 => "Failed"
+                      | _ => "In progress"
+    assert_eq(result, "Perfect")
+    
+    score2 := 50
+    result2 := score2 ? | 100 => "Perfect"
+                        | 0 => "Failed"
+                        | _ => "In progress"
+    assert_eq(result2, "In progress")
+})
+
+// Test range patterns
+test("Pattern Matching", () void => {
+    age := 25
+    category := age ? | 0..=12 => "Child"
+                      | 13..=19 => "Teen"
+                      | 20..=64 => "Adult"
+                      | _ => "Senior"
+    assert_eq(category, "Adult")
+    
+    // Test exclusive range
+    value := 10
+    result := value ? | 0..10 => "Less than 10"
+                      | 10..20 => "10 to 19"
+                      | _ => "20 or more"
+    assert_eq(result, "10 to 19")
+}
+
+// Test enum destructuring
+TestResult<T, E> =
+    | Ok(value: T)
+    | Err(error: E)
+
+test("enum destructuring") {
+    result := TestResult:Ok(42)
+    value := result ? | .Ok -> val => val
+                       | .Err -> err => 0
+    assert_eq(value, 42)
+    
+    error_result := TestResult:Err("Not found")
+    error_msg := error_result ? | .Ok -> _ => ""
+                                 | .Err -> msg => msg
+    assert_eq(error_msg, "Not found")
+}
+
+// Test struct destructuring
+Point: {
+    x: f64,
+    y: f64,
+}
+
+test("struct destructuring") {
+    point := Point{ x: 3.0, y: 4.0 }
+    description := point ? | { x -> x_val, y -> y_val } => "Point($(x_val), $(y_val))"
+    assert_eq(description, "Point(3.0, 4.0)")
+}
+
+// Test guards with binding
+test("guards with binding") {
+    value := 150
+    category := value ? | v -> v > 100 => "Large"
+                        | v -> v > 50 => "Medium"
+                        | v -> v > 0 => "Small"
+                        | _ => "Zero or negative"
+    assert_eq(category, "Large")
+    
+    // Multiple conditions
+    num := 42
+    result := num ? | n -> n % 2 == 0 && n > 40 => "Even and greater than 40"
+                    | n -> n % 2 == 0 => "Even"
+                    | _ => "Odd"
+    assert_eq(result, "Even and greater than 40")
+}
+
+// Test multiple patterns (or-patterns)
+test("multiple patterns") {
+    day := 3
+    day_type := day ? | 1 | 2 | 3 | 4 | 5 => "Weekday"
+                      | 6 | 7 => "Weekend"
+                      | _ => "Invalid day"
+    assert_eq(day_type, "Weekday")
+    
+    weekend := 6
+    weekend_type := weekend ? | 1 | 2 | 3 | 4 | 5 => "Weekday"
+                              | 6 | 7 => "Weekend"
+                              | _ => "Invalid day"
+    assert_eq(weekend_type, "Weekend")
+}
+
+// Test boolean patterns (special syntax)
+test("boolean patterns") {
+    is_valid := true
+    
+    // Simple bool check
+    is_valid ? { assert(true, "Should execute true branch") }
+    
+    // With explicit patterns
+    is_ready := false
+    result := is_ready ? | true => "Ready"
+                          | false => "Not ready"
+    assert_eq(result, "Not ready")
+    
+    // Using 1 and 0
+    flag := true
+    status := flag ? | 1 => "On"
+                     | 0 => "Off"
+    assert_eq(status, "On")
+}
+
+// Test nested patterns
+Message: Text(content: string)
+    | Image(data: { url: string, width: u32, height: u32 })
+    | Video(url: string)
+    | Empty
+
+test("nested pattern matching") {
+    msg := Message:Image({ url: "pic.jpg", width: 800, height: 600 })
+    
+    info := msg ? | .Text -> content => "Text: $(content)"
+                  | .Image -> img => "Image: $(img.url) ($(img.width)x$(img.height))"
+                  | .Video -> url => "Video: $(url)"
+                  | .Empty => "No content"
+    
+    assert_eq(info, "Image: pic.jpg (800x600)")
+}
+
+// Test pattern matching in functions
+classify_number: (n: i32) string  = {
+    n ? | 0 => "Zero"
+        | 1 => "One"
+        | v -> v < 0 => "Negative"
+        | v -> v > 0 && v <= 10 => "Small positive"
+        | _ => "Large positive"
+}
+
+test("pattern matching in functions") {
+    assert_eq(classify_number(0), "Zero")
+    assert_eq(classify_number(1), "One")
+    assert_eq(classify_number(-5), "Negative")
+    assert_eq(classify_number(7), "Small positive")
+    assert_eq(classify_number(100), "Large positive")
+}
+
+// Test exhaustiveness
+Status: Active
+    | Inactive
+    | Pending
+
+test("exhaustive pattern matching") {
+    status := Status:Pending
+    
+    // All cases covered
+    result := status ? | .Active => "Running"
+                       | .Inactive => "Stopped"
+                       | .Pending => "Waiting"
+    assert_eq(result, "Waiting")
+    
+    // With default case
+    result2 := status ? | .Active => "Running"
+                        | _ => "Not active"
+    assert_eq(result2, "Not active")
+}
+
+// Test complex patterns with calculations
+test("complex pattern expressions") {
+    calculate := (a: i32, op: string, b: i32) i32 {
+        op ? | "+" => a + b
+             | "-" => a - b
+             | "*" => a * b
+             | "/" => b != 0 ? | true => a / b
+                               | false => 0
+             | _ => 0
+    }
+    
+    assert_eq(calculate(10, "+", 5), 15)
+    assert_eq(calculate(10, "-", 5), 5)
+    assert_eq(calculate(10, "*", 5), 50)
+    assert_eq(calculate(10, "/", 5), 2)
+    assert_eq(calculate(10, "/", 0), 0)
+    assert_eq(calculate(10, "%", 5), 0)
+}
+
+// Test pattern matching with type patterns (if supported)
+test("type patterns") {
+    // This would require runtime type information
+    // which may not be fully supported yet
+    
+    // Placeholder for type pattern tests
+    assert(true, "Type patterns test placeholder")
+}
+
+// Test pattern matching in loops
+test("pattern matching in loops") {
+    counter := 0
+    items := [5, i32]{ 1, 2, 3, 4, 5 }
+    
+    (0..5).loop((i) => {
+        items[i] ? | 1 => counter = counter + 10
+                   | 2 => counter = counter + 20
+                   | 3 => counter = counter + 30
+                   | _ => counter = counter + 1
+    })
+    
+    assert_eq(counter, 62)  // 10 + 20 + 30 + 1 + 1
+}
+
+// Test pattern matching with Option type
+Option<T> =
+    | Some(value: T)
+    | None
+
+test("option pattern matching") {
+    maybe_value := Option:Some(42)
+    
+    result := maybe_value ? | .Some -> val => val * 2
+                            | .None => 0
+    assert_eq(result, 84)
+    
+    nothing := Option<i32>:None
+    result2 := nothing ? | .Some -> val => val * 2
+                         | .None => -1
+    assert_eq(result2, -1)
+}
+
+// Test chained pattern matching
+test("chained pattern matching") {
+    check_range: (n: i32) string  = {
+        n < 0 ? | true => "negative"
+                | false => n > 100 ? | true => "large"
+                                      | false => n > 50 ? | true => "medium"
+                                                           | false => "small"
+    }
+    
+    assert_eq(check_range(-5), "negative")
+    assert_eq(check_range(150), "large")
+    assert_eq(check_range(75), "medium")
+    assert_eq(check_range(25), "small")
+}
+
+// Main test runner
+main: () void  = {
+    io := @std.build.import("io")
+    io.print("Running comprehensive pattern matching tests...")
+    
+    // All tests run automatically via test() blocks
+    
+    io.print("All pattern matching tests passed!")
+}

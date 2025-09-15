@@ -7,14 +7,13 @@ fs := build.import("fs")
 string := build.import("string")
 
 // Diagnostic types
-DiagnosticSeverity = 
-    | Error
+DiagnosticSeverity: Error
     | Warning
     | Info
     | Hint
 
 // Diagnostic message
-Diagnostic = {
+Diagnostic: {
     line: i32,
     column: i32,
     severity: i32,  // Using i32 instead of enum
@@ -28,7 +27,7 @@ SEVERITY_INFO := 2
 SEVERITY_HINT := 3
 
 // Check for comptime import anti-pattern
-check_comptime_imports = (content: string) i32 {
+check_comptime_imports: (content: string) i32  = {
     // Simple check - look for "comptime" followed by "@std"
     // In a real implementation, we'd parse properly
     diagnostics := 0;
@@ -52,7 +51,7 @@ check_comptime_imports = (content: string) i32 {
 }
 
 // Check for correct import syntax
-check_import_syntax = (content: string) i32 {
+check_import_syntax: (content: string) i32  = {
     diagnostics := 0;
     
     // Check for @std imports at module level
@@ -62,7 +61,7 @@ check_import_syntax = (content: string) i32 {
 }
 
 // Analyze a Zen file
-analyze_file = (filename: string) bool {
+analyze_file: (filename: string) bool  = {
     io.print("Analyzing: ");
     io.print(filename);
     io.print("\n");
@@ -93,7 +92,7 @@ analyze_file = (filename: string) bool {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("🔍 Zen Check - Diagnostic Tool\n");
     io.print("==============================\n\n");
     

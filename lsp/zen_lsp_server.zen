@@ -23,7 +23,7 @@ MessageType := |
     Notification
 
 // LSP request methods
-RequestMethod : |
+RequestMethod: 
     | Initialize,
     | Initialized,
     | Shutdown,
@@ -44,32 +44,32 @@ RequestMethod : |
     | WorkspaceExecuteCommand
 
 // Position in a text document
-Position := {
+Position : {
     line: u32,
     character: u32
 }
 
 // Range in a text document
-Range := {
+Range : {
     start: Position,
     end: Position
 }
 
 // Location in a text document
-Location := {
+Location : {
     uri: string,
     range: Range
 }
 
 // Diagnostic severity
-DiagnosticSeverity := |
-    Error = 1,
-    Warning = 2,
-    Information = 3,
-    Hint = 4
+DiagnosticSeverity: 
+    | Error = 1,
+    | Warning = 2,
+    | Information = 3,
+    | Hint = 4
 
 // Diagnostic information
-Diagnostic := {
+Diagnostic : {
     range: Range,
     severity: DiagnosticSeverity,
     code: ?string,
@@ -79,13 +79,13 @@ Diagnostic := {
 }
 
 // Related diagnostic information
-DiagnosticRelatedInformation := {
+DiagnosticRelatedInformation : {
     location: Location,
     message: string
 }
 
 // Text document item
-TextDocumentItem := {
+TextDocumentItem : {
     uri: string,
     language_id: string,
     version: i32,
@@ -93,52 +93,52 @@ TextDocumentItem := {
 }
 
 // Text document identifier
-TextDocumentIdentifier := {
+TextDocumentIdentifier : {
     uri: string
 }
 
 // Versioned text document identifier
-VersionedTextDocumentIdentifier := {
+VersionedTextDocumentIdentifier : {
     uri: string,
     version: i32
 }
 
 // Text document position params
-TextDocumentPositionParams := {
+TextDocumentPositionParams : {
     text_document: TextDocumentIdentifier,
     position: Position
 }
 
 // Completion item kind
-CompletionItemKind := |
-    Text = 1,
-    Method = 2,
-    Function = 3,
-    Constructor = 4,
-    Field = 5,
-    Variable = 6,
-    Class = 7,
-    Interface = 8,
-    Module = 9,
-    Property = 10,
-    Unit = 11,
-    Value = 12,
-    Enum = 13,
-    Keyword = 14,
-    Snippet = 15,
-    Color = 16,
-    File = 17,
-    Reference = 18,
-    Folder = 19,
-    EnumMember = 20,
-    Constant = 21,
-    Struct = 22,
-    Event = 23,
-    Operator = 24,
-    TypeParameter = 25
+CompletionItemKind : 
+    | Text = 1,
+    | Method = 2,
+    | Function = 3,
+    | Constructor = 4,
+    | Field = 5,
+    | Variable = 6,
+    | Class = 7,
+    | Interface = 8,
+    | Module = 9,
+    | Property = 10,
+    | Unit = 11,
+    | Value = 12,
+    | Enum = 13,
+    | Keyword = 14,
+    | Snippet = 15,
+    | Color = 16,
+    | File = 17,
+    | Reference = 18,
+    | Folder = 19,
+    | EnumMember = 20,
+    | Constant = 21,
+    | Struct = 22,
+    | Event = 23,
+    | Operator = 24,
+    | TypeParameter = 25
 
-// Completion item
-CompletionItem := {
+// Completion item  
+CompletionItem : {
     label: string,
     kind: CompletionItemKind,
     detail: ?string,
@@ -150,33 +150,33 @@ CompletionItem := {
 }
 
 // Symbol kind
-SymbolKind := |
-    File = 1,
-    Module = 2,
-    Namespace = 3,
-    Package = 4,
-    Class = 5,
-    Method = 6,
-    Property = 7,
-    Field = 8,
-    Constructor = 9,
-    Enum = 10,
-    Interface = 11,
-    Function = 12,
-    Variable = 13,
-    Constant = 14,
-    String = 15,
-    Number = 16,
-    Boolean = 17,
-    Array = 18,
-    Object = 19,
-    Key = 20,
-    Null = 21,
-    EnumMember = 22,
-    Struct = 23,
-    Event = 24,
-    Operator = 25,
-    TypeParameter = 26
+SymbolKind: 
+    | File = 1,
+    | Module = 2,
+    | Namespace = 3,
+    | Package = 4,
+    | Class = 5,
+    | Method = 6,
+    | Property = 7,
+    | Field = 8,
+    | Constructor = 9,
+    | Enum = 10,
+    | Interface = 11,
+    | Function = 12,
+    | Variable = 13,
+    | Constant = 14,
+    | String = 15,
+    | Number = 16,
+    | Boolean = 17,
+    | Array = 18,
+    | Object = 19,
+    | Key = 20,
+    | Null = 21,
+    | EnumMember = 22,
+    | Struct = 23,
+    | Event = 24,
+    | Operator = 25,
+    | TypeParameter = 26
 
 // Document symbol
 DocumentSymbol := {
@@ -190,13 +190,13 @@ DocumentSymbol := {
 }
 
 // Hover information
-Hover := {
+Hover : {
     contents: string,
     range: ?Range
 }
 
 // Server capabilities
-ServerCapabilities := {
+ServerCapabilities : {
     text_document_sync: i32,
     hover_provider: bool,
     completion_provider: bool,
@@ -211,12 +211,12 @@ ServerCapabilities := {
 }
 
 // Execute command options
-ExecuteCommandOptions := {
+ExecuteCommandOptions : {
     commands: vec.Vec<string>
 }
 
 // Language server state
-LanguageServer := {
+LanguageServer : {
     initialized: bool,
     root_uri: ?string,
     documents: hashmap.HashMap<string, TextDocumentItem>,
@@ -226,7 +226,7 @@ LanguageServer := {
 }
 
 // Create a new language server
-new_server = () *LanguageServer {
+new_server: () RawPtr<LanguageServer>  = {
     server := LanguageServer{
         initialized: false,
         root_uri: null,
@@ -289,7 +289,7 @@ handle_initialize = (server: *LanguageServer, params: json.Value) json.Value {
 }
 
 // Handle text document did open
-handle_did_open = (server: *LanguageServer, params: json.Value) void {
+handle_did_open: (server: *LanguageServer, params: json.Value) void  = {
     doc := extract_text_document(params)
     server.documents.insert(doc.uri, doc)
     
@@ -298,7 +298,7 @@ handle_did_open = (server: *LanguageServer, params: json.Value) void {
 }
 
 // Handle text document did change
-handle_did_change = (server: *LanguageServer, params: json.Value) void {
+handle_did_change: (server: *LanguageServer, params: json.Value) void  = {
     uri := params.get("textDocument").get("uri").as_string()
     version := params.get("textDocument").get("version").as_i32()
     
@@ -321,7 +321,7 @@ handle_did_change = (server: *LanguageServer, params: json.Value) void {
 }
 
 // Analyze a document and generate diagnostics
-analyze_document = (server: *LanguageServer, uri: string) void {
+analyze_document: (server: *LanguageServer, uri: string) void  = {
     if (!server.documents.contains(uri)) {
         return
     }
@@ -402,7 +402,7 @@ analyze_document = (server: *LanguageServer, uri: string) void {
 }
 
 // Check style issues
-check_style = (text: string, diagnostics: *vec.Vec<Diagnostic>) void {
+check_style: (text: string, diagnostics: *vec.Vec<Diagnostic>) void  = {
     lines := string.split(text, "\n")
     
     for (line_num, line in lines) {
@@ -611,21 +611,32 @@ handle_hover = (server: *LanguageServer, params: json.Value) json.Value {
     
     // Look up symbol information
     hover_text := ""
+    type_info := ""
     
     // Check if it's a keyword
     if (is_keyword(word)) {
         hover_text = "**Keyword**: `" + word + "`"
+        hover_text += "\n\n" + get_keyword_documentation(word)
     }
     // Check if it's a type
     else if (is_builtin_type(word)) {
         hover_text = "**Built-in type**: `" + word + "`"
+        hover_text += "\n\n" + get_type_documentation(word)
     }
     // Check if it's a symbol in the document
     else if (server.symbols.contains(uri)) {
         symbols := server.symbols.get(uri)
         for (symbol in symbols) {
             if (symbol.name == word) {
+                // Get type information if available
+                type_info = infer_symbol_type(server, doc, symbol)
+                
                 hover_text = "**" + symbol_kind_to_string(symbol.kind) + "**: `" + symbol.name + "`"
+                
+                if (type_info != "") {
+                    hover_text += "\n\n**Type**: `" + type_info + "`"
+                }
+                
                 if (symbol.detail != null) {
                     hover_text += "\n\n" + symbol.detail
                 }
@@ -634,17 +645,71 @@ handle_hover = (server: *LanguageServer, params: json.Value) json.Value {
         }
     }
     
+    // If not found locally, check imports
+    if (hover_text == "") {
+        import_info := find_symbol_in_imports(server, doc, word)
+        if (import_info != null) {
+            hover_text = import_info
+        }
+    }
+    
     if (hover_text == "") {
         return json.null()
     }
     
     return json.object([
-        ("contents", json.string(hover_text))
+        ("contents", json.object([
+            ("kind", json.string("markdown")),
+            ("value", json.string(hover_text))
+        ]))
     ])
 }
 
+// Handle go-to-definition request
+handle_definition: (server: *LanguageServer, params: json.Value) json.Value = {
+    uri := params.get("textDocument").get("uri").as_string()
+    position := extract_position(params.get("position"))
+    
+    if (!server.documents.contains(uri)) {
+        return json.null()
+    }
+    
+    doc := server.documents.get(uri)
+    
+    // Get word at position
+    word := get_word_at_position(doc.text, position)
+    
+    // Search for definition in current document
+    if (server.symbols.contains(uri)) {
+        symbols := server.symbols.get(uri)
+        for (symbol in symbols) {
+            if (symbol.name == word) {
+                // Found definition in current file
+                return json.object([
+                    ("uri", json.string(uri)),
+                    ("range", range_to_json(symbol.range))
+                ])
+            }
+        }
+    }
+    
+    // Search in imported modules
+    definition := find_definition_in_imports(server, doc, word)
+    if (definition != null) {
+        return definition
+    }
+    
+    // Search in standard library
+    std_definition := find_definition_in_stdlib(word)
+    if (std_definition != null) {
+        return std_definition
+    }
+    
+    return json.null()
+}
+
 // Publish diagnostics notification
-publish_diagnostics = (uri: string, diagnostics: vec.Vec<Diagnostic>) void {
+publish_diagnostics: (uri: string, diagnostics: vec.Vec<Diagnostic>) void  = {
     diag_array := vec.Vec.new<json.Value>()
     
     for (diagnostic in diagnostics) {
@@ -675,7 +740,7 @@ publish_diagnostics = (uri: string, diagnostics: vec.Vec<Diagnostic>) void {
 }
 
 // Helper functions
-extract_text_document = (params: json.Value) TextDocumentItem {
+extract_text_document: (params: json.Value) TextDocumentItem  = {
     doc_json := params.get("textDocument")
     return TextDocumentItem{
         uri: doc_json.get("uri").as_string(),
@@ -685,7 +750,7 @@ extract_text_document = (params: json.Value) TextDocumentItem {
     }
 }
 
-extract_position = (pos_json: json.Value) Position {
+extract_position: (pos_json: json.Value) Position  = {
     return Position{
         line: pos_json.get("line").as_u32(),
         character: pos_json.get("character").as_u32()
@@ -705,7 +770,7 @@ range_to_json = (range: Range) json.Value {
     ])
 }
 
-node_to_range = (node: ASTNode) Range {
+node_to_range: (node: ASTNode) Range  = {
     return Range{
         start: Position{
             line: node.start_line,
@@ -718,7 +783,7 @@ node_to_range = (node: ASTNode) Range {
     }
 }
 
-symbol_kind_to_completion_kind = (kind: SymbolKind) CompletionItemKind {
+symbol_kind_to_completion_kind: (kind: SymbolKind) CompletionItemKind  = {
     match (kind) {
         SymbolKind.Function => CompletionItemKind.Function,
         SymbolKind.Struct => CompletionItemKind.Struct,
@@ -729,7 +794,7 @@ symbol_kind_to_completion_kind = (kind: SymbolKind) CompletionItemKind {
     }
 }
 
-symbol_kind_to_string = (kind: SymbolKind) string {
+symbol_kind_to_string: (kind: SymbolKind) string  = {
     match (kind) {
         SymbolKind.Function => "Function",
         SymbolKind.Struct => "Struct",
@@ -740,7 +805,7 @@ symbol_kind_to_string = (kind: SymbolKind) string {
     }
 }
 
-is_keyword = (word: string) bool {
+is_keyword: (word: string) bool  = {
     keywords := ["if", "else", "while", "for", "return", "struct", "enum", "fn", "const", "let", "match", "comptime"]
     for (kw in keywords) {
         if (word == kw) return true
@@ -748,7 +813,7 @@ is_keyword = (word: string) bool {
     return false
 }
 
-is_builtin_type = (word: string) bool {
+is_builtin_type: (word: string) bool  = {
     types := ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string", "void"]
     for (t in types) {
         if (word == t) return true
@@ -756,7 +821,7 @@ is_builtin_type = (word: string) bool {
     return false
 }
 
-get_word_at_position = (text: string, pos: Position) string {
+get_word_at_position: (text: string, pos: Position) string  = {
     lines := string.split(text, "\n")
     if (pos.line >= lines.len()) {
         return ""
@@ -781,7 +846,7 @@ get_word_at_position = (text: string, pos: Position) string {
     return string.slice(line, start, end)
 }
 
-get_context_at_position = (text: string, pos: Position) string {
+get_context_at_position: (text: string, pos: Position) string  = {
     lines := string.split(text, "\n")
     if (pos.line >= lines.len()) {
         return ""
@@ -795,7 +860,7 @@ get_context_at_position = (text: string, pos: Position) string {
     return string.slice(line, 0, pos.character)
 }
 
-is_word_char = (c: u8) bool {
+is_word_char: (c: u8) bool  = {
     return (c >= 'a' && c <= 'z') ||
            (c >= 'A' && c <= 'Z') ||
            (c >= '0' && c <= '9') ||
@@ -814,8 +879,271 @@ extract_enum_members = (node: ASTNode) vec.Vec<DocumentSymbol> {
     return members
 }
 
+// Find definition in imported modules
+find_definition_in_imports = (server: *LanguageServer, doc: Document, word: string) json.Value? {
+    // Parse imports from document
+    imports := extract_imports(doc.text)
+    
+    for (import_path in imports) {
+        // Load imported file if not already loaded
+        import_uri := resolve_import_uri(import_path)
+        if (server.documents.contains(import_uri)) {
+            import_doc := server.documents.get(import_uri)
+            if (server.symbols.contains(import_uri)) {
+                symbols := server.symbols.get(import_uri)
+                for (symbol in symbols) {
+                    if (symbol.name == word) {
+                        return json.object([
+                            ("uri", json.string(import_uri)),
+                            ("range", range_to_json(symbol.range))
+                        ])
+                    }
+                }
+            }
+        }
+    }
+    
+    return null
+}
+
+// Find definition in standard library
+find_definition_in_stdlib = (word: string) json.Value? {
+    // Map of standard library symbols to their locations
+    stdlib_symbols := hashmap.new<string, (string, u32, u32)>()
+    stdlib_symbols.insert("Vec", ("stdlib/vec.zen", 10, 0))
+    stdlib_symbols.insert("Option", ("stdlib/option.zen", 5, 0))
+    stdlib_symbols.insert("Result", ("stdlib/result.zen", 5, 0))
+    stdlib_symbols.insert("io", ("stdlib/io.zen", 1, 0))
+    stdlib_symbols.insert("string", ("stdlib/string.zen", 1, 0))
+    stdlib_symbols.insert("math", ("stdlib/math.zen", 1, 0))
+    
+    if (stdlib_symbols.contains(word)) {
+        location := stdlib_symbols.get(word)
+        return json.object([
+            ("uri", json.string("file://" + location.0)),
+            ("range", json.object([
+                ("start", json.object([
+                    ("line", json.number(location.1)),
+                    ("character", json.number(location.2))
+                ])),
+                ("end", json.object([
+                    ("line", json.number(location.1)),
+                    ("character", json.number(location.2 + word.len()))
+                ]))
+            ]))
+        ])
+    }
+    
+    return null
+}
+
+// Extract import statements from document
+extract_imports = (text: string) vec.Vec<string> {
+    imports := vec.Vec.new<string>()
+    lines := string.split(text, "\n")
+    
+    for (line in lines) {
+        trimmed := string.trim(line)
+        // Check for import pattern: name := @path
+        if (string.contains(trimmed, ":=") && string.contains(trimmed, "@")) {
+            parts := string.split(trimmed, ":=")
+            if (parts.len() == 2) {
+                import_part := string.trim(parts[1])
+                if (string.starts_with(import_part, "@")) {
+                    import_path := string.slice(import_part, 1, import_part.len())
+                    imports.push(import_path)
+                }
+            }
+        }
+    }
+    
+    return imports
+}
+
+// Resolve import path to file URI
+resolve_import_uri = (import_path: string) string {
+    // Convert import path to file path
+    file_path := string.replace(import_path, ".", "/") + ".zen"
+    
+    // Check if it's a standard library import
+    if (string.starts_with(import_path, "std.")) {
+        return "file://stdlib/" + string.slice(file_path, 4, file_path.len())
+    }
+    
+    // Otherwise assume it's a relative import
+    return "file://" + file_path
+}
+
+// Infer type of a symbol
+infer_symbol_type = (server: *LanguageServer, doc: Document, symbol: DocumentSymbol) string {
+    // Basic type inference based on symbol kind and context
+    match (symbol.kind) {
+        SymbolKind.Function => {
+            // Try to extract function signature
+            return extract_function_signature(doc.text, symbol.range)
+        },
+        SymbolKind.Variable | SymbolKind.Constant => {
+            // Try to infer type from initialization
+            return infer_variable_type(doc.text, symbol.range)
+        },
+        SymbolKind.Struct => {
+            return "struct " + symbol.name
+        },
+        SymbolKind.Enum => {
+            return "enum " + symbol.name
+        },
+        _ => {
+            return ""
+        }
+    }
+}
+
+// Extract function signature
+extract_function_signature = (text: string, range: Range) string {
+    lines := string.split(text, "\n")
+    if (range.start.line < lines.len()) {
+        line := lines[range.start.line]
+        // Simple pattern matching for function signature
+        if (string.contains(line, "(") && string.contains(line, ")")) {
+            start := string.index_of(line, "(")
+            end := string.index_of(line, ")")
+            if (start >= 0 && end > start) {
+                return string.slice(line, start, end + 1)
+            }
+        }
+    }
+    return ""
+}
+
+// Infer variable type from initialization
+infer_variable_type = (text: string, range: Range) string {
+    lines := string.split(text, "\n")
+    if (range.start.line < lines.len()) {
+        line := lines[range.start.line]
+        
+        // Check for explicit type annotation
+        if (string.contains(line, ":")) {
+            parts := string.split(line, ":")
+            if (parts.len() >= 2) {
+                type_part := string.trim(parts[1])
+                // Extract type before assignment operator
+                if (string.contains(type_part, "=")) {
+                    type_parts := string.split(type_part, "=")
+                    return string.trim(type_parts[0])
+                }
+                return type_part
+            }
+        }
+        
+        // Try to infer from literal
+        if (string.contains(line, "=")) {
+            parts := string.split(line, "=")
+            if (parts.len() >= 2) {
+                value := string.trim(parts[1])
+                
+                // Check for common literals
+                if (string.starts_with(value, "\"") || string.starts_with(value, "'")) {
+                    return "string"
+                }
+                if (string.contains(value, ".") && is_numeric(value)) {
+                    return "f64"
+                }
+                if (is_numeric(value)) {
+                    return "i32"
+                }
+                if (value == "true" || value == "false") {
+                    return "bool"
+                }
+            }
+        }
+    }
+    return ""
+}
+
+// Check if string is numeric
+is_numeric = (s: string) bool {
+    if (s.len() == 0) {
+        return false
+    }
+    
+    for (i := 0; i < s.len(); i++) {
+        c := string.char_at(s, i)
+        if (!((c >= '0' && c <= '9') || c == '.' || c == '-')) {
+            return false
+        }
+    }
+    
+    return true
+}
+
+// Find symbol in imports
+find_symbol_in_imports = (server: *LanguageServer, doc: Document, word: string) string? {
+    imports := extract_imports(doc.text)
+    
+    for (import_path in imports) {
+        import_uri := resolve_import_uri(import_path)
+        if (server.documents.contains(import_uri)) {
+            if (server.symbols.contains(import_uri)) {
+                symbols := server.symbols.get(import_uri)
+                for (symbol in symbols) {
+                    if (symbol.name == word) {
+                        hover_text := "**Imported " + symbol_kind_to_string(symbol.kind) + "**: `" + symbol.name + "`"
+                        hover_text += "\n\n*From*: `" + import_path + "`"
+                        if (symbol.detail != null) {
+                            hover_text += "\n\n" + symbol.detail
+                        }
+                        return hover_text
+                    }
+                }
+            }
+        }
+    }
+    
+    return null
+}
+
+// Get keyword documentation
+get_keyword_documentation = (keyword: string) string {
+    docs := hashmap.new<string, string>()
+    docs.insert("fn", "Declares a function")
+    docs.insert("struct", "Declares a structure type (deprecated, use Name: {...} instead)")
+    docs.insert("enum", "Declares an enumeration type (deprecated, use Name: ... | ... instead)")
+    docs.insert("if", "Conditional statement (deprecated, use ? operator instead)")
+    docs.insert("else", "Alternative branch (deprecated, use ? operator instead)")
+    docs.insert("while", "While loop")
+    docs.insert("for", "For loop")
+    docs.insert("loop", "Infinite loop")
+    docs.insert("return", "Returns a value from a function")
+    docs.insert("let", "Immutable binding")
+    docs.insert("const", "Compile-time constant")
+    docs.insert("match", "Pattern matching (deprecated, use ? operator instead)")
+    docs.insert("comptime", "Compile-time execution")
+    
+    return docs.get(keyword).unwrap_or("No documentation available")
+}
+
+// Get type documentation
+get_type_documentation = (type_name: string) string {
+    docs := hashmap.new<string, string>()
+    docs.insert("i8", "8-bit signed integer (-128 to 127)")
+    docs.insert("i16", "16-bit signed integer (-32,768 to 32,767)")
+    docs.insert("i32", "32-bit signed integer (-2,147,483,648 to 2,147,483,647)")
+    docs.insert("i64", "64-bit signed integer")
+    docs.insert("u8", "8-bit unsigned integer (0 to 255)")
+    docs.insert("u16", "16-bit unsigned integer (0 to 65,535)")
+    docs.insert("u32", "32-bit unsigned integer (0 to 4,294,967,295)")
+    docs.insert("u64", "64-bit unsigned integer")
+    docs.insert("f32", "32-bit floating point")
+    docs.insert("f64", "64-bit floating point")
+    docs.insert("bool", "Boolean value (true or false)")
+    docs.insert("string", "UTF-8 encoded string")
+    docs.insert("void", "No return value")
+    
+    return docs.get(type_name).unwrap_or("Custom type")
+}
+
 // Message handling
-send_message = (msg: json.Value) void {
+send_message: (msg: json.Value) void  = {
     content := json.stringify(msg)
     header := "Content-Length: " + content.len().to_string() + "\r\n\r\n"
     io.print(header + content)
@@ -823,7 +1151,7 @@ send_message = (msg: json.Value) void {
 }
 
 // Main server loop
-main = () i32 {
+main: () i32  = {
     server := new_server()
     
     io.eprintln("Zen Language Server starting...")
@@ -876,6 +1204,7 @@ main = () i32 {
                 },
                 "textDocument/completion" => handle_completion(server, params),
                 "textDocument/hover" => handle_hover(server, params),
+                "textDocument/definition" => handle_definition(server, params),
                 "shutdown" => {
                     io.eprintln("Shutting down...")
                     break

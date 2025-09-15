@@ -5,7 +5,7 @@ io := @std.io
 string := @std.string
 
 // Test imports work correctly (no comptime needed)
-test_imports = () bool {
+test_imports: () bool  = {
     // These imports should work at module level
     math := @std.math
     vec := @std.vec
@@ -24,7 +24,7 @@ test_imports = () bool {
 }
 
 // Test time module functionality
-test_time_module = () bool {
+test_time_module: () bool  = {
     time := @std.time
     
     // Create duration
@@ -42,7 +42,7 @@ test_time_module = () bool {
 }
 
 // Test logging module
-test_log_module = () bool {
+test_log_module: () bool  = {
     log := @std.log
     
     // Set log level
@@ -64,7 +64,7 @@ test_log_module = () bool {
 }
 
 // Test args module parsing
-test_args_module = () bool {
+test_args_module: () bool  = {
     args := @std.args
     
     // Create parser
@@ -102,7 +102,7 @@ test_args_module = () bool {
 }
 
 // Test LLVM codegen module
-test_llvm_codegen = () bool {
+test_llvm_codegen: () bool  = {
     codegen_llvm := @std.compiler.codegen_llvm
     
     // Create code generator
@@ -126,7 +126,7 @@ test_llvm_codegen = () bool {
 }
 
 // Test compiler driver structure
-test_compiler_driver = () bool {
+test_compiler_driver: () bool  = {
     // Test that compiler modules can be imported
     lexer := @std.compiler.lexer
     parser := @std.compiler.parser
@@ -139,7 +139,7 @@ test_compiler_driver = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=================================\n")
     io.print("Testing Bootstrap Compiler\n")
     io.print("=================================\n\n")

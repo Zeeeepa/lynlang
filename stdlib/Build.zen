@@ -7,13 +7,13 @@ fs := build.import("fs")
 process := build.import("process")
 
 // Target platform configuration
-Target = {
+Target: {
     cpu_arch: CpuArch
     os_tag: OsTag
     abi: ?Abi
 }
 
-CpuArch = |
+CpuArch: 
     x86_64,
     x86,
     aarch64,
@@ -23,7 +23,7 @@ CpuArch = |
     riscv64,
     native
 
-OsTag = |
+OsTag: 
     linux,
     macos,
     windows,
@@ -32,7 +32,7 @@ OsTag = |
     wasm,
     native
 
-Abi = |
+Abi: 
     none,
     gnu,
     musl,
@@ -40,14 +40,14 @@ Abi = |
     wasi
 
 // Optimization modes
-OptimizeMode = |
+OptimizeMode: 
     Debug,
     ReleaseSafe,
     ReleaseFast,
     ReleaseSmall
 
 // Build step types
-StepKind = |
+StepKind: 
     Exe,
     Lib,
     Test,
@@ -57,7 +57,7 @@ StepKind = |
     Custom
 
 // Build step
-Step = {
+Step: {
     name: String
     description: String
     kind: StepKind
@@ -70,18 +70,18 @@ Step = {
     execute: () !void {
         // Execute dependencies first
         loop i := 0; i < self.dependencies.len; i += 1 {
-            try self.dependencies[i].execute()
+            self.dependencies[i].execute()?
         }
         
         // Execute this step
         self.kind ?
-            | .Exe => try self.buildExecutable()
-            | .Lib => try self.buildLibrary()
-            | .Test => try self.runTests()
-            | .Run => try self.runExecutable()
-            | .Install => try self.installArtifacts()
-            | .System => try self.runSystemCommand()
-            | .Custom => try self.runCustom()
+            | .Exe => self.buildExecutable()?
+            | .Lib => self.buildLibrary()?
+            | .Test => self.runTests()?
+            | .Run => self.runExecutable()?
+            | .Install => self.installArtifacts()?
+            | .System => self.runSystemCommand()?
+            | .Custom => self.runCustom()?
     }
     
     buildExecutable: () !void
@@ -94,7 +94,7 @@ Step = {
 }
 
 // Executable configuration
-ExecutableOptions = {
+ExecutableOptions: {
     name: String
     root_source_file: String
     target: ?Target
@@ -102,7 +102,7 @@ ExecutableOptions = {
     link_libc: bool = false
 }
 
-Executable = {
+Executable: {
     options: ExecutableOptions
     step: Step
     symbols: []Symbol
@@ -115,7 +115,7 @@ Executable = {
     enable_stack_traces: bool = true
     strip: bool = false
     
-    Symbol = {
+    Symbol: {
         name: String
         value: String
     }
@@ -166,7 +166,7 @@ Executable = {
 }
 
 // Library configuration
-LibraryOptions = {
+LibraryOptions: {
     name: String
     root_source_file: String
     target: ?Target
@@ -174,13 +174,13 @@ LibraryOptions = {
     version: ?Version
 }
 
-Version = {
+Version: {
     major: u32
     minor: u32
     patch: u32
 }
 
-Library = {
+Library: {
     options: LibraryOptions
     step: Step
     is_static: bool
@@ -192,7 +192,7 @@ Library = {
 }
 
 // Test configuration
-Test = {
+Test: {
     root_source: String
     step: Step
     target: ?Target
@@ -208,7 +208,7 @@ Test = {
 }
 
 // Run step for executing built artifacts
-RunStep = {
+RunStep: {
     executable: *Executable
     step: Step
     args: []String
@@ -219,12 +219,12 @@ RunStep = {
 }
 
 // System command execution
-SystemCommand = {
+SystemCommand: {
     argv: []String
     step: Step
     
     execute: () !void {
-        result := try process.exec(self.argv)
+        result := process.exec(self.argv)?
         result.status != 0 ? {
             return error.SystemCommandFailed
         } : {}
@@ -232,29 +232,29 @@ SystemCommand = {
 }
 
 // Package/dependency management
-Package = {
+Package: {
     name: String
     path: String
 }
 
-Module = {
+Module: {
     name: String
     source_file: String
 }
 
-DependencyOptions = {
+DependencyOptions: {
     url: String
     commit: ?String
     tag: ?String
     branch: ?String
 }
 
-ModuleOptions = {
+ModuleOptions: {
     source_file: String
 }
 
 // Main Build type
-Build = {
+Build: {
     // Metadata
     name: String
     version: String
@@ -468,10 +468,10 @@ Build = {
 }
 
 // Additional types
-TargetOptions = {}
-OptimizeOptions = {}
+TargetOptions: {}
+OptimizeOptions: {}
 
-InstallDir = |
+InstallDir: 
     bin,
     lib,
     include,

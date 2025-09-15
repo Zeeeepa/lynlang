@@ -294,7 +294,6 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     ],
                 }),
             ],
-            is_async: false,
         }),
         
         // Accept connection
@@ -318,7 +317,6 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     fields: vec![],
                 }),
             ],
-            is_async: false,
         }),
         
         // Connect to TCP server
@@ -340,7 +338,6 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     fields: vec![],
                 }),
             ],
-            is_async: false,
         }),
         
         // Send data over TCP
@@ -372,7 +369,6 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     ],
                 }),
             ],
-            is_async: false,
         }),
         
         // Receive data over TCP
@@ -404,7 +400,6 @@ fn create_tcp_functions() -> Vec<Declaration> {
                     ],
                 }),
             ],
-            is_async: false,
         }),
     ]
 }
@@ -442,7 +437,6 @@ fn create_udp_functions() -> Vec<Declaration> {
                     ],
                 }),
             ],
-            is_async: false,
         }),
         
         // Bind UDP socket
@@ -461,7 +455,6 @@ fn create_udp_functions() -> Vec<Declaration> {
                 // Implementation would create sockaddr and bind
                 Statement::Return(Expression::Integer32(0)),
             ],
-            is_async: false,
         }),
         
         // Send UDP datagram
@@ -483,7 +476,6 @@ fn create_udp_functions() -> Vec<Declaration> {
                 // Implementation would create sockaddr and call sendto
                 Statement::Return(Expression::Integer64(0)),
             ],
-            is_async: false,
         }),
         
         // Receive UDP datagram
@@ -509,7 +501,6 @@ fn create_udp_functions() -> Vec<Declaration> {
                     fields: vec![],
                 }),
             ],
-            is_async: false,
         }),
     ]
 }
@@ -530,7 +521,6 @@ fn create_helper_functions() -> Vec<Declaration> {
                     args: vec![Expression::Identifier("fd".to_string())],
                 }),
             ],
-            is_async: false,
         }),
         
         // Create socket address
@@ -561,7 +551,6 @@ fn create_helper_functions() -> Vec<Declaration> {
                     ],
                 }),
             ],
-            is_async: false,
         }),
     ]
 }

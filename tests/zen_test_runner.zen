@@ -39,7 +39,7 @@ TestSuite: {
 }
 
 // Create test suite
-create_suite = (name: string) TestSuite {
+create_suite: (name: string) TestSuite  = {
     return TestSuite {
         name: name,
         tests: vec.new<TestCase>(),
@@ -48,12 +48,12 @@ create_suite = (name: string) TestSuite {
 }
 
 // Add test to suite
-add_test = (suite: &mut TestSuite, test: TestCase) {
+add_test: (suite: &mut TestSuite, test: TestCase)   = {
     vec.push(suite.tests, test)
 }
 
 // Run single test
-run_test = (test: TestCase) TestResult {
+run_test: (test: TestCase) TestResult  = {
     io.print("  Running: " + test.name + "... ")
     
     // Read test file
@@ -185,7 +185,7 @@ run_test = (test: TestCase) TestResult {
 }
 
 // Run test suite
-run_suite = (suite: &mut TestSuite) {
+run_suite: (suite: &mut TestSuite)   = {
     io.print("\nRunning test suite: " + suite.name + "\n")
     io.print("=" * 50 + "\n")
     
@@ -224,7 +224,7 @@ run_suite = (suite: &mut TestSuite) {
 }
 
 // Create integration test suite
-create_integration_tests = () TestSuite {
+create_integration_tests: () TestSuite  = {
     let mut suite = create_suite("Integration Tests")
     
     // Hello world test
@@ -258,7 +258,7 @@ create_integration_tests = () TestSuite {
 }
 
 // Create syntax error test suite
-create_error_tests = () TestSuite {
+create_error_tests: () TestSuite  = {
     let mut suite = create_suite("Error Handling Tests")
     
     // Import in comptime block test
@@ -283,7 +283,7 @@ create_error_tests = () TestSuite {
 }
 
 // Create compiler feature test suite
-create_feature_tests = () TestSuite {
+create_feature_tests: () TestSuite  = {
     let mut suite = create_suite("Compiler Feature Tests")
     
     // Generics test
@@ -295,10 +295,10 @@ create_feature_tests = () TestSuite {
         error_pattern: none,
     })
     
-    // Async test
+    // Concurrency test
     add_test(&mut suite, TestCase {
-        name: "Async/Await",
-        file: "tests/features/async.zen",
+        name: "Concurrency (Allocator-based)",
+        file: "tests/features/concurrency.zen",
         expected_output: none,
         should_fail: false,
         error_pattern: none,
@@ -317,7 +317,7 @@ create_feature_tests = () TestSuite {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("Zen Compiler Test Runner\n")
     io.print("========================\n")
     

@@ -5,12 +5,12 @@ extern printf = (format: *i8, ...) i32
 extern puts = (str: *i8) i32
 
 // Test conditional loops
-test_loops = () i32 {
+test_loops: () i32  = {
     puts("Testing loops...")
     
     // Test 1: Simple countdown
-    count ::= 5
-    sum ::= 0
+    count := 5
+    sum := 0
     loop count > 0 {
         sum = sum + count
         count = count - 1
@@ -24,10 +24,10 @@ test_loops = () i32 {
     }
     
     // Test 2: Nested loops
-    outer ::= 0
-    result ::= 0
+    outer := 0
+    result := 0
     loop outer < 3 {
-        inner ::= 0
+        inner := 0
         loop inner < 3 {
             result = result + 1
             inner = inner + 1
@@ -43,8 +43,8 @@ test_loops = () i32 {
     }
     
     // Test 3: Loop with break
-    i ::= 0
-    loop_result ::= 0
+    i := 0
+    loop_result := 0
     loop true {
         i = i + 1
         loop_result = loop_result + i
@@ -62,7 +62,7 @@ test_loops = () i32 {
 }
 
 // Test pattern matching
-test_pattern_matching = () i32 {
+test_pattern_matching: () i32  = {
     puts("Testing pattern matching...")
     
     // Test 1: Simple pattern matching
@@ -97,15 +97,15 @@ test_pattern_matching = () i32 {
 }
 
 // Test mathematical operations
-test_math = () i32 {
+test_math: () i32  = {
     puts("Testing math operations...")
     
     // Factorial
-    factorial = (n: i64) i64 {
+    factorial: (n: i64) i64  = {
         n <= 1 ? | true => { return 1 } | false => {}
         
-        result ::= 1
-        i ::= 2
+        result := 1
+        i := 2
         loop i <= n {
             result = result * i
             i = i + 1
@@ -122,12 +122,12 @@ test_math = () i32 {
     }
     
     // Fibonacci
-    fibonacci = (n: i64) i64 {
+    fibonacci: (n: i64) i64  = {
         n <= 1 ? | true => { return n } | false => {}
         
-        prev ::= 0
-        curr ::= 1
-        i ::= 2
+        prev := 0
+        curr := 1
+        i := 2
         loop i <= n {
             next := prev + curr
             prev = curr
@@ -149,15 +149,15 @@ test_math = () i32 {
 }
 
 // Test array operations
-test_arrays = () i32 {
+test_arrays: () i32  = {
     puts("Testing arrays...")
     
     // Create and manipulate array
-    arr ::= [1, 2, 3, 4, 5]
+    arr := [1, 2, 3, 4, 5]
     
     // Sum array elements
-    sum ::= 0
-    i ::= 0
+    sum := 0
+    i := 0
     loop i < 5 {
         sum = sum + arr[i]
         i = i + 1
@@ -171,8 +171,8 @@ test_arrays = () i32 {
     }
     
     // Find maximum
-    max ::= arr[0]
-    j ::= 1
+    max := arr[0]
+    j := 1
     loop j < 5 {
         arr[j] > max ? | true => {
             max = arr[j]
@@ -191,12 +191,12 @@ test_arrays = () i32 {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     puts("===================================")
     puts("   Zen Self-Hosted Basic Tests")
     puts("===================================\n")
     
-    failures ::= 0
+    failures := 0
     
     // Run loop tests
     result := test_loops()

@@ -10,7 +10,7 @@ fn test_function_call() {
     test_context!(|test_context: &mut TestContext| {
         let program = ast::Program::from_functions(vec![
             ast::Function { type_params: vec![], 
-                is_async: false,
+                
                 name: "add".to_string(),
                 args: vec![
                     ("a".to_string(), AstType::I64),
@@ -24,7 +24,7 @@ fn test_function_call() {
                 })],
             },
             ast::Function { type_params: vec![], 
-                is_async: false,
+                
                 name: "main".to_string(),
                 args: vec![],
                 return_type: AstType::I64,
@@ -49,7 +49,7 @@ fn test_function_pointer() {
     test_context!(|test_context: &mut TestContext| {
         let program = ast::Program::from_functions(vec![
             ast::Function { type_params: vec![], 
-                is_async: false,
+                
                 name: "add".to_string(),
                 args: vec![
                     ("a".to_string(), AstType::I64),
@@ -63,7 +63,7 @@ fn test_function_pointer() {
                 })],
             },
             ast::Function { type_params: vec![], 
-                is_async: false,
+                
                 name: "main".to_string(),
                 args: vec![],
                 return_type: AstType::I64,
@@ -100,7 +100,7 @@ fn test_recursive_function() {
     test_context!(|test_context: &mut TestContext| {
         let program = ast::Program::from_functions(vec![
             ast::Function { type_params: vec![], 
-                is_async: false,
+                
                 name: "factorial".to_string(),
                 args: vec![
                     ("n".to_string(), AstType::I64),
@@ -138,7 +138,7 @@ fn test_recursive_function() {
                 })],
             },
             ast::Function { type_params: vec![], 
-                is_async: false,
+                
                 name: "main".to_string(),
                 args: vec![],
                 return_type: AstType::I64,

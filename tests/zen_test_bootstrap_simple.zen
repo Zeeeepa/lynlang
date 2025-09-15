@@ -7,7 +7,7 @@ math := @std.math
 string := @std.string
 
 // Test that imports work at module level (no comptime needed)
-test_module_imports = () bool {
+test_module_imports: () bool  = {
     io.print("[TEST] Module-level imports... ")
     
     // Test math module
@@ -23,7 +23,7 @@ test_module_imports = () bool {
 }
 
 // Test basic arithmetic operations
-test_arithmetic = () i32 {
+test_arithmetic: () i32  = {
     io.print("[TEST] Arithmetic operations... ")
     
     a := 10
@@ -43,7 +43,7 @@ test_arithmetic = () i32 {
 }
 
 // Test string operations
-test_strings = () bool {
+test_strings: () bool  = {
     io.print("[TEST] String operations... ")
     
     hello := "Hello"
@@ -60,7 +60,7 @@ test_strings = () bool {
 }
 
 // Test control flow
-test_control_flow = () i32 {
+test_control_flow: () i32  = {
     io.print("[TEST] Control flow... ")
     
     result := 0
@@ -89,11 +89,11 @@ test_control_flow = () i32 {
 }
 
 // Test function calls and returns
-helper_add = (a: i32, b: i32) i32 {
+helper_add: (a: i32, b: i32) i32  = {
     return a + b
 }
 
-test_functions = () bool {
+test_functions: () bool  = {
     io.print("[TEST] Function calls... ")
     
     result := helper_add(5, 10)
@@ -108,7 +108,7 @@ test_functions = () bool {
 }
 
 // Test pattern matching
-test_pattern_matching = () bool {
+test_pattern_matching: () bool  = {
     io.print("[TEST] Pattern matching... ")
     
     value := 42
@@ -129,7 +129,7 @@ test_pattern_matching = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=====================================\n")
     io.print("Zen Bootstrap Compiler Test Suite\n")
     io.print("=====================================\n\n")

@@ -5,13 +5,13 @@ mem := @std.mem
 core := @std.core
 
 // Node in the linked list
-struct ListNode<T> {
+ListNode<T>: {
     value: T
     next: Option<*ListNode<T>>
 }
 
 // Linked list structure
-struct List<T> {
+List<T>: {
     head: Option<*ListNode<T>>
     size: usize
 }

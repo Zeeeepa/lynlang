@@ -25,16 +25,14 @@ BUFFER_SIZE := 4096
 LINE_BUFFER_SIZE := 1024
 
 // File modes
-FileMode = 
-    | ReadOnly
+FileMode: ReadOnly
     | WriteOnly
     | ReadWrite
     | Append
     | CreateNew
 
 // IO Error types
-IOError = 
-    | FileNotFound
+IOError: FileNotFound
     | PermissionDenied
     | AlreadyExists
     | BrokenPipe
@@ -51,7 +49,7 @@ IOResult<T> =
     | Err(error: IOError)
 
 // File handle type
-File = {
+File: {
     handle: *i8,
     path: *i8,
     mode: FileMode,
@@ -59,34 +57,34 @@ File = {
 }
 
 // Print string to stdout
-print = (message: *i8) void {
+print: (message: *i8) void  = {
     puts(message)
 }
 
 // Print with newline
-println = (message: *i8) void {
+println: (message: *i8) void  = {
     puts(message)
 }
 
 // Print formatted integer
-print_int = (value: i32) void {
+print_int: (value: i32) void  = {
     format := "%d\n"
     printf(format, value)
 }
 
 // Print formatted float
-print_float = (value: f64) void {
+print_float: (value: f64) void  = {
     format := "%.6f\n"
     printf(format, value)
 }
 
 // Read a single character from stdin
-read_char = () i32 {
+read_char: () i32  = {
     return getchar()
 }
 
 // Open a file with specified mode
-file_open = (path: *i8, mode: FileMode) IOResult<File> {
+file_open: (path: *i8, mode: FileMode) IOResult<File>  = {
     // Convert mode to C string
     mode_str := "r"  // Default to read
     mode ?
@@ -101,7 +99,7 @@ file_open = (path: *i8, mode: FileMode) IOResult<File> {
     // Check if open succeeded
     handle == 0 ?
         | true => {
-            return IOResult::Err(IOError::FileNotFound)
+            return IOResult:Err(IOError:FileNotFound)
         }
         | false => {
             file := File {
@@ -110,33 +108,33 @@ file_open = (path: *i8, mode: FileMode) IOResult<File> {
                 mode: mode,
                 is_open: true,
             }
-            return IOResult::Ok(file)
+            return IOResult:Ok(file)
         }
 }
 
 // Close a file
-file_close = (file: File) IOResult<bool> {
+file_close: (file: File) IOResult<bool>  = {
     file.is_open ?
         | false => {
-            return IOResult::Err(IOError::Other)
+            return IOResult:Err(IOError:Other)
         }
         | true => {}
     
     result := fclose(file.handle)
     result == 0 ?
         | true => {
-            return IOResult::Ok(true)
+            return IOResult:Ok(true)
         }
         | false => {
-            return IOResult::Err(IOError::Other)
+            return IOResult:Err(IOError:Other)
         }
 }
 
 // Write bytes to a file
-file_write = (file: File, data: *i8, len: i64) IOResult<i64> {
+file_write: (file: File, data: *i8, len: i64) IOResult<i64>  = {
     file.is_open ?
         | false => {
-            return IOResult::Err(IOError::Other)
+            return IOResult:Err(IOError:Other)
         }
         | true => {}
     
@@ -144,24 +142,24 @@ file_write = (file: File, data: *i8, len: i64) IOResult<i64> {
     
     written == len ?
         | true => {
-            return IOResult::Ok(written)
+            return IOResult:Ok(written)
         }
         | false => {
             written == 0 ?
                 | true => {
-                    return IOResult::Err(IOError::WriteZero)
+                    return IOResult:Err(IOError:WriteZero)
                 }
                 | false => {
-                    return IOResult::Err(IOError::WriteError)
+                    return IOResult:Err(IOError:WriteError)
                 }
         }
 }
 
 // Read bytes from a file
-file_read = (file: File, buffer: *i8, max_len: i64) IOResult<i64> {
+file_read: (file: File, buffer: *i8, max_len: i64) IOResult<i64>  = {
     file.is_open ?
         | false => {
-            return IOResult::Err(IOError::Other)
+            return IOResult:Err(IOError:Other)
         }
         | true => {}
     
@@ -170,34 +168,34 @@ file_read = (file: File, buffer: *i8, max_len: i64) IOResult<i64> {
     has_error := ferror(file.handle)
     has_error != 0 ?
         | true => {
-            return IOResult::Err(IOError::ReadError)
+            return IOResult:Err(IOError:ReadError)
         }
         | false => {
             is_eof := feof(file.handle)
             is_eof != 0 && bytes_read == 0 ?
                 | true => {
-                    return IOResult::Err(IOError::UnexpectedEof)
+                    return IOResult:Err(IOError:UnexpectedEof)
                 }
                 | false => {
-                    return IOResult::Ok(bytes_read)
+                    return IOResult:Ok(bytes_read)
                 }
         }
 }
 
 // Flush output stream
-flush = (file: File) IOResult<bool> {
+flush: (file: File) IOResult<bool>  = {
     result := fflush(file.handle)
     result == 0 ?
         | true => {
-            return IOResult::Ok(true)
+            return IOResult:Ok(true)
         }
         | false => {
-            return IOResult::Err(IOError::Other)
+            return IOResult:Err(IOError:Other)
         }
 }
 
 // Write a string to file
-file_write_string = (file: File, str: *i8) IOResult<i64> {
+file_write_string: (file: File, str: *i8) IOResult<i64>  = {
     // Calculate string length (simplified - would need proper strlen)
     len := 0
     i := 0
@@ -207,7 +205,7 @@ file_write_string = (file: File, str: *i8) IOResult<i64> {
 }
 
 // Create a buffered reader
-BufferedReader = {
+BufferedReader: {
     file: File,
     buffer: *i8,
     buffer_size: i64,
@@ -216,7 +214,7 @@ BufferedReader = {
 }
 
 // Create new buffered reader
-buffered_reader_new = (file: File) BufferedReader {
+buffered_reader_new: (file: File) BufferedReader  = {
     buffer := malloc(BUFFER_SIZE)
     return BufferedReader {
         file: file,
@@ -228,7 +226,7 @@ buffered_reader_new = (file: File) BufferedReader {
 }
 
 // Create a buffered writer
-BufferedWriter = {
+BufferedWriter: {
     file: File,
     buffer: *i8,
     buffer_size: i64,
@@ -236,7 +234,7 @@ BufferedWriter = {
 }
 
 // Create new buffered writer
-buffered_writer_new = (file: File) BufferedWriter {
+buffered_writer_new: (file: File) BufferedWriter  = {
     buffer := malloc(BUFFER_SIZE)
     return BufferedWriter {
         file: file,
@@ -247,58 +245,58 @@ buffered_writer_new = (file: File) BufferedWriter {
 }
 
 // Flush buffered writer
-buffered_writer_flush = (writer: BufferedWriter) IOResult<bool> {
+buffered_writer_flush: (writer: BufferedWriter) IOResult<bool>  = {
     writer.buffer_pos > 0 ?
         | true => {
             result := file_write(writer.file, writer.buffer, writer.buffer_pos)
             result ?
                 | Ok(written) => {
                     writer.buffer_pos = 0
-                    return IOResult::Ok(true)
+                    return IOResult:Ok(true)
                 }
                 | Err(e) => {
-                    return IOResult::Err(e)
+                    return IOResult:Err(e)
                 }
         }
         | false => {
-            return IOResult::Ok(true)
+            return IOResult:Ok(true)
         }
 }
 
 // Free buffered reader resources
-buffered_reader_free = (reader: BufferedReader) void {
+buffered_reader_free: (reader: BufferedReader) void  = {
     free(reader.buffer)
 }
 
 // Free buffered writer resources  
-buffered_writer_free = (writer: BufferedWriter) void {
+buffered_writer_free: (writer: BufferedWriter) void  = {
     free(writer.buffer)
 }
 
 // Standard streams (simplified)
-stdout = () File {
+stdout: () File  = {
     return File {
         handle: 0,  // Would need proper stdout handle
         path: "stdout",
-        mode: FileMode::WriteOnly,
+        mode: FileMode:WriteOnly,
         is_open: true,
     }
 }
 
-stderr = () File {
+stderr: () File  = {
     return File {
         handle: 0,  // Would need proper stderr handle
         path: "stderr",
-        mode: FileMode::WriteOnly,
+        mode: FileMode:WriteOnly,
         is_open: true,
     }
 }
 
-stdin = () File {
+stdin: () File  = {
     return File {
         handle: 0,  // Would need proper stdin handle
         path: "stdin",
-        mode: FileMode::ReadOnly,
+        mode: FileMode:ReadOnly,
         is_open: true,
     }
 }

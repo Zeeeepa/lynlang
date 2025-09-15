@@ -9,31 +9,31 @@ vec := @std.vec
 test := @std.test
 
 // Test data structures
-Point = {
+Point: {
     x: f64,
     y: f64,
 }
 
-Rectangle = {
+Rectangle: {
     top_left: Point,
     bottom_right: Point,
 }
 
-Color = |
+Color: 
     Red,
     Green,
     Blue,
     RGB(r: u8, g: u8, b: u8),
 
 // Test behaviors
-Drawable = behavior {
+Drawable: behavior {
     draw: (self) void,
     get_area: (self) f64,
 }
 
 // Implement behavior for Rectangle
 impl Drawable for Rectangle {
-    draw = (self) void {
+    draw: (self) void  = {
         io.print("Drawing rectangle from (")
         io.print_float(self.top_left.x)
         io.print(", ")
@@ -45,7 +45,7 @@ impl Drawable for Rectangle {
         io.print(")\n")
     }
     
-    get_area = (self) f64 {
+    get_area: (self) f64  = {
         width := self.bottom_right.x - self.top_left.x
         height := self.bottom_right.y - self.top_left.y
         return width * height
@@ -53,11 +53,11 @@ impl Drawable for Rectangle {
 }
 
 // Test functions
-create_point = (x: f64, y: f64) Point {
+create_point: (x: f64, y: f64) Point  = {
     return Point{x: x, y: y}
 }
 
-distance = (p1: Point, p2: Point) f64 {
+distance: (p1: Point, p2: Point) f64  = {
     dx := p2.x - p1.x
     dy := p2.y - p1.y
     return math.sqrt(dx * dx + dy * dy)
@@ -70,14 +70,14 @@ Stack<T> = {
 }
 
 impl<T> Stack<T> {
-    new = (capacity: usize) Stack<T> {
+    new: (capacity: usize) Stack<T>  = {
         return Stack<T>{
             items: Vec<T>.new(),
             capacity: capacity,
         }
     }
     
-    push = (self: *Stack<T>, item: T) bool {
+    push: (self: *Stack<T>, item: T) bool  = {
         self.items.len() < self.capacity ?
             | true => {
                 self.items.push(item)
@@ -88,7 +88,7 @@ impl<T> Stack<T> {
             }
     }
     
-    pop = (self: *Stack<T>) Option<T> {
+    pop: (self: *Stack<T>) Option<T>  = {
         self.items.len() > 0 ?
             | true => {
                 return Option<T>.Some(self.items.pop())
@@ -100,7 +100,7 @@ impl<T> Stack<T> {
 }
 
 // Test pattern matching
-process_color = (c: Color) string {
+process_color: (c: Color) string  = {
     match c {
         | Red => return "Pure red"
         | Green => return "Pure green"
@@ -122,7 +122,7 @@ process_color = (c: Color) string {
 }
 
 // Test loops and iterators
-fibonacci = (n: i32) Vec<i32> {
+fibonacci: (n: i32) Vec<i32>  = {
     result := Vec<i32>.new()
     
     n <= 0 ?
@@ -148,19 +148,19 @@ fibonacci = (n: i32) Vec<i32> {
 }
 
 // Test error handling
-divide_safe = (a: f64, b: f64) Result<f64, string> {
+divide_safe: (a: f64, b: f64) Result<f64, string>  = {
     b == 0.0 ?
         | true => return Result<f64, string>.Err("Division by zero")
         | false => return Result<f64, string>.Ok(a / b)
 }
 
 // Test string operations
-format_point = (p: Point) string {
+format_point: (p: Point) string  = {
     return string.format("Point({}, {})", p.x, p.y)
 }
 
 // Test array operations
-sum_array = (arr: [i32; 10]) i32 {
+sum_array: (arr: [i32; 10]) i32  = {
     sum := 0
     i := 0
     loop i < 10 {
@@ -171,7 +171,7 @@ sum_array = (arr: [i32; 10]) i32 {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("Running Zen Integration Tests\n")
     io.print("=============================\n\n")
     

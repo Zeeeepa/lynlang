@@ -126,7 +126,7 @@ fn run_repl() -> std::io::Result<()> {
             }
             "" => continue,
             _ => {
-                // Try to parse and execute the input
+                // Parse and execute the input
                 match execute_zen_code(&mut compiler, input) {
                     Ok(result) => {
                         if let Some(value) = result {

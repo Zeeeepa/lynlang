@@ -3,10 +3,7 @@
 core := @std.core
 
 // Option type - represents a value that may or may not exist
-enum Option<T> {
-    Some(T),
-    None,
-}
+Option<T>: Some(T) | None
 
 // Create Some variant
 some = <T>(value: T) Option<T> {

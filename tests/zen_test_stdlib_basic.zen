@@ -4,7 +4,7 @@
 io := @std.io
 
 // Simple test of option type
-test_option = () bool {
+test_option: () bool  = {
     // Create Some value
     some_val := 42
     
@@ -21,7 +21,7 @@ test_option = () bool {
 }
 
 // Simple test of result type
-test_result = () bool {
+test_result: () bool  = {
     // Simulate Ok result
     ok_val := 100
     
@@ -35,7 +35,7 @@ test_result = () bool {
 }
 
 // Simple test of vector operations
-test_vector = () bool {
+test_vector: () bool  = {
     // Simulate vector operations
     len := 0
     
@@ -51,7 +51,7 @@ test_vector = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("Testing Stdlib Modules\n")
     io.print("======================\n\n")
     

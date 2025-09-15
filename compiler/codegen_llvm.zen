@@ -14,7 +14,7 @@ BinaryOperator := parser.BinaryOperator
 UnaryOperator := parser.UnaryOperator
 
 // LLVM IR Builder Context
-CodeGen = {
+CodeGen: {
     // Module information
     module_name: string,
     
@@ -39,7 +39,7 @@ CodeGen = {
 }
 
 // Global variable info
-GlobalVar = {
+GlobalVar: {
     name: string,
     llvm_type: string,
     initializer: Option<string>,
@@ -47,7 +47,7 @@ GlobalVar = {
 }
 
 // Function info
-Function = {
+Function: {
     name: string,
     return_type: string,
     params: Vec<(string, string)>,  // (name, type)
@@ -55,21 +55,21 @@ Function = {
 }
 
 // Local variable info
-LocalVar = {
+LocalVar: {
     name: string,
     llvm_type: string,
     register: u32,
 }
 
 // String constant info
-StringConstant = {
+StringConstant: {
     id: u32,
     value: string,
     global_name: string,
 }
 
 // Create new code generator
-new_codegen = (module_name: string) CodeGen {
+new_codegen: (module_name: string) CodeGen  = {
     return CodeGen{
         module_name: module_name,
         current_function: Option<string>.None,
@@ -85,14 +85,14 @@ new_codegen = (module_name: string) CodeGen {
 }
 
 // Allocate new register
-alloc_register = (gen: &mut CodeGen) u32 {
+alloc_register: (gen: &mut CodeGen) u32  = {
     reg := gen.next_register
     gen.next_register = gen.next_register + 1
     return reg
 }
 
 // Emit LLVM IR line
-emit = (gen: &mut CodeGen, line: string) {
+emit: (gen: &mut CodeGen, line: string)   = {
     i := 0
     loop i < gen.indent_level {
         gen.output = gen.output + "  "
@@ -102,7 +102,7 @@ emit = (gen: &mut CodeGen, line: string) {
 }
 
 // Convert Zen type to LLVM type
-zen_type_to_llvm = (t: Type) string {
+zen_type_to_llvm: (t: Type) string  = {
     match t {
         | Type.Named(name) => {
             name == "i8" ? { return "i8" } :
@@ -141,7 +141,7 @@ zen_type_to_llvm = (t: Type) string {
 }
 
 // Generate code for binary operation
-gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg: u32, ty: string) u32 {
+gen_binary_op: (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg: u32, ty: string) u32  = {
     result_reg := alloc_register(gen)
     
     op_instr := match op {
@@ -173,7 +173,7 @@ gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg
 }
 
 // Generate code for expression
-gen_expression = (gen: &mut CodeGen, expr: AstNode) u32 {
+gen_expression: (gen: &mut CodeGen, expr: AstNode) u32  = {
     match expr {
         | AstNode.IntLit(val) => {
             reg := alloc_register(gen)
@@ -240,7 +240,7 @@ gen_expression = (gen: &mut CodeGen, expr: AstNode) u32 {
 }
 
 // Find variable in symbol table
-find_variable = (gen: &CodeGen, name: string) Option<LocalVar> {
+find_variable: (gen: &CodeGen, name: string) Option<LocalVar>  = {
     i := 0
     loop i < vec_len(gen.locals) {
         var := vec_get(gen.locals, i)
@@ -253,7 +253,7 @@ find_variable = (gen: &CodeGen, name: string) Option<LocalVar> {
 }
 
 // Generate code for statement
-gen_statement = (gen: &mut CodeGen, stmt: AstNode) {
+gen_statement: (gen: &mut CodeGen, stmt: AstNode)   = {
     match stmt {
         | AstNode.VarDecl(name, ty, init) => {
             // Allocate local variable
@@ -307,7 +307,7 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode) {
 }
 
 // Generate function definition
-gen_function = (gen: &mut CodeGen, func: AstNode) {
+gen_function: (gen: &mut CodeGen, func: AstNode)   = {
     match func {
         | AstNode.FnDecl(name, params, ret_ty, body) => {
             // Clear locals for new function
@@ -365,7 +365,7 @@ gen_function = (gen: &mut CodeGen, func: AstNode) {
 }
 
 // Helper functions (improved implementations)
-u32_to_string = (n: u32) string {
+u32_to_string: (n: u32) string  = {
     n == 0 ? { return "0" } : {}
     
     // Simple implementation for now
@@ -376,7 +376,7 @@ u32_to_string = (n: u32) string {
     { return "999" }  // Truncate for now
 }
 
-i64_to_string = (n: i64) string {
+i64_to_string: (n: i64) string  = {
     n < 0 ? { return "-" + i64_to_string(-n) } : {}
     n == 0 ? { return "0" } : {}
     
@@ -385,14 +385,14 @@ i64_to_string = (n: i64) string {
     { return i64_to_string(n / 10) + i64_to_string(n % 10) }
 }
 
-f64_to_string = (n: f64) string {
+f64_to_string: (n: f64) string  = {
     // Simple implementation - just return fixed strings for now
     n == 0.0 ? { return "0.0" } :
     n == 1.0 ? { return "1.0" } :
     { return "0.0" }  // Default
 }
 
-string_len = (s: string) u32 {
+string_len: (s: string) u32  = {
     // Count characters until null terminator
     len := 0
     i := 0
@@ -424,7 +424,7 @@ vec_new = <T>() Vec<T> {
 }
 
 // Generate complete module
-gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>) {
+gen_module: (gen: &mut CodeGen, ast: Vec<AstNode>)   = {
     // Generate module header
     emit(gen, "; ModuleID = '" + gen.module_name + "'")
     emit(gen, "source_filename = \"" + gen.module_name + ".zen\"")
@@ -478,7 +478,7 @@ gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>) {
 }
 
 // Main entry point for testing
-main = () i32 {
+main: () i32  = {
     io.print("Zen LLVM Code Generator\n")
     io.print("=======================\n\n")
     

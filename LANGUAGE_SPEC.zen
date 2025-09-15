@@ -1,0 +1,490 @@
+// Zen Language - Key Design Principles:
+// - No keywords: `if/else/while/for/match/async/await/impl/trait/class/interface/null`
+// - Only two @ symbols: `@std` (standard library) and `@this` (current scope)
+// - Pattern matching with `?` operator, no `match` or `switch`
+// - UFC (Uniform Function Call) - any function can be called as method
+// - Allocators determine sync/async behavior (no function coloring)
+// - Explicit pointer types: `Ptr<>`, `MutPtr<>`, `RawPtr<>` (no `*` or `&`)
+// - No null/nil - only `Option<T>` with `.Some(T)` and `.None`
+// - No unions, no tuples - only structs and enums
+// - Assignment operators: `=` (immutable), `::=` (mutable), `:` (type definition)
+// - Error propagation with `.raise()` not exceptions
+// - Loops: `loop()` for infinite, `.loop()` for collections, ranges like `(0..10)`
+// - Traits via `.implements()` and `.requires()` from `@std.meta`
+// - Compile-time metaprogramming with full AST access
+
+// ============================================================================
+// build.zen
+// ============================================================================
+
+{ Build } := @std.build
+
+builder = (b :: Build) void {
+    builder = b.builder()
+    
+    // Check command line flags for conditional compilation
+    is_release = b.args.contains("--release")
+    
+    // Conditional compilation based on flags
+    is_release ?
+        | true {
+            b.optimization(.O3)  // Maximum optimization
+            b.strip_symbols(true)  // Remove debug symbols
+        }
+        | false {
+            b.optimization(.O0)  // No optimization for debug
+            b.debug_info(true)  // Include debug info
+        }
+    
+    // Output target selection - compile to different backends
+    b.target ?
+        | .C { b.emit_c("output.c") }  // Transpile to C
+        | .LLVM { b.emit_llvm_ir("output.ll") }  // LLVM IR
+        | .Native { b.emit_native() }  // Direct to machine code
+
+    // Create SDL2 game executable
+    builder.add_executable("sdl2-game", "src/main.zen")
+        .add_library("game-engine", "src/game.zen")
+        .add_test("game-tests", "src/test.zen")
+
+    // SDL2 FFI bindings
+    sdl2_library :: FFI.Library = {
+        name: "SDL2",
+    }
+
+    // Pattern matching for OS-specific paths
+    std.os ? 
+        | .Linux {
+            sdl2_library.path = "/usr/lib/x86_64-linux-gnu/libSDL2.so"
+        }
+        | .Macos {
+            sdl2_library.path = "/usr/local/lib/libSDL2.dylib"
+        }
+        | .Windows {
+            sdl2_library.path = "SDL2.dll"
+        }
+        | _ {
+            sdl2_library.path = "SDL2.dll"
+        }
+
+    build.add_dependency("sdl2-game", sdl2_library)
+
+    // External dependencies from GitHub
+    builder
+        .add_dependency({
+            name: "ecs",
+            source: .Git -> {
+                url: "github.com/zenlang/zen-ecs",
+                branch: "main"
+            }
+        })   
+}
+
+// ============================================================================
+// src/main.zen
+// ============================================================================
+
+// Imports - only @std and @this are special
+{ io } = @std.io
+{ math } = @std.math
+{ string, StringBuilder } = @std.string
+{ requires, implements, reflect, meta, inline, simd } = @std.meta
+{ GPA, AsyncPool, Allocator } = @std.mem
+{ Vec, DynVec } = @std.collections
+{ Actor, Channel, Mutex, AtomicU32 } = @std.concurrent
+sdl2 = @std.build.import("sdl2")
+ecs = @std.build.import("ecs")
+
+
+// No null! Only Option types
+Option<T>: .Some(T) | .None
+
+// Result type for error handling
+Result<T, E>: .Ok(T) | .Err(E)
+
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+
+// Trait definition - methods that types can implement
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// Implement trait for type using .implements()
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    },
+})
+
+
+// Enum type (sum type)
+Shape: Circle | Rectangle
+// Enforce all Shape variants must implement Geometric
+Shape.requires(Geometric)
+
+
+// UFC overloading based on enum variants
+GameEntity: .Player | .Enemy | .Powerup
+
+// Overload functions for each variant
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+get_speed = (e: GameEntity.Player) f64 { return 5.0 }
+get_speed = (e: GameEntity.Enemy) f64 { return 3.0 }
+get_speed = (e: GameEntity.Powerup) f64 { return 0.0 }
+
+
+// Generic function with constraints
+print_area<T: Geometric>(shape: T) void {
+    io.println("Area: ${shape.area()}")
+}
+
+// Generic container with multiple constraints
+Container<T: Geometric + Serializable>: {
+    items: DynVec<T>,
+    
+    add: (item: T) void,
+    total_area: () f64,
+}
+
+
+// Parse shape from string - demonstrates Result type
+parse_radius = (s: string) Result<f64, string> {
+    s.to_f64() ?
+        | .Some(val) { return .Ok(val) }
+        | .None { return .Err("Invalid radius") }
+}
+
+// Error propagation with .raise()
+load_config = (path: string) Result<Config, Error> {
+    file = File.open(path).raise()  // If Err, returns early with that error
+    contents = file.read_all().raise()
+    config = json.parse(contents).raise()
+    return .Ok(config)
+}
+
+
+// Multisync function - sync or async based on allocator!
+fetch_game_data = (url: string, alloc: Allocator) Result<Data, Error> {
+    client = HttpClient(alloc)
+    @this.defer(client.deinit())
+    
+    // This blocks or doesn't based on allocator!
+    response = client.get(url)
+    response ?
+        | .Ok(data) { return .Ok(parse_data(data)) }
+        | .Err(e) { return .Err(e) }
+}
+
+
+// Actor for lazy/streaming iteration
+create_fibonacci = () Actor {
+    outer = 100  // Will be captured automatically
+    return Actor((receiver) {  // Compiler detects this closure needs capture
+        a ::= 0  // ::= for mutable
+        b ::= 1
+        loop(() {
+            receiver.send(a + outer)  // Can access outer - auto-captured
+            temp = a + b
+            a = b
+            b = temp
+        })
+    })
+}
+
+
+// AST reflection and metaprogramming example
+inspect_type = (T: type) void {
+    ast = reflect.ast(T)
+    ast.kind ?
+        | .Struct(s) {
+            io.println("Struct: ${s.name}")
+            s.fields.loop((f) {
+                io.println("  Field: ${f.name}: ${f.type}")
+            })
+        }
+        | .Enum(e) {  // Enum types like Shape: Circle | Rectangle
+            io.println("Enum: ${e.name}")
+            e.variants.loop((v) {
+                io.println("  Variant: ${v.name}")
+            })
+        }
+        | .Function(f) {
+            io.println("Function: ${f.name}")
+            f.params.loop((p) {
+                io.println("  Param ${p.name}: ${p.type}, mut: ${p.is_mut}")
+            })
+            io.println("  Returns: ${f.return_type}")
+        }
+        | .TypeDef(t) {
+            io.println("TypeDef: ${t.name}")
+            t.methods.loop((m) {
+                io.println("  Method: ${m.name}")
+            })
+        }
+}
+
+// Compile-time AST modification
+@meta.comptime {
+    original = reflect.ast(parse_radius)
+    new_body = original.body.prepend(
+        AST.Call("io.println", ["Parsing radius from: ${s}"])
+    )
+    meta.replace(parse_radius, original.with_body(new_body))
+}
+
+
+// Inline C/LLVM for low-level control
+fast_memcpy = (dst: RawPtr<u8>, src: RawPtr<u8>, len: usize) void {
+    inline.c("""
+        memcpy(${dst.addr}, ${src.addr}, ${len});
+    """)
+}
+
+// SIMD operations
+vector_add = (a: Vec<f32, 8>, b: Vec<f32, 8>) Vec<f32, 8> {
+    return simd.add(a, b)
+}
+
+
+main = () void {
+    // Sync allocator - everything blocks
+    sync_alloc = GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    // Async allocator - everything is non-blocking
+    async_alloc = AsyncPool.init()
+    @this.defer(async_alloc.deinit())
+    
+    // Mixed type vector - can hold multiple variant types!
+    entities = DynVec<GameEntity.Player, GameEntity.Enemy>(sync_alloc)
+    @this.defer(entities.deinit())
+    
+    entities.push(GameEntity.Player)
+    entities.push(GameEntity.Enemy)
+    entities.push(GameEntity.Player)
+    
+    // Loop over mixed types with pattern matching
+    entities.loop((entity) {
+        entity ?
+            | .Player { 
+                io.println("Player health: ${entity.get_health()}")
+                io.println("Player speed: ${entity.get_speed()}")
+            }
+            | .Enemy { 
+                io.println("Enemy health: ${entity.get_health()}")
+                io.println("Enemy speed: ${entity.get_speed()}")
+            }
+    })
+    
+    // Another example with inline types
+    mixed_items = DynVec<Circle, Rectangle>(sync_alloc)
+    @this.defer(mixed_items.deinit())
+    
+    mixed_items.push(Circle { center: Point { x: 0, y: 0 }, radius: 5 })
+    mixed_items.push(Rectangle { top_left: Point { x: 0, y: 0 }, bottom_right: Point { x: 10, y: 10 } })
+    
+    // Pattern match directly on the type variants
+    mixed_items.loop((item) {
+        item ?
+            | Circle { io.println("Circle area: ${item.area()}") }
+            | Rectangle { io.println("Rectangle area: ${item.area()}") }
+    })
+    
+    // Boolean pattern matching - no ternary
+    is_ready = true
+    is_ready ? { 
+        io.println("Starting game!") 
+    }
+    
+    // For if-else, use full pattern match
+    has_data = false
+    has_data ?
+        | true { process_data() }
+        | false { io.println("Waiting for data...") }
+    
+    // Explicit pointer types - no * or &
+    circle = Circle { center: Point { x: 100, y: 100 }, radius: 50 }
+    circle_ptr: Ptr<Circle> = circle.ref()
+    circle_mut: MutPtr<Circle> = circle.mut_ref()
+    
+    io.println("Circle area: ${circle_ptr.val.area()}")  // .val to dereference
+    circle_mut.val.radius = 75
+    io.println("New area: ${circle_mut.val.area()}")
+    io.println("Address: ${circle_ptr.addr}")
+    
+    // Static sized vector
+    shapes = Vec<Shape, 100>()
+    shapes.push(Circle { center: Point { x: 0, y: 0 }, radius: 10 })
+    
+    // Dynamic vector with allocator
+    dynamic_shapes = DynVec<Shape>(sync_alloc.allocator())
+    @this.defer(dynamic_shapes.deinit())
+    
+    dynamic_shapes.push(Rectangle { 
+        top_left: Point { x: 0, y: 0 },
+        bottom_right: Point { x: 50, y: 50 }
+    })
+    
+    // String building
+    sb = StringBuilder(sync_alloc)
+    @this.defer(sb.deinit())
+    sb.append("Hello")
+      .append(" ")
+      .append("World")
+      .append_line("!")
+    built_string = sb.build()
+    io.println(built_string)
+    
+    // Concurrency primitives
+    message_chan = Channel<string>(10)  // Buffered channel
+    @this.defer(message_chan.close())
+    
+    // Spawn actor to send messages
+    sender = Actor(() {
+        (0..5).loop((i) {  // Range syntax!
+            message_chan.send("Message ${i}")
+        })
+    }).spawn()
+    
+    // Receive messages
+    loop(() {
+        message_chan.receive() ?
+            | .Some(msg) { io.println("Received: ${msg}") }
+            | .None { break }
+    })
+    
+    // Mutex for shared state
+    counter_mutex = Mutex<u32>(0)
+    @this.defer(counter_mutex.deinit())
+    
+    counter_mutex.lock() ?
+        | .Ok(val) {
+            val = val + 1
+            counter_mutex.unlock()
+        }
+        | .Err(e) { io.println("Lock failed: ${e}") }
+    
+    // Atomic operations
+    atomic_counter = AtomicU32(0)
+    atomic_counter.fetch_add(1)
+    current = atomic_counter.load()
+    io.println("Atomic counter: ${current}")
+    
+    // Range iterations
+    (0..10).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Step ranges
+    (0..100).step(10).loop((i) {
+        io.println("Step: ${i}")  // 0, 10, 20, ...
+    })
+    
+    // UFC - collection.loop()
+    total_area ::= 0.0
+    dynamic_shapes.loop((shape) {
+        total_area = total_area + shape.area()
+    })
+    
+    // Loop with index
+    dynamic_shapes.loop((shape, i) {
+        io.println("Shape ${i}: ${shape.area()}")
+    })
+    
+    // Infinite loop
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 10 ?
+            | true { break }
+            | false { io.println("Count: ${counter}") }
+    })
+    
+    // Option handling - no null!
+    maybe_radius: Option<f64> = .Some(5.5)
+    maybe_radius ?
+        | .Some(r) {
+            circle = Circle {
+                center: Point { x: 100.0, y: 100.0 },
+                radius: r,
+            }
+            io.println("Created circle with area: ${circle.area()}")
+        }
+        | .None {
+            io.println("No radius provided")
+        }
+    
+    // Reflection at runtime
+    inspect_type(Circle)
+    inspect_type(Shape)
+    
+    io.println("Total area: ${total_area}")
+
+    // SDL2 integration
+    sdl2.init()
+    window = sdl2.create_window("SDL2 Game", 100, 100, 640, 480)
+    @this.defer(window.destroy())
+
+    sdl2.delay(1000)
+    sdl2.quit()
+}
+
+
+// Module exports - simple record syntax
+module.exports = {
+    Shape: Shape,
+    Circle: Circle,
+    Rectangle: Rectangle,
+    Geometric: Geometric,
+    GameEntity: GameEntity,
+    get_health: get_health,
+    get_speed: get_speed,
+    parse_radius: parse_radius,
+    create_fibonacci: create_fibonacci,
+}
+
+// Imports in other files would look like:
+// Circle2D = module.import("shapes2d").Circle
+// Rectangle2D = module.import("shapes2d").Rectangle
+// 
+// Or grab the whole module:
+// shapes = module.import("shapes2d")
+// my_circle = shapes.Circle { ... }

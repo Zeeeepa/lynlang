@@ -99,7 +99,6 @@ impl<'ctx> TestContext<'ctx> {
             args: vec![],
             return_type: AstType::I64,
             body: vec![Statement::Return(Expression::Integer64(value))],
-            is_async: false,
         }])
     }
 
@@ -119,7 +118,6 @@ impl<'ctx> TestContext<'ctx> {
                 op,
                 right: Box::new(Expression::Integer64(right)),
             })],
-            is_async: false,
         }])
     }
 
@@ -140,7 +138,6 @@ impl<'ctx> TestContext<'ctx> {
                 },
                 Statement::Return(Expression::Identifier(name.to_string())),
             ],
-            is_async: false,
         }])
     }
 
@@ -157,8 +154,7 @@ impl<'ctx> TestContext<'ctx> {
                 args: vec![("arg".to_string(), return_type.clone())],
                 return_type: return_type.clone(),
                 body: vec![Statement::Return(Expression::Identifier("arg".to_string()))],
-                is_async: false,
-            },
+                },
             ast::Function {
                 name: "main".to_string(),
                 type_params: vec![],
@@ -168,8 +164,7 @@ impl<'ctx> TestContext<'ctx> {
                     name: func_name.to_string(),
                     args,
                 })],
-                is_async: false,
-            },
+                },
         ])
     }
 
@@ -181,7 +176,6 @@ impl<'ctx> TestContext<'ctx> {
             args: vec![],
             return_type: return_type,
             body: vec![Statement::Return(Expression::Integer64(42))], // Default return value
-            is_async: false,
         }])
     }
 }

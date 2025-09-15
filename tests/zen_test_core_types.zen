@@ -10,13 +10,13 @@ test := build.import("test")
 // Test Option type
 test_case("Option type operations") {
     // Test Some variant
-    some_value := Option::Some(42)
+    some_value := Option:Some(42)
     some_value ?
         | Some -> v => assert_eq(v, 42)
         | None => assert(false, "Expected Some, got None")
     
     // Test None variant
-    none_value := Option<i32>::None
+    none_value := Option<i32>:None
     none_value ?
         | Some -> _ => assert(false, "Expected None, got Some")
         | None => assert(true)
@@ -31,21 +31,21 @@ test_case("Option type operations") {
 // Test Result type
 test_case("Result type operations") {
     // Test Ok variant
-    ok_result := Result::Ok(100)
+    ok_result := Result:Ok(100)
     ok_result ?
         | Ok -> v => assert_eq(v, 100)
         | Err -> _ => assert(false, "Expected Ok, got Err")
     
     // Test Err variant
-    err_result := Result<i32, string>::Err("Error message")
+    err_result := Result<i32, string>:Err("Error message")
     err_result ?
         | Ok -> _ => assert(false, "Expected Err, got Ok")
         | Err -> e => assert_eq(e, "Error message")
     
     // Test chaining
     doubled := ok_result ?
-        | Ok -> v => Result::Ok(v * 2)
-        | Err -> e => Result::Err(e)
+        | Ok -> v => Result:Ok(v * 2)
+        | Err -> e => Result:Err(e)
     
     doubled ?
         | Ok -> v => assert_eq(v, 200)
@@ -55,8 +55,8 @@ test_case("Result type operations") {
 // Test Vec type
 test_case("Vec operations") {
     // Create and push
-    vec := Vec<i32>::new()
-    vec_ptr := Ptr::new(vec)
+    vec := Vec<i32>:new()
+    vec_ptr := Ptr:new(vec)
     
     vec_ptr.push(10)
     vec_ptr.push(20)
@@ -100,8 +100,8 @@ test_case("Vec operations") {
 // Test HashMap type
 test_case("HashMap operations") {
     // Create and insert
-    map := HashMap<string, i32>::new()
-    map_ptr := Ptr::new(map)
+    map := HashMap<string, i32>:new()
+    map_ptr := Ptr:new(map)
     
     map_ptr.insert("one", 1)
     map_ptr.insert("two", 2)
@@ -159,12 +159,12 @@ test_case("HashMap operations") {
 // Test Ptr type
 test_case("Ptr operations") {
     // Create pointer
-    ptr := Ptr::new(42)
+    ptr := Ptr:new(42)
     assert_eq(ptr.value, 42)
     assert_eq(ptr.is_null(), false)
     
     // Test null pointer
-    null_ptr := Ptr<i32>::null()
+    null_ptr := Ptr<i32>:null()
     assert_eq(null_ptr.is_null(), true)
     
     // Test address
@@ -172,12 +172,12 @@ test_case("Ptr operations") {
     assert(addr > 0, "Address should be non-zero")
     
     // Test struct pointer
-    Point = {
+    Point: {
         x: i32,
         y: i32,
     }
     
-    point_ptr := Ptr::new(Point { x: 10, y: 20 })
+    point_ptr := Ptr:new(Point { x: 10, y: 20 })
     assert_eq(point_ptr.value.x, 10)
     assert_eq(point_ptr.value.y, 20)
 }
@@ -185,13 +185,13 @@ test_case("Ptr operations") {
 // Test Ref type (reference counting)
 test_case("Ref operations") {
     // Create reference
-    ref1 := Ref::new(100)
-    ref1_ptr := Ptr::new(ref1)
+    ref1 := Ref:new(100)
+    ref1_ptr := Ptr:new(ref1)
     assert_eq(ref1_ptr.value(), 100)
     
     // Clone reference
     ref2 := ref1_ptr.clone()
-    ref2_ptr := Ptr::new(ref2)
+    ref2_ptr := Ptr:new(ref2)
     assert_eq(ref2_ptr.value(), 100)
     
     // Both references point to same value
@@ -208,13 +208,13 @@ test_case("Ref operations") {
 
 // Test Vec with custom types
 test_case("Vec with custom types") {
-    Person = {
+    Person: {
         name: string,
         age: i32,
     }
     
-    people := Vec<Person>::new()
-    people_ptr := Ptr::new(people)
+    people := Vec<Person>:new()
+    people_ptr := Ptr:new(people)
     
     people_ptr.push(Person { name: "Alice", age: 30 })
     people_ptr.push(Person { name: "Bob", age: 25 })
@@ -238,17 +238,16 @@ test_case("Vec with custom types") {
 
 // Test HashMap with custom types
 test_case("HashMap with custom types") {
-    Color = 
-        | Red
+    Color: Red
         | Green
         | Blue
     
-    color_map := HashMap<string, Color>::new()
-    color_map_ptr := Ptr::new(color_map)
+    color_map := HashMap<string, Color>:new()
+    color_map_ptr := Ptr:new(color_map)
     
-    color_map_ptr.insert("stop", Color::Red)
-    color_map_ptr.insert("go", Color::Green)
-    color_map_ptr.insert("sky", Color::Blue)
+    color_map_ptr.insert("stop", Color:Red)
+    color_map_ptr.insert("go", Color:Green)
+    color_map_ptr.insert("sky", Color:Blue)
     
     color_map_ptr.get("stop") ?
         | Some -> c => {
@@ -269,23 +268,23 @@ test_case("HashMap with custom types") {
 
 // Test error propagation with Result
 test_case("Result error propagation") {
-    divide = (a: i32, b: i32) Result<i32, string> {
+    divide: (a: i32, b: i32) Result<i32, string>  = {
         b == 0 ?
-            | true => Result::Err("Division by zero")
-            | false => Result::Ok(a / b)
+            | true => Result:Err("Division by zero")
+            | false => Result:Ok(a / b)
     }
     
-    calculate = (x: i32, y: i32, z: i32) Result<i32, string> {
+    calculate: (x: i32, y: i32, z: i32) Result<i32, string>  = {
         // Chain multiple operations that might fail
         r1 := divide(x, y) ?
             | Ok -> v => v
-            | Err -> e => return Result::Err(e)
+            | Err -> e => return Result:Err(e)
         
         r2 := divide(r1, z) ?
             | Ok -> v => v
-            | Err -> e => return Result::Err(e)
+            | Err -> e => return Result:Err(e)
         
-        Result::Ok(r2)
+        Result:Ok(r2)
     }
     
     // Test successful calculation
@@ -306,8 +305,8 @@ test_case("Result error propagation") {
 
 // Test Vec resize
 test_case("Vec resize and capacity") {
-    vec := Vec<i32>::with_capacity(2)
-    vec_ptr := Ptr::new(vec)
+    vec := Vec<i32>:with_capacity(2)
+    vec_ptr := Ptr:new(vec)
     
     // Initial capacity is 2
     vec_ptr.push(1)
@@ -328,7 +327,7 @@ test_case("Vec resize and capacity") {
 }
 
 // Run all tests
-main = () void {
+main: () void  = {
     io := build.import("io")
     
     io.print("Running core types tests...")

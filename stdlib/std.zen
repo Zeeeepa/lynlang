@@ -40,10 +40,10 @@ pub utils := @std.utils
 pub time := @std.time
 pub datetime := @std.datetime
 
-// Networking and async
+// Networking and concurrency (via allocators)
 pub net := @std.net
 pub http := @std.http
-pub async := @std.async
+pub concurrency := @std.concurrency  // Concurrency module (allocator-based)
 pub thread := @std.thread
 
 // Encoding and serialization
@@ -71,20 +71,20 @@ VERSION := "0.1.0"
 ZEN_VERSION := "1.0.0-alpha"
 
 // Initialize the standard library
-init = () void {
+init: () void  = {
     // Perform any necessary initialization
     // This could set up global state, configure the runtime, etc.
 }
 
 // Panic function for unrecoverable errors
-panic = (message: *i8) void {
+panic: (message: *i8) void  = {
     io.print("PANIC: ")
     io.println(message)
     process.exit(1)
 }
 
 // Debug print function (only in debug builds)
-debug_print = (message: *i8) void {
+debug_print: (message: *i8) void  = {
     comptime {
         DEBUG ?
             | true => {

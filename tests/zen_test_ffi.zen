@@ -5,16 +5,16 @@
 ffi := @std.ffi
 
 // Test building a library configuration
-test_ffi_builder = () void {
+test_ffi_builder: () void  = {
     // Create sqlite3 library configuration using builder pattern
     sqlite := ffi.FFI.lib("sqlite3")
         .set_path("/usr/lib/libsqlite3.so")
         .add_function("sqlite3_open", ffi.FnSignature{
-            params: ffi.Vec::new(),  // Would add string and ptr params
+            params: ffi.Vec:new(),  // Would add string and ptr params
             returns: ffi.type_i32(),
         })
         .add_function("sqlite3_close", ffi.FnSignature{
-            params: ffi.Vec::new(),  // Would add ptr param
+            params: ffi.Vec:new(),  // Would add ptr param
             returns: ffi.type_i32(),
         })
         .add_constant("SQLITE_OK", ffi.type_i32())
@@ -24,7 +24,7 @@ test_ffi_builder = () void {
     // actual FFI calls would require library loading
 }
 
-main = () void {
+main: () void  = {
     test_ffi_builder()
     // If we get here without crashing, the FFI builder works
     io := @std.io

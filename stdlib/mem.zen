@@ -4,11 +4,11 @@
 core := @std.core
 
 // Memory alignment constants
-DEFAULT_ALIGN :: 8
-CACHE_LINE_SIZE :: 64
+DEFAULT_ALIGN = 8
+CACHE_LINE_SIZE = 64
 
 // Allocation statistics
-AllocStats = {
+AllocStats: {
     total_allocated: i64,
     total_freed: i64,
     current_usage: i64,
@@ -18,7 +18,7 @@ AllocStats = {
 }
 
 // Global allocation statistics (would be thread-local in real implementation)
-global_stats ::= AllocStats {
+global_stats := AllocStats {
     total_allocated: 0,
     total_freed: 0,
     current_usage: 0,
@@ -30,11 +30,11 @@ global_stats ::= AllocStats {
 // Aligned allocation
 alloc_aligned = (size: i64, alignment: i64) core.Result<*void, core.Error> {
     size <= 0 ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Size must be positive"))
+        return core.Result:Err(core.Error:InvalidArgument("Size must be positive"))
     } | false => {}
     
     alignment <= 0 || (alignment & (alignment - 1)) != 0 ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Alignment must be power of 2"))
+        return core.Result:Err(core.Error:InvalidArgument("Alignment must be power of 2"))
     } | false => {}
     
     // Allocate extra space for alignment
@@ -42,7 +42,7 @@ alloc_aligned = (size: i64, alignment: i64) core.Result<*void, core.Error> {
     ptr := core.malloc(total_size)
     
     ptr == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
+        return core.Result:Err(core.Error:OutOfMemory)
     } | false => {}
     
     // Align the pointer
@@ -57,7 +57,7 @@ alloc_aligned = (size: i64, alignment: i64) core.Result<*void, core.Error> {
         global_stats.peak_usage = global_stats.current_usage
     } | false => {}
     
-    return core.Result::Ok(aligned_ptr)
+    return core.Result:Ok(aligned_ptr)
 }
 
 // Standard allocation with default alignment
@@ -72,9 +72,9 @@ calloc = (count: i64, size: i64) core.Result<*void, core.Error> {
     
     result ? | .Ok -> ptr => {
         core.memset(ptr, 0, total_size)
-        return core.Result::Ok(ptr)
+        return core.Result:Ok(ptr)
     } | .Err -> e => {
-        return core.Result::Err(e)
+        return core.Result:Err(e)
     }
 }
 
@@ -82,12 +82,12 @@ calloc = (count: i64, size: i64) core.Result<*void, core.Error> {
 realloc = (ptr: *void, old_size: i64, new_size: i64) core.Result<*void, core.Error> {
     new_size <= 0 ? | true => {
         ptr != 0 ? | true => dealloc(ptr, old_size) | false => {}
-        return core.Result::Ok(0)
+        return core.Result:Ok(0)
     } | false => {}
     
     // Allocate new block
     new_ptr := alloc(new_size)
-    new_ptr ? | .Err -> e => return core.Result::Err(e)
+    new_ptr ? | .Err -> e => return core.Result:Err(e)
              | .Ok -> p => {
         // Copy old data if exists
         ptr != 0 && old_size > 0 ? | true => {
@@ -96,12 +96,12 @@ realloc = (ptr: *void, old_size: i64, new_size: i64) core.Result<*void, core.Err
             dealloc(ptr, old_size)
         } | false => {}
         
-        return core.Result::Ok(p)
+        return core.Result:Ok(p)
     }
 }
 
 // Deallocate memory
-dealloc = (ptr: *void, size: i64) void {
+dealloc: (ptr: *void, size: i64) void  = {
     ptr == 0 ? | true => return | false => {}
     
     core.free(ptr)
@@ -113,12 +113,12 @@ dealloc = (ptr: *void, size: i64) void {
 }
 
 // Get allocation statistics
-get_stats = () AllocStats {
+get_stats: () AllocStats  = {
     return global_stats
 }
 
 // Reset allocation statistics
-reset_stats = () void {
+reset_stats: () void  = {
     global_stats = AllocStats {
         total_allocated: 0,
         total_freed: 0,
@@ -142,7 +142,7 @@ Pool<T> = {
 // Create a memory pool
 pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
     block_count <= 0 ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Block count must be positive"))
+        return core.Result:Err(core.Error:InvalidArgument("Block count must be positive"))
     } | false => {}
     
     block_size := sizeof(T)
@@ -150,17 +150,17 @@ pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
     
     // Allocate memory for blocks
     memory := alloc(total_size)
-    memory ? | .Err -> e => return core.Result::Err(e)
+    memory ? | .Err -> e => return core.Result:Err(e)
             | .Ok -> mem => {
         // Allocate free list
         free_list_size := block_count * sizeof(i64)
         free_list := alloc(free_list_size)
         free_list ? | .Err -> e => {
             dealloc(mem, total_size)
-            return core.Result::Err(e)
+            return core.Result:Err(e)
         } | .Ok -> list => {
             // Initialize free list
-            i ::= 0
+            i := 0
             loop {
 
                 i < block_count ? | false => { break } | true => {}
@@ -168,7 +168,7 @@ pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
                 i = i + 1
             }
             
-            return core.Result::Ok(Pool<T> {
+            return core.Result:Ok(Pool<T> {
                 block_size: block_size,
                 block_count: block_count,
                 memory: mem,
@@ -183,41 +183,41 @@ pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
 // Allocate from pool
 pool_alloc<T> = (pool: *Pool<T>) core.Result<*T, core.Error> {
     !pool.initialized ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Pool not initialized"))
+        return core.Result:Err(core.Error:InvalidArgument("Pool not initialized"))
     } | false => {}
     
     pool.free_count == 0 ? | true => {
-        return core.Result::Err(core.Error::OutOfMemory)
+        return core.Result:Err(core.Error:OutOfMemory)
     } | false => {}
     
     // Get next free block
     pool.free_count = pool.free_count - 1
     block_index := pool.free_list[pool.free_count]
     
-    return core.Result::Ok(&pool.memory[block_index])
+    return core.Result:Ok(&pool.memory[block_index])
 }
 
 // Return block to pool
 pool_free<T> = (pool: *Pool<T>, ptr: *T) core.Result<void, core.Error> {
     !pool.initialized ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Pool not initialized"))
+        return core.Result:Err(core.Error:InvalidArgument("Pool not initialized"))
     } | false => {}
     
     // Calculate block index
     offset := (ptr as i64 - pool.memory as i64) / pool.block_size
     offset < 0 || offset >= pool.block_count ? | true => {
-        return core.Result::Err(core.Error::InvalidArgument("Pointer not from this pool"))
+        return core.Result:Err(core.Error:InvalidArgument("Pointer not from this pool"))
     } | false => {}
     
     // Add to free list
     pool.free_list[pool.free_count] = offset
     pool.free_count = pool.free_count + 1
     
-    return core.Result::Ok({})
+    return core.Result:Ok({})
 }
 
 // Destroy pool
-pool_destroy<T> = (pool: *Pool<T>) void {
+pool_destroy<T>: (pool: *Pool<T>) void  = {
     !pool.initialized ? | true => return | false => {}
     
     pool.memory != 0 ? | true => {
@@ -232,18 +232,18 @@ pool_destroy<T> = (pool: *Pool<T>) void {
 }
 
 // Copy memory
-copy = (dest: *void, src: *void, size: i64) void {
+copy: (dest: *void, src: *void, size: i64) void  = {
     core.memcpy(dest, src, size)
 }
 
 // Set memory
-set = (ptr: *void, value: i32, size: i64) void {
+set: (ptr: *void, value: i32, size: i64) void  = {
     core.memset(ptr, value, size)
 }
 
 // Compare memory
-compare = (a: *void, b: *void, size: i64) i32 {
-    i ::= 0
+compare: (a: *void, b: *void, size: i64) i32  = {
+    i := 0
     loop {
 
         i < size ? | false => { break } | true => {}

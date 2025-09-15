@@ -6,13 +6,13 @@ core := @std.core
 vec := @std.vec
 
 // Test result enumeration
-TestResult = |
+TestResult: 
     Pass,
     Fail,
     Skip,
 
 // Test case structure
-TestCase = {
+TestCase: {
     name: string,
     test_fn: fn() bool,
     result: TestResult,
@@ -20,7 +20,7 @@ TestCase = {
 }
 
 // Test suite structure
-TestSuite = {
+TestSuite: {
     name: string,
     tests: Vec<TestCase>,
     passed: u32,
@@ -29,7 +29,7 @@ TestSuite = {
 }
 
 // Create a new test suite
-new_suite = (name: string) TestSuite {
+new_suite: (name: string) TestSuite  = {
     return TestSuite {
         name: name,
         tests: vec.new(),
@@ -51,7 +51,7 @@ add_test = (suite: *TestSuite, name: string, test_fn: fn() bool) void {
 }
 
 // Run all tests in the suite
-run = (suite: *TestSuite) bool {
+run: (suite: *TestSuite) bool  = {
     io.print("Running test suite: ")
     io.print(suite.name)
     io.print("\n")
@@ -72,7 +72,7 @@ run = (suite: *TestSuite) bool {
 }
 
 // Run a single test
-run_test = (suite: *TestSuite, test: *TestCase) void {
+run_test: (suite: *TestSuite, test: *TestCase) void  = {
     io.print("  Running: ")
     io.print(test.name)
     io.print(" ... ")
@@ -97,7 +97,7 @@ run_test = (suite: *TestSuite, test: *TestCase) void {
 }
 
 // Print test suite summary
-print_summary = (suite: *TestSuite) void {
+print_summary: (suite: *TestSuite) void  = {
     io.print("\n")
     io.print("=" * 50)
     io.print("\n")
@@ -125,7 +125,7 @@ print_summary = (suite: *TestSuite) void {
 }
 
 // Assertion functions
-assert = (condition: bool, msg: string) bool {
+assert: (condition: bool, msg: string) bool  = {
     if !condition {
         io.print("Assertion failed: ")
         io.print(msg)
@@ -135,7 +135,7 @@ assert = (condition: bool, msg: string) bool {
     return true
 }
 
-assert_eq = (a: i32, b: i32, msg: string) bool {
+assert_eq: (a: i32, b: i32, msg: string) bool  = {
     if a != b {
         io.print("Assertion failed: ")
         io.print(msg)
@@ -149,7 +149,7 @@ assert_eq = (a: i32, b: i32, msg: string) bool {
     return true
 }
 
-assert_ne = (a: i32, b: i32, msg: string) bool {
+assert_ne: (a: i32, b: i32, msg: string) bool  = {
     if a == b {
         io.print("Assertion failed: ")
         io.print(msg)
@@ -161,7 +161,7 @@ assert_ne = (a: i32, b: i32, msg: string) bool {
     return true
 }
 
-assert_true = (value: bool, msg: string) bool {
+assert_true: (value: bool, msg: string) bool  = {
     if !value {
         io.print("Assertion failed: ")
         io.print(msg)
@@ -171,7 +171,7 @@ assert_true = (value: bool, msg: string) bool {
     return true
 }
 
-assert_false = (value: bool, msg: string) bool {
+assert_false: (value: bool, msg: string) bool  = {
     if value {
         io.print("Assertion failed: ")
         io.print(msg)

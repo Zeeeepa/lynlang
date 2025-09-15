@@ -7,7 +7,7 @@ mem := build.import("mem")
 math := build.import("math")
 
 // Dynamic array structure
-Array = struct(T: type) {
+Array(T: type): {
     data: *T,
     len: usize,
     capacity: usize,
@@ -374,7 +374,7 @@ iter = (T: type, arr: *Array(T)) ArrayIterator(T) {
     }
 }
 
-ArrayIterator = struct(T: type) {
+ArrayIterator(T: type): {
     data: *T,
     len: usize,
     index: usize,

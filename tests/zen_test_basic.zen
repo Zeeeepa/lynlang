@@ -1,6 +1,6 @@
 // Very basic test
 
-main = () i32 {
+main: () i32  = {
     x := 5
     y := 10
     result := x + y

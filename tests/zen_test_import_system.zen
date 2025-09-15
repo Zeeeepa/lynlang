@@ -19,9 +19,9 @@ comptime {
 }
 
 // Helper function for comptime
-generate_lookup_table = () [256]i32 {
+generate_lookup_table: () [256]i32  = {
     table: [256]i32
-    i ::= 0
+    i := 0
     loop i < 256 {
         table[i] = i * i
         i = i + 1
@@ -30,14 +30,14 @@ generate_lookup_table = () [256]i32 {
 }
 
 // Test data structure
-TestResult = {
+TestResult: {
     name: string,
     passed: bool,
     message: string,
 }
 
 // Test function that uses imported modules
-test_imports = () void {
+test_imports: () void  = {
     // Test io module
     io.print("Testing import system...\n")
     
@@ -52,7 +52,7 @@ test_imports = () void {
     ]
     
     // Print results
-    i ::= 0
+    i := 0
     loop i < 3 {
         result := test_results[i]
         result.passed ? 
@@ -63,7 +63,7 @@ test_imports = () void {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("=== Zen Import System Test ===\n")
     io.print("Testing module imports without comptime wrapper\n\n")
     

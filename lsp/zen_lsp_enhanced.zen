@@ -134,9 +134,9 @@ ServerCapabilities := {
 }
 
 TextDocumentSyncKind := |
-    None = 0
-    Full = 1
-    Incremental = 2
+    None: 0
+    Full: 1
+    Incremental: 2
 
 CompletionOptions := {
     resolve_provider: bool
@@ -201,14 +201,14 @@ Diagnostic := {
 }
 
 DiagnosticSeverity := |
-    Error = 1
-    Warning = 2
-    Information = 3
-    Hint = 4
+    Error: 1
+    Warning: 2
+    Information: 3
+    Hint: 4
 
 DiagnosticTag := |
-    Unnecessary = 1
-    Deprecated = 2
+    Unnecessary: 1
+    Deprecated: 2
 
 DiagnosticRelatedInformation := {
     location: Location
@@ -234,35 +234,35 @@ CompletionItem := {
 }
 
 CompletionItemKind := |
-    Text = 1
-    Method = 2
-    Function = 3
-    Constructor = 4
-    Field = 5
-    Variable = 6
-    Class = 7
-    Interface = 8
-    Module = 9
-    Property = 10
-    Unit = 11
-    Value = 12
-    Enum = 13
-    Keyword = 14
-    Snippet = 15
-    Color = 16
-    File = 17
-    Reference = 18
-    Folder = 19
-    EnumMember = 20
-    Constant = 21
-    Struct = 22
-    Event = 23
-    Operator = 24
-    TypeParameter = 25
+    Text: 1
+    Method: 2
+    Function: 3
+    Constructor: 4
+    Field: 5
+    Variable: 6
+    Class: 7
+    Interface: 8
+    Module: 9
+    Property: 10
+    Unit: 11
+    Value: 12
+    Enum: 13
+    Keyword: 14
+    Snippet: 15
+    Color: 16
+    File: 17
+    Reference: 18
+    Folder: 19
+    EnumMember: 20
+    Constant: 21
+    Struct: 22
+    Event: 23
+    Operator: 24
+    TypeParameter: 25
 
 InsertTextFormat := |
-    PlainText = 1
-    Snippet = 2
+    PlainText: 1
+    Snippet: 2
 
 TextEdit := {
     range: Range
@@ -320,32 +320,32 @@ DocumentSymbol := {
 }
 
 SymbolKind := |
-    File = 1
-    Module = 2
-    Namespace = 3
-    Package = 4
-    Class = 5
-    Method = 6
-    Property = 7
-    Field = 8
-    Constructor = 9
-    Enum = 10
-    Interface = 11
-    Function = 12
-    Variable = 13
-    Constant = 14
-    String = 15
-    Number = 16
-    Boolean = 17
-    Array = 18
-    Object = 19
-    Key = 20
-    Null = 21
-    EnumMember = 22
-    Struct = 23
-    Event = 24
-    Operator = 25
-    TypeParameter = 26
+    File: 1
+    Module: 2
+    Namespace: 3
+    Package: 4
+    Class: 5
+    Method: 6
+    Property: 7
+    Field: 8
+    Constructor: 9
+    Enum: 10
+    Interface: 11
+    Function: 12
+    Variable: 13
+    Constant: 14
+    String: 15
+    Number: 16
+    Boolean: 17
+    Array: 18
+    Object: 19
+    Key: 20
+    Null: 21
+    EnumMember: 22
+    Struct: 23
+    Event: 24
+    Operator: 25
+    TypeParameter: 26
 
 // Code Actions
 CodeAction := {
@@ -382,7 +382,7 @@ LanguageServer := {
 }
 
 // Create new language server
-create_server = () LanguageServer {
+create_server: () LanguageServer  = {
     return LanguageServer {
         initialized: false
         root_uri: Option.None
@@ -431,7 +431,7 @@ handle_initialize = (server: *LanguageServer, params: InitializeParams) json.Val
                 ])
                 token_modifiers: vec.from_array([
                     "declaration", "definition", "readonly", "static",
-                    "deprecated", "abstract", "async", "modification",
+                    "deprecated", "abstract", "modification",
                     "documentation", "defaultLibrary"
                 ])
             }
@@ -446,7 +446,7 @@ handle_initialize = (server: *LanguageServer, params: InitializeParams) json.Val
 }
 
 // Check for import syntax errors
-check_import_syntax = (content: string) Vec<Diagnostic> {
+check_import_syntax: (content: string) Vec<Diagnostic>  = {
     diagnostics := vec.new<Diagnostic>()
     lines := string.split(content, "\n")
     
@@ -530,7 +530,7 @@ check_import_syntax = (content: string) Vec<Diagnostic> {
 }
 
 // Provide completion items
-provide_completions = (server: *LanguageServer, uri: string, position: Position) Vec<CompletionItem> {
+provide_completions: (server: *LanguageServer, uri: string, position: Position) Vec<CompletionItem>  = {
     items := vec.new<CompletionItem>()
     
     // Get document
@@ -542,7 +542,7 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
     // Standard library modules
     stdlib_modules := [
         "core", "io", "fs", "string", "vec", "math", "mem",
-        "net", "http", "json", "async", "crypto", "regex",
+        "net", "http", "json", "concurrency", "crypto", "regex",
         "time", "process", "thread", "test", "log"
     ]
     
@@ -623,7 +623,7 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
 }
 
 // Handle text document changes
-handle_did_change = (server: *LanguageServer, uri: string, content: string, version: i32) void {
+handle_did_change: (server: *LanguageServer, uri: string, content: string, version: i32) void  = {
     // Update document
     doc := HashMap.get_mut(server.documents, uri)
     if doc != Option.None {
@@ -640,7 +640,7 @@ handle_did_change = (server: *LanguageServer, uri: string, content: string, vers
 }
 
 // Publish diagnostics to client
-publish_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void {
+publish_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
     notification := json.object([
         ("jsonrpc", json.string("2.0")),
         ("method", json.string("textDocument/publishDiagnostics")),
@@ -654,14 +654,14 @@ publish_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void {
 }
 
 // Send message to client
-send_message = (msg: json.Value) void {
+send_message: (msg: json.Value) void  = {
     content := json.stringify(msg)
     io.printf("Content-Length: {}\r\n\r\n{}", string.len(content), content)
     io.flush()
 }
 
 // Main server loop
-main = () i32 {
+main: () i32  = {
     server := create_server()
     
     io.eprintln("Zen Language Server starting...")

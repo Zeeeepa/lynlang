@@ -44,7 +44,7 @@ fn test_simple_string_interpolation() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
@@ -134,7 +134,7 @@ fn test_multiple_interpolations() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],

@@ -13,9 +13,9 @@ hex_chars := "0123456789abcdef"
 HEX_CHARS := "0123456789ABCDEF"
 
 // Encode bytes to hex string (lowercase)
-encode_hex = (data: []u8, len: usize) string {
-    result ::= ""
-    i ::= 0: usize
+encode_hex: (data: []u8, len: usize) string  = {
+    result := ""
+    i := 0: usize
     loop i < len {
         byte := data[i]
         high := (byte >> 4) & 0x0F
@@ -27,9 +27,9 @@ encode_hex = (data: []u8, len: usize) string {
 }
 
 // Encode bytes to hex string (uppercase)
-encode_hex_upper = (data: []u8, len: usize) string {
-    result ::= ""
-    i ::= 0: usize
+encode_hex_upper: (data: []u8, len: usize) string  = {
+    result := ""
+    i := 0: usize
     loop i < len {
         byte := data[i]
         high := (byte >> 4) & 0x0F
@@ -41,7 +41,7 @@ encode_hex_upper = (data: []u8, len: usize) string {
 }
 
 // Decode hex character to value
-hex_char_to_value = (c: char) Option<u8> {
+hex_char_to_value: (c: char) Option<u8>  = {
     c >= '0' && c <= '9' ? | true => Some((c - '0'): u8)
                           | false => {
         c >= 'a' && c <= 'f' ? | true => Some((c - 'a' + 10): u8)
@@ -53,12 +53,12 @@ hex_char_to_value = (c: char) Option<u8> {
 }
 
 // Decode hex string to bytes
-decode_hex = (hex: string) Result<Vec<u8>, string> {
+decode_hex: (hex: string) Result<Vec<u8>, string>  = {
     len := string.len(hex)
     len % 2 != 0 ? | true => Err("hex string must have even length")
                    | false => {
         result := vec_new<u8>()
-        i ::= 0: usize
+        i := 0: usize
         loop i < len {
             high_char := hex[i]
             low_char := hex[i + 1]
@@ -81,9 +81,9 @@ decode_hex = (hex: string) Result<Vec<u8>, string> {
 }
 
 // Base64 encode bytes
-encode_base64 = (data: []u8, len: usize) string {
-    result ::= ""
-    i ::= 0: usize
+encode_base64: (data: []u8, len: usize) string  = {
+    result := ""
+    i := 0: usize
     
     // Process 3 bytes at a time
     loop i + 2 < len {
@@ -127,7 +127,7 @@ encode_base64 = (data: []u8, len: usize) string {
 }
 
 // Get base64 character index
-base64_char_index = (c: char) Option<u8> {
+base64_char_index: (c: char) Option<u8>  = {
     c >= 'A' && c <= 'Z' ? | true => Some((c - 'A'): u8)
                           | false => {
         c >= 'a' && c <= 'z' ? | true => Some((c - 'a' + 26): u8)
@@ -148,7 +148,7 @@ base64_char_index = (c: char) Option<u8> {
 }
 
 // Decode base64 string
-decode_base64 = (encoded: string) Result<Vec<u8>, string> {
+decode_base64: (encoded: string) Result<Vec<u8>, string>  = {
     result := vec_new<u8>()
     len := string.len(encoded)
     
@@ -156,7 +156,7 @@ decode_base64 = (encoded: string) Result<Vec<u8>, string> {
     len % 4 != 0 ? | true => return Err("invalid base64 length")
                    | false => {}
     
-    i ::= 0: usize
+    i := 0: usize
     loop i < len {
         // Get 4 characters
         c1 := encoded[i]
@@ -211,7 +211,7 @@ decode_base64 = (encoded: string) Result<Vec<u8>, string> {
 }
 
 // URL-safe base64 encoding (using - and _ instead of + and /)
-encode_base64_url = (data: []u8, len: usize) string {
+encode_base64_url: (data: []u8, len: usize) string  = {
     result := encode_base64(data, len)
     // Replace characters for URL safety
     result = string.replace_all(result, "+", "-")
@@ -224,11 +224,11 @@ encode_base64_url = (data: []u8, len: usize) string {
 }
 
 // UTF-8 encoding utilities
-is_utf8_continuation = (byte: u8) bool {
+is_utf8_continuation: (byte: u8) bool  = {
     (byte & 0xC0) == 0x80
 }
 
-utf8_decode_char = (data: []u8, idx: usize) Result<(char, usize), string> {
+utf8_decode_char: (data: []u8, idx: usize) Result<(char, usize), string> = {
     len := vec_len(data)
     idx >= len ? | true => return Err("index out of bounds")
                 | false => {}

@@ -1,26 +1,26 @@
-// Core allocator trait for colorless async/sync execution
-// Based on the design in agent/zen-allocator-async.md
+// Core allocator trait for colorless concurrent/sync execution
+// Based on the design in agent/zen-allocator-concurrent.md
 
 build := @std.build
 std := build.import("std")
 
-// Continuation type for async execution
-Continuation = {
+// Continuation type for concurrent execution
+Continuation: {
     state: *void
     resume_fn: (*void) void
 }
 
 // Base allocator trait - memory + execution context
-Allocator = {
+Allocator: {
     // Memory operations
     alloc: (size: usize) *void
     free: (ptr: *void) void
     realloc: (ptr: *void, old_size: usize, new_size: usize) *void
     
     // Execution mode
-    is_async: bool
+    is_concurrent: bool
     
-    // Control flow operations (only for async)
+    // Control flow operations (only for concurrent execution)
     suspend: () ?Continuation
     resume: (cont: Continuation) void
     
@@ -45,7 +45,7 @@ Allocator = {
 }
 
 // Sync allocator - traditional blocking execution
-SyncAllocator = {
+SyncAllocator: {
     heap: std.heap.GeneralPurposeAllocator
     
     init: () SyncAllocator {
@@ -63,15 +63,15 @@ SyncAllocator = {
             alloc: (size) => self.heap.alloc(size),
             free: (ptr) => self.heap.free(ptr),
             realloc: (ptr, old_size, new_size) => self.heap.realloc(ptr, old_size, new_size),
-            is_async: false,
+            is_concurrent: false,
             suspend: () => null,
             resume: (cont) => @panic("Cannot resume in sync context")
         }
     }
 }
 
-// Runtime for async execution
-Runtime = {
+// Runtime for concurrent execution
+Runtime: {
     ready_queue: []Continuation
     current_continuation: ?Continuation
     heap: std.heap.GeneralPurposeAllocator
@@ -111,12 +111,12 @@ Runtime = {
     }
 }
 
-// Async allocator - non-blocking with continuations
-AsyncAllocator = {
+// Concurrent allocator - non-blocking with continuations
+ConcurrentAllocator: {
     runtime: *Runtime
     
-    init: (runtime: *Runtime) AsyncAllocator {
-        return AsyncAllocator{
+    init: (runtime: *Runtime) ConcurrentAllocator {
+        return ConcurrentAllocator{
             runtime: runtime
         }
     }
@@ -126,7 +126,7 @@ AsyncAllocator = {
             alloc: (size) => self.runtime.heap.alloc(size),
             free: (ptr) => self.runtime.heap.free(ptr),
             realloc: (ptr, old_size, new_size) => self.runtime.heap.realloc(ptr, old_size, new_size),
-            is_async: true,
+            is_concurrent: true,
             suspend: () => self.runtime.save_continuation(),
             resume: (cont) => self.runtime.schedule(cont)
         }
@@ -134,15 +134,15 @@ AsyncAllocator = {
 }
 
 // Auto allocator - chooses based on context
-AutoAllocator = {
+AutoAllocator: {
     sync_alloc: SyncAllocator
-    async_alloc: ?AsyncAllocator
+    concurrent_alloc: ?ConcurrentAllocator
     runtime: ?Runtime
     
     init: () AutoAllocator {
         return AutoAllocator{
             sync_alloc: SyncAllocator.init(),
-            async_alloc: null,
+            concurrent_alloc: null,
             runtime: null
         }
     }
@@ -150,7 +150,7 @@ AutoAllocator = {
     init_with_runtime: (runtime: *Runtime) AutoAllocator {
         return AutoAllocator{
             sync_alloc: SyncAllocator.init(),
-            async_alloc: AsyncAllocator.init(runtime),
+            concurrent_alloc: ConcurrentAllocator.init(runtime),
             runtime: runtime
         }
     }
@@ -159,18 +159,18 @@ AutoAllocator = {
         // Choose based on whether we have a runtime
         self.runtime ? 
             | null => self.sync_alloc.allocator()
-            | runtime => self.async_alloc.?.allocator()
+            | runtime => self.concurrent_alloc.?.allocator()
     }
 }
 
 // Test allocator for debugging
-TestAllocator = {
+TestAllocator: {
     underlying: SyncAllocator
     allocations: []AllocationInfo
     total_allocated: usize
     total_freed: usize
     
-    AllocationInfo = {
+    AllocationInfo: {
         ptr: *void
         size: usize
         freed: bool
@@ -212,7 +212,7 @@ TestAllocator = {
                 self.underlying.heap.free(ptr)
             },
             realloc: (ptr, old_size, new_size) => self.underlying.heap.realloc(ptr, old_size, new_size),
-            is_async: false,
+            is_concurrent: false,
             suspend: () => null,
             resume: (cont) => @panic("Cannot resume in test allocator")
         }

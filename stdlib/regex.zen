@@ -6,8 +6,7 @@ extern free = (ptr: *void) void
 extern strlen = (str: *i8) i64
 
 // Regex pattern types
-RegexNode = 
-    | Literal(ch: i8)
+RegexNode: Literal(ch: i8)
     | Dot                           // . matches any character
     | CharClass(chars: *i8, negated: bool)  // [abc] or [^abc]
     | Star(child: *RegexNode)       // * zero or more
@@ -19,14 +18,14 @@ RegexNode =
     | Anchor(start: bool)           // ^ or $
 
 // Compiled regex pattern
-Regex = {
+Regex: {
     pattern: *i8,
     root: *RegexNode,
     group_count: i32,
 }
 
 // Match result
-RegexMatch = {
+RegexMatch: {
     matched: bool,
     start: i32,
     end: i32,
@@ -34,14 +33,14 @@ RegexMatch = {
     group_count: i32,
 }
 
-RegexGroup = {
+RegexGroup: {
     start: i32,
     end: i32,
     text: *i8,
 }
 
 // Regex parser state
-RegexParser = {
+RegexParser: {
     pattern: *i8,
     position: i32,
     length: i32,
@@ -49,7 +48,7 @@ RegexParser = {
 }
 
 // Create a new regex parser
-regex_parser_new = (pattern: *i8) RegexParser {
+regex_parser_new: (pattern: *i8) RegexParser  = {
     return RegexParser {
         pattern: pattern,
         position: 0,
@@ -71,26 +70,26 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
             
             // Common escape sequences
             escaped == 110 ? | true => { // \n
-                node := RegexNode::Literal(10)
+                node := RegexNode:Literal(10)
                 result := malloc(@sizeof(RegexNode)) as *RegexNode
                 *result = node
                 return result
             } | false => {}
             
             escaped == 116 ? | true => { // \t
-                node := RegexNode::Literal(9)
+                node := RegexNode:Literal(9)
                 result := malloc(@sizeof(RegexNode)) as *RegexNode
                 *result = node
                 return result
             } | false => {}
             
             // Default: treat as literal
-            node := RegexNode::Literal(escaped)
+            node := RegexNode:Literal(escaped)
             result := malloc(@sizeof(RegexNode)) as *RegexNode
             *result = node
             return result
         } | false => {
-            node := RegexNode::Literal(ch)
+            node := RegexNode:Literal(ch)
             result := malloc(@sizeof(RegexNode)) as *RegexNode
             *result = node
             return result
@@ -99,7 +98,7 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
     
     // Dot metacharacter
     ch == 46 ? | true => { // .
-        node := RegexNode::Dot
+        node := RegexNode:Dot
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
@@ -107,7 +106,7 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
     
     // Start anchor
     ch == 94 ? | true => { // ^
-        node := RegexNode::Anchor(true)
+        node := RegexNode:Anchor(true)
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
@@ -115,7 +114,7 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
     
     // End anchor
     ch == 36 ? | true => { // $
-        node := RegexNode::Anchor(false)
+        node := RegexNode:Anchor(false)
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
@@ -132,14 +131,14 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
         child := regex_parse_sequence(parser)
         parser.position = parser.position + 1 // Skip )
         
-        node := RegexNode::Group(child, true)
+        node := RegexNode:Group(child, true)
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
     } | false => {}
     
     // Literal character
-    node := RegexNode::Literal(ch)
+    node := RegexNode:Literal(ch)
     result := malloc(@sizeof(RegexNode)) as *RegexNode
     *result = node
     return result
@@ -188,7 +187,7 @@ regex_parse_char_class = (parser: *RegexParser) *RegexNode {
     
     chars[char_count] = 0
     
-    node := RegexNode::CharClass(chars, negated)
+    node := RegexNode:CharClass(chars, negated)
     result := malloc(@sizeof(RegexNode)) as *RegexNode
     *result = node
     return result
@@ -217,21 +216,21 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
             quant := parser.pattern[parser.position]
             
             quant == 42 ? | true => { // *
-                node := RegexNode::Star(atom)
+                node := RegexNode:Star(atom)
                 atom = malloc(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
             } | false => {}
             
             quant == 43 ? | true => { // +
-                node := RegexNode::Plus(atom)
+                node := RegexNode:Plus(atom)
                 atom = malloc(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
             } | false => {}
             
             quant == 63 ? | true => { // ?
-                node := RegexNode::Question(atom)
+                node := RegexNode:Question(atom)
                 atom = malloc(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
@@ -245,7 +244,7 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
     node_count == 1 ? | true => {
         return &nodes[0]
     } | false => {
-        node := RegexNode::Sequence(nodes, node_count)
+        node := RegexNode:Sequence(nodes, node_count)
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
@@ -253,7 +252,7 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
 }
 
 // Compile regex pattern
-regex_compile = (pattern: *i8) Regex {
+regex_compile: (pattern: *i8) Regex  = {
     parser := regex_parser_new(pattern)
     root := regex_parse_sequence(&parser)
     
@@ -394,7 +393,7 @@ regex_match_node = (node: *RegexNode, text: *i8, pos: i32, length: i32) (bool, i
 }
 
 // Match regex against text
-regex_match = (regex: Regex, text: *i8) RegexMatch {
+regex_match: (regex: Regex, text: *i8) RegexMatch  = {
     length := strlen(text) as i32
     
     // Try matching at each position
@@ -421,7 +420,7 @@ regex_match = (regex: Regex, text: *i8) RegexMatch {
 }
 
 // Test if pattern matches text
-regex_test = (pattern: *i8, text: *i8) bool {
+regex_test: (pattern: *i8, text: *i8) bool  = {
     regex := regex_compile(pattern)
     match := regex_match(regex, text)
     return match.matched
@@ -462,7 +461,7 @@ regex_replace = (pattern: *i8, text: *i8, replacement: *i8) *i8 {
 }
 
 // Free regex
-regex_free = (regex: *Regex) void {
+regex_free: (regex: *Regex) void  = {
     // Would need to recursively free nodes
     free(regex.root as *void)
 }

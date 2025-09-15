@@ -32,7 +32,7 @@ set_new<T> = (hash_fn: (T) i64, eq_fn: (T, T) bool) *Set<T> {
     set.eq_fn = eq_fn
     
     // Initialize all buckets
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < initial_capacity ? | false => { break } | true => {}
@@ -46,7 +46,7 @@ set_new<T> = (hash_fn: (T) i64, eq_fn: (T, T) bool) *Set<T> {
 }
 
 // Add an element to the set
-set_add<T> = (set: *Set<T>, value: T) bool {
+set_add<T>: (set: *Set<T>, value: T) bool  = {
     // Check if we need to resize
     set.size >= set.capacity * 3 / 4 ? | true => {
         set_resize(set, set.capacity * 2)
@@ -57,7 +57,7 @@ set_add<T> = (set: *Set<T>, value: T) bool {
     bucket := &set.buckets[index]
     
     // Check if element already exists
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < bucket.count ? | false => { break } | true => {}
@@ -75,7 +75,7 @@ set_add<T> = (set: *Set<T>, value: T) bool {
         new_items := mem.alloc(@sizeof(T) * new_capacity) as *T
         
         // Copy existing items
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -99,12 +99,12 @@ set_add<T> = (set: *Set<T>, value: T) bool {
 }
 
 // Check if an element exists in the set
-set_contains<T> = (set: *Set<T>, value: T) bool {
+set_contains<T>: (set: *Set<T>, value: T) bool  = {
     hash := set.hash_fn(value)
     index := (hash & 0x7FFFFFFFFFFFFFFF) % set.capacity
     bucket := &set.buckets[index]
     
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < bucket.count ? | false => { break } | true => {}
@@ -118,18 +118,18 @@ set_contains<T> = (set: *Set<T>, value: T) bool {
 }
 
 // Remove an element from the set
-set_remove<T> = (set: *Set<T>, value: T) bool {
+set_remove<T>: (set: *Set<T>, value: T) bool  = {
     hash := set.hash_fn(value)
     index := (hash & 0x7FFFFFFFFFFFFFFF) % set.capacity
     bucket := &set.buckets[index]
     
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < bucket.count ? | false => { break } | true => {}
         set.eq_fn(bucket.items[i], value) ? | true => {
             // Found it, remove by shifting elements
-            j ::= i
+            j := i
             loop {
 
                 j < bucket.count - 1 ? | false => { break } | true => {}
@@ -147,8 +147,8 @@ set_remove<T> = (set: *Set<T>, value: T) bool {
 }
 
 // Clear all elements from the set
-set_clear<T> = (set: *Set<T>) void {
-    i ::= 0i64
+set_clear<T>: (set: *Set<T>) void  = {
+    i := 0i64
     loop {
 
         i < set.capacity ? | false => { break } | true => {}
@@ -159,17 +159,17 @@ set_clear<T> = (set: *Set<T>) void {
 }
 
 // Get the size of the set
-set_size<T> = (set: *Set<T>) i64 {
+set_size<T>: (set: *Set<T>) i64  = {
     return set.size
 }
 
 // Check if the set is empty
-set_is_empty<T> = (set: *Set<T>) bool {
+set_is_empty<T>: (set: *Set<T>) bool  = {
     return set.size == 0
 }
 
 // Resize the set's internal hash table
-set_resize<T> = (set: *Set<T>, new_capacity: i64) void {
+set_resize<T>: (set: *Set<T>, new_capacity: i64) void  = {
     old_buckets := set.buckets
     old_capacity := set.capacity
     
@@ -179,7 +179,7 @@ set_resize<T> = (set: *Set<T>, new_capacity: i64) void {
     set.size = 0
     
     // Initialize new buckets
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < new_capacity ? | false => { break } | true => {}
@@ -195,7 +195,7 @@ set_resize<T> = (set: *Set<T>, new_capacity: i64) void {
 
         i < old_capacity ? | false => { break } | true => {}
         bucket := &old_buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -220,14 +220,14 @@ set_to_array<T> = (set: *Set<T>) *T {
     } | false => {}
     
     array := mem.alloc(@sizeof(T) * set.size) as *T
-    index ::= 0i64
+    index := 0i64
     
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < set.capacity ? | false => { break } | true => {}
         bucket := &set.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -246,12 +246,12 @@ set_union<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
     result := set_new<T>(set1.hash_fn, set1.eq_fn)
     
     // Add all elements from set1
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < set1.capacity ? | false => { break } | true => {}
         bucket := &set1.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -267,7 +267,7 @@ set_union<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 
         i < set2.capacity ? | false => { break } | true => {}
         bucket := &set2.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -290,12 +290,12 @@ set_intersection<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
     larger := set1.size < set2.size ? | true => set2
                                      | false => set1
     
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < smaller.capacity ? | false => { break } | true => {}
         bucket := &smaller.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -314,12 +314,12 @@ set_intersection<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 set_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
     result := set_new<T>(set1.hash_fn, set1.eq_fn)
     
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < set1.capacity ? | false => { break } | true => {}
         bucket := &set1.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -339,12 +339,12 @@ set_symmetric_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
     result := set_new<T>(set1.hash_fn, set1.eq_fn)
     
     // Add elements from set1 not in set2
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < set1.capacity ? | false => { break } | true => {}
         bucket := &set1.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -362,7 +362,7 @@ set_symmetric_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 
         i < set2.capacity ? | false => { break } | true => {}
         bucket := &set2.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -378,17 +378,17 @@ set_symmetric_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 }
 
 // Check if set1 is a subset of set2
-set_is_subset<T> = (set1: *Set<T>, set2: *Set<T>) bool {
+set_is_subset<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
     set1.size > set2.size ? | true => {
         return false
     } | false => {}
     
-    i ::= 0i64
+    i := 0i64
     loop {
 
         i < set1.capacity ? | false => { break } | true => {}
         bucket := &set1.buckets[i]
-        j ::= 0i64
+        j := 0i64
         loop {
 
             j < bucket.count ? | false => { break } | true => {}
@@ -404,12 +404,12 @@ set_is_subset<T> = (set1: *Set<T>, set2: *Set<T>) bool {
 }
 
 // Check if set1 is a superset of set2
-set_is_superset<T> = (set1: *Set<T>, set2: *Set<T>) bool {
+set_is_superset<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
     return set_is_subset(set2, set1)
 }
 
 // Check if two sets are equal
-set_equal<T> = (set1: *Set<T>, set2: *Set<T>) bool {
+set_equal<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
     set1.size != set2.size ? | true => {
         return false
     } | false => {}
@@ -418,8 +418,8 @@ set_equal<T> = (set1: *Set<T>, set2: *Set<T>) bool {
 }
 
 // Free the set and its memory
-set_free<T> = (set: *Set<T>) void {
-    i ::= 0i64
+set_free<T>: (set: *Set<T>) void  = {
+    i := 0i64
     loop {
 
         i < set.capacity ? | false => { break } | true => {}
@@ -434,7 +434,7 @@ set_free<T> = (set: *Set<T>) void {
 }
 
 // Hash functions for common types
-hash_i64 = (value: i64) i64 {
+hash_i64: (value: i64) i64  = {
     // Simple hash function for integers
     x := value
     x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9
@@ -443,14 +443,14 @@ hash_i64 = (value: i64) i64 {
     return x
 }
 
-hash_i32 = (value: i32) i64 {
+hash_i32: (value: i32) i64  = {
     return hash_i64(value as i64)
 }
 
-hash_string = (str: *i8) i64 {
+hash_string: (str: *i8) i64  = {
     // DJB2 hash algorithm
     hash := 5381i64
-    i ::= 0i64
+    i := 0i64
     
     loop {
 
@@ -464,16 +464,16 @@ hash_string = (str: *i8) i64 {
 }
 
 // Equality functions for common types
-eq_i64 = (a: i64, b: i64) bool {
+eq_i64: (a: i64, b: i64) bool  = {
     return a == b
 }
 
-eq_i32 = (a: i32, b: i32) bool {
+eq_i32: (a: i32, b: i32) bool  = {
     return a == b
 }
 
-eq_string = (a: *i8, b: *i8) bool {
-    i ::= 0i64
+eq_string: (a: *i8, b: *i8) bool  = {
+    i := 0i64
     loop {
         a[i] != b[i] ? | true => {
             return false

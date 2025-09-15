@@ -9,24 +9,24 @@ file := @std.file
 concurrency := @std.concurrency
 
 // Socket types
-SocketType = |
+SocketType: 
     TCP,
     UDP,
     Unix,
 
 // IP Address representation
-IpAddr = |
+IpAddr: 
     V4 -> addr: [4]u8,
     V6 -> addr: [16]u8,
 
 // Socket address
-SocketAddr = {
+SocketAddr: {
     ip: IpAddr,
     port: u16,
 }
 
 // Socket handle
-Socket = {
+Socket: {
     fd: i32,
     socket_type: SocketType,
     is_connected: bool,
@@ -35,18 +35,18 @@ Socket = {
 }
 
 // TCP Listener
-TcpListener = {
+TcpListener: {
     socket: Socket,
     backlog: i32,
 }
 
 // UDP Socket
-UdpSocket = {
+UdpSocket: {
     socket: Socket,
 }
 
 // HTTP Request
-HttpRequest = {
+HttpRequest: {
     method: HttpMethod,
     path: core.String,
     version: core.String,
@@ -55,7 +55,7 @@ HttpRequest = {
 }
 
 // HTTP Response
-HttpResponse = {
+HttpResponse: {
     status_code: u16,
     status_text: core.String,
     version: core.String,
@@ -64,7 +64,7 @@ HttpResponse = {
 }
 
 // HTTP Methods
-HttpMethod = |
+HttpMethod: 
     GET,
     POST,
     PUT,
@@ -76,13 +76,13 @@ HttpMethod = |
     TRACE,
 
 // HTTP Header
-Header = {
+Header: {
     name: core.String,
     value: core.String,
 }
 
 // Parse IP address from string
-parse_ip = (s: core.String) Result<IpAddr, core.String> {
+parse_ip: (s: core.String) Result<IpAddr, core.String> = {
     // Check for IPv4
     if string.contains(s, ".") {
         parts := string.split(s, ".")
@@ -114,7 +114,7 @@ parse_ip = (s: core.String) Result<IpAddr, core.String> {
 }
 
 // Create a socket address
-socket_addr = (ip: IpAddr, port: u16) SocketAddr {
+socket_addr: (ip: IpAddr, port: u16) SocketAddr  = {
     return SocketAddr{
         ip: ip,
         port: port,
@@ -122,7 +122,7 @@ socket_addr = (ip: IpAddr, port: u16) SocketAddr {
 }
 
 // Create a new TCP socket
-tcp_socket = () Result<Socket, core.String> {
+tcp_socket: () Result<Socket, core.String> = {
     fd := __sys_socket(AF_INET, SOCK_STREAM, 0)
     if fd < 0 {
         return Result<Socket, core.String>.Err("Failed to create socket")
@@ -138,7 +138,7 @@ tcp_socket = () Result<Socket, core.String> {
 }
 
 // Create a new UDP socket
-udp_socket = () Result<UdpSocket, core.String> {
+udp_socket: () Result<UdpSocket, core.String> = {
     fd := __sys_socket(AF_INET, SOCK_DGRAM, 0)
     if fd < 0 {
         return Result<UdpSocket, core.String>.Err("Failed to create socket")
@@ -156,7 +156,7 @@ udp_socket = () Result<UdpSocket, core.String> {
 }
 
 // Connect TCP socket to address
-tcp_connect = (addr: SocketAddr) Result<Socket, core.String> {
+tcp_connect: (addr: SocketAddr) Result<Socket, core.String> = {
     sock_res := tcp_socket()
     if sock_res.is_err() {
         return sock_res
@@ -180,7 +180,7 @@ tcp_connect = (addr: SocketAddr) Result<Socket, core.String> {
 }
 
 // Bind socket to address
-bind = (sock: &mut Socket, addr: SocketAddr) Result<void, core.String> {
+bind: (sock: &mut Socket, addr: SocketAddr) Result<void, core.String> = {
     sock_addr := to_sockaddr_in(addr)
     
     ret := __sys_bind(sock.fd, &sock_addr, sizeof(sock_addr))
@@ -193,7 +193,7 @@ bind = (sock: &mut Socket, addr: SocketAddr) Result<void, core.String> {
 }
 
 // Listen for connections
-listen = (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String> {
+listen: (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String> = {
     sock_res := tcp_socket()
     if sock_res.is_err() {
         return Result<TcpListener, core.String>.Err(sock_res.unwrap_err())
@@ -226,7 +226,7 @@ listen = (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String> {
 }
 
 // Accept incoming connection
-accept = (listener: &TcpListener) Result<Socket, core.String> {
+accept: (listener: &TcpListener) Result<Socket, core.String> = {
     addr: SockAddrIn
     addr_len: u32 = sizeof(addr)
     
@@ -247,7 +247,7 @@ accept = (listener: &TcpListener) Result<Socket, core.String> {
 }
 
 // Send data over socket
-send = (sock: &Socket, data: []u8) Result<usize, core.String> {
+send: (sock: &Socket, data: []u8) Result<usize, core.String> = {
     if !sock.is_connected {
         return Result<usize, core.String>.Err("Socket not connected")
     }
@@ -261,7 +261,7 @@ send = (sock: &Socket, data: []u8) Result<usize, core.String> {
 }
 
 // Receive data from socket
-recv = (sock: &Socket, buffer: &mut []u8, len: usize) Result<usize, core.String> {
+recv: (sock: &Socket, buffer: &mut []u8, len: usize) Result<usize, core.String> = {
     if !sock.is_connected {
         return Result<usize, core.String>.Err("Socket not connected")
     }
@@ -275,7 +275,7 @@ recv = (sock: &Socket, buffer: &mut []u8, len: usize) Result<usize, core.String>
 }
 
 // Send data to specific address (UDP)
-send_to = (sock: &UdpSocket, data: []u8, addr: SocketAddr) Result<usize, core.String> {
+send_to: (sock: &UdpSocket, data: []u8, addr: SocketAddr) Result<usize, core.String> = {
     sock_addr := to_sockaddr_in(addr)
     
     sent := __sys_sendto(sock.socket.fd, data.data, data.len, 0, &sock_addr, sizeof(sock_addr))
@@ -287,7 +287,7 @@ send_to = (sock: &UdpSocket, data: []u8, addr: SocketAddr) Result<usize, core.St
 }
 
 // Receive data with source address (UDP)
-recv_from = (sock: &UdpSocket, buffer: &mut []u8, len: usize) Result<(usize, SocketAddr), core.String> {
+recv_from: (sock: &UdpSocket, buffer: &mut []u8, len: usize) Result<(usize, SocketAddr), core.String> = {
     addr: SockAddrIn
     addr_len: u32 = sizeof(addr)
     
@@ -301,7 +301,7 @@ recv_from = (sock: &UdpSocket, buffer: &mut []u8, len: usize) Result<(usize, Soc
 }
 
 // Close socket
-close_socket = (sock: &mut Socket) void {
+close_socket: (sock: &mut Socket) void  = {
     if sock.fd >= 0 {
         __sys_close(sock.fd)
         sock.fd = -1
@@ -310,7 +310,7 @@ close_socket = (sock: &mut Socket) void {
 }
 
 // Set socket to non-blocking mode
-set_nonblocking = (sock: &Socket) Result<void, core.String> {
+set_nonblocking: (sock: &Socket) Result<void, core.String> = {
     flags := __sys_fcntl(sock.fd, F_GETFL, 0)
     if flags < 0 {
         return Result<void, core.String>.Err("Failed to get socket flags")
@@ -325,13 +325,13 @@ set_nonblocking = (sock: &Socket) Result<void, core.String> {
 }
 
 // HTTP Client
-HttpClient = {
+HttpClient: {
     timeout: u64,  // milliseconds
     headers: []Header,
 }
 
 // Create new HTTP client
-http_client = () HttpClient {
+http_client: () HttpClient  = {
     return HttpClient{
         timeout: 30000,  // 30 seconds default
         headers: [],
@@ -339,7 +339,7 @@ http_client = () HttpClient {
 }
 
 // Perform HTTP GET request
-http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.String> {
+http_get: (client: &HttpClient, url: core.String) Result<HttpResponse, core.String> = {
     req := HttpRequest{
         method: HttpMethod.GET,
         path: url,
@@ -352,7 +352,7 @@ http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.Str
 }
 
 // Perform HTTP POST request
-http_post = (client: &HttpClient, url: core.String, body: []u8) Result<HttpResponse, core.String> {
+http_post: (client: &HttpClient, url: core.String, body: []u8) Result<HttpResponse, core.String> = {
     req := HttpRequest{
         method: HttpMethod.POST,
         path: url,
@@ -365,7 +365,7 @@ http_post = (client: &HttpClient, url: core.String, body: []u8) Result<HttpRespo
 }
 
 // Perform generic HTTP request
-http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core.String> {
+http_request: (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core.String> = {
     // Parse URL to get host and path
     host, port, path := parse_url(req.path)
     
@@ -416,7 +416,7 @@ http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core
 }
 
 // HTTP Server
-HttpServer = {
+HttpServer: {
     listener: TcpListener,
     handler: fn(HttpRequest) HttpResponse,
     thread_pool: concurrency.ThreadPool,
@@ -437,7 +437,7 @@ http_server = (addr: SocketAddr, handler: fn(HttpRequest) HttpResponse) Result<H
 }
 
 // Start serving HTTP requests
-serve = (server: &mut HttpServer) void {
+serve: (server: &mut HttpServer) void  = {
     loop {
         // Accept connection
         conn_res := accept(&server.listener)
@@ -499,7 +499,7 @@ handle_http_connection = (mut conn: Socket, handler: fn(HttpRequest) HttpRespons
 // Helper functions
 
 // Convert IpAddr and port to sockaddr_in
-to_sockaddr_in = (addr: SocketAddr) SockAddrIn {
+to_sockaddr_in: (addr: SocketAddr) SockAddrIn  = {
     mut sock_addr: SockAddrIn
     sock_addr.sin_family = AF_INET
     sock_addr.sin_port = htons(addr.port)
@@ -519,7 +519,7 @@ to_sockaddr_in = (addr: SocketAddr) SockAddrIn {
 }
 
 // Convert sockaddr_in to SocketAddr
-from_sockaddr_in = (addr: *SockAddrIn) SocketAddr {
+from_sockaddr_in: (addr: *SockAddrIn) SocketAddr  = {
     ip_addr := addr.sin_addr
     octets: [4]u8 = [
         (ip_addr >> 24) & 0xFF,
@@ -535,11 +535,11 @@ from_sockaddr_in = (addr: *SockAddrIn) SocketAddr {
 }
 
 // Network byte order conversion
-htons = (val: u16) u16 {
+htons: (val: u16) u16  = {
     return ((val & 0xFF) << 8) | ((val >> 8) & 0xFF)
 }
 
-ntohs = (val: u16) u16 {
+ntohs: (val: u16) u16  = {
     return ((val & 0xFF) << 8) | ((val >> 8) & 0xFF)
 }
 
@@ -579,7 +579,7 @@ parse_url = (url: core.String) (core.String, u16, core.String) {
 }
 
 // Resolve hostname to IP address
-resolve_host = (host: core.String, port: u16) Result<SocketAddr, core.String> {
+resolve_host: (host: core.String, port: u16) Result<SocketAddr, core.String> = {
     // For now, only handle IP addresses directly
     ip_res := parse_ip(host)
     if ip_res.is_err() {
@@ -639,7 +639,7 @@ format_http_response = (res: HttpResponse) core.String {
 }
 
 // Parse HTTP request (simplified)
-parse_http_request = (data: []u8) Result<HttpRequest, core.String> {
+parse_http_request: (data: []u8) Result<HttpRequest, core.String> = {
     text := core.String.from_bytes(data)
     lines := string.split(text, "\r\n")
     
@@ -688,7 +688,7 @@ parse_http_request = (data: []u8) Result<HttpRequest, core.String> {
 }
 
 // Parse HTTP response (simplified)
-parse_http_response = (data: []u8) Result<HttpResponse, core.String> {
+parse_http_response: (data: []u8) Result<HttpResponse, core.String> = {
     text := core.String.from_bytes(data)
     lines := string.split(text, "\r\n")
     
@@ -752,7 +752,7 @@ method_to_string = (method: HttpMethod) core.String {
 }
 
 // Convert string to method enum
-string_to_method = (s: core.String) HttpMethod {
+string_to_method: (s: core.String) HttpMethod  = {
     if string.equals(s, "GET") { return HttpMethod.GET }
     if string.equals(s, "POST") { return HttpMethod.POST }
     if string.equals(s, "PUT") { return HttpMethod.PUT }
@@ -777,7 +777,7 @@ F_GETFL: i32 = 3
 F_SETFL: i32 = 4
 
 // Socket address structure
-SockAddrIn = {
+SockAddrIn: {
     sin_family: u16,
     sin_port: u16,
     sin_addr: u32,

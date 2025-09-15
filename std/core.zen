@@ -20,7 +20,7 @@ Vec<T> = {
     // Create new empty vector
     new: () Vec<T> {
         Vec<T>{
-            data: Ptr::null(),
+            data: Ptr:null(),
             len: 0,
             capacity: 0,
         }
@@ -30,14 +30,14 @@ Vec<T> = {
     with_capacity: (cap: usize) Vec<T> {
         cap > 0 ?
             | true => {
-                data := Ptr::alloc_slice(cap)
+                data := Ptr:alloc_slice(cap)
                 Vec<T>{
                     data: data,
                     len: 0,
                     capacity: cap,
                 }
             }
-            | false => Vec<T>::new()
+            | false => Vec<T>:new()
     },
     
     // Push element to vector
@@ -58,8 +58,8 @@ Vec<T> = {
     // Get element at index
     get: (self: Ptr<Vec<T>>, index: usize) Option<T> {
         index < self.value.len ?
-            | true => Option::Some(self.value.data.value[index])
-            | false => Option::None
+            | true => Option:Some(self.value.data.value[index])
+            | false => Option:None
     },
     
     // Set element at index
@@ -67,9 +67,9 @@ Vec<T> = {
         index < self.value.len ?
             | true => {
                 self.value.data.value[index] = value
-                Result::Ok(void)
+                Result:Ok(void)
             }
-            | false => Result::Err("Index out of bounds")
+            | false => Result:Err("Index out of bounds")
     },
     
     // Get length
@@ -89,7 +89,7 @@ Vec<T> = {
     
     // Resize vector
     resize: (self: Ptr<Vec<T>>, new_cap: usize) void {
-        new_data := Ptr::alloc_slice(new_cap)
+        new_data := Ptr:alloc_slice(new_cap)
         
         // Copy existing data
         min_len := self.value.len < new_cap ?
@@ -128,7 +128,7 @@ HashMap<K, V> = {
     // Create new empty map
     new: () HashMap<K, V> {
         HashMap<K, V>{
-            buckets: Ptr::new(Vec<Bucket<K, V>>::with_capacity(16)),
+            buckets: Ptr:new(Vec<Bucket<K, V>>:with_capacity(16)),
             count: 0,
         }
     },
@@ -148,8 +148,8 @@ HashMap<K, V> = {
                         k == key ?
                             | true => {
                                 old_value := v
-                                self.value.buckets.value.set(index, Bucket::Entry(key, value, next))
-                                Option::Some(old_value)
+                                self.value.buckets.value.set(index, Bucket:Entry(key, value, next))
+                                Option:Some(old_value)
                             }
                             | false => {
                                 // Continue searching in chain
@@ -157,14 +157,14 @@ HashMap<K, V> = {
                             }
                     }
                     | .Empty => {
-                        self.value.buckets.value.set(index, Bucket::Entry(key, value, Option::None))
+                        self.value.buckets.value.set(index, Bucket:Entry(key, value, Option:None))
                         self.value.count = self.value.count + 1
-                        Option::None
+                        Option:None
                     }
             }
             | None => {
                 // Should not happen with proper initialization
-                Option::None
+                Option:None
             }
     },
     
@@ -179,7 +179,7 @@ HashMap<K, V> = {
             | Some -> b => {
                 self.find_in_bucket(b, key)
             }
-            | None => Option::None
+            | None => Option:None
     },
     
     // Remove key-value pair
@@ -195,11 +195,11 @@ HashMap<K, V> = {
                 result ?
                     | Some -> v => {
                         self.value.count = self.value.count - 1
-                        Option::Some(v)
+                        Option:Some(v)
                     }
-                    | None => Option::None
+                    | None => Option:None
             }
-            | None => Option::None
+            | None => Option:None
     },
     
     // Check if key exists
@@ -234,18 +234,18 @@ Slice<T> = {
     // Get element at index
     get: (self: Ptr<Slice<T>>, index: usize) Option<T> {
         index < self.value.len ?
-            | true => Option::Some(self.value.ptr.offset(index).value)
-            | false => Option::None
+            | true => Option:Some(self.value.ptr.offset(index).value)
+            | false => Option:None
     },
     
     // Get subslice
     slice: (self: Ptr<Slice<T>>, start: usize, end: usize) Option<Slice<T>> {
         start <= end && end <= self.value.len ?
-            | true => Option::Some(Slice<T>{
+            | true => Option:Some(Slice<T>{
                 ptr: self.value.ptr.offset(start),
                 len: end - start,
             })
-            | false => Option::None
+            | false => Option:None
     },
 }
 
@@ -262,7 +262,7 @@ Ptr<T> = {
     
     // Create null pointer
     null: () Ptr<T> {
-        Ptr<T>{ raw: RawPtr::null() }
+        Ptr<T>{ raw: RawPtr:null() }
     },
     
     // Allocate slice
@@ -272,7 +272,7 @@ Ptr<T> = {
             ptr: Ptr<T>{ raw: raw },
             len: count,
         }
-        Ptr::new(slice)
+        Ptr:new(slice)
     },
     
     // Check if null
@@ -316,7 +316,7 @@ Ref<T> = {
             value: value,
             count: 1,
         }
-        Ref<T>{ ptr: Ptr::new(cell) }
+        Ref<T>{ ptr: Ptr:new(cell) }
     },
     
     // Clone reference (increase count)
@@ -340,19 +340,19 @@ Ref<T> = {
 }
 
 // Helper functions (compiler intrinsics)
-allocate<T> = (count: usize) RawPtr<T> {
+allocate<T>: (count: usize) RawPtr<T>  = {
     @intrinsic("allocate", size_of<T>() * count)
 }
 
-deallocate<T> = (ptr: RawPtr<T>) void {
+deallocate<T>: (ptr: RawPtr<T>) void  = {
     @intrinsic("deallocate", ptr)
 }
 
-size_of<T> = () usize {
+size_of<T>: () usize  = {
     @intrinsic("size_of", T)
 }
 
-compute_hash<T> = (value: T) usize {
+compute_hash<T>: (value: T) usize  = {
     @intrinsic("hash", value)
 }
 

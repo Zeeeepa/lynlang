@@ -12,7 +12,7 @@ core := @std.core
 VERSION := "0.1.0"
 
 // Token structure
-Token = {
+Token: {
     token_type: i32,  // Using i32 instead of enum for simplicity
     lexeme: string,
     line: i32,
@@ -30,7 +30,7 @@ TOKEN_DELIMITER := 6
 TOKEN_ERROR := 7
 
 // Lexer state
-Lexer = {
+Lexer: {
     source: string,
     position: i32,
     line: i32,
@@ -38,7 +38,7 @@ Lexer = {
 }
 
 // Create a new lexer
-create_lexer = (source: string) Lexer {
+create_lexer: (source: string) Lexer  = {
     return Lexer {
         source: source,
         position: 0,
@@ -48,12 +48,12 @@ create_lexer = (source: string) Lexer {
 }
 
 // Check if at end
-is_at_end = (pos: i32, len: i32) bool {
+is_at_end: (pos: i32, len: i32) bool  = {
     return pos >= len
 }
 
 // Get character at position
-char_at = (pos: i32, len: i32) i32 {
+char_at: (pos: i32, len: i32) i32  = {
     if pos >= len {
         return 0
     }
@@ -62,7 +62,7 @@ char_at = (pos: i32, len: i32) i32 {
 }
 
 // Simple tokenizer
-tokenize = (source: string) i32 {
+tokenize: (source: string) i32  = {
     lexer := create_lexer(source);
     token_count := 0;
     
@@ -95,7 +95,7 @@ tokenize = (source: string) i32 {
 }
 
 // Compile a file
-compile_file = (filename: string) bool {
+compile_file: (filename: string) bool  = {
     io.print("Compiling: ");
     io.print(filename);
     io.print("\n");
@@ -114,7 +114,7 @@ compile_file = (filename: string) bool {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Zen Minimal Self-Hosting Compiler v");
     io.print(VERSION);
     io.print("\n");

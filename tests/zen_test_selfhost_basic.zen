@@ -10,14 +10,14 @@ string := @std.string
 test_program = "
     io := @std.io
     
-    main = () i32 {
+    main: () i32  = {
         io.print(\"Hello from self-hosted Zen!\\n\")
         return 0
     }
 "
 
 // Test lexer functionality
-test_lexer = () bool {
+test_lexer: () bool  = {
     // In a real implementation, we'd use the lexer module
     // For now, just return true to indicate the test structure is correct
     io.print("Testing lexer...")
@@ -31,7 +31,7 @@ test_lexer = () bool {
 }
 
 // Test parser functionality  
-test_parser = () bool {
+test_parser: () bool  = {
     io.print("Testing parser...")
     
     // Verify we can parse basic statements
@@ -43,7 +43,7 @@ test_parser = () bool {
 }
 
 // Test type checker
-test_type_checker = () bool {
+test_type_checker: () bool  = {
     io.print("Testing type checker...")
     
     // Verify type checking works
@@ -55,7 +55,7 @@ test_type_checker = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=== Zen Self-Hosting Test Suite ===\n\n")
     
     test_count := 0

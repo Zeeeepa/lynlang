@@ -8,7 +8,7 @@ path := @std.path
 result := @std.result
 
 // File handle
-File = {
+File: {
     fd: i32,  // File descriptor
     path: core.String,
     mode: FileMode,
@@ -16,20 +16,20 @@ File = {
 }
 
 // File modes
-FileMode = |
+FileMode: 
     Read,
     Write,
     Append,
     ReadWrite,
 
 // File seek positions
-SeekFrom = |
+SeekFrom: 
     Start -> offset: i64,
     Current -> offset: i64,
     End -> offset: i64,
 
 // File metadata
-FileMetadata = {
+FileMetadata: {
     size: u64,
     created: u64,    // Unix timestamp
     modified: u64,   // Unix timestamp
@@ -41,14 +41,14 @@ FileMetadata = {
 }
 
 // Directory entry
-DirEntry = {
+DirEntry: {
     name: core.String,
     path: core.String,
     metadata: FileMetadata,
 }
 
 // Open a file with specified mode
-open = (path: core.String, mode: FileMode) Result<File, core.String> {
+open: (path: core.String, mode: FileMode) Result<File, core.String> = {
     flags := mode_to_flags(mode)
     fd := __sys_open(path.data, flags, 0o644)
     
@@ -65,7 +65,7 @@ open = (path: core.String, mode: FileMode) Result<File, core.String> {
 }
 
 // Create a new file (truncates if exists)
-create = (path: core.String) Result<File, core.String> {
+create: (path: core.String) Result<File, core.String> = {
     fd := __sys_open(path.data, O_CREAT | O_WRONLY | O_TRUNC, 0o644)
     
     if fd < 0 {
@@ -81,7 +81,7 @@ create = (path: core.String) Result<File, core.String> {
 }
 
 // Read entire file contents as string
-read_to_string = (file: &mut File) Result<core.String, core.String> {
+read_to_string: (file: &mut File) Result<core.String, core.String> = {
     if !file.is_open {
         return Result<core.String, core.String>.Err("File is not open")
     }
@@ -110,7 +110,7 @@ read_to_string = (file: &mut File) Result<core.String, core.String> {
 }
 
 // Read bytes from file
-read = (file: &mut File, buffer: &mut []u8, count: usize) Result<usize, core.String> {
+read: (file: &mut File, buffer: &mut []u8, count: usize) Result<usize, core.String> = {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -124,7 +124,7 @@ read = (file: &mut File, buffer: &mut []u8, count: usize) Result<usize, core.Str
 }
 
 // Read entire file into byte array
-read_bytes = (file: &mut File) Result<[]u8, core.String> {
+read_bytes: (file: &mut File) Result<[]u8, core.String> = {
     if !file.is_open {
         return Result<[]u8, core.String>.Err("File is not open")
     }
@@ -148,7 +148,7 @@ read_bytes = (file: &mut File) Result<[]u8, core.String> {
 }
 
 // Write string to file
-write_string = (file: &mut File, content: core.String) Result<usize, core.String> {
+write_string: (file: &mut File, content: core.String) Result<usize, core.String> = {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -162,7 +162,7 @@ write_string = (file: &mut File, content: core.String) Result<usize, core.String
 }
 
 // Write bytes to file
-write = (file: &mut File, buffer: []u8) Result<usize, core.String> {
+write: (file: &mut File, buffer: []u8) Result<usize, core.String> = {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -176,7 +176,7 @@ write = (file: &mut File, buffer: []u8) Result<usize, core.String> {
 }
 
 // Write line to file (adds newline)
-write_line = (file: &mut File, line: core.String) Result<usize, core.String> {
+write_line: (file: &mut File, line: core.String) Result<usize, core.String> = {
     total := 0
     
     // Write the line
@@ -197,7 +197,7 @@ write_line = (file: &mut File, line: core.String) Result<usize, core.String> {
 }
 
 // Seek to position in file
-seek = (file: &mut File, pos: SeekFrom) Result<u64, core.String> {
+seek: (file: &mut File, pos: SeekFrom) Result<u64, core.String> = {
     if !file.is_open {
         return Result<u64, core.String>.Err("File is not open")
     }
@@ -229,7 +229,7 @@ seek = (file: &mut File, pos: SeekFrom) Result<u64, core.String> {
 }
 
 // Get current position in file
-tell = (file: &File) Result<u64, core.String> {
+tell: (file: &File) Result<u64, core.String> = {
     if !file.is_open {
         return Result<u64, core.String>.Err("File is not open")
     }
@@ -243,7 +243,7 @@ tell = (file: &File) Result<u64, core.String> {
 }
 
 // Flush file buffers
-flush = (file: &mut File) Result<void, core.String> {
+flush: (file: &mut File) Result<void, core.String> = {
     if !file.is_open {
         return Result<void, core.String>.Err("File is not open")
     }
@@ -257,7 +257,7 @@ flush = (file: &mut File) Result<void, core.String> {
 }
 
 // Close file
-close = (file: &mut File) Result<void, core.String> {
+close: (file: &mut File) Result<void, core.String> = {
     if !file.is_open {
         return Result<void, core.String>.Ok(void)
     }
@@ -272,7 +272,7 @@ close = (file: &mut File) Result<void, core.String> {
 }
 
 // Get file metadata
-get_metadata = (file: &File) Result<FileMetadata, core.String> {
+get_metadata: (file: &File) Result<FileMetadata, core.String> = {
     if !file.is_open {
         return Result<FileMetadata, core.String>.Err("File is not open")
     }
@@ -297,13 +297,13 @@ get_metadata = (file: &File) Result<FileMetadata, core.String> {
 }
 
 // Check if file exists
-exists = (path: core.String) bool {
+exists: (path: core.String) bool  = {
     ret := __sys_access(path.data, F_OK)
     return ret == 0
 }
 
 // Delete a file
-delete = (path: core.String) Result<void, core.String> {
+delete: (path: core.String) Result<void, core.String> = {
     ret := __sys_unlink(path.data)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
@@ -312,7 +312,7 @@ delete = (path: core.String) Result<void, core.String> {
 }
 
 // Rename a file
-rename = (old_path: core.String, new_path: core.String) Result<void, core.String> {
+rename: (old_path: core.String, new_path: core.String) Result<void, core.String> = {
     ret := __sys_rename(old_path.data, new_path.data)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
@@ -321,7 +321,7 @@ rename = (old_path: core.String, new_path: core.String) Result<void, core.String
 }
 
 // Copy a file
-copy = (src_path: core.String, dst_path: core.String) Result<u64, core.String> {
+copy: (src_path: core.String, dst_path: core.String) Result<u64, core.String> = {
     // Open source file
     src_res := open(src_path, FileMode.Read)
     if src_res.is_err() {
@@ -365,7 +365,7 @@ copy = (src_path: core.String, dst_path: core.String) Result<u64, core.String> {
 }
 
 // Create a directory
-create_dir = (path: core.String) Result<void, core.String> {
+create_dir: (path: core.String) Result<void, core.String> = {
     ret := __sys_mkdir(path.data, 0o755)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
@@ -374,12 +374,12 @@ create_dir = (path: core.String) Result<void, core.String> {
 }
 
 // Create directory and all parent directories
-create_dir_all = (path: core.String) Result<void, core.String> {
-    parts := path::split(path)
+create_dir_all: (path: core.String) Result<void, core.String> = {
+    parts := path:split(path)
     current := core.String{ data: "", len: 0 }
     
     for part in parts {
-        current = path::join(current, part)
+        current = path:join(current, part)
         if !exists(current) {
             res := create_dir(current)
             if res.is_err() {
@@ -392,7 +392,7 @@ create_dir_all = (path: core.String) Result<void, core.String> {
 }
 
 // Remove a directory (must be empty)
-remove_dir = (path: core.String) Result<void, core.String> {
+remove_dir: (path: core.String) Result<void, core.String> = {
     ret := __sys_rmdir(path.data)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
@@ -401,7 +401,7 @@ remove_dir = (path: core.String) Result<void, core.String> {
 }
 
 // Read directory contents
-read_dir = (path: core.String) Result<[]DirEntry, core.String> {
+read_dir: (path: core.String) Result<[]DirEntry, core.String> = {
     dir := __sys_opendir(path.data)
     if dir == null {
         return Result<[]DirEntry, core.String>.Err("Failed to open directory")
@@ -426,7 +426,7 @@ read_dir = (path: core.String) Result<[]DirEntry, core.String> {
             continue
         }
         
-        full_path := path::join(path, name)
+        full_path := path:join(path, name)
         
         // Get metadata
         stat_buf: StatBuf
@@ -476,7 +476,7 @@ walk_dir = (path: core.String, callback: fn(DirEntry) void) Result<void, core.St
 }
 
 // Helper function to convert FileMode to system flags
-mode_to_flags = (mode: FileMode) i32 {
+mode_to_flags: (mode: FileMode) i32  = {
     match mode {
         FileMode.Read => O_RDONLY,
         FileMode.Write => O_WRONLY | O_CREAT | O_TRUNC,
@@ -526,7 +526,7 @@ S_IFREG: u32 = 0o100000
 S_IFLNK: u32 = 0o120000
 
 // Stat buffer structure
-StatBuf = {
+StatBuf: {
     st_dev: u64,
     st_ino: u64,
     st_mode: u32,
@@ -561,7 +561,7 @@ extern __sys_readdir(dir: *void) *DirEnt
 extern __sys_closedir(dir: *void) i32
 
 // Directory entry structure for readdir
-DirEnt = {
+DirEnt: {
     d_ino: u64,
     d_off: i64,
     d_reclen: u16,

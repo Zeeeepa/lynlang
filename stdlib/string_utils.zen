@@ -7,14 +7,14 @@ vec := @std.vec
 io := @std.io
 
 // String builder for efficient string concatenation
-StringBuilder = {
-    buffer:: Vec<i8>,
-    length:: u32,
-    capacity:: u32,
+StringBuilder: {
+    buffer: Vec<i8>,
+    length: u32,
+    capacity: u32,
 }
 
 // Create a new string builder
-string_builder_new = () StringBuilder {
+string_builder_new: () StringBuilder  = {
     initial_capacity := 64
     StringBuilder{
         buffer: vec_with_capacity<i8>(initial_capacity),
@@ -24,7 +24,7 @@ string_builder_new = () StringBuilder {
 }
 
 // Create string builder with specific capacity
-string_builder_with_capacity = (capacity: u32) StringBuilder {
+string_builder_with_capacity: (capacity: u32) StringBuilder  = {
     StringBuilder{
         buffer: vec_with_capacity<i8>(capacity),
         length: 0,
@@ -33,7 +33,7 @@ string_builder_with_capacity = (capacity: u32) StringBuilder {
 }
 
 // Append a string to the builder
-string_builder_append = (sb:: Ptr<StringBuilder>, s: string) void {
+string_builder_append: (sb: Ptr<StringBuilder>, s: string) void  = {
     len := string_len(s)
     
     // Ensure capacity
@@ -47,7 +47,7 @@ string_builder_append = (sb:: Ptr<StringBuilder>, s: string) void {
     } | false => {}
     
     // Copy string to buffer
-    i ::= 0
+    i := 0
     loop i < len {
         sb.buffer.push(s[i])
         i = i + 1
@@ -57,7 +57,7 @@ string_builder_append = (sb:: Ptr<StringBuilder>, s: string) void {
 }
 
 // Append a character
-string_builder_append_char = (sb:: Ptr<StringBuilder>, c: i8) void {
+string_builder_append_char: (sb: Ptr<StringBuilder>, c: i8) void  = {
     sb.length + 1 > sb.capacity ? | true => {
         new_capacity := sb.capacity * 2
         sb.buffer.reserve(new_capacity)
@@ -69,7 +69,7 @@ string_builder_append_char = (sb:: Ptr<StringBuilder>, c: i8) void {
 }
 
 // Convert to string
-string_builder_to_string = (sb:: Ptr<StringBuilder>) string {
+string_builder_to_string: (sb: Ptr<StringBuilder>) string  = {
     // Add null terminator
     sb.buffer.push(0)
     
@@ -78,7 +78,7 @@ string_builder_to_string = (sb:: Ptr<StringBuilder>) string {
     result ?
         | .Ok -> ptr => {
             bytes := ptr as Ptr<i8>
-            i ::= 0
+            i := 0
             loop i <= sb.length {
                 bytes[i] = sb.buffer.at(i)
                 i = i + 1
@@ -91,16 +91,16 @@ string_builder_to_string = (sb:: Ptr<StringBuilder>) string {
 }
 
 // Clear the builder
-string_builder_clear = (sb:: Ptr<StringBuilder>) void {
+string_builder_clear: (sb: Ptr<StringBuilder>) void  = {
     sb.buffer.clear()
     sb.length = 0
 }
 
 // String length
-string_len = (s: string) u32 {
+string_len: (s: string) u32  = {
     s == null ? | true => return 0 | false => {}
     
-    len ::= 0
+    len := 0
     loop s[len] != 0 {
         len = len + 1
     }
@@ -108,11 +108,11 @@ string_len = (s: string) u32 {
 }
 
 // String comparison
-string_eq = (a: string, b: string) bool {
+string_eq: (a: string, b: string) bool  = {
     a == null && b == null ? | true => return true | false => {}
     a == null || b == null ? | true => return false | false => {}
     
-    i ::= 0
+    i := 0
     loop {
         a[i] != b[i] ? | true => return false | false => {}
         a[i] == 0 ? | true => return true | false => {}
@@ -121,12 +121,12 @@ string_eq = (a: string, b: string) bool {
 }
 
 // Lexicographic comparison
-string_compare = (a: string, b: string) i32 {
+string_compare: (a: string, b: string) i32  = {
     a == null && b == null ? | true => return 0 | false => {}
     a == null ? | true => return -1 | false => {}
     b == null ? | true => return 1 | false => {}
     
-    i ::= 0
+    i := 0
     loop {
         a[i] < b[i] ? | true => return -1 | false => {}
         a[i] > b[i] ? | true => return 1 | false => {}
@@ -136,7 +136,7 @@ string_compare = (a: string, b: string) i32 {
 }
 
 // Check if string starts with prefix
-string_starts_with = (s: string, prefix: string) bool {
+string_starts_with: (s: string, prefix: string) bool  = {
     s == null || prefix == null ? | true => return false | false => {}
     
     prefix_len := string_len(prefix)
@@ -144,7 +144,7 @@ string_starts_with = (s: string, prefix: string) bool {
     
     prefix_len > s_len ? | true => return false | false => {}
     
-    i ::= 0
+    i := 0
     loop i < prefix_len {
         s[i] != prefix[i] ? | true => return false | false => {}
         i = i + 1
@@ -153,7 +153,7 @@ string_starts_with = (s: string, prefix: string) bool {
 }
 
 // Check if string ends with suffix
-string_ends_with = (s: string, suffix: string) bool {
+string_ends_with: (s: string, suffix: string) bool  = {
     s == null || suffix == null ? | true => return false | false => {}
     
     suffix_len := string_len(suffix)
@@ -162,7 +162,7 @@ string_ends_with = (s: string, suffix: string) bool {
     suffix_len > s_len ? | true => return false | false => {}
     
     offset := s_len - suffix_len
-    i ::= 0
+    i := 0
     loop i < suffix_len {
         s[offset + i] != suffix[i] ? | true => return false | false => {}
         i = i + 1
@@ -171,7 +171,7 @@ string_ends_with = (s: string, suffix: string) bool {
 }
 
 // Find substring
-string_find = (haystack: string, needle: string) i32 {
+string_find: (haystack: string, needle: string) i32  = {
     haystack == null || needle == null ? | true => return -1 | false => {}
     
     needle_len := string_len(needle)
@@ -180,11 +180,11 @@ string_find = (haystack: string, needle: string) i32 {
     needle_len == 0 ? | true => return 0 | false => {}
     needle_len > haystack_len ? | true => return -1 | false => {}
     
-    i ::= 0
+    i := 0
     loop i <= haystack_len - needle_len {
         // Check if needle matches at position i
-        match ::= true
-        j ::= 0
+        match := true
+        j := 0
         loop j < needle_len {
             haystack[i + j] != needle[j] ? | true => {
                 match = false
@@ -201,7 +201,7 @@ string_find = (haystack: string, needle: string) i32 {
 }
 
 // Find last occurrence of substring
-string_rfind = (haystack: string, needle: string) i32 {
+string_rfind: (haystack: string, needle: string) i32  = {
     haystack == null || needle == null ? | true => return -1 | false => {}
     
     needle_len := string_len(needle)
@@ -213,8 +213,8 @@ string_rfind = (haystack: string, needle: string) i32 {
     i := haystack_len - needle_len
     loop i >= 0 {
         // Check if needle matches at position i
-        match ::= true
-        j ::= 0
+        match := true
+        j := 0
         loop j < needle_len {
             haystack[i + j] != needle[j] ? | true => {
                 match = false
@@ -231,14 +231,14 @@ string_rfind = (haystack: string, needle: string) i32 {
 }
 
 // Count occurrences of substring
-string_count = (haystack: string, needle: string) u32 {
+string_count: (haystack: string, needle: string) u32  = {
     haystack == null || needle == null ? | true => return 0 | false => {}
     
     needle_len := string_len(needle)
     needle_len == 0 ? | true => return 0 | false => {}
     
-    count ::= 0
-    pos ::= 0
+    count := 0
+    pos := 0
     loop {
         found := string_find(haystack + pos, needle)
         found < 0 ? | true => break | false => {}
@@ -251,7 +251,7 @@ string_count = (haystack: string, needle: string) u32 {
 }
 
 // Substring extraction
-string_substring = (s: string, start: u32, length: u32) string {
+string_substring: (s: string, start: u32, length: u32) string  = {
     s == null ? | true => return null | false => {}
     
     s_len := string_len(s)
@@ -265,7 +265,7 @@ string_substring = (s: string, start: u32, length: u32) string {
     result ?
         | .Ok -> ptr => {
             bytes := ptr as Ptr<i8>
-            i ::= 0
+            i := 0
             loop i < actual_len {
                 bytes[i] = s[start + i]
                 i = i + 1
@@ -279,7 +279,7 @@ string_substring = (s: string, start: u32, length: u32) string {
 }
 
 // Convert to uppercase
-string_to_upper = (s: string) string {
+string_to_upper: (s: string) string  = {
     s == null ? | true => return null | false => {}
     
     len := string_len(s)
@@ -287,7 +287,7 @@ string_to_upper = (s: string) string {
     result ?
         | .Ok -> ptr => {
             bytes := ptr as Ptr<i8>
-            i ::= 0
+            i := 0
             loop i < len {
                 c := s[i]
                 c >= 'a' && c <= 'z' ?
@@ -304,7 +304,7 @@ string_to_upper = (s: string) string {
 }
 
 // Convert to lowercase
-string_to_lower = (s: string) string {
+string_to_lower: (s: string) string  = {
     s == null ? | true => return null | false => {}
     
     len := string_len(s)
@@ -312,7 +312,7 @@ string_to_lower = (s: string) string {
     result ?
         | .Ok -> ptr => {
             bytes := ptr as Ptr<i8>
-            i ::= 0
+            i := 0
             loop i < len {
                 c := s[i]
                 c >= 'A' && c <= 'Z' ?
@@ -329,14 +329,14 @@ string_to_lower = (s: string) string {
 }
 
 // Trim whitespace from both ends
-string_trim = (s: string) string {
+string_trim: (s: string) string  = {
     s == null ? | true => return null | false => {}
     
     len := string_len(s)
     len == 0 ? | true => return s | false => {}
     
     // Find start of non-whitespace
-    start ::= 0
+    start := 0
     loop start < len {
         c := s[start]
         c != ' ' && c != '\t' && c != '\n' && c != '\r' ?
@@ -362,13 +362,13 @@ string_trim = (s: string) string {
 }
 
 // Trim whitespace from left
-string_ltrim = (s: string) string {
+string_ltrim: (s: string) string  = {
     s == null ? | true => return null | false => {}
     
     len := string_len(s)
     len == 0 ? | true => return s | false => {}
     
-    start ::= 0
+    start := 0
     loop start < len {
         c := s[start]
         c != ' ' && c != '\t' && c != '\n' && c != '\r' ?
@@ -382,7 +382,7 @@ string_ltrim = (s: string) string {
 }
 
 // Trim whitespace from right
-string_rtrim = (s: string) string {
+string_rtrim: (s: string) string  = {
     s == null ? | true => return null | false => {}
     
     len := string_len(s)
@@ -402,7 +402,7 @@ string_rtrim = (s: string) string {
 }
 
 // Replace all occurrences of a substring
-string_replace = (s: string, old: string, new: string) string {
+string_replace: (s: string, old: string, new: string) string  = {
     s == null || old == null || new == null ? | true => return s | false => {}
     
     old_len := string_len(old)
@@ -421,13 +421,13 @@ string_replace = (s: string, old: string, new: string) string {
     result ?
         | .Ok -> ptr => {
             bytes := ptr as Ptr<i8>
-            src_pos ::= 0
-            dst_pos ::= 0
+            src_pos := 0
+            dst_pos := 0
             
             loop src_pos < s_len {
                 // Check if old string matches at current position
-                match ::= true
-                i ::= 0
+                match := true
+                i := 0
                 loop i < old_len && src_pos + i < s_len {
                     s[src_pos + i] != old[i] ? | true => {
                         match = false
@@ -438,7 +438,7 @@ string_replace = (s: string, old: string, new: string) string {
                 
                 match && i == old_len ? | true => {
                     // Copy replacement
-                    j ::= 0
+                    j := 0
                     loop j < new_len {
                         bytes[dst_pos] = new[j]
                         dst_pos = dst_pos + 1
@@ -462,7 +462,7 @@ string_replace = (s: string, old: string, new: string) string {
 }
 
 // Split string by delimiter
-string_split = (s: string, delimiter: string) Vec<string> {
+string_split: (s: string, delimiter: string) Vec<string>  = {
     result := vec_new<string>()
     
     s == null || delimiter == null ? | true => return result | false => {}
@@ -475,7 +475,7 @@ string_split = (s: string, delimiter: string) Vec<string> {
         return result
     } | false => {}
     
-    start ::= 0
+    start := 0
     loop {
         // Find next delimiter
         pos := string_find(s + start, delimiter)
@@ -497,15 +497,15 @@ string_split = (s: string, delimiter: string) Vec<string> {
 }
 
 // Join strings with separator
-string_join = (strings: Vec<string>, separator: string) string {
+string_join: (strings: Vec<string>, separator: string) string  = {
     strings.len() == 0 ? | true => return "" | false => {}
     strings.len() == 1 ? | true => return strings.at(0) | false => {}
     
     sep_len := string_len(separator)
     
     // Calculate total length
-    total_len ::= 0
-    i ::= 0
+    total_len := 0
+    i := 0
     loop i < strings.len() {
         total_len = total_len + string_len(strings.at(i))
         i < strings.len() - 1 ? | true => {
@@ -519,7 +519,7 @@ string_join = (strings: Vec<string>, separator: string) string {
     result ?
         | .Ok -> ptr => {
             bytes := ptr as Ptr<i8>
-            pos ::= 0
+            pos := 0
             
             i = 0
             loop i < strings.len() {
@@ -527,7 +527,7 @@ string_join = (strings: Vec<string>, separator: string) string {
                 len := string_len(s)
                 
                 // Copy string
-                j ::= 0
+                j := 0
                 loop j < len {
                     bytes[pos] = s[j]
                     pos = pos + 1
@@ -556,22 +556,22 @@ string_join = (strings: Vec<string>, separator: string) string {
 }
 
 // Check if character is digit
-char_is_digit = (c: i8) bool {
+char_is_digit: (c: i8) bool  = {
     return c >= '0' && c <= '9'
 }
 
 // Check if character is letter
-char_is_alpha = (c: i8) bool {
+char_is_alpha: (c: i8) bool  = {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 // Check if character is alphanumeric
-char_is_alnum = (c: i8) bool {
+char_is_alnum: (c: i8) bool  = {
     return char_is_alpha(c) || char_is_digit(c)
 }
 
 // Check if character is whitespace
-char_is_space = (c: i8) bool {
+char_is_space: (c: i8) bool  = {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
@@ -581,8 +581,8 @@ string_to_i32 = (s: string) core.Result<i32, string> {
         return core.Result.Err("Empty string")
     } | false => {}
     
-    negative ::= false
-    start ::= 0
+    negative := false
+    start := 0
     
     s[0] == '-' ? | true => {
         negative = true
@@ -593,7 +593,7 @@ string_to_i32 = (s: string) core.Result<i32, string> {
         start = 1
     } | false => {}
     
-    result ::= 0
+    result := 0
     i := start
     len := string_len(s)
     
@@ -614,7 +614,7 @@ string_to_i32 = (s: string) core.Result<i32, string> {
 }
 
 // Convert integer to string
-i32_to_string = (n: i32) string {
+i32_to_string: (n: i32) string  = {
     n == 0 ? | true => return "0" | false => {}
     
     // Handle negative
@@ -623,7 +623,7 @@ i32_to_string = (n: i32) string {
     
     // Count digits
     temp := n
-    digits ::= 0
+    digits := 0
     loop temp > 0 {
         digits = digits + 1
         temp = temp / 10

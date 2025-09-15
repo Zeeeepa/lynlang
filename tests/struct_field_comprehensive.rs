@@ -45,7 +45,7 @@ fn test_nested_struct_field_access() {
         // Main function
         let func = ast::Function {
             type_params: vec![],
-            is_async: false,
+            
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I32,
@@ -141,7 +141,7 @@ fn test_struct_field_from_function_return() {
         // Helper function that returns a Point
         let make_point = ast::Function {
             type_params: vec![],
-            is_async: false,
+            
             name: "makePoint".to_string(),
             args: vec![],
             return_type: AstType::Struct {
@@ -165,7 +165,7 @@ fn test_struct_field_from_function_return() {
         // Main function that accesses field from function return
         let func = ast::Function {
             type_params: vec![],
-            is_async: false,
+            
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I32,
@@ -227,7 +227,7 @@ fn test_struct_field_from_literal() {
         // Main function
         let func = ast::Function {
             type_params: vec![],
-            is_async: false,
+            
             name: "main".to_string(),
             args: vec![],
             return_type: AstType::I32,

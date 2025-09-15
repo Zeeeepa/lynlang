@@ -5,22 +5,22 @@ io := @std.io
 math := @std.math
 
 // Simple struct
-Point = {
+Point: {
     x: f64,
     y: f64,
 }
 
 // Struct with mutable fields and defaults
-Player = {
+Player: {
     name: string,
     level: u32 = 1,                    // Default value
-    score:: i32 = 0,                   // Mutable with default
-    is_active:: bool = true,           // Mutable boolean
+    score: i32 = 0,                   // Mutable with default
+    is_active: bool = true,           // Mutable boolean
     position: Point = Point{x: 0, y: 0}, // Nested struct with default
 }
 
 // Rectangle using composition
-Rectangle = {
+Rectangle: {
     top_left: Point,
     bottom_right: Point,
 }
@@ -29,12 +29,12 @@ Rectangle = {
 // Functions with first parameter of type T can be called as methods on T
 
 // Method for Point
-distance_from_origin = (p: Point) f64 {
+distance_from_origin: (p: Point) f64  = {
     return math.sqrt(p.x * p.x + p.y * p.y)
 }
 
 // Another Point method
-translate = (p: Point, dx: f64, dy: f64) Point {
+translate: (p: Point, dx: f64, dy: f64) Point  = {
     return Point{
         x: p.x + dx,
         y: p.y + dy,
@@ -42,13 +42,13 @@ translate = (p: Point, dx: f64, dy: f64) Point {
 }
 
 // Method for Rectangle
-area = (r: Rectangle) f64 {
+area: (r: Rectangle) f64  = {
     width := r.bottom_right.x - r.top_left.x
     height := r.bottom_right.y - r.top_left.y
     return width * height
 }
 
-contains_point = (r: Rectangle, p: Point) bool {
+contains_point: (r: Rectangle, p: Point) bool  = {
     return p.x >= r.top_left.x && 
            p.x <= r.bottom_right.x &&
            p.y >= r.top_left.y && 
@@ -56,17 +56,17 @@ contains_point = (r: Rectangle, p: Point) bool {
 }
 
 // Method for Player
-level_up = (p: Ptr<Player>) void {
+level_up: (p: Ptr<Player>) void  = {
     p.level = p.level + 1
     p.score = p.score + 100
     io.print("$(p.name) leveled up to $(p.level)!\n")
 }
 
-add_score = (p: Ptr<Player>, points: i32) void {
+add_score: (p: Ptr<Player>, points: i32) void  = {
     p.score = p.score + points
 }
 
-main = () void {
+main: () void  = {
     io.print("=== Structs and Methods ===\n\n")
     
     // Create points
@@ -96,7 +96,7 @@ main = () void {
     io.print("Point ($(test_point.x), $(test_point.y)) inside rectangle: $(inside)\n\n")
     
     // Create player with defaults
-    player1 ::= Player{name: "Alice"}  // Other fields use defaults
+    player1 := Player{name: "Alice"}  // Other fields use defaults
     io.print("Player: $(player1.name), Level: $(player1.level), Score: $(player1.score)\n")
     
     // Modify mutable fields

@@ -280,9 +280,9 @@ impl CompileError {
                 
                 // Suggest common conversions
                 if expected == "i32" && found == "f64" {
-                    result.push_str("\n  Try: value as i32");
+                    result.push_str("\n  Use: value as i32");
                 } else if expected == "string" && found.contains("str") {
-                    result.push_str("\n  Try: value.to_string()");
+                    result.push_str("\n  Use: value.to_string()");
                 }
             },
             CompileError::UnexpectedToken { expected, found, .. } => {

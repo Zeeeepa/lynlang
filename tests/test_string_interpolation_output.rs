@@ -129,7 +129,7 @@ fn test_string_interpolation_integer_output() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
     );
@@ -183,7 +183,7 @@ fn test_string_interpolation_string_var_output() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
     );
@@ -252,7 +252,7 @@ fn test_string_interpolation_multiple_vars_output() {
                     }),
                     Statement::Return(Expression::Integer64(0)),
                 ],
-                is_async: false,
+                
             }),
         ],
     );

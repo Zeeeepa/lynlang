@@ -6,17 +6,17 @@ io := @std.io
 math := @std.math
 
 // Time representation in nanoseconds since epoch
-Time = {
+Time: {
     nanos: i64,
 }
 
 // Duration representation in nanoseconds
-Duration = {
+Duration: {
     nanos: i64,
 }
 
 // Clock types
-ClockType = |
+ClockType: 
     Realtime,
     Monotonic,
     ProcessCPU,
@@ -31,105 +31,105 @@ NANOS_PER_HOUR := 3600000000000
 NANOS_PER_DAY := 86400000000000
 
 // Get current time
-now = () Time {
+now: () Time  = {
     // In real implementation, would call system clock
     return Time{ nanos: 0 }
 }
 
 // Get monotonic time for measuring durations
-monotonic = () Time {
+monotonic: () Time  = {
     // Monotonic clock for duration measurement
     return Time{ nanos: 0 }
 }
 
 // Sleep for specified duration
-sleep = (dur: Duration) {
+sleep: (dur: Duration)   = {
     // In real implementation, would call system sleep
 }
 
 // Create duration from various units
-microseconds = (us: i64) Duration {
+microseconds: (us: i64) Duration  = {
     return Duration{ nanos: us * NANOS_PER_MICRO }
 }
 
-milliseconds = (ms: i64) Duration {
+milliseconds: (ms: i64) Duration  = {
     return Duration{ nanos: ms * NANOS_PER_MILLI }
 }
 
-seconds = (s: i64) Duration {
+seconds: (s: i64) Duration  = {
     return Duration{ nanos: s * NANOS_PER_SECOND }
 }
 
-minutes = (m: i64) Duration {
+minutes: (m: i64) Duration  = {
     return Duration{ nanos: m * NANOS_PER_MINUTE }
 }
 
-hours = (h: i64) Duration {
+hours: (h: i64) Duration  = {
     return Duration{ nanos: h * NANOS_PER_HOUR }
 }
 
-days = (d: i64) Duration {
+days: (d: i64) Duration  = {
     return Duration{ nanos: d * NANOS_PER_DAY }
 }
 
 // Duration arithmetic
-add_duration = (t: Time, d: Duration) Time {
+add_duration: (t: Time, d: Duration) Time  = {
     return Time{ nanos: t.nanos + d.nanos }
 }
 
-sub_duration = (t: Time, d: Duration) Time {
+sub_duration: (t: Time, d: Duration) Time  = {
     return Time{ nanos: t.nanos - d.nanos }
 }
 
-time_diff = (t1: Time, t2: Time) Duration {
+time_diff: (t1: Time, t2: Time) Duration  = {
     return Duration{ nanos: t1.nanos - t2.nanos }
 }
 
-duration_add = (d1: Duration, d2: Duration) Duration {
+duration_add: (d1: Duration, d2: Duration) Duration  = {
     return Duration{ nanos: d1.nanos + d2.nanos }
 }
 
-duration_sub = (d1: Duration, d2: Duration) Duration {
+duration_sub: (d1: Duration, d2: Duration) Duration  = {
     return Duration{ nanos: d1.nanos - d2.nanos }
 }
 
-duration_mul = (d: Duration, factor: i64) Duration {
+duration_mul: (d: Duration, factor: i64) Duration  = {
     return Duration{ nanos: d.nanos * factor }
 }
 
-duration_div = (d: Duration, divisor: i64) Duration {
+duration_div: (d: Duration, divisor: i64) Duration  = {
     return Duration{ nanos: d.nanos / divisor }
 }
 
 // Convert duration to various units
-as_nanos = (d: Duration) i64 {
+as_nanos: (d: Duration) i64  = {
     return d.nanos
 }
 
-as_micros = (d: Duration) i64 {
+as_micros: (d: Duration) i64  = {
     return d.nanos / NANOS_PER_MICRO
 }
 
-as_millis = (d: Duration) i64 {
+as_millis: (d: Duration) i64  = {
     return d.nanos / NANOS_PER_MILLI
 }
 
-as_seconds = (d: Duration) i64 {
+as_seconds: (d: Duration) i64  = {
     return d.nanos / NANOS_PER_SECOND
 }
 
-as_seconds_f64 = (d: Duration) f64 {
+as_seconds_f64: (d: Duration) f64  = {
     return d.nanos as f64 / NANOS_PER_SECOND as f64
 }
 
 // Timer for measuring execution time
-Timer = {
+Timer: {
     start_time: Time,
     is_running: bool,
 }
 
 // Create and start a new timer
-start_timer = () Timer {
+start_timer: () Timer  = {
     return Timer{
         start_time: monotonic(),
         is_running: true,
@@ -137,7 +137,7 @@ start_timer = () Timer {
 }
 
 // Get elapsed time since timer started
-elapsed = (timer: &Timer) Duration {
+elapsed: (timer: &Timer) Duration  = {
     timer.is_running ? {
         current := monotonic()
         return time_diff(current, timer.start_time)
@@ -147,7 +147,7 @@ elapsed = (timer: &Timer) Duration {
 }
 
 // Stop timer and return elapsed time
-stop_timer = (timer: &mut Timer) Duration {
+stop_timer: (timer: &mut Timer) Duration  = {
     timer.is_running ? {
         timer.is_running = false
         return elapsed(timer)
@@ -157,7 +157,7 @@ stop_timer = (timer: &mut Timer) Duration {
 }
 
 // Reset timer
-reset_timer = (timer: &mut Timer) {
+reset_timer: (timer: &mut Timer)   = {
     timer.start_time = monotonic()
     timer.is_running = true
 }
@@ -200,7 +200,7 @@ benchmark = <T>(name: string, iterations: u32, f: () T) {
 }
 
 // Format duration as human-readable string
-format_duration = (d: Duration) string {
+format_duration: (d: Duration) string  = {
     nanos := d.nanos
     
     nanos >= NANOS_PER_DAY ? {
@@ -240,7 +240,7 @@ format_duration = (d: Duration) string {
 }
 
 // Helper function - convert int to string
-int_to_string = (n: i64) string {
+int_to_string: (n: i64) string  = {
     n == 0 ? { return "0" } : {}
     n < 0 ? { return "-" + int_to_string(-n) } : {}
     

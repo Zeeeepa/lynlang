@@ -6,21 +6,20 @@ io := @std.io
 string := @std.string
 
 // Process exit codes
-EXIT_SUCCESS :: 0
-EXIT_FAILURE :: 1
+EXIT_SUCCESS : 0
+EXIT_FAILURE : 1
 
 // Process ID type
-ProcessId = i32
+ProcessId: i32
 
 // Process status
-ProcessStatus = 
-    | Running(pid: ProcessId)
+ProcessStatus: Running(pid: ProcessId)
     | Exited(code: i32)
     | Signaled(signal: i32)
     | Stopped(signal: i32)
 
 // Command builder for spawning processes
-Command = {
+Command: {
     program: string,
     args: [string],
     env: [(string, string)],
@@ -31,7 +30,7 @@ Command = {
 }
 
 // Process handle
-Process = {
+Process: {
     pid: ProcessId,
     command: Command,
     status: ProcessStatus,
@@ -40,20 +39,20 @@ Process = {
 }
 
 // Create a new command
-command = (program: string) Command {
+command: (program: string) Command  = {
     Command {
         program: program,
         args: [],
         env: [],
-        working_dir: core.Option::None,
-        stdin: core.Option::None,
+        working_dir: core.Option:None,
+        stdin: core.Option:None,
         capture_stdout: false,
         capture_stderr: false,
     }
 }
 
 // Add an argument to the command
-add_arg = (cmd: Command, arg: string) Command {
+add_arg: (cmd: Command, arg: string) Command  = {
     new_args := cmd.args.copy()
     new_args.push(arg)
     Command {
@@ -68,7 +67,7 @@ add_arg = (cmd: Command, arg: string) Command {
 }
 
 // Add multiple arguments
-add_args = (cmd: Command, args: [string]) Command {
+add_args: (cmd: Command, args: [string]) Command  = {
     new_args := cmd.args.copy()
     range(0, args.len()).loop(i -> {
         new_args.push(args[i])
@@ -85,7 +84,7 @@ add_args = (cmd: Command, args: [string]) Command {
 }
 
 // Set environment variable
-set_env = (cmd: Command, key: string, value: string) Command {
+set_env: (cmd: Command, key: string, value: string) Command  = {
     new_env := cmd.env.copy()
     new_env.push((key, value))
     Command {
@@ -100,12 +99,12 @@ set_env = (cmd: Command, key: string, value: string) Command {
 }
 
 // Set working directory
-set_dir = (cmd: Command, dir: string) Command {
+set_dir: (cmd: Command, dir: string) Command  = {
     Command {
         program: cmd.program,
         args: cmd.args,
         env: cmd.env,
-        working_dir: core.Option::Some(dir),
+        working_dir: core.Option:Some(dir),
         stdin: cmd.stdin,
         capture_stdout: cmd.capture_stdout,
         capture_stderr: cmd.capture_stderr,
@@ -113,20 +112,20 @@ set_dir = (cmd: Command, dir: string) Command {
 }
 
 // Set stdin
-set_stdin = (cmd: Command, input: string) Command {
+set_stdin: (cmd: Command, input: string) Command  = {
     Command {
         program: cmd.program,
         args: cmd.args,
         env: cmd.env,
         working_dir: cmd.working_dir,
-        stdin: core.Option::Some(input),
+        stdin: core.Option:Some(input),
         capture_stdout: cmd.capture_stdout,
         capture_stderr: cmd.capture_stderr,
     }
 }
 
 // Capture stdout
-capture_stdout = (cmd: Command) Command {
+capture_stdout: (cmd: Command) Command  = {
     Command {
         program: cmd.program,
         args: cmd.args,
@@ -139,7 +138,7 @@ capture_stdout = (cmd: Command) Command {
 }
 
 // Capture stderr
-capture_stderr = (cmd: Command) Command {
+capture_stderr: (cmd: Command) Command  = {
     Command {
         program: cmd.program,
         args: cmd.args,
@@ -157,12 +156,12 @@ spawn = (cmd: Command) core.Result<Process, core.Error> {
     // For now, return a mock process
     pid := 1234  // Mock PID
     
-    core.Result::Ok(Process {
+    core.Result:Ok(Process {
         pid: pid,
         command: cmd,
-        status: ProcessStatus::Running(pid),
-        stdout: core.Option::None,
-        stderr: core.Option::None,
+        status: ProcessStatus:Running(pid),
+        stdout: core.Option:None,
+        stderr: core.Option:None,
     })
 }
 
@@ -172,48 +171,48 @@ execute = (cmd: Command) core.Result<Process, core.Error> {
     proc_result := spawn(cmd)
     
     proc_result ? 
-    | core.Result::Ok(proc) => {
+    | core.Result:Ok(proc) => {
         // Wait for completion (mock implementation)
         completed_proc := Process {
             pid: proc.pid,
             command: proc.command,
-            status: ProcessStatus::Exited(0),
+            status: ProcessStatus:Exited(0),
             stdout: proc.command.capture_stdout ? 
-                | true => core.Option::Some("mock stdout output")
-                | false => core.Option::None,
+                | true => core.Option:Some("mock stdout output")
+                | false => core.Option:None,
             stderr: proc.command.capture_stderr ?
-                | true => core.Option::Some("")
-                | false => core.Option::None,
+                | true => core.Option:Some("")
+                | false => core.Option:None,
         }
-        core.Result::Ok(completed_proc)
+        core.Result:Ok(completed_proc)
     }
-    | core.Result::Err(err) => core.Result::Err(err)
+    | core.Result:Err(err) => core.Result:Err(err)
 }
 
 // Get current process ID
-get_pid = () ProcessId {
+get_pid: () ProcessId  = {
     // Mock implementation
     42
 }
 
 // Get parent process ID
-get_ppid = () ProcessId {
+get_ppid: () ProcessId  = {
     // Mock implementation
     1
 }
 
 // Exit the current process
-exit = (code: i32) void {
+exit: (code: i32) void  = {
     core.exit(code)
 }
 
 // Abort the current process
-abort = () void {
+abort: () void  = {
     core.panic("Process aborted")
 }
 
 // Get command line arguments
-args = () [string] {
+args: () [string]  = {
     // In a real implementation, this would get actual args
     // For now, return mock args
     ["zen", "program.zen"]
@@ -223,52 +222,52 @@ args = () [string] {
 get_env = (key: string) core.Option<string> {
     // Mock implementation
     key == "PATH" ? 
-    | true => core.Option::Some("/usr/bin:/bin")
-    | false => core.Option::None
+    | true => core.Option:Some("/usr/bin:/bin")
+    | false => core.Option:None
 }
 
 // Set environment variable
 set_env_var = (key: string, value: string) core.Result<void, core.Error> {
     // Mock implementation
-    core.Result::Ok(void)
+    core.Result:Ok(void)
 }
 
 // Remove environment variable
 unset_env = (key: string) core.Result<void, core.Error> {
     // Mock implementation
-    core.Result::Ok(void)
+    core.Result:Ok(void)
 }
 
 // Get current working directory
 current_dir = () core.Result<string, core.Error> {
     // Mock implementation
-    core.Result::Ok("/home/user")
+    core.Result:Ok("/home/user")
 }
 
 // Change current working directory
 set_current_dir = (path: string) core.Result<void, core.Error> {
     // Mock implementation
-    core.Result::Ok(void)
+    core.Result:Ok(void)
 }
 
 // Check if process is still running
-is_running = (proc: Process) bool {
+is_running: (proc: Process) bool  = {
     proc.status ? 
-    | ProcessStatus::Running(_) => true
+    | ProcessStatus:Running(_) => true
     | _ => false
 }
 
 // Get exit code from process
 exit_code = (proc: Process) core.Option<i32> {
     proc.status ?
-    | ProcessStatus::Exited(code) => core.Option::Some(code)
-    | _ => core.Option::None
+    | ProcessStatus:Exited(code) => core.Option:Some(code)
+    | _ => core.Option:None
 }
 
 // Kill a process
 kill = (pid: ProcessId) core.Result<void, core.Error> {
     // Mock implementation
-    core.Result::Ok(void)
+    core.Result:Ok(void)
 }
 
 // Export public API

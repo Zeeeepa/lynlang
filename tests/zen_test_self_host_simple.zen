@@ -8,14 +8,14 @@ fs := @std.fs
 string := @std.string
 
 // Test data structure to verify imports work
-TestResult = {
+TestResult: {
     name: string,
     passed: bool,
     message: string,
 }
 
 // Create a test result
-create_test_result = (name: string, passed: bool) TestResult {
+create_test_result: (name: string, passed: bool) TestResult  = {
     return TestResult {
         name: name,
         passed: passed,
@@ -41,7 +41,7 @@ run_test = (name: string, test_fn: () bool) TestResult {
 }
 
 // Test basic string operations
-test_strings = () bool {
+test_strings: () bool  = {
     s1 := "Hello"
     s2 := ", Zen!"
     combined := string.concat(s1, s2)
@@ -51,7 +51,7 @@ test_strings = () bool {
 }
 
 // Test basic math operations
-test_math = () bool {
+test_math: () bool  = {
     x := 10
     y := 20
     sum := x + y
@@ -60,7 +60,7 @@ test_math = () bool {
 }
 
 // Test control flow
-test_control_flow = () bool {
+test_control_flow: () bool  = {
     value := 42
     
     result := if (value > 40) {
@@ -73,7 +73,7 @@ test_control_flow = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=== Zen Self-Hosting Test Suite ===\n")
     io.print("Testing with new import syntax (no comptime)\n\n")
     

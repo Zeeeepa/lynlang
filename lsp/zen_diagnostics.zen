@@ -12,14 +12,13 @@ type_checker := build.import("compiler/type_checker")
 errors := build.import("compiler/errors")
 
 // Diagnostic severity levels (LSP standard)
-DiagnosticSeverity =
-    | Error
+DiagnosticSeverity: Error
     | Warning
     | Information
     | Hint
 
 // Diagnostic structure (LSP standard)
-Diagnostic = {
+Diagnostic: {
     range: Range,
     severity: DiagnosticSeverity,
     code: Option<string>,
@@ -29,39 +28,38 @@ Diagnostic = {
     related_information: Vec<DiagnosticRelatedInformation>,
 }
 
-Range = {
+Range: {
     start: Position,
     end: Position,
 }
 
-Position = {
+Position: {
     line: u32,     // 0-based
     character: u32, // 0-based UTF-16 code unit
 }
 
-DiagnosticTag =
-    | Unnecessary
+DiagnosticTag: Unnecessary
     | Deprecated
 
-DiagnosticRelatedInformation = {
+DiagnosticRelatedInformation: {
     location: Location,
     message: string,
 }
 
-Location = {
+Location: {
     uri: string,
     range: Range,
 }
 
 // Diagnostic analyzer
-DiagnosticAnalyzer = {
+DiagnosticAnalyzer: {
     source_code: string,
     file_uri: string,
     diagnostics: Vec<Diagnostic>,
 }
 
 // Create new analyzer
-new_analyzer = (source: string, uri: string) DiagnosticAnalyzer {
+new_analyzer: (source: string, uri: string) DiagnosticAnalyzer  = {
     DiagnosticAnalyzer {
         source_code: source,
         file_uri: uri,
@@ -70,7 +68,7 @@ new_analyzer = (source: string, uri: string) DiagnosticAnalyzer {
 }
 
 // Main analysis function
-analyze = (analyzer: Ptr<DiagnosticAnalyzer>) Vec<Diagnostic> {
+analyze: (analyzer: Ptr<DiagnosticAnalyzer>) Vec<Diagnostic>  = {
     // Lexical analysis
     perform_lexical_analysis(analyzer)
     
@@ -90,7 +88,7 @@ analyze = (analyzer: Ptr<DiagnosticAnalyzer>) Vec<Diagnostic> {
 }
 
 // Lexical analysis - check for invalid tokens
-perform_lexical_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
+perform_lexical_analysis: (analyzer: Ptr<DiagnosticAnalyzer>) void  = {
     lex := lexer.new_lexer(analyzer.source_code)
     
     loop {
@@ -113,7 +111,7 @@ perform_lexical_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
 }
 
 // Syntax analysis - parse and check for syntax errors
-perform_syntax_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
+perform_syntax_analysis: (analyzer: Ptr<DiagnosticAnalyzer>) void  = {
     lex := lexer.new_lexer(analyzer.source_code)
     tokens := lexer.tokenize(lex)
     
@@ -140,7 +138,7 @@ perform_syntax_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
 }
 
 // Check common syntax patterns and issues
-check_syntax_patterns = (analyzer: Ptr<DiagnosticAnalyzer>, program: parser.Program) void {
+check_syntax_patterns: (analyzer: Ptr<DiagnosticAnalyzer>, program: parser.Program) void  = {
     program.declarations.loop((decl) => {
         decl ?
             | .Function -> func => {
@@ -167,7 +165,7 @@ check_syntax_patterns = (analyzer: Ptr<DiagnosticAnalyzer>, program: parser.Prog
                                 var.base.line - 1,
                                 var.base.column - 1,
                                 var.base.column + string.len(var.name)
-                            ).with_tag(DiagnosticTag::Unnecessary)
+                            ).with_tag(DiagnosticTag:Unnecessary)
                         )
                         | false => {}
             }
@@ -176,7 +174,7 @@ check_syntax_patterns = (analyzer: Ptr<DiagnosticAnalyzer>, program: parser.Prog
 }
 
 // Validate imports
-validate_imports = (analyzer: Ptr<DiagnosticAnalyzer>) void {
+validate_imports: (analyzer: Ptr<DiagnosticAnalyzer>) void  = {
     lines := string.split(analyzer.source_code, '\n')
     in_comptime := false
     brace_depth := 0
@@ -239,7 +237,7 @@ validate_imports = (analyzer: Ptr<DiagnosticAnalyzer>) void {
 }
 
 // Semantic analysis
-perform_semantic_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
+perform_semantic_analysis: (analyzer: Ptr<DiagnosticAnalyzer>) void  = {
     // Check for unreachable code
     check_unreachable_code(analyzer)
     
@@ -251,7 +249,7 @@ perform_semantic_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
 }
 
 // Type checking
-perform_type_checking = (analyzer: Ptr<DiagnosticAnalyzer>) void {
+perform_type_checking: (analyzer: Ptr<DiagnosticAnalyzer>) void  = {
     lex := lexer.new_lexer(analyzer.source_code)
     tokens := lexer.tokenize(lex)
     p := parser.new_parser(tokens)
@@ -267,8 +265,8 @@ perform_type_checking = (analyzer: Ptr<DiagnosticAnalyzer>) void {
                 | .Err -> type_errors => {
                     type_errors.loop((error) => {
                         severity := string.contains(error.message, "warning") ?
-                            | true => DiagnosticSeverity::Warning
-                            | false => DiagnosticSeverity::Error
+                            | true => DiagnosticSeverity:Warning
+                            | false => DiagnosticSeverity:Error
                         
                         add_diagnostic(analyzer,
                             Diagnostic {
@@ -298,7 +296,7 @@ perform_type_checking = (analyzer: Ptr<DiagnosticAnalyzer>) void {
 }
 
 // Helper functions
-create_error_diagnostic = (message: string, line: u32, start_col: u32, end_col: u32) Diagnostic {
+create_error_diagnostic: (message: string, line: u32, start_col: u32, end_col: u32) Diagnostic  = {
     return Diagnostic {
         range: Range {
             start: Position { line: line, character: start_col },
@@ -313,7 +311,7 @@ create_error_diagnostic = (message: string, line: u32, start_col: u32, end_col: 
     }
 }
 
-create_warning_diagnostic = (message: string, line: u32, start_col: u32, end_col: u32) Diagnostic {
+create_warning_diagnostic: (message: string, line: u32, start_col: u32, end_col: u32) Diagnostic  = {
     return Diagnostic {
         range: Range {
             start: Position { line: line, character: start_col },
@@ -328,23 +326,23 @@ create_warning_diagnostic = (message: string, line: u32, start_col: u32, end_col
     }
 }
 
-with_tag = (diag: Diagnostic, tag: DiagnosticTag) Diagnostic {
+with_tag: (diag: Diagnostic, tag: DiagnosticTag) Diagnostic  = {
     vec.push(diag.tags, tag)
     return diag
 }
 
-with_suggestion = (diag: Diagnostic, suggestion: string) Diagnostic {
+with_suggestion: (diag: Diagnostic, suggestion: string) Diagnostic  = {
     // Add suggestion to message
     diag.message = string.format("{}\nSuggestion: {}", diag.message, suggestion)
     diag
 }
 
-add_diagnostic = (analyzer: *DiagnosticAnalyzer, diag: Diagnostic) void {
+add_diagnostic: (analyzer: *DiagnosticAnalyzer, diag: Diagnostic) void  = {
     vec.push(analyzer.diagnostics, diag)
 }
 
 // Check if a line is inside a function (simple heuristic)
-is_inside_function = (lines: Vec<string>, line_index: usize) bool {
+is_inside_function: (lines: Vec<string>, line_index: usize) bool  = {
     // Look backward for function declaration
     i := line_index
     brace_count := 0
@@ -378,7 +376,7 @@ is_inside_function = (lines: Vec<string>, line_index: usize) bool {
     return false
 }
 
-has_return_statement = (block: parser.Block) bool {
+has_return_statement: (block: parser.Block) bool  = {
     block.statements.loop((stmt) => {
         stmt ?
             | parser.Statement.Return(_) => return true
@@ -396,22 +394,22 @@ has_return_statement = (block: parser.Block) bool {
     return false
 }
 
-is_variable_used = (name: string, program: parser.Program) bool {
+is_variable_used: (name: string, program: parser.Program) bool  = {
     // TODO: Implement proper usage analysis
     // For now, assume all variables are used
     return true
 }
 
-check_unreachable_code = (analyzer: *DiagnosticAnalyzer) void {
+check_unreachable_code: (analyzer: *DiagnosticAnalyzer) void  = {
     // TODO: Implement unreachable code detection
 }
 
-check_duplicate_definitions = (analyzer: *DiagnosticAnalyzer) void {
+check_duplicate_definitions: (analyzer: *DiagnosticAnalyzer) void  = {
     // TODO: Implement duplicate definition detection
 }
 
 // Format diagnostics for output
-format_diagnostic = (diag: *Diagnostic) string {
+format_diagnostic: (diag: *Diagnostic) string  = {
     severity_str := diag.severity ?
         | DiagnosticSeverity.Error => "Error"
         | DiagnosticSeverity.Warning => "Warning"
@@ -426,7 +424,7 @@ format_diagnostic = (diag: *Diagnostic) string {
 }
 
 // Main entry point for testing
-main = () i32 {
+main: () i32  = {
     io.print("Zen Language Diagnostics Tool\n")
     io.print("=============================\n\n")
     
@@ -435,7 +433,7 @@ main = () i32 {
 // Test file
 io := @std.io
 
-main = () i32 {
+main: () i32  = {
     // This would be an error:
     // bad := @std.bad  // Import inside function
     
@@ -451,7 +449,7 @@ main = () i32 {
 unused := 100
 
 // Function missing return
-needs_return = () i32 {
+needs_return: () i32  = {
     x := 42
     // Missing return statement
 }

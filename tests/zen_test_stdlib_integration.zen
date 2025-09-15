@@ -10,7 +10,7 @@ time := @std.time
 log := @std.log
 
 // Test string operations
-test_string_ops = () bool {
+test_string_ops: () bool  = {
     s1 := "Hello"
     s2 := "World"
     
@@ -36,7 +36,7 @@ test_string_ops = () bool {
 }
 
 // Test vector operations
-test_vector_ops = () bool {
+test_vector_ops: () bool  = {
     v := vec.new<i32>()
     
     // Add elements
@@ -62,7 +62,7 @@ test_vector_ops = () bool {
 }
 
 // Test math operations
-test_math_ops = () bool {
+test_math_ops: () bool  = {
     // Basic operations
     a := 10
     b := 3
@@ -108,7 +108,7 @@ test_math_ops = () bool {
 }
 
 // Test time operations
-test_time_ops = () bool {
+test_time_ops: () bool  = {
     // Get current time
     now := time.now()
     
@@ -128,7 +128,7 @@ test_time_ops = () bool {
 }
 
 // Test logging
-test_logging = () bool {
+test_logging: () bool  = {
     // Create logger
     logger := log.new("test")
     
@@ -143,7 +143,7 @@ test_logging = () bool {
 }
 
 // Test combined operations
-test_combined = () bool {
+test_combined: () bool  = {
     // Use multiple stdlib modules together
     names := vec.new<string>()
     vec.push(names, "Alice")
@@ -170,7 +170,7 @@ test_combined = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.print("=== Standard Library Integration Tests ===\n\n")
     
     passed := 0

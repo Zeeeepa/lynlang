@@ -7,7 +7,7 @@ math := @std.math
 core := @std.core
 
 // Test import usage in functions
-test_math_functions = () bool {
+test_math_functions: () bool  = {
     // Test integer abs
     x := math.abs(-42)
     if x != 42 {
@@ -28,7 +28,7 @@ test_math_functions = () bool {
 }
 
 // Test io functions
-test_io_functions = () bool {
+test_io_functions: () bool  = {
     io.print("Testing IO functions: ")
     io.print("string output, ")
     io.print_int(123)
@@ -39,7 +39,7 @@ test_io_functions = () bool {
 }
 
 // Test core functions (when available)
-test_core_functions = () bool {
+test_core_functions: () bool  = {
     // Test assert (should not fail)
     core.assert(true)
     
@@ -49,7 +49,7 @@ test_core_functions = () bool {
 }
 
 // Test that imports are module-level only
-verify_module_level_imports = () bool {
+verify_module_level_imports: () bool  = {
     // This function exists to document that imports
     // cannot be inside functions or comptime blocks
     io.print("Imports are module-level only: OK\n")
@@ -57,7 +57,7 @@ verify_module_level_imports = () bool {
 }
 
 // Main test runner
-main = () i32 {
+main: () i32  = {
     io.println("=== Zen Import System Test Suite ===\n")
     
     mut all_passed := true

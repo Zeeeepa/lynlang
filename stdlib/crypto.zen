@@ -5,11 +5,11 @@ std := @std
 core := std.core
 
 // Simple hash function (FNV-1a 32-bit)
-fnv1a_32 = (data: []u8, len: usize) u32 {
-    hash ::= 2166136261: u32  // FNV offset basis
+fnv1a_32: (data: []u8, len: usize) u32  = {
+    hash := 2166136261: u32  // FNV offset basis
     prime := 16777619: u32     // FNV prime
     
-    i ::= 0: usize
+    i := 0: usize
     loop i < len {
         hash = hash ^ data[i]: u32
         hash = hash * prime
@@ -19,11 +19,11 @@ fnv1a_32 = (data: []u8, len: usize) u32 {
 }
 
 // Simple hash function (FNV-1a 64-bit)
-fnv1a_64 = (data: []u8, len: usize) u64 {
-    hash ::= 14695981039346656037: u64  // FNV offset basis
+fnv1a_64: (data: []u8, len: usize) u64  = {
+    hash := 14695981039346656037: u64  // FNV offset basis
     prime := 1099511628211: u64         // FNV prime
     
-    i ::= 0: usize
+    i := 0: usize
     loop i < len {
         hash = hash ^ data[i]: u64
         hash = hash * prime
@@ -33,10 +33,10 @@ fnv1a_64 = (data: []u8, len: usize) u64 {
 }
 
 // DJB2 hash function
-djb2_hash = (data: []u8, len: usize) u64 {
-    hash ::= 5381: u64
+djb2_hash: (data: []u8, len: usize) u64  = {
+    hash := 5381: u64
     
-    i ::= 0: usize
+    i := 0: usize
     loop i < len {
         hash = ((hash << 5) + hash) + data[i]: u64  // hash * 33 + byte
         i = i + 1
@@ -45,11 +45,11 @@ djb2_hash = (data: []u8, len: usize) u64 {
 }
 
 // Simple XOR cipher (for demonstration only - NOT secure!)
-xor_cipher = (data:: Ref<Array<u8>>, len: usize, key: []u8, key_len: usize) void {
+xor_cipher: (data: Ref<Array<u8>>, len: usize, key: []u8, key_len: usize) void  = {
     key_len == 0 ? | true => return
                    | false => {}
     
-    i ::= 0: usize
+    i := 0: usize
     loop i < len {
         data[i] = data[i] ^ key[i % key_len]
         i = i + 1
@@ -57,23 +57,23 @@ xor_cipher = (data:: Ref<Array<u8>>, len: usize, key: []u8, key_len: usize) void
 }
 
 // Rotate left for u32
-rotl32 = (x: u32, n: u8) u32 {
+rotl32: (x: u32, n: u8) u32  = {
     n_mod := n % 32
     n_mod == 0 ? | true => x
                 | false => (x << n_mod) | (x >> (32 - n_mod))
 }
 
 // Rotate right for u32
-rotr32 = (x: u32, n: u8) u32 {
+rotr32: (x: u32, n: u8) u32  = {
     n_mod := n % 32
     n_mod == 0 ? | true => x
                 | false => (x >> n_mod) | (x << (32 - n_mod))
 }
 
 // Simple checksum
-checksum8 = (data: []u8, len: usize) u8 {
-    sum ::= 0: u8
-    i ::= 0: usize
+checksum8: (data: []u8, len: usize) u8  = {
+    sum := 0: u8
+    i := 0: usize
     loop i < len {
         sum = sum + data[i]
         i = i + 1
@@ -82,11 +82,11 @@ checksum8 = (data: []u8, len: usize) u8 {
 }
 
 // Fletcher-16 checksum
-fletcher16 = (data: []u8, len: usize) u16 {
-    sum1 ::= 0: u16
-    sum2 ::= 0: u16
+fletcher16: (data: []u8, len: usize) u16  = {
+    sum1 := 0: u16
+    sum2 := 0: u16
     
-    i ::= 0: usize
+    i := 0: usize
     loop i < len {
         sum1 = (sum1 + data[i]: u16) % 255
         sum2 = (sum2 + sum1) % 255
@@ -98,15 +98,15 @@ fletcher16 = (data: []u8, len: usize) u16 {
 
 // Simple pseudo-random number generator (Linear Congruential Generator)
 // NOT cryptographically secure!
-LCGState = {
-    seed:: u64,
+LCGState: {
+    seed: u64,
 }
 
-lcg_init = (seed: u64) LCGState {
+lcg_init: (seed: u64) LCGState  = {
     LCGState { seed: seed }
 }
 
-lcg_next = (state:: Ref<LCGState>) u64 {
+lcg_next: (state: Ref<LCGState>) u64  = {
     // Parameters from Numerical Recipes
     a := 1664525: u64
     c := 1013904223: u64
@@ -115,8 +115,8 @@ lcg_next = (state:: Ref<LCGState>) u64 {
 }
 
 // Generate pseudo-random bytes (NOT secure!)
-pseudo_random_bytes = (state:: Ref<LCGState>, buffer:: Ref<Array<u8>>, len: usize) void {
-    i ::= 0: usize
+pseudo_random_bytes: (state: Ref<LCGState>, buffer: Ref<Array<u8>>, len: usize) void  = {
+    i := 0: usize
     loop i < len {
         value := lcg_next(state)
         buffer[i] = (value >> ((i % 8) * 8)): u8
@@ -126,13 +126,13 @@ pseudo_random_bytes = (state:: Ref<LCGState>, buffer:: Ref<Array<u8>>, len: usiz
 
 // Simple message authentication code (MAC) using XOR and hash
 // NOT cryptographically secure - for educational purposes only
-simple_mac = (message: []u8, msg_len: usize, key: []u8, key_len: usize) u64 {
+simple_mac: (message: []u8, msg_len: usize, key: []u8, key_len: usize) u64  = {
     // Combine key and message
     combined_len := key_len + msg_len
     combined := array_new<u8>(combined_len)
     
     // Copy key
-    i ::= 0: usize
+    i := 0: usize
     loop i < key_len {
         combined[i] = key[i]
         i = i + 1
@@ -150,10 +150,10 @@ simple_mac = (message: []u8, msg_len: usize, key: []u8, key_len: usize) u64 {
 }
 
 // Constant-time comparison (helps prevent timing attacks)
-constant_time_compare = (a: []u8, b: []u8, len: usize) bool {
-    result ::= 0: u8
+constant_time_compare: (a: []u8, b: []u8, len: usize) bool  = {
+    result := 0: u8
     
-    i ::= 0: usize
+    i := 0: usize
     loop i < len {
         result = result | (a[i] ^ b[i])
         i = i + 1
@@ -164,13 +164,13 @@ constant_time_compare = (a: []u8, b: []u8, len: usize) bool {
 
 // Simple key derivation using repeated hashing
 // NOT cryptographically secure - for educational purposes only
-derive_key = (password: []u8, pass_len: usize, salt: []u8, salt_len: usize, iterations: u32, output:: Ref<Array<u8>>, out_len: usize) void {
+derive_key: (password: []u8, pass_len: usize, salt: []u8, salt_len: usize, iterations: u32, output: Ref<Array<u8>>, out_len: usize) void  = {
     // Combine password and salt
     combined_len := pass_len + salt_len
     combined := array_new<u8>(combined_len)
     
     // Copy password
-    i ::= 0: usize
+    i := 0: usize
     loop i < pass_len {
         combined[i] = password[i]
         i = i + 1
@@ -184,8 +184,8 @@ derive_key = (password: []u8, pass_len: usize, salt: []u8, salt_len: usize, iter
     }
     
     // Hash repeatedly
-    hash ::= fnv1a_64(combined, combined_len)
-    iter ::= 1: u32
+    hash := fnv1a_64(combined, combined_len)
+    iter := 1: u32
     loop iter < iterations {
         // Use previous hash as new input
         hash_bytes := [
@@ -212,7 +212,7 @@ derive_key = (password: []u8, pass_len: usize, salt: []u8, salt_len: usize, iter
     // If need more bytes, hash again
     loop i < out_len {
         hash = fnv1a_64(output, i)
-        j ::= 0: usize
+        j := 0: usize
         loop j < 8 && i < out_len {
             output[i] = (hash >> ((7 - j) * 8)): u8
             i = i + 1

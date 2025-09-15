@@ -17,7 +17,7 @@ inner_reflect := @std.reflect
 inner_ast := @std.compiler.ast
 
 // Test imports inside functions
-test_function_imports = () void {
+test_function_imports: () void  = {
     // Local imports work too
     json := @std.json
     http := @std.http
@@ -30,7 +30,7 @@ test_function_imports = () void {
 // Comptime blocks are for meta-programming, not imports
 comptime {
     // Can use imports for compile-time code generation
-    generate_struct = (name: string) void {
+    generate_struct: (name: string) void  = {
         meta.define_type(name, reflect.struct_type([
             ("id", "i64"),
             ("name", "string"),
@@ -42,7 +42,7 @@ comptime {
 comptime {
     comptime {
         // Meta-programming logic
-        process_ast = (node: inner_ast.Node) void {
+        process_ast: (node: inner_ast.Node) void  = {
             inner_reflect.inspect(node)
         }
     }
@@ -51,7 +51,7 @@ comptime {
 // Test conditional imports
 DEBUG := true
 
-compile_time_import = () void {
+compile_time_import: () void  = {
     DEBUG ? | true => {
         debug := @std.debug
         log := @std.log
@@ -60,7 +60,7 @@ compile_time_import = () void {
 }
 
 // Test imports in match expressions
-import_based_on_platform = () void {
+import_based_on_platform: () void  = {
     platform := core.get_platform()
     
     match platform {
@@ -84,7 +84,7 @@ import_based_on_platform = () void {
 }
 
 // Test imports in loops (unusual but valid)
-test_loop_imports = () void {
+test_loop_imports: () void  = {
     modules := ["math", "string", "vec"]
     
     i := 0
@@ -98,7 +98,7 @@ test_loop_imports = () void {
 }
 
 // Test imports with aliases
-test_aliased_imports = () void {
+test_aliased_imports: () void  = {
     // Multiple ways to import with aliases
     v := @std.vec
     Vector := @std.vec
@@ -111,7 +111,7 @@ test_aliased_imports = () void {
 }
 
 // Main test function
-main = () i32 {
+main: () i32  = {
     // Test that all imports work
     io.println("Testing comprehensive import syntax...")
     

@@ -41,7 +41,7 @@ test("behavior implementation") {
 
 // Test behavior with custom types
 test("behavior with structs") {
-    Person = {
+    Person: {
         name: string,
         age: u32,
     }
@@ -62,8 +62,8 @@ test("behavior with structs") {
 }
 
 // Helper hash function for testing
-hash_string = (s: string) u64 {
-    hash ::= 5381 as u64
+hash_string: (s: string) u64  = {
+    hash := 5381 as u64
     (0..s.len()).loop((i) => {
         hash = ((hash << 5) + hash) + (s.bytes()[i] as u64)
     })
@@ -73,7 +73,7 @@ hash_string = (s: string) u64 {
 // Test generic functions with behaviors
 test("generic functions with behaviors") {
     // Generic sort function that uses Comparable behavior
-    sort<T> = (items: Ptr<[?, T]>, len: usize, cmp: Comparable<T>) void {
+    sort<T>: (items: Ptr<[?, T]>, len: usize, cmp: Comparable<T>) void  = {
         (0..len).loop((i) => {
             ((i+1)..len).loop((j) => {
                 cmp.compare(items.value[i], items.value[j]) > 0 ?
@@ -89,7 +89,7 @@ test("generic functions with behaviors") {
     }
     
     // Test with integers
-    numbers := Ptr::new([5, i32]{ 3, 1, 4, 1, 5 })
+    numbers := Ptr:new([5, i32]{ 3, 1, 4, 1, 5 })
     i32_cmp := Comparable<i32>{
         compare: (a: i32, b: i32) i32 {
             a < b ? | true => -1
@@ -109,7 +109,7 @@ test("generic functions with behaviors") {
 
 // Test multiple behaviors on same type
 test("multiple behaviors") {
-    Point = {
+    Point: {
         x: f64,
         y: f64,
     }
@@ -157,7 +157,7 @@ test("behavior composition") {
     }
     
     // Create equatable from comparable
-    make_equatable<T> = (cmp: Comparable<T>) Equatable<T> {
+    make_equatable<T>: (cmp: Comparable<T>) Equatable<T>  = {
         Equatable<T>{
             equals: (a: T, b: T) bool {
                 cmp.compare(a, b) == 0
@@ -184,7 +184,7 @@ test("derived behaviors") {
     // In a real implementation, this would be auto-generated
     // by #derive(Comparable, Hashable)
     
-    Color = {
+    Color: {
         r: u8,
         g: u8,
         b: u8,

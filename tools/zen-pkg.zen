@@ -98,7 +98,7 @@ parse_args = (args: []string) (Command, Map<string, string>) {
 }
 
 // Initialize a new package
-init_package = (options: Map<string, string>) i32 {
+init_package: (options: Map<string, string>) i32  = {
     io.println("Initializing new Zen package...")
     
     // Check if manifest already exists
@@ -180,7 +180,7 @@ init_package = (options: Map<string, string>) i32 {
 }
 
 // Install packages
-install_packages = (options: Map<string, string>) i32 {
+install_packages: (options: Map<string, string>) i32  = {
     // Read manifest
     manifest := read_manifest()
     if (manifest.is_error()) {
@@ -223,7 +223,7 @@ install_packages = (options: Map<string, string>) i32 {
 }
 
 // Install a single package
-install_package = (name: string, version: string, is_dev: bool) i32 {
+install_package: (name: string, version: string, is_dev: bool) i32  = {
     io.println("Installing " + name + "@" + version + "...")
     
     // Check cache first
@@ -261,7 +261,7 @@ install_package = (name: string, version: string, is_dev: bool) i32 {
 }
 
 // Search for packages
-search_packages = (options: Map<string, string>) i32 {
+search_packages: (options: Map<string, string>) i32  = {
     query := options.get_or("package", "")
     if (query == "") {
         io.eprintln("Please specify a search query")
@@ -307,7 +307,7 @@ search_packages = (options: Map<string, string>) i32 {
 }
 
 // Run a script
-run_script = (options: Map<string, string>) i32 {
+run_script: (options: Map<string, string>) i32  = {
     manifest := read_manifest()
     if (manifest.is_error()) {
         io.eprintln("Error reading manifest: " + manifest.error())
@@ -320,7 +320,7 @@ run_script = (options: Map<string, string>) i32 {
     // Check if script exists
     script := m.scripts.get(script_name)
     if (script.is_none()) {
-        // If no script, try to run entry point
+        // If no script, attempt to run entry point
         if (script_name == "start" && fs.exists(m.entry_point)) {
             return process.exec("zen " + m.entry_point)
         }
@@ -334,7 +334,7 @@ run_script = (options: Map<string, string>) i32 {
 }
 
 // Build the package
-build_package = (options: Map<string, string>) i32 {
+build_package: (options: Map<string, string>) i32  = {
     manifest := read_manifest()
     if (manifest.is_error()) {
         io.eprintln("Error reading manifest: " + manifest.error())
@@ -361,7 +361,7 @@ build_package = (options: Map<string, string>) i32 {
 }
 
 // Print help
-print_help = () void {
+print_help: () void  = {
     io.println("Zen Package Manager (zen-pkg)")
     io.println("")
     io.println("Usage: zen-pkg <command> [options]")
@@ -389,7 +389,7 @@ print_help = () void {
 }
 
 // Main entry point
-main = (args: []string) i32 {
+main: (args: []string) i32  = {
     // Ensure directories exist
     fs.create_dir_all(CACHE_DIR)
     fs.create_dir_all(PACKAGES_DIR)

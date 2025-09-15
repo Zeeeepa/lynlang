@@ -688,11 +688,8 @@ impl LanguageServer for ZenServer {
             "defer" => {
                 "**defer**\n\nDefers execution until scope exit (LIFO order).\n\n**Example:**\n```zen\nfile := open(\"data.txt\");\ndefer file.close();\n// file.close() called automatically at scope end\n```".to_string()
             }
-            "async" => {
-                "**async**\n\nDefines an asynchronous function.\n\n**Example:**\n```zen\nasync fetch_data = (url: string) Result<string, Error> {\n    response := await http.get(url);\n    return Result.Ok(response.body);\n}\n```".to_string()
-            }
-            "await" => {
-                "**await**\n\nWaits for an async operation to complete.\n\n**Example:**\n```zen\ndata := await fetch_data(\"https://api.example.com\");\n```".to_string()
+            "allocator" => {
+                "**allocator**\n\nAllocators control memory and execution mode (sync/concurrent).\n\n**Example:**\n```zen\nfetch_data = (url: string, alloc: *Allocator) Result<string, Error> {\n    // Colorless function - allocator determines behavior\n    response := http.get(url, alloc)?;\n    return Result.Ok(response.body);\n}\n```".to_string()
             }
             _ => {
                 format!("**{}**\n\nSymbol in Zen code", identifier)

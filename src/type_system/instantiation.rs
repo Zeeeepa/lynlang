@@ -39,7 +39,6 @@ impl<'a> TypeInstantiator<'a> {
             args: instantiated_args,
             return_type: instantiated_return,
             body: instantiated_body,
-            is_async: func.is_async,
         })
     }
 
@@ -134,7 +133,6 @@ impl<'a> TypeInstantiator<'a> {
             args: instantiated_args,
             return_type: instantiated_return,
             body: instantiated_body,
-            is_async: method.is_async,
         })
     }
 

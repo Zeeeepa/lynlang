@@ -82,7 +82,7 @@ TokenType =
     Error
 
 // Token structure
-Token = {
+Token: {
     type: TokenType,
     lexeme: string,
     line: i32,
@@ -90,7 +90,7 @@ Token = {
 }
 
 // Lexer state
-Lexer = {
+Lexer: {
     source: string,
     current: i32,
     line: i32,
@@ -99,7 +99,7 @@ Lexer = {
 }
 
 // Create a new lexer
-new_lexer = (source: string) Lexer {
+new_lexer: (source: string) Lexer  = {
     return Lexer {
         source: source,
         current: 0,
@@ -110,12 +110,12 @@ new_lexer = (source: string) Lexer {
 }
 
 // Check if at end of source
-is_at_end = (lexer: &Lexer) bool {
+is_at_end: (lexer: &Lexer) bool  = {
     return lexer.current >= string.len(lexer.source)
 }
 
 // Get current character
-peek = (lexer: &Lexer) u8 {
+peek: (lexer: &Lexer) u8  = {
     if is_at_end(lexer) {
         return 0
     }
@@ -123,7 +123,7 @@ peek = (lexer: &Lexer) u8 {
 }
 
 // Advance to next character
-advance = (lexer: &mut Lexer) u8 {
+advance: (lexer: &mut Lexer) u8  = {
     c := peek(lexer);
     lexer.current = lexer.current + 1;
     lexer.column = lexer.column + 1;
@@ -135,7 +135,7 @@ advance = (lexer: &mut Lexer) u8 {
 }
 
 // Skip whitespace
-skip_whitespace = (lexer: &mut Lexer) void {
+skip_whitespace: (lexer: &mut Lexer) void  = {
     loop {
         c := peek(lexer);
         if c == ' ' || c == '\r' || c == '\t' || c == '\n' {
@@ -155,7 +155,7 @@ skip_whitespace = (lexer: &mut Lexer) void {
 }
 
 // Peek next character
-peek_next = (lexer: &Lexer) u8 {
+peek_next: (lexer: &Lexer) u8  = {
     if lexer.current + 1 >= string.len(lexer.source) {
         return 0
     }
@@ -163,7 +163,7 @@ peek_next = (lexer: &Lexer) u8 {
 }
 
 // Add token to list
-add_token = (lexer: &mut Lexer, type: TokenType, lexeme: string) void {
+add_token: (lexer: &mut Lexer, type: TokenType, lexeme: string) void  = {
     token := Token {
         type: type,
         lexeme: lexeme,
@@ -174,7 +174,7 @@ add_token = (lexer: &mut Lexer, type: TokenType, lexeme: string) void {
 }
 
 // Scan identifier or keyword
-scan_identifier = (lexer: &mut Lexer) void {
+scan_identifier: (lexer: &mut Lexer) void  = {
     start := lexer.current - 1;
     loop {
         c := peek(lexer);
@@ -216,7 +216,7 @@ scan_identifier = (lexer: &mut Lexer) void {
 }
 
 // Scan number literal
-scan_number = (lexer: &mut Lexer) void {
+scan_number: (lexer: &mut Lexer) void  = {
     start := lexer.current - 1;
     is_float := false;
     
@@ -238,7 +238,7 @@ scan_number = (lexer: &mut Lexer) void {
 }
 
 // Scan string literal
-scan_string = (lexer: &mut Lexer) void {
+scan_string: (lexer: &mut Lexer) void  = {
     start := lexer.current;
     
     loop {
@@ -262,17 +262,17 @@ scan_string = (lexer: &mut Lexer) void {
 }
 
 // Check if character is alphabetic
-is_alpha = (c: u8) bool {
+is_alpha: (c: u8) bool  = {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 // Check if character is digit
-is_digit = (c: u8) bool {
+is_digit: (c: u8) bool  = {
     return c >= '0' && c <= '9'
 }
 
 // Scan all tokens
-scan_tokens = (lexer: &mut Lexer) void {
+scan_tokens: (lexer: &mut Lexer) void  = {
     loop {
         if is_at_end(lexer) {
             break
@@ -394,7 +394,7 @@ Declaration =
     Variable { name: string, type: string, value: Expression },
     Import { alias: string, path: string }
 
-Parameter = {
+Parameter: {
     name: string,
     type: string,
 }
@@ -419,7 +419,7 @@ Expression =
     Member { object: Box<Expression>, member: string }
 
 // Simple compiler driver
-compile_file = (filename: string) bool {
+compile_file: (filename: string) bool  = {
     // Read source file
     source_result := fs.read_file(filename);
     if source_result.is_err() {
@@ -453,7 +453,7 @@ compile_file = (filename: string) bool {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Zen Self-Hosting Compiler v");
     io.println(VERSION);
     io.println("================================");

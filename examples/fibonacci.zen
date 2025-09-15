@@ -4,14 +4,14 @@ io := @std.io
 core := @std.core
 
 // Calculate fibonacci number recursively
-fib_recursive = (n: i32) i32 {
+fib_recursive: (n: i32) i32  = {
     n <= 1 ?
         | true => n
         | false => fib_recursive(n - 1) + fib_recursive(n - 2)
 }
 
 // Calculate fibonacci number iteratively
-fib_iterative = (n: i32) i32 {
+fib_iterative: (n: i32) i32  = {
     n <= 1 ?
         | true => return n
         | false => 0  // Continue to iterative calculation
@@ -31,7 +31,7 @@ fib_iterative = (n: i32) i32 {
 }
 
 // Print fibonacci sequence up to n terms
-print_fib_sequence = (n: i32) void {
+print_fib_sequence: (n: i32) void  = {
     io.print("Fibonacci sequence (")
     io.print_int(n)
     io.println(" terms):")
@@ -49,7 +49,7 @@ print_fib_sequence = (n: i32) void {
 }
 
 // Main function
-main = () i32 {
+main: () i32  = {
     io.println("=== Fibonacci Calculator ===\n")
     
     // Test recursive implementation

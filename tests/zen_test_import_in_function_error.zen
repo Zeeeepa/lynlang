@@ -1,6 +1,6 @@
 // This test should FAIL - imports not allowed inside functions
 
-main = () i32 {
+main: () i32  = {
     // ERROR: Import inside function scope
     io := @std.io
     io.print("This should not compile\n")

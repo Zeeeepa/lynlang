@@ -10,7 +10,7 @@ lexer := @std.compiler.lexer
 parser := @std.compiler.parser
 
 // LSP Message Types
-LSPMessage = {
+LSPMessage: {
     jsonrpc: string,
     id: Option<i32>,
     method: Option<string>,
@@ -19,27 +19,27 @@ LSPMessage = {
     error: Option<LSPError>,
 }
 
-LSPError = {
+LSPError: {
     code: i32,
     message: string,
     data: Option<json.Value>,
 }
 
 // LSP Server State
-LSPServer = {
+LSPServer: {
     documents: HashMap<string, Document>,
     workspace_root: Option<string>,
     capabilities: ServerCapabilities,
 }
 
-Document = {
+Document: {
     uri: string,
     content: string,
     version: i32,
     diagnostics: Vec<Diagnostic>,
 }
 
-Diagnostic = {
+Diagnostic: {
     range: Range,
     severity: i32,
     code: Option<string>,
@@ -47,17 +47,17 @@ Diagnostic = {
     message: string,
 }
 
-Range = {
+Range: {
     start: Position,
     end: Position,
 }
 
-Position = {
+Position: {
     line: i32,
     character: i32,
 }
 
-ServerCapabilities = {
+ServerCapabilities: {
     text_document_sync: i32,
     hover_provider: bool,
     completion_provider: bool,
@@ -74,10 +74,10 @@ ServerCapabilities = {
 }
 
 // Create new LSP server
-lsp_server_new = () LSPServer {
+lsp_server_new: () LSPServer  = {
     return LSPServer {
-        documents: HashMap::new(),
-        workspace_root: Option::None,
+        documents: HashMap:new(),
+        workspace_root: None,
         capabilities: ServerCapabilities {
             text_document_sync: 1, // Full sync
             hover_provider: true,
@@ -97,7 +97,7 @@ lsp_server_new = () LSPServer {
 }
 
 // Handle LSP request
-handle_request = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_request: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     msg.method ? 
         | .Some -> method => {
             method == "initialize" ? 
@@ -105,7 +105,7 @@ handle_request = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
                 | false => {}
             
             method == "initialized" ?
-                | true => return Option::None  // No response needed
+                | true => return None  // No response needed
                 | false => {}
             
             method == "textDocument/didOpen" ?
@@ -151,17 +151,17 @@ handle_request = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
             // Unknown method
             return create_error_response(msg.id, -32601, "Method not found")
         }
-        | .None => return Option::None
+        | .None => return None
 }
 
 // Initialize handler
-handle_initialize = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_initialize: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // Extract workspace root from params
     msg.params ?
         | .Some -> params => {
             root_uri := json.get_string(params, "rootUri")
             root_uri ?
-                | .Some -> uri => { server.workspace_root = Option::Some(uri) }
+                | .Some -> uri => { server.workspace_root = Some(uri) }
                 | .None => {}
         }
         | .None => {}
@@ -195,7 +195,7 @@ handle_initialize = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
 }
 
 // Document open handler
-handle_did_open = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_did_open: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     msg.params ?
         | .Some -> params => {
             text_document := json.get_object(params, "textDocument")
@@ -211,7 +211,7 @@ handle_did_open = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
                                 uri: uri.unwrap(),
                                 content: text.unwrap(),
                                 version: version.unwrap() as i32,
-                                diagnostics: Vec::new(),
+                                diagnostics: Vec:new(),
                             }
                             
                             // Analyze document
@@ -226,23 +226,23 @@ handle_did_open = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
         }
         | .None => {}
     
-    return Option::None
+    return Option.None
 }
 
 // Document change handler
-handle_did_change = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_did_change: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // Similar to did_open but updates existing document
-    return Option::None
+    return Option.None
 }
 
 // Document save handler
-handle_did_save = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_did_save: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // Re-analyze document on save
-    return Option::None
+    return Option.None
 }
 
 // Document close handler
-handle_did_close = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_did_close: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     msg.params ?
         | .Some -> params => {
             text_document := json.get_object(params, "textDocument")
@@ -256,18 +256,19 @@ handle_did_close = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
                 | .None => {}
         }
         | .None => {}
+        | .None => {}
     
-    return Option::None
+    return None
 }
 
 // Hover handler
-handle_hover = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_hover: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // TODO: Implement hover information
-    return create_response(msg.id, json.null())
+    return create_response(msg.id, json.Null)
 }
 
 // Completion handler
-handle_completion = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_completion: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // TODO: Implement code completion
     completions := json.array([
         create_completion_item("loop", "Keyword", "Loop construct"),
@@ -282,39 +283,39 @@ handle_completion = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
 }
 
 // Definition handler
-handle_definition = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_definition: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // TODO: Implement go-to-definition
-    return create_response(msg.id, json.null())
+    return create_response(msg.id, json.Null)
 }
 
 // References handler
-handle_references = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_references: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // TODO: Implement find references
-    return create_response(msg.id, json.array([]))
+    return create_response(msg.id, json.Array([]))
 }
 
 // Formatting handler
-handle_formatting = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
+handle_formatting: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
     // TODO: Implement code formatting
-    return create_response(msg.id, json.array([]))
+    return create_response(msg.id, json.Array([]))
 }
 
 // Shutdown handler
-handle_shutdown = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage> {
-    return create_response(msg.id, json.null())
+handle_shutdown: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+    return create_response(msg.id, json.Null)
 }
 
 // Analyze document for diagnostics
-analyze_document = (server: *LSPServer, doc: *Document) void {
+analyze_document: (server: *LSPServer, doc: *Document) void  = {
     // Create lexer
     lex := lexer.lexer_new(doc.content)
     
-    diagnostics := Vec::new()
+    diagnostics := Vec.new()
     
     // Tokenize and check for errors
     loop {
         tok := lexer.lexer_next_token(&lex)
-        tok.token_type == lexer.TokenType::Eof ?
+        tok.token_type == lexer.TokenType.Eof ?
             | true => { break }
             | false => {}
         
@@ -329,7 +330,7 @@ analyze_document = (server: *LSPServer, doc: *Document) void {
 }
 
 // Send diagnostics notification
-send_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void {
+send_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
     notification := json.object([
         ("jsonrpc", json.string("2.0")),
         ("method", json.string("textDocument/publishDiagnostics")),
@@ -344,9 +345,9 @@ send_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void {
 
 // Convert diagnostics to JSON
 diagnostics_to_json = (diagnostics: Vec<Diagnostic>) json.Value {
-    items := Vec::new()
+    items := Vec.new()
     
-    i ::= 0
+    i := 0
     loop i < diagnostics.len() {
         diag := diagnostics[i]
         item := json.object([
@@ -383,47 +384,47 @@ create_completion_item = (label: string, kind: string, detail: string) json.Valu
 }
 
 // Create response message
-create_response = (id: Option<i32>, result: json.Value) Option<LSPMessage> {
+create_response: (id: Option<i32>, result: json.Value) Option<LSPMessage>  = {
     id ?
         | .Some -> i => {
-            return Option::Some(LSPMessage {
+            return Some(LSPMessage {
                 jsonrpc: "2.0",
-                id: Option::Some(i),
-                method: Option::None,
-                params: Option::None,
-                result: Option::Some(result),
-                error: Option::None,
+                id: Some(i),
+                method: None,
+                params: None,
+                result: Some(result),
+                error: None,
             })
         }
-        | .None => return Option::None
+        | .None => return .None
 }
 
 // Create error response
-create_error_response = (id: Option<i32>, code: i32, message: string) Option<LSPMessage> {
+create_error_response: (id: Option<i32>, code: i32, message: string) Option<LSPMessage>  = {
     id ?
         | .Some -> i => {
-            return Option::Some(LSPMessage {
+            return Some(LSPMessage {
                 jsonrpc: "2.0",
-                id: Option::Some(i),
-                method: Option::None,
-                params: Option::None,
-                result: Option::None,
-                error: Option::Some(LSPError {
+                id: Some(i),
+                method: None,
+                params: None,
+                result: None,
+                error: Some(LSPError {
                     code: code,
                     message: message,
-                    data: Option::None,
+                    data: None,
                 }),
             })
         }
-        | .None => return Option::None
+        | .None => return None
 }
 
 // Read message from stdin
-read_message = () Option<LSPMessage> {
+read_message: () Option<LSPMessage>  = {
     // Read Content-Length header
     header := io.read_line()
     header.starts_with("Content-Length: ") ?
-        | false => return Option::None
+        | false => return None
         | true => {}
     
     length_str := header[16..]
@@ -439,17 +440,17 @@ read_message = () Option<LSPMessage> {
     msg := json.parse(content)
     msg ?
         | .Ok -> m => return parse_lsp_message(m)
-        | .Err -> _ => return Option::None
+        | .Err -> _ => return None
 }
 
 // Parse JSON into LSP message
-parse_lsp_message = (value: json.Value) Option<LSPMessage> {
+parse_lsp_message: (value: json.Value) Option<LSPMessage>  = {
     // TODO: Implement JSON to LSPMessage conversion
-    return Option::None
+    return None
 }
 
 // Send message to stdout
-send_message = (msg: json.Value) void {
+send_message: (msg: json.Value) void  = {
     content := json.stringify(msg)
     length := content.len()
     
@@ -459,7 +460,7 @@ send_message = (msg: json.Value) void {
 }
 
 // Main LSP server loop
-main = () void {
+main: () void  = {
     server := lsp_server_new()
     
     io.print_err("Zen LSP Server starting...\n")
@@ -489,7 +490,7 @@ main = () void {
 
 // Convert LSP message to JSON
 lsp_message_to_json = (msg: LSPMessage) json.Value {
-    fields := Vec::new()
+    fields := Vec:new()
     fields.push(("jsonrpc", json.string(msg.jsonrpc)))
     
     msg.id ?

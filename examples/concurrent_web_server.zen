@@ -1,0 +1,475 @@
+// Example web server using allocator-based colorless concurrency
+// Demonstrates the progressive enhancement from sync to concurrent execution
+
+build := @std.build
+std := build.import("std")
+allocator := build.import("allocator")
+runtime := build.import("concurrent_runtime_enhanced")
+actor := build.import("actor")
+io := build.import("io")
+net := build.import("net")
+
+// HTTP types
+HttpMethod: 
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    HEAD,
+    OPTIONS
+
+HttpRequest: {
+    method: HttpMethod
+    path: String
+    headers: []Header
+    body: []u8
+    
+    Header: {
+        name: String
+        value: String
+    }
+}
+
+HttpResponse: {
+    status: u16
+    headers: []HttpRequest.Header
+    body: []u8
+    
+    ok: (body: String) HttpResponse {
+        return HttpResponse{
+            status: 200,
+            headers: []HttpRequest.Header{
+                { name: "Content-Type", value: "text/plain" },
+                { name: "Content-Length", value: std.fmt.format("{}", body.len) }
+            },
+            body: body.bytes()
+        }
+    }
+    
+    json: (data: String) HttpResponse {
+        return HttpResponse{
+            status: 200,
+            headers: []HttpRequest.Header{
+                { name: "Content-Type", value: "application/json" },
+                { name: "Content-Length", value: std.fmt.format("{}", data.len) }
+            },
+            body: data.bytes()
+        }
+    }
+    
+    not_found: () HttpResponse {
+        return HttpResponse{
+            status: 404,
+            headers: []HttpRequest.Header{
+                { name: "Content-Type", value: "text/plain" }
+            },
+            body: "Not Found".bytes()
+        }
+    }
+    
+    error: (message: String) HttpResponse {
+        return HttpResponse{
+            status: 500,
+            headers: []HttpRequest.Header{
+                { name: "Content-Type", value: "text/plain" }
+            },
+            body: message.bytes()
+        }
+    }
+}
+
+// Router for handling HTTP requests
+Router: {
+    routes: []Route
+    alloc: *allocator.Allocator
+    
+    Route: {
+        method: HttpMethod
+        pattern: String
+        handler: (HttpRequest, *allocator.Allocator) HttpResponse
+    }
+    
+    init: (alloc: *allocator.Allocator) Router {
+        return Router{
+            routes: []Route{},
+            alloc: alloc
+        }
+    }
+    
+    get: (pattern: String, handler: (HttpRequest, *allocator.Allocator) HttpResponse) void {
+        self.routes.append(Route{
+            method: .GET,
+            pattern: pattern,
+            handler: handler
+        })
+    }
+    
+    post: (pattern: String, handler: (HttpRequest, *allocator.Allocator) HttpResponse) void {
+        self.routes.append(Route{
+            method: .POST,
+            pattern: pattern,
+            handler: handler
+        })
+    }
+    
+    handle: (req: HttpRequest) HttpResponse {
+        loop i := 0; i < self.routes.len; i += 1 {
+            route := self.routes[i]
+            
+            route.method == req.method && matchPattern(route.pattern, req.path) ? {
+                return route.handler(req, self.alloc)
+            } : {}
+        }
+        
+        return HttpResponse.not_found()
+    }
+}
+
+matchPattern: (pattern: String, path: String) bool  = {
+    // Simple pattern matching
+    pattern == path ? return true : {}
+    
+    // Wildcard matching
+    pattern.endsWith("*") ? {
+        prefix := pattern[0..pattern.len - 1]
+        return path.startsWith(prefix)
+    } : {}
+    
+    return false
+}
+
+// Database simulation
+Database: {
+    data: std.HashMap(String, String)
+    alloc: *allocator.Allocator
+    
+    init: (alloc: *allocator.Allocator) Database {
+        return Database{
+            data: std.HashMap(String, String).init(),
+            alloc: alloc
+        }
+    }
+    
+    query: (sql: String, params: []anytype, alloc: *allocator.Allocator) []Row {
+        // Simulated database query
+        // In real implementation, would use concurrent I/O if alloc.is_concurrent
+        
+        alloc.is_concurrent ? {
+            // Would suspend for concurrent database I/O
+            cont := alloc.suspend()
+            cont ? {
+                // Register database query
+                alloc.resume(cont.?)
+            } : {}
+        } : {}
+        
+        // Return mock data
+        return []Row{}
+    }
+    
+    Row: {
+        columns: []String
+        values: []String
+    }
+}
+
+// Cache implementation
+Cache: {
+    entries: std.HashMap(String, CacheEntry)
+    alloc: *allocator.Allocator
+    
+    CacheEntry: {
+        value: String
+        expiry: u64
+    }
+    
+    init: (alloc: *allocator.Allocator) Cache {
+        return Cache{
+            entries: std.HashMap(String, CacheEntry).init(),
+            alloc: alloc
+        }
+    }
+    
+    get: (key: String, alloc: *allocator.Allocator) ?String {
+        entry := self.entries.get(key)
+        entry ? {
+            // Check expiry
+            now := std.time.timestamp()
+            entry.?.expiry > now ? {
+                return entry.?.value
+            } : {
+                self.entries.remove(key)
+                return null
+            }
+        } : {
+            return null
+        }
+    }
+    
+    set: (key: String, value: String, ttl: u64, alloc: *allocator.Allocator) void {
+        self.entries.put(key, CacheEntry{
+            value: value,
+            expiry: std.time.timestamp() + ttl
+        })
+    }
+}
+
+// Application state
+AppState: {
+    db: Database
+    cache: Cache
+    alloc: *allocator.Allocator
+}
+
+// Request handlers (colorless - work with any allocator)
+handleUsers: (req: HttpRequest, state: *AppState, alloc: *allocator.Allocator) HttpResponse  = {
+    // Check cache first
+    cached := state.cache.get("users", alloc)
+    cached ? {
+        return HttpResponse.json(cached.?)
+    } : {}
+    
+    // Query database
+    rows := state.db.query("SELECT * FROM users", [], alloc)
+    
+    // Convert to JSON (simplified)
+    json := "{ \"users\": [] }"
+    
+    // Cache for 60 seconds
+    state.cache.set("users", json, 60, alloc)
+    
+    return HttpResponse.json(json)
+}
+
+handleUser: (req: HttpRequest, id: String, state: *AppState, alloc: *allocator.Allocator) HttpResponse  = {
+    cache_key := "user_" ++ id
+    
+    // Check cache
+    cached := state.cache.get(cache_key, alloc)
+    cached ? {
+        return HttpResponse.json(cached.?)
+    } : {}
+    
+    // Query database
+    rows := state.db.query("SELECT * FROM users WHERE id = ?", [id], alloc)
+    
+    rows.len == 0 ? {
+        return HttpResponse.not_found()
+    } : {}
+    
+    // Convert to JSON
+    json := "{ \"user\": { \"id\": \"" ++ id ++ "\" } }"
+    
+    // Cache
+    state.cache.set(cache_key, json, 300, alloc)
+    
+    return HttpResponse.json(json)
+}
+
+handleCreateUser: (req: HttpRequest, state: *AppState, alloc: *allocator.Allocator) HttpResponse  = {
+    // Parse JSON body (simplified)
+    // In real implementation would parse req.body
+    
+    // Insert into database
+    state.db.query("INSERT INTO users (name, email) VALUES (?, ?)", 
+                  ["New User", "user@example.com"], alloc)
+    
+    // Clear cache
+    state.cache.entries.clear()
+    
+    return HttpResponse.json("{ \"success\": true }")
+}
+
+// HTTP server
+HttpServer: {
+    port: u16
+    router: Router
+    state: AppState
+    alloc: *allocator.Allocator
+    running: bool
+    
+    init: (port: u16, alloc: *allocator.Allocator) HttpServer {
+        return HttpServer{
+            port: port,
+            router: Router.init(alloc),
+            state: AppState{
+                db: Database.init(alloc),
+                cache: Cache.init(alloc),
+                alloc: alloc
+            },
+            alloc: alloc,
+            running: false
+        }
+    }
+    
+    setupRoutes: () void {
+        self.router.get("/api/users", (req, alloc) => handleUsers(req, &self.state, alloc))
+        self.router.get("/api/users/*", (req, alloc) => {
+            // Extract ID from path
+            id := req.path[11..]  // Skip "/api/users/"
+            return handleUser(req, id, &self.state, alloc)
+        })
+        self.router.post("/api/users", (req, alloc) => handleCreateUser(req, &self.state, alloc))
+        
+        self.router.get("/health", (req, alloc) => HttpResponse.ok("OK"))
+    }
+    
+    run: () !void {
+        self.running = true
+        
+        // Create socket
+        socket := net.Socket.bind(self.port)?
+        defer socket.close()
+        
+        io.print("Server listening on port {}\n", self.port)
+        
+        // Accept loop
+        loop {
+            !self.running ? break : {}
+            
+            // Accept connection (colorless - uses allocator)
+            client := self.alloc.is_concurrent ? {
+                // Concurrent accept
+                acceptAsync(socket, self.alloc)?
+            } : {
+                // Sync accept
+                socket.accept()?
+            }
+            
+            // Handle connection
+            self.handleConnection(client)
+        }
+    }
+    
+    handleConnection: (client: net.Socket) void {
+        defer client.close()
+        
+        // Read request (simplified)
+        buffer := self.alloc.alloc_slice(u8, 4096)
+        defer self.alloc.free_slice(buffer)
+        
+        bytes_read := self.alloc.is_concurrent ? {
+            runtime.concurrent_read(client.fd, buffer, self.alloc)
+        } : {
+            io.read(client.fd, buffer)
+        }
+        
+        // Parse request (simplified)
+        req := parseRequest(buffer[0..bytes_read])
+        
+        // Route request
+        response := self.router.handle(req)
+        
+        // Send response
+        response_str := formatResponse(response)
+        
+        self.alloc.is_concurrent ? {
+            runtime.concurrent_write(client.fd, response_str.bytes(), self.alloc)
+        } : {
+            io.write(client.fd, response_str.bytes())
+        }
+    }
+    
+    stop: () void {
+        self.running = false
+    }
+}
+
+acceptAsync = (socket: net.Socket, alloc: *allocator.Allocator) !net.Socket {
+    // Register interest in accept
+    cont := alloc.suspend()
+    cont ? {
+        // Would register with epoll/kqueue
+        alloc.resume(cont.?)
+    } : {}
+    
+    return socket.accept()?
+}
+
+parseRequest: (data: []u8) HttpRequest  = {
+    // Simplified HTTP parsing
+    return HttpRequest{
+        method: .GET,
+        path: "/",
+        headers: []HttpRequest.Header{},
+        body: []u8{}
+    }
+}
+
+formatResponse: (resp: HttpResponse) String  = {
+    // Format HTTP response
+    status_text := resp.status ?
+        | 200 => "OK"
+        | 404 => "Not Found"
+        | 500 => "Internal Server Error"
+        | _ => "Unknown"
+    
+    result := std.fmt.format("HTTP/1.1 {} {}\r\n", resp.status, status_text)
+    
+    loop i := 0; i < resp.headers.len; i += 1 {
+        result ++= std.fmt.format("{}: {}\r\n", resp.headers[i].name, resp.headers[i].value)
+    }
+    
+    result ++= "\r\n"
+    result ++= String.fromBytes(resp.body)
+    
+    return result
+}
+
+// Main function demonstrating progressive enhancement
+main: () void  = {
+    // Parse command line args
+    args := std.process.args()
+    
+    mode := args.len > 1 ? args[1] : "sync"
+    port := args.len > 2 ? std.parseInt(args[2]) orelse 8080 : 8080
+    
+    io.print("Starting server in {} mode\n", mode)
+    
+    // Choose allocator based on mode
+    alloc := mode ?
+        | "sync" => {
+            // Synchronous mode - simple debugging
+            sync_alloc := allocator.SyncAllocator.init()
+            defer sync_alloc.deinit()
+            sync_alloc.allocator()
+        }
+        | "concurrent" => {
+            // Concurrent mode - production performance
+            runtime := allocator.Runtime.init()
+            concurrent_alloc := allocator.ConcurrentAllocator.init(&runtime)
+            concurrent_alloc.allocator()
+        }
+        | "auto" => {
+            // Auto mode - chooses based on environment
+            auto_alloc := allocator.AutoAllocator.init()
+            auto_alloc.allocator()
+        }
+        | _ => {
+            io.print("Unknown mode: {}. Use sync, concurrent, or auto\n", mode)
+            std.process.exit(1)
+        }
+    
+    // Create and run server
+    server := HttpServer.init(port, &alloc)
+    server.setupRoutes()
+    
+    // Handle shutdown signal
+    std.signal.handle(.INT, () => {
+        io.print("\nShutting down server...\n")
+        server.stop()
+    })
+    
+    // Run server (same code for sync and concurrent!)
+    server.run() catch |err| {
+        io.print("Server error: {}\n", err)
+        std.process.exit(1)
+    }
+    
+    io.print("Server stopped\n")
+}
+
+// Example usage:
+// zen run concurrent_web_server.zen sync 8080    # Development mode
+// zen run concurrent_web_server.zen concurrent 8080   # Production mode
+// zen run concurrent_web_server.zen auto 8080    # Auto-select mode

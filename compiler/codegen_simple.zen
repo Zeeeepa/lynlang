@@ -5,7 +5,7 @@ core := @std.core
 io := @std.io
 
 // Main entry point for code generator
-main = () i32 {
+main: () i32  = {
     io.print("Zen Code Generator\n")
     io.print("==================\n")
     io.print("\n")

@@ -9,8 +9,7 @@ string := build.import("string")
 mem := build.import("mem")
 
 // Type system for FFI
-Type = 
-    | Void
+Type: Void
     | Bool
     | I8 | I16 | I32 | I64
     | U8 | U16 | U32 | U64
@@ -21,32 +20,32 @@ Type =
     | Array(element: Ptr<Type>, size: usize)
     | Struct(fields: Vec<FieldType>)
 
-FieldType = {
+FieldType: {
     name: string,
     field_type: Type,
 }
 
 // FFI builder for safe C interop
-FFI = {
+FFI: {
     // Create a new library builder
     lib: (name: string) Ptr<LibBuilder> {
         builder := LibBuilder{
             name: name,
             path_str: None,
-            functions: Vec<FunctionBinding>::new(),
-            constants: Vec<ConstantBinding>::new(),
-            structs: Vec<StructBinding>::new(),
+            functions: Vec<FunctionBinding>:new(),
+            constants: Vec<ConstantBinding>:new(),
+            structs: Vec<StructBinding>:new(),
         }
-        Ptr::new(builder)
+        Ptr:new(builder)
     },
 }
 
-LibBuilder = {
+LibBuilder: {
     name: string,
-    path_str:: Option<string> = None,
-    functions:: Vec<FunctionBinding> = Vec<FunctionBinding>::new(),
-    constants:: Vec<ConstantBinding> = Vec<ConstantBinding>::new(),
-    structs:: Vec<StructBinding> = Vec<StructBinding>::new(),
+    path_str: Option<string> = None,
+    functions: Vec<FunctionBinding> = Vec<FunctionBinding>:new(),
+    constants: Vec<ConstantBinding> = Vec<ConstantBinding>:new(),
+    structs: Vec<StructBinding> = Vec<StructBinding>:new(),
     
     path: (self: Ptr<LibBuilder>, p: string) Ptr<LibBuilder> {
         self.value.path_str = Some(p)
@@ -88,49 +87,48 @@ LibBuilder = {
             constants: self.value.constants,
             structs: self.value.structs,
             handle: None,
-            symbol_cache: HashMap<string, RawPtr<void>>::new(),
+            symbol_cache: HashMap<string, RawPtr<void>>:new(),
         }
-        Ptr::new(lib)
+        Ptr:new(lib)
     },
 }
 
-FunctionBinding = {
+FunctionBinding: {
     name: string,
     signature: FnSignature,
 }
 
-FnSignature = {
+FnSignature: {
     params: Vec<Type>,
     returns: Type,
-    calling_convention:: Option<CallingConvention> = None,
-    variadic:: bool = false,
+    calling_convention: Option<CallingConvention> = None,
+    variadic: bool = false,
 }
 
-CallingConvention = 
-    | CDecl      // Default C calling convention
+CallingConvention: CDecl      // Default C calling convention
     | StdCall    // Windows standard call
     | FastCall   // Fast calling convention
     | ThisCall   // C++ member function
     | VectorCall // Vector calling convention
 
-ConstantBinding = {
+ConstantBinding: {
     name: string,
     const_type: Type,
 }
 
-StructBinding = {
+StructBinding: {
     name: string,
     fields: Vec<FieldType>,
 }
 
-Library = {
+Library: {
     name: string,
     path: Option<string>,
     functions: Vec<FunctionBinding>,
     constants: Vec<ConstantBinding>,
     structs: Vec<StructBinding>,
-    handle:: Option<RawPtr<void>> = None,
-    symbol_cache:: HashMap<string, RawPtr<void>> = HashMap<string, RawPtr<void>>::new(),
+    handle: Option<RawPtr<void>> = None,
+    symbol_cache: HashMap<string, RawPtr<void>> = HashMap<string, RawPtr<void>>:new(),
     
     // Load the library
     load: (self: Ptr<Library>) Result<void, string> {
@@ -208,7 +206,7 @@ Library = {
 }
 
 // Platform-specific library loading
-load_library = (path: string) Result<RawPtr<void>, string> {
+load_library: (path: string) Result<RawPtr<void>, string>  = {
     @std.target.os ?
         | .linux => load_library_linux(path)
         | .windows => load_library_windows(path)
@@ -217,7 +215,7 @@ load_library = (path: string) Result<RawPtr<void>, string> {
 }
 
 // Platform-specific library unloading
-unload_library = (handle: RawPtr<void>) Result<void, string> {
+unload_library: (handle: RawPtr<void>) Result<void, string>  = {
     @std.target.os ?
         | .linux => unload_library_linux(handle)
         | .windows => unload_library_windows(handle)
@@ -226,7 +224,7 @@ unload_library = (handle: RawPtr<void>) Result<void, string> {
 }
 
 // Platform-specific symbol lookup
-get_symbol = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+get_symbol: (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>  = {
     @std.target.os ?
         | .linux => get_symbol_linux(handle, name)
         | .windows => get_symbol_windows(handle, name)  
@@ -240,7 +238,7 @@ extern dlsym = (handle: RawPtr<void>, symbol: string) RawPtr<void>
 extern dlclose = (handle: RawPtr<void>) i32
 extern dlerror = () string
 
-load_library_linux = (path: string) Result<RawPtr<void>, string> {
+load_library_linux: (path: string) Result<RawPtr<void>, string>  = {
     RTLD_LAZY := 1
     handle := dlopen(path, RTLD_LAZY)
     handle.address \!= 0 ?
@@ -248,14 +246,14 @@ load_library_linux = (path: string) Result<RawPtr<void>, string> {
         | false => .Err(dlerror())
 }
 
-get_symbol_linux = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+get_symbol_linux: (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>  = {
     symbol := dlsym(handle, name)
     symbol.address \!= 0 ?
         | true => .Ok(symbol)
         | false => .Err(dlerror())
 }
 
-unload_library_linux = (handle: RawPtr<void>) Result<void, string> {
+unload_library_linux: (handle: RawPtr<void>) Result<void, string>  = {
     result := dlclose(handle)
     result == 0 ?
         | true => .Ok(void)
@@ -268,21 +266,21 @@ extern GetProcAddress = (hModule: RawPtr<void>, lpProcName: string) RawPtr<void>
 extern FreeLibrary = (hModule: RawPtr<void>) bool
 extern GetLastError = () u32
 
-load_library_windows = (path: string) Result<RawPtr<void>, string> {
+load_library_windows: (path: string) Result<RawPtr<void>, string>  = {
     handle := LoadLibraryA(path)
     handle.address \!= 0 ?
         | true => .Ok(handle)
         | false => .Err("Failed to load library: error code $(GetLastError())")
 }
 
-get_symbol_windows = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+get_symbol_windows: (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>  = {
     symbol := GetProcAddress(handle, name)
     symbol.address \!= 0 ?
         | true => .Ok(symbol)
         | false => .Err("Symbol not found: error code $(GetLastError())")
 }
 
-unload_library_windows = (handle: RawPtr<void>) Result<void, string> {
+unload_library_windows: (handle: RawPtr<void>) Result<void, string>  = {
     result := FreeLibrary(handle)
     result ?
         | true => .Ok(void)
@@ -290,20 +288,20 @@ unload_library_windows = (handle: RawPtr<void>) Result<void, string> {
 }
 
 // macOS implementation (uses same as Linux)  
-load_library_macos = (path: string) Result<RawPtr<void>, string> {
+load_library_macos: (path: string) Result<RawPtr<void>, string>  = {
     load_library_linux(path) // macOS uses dlopen/dlsym like Linux
 }
 
-get_symbol_macos = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string> {
+get_symbol_macos: (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>  = {
     get_symbol_linux(handle, name)
 }
 
-unload_library_macos = (handle: RawPtr<void>) Result<void, string> {
+unload_library_macos: (handle: RawPtr<void>) Result<void, string>  = {
     unload_library_linux(handle)
 }
 
 // Helper functions for common FFI patterns
-create_c_string = (s: string) RawPtr<u8> {
+create_c_string: (s: string) RawPtr<u8>  = {
     // Allocate buffer with null terminator
     buffer := mem.alloc<u8>(s.len() + 1)
     
@@ -318,13 +316,13 @@ create_c_string = (s: string) RawPtr<u8> {
     buffer
 }
 
-free_c_string = (ptr: RawPtr<u8>) void {
+free_c_string: (ptr: RawPtr<u8>) void  = {
     mem.free(ptr)
 }
 
 // Convert C string to Zen string
-from_c_string = (ptr: RawPtr<u8>) string {
-    len ::= 0
+from_c_string: (ptr: RawPtr<u8>) string  = {
+    len := 0
     
     // Find null terminator
     loop {
@@ -333,5 +331,5 @@ from_c_string = (ptr: RawPtr<u8>) string {
     }
     
     // Create string from bytes
-    string::from_bytes(ptr, len)
+    string:from_bytes(ptr, len)
 }

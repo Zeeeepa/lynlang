@@ -8,7 +8,7 @@ vec := @std.vec
 math := @std.math
 
 // Test function that uses multiple stdlib modules
-process_data = () void {
+process_data: () void  = {
     // Create a vector
     v := vec.new()
     
@@ -35,7 +35,7 @@ process_data = () void {
 }
 
 // Test string manipulation across modules
-test_string_ops = () void {
+test_string_ops: () void  = {
     // Create strings
     s1 := "Hello"
     s2 := "World"
@@ -57,7 +57,7 @@ test_string_ops = () void {
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Testing stdlib cross-imports\n")
     io.print("============================\n\n")
     

@@ -9,7 +9,7 @@ string := @std.string
 hashmap := @std.hashmap
 
 // Package manifest structure
-Package = {
+Package: {
     name: string,
     version: string,
     description: string,
@@ -22,14 +22,13 @@ Package = {
 }
 
 // Dependency specification
-Dependency = 
-    | Version(version: string)
+Dependency: Version(version: string)
     | Git(url: string, branch: string)
     | Path(path: string)
     | Registry(name: string, version: string)
 
 // Semantic version
-SemVer = {
+SemVer: {
     major: i32,
     minor: i32,
     patch: i32,
@@ -38,13 +37,13 @@ SemVer = {
 }
 
 // Package registry
-Registry = {
+Registry: {
     url: string,
     packages: HashMap<string, PackageInfo>,
 }
 
 // Package information in registry
-PackageInfo = {
+PackageInfo: {
     name: string,
     versions: Vec<SemVer>,
     latest: SemVer,
@@ -53,12 +52,11 @@ PackageInfo = {
 }
 
 // Dependency resolution result
-ResolutionResult = 
-    | Resolved(packages: HashMap<string, ResolvedPackage>)
+ResolutionResult: Resolved(packages: HashMap<string, ResolvedPackage>)
     | Conflict(message: string)
 
 // Resolved package with exact version
-ResolvedPackage = {
+ResolvedPackage: {
     name: string,
     version: SemVer,
     source: DependencySource,
@@ -66,13 +64,12 @@ ResolvedPackage = {
 }
 
 // Source of a dependency
-DependencySource = 
-    | Registry(url: string)
+DependencySource: Registry(url: string)
     | Git(url: string, commit: string)
     | Local(path: string)
 
 // Parse semantic version string
-parse_version = (version: string) Result<SemVer, string> {
+parse_version: (version: string) Result<SemVer, string>  = {
     parts := string.split(version, ".")
     parts.len() != 3 ? 
         | true => Result.Err("Invalid version format")
@@ -122,7 +119,7 @@ parse_version = (version: string) Result<SemVer, string> {
 }
 
 // Compare two versions
-compare_versions = (a: SemVer, b: SemVer) i32 {
+compare_versions: (a: SemVer, b: SemVer) i32  = {
     a.major != b.major ? 
         | true => a.major - b.major
         | false => {
@@ -133,7 +130,7 @@ compare_versions = (a: SemVer, b: SemVer) i32 {
 }
 
 // Check if version satisfies constraint
-satisfies = (version: SemVer, constraint: string) bool {
+satisfies: (version: SemVer, constraint: string) bool  = {
     // Simple implementation - just checks exact match or range
     constraint == "*" ? | true => return true | false => {}
     
@@ -172,7 +169,7 @@ satisfies = (version: SemVer, constraint: string) bool {
 }
 
 // Load package manifest from file
-load_manifest = (path: string) Result<Package, string> {
+load_manifest: (path: string) Result<Package, string>  = {
     content := fs.read_file(path) ?
         | Ok(c) => c
         | Err(e) => return Result.Err(string.format("Failed to read manifest: {}", e))
@@ -197,7 +194,7 @@ load_manifest = (path: string) Result<Package, string> {
 }
 
 // Parse dependencies from JSON
-parse_dependencies = (data: JsonValue) HashMap<string, Dependency> {
+parse_dependencies: (data: JsonValue) HashMap<string, Dependency>  = {
     deps := HashMap<string, Dependency>.new()
     
     data.as_object().entries().loop(entry -> {
@@ -225,7 +222,7 @@ parse_dependencies = (data: JsonValue) HashMap<string, Dependency> {
 }
 
 // Install dependencies
-install_dependencies = (manifest: Package) Result<void, string> {
+install_dependencies: (manifest: Package) Result<void, string>  = {
     // Create packages directory if it doesn't exist
     packages_dir := "./zen_packages"
     fs.exists(packages_dir) ?
@@ -251,7 +248,7 @@ install_dependencies = (manifest: Package) Result<void, string> {
 }
 
 // Resolve dependency tree
-resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult {
+resolve_dependencies: (deps: HashMap<string, Dependency>) ResolutionResult  = {
     resolved := HashMap<string, ResolvedPackage>.new()
     queue := Vec<(string, Dependency)>.new()
     
@@ -292,7 +289,7 @@ resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult {
 }
 
 // Resolve a single dependency
-resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPackage, string> {
+resolve_single_dependency: (name: string, dep: Dependency) Result<ResolvedPackage, string>  = {
     dep ?
         | Version(v) => {
             // Fetch from registry
@@ -343,7 +340,7 @@ resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPacka
 }
 
 // Find matching version from list
-find_matching_version = (versions: Vec<SemVer>, constraint: string) Option<SemVer> {
+find_matching_version: (versions: Vec<SemVer>, constraint: string) Option<SemVer>  = {
     best := Option.None
     
     versions.loop(version -> {
@@ -364,7 +361,7 @@ find_matching_version = (versions: Vec<SemVer>, constraint: string) Option<SemVe
 }
 
 // Install a resolved package
-install_package = (package: ResolvedPackage, target_dir: string) Result<void, string> {
+install_package: (package: ResolvedPackage, target_dir: string) Result<void, string>  = {
     package_dir := string.format("{}/{}", target_dir, package.name)
     
     package.source ?
@@ -385,7 +382,7 @@ install_package = (package: ResolvedPackage, target_dir: string) Result<void, st
 }
 
 // Convert version to string
-version_to_string = (v: SemVer) string {
+version_to_string: (v: SemVer) string  = {
     base := string.format("{}.{}.{}", v.major, v.minor, v.patch)
     
     v.prerelease ?
@@ -394,7 +391,7 @@ version_to_string = (v: SemVer) string {
 }
 
 // Fetch package info from registry
-fetch_package_info = (name: string) Result<PackageInfo, string> {
+fetch_package_info: (name: string) Result<PackageInfo, string>  = {
     url := string.format("https://registry.zen-lang.org/api/packages/{}", name)
     response := net.http_get(url) ?
         | Ok(r) => r
@@ -415,7 +412,7 @@ fetch_package_info = (name: string) Result<PackageInfo, string> {
 }
 
 // Initialize a new package
-init_package = (name: string) Result<void, string> {
+init_package: (name: string) Result<void, string>  = {
     // Create package manifest
     manifest := Package {
         name: name,
@@ -435,7 +432,7 @@ init_package = (name: string) Result<void, string> {
 }
 
 // Convert package to JSON string
-package_to_json = (pkg: Package) string {
+package_to_json: (pkg: Package) string  = {
     // Simplified JSON generation
     string.format(
         "{\n  \"name\": \"{}\",\n  \"version\": \"{}\",\n  \"description\": \"{}\",\n  \"author\": \"{}\",\n  \"license\": \"{}\",\n  \"repository\": \"{}\",\n  \"dependencies\": {},\n  \"dev_dependencies\": {}\n}",

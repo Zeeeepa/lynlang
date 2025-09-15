@@ -16,25 +16,25 @@ Option<T> =
 // Result methods implementation
 Result<T, E>.impl = {
     // Check if Result is Ok
-    is_ok = (self: Result<T, E>) bool {
+    is_ok: (self: Result<T, E>) bool  = {
         self ? | .Ok -> _ => true
               | .Err -> _ => false
     }
     
     // Check if Result is Err
-    is_err = (self: Result<T, E>) bool {
+    is_err: (self: Result<T, E>) bool  = {
         self ? | .Ok -> _ => false
               | .Err -> _ => true
     }
     
     // Extract Ok value or panic with message
-    unwrap = (self: Result<T, E>) T {
+    unwrap: (self: Result<T, E>) T  = {
         self ? | .Ok -> value => value
               | .Err -> _ => core.panic("called Result.unwrap() on an Err value")
     }
     
     // Extract Ok value or return default
-    unwrap_or = (self: Result<T, E>, default: T) T {
+    unwrap_or: (self: Result<T, E>, default: T) T  = {
         self ? | .Ok -> value => value
               | .Err -> _ => default
     }
@@ -46,7 +46,7 @@ Result<T, E>.impl = {
     }
     
     // Extract Err value or panic
-    unwrap_err = (self: Result<T, E>) E {
+    unwrap_err: (self: Result<T, E>) E  = {
         self ? | .Ok -> _ => core.panic("called Result.unwrap_err() on an Ok value")
               | .Err -> error => error
     }
@@ -76,13 +76,13 @@ Result<T, E>.impl = {
     }
     
     // Combine two Results
-    and = (self: Result<T, E>, other: Result<U, E>) Result<U, E> {
+    and: (self: Result<T, E>, other: Result<U, E>) Result<U, E>  = {
         self ? | .Ok -> _ => other
               | .Err -> error => .Err(error)
     }
     
     // Return self if Ok, otherwise return other
-    or = (self: Result<T, E>, other: Result<T, F>) Result<T, F> {
+    or: (self: Result<T, E>, other: Result<T, F>) Result<T, F>  = {
         self ? | .Ok -> value => .Ok(value)
               | .Err -> _ => other
     }
@@ -91,25 +91,25 @@ Result<T, E>.impl = {
 // Option methods implementation
 Option<T>.impl = {
     // Check if Option has a value
-    is_some = (self: Option<T>) bool {
+    is_some: (self: Option<T>) bool  = {
         self ? | .Some -> _ => true
               | .None => false
     }
     
     // Check if Option is None
-    is_none = (self: Option<T>) bool {
+    is_none: (self: Option<T>) bool  = {
         self ? | .Some -> _ => false
               | .None => true
     }
     
     // Extract value or panic
-    unwrap = (self: Option<T>) T {
+    unwrap: (self: Option<T>) T  = {
         self ? | .Some -> value => value
               | .None => core.panic("called Option.unwrap() on a None value")
     }
     
     // Extract value or return default
-    unwrap_or = (self: Option<T>, default: T) T {
+    unwrap_or: (self: Option<T>, default: T) T  = {
         self ? | .Some -> value => value
               | .None => default
     }
@@ -140,7 +140,7 @@ Option<T>.impl = {
     }
     
     // Convert to Result
-    ok_or = (self: Option<T>, err: E) Result<T, E> {
+    ok_or: (self: Option<T>, err: E) Result<T, E>  = {
         self ? | .Some -> value => .Ok(value)
               | .None => .Err(err)
     }
@@ -153,32 +153,32 @@ Option<T>.impl = {
 }
 
 // Utility functions for Result creation
-ok = (value: T) Result<T, E> {
+ok: (value: T) Result<T, E>  = {
     return .Ok(value)
 }
 
-err = (error: E) Result<T, E> {
+err: (error: E) Result<T, E>  = {
     return .Err(error)
 }
 
 // Utility functions for Option creation
-some = (value: T) Option<T> {
+some: (value: T) Option<T>  = {
     return .Some(value)
 }
 
-none = () Option<T> {
+none: () Option<T>  = {
     return .None
 }
 
-// Try operator simulation - propagates errors
-try = (result: Result<T, E>) T {
-    result ? | .Ok -> value => value
-            | .Err -> error => return .Err(error)
-}
+// Error propagation using ? operator and pattern matching
+// Example: value := some_result?;  // Propagates error up
+// Or use explicit pattern matching:
+// some_result ? | .Ok(value) => process(value)
+//              | .Err(e) => return .Err(e)
 
 // Collect Results into a Result of collection
-collect_results = (results: []Result<T, E>) Result<[]T, E> {
-    values ::= []T{}
+collect_results: (results: []Result<T, E>) Result<[]T, E>  = {
+    values := []T{}
     
     range(0, results.length).loop(i -> {
         results[i] ? | .Ok -> value => values.append(value)
@@ -189,7 +189,7 @@ collect_results = (results: []Result<T, E>) Result<[]T, E> {
 }
 
 // Convert Option to Result with custom error message
-option_to_result = (opt: Option<T>, error_msg: string) Result<T, string> {
+option_to_result: (opt: Option<T>, error_msg: string) Result<T, string>  = {
     opt ? | .Some -> value => .Ok(value)
          | .None => .Err(error_msg)
 }

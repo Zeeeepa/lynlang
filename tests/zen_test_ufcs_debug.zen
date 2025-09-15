@@ -1,19 +1,19 @@
 // UFCS test with debug output
-Rectangle = {
+Rectangle: {
     width: f64,
     height: f64,
 }
 
 // Define function with receiver as first param
-area = (rect: Rectangle) f64 {
+area: (rect: Rectangle) f64  = {
     rect.width * rect.height
 }
 
-perimeter = (rect: Rectangle) f64 {
+perimeter: (rect: Rectangle) f64  = {
     2.0 * (rect.width + rect.height)
 }
 
-main = () i32 {
+main: () i32  = {
     my_rect := Rectangle{ width: 10.0, height: 5.0 }
     
     // Test direct function calls first

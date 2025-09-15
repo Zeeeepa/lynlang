@@ -25,7 +25,7 @@ http := @std.http
 // utils := @project.utils
 
 // Test function using various imported modules
-test_imports = () bool {
+test_imports: () bool  = {
     // Test core functionality
     result := core.assert(true, "Core assert works")
     
@@ -49,14 +49,14 @@ test_imports = () bool {
 }
 
 // Test that comptime is NOT used for imports
-test_no_comptime_imports = () bool {
+test_no_comptime_imports: () bool  = {
     // This function exists to document that we don't use comptime for imports
     // The imports at the top of this file are the correct way
     return true
 }
 
 // Main entry point
-main = () i32 {
+main: () i32  = {
     io.print("Testing Zen import syntax...\n")
     
     test_imports() ?

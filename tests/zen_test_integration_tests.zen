@@ -1,0 +1,434 @@
+// Integration Tests for Zen Language
+// Tests real-world scenarios and module interactions
+
+test := @std.test
+io := @std.io
+fs := @std.fs
+net := @std.network
+http := @std.http
+json := @std.json
+thread := @std.thread
+process := @std.process
+
+// Test: Web server with JSON API
+test_web_server = test("Web Server Integration", () void => {
+    // Create simple HTTP server
+    server := http.Server.new("127.0.0.1", 8080);
+    
+    // Define routes
+    server.route("/api/hello", (req: http.Request) http.Response => {
+        data := json.object([
+            ("message", "Hello from Zen!"),
+            ("timestamp", json.number(time.now())),
+            ("method", json.string(req.method)),
+        ]);
+        
+        return http.Response {
+            status: 200,
+            headers: [("Content-Type", "application/json")],
+            body: json.stringify(data),
+        }
+    });
+    
+    // Start server in background thread
+    server_thread := thread.spawn(() void => {
+        server.listen()?
+    }, "http-server")?;
+    
+    // Give server time to start
+    thread.sleep(100);
+    
+    // Make HTTP request
+    response := http.get("http://127.0.0.1:8080/api/hello")?;
+    test.assert_eq(response.status, 200);
+    
+    // Parse JSON response
+    body := json.parse(response.body)?;
+    test.assert_eq(body["message"].as_string(), "Hello from Zen!");
+    
+    // Shutdown server
+    server.shutdown();
+    server_thread.join()?;
+})
+
+// Test: Concurrent file processing
+test_concurrent_processing = test("Concurrent File Processing", () void => {
+    // Create test files
+    num_files := 10;
+    files := [];
+    
+    i := 0;
+    loop i < num_files {
+        filename := "/tmp/zen_test_$(i).txt";
+        content := "File $(i) content\n" * 100;
+        fs.write_file(filename, content)?;
+        files.push(filename);
+        i += 1
+    }
+    
+    // Process files concurrently
+    results := thread.parallel_map(files, (file: string) i32 => {
+        content := fs.read_file(file)?;
+        lines := string.split(content, "\n");
+        return lines.len
+    });
+    
+    // Verify results
+    loop result in results {
+        test.assert_eq(result, 101); // 100 lines + empty
+    }
+    
+    // Cleanup
+    loop file in files {
+        fs.remove(file)?
+    }
+})
+
+// Test: Database-like operations
+test_database_operations = test("Database-like Operations", () void => {
+    // Define a simple record type
+    User: {
+        id: i32,
+        name: string,
+        email: string,
+        created_at: i64,
+    }
+    
+    // Create in-memory "database"
+    db := collections.HashMap<i32, User>.new();
+    mutex := thread.Mutex.new();
+    
+    // Insert records concurrently
+    pool := thread.ThreadPool.new(4);
+    
+    i := 0;
+    loop i < 100 {
+        id := i;
+        pool.submit(() void => {
+            user := User {
+                id: id,
+                name: "User $(id)",
+                email: "user$(id)@example.com",
+                created_at: time.now(),
+            };
+            
+            guard := thread.LockGuard.new(&mutex);
+            db.set(id, user);
+            guard.drop()
+        }, 0)?;
+        i += 1
+    }
+    
+    pool.wait();
+    
+    // Query records
+    test.assert_eq(db.len(), 100);
+    
+    // Find specific user
+    user := db.get(50)?;
+    test.assert_eq(user.name, "User 50");
+    test.assert_eq(user.email, "user50@example.com");
+    
+    // Filter users
+    filtered := [];
+    loop (id, user) in db {
+        id % 10 == 0 ? | true => filtered.push(user)
+    }
+    test.assert_eq(filtered.len, 10);
+    
+    pool.shutdown();
+})
+
+// Test: Network client/server
+test_network_communication = test("Network Communication", () void => {
+    // Create TCP server
+    server := net.TcpListener.bind("127.0.0.1", 9090)?;
+    
+    // Server thread
+    server_thread := thread.spawn(() void => {
+        client := server.accept()?;
+        
+        // Read message
+        buffer := [0u8; 256];
+        n := client.read(buffer)?;
+        message := string.from_bytes(buffer[0..n]);
+        
+        // Send response
+        response := "Echo: $(message)";
+        client.write(response.as_bytes())?;
+        
+        client.close()
+    }, "tcp-server")?;
+    
+    // Client connection
+    thread.sleep(50); // Let server start
+    
+    client := net.TcpStream.connect("127.0.0.1", 9090)?;
+    
+    // Send message
+    client.write("Hello, Server!".as_bytes())?;
+    
+    // Read response
+    buffer := [0u8; 256];
+    n := client.read(buffer)?;
+    response := string.from_bytes(buffer[0..n]);
+    
+    test.assert_eq(response, "Echo: Hello, Server!");
+    
+    client.close();
+    server_thread.join()?;
+})
+
+// Test: Process execution and pipes
+test_process_execution = test("Process Execution", () void => {
+    // Execute simple command
+    result := process.run(["echo", "Hello from subprocess"])?;
+    test.assert_eq(result.exit_code, 0);
+    test.assert_contains(result.stdout, "Hello from subprocess");
+    
+    // Pipeline of commands
+    pipeline := process.Pipeline.new();
+    pipeline.add("echo", ["Hello World"]);
+    pipeline.add("tr", ["[:lower:]", "[:upper:]"]);
+    pipeline.add("cut", ["-d", " ", "-f", "2"]);
+    
+    output := pipeline.run()?;
+    test.assert_eq(string.trim(output), "WORLD");
+    
+    // Execute with environment variables
+    env := HashMap.new();
+    env.set("TEST_VAR", "zen_test");
+    
+    result2 := process.run_with_env(["sh", "-c", "echo $TEST_VAR"], env)?;
+    test.assert_contains(result2.stdout, "zen_test");
+})
+
+// Test: JSON serialization/deserialization
+test_json_handling = test("JSON Handling", () void => {
+    // Complex data structure
+    Config: {
+        server: ServerConfig,
+        database: DatabaseConfig,
+        features: []string,
+        metadata: HashMap<string, json.Value>,
+    }
+    
+    ServerConfig: {
+        host: string,
+        port: u16,
+        ssl: bool,
+    }
+    
+    DatabaseConfig: {
+        url: string,
+        pool_size: i32,
+        timeout: i64,
+    }
+    
+    // Create config
+    config := Config {
+        server: ServerConfig {
+            host: "localhost",
+            port: 8080,
+            ssl: true,
+        },
+        database: DatabaseConfig {
+            url: "postgres://localhost/mydb",
+            pool_size: 10,
+            timeout: 5000,
+        },
+        features: ["auth", "api", "websocket"],
+        metadata: HashMap.from([
+            ("version", json.string("1.0.0")),
+            ("build", json.number(12345)),
+        ]),
+    };
+    
+    // Serialize to JSON
+    json_str := json.stringify(config);
+    test.assert_contains(json_str, "\"host\":\"localhost\"");
+    test.assert_contains(json_str, "\"port\":8080");
+    
+    // Deserialize back
+    parsed := json.parse<Config>(json_str)?;
+    test.assert_eq(parsed.server.host, config.server.host);
+    test.assert_eq(parsed.server.port, config.server.port);
+    test.assert_eq(parsed.database.pool_size, config.database.pool_size);
+    test.assert_eq(parsed.features.len, 3);
+})
+
+// Test: Channel-based worker pool
+test_worker_pool = test("Worker Pool Pattern", () void => {
+    // Create work queue
+    work_queue := thread.Channel<i32>.new(100);
+    result_queue := thread.Channel<i32>.new(100);
+    
+    // Spawn workers
+    num_workers := 4;
+    workers := [];
+    
+    i := 0;
+    loop i < num_workers {
+        worker := thread.spawn(() void => {
+            loop {
+                job := work_queue.recv() ?
+                    | .Ok -> j => j
+                    | .Err => break
+                
+                // Process job (square the number)
+                result := job * job;
+                result_queue.send(result)?
+            }
+        }, "worker-$(i)")?;
+        
+        workers.push(worker);
+        i += 1
+    }
+    
+    // Send work
+    i = 1;
+    loop i <= 10 {
+        work_queue.send(i)?;
+        i += 1
+    }
+    
+    // Close work queue
+    work_queue.close();
+    
+    // Collect results
+    results := [];
+    i = 0;
+    loop i < 10 {
+        result := result_queue.recv()?;
+        results.push(result);
+        i += 1
+    }
+    
+    // Verify results
+    results.sort();
+    expected := [1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
+    test.assert_eq(results, expected);
+    
+    // Join workers
+    loop worker in workers {
+        worker.join()?
+    }
+})
+
+// Test: Error propagation
+test_error_propagation = test("Error Propagation", () void => {
+    // Function that may fail
+    risky_operation = (value: i32) Result<i32, string> => {
+        value < 0 ? | true => return .Err -> "Negative value not allowed"
+        value > 100 ? | true => return .Err -> "Value too large"
+        return .Ok -> value * 2
+    }
+    
+    // Chain operations
+    process_value = (input: i32) Result<string, string> => {
+        // Use ? operator for error propagation
+        doubled := risky_operation(input)?;
+        tripled := risky_operation(doubled)?;
+        
+        return .Ok -> "Result: $(tripled)"
+    }
+    
+    // Test success case
+    result1 := process_value(10);
+    test.assert_eq(test.assert_ok(result1), "Result: 60");
+    
+    // Test error cases
+    result2 := process_value(-5);
+    test.assert_err(result2);
+    
+    result3 := process_value(50);
+    test.assert_err(result3); // 50 * 2 = 100, then 100 * 2 > 100
+})
+
+// Test: Custom allocator
+test_custom_allocator = test("Custom Memory Allocator", () void => {
+    // Simple pool allocator
+    PoolAllocator: {
+        pool: []u8,
+        used: usize,
+        capacity: usize,
+    }
+    
+    PoolAllocator.new = (size: usize) PoolAllocator => {
+        return PoolAllocator {
+            pool: core.alloc_array<u8>(size),
+            used: 0,
+            capacity: size,
+        }
+    }
+    
+    PoolAllocator.alloc = (self: &PoolAllocator, size: usize) *void => {
+        self.used + size > self.capacity ? | true => return null
+        
+        ptr := &self.pool[self.used];
+        self.used += size;
+        return ptr as *void
+    }
+    
+    PoolAllocator.reset = (self: &PoolAllocator) void => {
+        self.used = 0
+    }
+    
+    // Use custom allocator
+    allocator := PoolAllocator.new(1024);
+    
+    // Allocate some memory
+    ptr1 := allocator.alloc(100);
+    test.assert(ptr1 != null);
+    
+    ptr2 := allocator.alloc(200);
+    test.assert(ptr2 != null);
+    
+    test.assert_eq(allocator.used, 300);
+    
+    // Reset and reuse
+    allocator.reset();
+    test.assert_eq(allocator.used, 0);
+    
+    ptr3 := allocator.alloc(500);
+    test.assert(ptr3 != null);
+    test.assert_eq(allocator.used, 500);
+})
+
+// Create integration test suite
+integration_suite := test.TestSuite {
+    name: "Zen Integration Tests",
+    tests: [
+        test_web_server,
+        test_concurrent_processing,
+        test_database_operations,
+        test_network_communication,
+        test_process_execution,
+        test_json_handling,
+        test_worker_pool,
+        test_error_propagation,
+        test_custom_allocator,
+    ],
+    setup: .None,
+    teardown: .None,
+    parallel: false,
+}
+
+// Main entry point
+main: () i32  = {
+    io.print("Zen Integration Test Suite\n");
+    io.print("==========================\n\n");
+    
+    runner := test.TestRunner.new();
+    runner.verbose = true;
+    runner.timeout = 60000; // 1 minute timeout
+    runner.add_suite(integration_suite);
+    
+    success := runner.run();
+    
+    // Save results
+    report := test.generate_report(&runner, "json");
+    fs.write_file("integration_test_results.json", report)?;
+    
+    return success ? | true => 0 | false => 1
+}

@@ -8,7 +8,7 @@ fs := @std.fs
 parser := @std.compiler.parser
 
 // C type mapping
-map_zen_type_to_c = (zen_type: string) string {
+map_zen_type_to_c: (zen_type: string) string  = {
     if (zen_type == "i8") return "int8_t"
     if (zen_type == "i16") return "int16_t"
     if (zen_type == "i32") return "int32_t"
@@ -35,7 +35,7 @@ CBackend := {
 }
 
 // Create new C backend
-new_c_backend = () CBackend {
+new_c_backend: () CBackend  = {
     return CBackend{
         output: string.Builder.new(),
         indent: 0,
@@ -46,7 +46,7 @@ new_c_backend = () CBackend {
 }
 
 // Write indentation
-write_indent = (c: &CBackend) void {
+write_indent: (c: &CBackend) void  = {
     i := 0
     loop i < c.indent {
         c.output.append("    ")
@@ -55,8 +55,8 @@ write_indent = (c: &CBackend) void {
 }
 
 // Write standard C includes
-write_includes = (c: &CBackend) void {
-    if (c.includes_written) return
+write_includes: (c: &CBackend) void  = {
+     (c.includes_written) ? return
     
     c.output.append("#include <stdio.h>\n")
     c.output.append("#include <stdlib.h>\n")
@@ -73,7 +73,7 @@ write_includes = (c: &CBackend) void {
 }
 
 // Generate expression
-generate_expr = (c: &CBackend, expr: &parser.Expression) void {
+generate_expr: (c: &CBackend, expr: &parser.Expression) void  = {
     match (expr.kind) {
         .IntLiteral => {
             c.output.append(expr.value)
@@ -155,7 +155,7 @@ generate_expr = (c: &CBackend, expr: &parser.Expression) void {
 }
 
 // Generate statement
-generate_stmt = (c: &CBackend, stmt: &parser.Statement) void {
+generate_stmt: (c: &CBackend, stmt: &parser.Statement) void  = {
     write_indent(c)
     
     match (stmt.kind) {
@@ -258,7 +258,7 @@ generate_stmt = (c: &CBackend, stmt: &parser.Statement) void {
 }
 
 // Generate block of statements
-generate_block = (c: &CBackend, stmts: [parser.Statement]) void {
+generate_block: (c: &CBackend, stmts: [parser.Statement]) void  = {
     i := 0
     loop i < stmts.len {
         generate_stmt(c, &stmts[i])
@@ -267,7 +267,7 @@ generate_block = (c: &CBackend, stmts: [parser.Statement]) void {
 }
 
 // Generate function
-generate_function = (c: &CBackend, func: &parser.Function) void {
+generate_function: (c: &CBackend, func: &parser.Function) void  = {
     // Skip if it's a Zen builtin that we handle specially
     if (func.name == "main") {
         c.in_main = true
@@ -316,7 +316,7 @@ generate_function = (c: &CBackend, func: &parser.Function) void {
 }
 
 // Generate struct definition
-generate_struct = (c: &CBackend, s: &parser.Struct) void {
+generate_struct: (c: &CBackend, s: &parser.Struct) void  = {
     c.output.append("typedef struct ")
     c.output.append(s.name)
     c.output.append(" {\n")
@@ -340,7 +340,7 @@ generate_struct = (c: &CBackend, s: &parser.Struct) void {
 }
 
 // Generate enum definition
-generate_enum = (c: &CBackend, e: &parser.Enum) void {
+generate_enum: (c: &CBackend, e: &parser.Enum) void  = {
     c.output.append("typedef enum {\n")
     c.indent = 1
     
@@ -364,7 +364,7 @@ generate_enum = (c: &CBackend, e: &parser.Enum) void {
 }
 
 // Main generation function
-generate_c_from_ast = (ast: &parser.AST) string {
+generate_c_from_ast: (ast: &parser.AST) string  = {
     backend := new_c_backend()
     
     // Write includes

@@ -3,7 +3,7 @@
 
 io := @std.io
 
-main = () i32 {
+main: () i32  = {
     io.print("Hello from self-hosted Zen!\n")
     return 0
 }

@@ -41,7 +41,7 @@ fn test_simple_pattern_match_codegen() {
                         }
                     ),
                 ],
-                is_async: false,
+                
             }),
         ],
         statements: vec![],
