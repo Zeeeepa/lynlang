@@ -323,20 +323,20 @@ Database:open = (path: string) Result<Database, string> {
     
     // Load the library
     lib.load() ?
-        | .Ok -> _ => {
+        | .Ok -> _ { { }
             db_ptr: Ptr<SQLiteDB> = None
             flags := lib.get_constant("SQLITE_OPEN_READWRITE") | lib.get_constant("SQLITE_OPEN_CREATE")
             
             result := lib.call("sqlite3_open_v2", vec![path, &db_ptr, flags, None])
             result == lib.get_constant("SQLITE_OK") ?
-                | true => Ok(Database{ handle: db_ptr, lib: lib })
-                | false => {
+                | true { Ok(Database{ handle: db_ptr, lib: lib  }})
+                | false { { }
                     error_msg := lib.call("sqlite3_errmsg", vec![db_ptr])
                     lib.call("sqlite3_close_v2", vec![db_ptr])
                     Err("Failed to open database: $(error_msg)")
                 }
         }
-        | .Err -> e => Err("Failed to load SQLite library: $(e)")
+        | .Err -> e { Err("Failed to load SQLite library: $(e)") }
 }
 
 Database:execute = (self, query: string) Result<void, string> {
@@ -348,19 +348,19 @@ Database:execute = (self, query: string) Result<void, string> {
     ])
     
     result == self.lib.get_constant("SQLITE_OK") ?
-        | true => {
+        | true { { }
             // Execute statement
             step_result := self.lib.call("sqlite3_step", vec![stmt_ptr])
             self.lib.call("sqlite3_finalize", vec![stmt_ptr])
             
             step_result == self.lib.get_constant("SQLITE_DONE") ?
-                | true => Ok(void)
-                | false => {
+                | true { Ok(void) }
+                | false { { }
                     error_msg := self.lib.call("sqlite3_errmsg", vec![self.handle])
                     Err("Execution failed: $(error_msg)")
                 }
         }
-        | false => {
+        | false { { }
             error_msg := self.lib.call("sqlite3_errmsg", vec![self.handle])
             Err("Failed to prepare statement: $(error_msg)")
         }
@@ -369,11 +369,11 @@ Database:execute = (self, query: string) Result<void, string> {
 Database:close = (self) Result<void, string> {
     result := self.lib.call("sqlite3_close_v2", vec![self.handle])
     result == self.lib.get_constant("SQLITE_OK") ?
-        | true => {
+        | true { { }
             self.lib.unload()
             Ok(void)
         }
-        | false => Err("Failed to close database")
+        | false { Err("Failed to close database") }
 }
 
 // OpenGL Renderer using FFI
@@ -386,16 +386,16 @@ Renderer:create = () Result<Renderer, string> {
     lib := build_opengl_bindings()
     
     lib.load() ?
-        | .Ok -> _ => {
+        | .Ok -> _ { { }
             context := lib.call("glCreateContext", vec![None])
             context != None ?
-                | true => {
+                | true { { }
                     lib.call("glMakeCurrent", vec![None, context])
                     Ok(Renderer{ context: context, lib: lib })
                 }
-                | false => Err("Failed to create OpenGL context")
+                | false { Err("Failed to create OpenGL context") }
         }
-        | .Err -> e => Err("Failed to load OpenGL library: $(e)")
+        | .Err -> e { Err("Failed to load OpenGL library: $(e)") }
 }
 
 Renderer:clear = (self, r: f32, g: f32, b: f32, a: f32) void {
@@ -428,7 +428,7 @@ Renderer:swap_buffers = (self) void {
 }
 
 // Main demonstration
-main: () void  = {
+main = () void   {
     io.print("=== Zenlang FFI Builder Comprehensive Demo ===\n\n")
     
     // Demo 1: Database Operations
@@ -437,7 +437,7 @@ main: () void  = {
     
     db_result := Database:open("demo.db")
     db_result ?
-        | .Ok -> db => {
+        | .Ok -> db { { }
             io.print("✓ Database opened successfully\n")
             
             // Create table
@@ -450,8 +450,8 @@ main: () void  = {
             ")
             
             create_table ?
-                | .Ok -> _ => io.print("✓ Table created\n")
-                | .Err -> e => io.print("✗ Table creation failed: $(e)\n")
+                | .Ok -> _ { io.print("✓ Table created\n") }
+                | .Err -> e { io.print("✗ Table creation failed: $(e)\n") }
             
             // Insert data
             insert_data := db.execute("
@@ -460,15 +460,15 @@ main: () void  = {
             ")
             
             insert_data ?
-                | .Ok -> _ => io.print("✓ Data inserted\n")
-                | .Err -> e => io.print("✗ Insert failed: $(e)\n")
+                | .Ok -> _ { io.print("✓ Data inserted\n") }
+                | .Err -> e { io.print("✗ Insert failed: $(e)\n") }
             
             // Close database
             db.close() ?
-                | .Ok -> _ => io.print("✓ Database closed\n")
-                | .Err -> e => io.print("✗ Close failed: $(e)\n")
+                | .Ok -> _ { io.print("✓ Database closed\n") }
+                | .Err -> e { io.print("✗ Close failed: $(e)\n") }
         }
-        | .Err -> e => io.print("✗ Failed to open database: $(e)\n")
+        | .Err -> e { io.print("✗ Failed to open database: $(e)\n") }
     
     io.print("\n")
     
@@ -478,7 +478,7 @@ main: () void  = {
     
     renderer_result := Renderer:create()
     renderer_result ?
-        | .Ok -> renderer => {
+        | .Ok -> renderer { { }
             io.print("✓ OpenGL context created\n")
             
             // Clear screen with blue background
@@ -493,7 +493,7 @@ main: () void  = {
             renderer.swap_buffers()
             io.print("✓ Buffers swapped\n")
         }
-        | .Err -> e => io.print("✗ Failed to create renderer: $(e)\n")
+        | .Err -> e { io.print("✗ Failed to create renderer: $(e)\n") }
     
     io.print("\n")
     
@@ -503,26 +503,26 @@ main: () void  = {
     
     system := build_system_bindings()
     system.load() ?
-        | .Ok -> _ => {
+        | .Ok -> _ { { }
             io.print("✓ System library loaded\n")
             
             // Allocate memory
             size := 1024
             mem := system.call("malloc", vec![size])
             mem != None ?
-                | true => {
+                | true { { }
                     io.print("✓ Allocated $(size) bytes\n")
                     
                     // Free memory
                     system.call("free", vec![mem])
                     io.print("✓ Memory freed\n")
                 }
-                | false => io.print("✗ Memory allocation failed\n")
+                | false { io.print("✗ Memory allocation failed\n") }
             
             system.unload()
             io.print("✓ System library unloaded\n")
         }
-        | .Err -> e => io.print("✗ Failed to load system library: $(e)\n")
+        | .Err -> e { io.print("✗ Failed to load system library: $(e)\n") }
     
     io.print("\n")
     io.print("=== Demo Complete ===\n")

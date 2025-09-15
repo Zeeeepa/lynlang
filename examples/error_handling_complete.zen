@@ -35,7 +35,7 @@ User: {
 }
 
 // NO try keyword! Use ? operator to bubble errors
-load_config: (path: String) AppResult<Config> = {
+load_config = (path: String) AppResult<Config>  {
     // Read file - ? bubbles up any fs.Error
     content := fs.read_file(path)
         .map_err((e) => AppError.FileError(path, e))?
@@ -71,41 +71,41 @@ load_config: (path: String) AppResult<Config> = {
 }
 
 // Validate user - collect multiple errors
-validate_user: (user: User) AppResult<User> = {
+validate_user = (user: User) AppResult<User>  {
     mut errors := []String{}
     
     // Check name
     user.name.len() < 2 ?
-        | true => errors.push("name too short")
-        | false => {}
+        | true { errors.push("name too short") }
+        | false { { }}
     
     user.name.len() > 100 ?
-        | true => errors.push("name too long")
-        | false => {}
+        | true { errors.push("name too long") }
+        | false { { }}
     
     // Check email
     user.email.contains("@") ?
-        | false => errors.push("invalid email format")
-        | true => {}
+        | false { errors.push("invalid email format") }
+        | true { { }}
     
     // Check age
     user.age < 13 ?
-        | true => errors.push("user too young")
-        | false => {}
+        | true { errors.push("user too young") }
+        | false { { }}
     
     user.age > 150 ?
-        | true => errors.push("invalid age")
-        | false => {}
+        | true { errors.push("invalid age") }
+        | false { { }}
     
     // Return error if validation failed
     errors.is_empty() ?
-        | true => .Ok(user)
-        | false => .Err(AppError.ValidationError(errors))
+        | true { .Ok(user) }
+        | false { .Err(AppError.ValidationError(errors)) }
 }
 
 // Database operations with error bubbling
 // NO async keyword - use allocator for concurrency!
-fetch_user: (id: u64, db: Database, alloc: *Allocator) AppResult<User> = {
+fetch_user = (id: u64, db: Database, alloc: *Allocator) AppResult<User>  {
     query := "SELECT * FROM users WHERE id = ?"
     
     // Execute query - errors bubble with ?
@@ -114,8 +114,8 @@ fetch_user: (id: u64, db: Database, alloc: *Allocator) AppResult<User> = {
     
     // Check if user exists
     result.rows.is_empty() ?
-        | true => .Err(AppError.BusinessLogicError("User not found"))
-        | false => {
+        | true { .Err(AppError.BusinessLogicError("User not found")) }
+        | false { { }
             row := result.rows[0]
             user := User{
                 id: row.get("id").as_u64()?,
@@ -128,19 +128,19 @@ fetch_user: (id: u64, db: Database, alloc: *Allocator) AppResult<User> = {
 }
 
 // HTTP operations - NO async fn! Allocator determines sync/async
-fetch_external_data: (url: String, alloc: *Allocator) AppResult<json.Value> = {
+fetch_external_data = (url: String, alloc: *Allocator) AppResult<json.Value>  {
     // Make HTTP request - allocator controls execution mode
     response := http.get(url, alloc)
         .map_err((e) => AppError.NetworkError(url, 0))?
     
     // Check status code
     response.status >= 200 && response.status < 300 ?
-        | true => {
+        | true { { }
             // Parse response body
             json.parse(response.body)
                 .map_err((e) => AppError.ParseError("Invalid JSON from API"))
         }
-        | false => .Err(AppError.NetworkError(url, response.status))
+        | false { .Err(AppError.NetworkError(url, response.status)) }
 }
 
 // Complex operation with multiple error sources
@@ -158,7 +158,7 @@ process_user_request: (
     
     // Process action with pattern matching
     result := action ?
-        | "profile" => {
+        | "profile" { { }
             // Fetch additional data
             profile_data := fetch_external_data(
                 "https://api.example.com/profile/" + user_id.to_string(),
@@ -166,17 +166,17 @@ process_user_request: (
             )?
             .Ok("Profile: " + profile_data.to_string())
         }
-        | "delete" => {
+        | "delete" { { }
             // Check permissions
             validated_user.age >= 18 ?
-                | true => {
+                | true { { }
                     db.execute("DELETE FROM users WHERE id = ?", [user_id], alloc)
                         .map_err((e) => AppError.DatabaseError("delete", e.to_string()))?
                     .Ok("User deleted")
                 }
-                | false => .Err(AppError.BusinessLogicError("Cannot delete minor account"))
+                | false { .Err(AppError.BusinessLogicError("Cannot delete minor account")) }
         }
-        | "update" -> new_data => {
+        | "update" -> new_data { { }
             // Parse and update
             updates := json.parse(new_data)
                 .map_err((e) => AppError.ParseError("Invalid update data"))?
@@ -189,17 +189,17 @@ process_user_request: (
             
             .Ok("User updated")
         }
-        | _ => .Err(AppError.BusinessLogicError("Unknown action: " + action))
+        | _ { .Err(AppError.BusinessLogicError("Unknown action: " + action)) }
     
     result
 }
 
 // Error recovery with fallback
-resilient_config_load: (primary: String, fallback: String) AppResult<Config> = {
+resilient_config_load = (primary: String, fallback: String) AppResult<Config>  {
     // Try primary config
     load_config(primary) ?
-        | .Ok -> config => .Ok(config)
-        | .Err -> e => {
+        | .Ok -> config { .Ok(config) }
+        | .Err -> e { { }
             // Log the error
             io.println("Primary config failed: $(e), trying fallback...")
             
@@ -209,39 +209,39 @@ resilient_config_load: (primary: String, fallback: String) AppResult<Config> = {
 }
 
 // Batch processing with error collection
-process_batch: (users: []User, db: Database, alloc: *Allocator) ([]User, []AppError) = {
+process_batch = (users: []User, db: Database, alloc: *Allocator) ([]User, []AppError)  {
     mut successes := []User{}
     mut failures := []AppError{}
     
     for user in users {
         // Process each user, collecting errors
         validate_user(user) ?
-            | .Ok -> valid => {
+            | .Ok -> valid { { }
                 // Save to database
                 save_result := db.insert("users", valid, alloc)
                 save_result ?
-                    | .Ok -> _ => successes.push(valid)
-                    | .Err -> e => failures.push(
+                    | .Ok -> _ { successes.push(valid) }
+                    | .Err -> e { failures.push( }
                         AppError.DatabaseError("insert", e.to_string())
                     )
             }
-            | .Err -> e => failures.push(e)
+            | .Err -> e { failures.push(e) }
     }
     
     (successes, failures)
 }
 
 // Main application - NO async keyword!
-main: () void = {
+main = () void  {
     // Choose allocator based on environment
     alloc := @debug ?
-        | true => SyncAllocator{}    // Sync for debugging
-        | false => AsyncAllocator{}   // Concurrent for production
+        | true { SyncAllocator{ }}    // Sync for debugging
+        | false { AsyncAllocator{ }}   // Concurrent for production
     
     // Load configuration with fallback
     config := resilient_config_load("config.json", "default.json") ?
-        | .Ok -> c => c
-        | .Err -> e => {
+        | .Ok -> c { c }
+        | .Err -> e { { }
             io.println("Failed to load config: $(e)")
             io.println("Using defaults...")
             Config{
@@ -254,8 +254,8 @@ main: () void = {
     
     // Connect to database
     db := Database.connect(config.database_url, &alloc) ?
-        | .Ok -> conn => conn
-        | .Err -> e => {
+        | .Ok -> conn { conn }
+        | .Err -> e { { }
             io.println("Database connection failed: $(e)")
             return
         }
@@ -266,21 +266,21 @@ main: () void = {
     
     // Handle the result
     result ?
-        | .Ok -> message => io.println("Success: $(message)")
-        | .Err -> error => {
+        | .Ok -> message { io.println("Success: $(message)") }
+        | .Err -> error { { }
             // Pattern match on error types for specific handling
             error ?
-                | .FileError -> path, cause => 
+                | .FileError -> path, cause {  }
                     io.println("File error at $(path): $(cause)")
-                | .ParseError -> msg => 
+                | .ParseError -> msg {  }
                     io.println("Parse error: $(msg)")
-                | .NetworkError -> url, status => 
+                | .NetworkError -> url, status {  }
                     io.println("Network error from $(url): HTTP $(status)")
-                | .ValidationError -> fields => 
+                | .ValidationError -> fields {  }
                     io.println("Validation failed: $(fields.join(", "))")
-                | .DatabaseError -> query, cause => 
+                | .DatabaseError -> query, cause {  }
                     io.println("Database error in query '$(query)': $(cause)")
-                | .BusinessLogicError -> rule => 
+                | .BusinessLogicError -> rule {  }
                     io.println("Business rule violation: $(rule)")
         }
     
@@ -347,8 +347,8 @@ test "user validation" {
     multiple := User{ id: 4, name: "B", email: "bad", age: 200 }
     result3 := validate_user(multiple)
     result3 ?
-        | .Err -> .ValidationError -> fields => assert(fields.len() == 3)
-        | _ => assert(false, "Should have validation errors")
+        | .Err -> .ValidationError -> fields { assert(fields.len() == 3) }
+        | _ { assert(false, "Should have validation errors") }
 }
 
 // This example demonstrates:

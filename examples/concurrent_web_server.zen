@@ -125,7 +125,7 @@ Router: {
     }
 }
 
-matchPattern: (pattern: String, path: String) bool  = {
+matchPattern = (pattern: String, path: String) bool   {
     // Simple pattern matching
     pattern == path ? return true : {}
     
@@ -222,7 +222,7 @@ AppState: {
 }
 
 // Request handlers (colorless - work with any allocator)
-handleUsers: (req: HttpRequest, state: *AppState, alloc: *allocator.Allocator) HttpResponse  = {
+handleUsers = (req: HttpRequest, state: *AppState, alloc: *allocator.Allocator) HttpResponse   {
     // Check cache first
     cached := state.cache.get("users", alloc)
     cached ? {
@@ -241,7 +241,7 @@ handleUsers: (req: HttpRequest, state: *AppState, alloc: *allocator.Allocator) H
     return HttpResponse.json(json)
 }
 
-handleUser: (req: HttpRequest, id: String, state: *AppState, alloc: *allocator.Allocator) HttpResponse  = {
+handleUser = (req: HttpRequest, id: String, state: *AppState, alloc: *allocator.Allocator) HttpResponse   {
     cache_key := "user_" ++ id
     
     // Check cache
@@ -266,7 +266,7 @@ handleUser: (req: HttpRequest, id: String, state: *AppState, alloc: *allocator.A
     return HttpResponse.json(json)
 }
 
-handleCreateUser: (req: HttpRequest, state: *AppState, alloc: *allocator.Allocator) HttpResponse  = {
+handleCreateUser = (req: HttpRequest, state: *AppState, alloc: *allocator.Allocator) HttpResponse   {
     // Parse JSON body (simplified)
     // In real implementation would parse req.body
     
@@ -386,7 +386,7 @@ acceptAsync = (socket: net.Socket, alloc: *allocator.Allocator) !net.Socket {
     return socket.accept()?
 }
 
-parseRequest: (data: []u8) HttpRequest  = {
+parseRequest = (data: []u8) HttpRequest   {
     // Simplified HTTP parsing
     return HttpRequest{
         method: .GET,
@@ -396,13 +396,13 @@ parseRequest: (data: []u8) HttpRequest  = {
     }
 }
 
-formatResponse: (resp: HttpResponse) String  = {
+formatResponse = (resp: HttpResponse) String   {
     // Format HTTP response
     status_text := resp.status ?
-        | 200 => "OK"
-        | 404 => "Not Found"
-        | 500 => "Internal Server Error"
-        | _ => "Unknown"
+        | 200 { "OK" }
+        | 404 { "Not Found" }
+        | 500 { "Internal Server Error" }
+        | _ { "Unknown" }
     
     result := std.fmt.format("HTTP/1.1 {} {}\r\n", resp.status, status_text)
     
@@ -417,7 +417,7 @@ formatResponse: (resp: HttpResponse) String  = {
 }
 
 // Main function demonstrating progressive enhancement
-main: () void  = {
+main = () void   {
     // Parse command line args
     args := std.process.args()
     
@@ -428,24 +428,24 @@ main: () void  = {
     
     // Choose allocator based on mode
     alloc := mode ?
-        | "sync" => {
+        | "sync" { { }
             // Synchronous mode - simple debugging
             sync_alloc := allocator.SyncAllocator.init()
             defer sync_alloc.deinit()
             sync_alloc.allocator()
         }
-        | "concurrent" => {
+        | "concurrent" { { }
             // Concurrent mode - production performance
             runtime := allocator.Runtime.init()
             concurrent_alloc := allocator.ConcurrentAllocator.init(&runtime)
             concurrent_alloc.allocator()
         }
-        | "auto" => {
+        | "auto" { { }
             // Auto mode - chooses based on environment
             auto_alloc := allocator.AutoAllocator.init()
             auto_alloc.allocator()
         }
-        | _ => {
+        | _ { { }
             io.print("Unknown mode: {}. Use sync, concurrent, or auto\n", mode)
             std.process.exit(1)
         }

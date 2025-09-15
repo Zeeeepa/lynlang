@@ -69,12 +69,12 @@ Pair<A, B>: {
 // ========================================
 
 // Simple function with new syntax
-add: (a: i32, b: i32) i32 = {
+add = (a: i32, b: i32) i32  {
     return a + b
 }
 
 // Multiple parameters with same type
-max3: (a, b, c: i32) i32 = {
+max3 = (a, b, c: i32) i32  {
     max := a
     b > max ? { max = b } : {}
     c > max ? { max = c } : {}
@@ -82,7 +82,7 @@ max3: (a, b, c: i32) i32 = {
 }
 
 // Function returning Result
-divide: (a: f64, b: f64) result.Result<f64, string> = {
+divide = (a: f64, b: f64) result.Result<f64, string>  {
     b == 0.0 ? {
         return result.Err("Division by zero")
     } : {
@@ -96,7 +96,7 @@ swap<T>: (a: T, b: T) Pair<T, T> = {
 }
 
 // Higher-order function
-map<T, U>: (items: vec.Vec<T>, f: (T) U) vec.Vec<U> = {
+map<T, U>: (items: vec.Vec<T>, f = (T) U) vec.Vec<U>  {
     result := vec.new<U>()
     i := 0
     loop i < items.len() {
@@ -107,10 +107,10 @@ map<T, U>: (items: vec.Vec<T>, f: (T) U) vec.Vec<U> = {
 }
 
 // Function with default parameters (simulated)
-greet: (name: string, greeting: ?string) string = {
+greet = (name: string, greeting: ?string) string  {
     g := greeting ? 
-        | .Some -> val => val
-        | .None => "Hello"
+        | .Some -> val { val }
+        | .None { "Hello" }
     return g + ", " + name + "!"
 }
 
@@ -119,44 +119,44 @@ greet: (name: string, greeting: ?string) string = {
 // ========================================
 
 // Fibonacci with pattern matching
-fibonacci: (n: u32) u32 = {
+fibonacci = (n: u32) u32  {
     n ? 
-        | 0 => 0
-        | 1 => 1
-        | n => fibonacci(n - 1) + fibonacci(n - 2)
+        | 0 { 0 }
+        | 1 { 1 }
+        | n { fibonacci(n - 1) + fibonacci(n - 2) }
 }
 
 // Color processing
-describe_color: (c: Color) string = {
+describe_color = (c: Color) string  {
     c ?
-        | Red => "Primary: Red"
-        | Green => "Primary: Green"
-        | Blue => "Primary: Blue"
-        | RGB(r, g, b) => string.format("RGB({}, {}, {})", r, g, b)
-        | HSL(h, s, l) => string.format("HSL({:.1}, {:.1}%, {:.1}%)", h, s * 100, l * 100)
+        | Red { "Primary: Red" }
+        | Green { "Primary: Green" }
+        | Blue { "Primary: Blue" }
+        | RGB(r, g, b) { string.format("RGB({ }}, {}, {})", r, g, b)
+        | HSL(h, s, l) { string.format("HSL({:.1 }}, {:.1}%, {:.1}%)", h, s * 100, l * 100)
 }
 
 // Message handler with destructuring
-handle_message: (msg: Message) void = {
+handle_message = (msg: Message) void  {
     msg ?
-        | Text(content) => {
+        | Text(content) { { }
             io.println("Text: " + content)
         }
-        | Warning { msg: m, level: l } => {
+        | Warning { msg: m, level: l } { { }
             io.println(string.format("[WARN {}] {}", l, m))
         }
-        | Error { code: c, details: d } => {
+        | Error { code: c, details: d } { { }
             io.eprintln(string.format("ERROR {}: {}", c, d))
         }
-        | Data(bytes) => {
+        | Data(bytes) { { }
             io.println(string.format("Received {} bytes", bytes.len()))
         }
 }
 
 // Nested pattern matching
-process_result: (r: result.Result<i32, string>) string = {
+process_result = (r: result.Result<i32, string>) string  {
     r ?
-        | .Ok -> val => {
+        | .Ok -> val { { }
             val > 0 ? {
                 return "Positive: " + string.from_int(val)
             } : {
@@ -167,14 +167,14 @@ process_result: (r: result.Result<i32, string>) string = {
                 }
             }
         }
-        | .Err -> err => return "Error: " + err
+        | .Err -> err { return "Error: " + err }
 }
 
 // ========================================
 // Variable Bindings
 // ========================================
 
-demo_bindings: () void = {
+demo_bindings = () void  {
     // Immutable binding
     x := 42
     
@@ -189,8 +189,8 @@ demo_bindings: () void = {
     // Pattern matching in binding
     result := divide(10.0, 2.0)
     value := result ?
-        | .Ok -> v => v
-        | .Err -> _ => 0.0
+        | .Ok -> v { v }
+        | .Err -> _ { 0.0 }
 }
 
 // ========================================
@@ -198,7 +198,7 @@ demo_bindings: () void = {
 // ========================================
 
 // Smart pointers
-demo_pointers: () void = {
+demo_pointers = () void  {
     // Create a smart pointer
     ptr := Ptr.new(42)
     
@@ -220,7 +220,7 @@ SharedData: {
     ref_count: u32,
 }
 
-create_shared: () Ptr<SharedData> = {
+create_shared = () Ptr<SharedData>  {
     return Ptr.new(SharedData {
         data: vec.new<i32>(),
         ref_count: 1,
@@ -233,14 +233,14 @@ create_shared: () Ptr<SharedData> = {
 
 // Concurrent function using thread module for demonstration
 // Note: Real concurrency uses allocators - execution mode determined at runtime
-fetch_data: (url: string) string = {
+fetch_data = (url: string) string  {
     // Simulate concurrent operation with thread.sleep
     thread.sleep(100)
     return "Data from " + url
 }
 
 // Parallel processing demonstration
-process_parallel: (items: vec.Vec<i32>) vec.Vec<i32> = {
+process_parallel = (items: vec.Vec<i32>) vec.Vec<i32>  {
     // Simplified version - use allocators for true concurrency
     results := vec.new<i32>()
     
@@ -261,7 +261,7 @@ process_parallel: (items: vec.Vec<i32>) vec.Vec<i32> = {
 // ========================================
 
 // Chain of operations that can fail
-process_string: (s: string) result.Result<i32, string> = {
+process_string = (s: string) result.Result<i32, string>  {
     // Validate
     s.is_empty() ? {
         return result.Err("Empty string")
@@ -269,8 +269,8 @@ process_string: (s: string) result.Result<i32, string> = {
     
     // Parse
     num := string.parse_int(s) ?
-        | .Ok -> n => n
-        | .Err -> _ => return result.Err("Invalid number")
+        | .Ok -> n { n }
+        | .Err -> _ { return result.Err("Invalid number") }
     
     // Process
     num < 0 ? {
@@ -281,14 +281,14 @@ process_string: (s: string) result.Result<i32, string> = {
 }
 
 // Error propagation with ? operator
-calculate_safe: (a: string, b: string) result.Result<f64, string> = {
+calculate_safe = (a: string, b: string) result.Result<f64, string>  {
     num_a := string.parse_float(a) ?
-        | .Ok -> n => n
-        | .Err -> e => return result.Err("First argument: " + e)
+        | .Ok -> n { n }
+        | .Err -> e { return result.Err("First argument: " + e) }
     
     num_b := string.parse_float(b) ?
-        | .Ok -> n => n
-        | .Err -> e => return result.Err("Second argument: " + e)
+        | .Ok -> n { n }
+        | .Err -> e { return result.Err("Second argument: " + e) }
     
     return divide(num_a, num_b)
 }
@@ -314,12 +314,12 @@ Circle: {
 
 // Implement behavior
 Circle.impl(Drawable) = {
-    draw: (self: Circle) void = {
+    draw = (self: Circle) void  {
         io.println(string.format("Circle at ({:.2}, {:.2}) r={:.2}", 
             self.center.x, self.center.y, self.radius))
     },
     
-    get_bounds: (self: Circle) {x: f64, y: f64, w: f64, h: f64} = {
+    get_bounds = (self: Circle) {x: f64, y: f64, w: f64, h: f64}  {
         return {
             x: self.center.x - self.radius,
             y: self.center.y - self.radius,
@@ -346,7 +346,7 @@ HttpRequestBuilder: {
     timeout: u32,
 }
 
-HttpRequestBuilder.new: () HttpRequestBuilder = {
+HttpRequestBuilder.new = () HttpRequestBuilder  {
     return HttpRequestBuilder {
         url: "",
         method: "GET",
@@ -357,28 +357,28 @@ HttpRequestBuilder.new: () HttpRequestBuilder = {
 }
 
 // Fluent interface methods
-HttpRequestBuilder.url: (self: HttpRequestBuilder, url: string) HttpRequestBuilder = {
+HttpRequestBuilder.url = (self: HttpRequestBuilder, url: string) HttpRequestBuilder  {
     self.url = url
     return self
 }
 
-HttpRequestBuilder.method: (self: HttpRequestBuilder, method: string) HttpRequestBuilder = {
+HttpRequestBuilder.method = (self: HttpRequestBuilder, method: string) HttpRequestBuilder  {
     self.method = method
     return self
 }
 
-HttpRequestBuilder.header: (self: HttpRequestBuilder, key: string, value: string) HttpRequestBuilder = {
+HttpRequestBuilder.header = (self: HttpRequestBuilder, key: string, value: string) HttpRequestBuilder  {
     self.headers.insert(key, value)
     return self
 }
 
-HttpRequestBuilder.json: (self: HttpRequestBuilder, data: string) HttpRequestBuilder = {
+HttpRequestBuilder.json = (self: HttpRequestBuilder, data: string) HttpRequestBuilder  {
     self.body = option.Some(data)
     self.headers.insert("Content-Type", "application/json")
     return self
 }
 
-HttpRequestBuilder.timeout: (self: HttpRequestBuilder, ms: u32) HttpRequestBuilder = {
+HttpRequestBuilder.timeout = (self: HttpRequestBuilder, ms: u32) HttpRequestBuilder  {
     self.timeout = ms
     return self
 }
@@ -388,7 +388,7 @@ HttpRequestBuilder.timeout: (self: HttpRequestBuilder, ms: u32) HttpRequestBuild
 // ========================================
 
 // Extension methods
-times: (n: i32, f: () void) void = {
+times = (n: i32, f: () void) void  {
     i := 0
     loop i < n {
         f()
@@ -396,7 +396,7 @@ times: (n: i32, f: () void) void = {
     }
 }
 
-squared: (n: i32) i32 = {
+squared = (n: i32) i32  {
     return n * n
 }
 
@@ -407,7 +407,7 @@ squared: (n: i32) i32 = {
 // Loops and Iteration
 // ========================================
 
-demo_loops: () void = {
+demo_loops = () void  {
     // Basic loop
     i := 0
     loop i < 10 {
@@ -441,14 +441,14 @@ BUFFER_SIZE ::= 4096
 MAX_CONNECTIONS ::= 100
 
 // Compile-time function
-comptime compute_cache_size: () usize = {
+comptime compute_cache_size = () usize  {
     return BUFFER_SIZE * 4
 }
 
 CACHE_SIZE ::= compute_cache_size()
 
 // Compile-time type generation
-comptime generate_tuple_type: (n: u32) type = {
+comptime generate_tuple_type = (n: u32) type  {
     // Would generate tuple types at compile time
     return type  // Placeholder
 }
@@ -468,7 +468,7 @@ free: (ptr: *void) void
 printf: (format: *u8, ...) i32
 
 // Safe wrappers
-allocate: (size: usize) Ptr<u8> = {
+allocate = (size: usize) Ptr<u8>  {
     ptr := malloc(size)
     ptr == null ? {
         panic("Allocation failed")
@@ -482,14 +482,14 @@ allocate: (size: usize) Ptr<u8> = {
 // ========================================
 
 @test
-test_arithmetic: () void = {
+test_arithmetic = () void  {
     assert(add(2, 3) == 5)
     assert(add(-1, 1) == 0)
     assert(max3(1, 5, 3) == 5)
 }
 
 @test
-test_pattern_matching: () void = {
+test_pattern_matching = () void  {
     assert(fibonacci(0) == 0)
     assert(fibonacci(1) == 1)
     assert(fibonacci(10) == 55)
@@ -500,18 +500,18 @@ test_pattern_matching: () void = {
 }
 
 @test
-test_error_handling: () void = {
+test_error_handling = () void  {
     divide(10.0, 0.0) ?
-        | .Ok -> _ => panic("Should have failed")
-        | .Err -> e => assert(e == "Division by zero")
+        | .Ok -> _ { panic("Should have failed") }
+        | .Err -> e { assert(e == "Division by zero") }
     
     divide(10.0, 2.0) ?
-        | .Ok -> v => assert(v == 5.0)
-        | .Err -> _ => panic("Should have succeeded")
+        | .Ok -> v { assert(v == 5.0) }
+        | .Err -> _ { panic("Should have succeeded") }
 }
 
 @test
-test_builder_pattern: () void = {
+test_builder_pattern = () void  {
     request := HttpRequestBuilder.new()
         .url("https://api.example.com")
         .method("POST")
@@ -528,10 +528,10 @@ test_builder_pattern: () void = {
 // Defer Statement
 // ========================================
 
-demo_defer: () void = {
+demo_defer = () void  {
     file := io.open("test.txt") ?
-        | .Ok -> f => f
-        | .Err -> _ => return
+        | .Ok -> f { f }
+        | .Err -> _ { return }
     
     defer file.close()  // Will be called when function exits
     
@@ -544,7 +544,7 @@ demo_defer: () void = {
 // Main Entry Point
 // ========================================
 
-main: () i32 = {
+main = () i32  {
     io.println("=== Zenlang Comprehensive Demo ===\n")
     
     // Arithmetic
@@ -565,8 +565,8 @@ main: () i32 = {
     
     result2 := divide(10.0, 0.0)
     result2 ?
-        | .Ok -> _ => {}
-        | .Err -> e => io.println("  Error: " + e)
+        | .Ok -> _ { { }}
+        | .Err -> e { io.println("  Error: " + e) }
     
     // Structs and Builders
     io.println("\nStructs and Builders:")

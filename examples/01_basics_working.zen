@@ -2,7 +2,7 @@
 // This example demonstrates the subset of zen that is implemented
 
 // Simple function with return type
-main: () i32  = {
+main = () i32   {
     // Immutable variable binding
     x := 42
     
