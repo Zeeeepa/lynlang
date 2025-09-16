@@ -10,13 +10,7 @@ io := build.import("io")
 net := build.import("net")
 
 // HTTP types
-HttpMethod: 
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    HEAD,
-    OPTIONS
+HttpMethod: GET | POST | PUT | DELETE | HEAD | OPTIONS
 
 HttpRequest: {
     method: HttpMethod
@@ -81,22 +75,22 @@ HttpResponse: {
 // Router for handling HTTP requests
 Router: {
     routes: Vec<Route>
-    alloc: *allocator.Allocator
+    alloc: Ptr<allocator.Allocator>
     
     Route: {
         method: HttpMethod
         pattern: String
-        handler: (HttpRequest, *allocator.Allocator) HttpResponse
+        handler: (HttpRequest, Ptr<allocator.Allocator>) HttpResponse
     }
     
-    init: (alloc: *allocator.Allocator) Router {
+    init: (alloc: Ptr<allocator.Allocator>) Router {
         return Router{
             routes: Vec<Route>{},
             alloc: alloc
         }
     }
     
-    get: (pattern: String, handler: (HttpRequest, *allocator.Allocator) HttpResponse) void {
+    get: (pattern: String, handler: (HttpRequest, Ptr<allocator.Allocator>) HttpResponse) void {
         self.routes.push(Route{
             method: .GET,
             pattern: pattern,
@@ -104,7 +98,7 @@ Router: {
         })
     }
     
-    post: (pattern: String, handler: (HttpRequest, *allocator.Allocator) HttpResponse) void {
+    post: (pattern: String, handler: (HttpRequest, Ptr<allocator.Allocator>) HttpResponse) void {
         self.routes.push(Route{
             method: .POST,
             pattern: pattern,
@@ -141,16 +135,16 @@ matchPattern = (pattern: String, path: String) bool   {
 // Database simulation
 Database: {
     data: HashMap<String, String>
-    alloc: *allocator.Allocator
+    alloc: Ptr<allocator.Allocator>
     
-    init: (alloc: *allocator.Allocator) Database {
+    init: (alloc: Ptr<allocator.Allocator>) Database {
         return Database{
             data: HashMap<String, String>.init(alloc),
             alloc: alloc
         }
     }
     
-    query: (sql: String, params: Vec<anytype>, alloc: *allocator.Allocator) Vec<Row> {
+    query: (sql: String, params: Vec<anytype>, alloc: Ptr<allocator.Allocator>) Vec<Row> {
         // Simulated database query
         // In real implementation, would use concurrent I/O if alloc.is_concurrent
         
@@ -176,21 +170,21 @@ Database: {
 // Cache implementation
 Cache: {
     entries: HashMap<String, CacheEntry>
-    alloc: *allocator.Allocator
+    alloc: Ptr<allocator.Allocator>
     
     CacheEntry: {
         value: String
         expiry: u64
     }
     
-    init: (alloc: *allocator.Allocator) Cache {
+    init: (alloc: Ptr<allocator.Allocator>) Cache {
         return Cache{
             entries: HashMap<String, CacheEntry>.init(alloc),
             alloc: alloc
         }
     }
     
-    get: (key: String, alloc: *allocator.Allocator) ?String {
+    get: (key: String, alloc: Ptr<allocator.Allocator>) Option<String> {
         entry := self.entries.get(key)
         entry ? {
             // Check expiry
@@ -206,7 +200,7 @@ Cache: {
         }
     }
     
-    set: (key: String, value: String, ttl: u64, alloc: *allocator.Allocator) void {
+    set: (key: String, value: String, ttl: u64, alloc: Ptr<allocator.Allocator>) void {
         self.entries.insert(key, CacheEntry{
             value: value,
             expiry: std.time.timestamp() + ttl

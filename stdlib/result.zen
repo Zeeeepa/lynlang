@@ -4,14 +4,10 @@
 { core } = @std.core
 
 // Result type - represents success (Ok) or failure (Err)
-Result<T, E> = 
-    | Ok(value: T)
-    | Err(error: E)
+Result<T, E>: Ok: {value: T} | Err: {error: E}
 
 // Option type - represents a value that may or may not exist  
-Option<T> =
-    | Some(value: T)
-    | None
+Option<T>: Some: {value: T} | None
 
 // Result methods implementation
 Result<T, E>.impl = {
@@ -44,7 +40,7 @@ Result<T, E>.impl = {
     }
     
     // Extract Ok value or compute default from closure
-    unwrap_or_else = (self: Result<T, E>, f: (E) T) T {
+    unwrap_or_else = (self: Result<T, E>, f: (E) { T }) T {
         self ?
             | .Ok(value) { value }
             | .Err(error) { f(error) }
@@ -58,28 +54,28 @@ Result<T, E>.impl = {
     }
     
     // Map Ok value through a function
-    map = (self: Result<T, E>, f: (T) U) Result<U, E> {
+    map = (self: Result<T, E>, f: (T) { U }) Result<U, E> {
         self ?
             | .Ok(value) { .Ok(f(value)) }
             | .Err(error) { .Err(error) }
     }
     
     // Map Err value through a function
-    map_err = (self: Result<T, E>, f: (E) F) Result<T, F> {
+    map_err = (self: Result<T, E>, f: (E) { F }) Result<T, F> {
         self ?
-            | .Ok(value) { .Ok(value) }
-            | .Err(error) { .Err(f(error)) }
+            | .Ok(ok_val) { .Ok(ok_val.value) }
+            | .Err(err_val) { .Err(f(err_val.error)) }
     }
     
     // Chain Result operations
-    and_then = (self: Result<T, E>, f: (T) Result<U, E>) Result<U, E> {
+    and_then = (self: Result<T, E>, f: (T) { Result<U, E> }) Result<U, E> {
         self ?
-            | .Ok(value) { f(value) }
-            | .Err(error) { .Err(error) }
+            | .Ok(ok_val) { f(ok_val.value) }
+            | .Err(err_val) { .Err(err_val.error) }
     }
     
     // Chain error handling
-    or_else = (self: Result<T, E>, f: (E) Result<T, F>) Result<T, F> {
+    or_else = (self: Result<T, E>, f: (E) { Result<T, F> }) Result<T, F> {
         self ?
             | .Ok(value) { .Ok(value) }
             | .Err(error) { f(error) }
@@ -131,28 +127,28 @@ Option<T>.impl = {
     }
     
     // Extract value or compute default
-    unwrap_or_else = (self: Option<T>, f: () T) T {
+    unwrap_or_else = (self: Option<T>, f: () { T }) T {
         self ?
             | .Some(value) { value }
             | .None { f() }
     }
     
     // Map value through function
-    map = (self: Option<T>, f: (T) U) Option<U> {
+    map = (self: Option<T>, f: (T) { U }) Option<U> {
         self ?
-            | .Some(value) { .Some(f(value)) }
+            | .Some(some_val) { .Some(f(some_val.value)) }
             | .None { .None }
     }
     
     // Chain Option operations
-    and_then = (self: Option<T>, f: (T) Option<U>) Option<U> {
+    and_then = (self: Option<T>, f: (T) { Option<U> }) Option<U> {
         self ?
-            | .Some(value) { f(value) }
+            | .Some(some_val) { f(some_val.value) }
             | .None { .None }
     }
     
     // Filter value based on predicate
-    filter = (self: Option<T>, predicate: (T) bool) Option<T> {
+    filter = (self: Option<T>, predicate: (T) { bool }) Option<T> {
         self ?
             | .Some(value) {
                 predicate(value) ?
@@ -170,7 +166,7 @@ Option<T>.impl = {
     }
     
     // Convert to Result with error from closure
-    ok_or_else = (self: Option<T>, f: () E) Result<T, E> {
+    ok_or_else = (self: Option<T>, f: () { E }) Result<T, E> {
         self ?
             | .Some(value) { .Ok(value) }
             | .None { .Err(f()) }

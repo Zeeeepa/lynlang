@@ -4,52 +4,52 @@
 { io } = @std.io
 
 // Complex enum with multiple payload types
-Message: .Text({content: string}) | .Number({value: i32}) | .Pair({first: i32, second: i32}) | .List({items: [i32]}) | .Nested({msg: Message}) | .Empty
+Message: Text: {content: string} | Number: {value: i32} | Pair: {first: i32, second: i32} | List: {items: [i32]} | Nested: {msg: Message} | Empty
 
 // Pattern matching with guards and destructuring
 process_message = (msg: Message) string {
     msg ?
-        | .Text(content) { "Text: " + content }
+        | .Text(content) { "Text: " + content.content }
         | .Number(value) {
-            value > 100 ?
-                | true { "Large number: " + value }
-                | false { "Small number: " + value }
+            value.value > 100 ?
+                | true { "Large number: " + value.value }
+                | false { "Small number: " + value.value }
         }
-        | .Pair(first, second) {
-            first == second ?
-                | true { "Equal pair: " + first }
-                | false { "Pair: (" + first + ", " + second + ")" }
+        | .Pair(pair) {
+            pair.first == pair.second ?
+                | true { "Equal pair: " + pair.first }
+                | false { "Pair: (" + pair.first + ", " + pair.second + ")" }
         }
-        | .List(items) {
-            items.len() == 0 ?
+        | .List(list) {
+            list.items.len() == 0 ?
                 | true { "Empty list" }
                 | false {
-                    items.len() == 1 ?
-                        | true { "Single item: " + items[0] }
-                        | false { "List with " + items.len() + " items" }
+                    list.items.len() == 1 ?
+                        | true { "Single item: " + list.items[0] }
+                        | false { "List with " + list.items.len() + " items" }
                 }
         }
-        | .Nested(inner) { "Nested: " + process_message(inner.msg) }
+        | .Nested(nested) { "Nested: " + process_message(nested.msg) }
         | .Empty { "Empty message" }
 }
 
 // Tree structure for recursive patterns
-Tree<T>: .Leaf({value: T}) | .Node({left: Tree<T>, right: Tree<T>})
+Tree<T>: Leaf: {value: T} | Node: {left: Tree<T>, right: Tree<T>}
 
 // Sum all values in a tree
 sum_tree = (tree: Tree<i32>) i32 {
     tree ?
-        | .Leaf(data) { data.value }
-        | .Node(data) { sum_tree(data.left) + sum_tree(data.right) }
+        | .Leaf(leaf) { leaf.value }
+        | .Node(node) { sum_tree(node.left) + sum_tree(node.right) }
 }
 
 // Find maximum depth of tree
 tree_depth<T> = (tree: Tree<T>) i32 {
     tree ?
         | .Leaf(_) { 1 }
-        | .Node(data) {
-            left_depth = tree_depth(data.left)
-            right_depth = tree_depth(data.right)
+        | .Node(node) {
+            left_depth = tree_depth(node.left)
+            right_depth = tree_depth(node.right)
             1 + (left_depth > right_depth ?
                 | true { left_depth }
                 | false { right_depth })
@@ -105,23 +105,23 @@ describe_pair = (point: Point) string {
 }
 
 // Nested pattern matching
-Shape: .Circle({center: Point, radius: f32}) | .Rectangle({top_left: Point, bottom_right: Point}) | .Polygon({vertices: [Point]})
+Shape: Circle: {center: Point, radius: f32} | Rectangle: {top_left: Point, bottom_right: Point} | Polygon: {vertices: [Point]}
 
 describe_shape = (shape: Shape) string {
     shape ?
-        | .Circle(data) { 
-            "Circle at (" + data.center.x + ", " + data.center.y + ") with radius " + data.radius
+        | .Circle(circle) { 
+            "Circle at (" + circle.center.x + ", " + circle.center.y + ") with radius " + circle.radius
         }
-        | .Rectangle(data) {
-            "Rectangle from (" + data.top_left.x + ", " + data.top_left.y + ") to (" + data.bottom_right.x + ", " + data.bottom_right.y + ")"
+        | .Rectangle(rect) {
+            "Rectangle from (" + rect.top_left.x + ", " + rect.top_left.y + ") to (" + rect.bottom_right.x + ", " + rect.bottom_right.y + ")"
         }
-        | .Polygon(data) {
-            data.vertices.len() == 3 ?
+        | .Polygon(poly) {
+            poly.vertices.len() == 3 ?
                 | true { "Triangle" }
                 | false {
-                    data.vertices.len() == 4 ?
+                    poly.vertices.len() == 4 ?
                         | true { "Quadrilateral" }
-                        | false { "Polygon with " + data.vertices.len() + " vertices" }
+                        | false { "Polygon with " + poly.vertices.len() + " vertices" }
                 }
         }
 }
@@ -151,22 +151,22 @@ demonstrate_patterns = () string {
     io.println("  Pattern matching demonstrations:")
     
     // Test message patterns
-    msg1 = Message.Text({content: "Hello"})
-    msg2 = Message.Number({value: 150})
-    msg3 = Message.Nested({msg: Message.Empty})
+    msg1 = Message.Text {content: "Hello"}
+    msg2 = Message.Number {value: 150}
+    msg3 = Message.Nested {msg: Message.Empty}
     
     io.println("    " + process_message(msg1))
     io.println("    " + process_message(msg2))
     io.println("    " + process_message(msg3))
     
     // Test tree patterns
-    tree = Tree<i32>.Node({
-        left: Tree<i32>.Leaf({value: 5}),
-        right: Tree<i32>.Node({
-            left: Tree<i32>.Leaf({value: 3}),
-            right: Tree<i32>.Leaf({value: 7})
-        })
-    })
+    tree = Tree<i32>.Node {
+        left: Tree<i32>.Leaf {value: 5},
+        right: Tree<i32>.Node {
+            left: Tree<i32>.Leaf {value: 3},
+            right: Tree<i32>.Leaf {value: 7}
+        }
+    }
     
     io.println("    Tree sum: " + sum_tree(tree))
     io.println("    Tree depth: " + tree_depth(tree))

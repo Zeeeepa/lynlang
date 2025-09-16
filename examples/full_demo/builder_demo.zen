@@ -331,10 +331,10 @@ Database.open = (path: string) Result<Database, string> {
                 | false {
                     error_msg ::= lib.call("sqlite3_errmsg", vec![db_ptr])
                     lib.call("sqlite3_close_v2", vec![db_ptr])
-                    return .Err("Failed to open database: $(error_msg)")
+                    return .Err("Failed to open database: ${error_msg}")
                 }
         }
-        | .Err(e) { return .Err("Failed to load SQLite library: $(e)") }
+        | .Err(e) { return .Err("Failed to load SQLite library: ${e}") }
 }
 
 Database.execute = (self, query: string) Result<void, string> {
@@ -355,12 +355,12 @@ Database.execute = (self, query: string) Result<void, string> {
                 | true { return .Ok(void) }
                 | false {
                     error_msg ::= self.lib.call("sqlite3_errmsg", vec![self.handle])
-                    return .Err("Execution failed: $(error_msg)")
+                    return .Err("Execution failed: ${error_msg}")
                 }
         }
         | false {
             error_msg ::= self.lib.call("sqlite3_errmsg", vec![self.handle])
-            return .Err("Failed to prepare statement: $(error_msg)")
+            return .Err("Failed to prepare statement: ${error_msg}")
         }
 }
 
@@ -393,7 +393,7 @@ Renderer.create = () Result<Renderer, string> {
                 }
                 | false { return .Err("Failed to create OpenGL context") }
         }
-        | .Err(e) { return .Err("Failed to load OpenGL library: $(e)") }
+        | .Err(e) { return .Err("Failed to load OpenGL library: ${e}") }
 }
 
 Renderer.clear = (self, r: f32, g: f32, b: f32, a: f32) void {
@@ -449,7 +449,7 @@ main = () void {
             
             create_table ?
                 | .Ok(_) { io.print("✓ Table created\n") }
-                | .Err(e) { io.print("✗ Table creation failed: $(e)\n") }
+                | .Err(e) { io.print("✗ Table creation failed: ${e}\n") }
             
             // Insert data
             insert_data ::= db.execute("
@@ -459,14 +459,14 @@ main = () void {
             
             insert_data ?
                 | .Ok(_) { io.print("✓ Data inserted\n") }
-                | .Err(e) { io.print("✗ Insert failed: $(e)\n") }
+                | .Err(e) { io.print("✗ Insert failed: ${e}\n") }
             
             // Close database
             db.close() ?
                 | .Ok(_) { io.print("✓ Database closed\n") }
-                | .Err(e) { io.print("✗ Close failed: $(e)\n") }
+                | .Err(e) { io.print("✗ Close failed: ${e}\n") }
         }
-        | .Err(e) { io.print("✗ Failed to open database: $(e)\n") }
+        | .Err(e) { io.print("✗ Failed to open database: ${e}\n") }
     
     io.print("\n")
     
@@ -491,7 +491,7 @@ main = () void {
             renderer.swap_buffers()
             io.print("✓ Buffers swapped\n")
         }
-        | .Err(e) { io.print("✗ Failed to create renderer: $(e)\n") }
+        | .Err(e) { io.print("✗ Failed to create renderer: ${e}\n") }
     
     io.print("\n")
     
@@ -509,7 +509,7 @@ main = () void {
             mem ::= system.call("malloc", vec![size])
             mem != .None ?
                 | true {
-                    io.print("✓ Allocated $(size) bytes\n")
+                    io.print("✓ Allocated ${size} bytes\n")
                     
                     // Free memory
                     system.call("free", vec![mem])
@@ -520,7 +520,7 @@ main = () void {
             system.unload()
             io.print("✓ System library unloaded\n")
         }
-        | .Err(e) { io.print("✗ Failed to load system library: $(e)\n") }
+        | .Err(e) { io.print("✗ Failed to load system library: ${e}\n") }
     
     io.print("\n")
     io.print("=== Demo Complete ===\n")

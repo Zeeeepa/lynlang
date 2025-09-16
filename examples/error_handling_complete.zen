@@ -1,22 +1,16 @@
 // Complete Error Handling Example - NO try keyword, NO async keyword!
 // This demonstrates Zenlang's approach: errors as values with ? operator
 
-io {  } = @std.io
-fs {  } = @std.fs
-json {  } = @std.json
-http {  } = @std.http
+{ io } = @std
+{ fs } = @std
+{ json } = @std
+{ http } = @std
 
 // Custom error types - errors are just values
-AppError = 
-    | FileError(path: String, cause: fs.Error)
-    | ParseError(message: String)
-    | NetworkError(url: String, status: u32)
-    | ValidationError(fields: []String)
-    | DatabaseError(query: String, cause: String)
-    | BusinessLogicError(rule: String)
+AppError: FileError: {path: String, cause: fs.Error} | ParseError: {message: String} | NetworkError: {url: String, status: u32} | ValidationError: {fields: DynVec<String>} | DatabaseError: {query: String, cause: String} | BusinessLogicError: {rule: String}
 
 // Result type for our operations
-type AppResult<T> = Result<T, AppError>
+AppResult<T>: Result<T, AppError>
 
 // Configuration structure
 Config: {
@@ -38,11 +32,11 @@ User: {
 load_config = (path: String) AppResult<Config>  {
     // Read file - ? bubbles up any fs.Error
     content := fs.read_file(path)
-        .map_err((e) => AppError.FileError(path, e))?
+        .map_err((e) { AppError.FileError{path: path, cause: e} }).raise()
     
     // Parse JSON - ? bubbles up parse errors
     data := json.parse(content)
-        .map_err((e) => AppError.ParseError(e.to_string()))?
+        .map_err((e) { AppError.ParseError{message: e.to_string()} }).raise()
     
     // Extract fields with validation
     config := Config{
@@ -72,7 +66,7 @@ load_config = (path: String) AppResult<Config>  {
 
 // Validate user - collect multiple errors
 validate_user = (user: User) AppResult<User>  {
-    mut errors := []String{}
+    errors ::= DynVec<String>()
     
     // Check name
     user.name.len() < 2 ?
@@ -100,12 +94,12 @@ validate_user = (user: User) AppResult<User>  {
     // Return error if validation failed
     errors.is_empty() ?
         | true { .Ok(user) }
-        | false { .Err(AppError.ValidationError(errors)) }
+        | false { .Err(AppError.ValidationError{fields: errors}) }
 }
 
 // Database operations with error bubbling
 // NO async keyword - use allocator for concurrency!
-fetch_user = (id: u64, db: Database, alloc: *Allocator) AppResult<User>  {
+fetch_user = (id: u64, db: Database, alloc: Ptr<Allocator>) AppResult<User>  {
     query := "SELECT * FROM users WHERE id = ?"
     
     // Execute query - errors bubble with ?
@@ -128,7 +122,7 @@ fetch_user = (id: u64, db: Database, alloc: *Allocator) AppResult<User>  {
 }
 
 // HTTP operations - NO async fn! Allocator determines sync/async
-fetch_external_data = (url: String, alloc: *Allocator) AppResult<json.Value>  {
+fetch_external_data = (url: String, alloc: Ptr<Allocator>) AppResult<json.Value>  {
     // Make HTTP request - allocator controls execution mode
     response := http.get(url, alloc)
         .map_err((e) => AppError.NetworkError(url, 0))?
@@ -148,7 +142,7 @@ process_user_request: (
     user_id: u64, 
     action: String,
     db: Database,
-    alloc: *Allocator
+    alloc: Ptr<Allocator>
 ) AppResult<String> = {
     // Fetch user - bubbles database errors
     user := fetch_user(user_id, db, alloc)?
@@ -209,11 +203,11 @@ resilient_config_load = (primary: String, fallback: String) AppResult<Config>  {
 }
 
 // Batch processing with error collection
-process_batch = (users: []User, db: Database, alloc: *Allocator) ([]User, []AppError)  {
-    mut successes := []User{}
-    mut failures := []AppError{}
+process_batch = (users: DynVec<User>, db: Database, alloc: Ptr<Allocator>) (DynVec<User>, DynVec<AppError>)  {
+    successes ::= DynVec<User>(alloc)
+    failures ::= DynVec<AppError>(alloc)
     
-    for user in users {
+    users.loop((user) {
         // Process each user, collecting errors
         validate_user(user) ?
             | .Ok -> valid {
@@ -242,7 +236,7 @@ main = () void  {
     config := resilient_config_load("config.json", "default.json") ?
         | .Ok -> c { c }
         | .Err -> e {
-            io.println("Failed to load config: $(e)")
+            io.println("Failed to load config: ${e}")
             io.println("Using defaults...")
             Config{
                 database_url: "sqlite::memory:",
@@ -262,12 +256,12 @@ main = () void  {
     defer db.close()
     
     // Process a request
-    result := process_user_request(123, "profile", db, &alloc)
+    result = process_user_request(123, "profile", db, alloc.ref())
     
     // Handle the result
     result ?
-        | .Ok -> message { io.println("Success: $(message)") }
-        | .Err -> error {
+        | .Ok(message) { io.println("Success: ${message}") }
+        | .Err(error) {
             // Pattern match on error types for specific handling
             error ?
                 | .FileError -> path, cause {  }

@@ -1,180 +1,45 @@
 // Zen Standard Library - Collections Module
 // Advanced data structures and collections
 
-{ core } = @std.core
-{ memory } = @std.memory
+core := @std.core
+build := @std.build
+memory := build.import("memory")
+vec_module := build.import("vec")
 
-// Dynamic array (vector) implementation
-Vector<T>: {
-    data: DynVec<T>
-    len: usize
-    capacity: usize
+// Import DynVec from vec module
+DynVec := vec_module.DynVec
+Vec := vec_module.Vec
+
+// Vector is now just an alias for Vec for backwards compatibility
+Vector<T>: Vec<T>
+
+// Create new vector - delegates to Vec
+Vector<T>.new = () Vector<T> {
+    return Vec<T>.with_capacity(16).unwrap_or(Vec<T>.new())
 }
 
-// Create new vector
-Vector.new = () Vector<T> {
-    return Vector<T>{
-        data: DynVec<T>.new(16),
-        len: 0,
-        capacity: 16
-    }
+// Create vector with initial capacity - delegates to Vec
+Vector<T>.with_capacity = (cap: usize) Vector<T> {
+    return Vec<T>.with_capacity(cap).unwrap_or(Vec<T>.new())
 }
 
-// Create vector with initial capacity
-Vector.with_capacity = (cap: usize) Vector<T> {
-    return Vector<T>{
-        data: DynVec<T>.new(cap),
-        len: 0,
-        capacity: cap
-    }
-}
-
-// Push element to vector
-Vector.push = (self: MutPtr<Vector<T>>, value: T) void {
-    self.val.len >= self.val.capacity ?
-        | true {
-            self.grow()
-        }
-        | false {}
-    self.val.data.set(self.val.len, value)
-    self.val.len = self.val.len + 1
-}
-
-// Pop element from vector
-Vector.pop = (self: MutPtr<Vector<T>>) Option<T> {
-    self.val.len == 0 ?
-        | true {
-            return .None
-        }
-        | false {}
-    self.val.len = self.val.len - 1
-    return self.val.data.get(self.val.len)
-}
-
-// Get element at index
-Vector.get = (self: Ptr<Vector<T>>, index: usize) Option<T> {
-    index >= self.val.len ?
-        | true {
-            return .None
-        }
-        | false {}
-    return self.val.data.get(index)
-}
-
-// Set element at index
-Vector.set = (self: MutPtr<Vector<T>>, index: usize, value: T) bool {
-    index >= self.val.len ?
-        | true {
-            return false
-        }
-        | false {}
-    self.val.data.set(index, value)
-    return true
-}
-
-// Insert element at index
-Vector.insert = (self: MutPtr<Vector<T>>, index: usize, value: T) bool {
-    index > self.val.len ?
-        | true {
-            return false
-        }
-        | false {}
-    
-    self.val.len >= self.val.capacity ?
-        | true {
-            self.grow()
-        }
-        | false {}
-    
-    // Shift elements right
-    i ::= self.val.len
-    loop(() {
-        i <= index ?
-            | true { break }
-            | false {
-                prev_val ::= self.val.data.get(i - 1)
-                self.val.data.set(i, prev_val)
-                i = i - 1
-            }
-    })
-    
-    self.val.data.set(index, value)
-    self.val.len = self.val.len + 1
-    return true
-}
-
-// Remove element at index
-Vector.remove = (self: MutPtr<Vector<T>>, index: usize) Option<T> {
-    index >= self.val.len ?
-        | true {
-            return .None
-        }
-        | false {}
-    
-    value ::= self.val.data.get(index)
-    
-    // Shift elements left
-    i ::= index
-    loop(() {
-        i >= self.val.len - 1 ?
-            | true { break }
-            | false {
-                next_val ::= self.val.data.get(i + 1)
-                self.val.data.set(i, next_val)
-                i = i + 1
-            }
-    })
-    
-    self.val.len = self.val.len - 1
-    return value
-}
-
-// Clear vector
-Vector.clear = (self: MutPtr<Vector<T>>) void {
-    self.val.len = 0
-}
-
-// Check if vector is empty
-Vector.is_empty = (self: Ptr<Vector<T>>) bool {
-    return self.val.len == 0
-}
-
-// Grow vector capacity
-Vector.grow = (self: MutPtr<Vector<T>>) void {
-    new_capacity ::= self.val.capacity * 2
-    new_data ::= DynVec<T>.new(new_capacity)
-    
-    // Copy existing data
-    i ::= 0
-    loop(() {
-        i >= self.val.len ?
-            | true { break }
-            | false {
-                val ::= self.val.data.get(i)
-                new_data.set(i, val)
-                i = i + 1
-            }
-    })
-    
-    self.val.data = new_data
-    self.val.capacity = new_capacity
-}
+// Vector methods are inherited from Vec since Vector<T> is an alias
 
 // Linked list node
 ListNode<T>: {
     value: T
-    next: Option<MutPtr<ListNode<T>>>
+    next: Option<Ref<ListNode<T>>>
 }
 
 // Linked list implementation
 LinkedList<T>: {
-    head: Option<MutPtr<ListNode<T>>>
-    tail: Option<MutPtr<ListNode<T>>>
+    head: Option<Ref<ListNode<T>>>
+    tail: Option<Ref<ListNode<T>>>
     len: usize
 }
 
 // Create new linked list
-LinkedList.new = () LinkedList<T> {
+LinkedList<T>.new = () LinkedList<T> {
     return LinkedList<T>{
         head: .None,
         tail: .None,
@@ -183,7 +48,7 @@ LinkedList.new = () LinkedList<T> {
 }
 
 // Push element to front
-LinkedList.push_front = (self: MutPtr<LinkedList<T>>, value: T) void {
+LinkedList<T>.push_front = (self: Ref<LinkedList<T>>, value: T) void {
     node ::= memory.alloc(ListNode<T>)
     node.val.value = value
     node.val.next = self.val.head
@@ -199,7 +64,7 @@ LinkedList.push_front = (self: MutPtr<LinkedList<T>>, value: T) void {
 }
 
 // Push element to back
-LinkedList.push_back = (self: MutPtr<LinkedList<T>>, value: T) void {
+LinkedList<T>.push_back = (self: Ref<LinkedList<T>>, value: T) void {
     node ::= memory.alloc(ListNode<T>)
     node.val.value = value
     node.val.next = .None
@@ -217,7 +82,7 @@ LinkedList.push_back = (self: MutPtr<LinkedList<T>>, value: T) void {
 }
 
 // Pop element from front
-LinkedList.pop_front = (self: MutPtr<LinkedList<T>>) Option<T> {
+LinkedList<T>.pop_front = (self: Ref<LinkedList<T>>) Option<T> {
     self.val.head ?
         | .None {
             return .None
@@ -239,42 +104,36 @@ LinkedList.pop_front = (self: MutPtr<LinkedList<T>>) Option<T> {
         }
 }
 
-// Stack implementation using vector
+// Stack implementation using Vec
 Stack<T>: {
-    data: Vector<T>
+    data: Vec<T>
 }
 
 // Create new stack
-Stack.new = () Stack<T> {
+Stack<T>.new = () Stack<T> {
     return Stack<T>{
-        data: Vector<T>.new()
+        data: Vec<T>.new()
     }
 }
 
 // Push element onto stack
-Stack.push = (self: MutPtr<Stack<T>>, value: T) void {
-    self.val.data.push(value)
+Stack<T>.push = (self: Ref<Stack<T>>, value: T) void {
+    vec_module.vec_push(self.data, value)
 }
 
-// Pop element from stack
-Stack.pop = (self: MutPtr<Stack<T>>) Option<T> {
-    return self.val.data.pop()
+// Pop element from stack  
+Stack<T>.pop = (self: Ref<Stack<T>>) Option<T> {
+    return vec_module.vec_pop(self.data)
 }
 
 // Peek at top element
-Stack.peek = (self: Ptr<Stack<T>>) Option<T> {
-    self.val.data.len == 0 ?
-        | true {
-            return .None
-        }
-        | false {
-            return self.val.data.get(self.val.data.len - 1)
-        }
+Stack<T>.peek = (self: Ref<Stack<T>>) Option<T> {
+    return vec_module.vec_last(self.data)
 }
 
 // Check if stack is empty
-Stack.is_empty = (self: Ptr<Stack<T>>) bool {
-    return self.val.data.is_empty()
+Stack<T>.is_empty = (self: Ref<Stack<T>>) bool {
+    return vec_module.vec_is_empty(self.data)
 }
 
 // Queue implementation using linked list
@@ -283,66 +142,66 @@ Queue<T>: {
 }
 
 // Create new queue
-Queue.new = () Queue<T> {
+Queue<T>.new = () Queue<T> {
     return Queue<T>{
         list: LinkedList<T>.new()
     }
 }
 
 // Enqueue element
-Queue.enqueue = (self: MutPtr<Queue<T>>, value: T) void {
+Queue<T>.enqueue = (self: Ref<Queue<T>>, value: T) void {
     self.val.list.push_back(value)
 }
 
 // Dequeue element
-Queue.dequeue = (self: MutPtr<Queue<T>>) Option<T> {
+Queue<T>.dequeue = (self: Ref<Queue<T>>) Option<T> {
     return self.val.list.pop_front()
 }
 
 // Peek at front element
-Queue.peek = (self: &Queue) ?T {
-    if (self.list.head) {
-        return self.list.head.value
-    }
-    return null
+Queue<T>.peek = (self: Ref<Queue<T>>) Option<T> {
+    self.list.head ?
+        | .Some(node) => .Some(node.value)
+        | .None => .None
 }
 
 // Check if queue is empty
-Queue.is_empty = (self: &Queue) bool {
+Queue<T>.is_empty = (self: Ref<Queue<T>>) bool {
     return self.list.len == 0
 }
 
 // Hash map bucket
-HashBucket := {
+HashBucket<K, V>: {
     key: K
     value: V
-    next: ?&HashBucket
+    next: Option<Ref<HashBucket<K, V>>>
 }
 
 // Hash map implementation
-HashMap := {
-    buckets: []?&HashBucket
+HashMap<K, V>: {
+    buckets: Vec<Option<Ref<HashBucket<K, V>>>>
     len: usize
     capacity: usize
 }
 
 // Create new hash map
-HashMap.new = () HashMap {
-    return HashMap{
-        buckets: make([]?&HashBucket, 16),
+HashMap<K, V>.new = () HashMap<K, V> {
+    buckets := Vec<Option<Ref<HashBucket<K, V>>>>.with_capacity(16).unwrap_or_default()
+    return HashMap<K, V>{
+        buckets: buckets,
         len: 0,
         capacity: 16
     }
 }
 
 // Hash function (simple for now)
-hash = (key: K, capacity: usize) usize   {
-    // Simple hash for numeric types
-    return key % capacity
+hash<K> = (key: K, capacity: usize) usize {
+    // Simple hash for numeric types - needs proper implementation
+    return 0  // Placeholder - needs proper hash implementation
 }
 
 // Put key-value pair
-HashMap.put = (self: &HashMap, key: K, value: V) void {
+HashMap<K, V>.put = (self: Ref<HashMap<K, V>>, key: K, value: V) void {
     index := hash(key, self.capacity)
     
     // Check if key exists
@@ -371,7 +230,7 @@ HashMap.put = (self: &HashMap, key: K, value: V) void {
 }
 
 // Get value by key
-HashMap.get = (self: &HashMap, key: K) ?V {
+HashMap<K, V>.get = (self: Ref<HashMap<K, V>>, key: K) Option<V> {
     index := hash(key, self.capacity)
     
     current := self.buckets[index]
@@ -386,7 +245,7 @@ HashMap.get = (self: &HashMap, key: K) ?V {
 }
 
 // Remove key-value pair
-HashMap.remove = (self: &HashMap, key: K) bool {
+HashMap<K, V>.remove = (self: Ref<HashMap<K, V>>, key: K) bool {
     index := hash(key, self.capacity)
     
     prev := null
@@ -413,12 +272,14 @@ HashMap.remove = (self: &HashMap, key: K) bool {
 }
 
 // Check if key exists
-HashMap.contains = (self: &HashMap, key: K) bool {
-    return self.get(key) != null
+HashMap<K, V>.contains = (self: Ref<HashMap<K, V>>, key: K) bool {
+    return self.get(key) ?
+        | .Some(_) => true
+        | .None => false
 }
 
 // Resize hash map
-HashMap.resize = (self: &HashMap) void {
+HashMap<K, V>.resize = (self: Ref<HashMap<K, V>>) void {
     new_capacity := self.capacity * 2
     new_buckets := make([]?&HashBucket, new_capacity)
     
@@ -444,33 +305,33 @@ HashMap.resize = (self: &HashMap) void {
 }
 
 // Set implementation using hash map
-HashSet := {
-    map: HashMap
+HashSet<T>: {
+    map: HashMap<T, bool>
 }
 
 // Create new set
-HashSet.new = () HashSet {
-    return HashSet{
-        map: HashMap.new()
+HashSet<T>.new = () HashSet<T> {
+    return HashSet<T>{
+        map: HashMap<T, bool>.new()
     }
 }
 
 // Add element to set
-HashSet.add = (self: &HashSet, value: T) void {
+HashSet<T>.add = (self: Ref<HashSet<T>>, value: T) void {
     self.map.put(value, true)
 }
 
 // Remove element from set
-HashSet.remove = (self: &HashSet, value: T) bool {
+HashSet<T>.remove = (self: Ref<HashSet<T>>, value: T) bool {
     return self.map.remove(value)
 }
 
 // Check if element exists
-HashSet.contains = (self: &HashSet, value: T) bool {
+HashSet<T>.contains = (self: Ref<HashSet<T>>, value: T) bool {
     return self.map.contains(value)
 }
 
 // Get set size
-HashSet.size = (self: &HashSet) usize {
+HashSet<T>.size = (self: Ref<HashSet<T>>) usize {
     return self.map.len
 }

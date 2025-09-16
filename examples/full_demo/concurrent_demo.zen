@@ -27,7 +27,7 @@ SyncAllocator: {
     free: (ptr) { @std.heap.free(ptr) },
     suspend: () { return .None },  // Can't suspend
     resume: (cont) { @panic("Cannot resume in sync context") },
-    runtime: null,
+    runtime: .None,
 }
 
 ConcurrentAllocator: {
@@ -71,7 +71,7 @@ AsyncTask<T>: {
     status: TaskStatus,
 }
 
-TaskStatus: .Pending | .Running | .Completed | .Failed
+TaskStatus: Pending | Running | Completed | Failed
 
 // Colorless fetch operation - allocator determines sync/concurrent
 fetch_data = (url: string, alloc: Ptr<Allocator>) Result<string, string> {
@@ -128,7 +128,7 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
         "https://api.example.com/data3"
     ]
     
-    results ::= []Result<string, string>{}
+    results ::= DynVec<Result<string, string>>(sync_alloc)
     
     // With concurrent allocator, these can run concurrently
     urls.loop((url) {
@@ -143,7 +143,7 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
             | .Ok(data) {
                 processed = process_data(data, alloc)
                 processed ? 
-                    | .Ok(len) { total_length = total_length + len }
+                    | .Ok(len) { total_length ::= total_length + len }
                     | .Err(_) { }
             }
             | .Err(err) { @std.io.println("Error: " + err) }
@@ -154,7 +154,7 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
 };
 
 // Channel-based communication with allocator
-demonstrate_channels = (alloc: *Allocator) void {
+demonstrate_channels = (alloc: Ptr<Allocator>) void {
     // Create a channel with buffer size 10
     chan = Channel<i32>.new(10, alloc)
     
@@ -255,13 +255,13 @@ Counter: {
     alloc: Ptr<Allocator>,
 }
 
-CounterMsg: .Increment | .Decrement | .Get
+CounterMsg: Increment | Decrement | Get
 
 Counter.implements(Actor<CounterMsg>, {
     handle = (self: Self, msg: CounterMsg, alloc: Ptr<Allocator>) void {
         msg ?
-            | .Increment { self.value = self.value + 1 }
-            | .Decrement { self.value = self.value - 1 }
+            | .Increment { self.value ::= self.value + 1 }
+            | .Decrement { self.value ::= self.value - 1 }
             | .Get(reply) { reply.send(self.value) }
     },
 })
@@ -335,7 +335,7 @@ demonstrate_mutex = (alloc: Ptr<Allocator>) void {
     task_fn = (i: i32) {
         guard ::= mutex.lock()
         old_value ::= guard.value
-        guard.value = old_value + 1
+        guard.value ::= old_value + 1
         @std.io.println("Task " + i + " incremented to " + guard.value)
         // Lock automatically released when guard goes out of scope
     }
