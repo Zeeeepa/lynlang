@@ -581,9 +581,57 @@ impl TypeChecker {
             Expression::Return(expr) => {
                 self.infer_expression_type(expr)
             }
-            Expression::EnumVariant { .. } => {
-                // TODO: Implement enum variant type inference
-                Ok(AstType::Void)
+            Expression::EnumVariant { enum_name, variant, .. } => {
+                // Infer the type of an enum variant
+                // If enum_name is empty, search for an enum with this variant
+                let enum_type_name = if enum_name.is_empty() {
+                    // Search enum registry for enum containing this variant
+                    let mut found_enum = None;
+                    for (name, info) in &self.enums {
+                        for (var_name, _) in &info.variants {
+                            if var_name == variant {
+                                found_enum = Some(name.clone());
+                                break;
+                            }
+                        }
+                        if found_enum.is_some() {
+                            break;
+                        }
+                    }
+                    found_enum.unwrap_or_else(|| "Option".to_string())
+                } else {
+                    enum_name.clone()
+                };
+                
+                // For now, return a generic type with the enum name
+                // In the future, this should handle type parameters properly
+                if enum_type_name == "Option" || enum_type_name == "Result" {
+                    // These are generic types - for now, use a simple representation
+                    Ok(AstType::Generic { 
+                        name: enum_type_name,
+                        type_args: vec![AstType::I32] // Default to I32 for now
+                    })
+                } else {
+                    // Look up the enum to get its variant info
+                    if let Some(enum_info) = self.enums.get(&enum_type_name) {
+                        let variants = enum_info.variants.iter()
+                            .map(|(name, payload)| crate::ast::EnumVariant {
+                                name: name.clone(),
+                                payload: payload.clone(),
+                            })
+                            .collect();
+                        Ok(AstType::Enum {
+                            name: enum_type_name,
+                            variants,
+                        })
+                    } else {
+                        // Fallback to generic for unknown enums
+                        Ok(AstType::Generic {
+                            name: enum_type_name,
+                            type_args: vec![],
+                        })
+                    }
+                }
             }
             Expression::StringLength(_) => {
                 Ok(AstType::I64)

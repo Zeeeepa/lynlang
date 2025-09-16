@@ -1,0 +1,8 @@
+{ io } = @std
+
+Shape: .Circle | .Rectangle
+
+main = () void {
+    s = .Circle
+    io.print("Test")
+}

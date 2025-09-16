@@ -1,5 +1,5 @@
 use inkwell::types::BasicType;
-use super::{LLVMCompiler, Type};
+use super::{LLVMCompiler, Type, symbols};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use inkwell::{
@@ -67,9 +67,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_struct_field(&mut self, struct_: &Expression, field: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Special handling for identifiers - we need the pointer, not the loaded value
+        // Special handling for identifiers
         if let Expression::Identifier(name) = struct_ {
-            // Get the variable info
+            eprintln!("DEBUG: compile_struct_field - identifier: {}, field: {}", name, field);
+            // First check if this is an enum type (GameEntity.Player syntax)
+            if let Some(symbol) = self.symbols.lookup(name) {
+                eprintln!("DEBUG: Found symbol for {}", name);
+                if let symbols::Symbol::EnumType(enum_info) = symbol {
+                    // This is an enum variant creation, not a struct field access
+                    if enum_info.variant_indices.contains_key(field) {
+                        // Create the enum variant
+                        return self.compile_enum_variant(name, field, &None);
+                    } else {
+                        return Err(CompileError::TypeError(
+                            format!("Unknown variant '{}' for enum '{}'", field, name),
+                            None
+                        ));
+                    }
+                }
+            } else {
+                eprintln!("DEBUG: No symbol found for {}", name);
+            }
+            
+            // Not an enum, check if it's a variable
             if let Some((alloca, var_type)) = self.variables.get(name) {
                 // Handle pointer to struct (p.x where p is *Point)
                 if let AstType::Ptr(inner_type) = var_type {

@@ -22,8 +22,8 @@ main = () void {
     // Test full pattern match syntax
     value = 42
     value > 40 ?
-        | true => io.println("Value is greater than 40")
-        | false => io.println("Value is 40 or less")
+        | true { io.println("Value is greater than 40") }   
+        | false { io.println("Value is 40 or less") }
     
     // Test defer statement (not implemented yet)
     // defer io.println("Cleanup with defer!")

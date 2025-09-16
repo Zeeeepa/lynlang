@@ -1,0 +1,19 @@
+// Test accessing enum variants
+
+{ io } = @std
+
+// Simple enum
+Status: .Ready | .Working | .Done
+
+main = () void {
+    // Try accessing the enum variant
+    status = .Ready
+    
+    io.println("Testing enum variant access")
+    
+    // Pattern match on the variant
+    status ?
+        | .Ready { io.println("Status is Ready") }
+        | .Working { io.println("Status is Working") }
+        | .Done { io.println("Status is Done") }
+}

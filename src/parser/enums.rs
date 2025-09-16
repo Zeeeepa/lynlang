@@ -35,27 +35,43 @@ impl<'a> Parser<'a> {
         let mut variants = vec![];
         let mut first_variant = true;
         
-        // Parse variants - no leading | for definition
+        // Parse variants - support both | separator and comma separator
         while self.current_token != Token::Eof {
-            // First variant doesn't need |, subsequent ones do
+            // Handle variant separators
             if !first_variant {
-                if self.current_token != Token::Pipe {
+                // Check for | or comma separator
+                if self.current_token == Token::Pipe {
+                    self.next_token();
+                } else if self.current_token == Token::Symbol(',') {
+                    self.next_token();
+                } else {
+                    // No separator found, done with variants
                     break;
                 }
-                self.next_token();
             }
             first_variant = false;
             
-            // Variant name
-            let variant_name = if let Token::Identifier(name) = &self.current_token {
-                name.clone()
+            // Check for shorthand enum variant syntax: .VariantName
+            let variant_name = if self.current_token == Token::Symbol('.') {
+                self.next_token(); // consume '.'
+                if let Token::Identifier(name) = &self.current_token {
+                    let name = name.clone();
+                    self.next_token();
+                    name
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected variant name after '.'".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+            } else if let Token::Identifier(name) = &self.current_token {
+                let name = name.clone();
+                self.next_token();
+                name
             } else {
-                return Err(CompileError::SyntaxError(
-                    "Expected variant name".to_string(),
-                    Some(self.current_span.clone()),
-                ));
+                // If not a variant, break (we're done parsing variants)
+                break;
             };
-            self.next_token();
             
             // Check for payload type
             let payload = if self.current_token == Token::Symbol('(') {

@@ -1,0 +1,18 @@
+// Test simple enum types from LANGUAGE_SPEC.zen (line 162)
+{ io } = @std
+
+// Simple enum without generics using comma syntax
+Shape: Circle, Rectangle
+
+main = () void {
+    io.println("Testing simple enum syntax")
+    
+    // Create enum variants
+    my_shape = Circle
+    
+    // Pattern matching on simple enum
+    my_shape ?
+        | Circle { io.println("It's a circle!") }
+        | Rectangle { io.println("It's a rectangle!") }
+        | _ { io.println("Unknown shape") }
+}

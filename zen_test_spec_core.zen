@@ -1,0 +1,58 @@
+// Test core features from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+// Test Option type definition
+Option<T>: .Some(T) | .None
+
+// Test Result type definition  
+Result<T, E>: .Ok(T) | .Err(E)
+
+// Test basic enum
+Shape: .Circle | .Rectangle
+
+// Test struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Main function
+main = () void {
+    // Test immutable assignment
+    x = 42
+    
+    // Test mutable assignment
+    counter ::= 0
+    counter = counter + 1
+    
+    // Test io.println with string interpolation
+    io.println("Counter value: ${counter}")
+    
+    // Test Option type usage
+    maybe_value: Option<i32> = .Some(42)
+    
+    // Test pattern matching on Option
+    maybe_value ?
+        | .Some(v) { io.println("Got value: ${v}") }
+        | .None { io.println("No value") }
+    
+    // Test Result type usage
+    result: Result<i32, string> = .Ok(100)
+    
+    // Test pattern matching on Result
+    result ?
+        | .Ok(val) { io.println("Success: ${val}") }
+        | .Err(msg) { io.println("Error: ${msg}") }
+    
+    // Test range iteration
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Test boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+}

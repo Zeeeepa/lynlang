@@ -1,0 +1,75 @@
+// Core Zen Language Features Test
+// Based on LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+main = () void {
+    io.println("=== Core Zen Language Features ===")
+    
+    // 1. Immutable assignment with =
+    message = "Hello from Zen!"
+    io.println(message)
+    
+    // 2. Mutable assignment with ::=
+    counter ::= 0
+    io.println("Initial counter: ${counter}")
+    counter = counter + 1
+    io.println("After increment: ${counter}")
+    counter = counter + 1
+    io.println("After another increment: ${counter}")
+    
+    // 3. String interpolation with ${}
+    name = "Alice"
+    age = 25
+    pi = 3.14159
+    io.println("Hello, ${name}!")
+    io.println("Age: ${age}")
+    io.println("Pi: ${pi}")
+    
+    // 4. Boolean pattern matching with ? (single branch)
+    is_ready = true
+    is_ready ? {
+        io.println("System is ready!")
+    }
+    
+    // 5. Full boolean pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data available") }
+    
+    // 6. Comparison with pattern matching
+    value = 42
+    value > 40 ?
+        | true { io.println("Value ${value} is greater than 40") }
+        | false { io.println("Value ${value} is 40 or less") }
+    
+    // 7. Complex expressions
+    x = 10
+    y = 20
+    result = (x + y) * 2
+    io.println("(${x} + ${y}) * 2 = ${result}")
+    
+    // 8. Multiple mutable variables
+    a ::= 100
+    b ::= 200
+    io.println("a = ${a}, b = ${b}")
+    
+    a = a + 50
+    b = b - 50
+    sum = a + b
+    io.println("After modification: a = ${a}, b = ${b}")
+    io.println("Sum: ${sum}")
+    
+    // 9. Nested conditions
+    score = 85
+    score > 90 ?
+        | true { io.println("Excellent!") }
+        | false {
+            score > 70 ?
+                | true { io.println("Good job!") }
+                | false { io.println("Keep trying!") }
+        }
+    
+    io.println("=== Test Complete ===")
+}

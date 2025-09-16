@@ -1,0 +1,4 @@
+{ io } = @std
+main = () void {
+    io.print("Test print")
+}

@@ -1,0 +1,7 @@
+{ io } = @std
+main = () void {
+    flag = true
+    flag ? { 
+        io.print("flag is true") 
+    }
+}

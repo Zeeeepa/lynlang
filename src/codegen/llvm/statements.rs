@@ -56,6 +56,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // For pointers (including strings), use ptr type
                                     Type::Basic(self.context.ptr_type(inkwell::AddressSpace::default()).into())
                                 }
+                                BasicValueEnum::StructValue(struct_val) => {
+                                    // For structs (including enums), use the struct type directly
+                                    // The struct type is already a BasicTypeEnum
+                                    Type::Basic(struct_val.get_type().as_basic_type_enum())
+                                }
                                 _ => Type::Basic(self.context.i64_type().into()), // Default to i64
                             }
                         } else {
@@ -298,20 +303,37 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // For now, treat as a generic pointer
                             AstType::Ptr(Box::new(AstType::Void))
                         }
+                        BasicValueEnum::StructValue(_) => {
+                            // For structs and enums, we can directly use the LLVM struct type
+                            // Store the value directly without trying to convert to AstType
+                            // We'll handle this as a special case below
+                            AstType::Void // Placeholder - we'll handle this specially
+                        }
                         _ => AstType::Void, // Default fallback
                     };
                     
                     // Create the alloca and store the value
-                    let llvm_type = self.to_llvm_type(&var_type)?;
-                    let basic_type = match llvm_type {
-                        Type::Basic(basic) => basic,
-                        Type::Struct(struct_type) => struct_type.as_basic_type_enum(),
-                        Type::Function(_) => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
-                        _ => return Err(CompileError::TypeError("Cannot allocate non-basic or struct type".to_string(), None)),
-                    };
-                    let alloca = self.builder.build_alloca(basic_type, name)?;
-                    self.builder.build_store(alloca, init_value)?;
-                    self.variables.insert(name.clone(), (alloca, var_type));
+                    // Special handling for struct values (including enums)
+                    if let BasicValueEnum::StructValue(struct_val) = init_value {
+                        // Directly use the struct type from the value
+                        let struct_type = struct_val.get_type();
+                        let alloca = self.builder.build_alloca(struct_type, name)?;
+                        self.builder.build_store(alloca, struct_val)?;
+                        // For now, use a generic enum type in the symbol table
+                        // TODO: Properly track the specific enum type
+                        self.variables.insert(name.clone(), (alloca, AstType::I64)); // Simplified for now
+                    } else {
+                        let llvm_type = self.to_llvm_type(&var_type)?;
+                        let basic_type = match llvm_type {
+                            Type::Basic(basic) => basic,
+                            Type::Struct(struct_type) => struct_type.as_basic_type_enum(),
+                            Type::Function(_) => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
+                            _ => return Err(CompileError::TypeError("Cannot allocate non-basic or struct type".to_string(), None)),
+                        };
+                        let alloca = self.builder.build_alloca(basic_type, name)?;
+                        self.builder.build_store(alloca, init_value)?;
+                        self.variables.insert(name.clone(), (alloca, var_type));
+                    }
                     return Ok(());
                 }
                 

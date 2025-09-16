@@ -1,0 +1,35 @@
+// Test mutable assignment with ::=
+
+{ io } = @std
+
+main = () void {
+    // Test immutable assignment
+    x = 10
+    io.println("Immutable x: ${x}")
+    
+    // Test mutable assignment
+    y ::= 20
+    io.println("Initial y: ${y}")
+    
+    // Mutate y
+    y = y + 5
+    io.println("Modified y: ${y}")
+    
+    // Test with strings
+    message ::= "Hello"
+    io.println("Initial message: ${message}")
+    
+    message = "World"
+    io.println("Modified message: ${message}")
+    
+    // Test in loop
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("Counter: ${counter}")
+        
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    })
+}

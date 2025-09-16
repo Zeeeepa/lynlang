@@ -1,4 +1,4 @@
-use super::LLVMCompiler;
+use super::{LLVMCompiler, symbols};
 use crate::ast::AstType;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
@@ -23,6 +23,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_identifier(&mut self, name: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Check if this is an enum type name (will be handled later in member access)
+        if let Some(symbols::Symbol::EnumType(_)) = self.symbols.lookup(name) {
+            // Return a dummy value - this will be handled properly in member access
+            // We can't create an enum variant without knowing which variant
+            return Ok(self.context.i64_type().const_int(0, false).into());
+        }
+        
         // First check if this is a function name
         if let Some(function) = self.module.get_function(name) {
             // Return the function's address as a pointer value

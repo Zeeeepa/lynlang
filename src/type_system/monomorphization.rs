@@ -38,6 +38,9 @@ impl Monomorphizer {
                 }
                 Declaration::Enum(enum_def) if !enum_def.type_params.is_empty() => {
                     self.env.register_generic_enum(enum_def.clone());
+                    // For now, also keep generic enums in declarations to ensure they're available
+                    // This is a temporary fix - proper solution would be to infer instantiation from usage
+                    declarations.push(decl.clone());
                 }
                 _ => declarations.push(decl.clone()),
             }
