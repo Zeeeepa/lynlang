@@ -1,9 +1,9 @@
 // Zen Standard Library: Process Module
 // Process management and execution utilities
 
-core = @std.core
-io = @std.io
-string = @std.string
+core = @std
+io = @std
+string = @std
 
 // Process exit codes
 EXIT_SUCCESS : 0

@@ -1,7 +1,7 @@
 // Comprehensive Language Test Suite
 // Tests all core features per LANGUAGE_SPEC.md v1.1.0
 
-build = @std.build
+build = @std
 testing := build.import("testing")
 { test, assert, assert_eq, assert_ne, expect_panic } := testing
 

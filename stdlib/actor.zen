@@ -1,7 +1,7 @@
 // Actor system with allocator-based execution
 // Supports both sync and concurrent modes via allocator
 
-build = @std.build
+build = @std
 std := build.import("std")
 allocator := build.import("allocator")
 runtime := build.import("concurrent_runtime_enhanced")

@@ -2,8 +2,8 @@
 // Ensures imports work at module level and not in comptime blocks
 
 // Standard library imports - module level (correct)
-core = @std.core
-io = @std.io
+core = @std
+io = @std
 
 // Test that imports work correctly
 test_basic_import = () bool   {
@@ -15,7 +15,7 @@ test_basic_import = () bool   {
 }
 
 // Test that we can declare multiple imports
-mem = @std.mem
+mem = @std
 
 test_multiple_imports = () bool   {
     io.print("Testing multiple imports: ")

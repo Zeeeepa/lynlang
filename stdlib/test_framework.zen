@@ -1,11 +1,11 @@
 // Zen Standard Library - Test Framework
 // Provides testing infrastructure for Zen programs
 
-core = @std.core
-io = @std.io
-assert = @std.assert
-{ Vec, DynVec } = @std.collections
-string = @std.string
+core = @std
+io = @std
+assert = @std
+{ Vec, DynVec } = @std
+string = @std
 
 // TestResult represents the outcome of a test
 TestResult: Passed

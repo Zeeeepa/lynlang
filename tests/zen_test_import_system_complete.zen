@@ -1,25 +1,25 @@
 // test_import_system_complete.zen - Comprehensive import system test
 
 // Test 1: Standard library imports (correct syntax)
-io = @std.io
-core = @std.core
-string = @std.string
-vec = @std.vec
-math = @std.math
+io = @std
+core = @std
+string = @std
+vec = @std
+math = @std
 
 // Test 2: Nested module paths
-io_enhanced = @std.io_enhanced
-test_framework = @std.test_framework
+io_enhanced = @std
+test_framework = @std
 
 // Test 3: Build system imports (if available)
 // custom := build.import("custom_module")
 
 // Test 4: Compiler module imports (for self-hosting)
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-codegen = @std.codegen
-errors = @std.errors
+lexer = @std
+parser = @std
+type_checker = @std
+codegen = @std
+errors = @std
 
 // Test function to verify imports work correctly
 test_std_imports = () bool   {
@@ -109,10 +109,10 @@ test_import_errors = () bool   {
     io.print("Testing import error scenarios (via comments)...\n")
     
     // This would fail: imports inside function
-    // BAD: test = @std.test
+    // BAD: test = @std
     
     // This would fail: imports inside comptime block
-    // BAD: @comptime { x = @std.x }
+    // BAD: @comptime { x = @std }
     
     // This would fail: invalid module path
     // BAD: invalid := @not_a_module
@@ -135,7 +135,7 @@ main = () i32   {
     if test_std_imports() {
         io.print("✓ Standard library imports passed\n")
         passed = passed + 1
-    } else {
+    } | false {
         io.print("✗ Standard library imports failed\n")
         failed = failed + 1
     }
@@ -145,7 +145,7 @@ main = () i32   {
     if test_compiler_imports() {
         io.print("✓ Compiler module imports passed\n")
         passed = passed + 1
-    } else {
+    } | false {
         io.print("✗ Compiler module imports failed\n")
         failed = failed + 1
     }
@@ -155,7 +155,7 @@ main = () i32   {
     if test_import_with_patterns() {
         io.print("✓ Imports with patterns passed\n")
         passed = passed + 1
-    } else {
+    } | false {
         io.print("✗ Imports with patterns failed\n")
         failed = failed + 1
     }
@@ -165,7 +165,7 @@ main = () i32   {
     if test_import_validation() {
         io.print("✓ Import validation passed\n")
         passed = passed + 1
-    } else {
+    } | false {
         io.print("✗ Import validation failed\n")
         failed = failed + 1
     }
@@ -175,7 +175,7 @@ main = () i32   {
     if test_import_errors() {
         io.print("✓ Import error detection passed\n")
         passed = passed + 1
-    } else {
+    } | false {
         io.print("✗ Import error detection failed\n")
         failed = failed + 1
     }
@@ -197,7 +197,7 @@ main = () i32   {
         io.print("  • Import validation prevents misuse\n")
         io.print("  • Clean, intuitive syntax: identifier := @module.path\n")
         return 0
-    } else {
+    } | false {
         io.print("\n❌ Some tests failed\n")
         return 1
     }

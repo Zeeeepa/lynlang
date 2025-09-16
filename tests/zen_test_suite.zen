@@ -1,11 +1,11 @@
 // Comprehensive Test Suite for Zen Language
 // Tests all major language features
 
-io = @std.io
-string = @std.string
-{ Vec, DynVec } = @std.collections
-hashmap = @std.hashmap
-core = @std.core
+io = @std
+string = @std
+{ Vec, DynVec } = @std
+hashmap = @std
+core = @std
 
 // Test lexer functionality
 test_lexer_basic = () void   {

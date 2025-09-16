@@ -1,18 +1,18 @@
 // Test runner for self-hosted Zen compiler
 
-io = @std.io
-fs = @std.fs
-path = @std.path
-process = @std.process
-string = @std.string
-{ Vec, DynVec } = @std.collections
-result = @std.result
+io = @std
+fs = @std
+path = @std
+process = @std
+string = @std
+{ Vec, DynVec } = @std
+result = @std
 
 // Import compiler for testing
-compiler = @std.compiler.compiler
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
+compiler = @stdr.compiler
+lexer = @std
+parser = @std
+type_checker = @std
 
 // Test case structure
 TestCase: {
@@ -94,7 +94,7 @@ run_test = (test: TestCase) TestResult   {
                             output: error_msg,
                             error: none,
                         }
-                    } else {
+                    } | false {
                         io.print("❌ (wrong error)\n")
                         return TestResult {
                             test: test,
@@ -114,7 +114,7 @@ run_test = (test: TestCase) TestResult   {
                     }
                 }
             }
-        } else {
+        } | false {
             io.print("❌ (expected failure)\n")
             return TestResult {
                 test: test,
@@ -123,7 +123,7 @@ run_test = (test: TestCase) TestResult   {
                 error: some("Expected compilation to fail but it succeeded"),
             }
         }
-    } else {
+    } | false {
         // Test expects compilation to succeed
         if compile_result.is_err() {
             io.print("❌ (compilation failed)\n")
@@ -161,7 +161,7 @@ run_test = (test: TestCase) TestResult   {
                         output: actual,
                         error: none,
                     }
-                } else {
+                } | false {
                     io.print("❌ (wrong output)\n")
                     return TestResult {
                         test: test,
@@ -349,7 +349,7 @@ main = () i32   {
     if all_passed {
         io.print("✅ All tests passed!\n")
         return 0
-    } else {
+    } | false {
         io.print("❌ Some tests failed\n")
         return 1
     }

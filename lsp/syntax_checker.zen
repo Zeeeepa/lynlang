@@ -1,17 +1,17 @@
 // Zen LSP: Basic Syntax Checker
 // Provides real-time syntax checking for Zen code
 
-core = @std.core
-{ Vec, DynVec } = @std.collections
-string = @std.string
-io = @std.io
+core = @std
+{ Vec, DynVec } = @std
+string = @std
+io = @std
 
 // Import compiler components
-lexer = @std.lexer
-parser = @std.parser
+lexer = @std
+parser = @std
 
 // Diagnostic severity levels
-DiagnosticSeverity: Error | Warning | Information | Hint
+DiagnosticSeverity: Error, Warning, Information, Hint
 
 // Diagnostic information
 Diagnostic: {

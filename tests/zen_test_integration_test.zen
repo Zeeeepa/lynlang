@@ -1,12 +1,12 @@
 // Comprehensive Integration Tests for Zen Language
 // Tests all major language features and stdlib modules
 
-core = @std.core
-io = @std.io
-string = @std.string
-math = @std.math
-collections = @std.collections
-fs = @std.fs
+core = @std
+io = @std
+string = @std
+math = @std
+collections = @std
+fs = @std
 
 // Test result tracking
 TestResult: {
@@ -45,7 +45,7 @@ suite_add = (suite: *TestSuite, name: string, passed: bool, message: string) voi
     
     if passed {
         suite.passed = suite.passed + 1
-    } else {
+    } | false {
         suite.failed = suite.failed + 1
     }
 }
@@ -88,7 +88,7 @@ print_results = (suite: TestSuite) void   {
     
     if suite.failed == 0 {
         io.print("\x1b[32m✓ All tests passed!\x1b[0m\n")
-    } else {
+    } | false {
         io.print("\x1b[31m✗ Some tests failed\x1b[0m\n")
     }
 }
@@ -553,7 +553,7 @@ main = () i32   {
     if total_failed == 0 {
         io.print("\x1b[32m✓ ALL INTEGRATION TESTS PASSED!\x1b[0m\n")
         return 0
-    } else {
+    } | false {
         io.print("\x1b[31m✗ SOME TESTS FAILED\x1b[0m\n")
         return 1
     }

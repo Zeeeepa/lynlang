@@ -1,14 +1,14 @@
 // Zen Interactive Debugger
 // Provides step-through debugging capabilities for Zen programs
 
-core = @std.core
-io = @std.io
-string = @std.string
-{ Vec, DynVec } = @std.collections
-hashmap = @std.hashmap
-fs = @std.fs
-process = @std.process
-colors = @std.colors
+core = @std
+io = @std
+string = @std
+{ Vec, DynVec } = @std
+hashmap = @std
+fs = @std
+process = @std
+colors = @std
 
 // Debugger state
 DebuggerState : 
@@ -105,13 +105,13 @@ new_debugger = (program_path: string) Ptr<Debugger>   {
 // Load source file
 load_source_file = (dbg: Ptr<Debugger>, file_path: string) bool   {
     // Check if already loaded
-    if (hashmap.contains(dbg.source_files, file_path)) {
+    hashmap.contains(dbg.source_files, file_path) ? {
         return true
     }
     
     // Read file
     content := fs.read_file(file_path)
-    if (content.is_error()) {
+    content.is_error() ? {
         io.eprintln(colors.red("Error loading source: ") + content.error())
         return false
     }
@@ -125,7 +125,7 @@ load_source_file = (dbg: Ptr<Debugger>, file_path: string) bool   {
 // Add breakpoint
 add_breakpoint = (dbg: Ptr<Debugger>, file: string, line: u32) u32   {
     // Load source file if needed
-    if (!load_source_file(dbg, file)) {
+    !load_source_file(dbg, file) ? {
         return 0
     }
     
@@ -150,7 +150,7 @@ add_breakpoint = (dbg: Ptr<Debugger>, file: string, line: u32) u32   {
 remove_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.breakpoints.len()) {
-        if (dbg.breakpoints[i].id == id) {
+        dbg.breakpoints[i].id == id ? {
             DynVec.remove(dbg.breakpoints, i)
             io.println(colors.yellow("Breakpoint ") + string.format("#{} removed", id))
             return true
@@ -164,7 +164,7 @@ remove_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
 toggle_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.breakpoints.len()) {
-        if (dbg.breakpoints[i].id == id) {
+        dbg.breakpoints[i].id == id ? {
             dbg.breakpoints[i].enabled = !dbg.breakpoints[i].enabled
             status := if (dbg.breakpoints[i].enabled) "enabled" else "disabled"
             io.println(colors.yellow("Breakpoint ") + 
@@ -178,7 +178,7 @@ toggle_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
 
 // List breakpoints
 list_breakpoints = (dbg: Ptr<Debugger>) void   {
-    if (dbg.breakpoints.len() == 0) {
+    dbg.breakpoints.len() == 0 ? {
         io.println("No breakpoints set")
         return
     }
@@ -214,7 +214,7 @@ add_watch = (dbg: Ptr<Debugger>, expression: string) u32   {
 remove_watch = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.watches.len()) {
-        if (dbg.watches[i].id == id) {
+        dbg.watches[i].id == id ? {
             DynVec.remove(dbg.watches, i)
             io.println(colors.yellow("Watch ") + string.format("#{} removed", id))
             return true
@@ -226,7 +226,7 @@ remove_watch = (dbg: Ptr<Debugger>, id: u32) bool   {
 
 // List watches
 list_watches = (dbg: Ptr<Debugger>) void   {
-    if (dbg.watches.len() == 0) {
+    dbg.watches.len() == 0 ? {
         io.println("No watches set")
         return
     }
@@ -247,7 +247,7 @@ list_watches = (dbg: Ptr<Debugger>) void   {
 
 // Convert value to string
 value_to_string = (val: Value) string   {
-    match val {
+    val ?
         Value.Null => "null"
         Value.Bool(v) => if (v) "true" else "false"
         Value.I32(v) => string.format("{}", v)
@@ -286,7 +286,7 @@ value_to_string = (val: Value) string   {
 
 // Print call stack
 print_call_stack = (dbg: Ptr<Debugger>) void   {
-    if (dbg.call_stack.len() == 0) {
+    dbg.call_stack.len() == 0 ? {
         io.println("Call stack is empty")
         return
     }
@@ -305,13 +305,13 @@ print_call_stack = (dbg: Ptr<Debugger>) void   {
 
 // Print local variables
 print_locals = (dbg: Ptr<Debugger>) void   {
-    if (dbg.current_frame >= dbg.call_stack.len()) {
+    dbg.current_frame >= dbg.call_stack.len() ? {
         io.println("No active frame")
         return
     }
     
     frame := dbg.call_stack[dbg.current_frame]
-    if (hashmap.size(frame.locals) == 0) {
+    hashmap.size(frame.locals) == 0 ? {
         io.println("No local variables")
         return
     }
@@ -326,14 +326,14 @@ print_locals = (dbg: Ptr<Debugger>) void   {
 show_source_context = (dbg: Ptr<Debugger>, file: string, line: u32, context: u32) void   {
     // Get source lines
     lines_opt := hashmap.get(dbg.source_files, file)
-    if (!lines_opt) {
-        if (!load_source_file(dbg, file)) {
+    !lines_opt ? {
+        !load_source_file(dbg, file) ? {
             return
         }
         lines_opt = hashmap.get(dbg.source_files, file)
     }
     
-    match lines_opt {
+    lines_opt ?
         Option.Some(lines) => {
             // Calculate range
             start := if (line > context) line - context else 1
@@ -359,13 +359,13 @@ show_source_context = (dbg: Ptr<Debugger>, file: string, line: u32, context: u32
                 }
                 
                 // Format line
-                if (i == line) {
+                i == line ? {
                     // Current line
                     io.print(colors.cyan("→ "))
                 } else if (has_breakpoint) {
                     // Breakpoint line
                     io.print(colors.red("● "))
-                } else {
+                } | false {
                     io.print("  ")
                 }
                 
@@ -397,7 +397,7 @@ run_program = (dbg: Ptr<Debugger>) void   {
 
 // Continue execution
 continue_execution = (dbg: Ptr<Debugger>) void   {
-    if (dbg.state != DebuggerState.Paused) {
+    dbg.state != DebuggerState.Paused ? {
         io.println(colors.red("Program is not paused"))
         return
     }
@@ -412,7 +412,7 @@ continue_execution = (dbg: Ptr<Debugger>) void   {
 
 // Step over
 step_over = (dbg: Ptr<Debugger>) void   {
-    if (dbg.state != DebuggerState.Paused) {
+    dbg.state != DebuggerState.Paused ? {
         io.println(colors.red("Program is not paused"))
         return
     }
@@ -427,7 +427,7 @@ step_over = (dbg: Ptr<Debugger>) void   {
 
 // Step into
 step_into = (dbg: Ptr<Debugger>) void   {
-    if (dbg.state != DebuggerState.Paused) {
+    dbg.state != DebuggerState.Paused ? {
         io.println(colors.red("Program is not paused"))
         return
     }
@@ -442,7 +442,7 @@ step_into = (dbg: Ptr<Debugger>) void   {
 
 // Step out
 step_out = (dbg: Ptr<Debugger>) void   {
-    if (dbg.state != DebuggerState.Paused) {
+    dbg.state != DebuggerState.Paused ? {
         io.println(colors.red("Program is not paused"))
         return
     }
@@ -488,7 +488,7 @@ simulate_execution = (dbg: Ptr<Debugger>) void   {
 // Simulate step (placeholder)
 simulate_step = (dbg: Ptr<Debugger>) void   {
     // Update current frame's line
-    if (dbg.current_frame < dbg.call_stack.len()) {
+    dbg.current_frame < dbg.call_stack.len() ? {
         dbg.call_stack[dbg.current_frame].line += 1
         
         frame := dbg.call_stack[dbg.current_frame]
@@ -524,19 +524,19 @@ debugger_repl = (dbg: Ptr<Debugger>) void   {
         
         // Read command
         input := io.readline()
-        if (!input) {
+        !input ? {
             break
         }
         
         // Parse and execute command
         parts := string.split(string.trim(input), " ")
-        if (parts.len() == 0) {
+        parts.len() == 0 ? {
             continue
         }
         
         cmd := parts[0]
         
-        if (cmd == "help" || cmd == "h") {
+        cmd == "help" || cmd == "h" ? {
             print_help()
         } else if (cmd == "quit" || cmd == "q") {
             running = false
@@ -551,35 +551,35 @@ debugger_repl = (dbg: Ptr<Debugger>) void   {
         } else if (cmd == "finish" || cmd == "f") {
             step_out(dbg)
         } else if (cmd == "break" || cmd == "b") {
-            if (parts.len() >= 2) {
+            parts.len() >= 2 ? {
                 // Parse file:line or just line
                 location := parts[1]
-                if (string.contains(location, ":")) {
+                string.contains(location, ":") ? {
                     file_line := string.split(location, ":")
-                    if (file_line.len() == 2) {
+                    file_line.len() == 2 ? {
                         line := string.parse_u32(file_line[1])
                         add_breakpoint(dbg, file_line[0], line)
                     }
-                } else {
+                } | false {
                     line := string.parse_u32(location)
-                    if (dbg.current_frame < dbg.call_stack.len()) {
+                    dbg.current_frame < dbg.call_stack.len() ? {
                         file := dbg.call_stack[dbg.current_frame].file
                         add_breakpoint(dbg, file, line)
                     }
                 }
-            } else {
+            } | false {
                 list_breakpoints(dbg)
             }
         } else if (cmd == "delete" || cmd == "d") {
-            if (parts.len() >= 2) {
+            parts.len() >= 2 ? {
                 id := string.parse_u32(parts[1])
                 remove_breakpoint(dbg, id)
             }
         } else if (cmd == "watch" || cmd == "w") {
-            if (parts.len() >= 2) {
+            parts.len() >= 2 ? {
                 expr := string.join(parts[1:], " ")
                 add_watch(dbg, expr)
-            } else {
+            } | false {
                 list_watches(dbg)
             }
         } else if (cmd == "backtrace" || cmd == "bt") {
@@ -587,21 +587,21 @@ debugger_repl = (dbg: Ptr<Debugger>) void   {
         } else if (cmd == "locals" || cmd == "l") {
             print_locals(dbg)
         } else if (cmd == "list") {
-            if (dbg.current_frame < dbg.call_stack.len()) {
+            dbg.current_frame < dbg.call_stack.len() ? {
                 frame := dbg.call_stack[dbg.current_frame]
                 show_source_context(dbg, frame.file, frame.line, 5)
             }
         } else if (cmd == "frame") {
-            if (parts.len() >= 2) {
+            parts.len() >= 2 ? {
                 frame_num := string.parse_u32(parts[1])
-                if (frame_num < dbg.call_stack.len()) {
+                frame_num < dbg.call_stack.len() ? {
                     dbg.current_frame = frame_num
                     frame := dbg.call_stack[frame_num]
                     io.println(string.format("Switched to frame #{}", frame_num))
                     show_source_context(dbg, frame.file, frame.line, 3)
                 }
             }
-        } else {
+        } | false {
             io.println(colors.red("Unknown command: ") + cmd)
             io.println("Type 'help' for available commands")
         }
@@ -639,7 +639,7 @@ print_help = () void   {
 
 // Main entry point
 main = (args: []string) i32   {
-    if (args.len() < 2) {
+    args.len() < 2 ? {
         io.eprintln("Usage: zen-debug <program.zen>")
         return 1
     }

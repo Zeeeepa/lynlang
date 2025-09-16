@@ -2,59 +2,59 @@
 // This module re-exports the most commonly used standard library modules
 
 // Core modules - essential functionality
-core = @std.core
-io = @std.io
-mem = @std.mem
-math = @std.math
-string = @std.string
+core = @std
+io = @std
+mem = @std
+math = @std
+string = @std
 
 // Collections
-vec = @std.vec
-hashmap = @std.hashmap
-list = @std.list
-set = @std.set
-queue = @std.queue
-stack = @std.stack
+vec = @std
+hashmap = @std
+list = @std
+set = @std
+queue = @std
+stack = @std
 
 // File system and OS interaction
-fs = @std.fs
-path = @std.path
-env = @std.env
-process = @std.process
-args = @std.args
+fs = @std
+path = @std
+env = @std
+process = @std
+args = @std
 
 // Error handling and testing
-result = @std.result
-option = @std.option
-error = @std.error
-testing = @std.testing
-assert = @std.assert
+result = @std
+option = @std
+error = @std
+testing = @std
+assert = @std
 
 // Algorithms and utilities
-algorithm = @std.algorithm
-iterator = @std.iterator
-random = @std.random
-utils = @std.utils
+algorithm = @std
+iterator = @std
+random = @std
+utils = @std
 
 // Time and date
-time = @std.time
-datetime = @std.datetime
+time = @std
+datetime = @std
 
 // Networking and concurrency (via allocators)
-net = @std.net
-http = @std.http
-concurrency = @std.concurrency  // Concurrency module (allocator-based)
-thread = @std.thread
+net = @std
+http = @std
+concurrency = @std  // Concurrency module (allocator-based)
+thread = @std
 
 // Encoding and serialization
-json = @std.json
-encoding = @std.encoding
-url = @std.url
+json = @std
+encoding = @std
+url = @std
 
 // Advanced features
-regex = @std.regex
-crypto = @std.crypto
-log = @std.log
+regex = @std
+crypto = @std
+log = @std
 
 // Compiler modules (for self-hosting)
 compiler := {

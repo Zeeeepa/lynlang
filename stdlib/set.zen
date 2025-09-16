@@ -1,9 +1,9 @@
 // Zen Standard Library: Set Module
 // Hash-based set implementation for unique element storage
 
-core = @std.core
-mem = @std.mem
-hash = @std.hash
+core = @std
+mem = @std
+hash = @std
 
 // Set implemented using a hash table
 Set<T> = {
@@ -36,7 +36,7 @@ set_new<T> = (hash_fn: (T) i64, eq_fn: (T, T) bool) *Set<T> {
     loop {
 
         i < initial_capacity ? | false { { break  }} | true {}
-        set.buckets[i].items = @std.null
+        set.buckets[i].items = @std
         set.buckets[i].count = 0
         set.buckets[i].capacity = 0
         i = i + 1
@@ -183,7 +183,7 @@ set_resize<T>: (set: *Set<T>, new_capacity: i64) void  = {
     loop {
 
         i < new_capacity ? | false { { break  }} | true {}
-        set.buckets[i].items = @std.null
+        set.buckets[i].items = @std
         set.buckets[i].count = 0
         set.buckets[i].capacity = 0
         i = i + 1

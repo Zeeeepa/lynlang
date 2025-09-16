@@ -1,9 +1,9 @@
 // Comprehensive Language Tests
 // Tests all features from Language Spec v1.1.0
 
-test = @std.test
-assert = @std.assert
-expect_panic = @std.expect_panic
+test = @std
+assert = @std
+expect_panic = @std
 
 // Test Pattern Matching (NO if/else/match keywords)
 test("pattern matching - basic value patterns") {

@@ -1,9 +1,9 @@
 // Language Specification Compliance Test Suite
 // Tests all critical features per LANGUAGE_SPEC.md v1.1.0
 
-test = @std.test
-assert = @std.assert
-assert_eq = @std.assert_eq
+test = @std
+assert = @std
+assert_eq = @std
 
 // Test pattern matching with ? operator
 test("pattern_matching_basic") {

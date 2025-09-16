@@ -1,9 +1,9 @@
 // Test memory management functions
 // This file tests that malloc/free and the memory module work correctly
 
-core = @std.core
-mem = @std.mem
-io = @std.io
+core = @std
+mem = @std
+io = @std
 
 // Test basic malloc/free
 test_basic_malloc = () bool   {

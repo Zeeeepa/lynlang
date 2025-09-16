@@ -1,7 +1,7 @@
 // Zen Standard Library: Iterator Module
 // Provides functional iteration patterns for collections
 
-core = @std.core
+core = @std
 
 // Range iterator for numeric ranges
 Range: {

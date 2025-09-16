@@ -2,7 +2,7 @@
 // Following Language Spec v1.1.0
 
 // Import FFI module
-ffi = @std.ffi
+ffi = @std
 
 // Test building a library configuration
 test_ffi_builder = () void   {
@@ -27,6 +27,6 @@ test_ffi_builder = () void   {
 main = () void   {
     test_ffi_builder()
     // If we get here without crashing, the FFI builder works
-    io = @std.io
+    io = @std
     io.print("FFI builder pattern test passed!\n")
 }

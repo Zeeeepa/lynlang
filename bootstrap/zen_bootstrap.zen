@@ -2,11 +2,11 @@
 // A minimal compiler that can compile itself
 // This is the first step towards full self-hosting
 
-io = @std.io
-fs = @std.fs
-string = @std.string
-{ Vec, DynVec } = @std.collections
-core = @std.core
+io = @std
+fs = @std
+string = @std
+{ Vec, DynVec } = @std
+core = @std
 
 // Token types for the lexer
 TokenType:

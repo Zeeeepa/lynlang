@@ -1,16 +1,16 @@
 // Zen Language - Bootstrap Compiler
 // Compiles Zen source code to C for bootstrapping
 
-core = @std.core
-io = @std.io
-fs = @std.fs
-os = @std.os
-string = @std.string
-path = @std.path
-lexer = @std.lexer
-parser = @std.parser
-codegen = @std.codegen
-type_checker = @std.type_checker
+core = @std
+io = @std
+fs = @std
+os = @std
+string = @std
+path = @std
+lexer = @std
+parser = @std
+codegen = @std
+type_checker = @std
 
 // Compiler options
 CompilerOptions := {
@@ -39,9 +39,9 @@ parse_args = (args: []string) CompilerOptions   {
     while (i < args.len) {
         arg := args[i]
         
-        if (arg == "-o" || arg == "--output") {
+        arg == "-o" || arg == "--output" ? {
             i = i + 1
-            if (i < args.len) {
+            i < args.len ? {
                 options.output_file = args[i]
             }
         } else if (arg == "--emit-c") {
@@ -61,7 +61,7 @@ parse_args = (args: []string) CompilerOptions   {
             os.exit(0)
         } else if (!string.starts_with(arg, "-")) {
             options.input_file = arg
-        } else {
+        } | false {
             io.print("Unknown option: ")
             io.print(arg)
             io.print("\n")
@@ -73,20 +73,20 @@ parse_args = (args: []string) CompilerOptions   {
     }
     
     // Validate input file
-    if (options.input_file == "") {
+    options.input_file == "" ? {
         io.print("Error: No input file specified\n")
         print_usage()
         os.exit(1)
     }
     
     // Generate default output file if not specified
-    if (options.output_file == "") {
+    options.output_file == "" ? {
         base_name := path.basename(options.input_file)
-        if (string.ends_with(base_name, ".zen")) {
+        string.ends_with(base_name, ".zen") ? {
             base_name = string.substring(base_name, 0, base_name.len - 4)
         }
         
-        if (options.emit_c) {
+        options.emit_c ? {
             options.output_file = base_name ++ ".c"
         } else if (options.emit_llvm) {
             options.output_file = base_name ++ ".ll"
@@ -112,7 +112,7 @@ print_usage = () void   {
 
 // Compile a Zen source file
 compile_file = (options: &CompilerOptions) bool   {
-    if (options.verbose) {
+    options.verbose ? {
         io.print("Compiling: ")
         io.print(options.input_file)
         io.print(" -> ")
@@ -122,7 +122,7 @@ compile_file = (options: &CompilerOptions) bool   {
     
     // Read source file
     source := fs.read_file(options.input_file)
-    if (!source) {
+    !source ? {
         io.print("Error: Could not read file: ")
         io.print(options.input_file)
         io.print("\n")
@@ -130,14 +130,14 @@ compile_file = (options: &CompilerOptions) bool   {
     }
     
     // Lexical analysis
-    if (options.verbose) {
+    options.verbose ? {
         io.print("  Lexing...")
     }
     
     lex := lexer.new_lexer(source, options.input_file)
     tokens := lexer.tokenize(&lex)
     
-    if (lex.errors.len > 0) {
+    lex.errors.len > 0 ? {
         io.print("\nLexical errors:\n")
         for (lex.errors) |err| {
             io.print("  ")
@@ -147,21 +147,21 @@ compile_file = (options: &CompilerOptions) bool   {
         return false
     }
     
-    if (options.verbose) {
+    options.verbose ? {
         io.print(" OK (")
         io.print(tokens.len.to_string())
         io.print(" tokens)\n")
     }
     
     // Parsing
-    if (options.verbose) {
+    options.verbose ? {
         io.print("  Parsing...")
     }
     
     p := parser.new_parser(tokens, options.input_file)
     ast := parser.parse(&p)
     
-    if (p.errors.len > 0) {
+    p.errors.len > 0 ? {
         io.print("\nParse errors:\n")
         for (p.errors) |err| {
             io.print("  ")
@@ -171,21 +171,21 @@ compile_file = (options: &CompilerOptions) bool   {
         return false
     }
     
-    if (options.verbose) {
+    options.verbose ? {
         io.print(" OK (")
         io.print(ast.functions.len.to_string())
         io.print(" functions)\n")
     }
     
     // Type checking
-    if (options.verbose) {
+    options.verbose ? {
         io.print("  Type checking...")
     }
     
     checker := type_checker.new_checker()
     type_errors := type_checker.check(&checker, &ast)
     
-    if (type_errors.len > 0) {
+    type_errors.len > 0 ? {
         io.print("\nType errors:\n")
         for (type_errors) |err| {
             io.print("  ")
@@ -195,18 +195,18 @@ compile_file = (options: &CompilerOptions) bool   {
         return false
     }
     
-    if (options.verbose) {
+    options.verbose ? {
         io.print(" OK\n")
     }
     
     // Code generation
-    if (options.verbose) {
+    options.verbose ? {
         io.print("  Generating code...")
     }
     
     output_code := ""
     
-    if (options.emit_c) {
+    options.emit_c ? {
         gen := codegen.new_codegen()
         output_code = codegen.generate_c(&gen, &ast)
     } else if (options.emit_llvm) {
@@ -214,29 +214,29 @@ compile_file = (options: &CompilerOptions) bool   {
         return false
     }
     
-    if (options.verbose) {
+    options.verbose ? {
         io.print(" OK\n")
     }
     
     // Write output file
-    if (options.verbose) {
+    options.verbose ? {
         io.print("  Writing output...")
     }
     
-    if (!fs.write_file(options.output_file, output_code)) {
+    !fs.write_file(options.output_file, output_code) ? {
         io.print("\nError: Could not write output file: ")
         io.print(options.output_file)
         io.print("\n")
         return false
     }
     
-    if (options.verbose) {
+    options.verbose ? {
         io.print(" OK\n")
     }
     
     // If emitting C, optionally compile to executable
-    if (options.emit_c && !string.ends_with(options.output_file, ".c")) {
-        if (options.verbose) {
+    options.emit_c && !string.ends_with(options.output_file, ".c") ? {
+        options.verbose ? {
             io.print("  Compiling C code...")
         }
         
@@ -247,17 +247,17 @@ compile_file = (options: &CompilerOptions) bool   {
         cc_cmd = cc_cmd ++ options.output_file ++ ".c"
         
         result := os.system(cc_cmd)
-        if (result != 0) {
+        result != 0 ? {
             io.print("\nError: C compilation failed\n")
             return false
         }
         
-        if (options.verbose) {
+        options.verbose ? {
             io.print(" OK\n")
         }
     }
     
-    if (options.verbose) {
+    options.verbose ? {
         io.print("Compilation successful!\n")
     }
     
@@ -272,7 +272,7 @@ main = (args: []string) i32   {
     options := parse_args(args)
     
     // Compile the file
-    if (!compile_file(&options)) {
+    !compile_file(&options) ? {
         return 1
     }
     

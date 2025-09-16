@@ -1,8 +1,8 @@
 // Zen Standard Library - Collections Module
 // Advanced data structures and collections
 
-core := @std.core
-build := @std.build
+core := @std
+build := @std
 memory := build.import("memory")
 
 // Import the new Vec and DynVec types
@@ -210,7 +210,7 @@ HashMap<K, V>.put = (self: Ref<HashMap<K, V>>, key: K, value: V) void {
     // Check if key exists
     current := self.buckets[index]
     while (current) {
-        if (current.key == key) {
+        current.key == key ? {
             current.value = value
             return
         }
@@ -227,7 +227,7 @@ HashMap<K, V>.put = (self: Ref<HashMap<K, V>>, key: K, value: V) void {
     self.len = self.len + 1
     
     // Resize if needed
-    if (self.len > self.capacity * 3 / 4) {
+    self.len > self.capacity * 3 / 4 ? {
         self.resize()
     }
 }
@@ -238,7 +238,7 @@ HashMap<K, V>.get = (self: Ref<HashMap<K, V>>, key: K) Option<V> {
     
     current := self.buckets[index]
     while (current) {
-        if (current.key == key) {
+        current.key == key ? {
             return current.value
         }
         current = current.next
@@ -255,10 +255,10 @@ HashMap<K, V>.remove = (self: Ref<HashMap<K, V>>, key: K) bool {
     current := self.buckets[index]
     
     while (current) {
-        if (current.key == key) {
-            if (prev) {
+        current.key == key ? {
+            prev ? {
                 prev.next = current.next
-            } else {
+            } | false {
                 self.buckets[index] = current.next
             }
             

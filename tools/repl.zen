@@ -1,14 +1,14 @@
 // Zen Language REPL (Read-Eval-Print Loop)
 // Interactive shell for experimenting with Zen code
 
-core = @std.core
-io = @std.io
-string = @std.string
-process = @std.process
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-interpreter = @std.interpreter
+core = @std
+io = @std
+string = @std
+process = @std
+lexer = @std
+parser = @std
+type_checker = @std
+interpreter = @std
 
 // REPL state
 ReplState := {
@@ -86,7 +86,7 @@ print_help = () void   {
 
 // Get prompt string
 get_prompt = (state: &ReplState) string   {
-    if (state.in_multiline) {
+    state.in_multiline ? {
         return BLUE + "... " + RESET
     }
     return BLUE + "zen[" + string.from_u32(state.line_number) + "]> " + RESET
@@ -100,7 +100,7 @@ is_continuation = (line: string) bool   {
 
 // Remove continuation character
 remove_continuation = (line: string) string   {
-    if (is_continuation(line)) {
+    is_continuation(line) ? {
         return string.substring(line, 0, line.len - 1)
     }
     return line
@@ -113,7 +113,7 @@ process_command = (state: &mut ReplState, input: string) bool   {
     
     command := parts[0]
     
-    if (command == "help") {
+    command == "help" ? {
         print_help()
         return true
     } else if (command == "exit" || command == "quit") {
@@ -123,35 +123,35 @@ process_command = (state: &mut ReplState, input: string) bool   {
         io.print("\x1b[2J\x1b[H")  // Clear screen and move cursor to top
         return true
     } else if (command == "vars") {
-        if (state.variables.is_empty()) {
+        state.variables.is_empty() ? {
             io.println("No variables defined")
-        } else {
+        } | false {
             print_colored(GREEN + BOLD, "Variables:\n")
-            for (entry in state.variables) {
+            state.variables.loop((entry) {
                 io.println("  " + entry.key + " = " + value_to_string(entry.value))
             }
         }
         return true
     } else if (command == "funcs") {
-        if (state.functions.is_empty()) {
+        state.functions.is_empty() ? {
             io.println("No functions defined")
-        } else {
+        } | false {
             print_colored(GREEN + BOLD, "Functions:\n")
-            for (entry in state.functions) {
+            state.functions.loop((entry) {
                 io.println("  " + entry.key + entry.value.signature())
             }
         }
         return true
     } else if (command == "debug") {
-        if (parts.len > 1) {
-            if (parts[1] == "on") {
+        parts.len > 1 ? {
+            parts[1] == "on" ? {
                 state.debug_mode = true
                 print_colored(GREEN, "Debug mode enabled\n")
             } else if (parts[1] == "off") {
                 state.debug_mode = false
                 print_colored(GREEN, "Debug mode disabled\n")
             }
-        } else {
+        } | false {
             io.println("Debug mode: " + if (state.debug_mode) "on" else "off")
         }
         return true
@@ -160,9 +160,9 @@ process_command = (state: &mut ReplState, input: string) bool   {
         print_colored(GREEN, "REPL state reset\n")
         return true
     } else if (command == "history") {
-        if (state.history.is_empty()) {
+        state.history.is_empty() ? {
             io.println("No history")
-        } else {
+        } | false {
             print_colored(GREEN + BOLD, "History:\n")
             for (i := 0; i < state.history.len; i++) {
                 io.println("  " + string.from_u32(i + 1) + ": " + state.history[i])
@@ -189,45 +189,45 @@ evaluate = (state: &mut ReplState, input: string) void   {
     
     // Tokenize
     tokens := lexer.tokenize(input)
-    if (tokens.is_error()) {
+    tokens.is_error() ? {
         print_colored(RED, "Lexer error: " + tokens.error() + "\n")
         return
     }
     
-    if (state.debug_mode) {
+    state.debug_mode ? {
         print_colored(MAGENTA, "Tokens: ")
         io.println(tokens_to_string(tokens.unwrap()))
     }
     
     // Parse
     ast := parser.parse(tokens.unwrap())
-    if (ast.is_error()) {
+    ast.is_error() ? {
         print_colored(RED, "Parser error: " + ast.error() + "\n")
         return
     }
     
-    if (state.debug_mode) {
+    state.debug_mode ? {
         print_colored(MAGENTA, "AST: ")
         io.println(ast_to_string(ast.unwrap()))
     }
     
     // Type check
     typed_ast := type_checker.check(ast.unwrap())
-    if (typed_ast.is_error()) {
+    typed_ast.is_error() ? {
         print_colored(RED, "Type error: " + typed_ast.error() + "\n")
         return
     }
     
     // Interpret
     result := interpreter.evaluate(typed_ast.unwrap(), state.variables, state.functions)
-    if (result.is_error()) {
+    result.is_error() ? {
         print_colored(RED, "Runtime error: " + result.error() + "\n")
         return
     }
     
     // Display result
     value := result.unwrap()
-    if (!value.is_void()) {
+    !value.is_void() ? {
         print_colored(GREEN, "=> ")
         io.println(value_to_string(value))
     }
@@ -243,15 +243,15 @@ save_session = (state: &ReplState, filename: string) void   {
     content.append("// Zen REPL session\n")
     content.append("// Generated on " + get_timestamp() + "\n\n")
     
-    for (line in state.history) {
+    state.history.loop((line) {
         content.append(line)
         content.append("\n")
     }
     
     result := fs.write_file(filename, content.build())
-    if (result.is_ok()) {
+    result.is_ok() ? {
         print_colored(GREEN, "Session saved to " + filename + "\n")
-    } else {
+    } | false {
         print_colored(RED, "Error saving session: " + result.error() + "\n")
     }
 }
@@ -259,16 +259,16 @@ save_session = (state: &ReplState, filename: string) void   {
 // Load and execute file
 load_file = (state: &mut ReplState, filename: string) void   {
     content := fs.read_file(filename)
-    if (content.is_error()) {
+    content.is_error() ? {
         print_colored(RED, "Error loading file: " + content.error() + "\n")
         return
     }
     
     lines := string.split(content.unwrap(), "\n")
-    for (line in lines) {
+    lines.loop((line) {
         // Skip empty lines and comments
         trimmed := string.trim(line)
-        if (trimmed.len == 0 || string.starts_with(trimmed, "//")) {
+        trimmed.len == 0 || string.starts_with(trimmed, "//") ? {
             continue
         }
         
@@ -288,7 +288,7 @@ repl_loop = () void   {
         
         // Read input
         input := io.read_line()
-        if (input.is_error()) {
+        input.is_error() ? {
             // Ctrl+D pressed
             print_colored(YELLOW, "\nGoodbye!\n")
             break
@@ -297,8 +297,8 @@ repl_loop = () void   {
         line := input.unwrap()
         
         // Handle empty input
-        if (string.trim(line).len == 0) {
-            if (state.in_multiline) {
+        string.trim(line).len == 0 ? {
+            state.in_multiline ? {
                 // Execute multi-line buffer
                 state.in_multiline = false
                 evaluate(&mut state, state.multiline_buffer)
@@ -309,7 +309,7 @@ repl_loop = () void   {
         }
         
         // Check for continuation
-        if (is_continuation(line)) {
+        is_continuation(line) ? {
             state.in_multiline = true
             state.multiline_buffer += remove_continuation(line) + "\n"
             continue
@@ -318,7 +318,7 @@ repl_loop = () void   {
         // Build complete input
         complete_input := if (state.in_multiline) {
             state.multiline_buffer + line
-        } else {
+        } | false {
             line
         }
         
@@ -327,7 +327,7 @@ repl_loop = () void   {
         state.multiline_buffer = ""
         
         // Check for special commands
-        if (!process_command(&mut state, complete_input)) {
+        !process_command(&mut state, complete_input) ? {
             // Evaluate as Zen code
             evaluate(&mut state, complete_input)
         }

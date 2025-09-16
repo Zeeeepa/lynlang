@@ -14,7 +14,7 @@ fn test() {
 let value = 10
 
 // This will cause an error - using 'match'
-match result {
+result ?
     Ok(v) => v,
     Err(e) => panic(e)
 }

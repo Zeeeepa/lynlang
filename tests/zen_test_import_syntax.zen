@@ -2,22 +2,22 @@
 // Tests both builtin (@std) and regular imports
 
 // Test 1: Builtin imports (correct syntax - no comptime)
-core = @std.core
-io = @std.io
-math = @std.math
-string = @std.string
-{ Vec, DynVec } = @std.collections
-fs = @std.fs
+core = @std
+io = @std
+math = @std
+string = @std
+{ Vec, DynVec } = @std
+fs = @std
 
 // Test 2: Compiler module imports
-lexer = @std.lexer
-parser = @std.parser
-codegen = @std.codegen
+lexer = @std
+parser = @std
+codegen = @std
 
 // Test 3: Import with build.import() pattern
-json = @std.json
-network = @std.network
-http = @std.http
+json = @std
+network = @std
+http = @std
 
 // Test 4: Custom module imports
 // These would be user modules in a real project

@@ -1,7 +1,7 @@
 // Example web server using allocator-based colorless concurrency
 // Demonstrates the progressive enhancement from sync to concurrent execution
 
-build := @std.build
+build := @std
 std := build.import("std")
 allocator := build.import("allocator")
 runtime := build.import("concurrent_runtime_enhanced")
@@ -10,7 +10,7 @@ io := build.import("io")
 net := build.import("net")
 
 // HTTP types
-HttpMethod: GET | POST | PUT | DELETE | HEAD | OPTIONS
+HttpMethod: GET, POST, PUT, DELETE, HEAD, OPTIONS
 
 HttpRequest: {
     method: HttpMethod

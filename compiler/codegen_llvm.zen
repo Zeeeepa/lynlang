@@ -2,9 +2,9 @@
 // Generates LLVM IR from Zen AST
 
 { core, io }= @std
-string = @std.string
-{ Vec, DynVec } = @std.collections
-parser = @std.parser
+string = @std
+{ Vec, DynVec } = @std
+parser = @std
 
 // Import AST types from parser
 AstNode := parser.AstNode
@@ -125,7 +125,7 @@ zen_type_to_llvm = (t: Type) string   {
         }
         | Type.Array(elem, size) {
             elem_type := zen_type_to_llvm(*elem)
-            match size {
+            size ?
                 | Option<u32>.Some(s) { return "[" + u32_to_string(s) + " x " + elem_type + "]" }
                 | Option<u32>.None { return elem_type + "*" }
             }
@@ -172,7 +172,7 @@ gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg
 
 // Generate code for expression
 gen_expression = (gen: &mut CodeGen, expr: AstNode) u32   {
-    match expr {
+    expr ?
         | AstNode.IntLit(val) {
             reg := alloc_register(gen)
             emit(gen, "  %" + u32_to_string(reg) + " = add i32 0, " + i64_to_string(val))
@@ -211,7 +211,7 @@ gen_expression = (gen: &mut CodeGen, expr: AstNode) u32   {
         | AstNode.Ident(name) { 
             // Load variable
             var := find_variable(gen, name)
-            match var {
+            var ?
                 | Option<LocalVar>.Some(v) {
                     reg := alloc_register(gen)
                     emit(gen, "  %" + u32_to_string(reg) + " = load " + v.llvm_type + 
@@ -252,7 +252,7 @@ find_variable = (gen: &CodeGen, name: string) Option<LocalVar>   {
 
 // Generate code for statement
 gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
-    match stmt {
+    stmt ?
         | AstNode.VarDecl(name, ty, init) {
             // Allocate local variable
             llvm_ty := zen_type_to_llvm(ty)
@@ -260,7 +260,7 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
             emit(gen, "  %" + u32_to_string(var_reg) + " = alloca " + llvm_ty)
             
             // Store initial value if present
-            match init {
+            init ?
                 | Option<AstNode>.Some(expr) {
                     val_reg := gen_expression(gen, expr)
                     emit(gen, "  store " + llvm_ty + " %" + u32_to_string(val_reg) + 
@@ -278,7 +278,7 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
             vec_push(gen.locals, var)
         }
         | AstNode.Return(expr) {
-            match expr {
+            expr ?
                 | Option<AstNode>.Some(e) {
                     val_reg := gen_expression(gen, e)
                     emit(gen, "  ret i32 %" + u32_to_string(val_reg))
@@ -306,7 +306,7 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
 
 // Generate function definition
 gen_function = (gen: &mut CodeGen, func: AstNode)  {
-    match func {
+    func ?
         | AstNode.FnDecl(name, params, ret_ty, body) {
             // Clear locals for new function
             gen.locals = vec_new<LocalVar>()
@@ -343,7 +343,7 @@ gen_function = (gen: &mut CodeGen, func: AstNode)  {
             gen.indent_level = 1
             
             // Generate function body
-            match body {
+            body ?
                 | Option<AstNode>.Some(b) {
                     gen_statement(gen, b)
                 }

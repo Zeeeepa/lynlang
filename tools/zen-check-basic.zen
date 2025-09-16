@@ -1,11 +1,11 @@
 // Zen Syntax Checker
 // A simple tool to check Zen source files for syntax errors
 
-core = @std.core
-io = @std.io
-fs = @std.fs
-args = @std.args
-string = @std.string
+core = @std
+io = @std
+fs = @std
+args = @std
+string = @std
 
 // Error types
 SyntaxError: {

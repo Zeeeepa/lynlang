@@ -1,7 +1,7 @@
 // Zen Standard Library: Fixed-Size Vector Implementation
 // A stack-allocated, fixed-size vector type
 
-core := @std.core
+core := @std
 
 // Fixed-size vector structure - stack allocated
 Vec<T, N>: {

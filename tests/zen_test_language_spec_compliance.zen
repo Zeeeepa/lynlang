@@ -1,7 +1,7 @@
 // Language Specification Compliance Tests
 // Tests to ensure core language features follow the spec
 
-build = @std.build
+build = @std
 core := build.import("core")
 testing := build.import("testing")
 io := build.import("io")

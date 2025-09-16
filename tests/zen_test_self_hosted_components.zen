@@ -2,17 +2,17 @@
 // Verifies that lexer, parser, and other components work correctly
 
 // Import self-hosted compiler components (no comptime!)
-lexer = @std.lexer
-parser = @std.parser
-errors = @std.errors
-codegen = @std.codegen
-type_checker = @std.type_checker
+lexer = @std
+parser = @std
+errors = @std
+codegen = @std
+type_checker = @std
 
 // Import standard library
-core = @std.core
-io = @std.io
-string = @std.string
-{ Vec, DynVec } = @std.collections
+core = @std
+io = @std
+string = @std
+{ Vec, DynVec } = @std
 
 // Test the lexer component
 test_lexer = () bool   {
@@ -36,7 +36,7 @@ test_lexer = () bool   {
     
     // Check first token is 'let' keyword
     first := tokens.get(0)
-    match first.kind {
+    first.kind ?
         | Keyword(kw) {
             if !string.equals(kw, "let") {
                 return false
@@ -111,7 +111,7 @@ test_error_handling = () bool   {
     }
     
     // Verify diagnostic properties
-    match diag.level {
+    diag.level ?
         | Error {
             return string.equals(diag.message, "Test error message")
         }
@@ -125,7 +125,7 @@ test_type_checker = () bool   {
     int_type := type_checker.Type:Integer(32, true)
     
     // Check type properties
-    match int_type {
+    int_type ?
         | Integer(bits, signed) {
             return bits == 32 && signed == true
         }
@@ -208,7 +208,7 @@ main = () i32   {
     if test_lexer() {
         io.println("✓ Lexer component working")
         passed_count = passed_count + 1
-    } else {
+    } | false {
         io.println("✗ Lexer component failed")
     }
     
@@ -217,7 +217,7 @@ main = () i32   {
     if test_parser() {
         io.println("✓ Parser component working")
         passed_count = passed_count + 1
-    } else {
+    } | false {
         io.println("✗ Parser component failed")
     }
     
@@ -226,7 +226,7 @@ main = () i32   {
     if test_error_handling() {
         io.println("✓ Error handling working")
         passed_count = passed_count + 1
-    } else {
+    } | false {
         io.println("✗ Error handling failed")
     }
     
@@ -235,7 +235,7 @@ main = () i32   {
     if test_type_checker() {
         io.println("✓ Type checker working")
         passed_count = passed_count + 1
-    } else {
+    } | false {
         io.println("✗ Type checker failed")
     }
     
@@ -244,7 +244,7 @@ main = () i32   {
     if test_codegen() {
         io.println("✓ Code generation working")
         passed_count = passed_count + 1
-    } else {
+    } | false {
         io.println("✗ Code generation failed")
     }
     
@@ -253,7 +253,7 @@ main = () i32   {
     if test_integration() {
         io.println("✓ Component integration working")
         passed_count = passed_count + 1
-    } else {
+    } | false {
         io.println("✗ Component integration failed")
     }
     
@@ -268,7 +268,7 @@ main = () i32   {
     if passed_count == test_count {
         io.println("\n✓ All self-hosted tests passed!")
         return 0
-    } else {
+    } | false {
         io.println("\n✗ Some tests failed")
         return 1
     }

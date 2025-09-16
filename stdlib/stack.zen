@@ -1,9 +1,9 @@
 // Stack implementation for Zen
 // LIFO (Last In First Out) data structure
 
-core = @std.core
-mem = @std.mem
-array = @std.array
+core = @std
+mem = @std
+array = @std
 
 // Stack structure using array backing
 Stack(T: type): {
@@ -36,7 +36,7 @@ pop = (T: type, s: *Stack(T)) ?T {
 
 // Peek at top element without removing
 peek = (T: type, s: *Stack(T)) ?T {
-    if (s.data.len == 0) {
+    s.data.len == 0 ? {
         return null
     }
     return s.data.data[s.data.len - 1]
@@ -100,7 +100,7 @@ reverse = (T: type, s: *Stack(T)) void {
 transfer = (T: type, from: *Stack(T), to: *Stack(T)) void {
     while (!is_empty(T, from)) {
         value := pop(T, from)
-        if (value != null) {
+        value != null ? {
             push(T, to, value)
         }
     }
@@ -109,7 +109,7 @@ transfer = (T: type, from: *Stack(T), to: *Stack(T)) void {
 // Duplicate top element
 dup = (T: type, s: *Stack(T)) bool {
     top := peek(T, s)
-    if (top .== .None) {
+    top .== .None ? {
         return false
     }
     push(T, s, top)
@@ -118,7 +118,7 @@ dup = (T: type, s: *Stack(T)) bool {
 
 // Swap top two elements
 swap = (T: type, s: *Stack(T)) bool {
-    if (s.data.len < 2) {
+    s.data.len < 2 ? {
         return false
     }
     
@@ -130,7 +130,7 @@ swap = (T: type, s: *Stack(T)) bool {
 
 // Rotate top n elements (move top to position n)
 rotate = (T: type, s: *Stack(T), n: usize) bool {
-    if (n == 0 or n > s.data.len) {
+    n == 0 or n > s.data.len ? {
         return false
     }
     
@@ -159,7 +159,7 @@ StackIterator(T: type): {
 }
 
 next = (T: type, it: *StackIterator(T)) ?T {
-    if (it.index == 0) {
+    it.index == 0 ? {
         return null
     }
     it.index -= 1
@@ -190,24 +190,24 @@ push_minmax = (T: type, s: *MinMaxStack(T), value: T) void {
     
     // Update min stack
     current_min := peek(T, &s.mins)
-    if (current_min .== .None or s.compare(value, current_min) <= 0) {
+    current_min .== .None or s.compare(value, current_min) <= 0 ? {
         push(T, &s.mins, value)
-    } else {
+    } | false {
         push(T, &s.mins, current_min)
     }
     
     // Update max stack
     current_max := peek(T, &s.maxs)
-    if (current_max .== .None or s.compare(value, current_max) >= 0) {
+    current_max .== .None or s.compare(value, current_max) >= 0 ? {
         push(T, &s.maxs, value)
-    } else {
+    } | false {
         push(T, &s.maxs, current_max)
     }
 }
 
 // Pop from min/max stack
 pop_minmax = (T: type, s: *MinMaxStack(T)) ?T {
-    if (is_empty(T, &s.main)) {
+    is_empty(T, &s.main) ? {
         return null
     }
     

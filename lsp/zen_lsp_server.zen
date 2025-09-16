@@ -1,20 +1,20 @@
 // Zen Language Server Protocol Implementation
 // Provides IDE support for Zen language
 
-io = @std.io
-json = @std.json
-net = @std.net
-string = @std.string
-{ Vec, DynVec } = @std.collections
-hashmap = @std.hashmap
-thread = @std.thread
-fs = @std.fs
-result = @std.result
+io = @std
+json = @std
+net = @std
+string = @std
+{ Vec, DynVec } = @std
+hashmap = @std
+thread = @std
+fs = @std
+result = @std
 
 // Import compiler components
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
+lexer = @std
+parser = @std
+type_checker = @std
 
 // LSP message types
 MessageType : 
@@ -256,7 +256,7 @@ new_server = () RawPtr<LanguageServer>   {
 // Handle initialize request
 handle_initialize = (server: *LanguageServer, params: json.Value) json.Value {
     // Extract root URI
-    if (params.has("rootUri")) {
+    params.has("rootUri") ? {
         server.root_uri = params.get("rootUri").as_string()
     }
     
@@ -302,13 +302,13 @@ handle_did_change = (server: *LanguageServer, params: json.Value) void   {
     uri := params.get("textDocument").get("uri").as_string()
     version := params.get("textDocument").get("version").as_i32()
     
-    if (server.documents.contains(uri)) {
+    server.documents.contains(uri) ? {
         doc := server.documents.get(uri)
         doc.version = version
         
         // Update text from content changes
         changes := params.get("contentChanges")
-        if (changes.is_array() && changes.len() > 0) {
+        changes.is_array() && changes.len() > 0 ? {
             // For simplicity, we only handle full document updates
             new_text := changes.get(0).get("text").as_string()
             doc.text = new_text
@@ -322,7 +322,7 @@ handle_did_change = (server: *LanguageServer, params: json.Value) void   {
 
 // Analyze a document and generate diagnostics
 analyze_document = (server: *LanguageServer, uri: string) void   {
-    if (!server.documents.contains(uri)) {
+    !server.documents.contains(uri) ? {
         return
     }
     
@@ -331,7 +331,7 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
     
     // Tokenize
     tokens_result := lexer.tokenize(doc.text)
-    if (tokens_result.is_error()) {
+    tokens_result.is_error() ? {
         // Add lexer error as diagnostic
         diagnostic := Diagnostic{
             range: Range{
@@ -345,12 +345,12 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
             related_information: DynVec.new()
         }
         diagnostics.push(diagnostic)
-    } else {
+    } | false {
         tokens := tokens_result.unwrap()
         
         // Parse
         ast_result := parser.parse(tokens)
-        if (ast_result.is_error()) {
+        ast_result.is_error() ? {
             // Add parser error as diagnostic
             diagnostic := Diagnostic{
                 range: Range{
@@ -364,12 +364,12 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
                 related_information: DynVec.new()
             }
             diagnostics.push(diagnostic)
-        } else {
+        } | false {
             ast := ast_result.unwrap()
             
             // Type check
             type_result := type_checker.check(ast)
-            if (type_result.is_error()) {
+            type_result.is_error() ? {
                 // Add type error as diagnostic
                 diagnostic := Diagnostic{
                     range: Range{
@@ -405,9 +405,9 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
 check_style = (text: string, diagnostics: *DynVec<Diagnostic>) void   {
     lines := string.split(text, "\n")
     
-    for (line_num, line in lines) {
+    lines.loop((line_num, line) {
         // Check line length
-        if (line.len() > 100) {
+        line.len() > 100 ? {
             diagnostic := Diagnostic{
                 range: Range{
                     start: Position{line: line_num, character: 100},
@@ -423,7 +423,7 @@ check_style = (text: string, diagnostics: *DynVec<Diagnostic>) void   {
         }
         
         // Check for tabs vs spaces
-        if (string.contains(line, "\t") && string.contains(line, "    ")) {
+        string.contains(line, "\t") && string.contains(line, "    ") ? {
             diagnostic := Diagnostic{
                 range: Range{
                     start: Position{line: line_num, character: 0},
@@ -439,9 +439,9 @@ check_style = (text: string, diagnostics: *DynVec<Diagnostic>) void   {
         }
         
         // Check for TODO comments
-        if (string.contains(line, "TODO") || string.contains(line, "FIXME")) {
+        string.contains(line, "TODO") || string.contains(line, "FIXME") ? {
             start_col := string.index_of(line, "TODO")
-            if (start_col == -1) {
+            start_col == -1 ? {
                 start_col = string.index_of(line, "FIXME")
             }
             
@@ -466,8 +466,8 @@ extract_symbols = (ast: ASTNode) DynVec<DocumentSymbol> {
     symbols := DynVec.new<DocumentSymbol>()
     
     // Walk AST and extract symbols
-    for (node in ast.children) {
-        match (node.type) {
+    ast.children.loop((node) {
+        (node.type) ?
             Function => {
                 symbol := DocumentSymbol{
                     name: node.name,
@@ -528,7 +528,7 @@ handle_completion = (server: *LanguageServer, params: json.Value) json.Value {
     uri := params.get("textDocument").get("uri").as_string()
     position := extract_position(params.get("position"))
     
-    if (!server.documents.contains(uri)) {
+    !server.documents.contains(uri) ? {
         return json.array([])
     }
     
@@ -542,7 +542,7 @@ handle_completion = (server: *LanguageServer, params: json.Value) json.Value {
     
     // Add keywords
     keywords := ["if", "else", "while", "for", "return", "struct", "enum", "fn", "const", "let", "match", "comptime"]
-    for (keyword in keywords) {
+    keywords.loop((keyword) {
         item := json.object([
             ("label", json.string(keyword)),
             ("kind", json.number(CompletionItemKind.Keyword)),
@@ -554,7 +554,7 @@ handle_completion = (server: *LanguageServer, params: json.Value) json.Value {
     
     // Add types
     types := ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string", "void"]
-    for (type_name in types) {
+    types.loop((type_name) {
         item := json.object([
             ("label", json.string(type_name)),
             ("kind", json.number(CompletionItemKind.Class)),
@@ -565,9 +565,9 @@ handle_completion = (server: *LanguageServer, params: json.Value) json.Value {
     }
     
     // Add standard library modules
-    if (string.starts_with(context, "@std.")) {
+    string.starts_with(context, "@std.") ? {
         modules := ["core", "io", "math", "string", "vec", "fs", "net", "thread", "json"]
-        for (module in modules) {
+        modules.loop((module) {
             item := json.object([
                 ("label", json.string(module)),
                 ("kind", json.number(CompletionItemKind.Module)),
@@ -579,9 +579,9 @@ handle_completion = (server: *LanguageServer, params: json.Value) json.Value {
     }
     
     // Add document symbols
-    if (server.symbols.contains(uri)) {
+    server.symbols.contains(uri) ? {
         symbols := server.symbols.get(uri)
-        for (symbol in symbols) {
+        symbols.loop((symbol) {
             item := json.object([
                 ("label", json.string(symbol.name)),
                 ("kind", json.number(symbol_kind_to_completion_kind(symbol.kind))),
@@ -600,7 +600,7 @@ handle_hover = (server: *LanguageServer, params: json.Value) json.Value {
     uri := params.get("textDocument").get("uri").as_string()
     position := extract_position(params.get("position"))
     
-    if (!server.documents.contains(uri)) {
+    !server.documents.contains(uri) ? {
         return json.null()
     }
     
@@ -614,7 +614,7 @@ handle_hover = (server: *LanguageServer, params: json.Value) json.Value {
     type_info := ""
     
     // Check if it's a keyword
-    if (is_keyword(word)) {
+    is_keyword(word) ? {
         hover_text = "**Keyword**: `" + word + "`"
         hover_text += "\n\n" + get_keyword_documentation(word)
     }
@@ -626,18 +626,18 @@ handle_hover = (server: *LanguageServer, params: json.Value) json.Value {
     // Check if it's a symbol in the document
     else if (server.symbols.contains(uri)) {
         symbols := server.symbols.get(uri)
-        for (symbol in symbols) {
-            if (symbol.name == word) {
+        symbols.loop((symbol) {
+            symbol.name == word ? {
                 // Get type information if available
                 type_info = infer_symbol_type(server, doc, symbol)
                 
                 hover_text = "**" + symbol_kind_to_string(symbol.kind) + "**: `" + symbol.name + "`"
                 
-                if (type_info != "") {
+                type_info != "" ? {
                     hover_text += "\n\n**Type**: `" + type_info + "`"
                 }
                 
-                if (symbol.detail != null) {
+                symbol.detail != null ? {
                     hover_text += "\n\n" + symbol.detail
                 }
                 break
@@ -646,14 +646,14 @@ handle_hover = (server: *LanguageServer, params: json.Value) json.Value {
     }
     
     // If not found locally, check imports
-    if (hover_text == "") {
+    hover_text == "" ? {
         import_info := find_symbol_in_imports(server, doc, word)
-        if (import_info != null) {
+        import_info != null ? {
             hover_text = import_info
         }
     }
     
-    if (hover_text == "") {
+    hover_text == "" ? {
         return json.null()
     }
     
@@ -670,7 +670,7 @@ handle_definition = (server: *LanguageServer, params: json.Value) json.Value  {
     uri := params.get("textDocument").get("uri").as_string()
     position := extract_position(params.get("position"))
     
-    if (!server.documents.contains(uri)) {
+    !server.documents.contains(uri) ? {
         return json.null()
     }
     
@@ -680,10 +680,10 @@ handle_definition = (server: *LanguageServer, params: json.Value) json.Value  {
     word := get_word_at_position(doc.text, position)
     
     // Search for definition in current document
-    if (server.symbols.contains(uri)) {
+    server.symbols.contains(uri) ? {
         symbols := server.symbols.get(uri)
-        for (symbol in symbols) {
-            if (symbol.name == word) {
+        symbols.loop((symbol) {
+            symbol.name == word ? {
                 // Found definition in current file
                 return json.object([
                     ("uri", json.string(uri)),
@@ -695,13 +695,13 @@ handle_definition = (server: *LanguageServer, params: json.Value) json.Value  {
     
     // Search in imported modules
     definition := find_definition_in_imports(server, doc, word)
-    if (definition != null) {
+    definition != null ? {
         return definition
     }
     
     // Search in standard library
     std_definition := find_definition_in_stdlib(word)
-    if (std_definition != null) {
+    std_definition != null ? {
         return std_definition
     }
     
@@ -712,7 +712,7 @@ handle_definition = (server: *LanguageServer, params: json.Value) json.Value  {
 publish_diagnostics = (uri: string, diagnostics: DynVec<Diagnostic>) void   {
     diag_array := DynVec.new<json.Value>()
     
-    for (diagnostic in diagnostics) {
+    diagnostics.loop((diagnostic) {
         diag_json := json.object([
             ("range", range_to_json(diagnostic.range)),
             ("severity", json.number(diagnostic.severity as i32)),
@@ -720,7 +720,7 @@ publish_diagnostics = (uri: string, diagnostics: DynVec<Diagnostic>) void   {
             ("message", json.string(diagnostic.message))
         ])
         
-        if (diagnostic.code != null) {
+        diagnostic.code != null ? {
             diag_json.set("code", json.string(diagnostic.code))
         }
         
@@ -784,7 +784,7 @@ node_to_range = (node: ASTNode) Range   {
 }
 
 symbol_kind_to_completion_kind = (kind: SymbolKind) CompletionItemKind   {
-    match (kind) {
+    (kind) ?
         SymbolKind.Function => CompletionItemKind.Function,
         SymbolKind.Struct => CompletionItemKind.Struct,
         SymbolKind.Enum => CompletionItemKind.Enum,
@@ -795,7 +795,7 @@ symbol_kind_to_completion_kind = (kind: SymbolKind) CompletionItemKind   {
 }
 
 symbol_kind_to_string = (kind: SymbolKind) string   {
-    match (kind) {
+    (kind) ?
         SymbolKind.Function => "Function",
         SymbolKind.Struct => "Struct",
         SymbolKind.Enum => "Enum",
@@ -807,7 +807,7 @@ symbol_kind_to_string = (kind: SymbolKind) string   {
 
 is_keyword = (word: string) bool   {
     keywords := ["if", "else", "while", "for", "return", "struct", "enum", "fn", "const", "let", "match", "comptime"]
-    for (kw in keywords) {
+    keywords.loop((kw) {
         if (word == kw) return true
     }
     return false
@@ -815,7 +815,7 @@ is_keyword = (word: string) bool   {
 
 is_builtin_type = (word: string) bool   {
     types := ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string", "void"]
-    for (t in types) {
+    types.loop((t) {
         if (word == t) return true
     }
     return false
@@ -823,12 +823,12 @@ is_builtin_type = (word: string) bool   {
 
 get_word_at_position = (text: string, pos: Position) string   {
     lines := string.split(text, "\n")
-    if (pos.line >= lines.len()) {
+    pos.line >= lines.len() ? {
         return ""
     }
     
     line := lines[pos.line]
-    if (pos.character >= line.len()) {
+    pos.character >= line.len() ? {
         return ""
     }
     
@@ -848,12 +848,12 @@ get_word_at_position = (text: string, pos: Position) string   {
 
 get_context_at_position = (text: string, pos: Position) string   {
     lines := string.split(text, "\n")
-    if (pos.line >= lines.len()) {
+    pos.line >= lines.len() ? {
         return ""
     }
     
     line := lines[pos.line]
-    if (pos.character > line.len()) {
+    pos.character > line.len() ? {
         return ""
     }
     
@@ -884,15 +884,15 @@ find_definition_in_imports = (server: *LanguageServer, doc: Document, word: stri
     // Parse imports from document
     imports := extract_imports(doc.text)
     
-    for (import_path in imports) {
+    imports.loop((import_path) {
         // Load imported file if not already loaded
         import_uri := resolve_import_uri(import_path)
-        if (server.documents.contains(import_uri)) {
+        server.documents.contains(import_uri) ? {
             import_doc := server.documents.get(import_uri)
-            if (server.symbols.contains(import_uri)) {
+            server.symbols.contains(import_uri) ? {
                 symbols := server.symbols.get(import_uri)
-                for (symbol in symbols) {
-                    if (symbol.name == word) {
+                symbols.loop((symbol) {
+                    symbol.name == word ? {
                         return json.object([
                             ("uri", json.string(import_uri)),
                             ("range", range_to_json(symbol.range))
@@ -917,7 +917,7 @@ find_definition_in_stdlib = (word: string) json.Value? {
     stdlib_symbols.insert("string", ("stdlib/string.zen", 1, 0))
     stdlib_symbols.insert("math", ("stdlib/math.zen", 1, 0))
     
-    if (stdlib_symbols.contains(word)) {
+    stdlib_symbols.contains(word) ? {
         location := stdlib_symbols.get(word)
         return json.object([
             ("uri", json.string("file://" + location.0)),
@@ -942,14 +942,14 @@ extract_imports = (text: string) DynVec<string> {
     imports := DynVec.new<string>()
     lines := string.split(text, "\n")
     
-    for (line in lines) {
+    lines.loop((line) {
         trimmed := string.trim(line)
         // Check for import pattern: name := @path
-        if (string.contains(trimmed, ":=") && string.contains(trimmed, "@")) {
+        string.contains(trimmed, ":=") && string.contains(trimmed, "@") ? {
             parts := string.split(trimmed, ":=")
-            if (parts.len() == 2) {
+            parts.len() == 2 ? {
                 import_part := string.trim(parts[1])
-                if (string.starts_with(import_part, "@")) {
+                string.starts_with(import_part, "@") ? {
                     import_path := string.slice(import_part, 1, import_part.len())
                     imports.push(import_path)
                 }
@@ -966,7 +966,7 @@ resolve_import_uri = (import_path: string) string {
     file_path := string.replace(import_path, ".", "/") + ".zen"
     
     // Check if it's a standard library import
-    if (string.starts_with(import_path, "std.")) {
+    string.starts_with(import_path, "std.") ? {
         return "file://stdlib/" + string.slice(file_path, 4, file_path.len())
     }
     
@@ -977,7 +977,7 @@ resolve_import_uri = (import_path: string) string {
 // Infer type of a symbol
 infer_symbol_type = (server: *LanguageServer, doc: Document, symbol: DocumentSymbol) string {
     // Basic type inference based on symbol kind and context
-    match (symbol.kind) {
+    (symbol.kind) ?
         SymbolKind.Function => {
             // Try to extract function signature
             return extract_function_signature(doc.text, symbol.range)
@@ -1001,13 +1001,13 @@ infer_symbol_type = (server: *LanguageServer, doc: Document, symbol: DocumentSym
 // Extract function signature
 extract_function_signature = (text: string, range: Range) string {
     lines := string.split(text, "\n")
-    if (range.start.line < lines.len()) {
+    range.start.line < lines.len() ? {
         line := lines[range.start.line]
         // Simple pattern matching for function signature
-        if (string.contains(line, "(") && string.contains(line, ")")) {
+        string.contains(line, "(") && string.contains(line, ")") ? {
             start := string.index_of(line, "(")
             end := string.index_of(line, ")")
-            if (start >= 0 && end > start) {
+            start >= 0 && end > start ? {
                 return string.slice(line, start, end + 1)
             }
         }
@@ -1018,16 +1018,16 @@ extract_function_signature = (text: string, range: Range) string {
 // Infer variable type from initialization
 infer_variable_type = (text: string, range: Range) string {
     lines := string.split(text, "\n")
-    if (range.start.line < lines.len()) {
+    range.start.line < lines.len() ? {
         line := lines[range.start.line]
         
         // Check for explicit type annotation
-        if (string.contains(line, ":")) {
+        string.contains(line, ":") ? {
             parts := string.split(line, ":")
-            if (parts.len() >= 2) {
+            parts.len() >= 2 ? {
                 type_part := string.trim(parts[1])
                 // Extract type before assignment operator
-                if (string.contains(type_part, "=")) {
+                string.contains(type_part, "=") ? {
                     type_parts := string.split(type_part, "=")
                     return string.trim(type_parts[0])
                 }
@@ -1036,22 +1036,22 @@ infer_variable_type = (text: string, range: Range) string {
         }
         
         // Try to infer from literal
-        if (string.contains(line, "=")) {
+        string.contains(line, "=") ? {
             parts := string.split(line, "=")
-            if (parts.len() >= 2) {
+            parts.len() >= 2 ? {
                 value := string.trim(parts[1])
                 
                 // Check for common literals
-                if (string.starts_with(value, "\"") || string.starts_with(value, "'")) {
+                string.starts_with(value, "\"") || string.starts_with(value, "'") ? {
                     return "string"
                 }
-                if (string.contains(value, ".") && is_numeric(value)) {
+                string.contains(value, ".") && is_numeric(value) ? {
                     return "f64"
                 }
-                if (is_numeric(value)) {
+                is_numeric(value) ? {
                     return "i32"
                 }
-                if (value == "true" || value == "false") {
+                value == "true" || value == "false" ? {
                     return "bool"
                 }
             }
@@ -1062,13 +1062,13 @@ infer_variable_type = (text: string, range: Range) string {
 
 // Check if string is numeric
 is_numeric = (s: string) bool {
-    if (s.len() == 0) {
+    s.len() == 0 ? {
         return false
     }
     
     for (i := 0; i < s.len(); i++) {
         c := string.char_at(s, i)
-        if (!((c >= '0' && c <= '9') || c == '.' || c == '-')) {
+        !((c >= '0' && c <= '9') || c == '.' || c == '-') ? {
             return false
         }
     }
@@ -1080,16 +1080,16 @@ is_numeric = (s: string) bool {
 find_symbol_in_imports = (server: *LanguageServer, doc: Document, word: string) string? {
     imports := extract_imports(doc.text)
     
-    for (import_path in imports) {
+    imports.loop((import_path) {
         import_uri := resolve_import_uri(import_path)
-        if (server.documents.contains(import_uri)) {
-            if (server.symbols.contains(import_uri)) {
+        server.documents.contains(import_uri) ? {
+            server.symbols.contains(import_uri) ? {
                 symbols := server.symbols.get(import_uri)
-                for (symbol in symbols) {
-                    if (symbol.name == word) {
+                symbols.loop((symbol) {
+                    symbol.name == word ? {
                         hover_text := "**Imported " + symbol_kind_to_string(symbol.kind) + "**: `" + symbol.name + "`"
                         hover_text += "\n\n*From*: `" + import_path + "`"
-                        if (symbol.detail != null) {
+                        symbol.detail != null ? {
                             hover_text += "\n\n" + symbol.detail
                         }
                         return hover_text
@@ -1160,12 +1160,12 @@ main = () i32   {
     while (true) {
         // Read message header
         header := io.read_line()
-        if (header .== .None) {
+        header .== .None ? {
             break
         }
         
         // Parse content length
-        if (!string.starts_with(header, "Content-Length: ")) {
+        !string.starts_with(header, "Content-Length: ") ? {
             continue
         }
         
@@ -1180,7 +1180,7 @@ main = () i32   {
         
         // Parse JSON
         msg_result := json.parse(content)
-        if (msg_result.is_error()) {
+        msg_result.is_error() ? {
             io.eprintln("Failed to parse message: " + msg_result.unwrap_error())
             continue
         }
@@ -1188,7 +1188,7 @@ main = () i32   {
         msg := msg_result.unwrap()
         
         // Handle message
-        if (msg.has("method")) {
+        msg.has("method") ? {
             method := msg.get("method").as_string()
             params := msg.get("params")
             
@@ -1213,7 +1213,7 @@ main = () i32   {
             }
             
             // Send response if needed
-            if (response != null && msg.has("id")) {
+            response != null && msg.has("id") ? {
                 response_msg := json.object([
                     ("jsonrpc", json.string("2.0")),
                     ("id", msg.get("id")),

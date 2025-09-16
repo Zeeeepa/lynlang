@@ -1,10 +1,10 @@
 // Zen Standard Library: Testing Framework
 // Simple but effective testing utilities
 
-core := @std.core
-build := @std.build
+core := @std
+build := @std
 io := build.import("io")
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 
 // Test result types
 TestResult: Pass
@@ -167,7 +167,7 @@ run_test = (test: TestCase, verbose: bool) TestResult   {
     // Print result if verbose
     verbose ?
         | true {
-            match result {
+            result ?
                 | Pass { io.print("  ✓ PASS") }
                 | Fail(reason) { io.print("  ✗ FAIL: " + reason) }
                 | Skip(reason) { io.print("  ⊘ SKIP: " + reason) }
@@ -184,7 +184,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void   {
     io.println("\n=== Test Suite: " + suite.name + " ===")
     
     // Run setup if present
-    match suite.setup {
+    suite.setup ?
         | Some(setup_fn) { setup_fn() }
         | None {}
     }
@@ -196,7 +196,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void   {
         result := run_test(test, runner.verbose)
         
         // Update statistics
-        match result {
+        result ?
             | Pass { runner.passed = runner.passed + 1 }
             | Fail(reason) {
                 runner.failed = runner.failed + 1
@@ -221,7 +221,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void   {
     }
     
     // Run teardown if present
-    match suite.teardown {
+    suite.teardown ?
         | Some(teardown_fn) { teardown_fn() }
         | None {}
     }

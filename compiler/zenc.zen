@@ -1,21 +1,21 @@
 // Zen Compiler - Bootstrap Implementation
 // Main compiler driver that coordinates all compilation phases
 
-core = @std.core
-io = @std.io
-fs = @std.fs
-string = @std.string
-{ Vec, DynVec } = @std.collections
-args = @std.args
-log = @std.log
-time = @std.time
+core = @std
+io = @std
+fs = @std
+string = @std
+{ Vec, DynVec } = @std
+args = @std
+log = @std
+time = @std
 
 // Import compiler modules
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-codegen = @std.codegen
-codegen_llvm = @std.codegen_llvm
+lexer = @std
+parser = @std
+type_checker = @std
+codegen = @std
+codegen_llvm = @std
 
 // Compiler configuration
 CompilerConfig: {
@@ -86,7 +86,7 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
     // Parse arguments
     result := args.parse(&parser, argv)
     
-    match result {
+    result ?
         | Result<args.ParsedArgs, string>.Ok(parsed) {
             // Check for help
             args.has_flag(&parsed, "help") ? {
@@ -111,7 +111,7 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             }
             
             // Get output file
-            match args.get_flag(&parsed, "output") {
+            args.get_flag(&parsed, "output") ?
                 | Option<string>.Some(out) {
                     config.output_file = Option<string>.Some(out)
                 }
@@ -119,7 +119,7 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             }
             
             // Get optimization level
-            match args.get_flag(&parsed, "opt") {
+            args.get_flag(&parsed, "opt") ?
                 | Option<string>.Some(level) {
                     config.optimization_level = string.parse_u8(level)
                 }
@@ -127,7 +127,7 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             }
             
             // Get output type
-            match args.get_flag(&parsed, "type") {
+            args.get_flag(&parsed, "type") ?
                 | Option<string>.Some(t) {
                     t == "exe" ? { config.output_type = OutputType.Executable } :
                     t == "obj" ? { config.output_type = OutputType.ObjectFile } :
@@ -166,7 +166,7 @@ read_source = (path: string) Result<string, string>   {
     } : {}
     
     content := fs.read_file(path)
-    match content {
+    content ?
         | Result<string, string>.Ok(src) {
             return Result<string, string>.Ok(src)
         }
@@ -190,7 +190,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
     } : {}
     
     tokens := lexer.tokenize(source)
-    match tokens {
+    tokens ?
         | Result<DynVec<lexer.Token>, string>.Err(e) {
             return CompileResult.LexerError(e)
         }
@@ -207,7 +207,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
     } : {}
     
     ast := parser.parse(tokens.unwrap())
-    match ast {
+    ast ?
         | Result<parser.AstNode, string>.Err(e) {
             return CompileResult.ParserError(e)
         }
@@ -230,7 +230,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
     } : {}
     
     typed_ast := type_checker.check(ast.unwrap())
-    match typed_ast {
+    typed_ast ?
         | Result<type_checker.TypedAst, string>.Err(e) {
             return CompileResult.TypeCheckError(e)
         }
@@ -268,10 +268,10 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
         } : {}
         
         // Write LLVM IR to file if requested
-        match config.output_file {
+        config.output_file ?
             | Option<string>.Some(out) {
                 write_result := fs.write_file(out, gen.output)
-                match write_result {
+                write_result ?
                     | Result<(), string>.Err(e) {
                         return CompileResult.FileError("Failed to write output: " + e)
                     }
@@ -287,7 +287,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
     } : {
         // Generate native code (would use LLVM backend)
         code := codegen.generate(typed_ast.unwrap())
-        match code {
+        code ?
             | Result<string, string>.Err(e) {
                 return CompileResult.CodeGenError(e)
             }
@@ -297,10 +297,10 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
                 } : {}
                 
                 // Write output
-                match config.output_file {
+                config.output_file ?
                     | Option<string>.Some(out) {
                         write_result := fs.write_file(out, output)
-                        match write_result {
+                        write_result ?
                             | Result<(), string>.Err(e) {
                                 return CompileResult.FileError("Failed to write output: " + e)
                             }
@@ -315,7 +315,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
                         // Default output file
                         default_out := get_default_output(config)
                         write_result := fs.write_file(default_out, output)
-                        match write_result {
+                        write_result ?
                             | Result<(), string>.Err(e) {
                                 return CompileResult.FileError("Failed to write output: " + e)
                             }
@@ -362,7 +362,7 @@ get_module_name = (path: string) string   {
 get_default_output = (config: &CompilerConfig) string   {
     base_name := get_module_name(config.input_file)
     
-    match config.output_type {
+    config.output_type ?
         | OutputType.Executable { return base_name }
         | OutputType.ObjectFile { return base_name + ".o" }
         | OutputType.Assembly { return base_name + ".s" }
@@ -387,7 +387,7 @@ main = (argc: i32, argv: DynVec<string>) i32   {
     // Parse command line arguments
     config_result := parse_args(argv)
     
-    match config_result {
+    config_result ?
         | Result<CompilerConfig, string>.Err(e) {
             log.error("Error: " + e)
             io.print("\nUse --help for usage information\n")
@@ -402,7 +402,7 @@ main = (argc: i32, argv: DynVec<string>) i32   {
             // Read source file
             source_result := read_source(config.input_file)
             
-            match source_result {
+            source_result ?
                 | Result<string, string>.Err(e) {
                     log.error(e)
                     return 1
@@ -411,7 +411,7 @@ main = (argc: i32, argv: DynVec<string>) i32   {
                     // Compile the source
                     result := compile(&config, source)
                     
-                    match result {
+                    result ?
                         | CompileResult.Success {
                             !config.verbose ? {
                                 log.info("Compilation successful")

@@ -1,8 +1,8 @@
 // Zen Standard Library: String Utilities
 // String manipulation and utility functions
 
-core = @std.core
-mem = @std.mem
+core = @std
+mem = @std
 
 // String builder for efficient string concatenation
 StringBuilder: {

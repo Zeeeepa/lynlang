@@ -2,20 +2,20 @@
 // Tests the complete compilation pipeline using Zen-written components
 
 // Import standard library modules
-io = @std.io
-test = @std.test
-fs = @std.fs
+io = @std
+test = @std
+fs = @std
 
 // Import compiler components
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-codegen = @std.codegen
+lexer = @std
+parser = @std
+type_checker = @std
+codegen = @std
 
 // Test program source code
 const TEST_PROGRAM: string = `
     // Simple test program
-    io = @std.io
+    io = @std
     
     main = ()  {
         message: string = "Hello from self-hosted compiler!"
@@ -52,7 +52,7 @@ test_lexer = ()  {
     has_loop := false
     
     for token in tokens {
-        match token.kind {
+        token.kind ?
             .Keyword("fn") => has_fn = true
             .Identifier("main") => has_main = true
             .Keyword("loop") => has_loop = true
@@ -83,7 +83,7 @@ test_parser = ()  {
     // Find main function
     main_func := null
     for decl in ast.declarations {
-        match decl {
+        decl ?
             .Function(f) if f.name == "main" => main_func = f
             _ => {}
         }
@@ -112,7 +112,7 @@ test_type_checker = ()  {
     
     // Verify types are assigned
     for decl in typed_ast.declarations {
-        match decl {
+        decl ?
             .Function(f) => {
                 test.assert(f.return_type != null, "Function should have return type")
                 for param in f.parameters {

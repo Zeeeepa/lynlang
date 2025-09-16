@@ -1,10 +1,10 @@
 // Zen Build System - Self-hosting build orchestrator
 
 { io, fs, path, process, string, vec, map, result } = @std
-{ vec, map, result } = @std.collections
+{ vec, map, result } = @std
 
 // Import compiler modules
-{ compiler, lexer, parser, type_checker, optimizer, codegen, linker } = @std.compiler
+{ compiler, lexer, parser, type_checker, optimizer, codegen, linker } = @std
 
 // Build configuration
 BuildConfig: {

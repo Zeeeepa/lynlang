@@ -1,9 +1,9 @@
 // Queue implementation for Zen
 // FIFO (First In First Out) data structure
 
-core = @std.core
-mem = @std.mem
-array = @std.array
+core = @std
+mem = @std
+array = @std
 
 // Queue node
 QueueNode(T: type): {
@@ -43,10 +43,10 @@ enqueue = (T: type, q: *Queue(T), value: T) void {
     node.value = value
     node.next = null
     
-    if (q.tail .== .None) {
+    q.tail .== .None ? {
         q.head = node
         q.tail = node
-    } else {
+    } | false {
         q.tail.next = node
         q.tail = node
     }
@@ -56,7 +56,7 @@ enqueue = (T: type, q: *Queue(T), value: T) void {
 
 // Dequeue (remove from front)
 dequeue = (T: type, q: *Queue(T)) ?T {
-    if (q.head .== .None) {
+    q.head .== .None ? {
         return null
     }
     
@@ -64,7 +64,7 @@ dequeue = (T: type, q: *Queue(T)) ?T {
     value := node.value
     q.head = node.next
     
-    if (q.head .== .None) {
+    q.head .== .None ? {
         q.tail = null
     }
     
@@ -76,7 +76,7 @@ dequeue = (T: type, q: *Queue(T)) ?T {
 
 // Peek at front without removing
 peek = (T: type, q: *Queue(T)) ?T {
-    if (q.head .== .None) {
+    q.head .== .None ? {
         return null
     }
     return q.head.value
@@ -145,7 +145,7 @@ QueueIterator(T: type): {
 }
 
 next = (T: type, it: *QueueIterator(T)) ?T {
-    if (it.current .== .None) {
+    it.current .== .None ? {
         return null
     }
     value := it.current.value
@@ -182,21 +182,21 @@ enqueue_priority = (T: type, pq: *PriorityQueue(T), value: T, priority: i32) voi
     // Insert in sorted position
     inserted := false
     for (i := 0; i < pq.data.len; i += 1) {
-        if (priority < pq.data.data[i].priority) {
+        priority < pq.data.data[i].priority ? {
             array.insert(PQItem(T), &pq.data, i, item)
             inserted = true
             break
         }
     }
     
-    if (!inserted) {
+    !inserted ? {
         array.push(PQItem(T), &pq.data, item)
     }
 }
 
 // Dequeue highest priority
 dequeue_priority = (T: type, pq: *PriorityQueue(T)) ?T {
-    if (pq.data.len == 0) {
+    pq.data.len == 0 ? {
         return null
     }
     
@@ -206,7 +206,7 @@ dequeue_priority = (T: type, pq: *PriorityQueue(T)) ?T {
 
 // Peek at highest priority
 peek_priority = (T: type, pq: *PriorityQueue(T)) ?T {
-    if (pq.data.len == 0) {
+    pq.data.len == 0 ? {
         return null
     }
     return pq.data.data[0].value

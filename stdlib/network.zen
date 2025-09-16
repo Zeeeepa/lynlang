@@ -1,12 +1,12 @@
 // Network programming utilities for Zen
 // Provides TCP/UDP sockets, HTTP client/server, and networking primitives
 
-core = @std.core
-mem = @std.mem
-string = @std.string
-result = @std.result
-file = @std.file
-concurrency = @std.concurrency
+core = @std
+mem = @std
+string = @std
+result = @std
+file = @std
+concurrency = @std
 
 // Socket types
 SocketType: 
@@ -504,7 +504,7 @@ to_sockaddr_in = (addr: SocketAddr) SockAddrIn   {
     sock_addr.sin_family = AF_INET
     sock_addr.sin_port = htons(addr.port)
     
-    match addr.ip {
+    addr.ip ?
         IpAddr.V4(octets) => {
             sock_addr.sin_addr = (octets[0] << 24) | (octets[1] << 16) | 
                                  (octets[2] << 8) | octets[3]
@@ -561,7 +561,7 @@ parse_url = (url: core.String) (core.String, u16, core.String) {
     if path_idx >= 0 {
         host = string.substring(host_path, 0, path_idx)
         path = string.substring(host_path, path_idx, host_path.len)
-    } else {
+    } | false {
         host = host_path
         path = "/"
     }
@@ -738,7 +738,7 @@ parse_http_response = (data: []u8) Result<HttpResponse, core.String>  {
 
 // Convert method enum to string
 method_to_string = (method: HttpMethod) core.String {
-    match method {
+    method ?
         HttpMethod.GET => "GET",
         HttpMethod.POST => "POST",
         HttpMethod.PUT => "PUT",

@@ -1,11 +1,11 @@
 // Zen Language - C Backend Code Generator
 // Generates compilable C code from Zen AST
 
-core = @std.core
-io = @std.io
-string = @std.string
-fs = @std.fs
-parser = @std.parser
+core = @std
+io = @std
+string = @std
+fs = @std
+parser = @std
 
 // C type mapping
 map_zen_type_to_c = (zen_type: string) string {
@@ -179,13 +179,13 @@ generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
 generate_stmt = (c: &CBackend, stmt: &parser.Statement) void   {
     write_indent(c)
     
-    match (stmt.kind) {
+    (stmt.kind) ?
         .VarDecl => {
             c_type := map_zen_type_to_c(stmt.var_type)
             c.output.append(c_type)
             c.output.append(" ")
             c.output.append(stmt.name)
-            if (stmt.value != null) {
+            stmt.value != null ? {
                 c.output.append(" = ")
                 generate_expr(c, stmt.value)
             }
@@ -203,7 +203,7 @@ generate_stmt = (c: &CBackend, stmt: &parser.Statement) void   {
         }
         .Return => {
             c.output.append("return")
-            if (stmt.value != null) {
+            stmt.value != null ? {
                 c.output.append(" ")
                 generate_expr(c, stmt.value)
             }
@@ -218,7 +218,7 @@ generate_stmt = (c: &CBackend, stmt: &parser.Statement) void   {
             c.indent = c.indent - 1
             write_indent(c)
             c.output.append("}")
-            if (stmt.else_block != null) {
+            stmt.else_block != null ? {
                 c.output.append(" else {\n")
                 c.indent = c.indent + 1
                 generate_block(c, stmt.else_block)
@@ -241,18 +241,18 @@ generate_stmt = (c: &CBackend, stmt: &parser.Statement) void   {
         .For => {
             // Generate C-style for loop
             c.output.append("for (")
-            if (stmt.init != null) {
+            stmt.init != null ? {
                 generate_stmt(c, stmt.init)
                 c.output.seek(-2)  // Remove ";\n"
                 c.output.append("; ")
-            } else {
+            } | false {
                 c.output.append("; ")
             }
-            if (stmt.condition != null) {
+            stmt.condition != null ? {
                 generate_expr(c, stmt.condition)
             }
             c.output.append("; ")
-            if (stmt.update != null) {
+            stmt.update != null ? {
                 generate_expr(c, stmt.update)
             }
             c.output.append(") {\n")
@@ -290,7 +290,7 @@ generate_block = (c: &CBackend, stmts: [parser.Statement]) void   {
 // Generate function
 generate_function = (c: &CBackend, func: &parser.Function) void   {
     // Skip if it's a Zen builtin that we handle specially
-    if (func.name == "main") {
+    func.name == "main" ? {
         c.in_main = true
     }
     
@@ -312,7 +312,7 @@ generate_function = (c: &CBackend, func: &parser.Function) void   {
         i = i + 1
     }
     
-    if (func.params.len == 0) {
+    func.params.len == 0 ? {
         c.output.append("void")
     }
     
@@ -323,7 +323,7 @@ generate_function = (c: &CBackend, func: &parser.Function) void   {
     generate_block(c, func.body)
     
     // Add default return for void functions
-    if (func.return_type == "void") {
+    func.return_type == "void" ? {
         write_indent(c)
         c.output.append("return;\n")
     }
@@ -331,7 +331,7 @@ generate_function = (c: &CBackend, func: &parser.Function) void   {
     c.indent = 0
     c.output.append("}\n\n")
     
-    if (func.name == "main") {
+    func.name == "main" ? {
         c.in_main = false
     }
 }
@@ -371,7 +371,7 @@ generate_enum = (c: &CBackend, e: &parser.Enum) void   {
         c.output.append(e.name)
         c.output.append("_")
         c.output.append(e.values[i])
-        if (i < e.values.len - 1) {
+        i < e.values.len - 1 ? {
             c.output.append(",")
         }
         c.output.append("\n")
@@ -403,7 +403,7 @@ generate_c_from_ast = (ast: &parser.AST) string   {
     backend.output.append("\n")
     
     // Generate structs
-    if (ast.structs.len > 0) {
+    ast.structs.len > 0 ? {
         backend.output.append("// Struct definitions\n")
         for (ast.structs) |s| {
             generate_struct(&backend, &s)
@@ -411,7 +411,7 @@ generate_c_from_ast = (ast: &parser.AST) string   {
     }
     
     // Generate enums
-    if (ast.enums.len > 0) {
+    ast.enums.len > 0 ? {
         backend.output.append("// Enum definitions\n")
         for (ast.enums) |e| {
             generate_enum(&backend, &e)
@@ -421,7 +421,7 @@ generate_c_from_ast = (ast: &parser.AST) string   {
     // Forward declare functions
     backend.output.append("// Function declarations\n")
     for (ast.functions) |func| {
-        if (func.name != "main") {
+        func.name != "main" ? {
             return_type := map_zen_type_to_c(func.return_type)
             backend.output.append(return_type)
             backend.output.append(" ")
@@ -438,7 +438,7 @@ generate_c_from_ast = (ast: &parser.AST) string   {
                 i = i + 1
             }
             
-            if (func.params.len == 0) {
+            func.params.len == 0 ? {
                 backend.output.append("void")
             }
             backend.output.append(");\n")

@@ -6,7 +6,7 @@
 
 // Panic and assertion functions
 panic = (message: string) void   {
-    io = @std.io
+    io = @std
     io.eprintln("PANIC: " + message)
     exit(1)
 }
@@ -277,7 +277,7 @@ as_ptr = (value: usize) RawPtr<void> { return value as RawPtr<void> }
 
 // Debug utilities
 debug_print = (label: string, value: i32) void   {
-    io = @std.io
+    io = @std
     io.print(label)
     io.print(": ")
     io.print_int(value)

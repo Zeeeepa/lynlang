@@ -1,9 +1,9 @@
 // Comprehensive FFI Tests for Zen
 // Tests Foreign Function Interface with Builder Pattern per Language Spec v1.1.0
 
-test = @std.test
-assert = @std.assert
-assert_eq = @std.assert_eq
+test = @std
+assert = @std
+assert_eq = @std
 
 // Test FFI builder pattern for basic C library
 test("ffi builder basic") {

@@ -1,7 +1,7 @@
 // Error handling utilities for Zen
 // Provides common error types and utilities
 
-{ core, string, io } = @std.io
+{ core, string, io } = @std
 
 // Common error types
 Error: {
@@ -41,7 +41,7 @@ format_error = (error: Error) string   {
     result = string.concat(result, ": ")
     result = string.concat(result, error.message)
     
-    match error.source {
+    error.source ?
         | Option<string>.Some(src) {
             result = string.concat(result, " (at ")
             result = string.concat(result, src)
@@ -82,7 +82,7 @@ assert_msg = (condition: bool, message: string) void   {
 
 // Try to unwrap a Result, panic on error
 unwrap = <T>(result: Result<T, Error>) T {
-    match result {
+    result ?
         | Result<T, Error>.Ok(value) { return value }
         | Result<T, Error>.Err(error) {
             print_error(error)
@@ -93,7 +93,7 @@ unwrap = <T>(result: Result<T, Error>) T {
 
 // Try to unwrap a Result, return default on error
 unwrap_or = <T>(result: Result<T, Error>, default: T) T {
-    match result {
+    result ?
         | Result<T, Error>.Ok(value) { return value }
         | Result<T, Error>.Err(_) { return default }
     }
@@ -101,7 +101,7 @@ unwrap_or = <T>(result: Result<T, Error>, default: T) T {
 
 // Map error to different type
 map_error = <T, E1, E2>(result: Result<T, E1>, mapper: (E1) E2) Result<T, E2> {
-    match result {
+    result ?
         | Result<T, E1>.Ok(value) { return Result<T, E2>.Ok(value) }
         | Result<T, E1>.Err(error) { return Result<T, E2>.Err(mapper(error)) }
     }
@@ -109,7 +109,7 @@ map_error = <T, E1, E2>(result: Result<T, E1>, mapper: (E1) E2) Result<T, E2> {
 
 // Chain multiple Results
 and_then = <T, U, E>(result: Result<T, E>, f: (T) Result<U, E>) Result<U, E> {
-    match result {
+    result ?
         | Result<T, E>.Ok(value) { return f(value) }
         | Result<T, E>.Err(error) { return Result<U, E>.Err(error) }
     }

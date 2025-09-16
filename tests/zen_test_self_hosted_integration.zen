@@ -2,16 +2,16 @@
 // This test verifies that all self-hosted components work together
 
 // Correct import syntax - no comptime wrapper
-core = @std.core
-io = @std.io
-test = @std.test
+core = @std
+io = @std
+test = @std
 
 // Import self-hosted compiler modules
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-codegen = @std.codegen
-errors = @std.errors
+lexer = @std
+parser = @std
+type_checker = @std
+codegen = @std
+errors = @std
 
 // Test lexer integration
 test_lexer_integration = () bool   {
@@ -161,7 +161,7 @@ test_import_validation = () bool   {
     // Test that imports work at module level (this file demonstrates it)
     // and that the parser rejects imports in comptime blocks
     
-    bad_input := "@comptime { io = @std.io }"
+    bad_input := "@comptime { io = @std }"
     
     // Create lexer
     lex := lexer.new(bad_input)

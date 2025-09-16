@@ -1,10 +1,10 @@
 // Zen Standard Library - Logging Module
 // Provides structured logging capabilities
 
-core = @std.core
-io = @std.io
-string = @std.string
-time = @std.time
+core = @std
+io = @std
+string = @std
+time = @std
 
 // Log levels
 LogLevel: 
@@ -95,7 +95,7 @@ is_enabled = (level: LogLevel) bool   {
 
 // Format log level as string
 level_to_string = (level: LogLevel) string   {
-    match level {
+    level ?
         | LogLevel.Trace { return "TRACE" }
         | LogLevel.Debug { return "DEBUG" }
         | LogLevel.Info { return "INFO" }
@@ -108,7 +108,7 @@ level_to_string = (level: LogLevel) string   {
 // Get ANSI color code for level
 level_color = (level: LogLevel) string   {
     GLOBAL_LOGGER.config.colored_output ? {
-        match level {
+        level ?
             | LogLevel.Trace { return "\x1b[90m"  // Gray }
             | LogLevel.Debug { return "\x1b[36m"  // Cyan }
             | LogLevel.Info { return "\x1b[32m"   // Green }
@@ -156,7 +156,7 @@ log_impl = (level: LogLevel, msg: string, file: Option<string>, line: Option<u32
 
 // Format log entry
 format_entry = (entry: &LogEntry) string   {
-    match GLOBAL_LOGGER.config.output_format {
+    GLOBAL_LOGGER.config.output_format ?
         | LogFormat.Text { return format_text(entry) }
         | LogFormat.JSON { return format_json(entry) }
         | LogFormat.Compact { return format_compact(entry) }
@@ -181,9 +181,9 @@ format_text = (entry: &LogEntry) string   {
     
     // Add location
     GLOBAL_LOGGER.config.show_location ? {
-        match entry.file {
+        entry.file ?
             | Option<string>.Some(f) {
-                match entry.line {
+                entry.line ?
                     | Option<u32>.Some(l) {
                         output = output + f + ":" + u32_to_string(l) + " "
                     }
@@ -210,14 +210,14 @@ format_json = (entry: &LogEntry) string   {
     output = output + "\"message\":\"" + escape_json(entry.message) + "\""
     
     // Add optional fields
-    match entry.file {
+    entry.file ?
         | Option<string>.Some(f) {
             output = output + ",\"file\":\"" + escape_json(f) + "\""
         }
         | Option<string>.None {}
     }
     
-    match entry.line {
+    entry.line ?
         | Option<u32>.Some(l) {
             output = output + ",\"line\":" + u32_to_string(l)
         }

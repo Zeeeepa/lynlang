@@ -1,8 +1,8 @@
 // Zen Standard Library: Extended Math Module
 // Transcendental and advanced mathematical functions
 
-core = @std.core
-math = @std.math
+core = @std
+math = @std
 
 // External math functions from libc
 extern sin = (x: f64) f64

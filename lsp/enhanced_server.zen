@@ -1,20 +1,20 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides advanced IDE support with hover, go-to-definition, and more
 
-core = @std.core
-io = @std.io
-string = @std.string
-{ Vec, DynVec } = @std.collections
-hashmap = @std.hashmap
-fs = @std.fs
-json = @std.json
-result = @std.result
+core = @std
+io = @std
+string = @std
+{ Vec, DynVec } = @std
+hashmap = @std
+fs = @std
+json = @std
+result = @std
 
 // Import compiler modules
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-ast = @std.ast
+lexer = @std
+parser = @std
+type_checker = @std
+ast = @std
 
 // Symbol information for tracking definitions and references
 Symbol := {
@@ -90,7 +90,7 @@ MarkupContent := {
 }
 
 // Symbol kinds
-SymbolKind: File | Module | Namespace | Package | Class | Method | Property | Field | Constructor | Enum | Interface | Function | Variable | Constant | String | Number | Boolean | Array | Object | Key | Null | EnumMember | Struct | Event | Operator | TypeParameter
+SymbolKind: File, Module, Namespace, Package, Class, Method, Property, Field, Constructor, Enum, Interface, Function, Variable, Constant, String, Number, Boolean, Array, Object, Key, Null, EnumMember, Struct, Event, Operator, TypeParameter
 
 // Diagnostic types
 Diagnostic := {
@@ -103,9 +103,9 @@ Diagnostic := {
     relatedInformation: DynVec<DiagnosticRelatedInformation>
 }
 
-DiagnosticSeverity: Error | Warning | Information | Hint
+DiagnosticSeverity: Error, Warning, Information, Hint
 
-DiagnosticTag: Unnecessary | Deprecated
+DiagnosticTag: Unnecessary, Deprecated
 
 DiagnosticRelatedInformation := {
     location: Location
@@ -177,14 +177,14 @@ analyze_document = (server: Ptr<EnhancedLanguageServer>, doc: Ptr<EnhancedDocume
     
     // Type check and collect diagnostics
     type_results := type_checker.check(program)
-    match type_results {
+    type_results ?
         Result.Ok(typed_ast) => {
             // Update symbol types
             update_symbol_types(doc, typed_ast)
         }
         Result.Err(errors) => {
             // Convert type errors to diagnostics
-            for (error in errors) {
+            errors.loop((error) {
                 diagnostic := type_error_to_diagnostic(error)
                 DynVec.push(doc.diagnostics, diagnostic)
             }
@@ -213,7 +213,7 @@ extract_symbols = (doc: Ptr<EnhancedDocument>, program: ast.Program) Result<void
                 hashmap.insert(doc.symbols, func.name, symbol)
                 
                 // Extract parameter symbols
-                for (param in func.parameters) {
+                func.parameters.loop((param) {
                     param_symbol := create_parameter_symbol(param, func.name, doc.uri)
                     hashmap.insert(doc.symbols, 
                                  string.format("{}.{}", func.name, param.name), 
@@ -225,7 +225,7 @@ extract_symbols = (doc: Ptr<EnhancedDocument>, program: ast.Program) Result<void
                 hashmap.insert(doc.symbols, struct_def.name, symbol)
                 
                 // Extract field symbols
-                for (field in struct_def.fields) {
+                struct_def.fields.loop((field) {
                     field_symbol := create_field_symbol(field, struct_def.name, doc.uri)
                     hashmap.insert(doc.symbols,
                                  string.format("{}.{}", struct_def.name, field.name),
@@ -237,7 +237,7 @@ extract_symbols = (doc: Ptr<EnhancedDocument>, program: ast.Program) Result<void
                 hashmap.insert(doc.symbols, enum_def.name, symbol)
                 
                 // Extract variant symbols
-                for (variant in enum_def.variants) {
+                enum_def.variants.loop((variant) {
                     variant_symbol := create_variant_symbol(variant, enum_def.name, doc.uri)
                     hashmap.insert(doc.symbols,
                                  string.format("{}.{}", enum_def.name, variant.name),
@@ -266,7 +266,7 @@ extract_symbols = (doc: Ptr<EnhancedDocument>, program: ast.Program) Result<void
 handle_hover = (server: &EnhancedLanguageServer, params: TextDocumentPositionParams) Result<Option<Hover>, string>   {
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
-    if (doc.is_none()) {
+    doc.is_none() ? {
         return Result.Ok(Option.None)
     }
     
@@ -274,7 +274,7 @@ handle_hover = (server: &EnhancedLanguageServer, params: TextDocumentPositionPar
     
     // Find symbol at position
     symbol := find_symbol_at_position(document, params.position)
-    if (symbol.is_none()) {
+    symbol.is_none() ? {
         return Result.Ok(Option.None)
     }
     
@@ -299,7 +299,7 @@ build_hover_content = (symbol: &Symbol) string   {
     content := string.new()
     
     // Add signature or type info
-    if (symbol.signature.is_some()) {
+    symbol.signature.is_some() ? {
         string.append(content, "```zen\n")
         string.append(content, symbol.signature.unwrap())
         string.append(content, "\n```\n\n")
@@ -310,13 +310,13 @@ build_hover_content = (symbol: &Symbol) string   {
     }
     
     // Add documentation
-    if (symbol.documentation.is_some()) {
+    symbol.documentation.is_some() ? {
         string.append(content, symbol.documentation.unwrap())
         string.append(content, "\n\n")
     }
     
     // Add additional info based on symbol kind
-    match symbol.kind {
+    symbol.kind ?
         SymbolKind.Function => {
             string.append(content, "**Function**\n")
         }
@@ -334,7 +334,7 @@ build_hover_content = (symbol: &Symbol) string   {
     
     // Add reference count
     ref_count := DynVec.len(symbol.references)
-    if (ref_count > 0) {
+    ref_count > 0 ? {
         string.append(content, string.format("\n*{} reference{}*", 
                                             ref_count, 
                                             if (ref_count == 1) "" else "s"))
@@ -347,7 +347,7 @@ build_hover_content = (symbol: &Symbol) string   {
 handle_definition = (server: &EnhancedLanguageServer, params: TextDocumentPositionParams) Result<Option<Location>, string>   {
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
-    if (doc.is_none()) {
+    doc.is_none() ? {
         return Result.Ok(Option.None)
     }
     
@@ -355,7 +355,7 @@ handle_definition = (server: &EnhancedLanguageServer, params: TextDocumentPositi
     
     // Find symbol at position
     symbol_name := find_symbol_name_at_position(document, params.position)
-    if (symbol_name.is_none()) {
+    symbol_name.is_none() ? {
         return Result.Ok(Option.None)
     }
     
@@ -364,22 +364,22 @@ handle_definition = (server: &EnhancedLanguageServer, params: TextDocumentPositi
     // Look up symbol definition
     // First check local symbols
     local_symbol := hashmap.get(document.symbols, name)
-    if (local_symbol.is_some()) {
+    local_symbol.is_some() ? {
         return Result.Ok(Option.Some(local_symbol.unwrap().definition_location))
     }
     
     // Check global symbols
     global_symbol := hashmap.get(server.global_symbols, name)
-    if (global_symbol.is_some()) {
+    global_symbol.is_some() ? {
         return Result.Ok(Option.Some(global_symbol.unwrap().definition_location))
     }
     
     // Check imported symbols
-    for (import in document.imports) {
-        if (string.starts_with(name, import.module_name)) {
+    document.imports.loop((import) {
+        string.starts_with(name, import.module_name) ? {
             // Try to resolve import
             resolved := resolve_import(server, import)
-            if (resolved.is_some()) {
+            resolved.is_some() ? {
                 return Result.Ok(Option.Some(resolved.unwrap()))
             }
         }
@@ -395,23 +395,23 @@ find_symbol_at_position = (doc: &EnhancedDocument, pos: Position) Option<&Symbol
     
     // Find token at position
     token := find_token_at_offset(doc.tokens, offset)
-    if (token.is_none()) {
+    token.is_none() ? {
         return Option.None
     }
     
     tok := token.unwrap()
     
     // Look up symbol by token text
-    match tok.type {
+    tok.type ?
         lexer.TokenType.Identifier => {
             symbol := hashmap.get(doc.symbols, tok.text)
-            if (symbol.is_some()) {
+            symbol.is_some() ? {
                 return symbol
             }
             
             // Try qualified name (e.g., "struct.field")
             qualified := find_qualified_name_at_position(doc, pos)
-            if (qualified.is_some()) {
+            qualified.is_some() ? {
                 return hashmap.get(doc.symbols, qualified.unwrap())
             }
         }
@@ -427,7 +427,7 @@ handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) R
     
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
-    if (doc.is_none()) {
+    doc.is_none() ? {
         return Result.Ok(references)
     }
     
@@ -435,7 +435,7 @@ handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) R
     
     // Find symbol at position
     symbol_name := find_symbol_name_at_position(document, params.position)
-    if (symbol_name.is_none()) {
+    symbol_name.is_none() ? {
         return Result.Ok(references)
     }
     
@@ -448,9 +448,9 @@ handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) R
     })
     
     // Include definition if requested
-    if (params.context.includeDeclaration) {
+    params.context.includeDeclaration ? {
         symbol := hashmap.get(document.symbols, name)
-        if (symbol.is_some()) {
+        symbol.is_some() ? {
             DynVec.push(references, symbol.unwrap().definition_location)
         }
     }
@@ -467,7 +467,7 @@ find_references_in_document = (doc: &EnhancedDocument, symbol_name: string) DynV
     while (i < DynVec.len(doc.tokens)) {
         token := doc.tokens[i]
         
-        if (token.type == lexer.TokenType.Identifier && token.text == symbol_name) {
+        token.type == lexer.TokenType.Identifier && token.text == symbol_name ? {
             location := Location{
                 uri: doc.uri,
                 range: span_to_range(token.span, doc)
@@ -487,7 +487,7 @@ handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymb
     
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
-    if (doc.is_none()) {
+    doc.is_none() ? {
         return Result.Ok(symbols)
     }
     
@@ -496,7 +496,7 @@ handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymb
     // Convert symbols to DocumentSymbol format
     hashmap.foreach(document.symbols, (name, symbol) => {
         // Skip nested symbols (they'll be children)
-        if (symbol.parent.is_none()) {
+        symbol.parent.is_none() ? {
             doc_symbol := symbol_to_document_symbol(symbol, document)
             DynVec.push(symbols, doc_symbol)
         }
@@ -530,7 +530,7 @@ handle_rename = (server: &mut EnhancedLanguageServer, params: RenameParams) Resu
     references := handle_references(server, ref_params)?
     
     // Create text edits for each reference
-    for (location in references) {
+    references.loop((location) {
         doc_edits := hashmap.get_or_insert(edits.changes, location.uri, DynVec.new<TextEdit>())
         
         edit := TextEdit{
@@ -547,7 +547,7 @@ handle_rename = (server: &mut EnhancedLanguageServer, params: RenameParams) Resu
 handle_signature_help = (server: &EnhancedLanguageServer, params: SignatureHelpParams) Result<Option<SignatureHelp>, string>   {
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
-    if (doc.is_none()) {
+    doc.is_none() ? {
         return Result.Ok(Option.None)
     }
     
@@ -555,7 +555,7 @@ handle_signature_help = (server: &EnhancedLanguageServer, params: SignatureHelpP
     
     // Find function call at position
     func_call := find_function_call_at_position(document, params.position)
-    if (func_call.is_none()) {
+    func_call.is_none() ? {
         return Result.Ok(Option.None)
     }
     
@@ -563,11 +563,11 @@ handle_signature_help = (server: &EnhancedLanguageServer, params: SignatureHelpP
     
     // Look up function symbol
     func_symbol := hashmap.get(document.symbols, call_info.function_name)
-    if (func_symbol.is_none()) {
+    func_symbol.is_none() ? {
         func_symbol = hashmap.get(server.global_symbols, call_info.function_name)
     }
     
-    if (func_symbol.is_none()) {
+    func_symbol.is_none() ? {
         return Result.Ok(Option.None)
     }
     
@@ -595,15 +595,15 @@ handle_code_actions = (server: &EnhancedLanguageServer, params: CodeActionParams
     
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
-    if (doc.is_none()) {
+    doc.is_none() ? {
         return Result.Ok(actions)
     }
     
     document := doc.unwrap()
     
     // Find diagnostics in range
-    for (diagnostic in document.diagnostics) {
-        if (ranges_overlap(diagnostic.range, params.range)) {
+    document.diagnostics.loop((diagnostic) {
+        ranges_overlap(diagnostic.range, params.range) ? {
             // Generate quick fixes based on diagnostic
             fixes := generate_quick_fixes(diagnostic, document)
             DynVec.extend(actions, fixes)
@@ -623,14 +623,14 @@ check_comptime_imports = (doc: &mut EnhancedDocument) void   {
     
     program := doc.ast.unwrap()
     
-    for (stmt in program.statements) {
-        match stmt {
+    program.statements.loop((stmt) {
+        stmt ?
             ast.Statement.Comptime(block) => {
-                for (inner_stmt in block.statements) {
-                    match inner_stmt {
+                block.statements.loop((inner_stmt) {
+                    inner_stmt ?
                         ast.Statement.Assignment(assign) => {
                             // Check if it's an import
-                            if (is_import_expression(assign.value)) {
+                            is_import_expression(assign.value) ? {
                                 diagnostic := Diagnostic{
                                     range: span_to_range(assign.span, doc),
                                     severity: DiagnosticSeverity.Error,
@@ -654,7 +654,7 @@ check_comptime_imports = (doc: &mut EnhancedDocument) void   {
 
 // Helper to check if expression is an import
 is_import_expression = (expr: ast.Expression) bool   {
-    match expr {
+    expr ?
         ast.Expression.StdModule(_) => true
         ast.Expression.FunctionCall(call) => {
             call.name == "import" || string.ends_with(call.name, ".import")
@@ -665,7 +665,7 @@ is_import_expression = (expr: ast.Expression) bool   {
 
 // Helper functions
 position_to_offset = (doc: &EnhancedDocument, pos: Position) usize   {
-    if (pos.line >= DynVec.len(doc.lines)) {
+    pos.line >= DynVec.len(doc.lines) ? {
         return string.len(doc.content)
     }
     
@@ -686,7 +686,7 @@ offset_to_position = (doc: &EnhancedDocument, offset: usize) Position   {
     
     while (line < DynVec.len(doc.lines)) {
         line_len := string.len(doc.lines[line])
-        if (current + line_len >= offset) {
+        current + line_len >= offset ? {
             return Position{
                 line: line,
                 character: (offset - current) as u32

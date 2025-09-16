@@ -1,9 +1,9 @@
 // Self-hosted Zen Lexer
 // This module tokenizes Zen source code
 
-build = @std.build
+build = @std
 core := build.import("core")
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 string := build.import("string")
 char := build.import("char")
 

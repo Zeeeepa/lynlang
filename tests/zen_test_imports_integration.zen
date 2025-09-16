@@ -2,9 +2,9 @@
 // Tests that imports work correctly without comptime wrapper
 
 // Direct module imports at top level
-core = @std.core
-io = @std.io
-math = @std.math
+core = @std
+io = @std
+math = @std
 
 // Test basic import usage
 test_basic_imports = () void   {

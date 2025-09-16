@@ -2,7 +2,7 @@
 // This example demonstrates error handling without exceptions
 
 {io, fs} =  @std
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 
 // Error types
 Error: 

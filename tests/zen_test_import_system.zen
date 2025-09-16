@@ -2,13 +2,13 @@
 // This file shows that imports can be done directly at module level
 
 // Direct module imports - no comptime wrapper needed
-core = @std.core
+core = @std
 
 // Import standard library modules
-io = @std.io
-mem = @std.mem
-math = @std.math
-collections = @std.collections
+io = @std
+mem = @std
+math = @std
+collections = @std
 
 // Test that comptime blocks still work for actual compile-time computation
 // but are NOT needed for imports

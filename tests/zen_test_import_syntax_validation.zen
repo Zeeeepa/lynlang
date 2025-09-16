@@ -2,12 +2,12 @@
 // Tests that imports work correctly at module level
 
 // CORRECT: Module-level imports
-io = @std.io
-core = @std.core
-string = @std.string
-vec = @std.vec
-math = @std.math
-fs = @std.fs
+io = @std
+core = @std
+string = @std
+vec = @std
+math = @std
+fs = @std
 
 // Test struct with methods
 TestRunner := {
@@ -22,7 +22,7 @@ assert_eq = <T>(actual: T, expected: T, message: string) bool {
     if actual == expected {
         io.println("[PASS] " + message)
         return true
-    } else {
+    } | false {
         io.println("[FAIL] " + message)
         io.println("  Expected: " + string.from(expected))
         io.println("  Actual: " + string.from(actual))
@@ -34,7 +34,7 @@ assert_true = (condition: bool, message: string) bool   {
     if condition {
         io.println("[PASS] " + message)
         return true
-    } else {
+    } | false {
         io.println("[FAIL] " + message)
         return false
     }
@@ -180,7 +180,7 @@ test_pattern_matching = () bool   {
     }
     
     result := divide(10, 2)
-    match result {
+    result ?
         Result.Ok(value) => {
             assert_eq(value, 5, "Pattern matching with imported Result type")
         }
@@ -224,43 +224,43 @@ main = () i32   {
     // Run all tests
     if test_module_access() {
         tests_passed = tests_passed + 1
-    } else {
+    } | false {
         tests_failed = tests_failed + 1
     }
     
     if test_function_with_imports() {
         tests_passed = tests_passed + 1
-    } else {
+    } | false {
         tests_failed = tests_failed + 1
     }
     
     if test_struct_methods_with_imports() {
         tests_passed = tests_passed + 1
-    } else {
+    } | false {
         tests_failed = tests_failed + 1
     }
     
     if test_comptime_blocks() {
         tests_passed = tests_passed + 1
-    } else {
+    } | false {
         tests_failed = tests_failed + 1
     }
     
     if test_nested_scopes() {
         tests_passed = tests_passed + 1
-    } else {
+    } | false {
         tests_failed = tests_failed + 1
     }
     
     if test_pattern_matching() {
         tests_passed = tests_passed + 1
-    } else {
+    } | false {
         tests_failed = tests_failed + 1
     }
     
     if test_generics_with_imports() {
         tests_passed = tests_passed + 1
-    } else {
+    } | false {
         tests_failed = tests_failed + 1
     }
     
@@ -274,7 +274,7 @@ main = () i32   {
     if tests_failed == 0 {
         io.println("\n✅ All import syntax tests passed!")
         return 0
-    } else {
+    } | false {
         io.println("\n❌ Some tests failed")
         return 1
     }

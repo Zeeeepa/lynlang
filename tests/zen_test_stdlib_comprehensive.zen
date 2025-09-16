@@ -1,18 +1,18 @@
 // Comprehensive Standard Library Test Suite
 // Tests all major stdlib modules and their integration
 
-core = @std.core
-string = @std.string
-vec = @std.vec
-hashmap = @std.hashmap
-math = @std.math
-mem = @std.mem
-result = @std.result
-io = @std.io
-file = @std.file
-network = @std.network
-concurrency = @std.concurrency
-test = @std.test
+core = @std
+string = @std
+vec = @std
+hashmap = @std
+math = @std
+mem = @std
+result = @std
+io = @std
+file = @std
+network = @std
+concurrency = @std
+test = @std
 
 // Test runner
 main = () i32   {
@@ -27,7 +27,7 @@ main = () i32   {
     if test_core() {
         io.print("  ✓ Core tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ Core tests failed\n")
         failed += 1
     }
@@ -37,7 +37,7 @@ main = () i32   {
     if test_string() {
         io.print("  ✓ String tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ String tests failed\n")
         failed += 1
     }
@@ -47,7 +47,7 @@ main = () i32   {
     if test_vec() {
         io.print("  ✓ Vector tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ Vector tests failed\n")
         failed += 1
     }
@@ -57,7 +57,7 @@ main = () i32   {
     if test_hashmap() {
         io.print("  ✓ HashMap tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ HashMap tests failed\n")
         failed += 1
     }
@@ -67,7 +67,7 @@ main = () i32   {
     if test_math() {
         io.print("  ✓ Math tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ Math tests failed\n")
         failed += 1
     }
@@ -77,7 +77,7 @@ main = () i32   {
     if test_memory() {
         io.print("  ✓ Memory tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ Memory tests failed\n")
         failed += 1
     }
@@ -87,7 +87,7 @@ main = () i32   {
     if test_file_io() {
         io.print("  ✓ File I/O tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ File I/O tests failed\n")
         failed += 1
     }
@@ -97,7 +97,7 @@ main = () i32   {
     if test_network() {
         io.print("  ✓ Network tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ Network tests failed\n")
         failed += 1
     }
@@ -107,7 +107,7 @@ main = () i32   {
     if test_concurrency() {
         io.print("  ✓ Concurrency tests passed\n")
         passed += 1
-    } else {
+    } | false {
         io.print("  ✗ Concurrency tests failed\n")
         failed += 1
     }
@@ -122,7 +122,7 @@ main = () i32   {
     if failed == 0 {
         io.print("\n✓ All tests passed!\n")
         return 0
-    } else {
+    } | false {
         io.print("\n✗ Some tests failed\n")
         return 1
     }
@@ -525,7 +525,7 @@ test_file_io = () bool   {
     if read_res.is_err() {
         io.print_fmt("  Failed to read: {}\n", read_res.unwrap_err())
         all_passed = false
-    } else {
+    } | false {
         content := read_res.unwrap()
         if !string.equals(content, test_content) {
             io.print("  Read content doesn't match written content\n")
@@ -565,9 +565,9 @@ test_network = () bool   {
     if ip_res.is_err() {
         io.print("  Failed to parse IPv4 address\n")
         all_passed = false
-    } else {
+    } | false {
         ip := ip_res.unwrap()
-        match ip {
+        ip ?
             network.IpAddr.V4(octets) => {
                 if octets[0] != 127 || octets[1] != 0 || 
                    octets[2] != 0 || octets[3] != 1 {
@@ -597,7 +597,7 @@ test_network = () bool   {
     }
     
     method := network.string_to_method("POST")
-    match method {
+    method ?
         network.HttpMethod.POST => {},
         _ => {
             io.print("  String to HTTP method failed\n")

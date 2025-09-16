@@ -1,11 +1,11 @@
 // Comprehensive tests for Zen stdlib string module
 
-string = @std.string
-test = @std.test
-io = @std.io
-assert = @std.assert
-{ Vec, DynVec } = @std.collections
-core = @std.core
+string = @std
+test = @std
+io = @std
+assert = @std
+{ Vec, DynVec } = @std
+core = @std
 
 // Test string creation and basic operations
 test_string_creation = () void   {
@@ -264,14 +264,14 @@ test_string_parsing = () void   {
     test.suite_add_test(&suite, "Parse float", () void {
         s := string.from("3.14")
         f := s.parse_f64()
-        match f {
+        f ?
             | Ok(val) { assert.approx_equal(val, 3.14, 0.001) }
             | Err(_) { assert.fail("Failed to parse float") }
         }
         
         s2 := string.from("-2.5")
         f2 := s2.parse_f64()
-        match f2 {
+        f2 ?
             | Ok(val) { assert.approx_equal(val, -2.5, 0.001) }
             | Err(_) { assert.fail("Failed to parse negative float") }
         }
@@ -355,7 +355,7 @@ test_string_iteration = () void   {
         s := string.from("hello")
         indices := DynVec<(usize, char)>.new()
         
-        for (i, c) in s.char_indices() {
+        s.char_indices(.loop((i, c)) {
             indices.push((i, c)).unwrap()
         }
         

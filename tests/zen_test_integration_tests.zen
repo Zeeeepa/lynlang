@@ -1,14 +1,14 @@
 // Integration Tests for Zen Language
 // Tests real-world scenarios and module interactions
 
-test = @std.test
-io = @std.io
-fs = @std.fs
+test = @std
+io = @std
+fs = @std
 { net } = @std
-http = @std.http
-json = @std.json
-thread = @std.thread
-process = @std.process
+http = @std
+json = @std
+thread = @std
+process = @std
 
 // Test: Web server with JSON API
 test_web_server = test("Web Server Integration", () void => {

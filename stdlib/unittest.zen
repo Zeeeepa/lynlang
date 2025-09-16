@@ -1,10 +1,10 @@
 // Unit Testing Framework for Zen
 
-io = @std.io
-string = @std.string
-vec = @std.vec
-core = @std.core
-time = @std.time
+io = @std
+string = @std
+vec = @std
+core = @std
+time = @std
 
 // Test result types
 TestResult: Pass
@@ -272,7 +272,7 @@ run_suite = (suite: &TestSuite) TestStats   {
         result := run_test(&test)
         test_duration := time.now_ms() - test_start
         
-        match result {
+        result ?
             TestResult.Pass => {
                 io.printf("{}PASS{} ({}ms)\n", COLOR_GREEN, COLOR_RESET, test_duration)
                 stats.passed += 1
@@ -358,7 +358,7 @@ run_all = () TestStats   {
     // Overall result
     if total_stats.failed == 0 && total_stats.errors == 0 {
         io.printf("\n{}✓ All tests passed!{}\n", COLOR_GREEN, COLOR_RESET)
-    } else {
+    } | false {
         io.printf("\n{}✗ Some tests failed{}\n", COLOR_RED, COLOR_RESET)
     }
     

@@ -2,12 +2,12 @@
 // A compiler written in Zen that can compile Zen programs
 
 // Module imports at top level (not in comptime!)
-io = @std.io
-fs = @std.fs
-string = @std.string
-{ Vec, DynVec } = @std.collections
-core = @std.core
-process = @std.process
+io = @std
+fs = @std
+string = @std
+{ Vec, DynVec } = @std
+core = @std
+process = @std
 
 // Compiler version
 VERSION := "0.1.0"

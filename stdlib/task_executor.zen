@@ -1,10 +1,10 @@
 // Task Executor - Concurrent task execution system for Zen
 // Provides task execution with thread pool management (colorless - allocator controlled)
 
-core := @std.core
-build := @std.build
+core := @std
+build := @std
 thread := build.import("thread")
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 result := build.import("result")
 sync := build.import("sync")
 io := build.import("io")
@@ -93,7 +93,7 @@ new = (config: ExecutorConfig) TaskExecutor {
     executor.next_task_id = sync.Atomic.new(1)
     executor.shutdown = sync.Atomic.new(false)
     
-    if (config.enable_metrics) {
+    config.enable_metrics ? {
         executor.metrics = create_metrics()
     }
     
@@ -138,14 +138,14 @@ submit<T> = (executor: TaskExecutor, name: string, priority: Priority, func: () 
     }
     
     // Update metrics
-        if (executor.metrics != Option.None) {
+        executor.metrics != Option.None ? {
         executor.metrics.tasks_submitted.fetch_add(1)
     }
     
     // Add to queue based on priority
-    if (priority == Priority.Critical) {
+    priority == Priority.Critical ? {
         executor.task_queue.push_front(task)
-    } else {
+    } | false {
         executor.task_queue.push(task)
     }
     
@@ -158,7 +158,7 @@ worker_loop = (executor: TaskExecutor) void   {
         // Try to get a task from the queue
         task_opt := executor.task_queue.pop_timeout(100)
         
-        if (task_opt.is_some()) {
+        task_opt.is_some() ? {
             task_opt ? | .Some(task) {
             
             // Mark task as running
@@ -217,19 +217,19 @@ worker_loop = (executor: TaskExecutor) void   {
 wait_for = (executor: *TaskExecutor, task_id: u64) ?TaskResult<any>   {
     // Check if already completed
     executor.completed_tasks.loop((task) {
-        if (task.id == task_id) {
+        task.id == task_id ? {
             return task.result
         }
     })
     
     // Wait for task to complete
     loop {
-        if (executor.active_tasks.contains(task_id)) {
+        executor.active_tasks.contains(task_id) ? {
             thread.sleep(10)
-        } else {
+        } | false {
             // Check completed tasks again
-            for (task in executor.completed_tasks) {
-                if (task.id == task_id) {
+            executor.completed_tasks.loop((task) {
+                task.id == task_id ? {
                     return task.result
                 }
             }
@@ -242,13 +242,13 @@ wait_for = (executor: *TaskExecutor, task_id: u64) ?TaskResult<any>   {
 cancel = (executor: *TaskExecutor, task_id: u64) bool   {
     // Check if task is still pending
     queue_tasks := executor.task_queue.to_vec()
-    for (i, task in queue_tasks) {
-        if (task.id == task_id) {
+    queue_tasks.loop((i, task) {
+        task.id == task_id ? {
             task.status = TaskStatus.Cancelled
             task.result = TaskResult.Cancelled
             executor.task_queue.remove(i)
             
-            if (executor.metrics != null) {
+            executor.metrics != null ? {
                 executor.metrics.tasks_cancelled.fetch_add(1)
             }
             
@@ -263,22 +263,22 @@ cancel = (executor: *TaskExecutor, task_id: u64) bool   {
 // Get task status
 get_status = (executor: *TaskExecutor, task_id: u64) ?TaskStatus   {
     // Check active tasks
-    if (executor.active_tasks.contains(task_id)) {
+    executor.active_tasks.contains(task_id) ? {
         task := executor.active_tasks.get(task_id)
         return task.status
     }
     
     // Check completed tasks
-    for (task in executor.completed_tasks) {
-        if (task.id == task_id) {
+    executor.completed_tasks.loop((task) {
+        task.id == task_id ? {
             return task.status
         }
     }
     
     // Check queue
     queue_tasks := executor.task_queue.to_vec()
-    for (task in queue_tasks) {
-        if (task.id == task_id) {
+    queue_tasks.loop((task) {
+        task.id == task_id ? {
             return task.status
         }
     }
@@ -288,7 +288,7 @@ get_status = (executor: *TaskExecutor, task_id: u64) ?TaskStatus   {
 
 // Shutdown the executor
 shutdown = (executor: *TaskExecutor, wait_for_completion: bool) void   {
-    if (wait_for_completion) {
+    wait_for_completion ? {
         // Wait for all tasks to complete
         while (executor.task_queue.size() > 0 || executor.active_tasks.size() > 0) {
             thread.sleep(100)
@@ -299,7 +299,7 @@ shutdown = (executor: *TaskExecutor, wait_for_completion: bool) void   {
     executor.shutdown.store(true)
     
     // Join all worker threads
-    for (worker in executor.thread_pool) {
+    executor.thread_pool.loop((worker) {
         worker.join()
     }
 }
@@ -313,7 +313,7 @@ get_metrics = (executor: *TaskExecutor) ?ExecutorMetrics   {
 batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priority: Priority, func: fn()(TaskResult<T>}) []u64 {
     task_ids := DynVec.new()
     
-    for (task_info in tasks) {
+    tasks.loop((task_info) {
         id := submit(executor, task_info.name, task_info.priority, task_info.func)
         task_ids.push(id)
     }
@@ -325,9 +325,9 @@ batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priori
 wait_for_batch = (executor: *TaskExecutor, task_ids: []u64) []TaskResult<any>   {
     results := DynVec.new()
     
-    for (id in task_ids) {
+    task_ids.loop((id) {
         result := wait_for(executor, id)
-        if (result != null) {
+        result != null ? {
             results.push(result)
         }
     }
@@ -366,8 +366,8 @@ wait_group = (group: *TaskGroup) []TaskResult<any>   {
 // Cancel all tasks in the group
 cancel_group = (group: *TaskGroup) i32   {
     cancelled := 0
-    for (id in group.task_ids) {
-        if (cancel(group.executor, id)) {
+    group.task_ids.loop((id) {
+        cancel(group.executor, id) ? {
             cancelled += 1
         }
     }

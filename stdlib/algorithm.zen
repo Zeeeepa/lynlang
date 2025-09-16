@@ -1,8 +1,8 @@
 // Zen Standard Library - Algorithm Module
 // Common algorithms and data manipulation functions
 
-core = @std.core
-build = @std.build
+core = @std
+build = @std
 
 // Swap two values
 swap = (a: &T, b: &T) void   {
@@ -34,7 +34,7 @@ clamp = (value: T, min_val: T, max_val: T) T   {
 find = (arr: []T, value: T) ?usize   {
     i := 0
     while (i < arr.len) {
-        if (arr[i] == value) {
+        arr[i] == value ? {
             return i
         }
         i = i + 1
@@ -50,11 +50,11 @@ binary_search = (arr: []T, value: T) ?usize   {
     while (left <= right) {
         mid := (left + right) / 2
         
-        if (arr[mid] == value) {
+        arr[mid] == value ? {
             return mid
         } else if (arr[mid] < value) {
             left = mid + 1
-        } else {
+        } | false {
             right = mid - 1
         }
     }
@@ -110,7 +110,7 @@ is_sorted = (arr: []T) bool   {
     
     i := 1
     while (i < arr.len) {
-        if (arr[i-1] > arr[i]) {
+        arr[i-1] > arr[i] ? {
             return false
         }
         i = i + 1
@@ -123,7 +123,7 @@ is_sorted = (arr: []T) bool   {
 count = (arr: []T, value: T) usize   {
     result := 0
     for (arr) |item| {
-        if (item == value) {
+        item == value ? {
             result = result + 1
         }
     }
@@ -138,7 +138,7 @@ unique = (arr: []T) usize   {
     i := 1
     
     while (i < arr.len) {
-        if (arr[i] != arr[write_pos - 1]) {
+        arr[i] != arr[write_pos - 1] ? {
             arr[write_pos] = arr[i]
             write_pos = write_pos + 1
         }
@@ -155,7 +155,7 @@ partition = (arr: []T, low: usize, high: usize) usize   {
     
     j := low
     while (j < high) {
-        if (arr[j] <= pivot) {
+        arr[j] <= pivot ? {
             i = i + 1
             swap(&arr[i], &arr[j])
         }
@@ -168,10 +168,10 @@ partition = (arr: []T, low: usize, high: usize) usize   {
 
 // Quick sort implementation
 quicksort = (arr: []T, low: usize, high: usize) void   {
-    if (low < high) {
+    low < high ? {
         pi := partition(arr, low, high)
         
-        if (pi > 0) {
+        pi > 0 ? {
             quicksort(arr, low, pi - 1)
         }
         quicksort(arr, pi + 1, high)
@@ -180,7 +180,7 @@ quicksort = (arr: []T, low: usize, high: usize) void   {
 
 // Sort array using quicksort
 sort = (arr: []T) void   {
-    if (arr.len > 1) {
+    arr.len > 1 ? {
         quicksort(arr, 0, arr.len - 1)
     }
 }
@@ -193,10 +193,10 @@ merge = (arr1: []T, arr2: []T) []T   {
     k := 0
     
     while (i < arr1.len && j < arr2.len) {
-        if (arr1[i] <= arr2[j]) {
+        arr1[i] <= arr2[j] ? {
             result[k] = arr1[i]
             i = i + 1
-        } else {
+        } | false {
             result[k] = arr2[j]
             j = j + 1
         }
@@ -234,7 +234,7 @@ filter = (arr: []T, pred: fn(T) bool) []T {
     // Count matching elements
     count := 0
     for (arr) |item| {
-        if (pred(item)) {
+        pred(item) ? {
             count = count + 1
         }
     }
@@ -243,7 +243,7 @@ filter = (arr: []T, pred: fn(T) bool) []T {
     result := make([]T, count)
     j := 0
     for (arr) |item| {
-        if (pred(item)) {
+        pred(item) ? {
             result[j] = item
             j = j + 1
         }
@@ -264,7 +264,7 @@ reduce = (arr: []T, initial: U, f: fn(U, T) U) U {
 // Check if all elements satisfy predicate
 all = (arr: []T, pred: fn(T) bool) bool {
     for (arr) |item| {
-        if (!pred(item)) {
+        !pred(item) ? {
             return false
         }
     }
@@ -274,7 +274,7 @@ all = (arr: []T, pred: fn(T) bool) bool {
 // Check if any element satisfies predicate
 any = (arr: []T, pred: fn(T) bool) bool {
     for (arr) |item| {
-        if (pred(item)) {
+        pred(item) ? {
             return true
         }
     }
@@ -284,7 +284,7 @@ any = (arr: []T, pred: fn(T) bool) bool {
 // Find first element that satisfies predicate
 find_if = (arr: []T, pred: fn(T) bool) ?T {
     for (arr) |item| {
-        if (pred(item)) {
+        pred(item) ? {
             return item
         }
     }

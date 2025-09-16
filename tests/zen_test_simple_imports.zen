@@ -1,8 +1,8 @@
 // Simple test for module-level imports
 
 // Module imports - at module level, not in comptime
-core = @std.core
-build = @std.build
+core = @std
+build = @std
 
 // Simple function to test
 add = (a: i32, b: i32) i32   {

@@ -2,9 +2,9 @@
 // Tests all aspects of module imports without comptime wrapper
 
 // Standard library imports using @std notation
-io = @std.io
-math = @std.math
-core = @std.core
+io = @std
+math = @std
+core = @std
 
 // Test import usage in functions
 test_math_functions = () bool   {
@@ -89,7 +89,7 @@ main = () i32   {
     io.print("3. Core functions: ")
     if test_core_functions() {
         io.println("PASS")
-    } else {
+    } | false {
         io.println("FAIL")
         all_passed = false
     }
@@ -97,7 +97,7 @@ main = () i32   {
     io.print("4. Module-level imports: ")
     if verify_module_level_imports() {
         io.println("PASS")
-    } else {
+    } | false {
         io.println("FAIL")
         all_passed = false
     }
@@ -106,7 +106,7 @@ main = () i32   {
     if all_passed {
         io.println("All tests PASSED!")
         return 0
-    } else {
+    } | false {
         io.println("Some tests FAILED!")
         return 1
     }

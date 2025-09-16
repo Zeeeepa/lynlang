@@ -1,9 +1,9 @@
 // Basic self-hosting test
 // Tests that fundamental language features work correctly
 
-io = @std.io
-string = @std.string
-core = @std.core
+io = @std
+string = @std
+core = @std
 
 // Test function declarations
 add = (a: i32, b: i32) i32   {
@@ -23,7 +23,7 @@ Status:
 
 // Test pattern matching
 check_status = (s: Status) string   {
-    match s {
+    s ?
         | Status.Ok { "Success" }
         | Status.Error -> code { string.from_int(code) }
     }

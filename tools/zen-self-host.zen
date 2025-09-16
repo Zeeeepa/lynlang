@@ -1,11 +1,11 @@
 // Zen Self-Hosting Driver
 // Uses the Zen standard library compiler to compile Zen code
 
-io = @std.io
-fs = @std.fs
-string = @std.string
-core = @std.core
-build = @std.build
+io = @std
+fs = @std
+string = @std
+core = @std
+build = @std
 
 // Import compiler components
 lexer := build.import("compiler/lexer")
@@ -88,12 +88,12 @@ parse_args = (args: [string]) CompileOptions   {
     while i < args.len {
         arg := args[i]
         
-        match arg {
+        arg ?
             "-o" | "--output" => {
                 if i + 1 < args.len {
                     options.output_file = args[i + 1]
                     i += 2
-                } else {
+                } | false {
                     io.eprintln("Error: -o requires an argument")
                     core.exit(1)
                 }
@@ -102,7 +102,7 @@ parse_args = (args: [string]) CompileOptions   {
                 if i + 1 < args.len {
                     options.target = args[i + 1]
                     i += 2
-                } else {
+                } | false {
                     io.eprintln("Error: -t requires an argument")
                     core.exit(1)
                 }
@@ -123,7 +123,7 @@ parse_args = (args: [string]) CompileOptions   {
                 if arg.starts_with("-") {
                     io.eprintf("Unknown option: {}\n", arg)
                     core.exit(1)
-                } else {
+                } | false {
                     options.input_file = arg
                     i += 1
                 }
@@ -167,7 +167,7 @@ main = (args: [string]) i32   {
     options := parse_args(args)
     
     result := compile(options)
-    match result {
+    result ?
         Result.Ok => return 0,
         Result.Err -> err => {
             io.eprintf("Compilation error: {}\n", err)

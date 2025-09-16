@@ -102,7 +102,7 @@ init_package = (name: string, path: string) Result<void, string>   {
     
     // Create main.zen
     main_content := """// $(name) - Main entry point
-io = @std.io
+io = @std
 
 main = () i32 {
     io.print("Hello from $(name)!\\n");

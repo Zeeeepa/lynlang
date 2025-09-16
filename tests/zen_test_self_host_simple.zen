@@ -2,10 +2,10 @@
 // Tests basic compilation pipeline with the new import syntax
 
 // Import standard library modules (no comptime needed!)
-core = @std.core
-io = @std.io
-fs = @std.fs
-string = @std.string
+core = @std
+io = @std
+fs = @std
+string = @std
 
 // Test data structure to verify imports work
 TestResult: {
@@ -31,9 +31,9 @@ run_test = (name: string, test_fn: () bool) TestResult {
     
     result := test_fn()
     
-    if (result) {
+    result ? {
         io.print("✓ PASS\n")
-    } else {
+    } | false {
         io.print("✗ FAIL\n")
     }
     
@@ -65,7 +65,7 @@ test_control_flow = () bool   {
     
     result := if (value > 40) {
         true
-    } else {
+    } | false {
         false
     }
     
@@ -90,7 +90,7 @@ main = () i32   {
     // Count results
     loop i in 0..3 {
         tests_total = tests_total + 1
-        if (results[i].passed) {
+        results[i].passed ? {
             tests_passed = tests_passed + 1
         }
     }

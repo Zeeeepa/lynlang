@@ -2,12 +2,12 @@
 // Tests all language features and stdlib modules
 
 // Import test framework and modules
-test = @std.test
-io = @std.io
-string = @std.string
-math = @std.math
-fs = @std.fs
-collections = @std.collections
+test = @std
+io = @std
+string = @std
+math = @std
+fs = @std
+collections = @std
 
 // Language Feature Tests
 //========================

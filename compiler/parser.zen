@@ -2,7 +2,7 @@
 // This module parses tokens into an AST
 
 { build, core, string, lexer, errors } = @std
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 // Import token types from lexer
 Token := lexer.Token
 TokenKind := lexer.TokenKind
@@ -236,7 +236,7 @@ check = (parser: Ptr<Parser>, kind: TokenKind) bool   {
 }
 
 // Match and consume token if it matches
-match = (parser: Ptr<Parser>, kinds: DynVec<TokenKind>) bool   {
+= (parser: Ptr<Parser>, kinds: DynVec<TokenKind>) bool ?
     i := 0
     loop i < kinds.len() {
         check(parser, kinds[i]) ?

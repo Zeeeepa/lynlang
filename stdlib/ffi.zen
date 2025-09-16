@@ -2,9 +2,9 @@
 // Safe C interop according to Zen language spec v1.1.0
 // Provides builder pattern for creating FFI bindings safely
 
-build = @std.build
+build = @std
 core := build.import("core")
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 string := build.import("string")
 mem := build.import("mem")
 

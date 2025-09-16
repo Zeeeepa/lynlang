@@ -1,6 +1,6 @@
 // Test file to verify Vec/DynVec migration is working correctly
 
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 { core } = @std
 { io } = @std
 
