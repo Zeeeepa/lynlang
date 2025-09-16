@@ -1,0 +1,186 @@
+// Test implementation of LANGUAGE_SPEC.zen features
+// This test verifies all key language features work as specified
+
+// Only @std and @this are special symbols
+{ io, math } = @std
+{ Vec, DynVec } = @std
+{ Option, Result } = @std
+
+// Test 1: Option type (no null/nil)
+test_option = () void {
+    // Option type definition is in stdlib
+    maybe_value: Option<i32> = Option.Some(42)
+    
+    // Pattern matching with ?
+    maybe_value ?
+        | Some(v) { io.println("Value: ${v}") }
+        | None { io.println("No value") }
+    
+    // Boolean pattern matching (no if/else)
+    has_value = maybe_value.is_some()
+    has_value ? { 
+        io.println("Has a value") 
+    }
+}
+
+// Test 2: Mutable vs immutable assignment
+test_assignment = () void {
+    // Immutable assignment with =
+    x = 10
+    
+    // Mutable assignment with ::=
+    y ::= 20
+    y = y + 1  // Can modify mutable
+    
+    // Type definition with :
+    z: i32 = 30
+}
+
+// Test 3: Pattern matching with ? (no match/switch keywords)
+test_pattern_matching = () void {
+    result: Result<i32, string> = Result.Ok(100)
+    
+    result ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+}
+
+// Test 4: Error propagation with .raise()
+load_data = (path: string) Result<string, string> {
+    // Simulated file operation
+    Result.Err("File not found")
+}
+
+process_data = () Result<i32, string> {
+    // .raise() propagates errors automatically
+    data = load_data("/some/path").raise()
+    return Result.Ok(data.len())
+}
+
+// Test 5: Loops (no for/while keywords)
+test_loops = () void {
+    // Infinite loop
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 5 ?
+            | true { break }
+            | false { io.println("Count: ${counter}") }
+    })
+    
+    // Range loop
+    (0..10).loop((i) {
+        io.println("Index: ${i}")
+    })
+    
+    // Collection loop (UFC)
+    items = Vec<i32, 10>()
+    items.push(1)
+    items.push(2)
+    items.loop((item) {
+        io.println("Item: ${item}")
+    })
+}
+
+// Test 6: Explicit pointer types (no * or &)
+Point: {
+    x: f64,
+    y: f64,
+}
+
+test_pointers = () void {
+    p = Point { x: 10.0, y: 20.0 }
+    
+    // Explicit pointer types
+    p_ref: Ptr<Point> = p.ref()
+    p_mut: MutPtr<Point> = p.mut_ref()
+    
+    // Dereference with .val
+    io.println("X: ${p_ref.val.x}")
+    p_mut.val.x = 30.0
+    
+    // Get address with .addr
+    io.println("Address: ${p_ref.addr}")
+}
+
+// Test 7: UFC (Uniform Function Call)
+// Any function can be called as method
+double = (x: i32) i32 {
+    return x * 2
+}
+
+test_ufc = () void {
+    value = 5
+    
+    // Function call syntax
+    result1 = double(value)
+    
+    // UFC method syntax (once implemented)
+    // result2 = value.double()
+    
+    io.println("Doubled: ${result1}")
+}
+
+// Test 8: Enum types (sum types)
+Shape: Circle | Rectangle | Triangle
+
+test_enums = () void {
+    shape: Shape = Shape.Circle
+    
+    shape ?
+        | Circle { io.println("It's a circle") }
+        | Rectangle { io.println("It's a rectangle") }
+        | Triangle { io.println("It's a triangle") }
+}
+
+// Test 9: @this.defer for cleanup
+test_defer = () void {
+    // Allocate resource
+    resource = create_resource()
+    
+    // Ensure cleanup happens
+    @this.defer(resource.cleanup())
+    
+    // Use resource
+    resource.use()
+}
+
+create_resource = () Resource {
+    return Resource { data: "test" }
+}
+
+Resource: {
+    data: string,
+    
+    use: () void,
+    cleanup: () void,
+}
+
+Resource.use = (self) void {
+    io.println("Using resource: ${self.data}")
+}
+
+Resource.cleanup = (self) void {
+    io.println("Cleaning up resource")
+}
+
+// Main test runner
+main = () void {
+    io.println("Testing LANGUAGE_SPEC.zen features...")
+    
+    test_option()
+    test_assignment()
+    test_pattern_matching()
+    test_loops()
+    test_pointers()
+    test_ufc()
+    test_enums()
+    test_defer()
+    
+    // Test error propagation
+    process_data() ?
+        | Ok(len) { io.println("Data length: ${len}") }
+        | Err(e) { io.println("Processing failed: ${e}") }
+    
+    io.println("All tests completed!")
+}

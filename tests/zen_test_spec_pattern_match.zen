@@ -1,0 +1,19 @@
+// Test pattern matching with ? operator
+
+io = @std.io
+
+main = () void {
+    // Boolean pattern matching
+    is_ready = true
+    
+    // Single condition pattern (works like if)
+    is_ready ? {
+        io.println("System is ready")
+    }
+    
+    // Full pattern match (works like if-else)
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data...") }
+        | false { io.println("Waiting for data...") }
+}

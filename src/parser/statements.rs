@@ -768,7 +768,15 @@ impl<'a> Parser<'a> {
                 Ok(Statement::Return(expr))
             }
             Token::Identifier(id) if id == "loop" => {
-                self.parse_loop_statement()
+                // Check if this is loop() expression or loop{} statement
+                if self.peek_token == Token::Symbol('(') {
+                    // loop(() { ... }) - expression form
+                    let expr = self.parse_expression()?;
+                    Ok(Statement::Expression(expr))
+                } else {
+                    // loop { ... } - statement form
+                    self.parse_loop_statement()
+                }
             }
             Token::Identifier(id) if id == "break" => {
                 self.next_token();

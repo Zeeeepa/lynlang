@@ -1,0 +1,13 @@
+// Pattern debug test  
+io = @std.io
+
+Shape: Circle | Square
+
+main = () void {
+    s = Shape.Circle
+    
+    // Pattern with actual body
+    s ?
+        | Circle { io.println("Circle") }
+        | Square { io.println("Square") }
+}
