@@ -1,7 +1,7 @@
-// Test @std import syntax
-
-{ io } = @std
+// Test import syntax
+{ io, math } = @std
+sdl2 = @std.import("sdl2")
 
 main = () void {
-    io.println("Hello World")
+    io.println("Testing imports")
 }
