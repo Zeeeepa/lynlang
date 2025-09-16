@@ -54,6 +54,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::QuestionMatch { scrutinee, arms } => {
                 self.compile_conditional_expression(scrutinee, arms)
             }
+            Expression::Conditional { scrutinee, arms } => {
+                // Convert ConditionalArm to MatchArm for compilation
+                let match_arms: Vec<crate::ast::MatchArm> = arms.iter().map(|arm| {
+                    crate::ast::MatchArm {
+                        pattern: arm.pattern.clone(),
+                        guard: arm.guard.clone(),
+                        body: arm.body.clone(),
+                    }
+                }).collect();
+                self.compile_conditional_expression(scrutinee, &match_arms)
+            }
             Expression::AddressOf(expr) => {
                 self.compile_address_of(expr)
             }

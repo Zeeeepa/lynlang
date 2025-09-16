@@ -1,0 +1,10 @@
+// Test subset of LANGUAGE_SPEC.zen features
+// Start with simplest features and build up
+
+// 1. Simple direct import from @std  
+io = @std.io
+
+// 2. Function with simple parameter
+main = () void {
+    io.println("Testing spec subset")
+}

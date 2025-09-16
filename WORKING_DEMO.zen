@@ -1,0 +1,161 @@
+// ============================================================================
+// Zen Language - Working Demo showing current implementation
+// ============================================================================
+// This file demonstrates the features that are currently working in the
+// Zen compiler implementation.
+
+// ============================================================================
+// Core imports from @std (destructuring syntax)
+// ============================================================================
+{ io } = @std
+
+// ============================================================================
+// Enum Definitions with Generics
+// ============================================================================
+
+// Option type - no null!
+Option<T>: .Some(T) | .None
+
+// Result type for error handling
+Result<T, E>: .Ok(T) | .Err(E)
+
+// Simple enum
+Color: .Red | .Green | .Blue
+
+// ============================================================================
+// Struct Definitions
+// ============================================================================
+
+Point: {
+    x: f64,
+    y: f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// ============================================================================
+// Main Function - Feature Showcase
+// ============================================================================
+
+main = () void {
+    // =====================
+    // 1. Variable Declarations
+    // =====================
+    
+    // Immutable by default (single = operator)
+    x = 42
+    
+    // Mutable with ::= operator
+    counter ::= 0
+    counter = counter + 1
+    
+    // Type annotations
+    value: i32 = 100
+    pi: f64 = 3.14159
+    
+    // =====================
+    // 2. Pattern Matching with ? Operator
+    // =====================
+    
+    // Option type usage
+    maybe = .Some(42)
+    maybe ?
+        | .Some(val) { io.println("Value: 42") }
+        | .None { io.println("No value") }
+    
+    // Boolean pattern matching (short form)
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Boolean pattern matching (full form)
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // =====================
+    // 3. Loops
+    // =====================
+    
+    // Range loop with UFC syntax
+    (0..3).loop((i) {
+        io.println("Loop iteration")
+    })
+    
+    // Infinite loop with break
+    loop_count ::= 0
+    loop(() {
+        loop_count = loop_count + 1
+        loop_count > 2 ?
+            | true { break }
+            | false { io.println("Looping") }
+    })
+    
+    // =====================
+    // 4. Struct Literals
+    // =====================
+    
+    origin = Point { x: 0.0, y: 0.0 }
+    circle = Circle {
+        center: Point { x: 10.0, y: 10.0 },
+        radius: 5.0
+    }
+    
+    // =====================
+    // 5. Simple Enums
+    // =====================
+    
+    color = .Red
+    color ?
+        | .Red { io.println("Red color") }
+        | .Green { io.println("Green color") }
+        | .Blue { io.println("Blue color") }
+    
+    // =====================
+    // 6. Result Type Usage
+    // =====================
+    
+    result: Result<i32, String> = .Ok(100)
+    result ?
+        | .Ok(v) { io.println("Success") }
+        | .Err(e) { io.println("Error") }
+    
+    // =====================
+    // 7. Basic Arithmetic
+    // =====================
+    
+    a = 10
+    b = 20
+    sum = a + b
+    diff = b - a
+    prod = a * 2
+    
+    // =====================
+    // 8. Comparisons
+    // =====================
+    
+    x > 10 ?
+        | true { io.println("Greater") }
+        | false { io.println("Not greater") }
+}
+
+// ============================================================================
+// Additional Functions
+// ============================================================================
+
+// Function with parameters and return type
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Function returning Result
+safe_divide = (a: f64, b: f64) Result<f64, String> {
+    b == 0.0 ?
+        | true { return .Err("Division by zero") }
+        | false { return .Ok(a / b) }
+}

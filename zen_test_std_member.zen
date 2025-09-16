@@ -1,0 +1,9 @@
+// Test @std member access
+
+{ io } = @std
+
+main = () void {
+    // Try using member access on @std
+    test = @std
+    x = 1
+}
