@@ -66,16 +66,16 @@ build_report = (name: RawPtr<i8>, score: i32) void   {
     grade := 'F'
     score >= 90 ?
         | true { { grade = 'A'  }}
-        | false { { }
+        | false {
             score >= 80 ?
                 | true { { grade = 'B'  }}
-                | false { { }
+                | false {
                     score >= 70 ?
                         | true { { grade = 'C'  }}
-                        | false { { }
+                        | false {
                             score >= 60 ?
                                 | true { { grade = 'D'  }}
-                                | false { { }}
+                                | false {}
                         }
                 }
         }

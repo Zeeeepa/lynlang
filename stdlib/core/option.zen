@@ -42,7 +42,7 @@ and_then = <T, U>(opt: Option<T>, f: (T) Option<U>) Option<U> {
 // Filter an Option based on a predicate
 filter = <T>(opt: Option<T>, pred: (T) bool) Option<T> {
     opt ?
-        | Some(value) { { }
+        | Some(value) {
             pred(value) ?
                 | true { Option<T>.Some(value) }
                 | false { Option<T>.None }

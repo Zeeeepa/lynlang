@@ -89,9 +89,13 @@ builder = (b :: Build) void {
   maths
  } = @std
 { String, StringBuilder } = @std.string
+
 { requires, implements, reflect, meta, inline, simd } = @std.meta
+
 { GPA, AsyncPool, Allocator}  = @std.mem
+
 { Vec, DynVec}  = @std.collections
+
 { Actor, Channel, Mutex, AtomicU32 } = @std.concurrent
 
 sdl2 = @std.build.import("sdl2")
@@ -264,13 +268,13 @@ inspect_type = (T: type) void {
 }
 
 // Compile-time AST modification
-@meta.@comptime {
+@meta.comptime((){
     original = reflect.ast(parse_radius)
     new_body = original.body.prepend(
         AST.Call("io.println", ["Parsing radius from: ${s}"])
     )
     meta.replace(parse_radius, original.with_body(new_body))
-}
+})
 
 
 // Inline C/LLVM for low-level control

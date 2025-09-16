@@ -119,7 +119,7 @@ test("nested patterns") {
         | None
     
     nested := Option:Some(Result:Ok(42))
-    value := nested ? | .Some -> result { { }
+    value := nested ? | .Some -> result {
                           result ? | .Ok -> v { v }
                                   | .Err -> _ { -1 }
                       }

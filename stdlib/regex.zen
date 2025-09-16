@@ -64,7 +64,7 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
     
     // Handle escape sequences
     ch == 92 ? | true { { // backslash }
-        parser.position < parser.length ? | true { { }
+        parser.position < parser.length ? | true {
             escaped := parser.pattern[parser.position]
             parser.position = parser.position + 1
             
@@ -74,27 +74,27 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
                 result := malloc(@sizeof(RegexNode)) as *RegexNode
                 *result = node
                 return result
-            } | false { { }}
+            } | false {}
             
             escaped == 116 ? | true { { // \t }
                 node := RegexNode:Literal(9)
                 result := malloc(@sizeof(RegexNode)) as *RegexNode
                 *result = node
                 return result
-            } | false { { }}
+            } | false {}
             
             // Default: treat as literal
             node := RegexNode:Literal(escaped)
             result := malloc(@sizeof(RegexNode)) as *RegexNode
             *result = node
             return result
-        } | false { { }
+        } | false {
             node := RegexNode:Literal(ch)
             result := malloc(@sizeof(RegexNode)) as *RegexNode
             *result = node
             return result
         }
-    } | false { { }}
+    } | false {}
     
     // Dot metacharacter
     ch == 46 ? | true { { // . }
@@ -102,7 +102,7 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
-    } | false { { }}
+    } | false {}
     
     // Start anchor
     ch == 94 ? | true { { // ^ }
@@ -110,7 +110,7 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
-    } | false { { }}
+    } | false {}
     
     // End anchor
     ch == 36 ? | true { { // $ }
@@ -118,12 +118,12 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
-    } | false { { }}
+    } | false {}
     
     // Character class
     ch == 91 ? | true { { // [ }
         return regex_parse_char_class(parser)
-    } | false { { }}
+    } | false {}
     
     // Group
     ch == 40 ? | true { { // ( }
@@ -135,7 +135,7 @@ regex_parse_char = (parser: *RegexParser) *RegexNode {
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
-    } | false { { }}
+    } | false {}
     
     // Literal character
     node := RegexNode:Literal(ch)
@@ -154,17 +154,17 @@ regex_parse_char_class = (parser: *RegexParser) *RegexNode {
     parser.pattern[parser.position] == 94 ? | true { { // ^ }
         negated = true
         parser.position = parser.position + 1
-    } | false { { }}
+    } | false {}
     
     // Collect characters
     loop {
-        parser.position >= parser.length ? | true { { break  }} | false { { }}
+        parser.position >= parser.length ? | true { { break  }} | false {}
         
         ch := parser.pattern[parser.position]
         ch == 93 ? | true { { // ] }
             parser.position = parser.position + 1
             break
-        } | false { { }}
+        } | false {}
         
         // Handle range a-z
         parser.position + 2 < parser.length && 
@@ -178,7 +178,7 @@ regex_parse_char_class = (parser: *RegexParser) *RegexNode {
             })
             
             parser.position = parser.position + 3
-        } | false { { }
+        } | false {
             chars[char_count] = ch
             char_count = char_count + 1
             parser.position = parser.position + 1
@@ -199,20 +199,20 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
     node_count := 0
     
     loop {
-        parser.position >= parser.length ? | true { { break  }} | false { { }}
+        parser.position >= parser.length ? | true { { break  }} | false {}
         
         ch := parser.pattern[parser.position]
         
         // End of group or alternation
         ch == 41 || ch == 124 ? | true { { // ) or | }
             break
-        } | false { { }}
+        } | false {}
         
         // Parse atom
         atom := regex_parse_char(parser)
         
         // Check for quantifiers
-        parser.position < parser.length ? | true { { }
+        parser.position < parser.length ? | true {
             quant := parser.pattern[parser.position]
             
             quant == 42 ? | true { { // * }
@@ -220,30 +220,30 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
                 atom = malloc(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
-            } | false { { }}
+            } | false {}
             
             quant == 43 ? | true { { // + }
                 node := RegexNode:Plus(atom)
                 atom = malloc(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
-            } | false { { }}
+            } | false {}
             
             quant == 63 ? | true { { // ? }
                 node := RegexNode:Question(atom)
                 atom = malloc(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
-            } | false { { }}
-        } | false { { }}
+            } | false {}
+        } | false {}
         
         nodes[node_count] = *atom
         node_count = node_count + 1
     }
     
-    node_count == 1 ? | true { { }
+    node_count == 1 ? | true {
         return &nodes[0]
-    } | false { { }
+    } | false {
         node := RegexNode:Sequence(nodes, node_count)
         result := malloc(@sizeof(RegexNode)) as *RegexNode
         *result = node
@@ -265,127 +265,127 @@ regex_compile = (pattern: RawPtr<i8>) Regex   {
 
 // Match a single node at position
 regex_match_node = (node: *RegexNode, text: RawPtr<i8>, pos: i32, length: i32) (bool, i32) {
-    pos >= length ? | true { { }
+    pos >= length ? | true {
         // Check if node can match empty
         node ?
             | Star(_) { { return (true, pos)  }}
             | Question(_) { { return (true, pos)  }}
             | Anchor(false) { { return (true, pos)  }} // $ at end
             | _ { { return (false, pos)  }}
-    } | false { { }}
+    } | false {}
     
     node ?
-        | Literal(ch) { { }
-            text[pos] == ch ? | true { { }
+        | Literal(ch) {
+            text[pos] == ch ? | true {
                 return (true, pos + 1)
-            } | false { { }
+            } | false {
                 return (false, pos)
             }
         }
-        | Dot { { }
+        | Dot {
             text[pos] != 10 ? | true { { // Not newline }
                 return (true, pos + 1)
-            } | false { { }
+            } | false {
                 return (false, pos)
             }
         }
-        | CharClass(chars, negated) { { }
+        | CharClass(chars, negated) {
             // Check if character is in class
             found := false
             i := 0
             loop {
-                chars[i] == 0 ? | true { { break  }} | false { { }}
-                chars[i] == text[pos] ? | true { { }
+                chars[i] == 0 ? | true { { break  }} | false {}
+                chars[i] == text[pos] ? | true {
                     found = true
                     break
-                } | false { { }}
+                } | false {}
                 i = i + 1
             }
             
             match := negated ? | true { !found | false => found }
-            match ? | true { { }
+            match ? | true {
                 return (true, pos + 1)
-            } | false { { }
+            } | false {
                 return (false, pos)
             }
         }
-        | Star(child) { { }
+        | Star(child) {
             // Try to match zero or more
             new_pos := pos
             loop {
                 result := regex_match_node(child, text, new_pos, length)
-                result.0 ? | true { { }
+                result.0 ? | true {
                     new_pos = result.1
-                } | false { { }
+                } | false {
                     break
                 }
             }
             return (true, new_pos)
         }
-        | Plus(child) { { }
+        | Plus(child) {
             // Must match at least once
             result := regex_match_node(child, text, pos, length)
-            result.0 ? | false { { }
+            result.0 ? | false {
                 return (false, pos)
-            } | true { { }}
+            } | true {}
             
             // Match more if possible
             new_pos := result.1
             loop {
                 result2 := regex_match_node(child, text, new_pos, length)
-                result2.0 ? | true { { }
+                result2.0 ? | true {
                     new_pos = result2.1
-                } | false { { }
+                } | false {
                     break
                 }
             }
             return (true, new_pos)
         }
-        | Question(child) { { }
+        | Question(child) {
             // Try to match, but ok if it doesn't
             result := regex_match_node(child, text, pos, length)
-            result.0 ? | true { { }
+            result.0 ? | true {
                 return (true, result.1)
-            } | false { { }
+            } | false {
                 return (true, pos)
             }
         }
-        | Sequence(nodes, count) { { }
+        | Sequence(nodes, count) {
             new_pos := pos
             range(0, count).loop(i -> {
                 result := regex_match_node(&nodes[i], text, new_pos, length)
-                result.0 ? | true { { }
+                result.0 ? | true {
                     new_pos = result.1
-                } | false { { }
+                } | false {
                     return (false, pos)
                 }
             })
             return (true, new_pos)
         }
-        | Group(child, _) { { }
+        | Group(child, _) {
             return regex_match_node(child, text, pos, length)
         }
-        | Anchor(start) { { }
-            start ? | true { { }
-                pos == 0 ? | true { { }
+        | Anchor(start) {
+            start ? | true {
+                pos == 0 ? | true {
                     return (true, pos)
-                } | false { { }
+                } | false {
                     return (false, pos)
                 }
-            } | false { { }
-                pos == length ? | true { { }
+            } | false {
+                pos == length ? | true {
                     return (true, pos)
-                } | false { { }
+                } | false {
                     return (false, pos)
                 }
             }
         }
-        | Alternation(left, right) { { }
+        | Alternation(left, right) {
             // Try left first
             result := regex_match_node(left, text, pos, length)
-            result.0 ? | true { { }
+            result.0 ? | true {
                 return result
-            } | false { { }
+            } | false {
                 // Try right
                 return regex_match_node(right, text, pos, length)
             }
@@ -399,7 +399,7 @@ regex_match = (regex: Regex, text: RawPtr<i8>) RegexMatch   {
     // Try matching at each position
     range(0, length + 1).loop(start -> {
         result := regex_match_node(regex.root, text, start, length)
-        result.0 ? | true { { }
+        result.0 ? | true {
             return RegexMatch {
                 matched: true,
                 start: start,
@@ -407,7 +407,7 @@ regex_match = (regex: Regex, text: RawPtr<i8>) RegexMatch   {
                 groups: 0 as *RegexGroup,
                 group_count: 0,
             }
-        } | false { { }}
+        } | false {}
     })
     
     return RegexMatch {
@@ -431,9 +431,9 @@ regex_replace = (pattern: RawPtr<i8>, text: RawPtr<i8>, replacement: RawPtr<i8>)
     regex := regex_compile(pattern)
     match := regex_match(regex, text)
     
-    match.matched ? | false { { }
+    match.matched ? | false {
         return text
-    } | true { { }}
+    } | true {}
     
     text_len := strlen(text) as i32
     repl_len := strlen(replacement) as i32

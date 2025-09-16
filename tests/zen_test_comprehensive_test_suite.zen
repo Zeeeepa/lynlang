@@ -484,7 +484,7 @@ main = () i32   {
     success := runner.run();
     
     // Run benchmarks if all tests pass
-    success ? | true { { }
+    success ? | true {
         io.print("\nRunning Benchmarks...\n");
         io.print("====================\n");
         

@@ -70,7 +70,7 @@ test_keywords = () void   {
         
         tok.token_type ?
             | lexer.TokenType.Eof { break }
-            | _ { { }}
+            | _ {}
     }
 }
 
@@ -87,7 +87,7 @@ test_strings = () void   {
         
         tok.token_type ?
             | lexer.TokenType.Eof { break }
-            | _ { { }}
+            | _ {}
     }
 }
 
@@ -104,7 +104,7 @@ test_operators = () void   {
         
         tok.token_type ?
             | lexer.TokenType.Eof { break }
-            | _ { { }}
+            | _ {}
     }
 }
 
@@ -121,7 +121,7 @@ test_comments = () void   {
         
         tok.token_type ?
             | lexer.TokenType.Eof { break }
-            | _ { { }}
+            | _ {}
     }
 }
 

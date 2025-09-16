@@ -144,7 +144,7 @@ untrack_allocation = (ptr: Ptr<void>) void   {
     
     loop (current) {
         current ? 
-            | Option.Some(info) { { }
+            | Option.Some(info) {
                 (info.ptr == ptr) ? {
                     // Remove from list
                     prev ? 
@@ -241,11 +241,11 @@ pool_new = <T>(blocks_per_chunk: usize) Ptr<Pool<T>> {
 pool_allocate = <T>(pool: Ptr<Pool<T>>) Ptr<T> {
     // Check free list first
     pool.free_list ? 
-        | Option.Some(node) { { }
+        | Option.Some(node) {
             pool.free_list = node.next
             return ptrcast(Ptr<T>, node)
         }
-        | Option.None { { }
+        | Option.None {
             // Allocate new chunk
             allocate_pool_chunk(pool)
             return pool_allocate(pool)
@@ -281,7 +281,7 @@ pool_destroy = <T>(pool: Ptr<Pool<T>>) void {
     current := pool.chunks
     loop (current) {
         current ? 
-            | Option.Some(chunk) { { }
+            | Option.Some(chunk) {
                 next := chunk.next
                 deallocate(chunk.memory)
                 deallocate(chunk)
@@ -418,7 +418,7 @@ print_allocations = () void   {
     
     loop (current) {
         current ? 
-            | Option.Some(info) { { }
+            | Option.Some(info) {
                 io.printf("[{}] {} bytes at {}:{}\n", 
                          index, info.size, info.file, info.line)
                 current = info.next

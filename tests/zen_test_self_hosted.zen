@@ -25,20 +25,20 @@ TestResult: {
 
 // Enhanced assert with better error reporting
 assert = (condition: bool, test_name: string) bool   {
-    condition ? | true { { }
+    condition ? | true {
         printf("[PASS] %s\n", test_name)
         return true
-    } | false { { }
+    } | false {
         printf("[FAIL] %s\n", test_name)
         return false
     }
 }
 
 assert_eq = (actual: i64, expected: i64, test_name: string) bool   {
-    actual == expected ? | true { { }
+    actual == expected ? | true {
         printf("[PASS] %s\n", test_name)
         return true
-    } | false { { }
+    } | false {
         printf("[FAIL] %s: expected %d, got %d\n", test_name, expected, actual)
         return false
     }
@@ -96,7 +96,7 @@ test_conditional_loops = () bool   {
     loop value > 10 {
         value = value / 2
         steps = steps + 1
-        value < 20 ? | true { { break  }} | false { { }}
+        value < 20 ? | true { { break  }} | false {}
     }
     passed = passed && assert(value < 20, "Early exit condition")
     passed = passed && assert(steps > 0, "Loop executed steps")
@@ -121,9 +121,9 @@ test_vec_functional = () bool   {
     i := 0
     loop i < vec.vec_len(&v) {
         elem := vec.vec_get(&v, i)
-        elem ? | core.Option:Some(val) { { }
+        elem ? | core.Option:Some(val) {
             sum = sum + val
-        } | core.Option:None { { }}
+        } | core.Option:None {}
         i = i + 1
     }
     passed = passed && assert_eq(sum, 385, "Sum of squares 1-10")
@@ -133,11 +133,11 @@ test_vec_functional = () bool   {
     j := 0
     loop j < vec.vec_len(&v) {
         elem := vec.vec_get(&v, j)
-        elem ? | core.Option:Some(val) { { }
-            val > 25 ? | true { { }
+        elem ? | core.Option:Some(val) {
+            val > 25 ? | true {
                 vec.vec_push(&filtered, val)
-            } | false { { }}
-        } | core.Option:None { { }}
+            } | false {}
+        } | core.Option:None {}
         j = j + 1
     }
     passed = passed && assert_eq(vec.vec_len(&filtered), 5, "Filtered vec size")
@@ -162,9 +162,9 @@ test_hashmap_advanced = () bool   {
     loop idx < 10 {
         key := data[idx]
         current := hashmap.hashmap_get(&map, key)
-        current ? | core.Option:Some(count) { { }
+        current ? | core.Option:Some(count) {
             hashmap.hashmap_insert(&map, key, count + 1)
-        } | core.Option:None { { }
+        } | core.Option:None {
             hashmap.hashmap_insert(&map, key, 1)
         }
         idx = idx + 1
@@ -172,16 +172,16 @@ test_hashmap_advanced = () bool   {
     
     // Verify frequencies
     freq1 := hashmap.hashmap_get(&map, 1)
-    freq1 ? | core.Option:Some(count) { { }
+    freq1 ? | core.Option:Some(count) {
         passed = passed && assert_eq(count, 3, "Frequency of 1")
-    } | core.Option:None { { }
+    } | core.Option:None {
         passed = false
     }
     
     freq3 := hashmap.hashmap_get(&map, 3)
-    freq3 ? | core.Option:Some(count) { { }
+    freq3 ? | core.Option:Some(count) {
         passed = passed && assert_eq(count, 3, "Frequency of 3")
-    } | core.Option:None { { }
+    } | core.Option:None {
         passed = false
     }
     
@@ -206,11 +206,11 @@ test_algorithms = () bool   {
     loop i < n - 1 {
         j := 0
         loop j < n - i - 1 {
-            arr[j] > arr[j + 1] ? | true { { }
+            arr[j] > arr[j + 1] ? | true {
                 temp := arr[j]
                 arr[j] = arr[j + 1]
                 arr[j + 1] = temp
-            } | false { { }}
+            } | false {}
             j = j + 1
         }
         i = i + 1
@@ -228,13 +228,13 @@ test_algorithms = () bool   {
     
     loop left <= right && !found {
         mid := (left + right) / 2
-        arr[mid] == target ? | true { { }
+        arr[mid] == target ? | true {
             found = true
             position = mid
-        } | false { { }
-            arr[mid] < target ? | true { { }
+        } | false {
+            arr[mid] < target ? | true {
                 left = mid + 1
-            } | false { { }
+            } | false {
                 right = mid - 1
             }
         }
@@ -265,9 +265,9 @@ test_string_operations = () bool   {
     char_count := 0
     i := 0
     loop str[i] != 0 {
-        str[i] == 'l' ? | true { { }
+        str[i] == 'l' ? | true {
             char_count = char_count + 1
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
     passed = passed && assert_eq(char_count, 2, "Character 'l' count")
@@ -296,7 +296,7 @@ test_math_operations = () bool   {
     
     // Test fibonacci using loops
     fibonacci = (n: i64) i64   {
-        n <= 1 ? | true { { return n  }} | false { { }}
+        n <= 1 ? | true { { return n  }} | false {}
         
         prev := 0
         curr := 1
@@ -349,9 +349,9 @@ test_complex_structures = () bool   {
     sum := 0
     loop !vec.vec_is_empty(&stack) {
         popped := vec.vec_pop(&stack)
-        popped ? | core.Option:Some(val) { { }
+        popped ? | core.Option:Some(val) {
             sum = sum + val
-        } | core.Option:None { { }}
+        } | core.Option:None {}
     }
     passed = passed && assert_eq(sum, 150, "Sum of popped values")
     passed = passed && assert(vec.vec_is_empty(&stack), "Stack empty after pops")
@@ -401,9 +401,9 @@ main = () i32   {
     i := 0
     loop i < 8 {
         test_func := tests[i]
-        test_func() ? | true { { }
+        test_func() ? | true {
             results.passed = results.passed + 1
-        } | false { { }
+        } | false {
             results.failed = results.failed + 1
         }
         results.total = results.total + 1
@@ -418,12 +418,12 @@ main = () i32   {
     printf("Passed:      %d\n", results.passed)
     printf("Failed:      %d\n", results.failed)
     
-    results.failed == 0 ? | true { { }
+    results.failed == 0 ? | true {
         puts("\n[SUCCESS] All self-hosted tests passed!")
         puts("The Zen language successfully demonstrates")
         puts("its ability to implement complex systems.")
         return 0
-    } | false { { }
+    } | false {
         puts("\n[ERROR] Some tests failed.")
         puts("Please review the failures above.")
         return 1

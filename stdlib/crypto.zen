@@ -47,7 +47,7 @@ djb2_hash = (data: []u8, len: usize) u64   {
 // Simple XOR cipher (for demonstration only - NOT secure!)
 xor_cipher = (data: Ref<Array<u8>>, len: usize, key: []u8, key_len: usize) void   {
     key_len == 0 ? | true { return }
-                   | false { { }}
+                   | false {}
     
     i := 0: usize
     loop i < len {

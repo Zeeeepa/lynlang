@@ -16,31 +16,32 @@ test_pattern_matching = () bool   {
         | _ { "In progress" }
     
     result == "Perfect" ? 
-        | true { { }}
+        | true {}
         | false { return false }
     
     // Test range patterns
     age := 25
     category := age ?
-        | 0..=12 => "Child"
-        | 13..=19 => "Teen"
-        | 20..=64 => "Adult"
+        | 0..=12 { "Child" }
+        | 13..=19 { "Teen" }
+        | 20..=64 { "Adult" }
         | _ { "Senior" }
     
     category == "Adult" ?
-        | true { { }}
+        | true {}
         | false { return false }
     
-    // Test guards with ->
+    // Test guards with pattern matching
     value := 75
     size := value ?
-        | v -> v > 100 { "Large" }
-        | v -> v > 50 { "Medium" }
-        | v -> v > 0 { "Small" }
-        | _ { "Zero or negative" }
+        | v { v > 100 ? | true { "Large" } | false { 
+            v > 50 ? | true { "Medium" } | false {
+                v > 0 ? | true { "Small" } | false { "Zero or negative" }
+            }
+        } }
     
     size == "Medium" ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     // Test multiple patterns (or-patterns)
@@ -51,7 +52,7 @@ test_pattern_matching = () bool   {
         | _ { "Invalid day" }
     
     day_type == "Weekday" ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     return true
@@ -66,7 +67,7 @@ test_no_if_else_keywords = () bool   {
         | false { "no" }
     
     result == "yes" ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     // Test bool shorthand
@@ -84,18 +85,18 @@ test_error_as_values = () bool   {
     
     // Pattern match on Result
     success ?
-        | .Ok -> val { { }
+        | .Ok(val) {
             val == 42 ?
-                | true { { }}
+                | true {}
                 | false { return false }
         }
-        | .Err -> _ { return false }
+        | .Err(_) { return false }
     
     failure ?
-        | .Ok -> _ { return false }
-        | .Err -> err { { }
+        | .Ok(_) { return false }
+        | .Err(err) {
             err == "error" ?
-                | true { { }}
+                | true {}
                 | false { return false }
         }
     
@@ -105,16 +106,16 @@ test_error_as_values = () bool   {
     
     // Pattern match on Option
     some_value ?
-        | .Some -> val { { }
+        | .Some(val) {
             val == 10 ?
-                | true { { }}
+                | true {}
                 | false { return false }
         }
         | .None { return false }
     
     none_value ?
-        | .Some -> _ { return false }
-        | .None { { }}
+        | .Some(_) { return false }
+        | .None {}
     
     return true
 }
@@ -125,36 +126,40 @@ test_loop_keyword = () bool   {
     counter := 5
     sum := 0
     
-    loop (counter > 0) {
-        sum = sum + counter
-        counter = counter - 1
-    }
+    loop(() {
+        counter > 0 ?
+            | true {
+                sum = sum + counter
+                counter = counter - 1
+            }
+            | false { break }
+    })
     
     sum == 15 ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     // Range iteration
     range_sum := 0
-    (0..5).loop((i) => {
+    (0..5).loop((i) {
         range_sum = range_sum + i
     })
     
     range_sum == 10 ?  // 0 + 1 + 2 + 3 + 4
-        | true { { }}
+        | true {}
         | false { return false }
     
     // Break from infinite loop
     count := 0
-    loop {
+    loop(() {
         count = count + 1
         count >= 3 ? 
             | true { break }
-            | false { { }}
-    }
+            | false {}
+    })
     
     count == 3 ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     return true
@@ -171,7 +176,7 @@ test_struct_syntax = () bool   {
     p := Point{ x: 3.0, y: 4.0 }
     
     p.x == 3.0 && p.y == 4.0 ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     // No tuples - must use structs
@@ -183,7 +188,7 @@ test_struct_syntax = () bool   {
     pair := Pair{ first: 42, second: "answer" }
     
     pair.first == 42 && pair.second == "answer" ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     return true
@@ -199,14 +204,14 @@ test_variable_declarations = () bool   {
     counter = counter + 1
     
     counter == 1 ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     // Typed immutable
     MAX_SIZE: u32 = 1000
     
     MAX_SIZE == 1000 ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     // Typed mutable
@@ -214,7 +219,7 @@ test_variable_declarations = () bool   {
     buffer[0] = 65  // 'A'
     
     buffer[0] == 65 ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     return true
@@ -229,7 +234,7 @@ test_std_namespace = () bool   {
     build_exists := true  // If we got here, build exists
     
     build_exists ?
-        | true { { }}
+        | true {}
         | false { return false }
     
     return true
@@ -259,11 +264,11 @@ main = () i32   {
     io.print("  Failed: " + suite.failed + " ❌\n")
     
     suite.failed == 0 ?
-        | true { { }
+        | true {
             io.print("\n🎉 All tests passed! Language spec compliant.\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("\n❌ Some tests failed. Review spec compliance.\n")
             return 1
         }

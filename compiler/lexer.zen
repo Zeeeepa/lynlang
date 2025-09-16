@@ -114,7 +114,7 @@ is_keyword = (s: string) bool   {
     i := 0
     loop i < KEYWORDS.len() {
         KEYWORDS[i] == s ? | true { return true }
-                        | false { { }}
+                        | false {}
         i = i + 1
     }
     return false
@@ -135,16 +135,16 @@ peek_next = (lexer: Ptr<Lexer>) char   {
 // Advance position and return current character
 advance = (lexer: Ptr<Lexer>) char   {
     lexer.pos >= lexer.source.len() ? | true { return '\0' }
-                                      | false { { }
+                                      | false {
             c := lexer.source[lexer.pos]
             lexer.pos = lexer.pos + 1
             lexer.column = lexer.column + 1
             
-            c == '\n' ? | true { { }
+            c == '\n' ? | true {
                     lexer.line = lexer.line + 1
                     lexer.column = 1
                 }
-                | false { { }}
+                | false {}
             
             return c
         }
@@ -178,7 +178,7 @@ skip_block_comment = (lexer: Ptr<Lexer>) bool   {
     // Find */
     loop peek(lexer) != '\0' {
         peek(lexer) == '*' && peek_next(lexer) == '/' ?
-            | true { { }
+            | true {
                 advance(lexer)
                 advance(lexer)
                 return true
@@ -197,7 +197,7 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
     
     // Check for hex literal
     peek(lexer) == '0' && (peek_next(lexer) == 'x' || peek_next(lexer) == 'X') ?
-        | true { { }
+        | true {
             advance(lexer)  // 0
             advance(lexer)  // x
             
@@ -207,7 +207,7 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
                 advance(lexer)
             }
         }
-        | false { { }
+        | false {
             // Read decimal digits
             loop is_digit(peek(lexer)) {
                 advance(lexer)
@@ -215,7 +215,7 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
             
             // Check for float
             peek(lexer) == '.' && is_digit(peek_next(lexer)) ?
-                | true { { }
+                | true {
                     advance(lexer)  // .
                     
                     // Read fractional part
@@ -225,17 +225,17 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
                     
                     // Check for exponent
                     (peek(lexer) == 'e' || peek(lexer) == 'E') ?
-                        | true { { }
+                        | true {
                             advance(lexer)
                             (peek(lexer) == '+' || peek(lexer) == '-') ?
                                 | true { advance(lexer) }
-                                | false { { }}
+                                | false {}
                             
                             loop is_digit(peek(lexer)) {
                                 advance(lexer)
                             }
                         }
-                        | false { { }}
+                        | false {}
                     
                     // Return float token
                     value_str := string_slice(lexer.source, start, lexer.pos)
@@ -246,7 +246,7 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
                         column: start_column,
                     }
                 }
-                | false { { }}
+                | false {}
         }
     
     // Return integer token
@@ -270,7 +270,7 @@ lex_string = (lexer: Ptr<Lexer>) Token   {
     
     loop peek(lexer) != quote && peek(lexer) != '\0' {
         peek(lexer) == '\\' ?
-            | true { { }
+            | true {
                 advance(lexer)  // \
                 c := advance(lexer)
                 
@@ -288,7 +288,7 @@ lex_string = (lexer: Ptr<Lexer>) Token   {
     }
     
     peek(lexer) == quote ?
-        | true { { }
+        | true {
             advance(lexer)
             
             // Character literal if single quote and single char
@@ -335,7 +335,7 @@ lex_identifier = (lexer: Ptr<Lexer>) Token   {
             line: start_line,
             column: start_column,
         }
-        | false { { }}
+        | false {}
     
     ident == "false" ?
         | true { return Token { }
@@ -344,7 +344,7 @@ lex_identifier = (lexer: Ptr<Lexer>) Token   {
             line: start_line,
             column: start_column,
         }
-        | false { { }}
+        | false {}
     
     // Check if it's a keyword
     is_keyword(ident) ?
@@ -370,9 +370,9 @@ next_token = (lexer: Ptr<Lexer>) Token   {
         
         peek(lexer) == '/' && peek_next(lexer) == '/' ?
             | true { skip_line_comment(lexer) }
-            | false { { }
+            | false {
                 peek(lexer) == '/' && peek_next(lexer) == '*' ?
-                    | true { { }
+                    | true {
                         skip_block_comment(lexer) ?
                             | false { return Token { }
                                 kind: TokenKind { tag: "Invalid", value: "Unterminated block comment" },
@@ -380,7 +380,7 @@ next_token = (lexer: Ptr<Lexer>) Token   {
                                 line: lexer.line,
                                 column: lexer.column,
                             }
-                            | true { { }}
+                            | true {}
                     }
                     | false { break }
             }
@@ -400,22 +400,22 @@ next_token = (lexer: Ptr<Lexer>) Token   {
             line: start_line,
             column: start_column,
         }
-        | false { { }}
+        | false {}
     
     // Numbers
     is_digit(c) ?
         | true { return lex_number(lexer) }
-        | false { { }}
+        | false {}
     
     // Strings and chars
     (c == '"' || c == '\'') ?
         | true { return lex_string(lexer) }
-        | false { { }}
+        | false {}
     
     // Identifiers and keywords
     is_ident_start(c) ?
         | true { return lex_identifier(lexer) }
-        | false { { }}
+        | false {}
     
     // Operators and punctuation
     c := advance(lexer)
@@ -423,40 +423,40 @@ next_token = (lexer: Ptr<Lexer>) Token   {
     
     // Two-character operators
     c ?
-        | '+' { { }
+        | '+' {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("PlusAssign", start, lexer.pos, start_line, start_column)
                 }
                 | false { return make_token("Plus", start, lexer.pos, start_line, start_column) }
         }
-        | '-' { { }
+        | '-' {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("MinusAssign", start, lexer.pos, start_line, start_column)
                 }
-                | false { { }
+                | false {
                     next == '>' ?
-                        | true { { }
+                        | true {
                             advance(lexer)
                             return make_token("Arrow", start, lexer.pos, start_line, start_column)
                         }
                         | false { return make_token("Minus", start, lexer.pos, start_line, start_column) }
                 }
         }
-        | '*' { { }
+        | '*' {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("StarAssign", start, lexer.pos, start_line, start_column)
                 }
                 | false { return make_token("Star", start, lexer.pos, start_line, start_column) }
         }
-        | '/' { { }
+        | '/' {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("SlashAssign", start, lexer.pos, start_line, start_column)
                 }
@@ -464,22 +464,22 @@ next_token = (lexer: Ptr<Lexer>) Token   {
         }
         | '=' => {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("Equal", start, lexer.pos, start_line, start_column)
                 }
-                | false { { }
+                | false {
                     next == '>' ?
-                        | true { { }
+                        | true {
                             advance(lexer)
                             return make_token("FatArrow", start, lexer.pos, start_line, start_column)
                         }
                         | false { return make_token("Assign", start, lexer.pos, start_line, start_column) }
                 }
         }
-        | '!' { { }
+        | '!' {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("NotEqual", start, lexer.pos, start_line, start_column)
                 }
@@ -490,59 +490,59 @@ next_token = (lexer: Ptr<Lexer>) Token   {
                     column: start_column,
                 }
         }
-        | '<' { { }
+        | '<' {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("LessEqual", start, lexer.pos, start_line, start_column)
                 }
-                | false { { }
+                | false {
                     next == '<' ?
-                        | true { { }
+                        | true {
                             advance(lexer)
                             return make_token("LShift", start, lexer.pos, start_line, start_column)
                         }
                         | false { return make_token("Less", start, lexer.pos, start_line, start_column) }
                 }
         }
-        | '>' { { }
+        | '>' {
             next == '=' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("GreaterEqual", start, lexer.pos, start_line, start_column)
                 }
-                | false { { }
+                | false {
                     next == '>' ?
-                        | true { { }
+                        | true {
                             advance(lexer)
                             return make_token("RShift", start, lexer.pos, start_line, start_column)
                         }
                         | false { return make_token("Greater", start, lexer.pos, start_line, start_column) }
                 }
         }
-        | ':' { { }
+        | ':' {
             next == ':' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     peek(lexer) == '=' ?
-                        | true { { }
+                        | true {
                             advance(lexer)
                             return make_token("ColonColonAssign", start, lexer.pos, start_line, start_column)
                         }
                         | false { return make_token("ColonColon", start, lexer.pos, start_line, start_column) }
                 }
-                | false { { }
+                | false {
                     next == '=' ?
-                        | true { { }
+                        | true {
                             advance(lexer)
                             return make_token("ColonAssign", start, lexer.pos, start_line, start_column)
                         }
                         | false { return make_token("Colon", start, lexer.pos, start_line, start_column) }
                 }
         }
-        | '.' { { }
+        | '.' {
             next == '.' ?
-                | true { { }
+                | true {
                     advance(lexer)
                     return make_token("DotDot", start, lexer.pos, start_line, start_column)
                 }
@@ -582,7 +582,7 @@ tokenize = (lexer: Ptr<Lexer>) Vec<Token>   {
         
         token.kind ?
             | TokenKind.Eof { break }
-            | _ { { }}
+            | _ {}
     }
     
     return lexer.tokens

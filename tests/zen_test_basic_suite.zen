@@ -12,11 +12,11 @@ test_arithmetic = () bool   {
     diff := a - b
     
     sum == 15 && diff == 5 ?
-        | true { { }
+        | true {
             io.println("✓ Arithmetic test passed")
             return true
         }
-        | false { { }
+        | false {
             io.println("✗ Arithmetic test failed")
             return false
         }
@@ -27,11 +27,11 @@ test_conditions = () bool   {
     x := 10
     
     x > 5 ?
-        | true { { }
+        | true {
             io.println("✓ Condition test passed")
             return true
         }
-        | false { { }
+        | false {
             io.println("✗ Condition test failed")
             return false
         }
@@ -48,11 +48,11 @@ test_loop = () bool   {
     }
     
     count == 5 ?
-        | true { { }
+        | true {
             io.println("✓ Loop test passed")
             return true
         }
-        | false { { }
+        | false {
             io.println("✗ Loop test failed")
             return false
         }
@@ -86,11 +86,11 @@ main = () i32   {
     io.println("0")
     
     failed == 0 ?
-        | true { { }
+        | true {
             io.println("\nAll tests passed!")
             return 0
         }
-        | false { { }
+        | false {
             io.println("\nSome tests failed")
             return 1
         }

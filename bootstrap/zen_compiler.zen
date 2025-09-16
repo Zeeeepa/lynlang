@@ -13,73 +13,71 @@
 VERSION := "0.1.0"
 
 // Token types for lexer
-TokenType =
+TokenType:
     // Literals
-    IntLiteral,
-    FloatLiteral,
-    StringLiteral,
-    CharLiteral,
-    BoolLiteral,
+    .IntLiteral |
+    .FloatLiteral |
+    .StringLiteral |
+    .CharLiteral |
+    .BoolLiteral |
     
     // Identifiers and keywords
-    Identifier,
-    Return,
-    If,
-    Else,
-    Loop,
-    Break,
-    Continue,
-    Const,
-    Enum,
-    Struct,
-    Comptime,
-    Import,
+    .Identifier |
+    .Return |
+    .Loop |
+    .Break |
+    .Continue |
+    .Const |
+    .Enum |
+    .Struct |
+    .Comptime |
+    .Import |
     
     // Types
-    I32,
-    I64,
-    U32,
-    U64,
-    F32,
-    F64,
-    Bool,
-    Void,
+    .I32 |
+    .I64 |
+    .U32 |
+    .U64 |
+    .F32 |
+    .F64 |
+    .Bool |
+    .Void |
     
     // Operators
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Percent,
-    Equal,
-    NotEqual,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
-    And,
-    Or,
-    Not,
-    Assign,
-    ColonAssign,
-    Arrow,
+    .Plus |
+    .Minus |
+    .Star |
+    .Slash |
+    .Percent |
+    .Equal |
+    .NotEqual |
+    .Less |
+    .Greater |
+    .LessEqual |
+    .GreaterEqual |
+    .And |
+    .Or |
+    .Not |
+    .Assign |
+    .ColonAssign |
+    .PatternMatch |
     
     // Delimiters
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    LeftBracket,
-    RightBracket,
-    Comma,
-    Dot,
-    Semicolon,
-    Colon,
-    At,
+    .LeftParen |
+    .RightParen |
+    .LeftBrace |
+    .RightBrace |
+    .LeftBracket |
+    .RightBracket |
+    .Comma |
+    .Dot |
+    .Semicolon |
+    .Colon |
+    .At |
     
     // Special
-    Eof,
-    Error
+    .Eof |
+    .Error
 
 // Token structure
 Token: {
@@ -116,9 +114,9 @@ is_at_end = (lexer: &Lexer) bool   {
 
 // Get current character
 peek = (lexer: &Lexer) u8   {
-    if is_at_end(lexer) {
-        return 0
-    }
+    is_at_end(lexer) ?
+        | true { return 0 }
+        | false { }
     return string.char_at(lexer.source, lexer.current)
 }
 
@@ -127,10 +125,12 @@ advance = (lexer: &mut Lexer) u8   {
     c := peek(lexer);
     lexer.current = lexer.current + 1;
     lexer.column = lexer.column + 1;
-    if c == '\n' {
-        lexer.line = lexer.line + 1;
-        lexer.column = 1;
-    }
+    c == '\n' ?
+        | true {
+            lexer.line = lexer.line + 1
+            lexer.column = 1
+        }
+        | false { }
     return c
 }
 
@@ -138,27 +138,29 @@ advance = (lexer: &mut Lexer) u8   {
 skip_whitespace = (lexer: &mut Lexer) void   {
     loop {
         c := peek(lexer);
-        if c == ' ' || c == '\r' || c == '\t' || c == '\n' {
-            advance(lexer);
-        } else if c == '/' && peek_next(lexer) == '/' {
-            // Skip line comment
-            loop {
-                if peek(lexer) == '\n' || is_at_end(lexer) {
-                    break
-                }
-                advance(lexer);
+        c == ' ' || c == '\r' || c == '\t' || c == '\n' ?
+            | true { advance(lexer) }
+            | false {
+                c == '/' && peek_next(lexer) == '/' ?
+                    | true {
+                        // Skip line comment
+                        loop(() {
+                            peek(lexer) == '\n' || is_at_end(lexer) ?
+                                | true { break }
+                                | false { }
+                            advance(lexer)
+                        })
+                    }
+                    | false { break }
             }
-        } else {
-            break
-        }
     }
 }
 
 // Peek next character
 peek_next = (lexer: &Lexer) u8   {
-    if lexer.current + 1 >= string.len(lexer.source) {
-        return 0
-    }
+    lexer.current + 1 >= string.len(lexer.source) ?
+        | true { return 0 }
+        | false { }
     return string.char_at(lexer.source, lexer.current + 1)
 }
 
@@ -178,39 +180,34 @@ scan_identifier = (lexer: &mut Lexer) void   {
     start := lexer.current - 1;
     loop {
         c := peek(lexer);
-        if is_alpha(c) || is_digit(c) || c == '_' {
-            advance(lexer);
-        } else {
-            break
-        }
+        is_alpha(c) || is_digit(c) || c == '_' ?
+            | true { advance(lexer) }
+            | false { break }
     }
     
     text := string.slice(lexer.source, start, lexer.current);
     
     // Check for keywords
-    type := match text {
-        "return" => TokenType.Return,
-        "if" => TokenType.If,
-        "else" => TokenType.Else,
-        "loop" => TokenType.Loop,
-        "break" => TokenType.Break,
-        "continue" => TokenType.Continue,
-        "const" => TokenType.Const,
-        "enum" => TokenType.Enum,
-        "struct" => TokenType.Struct,
-        "comptime" => TokenType.Comptime,
-        "import" => TokenType.Import,
-        "i32" => TokenType.I32,
-        "i64" => TokenType.I64,
-        "u32" => TokenType.U32,
-        "u64" => TokenType.U64,
-        "f32" => TokenType.F32,
-        "f64" => TokenType.F64,
-        "bool" => TokenType.Bool,
-        "void" => TokenType.Void,
-        "true" | "false" { TokenType.BoolLiteral, }
-        _ => TokenType.Identifier,
-    };
+    type := text ?
+        | "return" { TokenType.Return }
+        | "loop" { TokenType.Loop }
+        | "break" { TokenType.Break }
+        | "continue" { TokenType.Continue }
+        | "const" { TokenType.Const }
+        | "enum" { TokenType.Enum }
+        | "struct" { TokenType.Struct }
+        | "comptime" { TokenType.Comptime }
+        | "import" { TokenType.Import }
+        | "i32" { TokenType.I32 }
+        | "i64" { TokenType.I64 }
+        | "u32" { TokenType.U32 }
+        | "u64" { TokenType.U64 }
+        | "f32" { TokenType.F32 }
+        | "f64" { TokenType.F64 }
+        | "bool" { TokenType.Bool }
+        | "void" { TokenType.Void }
+        | "true" | "false" { TokenType.BoolLiteral }
+        | _ { TokenType.Identifier }
     
     add_token(lexer, type, text);
 }
@@ -222,18 +219,22 @@ scan_number = (lexer: &mut Lexer) void   {
     
     loop {
         c := peek(lexer);
-        if is_digit(c) {
-            advance(lexer);
-        } else if c == '.' && !is_float && is_digit(peek_next(lexer)) {
-            is_float = true;
-            advance(lexer);
-        } else {
-            break
-        }
+        is_digit(c) ?
+            | true { advance(lexer) }
+            | false {
+                c == '.' && !is_float && is_digit(peek_next(lexer)) ?
+                    | true {
+                        is_float = true
+                        advance(lexer)
+                    }
+                    | false { break }
+            }
     }
     
     text := string.slice(lexer.source, start, lexer.current);
-    type := if is_float { TokenType.FloatLiteral } else { TokenType.IntLiteral };
+    type := is_float ?
+        | true { TokenType.FloatLiteral }
+        | false { TokenType.IntLiteral }
     add_token(lexer, type, text);
 }
 
@@ -242,19 +243,21 @@ scan_string = (lexer: &mut Lexer) void   {
     start := lexer.current;
     
     loop {
-        if peek(lexer) == '"' || is_at_end(lexer) {
-            break
-        }
-        if peek(lexer) == '\n' {
-            lexer.line = lexer.line + 1;
-        }
+        peek(lexer) == '"' || is_at_end(lexer) ?
+            | true { break }
+            | false { }
+        peek(lexer) == '\n' ?
+            | true { lexer.line = lexer.line + 1 }
+            | false { }
         advance(lexer);
     }
     
-    if is_at_end(lexer) {
-        add_token(lexer, TokenType.Error, "Unterminated string");
-        return
-    }
+    is_at_end(lexer) ?
+        | true {
+            add_token(lexer, TokenType.Error, "Unterminated string")
+            return
+        }
+        | false { }
     
     advance(lexer); // Closing "
     text := string.slice(lexer.source, start, lexer.current - 1);
@@ -274,107 +277,123 @@ is_digit = (c: u8) bool   {
 // Scan all tokens
 scan_tokens = (lexer: &mut Lexer) void   {
     loop {
-        if is_at_end(lexer) {
-            break
-        }
+        is_at_end(lexer) ?
+            | true { break }
+            | false { }
         
-        skip_whitespace(lexer);
-        if is_at_end(lexer) {
-            break
-        }
+        skip_whitespace(lexer)
+        is_at_end(lexer) ?
+            | true { break }
+            | false { }
         
         c := advance(lexer);
         
-        match c {
+        c ? {
             // Single character tokens
-            '(' => add_token(lexer, TokenType.LeftParen, "("),
-            ')' => add_token(lexer, TokenType.RightParen, ")"),
-            '{' => add_token(lexer, TokenType.LeftBrace, "{"),
-            '}' => add_token(lexer, TokenType.RightBrace, "}"),
-            '[' => add_token(lexer, TokenType.LeftBracket, "["),
-            ']' => add_token(lexer, TokenType.RightBracket, "]"),
-            ',' => add_token(lexer, TokenType.Comma, ","),
-            '.' => add_token(lexer, TokenType.Dot, "."),
-            ';' => add_token(lexer, TokenType.Semicolon, ";"),
-            '+' => add_token(lexer, TokenType.Plus, "+"),
-            '-' => {
-                if peek(lexer) == '>' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.Arrow, "->");
-                } else {
-                    add_token(lexer, TokenType.Minus, "-");
-                }
-            },
-            '*' => add_token(lexer, TokenType.Star, "*"),
-            '/' => add_token(lexer, TokenType.Slash, "/"),
-            '%' => add_token(lexer, TokenType.Percent, "%"),
-            '@' => add_token(lexer, TokenType.At, "@"),
+            | '(' { add_token(lexer, TokenType.LeftParen, "(") }
+            | ')' { add_token(lexer, TokenType.RightParen, ")") }
+            | '{' { add_token(lexer, TokenType.LeftBrace, "{") }
+            | '}' { add_token(lexer, TokenType.RightBrace, "}") }
+            | '[' { add_token(lexer, TokenType.LeftBracket, "[") }
+            | ']' { add_token(lexer, TokenType.RightBracket, "]") }
+            | ',' { add_token(lexer, TokenType.Comma, ",") }
+            | '.' { add_token(lexer, TokenType.Dot, ".") }
+            | ';' { add_token(lexer, TokenType.Semicolon, ";") }
+            | '+' { add_token(lexer, TokenType.Plus, "+") }
+            | '-' {
+                peek(lexer) == '?' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.PatternMatch, "-?")
+                    }
+                    | false {
+                        add_token(lexer, TokenType.Minus, "-")
+                    }
+            }
+            | '*' { add_token(lexer, TokenType.Star, "*") }
+            | '/' { add_token(lexer, TokenType.Slash, "/") }
+            | '%' { add_token(lexer, TokenType.Percent, "%") }
+            | '@' { add_token(lexer, TokenType.At, "@") }
             
             // Two character tokens
-            ':' => {
-                if peek(lexer) == '=' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.ColonAssign, ":=");
-                } else {
-                    add_token(lexer, TokenType.Colon, ":");
-                }
-            },
-            '=' => {
-                if peek(lexer) == '=' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.Equal, "==");
-                } else {
-                    add_token(lexer, TokenType.Assign, "=");
-                }
-            },
-            '!' => {
-                if peek(lexer) == '=' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.NotEqual, "!=");
-                } else {
-                    add_token(lexer, TokenType.Not, "!");
-                }
-            },
-            '<' => {
-                if peek(lexer) == '=' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.LessEqual, "<=");
-                } else {
-                    add_token(lexer, TokenType.Less, "<");
-                }
-            },
-            '>' => {
-                if peek(lexer) == '=' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.GreaterEqual, ">=");
-                } else {
-                    add_token(lexer, TokenType.Greater, ">");
-                }
-            },
-            '&' => {
-                if peek(lexer) == '&' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.And, "&&");
-                }
-            },
-            '|' => {
-                if peek(lexer) == '|' {
-                    advance(lexer);
-                    add_token(lexer, TokenType.Or, "||");
-                }
-            },
+            | ':' {
+                peek(lexer) == '=' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.ColonAssign, ":=")
+                    }
+                    | false {
+                        add_token(lexer, TokenType.Colon, ":")
+                    }
+            }
+            | '=' {
+                peek(lexer) == '=' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.Equal, "==")
+                    }
+                    | false {
+                        add_token(lexer, TokenType.Assign, "=")
+                    }
+            }
+            | '!' {
+                peek(lexer) == '=' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.NotEqual, "!=")
+                    }
+                    | false {
+                        add_token(lexer, TokenType.Not, "!")
+                    }
+            }
+            | '<' {
+                peek(lexer) == '=' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.LessEqual, "<=")
+                    }
+                    | false {
+                        add_token(lexer, TokenType.Less, "<")
+                    }
+            }
+            | '>' {
+                peek(lexer) == '=' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.GreaterEqual, ">=")
+                    }
+                    | false {
+                        add_token(lexer, TokenType.Greater, ">")
+                    }
+            }
+            | '&' {
+                peek(lexer) == '&' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.And, "&&")
+                    }
+                    | false { }
+            }
+            | '|' {
+                peek(lexer) == '|' ?
+                    | true {
+                        advance(lexer)
+                        add_token(lexer, TokenType.Or, "||")
+                    }
+                    | false { }
+            }
             
             // Literals
-            '"' => scan_string(lexer),
+            | '"' { scan_string(lexer) }
             
-            _ => {
-                if is_alpha(c) || c == '_' {
-                    scan_identifier(lexer);
-                } else if is_digit(c) {
-                    scan_number(lexer);
-                } else {
-                    add_token(lexer, TokenType.Error, string.from_char(c));
-                }
+            | _ {
+                is_alpha(c) || c == '_' ?
+                    | true { scan_identifier(lexer) }
+                    | false {
+                        is_digit(c) ?
+                            | true { scan_number(lexer) }
+                            | false { add_token(lexer, TokenType.Error, string.from_char(c)) }
+                    }
             }
         }
     }
@@ -383,50 +402,52 @@ scan_tokens = (lexer: &mut Lexer) void   {
 }
 
 // Simple AST nodes
-AstNode =
-    Program { declarations: vec.Vec<Declaration> },
-    FunctionDecl { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> },
-    VariableDecl { name: string, type: string, value: Expression },
-    ImportDecl { alias: string, path: string }
+AstNode:
+    .Program { declarations: vec.Vec<Declaration> } |
+    .FunctionDecl { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> } |
+    .VariableDecl { name: string, type: string, value: Expression } |
+    .ImportDecl { alias: string, path: string }
 
-Declaration =
-    Function { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> },
-    Variable { name: string, type: string, value: Expression },
-    Import { alias: string, path: string }
+Declaration:
+    .Function { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> } |
+    .Variable { name: string, type: string, value: Expression } |
+    .Import { alias: string, path: string }
 
 Parameter: {
     name: string,
     type: string,
 }
 
-Statement =
-    Return { value: Expression },
-    Expression { expr: Expression },
-    If { condition: Expression, then_branch: vec.Vec<Statement>, else_branch: vec.Vec<Statement> },
-    Loop { body: vec.Vec<Statement> },
-    Break,
-    Continue
+Statement:
+    .Return { value: Expression } |
+    .Expression { expr: Expression } |
+    .PatternMatch { condition: Expression, then_branch: vec.Vec<Statement>, else_branch: vec.Vec<Statement> } |
+    .Loop { body: vec.Vec<Statement> } |
+    .Break |
+    .Continue
 
-Expression =
-    IntLiteral { value: i32 },
-    FloatLiteral { value: f64 },
-    StringLiteral { value: string },
-    BoolLiteral { value: bool },
-    Identifier { name: string },
-    Binary { left: Box<Expression>, op: string, right: Box<Expression> },
-    Unary { op: string, operand: Box<Expression> },
-    Call { callee: Box<Expression>, args: vec.Vec<Expression> },
-    Member { object: Box<Expression>, member: string }
+Expression:
+    .IntLiteral { value: i32 } |
+    .FloatLiteral { value: f64 } |
+    .StringLiteral { value: string } |
+    .BoolLiteral { value: bool } |
+    .Identifier { name: string } |
+    .Binary { left: Box<Expression>, op: string, right: Box<Expression> } |
+    .Unary { op: string, operand: Box<Expression> } |
+    .Call { callee: Box<Expression>, args: vec.Vec<Expression> } |
+    .Member { object: Box<Expression>, member: string }
 
 // Simple compiler driver
 compile_file = (filename: string) bool   {
     // Read source file
     source_result := fs.read_file(filename);
-    if source_result.is_err() {
-        io.print("Error reading file: ");
-        io.println(filename);
-        return false
-    }
+    source_result.is_err() ?
+        | true {
+            io.print("Error reading file: ")
+            io.println(filename)
+            return false
+        }
+        | false { }
     
     source := source_result.unwrap();
     
@@ -443,13 +464,15 @@ compile_file = (filename: string) bool   {
     io.println(" tokens");
     
     // For now, just verify we can tokenize
-    if vec.len(lexer.tokens) > 0 {
-        io.println("✅ Lexing successful!");
-        return true
-    } else {
-        io.println("❌ Lexing failed!");
-        return false
-    }
+    vec.len(lexer.tokens) > 0 ?
+        | true {
+            io.println("✅ Lexing successful!")
+            return true
+        }
+        | false {
+            io.println("❌ Lexing failed!")
+            return false
+        }
 }
 
 // Main entry point
@@ -463,11 +486,13 @@ main = () i32   {
     io.print("\nCompiling test file: ");
     io.println(test_file);
     
-    if compile_file(test_file) {
-        io.println("\n✨ Compilation successful!");
-        return 0
-    } else {
-        io.println("\n❌ Compilation failed!");
-        return 1
-    }
+    compile_file(test_file) ?
+        | true {
+            io.println("\n✨ Compilation successful!")
+            return 0
+        }
+        | false {
+            io.println("\n❌ Compilation failed!")
+            return 1
+        }
 }

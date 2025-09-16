@@ -63,26 +63,26 @@ asinh = (x: f64) f64   {
 
 acosh = (x: f64) f64   {
     x < 1.0 ? | true { return 0.0 / 0.0  // NaN for x < 1 }
-             | false { { }}
+             | false {}
     return log(x + sqrt(x * x - 1.0))
 }
 
 atanh = (x: f64) f64   {
     math.abs_f64(x) >= 1.0 ? | true { return 0.0 / 0.0  // NaN for |x| >= 1 }
-                            | false { { }}
+                            | false {}
     return 0.5 * log((1.0 + x) / (1.0 - x))
 }
 
 // Statistical functions
 mean_f64 = (values: *f64, count: i64) f64   {
     count <= 0 ? | true { return 0.0 / 0.0  // NaN for empty array }
-                | false { { }}
+                | false {}
     
     sum := 0.0
     i := 0i64
     loop {
 
-        i < count ? | false { { break  }} | true { { }}
+        i < count ? | false { { break  }} | true {}
         sum = sum + values[i]
         i = i + 1
     }
@@ -92,7 +92,7 @@ mean_f64 = (values: *f64, count: i64) f64   {
 
 variance_f64 = (values: *f64, count: i64) f64   {
     count <= 1 ? | true { return 0.0 / 0.0  // NaN for insufficient data }
-                | false { { }}
+                | false {}
     
     mean := mean_f64(values, count)
     sum_sq_diff := 0.0
@@ -101,7 +101,7 @@ variance_f64 = (values: *f64, count: i64) f64   {
     loop {
 
     
-        i < count ? | false { { break  }} | true { { }}
+        i < count ? | false { { break  }} | true {}
         diff := values[i] - mean
         sum_sq_diff = sum_sq_diff + diff * diff
         i = i + 1
@@ -120,7 +120,7 @@ sum_f64 = (values: *f64, count: i64) f64   {
     i := 0i64
     loop {
 
-        i < count ? | false { { break  }} | true { { }}
+        i < count ? | false { { break  }} | true {}
         sum = sum + values[i]
         i = i + 1
     }
@@ -130,13 +130,13 @@ sum_f64 = (values: *f64, count: i64) f64   {
 // Compute product of array
 product_f64 = (values: *f64, count: i64) f64   {
     count <= 0 ? | true { return 1.0 }
-                | false { { }}
+                | false {}
     
     product := 1.0
     i := 0i64
     loop {
 
-        i < count ? | false { { break  }} | true { { }}
+        i < count ? | false { { break  }} | true {}
         product = product * values[i]
         i = i + 1
     }
@@ -146,15 +146,15 @@ product_f64 = (values: *f64, count: i64) f64   {
 // Find minimum in array
 min_array_f64 = (values: *f64, count: i64) f64   {
     count <= 0 ? | true { return 0.0 / 0.0  // NaN for empty array }
-                | false { { }}
+                | false {}
     
     min := values[0]
     i := 1i64
     loop {
 
-        i < count ? | false { { break  }} | true { { }}
+        i < count ? | false { { break  }} | true {}
         values[i] < min ? | true { { min = values[i]  }}
-                        | false { { }}
+                        | false {}
         i = i + 1
     }
     return min
@@ -163,15 +163,15 @@ min_array_f64 = (values: *f64, count: i64) f64   {
 // Find maximum in array
 max_array_f64 = (values: *f64, count: i64) f64   {
     count <= 0 ? | true { return 0.0 / 0.0  // NaN for empty array }
-                | false { { }}
+                | false {}
     
     max := values[0]
     i := 1i64
     loop {
 
-        i < count ? | false { { break  }} | true { { }}
+        i < count ? | false { { break  }} | true {}
         values[i] > max ? | true { { max = values[i]  }}
-                        | false { { }}
+                        | false {}
         i = i + 1
     }
     return max
@@ -195,7 +195,7 @@ distance_3d = (x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z2: f64) f64   {
 // Normalize value to [0, 1] range
 normalize = (value: f64, min: f64, max: f64) f64   {
     min == max ? | true { return 0.5 }
-                | false { { }}
+                | false {}
     return (value - min) / (max - min)
 }
 
@@ -208,7 +208,7 @@ clamp_normalize = (value: f64, min: f64, max: f64) f64   {
 // Compute nth root
 nth_root = (x: f64, n: f64) f64   {
     n == 0.0 ? | true { return 0.0 / 0.0  // NaN }
-              | false { { }}
+              | false {}
     return pow(x, 1.0 / n)
 }
 
@@ -216,7 +216,7 @@ nth_root = (x: f64, n: f64) f64   {
 // Note: This is a simple approximation, not the full gamma function
 gamma_approx = (x: f64) f64   {
     x <= 0.0 ? | true { return 0.0 / 0.0  // NaN for non-positive }
-              | false { { }}
+              | false {}
     
     // Stirling's approximation: sqrt(2*pi*x) * (x/e)^x
     return sqrt(2.0 * math.PI * x) * pow(x / math.E, x)
@@ -252,20 +252,20 @@ erfc_approx = (x: f64) f64   {
 // Binomial coefficient (n choose k)
 binomial = (n: i64, k: i64) i64   {
     k < 0 || k > n ? | true { return 0 }
-                    | false { { }}
+                    | false {}
     
     k == 0 || k == n ? | true { return 1 }
-                      | false { { }}
+                      | false {}
     
     // Optimize by using the smaller k
     k > n - k ? | true { { k = n - k  }}
-              | false { { }}
+              | false {}
     
     result := 1i64
     i := 0i64
     loop {
 
-        i < k ? | false { { break  }} | true { { }}
+        i < k ? | false { { break  }} | true {}
         result = result * (n - i) / (i + 1)
         i = i + 1
     }
@@ -309,7 +309,7 @@ lcg_next_float = (lcg: *LCG) f64   {
 
 lcg_next_range = (lcg: *LCG, min: i64, max: i64) i64   {
     min >= max ? | true { return min }
-                | false { { }}
+                | false {}
     
     range := max - min
     return min + (lcg_next(lcg) % range)

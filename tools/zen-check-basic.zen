@@ -65,10 +65,9 @@ add_error = (checker: &mut SyntaxChecker, message: string) void   {
 // Get context for error reporting
 get_line_context = (input: string, line_num: i32) string   {
     lines := string.split(input, "\n")
-    if (line_num > 0 && line_num <= lines.len()) {
-        return lines[line_num - 1]
-    }
-    return ""
+    (line_num > 0 && line_num <= lines.len()) ?
+        | true { return lines[line_num - 1] }
+        | false { return "" }
 }
 
 // Check for balanced braces
@@ -78,51 +77,55 @@ check_balanced_braces = (checker: &mut SyntaxChecker) void   {
     bracket_count := 0
     
     i := 0
-    loop (i < checker.input.len()) {
+    loop(() {
+        i < checker.input.len() ?
+            | false { break }
+            | true {
         ch := checker.input[i]
         
-        match ch {
-            | '{' => brace_count = brace_count + 1
-            | '}' => {
+        ch ?
+            | '{' { brace_count = brace_count + 1 }
+            | '}' {
                 brace_count = brace_count - 1
-                if (brace_count < 0) {
-                    add_error(checker, "Unexpected closing brace '}'")
-                }
+                brace_count < 0 ?
+                    | true { add_error(checker, "Unexpected closing brace '}'") }
+                    | false {}
             }
-            | '(' => paren_count = paren_count + 1
-            | ')' => {
+            | '(' { paren_count = paren_count + 1 }
+            | ')' {
                 paren_count = paren_count - 1
-                if (paren_count < 0) {
-                    add_error(checker, "Unexpected closing parenthesis ')'")
-                }
+                paren_count < 0 ?
+                    | true { add_error(checker, "Unexpected closing parenthesis ')')") }
+                    | false {}
             }
-            | '[' => bracket_count = bracket_count + 1
-            | ']' => {
+            | '[' { bracket_count = bracket_count + 1 }
+            | ']' {
                 bracket_count = bracket_count - 1
-                if (bracket_count < 0) {
-                    add_error(checker, "Unexpected closing bracket ']'")
-                }
+                bracket_count < 0 ?
+                    | true { add_error(checker, "Unexpected closing bracket ']')") }
+                    | false {}
             }
-            | '\n' => {
+            | '\n' {
                 checker.line = checker.line + 1
                 checker.column = 0
             }
-            | _ => {}
+            | _ {}
         }
         
-        checker.column = checker.column + 1
-        i = i + 1
-    }
+                checker.column = checker.column + 1
+                i = i + 1
+            }
+    })
     
-    if (brace_count > 0) {
-        add_error(checker, "Unclosed brace '{'")
-    }
-    if (paren_count > 0) {
-        add_error(checker, "Unclosed parenthesis '('")
-    }
-    if (bracket_count > 0) {
-        add_error(checker, "Unclosed bracket '['")
-    }
+    brace_count > 0 ?
+        | true { add_error(checker, "Unclosed brace '{'")") }
+        | false {}
+    paren_count > 0 ?
+        | true { add_error(checker, "Unclosed parenthesis '('")") }
+        | false {}
+    bracket_count > 0 ?
+        | true { add_error(checker, "Unclosed bracket '['")") }
+        | false {}
 }
 
 // Check for invalid import placement
@@ -132,41 +135,61 @@ check_import_placement = (checker: &mut SyntaxChecker) void   {
     brace_depth := 0
     
     i := 0
-    loop (i < lines.len()) {
-        line := string.trim(lines[i])
-        
-        // Check for comptime block start
-        if (string.starts_with(line, "comptime") && string.contains(line, "{")) {
-            in_comptime = true
-            brace_depth = 1
-        }
-        
-        // Track brace depth in comptime
-        if (in_comptime) {
-            j := 0
-            loop (j < line.len()) {
-                if (line[j] == '{') {
-                    brace_depth = brace_depth + 1
-                } else if (line[j] == '}') {
-                    brace_depth = brace_depth - 1
-                    if (brace_depth == 0) {
-                        in_comptime = false
+    loop(() {
+        i < lines.len() ?
+            | false { break }
+            | true {
+                line := string.trim(lines[i])
+                
+                // Check for comptime block start
+                (string.starts_with(line, "comptime") && string.contains(line, "{")) ?
+                    | true {
+                        in_comptime = true
+                        brace_depth = 1
                     }
-                }
-                j = j + 1
+                    | false {}
+                
+                // Track brace depth in comptime
+                in_comptime ?
+                    | true {
+                        j := 0
+                        loop(() {
+                            j < line.len() ?
+                                | false { break }
+                                | true {
+                                    line[j] == '{' ?
+                                        | true { brace_depth = brace_depth + 1 }
+                                        | false {
+                                            line[j] == '}' ?
+                                                | true {
+                                                    brace_depth = brace_depth - 1
+                                                    brace_depth == 0 ?
+                                                        | true { in_comptime = false }
+                                                        | false {}
+                                                }
+                                                | false {}
+                                        }
+                                    j = j + 1
+                                }
+                        })
+                    }
+                    | false {}
+                
+                // Check for imports in comptime
+                in_comptime ?
+                    | true {
+                        (string.contains(line, "@std") || string.contains(line, "build.import")) ?
+                            | true {
+                                checker.line = i + 1
+                                add_error(checker, "Import statements are not allowed inside comptime blocks")
+                            }
+                            | false {}
+                    }
+                    | false {}
+                
+                i = i + 1
             }
-        }
-        
-        // Check for imports in comptime
-        if (in_comptime) {
-            if (string.contains(line, "@std") || string.contains(line, "build.import")) {
-                checker.line = i + 1
-                add_error(checker, "Import statements are not allowed inside comptime blocks")
-            }
-        }
-        
-        i = i + 1
-    }
+    })
 }
 
 // Main checking function
@@ -178,11 +201,9 @@ check_syntax = (input: string) CheckResult   {
     check_import_placement(&mut checker)
     
     // Return result
-    if (checker.errors.is_empty()) {
-        return CheckResult.Success
-    } else {
-        return CheckResult.SyntaxErrors(checker.errors)
-    }
+    checker.errors.is_empty() ?
+        | true { return CheckResult.Success }
+        | false { return CheckResult.SyntaxErrors(checker.errors) }
 }
 
 // Print errors
@@ -190,32 +211,40 @@ print_errors = (errors: Vec<SyntaxError>) void   {
     io.print("Syntax errors found:\n\n")
     
     i := 0
-    loop (i < errors.len()) {
-        error := errors[i]
-        io.print("  Line ")
-        io.print_int(error.line)
-        io.print(":")
-        io.print_int(error.column)
-        io.print(" - ")
-        io.print(error.message)
-        io.print("\n")
-        
-        if (error.context != "") {
-            io.print("    ")
-            io.print(error.context)
-            io.print("\n")
-        }
-        
-        i = i + 1
-    }
+    loop(() {
+        i < errors.len() ?
+            | false { break }
+            | true {
+                error := errors[i]
+                io.print("  Line ")
+                io.print_int(error.line)
+                io.print(":")
+                io.print_int(error.column)
+                io.print(" - ")
+                io.print(error.message)
+                io.print("\n")
+                
+                error.context != "" ?
+                    | true {
+                        io.print("    ")
+                        io.print(error.context)
+                        io.print("\n")
+                    }
+                    | false {}
+                
+                i = i + 1
+            }
+    })
 }
 
 // Main entry point
 main = (argc: i32, argv: *RawPtr<i8>) i32   {
-    if (argc < 2) {
-        io.print("Usage: zen-check <file.zen>\n")
-        return 1
-    }
+    argc < 2 ?
+        | true {
+            io.print("Usage: zen-check <file.zen>\n")
+            return 1
+        }
+        | false {}
     
     // Get filename from args
     filename := string.from_cstr(argv[1])
@@ -223,38 +252,36 @@ main = (argc: i32, argv: *RawPtr<i8>) i32   {
     // Read file
     result := fs.read_file(filename)
     
-    match result {
-        | Result<string, string>.Ok(content) => {
+    result ?
+        | Result<string, string>.Ok(content) {
             // Check syntax
             check_result := check_syntax(content)
             
-            match check_result {
-                | CheckResult.Success => {
+            check_result ?
+                | CheckResult.Success {
                     io.print("✓ No syntax errors found in ")
                     io.print(filename)
                     io.print("\n")
                     return 0
                 }
-                | CheckResult.SyntaxErrors(errors) => {
+                | CheckResult.SyntaxErrors(errors) {
                     io.print("✗ Syntax errors in ")
                     io.print(filename)
                     io.print(":\n")
                     print_errors(errors)
                     return 1
                 }
-                | CheckResult.FileError(msg) => {
+                | CheckResult.FileError(msg) {
                     io.print("File error: ")
                     io.print(msg)
                     io.print("\n")
                     return 1
                 }
-            }
         }
-        | Result<string, string>.Err(error) => {
+        | Result<string, string>.Err(error) {
             io.print("Error reading file: ")
             io.print(error)
             io.print("\n")
             return 1
         }
-    }
 }

@@ -1,13 +1,7 @@
 // Zenlang Comprehensive Demo
 // Showcases all major language features and capabilities
 
-{ io } = @std.io
-{ vec } = @std.vec
-{ string } = @std.string
-{ result } = @std.result
-{ fs } = @std.fs
-{ net } = @std.net
-{ math } = @std.math
+{ io, vec, result, fs, net, math, string } = @std
 
 // ==========================================
 // 1. Pattern Matching - The Heart of Zen
@@ -18,9 +12,8 @@ demonstrate_pattern_matching = () void {
     
     // Simple boolean pattern
     is_adult = (age: i32) bool {
-        age >= 18 ?
-            | true { return true }
-            | false { return false }
+        age >= 18 ? { return true }
+        return false
     }
     
     // Range patterns - check explicitly in new spec
@@ -101,21 +94,21 @@ demonstrate_memory_management = () void {
     // Using Ptr<T> instead of raw pointers
     allocate_int = () Ptr<i32> {
         ptr = Ptr<i32>.new(42)
-        io.println("Allocated value: ${ptr.value}")
-        io.println("Address: ${ptr.address}")
+        io.println("Allocated value: ${ptr.val}")
+        io.println("Address: ${ptr.addr}")
         return ptr
     }
     
     // Reference counting
     SharedData: {
         value: i32,
-        refs: Atomic<u32>
+        refs: AtomicU32
     }
     
     SharedData.create = (val: i32) Ptr<SharedData> {
         data = Ptr<SharedData>.new(SharedData{
             value: val,
-            refs: Atomic<u32>.new(1)
+            refs: AtomicU32(1)
         })
         return data
     }
@@ -126,12 +119,10 @@ demonstrate_memory_management = () void {
     
     SharedData.release = (self) void {
         old_refs = self.refs.fetch_sub(1, .SeqCst)
-        old_refs == 1 ?
-        | true {
+        old_refs == 1 ? {
             io.println("Freeing shared data with value: ${self.value}")
             // Memory would be freed here
         }
-        | false { }
     }
     
     // RAII with defer
@@ -139,7 +130,7 @@ demonstrate_memory_management = () void {
         resource = SharedData.create(100)
         @this.defer(resource.release())
         
-        io.println("Using resource with value: ${resource.value.value}")
+        io.println("Using resource with value: ${resource.val.value}")
         // Resource automatically released when scope ends
     }
     
@@ -168,13 +159,9 @@ Person.format = (self) string {
 }
 
 Person.compare = (self, other: Person) i32 {
-    self.age < other.age ?
-        | true { return -1 }
-        | false {
-            self.age > other.age ?
-                | true { return 1 }
-                | false { return 0 }
-        }
+    (self.age < other.age) ? { return -1 }
+    (self.age > other.age) ? { return 1 }
+    return 0
 }
 
 demonstrate_behaviors = () void {
@@ -187,17 +174,9 @@ demonstrate_behaviors = () void {
     io.println("${bob.format()}")
     
     comparison = alice.compare(bob)
-    comparison == -1 ?
-        | true { io.println("${alice.name} is younger than ${bob.name}") }
-        | false {
-            comparison == 0 ?
-                | true { io.println("${alice.name} and ${bob.name} are the same age") }
-                | false {
-                    comparison == 1 ?
-                        | true { io.println("${alice.name} is older than ${bob.name}") }
-                        | false { }
-                }
-        }
+    (comparison == -1) ? { io.println("${alice.name} is younger than ${bob.name}") }
+    (comparison == 0) ? { io.println("${alice.name} and ${bob.name} are the same age") }
+    (comparison == 1) ? { io.println("${alice.name} is older than ${bob.name}") }
 }
 
 // ==========================================
@@ -208,31 +187,31 @@ demonstrate_comptime = () void {
     io.println("\n=== Comptime Demo ===\n")
     
     // Compile-time computed lookup table
-    FIBONACCI_TABLE = @comptime {
-        table: [20, u64]
+    FIBONACCI_TABLE = @meta.comptime((){
+        table: Vec<u64, 20>
         table[0] = 0
         table[1] = 1
         (2..20).loop((i) {
             table[i] = table[i-1] + table[i-2]
         })
         table
-    }
+    })
     
     io.println("10th Fibonacci number (from comptime table): ${FIBONACCI_TABLE[10]}")
     
     // Platform-specific constants
-    MAX_PATH = @comptime {
+    MAX_PATH = @meta.comptime((){
         @std.target.os ?
-            | .windows { 260 }
-            | .linux { 4096 }
-            | .macos { 1024 }
+            | .Windows { 260 }
+            | .Linux { 4096 }
+            | .Macos { 1024 }
             | _ { 256 }
-    }
+    })
     
     io.println("Maximum path length on this platform: ${MAX_PATH}")
     
     // Type generation at compile time
-    @comptime {
+    @meta.comptime((){
         WORD_SIZE = @std.target.pointer_size
         WORD_SIZE == 8 ?
             | true {
@@ -243,7 +222,7 @@ demonstrate_comptime = () void {
                 NativeInt = i32
                 NativeUInt = u32
             }
-    }
+    })
 }
 
 // ==========================================
@@ -292,7 +271,7 @@ demonstrate_concurrency = () void {
     }
     
     // Atomic operations
-    counter = Atomic<u64>.new(0)
+    counter = AtomicU64(0)
     
     increment_counter = () void {
         (0..10).loop((_) {
@@ -359,14 +338,11 @@ demonstrate_error_handling = () void {
         lines = content.split('\n')
         
         lines.loop((line) {
-            line.is_empty() ?
-            | true { continue }
-            | false { }
+            line.is_empty() ? { continue }
+
             
             parts = line.split('=')
-            parts.len() == 2 ?
-                | true { io.println("Config: ${parts[0]} = ${parts[1]}") }
-                | false { }
+            parts.len() == 2 ? { io.println("Config: ${parts[0]} = ${parts[1]}") }
         })
         
         return .Ok(void)
@@ -417,18 +393,14 @@ demonstrate_loops = () void {
     counter ::= 0
     loop(() {
         counter = counter + 1
-        counter >= 5 ?
-            | true { break }
-            | false { }
+        counter >= 5 ? { break }
         io.println("Infinite loop iteration: ${counter}")
     })
     
     // Conditional loop
     x ::= 10
     loop(() {
-        x <= 0 ?
-            | true { break }
-            | false { }
+        x <= 0 ? { break }
         io.println("Conditional loop: x = ${x}")
         x = x - 2
     })
@@ -439,22 +411,22 @@ demonstrate_loops = () void {
     })
     
     // Collection iteration
-    items = vec![10, 20, 30]
+    items = Vec<i32, 3>([10, 20, 30])
     items.loop((item) {
         io.println("Item: ${item}")
     })
     
     // Enumerated iteration
-    items.enumerate().loop((tuple) {
-        io.println("Item ${tuple.0}: ${tuple.1}")
+    items.enumerate().loop((item, index) {
+        io.println("Item ${index}: ${item}")
     })
     
     // Iterator chaining
-    numbers = vec![1, 2, 3, 4, 5]
-    sum = numbers
-        .filter((n) bool { return n % 2 == 0 })
-        .map((n) i32 { return n * n })
-        .reduce(0, (acc, n) i32 { return acc + n })
+    numbers = Vec<i32, 5>([1, 2, 3, 4, 5])
+    sum = numbers   
+        .filter((n) { n % 2 == 0 })
+        .map((n) { n * n })
+        .reduce(0, (acc, n) { return acc + n })
     
     io.println("Sum of squares of even numbers: ${sum}")
 }
@@ -465,10 +437,12 @@ demonstrate_loops = () void {
 
 main = () void {
     io.println("\n")
-    io.println("╔══════════════════════════════════════╗")
-    io.println("║    Zenlang Comprehensive Demo       ║")
-    io.println("║    Language Version: 1.1.0          ║")
-    io.println("╚══════════════════════════════════════╝")
+    io.println("""
+╔══════════════════════════════════════╗
+║    Zenlang Comprehensive Demo        ║
+║    Language Version: 1.1.0           ║
+╚══════════════════════════════════════╝
+""")
     
     demonstrate_pattern_matching()
     demonstrate_memory_management()
@@ -481,16 +455,18 @@ main = () void {
     demonstrate_loops()
     
     io.println("\n")
-    io.println("╔══════════════════════════════════════╗")
-    io.println("║         Demo Complete! 🎉           ║")
-    io.println("║                                      ║")
-    io.println("║  Key Takeaways:                      ║")
-    io.println("║  • No if/else/match - just ?        ║")
-    io.println("║  • No exceptions - Result/Option    ║")
-    io.println("║  • No null - Option<T>              ║")
-    io.println("║  • No raw pointers - Ptr<T>         ║")
-    io.println("║  • Colorless concurrency via allocators ║")
-    io.println("║  • Pattern matching everywhere      ║")
-    io.println("╚══════════════════════════════════════╝")
+    io.println("""
+╔═════════════════════════════════════════╗
+║         Demo Complete! 🎉               ║
+║                                         ║
+║  Key Takeaways:                         ║
+║  • No if/else/match - just ?            ║
+║  • No exceptions - Result/Option        ║
+║  • No null - Option<T>                  ║
+║  • No raw pointers - Ptr<T>             ║
+║  • Colorless concurrency via allocators ║
+║  • Pattern matching everywhere          ║
+╚═════════════════════════════════════════╝
+""")
     io.println("\n")
 }

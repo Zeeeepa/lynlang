@@ -14,7 +14,7 @@ panic = (message: string) void   {
 assert = (condition: bool, message: string) void   {
     !condition ?
         | true { panic("Assertion failed: " + message) }
-        | false { { }}
+        | false {}
 }
 
 // Memory management (placeholders for now)
@@ -48,11 +48,11 @@ max = (a: i32, b: i32) i32   {
 clamp = (value: i32, min_val: i32, max_val: i32) i32   {
     value < min_val ?
         | true { return min_val }
-        | false { { }}
+        | false {}
     
     value > max_val ?
         | true { return max_val }
-        | false { { }}
+        | false {}
     
     return value
 }
@@ -73,11 +73,11 @@ Ordering: Less
 compare = (a: i32, b: i32) Ordering   {
     a < b ?
         | true { return Ordering:Less }
-        | false { { }}
+        | false {}
     
     a > b ?
         | true { return Ordering:Greater }
-        | false { { }}
+        | false {}
     
     return Ordering:Equal
 }
@@ -132,7 +132,7 @@ range = (start: i32, end: i32) Range   {
 range_next = (r: *Range) Option<i32>   {
     r.current >= r.end ?
         | true { return Option<i32>:None }
-        | false { { }}
+        | false {}
     
     value := r.current
     r.current = r.current + 1
@@ -155,7 +155,7 @@ map_range = (start: i32, end: i32, f: (i32) i32) []i32 {
     len := end - start
     len <= 0 ?
         | true { return [] }
-        | false { { }}
+        | false {}
     
     // Would allocate array and fill it
     // For now, this is a placeholder
@@ -196,7 +196,7 @@ any_in_range = (start: i32, end: i32, predicate: (i32) bool) bool {
     loop i < end {
         predicate(i) ?
             | true { return true }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     return false
@@ -208,7 +208,7 @@ all_in_range = (start: i32, end: i32, predicate: (i32) bool) bool {
     loop i < end {
         !predicate(i) ?
             | true { return false }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     return true
@@ -220,7 +220,7 @@ find_in_range = (start: i32, end: i32, predicate: (i32) bool) Option<i32> {
     loop i < end {
         predicate(i) ?
             | true { return Option<i32>:Some(i) }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     return Option<i32>:None
@@ -258,12 +258,12 @@ memcmp = (ptr1: RawPtr<void>, ptr2: RawPtr<void>, n: usize) i32   {
     i := 0
     loop i < n {
         p1[i] != p2[i] ?
-            | true { { }
+            | true {
                 p1[i] < p2[i] ?
                     | true { return -1 }
                     | false { return 1 }
             }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     return 0
@@ -301,11 +301,11 @@ lazy_new = (compute: () i32) Lazy<i32> {
 
 lazy_get = (lazy: *Lazy<i32>) i32   {
     !lazy.computed ?
-        | true { { }
+        | true {
             lazy.value = lazy.compute()
             lazy.computed = true
         }
-        | false { { }}
+        | false {}
     return lazy.value
 }
 

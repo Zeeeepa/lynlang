@@ -83,7 +83,7 @@ Lexer: {
 }
 
 // Create a new lexer
-new_lexer = (input: string) Lexer   {
+new_lexer = (input: string) Lexer {
     lex := Lexer {
         input: input
         position: 0
@@ -94,129 +94,181 @@ new_lexer = (input: string) Lexer   {
     }
     
     // Read the first character
-    read_char(&lex)
+    read_char(lex.mut_ref())
     return lex
 }
 
 // Read the next character
-read_char = (lex: *Lexer) void   {
-    if lex.read_position >= string_len(lex.input) {
-        lex.current_char = 0  // EOF
-    } else {
-        lex.current_char = string_char_at(lex.input, lex.read_position)
-    }
+read_char = (lex: MutPtr<Lexer>) void {
+    (lex.val.read_position >= string_len(lex.val.input)) ?
+        | true {
+            lex.val.current_char = 0  // EOF
+        }
+        | false {
+            lex.val.current_char = string_char_at(lex.val.input, lex.val.read_position)
+        }
     
-    lex.position = lex.read_position
-    lex.read_position = lex.read_position + 1
+    lex.val.position = lex.val.read_position
+    lex.val.read_position = lex.val.read_position + 1
     
     // Update line and column
-    if lex.current_char == '\n' {
-        lex.line = lex.line + 1
-        lex.column = 1
-    } else {
-        lex.column = lex.column + 1
-    }
+    (lex.val.current_char == '\n') ?
+        | true {
+            lex.val.line = lex.val.line + 1
+            lex.val.column = 1
+        }
+        | false {
+            lex.val.column = lex.val.column + 1
+        }
 }
 
 // Peek at the next character without advancing
-peek_char = (lex: *Lexer) i8   {
-    if lex.read_position >= string_len(lex.input) {
-        return 0
-    }
-    return string_char_at(lex.input, lex.read_position)
+peek_char = (lex: MutPtr<Lexer>) i8 {
+    (lex.val.read_position >= string_len(lex.val.input)) ?
+        | true {
+            return 0
+        }
+        | false {
+            return string_char_at(lex.val.input, lex.val.read_position)
+        }
 }
 
 // Skip whitespace
-skip_whitespace = (lex: *Lexer) void   {
-    while lex.current_char == ' ' || lex.current_char == '\t' || 
-          lex.current_char == '\n' || lex.current_char == '\r' {
-        read_char(lex)
-    }
+skip_whitespace = (lex: MutPtr<Lexer>) void {
+    loop(() {
+        (lex.val.current_char == ' ' || lex.val.current_char == '\t' || 
+         lex.val.current_char == '\n' || lex.val.current_char == '\r') ?
+            | true {
+                read_char(lex)
+            }
+            | false {
+                break
+            }
+    })
 }
 
 // Skip line comments
-skip_line_comment = (lex: *Lexer) void   {
+skip_line_comment = (lex: MutPtr<Lexer>) void {
     // Skip until end of line
-    while lex.current_char != '\n' && lex.current_char != 0 {
-        read_char(lex)
-    }
+    loop(() {
+        (lex.val.current_char != '\n' && lex.val.current_char != 0) ?
+            | true {
+                read_char(lex)
+            }
+            | false {
+                break
+            }
+    })
 }
 
 // Read an identifier or keyword
-read_identifier = (lex: *Lexer) string   {
-    start_pos := lex.position
+read_identifier = (lex: MutPtr<Lexer>) string {
+    start_pos := lex.val.position
     
     // Read while alphanumeric or underscore
-    while is_letter(lex.current_char) || is_digit(lex.current_char) || 
-          lex.current_char == '_' {
-        read_char(lex)
-    }
+    loop(() {
+        (is_letter(lex.val.current_char) || is_digit(lex.val.current_char) || 
+         lex.val.current_char == '_') ?
+            | true {
+                read_char(lex)
+            }
+            | false {
+                break
+            }
+    })
     
-    return string_substring(lex.input, start_pos, lex.position)
+    return string_substring(lex.val.input, start_pos, lex.val.position)
 }
 
 // Read a number
-read_number = (lex: *Lexer) string   {
-    start_pos := lex.position
+read_number = (lex: MutPtr<Lexer>) string {
+    start_pos := lex.val.position
     has_dot := false
     
-    while is_digit(lex.current_char) || lex.current_char == '.' {
-        if lex.current_char == '.' {
-            if has_dot {
-                break  // Second dot, stop reading
+    loop(() {
+        (is_digit(lex.val.current_char) || lex.val.current_char == '.') ?
+            | true {
+                (lex.val.current_char == '.') ?
+                    | true {
+                        has_dot ?
+                            | true {
+                                break  // Second dot, stop reading
+                            }
+                            | false {
+                                has_dot = true
+                            }
+                    }
+                    | false { }
+                read_char(lex)
             }
-            has_dot = true
-        }
-        read_char(lex)
-    }
+            | false {
+                break
+            }
+    })
     
-    return string_substring(lex.input, start_pos, lex.position)
+    return string_substring(lex.val.input, start_pos, lex.val.position)
 }
 
 // Read a string literal
-read_string = (lex: *Lexer) string   {
+read_string = (lex: MutPtr<Lexer>) string {
     read_char(lex)  // Skip opening quote
-    start_pos := lex.position
+    start_pos := lex.val.position
     
-    while lex.current_char != '"' && lex.current_char != 0 {
-        if lex.current_char == '\\' {
-            read_char(lex)  // Skip escape character
-            if lex.current_char != 0 {
-                read_char(lex)  // Skip escaped character
+    loop(() {
+        (lex.val.current_char != '"' && lex.val.current_char != 0) ?
+            | true {
+                (lex.val.current_char == '\\') ?
+                    | true {
+                        read_char(lex)  // Skip escape character
+                        (lex.val.current_char != 0) ?
+                            | true {
+                                read_char(lex)  // Skip escaped character
+                            }
+                            | false { }
+                    }
+                    | false {
+                        read_char(lex)
+                    }
             }
-        } else {
-            read_char(lex)
+            | false {
+                break
+            }
+    })
+    
+    result := string_substring(lex.val.input, start_pos, lex.val.position)
+    
+    (lex.val.current_char == '"') ?
+        | true {
+            read_char(lex)  // Skip closing quote
         }
-    }
-    
-    result := string_substring(lex.input, start_pos, lex.position)
-    
-    if lex.current_char == '"' {
-        read_char(lex)  // Skip closing quote
-    }
+        | false { }
     
     return result
 }
 
 // Check if character is a letter
-is_letter = (ch: i8) bool   {
+is_letter = (ch: i8) bool {
     return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 
 // Check if character is a digit
-is_digit = (ch: i8) bool   {
+is_digit = (ch: i8) bool {
     return ch >= '0' && ch <= '9'
 }
 
 // Check if identifier is a keyword
-is_keyword = (ident: string) bool   {
+is_keyword = (ident: string) bool {
     // Check common keywords
-    if ident == "if" || ident == "else" || ident == "while" || ident == "for" {
-        return true
-    }
-    if ident == "return" || ident == "break" || ident == "continue" {
-        return true
-    }
+    (ident == "if" || ident == "else" || ident == "while" || ident == "for") ?
+        | true {
+            return true
+        }
+        | false { }
+    (ident == "return" || ident == "break" || ident == "continue") ?
+        | true {
+            return true
+        }
+        | false { }
     if ident == "struct" || ident == "enum" || ident == "fn" {
         return true
     }

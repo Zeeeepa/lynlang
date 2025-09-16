@@ -9,11 +9,9 @@ test_basic = () i32   {
     b := 20
     c := a + b
     
-    if c == 30 {
-        return 1
-    } else {
-        return 0
-    }
+    c == 30 ?
+        | true { return 1 }
+        | false { return 0 }
 }
 
 // Main entry point
@@ -22,11 +20,13 @@ main = () i32   {
     
     result := test_basic()
     
-    if result == 1 {
-        io.print("PASS: Basic arithmetic\n")
-        return 0
-    } else {
-        io.print("FAIL: Basic arithmetic\n")
-        return 1
-    }
+    result == 1 ?
+        | true {
+            io.print("PASS: Basic arithmetic\n")
+            return 0
+        }
+        | false {
+            io.print("FAIL: Basic arithmetic\n")
+            return 1
+        }
 }

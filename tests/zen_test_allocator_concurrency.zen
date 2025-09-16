@@ -256,13 +256,13 @@ test "actor system basic messaging" {
     counter_behavior := actor.Behavior(CounterState, TestMsg){
         handle: (state, msg, ctx) => {
             msg ?
-                | .Increment -> amount { { }
+                | .Increment -> amount {
                     state.value += amount
                 }
-                | .GetValue { { }
+                | .GetValue {
                     ctx.reply(.Value(state.value))
                 }
-                | .Value -> v { { }}
+                | .Value -> v {}
         }
     }
     
@@ -367,13 +367,13 @@ test "web service with allocator" {
     // Simulated HTTP request handler
     handle_request = (path: String, alloc: *allocator.Allocator) String   {
         response := path ?
-            | "/api/users" { { }
+            | "/api/users" {
                 // Would fetch from database
                 data := read_file_mock("users.json", alloc)
                 defer alloc.free_slice(data)
                 "Users data"
             }
-            | "/api/posts" { { }
+            | "/api/posts" {
                 // Would fetch from database
                 data := read_file_mock("posts.json", alloc)
                 defer alloc.free_slice(data)

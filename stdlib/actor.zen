@@ -7,10 +7,10 @@ allocator := build.import("allocator")
 runtime := build.import("concurrent_runtime_enhanced")
 
 // Generic message type for actors
-Message = (comptime T: type) => T
+Message = (comptime T: type) T
 
 // Actor behavior trait
-Behavior = (comptime State: type, comptime Msg: type) => {
+Behavior = (comptime State: type, comptime Msg: type) {
     handle: (state: *State, msg: Msg, ctx: *ActorContext) void
 }
 
@@ -73,10 +73,12 @@ Mailbox: {
         self.message_types.append(type_id)
         
         // Wake up waiting actor if any
-        self.waiting ? {
-            self.alloc.resume(self.waiting.?)
-            self.waiting = null
-        } : {}
+        self.waiting ?
+            | .Some(cont) {
+                self.alloc.resume(cont)
+                self.waiting = .None
+            }
+            | .None { }
     }
     
     receive_raw: () ?([]u8, u64) {
@@ -84,39 +86,45 @@ Mailbox: {
         defer self.lock.unlock()
         
         // Check for messages
-        loop {
-            self.messages.len > 0 ? {
-                // Extract first message
-                // For simplicity, assume fixed-size messages
-                // Real implementation would include message framing
-                msg_size := 256  // Placeholder
-                msg_data := self.messages[0..msg_size]
-                type_id := self.message_types[0]
-                
-                // Remove from queue
-                self.messages = self.messages[msg_size..]
-                self.message_types = self.message_types[1..]
-                
-                return (msg_data, type_id)
-            } : {}
+        loop(() {
+            (self.messages.len > 0) ?
+                | true {
+                    // Extract first message
+                    // For simplicity, assume fixed-size messages
+                    // Real implementation would include message framing
+                    msg_size := 256  // Placeholder
+                    msg_data := self.messages[0..msg_size]
+                    type_id := self.message_types[0]
+                    
+                    // Remove from queue
+                    self.messages = self.messages[msg_size..]
+                    self.message_types = self.message_types[1..]
+                    
+                    return (msg_data, type_id)
+                }
+                | false { }
             
             // No messages, wait if concurrent mode
-            self.alloc.is_concurrent ? {
-                cont := self.alloc.suspend()
-                cont ? {
-                    self.waiting = cont
-                    self.lock.unlock()
-                    self.alloc.resume(cont.?)
-                    self.lock.lock()
-                    // Loop back to check for messages
-                } : {
-                    return null
+            self.alloc.is_concurrent ?
+                | true {
+                    cont := self.alloc.suspend()
+                    cont ?
+                        | .Some(c) {
+                            self.waiting = .Some(c)
+                            self.lock.unlock()
+                            self.alloc.resume(c)
+                            self.lock.lock()
+                            // Loop back to check for messages
+                        }
+                        | .None {
+                            return .None
+                        }
                 }
-            } : {
-                // Sync mode - no messages available
-                return null
-            }
-        }
+                | false {
+                    // Sync mode - no messages available
+                    return .None
+                }
+        })
     }
 }
 
@@ -133,7 +141,7 @@ Actor: {
     run: () void {
         self.running = true
         
-        loop {
+        loop(() {
             !self.running ? break : {}
             
             // Receive next message
@@ -256,15 +264,15 @@ PingActor: {
     pong_ref: ?ActorRef
     
     behavior: Behavior(PingActor, PingPongMsg) = {
-        handle: (state, msg, ctx) => {
+        handle: (state, msg, ctx) {
             msg ? 
-                | .Ping -> count { { }
+                | .Ping -> count {
                     std.io.print("Ping received: {}\n", count)
                     state.pong_ref ? {
                         ctx.send(state.pong_ref.?, .Pong(count + 1))
                     } : {}
                 }
-                | .Pong -> count { { }
+                | .Pong -> count {
                     std.io.print("Ping actor got pong: {}\n", count)
                     count < 10 ? {
                         state.pong_ref ? {
@@ -277,7 +285,7 @@ PingActor: {
                         } : {}
                     }
                 }
-                | .Stop { { }
+                | .Stop {
                     std.io.print("Ping actor stopping\n")
                 }
         }
@@ -286,16 +294,16 @@ PingActor: {
 
 PongActor: {
     behavior: Behavior(void, PingPongMsg) = {
-        handle: (state, msg, ctx) => {
+        handle: (state, msg, ctx) {
             msg ?
-                | .Ping -> count { { }
+                | .Ping -> count {
                     std.io.print("Pong actor got ping: {}\n", count)
                     ctx.reply(.Pong(count))
                 }
-                | .Pong -> count { { }
+                | .Pong -> count {
                     std.io.print("Pong received: {}\n", count)
                 }
-                | .Stop { { }
+                | .Stop {
                     std.io.print("Pong actor stopping\n")
                 }
         }
@@ -303,7 +311,7 @@ PongActor: {
 }
 
 // Worker pool pattern
-WorkerPool = (comptime Job: type, comptime Result: type) => {
+WorkerPool = (comptime Job: type, comptime Result: type) {
     workers: []ActorRef
     next_worker: usize
     result_handler: (Result) void

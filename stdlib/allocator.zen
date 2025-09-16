@@ -60,12 +60,12 @@ SyncAllocator: {
     
     allocator: () Allocator {
         return Allocator{
-            alloc: (size) => self.heap.alloc(size),
-            free: (ptr) => self.heap.free(ptr),
-            realloc: (ptr, old_size, new_size) => self.heap.realloc(ptr, old_size, new_size),
+            alloc: (size) { self.heap.alloc(size) },
+            free: (ptr) { self.heap.free(ptr) },
+            realloc: (ptr, old_size, new_size) { self.heap.realloc(ptr, old_size, new_size) },
             is_concurrent: false,
-            suspend: () => null,
-            resume: (cont) => @panic("Cannot resume in sync context")
+            suspend: () { .None },
+            resume: (cont) { @panic("Cannot resume in sync context") }
         }
     }
 }
@@ -95,14 +95,16 @@ Runtime: {
     }
     
     run: () void {
-        loop {
-            self.ready_queue.len == 0 ? break : {}
+        loop(() {
+            (self.ready_queue.len == 0) ?
+                | true { break }
+                | false { }
             
             cont := self.ready_queue[0]
             self.ready_queue = self.ready_queue[1..]
             self.current_continuation = cont
             cont.resume_fn(cont.state)
-        }
+        })
     }
     
     wait: () void {
@@ -123,12 +125,12 @@ ConcurrentAllocator: {
     
     allocator: () Allocator {
         return Allocator{
-            alloc: (size) => self.runtime.heap.alloc(size),
-            free: (ptr) => self.runtime.heap.free(ptr),
-            realloc: (ptr, old_size, new_size) => self.runtime.heap.realloc(ptr, old_size, new_size),
+            alloc: (size) { self.runtime.heap.alloc(size) },
+            free: (ptr) { self.runtime.heap.free(ptr) },
+            realloc: (ptr, old_size, new_size) { self.runtime.heap.realloc(ptr, old_size, new_size) },
             is_concurrent: true,
-            suspend: () => self.runtime.save_continuation(),
-            resume: (cont) => self.runtime.schedule(cont)
+            suspend: () { self.runtime.save_continuation() },
+            resume: (cont) { self.runtime.schedule(cont) }
         }
     }
 }

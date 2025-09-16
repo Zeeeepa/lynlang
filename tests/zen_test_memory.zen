@@ -10,10 +10,10 @@ test_basic_malloc = () bool   {
     // Allocate 100 bytes
     ptr := core.malloc(100)
     
-    ptr .== .None ? | true { { }
+    ptr .== .None ? | true {
         io.print("ERROR: malloc returned null\n")
         return false
-    } | false { { }}
+    } | false {}
     
     // Write some data
     bytes := ptr as RawPtr<i8>
@@ -26,11 +26,11 @@ test_basic_malloc = () bool   {
     // Read back and verify
     i = 0
     loop i < 100 {
-        bytes[i] != i as i8 ? | true { { }
+        bytes[i] != i as i8 ? | true {
             io.print("ERROR: Data mismatch at index $(i)\n")
             core.free(ptr)
             return false
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
     
@@ -52,19 +52,19 @@ test_aligned_alloc = () bool   {
         result := mem.alloc_aligned(256, align)
         
         result ? 
-            | .Ok -> ptr { { }
+            | .Ok -> ptr {
                 // Check alignment
                 addr := ptr as i64
-                addr % align != 0 ? | true { { }
+                addr % align != 0 ? | true {
                     io.print("ERROR: Pointer not aligned to $(align)\n")
                     mem.dealloc(ptr, 256)
                     return false
-                } | false { { }}
+                } | false {}
                 
                 // Clean up
                 mem.dealloc(ptr, 256)
             }
-            | .Err -> e { { }
+            | .Err -> e {
                 io.print("ERROR: alloc_aligned failed\n")
                 return false
             }
@@ -81,23 +81,23 @@ test_calloc = () bool   {
     result := mem.calloc(10, 8)
     
     result ?
-        | .Ok -> ptr { { }
+        | .Ok -> ptr {
             bytes := ptr as RawPtr<i8>
             
             // Check all bytes are zero
             i := 0
             loop i < 80 {
-                bytes[i] != 0 ? | true { { }
+                bytes[i] != 0 ? | true {
                     io.print("ERROR: calloc memory not zeroed at index $(i)\n")
                     mem.dealloc(ptr, 80)
                     return false
-                } | false { { }}
+                } | false {}
                 i = i + 1
             }
             
             mem.dealloc(ptr, 80)
         }
-        | .Err -> e { { }
+        | .Err -> e {
             io.print("ERROR: calloc failed\n")
             return false
         }
@@ -112,7 +112,7 @@ test_realloc = () bool   {
     result := mem.alloc(50)
     
     result ?
-        | .Ok -> ptr { { }
+        | .Ok -> ptr {
             // Write pattern
             bytes := ptr as RawPtr<i8>
             i := 0
@@ -125,29 +125,29 @@ test_realloc = () bool   {
             new_result := mem.realloc(ptr, 50, 100)
             
             new_result ?
-                | .Ok -> new_ptr { { }
+                | .Ok -> new_ptr {
                     new_bytes := new_ptr as RawPtr<i8>
                     
                     // Check original data preserved
                     i = 0
                     loop i < 50 {
-                        new_bytes[i] != i as i8 ? | true { { }
+                        new_bytes[i] != i as i8 ? | true {
                             io.print("ERROR: realloc didn't preserve data at index $(i)\n")
                             mem.dealloc(new_ptr, 100)
                             return false
-                        } | false { { }}
+                        } | false {}
                         i = i + 1
                     }
                     
                     mem.dealloc(new_ptr, 100)
                 }
-                | .Err -> e { { }
+                | .Err -> e {
                     io.print("ERROR: realloc failed\n")
                     mem.dealloc(ptr, 50)
                     return false
                 }
         }
-        | .Err -> e { { }
+        | .Err -> e {
             io.print("ERROR: Initial alloc failed\n")
             return false
         }
@@ -167,7 +167,7 @@ test_memory_pool = () bool   {
     pool_result := mem.pool_new<TestBlock>(10)
     
     pool_result ?
-        | .Ok -> pool { { }
+        | .Ok -> pool {
             // Allocate all blocks
             blocks: [10]Ptr<TestBlock>
             i := 0
@@ -175,12 +175,12 @@ test_memory_pool = () bool   {
                 alloc_result := mem.pool_alloc<TestBlock>(&pool)
                 
                 alloc_result ?
-                    | .Ok -> block { { }
+                    | .Ok -> block {
                         block.id = i
                         block.data = i * 100
                         blocks[i] = block
                     }
-                    | .Err -> e { { }
+                    | .Err -> e {
                         io.print("ERROR: pool_alloc failed at index $(i)\n")
                         mem.pool_destroy<TestBlock>(&pool)
                         return false
@@ -192,12 +192,12 @@ test_memory_pool = () bool   {
             // Try to allocate one more (should fail)
             extra_result := mem.pool_alloc<TestBlock>(&pool)
             extra_result ?
-                | .Ok -> _ { { }
+                | .Ok -> _ {
                     io.print("ERROR: Pool should be full\n")
                     mem.pool_destroy<TestBlock>(&pool)
                     return false
                 }
-                | .Err -> _ { { }
+                | .Err -> _ {
                     // Expected - pool is full
                 }
             
@@ -206,12 +206,12 @@ test_memory_pool = () bool   {
             loop i < 5 {
                 free_result := mem.pool_free<TestBlock>(&pool, blocks[i])
                 free_result ?
-                    | .Err -> e { { }
+                    | .Err -> e {
                         io.print("ERROR: pool_free failed\n")
                         mem.pool_destroy<TestBlock>(&pool)
                         return false
                     }
-                    | .Ok -> _ { { }}
+                    | .Ok -> _ {}
                 
                 i = i + 1
             }
@@ -219,10 +219,10 @@ test_memory_pool = () bool   {
             // Should be able to allocate again
             new_alloc := mem.pool_alloc<TestBlock>(&pool)
             new_alloc ?
-                | .Ok -> _ { { }
+                | .Ok -> _ {
                     // Success
                 }
-                | .Err -> _ { { }
+                | .Err -> _ {
                     io.print("ERROR: Pool allocation should succeed after freeing\n")
                     mem.pool_destroy<TestBlock>(&pool)
                     return false
@@ -230,7 +230,7 @@ test_memory_pool = () bool   {
             
             mem.pool_destroy<TestBlock>(&pool)
         }
-        | .Err -> e { { }
+        | .Err -> e {
             io.print("ERROR: pool_new failed\n")
             return false
         }
@@ -245,68 +245,68 @@ test_memory_stats = () bool   {
     mem.reset_stats()
     
     initial_stats := mem.get_stats()
-    initial_stats.current_usage != 0 ? | true { { }
+    initial_stats.current_usage != 0 ? | true {
         io.print("ERROR: Stats not reset properly\n")
         return false
-    } | false { { }}
+    } | false {}
     
     // Do some allocations
     result1 := mem.alloc(100)
     result2 := mem.alloc(200)
     
     result1 ?
-        | .Ok -> ptr1 { { }
+        | .Ok -> ptr1 {
             result2 ?
-                | .Ok -> ptr2 { { }
+                | .Ok -> ptr2 {
                     stats := mem.get_stats()
                     
                     // Check stats updated
-                    stats.total_allocated != 300 ? | true { { }
+                    stats.total_allocated != 300 ? | true {
                         io.print("ERROR: total_allocated incorrect\n")
                         mem.dealloc(ptr1, 100)
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false { { }}
+                    } | false {}
                     
-                    stats.current_usage != 300 ? | true { { }
+                    stats.current_usage != 300 ? | true {
                         io.print("ERROR: current_usage incorrect\n")
                         mem.dealloc(ptr1, 100)
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false { { }}
+                    } | false {}
                     
-                    stats.allocation_count != 2 ? | true { { }
+                    stats.allocation_count != 2 ? | true {
                         io.print("ERROR: allocation_count incorrect\n")
                         mem.dealloc(ptr1, 100)
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false { { }}
+                    } | false {}
                     
                     // Free one allocation
                     mem.dealloc(ptr1, 100)
                     
                     stats = mem.get_stats()
-                    stats.current_usage != 200 ? | true { { }
+                    stats.current_usage != 200 ? | true {
                         io.print("ERROR: current_usage not updated after free\n")
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false { { }}
+                    } | false {}
                     
-                    stats.free_count != 1 ? | true { { }
+                    stats.free_count != 1 ? | true {
                         io.print("ERROR: free_count incorrect\n")
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false { { }}
+                    } | false {}
                     
                     mem.dealloc(ptr2, 200)
                 }
-                | .Err -> _ { { }
+                | .Err -> _ {
                     mem.dealloc(ptr1, 100)
                     io.print("ERROR: Second allocation failed\n")
                     return false
                 }
         }
-        | .Err -> _ { { }
+        | .Err -> _ {
             io.print("ERROR: First allocation failed\n")
             return false
         }
@@ -330,11 +330,11 @@ main = () i32   {
     
     io.print("\n")
     all_passed ? 
-        | true { { }
+        | true {
             io.print("[SUCCESS] All memory tests passed!\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("[FAILURE] Some memory tests failed!\n")
             return 1
         }

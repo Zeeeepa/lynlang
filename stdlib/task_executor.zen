@@ -169,25 +169,25 @@ worker_loop = (executor: *TaskExecutor) void   {
             // Execute the task
             result := task.func()
             result ?
-                | .Ok -> value { { }
+                | .Ok -> value {
                     task.result = value
                     task.status = TaskStatus.Completed
                     
                     executor.metrics ?
-                        | null { { }}
+                        | null {}
                         | metrics { metrics.tasks_completed.fetch_add(1) }
                 }
-                | .Err -> error { { }
+                | .Err -> error {
                     task.result = TaskResult.Failure(error.to_string())
                     task.status = TaskStatus.Failed
                     
                     executor.metrics ?
-                        | null { { }}
+                        | null {}
                         | metrics { metrics.tasks_failed.fetch_add(1) }
                     
                     // Call panic handler if configured
                     executor.config.panic_handler ?
-                        | null { { }}
+                        | null {}
                         | handler { handler(error.to_string()) }
                 }
             

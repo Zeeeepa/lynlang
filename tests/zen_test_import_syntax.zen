@@ -60,19 +60,19 @@ main = () i32   {
     io.print("Testing Zen import syntax...\n")
     
     test_imports() ?
-        | true { { }
+        | true {
             io.print("✓ Import tests passed\n")
         }
-        | false { { }
+        | false {
             io.print("✗ Import tests failed\n")
             return 1
         }
     
     test_no_comptime_imports() ?
-        | true { { }
+        | true {
             io.print("✓ No comptime imports check passed\n")
         }
-        | false { { }
+        | false {
             io.print("✗ Comptime check failed\n")
             return 1
         }

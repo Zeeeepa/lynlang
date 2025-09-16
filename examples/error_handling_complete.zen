@@ -77,25 +77,25 @@ validate_user = (user: User) AppResult<User>  {
     // Check name
     user.name.len() < 2 ?
         | true { errors.push("name too short") }
-        | false { { }}
+        | false {}
     
     user.name.len() > 100 ?
         | true { errors.push("name too long") }
-        | false { { }}
+        | false {}
     
     // Check email
     user.email.contains("@") ?
         | false { errors.push("invalid email format") }
-        | true { { }}
+        | true {}
     
     // Check age
     user.age < 13 ?
         | true { errors.push("user too young") }
-        | false { { }}
+        | false {}
     
     user.age > 150 ?
         | true { errors.push("invalid age") }
-        | false { { }}
+        | false {}
     
     // Return error if validation failed
     errors.is_empty() ?
@@ -115,7 +115,7 @@ fetch_user = (id: u64, db: Database, alloc: *Allocator) AppResult<User>  {
     // Check if user exists
     result.rows.is_empty() ?
         | true { .Err(AppError.BusinessLogicError("User not found")) }
-        | false { { }
+        | false {
             row := result.rows[0]
             user := User{
                 id: row.get("id").as_u64()?,
@@ -135,7 +135,7 @@ fetch_external_data = (url: String, alloc: *Allocator) AppResult<json.Value>  {
     
     // Check status code
     response.status >= 200 && response.status < 300 ?
-        | true { { }
+        | true {
             // Parse response body
             json.parse(response.body)
                 .map_err((e) => AppError.ParseError("Invalid JSON from API"))
@@ -158,7 +158,7 @@ process_user_request: (
     
     // Process action with pattern matching
     result := action ?
-        | "profile" { { }
+        | "profile" {
             // Fetch additional data
             profile_data := fetch_external_data(
                 "https://api.example.com/profile/" + user_id.to_string(),
@@ -166,17 +166,17 @@ process_user_request: (
             )?
             .Ok("Profile: " + profile_data.to_string())
         }
-        | "delete" { { }
+        | "delete" {
             // Check permissions
             validated_user.age >= 18 ?
-                | true { { }
+                | true {
                     db.execute("DELETE FROM users WHERE id = ?", [user_id], alloc)
                         .map_err((e) => AppError.DatabaseError("delete", e.to_string()))?
                     .Ok("User deleted")
                 }
                 | false { .Err(AppError.BusinessLogicError("Cannot delete minor account")) }
         }
-        | "update" -> new_data { { }
+        | "update" -> new_data {
             // Parse and update
             updates := json.parse(new_data)
                 .map_err((e) => AppError.ParseError("Invalid update data"))?
@@ -199,7 +199,7 @@ resilient_config_load = (primary: String, fallback: String) AppResult<Config>  {
     // Try primary config
     load_config(primary) ?
         | .Ok -> config { .Ok(config) }
-        | .Err -> e { { }
+        | .Err -> e {
             // Log the error
             io.println("Primary config failed: $(e), trying fallback...")
             
@@ -216,7 +216,7 @@ process_batch = (users: []User, db: Database, alloc: *Allocator) ([]User, []AppE
     for user in users {
         // Process each user, collecting errors
         validate_user(user) ?
-            | .Ok -> valid { { }
+            | .Ok -> valid {
                 // Save to database
                 save_result := db.insert("users", valid, alloc)
                 save_result ?
@@ -241,7 +241,7 @@ main = () void  {
     // Load configuration with fallback
     config := resilient_config_load("config.json", "default.json") ?
         | .Ok -> c { c }
-        | .Err -> e { { }
+        | .Err -> e {
             io.println("Failed to load config: $(e)")
             io.println("Using defaults...")
             Config{
@@ -255,7 +255,7 @@ main = () void  {
     // Connect to database
     db := Database.connect(config.database_url, &alloc) ?
         | .Ok -> conn { conn }
-        | .Err -> e { { }
+        | .Err -> e {
             io.println("Database connection failed: $(e)")
             return
         }
@@ -267,7 +267,7 @@ main = () void  {
     // Handle the result
     result ?
         | .Ok -> message { io.println("Success: $(message)") }
-        | .Err -> error { { }
+        | .Err -> error {
             // Pattern match on error types for specific handling
             error ?
                 | .FileError -> path, cause {  }

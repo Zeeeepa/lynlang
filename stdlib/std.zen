@@ -2,62 +2,62 @@
 // This module re-exports the most commonly used standard library modules
 
 // Core modules - essential functionality
-pub { core } = @std.core
-pub { io } = @std.io
-pub { mem } = @std.mem
-pub { math } = @std.math
-pub { string } = @std.string
+{ core } = @std.core
+{ io } = @std.io
+{ mem } = @std.mem
+{ math } = @std.math
+{ string } = @std.string
 
 // Collections
-pub { vec } = @std.vec
-pub { hashmap } = @std.hashmap
-pub { list } = @std.list
-pub { set } = @std.set
-pub { queue } = @std.queue
-pub { stack } = @std.stack
+{ vec } = @std.vec
+{ hashmap } = @std.hashmap
+{ list } = @std.list
+{ set } = @std.set
+{ queue } = @std.queue
+{ stack } = @std.stack
 
 // File system and OS interaction
-pub { fs } = @std.fs
-pub { path } = @std.path
-pub { env } = @std.env
-pub { process } = @std.process
-pub { args } = @std.args
+{ fs } = @std.fs
+{ path } = @std.path
+{ env } = @std.env
+{ process } = @std.process
+{ args } = @std.args
 
 // Error handling and testing
-pub { result } = @std.result
-pub { option } = @std.option
-pub { error } = @std.error
-pub { testing } = @std.testing
-pub { assert } = @std.assert
+{ result } = @std.result
+{ option } = @std.option
+{ error } = @std.error
+{ testing } = @std.testing
+{ assert } = @std.assert
 
 // Algorithms and utilities
-pub { algorithm } = @std.algorithm
-pub { iterator } = @std.iterator
-pub { random } = @std.random
-pub { utils } = @std.utils
+{ algorithm } = @std.algorithm
+{ iterator } = @std.iterator
+{ random } = @std.random
+{ utils } = @std.utils
 
 // Time and date
-pub { time } = @std.time
-pub { datetime } = @std.datetime
+{ time } = @std.time
+{ datetime } = @std.datetime
 
 // Networking and concurrency (via allocators)
-pub { net } = @std.net
-pub { http } = @std.http
-pub { concurrency } = @std.concurrency  // Concurrency module (allocator-based)
-pub { thread } = @std.thread
+{ net } = @std.net
+{ http } = @std.http
+{ concurrency } = @std.concurrency  // Concurrency module (allocator-based)
+{ thread } = @std.thread
 
 // Encoding and serialization
-pub { json } = @std.json
-pub { encoding } = @std.encoding
-pub { url } = @std.url
+{ json } = @std.json
+{ encoding } = @std.encoding
+{ url } = @std.url
 
 // Advanced features
-pub { regex } = @std.regex
-pub { crypto } = @std.crypto
-pub { log } = @std.log
+{ regex } = @std.regex
+{ crypto } = @std.crypto
+{ log } = @std.log
 
 // Compiler modules (for self-hosting)
-pub compiler := {
+compiler := {
     lexer: @std.compiler.lexer,
     parser: @std.compiler.parser,
     type_checker: @std.compiler.type_checker,
@@ -84,14 +84,14 @@ panic = (message: RawPtr<i8>) void   {
 }
 
 // Debug print function (only in debug builds)
-debug_print = (message: RawPtr<i8>) void   {
+debug_print = (message: RawPtr<i8>) void {
     @comptime {
         DEBUG ?
-            | true { { }
+            | true {
                 io.print("[DEBUG] ")
                 io.println(message)
             }
-            | false { { }}
+            | false {}
     }
 }
 

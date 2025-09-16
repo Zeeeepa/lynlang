@@ -8,21 +8,22 @@
 { parser } = @std.compiler.parser
 
 // C type mapping
-map_zen_type_to_c = (zen_type: string) string   {
-    if (zen_type == "i8") return "int8_t"
-    if (zen_type == "i16") return "int16_t"
-    if (zen_type == "i32") return "int32_t"
-    if (zen_type == "i64") return "int64_t"
-    if (zen_type == "u8") return "uint8_t"
-    if (zen_type == "u16") return "uint16_t"
-    if (zen_type == "u32") return "uint32_t"
-    if (zen_type == "u64") return "uint64_t"
-    if (zen_type == "f32") return "float"
-    if (zen_type == "f64") return "double"
-    if (zen_type == "bool") return "bool"
-    if (zen_type == "void") return "void"
-    if (zen_type == "string") return "char*"
-    return zen_type  // For custom types
+map_zen_type_to_c = (zen_type: string) string {
+    zen_type ?
+        | "i8" { return "int8_t" }
+        | "i16" { return "int16_t" }
+        | "i32" { return "int32_t" }
+        | "i64" { return "int64_t" }
+        | "u8" { return "uint8_t" }
+        | "u16" { return "uint16_t" }
+        | "u32" { return "uint32_t" }
+        | "u64" { return "uint64_t" }
+        | "f32" { return "float" }
+        | "f64" { return "double" }
+        | "bool" { return "bool" }
+        | "void" { return "void" }
+        | "string" { return "char*" }
+        | _ { return zen_type }  // For custom types
 }
 
 // C Backend Context
@@ -35,7 +36,7 @@ CBackend := {
 }
 
 // Create new C backend
-new_c_backend = () CBackend   {
+new_c_backend = () CBackend {
     return CBackend{
         output: string.Builder.new(),
         indent: 0,
@@ -46,82 +47,102 @@ new_c_backend = () CBackend   {
 }
 
 // Write indentation
-write_indent = (c: &CBackend) void   {
+write_indent = (c: MutPtr<CBackend>) void {
     i := 0
-    loop i < c.indent {
-        c.output.append("    ")
-        i = i + 1
-    }
+    loop(() {
+        (i < c.val.indent) ?
+            | true {
+                c.val.output.append("    ")
+                i = i + 1
+            }
+            | false {
+                break
+            }
+    })
 }
 
 // Write standard C includes
-write_includes = (c: &CBackend) void   {
-     (c.includes_written) ? return
+write_includes = (c: MutPtr<CBackend>) void {
+    c.val.includes_written ? | true { return } | false { }
     
-    c.output.append("#include <stdio.h>\n")
-    c.output.append("#include <stdlib.h>\n")
-    c.output.append("#include <stdint.h>\n")
-    c.output.append("#include <stdbool.h>\n")
-    c.output.append("#include <string.h>\n\n")
+    c.val.output.append("#include <stdio.h>\n")
+    c.val.output.append("#include <stdlib.h>\n")
+    c.val.output.append("#include <stdint.h>\n")
+    c.val.output.append("#include <stdbool.h>\n")
+    c.val.output.append("#include <string.h>\n\n")
     
     // Add Zen runtime helpers
-    c.output.append("// Zen runtime helpers\n")
-    c.output.append("typedef struct { char* data; size_t len; } zen_string;\n")
-    c.output.append("typedef struct { void* data; size_t len; size_t cap; } zen_slice;\n\n")
+    c.val.output.append("// Zen runtime helpers\n")
+    c.val.output.append("typedef struct { char* data; size_t len; } zen_string;\n")
+    c.val.output.append("typedef struct { void* data; size_t len; size_t cap; } zen_slice;\n\n")
     
-    c.includes_written = true
+    c.val.includes_written = true
 }
 
 // Generate expression
-generate_expr = (c: &CBackend, expr: &parser.Expression) void   {
-    match (expr.kind) {
-        .IntLiteral => {
-            c.output.append(expr.value)
+generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
+    expr.val.kind ?
+        | .IntLiteral {
+            c.val.output.append(expr.val.value)
         }
-        .FloatLiteral => {
-            c.output.append(expr.value)
+        | .FloatLiteral {
+            c.val.output.append(expr.val.value)
         }
-        .StringLiteral => {
-            c.output.append("\"")
-            c.output.append(expr.value)
-            c.output.append("\"")
+        | .StringLiteral {
+            c.val.output.append("\"")
+            c.val.output.append(expr.val.value)
+            c.val.output.append("\"")
         }
-        .BoolLiteral => {
-            c.output.append(if (expr.value == "true") "true" else "false")
+        | .BoolLiteral {
+            (expr.val.value == "true") ?
+                | true {
+                    c.val.output.append("true")
+                }
+                | false {
+                    c.val.output.append("false")
+                }
         }
-        .Identifier => {
-            c.output.append(expr.value)
+        | .Identifier {
+            c.val.output.append(expr.val.value)
         }
-        .BinaryOp => {
-            c.output.append("(")
-            generate_expr(c, expr.left)
-            c.output.append(" ")
-            c.output.append(expr.op)
-            c.output.append(" ")
-            generate_expr(c, expr.right)
-            c.output.append(")")
+        | .BinaryOp {
+            c.val.output.append("(")
+            generate_expr(c, expr.val.left)
+            c.val.output.append(" ")
+            c.val.output.append(expr.val.op)
+            c.val.output.append(" ")
+            generate_expr(c, expr.val.right)
+            c.val.output.append(")")
         }
-        .UnaryOp => {
-            c.output.append(expr.op)
-            c.output.append("(")
-            generate_expr(c, expr.operand)
-            c.output.append(")")
+        | .UnaryOp {
+            c.val.output.append(expr.val.op)
+            c.val.output.append("(")
+            generate_expr(c, expr.val.operand)
+            c.val.output.append(")")
         }
-        .FunctionCall => {
+        | .FunctionCall {
             // Special case for print functions
-            if (expr.name == "io.print" || expr.name == "print") {
-                c.output.append("printf")
-            } else {
-                c.output.append(expr.name)
-            }
-            c.output.append("(")
+            (expr.val.name == "io.print" || expr.val.name == "print") ?
+                | true {
+                    c.val.output.append("printf")
+                }
+                | false {
+                    c.val.output.append(expr.val.name)
+                }
+            c.val.output.append("(")
             i := 0
-            loop i < expr.args.len {
-                if (i > 0) c.output.append(", ")
-                generate_expr(c, &expr.args[i])
-                i = i + 1
-            }
-            c.output.append(")")
+            loop(() {
+                (i < expr.val.args.len) ?
+                    | true {
+                        (i > 0) ? | true { c.val.output.append(", ") } | false { }
+                        generate_expr(c, expr.val.args[i].ref())
+                        i = i + 1
+                    }
+                    | false {
+                        break
+                    }
+            })
+            c.val.output.append(")")
         }
         .ArrayLiteral => {
             c.output.append("{")

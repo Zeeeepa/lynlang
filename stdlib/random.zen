@@ -40,7 +40,7 @@ next_u32 = (rng: Ref<RandomState>) u32   {
 next_int_range = (rng: Ref<RandomState>, min: i32, max: i32) i32   {
     range := (max - min): u32
     range == 0 ? | true { min }
-                | false { { }
+                | false {
                     value := next_u32(rng) % range
                     min + value: i32
                 }

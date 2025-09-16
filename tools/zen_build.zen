@@ -33,9 +33,9 @@ Dependency: {
 
 // Where to get dependencies from
 DependencySource: 
-    Local -> path: string,
-    Git -> url: string, branch: string,
-    Registry -> package: string,
+    Local { path: string },
+    Git { url: string, branch: string },
+    Registry { package: string },
 
 // Build target
 Target: {
@@ -55,9 +55,9 @@ TargetType:
 
 // Build result
 BuildResult: 
-    Success -> artifacts: []string,
-    Failed -> error: string,
-    Skipped -> reason: string,
+    Success { artifacts: []string },
+    Failed { error: string },
+    Skipped { reason: string },
 
 // Build system state
 BuildSystem: {

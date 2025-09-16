@@ -60,33 +60,33 @@ main = () i32   {
     
     // Test Option
     test_option() ?
-        | true { { }
+        | true {
             io.print("✓ Option test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Option test failed\n")
             failed = failed + 1
         }
     
     // Test Result
     test_result() ?
-        | true { { }
+        | true {
             io.print("✓ Result test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Result test failed\n")
             failed = failed + 1
         }
     
     // Test Vector
     test_vector() ?
-        | true { { }
+        | true {
             io.print("✓ Vector test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Vector test failed\n")
             failed = failed + 1
         }
@@ -99,11 +99,11 @@ main = () i32   {
     io.print("\n")
     
     failed == 0 ?
-        | true { { }
+        | true {
             io.print("\n✓ All stdlib tests passed!\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("\n✗ Some tests failed\n")
             return 1
         }

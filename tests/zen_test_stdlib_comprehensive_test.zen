@@ -48,7 +48,7 @@ test("io_file_operations") {
     file_result := io.File:open("test.txt", io.Mode:Write)
     file := file_result ?
         | .Ok -> f { f }
-        | .Err -> _ { { }
+        | .Err -> _ {
             // File operations might fail in test env
             return
         }
@@ -364,7 +364,7 @@ test("fs_file_operations") {
         | .Err -> _ { false }
     
     write_ok ?
-        | true { { }
+        | true {
             // Read file
             read_result := fs.read_file("test_output.txt")
             content := read_result ?
@@ -378,7 +378,7 @@ test("fs_file_operations") {
             // Remove file
             fs.remove("test_output.txt")
         }
-        | false { { }}
+        | false {}
 }
 
 // ============================================================================
@@ -513,7 +513,7 @@ test("stdlib_integration_io_fs") {
         | .Err -> _ { false }
     
     write_ok ?
-        | true { { }
+        | true {
             // Read using IO
             file_result := io.File:open(filename, io.Mode:Read)
             file := file_result ?
@@ -533,7 +533,7 @@ test("stdlib_integration_io_fs") {
             // Clean up
             fs.remove(filename)
         }
-        | false { { }}
+        | false {}
 }
 
 test("stdlib_integration_collections_algorithms") {

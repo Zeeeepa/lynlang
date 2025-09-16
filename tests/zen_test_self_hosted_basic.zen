@@ -16,9 +16,9 @@ test_loops = () i32   {
         count = count - 1
     }
     
-    sum == 15 ? | true { { }
+    sum == 15 ? | true {
         puts("[PASS] Conditional loop sum")
-    } | false { { }
+    } | false {
         printf("[FAIL] Expected 15, got %d\n", sum)
         return 1
     }
@@ -35,9 +35,9 @@ test_loops = () i32   {
         outer = outer + 1
     }
     
-    result == 9 ? | true { { }
+    result == 9 ? | true {
         puts("[PASS] Nested loops count")
-    } | false { { }
+    } | false {
         printf("[FAIL] Expected 9, got %d\n", result)
         return 1
     }
@@ -48,12 +48,12 @@ test_loops = () i32   {
     loop true {
         i = i + 1
         loop_result = loop_result + i
-        i >= 5 ? | true { { break  }} | false { { }}
+        i >= 5 ? | true { { break  }} | false {}
     }
     
-    loop_result == 15 ? | true { { }
+    loop_result == 15 ? | true {
         puts("[PASS] Loop with break")
-    } | false { { }
+    } | false {
         printf("[FAIL] Expected 15, got %d\n", loop_result)
         return 1
     }
@@ -71,9 +71,9 @@ test_pattern_matching = () i32   {
                  | val -> val > 20 { "medium" }
                  | _ { "small" }
     
-    result == "big" ? | true { { }
+    result == "big" ? | true {
         puts("[PASS] Pattern matching with guards")
-    } | false { { }
+    } | false {
         puts("[FAIL] Pattern matching failed")
         return 1
     }
@@ -86,9 +86,9 @@ test_pattern_matching = () i32   {
     check := sum ? | 30 { true }
                   | _ { false }
     
-    check ? | true { { }
+    check ? | true {
         puts("[PASS] Direct value pattern")
-    } | false { { }
+    } | false {
         puts("[FAIL] Direct value pattern failed")
         return 1
     }
@@ -102,7 +102,7 @@ test_math = () i32   {
     
     // Factorial
     factorial = (n: i64) i64   {
-        n <= 1 ? | true { { return 1  }} | false { { }}
+        n <= 1 ? | true { { return 1  }} | false {}
         
         result := 1
         i := 2
@@ -114,16 +114,16 @@ test_math = () i32   {
     }
     
     fact5 := factorial(5)
-    fact5 == 120 ? | true { { }
+    fact5 == 120 ? | true {
         puts("[PASS] Factorial calculation")
-    } | false { { }
+    } | false {
         printf("[FAIL] Factorial(5) expected 120, got %d\n", fact5)
         return 1
     }
     
     // Fibonacci
     fibonacci = (n: i64) i64   {
-        n <= 1 ? | true { { return n  }} | false { { }}
+        n <= 1 ? | true { { return n  }} | false {}
         
         prev := 0
         curr := 1
@@ -138,9 +138,9 @@ test_math = () i32   {
     }
     
     fib10 := fibonacci(10)
-    fib10 == 55 ? | true { { }
+    fib10 == 55 ? | true {
         puts("[PASS] Fibonacci calculation")
-    } | false { { }
+    } | false {
         printf("[FAIL] Fibonacci(10) expected 55, got %d\n", fib10)
         return 1
     }
@@ -163,9 +163,9 @@ test_arrays = () i32   {
         i = i + 1
     }
     
-    sum == 15 ? | true { { }
+    sum == 15 ? | true {
         puts("[PASS] Array sum")
-    } | false { { }
+    } | false {
         printf("[FAIL] Array sum expected 15, got %d\n", sum)
         return 1
     }
@@ -174,15 +174,15 @@ test_arrays = () i32   {
     max := arr[0]
     j := 1
     loop j < 5 {
-        arr[j] > max ? | true { { }
+        arr[j] > max ? | true {
             max = arr[j]
-        } | false { { }}
+        } | false {}
         j = j + 1
     }
     
-    max == 5 ? | true { { }
+    max == 5 ? | true {
         puts("[PASS] Array max")
-    } | false { { }
+    } | false {
         printf("[FAIL] Array max expected 5, got %d\n", max)
         return 1
     }
@@ -200,35 +200,35 @@ main = () i32   {
     
     // Run loop tests
     result := test_loops()
-    result != 0 ? | true { { }
+    result != 0 ? | true {
         failures = failures + 1
-    } | false { { }}
+    } | false {}
     
     // Run pattern matching tests
     result2 := test_pattern_matching()
-    result2 != 0 ? | true { { }
+    result2 != 0 ? | true {
         failures = failures + 1
-    } | false { { }}
+    } | false {}
     
     // Run math tests
     result3 := test_math()
-    result3 != 0 ? | true { { }
+    result3 != 0 ? | true {
         failures = failures + 1
-    } | false { { }}
+    } | false {}
     
     // Run array tests
     result4 := test_arrays()
-    result4 != 0 ? | true { { }
+    result4 != 0 ? | true {
         failures = failures + 1
-    } | false { { }}
+    } | false {}
     
     // Print summary
     puts("\n===================================")
-    failures == 0 ? | true { { }
+    failures == 0 ? | true {
         puts("All tests passed!")
         puts("Zen successfully demonstrates self-hosting capabilities")
         return 0
-    } | false { { }
+    } | false {
         printf("%d test suites failed\n", failures)
         return 1
     }

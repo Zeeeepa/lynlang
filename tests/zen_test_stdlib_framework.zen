@@ -1,9 +1,7 @@
 // Test for the Zen stdlib test framework
 // Demonstrates usage of the new testing utilities
 
-{ test } = @std.test
-{ core } = @std.core
-{ io } = @std.io
+{ test, core, io } = @std
 
 // Test basic assertions
 test_basic_assertions = () void   {
@@ -89,7 +87,7 @@ test_core_functions = () void   {
         is_pow2_10 := core.is_power_of_two(10)
         
         test.assert(is_pow2_8, "8 should be a power of 2") ?
-            | test.TestResult.Pass { { }}
+            | test.TestResult.Pass {}
             | fail { return fail }
         
         return test.assert(!is_pow2_10, "10 should not be a power of 2")
@@ -156,11 +154,11 @@ test_range = () void   {
     suite.add_test("Range creation", () test.TestResult {
         r := core.range(0, 10)
         test.assert_eq(r.start, 0, "Range start should be 0") ?
-            | test.TestResult.Pass { { }}
+            | test.TestResult.Pass {}
             | fail { return fail }
         
         test.assert_eq(r.end, 10, "Range end should be 10") ?
-            | test.TestResult.Pass { { }}
+            | test.TestResult.Pass {}
             | fail { return fail }
         
         return test.assert_eq(r.step, 1, "Range step should be 1")

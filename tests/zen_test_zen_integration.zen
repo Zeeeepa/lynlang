@@ -79,21 +79,21 @@ impl<T> Stack<T> {
     
     push = (self: *Stack<T>, item: T) bool   {
         self.items.len() < self.capacity ?
-            | true { { }
+            | true {
                 self.items.push(item)
                 return true
             }
-            | false { { }
+            | false {
                 return false
             }
     }
     
     pop = (self: *Stack<T>) Option<T>   {
         self.items.len() > 0 ?
-            | true { { }
+            | true {
                 return Option<T>.Some(self.items.pop())
             }
-            | false { { }
+            | false {
                 return Option<T>.None
             }
     }
@@ -105,13 +105,13 @@ process_color = (c: Color) string   {
         | Red { return "Pure red" }
         | Green { return "Pure green" }
         | Blue { return "Pure blue" }
-        | RGB(r, g, b) { { }
+        | RGB(r, g, b) {
             r > 200 && g < 50 && b < 50 ?
                 | true { return "Mostly red" }
-                | false { { }
+                | false {
                     g > 200 && r < 50 && b < 50 ?
                         | true { return "Mostly green" }
-                        | false { { }
+                        | false {
                             b > 200 && r < 50 && g < 50 ?
                                 | true { return "Mostly blue" }
                                 | false { return "Mixed color" }
@@ -127,12 +127,12 @@ fibonacci = (n: i32) Vec<i32>   {
     
     n <= 0 ?
         | true { return result }
-        | false { { }}
+        | false {}
     
     result.push(0)
     n == 1 ?
         | true { return result }
-        | false { { }}
+        | false {}
     
     result.push(1)
     
@@ -185,11 +185,11 @@ main = () i32   {
     dist := distance(p1, p2)
     
     dist == 5.0 ?
-        | true { { }
+        | true {
             io.print("PASSED\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("FAILED (expected 5.0, got ")
             io.print_float(dist)
             io.print(")\n")
@@ -205,11 +205,11 @@ main = () i32   {
     area := rect.get_area()
     
     area == 50.0 ?
-        | true { { }
+        | true {
             io.print("PASSED\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("FAILED (expected 50.0, got ")
             io.print_float(area)
             io.print(")\n")
@@ -224,20 +224,20 @@ main = () i32   {
     stack.push(30)
     
     match stack.pop() {
-        | Some(val) { { }
+        | Some(val) {
             val == 30 ?
-                | true { { }
+                | true {
                     io.print("PASSED\n")
                     passed = passed + 1
                 }
-                | false { { }
+                | false {
                     io.print("FAILED (expected 30, got ")
                     io.print_int(val)
                     io.print(")\n")
                     failed = failed + 1
                 }
         }
-        | None { { }
+        | None {
             io.print("FAILED (stack was empty)\n")
             failed = failed + 1
         }
@@ -252,11 +252,11 @@ main = () i32   {
     result2 := process_color(color2)
     
     (result1 == "Pure red" && result2 == "Mostly red") ?
-        | true { { }
+        | true {
             io.print("PASSED\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("FAILED\n")
             failed = failed + 1
         }
@@ -266,11 +266,11 @@ main = () i32   {
     fibs := fibonacci(10)
     
     fibs.len() == 10 && fibs[9] == 34 ?
-        | true { { }
+        | true {
             io.print("PASSED\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("FAILED\n")
             failed = failed + 1
         }
@@ -282,29 +282,29 @@ main = () i32   {
     
     test_passed := false
     match result_ok {
-        | Ok(val) { { }
+        | Ok(val) {
             val == 5.0 ?
-                | true { { }
+                | true {
                     match result_err {
-                        | Err(msg) { { }
+                        | Err(msg) {
                             msg == "Division by zero" ?
                                 | true { test_passed = true }
-                                | false { { }}
+                                | false {}
                         }
-                        | Ok(_) { { }}
+                        | Ok(_) {}
                     }
                 }
-                | false { { }}
+                | false {}
         }
-        | Err(_) { { }}
+        | Err(_) {}
     }
     
     test_passed ?
-        | true { { }
+        | true {
             io.print("PASSED\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("FAILED\n")
             failed = failed + 1
         }
@@ -315,11 +315,11 @@ main = () i32   {
     array_sum := sum_array(test_array)
     
     array_sum == 55 ?
-        | true { { }
+        | true {
             io.print("PASSED\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("FAILED (expected 55, got ")
             io.print_int(array_sum)
             io.print(")\n")
@@ -336,11 +336,11 @@ main = () i32   {
     io.print("\n")
     
     failed == 0 ?
-        | true { { }
+        | true {
             io.print("\n✓ All tests passed!\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("\n✗ Some tests failed\n")
             return 1
         }

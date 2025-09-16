@@ -59,16 +59,16 @@ read_data = (source: string, alloc: Ptr<Allocator>) Result<string, Error>   {
     
     // Execution mode determined by allocator
     result := alloc.value.is_concurrent ?
-        | true { { }
+        | true {
             // Concurrent path - may suspend
             cont := alloc.value.suspend()
-            cont ? | .Some -> c { { }
+            cont ? | .Some -> c {
                       // Simulated concurrent read
                       "concurrent data from $(source)"
                   }
                   | .None { "sync fallback" }
         }
-        | false { { }
+        | false {
             // Sync path - blocks
             "sync data from $(source)"
         }
@@ -170,12 +170,12 @@ test("actor pattern") {
         state: i32 = 0,
         
         handle_message: (self: Ptr<CounterActor>, msg: Message) i32 {
-            msg ? | .Increment { { }
+            msg ? | .Increment {
                      self.value.state = self.value.state + 1
                      self.value.state
                  }
                  | .GetValue { self.value.state }
-                 | .Reset { { }
+                 | .Reset {
                      self.value.state = 0
                      0
                  }

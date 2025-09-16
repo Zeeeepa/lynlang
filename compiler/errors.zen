@@ -3,8 +3,8 @@
 // Compliant with Language Spec v1.1.0
 
 // Option and Result types
-Option<T> =
-    | Some(value: T)
+Option<T>:
+    Some(value: T)
     | None
 
 Vec<T> = {
@@ -61,95 +61,95 @@ ErrorContext: {
 }
 
 // Create a new error context
-create_context = (file: string, content: string) ErrorContext   {
+create_context = (file: string, content: string) ErrorContext {
     ErrorContext {
         source_file: file,
         source_content: content,
-        diagnostics: Vec:new(),
+        diagnostics: Vec.new(),
         error_count: 0,
         warning_count: 0,
     }
 }
 
 // Add a diagnostic to the context
-add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void   {
-    ctx.value.diagnostics.push(diag)
+add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void {
+    ctx.val.diagnostics.push(diag)
     
     diag.severity ?
-        | .Error { ctx.value.error_count = ctx.value.error_count + 1 }
-        | .Warning { ctx.value.warning_count = ctx.value.warning_count + 1 }
-        | _ { { }}
+        | .Error { ctx.val.error_count = ctx.val.error_count + 1 }
+        | .Warning { ctx.val.warning_count = ctx.val.warning_count + 1 }
+        | _ {}
 }
 
 // Create a syntax error
-syntax_error = (message: string, loc: SourceLocation) Diagnostic   {
+syntax_error = (message: string, loc: SourceLocation) Diagnostic {
     Diagnostic {
-        severity: ErrorSeverity:Error,
-        category: ErrorCategory:Syntax,
+        severity: ErrorSeverity.Error,
+        category: ErrorCategory.Syntax,
         message: message,
         location: loc,
-        notes: Vec:new(),
-        suggestion: None,
-        code_snippet: None,
+        notes: Vec.new(),
+        suggestion: .None,
+        code_snippet: .None,
     }
 }
 
 // Create a type error
-type_error = (message: string, loc: SourceLocation) Diagnostic   {
+type_error = (message: string, loc: SourceLocation) Diagnostic {
     Diagnostic {
-        severity: ErrorSeverity:Error,
-        category: ErrorCategory:Type,
+        severity: ErrorSeverity.Error,
+        category: ErrorCategory.Type,
         message: message,
         location: loc,
-        notes: Vec:new(),
-        suggestion: None,
-        code_snippet: None,
+        notes: Vec.new(),
+        suggestion: .None,
+        code_snippet: .None,
     }
 }
 
 // Create an import error
-import_error = (message: string, loc: SourceLocation) Diagnostic   {
+import_error = (message: string, loc: SourceLocation) Diagnostic {
     Diagnostic {
-        severity: ErrorSeverity:Error,
-        category: ErrorCategory:Import,
+        severity: ErrorSeverity.Error,
+        category: ErrorCategory.Import,
         message: message,
         location: loc,
-        notes: Vec:new(),
-        suggestion: None,
-        code_snippet: None,
+        notes: Vec.new(),
+        suggestion: .None,
+        code_snippet: .None,
     }
 }
 
 // Create a warning
-warning = (message: string, loc: SourceLocation) Diagnostic   {
+warning = (message: string, loc: SourceLocation) Diagnostic {
     Diagnostic {
-        severity: ErrorSeverity:Warning,
-        category: ErrorCategory:Semantic,
+        severity: ErrorSeverity.Warning,
+        category: ErrorCategory.Semantic,
         message: message,
         location: loc,
-        notes: Vec:new(),
-        suggestion: None,
-        code_snippet: None,
+        notes: Vec.new(),
+        suggestion: .None,
+        code_snippet: .None,
     }
 }
 
 // Add a note to a diagnostic
-add_note = (diag: Ptr<Diagnostic>, note: string) void   {
-    diag.value.notes.push(note)
+add_note = (diag: Ptr<Diagnostic>, note: string) void {
+    diag.val.notes.push(note)
 }
 
 // Add a suggestion to a diagnostic
-add_suggestion = (diag: Ptr<Diagnostic>, suggestion: string) void   {
-    diag.value.suggestion = Some(suggestion)
+add_suggestion = (diag: Ptr<Diagnostic>, suggestion: string) void {
+    diag.val.suggestion = .Some(suggestion)
 }
 
 // Extract code snippet around error location
-extract_snippet = (content: string, loc: SourceLocation) string   {
+extract_snippet = (content: string, loc: SourceLocation) string {
     lines := split_lines(content)
     
-    loc.line == 0 || loc.line > lines.len() ?
+    (loc.line == 0 || loc.line > lines.len()) ?
         | true { "" }
-        | false { { }
+        | false {
             line_idx := loc.line - 1
             line := lines[line_idx]
             
@@ -168,7 +168,7 @@ extract_snippet = (content: string, loc: SourceLocation) string   {
 }
 
 // Format severity for display
-format_severity = (severity: ErrorSeverity) string   {
+format_severity = (severity: ErrorSeverity) string {
     severity ?
         | .Error { "error" }
         | .Warning { "warning" }
@@ -177,7 +177,7 @@ format_severity = (severity: ErrorSeverity) string   {
 }
 
 // Format category for display
-format_category = (category: ErrorCategory) string   {
+format_category = (category: ErrorCategory) string {
     category ?
         | .Syntax { "syntax" }
         | .Type { "type" }
@@ -188,7 +188,7 @@ format_category = (category: ErrorCategory) string   {
 }
 
 // Format a diagnostic for display
-format_diagnostic = (diag: Diagnostic) string   {
+format_diagnostic = (diag: Diagnostic) string {
     // Format: file:line:column: severity[category]: message
     result := concat(diag.location.file, ":")
     result = concat(result, format_u32(diag.location.line))
@@ -203,39 +203,39 @@ format_diagnostic = (diag: Diagnostic) string   {
     
     // Add code snippet if available
     diag.code_snippet ?
-        | .Some -> snippet { { }
+        | .Some(snippet) {
             result = concat(result, "\n")
             result = concat(result, snippet)
         }
-        | .None { { }}
+        | .None {}
     
     // Add notes
-    diag.notes.len() > 0 ?
-        | true { { }
-            (0..diag.notes.len()).loop((i) => {
+    (diag.notes.len() > 0) ?
+        | true {
+            (0..diag.notes.len()).loop((i) {
                 result = concat(result, "\n  note: ")
                 result = concat(result, diag.notes[i])
             })
         }
-        | false { { }}
+        | false {}
     
     // Add suggestion
     diag.suggestion ?
-        | .Some -> sugg { { }
+        | .Some(sugg) {
             result = concat(result, "\n  suggestion: ")
             result = concat(result, sugg)
         }
-        | .None { { }}
+        | .None {}
     
     result
 }
 
 // Print all diagnostics in context
-print_diagnostics = (ctx: ErrorContext) void   {
-    ctx.diagnostics.len() == 0 ?
-        | true { { }}
-        | false { { }
-            (0..ctx.diagnostics.len()).loop((i) => {
+print_diagnostics = (ctx: ErrorContext) void {
+    (ctx.diagnostics.len() == 0) ?
+        | true {}
+        | false {
+            (0..ctx.diagnostics.len()).loop((i) {
                 formatted := format_diagnostic(ctx.diagnostics[i])
                 print_line(formatted)
             })
@@ -255,39 +255,39 @@ should_stop_compilation = (ctx: ErrorContext) bool   {
 }
 
 // Helper functions (would be imported from string module in real implementation)
-split_lines = (s: string) Vec<string>   {
-    @intrinsic("string_split_lines", s)
+split_lines = (s: string) Vec<string> {
+    intrinsic("string_split_lines", s)
 }
 
-concat = (a: string, b: string) string   {
-    @intrinsic("string_concat", a, b)
+concat = (a: string, b: string) string {
+    intrinsic("string_concat", a, b)
 }
 
-format_u32 = (n: u32) string   {
-    @intrinsic("format_u32", n)
+format_u32 = (n: u32) string {
+    intrinsic("format_u32", n)
 }
 
-string_len = (s: string) u32   {
-    @intrinsic("string_len", s)
+string_len = (s: string) u32 {
+    intrinsic("string_len", s)
 }
 
-repeat_char = (c: u8, count: u32) string   {
-    @intrinsic("repeat_char", c, count)
+repeat_char = (c: u8, count: u32) string {
+    intrinsic("repeat_char", c, count)
 }
 
-print_line = (s: string) void   {
-    @intrinsic("print_line", s)
+print_line = (s: string) void {
+    intrinsic("print_line", s)
 }
 
 // Vec implementation helpers
-Vec:new<T> = () Vec<T> {
-    @intrinsic("vec_new")
+Vec.new<T> = () Vec<T> {
+    intrinsic("vec_new")
 }
 
-Vec:push<T> = (self: Ptr<Vec<T>>, item: T) void {
-    @intrinsic("vec_push", self, item)
+Vec.push<T> = (self: Ptr<Vec<T>>, item: T) void {
+    intrinsic("vec_push", self, item)
 }
 
-Vec:len<T> = (self: Vec<T>) usize {
+Vec.len<T> = (self: Vec<T>) usize {
     self.len
 }

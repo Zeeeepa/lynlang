@@ -133,11 +133,11 @@ Library: {
     // Load the library
     load: (self: Ptr<Library>) Result<void, string> {
         self.value.path ?
-            | .Some -> p { { }
+            | .Some -> p {
                 // Call dlopen or equivalent
                 handle := load_library(p)
                 handle ?
-                    | .Ok -> h { { }
+                    | .Ok -> h {
                         self.value.handle = Some(h)
                         .Ok(void)
                     }
@@ -151,13 +151,13 @@ Library: {
         // Check cache first
         self.value.symbol_cache.get(name) ?
             | .Some -> ptr { .Ok(ptr) }
-            | .None { { }
+            | .None {
                 self.value.handle ?
-                    | .Some -> h { { }
+                    | .Some -> h {
                         // Call dlsym or equivalent
                         result := get_symbol(h, name)
                         result ?
-                            | .Ok -> ptr { { }
+                            | .Ok -> ptr {
                                 // Cache the symbol
                                 self.value.symbol_cache.insert(name, ptr)
                                 .Ok(ptr)
@@ -176,14 +176,14 @@ Library: {
     // Unload library and clean up
     unload: (self: Ptr<Library>) Result<void, string> {
         self.value.handle ?
-            | .Some -> h { { }
+            | .Some -> h {
                 // Clear cache
                 self.value.symbol_cache.clear()
                 
                 // Platform-specific unload
                 result := unload_library(h)
                 result ?
-                    | .Ok -> _ { { }
+                    | .Ok -> _ {
                         self.value.handle = None
                         .Ok(void)
                     }
@@ -196,7 +196,7 @@ Library: {
     call_function<Args, Ret>: (self: Ptr<Library>, name: string, args: Args) Result<Ret, string> {
         fn_ptr := self.get_function(name)
         fn_ptr ?
-            | .Ok -> ptr { { }
+            | .Ok -> ptr {
                 // Cast to function type and call
                 func := ptr as (Args) Ret
                 .Ok(func(args))

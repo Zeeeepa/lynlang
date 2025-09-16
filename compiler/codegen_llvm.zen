@@ -1,10 +1,9 @@
 // Zen Language - LLVM Code Generator Module
 // Generates LLVM IR from Zen AST
 
-{ core } = @std.core
-{ io } = @std.io
+{ core, io }= @std
 { string } = @std.string
-{ vec } = @std.vec
+{ Vec, DynVec } = @std.collections
 { parser } = @std.compiler.parser
 
 // Import AST types from parser
@@ -103,8 +102,8 @@ emit = (gen: &mut CodeGen, line: string)  {
 
 // Convert Zen type to LLVM type
 zen_type_to_llvm = (t: Type) string   {
-    match t {
-        | Type.Named(name) { { }
+     t ?
+        | Type.Named(name) {
             name == "i8" ? { return "i8" } :
             name == "i16" ? { return "i16" } :
             name == "i32" ? { return "i32" } :
@@ -120,24 +119,23 @@ zen_type_to_llvm = (t: Type) string   {
             name == "string" ? { return "i8*" } :
             { return name }
         }
-        | Type.Pointer(inner, _) { { }
+        | Type.Pointer(inner, _) {
             inner_type := zen_type_to_llvm(*inner)
             return inner_type + "*"
         }
-        | Type.Array(elem, size) { { }
+        | Type.Array(elem, size) {
             elem_type := zen_type_to_llvm(*elem)
             match size {
                 | Option<u32>.Some(s) { return "[" + u32_to_string(s) + " x " + elem_type + "]" }
                 | Option<u32>.None { return elem_type + "*" }
             }
         }
-        | Type.Function(params, ret) { { }
+        | Type.Function(params, ret) {
             ret_type := zen_type_to_llvm(*ret)
             // Function pointer type
             return ret_type + " (...)*"
         }
-        | _ { return "i32"  // Default }
-    }
+        | _  () {return "i32" }
 }
 
 // Generate code for binary operation
@@ -175,23 +173,23 @@ gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg
 // Generate code for expression
 gen_expression = (gen: &mut CodeGen, expr: AstNode) u32   {
     match expr {
-        | AstNode.IntLit(val) { { }
+        | AstNode.IntLit(val) {
             reg := alloc_register(gen)
             emit(gen, "  %" + u32_to_string(reg) + " = add i32 0, " + i64_to_string(val))
             return reg
         }
-        | AstNode.FloatLit(val) { { }
+        | AstNode.FloatLit(val) {
             reg := alloc_register(gen)
             emit(gen, "  %" + u32_to_string(reg) + " = fadd double 0.0, " + f64_to_string(val))
             return reg
         }
-        | AstNode.BoolLit(val) { { }
+        | AstNode.BoolLit(val) {
             reg := alloc_register(gen)
             val_str := val ? "1" : "0"
             emit(gen, "  %" + u32_to_string(reg) + " = add i1 0, " + val_str)
             return reg
         }
-        | AstNode.StringLit(val) { { }
+        | AstNode.StringLit(val) {
             // Add string constant
             str_id := vec_len(gen.string_constants)
             str_name := "@.str." + u32_to_string(str_id)
@@ -210,29 +208,29 @@ gen_expression = (gen: &mut CodeGen, expr: AstNode) u32   {
                  u32_to_string(string_len(val) + 1) + " x i8]* " + str_name + ", i32 0, i32 0")
             return reg
         }
-        | AstNode.Ident(name) { { }
+        | AstNode.Ident(name) { 
             // Load variable
             var := find_variable(gen, name)
             match var {
-                | Option<LocalVar>.Some(v) { { }
+                | Option<LocalVar>.Some(v) {
                     reg := alloc_register(gen)
                     emit(gen, "  %" + u32_to_string(reg) + " = load " + v.llvm_type + 
                          ", " + v.llvm_type + "* %" + u32_to_string(v.register))
                     return reg
                 }
-                | Option<LocalVar>.None { { }
+                | Option<LocalVar>.None {
                     // Variable not found, return dummy register
                     return 0
                 }
             }
         }
-        | AstNode.BinaryOp(op, left, right) { { }
+        | AstNode.BinaryOp(op, left, right) {
             left_reg := gen_expression(gen, *left)
             right_reg := gen_expression(gen, *right)
             // For now, assume i32 type
             return gen_binary_op(gen, op, left_reg, right_reg, "i32")
         }
-        | _ { { }
+        | _ {
             // Unsupported expression, return dummy register
             return 0
         }
@@ -255,7 +253,7 @@ find_variable = (gen: &CodeGen, name: string) Option<LocalVar>   {
 // Generate code for statement
 gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
     match stmt {
-        | AstNode.VarDecl(name, ty, init) { { }
+        | AstNode.VarDecl(name, ty, init) {
             // Allocate local variable
             llvm_ty := zen_type_to_llvm(ty)
             var_reg := alloc_register(gen)
@@ -263,12 +261,12 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
             
             // Store initial value if present
             match init {
-                | Option<AstNode>.Some(expr) { { }
+                | Option<AstNode>.Some(expr) {
                     val_reg := gen_expression(gen, expr)
                     emit(gen, "  store " + llvm_ty + " %" + u32_to_string(val_reg) + 
                          ", " + llvm_ty + "* %" + u32_to_string(var_reg))
                 }
-                | Option<AstNode>.None { { }}
+                | Option<AstNode>.None {}
             }
             
             // Add to locals table
@@ -279,22 +277,22 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
             }
             vec_push(gen.locals, var)
         }
-        | AstNode.Return(expr) { { }
+        | AstNode.Return(expr) {
             match expr {
-                | Option<AstNode>.Some(e) { { }
+                | Option<AstNode>.Some(e) {
                     val_reg := gen_expression(gen, e)
                     emit(gen, "  ret i32 %" + u32_to_string(val_reg))
                 }
-                | Option<AstNode>.None { { }
+                | Option<AstNode>.None {
                     emit(gen, "  ret void")
                 }
             }
         }
-        | AstNode.Expression(expr) { { }
+        | AstNode.Expression(expr) {
             // Generate expression (result discarded)
             gen_expression(gen, expr)
         }
-        | AstNode.Block(stmts) { { }
+        | AstNode.Block(stmts) {
             // Generate each statement in block
             i := 0
             loop i < vec_len(stmts) {
@@ -302,14 +300,14 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
                 i = i + 1
             }
         }
-        | _ { { }}
+        | _ {}
     }
 }
 
 // Generate function definition
 gen_function = (gen: &mut CodeGen, func: AstNode)  {
     match func {
-        | AstNode.FnDecl(name, params, ret_ty, body) { { }
+        | AstNode.FnDecl(name, params, ret_ty, body) {
             // Clear locals for new function
             gen.locals = vec_new<LocalVar>()
             gen.next_register = 0
@@ -346,10 +344,10 @@ gen_function = (gen: &mut CodeGen, func: AstNode)  {
             
             // Generate function body
             match body {
-                | Option<AstNode>.Some(b) { { }
+                | Option<AstNode>.Some(b) {
                     gen_statement(gen, b)
                 }
-                | Option<AstNode>.None { { }}
+                | Option<AstNode>.None {}
             }
             
             // Add implicit return if needed
@@ -360,7 +358,7 @@ gen_function = (gen: &mut CodeGen, func: AstNode)  {
             gen.indent_level = 0
             emit(gen, "}")
         }
-        | _ { { }}
+        | _ {}
     }
 }
 
@@ -442,13 +440,13 @@ gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>)  {
     
     // Process all top-level declarations
     i := 0
-    loop i < vec_len(ast) {
+    loop (i < vec_len(ast)) {
         node := vec_get(ast, i)
-        match node {
-            | AstNode.FnDecl(_, _, _, _) { { }
+        node ?
+            | AstNode.FnDecl(_, _, _, _) {
                 gen_function(gen, node)
             }
-            | AstNode.GlobalVar(name, ty, init) { { }
+            | AstNode.GlobalVar(name, ty, init) {
                 // Generate global variable
                 llvm_ty := zen_type_to_llvm(ty)
                 init_val := match init {
@@ -457,7 +455,7 @@ gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>)  {
                 }
                 emit(gen, "@" + name + " = global " + llvm_ty + " " + init_val)
             }
-            | _ { { }}
+            | _ {}
         }
         i = i + 1
     }
@@ -474,7 +472,7 @@ gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>)  {
                  u32_to_string(len) + " x i8] c\"" + str_const.value + "\\00\"")
             i = i + 1
         }
-    } : {}
+    }
 }
 
 // Main entry point for testing

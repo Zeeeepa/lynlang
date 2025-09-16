@@ -89,12 +89,12 @@ test_parser_variable = () void   {
     test.assert_eq(parse.errors.len(), 0, "No parser errors expected")
     
     ast[0] ?
-        | parser.AstNode.VarDecl(name, type_ann, value, is_mut) { { }
+        | parser.AstNode.VarDecl(name, type_ann, value, is_mut) {
             test.assert_eq(name, "x", "Variable name should be 'x'")
             test.assert_false(is_mut, "Variable should be immutable")
             
             value ?
-                | Option.Some(v) { { }
+                | Option.Some(v) {
                     // Check value is 42
                     test.assert_true(true, "Variable has initializer")
                 }
@@ -115,7 +115,7 @@ test_parser_function = () void   {
     test.assert_eq(parse.errors.len(), 0, "No parser errors expected")
     
     ast[0] ?
-        | parser.AstNode.FuncDecl(name, params, ret_type, body, is_generic) { { }
+        | parser.AstNode.FuncDecl(name, params, ret_type, body, is_generic) {
             test.assert_eq(name, "add", "Function name should be 'add'")
             test.assert_eq(params.len(), 2, "Function should have 2 parameters")
             test.assert_false(is_generic, "Function should not be generic")
@@ -139,7 +139,7 @@ test_parser_struct = () void   {
     test.assert_eq(parse.errors.len(), 0, "No parser errors expected")
     
     ast[0] ?
-        | parser.AstNode.StructDecl(name, fields, generics) { { }
+        | parser.AstNode.StructDecl(name, fields, generics) {
             test.assert_eq(name, "Point", "Struct name should be 'Point'")
             test.assert_eq(fields.len(), 2, "Struct should have 2 fields")
             test.assert_eq(generics.len(), 0, "Struct should not be generic")

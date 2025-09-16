@@ -8,11 +8,11 @@ extern strlen = (str: RawPtr<i8>) i64
 
 // JSON Value types
 JsonValue: Null
-    | Boolean(value: bool)
-    | Number(value: f64)
-    | String(value: RawPtr<i8>)
-    | Array(elements: *JsonValue, count: i32)
-    | Object(pairs: *JsonPair, count: i32)
+    Boolean: {value: bool},
+    Number: {value: f64},
+    String: {value: RawPtr<i8>},
+    Array: {elements: *JsonValue, count: i32},
+    Object: {pairs: *JsonPair, count: i32},
 
 JsonPair: {
     key: RawPtr<i8>,
@@ -38,11 +38,11 @@ json_parser_new = (input: RawPtr<i8>) JsonParser   {
 // Skip whitespace in parser
 json_skip_whitespace = (parser: *JsonParser) void   {
     loop {
-        parser.position >= parser.length ? | true { { break  }} | false { { }}
+        parser.position >= parser.length ? | true { { break  }} | false {}
         
         ch := parser.input[parser.position]
         is_ws := ch == 32 || ch == 9 || ch == 10 || ch == 13
-        is_ws ? | false { { break  }} | true { { }}
+        is_ws ? | false { { break  }} | true {}
         
         parser.position = parser.position + 1
     }
@@ -57,15 +57,15 @@ json_parse_string = (parser: *JsonParser) RawPtr<i8> {
     length := 0
     
     loop {
-        parser.position >= parser.length ? | true { { break  }} | false { { }}
+        parser.position >= parser.length ? | true { { break  }} | false {}
         
         ch := parser.input[parser.position]
-        ch == 34 ? | true { { break  }} | false { { }} // Found closing quote
+        ch == 34 ? | true { { break  }} | false {} // Found closing quote
         
         ch == 92 ? | true { { // Escape character }
             parser.position = parser.position + 2
             length = length + 1
-        } | false { { }
+        } | false {
             parser.position = parser.position + 1
             length = length + 1
         }
@@ -90,19 +90,19 @@ json_parse_number = (parser: *JsonParser) f64   {
     // Handle negative sign
     parser.input[parser.position] == 45 ? | true { { // '-' }
         parser.position = parser.position + 1
-    } | false { { }}
+    } | false {}
     
     // Parse digits
     loop {
-        parser.position >= parser.length ? | true { { break  }} | false { { }}
+        parser.position >= parser.length ? | true { { break  }} | false {}
         
         ch := parser.input[parser.position]
         
         ch >= 48 && ch <= 57 ? | true { { // '0' to '9' }
             parser.position = parser.position + 1
-        } | false { { }
+        } | false {
             ch == 46 ? | true { { // '.' }
-                has_decimal ? | true { { break  }} | false { { }}
+                has_decimal ? | true { { break  }} | false {}
                 has_decimal = true
                 parser.position = parser.position + 1
             } | false { { break  }}
@@ -118,9 +118,9 @@ json_parse_number = (parser: *JsonParser) f64   {
 json_parse_value = (parser: *JsonParser) *JsonValue {
     json_skip_whitespace(parser)
     
-    parser.position >= parser.length ? | true { { }
+    parser.position >= parser.length ? | true {
         return &JsonValue:Null
-    } | false { { }}
+    } | false {}
     
     ch := parser.input[parser.position]
     
@@ -128,7 +128,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     ch == 110 ? | true { { // 'n' }
         parser.position = parser.position + 4 // Skip "null"
         return &JsonValue:Null
-    } | false { { }}
+    } | false {}
     
     // Boolean true
     ch == 116 ? | true { { // 't' }
@@ -137,7 +137,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
-    } | false { { }}
+    } | false {}
     
     // Boolean false
     ch == 102 ? | true { { // 'f' }
@@ -146,7 +146,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
-    } | false { { }}
+    } | false {}
     
     // String
     ch == 34 ? | true { { // '"' }
@@ -155,7 +155,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
-    } | false { { }}
+    } | false {}
     
     // Number
     ch == 45 || (ch >= 48 && ch <= 57) ? | true { { // '-' or digit }
@@ -164,19 +164,19 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
         result := malloc(@sizeof(JsonValue)) as *JsonValue
         *result = value
         return result
-    } | false { { }}
+    } | false {}
     
     // Array
     ch == 91 ? | true { { // '[' }
         parser.position = parser.position + 1
         return json_parse_array(parser)
-    } | false { { }}
+    } | false {}
     
     // Object
     ch == 123 ? | true { { // '{' }
         parser.position = parser.position + 1
         return json_parse_object(parser)
-    } | false { { }}
+    } | false {}
     
     return &JsonValue:Null
 }
@@ -189,17 +189,17 @@ json_parse_array = (parser: *JsonParser) *JsonValue {
     loop {
         json_skip_whitespace(parser)
         
-        parser.position >= parser.length ? | true { { break  }} | false { { }}
+        parser.position >= parser.length ? | true { { break  }} | false {}
         parser.input[parser.position] == 93 ? | true { { // ']' }
             parser.position = parser.position + 1
             break
-        } | false { { }}
+        } | false {}
         
-        count > 0 ? | true { { }
+        count > 0 ? | true {
             parser.input[parser.position] == 44 ? | true { { // ',' }
                 parser.position = parser.position + 1
-            } | false { { }}
-        } | false { { }}
+            } | false {}
+        } | false {}
         
         element := json_parse_value(parser)
         elements[count] = *element
@@ -220,18 +220,18 @@ json_parse_object = (parser: *JsonParser) *JsonValue {
     loop {
         json_skip_whitespace(parser)
         
-        parser.position >= parser.length ? | true { { break  }} | false { { }}
+        parser.position >= parser.length ? | true { { break  }} | false {}
         parser.input[parser.position] == 125 ? | true { { // ' }}'
             parser.position = parser.position + 1
             break
-        } | false { { }}
+        } | false {}
         
-        count > 0 ? | true { { }
+        count > 0 ? | true {
             parser.input[parser.position] == 44 ? | true { { // ',' }
                 parser.position = parser.position + 1
                 json_skip_whitespace(parser)
-            } | false { { }}
-        } | false { { }}
+            } | false {}
+        } | false {}
         
         // Parse key
         key := json_parse_string(parser)
@@ -241,7 +241,7 @@ json_parse_object = (parser: *JsonParser) *JsonValue {
         // Skip colon
         parser.input[parser.position] == 58 ? | true { { // ':' }
             parser.position = parser.position + 1
-        } | false { { }}
+        } | false {}
         
         // Parse value
         value := json_parse_value(parser)
@@ -277,19 +277,19 @@ json_stringify = (value: *JsonValue) RawPtr<i8> {
 json_free = (value: *JsonValue) void   {
     value ? 
         | String(s) { { free(s as RawPtr<void>)  }}
-        | Array(elements, count) { { }
+        | Array(elements, count) {
             range(0, count).loop(i -> {
                 json_free(&elements[i])
             })
             free(elements as RawPtr<void>)
         }
-        | Object(pairs, count) { { }
+        | Object(pairs, count) {
             range(0, count).loop(i -> {
                 free(pairs[i].key as RawPtr<void>)
                 json_free(pairs[i].value)
             })
             free(pairs as RawPtr<void>)
         }
-        | _ { { }}
+        | _ {}
     free(value as RawPtr<void>)
 }

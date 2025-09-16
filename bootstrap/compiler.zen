@@ -3,23 +3,16 @@
 // This is the main entry point for the self-hosted compiler
 
 // Module-level imports (correct syntax - no comptime blocks)
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ vec } = @std.vec
-{ core } = @std.core
-{ path } = @std.path
-{ process } = @std.process
-{ result } = @std.result
+{ io, fs, string, vec, core, path, process, result } = @std
 
 // Compiler pipeline stages
-CompilerStage: 
-    | Lexing,
-    | Parsing,
-    | TypeChecking,
-    | Optimization,
-    | CodeGeneration,
-    | Linking,
+CompilerStage:  
+    Lexing, 
+    Parsing, 
+    TypeChecking, 
+    Optimization, 
+    CodeGeneration, 
+    Linking,
 
 // Compiler configuration
 CompilerConfig: {
@@ -37,8 +30,8 @@ CompilerConfig: {
 CompilationResult: {
     success: bool,
     output_path: string,
-    warnings: vec<string>,
-    errors: vec<string>,
+    warnings: DynVec<string>,
+    errors: DynVec<string>,
     stats: CompilationStats,
 }
 
@@ -55,7 +48,7 @@ CompilationStats: {
 Compiler: {
     config: CompilerConfig,
     source_code: string,
-    tokens: vec<Token>,
+    tokens: DynVec<Token>,
     ast: Option<ASTNode>,
     type_env: TypeEnvironment,
     ir_code: string,
@@ -104,26 +97,26 @@ TokenType:
 
 // AST Node types
 ASTNode: 
-    Program -> {
-        imports: vec<Import>,
-        declarations: vec<Declaration>,
-    },
-    Import -> {
+    .Program {
+        imports: DynVec<Import>,
+        declarations: DynVec<Declaration>,
+    } |
+    .Import {
         name: string,
         alias: Option<string>,
-        items: vec<string>,
-    },
-    Declaration -> {
+        items: DynVec<string>,
+    } |
+    .Declaration {
         kind: DeclKind,
         name: string,
-        type_params: vec<string>,
+        type_params: DynVec<string>,
         body: Box<ASTNode>,
-    },
-    Expression -> {
+    } |
+    .Expression {
         kind: ExprKind,
         type_info: Option<Type>,
-    },
-    Statement -> {
+    } |
+    .Statement {
         kind: StmtKind,
     },
 
@@ -131,44 +124,44 @@ DeclKind:
     Function, Struct, Enum, Trait, TypeAlias, Const, Static,
 
 ExprKind: 
-    Literal -> value: LiteralValue,
-    Identifier -> name: string,
-    Binary -> { left: Box<ASTNode>, op: BinaryOp, right: Box<ASTNode> },
-    Unary -> { op: UnaryOp, expr: Box<ASTNode> },
-    Call -> { callee: Box<ASTNode>, args: vec<ASTNode> },
-    MemberAccess -> { object: Box<ASTNode>, member: string },
-    Index -> { array: Box<ASTNode>, index: Box<ASTNode> },
-    Match -> { expr: Box<ASTNode>, arms: vec<MatchArm> },
-    If -> { condition: Box<ASTNode>, then_branch: Box<ASTNode>, else_branch: Option<Box<ASTNode>> },
-    Block -> statements: vec<ASTNode>,
-    Lambda -> { params: vec<Parameter>, body: Box<ASTNode> },
+    .Literal { value: LiteralValue } |
+    .Identifier { name: string } |
+    .Binary { left: Box<ASTNode>, op: BinaryOp, right: Box<ASTNode> } |
+    .Unary { op: UnaryOp, expr: Box<ASTNode> } |
+    .Call { callee: Box<ASTNode>, args: DynVec<ASTNode> } |
+    .MemberAccess { object: Box<ASTNode>, member: string } |
+    .Index { array: Box<ASTNode>, index: Box<ASTNode> } |
+    .PatternMatch { expr: Box<ASTNode>, arms: DynVec<MatchArm> } |
+    .Conditional { condition: Box<ASTNode>, then_branch: Box<ASTNode>, else_branch: Option<Box<ASTNode>> } |
+    .Block { statements: DynVec<ASTNode> } |
+    .Lambda { params: DynVec<Parameter>, body: Box<ASTNode> },
 
 StmtKind: 
-    Expression -> expr: Box<ASTNode>,
-    Return -> value: Option<Box<ASTNode>>,
-    Break -> label: Option<string>,
-    Continue -> label: Option<string>,
-    Assignment -> { target: Box<ASTNode>, value: Box<ASTNode> },
-    VariableDecl -> { name: string, type_annotation: Option<Type>, init: Option<Box<ASTNode>> },
+    .Expression: { expr: Box<ASTNode> } 
+    .Return: { value: Option<Box<ASTNode>> } 
+    .Break: { label: Option<string> } 
+    .Continue: { label: Option<string> } 
+    .Assignment: { target: Box<ASTNode>, value: Box<ASTNode> } 
+    .VariableDecl: { name: string, type_annotation: Option<Type>, init: Option<Box<ASTNode>> } 
 
 // Type system
 Type: 
-    Primitive -> name: string,  // i32, f64, bool, char, etc.
-    Array -> { element: Box<Type>, size: Option<i32> },
-    Slice -> element: Box<Type>,
-    Tuple -> elements: vec<Type>,
-    Struct -> { name: string, fields: vec<Field> },
-    Enum -> { name: string, variants: vec<Variant> },
-    Function -> { params: vec<Type>, return_type: Box<Type> },
-    Generic -> { name: string, constraints: vec<string> },
-    Reference -> { mutable: bool, inner: Box<Type> },
-    Pointer -> { mutable: bool, inner: Box<Type> },
-    Never,
-    Unknown,
+    .Primitive: { name: string }  // i32, f64, bool, char, etc.
+    .Array: { element: Box<Type>, size: Option<i32> } 
+    .Slice: { element: Box<Type> } 
+    .Tuple: { elements: DynVec<Type> } 
+    .Struct: { name: string, fields: DynVec<Field> } 
+    .Enum: { name: string, variants: vec<Variant> } 
+    .Function: { params: DynVec<Type>, return_type: Box<Type> } 
+    .Generic: { name: string, constraints: DynVec<string> } 
+    .Reference: { mutable: bool, inner: Box<Type> } 
+    .Pointer: { mutable: bool, inner: Box<Type> } 
+    .Never
+    .Unknown,
 
 TypeEnvironment: {
     types: hashmap<string, Type>,
-    scopes: vec<Scope>,
+    scopes: DynVec<Scope>,
     current_scope: i32,
 }
 
@@ -177,7 +170,7 @@ compiler_new = (config: CompilerConfig) Compiler   {
     return Compiler {
         config = config,
         source_code = "",
-        tokens = vec.new<Token>(),
+        tokens = DynVec.new<Token>(),
         ast = Option.None,
         type_env = TypeEnvironment {
             types = hashmap.new<string, Type>(),
@@ -190,49 +183,49 @@ compiler_new = (config: CompilerConfig) Compiler   {
 }
 
 // Main compilation pipeline
-compile = (compiler: *Compiler) CompilationResult   {
+compile = (compiler: *Compiler) CompilationResult {
     start_time := core.time_now()
     
     // Read source file
     fs.read_file(compiler.config.input_file) ? 
-        | .Ok -> content { compiler.source_code = content }
-        | .Err -> err { return CompilationResult { }
+        | .Ok(content) { compiler.source_code = content }
+        | .Err(err) { return CompilationResult {
             success = false,
             output_path = "",
             warnings = vec.new<string>(),
             errors = vec.of(string.format("Failed to read input file: {}", err)),
             stats = empty_stats(),
-        }
+        }}
     
     // Lexical analysis
     compiler.current_stage = CompilerStage.Lexing
     compiler.config.verbose ? { io.print("Stage 1: Lexical Analysis\n") }
     
     lex(compiler.source_code) ?
-        | .Ok -> tokens { { }
+        | .Ok(tokens) {
             compiler.tokens = tokens
             compiler.config.verbose ? { io.print(string.format("  Generated {} tokens\n", tokens.len())) }
         }
-        | .Err -> err { return compilation_error(err, compiler) }
+        | .Err(err) { return compilation_error(err, compiler) }
     
     // Parsing
     compiler.current_stage = CompilerStage.Parsing
     compiler.config.verbose ? { io.print("Stage 2: Parsing\n") }
     
     parse(compiler.tokens) ?
-        | .Ok -> ast { { }
+        | .Ok(ast) {
             compiler.ast = Option.Some(ast)
             compiler.config.emit_ast ? { emit_ast(ast, compiler.config.output_file + ".ast") }
         }
-        | .Err -> err { return compilation_error(err, compiler) }
+        | .Err(err) { return compilation_error(err, compiler) }
     
     // Type checking
     compiler.current_stage = CompilerStage.TypeChecking
     compiler.config.verbose ? { io.print("Stage 3: Type Checking\n") }
     
     type_check(compiler.ast.unwrap(), &compiler.type_env) ?
-        | .Ok -> typed_ast { compiler.ast = Option.Some(typed_ast) }
-        | .Err -> err { return compilation_error(err, compiler) }
+        | .Ok(typed_ast) { compiler.ast = Option.Some(typed_ast) }
+        | .Err(err) { return compilation_error(err, compiler) }
     
     // Optimization
     compiler.config.optimization_level > 0 ? {
@@ -250,20 +243,18 @@ compile = (compiler: *Compiler) CompilationResult   {
     compiler.config.verbose ? { io.print("Stage 5: Code Generation\n") }
     
     generate_code(compiler.ast.unwrap(), compiler.config.target) ?
-        | .Ok -> ir { { }
+        | .Ok(ir) {
             compiler.ir_code = ir
             compiler.config.emit_ir ? { fs.write_file(compiler.config.output_file + ".ir", ir) }
         }
-        | .Err -> err { return compilation_error(err, compiler) }
-        }
-    }
+        | .Err(err) { return compilation_error(err, compiler) }
     
     // Linking
     compiler.current_stage = CompilerStage.Linking
     compiler.config.verbose ? { io.print("Stage 6: Linking\n") }
     
     link(compiler.ir_code, compiler.config.output_file, compiler.config.target) ?
-        | .Ok -> output_path { { }
+        | .Ok(output_path) {
             end_time := core.time_now()
             
             return CompilationResult {
@@ -280,11 +271,11 @@ compile = (compiler: *Compiler) CompilationResult   {
                 },
             }
         }
-        | .Err -> err { return compilation_error(err, compiler) }
+        | .Err(err) { return compilation_error(err, compiler) }
 }
 
 // Lexical analysis
-lex = (source: string) Result<vec<Token>, string>   {
+lex = (source: string) Result<DynVec<Token>, string>   {
     tokens := vec.new<Token>()
     lexer := lexer_new(source)
     
@@ -340,23 +331,23 @@ optimize = (ast: ASTNode, level: i32) ASTNode   {
 // Code generator
 generate_code = (ast: ASTNode, target: string) Result<string, string>   {
     target ?
-        | "native" { generate_native_code(ast) }
-        | "wasm" { generate_wasm_code(ast) }
-        | "llvm-ir" { generate_llvm_ir(ast) }
-        | _ { Result.Err(string.format("Unknown target: { }}", target))
+        | .Native { generate_native_code(ast) }
+        | .Wasm { generate_wasm_code(ast) }
+        | .LlvmIr { generate_llvm_ir(ast) }
+        | _ { Result.Err(string.format("Unknown target: {}", target)) }
 }
 
 // Linker
 link = (ir: string, output: string, target: string) Result<string, string>   {
     // Link the generated code with runtime and produce executable
     target ?
-        | "native" { { }
+        | .Native {
             // Use system linker (ld, lld, etc.)
             cmd := string.format("ld -o {} {}.o", output, output)
             process.execute(cmd)
             Result.Ok(output)
         }
-        | "wasm" { Result.Ok(output + ".wasm") }
+        | .Wasm { Result.Ok(output + ".wasm") }
         | _ { Result.Err("Unsupported target for linking") }
 }
 
@@ -384,9 +375,9 @@ empty_stats = () CompilationStats   {
 
 count_lines = (text: string) i32   {
     count := 1
-    for ch in text {
+    text.loop((ch) {
         ch == '\n' ? { count = count + 1 }
-    }
+    })
     return count
 }
 
@@ -440,7 +431,7 @@ ast_to_string = (node: ASTNode, indent: i32) string   {
 }
 
 // Main entry point
-main = (args: vec<string>) i32   {
+main = (args: DynVec<string>) i32   {
     io.print("Zen Self-Hosted Compiler v1.0.0\n")
     
     args.len() < 2 ? {
@@ -457,7 +448,7 @@ main = (args: vec<string>) i32   {
     }
     
     // Parse command line arguments
-    config := CompilerConfig {
+    config = CompilerConfig (
         input_file = args[1],
         output_file = "a.out",
         target = "native",
@@ -466,7 +457,7 @@ main = (args: vec<string>) i32   {
         verbose = false,
         emit_ast = false,
         emit_ir = false,
-    }
+    )
     
     // Process optional arguments
     i := 2
@@ -476,36 +467,44 @@ main = (args: vec<string>) i32   {
         arg == "-o" && i + 1 < args.len() ? {
             config.output_file = args[i + 1]
             i = i + 2
-        } : arg.starts_with("-O") ? {
+        }
+        | arg.starts_with("-O") ? {
             level_str := arg.substring(2)
             config.optimization_level = string.to_int(level_str)
             i = i + 1
-        } : arg == "--target" && i + 1 < args.len() ? {
+        }
+        | arg == "--target" && i + 1 < args.len() ? {
             config.target = args[i + 1]
             i = i + 2
-        } : arg == "--debug" ? {
+        }
+        | arg == "--debug" ? {
             config.debug_info = true
             i = i + 1
-        } : arg == "--verbose" ? {
+        }
+        | arg == "--verbose" ? {
             config.verbose = true
             i = i + 1
-        } : arg == "--emit-ast" ? {
+        }
+        | arg == "--emit-ast" ? {
             config.emit_ast = true
             i = i + 1
-        } : arg == "--emit-ir" ? {
+        }
+        | arg == "--emit-ir" ? {
             config.emit_ir = true
             i = i + 1
-        } : {
+        }
+        | {
             io.print(string.format("Unknown option: {}\n", arg))
             return 1
         }
     }
     
     // Create compiler and compile
-    compiler := compiler_new(config)
+    compiler = compiler_new(config)
     result := compile(&compiler)
     
-    result.success ? {
+    result.success ?
+    | true {
         io.print(string.format("Compilation successful: {}\n", result.output_path))
         config.verbose ? {
             io.print(string.format("  Lines processed: {}\n", result.stats.lines_processed))
@@ -515,11 +514,12 @@ main = (args: vec<string>) i32   {
             io.print(string.format("  Memory used: {} bytes\n", result.stats.memory_used_bytes))
         }
         return 0
-    } : {
+    }
+    | false {
         io.print("Compilation failed:\n")
-        for err in result.errors {
+            result.errors.loop((err) {
             io.print(string.format("  Error: {}\n", err))
-        }
+        })
         return 1
     }
 }

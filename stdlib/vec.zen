@@ -21,14 +21,14 @@ vec_new<T>: () Vec<T>  = {
 
 // Create a vector with initial capacity
 vec_with_capacity<T> = (capacity: i64) core.Result<Vec<T>, core.Error> {
-    capacity <= 0 ? | true { { }
+    capacity <= 0 ? | true {
         return core.Result:Err(core.Error:InvalidArgument("Capacity must be positive"))
-    } | false { { }}
+    } | false {}
     
     data := core.malloc(capacity * sizeof(T)) as *T
-    data .== .None ? | true { { }
+    data .== .None ? | true {
         return core.Result:Err(core.Error:OutOfMemory)
-    } | false { { }}
+    } | false {}
     
     return core.Result:Ok(Vec<T> {
         data: data,
@@ -40,14 +40,14 @@ vec_with_capacity<T> = (capacity: i64) core.Result<Vec<T>, core.Error> {
 // Push element to the vector
 vec_push<T> = (vec: *Vec<T>, value: T) core.Result<void, core.Error> {
     // Check if we need to grow
-    vec.len >= vec.capacity ? | true { { }
+    vec.len >= vec.capacity ? | true {
         new_capacity := vec.capacity == 0 ? | true { 8 }
                                            | false { vec.capacity * 2 }
         
         result := vec_grow(vec, new_capacity)
         result ? | core.Result:Err(e) { return core.Result:Err(e) }
-                | .Ok -> _ { { }}
-    } | false { { }}
+                | .Ok -> _ {}
+    } | false {}
     
     // Add the element
     vec.data[vec.len] = value
@@ -58,7 +58,7 @@ vec_push<T> = (vec: *Vec<T>, value: T) core.Result<void, core.Error> {
 // Pop element from the vector
 vec_pop<T> = (vec: *Vec<T>) core.Option<T> {
     vec.len == 0 ? | true { return core.Option:None }
-                   | false { { }}
+                   | false {}
     
     vec.len = vec.len - 1
     return core.Option:Some(vec.data[vec.len])
@@ -66,18 +66,18 @@ vec_pop<T> = (vec: *Vec<T>) core.Option<T> {
 
 // Get element at index
 vec_get<T> = (vec: *Vec<T>, index: i64) core.Result<T, core.Error> {
-    index < 0 || index >= vec.len ? | true { { }
+    index < 0 || index >= vec.len ? | true {
         return core.Result:Err(core.Error:IndexOutOfBounds(index, vec.len))
-    } | false { { }}
+    } | false {}
     
     return core.Result:Ok(vec.data[index])
 }
 
 // Set element at index
 vec_set<T> = (vec: *Vec<T>, index: i64, value: T) core.Result<void, core.Error> {
-    index < 0 || index >= vec.len ? | true { { }
+    index < 0 || index >= vec.len ? | true {
         return core.Result:Err(core.Error:IndexOutOfBounds(index, vec.len))
-    } | false { { }}
+    } | false {}
     
     vec.data[index] = value
     return core.Result:Ok({})
@@ -100,24 +100,24 @@ vec_clear<T>: (vec: *Vec<T>) void  = {
 
 // Grow the vector's capacity
 vec_grow<T> = (vec: *Vec<T>, new_capacity: i64) core.Result<void, core.Error> {
-    new_capacity <= vec.capacity ? | true { { }
+    new_capacity <= vec.capacity ? | true {
         return core.Result:Ok({})
-    } | false { { }}
+    } | false {}
     
     new_data := core.malloc(new_capacity * sizeof(T))
-    new_data == 0 ? | true { { }
+    new_data == 0 ? | true {
         return core.Result:Err(core.Error:OutOfMemory)
-    } | false { { }}
+    } | false {}
     
     // Copy existing data
-    vec.len > 0 ? | true { { }
+    vec.len > 0 ? | true {
         core.memcpy(new_data, vec.data, vec.len * sizeof(T))
-    } | false { { }}
+    } | false {}
     
     // Free old data if it exists
-    vec.data != 0 ? | true { { }
+    vec.data != 0 ? | true {
         core.free(vec.data)
-    } | false { { }}
+    } | false {}
     
     vec.data = new_data
     vec.capacity = new_capacity
@@ -126,9 +126,9 @@ vec_grow<T> = (vec: *Vec<T>, new_capacity: i64) core.Result<void, core.Error> {
 
 // Free the vector's memory
 vec_free<T>: (vec: *Vec<T>) void  = {
-    vec.data != 0 ? | true { { }
+    vec.data != 0 ? | true {
         core.free(vec.data)
-    } | false { { }}
+    } | false {}
     
     vec.data = 0
     vec.len = 0
@@ -137,18 +137,18 @@ vec_free<T>: (vec: *Vec<T>) void  = {
 
 // Insert element at position
 vec_insert<T> = (vec: *Vec<T>, index: i64, value: T) core.Result<void, core.Error> {
-    index < 0 || index > vec.len ? | true { { }
+    index < 0 || index > vec.len ? | true {
         return core.Result:Err(core.Error:IndexOutOfBounds(index, vec.len))
-    } | false { { }}
+    } | false {}
     
     // Ensure capacity
-    vec.len >= vec.capacity ? | true { { }
+    vec.len >= vec.capacity ? | true {
         new_capacity := vec.capacity == 0 ? | true { 8 }
                                            | false { vec.capacity * 2 }
         result := vec_grow(vec, new_capacity)
         result ? | .Err -> e { return core.Result:Err(e) }
-                | .Ok -> _ { { }}
-    } | false { { }}
+                | .Ok -> _ {}
+    } | false {}
     
     // Shift elements to the right
     i := vec.len
@@ -164,9 +164,9 @@ vec_insert<T> = (vec: *Vec<T>, index: i64, value: T) core.Result<void, core.Erro
 
 // Remove element at position
 vec_remove<T> = (vec: *Vec<T>, index: i64) core.Result<T, core.Error> {
-    index < 0 || index >= vec.len ? | true { { }
+    index < 0 || index >= vec.len ? | true {
         return core.Result:Err(core.Error:IndexOutOfBounds(index, vec.len))
-    } | false { { }}
+    } | false {}
     
     removed := vec.data[index]
     
@@ -185,12 +185,12 @@ vec_remove<T> = (vec: *Vec<T>, index: i64) core.Result<T, core.Error> {
 vec_from_array<T> = (array: [T], len: i64) core.Result<Vec<T>, core.Error> {
     vec := vec_with_capacity(len)
     vec ? | .Err -> e { return core.Result:Err(e) }
-         | .Ok -> v { { }
+         | .Ok -> v {
         i := 0
         loop i < len {
             result := vec_push(&v, array[i])
             result ? | .Err -> e { return core.Result:Err(e) }
-                    | .Ok -> _ { { }}
+                    | .Ok -> _ {}
             i = i + 1
         }
         return core.Result:Ok(v)
@@ -202,25 +202,25 @@ vec_from_array<T> = (array: [T], len: i64) core.Result<Vec<T>, core.Error> {
 // Reserve capacity for at least n additional elements
 vec_reserve<T> = (vec: *Vec<T>, additional: i64) core.Result<void, core.Error> {
     required_capacity := vec.len + additional
-    required_capacity > vec.capacity ? | true { { }
+    required_capacity > vec.capacity ? | true {
         return vec_grow(vec, required_capacity)
-    } | false { { }
+    } | false {
         return core.Result:Ok({})
     }
 }
 
 // Shrink capacity to fit current length
 vec_shrink_to_fit<T> = (vec: *Vec<T>) core.Result<void, core.Error> {
-    vec.capacity == vec.len ? | true { return core.Result:Ok({ }}) | false { { }}
-    vec.len == 0 ? | true { { }
+    vec.capacity == vec.len ? | true { return core.Result:Ok({ }}) | false {}
+    vec.len == 0 ? | true {
         vec_free(vec)
         return core.Result:Ok({})
-    } | false { { }}
+    } | false {}
     
     new_data := core.malloc(vec.len * sizeof(T))
-    new_data == 0 ? | true { { }
+    new_data == 0 ? | true {
         return core.Result:Err(core.Error:OutOfMemory)
-    } | false { { }}
+    } | false {}
     
     core.memcpy(new_data, vec.data, vec.len * sizeof(T))
     core.free(vec.data)
@@ -231,16 +231,16 @@ vec_shrink_to_fit<T> = (vec: *Vec<T>) core.Result<void, core.Error> {
 
 // Swap remove - O(1) removal by swapping with last element
 vec_swap_remove<T> = (vec: *Vec<T>, index: i64) core.Result<T, core.Error> {
-    index < 0 || index >= vec.len ? | true { { }
+    index < 0 || index >= vec.len ? | true {
         return core.Result:Err(core.Error:IndexOutOfBounds(index, vec.len))
-    } | false { { }}
+    } | false {}
     
     removed := vec.data[index]
     vec.len = vec.len - 1
     
-    index < vec.len ? | true { { }
+    index < vec.len ? | true {
         vec.data[index] = vec.data[vec.len]
-    } | false { { }}
+    } | false {}
     
     return core.Result:Ok(removed)
 }
@@ -248,11 +248,11 @@ vec_swap_remove<T> = (vec: *Vec<T>, index: i64) core.Result<T, core.Error> {
 // Extend vector with elements from another vector
 vec_extend<T> = (vec: *Vec<T>, other: *Vec<T>) core.Result<void, core.Error> {
     required_capacity := vec.len + other.len
-    required_capacity > vec.capacity ? | true { { }
+    required_capacity > vec.capacity ? | true {
         result := vec_grow(vec, required_capacity)
         result ? | .Err -> e { return core.Result:Err(e) }
-                | .Ok -> _ { { }}
-    } | false { { }}
+                | .Ok -> _ {}
+    } | false {}
     
     i := 0
     loop i < other.len {
@@ -265,21 +265,21 @@ vec_extend<T> = (vec: *Vec<T>, other: *Vec<T>) core.Result<void, core.Error> {
 
 // Truncate vector to specified length
 vec_truncate<T>: (vec: *Vec<T>, len: i64) void  = {
-    len < vec.len ? | true { { }
+    len < vec.len ? | true {
         vec.len = len
-    } | false { { }}
+    } | false {}
 }
 
 // Split off vector at index, returns new vector with elements from index
 vec_split_off<T> = (vec: *Vec<T>, at: i64) core.Result<Vec<T>, core.Error> {
-    at > vec.len ? | true { { }
+    at > vec.len ? | true {
         return core.Result:Err(core.Error:IndexOutOfBounds(at, vec.len))
-    } | false { { }}
+    } | false {}
     
     split_len := vec.len - at
     split_vec := vec_with_capacity(split_len)
     split_vec ? | .Err -> e { return core.Result:Err(e) }
-                | .Ok -> new_vec { { }
+                | .Ok -> new_vec {
         i := 0
         loop i < split_len {
             new_vec.data[i] = vec.data[at + i]
@@ -308,9 +308,9 @@ vec_reverse<T>: (vec: *Vec<T>) void  = {
 vec_find<T> = (vec: *Vec<T>, predicate: (T) bool) core.Option<T> {
     i := 0
     loop i < vec.len {
-        predicate(vec.data[i]) ? | true { { }
+        predicate(vec.data[i]) ? | true {
             return core.Option:Some(vec.data[i])
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
     return core.Option:None
@@ -320,9 +320,9 @@ vec_find<T> = (vec: *Vec<T>, predicate: (T) bool) core.Option<T> {
 vec_find_index<T> = (vec: *Vec<T>, predicate: (T) bool) core.Option<i64> {
     i := 0
     loop i < vec.len {
-        predicate(vec.data[i]) ? | true { { }
+        predicate(vec.data[i]) ? | true {
             return core.Option:Some(i)
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
     return core.Option:None
@@ -353,7 +353,7 @@ vec_count<T> = (vec: *Vec<T>, predicate: (T) bool) i64 {
     count := 0
     i := 0
     loop i < vec.len {
-        predicate(vec.data[i]) ? | true { { count = count + 1  }} | false { { }}
+        predicate(vec.data[i]) ? | true { { count = count + 1  }} | false {}
         i = i + 1
     }
     return count
@@ -372,12 +372,12 @@ vec_for_each<T> = (vec: *Vec<T>, f: (T) void) void {
 vec_map<T, U> = (vec: *Vec<T>, transform: (T) U) core.Result<Vec<U>, core.Error> {
     result := vec_with_capacity<U>(vec.len)
     result ? | .Err -> e { return core.Result:Err(e) }
-            | .Ok -> new_vec { { }
+            | .Ok -> new_vec {
         i := 0
         loop i < vec.len {
             push_result := vec_push(&new_vec, transform(vec.data[i]))
             push_result ? | .Err -> e { return core.Result:Err(e) }
-                         | .Ok -> _ { { }}
+                         | .Ok -> _ {}
             i = i + 1
         }
         return core.Result:Ok(new_vec)
@@ -390,11 +390,11 @@ vec_filter<T> = (vec: *Vec<T>, predicate: (T) bool) core.Result<Vec<T>, core.Err
     
     i := 0
     loop i < vec.len {
-        predicate(vec.data[i]) ? | true { { }
+        predicate(vec.data[i]) ? | true {
             push_result := vec_push(&result, vec.data[i])
             push_result ? | .Err -> e { return core.Result:Err(e) }
-                         | .Ok -> _ { { }}
-        } | false { { }}
+                         | .Ok -> _ {}
+        } | false {}
         i = i + 1
     }
     return core.Result:Ok(result)
@@ -416,7 +416,7 @@ vec_last<T> = (vec: *Vec<T>) core.Option<T> {
 vec_clone<T> = (vec: *Vec<T>) core.Result<Vec<T>, core.Error> {
     new_vec := vec_with_capacity<T>(vec.capacity)
     new_vec ? | .Err -> e { return core.Result:Err(e) }
-             | .Ok -> cloned { { }
+             | .Ok -> cloned {
         core.memcpy(cloned.data, vec.data, vec.len * sizeof(T))
         cloned.len = vec.len
         return core.Result:Ok(cloned)

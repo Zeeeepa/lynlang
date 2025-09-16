@@ -50,16 +50,16 @@ hashmap_new<K, V>: () HashMap<K, V>  = {
 
 // Create hashmap with initial capacity
 hashmap_with_capacity<K, V> = (capacity: i64) core.Result<HashMap<K, V>, core.Error> {
-    capacity <= 0 ? | true { { }
+    capacity <= 0 ? | true {
         return core.Result:Err(core.Error:InvalidArgument("Capacity must be positive"))
-    } | false { { }}
+    } | false {}
     
     // Allocate buckets
     bucket_size := sizeof(Entry<K, V>)
     buckets := core.malloc(capacity * bucket_size)
-    buckets == 0 ? | true { { }
+    buckets == 0 ? | true {
         return core.Result:Err(core.Error:OutOfMemory)
-    } | false { { }}
+    } | false {}
     
     // Initialize buckets as empty
     i := 0
@@ -84,7 +84,7 @@ hashmap_with_capacity<K, V> = (capacity: i64) core.Result<HashMap<K, V>, core.Er
 // Find bucket index for a key
 find_bucket<K, V> = (map: *HashMap<K, V>, key: K, hash_func: (K) i64) i64 {
     map.capacity == 0 ? | true { return -1 }
-                        | false { { }}
+                        | false {}
     
     hash := hash_func(key)
     index := core.abs(hash) % map.capacity
@@ -96,7 +96,7 @@ find_bucket<K, V> = (map: *HashMap<K, V>, key: K, hash_func: (K) i64) i64 {
         // Found empty slot or matching key
         !bucket.occupied || (bucket.occupied && !bucket.deleted && bucket.key == key) ? 
             | true { return index }
-            | false { { }}
+            | false {}
         
         // Continue probing
         index = (index + 1) % map.capacity
@@ -106,25 +106,25 @@ find_bucket<K, V> = (map: *HashMap<K, V>, key: K, hash_func: (K) i64) i64 {
 // Insert key-value pair
 hashmap_insert<K, V> = (map: *HashMap<K, V>, key: K, value: V, hash_func: (K) i64) core.Result<void, core.Error> {
     // Check if resize needed
-    map.capacity == 0 || (map.size as f64) >= (map.capacity as f64) * map.load_factor ? | true { { }
+    map.capacity == 0 || (map.size as f64) >= (map.capacity as f64) * map.load_factor ? | true {
         new_capacity := map.capacity == 0 ? | true { 16 }
                                            | false { map.capacity * 2 }
         result := hashmap_resize(map, new_capacity, hash_func)
         result ? | .Err -> e { return core.Result:Err(e) }
-                | .Ok -> _ { { }}
-    } | false { { }}
+                | .Ok -> _ {}
+    } | false {}
     
     index := find_bucket(map, key, hash_func)
-    index == -1 ? | true { { }
+    index == -1 ? | true {
         return core.Result:Err(core.Error:InvalidArgument("Invalid bucket index"))
-    } | false { { }}
+    } | false {}
     
     bucket := &map.buckets[index]
     
     // Update size if inserting new key
-    !bucket.occupied || bucket.deleted ? | true { { }
+    !bucket.occupied || bucket.deleted ? | true {
         map.size = map.size + 1
-    } | false { { }}
+    } | false {}
     
     bucket.key = key
     bucket.value = value
@@ -137,11 +137,11 @@ hashmap_insert<K, V> = (map: *HashMap<K, V>, key: K, value: V, hash_func: (K) i6
 // Get value for key
 hashmap_get<K, V> = (map: *HashMap<K, V>, key: K, hash_func: (K) i64) core.Option<V> {
     map.capacity == 0 ? | true { return core.Option:None }
-                        | false { { }}
+                        | false {}
     
     index := find_bucket(map, key, hash_func)
     index == -1 ? | true { return core.Option:None }
-                 | false { { }}
+                 | false {}
     
     bucket := map.buckets[index]
     bucket.occupied && !bucket.deleted ? | true { return core.Option:Some(bucket.value) }
@@ -151,19 +151,19 @@ hashmap_get<K, V> = (map: *HashMap<K, V>, key: K, hash_func: (K) i64) core.Optio
 // Remove key-value pair
 hashmap_remove<K, V> = (map: *HashMap<K, V>, key: K, hash_func: (K) i64) core.Option<V> {
     map.capacity == 0 ? | true { return core.Option:None }
-                        | false { { }}
+                        | false {}
     
     index := find_bucket(map, key, hash_func)
     index == -1 ? | true { return core.Option:None }
-                 | false { { }}
+                 | false {}
     
     bucket := &map.buckets[index]
-    bucket.occupied && !bucket.deleted ? | true { { }
+    bucket.occupied && !bucket.deleted ? | true {
         value := bucket.value
         bucket.deleted = true
         map.size = map.size - 1
         return core.Option:Some(value)
-    } | false { { }
+    } | false {
         return core.Option:None
     }
 }
@@ -205,9 +205,9 @@ hashmap_resize<K, V> = (map: *HashMap<K, V>, new_capacity: i64, hash_func: (K) i
     // Allocate new buckets
     bucket_size := sizeof(Entry<K, V>)
     new_buckets := core.malloc(new_capacity * bucket_size)
-    new_buckets == 0 ? | true { { }
+    new_buckets == 0 ? | true {
         return core.Result:Err(core.Error:OutOfMemory)
-    } | false { { }}
+    } | false {}
     
     // Initialize new buckets
     i := 0
@@ -230,27 +230,27 @@ hashmap_resize<K, V> = (map: *HashMap<K, V>, new_capacity: i64, hash_func: (K) i
     i = 0
     loop i < old_capacity {
         entry := old_buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
             result := hashmap_insert(map, entry.key, entry.value, hash_func)
-            result ? | .Err -> _ { { }} // Ignore errors during rehashing
-                    | .Ok -> _ { { }}
-        } | false { { }}
+            result ? | .Err -> _ {} // Ignore errors during rehashing
+                    | .Ok -> _ {}
+        } | false {}
         i = i + 1
     }
     
     // Free old buckets
-    old_buckets != 0 ? | true { { }
+    old_buckets != 0 ? | true {
         core.free(old_buckets)
-    } | false { { }}
+    } | false {}
     
     return core.Result:Ok({})
 }
 
 // Free hashmap memory
 hashmap_free<K, V>: (map: *HashMap<K, V>) void  = {
-    map.buckets != 0 ? | true { { }
+    map.buckets != 0 ? | true {
         core.free(map.buckets)
-    } | false { { }}
+    } | false {}
     
     map.buckets = 0
     map.size = 0
@@ -263,7 +263,7 @@ hashmap_free<K, V>: (map: *HashMap<K, V>) void  = {
 hashmap_get_or_insert<K, V> = (map: *HashMap<K, V>, key: K, default: V, hash_func: (K) i64) core.Result<V, core.Error> {
     existing := hashmap_get(map, key, hash_func)
     existing ? | .Some -> value { return core.Result:Ok(value) }
-              | .None { { }
+              | .None {
         result := hashmap_insert(map, key, default, hash_func)
         result ? | .Err -> e { return core.Result:Err(e) }
                 | .Ok -> _ { return core.Result:Ok(default) }
@@ -278,10 +278,10 @@ hashmap_update<K, V> = (map: *HashMap<K, V>, key: K, updater: (V) V, hash_func: 
     index == -1 ? | true { return false | false => { }}
     
     bucket := &map.buckets[index]
-    bucket.occupied && !bucket.deleted ? | true { { }
+    bucket.occupied && !bucket.deleted ? | true {
         bucket.value = updater(bucket.value)
         return true
-    } | false { { }
+    } | false {
         return false
     }
 }
@@ -290,15 +290,15 @@ hashmap_update<K, V> = (map: *HashMap<K, V>, key: K, updater: (V) V, hash_func: 
 hashmap_keys<K, V> = (map: *HashMap<K, V>) core.Result<core.Vec<K>, core.Error> {
     keys := core.vec_with_capacity<K>(map.size)
     keys ? | .Err -> e { return core.Result:Err(e) }
-          | .Ok -> vec { { }
+          | .Ok -> vec {
         i := 0
         loop i < map.capacity {
             entry := map.buckets[i]
-            entry.occupied && !entry.deleted ? | true { { }
+            entry.occupied && !entry.deleted ? | true {
                 result := core.vec_push(&vec, entry.key)
                 result ? | .Err -> e { return core.Result:Err(e) }
-                        | .Ok -> _ { { }}
-            } | false { { }}
+                        | .Ok -> _ {}
+            } | false {}
             i = i + 1
         }
         return core.Result:Ok(vec)
@@ -309,15 +309,15 @@ hashmap_keys<K, V> = (map: *HashMap<K, V>) core.Result<core.Vec<K>, core.Error> 
 hashmap_values<K, V> = (map: *HashMap<K, V>) core.Result<core.Vec<V>, core.Error> {
     values := core.vec_with_capacity<V>(map.size)
     values ? | .Err -> e { return core.Result:Err(e) }
-            | .Ok -> vec { { }
+            | .Ok -> vec {
         i := 0
         loop i < map.capacity {
             entry := map.buckets[i]
-            entry.occupied && !entry.deleted ? | true { { }
+            entry.occupied && !entry.deleted ? | true {
                 result := core.vec_push(&vec, entry.value)
                 result ? | .Err -> e { return core.Result:Err(e) }
-                        | .Ok -> _ { { }}
-            } | false { { }}
+                        | .Ok -> _ {}
+            } | false {}
             i = i + 1
         }
         return core.Result:Ok(vec)
@@ -329,9 +329,9 @@ hashmap_for_each<K, V> = (map: *HashMap<K, V>, f: (K, V) void) void {
     i := 0
     loop i < map.capacity {
         entry := map.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
             f(entry.key, entry.value)
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
 }
@@ -342,11 +342,11 @@ hashmap_count<K, V> = (map: *HashMap<K, V>, predicate: (K, V) bool) i64 {
     i := 0
     loop i < map.capacity {
         entry := map.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
-            predicate(entry.key, entry.value) ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
+            predicate(entry.key, entry.value) ? | true {
                 count = count + 1
-            } | false { { }}
-        } | false { { }}
+            } | false {}
+        } | false {}
         i = i + 1
     }
     return count
@@ -359,13 +359,13 @@ hashmap_filter<K, V> = (map: *HashMap<K, V>, predicate: (K, V) bool, hash_func: 
     i := 0
     loop i < map.capacity {
         entry := map.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
-            predicate(entry.key, entry.value) ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
+            predicate(entry.key, entry.value) ? | true {
                 result := hashmap_insert(&filtered, entry.key, entry.value, hash_func)
                 result ? | .Err -> e { return core.Result:Err(e) }
-                        | .Ok -> _ { { }}
-            } | false { { }}
-        } | false { { }}
+                        | .Ok -> _ {}
+            } | false {}
+        } | false {}
         i = i + 1
     }
     return core.Result:Ok(filtered)
@@ -376,11 +376,11 @@ hashmap_merge<K, V> = (map: *HashMap<K, V>, other: *HashMap<K, V>, hash_func: (K
     i := 0
     loop i < other.capacity {
         entry := other.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
             result := hashmap_insert(map, entry.key, entry.value, hash_func)
             result ? | .Err -> e { return core.Result:Err(e) }
-                    | .Ok -> _ { { }}
-        } | false { { }}
+                    | .Ok -> _ {}
+        } | false {}
         i = i + 1
     }
     return core.Result:Ok({})
@@ -390,15 +390,15 @@ hashmap_merge<K, V> = (map: *HashMap<K, V>, other: *HashMap<K, V>, hash_func: (K
 hashmap_clone<K, V> = (map: *HashMap<K, V>, hash_func: (K) i64) core.Result<HashMap<K, V>, core.Error> {
     cloned := hashmap_with_capacity<K, V>(map.capacity)
     cloned ? | .Err -> e { return core.Result:Err(e) }
-            | .Ok -> new_map { { }
+            | .Ok -> new_map {
         i := 0
         loop i < map.capacity {
             entry := map.buckets[i]
-            entry.occupied && !entry.deleted ? | true { { }
+            entry.occupied && !entry.deleted ? | true {
                 result := hashmap_insert(&new_map, entry.key, entry.value, hash_func)
                 result ? | .Err -> e { return core.Result:Err(e) }
-                        | .Ok -> _ { { }}
-            } | false { { }}
+                        | .Ok -> _ {}
+            } | false {}
             i = i + 1
         }
         return core.Result:Ok(new_map)
@@ -412,9 +412,9 @@ hashmap_capacity<K, V>: (map: *HashMap<K, V>) i64  = {
 
 // Set load factor
 hashmap_set_load_factor<K, V>: (map: *HashMap<K, V>, load_factor: f64) void  = {
-    load_factor > 0.0 && load_factor < 1.0 ? | true { { }
+    load_factor > 0.0 && load_factor < 1.0 ? | true {
         map.load_factor = load_factor
-    } | false { { }}
+    } | false {}
 }
 
 // Compute with entry (for complex updates)
@@ -422,13 +422,13 @@ hashmap_compute<K, V> = (map: *HashMap<K, V>, key: K, computer: (core.Option<V>)
     current := hashmap_get(map, key, hash_func)
     new_value := computer(current)
     
-    new_value ? | .Some -> value { { }
+    new_value ? | .Some -> value {
         return hashmap_insert(map, key, value, hash_func)
-    } | .None { { }
-        current ? | .Some -> _ { { }
+    } | .None {
+        current ? | .Some -> _ {
             hashmap_remove(map, key, hash_func)
             return core.Result:Ok({})
-        } | .None { { }
+        } | .None {
             return core.Result:Ok({})
         }
     }
@@ -439,9 +439,9 @@ hashmap_any<K, V> = (map: *HashMap<K, V>, predicate: (K, V) bool) bool {
     i := 0
     loop i < map.capacity {
         entry := map.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
             predicate(entry.key, entry.value) ? | true { return true | false => { }}
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
     return false
@@ -452,9 +452,9 @@ hashmap_all<K, V> = (map: *HashMap<K, V>, predicate: (K, V) bool) bool {
     i := 0
     loop i < map.capacity {
         entry := map.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
             predicate(entry.key, entry.value) ? | false { return false | true => { }}
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
     return true
@@ -465,11 +465,11 @@ hashmap_find<K, V> = (map: *HashMap<K, V>, predicate: (K, V) bool) core.Option<(
     i := 0
     loop i < map.capacity {
         entry := map.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
-            predicate(entry.key, entry.value) ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
+            predicate(entry.key, entry.value) ? | true {
                 return core.Option:Some((entry.key, entry.value))
-            } | false { { }}
-        } | false { { }}
+            } | false {}
+        } | false {}
         i = i + 1
     }
     return core.Option:None
@@ -480,9 +480,9 @@ HashMap<K, V>.loop = (self: *HashMap<K, V>, callback: (K, V) void) void {
     i := 0
     loop i < self.capacity {
         entry := self.buckets[i]
-        entry.occupied && !entry.deleted ? | true { { }
+        entry.occupied && !entry.deleted ? | true {
             callback(entry.key, entry.value)
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
 }

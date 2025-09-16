@@ -90,33 +90,7 @@ MarkupContent := {
 }
 
 // Symbol kinds
-SymbolKind := |
-    File: 1
-    Module: 2
-    Namespace: 3
-    Package: 4
-    Class: 5
-    Method: 6
-    Property: 7
-    Field: 8
-    Constructor: 9
-    Enum: 10
-    Interface: 11
-    Function: 12
-    Variable: 13
-    Constant: 14
-    String: 15
-    Number: 16
-    Boolean: 17
-    Array: 18
-    Object: 19
-    Key: 20
-    Null: 21
-    EnumMember: 22
-    Struct: 23
-    Event: 24
-    Operator: 25
-    TypeParameter: 26
+SymbolKind: File | Module | Namespace | Package | Class | Method | Property | Field | Constructor | Enum | Interface | Function | Variable | Constant | String | Number | Boolean | Array | Object | Key | Null | EnumMember | Struct | Event | Operator | TypeParameter
 
 // Diagnostic types
 Diagnostic := {
@@ -129,15 +103,9 @@ Diagnostic := {
     relatedInformation: Vec<DiagnosticRelatedInformation>
 }
 
-DiagnosticSeverity := |
-    Error: 1
-    Warning: 2
-    Information: 3
-    Hint: 4
+DiagnosticSeverity: Error | Warning | Information | Hint
 
-DiagnosticTag := |
-    Unnecessary: 1
-    Deprecated: 2
+DiagnosticTag: Unnecessary | Deprecated
 
 DiagnosticRelatedInformation := {
     location: Location
@@ -145,7 +113,7 @@ DiagnosticRelatedInformation := {
 }
 
 // Create enhanced language server
-create_enhanced_server = () EnhancedLanguageServer   {
+create_enhanced_server = () EnhancedLanguageServer {
     return EnhancedLanguageServer{
         initialized: false,
         root_uri: Option.None,
@@ -159,7 +127,7 @@ create_enhanced_server = () EnhancedLanguageServer   {
 }
 
 // Create server capabilities
-create_server_capabilities = () ServerCapabilities   {
+create_server_capabilities = () ServerCapabilities {
     return ServerCapabilities{
         textDocumentSync: 1,  // Full sync
         completionProvider: CompletionOptions{
@@ -190,7 +158,7 @@ create_server_capabilities = () ServerCapabilities   {
 }
 
 // Analyze document and build symbol table
-analyze_document = (server: &mut EnhancedLanguageServer, doc: &mut EnhancedDocument) Result<void, string>   {
+analyze_document = (server: Ptr<EnhancedLanguageServer>, doc: Ptr<EnhancedDocument>) Result<void, string> {
     // Clear previous analysis
     doc.symbols = hashmap.new<string, Symbol>()
     doc.imports = vec.new<ImportInfo>()
@@ -237,10 +205,10 @@ analyze_document = (server: &mut EnhancedLanguageServer, doc: &mut EnhancedDocum
 }
 
 // Extract symbols from AST
-extract_symbols = (doc: &mut EnhancedDocument, program: ast.Program) Result<void, string>   {
-    for (decl in program.declarations) {
-        match decl {
-            ast.Declaration.Function(func) => {
+extract_symbols = (doc: Ptr<EnhancedDocument>, program: ast.Program) Result<void, string> {
+    program.declarations.loop((decl) {
+        decl ?
+            | ast.Declaration.Function(func) {
                 symbol := create_function_symbol(func, doc.uri)
                 hashmap.insert(doc.symbols, func.name, symbol)
                 

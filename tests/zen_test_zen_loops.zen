@@ -12,22 +12,26 @@ main = () i32   {
     puts("\nTest 1: Conditional loop")
     counter := 10
     sum := 0
-    loop counter > 0 {
-        sum = sum + counter
-        counter = counter - 1
-    }
+    loop(() {
+        counter > 0 ?
+            | true {
+                sum = sum + counter
+                counter = counter - 1
+            }
+            | false { break }
+    })
     printf("Sum from 10 to 1: %d\n", sum)
     
     // Test 2: Infinite loop with break
     puts("\nTest 2: Infinite loop with break")
     i := 0
-    loop {
+    loop(() {
         i = i + 1
-        i == 5 ? | true { { }
+        i == 5 ? | true {
             printf("Breaking at i = %d\n", i)
             break
-        } | false { { }}
-    }
+        } | false {}
+    })
     
     // Test 3: Nested loops
     puts("\nTest 3: Nested loops")
@@ -37,27 +41,39 @@ main = () i32   {
     r := 0
     c := 0
     
-    loop r < rows {
-        c = 0
-        loop c < cols {
-            total = total + 1
-            c = c + 1
-        }
-        r = r + 1
-    }
+    loop(() {
+        r < rows ?
+            | true {
+                c = 0
+                loop(() {
+                    c < cols ?
+                        | true {
+                            total = total + 1
+                            c = c + 1
+                        }
+                        | false { break }
+                })
+                r = r + 1
+            }
+            | false { break }
+    })
     printf("Total cells in %dx%d grid: %d\n", rows, cols, total)
     
     // Test 4: Loop with continue
     puts("\nTest 4: Loop with continue (skip even numbers)")
     result := 0
     n := 0
-    loop n < 10 {
-        n = n + 1
-        n % 2 == 0 ? | true { { }
-            continue
-        } | false { { }}
-        result = result + n
-    }
+    loop(() {
+        n < 10 ?
+            | true {
+                n = n + 1
+                n % 2 == 0 ? | true {
+                    continue
+                } | false {}
+                result = result + n
+            }
+            | false { break }
+    })
     printf("Sum of odd numbers 1-9: %d\n", result)
     
     // Test 5: Fibonacci using loops
@@ -67,35 +83,43 @@ main = () i32   {
     curr := 1
     idx := 2
     
-    loop idx <= target {
-        next := prev + curr
-        prev = curr
-        curr = next
-        idx = idx + 1
-    }
+    loop(() {
+        idx <= target ?
+            | true {
+                next := prev + curr
+                prev = curr
+                curr = next
+                idx = idx + 1
+            }
+            | false { break }
+    })
     printf("Fibonacci(%d) = %d\n", target, curr)
     
     // Test 6: Pattern matching in loops
     puts("\nTest 6: Pattern matching in loops")
     count := 0
     x := 1
-    loop x <= 20 {
-        x % 15 == 0 ? | true { { }
-            puts("FizzBuzz")
-            count = count + 1
-        } | false { { }
-            x % 3 == 0 ? | true { { }
-                puts("Fizz")
-                count = count + 1
-            } | false { { }
-                x % 5 == 0 ? | true { { }
-                    puts("Buzz")
+    loop(() {
+        x <= 20 ?
+            | true {
+                x % 15 == 0 ? | true {
+                    puts("FizzBuzz")
                     count = count + 1
-                } | false { { }}
+                } | false {
+                    x % 3 == 0 ? | true {
+                        puts("Fizz")
+                        count = count + 1
+                    } | false {
+                        x % 5 == 0 ? | true {
+                            puts("Buzz")
+                            count = count + 1
+                        } | false {}
+                    }
+                }
+                x = x + 1
             }
-        }
-        x = x + 1
-    }
+            | false { break }
+    })
     printf("Special numbers found: %d\n", count)
     
     puts("\n================================")

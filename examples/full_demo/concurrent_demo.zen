@@ -1,12 +1,12 @@
 // Allocator-based Concurrency Demonstration
 // Shows Zenlang's colorless concurrency model using allocators
 
-{ io } = @std.io
-{ std } = @std
-{ time } = @std.time
+{ io, std, time } = @std
+{ Runtime, Timer, Mutex } = @std.runtime
+
 
 // Allocator trait - memory + execution context
-Allocator = {
+Allocator: {
     // Memory operations
     alloc: (size: usize) RawPtr<void>,
     free: (ptr: RawPtr<void>) void,
@@ -21,7 +21,7 @@ Allocator = {
 }
 
 // Different allocator implementations
-SyncAllocator = {
+SyncAllocator: {
     is_concurrent: false,
     alloc: (size) { return @std.heap.alloc(size) },
     free: (ptr) { @std.heap.free(ptr) },
@@ -30,7 +30,7 @@ SyncAllocator = {
     runtime: null,
 }
 
-ConcurrentAllocator = {
+ConcurrentAllocator: {
     is_concurrent: true,
     runtime: Runtime,
     alloc: (size) { return runtime.heap.alloc(size) },
@@ -40,7 +40,7 @@ ConcurrentAllocator = {
 }
 
 // Channel type for message passing
-Channel<T> = {
+Channel<T>: {
     buffer: []T,
     capacity: usize,
     alloc: Ptr<Allocator>,
@@ -53,9 +53,7 @@ Channel<T> = {
 
 // Other necessary types
 Continuation = RawPtr<void>
-Runtime = @std.runtime.Runtime
-Timer = @std.time.Timer
-Mutex<T> = @std.sync.Mutex<T>
+
 ActorHandle<T>: { mailbox: Channel<T> }
 Stream<T> = @std.stream.Stream<T>
 
@@ -83,7 +81,7 @@ fetch_data = (url: string, alloc: Ptr<Allocator>) Result<string, string> {
     alloc.is_concurrent ?
         | true {
             // Concurrent path: suspend and resume
-            cont ::= alloc.suspend()
+            cont = alloc.suspend()
             // Simulate concurrent sleep with continuation
             // In real implementation, this would be handled by runtime
             @std.time.sleep(100)
@@ -106,7 +104,7 @@ process_data = (data: string, alloc: Ptr<Allocator>) Result<i32, string> {
     // Allocator determines execution mode
     alloc.is_concurrent ?
         | true {
-            cont ::= alloc.suspend()
+            cont = alloc.suspend()
             // Simulate concurrent sleep with continuation
             @std.time.sleep(50)
             alloc.runtime.wait()
@@ -124,7 +122,7 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
     @std.io.println("Starting tasks...")
     
     // Fetch data using allocator
-    urls ::= [
+    urls = [
         "https://api.example.com/data1",
         "https://api.example.com/data2",
         "https://api.example.com/data3"
@@ -134,7 +132,7 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
     
     // With concurrent allocator, these can run concurrently
     urls.loop((url) {
-        result ::= fetch_data(url, alloc)
+        result = fetch_data(url, alloc)
         results.push(result)
     })
     
@@ -143,7 +141,7 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
     results.loop((result) {
         result ? 
             | .Ok(data) {
-                processed ::= process_data(data, alloc)
+                processed = process_data(data, alloc)
                 processed ? 
                     | .Ok(len) { total_length = total_length + len }
                     | .Err(_) { }
@@ -158,10 +156,10 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
 // Channel-based communication with allocator
 demonstrate_channels = (alloc: *Allocator) void {
     // Create a channel with buffer size 10
-    chan := Channel<i32>:new(10, alloc);
+    chan = Channel<i32>.new(10, alloc)
     
     // Producer function
-    producer_fn = () => {
+    producer_fn = () {
         (1..5).loop((i) {
             chan.send(i)
             @std.io.println("Sent: " + i)
@@ -169,7 +167,7 @@ demonstrate_channels = (alloc: *Allocator) void {
             // Use allocator for delays
             alloc.is_concurrent ?
                 | true {
-                    cont ::= alloc.suspend()
+                    cont = alloc.suspend()
                     @std.time.sleep(10)
                     alloc.runtime.wait()
                 }
@@ -181,7 +179,7 @@ demonstrate_channels = (alloc: *Allocator) void {
     // Consumer function
     consumer_fn = () {
         loop(() {
-            value ::= chan.receive()
+            value = chan.receive()
             value ?
                 | .Some(v) { @std.io.println("Received: " + v) }
                 | .None { break }
@@ -204,15 +202,15 @@ demonstrate_channels = (alloc: *Allocator) void {
 
 // Select over multiple channels with allocator
 demonstrate_select = (alloc: Ptr<Allocator>) void {
-    chan1 ::= Channel<i32>.new(1, alloc)
-    chan2 ::= Channel<string>.new(1, alloc)
-    timeout ::= Timer.new(1000, alloc)
+    chan1 = Channel<i32>.new(1, alloc)
+    chan2 = Channel<string>.new(1, alloc)
+    timeout = Timer.new(1000, alloc)
     
     // Send to channels after delays
     send_fn1 = () {
         alloc.is_concurrent ?
             | true {
-                cont ::= alloc.suspend()
+                cont = alloc.suspend()
                 @std.time.sleep(200)
                 alloc.runtime.wait()
             }
@@ -223,7 +221,7 @@ demonstrate_select = (alloc: Ptr<Allocator>) void {
     send_fn2 = () {
         alloc.is_concurrent ?
             | true {
-                cont ::= alloc.suspend()
+                cont = alloc.suspend()
                 @std.time.sleep(300)
                 alloc.runtime.wait()
             }
@@ -306,7 +304,7 @@ process_stream = (alloc: Ptr<Allocator>) void {
             // Use allocator for delays
             alloc.is_concurrent ?
                 | true {
-                    cont ::= alloc.suspend()
+                    cont = alloc.suspend()
                     @std.time.sleep(10)
                     alloc.runtime.wait()
                 }
@@ -317,7 +315,7 @@ process_stream = (alloc: Ptr<Allocator>) void {
             // Use allocator for delays
             alloc.is_concurrent ?
                 | true {
-                    cont ::= alloc.suspend()
+                    cont = alloc.suspend()
                     @std.time.sleep(5)
                     alloc.runtime.wait()
                 }

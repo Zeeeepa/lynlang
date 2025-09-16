@@ -37,17 +37,21 @@ identity<T>: (value: T) T  = {
 test_loop = () bool   {
     sum := 0
     counter := 3
-    loop (counter > 0) {
-        sum = sum + counter
-        counter = counter - 1
-    }
+    loop(() {
+        counter > 0 ?
+            | true {
+                sum = sum + counter
+                counter = counter - 1
+            }
+            | false { break }
+    })
     sum == 6
 }
 
 // Test range iteration
 test_range = () bool   {
     sum := 0
-    (0..5).loop((i) => {
+    (0..5).loop((i) {
         sum = sum + i
     })
     sum == 10

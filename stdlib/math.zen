@@ -102,7 +102,7 @@ max_i64 = (a: i64, b: i64) i64   {
 clamp_i32 = (value: i32, min: i32, max: i32) i32   {
     value < min ?
         | true { return min }
-        | false { { }
+        | false {
             value > max ?
                 | true { return max }
                 | false { return value }
@@ -112,7 +112,7 @@ clamp_i32 = (value: i32, min: i32, max: i32) i32   {
 clamp_f64 = (value: f64, min: f64, max: f64) f64   {
     value < min ?
         | true { return min }
-        | false { { }
+        | false {
             value > max ?
                 | true { return max }
                 | false { return value }
@@ -123,7 +123,7 @@ clamp_f64 = (value: f64, min: f64, max: f64) f64   {
 sign_i32 = (x: i32) i32   {
     x < 0 ?
         | true { return -1 }
-        | false { { }
+        | false {
             x > 0 ?
                 | true { return 1 }
                 | false { return 0 }
@@ -133,7 +133,7 @@ sign_i32 = (x: i32) i32   {
 sign_f64 = (x: f64) f64   {
     x < 0.0 ?
         | true { return -1.0 }
-        | false { { }
+        | false {
             x > 0.0 ?
                 | true { return 1.0 }
                 | false { return 0.0 }
@@ -145,7 +145,7 @@ approx_eq_f32 = (a: f32, b: f32, epsilon: f32) bool   {
     diff := a - b
     diff < 0.0 ?
         | true { { diff = -diff  }}
-        | false { { }}
+        | false {}
     
     return diff < epsilon
 }
@@ -154,7 +154,7 @@ approx_eq_f64 = (a: f64, b: f64, epsilon: f64) bool   {
     diff := a - b
     diff < 0.0 ?
         | true { { diff = -diff  }}
-        | false { { }}
+        | false {}
     
     return diff < epsilon
 }
@@ -200,11 +200,11 @@ fast_inv_sqrt = (x: f32) f32   {
 factorial = (n: i64) i64   {
     n < 0 ?
         | true { return 0  // Undefined for negative numbers }
-        | false { { }}
+        | false {}
     
     n == 0 || n == 1 ?
         | true { return 1 }
-        | false { { }}
+        | false {}
     
     result := 1
     i := 2
@@ -220,8 +220,8 @@ factorial = (n: i64) i64   {
 // Greatest common divisor (Euclidean algorithm)
 gcd = (a: i64, b: i64) i64   {
     // Make positive
-    a < 0 ? | true { { a = -a  }} | false { { }}
-    b < 0 ? | true { { b = -b  }} | false { { }}
+    a < 0 ? | true { { a = -a  }} | false {}
+    b < 0 ? | true { { b = -b  }} | false {}
     
     // TODO: Need proper loop implementation
     // loop b != 0 {
@@ -245,15 +245,15 @@ lcm = (a: i64, b: i64) i64   {
 is_prime = (n: i64) bool   {
     n <= 1 ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     n <= 3 ?
         | true { return true }
-        | false { { }}
+        | false {}
     
     n % 2 == 0 || n % 3 == 0 ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     // TODO: Complete implementation with proper loop
     return true
@@ -263,15 +263,15 @@ is_prime = (n: i64) bool   {
 fibonacci = (n: i64) i64   {
     n < 0 ?
         | true { return 0 }
-        | false { { }}
+        | false {}
     
     n == 0 ?
         | true { return 0 }
-        | false { { }}
+        | false {}
     
     n == 1 ?
         | true { return 1 }
-        | false { { }}
+        | false {}
     
     prev := 0
     curr := 1

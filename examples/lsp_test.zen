@@ -118,12 +118,12 @@ delay = (ms: i32, alloc: *Allocator) void {
     // In concurrent mode, this would yield to scheduler
     // In sync mode, this blocks
     alloc.is_concurrent ? 
-        | true { { }
+        | true {
             // Concurrent path: suspend and resume after delay
             cont := alloc.suspend();
             schedule_resume(cont, ms);
         }
-        | false { { }
+        | false {
             // Sync path: just sleep
             @ffi("sleep", ms / 1000);
         }

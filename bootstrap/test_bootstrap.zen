@@ -7,7 +7,7 @@
 fib = (n: i32) i32   {
     n <= 1 ?
         | true { { return n  }}
-        | false { { }
+        | false {
             a := fib(n - 1)
             b := fib(n - 2)
             return a + b

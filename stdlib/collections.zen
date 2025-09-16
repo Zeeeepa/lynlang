@@ -5,259 +5,298 @@
 { memory } = @std.memory
 
 // Dynamic array (vector) implementation
-Vector := {
-    data: []T
+Vector<T>: {
+    data: DynVec<T>
     len: usize
     capacity: usize
 }
 
 // Create new vector
-Vector.new = () Vector {
-    return Vector{
-        data: make([]T, 16),
+Vector.new = () Vector<T> {
+    return Vector<T>{
+        data: DynVec<T>.new(16),
         len: 0,
         capacity: 16
     }
 }
 
 // Create vector with initial capacity
-Vector.with_capacity = (cap: usize) Vector {
-    return Vector{
-        data: make([]T, cap),
+Vector.with_capacity = (cap: usize) Vector<T> {
+    return Vector<T>{
+        data: DynVec<T>.new(cap),
         len: 0,
         capacity: cap
     }
 }
 
 // Push element to vector
-Vector.push = (self: &Vector, value: T) void {
-    if (self.len >= self.capacity) {
-        self.grow()
-    }
-    self.data[self.len] = value
-    self.len = self.len + 1
+Vector.push = (self: MutPtr<Vector<T>>, value: T) void {
+    self.val.len >= self.val.capacity ?
+        | true {
+            self.grow()
+        }
+        | false {}
+    self.val.data.set(self.val.len, value)
+    self.val.len = self.val.len + 1
 }
 
 // Pop element from vector
-Vector.pop = (self: &Vector) ?T {
-    if (self.len == 0) {
-        return null
-    }
-    self.len = self.len - 1
-    return self.data[self.len]
+Vector.pop = (self: MutPtr<Vector<T>>) Option<T> {
+    self.val.len == 0 ?
+        | true {
+            return .None
+        }
+        | false {}
+    self.val.len = self.val.len - 1
+    return self.val.data.get(self.val.len)
 }
 
 // Get element at index
-Vector.get = (self: &Vector, index: usize) ?T {
-    if (index >= self.len) {
-        return null
-    }
-    return self.data[index]
+Vector.get = (self: Ptr<Vector<T>>, index: usize) Option<T> {
+    index >= self.val.len ?
+        | true {
+            return .None
+        }
+        | false {}
+    return self.val.data.get(index)
 }
 
 // Set element at index
-Vector.set = (self: &Vector, index: usize, value: T) bool {
-    if (index >= self.len) {
-        return false
-    }
-    self.data[index] = value
+Vector.set = (self: MutPtr<Vector<T>>, index: usize, value: T) bool {
+    index >= self.val.len ?
+        | true {
+            return false
+        }
+        | false {}
+    self.val.data.set(index, value)
     return true
 }
 
 // Insert element at index
-Vector.insert = (self: &Vector, index: usize, value: T) bool {
-    if (index > self.len) {
-        return false
-    }
+Vector.insert = (self: MutPtr<Vector<T>>, index: usize, value: T) bool {
+    index > self.val.len ?
+        | true {
+            return false
+        }
+        | false {}
     
-    if (self.len >= self.capacity) {
-        self.grow()
-    }
+    self.val.len >= self.val.capacity ?
+        | true {
+            self.grow()
+        }
+        | false {}
     
     // Shift elements right
-    i := self.len
-    while (i > index) {
-        self.data[i] = self.data[i - 1]
-        i = i - 1
-    }
+    i ::= self.val.len
+    loop(() {
+        i <= index ?
+            | true { break }
+            | false {
+                prev_val ::= self.val.data.get(i - 1)
+                self.val.data.set(i, prev_val)
+                i = i - 1
+            }
+    })
     
-    self.data[index] = value
-    self.len = self.len + 1
+    self.val.data.set(index, value)
+    self.val.len = self.val.len + 1
     return true
 }
 
 // Remove element at index
-Vector.remove = (self: &Vector, index: usize) ?T {
-    if (index >= self.len) {
-        return null
-    }
+Vector.remove = (self: MutPtr<Vector<T>>, index: usize) Option<T> {
+    index >= self.val.len ?
+        | true {
+            return .None
+        }
+        | false {}
     
-    value := self.data[index]
+    value ::= self.val.data.get(index)
     
     // Shift elements left
-    i := index
-    while (i < self.len - 1) {
-        self.data[i] = self.data[i + 1]
-        i = i + 1
-    }
+    i ::= index
+    loop(() {
+        i >= self.val.len - 1 ?
+            | true { break }
+            | false {
+                next_val ::= self.val.data.get(i + 1)
+                self.val.data.set(i, next_val)
+                i = i + 1
+            }
+    })
     
-    self.len = self.len - 1
+    self.val.len = self.val.len - 1
     return value
 }
 
 // Clear vector
-Vector.clear = (self: &Vector) void {
-    self.len = 0
+Vector.clear = (self: MutPtr<Vector<T>>) void {
+    self.val.len = 0
 }
 
 // Check if vector is empty
-Vector.is_empty = (self: &Vector) bool {
-    return self.len == 0
+Vector.is_empty = (self: Ptr<Vector<T>>) bool {
+    return self.val.len == 0
 }
 
 // Grow vector capacity
-Vector.grow = (self: &Vector) void {
-    new_capacity := self.capacity * 2
-    new_data := make([]T, new_capacity)
+Vector.grow = (self: MutPtr<Vector<T>>) void {
+    new_capacity ::= self.val.capacity * 2
+    new_data ::= DynVec<T>.new(new_capacity)
     
     // Copy existing data
-    i := 0
-    while (i < self.len) {
-        new_data[i] = self.data[i]
-        i = i + 1
-    }
+    i ::= 0
+    loop(() {
+        i >= self.val.len ?
+            | true { break }
+            | false {
+                val ::= self.val.data.get(i)
+                new_data.set(i, val)
+                i = i + 1
+            }
+    })
     
-    self.data = new_data
-    self.capacity = new_capacity
+    self.val.data = new_data
+    self.val.capacity = new_capacity
 }
 
 // Linked list node
-ListNode := {
+ListNode<T>: {
     value: T
-    next: ?&ListNode
+    next: Option<MutPtr<ListNode<T>>>
 }
 
 // Linked list implementation
-LinkedList := {
-    head: ?&ListNode
-    tail: ?&ListNode
+LinkedList<T>: {
+    head: Option<MutPtr<ListNode<T>>>
+    tail: Option<MutPtr<ListNode<T>>>
     len: usize
 }
 
 // Create new linked list
-LinkedList.new = () LinkedList {
-    return LinkedList{
-        head: null,
-        tail: null,
+LinkedList.new = () LinkedList<T> {
+    return LinkedList<T>{
+        head: .None,
+        tail: .None,
         len: 0
     }
 }
 
 // Push element to front
-LinkedList.push_front = (self: &LinkedList, value: T) void {
-    node := memory.alloc(ListNode)
-    node.value = value
-    node.next = self.head
+LinkedList.push_front = (self: MutPtr<LinkedList<T>>, value: T) void {
+    node ::= memory.alloc(ListNode<T>)
+    node.val.value = value
+    node.val.next = self.val.head
     
-    self.head = node
-    if (self.tail .== .None) {
-        self.tail = node
-    }
+    self.val.head = .Some(node)
+    self.val.tail ?
+        | .None {
+            self.val.tail = .Some(node)
+        }
+        | .Some(_) {}
     
-    self.len = self.len + 1
+    self.val.len = self.val.len + 1
 }
 
 // Push element to back
-LinkedList.push_back = (self: &LinkedList, value: T) void {
-    node := memory.alloc(ListNode)
-    node.value = value
-    node.next = null
+LinkedList.push_back = (self: MutPtr<LinkedList<T>>, value: T) void {
+    node ::= memory.alloc(ListNode<T>)
+    node.val.value = value
+    node.val.next = .None
     
-    if (self.tail) {
-        self.tail.next = node
-    } else {
-        self.head = node
-    }
+    self.val.tail ?
+        | .Some(tail_node) {
+            tail_node.val.next = .Some(node)
+        }
+        | .None {
+            self.val.head = .Some(node)
+        }
     
-    self.tail = node
-    self.len = self.len + 1
+    self.val.tail = .Some(node)
+    self.val.len = self.val.len + 1
 }
 
 // Pop element from front
-LinkedList.pop_front = (self: &LinkedList) ?T {
-    if (self.head .== .None) {
-        return null
-    }
-    
-    node := self.head
-    value := node.value
-    
-    self.head = node.next
-    if (self.head .== .None) {
-        self.tail = null
-    }
-    
-    memory.free(node)
-    self.len = self.len - 1
-    
-    return value
+LinkedList.pop_front = (self: MutPtr<LinkedList<T>>) Option<T> {
+    self.val.head ?
+        | .None {
+            return .None
+        }
+        | .Some(node) {
+            value ::= node.val.value
+            
+            self.val.head = node.val.next
+            self.val.head ?
+                | .None {
+                    self.val.tail = .None
+                }
+                | .Some(_) {}
+            
+            memory.free(node)
+            self.val.len = self.val.len - 1
+            
+            return .Some(value)
+        }
 }
 
 // Stack implementation using vector
-Stack := {
-    data: Vector
+Stack<T>: {
+    data: Vector<T>
 }
 
 // Create new stack
-Stack.new = () Stack {
-    return Stack{
-        data: Vector.new()
+Stack.new = () Stack<T> {
+    return Stack<T>{
+        data: Vector<T>.new()
     }
 }
 
 // Push element onto stack
-Stack.push = (self: &Stack, value: T) void {
-    self.data.push(value)
+Stack.push = (self: MutPtr<Stack<T>>, value: T) void {
+    self.val.data.push(value)
 }
 
 // Pop element from stack
-Stack.pop = (self: &Stack) ?T {
-    return self.data.pop()
+Stack.pop = (self: MutPtr<Stack<T>>) Option<T> {
+    return self.val.data.pop()
 }
 
 // Peek at top element
-Stack.peek = (self: &Stack) ?T {
-    if (self.data.len == 0) {
-        return null
-    }
-    return self.data.data[self.data.len - 1]
+Stack.peek = (self: Ptr<Stack<T>>) Option<T> {
+    self.val.data.len == 0 ?
+        | true {
+            return .None
+        }
+        | false {
+            return self.val.data.get(self.val.data.len - 1)
+        }
 }
 
 // Check if stack is empty
-Stack.is_empty = (self: &Stack) bool {
-    return self.data.is_empty()
+Stack.is_empty = (self: Ptr<Stack<T>>) bool {
+    return self.val.data.is_empty()
 }
 
 // Queue implementation using linked list
-Queue := {
-    list: LinkedList
+Queue<T>: {
+    list: LinkedList<T>
 }
 
 // Create new queue
-Queue.new = () Queue {
-    return Queue{
-        list: LinkedList.new()
+Queue.new = () Queue<T> {
+    return Queue<T>{
+        list: LinkedList<T>.new()
     }
 }
 
 // Enqueue element
-Queue.enqueue = (self: &Queue, value: T) void {
-    self.list.push_back(value)
+Queue.enqueue = (self: MutPtr<Queue<T>>, value: T) void {
+    self.val.list.push_back(value)
 }
 
 // Dequeue element
-Queue.dequeue = (self: &Queue) ?T {
-    return self.list.pop_front()
+Queue.dequeue = (self: MutPtr<Queue<T>>) Option<T> {
+    return self.val.list.pop_front()
 }
 
 // Peek at front element

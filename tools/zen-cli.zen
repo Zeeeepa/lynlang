@@ -32,29 +32,31 @@ Args: {
 
 // Parse command line arguments
 parseArgs = (args: []String) !Args {
-    args.len < 2 ? {
-        return Args{
-            command: .Help,
-            target: null,
-            release: false,
-            target_arch: null,
-            args: []String{},
-            verbose: false
+    args.len < 2 ?
+        | true {
+            return Args{
+                command: .Help,
+                target: null,
+                release: false,
+                target_arch: null,
+                args: []String{},
+                verbose: false
+            }
         }
-    } : {}
+        | false {}
     
     command_str := args[1]
     command := command_str ?
-        | "build" => .Build
-        | "run" => .Run
-        | "test" => .Test
-        | "check" => .Check
-        | "fmt" => .Fmt
-        | "clean" => .Clean
-        | "init" => .Init
-        | "version" => .Version
-        | "help" => .Help
-        | _ => return error.UnknownCommand
+        | "build" { .Build }
+        | "run" { .Run }
+        | "test" { .Test }
+        | "check" { .Check }
+        | "fmt" { .Fmt }
+        | "clean" { .Clean }
+        | "init" { .Init }
+        | "version" { .Version }
+        | "help" { .Help }
+        | _ { return error.UnknownCommand }
     
     result := Args{
         command: command,
@@ -67,26 +69,48 @@ parseArgs = (args: []String) !Args {
     
     // Parse remaining args
     i := 2
-    loop i < args.len {
-        arg := args[i]
-        
-        arg == "--release" ? {
-            result.release = true
-        } : arg == "--target" && i + 1 < args.len ? {
-            result.target_arch = args[i + 1]
-            i += 1
-        } : arg == "--verbose" || arg == "-v" ? {
-            result.verbose = true
-        } : arg == "--" ? {
-            // Rest are program args
-            result.args = args[i + 1..]
-            break
-        } : !arg.startsWith("--") && !result.target ? {
-            result.target = arg
-        } : {}
-        
-        i += 1
-    }
+    loop(() {
+        i < args.len ?
+            | false { break }
+            | true {
+                arg := args[i]
+                
+                arg == "--release" ?
+                    | true {
+                        result.release = true
+                    }
+                    | false {
+                        arg == "--target" && i + 1 < args.len ?
+                            | true {
+                                result.target_arch = args[i + 1]
+                                i += 1
+                            }
+                            | false {
+                                arg == "--verbose" || arg == "-v" ?
+                                    | true {
+                                        result.verbose = true
+                                    }
+                                    | false {
+                                        arg == "--" ?
+                                            | true {
+                                                // Rest are program args
+                                                result.args = args[i + 1..]
+                                                break
+                                            }
+                                            | false {
+                                                !arg.startsWith("--") && !result.target ?
+                                                    | true {
+                                                        result.target = arg
+                                                    }
+                                                    | false {}
+                                            }
+                                    }
+                            }
+                    }
+                
+                i += 1
+            }
+    })
     
     return result
 }
@@ -94,14 +118,14 @@ parseArgs = (args: []String) !Args {
 // Find build.zen file
 findBuildFile = () ?String   {
     // Check current directory
-    fs.exists("build.zen") ? {
-        return "build.zen"
-    } : {}
+    fs.exists("build.zen") ?
+        | true { return "build.zen" }
+        | false {}
     
     // Check src directory
-    fs.exists("src/build.zen") ? {
-        return "src/build.zen"
-    } : {}
+    fs.exists("src/build.zen") ?
+        | true { return "src/build.zen" }
+        | false {}
     
     return null
 }

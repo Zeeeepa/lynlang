@@ -10,13 +10,25 @@ Message: .Text({content: string}) | .Number({value: i32}) | .Pair({first: i32, s
 process_message = (msg: Message) string {
     msg ?
         | .Text(content) { "Text: " + content }
-        | .Number(value) when value > 100 { "Large number: " + value }
-        | .Number(value) { "Small number: " + value }
-        | .Pair(first, second) when first == second { "Equal pair: " + first }
-        | .Pair(first, second) { "Pair: (" + first + ", " + second + ")" }
-        | .List(items) when items.len() == 0 { "Empty list" }
-        | .List(items) when items.len() == 1 { "Single item: " + items[0] }
-        | .List(items) { "List with " + items.len() + " items" }
+        | .Number(value) {
+            value > 100 ?
+                | true { "Large number: " + value }
+                | false { "Small number: " + value }
+        }
+        | .Pair(first, second) {
+            first == second ?
+                | true { "Equal pair: " + first }
+                | false { "Pair: (" + first + ", " + second + ")" }
+        }
+        | .List(items) {
+            items.len() == 0 ?
+                | true { "Empty list" }
+                | false {
+                    items.len() == 1 ?
+                        | true { "Single item: " + items[0] }
+                        | false { "List with " + items.len() + " items" }
+                }
+        }
         | .Nested(inner) { "Nested: " + process_message(inner.msg) }
         | .Empty { "Empty message" }
 }
@@ -103,9 +115,15 @@ describe_shape = (shape: Shape) string {
         | .Rectangle(data) {
             "Rectangle from (" + data.top_left.x + ", " + data.top_left.y + ") to (" + data.bottom_right.x + ", " + data.bottom_right.y + ")"
         }
-        | .Polygon(data) when data.vertices.len() == 3 { "Triangle" }
-        | .Polygon(data) when data.vertices.len() == 4 { "Quadrilateral" }
-        | .Polygon(data) { "Polygon with " + data.vertices.len() + " vertices" }
+        | .Polygon(data) {
+            data.vertices.len() == 3 ?
+                | true { "Triangle" }
+                | false {
+                    data.vertices.len() == 4 ?
+                        | true { "Quadrilateral" }
+                        | false { "Polygon with " + data.vertices.len() + " vertices" }
+                }
+        }
 }
 
 // Pattern matching with Option and Result

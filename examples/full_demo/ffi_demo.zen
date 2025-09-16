@@ -1,8 +1,7 @@
 // FFI (Foreign Function Interface) Demonstration
 // Shows how to interface with C libraries
 
-{ io } = @std.io
-{ ffi } = @std.ffi
+{ io, ffi } = @std
 
 // External C function declarations
 extern "C" {
@@ -20,8 +19,6 @@ extern "C" {
     pow = (base: f64, exp: f64) f64
 }
 
-// Custom C struct representation
-@repr(C)
 CPoint: {
     x: f32,
     y: f32,
@@ -80,7 +77,6 @@ call_c_function = () string {
 }
 
 // Callback function that can be passed to C
-@export("zen_callback")
 zen_callback = (value: i32) i32 {
     @std.io.println("Callback called from C with value: " + value)
     value * 2
@@ -92,7 +88,7 @@ CLibWrapper: {
     
     // Load dynamic library
     load = (path: string) Result<CLibWrapper, string> {
-        handle = @std.ffi.dlopen(path, @std.ffi.RTLD_LAZY)
+        handle = ffi.dlopen(path, ffi.RTLD_LAZY)
         handle == .None ?
             | true { .Err("Failed to load library") }
             | false { .Ok(CLibWrapper{ handle: handle }) }
@@ -100,15 +96,15 @@ CLibWrapper: {
     
     // Get function pointer
     get_symbol<T> = (self: CLibWrapper, name: string) Result<T, string> {
-        sym = @std.ffi.dlsym(self.handle, name)
+        sym = ffi.dlsym(self.handle, name)
         sym == .None ?
             | true { .Err("Symbol not found: " + name) }
-            | false { .Ok(@std.ffi.cast<T>(sym)) }
+            | false { .Ok(ffi.cast<T>(sym)) }
     }
     
     // Close library
     close = (self: CLibWrapper) void {
-        @std.ffi.dlclose(self.handle)
+        ffi.dlclose(self.handle)
     }
 }
 

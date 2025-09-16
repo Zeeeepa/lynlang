@@ -42,11 +42,11 @@ test_no_function_imports = () bool   {
 // Test that imports cannot be inside blocks
 test_no_block_imports = () bool   {
     x := 10
-    x > 5 ? | true { { }
+    x > 5 ? | true {
         // This would be a compile error:
         // { fs } = @std.fs  // ERROR: Imports must be at module level
         test.assert_true(true, "Cannot import inside blocks")
-    } | false { { }
+    } | false {
         test.assert_true(false, "Should not reach here")
     }
     return true
@@ -87,9 +87,9 @@ TestEnum:
 
 test_no_enum_imports = () bool   {
     e := TestEnum.First
-    e == TestEnum.First ? | true { { }
+    e == TestEnum.First ? | true {
         test.assert_true(true, "Enum works without imports")
-    } | false { { }
+    } | false {
         test.assert_true(false, "Enum comparison failed")
     }
     return true
@@ -246,10 +246,10 @@ main = () i32   {
         io.print(test_name)
         io.print("... ")
         
-        test_func() ? | true { { }
+        test_func() ? | true {
             io.print("PASS\n")
             passed = passed + 1
-        } | false { { }
+        } | false {
             io.print("FAIL\n")
             failed = failed + 1
         }
@@ -264,10 +264,10 @@ main = () i32   {
     io.print(string.from_int(failed))
     io.print(" failed\n")
     
-    failed == 0 ? | true { { }
+    failed == 0 ? | true {
         io.print("\nAll tests passed!\n")
         return 0
-    } | false { { }
+    } | false {
         io.print("\nSome tests failed.\n")
         return 1
     }

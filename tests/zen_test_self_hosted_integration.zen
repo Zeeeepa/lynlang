@@ -24,12 +24,14 @@ test_lexer_integration = () bool   {
     tokens := lexer.tokenize(lex)
     
     // Should have 4 tokens: x, :=, 42, EOF
-    if tokens.len != 4 {
-        io.print("Expected 4 tokens, got ")
-        io.print_int(tokens.len)
-        io.print("\n")
-        return false
-    }
+    tokens.len != 4 ?
+        | true {
+            io.print("Expected 4 tokens, got ")
+            io.print_int(tokens.len)
+            io.print("\n")
+            return false
+        }
+        | false {}
     
     return true
 }
@@ -188,61 +190,61 @@ main = () i32   {
     
     // Run tests
     test_lexer_integration() ?
-        | true { { }
+        | true {
             io.print("✓ Lexer integration test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Lexer integration test failed\n")
             failed = failed + 1
         }
     
     test_parser_integration() ?
-        | true { { }
+        | true {
             io.print("✓ Parser integration test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Parser integration test failed\n")
             failed = failed + 1
         }
     
     test_type_checker_integration() ?
-        | true { { }
+        | true {
             io.print("✓ Type checker integration test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Type checker integration test failed\n")
             failed = failed + 1
         }
     
     test_full_pipeline() ?
-        | true { { }
+        | true {
             io.print("✓ Full pipeline test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Full pipeline test failed\n")
             failed = failed + 1
         }
     
     test_error_reporting() ?
-        | true { { }
+        | true {
             io.print("✓ Error reporting test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Error reporting test failed\n")
             failed = failed + 1
         }
     
     test_import_validation() ?
-        | true { { }
+        | true {
             io.print("✓ Import validation test passed\n")
             passed = passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ Import validation test failed\n")
             failed = failed + 1
         }
@@ -256,11 +258,11 @@ main = () i32   {
     io.print("\n")
     
     failed == 0 ?
-        | true { { }
+        | true {
             io.print("\n✓ All self-hosted integration tests passed!\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("\n✗ Some tests failed\n")
             return 1
         }

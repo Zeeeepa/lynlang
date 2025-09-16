@@ -25,28 +25,26 @@ BUFFER_SIZE := 4096
 LINE_BUFFER_SIZE := 1024
 
 // File modes
-FileMode: ReadOnly
-    | WriteOnly
-    | ReadWrite
-    | Append
-    | CreateNew
+FileMode: .ReadOnly
+    | .WriteOnly
+    | .ReadWrite
+    | .Append
+    | .CreateNew
 
 // IO Error types
-IOError: FileNotFound
-    | PermissionDenied
-    | AlreadyExists
-    | BrokenPipe
-    | UnexpectedEof
-    | InvalidInput
-    | WriteZero
-    | ReadError
-    | WriteError
-    | Other
+IOError: .FileNotFound
+    | .PermissionDenied
+    | .AlreadyExists
+    | .BrokenPipe
+    | .UnexpectedEof
+    | .InvalidInput
+    | .WriteZero
+    | .ReadError
+    | .WriteError
+    | .Other
 
 // Result type for IO operations
-IOResult<T> = 
-    | Ok(value: T)
-    | Err(error: IOError)
+IOResult<T>: .Ok(T) | .Err(IOError)
 
 // File handle type
 File: {
@@ -84,113 +82,113 @@ read_char = () i32   {
 }
 
 // Open a file with specified mode
-file_open = (path: RawPtr<i8>, mode: FileMode) IOResult<File>   {
+file_open = (path: RawPtr<i8>, mode: FileMode) IOResult<File> {
     // Convert mode to C string
-    mode_str := "r"  // Default to read
+    mode_str ::= "r"  // Default to read
     mode ?
-        | ReadOnly { { mode_str = "r"  }}
-        | WriteOnly { { mode_str = "w"  }}
-        | ReadWrite { { mode_str = "r+"  }}
-        | Append { { mode_str = "a"  }}
-        | CreateNew { { mode_str = "w+"  }}
+        | .ReadOnly { mode_str = "r" }
+        | .WriteOnly { mode_str = "w" }
+        | .ReadWrite { mode_str = "r+" }
+        | .Append { mode_str = "a" }
+        | .CreateNew { mode_str = "w+" }
     
     handle := fopen(path, mode_str)
     
     // Check if open succeeded
     handle == 0 ?
-        | true { { }
-            return IOResult:Err(IOError:FileNotFound)
+        | true {
+            return .Err(.FileNotFound)
         }
-        | false { { }
+        | false {
             file := File {
                 handle: handle,
                 path: path,
                 mode: mode,
                 is_open: true,
             }
-            return IOResult:Ok(file)
+            return .Ok(file)
         }
 }
 
 // Close a file
-file_close = (file: File) IOResult<bool>   {
+file_close = (file: File) IOResult<bool> {
     file.is_open ?
-        | false { { }
-            return IOResult:Err(IOError:Other)
+        | false {
+            return .Err(.Other)
         }
-        | true { { }}
+        | true {}
     
     result := fclose(file.handle)
     result == 0 ?
-        | true { { }
-            return IOResult:Ok(true)
+        | true {
+            return .Ok(true)
         }
-        | false { { }
-            return IOResult:Err(IOError:Other)
+        | false {
+            return .Err(.Other)
         }
 }
 
 // Write bytes to a file
-file_write = (file: File, data: RawPtr<i8>, len: i64) IOResult<i64>   {
+file_write = (file: File, data: RawPtr<i8>, len: i64) IOResult<i64> {
     file.is_open ?
-        | false { { }
-            return IOResult:Err(IOError:Other)
+        | false {
+            return .Err(.Other)
         }
-        | true { { }}
+        | true {}
     
     written := fwrite(data, 1, len, file.handle)
     
     written == len ?
-        | true { { }
-            return IOResult:Ok(written)
+        | true {
+            return .Ok(written)
         }
-        | false { { }
+        | false {
             written == 0 ?
-                | true { { }
-                    return IOResult:Err(IOError:WriteZero)
+                | true {
+                    return .Err(.WriteZero)
                 }
-                | false { { }
-                    return IOResult:Err(IOError:WriteError)
+                | false {
+                    return .Err(.WriteError)
                 }
         }
 }
 
 // Read bytes from a file
-file_read = (file: File, buffer: RawPtr<i8>, max_len: i64) IOResult<i64>   {
+file_read = (file: File, buffer: RawPtr<i8>, max_len: i64) IOResult<i64> {
     file.is_open ?
-        | false { { }
-            return IOResult:Err(IOError:Other)
+        | false {
+            return .Err(.Other)
         }
-        | true { { }}
+        | true {}
     
     bytes_read := fread(buffer, 1, max_len, file.handle)
     
     has_error := ferror(file.handle)
     has_error != 0 ?
-        | true { { }
-            return IOResult:Err(IOError:ReadError)
+        | true {
+            return .Err(.ReadError)
         }
-        | false { { }
+        | false {
             is_eof := feof(file.handle)
-            is_eof != 0 && bytes_read == 0 ?
-                | true { { }
-                    return IOResult:Err(IOError:UnexpectedEof)
+            (is_eof != 0 && bytes_read == 0) ?
+                | true {
+                    return .Err(.UnexpectedEof)
                 }
-                | false { { }
-                    return IOResult:Ok(bytes_read)
+                | false {
+                    return .Ok(bytes_read)
                 }
         }
 }
 
 // Flush output stream
-flush = (file: File) IOResult<bool>   {
+flush = (file: File) IOResult<bool> {
     result := fflush(file.handle)
     result == 0 ?
-        | true { { }
-            return IOResult:Ok(true)
+        | true {
+            return .Ok(true)
         }
-        | false { { }
-            return IOResult:Err(IOError:Other)
+        | false {
+            return .Err(.Other)
         }
 }
 
@@ -245,21 +243,21 @@ buffered_writer_new = (file: File) BufferedWriter   {
 }
 
 // Flush buffered writer
-buffered_writer_flush = (writer: BufferedWriter) IOResult<bool>   {
+buffered_writer_flush = (writer: BufferedWriter) IOResult<bool> {
     writer.buffer_pos > 0 ?
-        | true { { }
+        | true {
             result := file_write(writer.file, writer.buffer, writer.buffer_pos)
             result ?
-                | Ok(written) { { }
+                | .Ok(written) {
                     writer.buffer_pos = 0
-                    return IOResult:Ok(true)
+                    return .Ok(true)
                 }
-                | Err(e) { { }
-                    return IOResult:Err(e)
+                | .Err(e) {
+                    return .Err(e)
                 }
         }
-        | false { { }
-            return IOResult:Ok(true)
+        | false {
+            return .Ok(true)
         }
 }
 
@@ -274,29 +272,29 @@ buffered_writer_free = (writer: BufferedWriter) void   {
 }
 
 // Standard streams (simplified)
-stdout = () File   {
+stdout = () File {
     return File {
         handle: 0,  // Would need proper stdout handle
         path: "stdout",
-        mode: FileMode:WriteOnly,
+        mode: .WriteOnly,
         is_open: true,
     }
 }
 
-stderr = () File   {
+stderr = () File {
     return File {
         handle: 0,  // Would need proper stderr handle
         path: "stderr",
-        mode: FileMode:WriteOnly,
+        mode: .WriteOnly,
         is_open: true,
     }
 }
 
-stdin = () File   {
+stdin = () File {
     return File {
         handle: 0,  // Would need proper stdin handle
         path: "stdin",
-        mode: FileMode:ReadOnly,
+        mode: .ReadOnly,
         is_open: true,
     }
 }

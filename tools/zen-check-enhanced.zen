@@ -9,9 +9,7 @@
 { path } = @std.path
 
 // Error severity levels
-Severity: Error
-    | Warning
-    | Info
+Severity: Error | Warning | Info
 
 // Diagnostic information
 Diagnostic: {
@@ -33,14 +31,7 @@ CheckResult: {
 }
 
 // Token types for basic lexical analysis
-TokenType: Identifier
-    | Keyword
-    | Operator
-    | Number
-    | String
-    | Comment
-    | Whitespace
-    | Unknown
+TokenType: Identifier | Keyword | Operator | Number | String | Comment | Whitespace | Unknown
 
 // Simple token
 Token: {

@@ -35,10 +35,10 @@ run_test = (test_case: TestCase) TestResult   {
     
     // Test lexer
     test_case.expected_tokens.is_some() ?
-        | true { { }
+        | true {
             tokens := lexer.tokenize(test_case.input)
             tokens.is_err() ?
-                | true { { }
+                | true {
                     test_case.should_fail ?
                         | true { return TestResult:Pass(test_case.name) }
                         | false { return TestResult:Fail( }
@@ -46,7 +46,7 @@ run_test = (test_case: TestCase) TestResult   {
                             "Lexer failed: " + tokens.unwrap_err()
                         )
                 }
-                | false { { }}
+                | false {}
             
             // Compare tokens
             actual := tokens.unwrap()
@@ -57,26 +57,26 @@ run_test = (test_case: TestCase) TestResult   {
                     test_case.name,
                     "Token count mismatch"
                 )
-                | false { { }}
+                | false {}
             
             // Detailed token comparison would go here
         }
-        | false { { }}
+        | false {}
     
     // Test parser
     test_case.expected_ast.is_some() ?
-        | true { { }
+        | true {
             tokens := lexer.tokenize(test_case.input)
             tokens.is_err() ?
                 | true { return TestResult:Fail( }
                     test_case.name,
                     "Lexer failed in parser test"
                 )
-                | false { { }}
+                | false {}
             
             ast := parser.parse(tokens.unwrap())
             ast.is_err() ?
-                | true { { }
+                | true {
                     test_case.should_fail ?
                         | true { return TestResult:Pass(test_case.name) }
                         | false { return TestResult:Fail( }
@@ -84,11 +84,11 @@ run_test = (test_case: TestCase) TestResult   {
                             "Parser failed: " + ast.unwrap_err()
                         )
                 }
-                | false { { }}
+                | false {}
             
             // AST comparison would go here
         }
-        | false { { }}
+        | false {}
     
     return TestResult:Pass(test_case.name)
 }
@@ -256,19 +256,19 @@ test_self_hosting = () Vec<TestResult>   {
     io.println("Test: Compiler can tokenize its own source")
     lexer_source := fs.read_file("stdlib/compiler/lexer.zen")
     lexer_source.is_ok() ?
-        | true { { }
+        | true {
             tokens := lexer.tokenize(lexer_source.unwrap())
             tokens.is_ok() ?
-                | true { { }
+                | true {
                     io.println("  ✓ Successfully tokenized lexer.zen")
                     results.push(TestResult:Pass("Self-tokenization"))
                 }
-                | false { { }
+                | false {
                     io.println("  ✗ Failed to tokenize lexer.zen")
                     results.push(TestResult:Fail("Self-tokenization", tokens.unwrap_err()))
                 }
         }
-        | false { { }
+        | false {
             results.push(TestResult:Skip("Self-tokenization", "Could not read lexer.zen"))
         }
     
@@ -276,26 +276,26 @@ test_self_hosting = () Vec<TestResult>   {
     io.println("Test: Compiler can parse its own source")
     parser_source := fs.read_file("stdlib/compiler/parser.zen")
     parser_source.is_ok() ?
-        | true { { }
+        | true {
             tokens := lexer.tokenize(parser_source.unwrap())
             tokens.is_ok() ?
-                | true { { }
+                | true {
                     ast := parser.parse(tokens.unwrap())
                     ast.is_ok() ?
-                        | true { { }
+                        | true {
                             io.println("  ✓ Successfully parsed parser.zen")
                             results.push(TestResult:Pass("Self-parsing"))
                         }
-                        | false { { }
+                        | false {
                             io.println("  ✗ Failed to parse parser.zen")
                             results.push(TestResult:Fail("Self-parsing", ast.unwrap_err()))
                         }
                 }
-                | false { { }
+                | false {
                     results.push(TestResult:Fail("Self-parsing", "Tokenization failed"))
                 }
         }
-        | false { { }
+        | false {
             results.push(TestResult:Skip("Self-parsing", "Could not read parser.zen"))
         }
     
@@ -342,19 +342,19 @@ run_all_tests = () i32   {
         total_tests = total_tests + 1
         
         result ?
-            | Pass(name) { { }
+            | Pass(name) {
                 passed_tests = passed_tests + 1
                 io.print("  ✓ ")
                 io.println(name)
             }
-            | Fail(name, msg) { { }
+            | Fail(name, msg) {
                 failed_tests = failed_tests + 1
                 io.print("  ✗ ")
                 io.print(name)
                 io.print(": ")
                 io.println(msg)
             }
-            | Skip(name, reason) { { }
+            | Skip(name, reason) {
                 skipped_tests = skipped_tests + 1
                 io.print("  ⊘ ")
                 io.print(name)
@@ -379,11 +379,11 @@ run_all_tests = () i32   {
     io.print_int(skipped_tests)
     
     failed_tests > 0 ?
-        | true { { }
+        | true {
             io.println("\nSome tests failed!")
             return 1
         }
-        | false { { }
+        | false {
             io.println("\nAll tests passed!")
             return 0
         }

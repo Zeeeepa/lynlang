@@ -135,7 +135,7 @@ test_library_loading = () void   {
     // Try loading the library
     load_result := math_lib.load()
     load_result ?
-        | .Ok -> _ { { }
+        | .Ok -> _ {
             io.print("Math library loaded successfully\n")
             
             // Test function retrieval

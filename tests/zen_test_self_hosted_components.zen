@@ -37,7 +37,7 @@ test_lexer = () bool   {
     // Check first token is 'let' keyword
     first := tokens.get(0)
     match first.kind {
-        | Keyword(kw) { { }
+        | Keyword(kw) {
             if !string.equals(kw, "let") {
                 return false
             }
@@ -112,7 +112,7 @@ test_error_handling = () bool   {
     
     // Verify diagnostic properties
     match diag.level {
-        | Error { { }
+        | Error {
             return string.equals(diag.message, "Test error message")
         }
         | _ { return false }
@@ -126,7 +126,7 @@ test_type_checker = () bool   {
     
     // Check type properties
     match int_type {
-        | Integer(bits, signed) { { }
+        | Integer(bits, signed) {
             return bits == 32 && signed == true
         }
         | _ { return false }

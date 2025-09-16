@@ -122,10 +122,10 @@ TcpListener: {
 tcp_socket_new = () NetResult<TcpSocket>   {
     fd := socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     fd < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             sock := TcpSocket {
                 fd: fd,
                 local_addr: SocketAddr {
@@ -149,10 +149,10 @@ tcp_connect = (sock: TcpSocket, addr: SocketAddr) NetResult<TcpSocket>   {
     result := 0  // connect(sock.fd, addr_struct, sizeof(addr_struct))
     
     result < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:ConnectionRefused)
         }
-        | false { { }
+        | false {
             sock.peer_addr = addr
             sock.is_connected = true
             return NetResult:Ok(sock)
@@ -162,17 +162,17 @@ tcp_connect = (sock: TcpSocket, addr: SocketAddr) NetResult<TcpSocket>   {
 // Send data over TCP socket
 tcp_send = (sock: TcpSocket, data: RawPtr<i8>, len: i64) NetResult<i64>   {
     sock.is_connected ?
-        | false { { }
+        | false {
             return NetResult:Err(NetError:NotConnected)
         }
-        | true { { }}
+        | true {}
     
     sent := send(sock.fd, data, len, 0)
     sent < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             return NetResult:Ok(sent)
         }
 }
@@ -180,22 +180,22 @@ tcp_send = (sock: TcpSocket, data: RawPtr<i8>, len: i64) NetResult<i64>   {
 // Receive data from TCP socket
 tcp_recv = (sock: TcpSocket, buffer: RawPtr<i8>, max_len: i64) NetResult<i64>   {
     sock.is_connected ?
-        | false { { }
+        | false {
             return NetResult:Err(NetError:NotConnected)
         }
-        | true { { }}
+        | true {}
     
     received := recv(sock.fd, buffer, max_len, 0)
     received < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:ConnectionReset)
         }
-        | false { { }
+        | false {
             received == 0 ?
-                | true { { }
+                | true {
                     return NetResult:Err(NetError:ConnectionAborted)
                 }
-                | false { { }
+                | false {
                     return NetResult:Ok(received)
                 }
         }
@@ -205,10 +205,10 @@ tcp_recv = (sock: TcpSocket, buffer: RawPtr<i8>, max_len: i64) NetResult<i64>   
 tcp_close = (sock: TcpSocket) NetResult<bool>   {
     result := close(sock.fd)
     result < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             return NetResult:Ok(true)
         }
 }
@@ -217,10 +217,10 @@ tcp_close = (sock: TcpSocket) NetResult<bool>   {
 tcp_listener_new = (addr: SocketAddr) NetResult<TcpListener>   {
     fd := socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     fd < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }}
+        | false {}
     
     // Enable address reuse
     opt_val := 1
@@ -230,19 +230,19 @@ tcp_listener_new = (addr: SocketAddr) NetResult<TcpListener>   {
     // This is simplified
     bind_result := 0  // bind(fd, addr_struct, sizeof(addr_struct))
     bind_result < 0 ?
-        | true { { }
+        | true {
             close(fd)
             return NetResult:Err(NetError:AddrInUse)
         }
-        | false { { }}
+        | false {}
     
     listen_result := listen(fd, 128)  // Backlog of 128
     listen_result < 0 ?
-        | true { { }
+        | true {
             close(fd)
             return NetResult:Err(NetError:Other)
         }
-        | false { { }}
+        | false {}
     
     listener := TcpListener {
         fd: fd,
@@ -256,18 +256,18 @@ tcp_listener_new = (addr: SocketAddr) NetResult<TcpListener>   {
 // Accept connection on TCP listener
 tcp_accept = (listener: TcpListener) NetResult<TcpSocket>   {
     listener.is_listening ?
-        | false { { }
+        | false {
             return NetResult:Err(NetError:Other)
         }
-        | true { { }}
+        | true {}
     
     // Simplified - would need proper sockaddr_in structure
     client_fd := accept(listener.fd, 0, 0)
     client_fd < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             sock := TcpSocket {
                 fd: client_fd,
                 local_addr: listener.local_addr,
@@ -285,10 +285,10 @@ tcp_accept = (listener: TcpListener) NetResult<TcpSocket>   {
 udp_socket_new = () NetResult<UdpSocket>   {
     fd := socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
     fd < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             sock := UdpSocket {
                 fd: fd,
                 local_addr: SocketAddr {
@@ -306,10 +306,10 @@ udp_bind = (sock: UdpSocket, addr: SocketAddr) NetResult<UdpSocket>   {
     // Simplified - would need proper sockaddr_in structure
     bind_result := 0  // bind(sock.fd, addr_struct, sizeof(addr_struct))
     bind_result < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:AddrInUse)
         }
-        | false { { }
+        | false {
             sock.local_addr = addr
             sock.is_bound = true
             return NetResult:Ok(sock)
@@ -321,10 +321,10 @@ udp_send_to = (sock: UdpSocket, data: RawPtr<i8>, len: i64, addr: SocketAddr) Ne
     // Simplified - would need proper sockaddr_in structure
     sent := sendto(sock.fd, data, len, 0, 0, 0)
     sent < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             return NetResult:Ok(sent)
         }
 }
@@ -334,10 +334,10 @@ udp_recv_from = (sock: UdpSocket, buffer: RawPtr<i8>, max_len: i64) NetResult<i6
     // Simplified - would also return sender address
     received := recvfrom(sock.fd, buffer, max_len, 0, 0, 0)
     received < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             return NetResult:Ok(received)
         }
 }
@@ -346,10 +346,10 @@ udp_recv_from = (sock: UdpSocket, buffer: RawPtr<i8>, max_len: i64) NetResult<i6
 udp_close = (sock: UdpSocket) NetResult<bool>   {
     result := close(sock.fd)
     result < 0 ?
-        | true { { }
+        | true {
             return NetResult:Err(NetError:Other)
         }
-        | false { { }
+        | false {
             return NetResult:Ok(true)
         }
 }

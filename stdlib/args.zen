@@ -177,14 +177,14 @@ parse = (parser: &ArgParser, args: Vec<string>) Result<ParsedArgs, string>   {
                 
                 flag := find_flag_by_long(parser, actual_flag)
                 match flag {
-                    | Option<Flag>.Some(f) { { }
+                    | Option<Flag>.Some(f) {
                         f.takes_value ? {
                             hashmap_put(result.flags, f.long, FlagValue.Single(value))
                         } : {
                             return Result<ParsedArgs, string>.Err("Flag --" + actual_flag + " does not take a value")
                         }
                     }
-                    | Option<Flag>.None { { }
+                    | Option<Flag>.None {
                         return Result<ParsedArgs, string>.Err("Unknown flag: --" + actual_flag)
                     }
                 }
@@ -192,7 +192,7 @@ parse = (parser: &ArgParser, args: Vec<string>) Result<ParsedArgs, string>   {
                 // Regular long flag
                 flag := find_flag_by_long(parser, flag_name)
                 match flag {
-                    | Option<Flag>.Some(f) { { }
+                    | Option<Flag>.Some(f) {
                         f.takes_value ? {
                             i = i + 1
                             i < vec_len(args) ? {
@@ -205,7 +205,7 @@ parse = (parser: &ArgParser, args: Vec<string>) Result<ParsedArgs, string>   {
                             hashmap_put(result.flags, f.long, FlagValue.Present)
                         }
                     }
-                    | Option<Flag>.None { { }
+                    | Option<Flag>.None {
                         return Result<ParsedArgs, string>.Err("Unknown flag: --" + flag_name)
                     }
                 }
@@ -219,7 +219,7 @@ parse = (parser: &ArgParser, args: Vec<string>) Result<ParsedArgs, string>   {
                 flag := find_flag_by_short(parser, short_char)
                 
                 match flag {
-                    | Option<Flag>.Some(f) { { }
+                    | Option<Flag>.Some(f) {
                         f.takes_value ? {
                             // If it takes a value, rest of string or next arg is the value
                             j + 1 < string.len(arg) ? {
@@ -241,7 +241,7 @@ parse = (parser: &ArgParser, args: Vec<string>) Result<ParsedArgs, string>   {
                             hashmap_put(result.flags, f.long, FlagValue.Present)
                         }
                     }
-                    | Option<Flag>.None { { }
+                    | Option<Flag>.None {
                         return Result<ParsedArgs, string>.Err("Unknown flag: -" + short_char)
                     }
                 }
@@ -252,21 +252,21 @@ parse = (parser: &ArgParser, args: Vec<string>) Result<ParsedArgs, string>   {
             vec_len(parser.subcommands) > 0 && positional_index == 0 ? {
                 sub := find_subcommand(parser, arg)
                 match sub {
-                    | Option<Subcommand>.Some(s) { { }
+                    | Option<Subcommand>.Some(s) {
                         // Parse remaining args with subcommand parser
                         sub_args := vec_slice(args, i + 1, vec_len(args))
                         sub_result := parse(&s.parser, sub_args)
                         match sub_result {
-                            | Result<ParsedArgs, string>.Ok(parsed) { { }
+                            | Result<ParsedArgs, string>.Ok(parsed) {
                                 result.subcommand = Option<(string, ParsedArgs)>.Some((s.name, parsed))
                                 return Result<ParsedArgs, string>.Ok(result)
                             }
-                            | Result<ParsedArgs, string>.Err(e) { { }
+                            | Result<ParsedArgs, string>.Err(e) {
                                 return Result<ParsedArgs, string>.Err("Subcommand " + s.name + ": " + e)
                             }
                         }
                     }
-                    | Option<Subcommand>.None { { }
+                    | Option<Subcommand>.None {
                         // Not a subcommand, treat as positional
                         vec_push(result.positional, arg)
                         positional_index = positional_index + 1
@@ -311,12 +311,12 @@ find_flag_by_short = (parser: &ArgParser, short: u8) Option<Flag>   {
     loop i < vec_len(parser.flags) {
         flag := vec_get(parser.flags, i)
         match flag.short {
-            | Option<u8>.Some(s) { { }
+            | Option<u8>.Some(s) {
                 s == short ? {
                     return Option<Flag>.Some(flag)
                 } : {}
             }
-            | Option<u8>.None { { }}
+            | Option<u8>.None {}
         }
         i = i + 1
     }
@@ -358,11 +358,11 @@ has_flag = (args: &ParsedArgs, name: string) bool   {
 get_flag = (args: &ParsedArgs, name: string) Option<string>   {
     value := hashmap_get(args.flags, name)
     match value {
-        | Option<FlagValue>.Some(v) { { }
+        | Option<FlagValue>.Some(v) {
             match v {
                 | FlagValue.Present { return Option<string>.None }
                 | FlagValue.Single(s) { return Option<string>.Some(s) }
-                | FlagValue.Multiple(m) { { }
+                | FlagValue.Multiple(m) {
                     vec_len(m) > 0 ? {
                         return Option<string>.Some(vec_get(m, 0))
                     } : {
@@ -379,7 +379,7 @@ get_flag = (args: &ParsedArgs, name: string) Option<string>   {
 get_flag_multi = (args: &ParsedArgs, name: string) Vec<string>   {
     value := hashmap_get(args.flags, name)
     match value {
-        | Option<FlagValue>.Some(v) { { }
+        | Option<FlagValue>.Some(v) {
             match v {
                 | FlagValue.Multiple(m) { return m }
                 | FlagValue.Single(s) { return vec_of([s]) }
@@ -444,10 +444,10 @@ help_text = (parser: &ArgParser) string   {
             
             // Short flag
             match flag.short {
-                | Option<u8>.Some(s) { { }
+                | Option<u8>.Some(s) {
                     help = help + "-" + s + ", "
                 }
-                | Option<u8>.None { { }
+                | Option<u8>.None {
                     help = help + "    "
                 }
             }
@@ -457,10 +457,10 @@ help_text = (parser: &ArgParser) string   {
             
             // Value name
             match flag.value_name {
-                | Option<string>.Some(v) { { }
+                | Option<string>.Some(v) {
                     help = help + " <" + v + ">"
                 }
-                | Option<string>.None { { }}
+                | Option<string>.None {}
             }
             
             // Padding and description
@@ -485,10 +485,10 @@ help_text = (parser: &ArgParser) string   {
             
             // Show default value
             match flag.default_value {
-                | Option<string>.Some(d) { { }
+                | Option<string>.Some(d) {
                     help = help + " [default: " + d + "]"
                 }
-                | Option<string>.None { { }}
+                | Option<string>.None {}
             }
             
             help = help + "\n"

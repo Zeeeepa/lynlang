@@ -13,13 +13,15 @@ test_module_imports = () bool   {
     // Test math module
     pi_test := math.PI > 3.0 && math.PI < 4.0
     
-    if pi_test {
-        io.print("PASS\n")
-        return true
-    } else {
-        io.print("FAIL\n")
-        return false
-    }
+    pi_test ?
+        | true {
+            io.print("PASS\n")
+            return true
+        }
+        | false {
+            io.print("FAIL\n")
+            return false
+        }
 }
 
 // Test basic arithmetic operations
@@ -33,13 +35,15 @@ test_arithmetic = () i32   {
     product := a * 2
     quotient := b / a
     
-    if sum == 30 && diff == 10 && product == 20 && quotient == 2 {
-        io.print("PASS\n")
-        return 1
-    } else {
-        io.print("FAIL\n")
-        return 0
-    }
+    (sum == 30 && diff == 10 && product == 20 && quotient == 2) ?
+        | true {
+            io.print("PASS\n")
+            return 1
+        }
+        | false {
+            io.print("FAIL\n")
+            return 0
+        }
 }
 
 // Test string operations
@@ -50,13 +54,15 @@ test_strings = () bool   {
     world := "World"
     
     // Simple length check (assuming string module has a len function)
-    if hello != world {
-        io.print("PASS\n")
-        return true
-    } else {
-        io.print("FAIL\n")
-        return false
-    }
+    (hello != world) ?
+        | true {
+            io.print("PASS\n")
+            return true
+        }
+        | false {
+            io.print("FAIL\n")
+            return false
+        }
 }
 
 // Test control flow
@@ -65,27 +71,31 @@ test_control_flow = () i32   {
     
     result := 0
     
-    // Test if-else
+    // Test pattern matching
     x := 5
-    if x > 3 {
-        result = result + 1
-    } else {
-        result = result - 1
-    }
+    (x > 3) ?
+        | true {
+            result = result + 1
+        }
+        | false {
+            result = result - 1
+        }
     
     // Test loops
-    mut count := 0
-    for i := 0; i < 3; i = i + 1 {
+    count ::= 0
+    (0..3).loop((_) {
         count = count + 1
-    }
+    })
     
-    if result == 1 && count == 3 {
-        io.print("PASS\n")
-        return 1
-    } else {
-        io.print("FAIL\n")
-        return 0
-    }
+    (result == 1 && count == 3) ?
+        | true {
+            io.print("PASS\n")
+            return 1
+        }
+        | false {
+            io.print("FAIL\n")
+            return 0
+        }
 }
 
 // Test function calls and returns
@@ -98,13 +108,15 @@ test_functions = () bool   {
     
     result := helper_add(5, 10)
     
-    if result == 15 {
-        io.print("PASS\n")
-        return true
-    } else {
-        io.print("FAIL\n")
-        return false
-    }
+    result == 15 ?
+        | true {
+            io.print("PASS\n")
+            return true
+        }
+        | false {
+            io.print("FAIL\n")
+            return false
+        }
 }
 
 // Test pattern matching
@@ -113,19 +125,20 @@ test_pattern_matching = () bool   {
     
     value := 42
     
-    result := match value {
+    result := value ?
         | 0 { false }
         | 42 { true }
         | _ { false }
-    }
     
-    if result {
-        io.print("PASS\n")
-        return true
-    } else {
-        io.print("FAIL\n")
-        return false
-    }
+    result ?
+        | true {
+            io.print("PASS\n")
+            return true
+        }
+        | false {
+            io.print("FAIL\n")
+            return false
+        }
 }
 
 // Main test runner
@@ -135,28 +148,36 @@ main = () i32   {
     io.print("=====================================\n\n")
     
     total_tests := 6
-    mut passed_tests := 0
+    passed_tests ::= 0
     
     // Run all tests
-    if test_module_imports() {
-        passed_tests = passed_tests + 1
-    }
+    test_module_imports() ?
+        | true {
+            passed_tests = passed_tests + 1
+        }
+        | false {}
     
     passed_tests = passed_tests + test_arithmetic()
     
-    if test_strings() {
-        passed_tests = passed_tests + 1
-    }
+    test_strings() ?
+        | true {
+            passed_tests = passed_tests + 1
+        }
+        | false {}
     
     passed_tests = passed_tests + test_control_flow()
     
-    if test_functions() {
-        passed_tests = passed_tests + 1
-    }
+    test_functions() ?
+        | true {
+            passed_tests = passed_tests + 1
+        }
+        | false {}
     
-    if test_pattern_matching() {
-        passed_tests = passed_tests + 1
-    }
+    test_pattern_matching() ?
+        | true {
+            passed_tests = passed_tests + 1
+        }
+        | false {}
     
     // Print results
     io.print("\n=====================================\n")
@@ -168,11 +189,13 @@ main = () i32   {
     io.print("=====================================\n")
     
     // Return status
-    if passed_tests == total_tests {
-        io.print("\n✅ All bootstrap tests passed!\n")
-        return 0
-    } else {
-        io.print("\n❌ Some bootstrap tests failed.\n")
-        return 1
-    }
+    (passed_tests == total_tests) ?
+        | true {
+            io.print("\n✅ All bootstrap tests passed!\n")
+            return 0
+        }
+        | false {
+            io.print("\n❌ Some bootstrap tests failed.\n")
+            return 1
+        }
 }

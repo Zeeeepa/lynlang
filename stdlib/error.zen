@@ -44,12 +44,12 @@ format_error = (error: Error) string   {
     result = string.concat(result, error.message)
     
     match error.source {
-        | Option<string>.Some(src) { { }
+        | Option<string>.Some(src) {
             result = string.concat(result, " (at ")
             result = string.concat(result, src)
             result = string.concat(result, ")")
         }
-        | Option<string>.None { { }}
+        | Option<string>.None {}
     }
     
     return result
@@ -86,7 +86,7 @@ assert_msg = (condition: bool, message: string) void   {
 unwrap = <T>(result: Result<T, Error>) T {
     match result {
         | Result<T, Error>.Ok(value) { return value }
-        | Result<T, Error>.Err(error) { { }
+        | Result<T, Error>.Err(error) {
             print_error(error)
             panic("unwrap failed on Err value")
         }

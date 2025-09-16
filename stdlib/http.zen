@@ -110,22 +110,22 @@ http_status_code = (status: HttpStatus) i32   {
 
 // Get status from code
 http_status_from_code = (code: i32) HttpStatus   {
-    code == 200 ? | true { { return HttpStatus:OK  }} | false { { }}
-    code == 201 ? | true { { return HttpStatus:Created  }} | false { { }}
-    code == 202 ? | true { { return HttpStatus:Accepted  }} | false { { }}
-    code == 204 ? | true { { return HttpStatus:NoContent  }} | false { { }}
-    code == 301 ? | true { { return HttpStatus:MovedPermanently  }} | false { { }}
-    code == 302 ? | true { { return HttpStatus:Found  }} | false { { }}
-    code == 304 ? | true { { return HttpStatus:NotModified  }} | false { { }}
-    code == 400 ? | true { { return HttpStatus:BadRequest  }} | false { { }}
-    code == 401 ? | true { { return HttpStatus:Unauthorized  }} | false { { }}
-    code == 403 ? | true { { return HttpStatus:Forbidden  }} | false { { }}
-    code == 404 ? | true { { return HttpStatus:NotFound  }} | false { { }}
-    code == 405 ? | true { { return HttpStatus:MethodNotAllowed  }} | false { { }}
-    code == 500 ? | true { { return HttpStatus:InternalServerError  }} | false { { }}
-    code == 501 ? | true { { return HttpStatus:NotImplemented  }} | false { { }}
-    code == 502 ? | true { { return HttpStatus:BadGateway  }} | false { { }}
-    code == 503 ? | true { { return HttpStatus:ServiceUnavailable  }} | false { { }}
+    code == 200 ? | true { { return HttpStatus:OK  }} | false {}
+    code == 201 ? | true { { return HttpStatus:Created  }} | false {}
+    code == 202 ? | true { { return HttpStatus:Accepted  }} | false {}
+    code == 204 ? | true { { return HttpStatus:NoContent  }} | false {}
+    code == 301 ? | true { { return HttpStatus:MovedPermanently  }} | false {}
+    code == 302 ? | true { { return HttpStatus:Found  }} | false {}
+    code == 304 ? | true { { return HttpStatus:NotModified  }} | false {}
+    code == 400 ? | true { { return HttpStatus:BadRequest  }} | false {}
+    code == 401 ? | true { { return HttpStatus:Unauthorized  }} | false {}
+    code == 403 ? | true { { return HttpStatus:Forbidden  }} | false {}
+    code == 404 ? | true { { return HttpStatus:NotFound  }} | false {}
+    code == 405 ? | true { { return HttpStatus:MethodNotAllowed  }} | false {}
+    code == 500 ? | true { { return HttpStatus:InternalServerError  }} | false {}
+    code == 501 ? | true { { return HttpStatus:NotImplemented  }} | false {}
+    code == 502 ? | true { { return HttpStatus:BadGateway  }} | false {}
+    code == 503 ? | true { { return HttpStatus:ServiceUnavailable  }} | false {}
     return HttpStatus:InternalServerError
 }
 
@@ -158,7 +158,7 @@ http_parse_response = (data: RawPtr<i8>) HttpResponse   {
     // Find status line
     position := 0
     loop {
-        data[position] == 0 || data[position] == 10 ? | true { { break  }} | false { { }}
+        data[position] == 0 || data[position] == 10 ? | true { { break  }} | false {}
         position = position + 1
     }
     
@@ -167,24 +167,24 @@ http_parse_response = (data: RawPtr<i8>) HttpResponse   {
     
     // Parse headers (simplified)
     loop {
-        data[position] == 0 || data[position] == 10 ? | true { { break  }} | false { { }}
+        data[position] == 0 || data[position] == 10 ? | true { { break  }} | false {}
         
         // Find colon
         colon_pos := position
         loop {
-            data[colon_pos] == 0 || data[colon_pos] == 58 ? | true { { break  }} | false { { }}
+            data[colon_pos] == 0 || data[colon_pos] == 58 ? | true { { break  }} | false {}
             colon_pos = colon_pos + 1
         }
         
-        data[colon_pos] == 58 ? | true { { }
+        data[colon_pos] == 58 ? | true {
             // Extract header name and value
             // This would need proper string extraction
             response.header_count = response.header_count + 1
-        } | false { { }}
+        } | false {}
         
         // Move to next line
         loop {
-            data[position] == 0 || data[position] == 10 ? | true { { break  }} | false { { }}
+            data[position] == 0 || data[position] == 10 ? | true { { break  }} | false {}
             position = position + 1
         }
         position = position + 1
@@ -252,10 +252,10 @@ http_build_request = (req: HttpRequest) RawPtr<i8> {
     position = position + 1
     
     // Add body if present
-    req.body_length > 0 ? | true { { }
+    req.body_length > 0 ? | true {
         memcpy((buffer + position) as RawPtr<void>, req.body as RawPtr<void>, req.body_length as i64)
         position = position + req.body_length
-    } | false { { }}
+    } | false {}
     
     buffer[position] = 0
     
@@ -275,10 +275,10 @@ http_build_query_string = (params: *HttpHeader, count: i32) RawPtr<i8> {
     position := 0
     
     range(0, count).loop(i -> {
-        i > 0 ? | true { { }
+        i > 0 ? | true {
             buffer[position] = 38 // '&'
             position = position + 1
-        } | false { { }}
+        } | false {}
         
         name_len := strlen(params[i].name) as i32
         memcpy((buffer + position) as RawPtr<void>, params[i].name as RawPtr<void>, name_len as i64)
@@ -299,11 +299,11 @@ http_build_query_string = (params: *HttpHeader, count: i32) RawPtr<i8> {
 // Free request
 http_request_free = (req: *HttpRequest) void   {
     free(req.headers as RawPtr<void>)
-    req.body ? | 0 as RawPtr<i8> { { }} | _ { { free(req.body as RawPtr<void>)  }}
+    req.body ? | 0 as RawPtr<i8> {} | _ { { free(req.body as RawPtr<void>)  }}
 }
 
 // Free response
 http_response_free = (res: *HttpResponse) void   {
     free(res.headers as RawPtr<void>)
-    res.body ? | 0 as RawPtr<i8> { { }} | _ { { free(res.body as RawPtr<void>)  }}
+    res.body ? | 0 as RawPtr<i8> {} | _ { { free(res.body as RawPtr<void>)  }}
 }

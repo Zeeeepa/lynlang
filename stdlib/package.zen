@@ -73,7 +73,7 @@ parse_version = (version: string) Result<SemVer, string>   {
     parts := string.split(version, ".")
     parts.len() != 3 ? 
         | true { Result.Err("Invalid version format") }
-        | false { { }
+        | false {
             major := string.to_int(parts[0]) ?
                 | Ok(v) { v }
                 | Err(e) { return Result.Err(e) }
@@ -87,7 +87,7 @@ parse_version = (version: string) Result<SemVer, string>   {
             prerelease := Option.None
             
             string.contains(patch_str, "-") ?
-                | true { { }
+                | true {
                     patch_parts := string.split(patch_str, "-")
                     patch := string.to_int(patch_parts[0]) ?
                         | Ok(v) { v }
@@ -102,7 +102,7 @@ parse_version = (version: string) Result<SemVer, string>   {
                         build: Option.None,
                     })
                 }
-                | false { { }
+                | false {
                     patch := string.to_int(patch_str) ?
                         | Ok(v) { v }
                         | Err(e) { return Result.Err(e) }
@@ -122,7 +122,7 @@ parse_version = (version: string) Result<SemVer, string>   {
 compare_versions = (a: SemVer, b: SemVer) i32   {
     a.major != b.major ? 
         | true { a.major - b.major }
-        | false { { }
+        | false {
             a.minor != b.minor ?
                 | true { a.minor - b.minor }
                 | false { a.patch - b.patch }
@@ -135,7 +135,7 @@ satisfies = (version: SemVer, constraint: string) bool   {
     constraint == "*" ? | true { return true | false => { }}
     
     string.starts_with(constraint, "^") ?
-        | true { { }
+        | true {
             // Caret range - compatible versions
             min_version := parse_version(string.substring(constraint, 1, constraint.len())) ?
                 | Ok(v) { v }
@@ -145,9 +145,9 @@ satisfies = (version: SemVer, constraint: string) bool   {
             (version.minor > min_version.minor || 
              (version.minor == min_version.minor && version.patch >= min_version.patch))
         }
-        | false { { }
+        | false {
             string.starts_with(constraint, "~") ?
-                | true { { }
+                | true {
                     // Tilde range - patch updates only
                     min_version := parse_version(string.substring(constraint, 1, constraint.len())) ?
                         | Ok(v) { v }
@@ -157,7 +157,7 @@ satisfies = (version: SemVer, constraint: string) bool   {
                     version.minor == min_version.minor && 
                     version.patch >= min_version.patch
                 }
-                | false { { }
+                | false {
                     // Exact version match
                     exact := parse_version(constraint) ?
                         | Ok(v) { v }
@@ -175,7 +175,7 @@ load_manifest = (path: string) Result<Package, string>   {
         | Err(e) { return Result.Err(string.format("Failed to read manifest: { }}", e))
     
     json.parse(content) ?
-        | Ok(data) { { }
+        | Ok(data) {
             // Convert JSON to Package struct
             // This would need proper JSON deserialization
             Result.Ok(Package {
@@ -202,17 +202,17 @@ parse_dependencies = (data: JsonValue) HashMap<string, Dependency>   {
         spec := entry.value.as_string()
         
         string.starts_with(spec, "git+") ?
-            | true { { }
+            | true {
                 url := string.substring(spec, 4, spec.len())
                 deps.insert(name, Dependency.Git(url, "main"))
             }
-            | false { { }
+            | false {
                 string.starts_with(spec, "file:") ?
-                    | true { { }
+                    | true {
                         path := string.substring(spec, 5, spec.len())
                         deps.insert(name, Dependency.Path(path))
                     }
-                    | false { { }
+                    | false {
                         deps.insert(name, Dependency.Version(spec))
                     }
             }
@@ -228,8 +228,8 @@ install_dependencies = (manifest: Package) Result<void, string>   {
     fs.exists(packages_dir) ?
         | false { fs.create_directory(packages_dir) ? }
             | Err(e) { return Result.Err(e) }
-            | Ok(_) { { }}
-        | true { { }}
+            | Ok(_) {}
+        | true {}
     
     // Resolve dependencies
     resolved := resolve_dependencies(manifest.dependencies) ?
@@ -241,7 +241,7 @@ install_dependencies = (manifest: Package) Result<void, string>   {
         package := entry.value
         install_package(package, packages_dir) ?
             | Err(e) { return Result.Err(e) }
-            | Ok(_) { { }}
+            | Ok(_) {}
     })
     
     Result.Ok(void)
@@ -264,7 +264,7 @@ resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult   {
         // Skip if already resolved
         resolved.contains(name) ?
             | true { continue }
-            | false { { }}
+            | false {}
         
         // Resolve dependency
         package := resolve_single_dependency(name, dep) ?
@@ -277,11 +277,11 @@ resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult   {
         // Add transitive dependencies to queue
         package.dependencies.loop(dep_name -> {
             resolved.contains(dep_name) ?
-                | false { { }
+                | false {
                     // Fetch dependency info and add to queue
                     // This would need registry/git access
                 }
-                | true { { }}
+                | true {}
         })
     }
     
@@ -291,7 +291,7 @@ resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult   {
 // Resolve a single dependency
 resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPackage, string>   {
     dep ?
-        | Version(v) { { }
+        | Version(v) {
             // Fetch from registry
             info := fetch_package_info(name) ?
                 | Ok(i) { i }
@@ -309,7 +309,7 @@ resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPacka
                 dependencies: Vec<string>.new(),
             })
         }
-        | Git(url, branch) { { }
+        | Git(url, branch) {
             Result.Ok(ResolvedPackage {
                 name: name,
                 version: SemVer { major: 0, minor: 0, patch: 0, prerelease: Option.Some("git"), build: Option.None },
@@ -317,7 +317,7 @@ resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPacka
                 dependencies: Vec<string>.new(),
             })
         }
-        | Path(path) { { }
+        | Path(path) {
             Result.Ok(ResolvedPackage {
                 name: name,
                 version: SemVer { major: 0, minor: 0, patch: 0, prerelease: Option.Some("local"), build: Option.None },
@@ -325,7 +325,7 @@ resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPacka
                 dependencies: Vec<string>.new(),
             })
         }
-        | Registry(n, v) { { }
+        | Registry(n, v) {
             version := parse_version(v) ?
                 | Ok(ver) { ver }
                 | Err(e) { return Result.Err(e) }
@@ -345,16 +345,16 @@ find_matching_version = (versions: Vec<SemVer>, constraint: string) Option<SemVe
     
     versions.loop(version -> {
         satisfies(version, constraint) ?
-            | true { { }
+            | true {
                 best ?
-                    | Some(b) { { }
+                    | Some(b) {
                         compare_versions(version, b) > 0 ?
                             | true { best = Option.Some(version) }
-                            | false { { }}
+                            | false {}
                     }
                     | None { best = Option.Some(version) }
             }
-            | false { { }}
+            | false {}
     })
     
     best
@@ -365,17 +365,17 @@ install_package = (package: ResolvedPackage, target_dir: string) Result<void, st
     package_dir := string.format("{}/{}", target_dir, package.name)
     
     package.source ?
-        | Registry(url) { { }
+        | Registry(url) {
             // Download from registry
             download_url := string.format("{}/packages/{}/{}.tar.gz", 
                                          url, package.name, version_to_string(package.version))
             download_and_extract(download_url, package_dir)
         }
-        | Git(url, commit) { { }
+        | Git(url, commit) {
             // Clone from git
             clone_git_repo(url, commit, package_dir)
         }
-        | Local(path) { { }
+        | Local(path) {
             // Copy from local path
             fs.copy_directory(path, package_dir)
         }
@@ -398,7 +398,7 @@ fetch_package_info = (name: string) Result<PackageInfo, string>   {
         | Err(e) { return Result.Err(e) }
     
     json.parse(response.body) ?
-        | Ok(data) { { }
+        | Ok(data) {
             // Parse package info from JSON
             Result.Ok(PackageInfo {
                 name: name,

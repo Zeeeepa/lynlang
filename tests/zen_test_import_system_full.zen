@@ -10,19 +10,23 @@
 test_math_functions = () bool   {
     // Test integer abs
     x := math.abs(-42)
-    if x != 42 {
-        io.print("FAIL: math.abs(-42) returned ")
-        io.print_int(x)
-        io.print("\n")
-        return false
-    }
+    x != 42 ?
+        | true {
+            io.print("FAIL: math.abs(-42) returned ")
+            io.print_int(x)
+            io.print("\n")
+            return false
+        }
+        | false {}
     
     // Test float operations
     y := math.sqrt(16.0)
-    if y != 4.0 {
-        io.print("FAIL: math.sqrt(16.0) incorrect\n")
-        return false
-    }
+    y != 4.0 ?
+        | true {
+            io.print("FAIL: math.sqrt(16.0) incorrect\n")
+            return false
+        }
+        | false {}
     
     return true
 }
@@ -60,23 +64,27 @@ verify_module_level_imports = () bool   {
 main = () i32   {
     io.println("=== Zen Import System Test Suite ===\n")
     
-    mut all_passed := true
+    all_passed ::= true
     
     io.print("1. Math functions: ")
-    if test_math_functions() {
-        io.println("PASS")
-    } else {
-        io.println("FAIL")
-        all_passed = false
-    }
+    test_math_functions() ?
+        | true {
+            io.println("PASS")
+        }
+        | false {
+            io.println("FAIL")
+            all_passed = false
+        }
     
     io.print("2. IO functions: ")
-    if test_io_functions() {
-        io.println("PASS")
-    } else {
-        io.println("FAIL")
-        all_passed = false
-    }
+    test_io_functions() ?
+        | true {
+            io.println("PASS")
+        }
+        | false {
+            io.println("FAIL")
+            all_passed = false
+        }
     
     io.print("3. Core functions: ")
     if test_core_functions() {
