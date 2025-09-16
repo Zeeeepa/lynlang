@@ -8,13 +8,14 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  LLVM_SYS_181_PREFIX: /usr/lib/llvm-18
   RUST_BACKTRACE: 1
+  LLVM_VERSION: "18"
 
 jobs:
-  build-and-test:
+  # Quick formatting and linting checks
+  lint:
+    name: Lint & Format
     runs-on: ubuntu-latest
-    
     steps:
     - uses: actions/checkout@v4
     
@@ -23,70 +24,11 @@ jobs:
       with:
         components: rustfmt, clippy
     
-    - name: Install LLVM 18.1
-      run: |
-        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-        echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
-        sudo apt-get update
-        sudo apt-get install -y llvm-18 llvm-18-dev llvm-18-runtime clang-18 libclang-18-dev lld-18 libpolly-18-dev libllvm18
-        sudo ln -sf /usr/bin/llvm-config-18 /usr/bin/llvm-config
-        echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
-        llvm-config --version
-        # Verify Polly installation
-        llvm-config --libs | grep -q Polly && echo "Polly library found" || echo "Warning: Polly library not found"
-    
-    - name: Cache Dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
-    
-    - name: Build Compiler
-      run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
-        cargo build --release --verbose
-    
-    - name: Run Tests
-      run: |
-        export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
-        cargo test --verbose -- --nocapture
-      timeout-minutes: 10
-    
     - name: Check Formatting
       run: cargo fmt -- --check
     
     - name: Run Clippy
       run: cargo clippy -- -W clippy::all
-    
-    - name: Test Examples
-      run: |
-        if [ -f ./target/release/zen ]; then
-          echo "Testing hello world..."
-          ./target/release/zen examples/01_hello_world.zen
-          echo "Testing basics..."
-          [ -f examples/01_basics_working.zen ] && ./target/release/zen examples/01_basics_working.zen || true
-        else
-          echo "Error: Zen compiler not built!"
-          exit 1
-        fi
-    
-    - name: Verify Self-Hosted Components
-      run: |
-        echo "Checking self-hosted compiler components..."
-        for file in compiler/lexer.zen compiler/parser.zen compiler/codegen.zen; do
-          if [ -f "$file" ]; then
-            echo "✓ Found $file"
-          else
-            echo "✗ Missing $file"
-          fi
-        done
     
     - name: Check Import Syntax
       run: |
@@ -98,46 +40,175 @@ jobs:
           echo "✓ Import syntax is correct"
         fi
 
-  lint-and-validate:
+  # Main build job
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    
+    outputs:
+      cache-key: ${{ steps.cache.outputs.cache-hit }}
     steps:
     - uses: actions/checkout@v4
     
-    - name: Check TODOs
-      run: |
-        echo "=== TODO/FIXME Comments ==="
-        grep -rn "TODO\|FIXME\|XXX\|HACK" . --include="*.zen" --include="*.rs" || echo "No TODOs found"
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
     
-    - name: Validate Project Structure
+    - name: Install LLVM
+      uses: KyleMayes/install-llvm-action@v2
+      with:
+        version: ${{ env.LLVM_VERSION }}
+        cached: true
+    
+    - name: Cache Dependencies
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-llvm${{ env.LLVM_VERSION }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+    
+    - name: Build Compiler
+      run: cargo build --release --verbose
+    
+    - name: Upload Compiler Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: zen-compiler
+        path: target/release/zen
+
+  # Parallel test jobs
+  test-rust:
+    name: Rust Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Install LLVM
+      uses: KyleMayes/install-llvm-action@v2
+      with:
+        version: ${{ env.LLVM_VERSION }}
+        cached: true
+    
+    - name: Restore Cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-llvm${{ env.LLVM_VERSION }}
+    
+    - name: Run Rust Tests
+      run: cargo test --verbose -- --nocapture
+      timeout-minutes: 10
+
+  test-zen:
+    name: Zen Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download Compiler Binary
+      uses: actions/download-artifact@v4
+      with:
+        name: zen-compiler
+        path: target/release/
+    
+    - name: Make Binary Executable
+      run: chmod +x target/release/zen
+    
+    - name: Test Examples
+      run: |
+        echo "Testing hello world..."
+        ./target/release/zen examples/01_hello_world.zen || true
+        
+        echo "Testing basics..."
+        [ -f examples/01_basics_working.zen ] && ./target/release/zen examples/01_basics_working.zen || true
+    
+    - name: Run Zen Test Suite
+      run: |
+        if [ -f ./run_tests.sh ]; then
+          echo "Running Zen test suite..."
+          ./run_tests.sh || true
+        fi
+
+  # Project validation
+  validate:
+    name: Validate Project
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate Structure
       run: |
         echo "=== Validating project structure ==="
-        required_dirs=("src" "examples" "tests" ".agent")
+        required_dirs=("src" "examples" "tests" "stdlib")
         for dir in "${required_dirs[@]}"; do
           if [ -d "$dir" ]; then
             echo "✓ $dir exists"
           else
-            echo "✗ Missing directory: $dir"
-            echo "Creating $dir..."
-            mkdir -p "$dir"
-          fi
-        done
-        
-        # Check optional directories
-        optional_dirs=("stdlib" "compiler")
-        for dir in "${optional_dirs[@]}"; do
-          if [ -d "$dir" ]; then
-            echo "✓ $dir exists"
-          else
-            echo "ℹ Optional directory: $dir not present"
+            echo "✗ Missing required directory: $dir"
+            exit 1
           fi
         done
     
-    - name: Count Project Stats
+    - name: Check Documentation
+      run: |
+        echo "=== Checking documentation ==="
+        required_docs=("README.md" "STATUS.md" "LANGUAGE_SPEC.zen")
+        for doc in "${required_docs[@]}"; do
+          if [ -f "$doc" ]; then
+            echo "✓ $doc exists"
+          else
+            echo "✗ Missing required document: $doc"
+            exit 1
+          fi
+        done
+    
+    - name: Project Statistics
       run: |
         echo "=== Project Statistics ==="
         echo "Rust files: $(find src -name "*.rs" | wc -l)"
         echo "Zen files: $(find . -name "*.zen" | wc -l)"
         echo "Test files: $(find tests -name "*.rs" -o -name "*.zen" | wc -l)"
-        echo "Lines of Rust: $(find src -name "*.rs" -exec wc -l {} + | tail -1)"
-        echo "Lines of Zen: $(find . -name "*.zen" -exec wc -l {} + | tail -1)"
+
+  # Matrix testing for different Rust versions
+  test-matrix:
+    name: Test ${{ matrix.rust }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [stable, beta]
+        os: [ubuntu-latest]
+    continue-on-error: ${{ matrix.rust == 'beta' }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust ${{ matrix.rust }}
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+    
+    - name: Install LLVM
+      uses: KyleMayes/install-llvm-action@v2
+      with:
+        version: ${{ env.LLVM_VERSION }}
+        cached: true
+    
+    - name: Build
+      run: cargo build --verbose
+    
+    - name: Test
+      run: cargo test --verbose

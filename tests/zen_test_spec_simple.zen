@@ -3,9 +3,7 @@
 
 // Import from @std - only @std and @this are special
 io = @std.io
-
-// Basic Option type
-Option<T>: Some(T) | None
+{ Option } = @std.core
 
 // Test pattern matching with ? operator
 main = () void {

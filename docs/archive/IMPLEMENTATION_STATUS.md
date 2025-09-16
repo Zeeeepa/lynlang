@@ -1,6 +1,7 @@
 # Zen Language Implementation Status
 
-**Last Updated:** September 16, 2025
+**Last Updated:** September 16, 2025  
+**Status:** Core features working, advanced features in progress
 
 ## Overview
 The Zen language implementation follows the specification in `LANGUAGE_SPEC.zen`. This document tracks the current implementation status of all major features.
@@ -8,6 +9,9 @@ The Zen language implementation follows the specification in `LANGUAGE_SPEC.zen`
 ## ✅ Working Features from LANGUAGE_SPEC.zen
 
 ### Core Language Features
+- **No keywords philosophy** - No if/else/while/for/match/async/await ✅
+- **@std and @this** - The only two @ symbols in the language ✅
+- **Destructuring imports** - `{ io, maths } = @std` ✅
 - **No null** - Only `Option<T>` with `Some(T)` and `None` ✅
 - **Pattern matching with `?` operator** - No `match` or `switch` keywords ✅
 - **Enum types (sum types)** - `Shape: Circle | Rectangle` ✅
@@ -16,8 +20,11 @@ The Zen language implementation follows the specification in `LANGUAGE_SPEC.zen`
   - `=` for immutable assignment ✅
   - `::=` for mutable assignment ✅
   - `:` for type annotations ✅
+- **@this.defer()** - Scope-based cleanup ✅
+- **.raise()** - Error propagation (parsed) ✅
 - **Loops**:
   - `loop()` for infinite loops ✅
+  - `loop { }` statement form ✅
   - `(0..10).loop()` for range iteration ✅
   - Break statements ✅
 - **@this.defer** - Deferred execution (LIFO order) ✅

@@ -997,6 +997,10 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Statement::Expression(expr))
             }
+            Token::Symbol('{') => {
+                // Parse destructuring import: { io, maths } = @std
+                self.parse_destructuring_import()
+            }
             // Handle literal expressions as valid statements
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {
                 let expr = self.parse_expression()?;
@@ -1200,6 +1204,61 @@ impl<'a> Parser<'a> {
         Ok(Statement::VariableAssignment {
             name,
             value,
+        })
+    }
+    
+    fn parse_destructuring_import(&mut self) -> Result<Statement> {
+        // Parse { io, maths } = @std
+        self.next_token(); // consume '{'
+        
+        let mut names = vec![];
+        
+        // Parse the list of identifiers
+        while self.current_token != Token::Symbol('}') {
+            if let Token::Identifier(name) = &self.current_token {
+                names.push(name.clone());
+                self.next_token();
+                
+                // Check for comma
+                if self.current_token == Token::Symbol(',') {
+                    self.next_token();
+                } else if self.current_token != Token::Symbol('}') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected ',' or '}' in destructuring import".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+            } else {
+                return Err(CompileError::SyntaxError(
+                    "Expected identifier in destructuring import".to_string(),
+                    Some(self.current_span.clone()),
+                ));
+            }
+        }
+        
+        self.next_token(); // consume '}'
+        
+        // Expect '='
+        if self.current_token != Token::Operator("=".to_string()) {
+            return Err(CompileError::SyntaxError(
+                "Expected '=' after destructuring pattern".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Parse the source (should be @std or @std.something)
+        let source = self.parse_expression()?;
+        
+        // Consume semicolon if present
+        if self.current_token == Token::Symbol(';') {
+            self.next_token();
+        }
+        
+        // Convert to DestructuringImport statement
+        Ok(Statement::DestructuringImport {
+            names,
+            source,
         })
     }
 }

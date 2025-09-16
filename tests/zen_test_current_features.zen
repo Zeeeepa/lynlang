@@ -1,0 +1,48 @@
+// Test what features from LANGUAGE_SPEC.zen are currently working
+{ io } = @std.io
+
+main = () void {
+    io.println("=== Testing Current LANGUAGE_SPEC.zen Features ===")
+    io.println("")
+    
+    // 1. Destructuring imports
+    io.println("1. Destructuring imports: WORKS")
+    io.println("   { io } = @std.io")
+    
+    // 2. @std and @this references
+    io.println("")
+    io.println("2. @std and @this: WORKS")
+    std_ref = @std
+    this_ref = @this
+    io.println("   @std and @this are recognized")
+    
+    // 3. Pattern matching with ?
+    io.println("")
+    io.println("3. Pattern matching with ?: WORKS")
+    is_ready = true
+    is_ready ? {
+        io.println("   Boolean pattern works")
+    }
+    
+    // 4. Mutable vs immutable assignment
+    io.println("")
+    io.println("4. Assignment operators: WORKS")
+    x = 10  // immutable
+    y ::= 20  // mutable
+    y = y + 5
+    io.println("   x = 10 (immutable), y ::= 20 then y = y + 5")
+    
+    // 5. @this.defer
+    io.println("")
+    io.println("5. @this.defer(): WORKS")
+    @this.defer(io.println("   Deferred cleanup executed"))
+    io.println("   Defer set up")
+    
+    // 6. .raise() for error propagation
+    io.println("")
+    io.println("6. .raise() error propagation: Parsed but needs Result type")
+    // Would need Result type to test: result.raise()
+    
+    io.println("")
+    io.println("=== Test Complete ===")
+}

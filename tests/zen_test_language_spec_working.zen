@@ -2,13 +2,13 @@
 // This file demonstrates what's implemented and functional
 
 io = @std.io
+{ Option } = @std.core
 
 // ============================================================================
 // Core Types from LANGUAGE_SPEC.zen
 // ============================================================================
 
 // No null! Only Option types
-Option<T>: Some(T) | None
 
 // Result type for error handling
 Result<T, E>: Ok(T) | Err(E)

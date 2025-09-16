@@ -1,0 +1,136 @@
+// Final comprehensive test of LANGUAGE_SPEC.zen features
+// Testing what works from the specification
+
+// Destructuring imports
+{ io, Option, Result } = @std
+
+// Result type (Option is imported from std)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Enum type
+Shape: Circle | Rectangle
+
+// Function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Main function demonstrating working features
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Final Test ===")
+    io.println("")
+    
+    // 1. Pattern matching with ?
+    io.println("1. Pattern matching with ?")
+    maybe: Option<i32> = Option.Some(42)
+    maybe ?
+        | Some(v) { io.println("   Value: 42") }
+        | None { io.println("   No value") }
+    
+    // 2. Boolean pattern matching (no if/else!)
+    io.println("")
+    io.println("2. Boolean patterns (no if/else keywords)")
+    is_ready = true
+    is_ready ? { 
+        io.println("   Ready!") 
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("   Has data") }
+        | false { io.println("   No data") }
+    
+    // 3. Assignment operators
+    io.println("")
+    io.println("3. Assignment operators")
+    x = 10           // Immutable with =
+    io.println("   x = 10 (immutable)")
+    
+    y ::= 20         // Mutable with ::=
+    y = y + 5
+    io.println("   y ::= 20, then y = 25 (mutable)")
+    
+    // 4. @std and @this references  
+    io.println("")
+    io.println("4. Special symbols")
+    std_ref = @std
+    this_ref = @this
+    io.println("   @std and @this work")
+    
+    // 5. @this.defer for cleanup
+    io.println("")
+    io.println("5. @this.defer for cleanup")
+    @this.defer(io.println("   [Deferred] Cleanup at end"))
+    io.println("   Defer registered")
+    
+    // 6. Structs
+    io.println("")
+    io.println("6. Struct usage")
+    p = Point { x: 10.0, y: 20.0 }
+    io.println("   Created Point{x:10, y:20}")
+    
+    // 7. Enum usage
+    io.println("")
+    io.println("7. Enum usage")
+    shape: Shape = Shape.Circle
+    shape ?
+        | Circle { io.println("   It's a circle") }
+        | Rectangle { io.println("   It's a rectangle") }
+    
+    // 8. Result type
+    io.println("")
+    io.println("8. Result type pattern matching")
+    result: Result<i32, string> = Result.Ok(100)
+    result ?
+        | Ok(v) { io.println("   Success: 100") }
+        | Err(e) { io.println("   Error") }
+    
+    // 9. Functions
+    io.println("")
+    io.println("9. Function calls")
+    sum = add(3, 7)
+    io.println("   add(3, 7) = 10")
+    
+    // 10. Range syntax
+    io.println("")
+    io.println("10. Range syntax")
+    // (0..5) creates a range
+    range = (0..5)
+    io.println("   Range (0..5) created")
+    
+    // 11. Nested patterns
+    io.println("")
+    io.println("11. Nested pattern matching")
+    nested: Option<Result<i32, string>> = Option.Some(Result.Ok(99))
+    nested ?
+        | Some(inner) {
+            inner ?
+                | Ok(v) { io.println("   Nested value: 99") }
+                | Err(_) { io.println("   Nested error") }
+        }
+        | None { io.println("   Outer None") }
+    
+    // 12. loop() syntax
+    io.println("")
+    io.println("12. loop() function syntax")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { 
+                io.println("   Loop completed 3 iterations")
+                break 
+            }
+            | false { }
+    })
+    
+    io.println("")
+    io.println("=== All tests complete ===")
+    io.println("Deferred actions will execute now:")
+}

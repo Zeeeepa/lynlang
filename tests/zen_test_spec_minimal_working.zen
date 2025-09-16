@@ -1,9 +1,9 @@
 // Minimal test for absolutely confirmed working LANGUAGE_SPEC.zen features
 
 io = @std.io
+{ Option } = @std.core
 
 // Core types
-Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Simple struct

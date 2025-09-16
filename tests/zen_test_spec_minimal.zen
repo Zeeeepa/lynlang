@@ -3,9 +3,7 @@
 
 // Import from @std
 io = @std.io
-
-// Define types at top level
-Option<T>: Some(T) | None
+{ Option } = @std.core
 
 // Main function
 main = () void {

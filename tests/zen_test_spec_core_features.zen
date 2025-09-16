@@ -1,7 +1,8 @@
 // Test core features from LANGUAGE_SPEC.zen
+io = @std.io
+{ Option } = @std.core
 
 // No null - only Option<T>
-Option<T>: Some(T) | None
 
 // Result type
 Result<T, E>: Ok(T) | Err(E)
