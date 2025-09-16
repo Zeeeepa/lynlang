@@ -86,9 +86,7 @@ tokenize = (source: string) i32   {
         i = i + 1
         
         // Simple break condition
-        i > 1000 ?  // Safety limit
-            | true { break }
-            | false { }
+        i > 1000 ? { break }
     })
     
     return token_count

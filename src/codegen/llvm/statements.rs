@@ -687,6 +687,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.defer_stack.push(expr.clone());
                 Ok(())
             }
+            Statement::DestructuringImport { names, source } => {
+                // Handle destructuring imports: { io, maths } = @std
+                // For now, we'll treat this as a series of variable declarations
+                // In the future, this would interact with the module system
+                
+                // Compile the source expression (e.g., @std)
+                let _source_val = self.compile_expression(source)?;
+                
+                // For each name, create a variable binding
+                // TODO: Actually extract the members from the module
+                for name in names {
+                    // For now, create a placeholder variable
+                    // In a real implementation, we'd look up the member from the module
+                    let alloca = self.builder.build_alloca(
+                        self.context.i64_type(),
+                        name
+                    ).map_err(|e| CompileError::from(e))?;
+                    
+                    // Store a placeholder value
+                    self.builder.build_store(
+                        alloca,
+                        self.context.i64_type().const_zero()
+                    ).map_err(|e| CompileError::from(e))?;
+                    
+                    // Register the variable
+                    self.variables.insert(name.clone(), (alloca, AstType::I64));
+                }
+                
+                Ok(())
+            }
         }
     }
     

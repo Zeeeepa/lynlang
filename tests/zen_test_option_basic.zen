@@ -1,8 +1,6 @@
 // Test Option type
 io = @std.io
-
-// Define Option type per spec
-Option<T>: Some(T) | None
+{ Option } = @std.core
 
 main = () void {
     // Test with Some

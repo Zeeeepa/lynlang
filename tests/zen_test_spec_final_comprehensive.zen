@@ -1,8 +1,8 @@
 // Final comprehensive test of LANGUAGE_SPEC.zen features
 io = @std.io
+{ Option } = @std.core
 
 // Core types from spec
-Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Enum and struct definitions
