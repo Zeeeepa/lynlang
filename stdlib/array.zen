@@ -1,7 +1,7 @@
 // Array/Slice operations for Zen
 // Provides dynamic array functionality with automatic resizing
 
-{ build } = @std.build
+build = @std.build
 core := build.import("core")
 mem := build.import("mem")
 math := build.import("math")

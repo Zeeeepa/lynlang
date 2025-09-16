@@ -2,23 +2,23 @@
 // Safe C interop according to Zen language spec v1.1.0
 // Provides builder pattern for creating FFI bindings safely
 
-{ build } = @std.build
+build = @std.build
 core := build.import("core")
-vec := build.import("vec")
+{ Vec, DynVec } = @std.collections
 string := build.import("string")
 mem := build.import("mem")
 
 // Type system for FFI
-Type: Void
-    | Bool
-    | I8 | I16 | I32 | I64
-    | U8 | U16 | U32 | U64
-    | USize
-    | F32 | F64
-    | String
-    | Pointer(inner: Ptr<Type>)
-    | Array(element: Ptr<Type>, size: usize)
-    | Struct(fields: Vec<FieldType>)
+Type: Void,
+    Bool,
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    USize,
+    F32, F64,
+    String,
+    Pointer: {inner: Ptr<Type>},
+    Array: {element: Ptr<Type>, size: usize},
+    Struct: {fields: DynVec<FieldType>}
 
 FieldType: {
     name: string,
@@ -32,9 +32,9 @@ FFI: {
         builder := LibBuilder{
             name: name,
             path_str: None,
-            functions: Vec<FunctionBinding>:new(),
-            constants: Vec<ConstantBinding>:new(),
-            structs: Vec<StructBinding>:new(),
+            functions: DynVec<FunctionBinding>:new(),
+            constants: DynVec<ConstantBinding>:new(),
+            structs: DynVec<StructBinding>:new(),
         }
         Ptr:new(builder)
     },
@@ -43,9 +43,9 @@ FFI: {
 LibBuilder: {
     name: string,
     path_str: Option<string> = None,
-    functions: Vec<FunctionBinding> = Vec<FunctionBinding>:new(),
-    constants: Vec<ConstantBinding> = Vec<ConstantBinding>:new(),
-    structs: Vec<StructBinding> = Vec<StructBinding>:new(),
+    functions: DynVec<FunctionBinding> = DynVec<FunctionBinding>:new(),
+    constants: DynVec<ConstantBinding> = DynVec<ConstantBinding>:new(),
+    structs: DynVec<StructBinding> = DynVec<StructBinding>:new(),
     
     path: (self: Ptr<LibBuilder>, p: string) Ptr<LibBuilder> {
         self.value.path_str = Some(p)
@@ -70,7 +70,7 @@ LibBuilder: {
         self
     },
     
-    struct: (self: Ptr<LibBuilder>, name: string, fields: Vec<FieldType>) Ptr<LibBuilder> {
+    struct: (self: Ptr<LibBuilder>, name: string, fields: DynVec<FieldType>) Ptr<LibBuilder> {
         binding := StructBinding{
             name: name,
             fields: fields,
@@ -99,7 +99,7 @@ FunctionBinding: {
 }
 
 FnSignature: {
-    params: Vec<Type>,
+    params: DynVec<Type>,
     returns: Type,
     calling_convention: Option<CallingConvention> = None,
     variadic: bool = false,
@@ -118,15 +118,15 @@ ConstantBinding: {
 
 StructBinding: {
     name: string,
-    fields: Vec<FieldType>,
+    fields: DynVec<FieldType>,
 }
 
 Library: {
     name: string,
     path: Option<string>,
-    functions: Vec<FunctionBinding>,
-    constants: Vec<ConstantBinding>,
-    structs: Vec<StructBinding>,
+    functions: DynVec<FunctionBinding>,
+    constants: DynVec<ConstantBinding>,
+    structs: DynVec<StructBinding>,
     handle: Option<RawPtr<void>> = None,
     symbol_cache: HashMap<string, RawPtr<void>> = HashMap<string, RawPtr<void>>:new(),
     

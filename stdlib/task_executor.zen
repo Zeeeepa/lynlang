@@ -4,13 +4,13 @@
 core := @std.core
 build := @std.build
 thread := build.import("thread")
-vec := build.import("vec")
+{ Vec, DynVec } = @std.collections
 result := build.import("result")
 sync := build.import("sync")
 io := build.import("io")
 
 // Task status enum
-TaskStatus := |
+TaskStatus:
     Pending,
     Running,
     Completed,
@@ -18,38 +18,37 @@ TaskStatus := |
     Cancelled
 
 // Task priority levels
-Priority := |
-    Low: 0,
-    Normal: 1,
-    High: 2,
-    Critical: 3
+Priority : 
+    Low = 0,
+    Normal = 1,
+    High = 2,
+    Critical = 3
 
 // Generic task result
-TaskResult<T> := union {
-    Success(T),
-    Failure(string),
+TaskResult<T>:
+    Success: T,
+    Failure: string,
     Cancelled
-}
 
 // Task structure
-Task<T> := {
+Task<T>: {
     id: u64,
     name: string,
     priority: Priority,
     status: TaskStatus,
-    func: fn() -> TaskResult<T>,
-    result: ?TaskResult<T>,
+    func: () TaskResult<T>,
+    result: Option<TaskResult<T>>,
     created_at: u64,
-    started_at: ?u64,
+    started_at: Option<u64>,
     completed_at: ?u64
 }
 
 // Task executor configuration
-ExecutorConfig := {
+ExecutorConfig: {
     num_threads: usize,
     queue_size: usize,
     enable_metrics: bool,
-    panic_handler: ?fn(string) -> void
+    panic_handler: Option<fn(string)(void>
 }
 
 // Default configuration
@@ -65,17 +64,17 @@ default_config = () ExecutorConfig   {
 // Task executor
 TaskExecutor := {
     config: ExecutorConfig,
-    thread_pool: vec.Vec<thread.Thread>,
+    thread_pool: DynVec<thread.Thread>,
     task_queue: sync.Queue<Task<any>>,
     active_tasks: sync.Map<u64, Task<any>>,
-    completed_tasks: vec.Vec<Task<any>>,
+    completed_tasks: DynVec<Task<any>>,
     next_task_id: sync.Atomic<u64>,
     shutdown: sync.Atomic<bool>,
-    metrics: ?ExecutorMetrics
+    metrics: Option<ExecutorMetrics>
 }
 
 // Executor metrics
-ExecutorMetrics := {
+ExecutorMetrics: {
     tasks_submitted: sync.Atomic<u64>,
     tasks_completed: sync.Atomic<u64>,
     tasks_failed: sync.Atomic<u64>,
@@ -85,12 +84,12 @@ ExecutorMetrics := {
 }
 
 // Create a new task executor
-new = (config: ExecutorConfig) *TaskExecutor {
+new = (config: ExecutorConfig) TaskExecutor {
     executor := core.alloc<TaskExecutor>()
     executor.config = config
     executor.task_queue = sync.Queue.new(config.queue_size)
     executor.active_tasks = sync.Map.new()
-    executor.completed_tasks = vec.Vec.new()
+    executor.completed_tasks = DynVec.new()
     executor.next_task_id = sync.Atomic.new(1)
     executor.shutdown = sync.Atomic.new(false)
     
@@ -99,7 +98,7 @@ new = (config: ExecutorConfig) *TaskExecutor {
     }
     
     // Start worker threads
-    executor.thread_pool = vec.Vec.new()
+    executor.thread_pool = DynVec.new()
     i := 0
     while (i < config.num_threads) {
         worker := thread.spawn(worker_loop, executor)
@@ -111,7 +110,7 @@ new = (config: ExecutorConfig) *TaskExecutor {
 }
 
 // Create metrics instance
-create_metrics = () *ExecutorMetrics {
+create_metrics = () ExecutorMetrics {
     metrics := core.alloc<ExecutorMetrics>()
     metrics.tasks_submitted = sync.Atomic.new(0)
     metrics.tasks_completed = sync.Atomic.new(0)
@@ -123,7 +122,7 @@ create_metrics = () *ExecutorMetrics {
 }
 
 // Submit a task for execution
-submit<T> = (executor: *TaskExecutor, name: string, priority: Priority, func: fn() -> TaskResult<T>) u64 {
+submit<T> = (executor: TaskExecutor, name: string, priority: Priority, func: () TaskResult<T>) u64 {
     task_id := executor.next_task_id.fetch_add(1)
     
     task := Task<T>{
@@ -132,14 +131,14 @@ submit<T> = (executor: *TaskExecutor, name: string, priority: Priority, func: fn
         priority: priority,
         status: TaskStatus.Pending,
         func: func,
-        result: null,
+        result: Option.None,
         created_at: thread.current_time_millis(),
-        started_at: null,
+        started_at: Option.None,
         completed_at: null
     }
     
     // Update metrics
-    if (executor.metrics != null) {
+        if (executor.metrics != Option.None) {
         executor.metrics.tasks_submitted.fetch_add(1)
     }
     
@@ -154,13 +153,13 @@ submit<T> = (executor: *TaskExecutor, name: string, priority: Priority, func: fn
 }
 
 // Worker thread loop
-worker_loop = (executor: *TaskExecutor) void   {
+worker_loop = (executor: TaskExecutor) void   {
     while (!executor.shutdown.load()) {
         // Try to get a task from the queue
         task_opt := executor.task_queue.pop_timeout(100)
         
         if (task_opt.is_some()) {
-            task := task_opt.unwrap()
+            task_opt ? | .Some(task) {
             
             // Mark task as running
             task.status = TaskStatus.Running
@@ -170,25 +169,25 @@ worker_loop = (executor: *TaskExecutor) void   {
             // Execute the task
             result := task.func()
             result ?
-                | .Ok -> value {
-                    task.result = value
+                | .Ok(value) {
+                    task.result = Option.Some(value)
                     task.status = TaskStatus.Completed
                     
                     executor.metrics ?
-                        | null {}
+                        | Option.None
                         | metrics { metrics.tasks_completed.fetch_add(1) }
                 }
-                | .Err -> error {
+                | .Err(error) {
                     task.result = TaskResult.Failure(error.to_string())
                     task.status = TaskStatus.Failed
                     
                     executor.metrics ?
-                        | null {}
+                        | Option.None
                         | metrics { metrics.tasks_failed.fetch_add(1) }
                     
                     // Call panic handler if configured
                     executor.config.panic_handler ?
-                        | null {}
+                        | Option.None
                         | handler { handler(error.to_string()) }
                 }
             
@@ -196,7 +195,7 @@ worker_loop = (executor: *TaskExecutor) void   {
             task.completed_at = thread.current_time_millis()
             
             // Update metrics
-            if (executor.metrics != null) {
+        executor.metrics != Option.None ? | {
                 execution_time := task.completed_at - task.started_at
                 executor.metrics.total_execution_time.fetch_add(execution_time)
                 
@@ -217,14 +216,14 @@ worker_loop = (executor: *TaskExecutor) void   {
 // Wait for a specific task to complete
 wait_for = (executor: *TaskExecutor, task_id: u64) ?TaskResult<any>   {
     // Check if already completed
-    for (task in executor.completed_tasks) {
+    executor.completed_tasks.loop((task) {
         if (task.id == task_id) {
             return task.result
         }
-    }
+    })
     
     // Wait for task to complete
-    while (true) {
+    loop {
         if (executor.active_tasks.contains(task_id)) {
             thread.sleep(10)
         } else {
@@ -311,8 +310,8 @@ get_metrics = (executor: *TaskExecutor) ?ExecutorMetrics   {
 }
 
 // Batch submit multiple tasks
-batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priority: Priority, func: fn() -> TaskResult<T>}) []u64 {
-    task_ids := vec.Vec.new()
+batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priority: Priority, func: fn()(TaskResult<T>}) []u64 {
+    task_ids := DynVec.new()
     
     for (task_info in tasks) {
         id := submit(executor, task_info.name, task_info.priority, task_info.func)
@@ -324,7 +323,7 @@ batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priori
 
 // Wait for all tasks in a batch
 wait_for_batch = (executor: *TaskExecutor, task_ids: []u64) []TaskResult<any>   {
-    results := vec.Vec.new()
+    results := DynVec.new()
     
     for (id in task_ids) {
         result := wait_for(executor, id)
@@ -339,7 +338,7 @@ wait_for_batch = (executor: *TaskExecutor, task_ids: []u64) []TaskResult<any>   
 // Create a task group for related tasks
 TaskGroup := {
     executor: *TaskExecutor,
-    task_ids: vec.Vec<u64>,
+    task_ids: DynVec<u64>,
     name: string
 }
 
@@ -347,13 +346,13 @@ TaskGroup := {
 new_group = (executor: *TaskExecutor, name: string) *TaskGroup {
     group := core.alloc<TaskGroup>()
     group.executor = executor
-    group.task_ids = vec.Vec.new()
+    group.task_ids = DynVec.new()
     group.name = name
     return group
 }
 
 // Add a task to the group
-add_to_group<T> = (group: *TaskGroup, name: string, priority: Priority, func: fn() -> TaskResult<T>) u64 {
+add_to_group<T> = (group: *TaskGroup, name: string, priority: Priority, func: fn()(TaskResult<T>) u64 {
     task_id := submit(group.executor, group.name + "." + name, priority, func)
     group.task_ids.push(task_id)
     return task_id

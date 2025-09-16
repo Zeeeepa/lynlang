@@ -2,13 +2,13 @@
 // This test verifies that our Zen compiler components work correctly
 
 // Correct module-level imports
-{ io } = @std.io
-{ core } = @std.core
-{ string } = @std.string
+io = @std.io
+core = @std.core
+string = @std.string
 
 // Simple test program to compile
 test_program = "
-    { io } = @std.io
+    io = @std.io
     
     main = () i32   {
         io.print(\"Hello from self-hosted Zen!\\n\")

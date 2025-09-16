@@ -1,12 +1,12 @@
 // Zen Language Server Protocol Checker
 // Provides syntax and semantic checking for Zen files
 
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ path } = @std.path
-{ args } = @std.args
-{ vec } = @std.vec
+io = @std.io
+fs = @std.fs
+string = @std.string
+path = @std.path
+args = @std.args
+{ Vec, DynVec } = @std.collections
 
 // Diagnostic severity levels
 Severity: 
@@ -29,7 +29,7 @@ Diagnostic: {
 CheckResult: {
     file: string
     passed: bool
-    diagnostics: vec<Diagnostic>
+    diagnostics: DynVec<Diagnostic>
 }
 
 // Configuration for checker
@@ -141,13 +141,13 @@ check_import_context = (lines: []string, line_num: i32) Option<Diagnostic>   {
 }
 
 // Check syntax of a single file
-check_syntax = (file_path: string) vec<Diagnostic>   {
-    mut diagnostics := vec.new<Diagnostic>()
+check_syntax = (file_path: string) DynVec<Diagnostic>   {
+    mut diagnostics := DynVec.new<Diagnostic>()
     
     // Read file contents
     content := fs.read_file(file_path)
     if content == "" {
-        vec.push(&mut diagnostics, Diagnostic {
+        DynVec.push(&mut diagnostics, Diagnostic {
             file: file_path,
             line: 0,
             column: 0,
@@ -172,7 +172,7 @@ check_syntax = (file_path: string) vec<Diagnostic>   {
             while j < lines.len() && depth > 0 {
                 inner_line := lines[j]
                 if is_import_line(inner_line) {
-                    vec.push(&mut diagnostics, Diagnostic {
+                    DynVec.push(&mut diagnostics, Diagnostic {
                         file: file_path,
                         line: j + 1,
                         column: 1,
@@ -198,7 +198,7 @@ check_syntax = (file_path: string) vec<Diagnostic>   {
            string.len(string.trim(line)) > 0 &&
            !string.starts_with(string.trim(line), "//") {
             // This might be a multi-line statement, so it's just a warning
-            vec.push(&mut diagnostics, Diagnostic {
+            DynVec.push(&mut diagnostics, Diagnostic {
                 file: file_path,
                 line: i + 1,
                 column: string.len(line),
@@ -213,8 +213,8 @@ check_syntax = (file_path: string) vec<Diagnostic>   {
 }
 
 // Check imports in a file
-check_imports = (file_path: string) vec<Diagnostic>   {
-    mut diagnostics := vec.new<Diagnostic>()
+check_imports = (file_path: string) DynVec<Diagnostic>   {
+    mut diagnostics := DynVec.new<Diagnostic>()
     
     content := fs.read_file(file_path)
     if content == "" {
@@ -231,7 +231,7 @@ check_imports = (file_path: string) vec<Diagnostic>   {
             match check_import_context(lines, i) {
                 | Option<Diagnostic>.Some(mut diag) => {
                     diag.file = file_path
-                    vec.push(&mut diagnostics, diag)
+                    DynVec.push(&mut diagnostics, diag)
                 }
                 | Option<Diagnostic>.None => {}
             }
@@ -276,26 +276,26 @@ format_diagnostic = (diag: Diagnostic) string   {
 
 // Check a single file
 check_file = (file_path: string, config: CheckConfig) CheckResult   {
-    mut all_diagnostics := vec.new<Diagnostic>()
+    mut all_diagnostics := DynVec.new<Diagnostic>()
     
     if config.check_syntax {
         syntax_diags := check_syntax(file_path)
-        for i := 0; i < vec.len(syntax_diags); i = i + 1 {
-            vec.push(&mut all_diagnostics, vec.get(syntax_diags, i))
+        for i := 0; i < DynVec.len(syntax_diags); i = i + 1 {
+            DynVec.push(&mut all_diagnostics, DynVec.get(syntax_diags, i))
         }
     }
     
     if config.check_imports {
         import_diags := check_imports(file_path)
-        for i := 0; i < vec.len(import_diags); i = i + 1 {
-            vec.push(&mut all_diagnostics, vec.get(import_diags, i))
+        for i := 0; i < DynVec.len(import_diags); i = i + 1 {
+            DynVec.push(&mut all_diagnostics, DynVec.get(import_diags, i))
         }
     }
     
     // Count errors
     mut has_errors := false
-    for i := 0; i < vec.len(all_diagnostics); i = i + 1 {
-        diag := vec.get(all_diagnostics, i)
+    for i := 0; i < DynVec.len(all_diagnostics); i = i + 1 {
+        diag := DynVec.get(all_diagnostics, i)
         match diag.severity {
             | Severity.Error => has_errors = true
             | _ => {}
@@ -353,7 +353,7 @@ main = () i32   {
             
             // Get files to check
             files := opts.positional
-            if vec.len(files) == 0 {
+            if DynVec.len(files) == 0 {
                 io.print("Usage: zen-lsp-check [OPTIONS] <files...>\n")
                 return 0
             }
@@ -362,8 +362,8 @@ main = () i32   {
             mut total_errors := 0
             mut total_warnings := 0
             
-            for i := 0; i < vec.len(files); i = i + 1 {
-                file := vec.get(files, i)
+            for i := 0; i < DynVec.len(files); i = i + 1 {
+                file := DynVec.get(files, i)
                 
                 if config.verbose {
                     io.print("Checking: ")
@@ -374,8 +374,8 @@ main = () i32   {
                 result := check_file(file, config)
                 
                 // Print diagnostics
-                for j := 0; j < vec.len(result.diagnostics); j = j + 1 {
-                    diag := vec.get(result.diagnostics, j)
+                for j := 0; j < DynVec.len(result.diagnostics); j = j + 1 {
+                    diag := DynVec.get(result.diagnostics, j)
                     io.print(format_diagnostic(diag))
                     io.print("\n")
                     

@@ -2,11 +2,11 @@
 // A minimal compiler that can compile itself
 // This is the first step towards full self-hosting
 
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ vec } = @std.vec
-{ core } = @std.core
+io = @std.io
+fs = @std.fs
+string = @std.string
+{ Vec, DynVec } = @std.collections
+core = @std.core
 
 // Token types for the lexer
 TokenType:
@@ -225,25 +225,25 @@ is_keyword = (s: string) bool   {
 
 // AST Node types
 AstNode:
-    .Program { declarations: Vec<AstNode> } |
-    .Function { name: string, params: Vec<(string, string)>, return_type: string, body: Vec<AstNode> } |
+    .Program { declarations: DynVec<AstNode> } |
+    .Function { name: string, params: DynVec<(string, string)>, return_type: string, body: DynVec<AstNode> } |
     .Variable { name: string, type: string, value: AstNode } |
     .IntLiteral { value: i64 } |
     .StringLiteral { value: string } |
     .Identifier { name: string } |
     .BinaryOp { op: string, left: AstNode, right: AstNode } |
-    .FunctionCall { name: string, args: Vec<AstNode> } |
+    .FunctionCall { name: string, args: DynVec<AstNode> } |
     .Return { value: AstNode } |
-    .PatternMatch { condition: AstNode, then_body: Vec<AstNode>, else_body: Vec<AstNode> }
+    .PatternMatch { condition: AstNode, then_body: DynVec<AstNode>, else_body: DynVec<AstNode> }
 
 // Parser state
 Parser: {
-    tokens: Vec<Token>,
+    tokens: DynVec<Token>,
     current: i32,
 }
 
 // Create a new parser
-parser_new = (tokens: Vec<Token>) Parser   {
+parser_new = (tokens: DynVec<Token>) Parser   {
     return Parser {
         tokens = tokens,
         current = 0,
@@ -278,11 +278,11 @@ parser_check_value = (p: *Parser, value: string) bool   {
 
 // Parse the program
 parser_parse = (p: *Parser) AstNode   {
-    declarations := vec.new<AstNode>()
+    declarations := DynVec.new()
     
     loop !parser_check(p, TokenType.Eof) {
         decl := parser_parse_declaration(p)
-        vec.push(declarations, decl)
+        DynVec.push(&declarations, decl)
     }
     
     return AstNode { .Program { declarations = declarations } }
@@ -321,7 +321,7 @@ parser_parse_function = (p: *Parser, name: string) AstNode   {
     parser_advance(p) // skip '('
     
     // Parse parameters (simplified)
-    params := vec.new<(string, string)>()
+    params := DynVec.new()
     
     !parser_check_value(p, ")") ?
         | true {
@@ -335,10 +335,10 @@ parser_parse_function = (p: *Parser, name: string) AstNode   {
                         parser_advance(p)
                         type_tok := parser_current(p)
                         parser_advance(p)
-                        vec.push(params, (param_name.value, type_tok.value))
+                        DynVec.push(&params, (param_name.value, type_tok.value))
                     }
                     | false {
-                        vec.push(params, (param_name.value, "auto"))
+                        DynVec.push(&params, (param_name.value, "auto"))
                     }
                 
                 parser_check_value(p, ",") ?
@@ -366,11 +366,11 @@ parser_parse_function = (p: *Parser, name: string) AstNode   {
     
     // Parse body
     parser_advance(p) // skip '{'
-    body := vec.new<AstNode>()
+    body := DynVec.new()
     
     loop !parser_check_value(p, "}") {
         stmt := parser_parse_statement(p)
-        vec.push(body, stmt)
+        DynVec.push(&body, stmt)
     }
     
     parser_advance(p) // skip '}'
@@ -436,13 +436,13 @@ parser_parse_primary = (p: *Parser) AstNode   {
             parser_check_value(p, "(") ?
                 | true {
                     parser_advance(p)
-                    args := vec.new<AstNode>()
+                    args := DynVec.new()
                     
                     !parser_check_value(p, ")") ?
                         | true {
                             loop {
                                 arg := parser_parse_expression(p)
-                                vec.push(args, arg)
+                                DynVec.push(&args, arg)
                                 
                                 parser_check_value(p, ",") ?
                                     | true { { parser_advance(p)  }}
@@ -471,7 +471,7 @@ codegen_generate = (ast: AstNode) string   {
             output := "#include <stdio.h>\n\n"
             
             i := 0
-            loop i < declarations.len() {
+            loop i < DynVec.len(declarations) {
                 output = output + codegen_generate(declarations[i]) + "\n"
                 i = i + 1
             }
@@ -482,10 +482,10 @@ codegen_generate = (ast: AstNode) string   {
             output := return_type + " " + name + "("
             
             i := 0
-            loop i < params.len() {
+            loop i < DynVec.len(params) {
                 param := params[i]
                 output = output + param.1 + " " + param.0
-                i < params.len() - 1 ?
+                i < DynVec.len(params) - 1 ?
                     | true { { output = output + ", "  }}
                     | false {}
                 i = i + 1
@@ -494,7 +494,7 @@ codegen_generate = (ast: AstNode) string   {
             output = output + ") {\n"
             
             i = 0
-            loop i < body.len() {
+            loop i < DynVec.len(body) {
                 output = output + "    " + codegen_generate(body[i]) + ";\n"
                 i = i + 1
             }
@@ -518,9 +518,9 @@ codegen_generate = (ast: AstNode) string   {
             output := name + "("
             
             i := 0
-            loop i < args.len() {
+            loop i < DynVec.len(args) {
                 output = output + codegen_generate(args[i])
-                i < args.len() - 1 ?
+                i < DynVec.len(args) - 1 ?
                     | true { { output = output + ", "  }}
                     | false {}
                 i = i + 1
@@ -554,11 +554,11 @@ compile_file = (input_path: string, output_path: string) i32   {
     
     // Lex the input
     lexer := lexer_new(content)
-    tokens := vec.new<Token>()
+    tokens := DynVec.new()
     
     loop {
         tok := lexer_next_token(&lexer)
-        vec.push(tokens, tok)
+        DynVec.push(&tokens, tok)
         tok.type == TokenType.Eof ?
             | true { { break  }}
             | false {}

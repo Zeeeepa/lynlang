@@ -1,9 +1,9 @@
 // Test file for LLVM backend
 // This file tests basic LLVM IR generation
 
-{ core } = @std.core
-{ io } = @std.io
-{ math } = @std.math
+core = @std.core
+io = @std.io
+math = @std.math
 
 // Simple function to test arithmetic operations
 add_numbers = (a: i32, b: i32) i32   {

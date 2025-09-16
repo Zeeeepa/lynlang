@@ -2,9 +2,9 @@
 // Tests all aspects of module imports without comptime wrapper
 
 // Standard library imports using @std notation
-{ io } = @std.io
-{ math } = @std.math
-{ core } = @std.core
+io = @std.io
+math = @std.math
+core = @std.core
 
 // Test import usage in functions
 test_math_functions = () bool   {

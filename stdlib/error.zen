@@ -1,9 +1,7 @@
 // Error handling utilities for Zen
 // Provides common error types and utilities
 
-{ core } = @std.core
-{ string } = @std.string
-{ io } = @std.io
+{ core, string, io } = @std.io
 
 // Common error types
 Error: {

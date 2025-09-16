@@ -1,11 +1,11 @@
 // URL Parser and Builder for Zen
 // Provides URL parsing, validation, and manipulation utilities
 
-{ string } = @std.string
-{ vec } = @std.vec
-{ result } = @std.result
-{ hashmap } = @std.hashmap
-{ io } = @std.io
+string = @std.string
+vec = @std.vec
+result = @std.result
+hashmap = @std.hashmap
+io = @std.io
 
 // URL components
 URL := {
@@ -21,7 +21,7 @@ URL := {
 }
 
 // URL parsing errors
-URLError := |
+URLError : 
     InvalidScheme,
     InvalidHost,
     InvalidPort,

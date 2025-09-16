@@ -1,7 +1,7 @@
 // Result type for error handling in Zen
 // Provides a type-safe way to handle operations that can fail
 
-{ core } = @std.core
+core = @std.core
 
 // Result type - represents success (Ok) or failure (Err)
 Result<T, E>: Ok: {value: T} | Err: {error: E}

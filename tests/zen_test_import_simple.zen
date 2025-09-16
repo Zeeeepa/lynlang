@@ -1,8 +1,8 @@
 // Simple test to verify import syntax works
 // All imports at module level, not in comptime
 
-{ core } = @std.core
-{ io } = @std.io
+core = @std.core
+io = @std.io
 
 main = () i32   {
     io.print("Import test: ")

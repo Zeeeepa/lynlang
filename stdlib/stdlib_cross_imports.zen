@@ -2,10 +2,10 @@
 // This demonstrates module interdependencies
 
 // Import multiple stdlib modules
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
-{ math } = @std.math
+io = @std.io
+string = @std.string
+vec = @std.vec
+math = @std.math
 
 // Test function that uses multiple stdlib modules
 process_data = () void   {

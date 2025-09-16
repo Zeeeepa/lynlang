@@ -1,12 +1,12 @@
 // Test the full self-hosted compiler pipeline
 // This tests lexer -> parser -> type checker -> code generator
 
-{ core } = @std.core
-{ io } = @std.io
-{ lexer } = @std.compiler.lexer_enhanced
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
-{ codegen } = @std.compiler.codegen
+core = @std.core
+io = @std.io
+{ lexer } = @std
+parser = @std.parser
+type_checker = @std.type_checker
+codegen = @std.codegen
 
 // Test simple program compilation
 test_simple_program = () bool   {

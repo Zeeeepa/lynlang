@@ -2,59 +2,59 @@
 // This module re-exports the most commonly used standard library modules
 
 // Core modules - essential functionality
-{ core } = @std.core
-{ io } = @std.io
-{ mem } = @std.mem
-{ math } = @std.math
-{ string } = @std.string
+core = @std.core
+io = @std.io
+mem = @std.mem
+math = @std.math
+string = @std.string
 
 // Collections
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ list } = @std.list
-{ set } = @std.set
-{ queue } = @std.queue
-{ stack } = @std.stack
+vec = @std.vec
+hashmap = @std.hashmap
+list = @std.list
+set = @std.set
+queue = @std.queue
+stack = @std.stack
 
 // File system and OS interaction
-{ fs } = @std.fs
-{ path } = @std.path
-{ env } = @std.env
-{ process } = @std.process
-{ args } = @std.args
+fs = @std.fs
+path = @std.path
+env = @std.env
+process = @std.process
+args = @std.args
 
 // Error handling and testing
-{ result } = @std.result
-{ option } = @std.option
-{ error } = @std.error
-{ testing } = @std.testing
-{ assert } = @std.assert
+result = @std.result
+option = @std.option
+error = @std.error
+testing = @std.testing
+assert = @std.assert
 
 // Algorithms and utilities
-{ algorithm } = @std.algorithm
-{ iterator } = @std.iterator
-{ random } = @std.random
-{ utils } = @std.utils
+algorithm = @std.algorithm
+iterator = @std.iterator
+random = @std.random
+utils = @std.utils
 
 // Time and date
-{ time } = @std.time
-{ datetime } = @std.datetime
+time = @std.time
+datetime = @std.datetime
 
 // Networking and concurrency (via allocators)
-{ net } = @std.net
-{ http } = @std.http
-{ concurrency } = @std.concurrency  // Concurrency module (allocator-based)
-{ thread } = @std.thread
+net = @std.net
+http = @std.http
+concurrency = @std.concurrency  // Concurrency module (allocator-based)
+thread = @std.thread
 
 // Encoding and serialization
-{ json } = @std.json
-{ encoding } = @std.encoding
-{ url } = @std.url
+json = @std.json
+encoding = @std.encoding
+url = @std.url
 
 // Advanced features
-{ regex } = @std.regex
-{ crypto } = @std.crypto
-{ log } = @std.log
+regex = @std.regex
+crypto = @std.crypto
+log = @std.log
 
 // Compiler modules (for self-hosting)
 compiler := {

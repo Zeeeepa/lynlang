@@ -1,20 +1,20 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides advanced IDE support with hover, go-to-definition, and more
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ fs } = @std.fs
-{ json } = @std.json
-{ result } = @std.result
+core = @std.core
+io = @std.io
+string = @std.string
+{ Vec, DynVec } = @std.collections
+hashmap = @std.hashmap
+fs = @std.fs
+json = @std.json
+result = @std.result
 
 // Import compiler modules
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
-{ ast } = @std.compiler.ast
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
+ast = @std.ast
 
 // Symbol information for tracking definitions and references
 Symbol := {
@@ -22,7 +22,7 @@ Symbol := {
     kind: SymbolKind
     type_info: Option<ast.Type>
     definition_location: Location
-    references: Vec<Location>
+    references: DynVec<Location>
     documentation: Option<string>
     signature: Option<string>
     parent: Option<string>  // Parent symbol for nested items
@@ -33,12 +33,12 @@ EnhancedDocument := {
     uri: string
     version: i32
     content: string
-    lines: Vec<string>  // Split content for quick line access
-    tokens: Vec<lexer.Token>
+    lines: DynVec<string>  // Split content for quick line access
+    tokens: DynVec<lexer.Token>
     ast: Option<ast.Program>
     symbols: HashMap<string, Symbol>  // Symbol table
-    imports: Vec<ImportInfo>
-    diagnostics: Vec<Diagnostic>
+    imports: DynVec<ImportInfo>
+    diagnostics: DynVec<Diagnostic>
     dirty: bool  // Needs reanalysis
 }
 
@@ -57,9 +57,9 @@ EnhancedLanguageServer := {
     capabilities: ServerCapabilities
     documents: HashMap<string, EnhancedDocument>
     global_symbols: HashMap<string, Symbol>  // Cross-file symbols
-    workspace_symbols: Vec<Symbol>  // All workspace symbols for search
+    workspace_symbols: DynVec<Symbol>  // All workspace symbols for search
     type_definitions: HashMap<string, ast.TypeDefinition>
-    import_graph: HashMap<string, Vec<string>>  // Import dependencies
+    import_graph: HashMap<string, DynVec<string>>  // Import dependencies
 }
 
 // Position and location types (reuse from original)
@@ -99,8 +99,8 @@ Diagnostic := {
     code: Option<string>
     source: string
     message: string
-    tags: Vec<DiagnosticTag>
-    relatedInformation: Vec<DiagnosticRelatedInformation>
+    tags: DynVec<DiagnosticTag>
+    relatedInformation: DynVec<DiagnosticRelatedInformation>
 }
 
 DiagnosticSeverity: Error | Warning | Information | Hint
@@ -120,9 +120,9 @@ create_enhanced_server = () EnhancedLanguageServer {
         capabilities: create_server_capabilities(),
         documents: hashmap.new<string, EnhancedDocument>(),
         global_symbols: hashmap.new<string, Symbol>(),
-        workspace_symbols: vec.new<Symbol>(),
+        workspace_symbols: DynVec.new<Symbol>(),
         type_definitions: hashmap.new<string, ast.TypeDefinition>(),
-        import_graph: hashmap.new<string, Vec<string>>()
+        import_graph: hashmap.new<string, DynVec<string>>()
     }
 }
 
@@ -131,7 +131,7 @@ create_server_capabilities = () ServerCapabilities {
     return ServerCapabilities{
         textDocumentSync: 1,  // Full sync
         completionProvider: CompletionOptions{
-            triggerCharacters: vec.from([".", ":", "@", "/", "\""])
+            triggerCharacters: DynVec.from([".", ":", "@", "/", "\""])
         },
         hoverProvider: true,
         definitionProvider: true,
@@ -152,7 +152,7 @@ create_server_capabilities = () ServerCapabilities {
         },
         foldingRangeProvider: true,
         signatureHelpProvider: SignatureHelpOptions{
-            triggerCharacters: vec.from(["(", ","])
+            triggerCharacters: DynVec.from(["(", ","])
         }
     }
 }
@@ -161,8 +161,8 @@ create_server_capabilities = () ServerCapabilities {
 analyze_document = (server: Ptr<EnhancedLanguageServer>, doc: Ptr<EnhancedDocument>) Result<void, string> {
     // Clear previous analysis
     doc.symbols = hashmap.new<string, Symbol>()
-    doc.imports = vec.new<ImportInfo>()
-    doc.diagnostics = vec.new<Diagnostic>()
+    doc.imports = DynVec.new<ImportInfo>()
+    doc.diagnostics = DynVec.new<Diagnostic>()
     
     // Tokenize
     tokens := lexer.tokenize(doc.content)?
@@ -186,7 +186,7 @@ analyze_document = (server: Ptr<EnhancedLanguageServer>, doc: Ptr<EnhancedDocume
             // Convert type errors to diagnostics
             for (error in errors) {
                 diagnostic := type_error_to_diagnostic(error)
-                vec.push(doc.diagnostics, diagnostic)
+                DynVec.push(doc.diagnostics, diagnostic)
             }
         }
     }
@@ -250,7 +250,7 @@ extract_symbols = (doc: Ptr<EnhancedDocument>, program: ast.Program) Result<void
             }
             ast.Declaration.Import(import) => {
                 import_info := create_import_info(import, doc.uri)
-                vec.push(doc.imports, import_info)
+                DynVec.push(doc.imports, import_info)
             }
             ast.Declaration.TypeAlias(alias) => {
                 symbol := create_type_alias_symbol(alias, doc.uri)
@@ -333,7 +333,7 @@ build_hover_content = (symbol: &Symbol) string   {
     }
     
     // Add reference count
-    ref_count := vec.len(symbol.references)
+    ref_count := DynVec.len(symbol.references)
     if (ref_count > 0) {
         string.append(content, string.format("\n*{} reference{}*", 
                                             ref_count, 
@@ -422,8 +422,8 @@ find_symbol_at_position = (doc: &EnhancedDocument, pos: Position) Option<&Symbol
 }
 
 // Find references to symbol
-handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) Result<Vec<Location>, string>   {
-    references := vec.new<Location>()
+handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) Result<DynVec<Location>, string>   {
+    references := DynVec.new<Location>()
     
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
@@ -444,14 +444,14 @@ handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) R
     // Search all documents for references
     hashmap.foreach(server.documents, (uri, doc) => {
         refs := find_references_in_document(doc, name)
-        vec.extend(references, refs)
+        DynVec.extend(references, refs)
     })
     
     // Include definition if requested
     if (params.context.includeDeclaration) {
         symbol := hashmap.get(document.symbols, name)
         if (symbol.is_some()) {
-            vec.push(references, symbol.unwrap().definition_location)
+            DynVec.push(references, symbol.unwrap().definition_location)
         }
     }
     
@@ -459,12 +459,12 @@ handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) R
 }
 
 // Find references in document
-find_references_in_document = (doc: &EnhancedDocument, symbol_name: string) Vec<Location>   {
-    references := vec.new<Location>()
+find_references_in_document = (doc: &EnhancedDocument, symbol_name: string) DynVec<Location>   {
+    references := DynVec.new<Location>()
     
     // Search through tokens
     i := 0
-    while (i < vec.len(doc.tokens)) {
+    while (i < DynVec.len(doc.tokens)) {
         token := doc.tokens[i]
         
         if (token.type == lexer.TokenType.Identifier && token.text == symbol_name) {
@@ -472,7 +472,7 @@ find_references_in_document = (doc: &EnhancedDocument, symbol_name: string) Vec<
                 uri: doc.uri,
                 range: span_to_range(token.span, doc)
             }
-            vec.push(references, location)
+            DynVec.push(references, location)
         }
         
         i += 1
@@ -482,8 +482,8 @@ find_references_in_document = (doc: &EnhancedDocument, symbol_name: string) Vec<
 }
 
 // Document symbols for outline
-handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymbolParams) Result<Vec<DocumentSymbol>, string>   {
-    symbols := vec.new<DocumentSymbol>()
+handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymbolParams) Result<DynVec<DocumentSymbol>, string>   {
+    symbols := DynVec.new<DocumentSymbol>()
     
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
@@ -498,12 +498,12 @@ handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymb
         // Skip nested symbols (they'll be children)
         if (symbol.parent.is_none()) {
             doc_symbol := symbol_to_document_symbol(symbol, document)
-            vec.push(symbols, doc_symbol)
+            DynVec.push(symbols, doc_symbol)
         }
     })
     
     // Sort by position
-    vec.sort_by(symbols, (a, b) => {
+    DynVec.sort_by(symbols, (a, b) => {
         if (a.range.start.line < b.range.start.line) -1
         else if (a.range.start.line > b.range.start.line) 1
         else 0
@@ -515,7 +515,7 @@ handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymb
 // Rename symbol
 handle_rename = (server: &mut EnhancedLanguageServer, params: RenameParams) Result<WorkspaceEdit, string>   {
     edits := WorkspaceEdit{
-        changes: hashmap.new<string, Vec<TextEdit>>()
+        changes: hashmap.new<string, DynVec<TextEdit>>()
     }
     
     // Find all references
@@ -531,13 +531,13 @@ handle_rename = (server: &mut EnhancedLanguageServer, params: RenameParams) Resu
     
     // Create text edits for each reference
     for (location in references) {
-        doc_edits := hashmap.get_or_insert(edits.changes, location.uri, vec.new<TextEdit>())
+        doc_edits := hashmap.get_or_insert(edits.changes, location.uri, DynVec.new<TextEdit>())
         
         edit := TextEdit{
             range: location.range,
             newText: params.newName
         }
-        vec.push(doc_edits, edit)
+        DynVec.push(doc_edits, edit)
     }
     
     return Result.Ok(edits)
@@ -581,7 +581,7 @@ handle_signature_help = (server: &EnhancedLanguageServer, params: SignatureHelpP
     }
     
     sig_help := SignatureHelp{
-        signatures: vec.from([sig_info]),
+        signatures: DynVec.from([sig_info]),
         activeSignature: 0,
         activeParameter: call_info.active_parameter
     }
@@ -590,8 +590,8 @@ handle_signature_help = (server: &EnhancedLanguageServer, params: SignatureHelpP
 }
 
 // Code actions for quick fixes
-handle_code_actions = (server: &EnhancedLanguageServer, params: CodeActionParams) Result<Vec<CodeAction>, string>   {
-    actions := vec.new<CodeAction>()
+handle_code_actions = (server: &EnhancedLanguageServer, params: CodeActionParams) Result<DynVec<CodeAction>, string>   {
+    actions := DynVec.new<CodeAction>()
     
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
@@ -606,13 +606,13 @@ handle_code_actions = (server: &EnhancedLanguageServer, params: CodeActionParams
         if (ranges_overlap(diagnostic.range, params.range)) {
             // Generate quick fixes based on diagnostic
             fixes := generate_quick_fixes(diagnostic, document)
-            vec.extend(actions, fixes)
+            DynVec.extend(actions, fixes)
         }
     }
     
     // Add refactoring actions
     refactorings := generate_refactorings(document, params.range)
-    vec.extend(actions, refactorings)
+    DynVec.extend(actions, refactorings)
     
     return Result.Ok(actions)
 }
@@ -637,10 +637,10 @@ check_comptime_imports = (doc: &mut EnhancedDocument) void   {
                                     code: Option.Some("E001"),
                                     source: "zen",
                                     message: "Imports must not be wrapped in comptime blocks. Move import to module level.",
-                                    tags: vec.new<DiagnosticTag>(),
-                                    relatedInformation: vec.new<DiagnosticRelatedInformation>()
+                                    tags: DynVec.new<DiagnosticTag>(),
+                                    relatedInformation: DynVec.new<DiagnosticRelatedInformation>()
                                 }
-                                vec.push(doc.diagnostics, diagnostic)
+                                DynVec.push(doc.diagnostics, diagnostic)
                             }
                         }
                         _ => {}
@@ -665,7 +665,7 @@ is_import_expression = (expr: ast.Expression) bool   {
 
 // Helper functions
 position_to_offset = (doc: &EnhancedDocument, pos: Position) usize   {
-    if (pos.line >= vec.len(doc.lines)) {
+    if (pos.line >= DynVec.len(doc.lines)) {
         return string.len(doc.content)
     }
     
@@ -684,7 +684,7 @@ offset_to_position = (doc: &EnhancedDocument, offset: usize) Position   {
     current := 0usize
     line := 0u32
     
-    while (line < vec.len(doc.lines)) {
+    while (line < DynVec.len(doc.lines)) {
         line_len := string.len(doc.lines[line])
         if (current + line_len >= offset) {
             return Position{
@@ -697,8 +697,8 @@ offset_to_position = (doc: &EnhancedDocument, offset: usize) Position   {
     }
     
     return Position{
-        line: vec.len(doc.lines) as u32 - 1,
-        character: string.len(doc.lines[vec.len(doc.lines) - 1]) as u32
+        line: DynVec.len(doc.lines) as u32 - 1,
+        character: string.len(doc.lines[DynVec.len(doc.lines) - 1]) as u32
     }
 }
 

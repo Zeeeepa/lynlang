@@ -1,10 +1,11 @@
 // Comprehensive tests for Zen stdlib string module
 
-{ string } = @std.string
-{ test } = @std.test
-{ io } = @std.io
-{ assert } = @std.assert
-{ vec } = @std.vec
+string = @std.string
+test = @std.test
+io = @std.io
+assert = @std.assert
+{ Vec, DynVec } = @std.collections
+core = @std.core
 
 // Test string creation and basic operations
 test_string_creation = () void   {
@@ -227,9 +228,16 @@ test_string_split_join = () void   {
     })
     
     test.suite_add_test(&suite, "Join strings", () void {
-        strings := vec.from(["hello", "world", "zen"])
-        joined := string.join(strings, ", ")
-        assert.equal(joined.as_str(), "hello, world, zen")
+        arr := ["hello", "world", "zen"]
+        result := DynVec<string>.from_array(arr, 3)
+        result ?
+            | core.Result:Ok(strings) {
+                joined := string.join(strings, ", ")
+                assert.equal(joined.as_str(), "hello, world, zen")
+            }
+            | core.Result:Err(_) {
+                assert.fail("Failed to create DynVec")
+            }
     })
     
     test.run_suite(&suite)
@@ -319,41 +327,41 @@ test_string_iteration = () void   {
     
     test.suite_add_test(&suite, "Iterate chars", () void {
         s := string.from("hello")
-        chars := vec.new<char>()
+        chars := DynVec<char>.new()
         
         for c in s.chars() {
-            chars.push(c)
+            chars.push(c).unwrap()
         }
         
         assert.equal(chars.len(), 5)
-        assert.equal(chars[0], 'h')
-        assert.equal(chars[4], 'o')
+        assert.equal(chars.get(0).unwrap(), 'h')
+        assert.equal(chars.get(4).unwrap(), 'o')
     })
     
     test.suite_add_test(&suite, "Iterate bytes", () void {
         s := string.from("hello")
-        bytes := vec.new<u8>()
+        bytes := DynVec<u8>.new()
         
         for b in s.bytes() {
-            bytes.push(b)
+            bytes.push(b).unwrap()
         }
         
         assert.equal(bytes.len(), 5)
-        assert.equal(bytes[0], 104u8)  // 'h'
-        assert.equal(bytes[4], 111u8)  // 'o'
+        assert.equal(bytes.get(0).unwrap(), 104u8)  // 'h'
+        assert.equal(bytes.get(4).unwrap(), 111u8)  // 'o'
     })
     
     test.suite_add_test(&suite, "Char indices", () void {
         s := string.from("hello")
-        indices := vec.new<(usize, char)>()
+        indices := DynVec<(usize, char)>.new()
         
         for (i, c) in s.char_indices() {
-            indices.push((i, c))
+            indices.push((i, c)).unwrap()
         }
         
         assert.equal(indices.len(), 5)
-        assert.equal(indices[0], (0, 'h'))
-        assert.equal(indices[4], (4, 'o'))
+        assert.equal(indices.get(0).unwrap(), (0, 'h'))
+        assert.equal(indices.get(4).unwrap(), (4, 'o'))
     })
     
     test.run_suite(&suite)

@@ -1,7 +1,7 @@
 // Test basic stdlib functionality
 // This test verifies that our stdlib modules work correctly
 
-{ io } = @std.io
+io = @std.io
 
 // Simple test of option type
 test_option = () bool   {

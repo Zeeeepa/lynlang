@@ -1,19 +1,19 @@
 // Zen Standard Library - Command Line Arguments Module
 // Provides argument parsing and handling utilities
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
+core = @std.core
+io = @std.io
+string = @std.string
+{ Vec, DynVec } = @std.collections
 
 // Argument parser configuration
 ArgParser: {
     program_name: string,
     description: string,
     version: string,
-    flags: Vec<Flag>,
-    positional: Vec<Positional>,
-    subcommands: Vec<Subcommand>,
+    flags: DynVec<Flag>,
+    positional: DynVec<Positional>,
+    subcommands: DynVec<Subcommand>,
 }
 
 // Flag definition
@@ -46,7 +46,7 @@ Subcommand: {
 // Parsed arguments result
 ParsedArgs: {
     flags: HashMap<string, FlagValue>,
-    positional: Vec<string>,
+    positional: DynVec<string>,
     subcommand: Option<(string, ParsedArgs)>,
 }
 
@@ -54,7 +54,7 @@ ParsedArgs: {
 FlagValue: 
     Present,                  // Flag was present (no value)
     Single(string),          // Single value
-    Multiple(Vec<string>),   // Multiple values
+    Multiple(DynVec<string>),   // Multiple values
 
 // Create new argument parser
 new_parser = (name: string, desc: string) ArgParser   {
@@ -62,15 +62,15 @@ new_parser = (name: string, desc: string) ArgParser   {
         program_name: name,
         description: desc,
         version: "1.0.0",
-        flags: vec_new<Flag>(),
-        positional: vec_new<Positional>(),
-        subcommands: vec_new<Subcommand>(),
+        flags: DynVec.new<Flag>(),
+        positional: DynVec.new<Positional>(),
+        subcommands: DynVec.new<Subcommand>(),
     }
 }
 
 // Add flag to parser
 add_flag = (parser: &mut ArgParser, flag: Flag)  {
-    vec_push(parser.flags, flag)
+    parser.flags.push(flag)
 }
 
 // Add short flag (e.g., -h)
@@ -137,7 +137,7 @@ add_positional = (parser: &mut ArgParser, name: string, desc: string, required: 
         required: required,
         multiple: false,
     }
-    vec_push(parser.positional, pos)
+    parser.positional.push(pos)
 }
 
 // Add subcommand
@@ -147,22 +147,22 @@ add_subcommand = (parser: &mut ArgParser, name: string, desc: string, sub_parser
         description: desc,
         parser: sub_parser,
     }
-    vec_push(parser.subcommands, sub)
+    parser.subcommands.push(sub)
 }
 
 // Parse command line arguments
-parse = (parser: &ArgParser, args: Vec<string>) Result<ParsedArgs, string>   {
+parse = (parser: &ArgParser, args: DynVec<string>) Result<ParsedArgs, string>   {
     result := ParsedArgs{
         flags: hashmap_new<string, FlagValue>(),
-        positional: vec_new<string>(),
+        positional: DynVec.new<string>(),
         subcommand: Option<(string, ParsedArgs)>.None,
     }
     
     i := 1  // Skip program name (args[0])
     positional_index := 0
     
-    loop i < vec_len(args) {
-        arg := vec_get(args, i)
+    loop i < args.len() {
+        arg := args.get(i)
         
         // Check for flags
         string.starts_with(arg, "--") ? {

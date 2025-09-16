@@ -1,8 +1,8 @@
 // Zen Standard Library - Algorithm Module
 // Common algorithms and data manipulation functions
 
-{ core } = @std.core
-{ build } = @std.build
+core = @std.core
+build = @std.build
 
 // Swap two values
 swap = (a: &T, b: &T) void   {

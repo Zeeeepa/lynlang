@@ -1,11 +1,11 @@
 // Zen Language - C Backend Code Generator
 // Generates compilable C code from Zen AST
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ fs } = @std.fs
-{ parser } = @std.compiler.parser
+core = @std.core
+io = @std.io
+string = @std.string
+fs = @std.fs
+parser = @std.parser
 
 // C type mapping
 map_zen_type_to_c = (zen_type: string) string {

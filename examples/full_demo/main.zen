@@ -1,7 +1,8 @@
 // Zenlang Comprehensive Demo
 // Showcases all major language features and capabilities
 
-{ io, vec, result, fs, net, math, string } = @std
+{ io, result, fs, net, math, string } = @std
+{ Vec, DynVec } = @std.collections
 
 // ==========================================
 // 1. Pattern Matching - The Heart of Zen

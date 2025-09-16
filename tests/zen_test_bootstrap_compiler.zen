@@ -1,17 +1,17 @@
 // Test for Bootstrap Compiler Components
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
+core = @std.core
+io = @std.io
+string = @std.string
 
 // Test imports work correctly (no comptime needed)
 test_imports = () bool   {
     // These imports should work at module level
-    { math } = @std.math
-    { vec } = @std.vec
+    math = @std.math
+    { Vec, DynVec } = @std.collections
     
     // Test we can use imported modules
-    v := vec.new<i32>()
+    v := DynVec.new<i32>()
     vec.push(&mut v, 42)
     
     vec.len(v) == 1 && vec.get(v, 0) == 42 ? {
@@ -25,7 +25,7 @@ test_imports = () bool   {
 
 // Test time module functionality
 test_time_module = () bool   {
-    { time } = @std.time
+    time = @std.time
     
     // Create duration
     ms := time.milliseconds(100)
@@ -43,7 +43,7 @@ test_time_module = () bool   {
 
 // Test logging module
 test_log_module = () bool   {
-    { log } = @std.log
+    log = @std.log
     
     // Set log level
     log.set_level(log.LogLevel.Debug)
@@ -65,7 +65,7 @@ test_log_module = () bool   {
 
 // Test args module parsing
 test_args_module = () bool   {
-    { args } = @std.args
+    args = @std.args
     
     // Create parser
     parser := args.new_parser("test", "Test program")
@@ -103,7 +103,7 @@ test_args_module = () bool   {
 
 // Test LLVM codegen module
 test_llvm_codegen = () bool   {
-    { codegen_llvm } = @std.compiler.codegen_llvm
+    codegen_llvm = @std.codegen_llvm
     
     // Create code generator
     gen := codegen_llvm.new_codegen("test_module")
@@ -128,10 +128,10 @@ test_llvm_codegen = () bool   {
 // Test compiler driver structure
 test_compiler_driver = () bool   {
     // Test that compiler modules can be imported
-    { lexer } = @std.compiler.lexer
-    { parser } = @std.compiler.parser
-    { type_checker } = @std.compiler.type_checker
-    { codegen } = @std.compiler.codegen
+    lexer = @std.lexer
+    parser = @std.parser
+    type_checker = @std.type_checker
+    codegen = @std.codegen
     
     // Basic smoke test - modules exist and can be referenced
     io.print("[PASS] Compiler driver modules accessible\n")

@@ -1,9 +1,9 @@
 // Queue implementation for Zen
 // FIFO (First In First Out) data structure
 
-{ core } = @std.core
-{ mem } = @std.mem
-{ array } = @std.array
+core = @std.core
+mem = @std.mem
+array = @std.array
 
 // Queue node
 QueueNode(T: type): {

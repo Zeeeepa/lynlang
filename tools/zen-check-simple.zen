@@ -1,7 +1,7 @@
 // Zen Code Checker - Working Version
 // A basic validation tool for Zen source files
 
-{ io } = @std.io
+io = @std.io
 
 // Check result structure
 CheckStats: {
@@ -52,7 +52,7 @@ main = () i32   {
     print_success("Enforced by parser")
     
     // Rule 3: Proper import syntax
-    io.print("3. Import syntax ({ name } = @std.module): ")
+    io.print("3. Import syntax ({ name } = @std): ")
     print_success("Validated")
     
     // Rule 4: Structs at module level

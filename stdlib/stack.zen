@@ -1,9 +1,9 @@
 // Stack implementation for Zen
 // LIFO (Last In First Out) data structure
 
-{ core } = @std.core
-{ mem } = @std.mem
-{ array } = @std.array
+core = @std.core
+mem = @std.mem
+array = @std.array
 
 // Stack structure using array backing
 Stack(T: type): {

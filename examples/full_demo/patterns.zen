@@ -1,7 +1,7 @@
 // Advanced Pattern Matching Examples
 // Demonstrates the full power of Zen's pattern matching
 
-{ io } = @std.io
+io = @std.io
 
 // Complex enum with multiple payload types
 Message: Text: {content: string} | Number: {value: i32} | Pair: {first: i32, second: i32} | List: {items: [i32]} | Nested: {msg: Message} | Empty

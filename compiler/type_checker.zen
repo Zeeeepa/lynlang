@@ -1,12 +1,12 @@
 // Zen Type Checker
 // This module performs type checking and inference on the AST
 
-{ core } = @std.core
-{ vec } = @std.vec
-{ string } = @std.string
-{ map } = @std.map
-{ parser } = @std.compiler.parser
-{ errors } = @std.compiler.errors
+core = @std.core
+{ Vec, DynVec } = @std.collections
+string = @std.string
+map = @std.map
+parser = @std.parser
+errors = @std.errors
 
 // Import AST types from parser
 AstNode := parser.AstNode
@@ -14,50 +14,50 @@ AstNode := parser.AstNode
 // Type representation
 Type:  
     // Primitive types
-    | I8 | I16 | I32 | I64
-    | U8 | U16 | U32 | U64
-    | F32 | F64
-    | Bool
-    | Char
-    | Void
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64,
+    Bool,
+    Char,
+    Void,
     
     // String type
-    | String
+    String,
     
     // Pointer type
-    | Ptr(inner: Box<Type>)
+    Ptr: {inner: Box<Type>},
     
     // Array type
-    | Array(element: Box<Type>, size: Option<usize>)
+    Array: {element: Box<Type>, size: Option<usize>},
     
     // Vector type
-    | Vec(element: Box<Type>)
+    DynVec: {element: Box<Type>},
     
     // Function type
-    | Function(params: Vec<Type>, return_type: Box<Type>)
+    Function: {params: DynVec<Type>, return_type: Box<Type>},
     
     // Struct type
-    | Struct(name: string, fields: Vec<(string, Type)>)
+    Struct: {name: string, fields: DynVec<(string, Type)>},
     
     // Enum type
-    | Enum(name: string, variants: Vec<EnumVariant>)
+    Enum: {name: string, variants: DynVec<EnumVariant>},
     
     // Generic type
-    | Generic(name: string, constraints: Vec<TypeConstraint>)
+    Generic: {name: string, constraints: DynVec<TypeConstraint>},
     
     // Type variable (for inference)
-    | TypeVar(id: u32)
+    TypeVar: {id: u32},
     
     // Unknown type (needs inference)
-    | Unknown
+    Unknown,
     
     // Error type
-    | Error(msg: string)
+    Error: {msg: string}
 
 // Enum variant representation
 EnumVariant: {
     name: string,
-    fields: Option<Vec<Type>>,
+    fields: Option<DynVec<Type>>,
 }
 
 // Type constraints for generics
@@ -76,7 +76,7 @@ TypeEnv: {
 // Type checker state
 TypeChecker: {
     env: TypeEnv,
-    errors: Vec<errors.Diagnostic>,
+    errors: DynVec<errors.Diagnostic>,
     type_var_counter: u32,
     substitutions: Map<u32, Type>,
 }
@@ -90,14 +90,14 @@ new_type_checker = () TypeChecker   {
             types: map.new<string, Type>(),
             parent: Option<Ptr<TypeEnv>>.None,
         },
-        errors: vec.new<errors.Diagnostic>(),
+        errors: DynVec.new(),
         type_var_counter: 0,
         substitutions: map.new<u32, Type>(),
     }
 }
 
 // Check types for an entire module
-check_module = (checker: Ptr<TypeChecker>, module: Vec<AstNode>) Result<(), Vec<errors.Diagnostic>> {
+check_module = (checker: Ptr<TypeChecker>, module: DynVec<AstNode>) Result<(), DynVec<errors.Diagnostic>> {
     // First pass: collect type definitions
     for node in module {
         match node {
@@ -284,7 +284,7 @@ type_to_string = (t: Type) string   {
                 | Some(s) { string.format("[{ }}; {}]", type_to_string(*elem), s)
                 | None { string.format("[{ }}]", type_to_string(*elem))
         }
-        | Type.Vec(elem) { string.format("Vec<{ }}>", type_to_string(*elem))
+        | Type.DynVec(elem) { string.format("DynVec<{ }}>",, type_to_string(*elem))
         | Type.Unknown { "?" }
         | Type.Error(msg) { string.format("error: { }}", msg)
         | _ { "complex type" }
@@ -300,11 +300,11 @@ is_bool = (t: Type) bool   {
 }
 
 // Helper functions (stubs for now)
-register_struct_type = (checker: Ptr<TypeChecker>, name: string, fields: Vec<parser.StructField>, generics: Vec<string>) void   {
+register_struct_type = (checker: Ptr<TypeChecker>, name: string, fields: DynVec<parser.StructField>, generics: DynVec<string>) void   {
     // TODO: Implement
 }
 
-register_enum_type = (checker: Ptr<TypeChecker>, name: string, variants: Vec<parser.EnumVariant>, generics: Vec<string>) void   {
+register_enum_type = (checker: Ptr<TypeChecker>, name: string, variants: DynVec<parser.EnumVariant>, generics: DynVec<string>) void   {
     // TODO: Implement
 }
 
@@ -312,7 +312,7 @@ register_type_alias = (checker: Ptr<TypeChecker>, name: string, type: Type) void
     checker.env.types.insert(name, type)
 }
 
-register_function = (checker: Ptr<TypeChecker>, name: string, params: Vec<parser.Parameter>, return_type: Option<Type>, is_generic: bool) void   {
+register_function = (checker: Ptr<TypeChecker>, name: string, params: DynVec<parser.Parameter>, return_type: Option<Type>, is_generic: bool) void   {
     // TODO: Implement
 }
 
@@ -322,7 +322,7 @@ lookup_variable = (checker: Ptr<TypeChecker>, name: string) Type   {
         | None { Type.Unknown }
 }
 
-check_function_call = (checker: Ptr<TypeChecker>, func: Ptr<AstNode>, args: Vec<AstNode>) Type   {
+check_function_call = (checker: Ptr<TypeChecker>, func: Ptr<AstNode>, args: DynVec<AstNode>) Type   {
     // TODO: Implement
     Type.Unknown
 }
@@ -337,7 +337,7 @@ check_if_expr = (checker: Ptr<TypeChecker>, condition: Ptr<AstNode>, then_branch
     Type.Unknown
 }
 
-check_block = (checker: Ptr<TypeChecker>, statements: Vec<AstNode>) Type   {
+check_block = (checker: Ptr<TypeChecker>, statements: DynVec<AstNode>) Type   {
     // TODO: Implement
     Type.Unknown
 }
@@ -358,5 +358,5 @@ add_error = (checker: Ptr<TypeChecker>, msg: string) void   {
         },
         context: Option<errors.ErrorContext>.None,
     }
-    checker.errors.push(diagnostic)
+    DynVec.push(&checker.errors, diagnostic)
 }

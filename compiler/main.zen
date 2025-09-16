@@ -1,16 +1,16 @@
 // Zen Language Self-Hosted Compiler
 // Main entry point for the self-hosted compiler
 
-{ core } = @std.core
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ process } = @std.process
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ c_backend } = @std.compiler.c_backend
-{ llvm_backend } = @std.compiler.llvm_backend
-{ type_checker } = @std.compiler.type_checker
+core = @std.core
+io = @std.io
+fs = @std.fs
+string = @std.string
+process = @std.process
+lexer = @std.lexer
+parser = @std.parser
+c_backend = @std.c_backend
+llvm_backend = @std.llvm_backend
+type_checker = @std.type_checker
 
 // Compiler options
 CompilerOptions := {

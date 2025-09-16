@@ -3,7 +3,8 @@
 // This is the main entry point for the self-hosted compiler
 
 // Module-level imports (correct syntax - no comptime blocks)
-{ io, fs, string, vec, core, path, process, result } = @std
+{ io, fs, string, core, path, process, result } = @std
+{ Vec, DynVec } = @std.collections
 
 // Compiler pipeline stages
 CompilerStage:  
@@ -151,7 +152,7 @@ Type:
     .Slice: { element: Box<Type> } 
     .Tuple: { elements: DynVec<Type> } 
     .Struct: { name: string, fields: DynVec<Field> } 
-    .Enum: { name: string, variants: vec<Variant> } 
+    .Enum: { name: string, variants: DynVec<Variant> } 
     .Function: { params: DynVec<Type>, return_type: Box<Type> } 
     .Generic: { name: string, constraints: DynVec<string> } 
     .Reference: { mutable: bool, inner: Box<Type> } 
@@ -170,11 +171,11 @@ compiler_new = (config: CompilerConfig) Compiler   {
     return Compiler {
         config = config,
         source_code = "",
-        tokens = DynVec.new<Token>(),
+        tokens = DynVec.new(),
         ast = Option.None,
         type_env = TypeEnvironment {
             types = hashmap.new<string, Type>(),
-            scopes = vec.new<Scope>(),
+            scopes = DynVec.new(),
             current_scope = 0,
         },
         ir_code = "",
@@ -192,8 +193,8 @@ compile = (compiler: *Compiler) CompilationResult {
         | .Err(err) { return CompilationResult {
             success = false,
             output_path = "",
-            warnings = vec.new<string>(),
-            errors = vec.of(string.format("Failed to read input file: {}", err)),
+            warnings = DynVec.new(),
+            errors = DynVec.from([string.format("Failed to read input file: {}", err)]),
             stats = empty_stats(),
         }}
     
@@ -260,8 +261,8 @@ compile = (compiler: *Compiler) CompilationResult {
             return CompilationResult {
                 success = true,
                 output_path = output_path,
-                warnings = vec.new<string>(),  // TODO: Collect warnings
-                errors = vec.new<string>(),
+                warnings = DynVec.new(),  // TODO: Collect warnings
+                errors = DynVec.new(),
                 stats = CompilationStats {
                     lines_processed = count_lines(compiler.source_code),
                     tokens_generated = compiler.tokens.len(),
@@ -276,7 +277,7 @@ compile = (compiler: *Compiler) CompilationResult {
 
 // Lexical analysis
 lex = (source: string) Result<DynVec<Token>, string>   {
-    tokens := vec.new<Token>()
+    tokens := DynVec.new()
     lexer := lexer_new(source)
     
     loop {
@@ -290,7 +291,7 @@ lex = (source: string) Result<DynVec<Token>, string>   {
 }
 
 // Parser
-parse = (tokens: vec<Token>) Result<ASTNode, string>   {
+parse = (tokens: DynVec<Token>) Result<ASTNode, string>   {
     parser := parser_new(tokens)
     return parser_parse_program(&parser)
 }
@@ -356,9 +357,9 @@ compilation_error = (err: string, compiler: *Compiler) CompilationResult   {
     return CompilationResult {
         success = false,
         output_path = "",
-        warnings = vec.new<string>(),
-        errors = vec.of(string.format("Error in {} stage: {}", 
-                                      compiler.current_stage, err)),
+        warnings = DynVec.new(),
+        errors = DynVec.from([string.format("Error in {} stage: {}", 
+                                      compiler.current_stage, err)]),
         stats = empty_stats(),
     }
 }

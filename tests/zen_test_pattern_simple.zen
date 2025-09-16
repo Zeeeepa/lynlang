@@ -1,5 +1,5 @@
 // Simple pattern matching test
-{ io } = @std.io
+io = @std.io
 
 main = () i32   {
     io.print("=== Pattern Matching Test ===\n");

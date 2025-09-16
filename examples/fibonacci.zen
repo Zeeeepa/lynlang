@@ -1,7 +1,7 @@
 // Fibonacci sequence example using Zen stdlib
 
-{ io } = @std.io
-{ core } = @std.core
+io = @std.io
+core = @std.core
 
 // Calculate fibonacci number recursively
 fib_recursive = (n: i32) i32 {

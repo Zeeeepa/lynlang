@@ -1,13 +1,13 @@
 // Zen Language Server Protocol Implementation
 // Provides IDE support for Zen language files
 
-{ core } = @std.core
-{ io } = @std.io
-{ json } = @std.json
-{ net } = @std.net
-{ fs } = @std.fs
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
+core = @std.core
+io = @std.io
+json = @std.json
+net = @std.net
+fs = @std.fs
+lexer = @std.lexer
+parser = @std.parser
 
 // LSP Message Types
 LSPMessage: {

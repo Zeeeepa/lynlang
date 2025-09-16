@@ -1,7 +1,8 @@
 // Self-hosted Zen Parser
 // This module parses tokens into an AST
 
-{ build, core, vec, string, lexer, errors } = @std
+{ build, core, string, lexer, errors } = @std
+{ Vec, DynVec } = @std.collections
 // Import token types from lexer
 Token := lexer.Token
 TokenKind := lexer.TokenKind
@@ -30,7 +31,7 @@ AstNode:
     UnaryOp: {op: UnaryOperator, expr: Ptr<AstNode>},
     
     // Function call
-    Call: {func: Ptr<AstNode>, args: Vec<AstNode>},
+    Call: {func: Ptr<AstNode>, args: DynVec<AstNode>},
     
     // Member access
     MemberAccess: {object: Ptr<AstNode>, member: string},
@@ -39,16 +40,16 @@ AstNode:
     IndexAccess: {object: Ptr<AstNode>, index: Ptr<AstNode>},
     
     // Array literal
-    ArrayLit: {elements: Vec<AstNode>},
+    ArrayLit: {elements: DynVec<AstNode>},
     
     // Struct literal
-    StructLit: {name: string, fields: Vec<: {string, AstNode)>},
+    StructLit: {name: string, fields: DynVec<: {string, AstNode)>},
     
     // Block expression
-    Block: {statements: Vec<AstNode>},
+    Block: {statements: DynVec<AstNode>},
     
     // Pattern match expression : {replaces if/else and match)
-    PatternMatch: {expr: Ptr<AstNode>, arms: Vec<MatchArm>},
+    PatternMatch: {expr: Ptr<AstNode>, arms: DynVec<MatchArm>},
     
     // Loop expression
     Loop: {condition: Option<Ptr<AstNode>>, body: Ptr<AstNode>},
@@ -66,19 +67,19 @@ AstNode:
     VarDecl: {name: string, type_annotation: Option<Type>, value: Option<Ptr<AstNode>>, is_mutable: bool},
     
     // Function declaration
-    FuncDecl: {name: string, params: Vec<Parameter>, return_type: Option<Type>, body: Ptr<AstNode>, is_generic: bool},
+    FuncDecl: {name: string, params: DynVec<Parameter>, return_type: Option<Type>, body: Ptr<AstNode>, is_generic: bool},
     
     // Struct declaration
-    StructDecl: {name: string, fields: Vec<StructField>, generics: Vec<string>},
+    StructDecl: {name: string, fields: DynVec<StructField>, generics: DynVec<string>},
     
     // Enum declaration
-    EnumDecl: {name: string, variants: Vec<EnumVariant>, generics: Vec<string>},
+    EnumDecl: {name: string, variants: DynVec<EnumVariant>, generics: DynVec<string>},
     
     // Trait declaration
-    TraitDecl: {name: string, methods: Vec<TraitMethod>, generics: Vec<string>},
+    TraitDecl: {name: string, methods: DynVec<TraitMethod>, generics: DynVec<string>},
     
     // Implementation
-    ImplBlock: {trait_name: Option<string>, type_name: string, methods: Vec<AstNode>},
+    ImplBlock: {trait_name: Option<string>, type_name: string, methods: DynVec<AstNode>},
     
     // Type alias
     TypeAlias: {name: string, type: Type},
@@ -87,7 +88,7 @@ AstNode:
     Import: {path: string, alias: Option<string>},
     
     // Module declaration
-    Module: {name: string, items: Vec<AstNode>},
+    Module: {name: string, items: DynVec<AstNode>},
     
     // Assignment
     Assignment: {target: Ptr<AstNode>, value: Ptr<AstNode>},
@@ -116,8 +117,8 @@ Type:
     Array: {element: Ptr<Type>, size: Option<u32>},
     Slice: {element: Ptr<Type>},
     Pointer: {pointee: Ptr<Type>, is_mutable: bool},
-    Function: {params: Vec<Type>, return_type: Ptr<Type>},
-    Generic: {name: string, constraints: Vec<string>},
+    Function: {params: DynVec<Type>, return_type: Ptr<Type>},
+    Generic: {name: string, constraints: DynVec<string>},
     Option: {inner: Ptr<Type},
     Result: {ok: Ptr<Type>, err: Ptr<Type>},
 
@@ -132,8 +133,8 @@ MatchArm: {
 Pattern: Wildcard,  
     Literal{ value: AstNode},
     Ident{ name: string},
-    Struct{ name: string, fields: Vec<string, Pattern>},
-    Tuple{ elements: Vec<Pattern>},
+    Struct{ name: string, fields: DynVec<string, Pattern>},
+    Tuple{ elements: DynVec<Pattern>},
     Enum{ variant: string, inner: Option<Ptr<Pattern>>},
 
 // Function parameter
@@ -160,12 +161,12 @@ EnumVariant: {
 
 EnumVariantData: 
     Unit,
-    Struct{fields: Vec<StructField>},
+    Struct{fields: DynVec<StructField>},
 
 // Trait method
 TraitMethod: {
     name: string,
-    params: Vec<Parameter>,
+    params: DynVec<Parameter>,
     return_type: Option<Type>,
     has_default_impl: bool,
     default_impl: Option<Ptr<AstNode>>,
@@ -173,9 +174,9 @@ TraitMethod: {
 
 // Parser state
 Parser: {
-    tokens: Vec<Token>,
+    tokens: DynVec<Token>,
     current: u32,
-    errors: Vec<ParseError>,
+    errors: DynVec<ParseError>,
     in_comptime: bool,  // Track if we're inside a comptime block
 }
 
@@ -186,7 +187,7 @@ ParseError: {
 }
 
 // Create a new parser
-parser_new = (tokens: Vec<Token>) Parser   {
+parser_new = (tokens: DynVec<Token>) Parser   {
     Parser{
         tokens: tokens,
         current: 0,
@@ -235,7 +236,7 @@ check = (parser: Ptr<Parser>, kind: TokenKind) bool   {
 }
 
 // Match and consume token if it matches
-match = (parser: Ptr<Parser>, kinds: Vec<TokenKind>) bool   {
+match = (parser: Ptr<Parser>, kinds: DynVec<TokenKind>) bool   {
     i := 0
     loop i < kinds.len() {
         check(parser, kinds[i]) ?
@@ -265,7 +266,7 @@ expect = (parser: Ptr<Parser>, kind: TokenKind, message: string) Token   {
 }
 
 // Parse program (entry point)
-parse_program = (parser: Ptr<Parser>) Vec<AstNode>   {
+parse_program = (parser: Ptr<Parser>) DynVec<AstNode>   {
     items := vec_new<AstNode>()
     
     loop !is_at_end(parser) {
@@ -280,7 +281,7 @@ parse_program = (parser: Ptr<Parser>) Vec<AstNode>   {
 parse_item = (parser: Ptr<Parser>) AstNode   {
     token := peek(parser)
     
-    // Check for module-level imports ({ name } = @std.module or name := build.import("module"))
+    // Check for module-level imports ({ name } = @std or name := build.import("module"))
     token.kind ?
         | TokenKind.Identifier(name) {
             next := peek_next(parser)
@@ -822,7 +823,7 @@ extract_identifier = (token: Token) string   {
         | _ { return "" }
 }
 
-parse_generic_params = (parser: Ptr<Parser>) Vec<string>   {
+parse_generic_params = (parser: Ptr<Parser>) DynVec<string>   {
     generics := vec_new<string>()
     
     check(parser, TokenKind.Less) ? {
@@ -846,7 +847,7 @@ parse_generic_params = (parser: Ptr<Parser>) Vec<string>   {
     return generics
 }
 
-parse_parameters = (parser: Ptr<Parser>) Vec<Parameter>   {
+parse_parameters = (parser: Ptr<Parser>) DynVec<Parameter>   {
     params := vec_new<Parameter>()
     
     expect(parser, TokenKind.LeftParen, "Expected '(' for parameters")
@@ -1654,7 +1655,7 @@ ptr_new = <T>(value: T) Ptr<T> {
     return @std.ptr_of(value)
 }
 
-vec_new = <T>() Vec<T> {
+vec_new = <T>() DynVec<T> {
     // In real implementation, would create new vector
-    return Vec<T>{}
+    return DynVec<T>{}
 }

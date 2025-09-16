@@ -1,18 +1,18 @@
 // Test runner for self-hosted Zen compiler
 
-{ io } = @std.io
-{ fs } = @std.fs
-{ path } = @std.path
-{ process } = @std.process
-{ string } = @std.string
-{ vec } = @std.vec
-{ result } = @std.result
+io = @std.io
+fs = @std.fs
+path = @std.path
+process = @std.process
+string = @std.string
+{ Vec, DynVec } = @std.collections
+result = @std.result
 
 // Import compiler for testing
-{ compiler } = @std.compiler.compiler
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
+compiler = @std.compiler.compiler
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
 
 // Test case structure
 TestCase: {
@@ -42,8 +42,8 @@ TestSuite: {
 create_suite = (name: string) TestSuite   {
     return TestSuite {
         name: name,
-        tests: vec.new<TestCase>(),
-        results: vec.new<TestResult>(),
+        tests: DynVec.new<TestCase>(),
+        results: DynVec.new<TestResult>(),
     }
 }
 

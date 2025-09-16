@@ -1,8 +1,8 @@
 // Build script for the full_demo project
 // This script is executed at compile time
 
-{ io } = @std.io
-{ build } = @std.build
+io = @std.io
+build = @std.build
 
 @comptime {
     // Set build configuration

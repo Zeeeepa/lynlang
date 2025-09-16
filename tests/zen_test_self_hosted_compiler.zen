@@ -2,17 +2,17 @@
 // Tests the complete compilation pipeline
 
 // Module-level imports - correct syntax
-{ io } = @std.io
-{ core } = @std.core
-{ test } = @std.test
-{ string } = @std.string
+io = @std.io
+core = @std.core
+test = @std.test
+string = @std.string
 
 // Import compiler modules
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
-{ symbol_table } = @std.compiler.symbol_table
-{ codegen } = @std.compiler.codegen
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
+symbol_table = @std.symbol_table
+codegen = @std.codegen
 
 // Test compilation of simple program
 test_compile_simple = () bool   {
@@ -61,7 +61,7 @@ test_compile_simple = () bool   {
 
 // Test compilation with imports
 test_compile_with_imports = () bool   {
-    source := "{ io } = @std.io\n\nmain = () i32 {\n    io.print(\"Hello\")\n    return 0\n}"
+    source := "io = @std.io\n\nmain = () i32 {\n    io.print(\"Hello\")\n    return 0\n}"
     
     // Full pipeline
     tokens := lexer.tokenize(source)

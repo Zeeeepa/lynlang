@@ -1,7 +1,7 @@
 // ZenLang CLI tool
 // Main entry point for zen command
 
-{ build } = @std.build
+build = @std.build
 std := build.import("std")
 Build := std.Build
 fs := build.import("fs")

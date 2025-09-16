@@ -1,9 +1,9 @@
 // Self-hosted Zen Lexer
 // This module tokenizes Zen source code
 
-{ build } = @std.build
+build = @std.build
 core := build.import("core")
-vec := build.import("vec")
+{ Vec, DynVec } = @std.collections
 string := build.import("string")
 char := build.import("char")
 
@@ -34,7 +34,7 @@ Lexer: {
     pos: u32,
     line: u32,
     column: u32,
-    tokens: Vec<Token>,
+    tokens: DynVec<Token>,
 }
 
 // Helper function to create simple tokens (operators, punctuation)
@@ -68,7 +68,7 @@ lexer_new = (source: string) Lexer   {
         pos: 0,
         line: 1,
         column: 1,
-        tokens: vec_new<Token>(),
+        tokens: DynVec.new(),
     }
 }
 
@@ -575,10 +575,10 @@ next_token = (lexer: Ptr<Lexer>) Token   {
 
 
 // Tokenize entire source
-tokenize = (lexer: Ptr<Lexer>) Vec<Token>   {
+tokenize = (lexer: Ptr<Lexer>) DynVec<Token>   {
     loop {
         token := next_token(lexer)
-        lexer.tokens.push(token)
+        DynVec.push(&lexer.tokens, token)
         
         token.kind ?
             | TokenKind.Eof { break }

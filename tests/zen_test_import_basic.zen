@@ -2,9 +2,9 @@
 // Demonstrates correct import usage
 
 // Imports at module level (NOT in comptime)
-{ io } = @std.io
-{ core } = @std.core
-{ math } = @std.math
+io = @std.io
+core = @std.core
+math = @std.math
 
 // Main test function
 main = () i32   {

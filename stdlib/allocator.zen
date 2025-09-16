@@ -1,7 +1,7 @@
 // Core allocator trait for colorless concurrent/sync execution
 // Based on the design in agent/zen-allocator-concurrent.md
 
-{ build } = @std.build
+build = @std.build
 std := build.import("std")
 
 // Continuation type for concurrent execution

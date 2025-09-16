@@ -3,9 +3,9 @@
 // Execution mode determined by allocator - no function coloring
 // No function coloring - concurrency is an allocator property
 
-{ core } = @std.core
-{ mem } = @std.mem
-{ thread } = @std.thread
+core = @std.core
+mem = @std.mem
+thread = @std.thread
 
 // Task represents a computation that produces a value of type T
 Task<T> = {

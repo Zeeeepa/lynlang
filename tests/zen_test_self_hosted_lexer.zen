@@ -1,8 +1,8 @@
 // Test suite for self-hosted lexer
 // Tests the lexer implementation written in Zen
 
-{ core } = @std.core
-{ io } = @std.io
+core = @std.core
+io = @std.io
 
 // Import the lexer (when module system supports it)
 // For now, we'll test basic concepts

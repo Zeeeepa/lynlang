@@ -1,9 +1,9 @@
 // zen_diagnostics.zen - LSP diagnostics for Zen language
 
-{ build } = @std.build
+build = @std.build
 io := build.import("io")
 string := build.import("string")
-vec := build.import("vec")
+{ Vec, DynVec } = @std.collections
 
 // Import compiler modules for analysis
 lexer := build.import("compiler/lexer")
@@ -12,7 +12,7 @@ type_checker := build.import("compiler/type_checker")
 errors := build.import("compiler/errors")
 
 // Diagnostic severity levels (LSP standard)
-DiagnosticSeverity: Error | Warning | Information | Hint
+DiagnosticSeverity: Error, Warning, Information, Hint
 
 // Diagnostic structure (LSP standard)
 Diagnostic: {
@@ -59,7 +59,7 @@ new_analyzer = (source: string, uri: string) DiagnosticAnalyzer {
     DiagnosticAnalyzer {
         source_code: source,
         file_uri: uri,
-        diagnostics: vec.new<Diagnostic>(),
+        diagnostics: DynVec.new<Diagnostic>(),
     }
 }
 
@@ -280,8 +280,8 @@ perform_type_checking = (analyzer: Ptr<DiagnosticAnalyzer>) void {
                                 code: Some("type_error"),
                                 source: "zen_type_checker",
                                 message: error.message,
-                                tags: vec.new<DiagnosticTag>(),
-                                related_information: vec.new<DiagnosticRelatedInformation>(),
+                                tags: DynVec.new<DiagnosticTag>(),
+                                related_information: DynVec.new<DiagnosticRelatedInformation>(),
                             }
                         )
                     })
@@ -302,8 +302,8 @@ create_error_diagnostic = (message: string, line: u32, start_col: u32, end_col: 
         code: None,
         source: "zen_diagnostics",
         message: message,
-        tags: vec.new<DiagnosticTag>(),
-        related_information: vec.new<DiagnosticRelatedInformation>(),
+        tags: DynVec.new<DiagnosticTag>(),
+        related_information: DynVec.new<DiagnosticRelatedInformation>(),
     }
 }
 
@@ -317,13 +317,13 @@ create_warning_diagnostic = (message: string, line: u32, start_col: u32, end_col
         code: None,
         source: "zen_diagnostics",
         message: message,
-        tags: vec.new<DiagnosticTag>(),
-        related_information: vec.new<DiagnosticRelatedInformation>(),
+        tags: DynVec.new<DiagnosticTag>(),
+        related_information: DynVec.new<DiagnosticRelatedInformation>(),
     }
 }
 
 with_tag = (diag: Diagnostic, tag: DiagnosticTag) Diagnostic {
-    vec.push(diag.tags, tag)
+    DynVec.push(diag.tags, tag)
     return diag
 }
 
@@ -334,7 +334,7 @@ with_suggestion = (diag: Diagnostic, suggestion: string) Diagnostic {
 }
 
 add_diagnostic = (analyzer: Ptr<DiagnosticAnalyzer>, diag: Diagnostic) void {
-    vec.push(analyzer.diagnostics, diag)
+    DynVec.push(analyzer.diagnostics, diag)
 }
 
 // Check if a line is inside a function (simple heuristic)
@@ -427,11 +427,11 @@ main = () i32 {
     // Test with sample code
     test_code := "
 // Test file
-{ io } = @std.io
+io = @std.io
 
 main = () i32 {
     // This would be an error:
-    // { bad } = @std.bad  // Import inside function
+    // bad = @std.bad  // Import inside function
     
     x := 42
     y := x + 1
@@ -455,7 +455,7 @@ needs_return = () i32 {
     diagnostics := analyze(&analyzer)
     
     io.print("Found ")
-    io.print_int(vec.len(diagnostics))
+    io.print_int(DynVec.len(diagnostics))
     io.print(" diagnostic(s):\n\n")
     
     diagnostics.loop((diag) => {

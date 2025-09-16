@@ -1,25 +1,25 @@
 // test_import_system_complete.zen - Comprehensive import system test
 
 // Test 1: Standard library imports (correct syntax)
-{ io } = @std.io
-{ core } = @std.core
-{ string } = @std.string
-{ vec } = @std.vec
-{ math } = @std.math
+io = @std.io
+core = @std.core
+string = @std.string
+vec = @std.vec
+math = @std.math
 
 // Test 2: Nested module paths
-{ io_enhanced } = @std.io_enhanced
-{ test_framework } = @std.test_framework
+io_enhanced = @std.io_enhanced
+test_framework = @std.test_framework
 
 // Test 3: Build system imports (if available)
 // custom := build.import("custom_module")
 
 // Test 4: Compiler module imports (for self-hosting)
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
-{ codegen } = @std.compiler.codegen
-{ errors } = @std.compiler.errors
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
+codegen = @std.codegen
+errors = @std.errors
 
 // Test function to verify imports work correctly
 test_std_imports = () bool   {
@@ -35,7 +35,7 @@ test_std_imports = () bool   {
     io.print("  ✓ string module accessible\n")
     
     // Test vec module
-    // v := vec.new<i32>()  // Would work if vec module fully implemented
+    // v := DynVec.new<i32>()  // Would work if vec module fully implemented
     io.print("  ✓ vec module accessible\n")
     
     return true
@@ -50,7 +50,7 @@ test_compiler_imports = () bool   {
     io.print("  ✓ lexer module accessible\n")
     
     // Test parser
-    // tokens := vec.new<lexer.Token>()
+    // tokens := DynVec.new<lexer.Token>()
     // p := parser.new_parser(tokens)
     io.print("  ✓ parser module accessible\n")
     
@@ -109,10 +109,10 @@ test_import_errors = () bool   {
     io.print("Testing import error scenarios (via comments)...\n")
     
     // This would fail: imports inside function
-    // BAD: { test } = @std.test
+    // BAD: test = @std.test
     
     // This would fail: imports inside comptime block
-    // BAD: @comptime { { x } = @std.x }
+    // BAD: @comptime { x = @std.x }
     
     // This would fail: invalid module path
     // BAD: invalid := @not_a_module

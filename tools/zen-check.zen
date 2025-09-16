@@ -1,10 +1,10 @@
 // Zen-Check: Syntax checker and linter for Zen language
 // Written in Zen for self-hosting
 
-{ io } = @std.io
-{ string } = @std.string
-{ core } = @std.core
-{ fs } = @std.fs
+io = @std.io
+string = @std.string
+core = @std.core
+fs = @std.fs
 check_file = (filepath: string) i32   {
     // Read the file content
     content_result := fs.read_file(filepath)

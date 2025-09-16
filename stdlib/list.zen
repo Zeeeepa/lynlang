@@ -1,8 +1,8 @@
 // Linked list implementation for Zen
 // Provides a simple linked list data structure
 
-{ mem } = @std.mem
-{ core } = @std.core
+mem = @std.mem
+core = @std.core
 
 // Node in the linked list
 ListNode<T>: {

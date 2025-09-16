@@ -1,10 +1,10 @@
 // Comprehensive test suite for the Zen lexer
 // Tests all token types and edge cases
 
-{ lexer } = @std.compiler.lexer_enhanced
-{ token } = @std.compiler.token_enhanced
-{ io } = @std.io
-{ assert } = @std.assert
+{ lexer } = @std
+{ token } = @std
+io = @std.io
+assert = @std.assert
 
 // Test helper to verify token
 verify_token = (tok: token:Token, expected_type: token:TokenType, expected_value: String) bool   {

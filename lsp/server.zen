@@ -1,17 +1,17 @@
 // Zen Language Server Protocol Implementation
 // Provides IDE support for Zen language
 
-{ core } = @std.core
-{ io } = @std.io
-{ json } = @std.json
-{ net } = @std.net
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ string } = @std.string
-{ fs } = @std.fs
+core = @std.core
+io = @std.io
+json = @std.json
+net = @std.net
+{ Vec, DynVec } = @std.collections
+hashmap = @std.hashmap
+string = @std.string
+fs = @std.fs
 
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
+lexer = @std.lexer
+parser = @std.parser
 
 // LSP Message Types
 Message: {

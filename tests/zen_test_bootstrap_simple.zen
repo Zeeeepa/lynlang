@@ -1,10 +1,10 @@
 // Simple Bootstrap Compiler Test
 // This test validates basic functionality without complex features
 
-{ core } = @std.core
-{ io } = @std.io
-{ math } = @std.math
-{ string } = @std.string
+core = @std.core
+io = @std.io
+math = @std.math
+string = @std.string
 
 // Test that imports work at module level (no comptime needed)
 test_module_imports = () bool   {

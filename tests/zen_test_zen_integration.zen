@@ -1,12 +1,12 @@
 // Comprehensive Integration Test for Zen
 // Tests all major language features working together
 
-{ core } = @std.core
-{ io } = @std.io
-{ math } = @std.math
-{ string } = @std.string
-{ vec } = @std.vec
-{ test } = @std.test
+core = @std.core
+io = @std.io
+math = @std.math
+string = @std.string
+vec = @std.vec
+test = @std.test
 
 // Test data structures
 Point: {

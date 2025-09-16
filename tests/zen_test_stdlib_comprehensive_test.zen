@@ -1,7 +1,7 @@
 // Comprehensive Standard Library Test Suite
 // Tests all stdlib modules per LANGUAGE_SPEC.md v1.1.0
 
-{ build } = @std.build
+build = @std.build
 testing := build.import("testing")
 { test, assert, assert_eq, assert_ne } := testing
 

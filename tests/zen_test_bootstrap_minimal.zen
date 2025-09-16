@@ -1,7 +1,7 @@
 // Minimal Bootstrap Compiler Test
 // Tests the absolute basics of the compiler
 
-{ io } = @std.io
+io = @std.io
 
 // Test basic arithmetic
 test_basic = () i32   {

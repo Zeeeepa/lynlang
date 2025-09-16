@@ -2,22 +2,22 @@
 // Tests both builtin (@std) and regular imports
 
 // Test 1: Builtin imports (correct syntax - no comptime)
-{ core } = @std.core
-{ io } = @std.io
-{ math } = @std.math
-{ string } = @std.string
-{ vec } = @std.vec
-{ fs } = @std.fs
+core = @std.core
+io = @std.io
+math = @std.math
+string = @std.string
+{ Vec, DynVec } = @std.collections
+fs = @std.fs
 
 // Test 2: Compiler module imports
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ codegen } = @std.compiler.codegen
+lexer = @std.lexer
+parser = @std.parser
+codegen = @std.codegen
 
 // Test 3: Import with build.import() pattern
-{ json } = @std.json
-{ network } = @std.network
-{ http } = @std.http
+json = @std.json
+network = @std.network
+http = @std.http
 
 // Test 4: Custom module imports
 // These would be user modules in a real project
@@ -39,7 +39,7 @@ test_imports = () bool   {
     combined := string.concat(hello, ", ", world, "!")
     
     // Test vector operations
-    numbers := vec.new<i32>()
+    numbers := DynVec.new<i32>()
     numbers.push(1)
     numbers.push(2)
     numbers.push(3)

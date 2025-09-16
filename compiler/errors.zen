@@ -7,11 +7,8 @@ Option<T>:
     Some(value: T)
     | None
 
-Vec<T> = {
-    data: Ptr<[?, T]>,
-    len: usize,
-    capacity: usize,
-}
+// Import collections
+{ Vec, DynVec } = @std.collections
 
 Ptr<T> = {
     value: T,
@@ -46,7 +43,7 @@ Diagnostic: {
     category: ErrorCategory,
     message: string,
     location: SourceLocation,
-    notes: Vec<string>,
+    notes: DynVec<string>,
     suggestion: Option<string>,
     code_snippet: Option<string>,
 }
@@ -55,7 +52,7 @@ Diagnostic: {
 ErrorContext: {
     source_file: string,
     source_content: string,
-    diagnostics: Vec<Diagnostic>,
+    diagnostics: DynVec<Diagnostic>,
     error_count: u32,
     warning_count: u32,
 }
@@ -65,7 +62,7 @@ create_context = (file: string, content: string) ErrorContext {
     ErrorContext {
         source_file: file,
         source_content: content,
-        diagnostics: Vec.new(),
+        diagnostics: DynVec.new(),
         error_count: 0,
         warning_count: 0,
     }
@@ -88,7 +85,7 @@ syntax_error = (message: string, loc: SourceLocation) Diagnostic {
         category: ErrorCategory.Syntax,
         message: message,
         location: loc,
-        notes: Vec.new(),
+        notes: DynVec.new(),
         suggestion: .None,
         code_snippet: .None,
     }
@@ -101,7 +98,7 @@ type_error = (message: string, loc: SourceLocation) Diagnostic {
         category: ErrorCategory.Type,
         message: message,
         location: loc,
-        notes: Vec.new(),
+        notes: DynVec.new(),
         suggestion: .None,
         code_snippet: .None,
     }
@@ -114,7 +111,7 @@ import_error = (message: string, loc: SourceLocation) Diagnostic {
         category: ErrorCategory.Import,
         message: message,
         location: loc,
-        notes: Vec.new(),
+        notes: DynVec.new(),
         suggestion: .None,
         code_snippet: .None,
     }
@@ -127,7 +124,7 @@ warning = (message: string, loc: SourceLocation) Diagnostic {
         category: ErrorCategory.Semantic,
         message: message,
         location: loc,
-        notes: Vec.new(),
+        notes: DynVec.new(),
         suggestion: .None,
         code_snippet: .None,
     }
@@ -255,7 +252,7 @@ should_stop_compilation = (ctx: ErrorContext) bool   {
 }
 
 // Helper functions (would be imported from string module in real implementation)
-split_lines = (s: string) Vec<string> {
+split_lines = (s: string) DynVec<string> {
     intrinsic("string_split_lines", s)
 }
 
@@ -280,14 +277,15 @@ print_line = (s: string) void {
 }
 
 // Vec implementation helpers
-Vec.new<T> = () Vec<T> {
+// Helper functions for DynVec
+DynVec.new<T> = () DynVec<T> {
     intrinsic("vec_new")
 }
 
-Vec.push<T> = (self: Ptr<Vec<T>>, item: T) void {
+DynVec.push<T> = (self: Ptr<DynVec<T>>, item: T) void {
     intrinsic("vec_push", self, item)
 }
 
-Vec.len<T> = (self: Vec<T>) usize {
+DynVec.len<T> = (self: DynVec<T>) usize {
     self.len
 }

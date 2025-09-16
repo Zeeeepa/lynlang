@@ -1,5 +1,5 @@
 // Basic test for import system
-{ io } = @std.io
+io = @std.io
 
 test_function = () i32   {
     io.print("Test function called\n");

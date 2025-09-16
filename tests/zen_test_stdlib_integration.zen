@@ -1,13 +1,13 @@
 // Standard Library Integration Test
 // Tests that stdlib modules work correctly together
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
-{ math } = @std.math
-{ time } = @std.time
-{ log } = @std.log
+core = @std.core
+io = @std.io
+string = @std.string
+{ Vec, DynVec } = @std.collections
+math = @std.math
+time = @std.time
+log = @std.log
 
 // Test string operations
 test_string_ops = () bool   {
@@ -37,7 +37,7 @@ test_string_ops = () bool   {
 
 // Test vector operations
 test_vector_ops = () bool   {
-    v := vec.new<i32>()
+    v := DynVec.new<i32>()
     
     // Add elements
     vec.push(v, 10)
@@ -145,7 +145,7 @@ test_logging = () bool   {
 // Test combined operations
 test_combined = () bool   {
     // Use multiple stdlib modules together
-    names := vec.new<string>()
+    names := DynVec.new<string>()
     vec.push(names, "Alice")
     vec.push(names, "Bob")
     vec.push(names, "Charlie")

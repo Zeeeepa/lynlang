@@ -1,11 +1,11 @@
 // Comprehensive Test Suite for Zen Language
 // Tests all major language features
 
-{ io } = @std.io
-{ string } = @std.string
-{ string } = @std.string
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
+io = @std.io
+string = @std.string
+{ Vec, DynVec } = @std.collections
+hashmap = @std.hashmap
+core = @std.core
 
 // Test lexer functionality
 test_lexer_basic = () void   {
@@ -228,31 +228,38 @@ test_arrays = () void   {
     test.assert_eq(sum, 22, "Array sum") // 1 + 2 + 10 + 4 + 5
 }
 
-// Test vectors
+// Test DynVec
 test_vectors = () void   {
-    // Create vector
-    v := vec.vec_new<i32>()
+    // Create DynVec
+    v := DynVec<i32>.new()
     
-    test.assert_true(vec.vec_is_empty(v), "New vector is empty")
-    test.assert_eq(vec.vec_len(v), 0, "New vector length")
+    test.assert_true(v.is_empty(), "New DynVec is empty")
+    test.assert_eq(v.len(), 0, "New DynVec length")
     
     // Push elements
-    vec.vec_push(ptr_of(v), 10)
-    vec.vec_push(ptr_of(v), 20)
-    vec.vec_push(ptr_of(v), 30)
+    v.push(10).unwrap()
+    v.push(20).unwrap()
+    v.push(30).unwrap()
     
-    test.assert_false(vec.vec_is_empty(v), "Vector not empty after push")
-    test.assert_eq(vec.vec_len(v), 3, "Vector length after push")
+    test.assert_false(v.is_empty(), "DynVec not empty after push")
+    test.assert_eq(v.len(), 3, "DynVec length after push")
     
     // Access elements
-    test.assert_eq(vec.vec_get(v, 0), Option.Some(10), "Vector get index 0")
-    test.assert_eq(vec.vec_get(v, 2), Option.Some(30), "Vector get index 2")
-    test.assert_eq(vec.vec_get(v, 5), Option.None, "Vector get out of bounds")
+    test.assert_eq(v.get(0).unwrap(), 10, "DynVec get index 0")
+    test.assert_eq(v.get(2).unwrap(), 30, "DynVec get index 2")
+    
+    // Get out of bounds should return error
+    result := v.get(5)
+    result ? 
+        | core.Result:Ok(_) { test.assert_fail("Expected get out of bounds to fail") }
+        | core.Result:Err(_) { test.assert_true(true, "DynVec get out of bounds properly errors") }
     
     // Pop element
-    popped := vec.vec_pop(ptr_of(v))
-    test.assert_eq(popped, Option.Some(30), "Vector pop")
-    test.assert_eq(vec.vec_len(v), 2, "Vector length after pop")
+    popped := v.pop()
+    test.assert_eq(popped, core.Option:Some(30), "DynVec pop")
+    test.assert_eq(v.len(), 2, "DynVec length after pop")
+    
+    v.free()
 }
 
 // Test hash maps

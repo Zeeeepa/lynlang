@@ -1,9 +1,9 @@
 // Comprehensive Language Tests
 // Tests all features from Language Spec v1.1.0
 
-{ test } = @std.testing.test
-{ assert } = @std.testing.assert
-{ expect_panic } = @std.testing.expect_panic
+test = @std.test
+assert = @std.assert
+expect_panic = @std.expect_panic
 
 // Test Pattern Matching (NO if/else/match keywords)
 test("pattern matching - basic value patterns") {
@@ -301,7 +301,7 @@ test("type reflection") {
 
 // Test Platform-specific code
 test("platform specific") {
-    { os_name } = @std.target.os ?
+    { os_name } = @std ?
         | .linux { "Linux" }
         | .windows { "Windows" }
         | .macos { "macOS" }
@@ -313,7 +313,7 @@ test("platform specific") {
 
 // Main test runner
 main = () void   {
-    { io } = @std.build.import("io")
+    { io } = @std("io")
     io.print("Running Comprehensive Language Tests\n")
     io.print("=====================================\n")
     

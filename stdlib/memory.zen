@@ -184,7 +184,7 @@ arena_new = (capacity: usize) Ptr<Arena>   {
 // Allocate from arena
 arena_allocate = <T>(arena: Ptr<Arena>, count: usize) Ptr<T> {
     size := count * @std.sizeof(T)
-    { alignment } = @std.alignof(T)
+    { alignment } = @std(T)
     
     // Align offset
     aligned_offset := (arena.offset + alignment - 1) & ~(alignment - 1)
@@ -193,7 +193,7 @@ arena_allocate = <T>(arena: Ptr<Arena>, count: usize) Ptr<T> {
         panic("Arena out of memory")
     }
     
-    { ptr } = @std.ptrcast(Ptr<T>, arena.buffer + aligned_offset)
+    { ptr } = @std(Ptr<T>, arena.buffer + aligned_offset)
     arena.offset = aligned_offset + size
     
     return ptr

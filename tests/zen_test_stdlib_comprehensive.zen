@@ -1,18 +1,18 @@
 // Comprehensive Standard Library Test Suite
 // Tests all major stdlib modules and their integration
 
-{ core } = @std.core
-{ string } = @std.string
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ math } = @std.math
-{ mem } = @std.mem
-{ result } = @std.result
-{ io } = @std.io
-{ file } = @std.file
-{ network } = @std.network
-{ concurrency } = @std.concurrency
-{ test } = @std.test
+core = @std.core
+string = @std.string
+vec = @std.vec
+hashmap = @std.hashmap
+math = @std.math
+mem = @std.mem
+result = @std.result
+io = @std.io
+file = @std.file
+network = @std.network
+concurrency = @std.concurrency
+test = @std.test
 
 // Test runner
 main = () i32   {
@@ -223,7 +223,7 @@ test_vec = () bool   {
     mut all_passed := true
     
     // Create vector
-    mut v := vec.new<i32>(10)
+    mut v := DynVec.new<i32>(10)
     
     // Test push
     vec.push(&mut v, 1)
