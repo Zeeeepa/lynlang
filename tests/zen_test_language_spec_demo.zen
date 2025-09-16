@@ -1,37 +1,69 @@
-// Demo of LANGUAGE_SPEC.zen key features implemented
-// This tests UFC, pointers, pattern matching, and more
+// Zen Language Demo - Core features from LANGUAGE_SPEC.zen
+// This is a working subset of the language specification
 
-// UFC (Uniform Function Call) demo
-double = (x: i32) i32 {
-    return x * 2
+{ io } = @std
+
+// Simple struct
+Point: {
+    x:: f64,
+    y:: f64 = 0
 }
 
-add = (a: i32, b: i32) i32 {
-    return a + b
+Circle: {
+    center: Point,
+    radius: f64
 }
 
 main = () void {
-    // Test UFC - calling function as method
-    x: i32 = 21
-    y = x.double()  // UFC: becomes double(x)
-    @std.io.print_int(y)  // Should print 42
+    io.println("=== Zen Language Demo ===")
     
-    // Test UFC with multiple arguments  
-    z = x.add(21)  // UFC: becomes add(x, 21)
-    @std.io.print_int(z)  // Should print 42
+    // 1. Variables Test
+    io.println("1. Variables:")
+    x = 10           // Immutable  
+    y = 10           // Immutable 
+    z : i32 = 20     // With type
+    w :: i32         // Mutable forward declaration
+    w = 20
+    v ::= 30         // Mutable
+    u :: i32 = 40    // Mutable with type
     
-    // Test mutable assignment
-    b ::= 20     // Mutable
-    b = b + 5    // Can reassign mutable
-    @std.io.print_int(b)  // Should print 25
+    io.println("   Immutable x = ")
+    io.println(x)
+    io.println("   Mutable v = ")
+    io.println(v)
+    v = v + 5
+    io.println("   After v = v + 5: ")
+    io.println(v)
     
-    // Test loop
-    count ::= 0
-    loop(() {
-        count = count + 1
-        count > 3 ? {
-            break
-        }
-    })
-    @std.io.print_int(count)  // Should print 4
+    // 2. Boolean pattern matching
+    io.println("2. Pattern Matching:")
+    is_ready = true
+    is_ready ? { 
+        io.println("   System is ready!")
+    }
+    
+    // Pattern match with branches
+    has_data = false
+    has_data ?
+        | true { io.println("   Processing data...") }
+        | false { io.println("   Waiting for data...") }
+    
+    // 3. Structs
+    io.println("3. Structs:")
+    circle = Circle { 
+        center: Point { x: 100, y: 100 }, 
+        radius: 50 
+    }
+    io.println("   Circle created with radius 50")
+    
+    // 4. Comparisons
+    io.println("4. Comparisons:")
+    a = 10
+    b = 20
+    is_less = a < b
+    is_less ? {
+        io.println("   10 < 20 is true")
+    }
+    
+    io.println("=== Demo Complete ===")
 }

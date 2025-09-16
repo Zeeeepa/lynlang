@@ -1,5 +1,20 @@
-// Test basic Zen compilation
+// Simple test for zenc4 compiler
+{ io } = @std
+
 main = () void {
-    io = @std.io
+    // Basic variables
+    x = 10
+    y = 20
+    
+    // Print values
     io.println("Hello from Zen!")
+    io.println("x value:")
+    io.println(x)
+    io.println("y value:")
+    io.println(y)
+    
+    // Arithmetic
+    sum = x + y
+    io.println("Sum:")
+    io.println(sum)
 }

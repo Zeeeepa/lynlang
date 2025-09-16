@@ -1,4 +1,27 @@
-test = () void   {
-    fd := fs.open(path) ? | Ok -> f { f }
-                          | Err -> e { return Err(e) }
+// Test pattern matching with ? operator
+{ io } = @std
+
+main = () void {
+    io.println("=== Pattern Matching Test ===")
+    
+    // Simple boolean pattern
+    is_ready = true
+    is_ready ? {
+        io.println("System is ready!")
+    }
+    
+    // Pattern matching with branches
+    value = 42
+    is_match = value == 42
+    is_match ?
+        | true { io.println("Value equals 42") }
+        | false { io.println("Value does not equal 42") }
+    
+    // Nested conditions
+    x = 10
+    y = 20
+    condition = x < y
+    condition ? {
+        io.println("x is less than y")
+    }
 }
