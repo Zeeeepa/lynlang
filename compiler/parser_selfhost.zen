@@ -273,7 +273,7 @@ is_at_end = (parser: Parser) bool   {
 current_token = (parser: Parser) Token   {
     parser.current < parser.token_count ?
         | true { return parser.tokens[parser.current] }
-        | false { { }
+        | false {
             // Return EOF token
             return Token {
                 type_: 0,  // EOF
@@ -296,7 +296,7 @@ peek = (parser: Parser) Token   {
     next_pos := parser.current + 1
     next_pos < parser.token_count ?
         | true { return parser.tokens[next_pos] }
-        | false { { }
+        | false {
             return Token {
                 type_: 0,  // EOF
                 value: 0,
@@ -317,7 +317,7 @@ check = (parser: Parser, type_: i32) bool   {
 consume = (parser: *Parser, type_: i32, message: RawPtr<i8>) Token   {
     check(*parser, type_) ?
         | true { return advance(parser) }
-        | false { { }
+        | false {
             // Error: expected token not found
             // In real implementation, would report error
             return current_token(*parser)
@@ -342,7 +342,7 @@ parse_program = (parser: *Parser) ProgramNode   {
     loop {
         is_at_end(*parser) ?
             | true { break }
-            | false { { }
+            | false {
                 // Check for import
                 current := current_token(*parser)
                 

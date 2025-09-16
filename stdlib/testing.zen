@@ -52,11 +52,11 @@ run_test = (suite: &mut TestSuite, name: string, test_fn: () bool) void {
     }
     
     passed ? 
-        | true { { }
+        | true {
             io.print("✓ PASS")
             suite.passed = suite.passed + 1
         }
-        | false { { }
+        | false {
             io.print("✗ FAIL")
             suite.failed = suite.failed + 1
         }
@@ -80,7 +80,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
     duration := time.since(start)
     
     result_val ?
-        | .Ok -> passed { { }
+        | .Ok -> passed {
             result := TestResult {
                 name: name,
                 passed: passed,
@@ -89,18 +89,18 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
             }
             
             passed ? 
-                | true { { }
+                | true {
                     io.print("✓ PASS")
                     suite.passed = suite.passed + 1
                 }
-                | false { { }
+                | false {
                     io.print("✗ FAIL")
                     suite.failed = suite.failed + 1
                 }
             
             vec.push(&mut suite.tests, result)
         }
-        | .Err -> msg { { }
+        | .Err -> msg {
             result := TestResult {
                 name: name,
                 passed: false,
@@ -142,28 +142,28 @@ print_summary = (suite: &TestSuite) void   {
     io.print("\n")
     
     (suite.failed > 0) ? 
-        | true { { }
+        | true {
             io.print("\nFailed tests:\n")
             i := 0
             loop (i < vec.len(suite.tests)) {
                 test := vec.get(suite.tests, i)
                 (!test.passed) ? 
-                    | true { { }
+                    | true {
                         io.print("  - ")
                         io.print(test.name)
                         test.error_message ? 
-                            | .Some -> msg { { }
+                            | .Some -> msg {
                                 io.print(": ")
                                 io.print(msg)
                             }
-                            | .None { { }}
+                            | .None {}
                         io.print("\n")
                     }
-                    | false { { }}
+                    | false {}
                 i = i + 1
             }
         }
-        | false { { }}
+        | false {}
     
     io.print("\n")
     (suite.failed == 0) ? 
@@ -187,7 +187,7 @@ assert_false = (condition: bool, message: string) Result<bool, string>   {
 assert_eq = <T>(actual: T, expected: T, message: string) Result<bool, string> {
     (actual == expected) ? 
         | true { Result<bool, string>.Ok(true) }
-        | false { { }
+        | false {
             msg := string.concat(message, " - Expected: ")
             msg = string.concat(msg, string.to_string(expected))
             msg = string.concat(msg, ", Got: ")

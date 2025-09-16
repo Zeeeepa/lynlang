@@ -24,9 +24,9 @@ FileMode:
 
 // File seek positions
 SeekFrom: 
-    Start -> offset: i64,
-    Current -> offset: i64,
-    End -> offset: i64,
+    Start(offset: i64),
+    Current(offset: i64),
+    End(offset: i64),
 
 // File metadata
 FileMetadata: {
@@ -52,9 +52,11 @@ open = (path: core.String, mode: FileMode) Result<File, core.String>  {
     flags := mode_to_flags(mode)
     fd := __sys_open(path.data, flags, 0o644)
     
-    if fd < 0 {
-        return Result<File, core.String>.Err(get_error_string(fd))
-    }
+    (fd < 0) ?
+        | true {
+            return Result<File, core.String>.Err(get_error_string(fd))
+        }
+        | false { }
     
     return Result<File, core.String>.Ok(File{
         fd: fd,
@@ -68,9 +70,11 @@ open = (path: core.String, mode: FileMode) Result<File, core.String>  {
 create = (path: core.String) Result<File, core.String>  {
     fd := __sys_open(path.data, O_CREAT | O_WRONLY | O_TRUNC, 0o644)
     
-    if fd < 0 {
-        return Result<File, core.String>.Err(get_error_string(fd))
-    }
+    (fd < 0) ?
+        | true {
+            return Result<File, core.String>.Err(get_error_string(fd))
+        }
+        | false { }
     
     return Result<File, core.String>.Ok(File{
         fd: fd,
@@ -82,9 +86,11 @@ create = (path: core.String) Result<File, core.String>  {
 
 // Read entire file contents as string
 read_to_string = (file: &mut File) Result<core.String, core.String>  {
-    if !file.is_open {
-        return Result<core.String, core.String>.Err("File is not open")
-    }
+    (!file.is_open) ?
+        | true {
+            return Result<core.String, core.String>.Err("File is not open")
+        }
+        | false { }
     
     // Get file size
     stat := get_metadata(file)

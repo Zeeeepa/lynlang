@@ -39,12 +39,12 @@ system_free = (ctx: RawPtr<void>, ptr: RawPtr<void>) void   {
 system_realloc = (ctx: RawPtr<void>, ptr: RawPtr<void>, new_size: i64) RawPtr<void> {
     // Simple realloc implementation
     new_ptr := malloc(new_size)
-    new_ptr != 0 && ptr != 0 ?
-        | true { { }
+    (new_ptr != 0 && ptr != 0) ?
+        | true {
             memcpy(new_ptr, ptr, new_size)
             free(ptr)
         }
-        | false { { }}
+        | false {}
     return new_ptr
 }
 
@@ -52,8 +52,8 @@ system_realloc = (ctx: RawPtr<void>, ptr: RawPtr<void>, new_size: i64) RawPtr<vo
 // Dynamic Array (Vec)
 // ==========================================
 
-Vec<T> = {
-    data: *T,
+Vec<T>: {
+    data: MutPtr<T>,
     len: i64,
     capacity: i64,
     allocator: Allocator,
@@ -80,29 +80,29 @@ vec_with_capacity<T>: (capacity: i64) Vec<T>  = {
     }
 }
 
-vec_push<T>: (vec: *Vec<T>, value: T) void  = {
+vec_push<T>: (vec: MutPtr<Vec<T>>, value: T) void = {
     // Check if we need to grow
-    vec.len >= vec.capacity ?
-        | true { { }
-            new_capacity := vec.capacity == 0 ? 
+    vec.val.len >= vec.val.capacity ?
+        | true {
+            new_capacity := vec.val.capacity == 0 ? 
                 | true { 8 }
-                | false { vec.capacity * 2 }
+                | false { vec.val.capacity * 2 }
             vec_grow(vec, new_capacity)
         }
-        | false { { }}
+        | false {}
     
-    // Add element
-    vec.data[vec.len] = value
-    vec.len = vec.len + 1
+    // Add element - would need proper array indexing
+    (vec.val.data.addr + vec.val.len * sizeof<T>()).val = value
+    vec.val.len = vec.val.len + 1
 }
 
 vec_pop<T>: (vec: *Vec<T>) Option<T>  = {
     vec.len > 0 ?
-        | true { { }
+        | true {
             vec.len = vec.len - 1
             return Option:Some(vec.data[vec.len])
         }
-        | false { { }
+        | false {
             return Option:None
         }
 }
@@ -115,11 +115,11 @@ vec_get<T>: (vec: *Vec<T>, index: i64) Option<T>  = {
 
 vec_set<T>: (vec: *Vec<T>, index: i64, value: T) bool  = {
     index >= 0 && index < vec.len ?
-        | true { { }
+        | true {
             vec.data[index] = value
             return true
         }
-        | false { { }
+        | false {
             return false
         }
 }
@@ -127,7 +127,7 @@ vec_set<T>: (vec: *Vec<T>, index: i64, value: T) bool  = {
 vec_grow<T>: (vec: *Vec<T>, new_capacity: i64) void  = {
     new_capacity <= vec.capacity ?
         | true { return }
-        | false { { }}
+        | false {}
     
     new_data := vec.allocator.realloc(
         vec.allocator.context,
@@ -145,22 +145,26 @@ vec_clear<T>: (vec: *Vec<T>) void  = {
 
 vec_free<T>: (vec: *Vec<T>) void  = {
     vec.data != 0 ?
-        | true { { }
+        | true {
             vec.allocator.free(vec.allocator.context, vec.data)
             vec.data = 0
             vec.len = 0
             vec.capacity = 0
         }
-        | false { { }}
+        | false {}
 }
 
 // Iterator support for Vec
-vec_iter<T> = (vec: *Vec<T>, func: (T) void) void {
-    i := 0
-    loop i < vec.len {
-        func(vec.data[i])
-        i = i + 1
-    }
+vec_iter<T> = (vec: Ptr<Vec<T>>, func: (T) void) void {
+    i ::= 0
+    loop(() {
+        i >= vec.val.len ?
+            | true { break }
+            | false {
+                func((vec.val.data.addr + i * sizeof<T>()).val)
+                i = i + 1
+            }
+    })
 }
 
 // ==========================================
@@ -207,7 +211,7 @@ hashmap_insert<K, V>: (map: *HashMap<K, V>, key: K, value: V) void  = {
     // Check load factor
     map.size * 4 >= map.capacity * 3 ?
         | true { hashmap_resize(map, map.capacity * 2) }
-        | false { { }}
+        | false {}
     
     hash := hashmap_hash(key)
     index := hash % map.capacity
@@ -215,12 +219,12 @@ hashmap_insert<K, V>: (map: *HashMap<K, V>, key: K, value: V) void  = {
     // Linear probing for collision resolution
     loop map.buckets[index].occupied {
         map.buckets[index].key == key ?
-            | true { { }
+            | true {
                 // Update existing key
                 map.buckets[index].value = value
                 return
             }
-            | false { { }}
+            | false {}
         
         index = (index + 1) % map.capacity
     }
@@ -242,14 +246,14 @@ hashmap_get<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
     loop map.buckets[index].occupied {
         map.buckets[index].key == key ?
             | true { return Option:Some(map.buckets[index].value) }
-            | false { { }}
+            | false {}
         
         index = (index + 1) % map.capacity
         
         // Check if we've wrapped around
         index == hash % map.capacity ?
             | true { break }
-            | false { { }}
+            | false {}
     }
     
     return Option:None
@@ -261,7 +265,7 @@ hashmap_remove<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
     
     loop map.buckets[index].occupied {
         map.buckets[index].key == key ?
-            | true { { }
+            | true {
                 value := map.buckets[index].value
                 map.buckets[index].occupied = false
                 map.size = map.size - 1
@@ -271,7 +275,7 @@ hashmap_remove<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
                 
                 return Option:Some(value)
             }
-            | false { { }}
+            | false {}
         
         index = (index + 1) % map.capacity
     }
@@ -294,7 +298,7 @@ hashmap_resize<K, V>: (map: *HashMap<K, V>, new_capacity: i64) void  = {
     loop i < old_capacity {
         old_buckets[i].occupied ?
             | true { hashmap_insert(map, old_buckets[i].key, old_buckets[i].value) }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     
@@ -347,13 +351,13 @@ string_append = (s: *String, other: RawPtr<i8>) void   {
     new_len := s.len + other_len
     
     new_len >= s.capacity ?
-        | true { { }
+        | true {
             new_capacity := new_len * 2
             new_data := s.allocator.realloc(s.allocator.context, s.data, new_capacity)
             s.data = new_data
             s.capacity = new_capacity
         }
-        | false { { }}
+        | false {}
     
     strcpy(s.data + s.len, other)
     s.len = new_len
@@ -362,76 +366,72 @@ string_append = (s: *String, other: RawPtr<i8>) void   {
 string_equals = (s1: String, s2: String) bool   {
     s1.len != s2.len ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     return strcmp(s1.data, s2.data) == 0
 }
 
 string_free = (s: *String) void   {
     s.data != 0 ?
-        | true { { }
+        | true {
             s.allocator.free(s.allocator.context, s.data)
             s.data = 0
             s.len = 0
             s.capacity = 0
         }
-        | false { { }}
+        | false {}
 }
 
 // ==========================================
 // Result and Option Types
 // ==========================================
 
-Option<T> = 
-    | Some(value: T)
-    | None
+Option<T>: .Some(T) | .None
 
-Result<T, E> = 
-    | Ok(value: T)
-    | Err(error: E)
+Result<T, E>: .Ok(T) | .Err(E)
 
-option_is_some<T>: (opt: Option<T>) bool  = {
+option_is_some<T>: (opt: Option<T>) bool = {
     opt ?
-        | Some(_) { return true }
-        | None { return false }
+        | .Some(_) { return true }
+        | .None { return false }
 }
 
 option_is_none<T>: (opt: Option<T>) bool  = {
     return !option_is_some(opt)
 }
 
-option_unwrap<T>: (opt: Option<T>) T  = {
+option_unwrap<T>: (opt: Option<T>) T = {
     opt ?
-        | Some(value) { return value }
-        | None { panic("Attempted to unwrap None") }
+        | .Some(value) { return value }
+        | .None { panic("Attempted to unwrap None") }
 }
 
-option_unwrap_or<T>: (opt: Option<T>, default: T) T  = {
+option_unwrap_or<T>: (opt: Option<T>, default: T) T = {
     opt ?
-        | Some(value) { return value }
-        | None { return default }
+        | .Some(value) { return value }
+        | .None { return default }
 }
 
-result_is_ok<T, E>: (res: Result<T, E>) bool  = {
+result_is_ok<T, E>: (res: Result<T, E>) bool = {
     res ?
-        | Ok(_) { return true }
-        | Err(_) { return false }
+        | .Ok(_) { return true }
+        | .Err(_) { return false }
 }
 
 result_is_err<T, E>: (res: Result<T, E>) bool  = {
     return !result_is_ok(res)
 }
 
-result_unwrap<T, E>: (res: Result<T, E>) T  = {
+result_unwrap<T, E>: (res: Result<T, E>) T = {
     res ?
-        | Ok(value) { return value }
-        | Err(_) { panic("Attempted to unwrap Err") }
+        | .Ok(value) { return value }
+        | .Err(_) { panic("Attempted to unwrap Err") }
 }
 
-result_unwrap_err<T, E>: (res: Result<T, E>) E  = {
+result_unwrap_err<T, E>: (res: Result<T, E>) E = {
     res ?
-        | Ok(_) { panic("Attempted to unwrap_err on Ok") }
-        | Err(error) { return error }
+        | .Ok(_) { panic("Attempted to unwrap_err on Ok") }
+        | .Err(error) { return error }
 }
 
 // ==========================================

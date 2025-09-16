@@ -51,19 +51,19 @@ read_file = (path: string) Result<string, FileError>   {
 process_file = (path: string) Result<i32, string>   {
     // Read file
     contents := read_file(path) ? | .Ok -> data { data }
-                                  | .Err -> .NotFound(p) { { }
+                                  | .Err -> .NotFound(p) {
                                       return .Err("File not found: $(p)")
                                   }
-                                  | .Err -> .PermissionDenied { { }
+                                  | .Err -> .PermissionDenied {
                                       return .Err("Permission denied")
                                   }
-                                  | .Err -> .IOError(msg) { { }
+                                  | .Err -> .IOError(msg) {
                                       return .Err("IO error: $(msg)")
                                   }
     
     // Parse the contents (assuming it's a number)
     value := parse_int(contents) ? | .Ok -> num { num }
-                                   | .Err -> err { { }
+                                   | .Err -> err {
                                        return .Err("Parse error: $(err.message)")
                                    }
     

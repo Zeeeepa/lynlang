@@ -77,13 +77,13 @@ test("generic functions with behaviors") {
         (0..len).loop((i) => {
             ((i+1)..len).loop((j) => {
                 cmp.compare(items.value[i], items.value[j]) > 0 ?
-                    | true { { }
+                    | true {
                         // Swap items
                         temp := items.value[i]
                         items.value[i] = items.value[j]
                         items.value[j] = temp
                     }
-                    | false { { }}
+                    | false {}
             })
         })
     }

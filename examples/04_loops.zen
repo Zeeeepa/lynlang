@@ -50,15 +50,15 @@ main = () void   {
     i := 0
     loop i < 10 {
         // Skip even numbers
-        (i % 2 == 0) ? | true { { }
+        (i % 2 == 0) ? | true {
             i = i + 1
             continue
         }
-        | false { { }}
+        | false {}
         
         // Stop at 7
         (i == 7) ? | true { break }
-                  | false { { }}
+                  | false {}
         
         io.print("  $(i)")
         i = i + 1
@@ -73,7 +73,7 @@ main = () void   {
         inner: loop j < 3 {
             // Break outer loop when i==1 and j==2
             (i == 1 && j == 2) ? | true { break outer }
-                                | false { { }}
+                                | false {}
             
             io.print("  ($(i),$(j))")
             j = j + 1
@@ -90,6 +90,6 @@ main = () void   {
         io.print("  Iteration $(n)\n")
         n = n + 1
         (n >= 3) ? | true { break }
-                  | false { { }}
+                  | false {}
     }
 }

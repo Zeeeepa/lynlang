@@ -85,7 +85,7 @@ run_test = (test: TestCase) TestResult   {
             
             // Check error pattern if specified
             if test.error_pattern? {
-                | some(pattern) { { }
+                | some(pattern) {
                     if string.contains(error_msg, pattern) {
                         io.print("✅\n")
                         return TestResult {
@@ -104,7 +104,7 @@ run_test = (test: TestCase) TestResult   {
                         }
                     }
                 }
-                | none { { }
+                | none {
                     io.print("✅\n")
                     return TestResult {
                         test: test,
@@ -137,7 +137,7 @@ run_test = (test: TestCase) TestResult   {
         
         // Run the compiled program if output is expected
         if test.expected_output? {
-            | some(expected) { { }
+            | some(expected) {
                 let output_file = "/tmp/zen_test_" + string.replace(test.name, " ", "_")
                 compiler.write_executable(comp, output_file)?
                 
@@ -171,7 +171,7 @@ run_test = (test: TestCase) TestResult   {
                     }
                 }
             }
-            | none { { }
+            | none {
                 io.print("✅\n")
                 return TestResult {
                     test: test,
@@ -216,7 +216,7 @@ run_suite = (suite: &mut TestSuite)  {
                 io.print("  • " + r.test.name + "\n")
                 if r.error? {
                     | some(err) { io.print("    Error: " + err + "\n") }
-                    | none { { }}
+                    | none {}
                 }
             }
         }

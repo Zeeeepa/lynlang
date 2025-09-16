@@ -1,13 +1,11 @@
 // Comprehensive FFI Builder Demo
 // Demonstrates the complete FFI builder pattern in Zenlang
 
-{ ffi } = @std.ffi
-{ io } = @std.io
-{ fs } = @std.fs
+{ ffi, io, fs } = @std
 
 // Define opaque types for FFI
-opaque SQLiteDB
-opaque SQLiteStmt
+SQLiteDB: opaque
+SQLiteStmt: opaque
 
 // Build SQLite3 bindings with complete feature set
 build_sqlite_bindings = () ffi.Library {

@@ -65,26 +65,32 @@ parse_args = (args: [string]) CompilerOptions   {
     }
     
     // Validate options
-    if opts.input_file == "") {
-        io.eprintln("Error: No input file specified")
-        print_help()
-        process.exit(1)
-    }
+    (opts.input_file == "") ?
+        | true {
+            io.eprintln("Error: No input file specified")
+            print_help()
+            process.exit(1)
+        }
+        | false { }
     
     // Default output file
-    if opts.output_file == "") {
-        if opts.backend == "c") {
-            opts.output_file = string.replace(opts.input_file, ".zen", ".c")
-        } else {
-            opts.output_file = string.replace(opts.input_file, ".zen", ".out")
+    (opts.output_file == "") ?
+        | true {
+            (opts.backend == "c") ?
+                | true {
+                    opts.output_file = string.replace(opts.input_file, ".zen", ".c")
+                }
+                | false {
+                    opts.output_file = string.replace(opts.input_file, ".zen", ".out")
+                }
         }
-    }
+        | false { }
     
     return opts
 }
 
 // Print help message
-print_help = () void   {
+print_help = () void {
     io.println("Zen Language Compiler")
     io.println("Usage: zen-compile [options] <input.zen>")
     io.println("")
@@ -98,86 +104,112 @@ print_help = () void   {
 }
 
 // Compile a Zen file
-compile_file = (opts: CompilerOptions) i32   {
-    if opts.verbose {
-        io.println("Compiling: " + opts.input_file)
-        io.println("Output: " + opts.output_file)
-        io.println("Backend: " + opts.backend)
-    }
+compile_file = (opts: CompilerOptions) i32 {
+    opts.verbose ?
+        | true {
+            io.println("Compiling: " + opts.input_file)
+            io.println("Output: " + opts.output_file)
+            io.println("Backend: " + opts.backend)
+        }
+        | false { }
     
     // Read input file
     source := fs.read_file(opts.input_file)
-    if source.is_error() {
-        io.eprintln("Error reading file: " + source.error())
-        return 1
-    }
+    source.is_error() ?
+        | true {
+            io.eprintln("Error reading file: " + source.error())
+            return 1
+        }
+        | false { }
     
     // Lexical analysis
-    if opts.verbose { io.println("Phase 1: Lexical analysis...") }
+    opts.verbose ? | true { io.println("Phase 1: Lexical analysis...") } | false { }
     tokens := lexer.tokenize(source.unwrap())
-    if tokens.is_error() {
-        io.eprintln("Lexer error: " + tokens.error())
-        return 1
-    }
+    tokens.is_error() ?
+        | true {
+            io.eprintln("Lexer error: " + tokens.error())
+            return 1
+        }
+        | false { }
     
     // Parsing
-    if opts.verbose { io.println("Phase 2: Parsing...") }
+    opts.verbose ? | true { io.println("Phase 2: Parsing...") } | false { }
     ast := parser.parse(tokens.unwrap())
-    if ast.is_error() {
-        io.eprintln("Parser error: " + ast.error())
-        return 1
-    }
+    ast.is_error() ?
+        | true {
+            io.eprintln("Parser error: " + ast.error())
+            return 1
+        }
+        | false { }
     
     // Type checking
-    if opts.verbose { io.println("Phase 3: Type checking...") }
+    opts.verbose ? | true { io.println("Phase 3: Type checking...") } | false { }
     typed_ast := type_checker.check(ast.unwrap())
-    if typed_ast.is_error() {
-        io.eprintln("Type error: " + typed_ast.error())
-        return 1
-    }
+    typed_ast.is_error() ?
+        | true {
+            io.eprintln("Type error: " + typed_ast.error())
+            return 1
+        }
+        | false { }
     
     // Code generation
-    if opts.verbose { io.println("Phase 4: Code generation...") }
+    opts.verbose ? | true { io.println("Phase 4: Code generation...") } | false { }
     output := generate_code(typed_ast.unwrap(), opts)
-    if output.is_error() {
-        io.eprintln("Codegen error: " + output.error())
-        return 1
-    }
+    output.is_error() ?
+        | true {
+            io.eprintln("Codegen error: " + output.error())
+            return 1
+        }
+        | false { }
     
     // Write output
-    if opts.verbose { io.println("Writing output...") }
+    opts.verbose ? | true { io.println("Writing output...") } | false { }
     result := fs.write_file(opts.output_file, output.unwrap())
-    if result.is_error() {
-        io.eprintln("Error writing output: " + result.error())
-        return 1
-    }
+    result.is_error() ?
+        | true {
+            io.eprintln("Error writing output: " + result.error())
+            return 1
+        }
+        | false { }
     
-    if opts.verbose {
-        io.println("Compilation successful!")
-    }
+    opts.verbose ?
+        | true {
+            io.println("Compilation successful!")
+        }
+        | false { }
     
     return 0
 }
 
 // Generate code based on backend
-generate_code = (ast: ASTNode, opts: CompilerOptions) Result<string>   {
-    if opts.backend == "c") {
-        backend := c_backend.new_c_backend()
-        return backend.generate(ast, opts.debug)
-    } else if opts.backend == "llvm") {
-        // Generate LLVM IR
-        module_name := string.basename(opts.input_file)
-        llvm_ir := llvm_backend.generate_llvm_from_ast(ast, module_name)
-        return Result.ok(llvm_ir)
-    } else if opts.backend == "wasm") {
-        return Result.error("WASM backend not yet implemented")
-    } else {
-        return Result.error("Unknown backend: " + opts.backend)
-    }
+generate_code = (ast: ASTNode, opts: CompilerOptions) Result<string> {
+    (opts.backend == "c") ?
+        | true {
+            backend := c_backend.new_c_backend()
+            return backend.generate(ast, opts.debug)
+        }
+        | false {
+            (opts.backend == "llvm") ?
+                | true {
+                    // Generate LLVM IR
+                    module_name := string.basename(opts.input_file)
+                    llvm_ir := llvm_backend.generate_llvm_from_ast(ast, module_name)
+                    return Result.ok(llvm_ir)
+                }
+                | false {
+                    (opts.backend == "wasm") ?
+                        | true {
+                            return Result.error("WASM backend not yet implemented")
+                        }
+                        | false {
+                            return Result.error("Unknown backend: " + opts.backend)
+                        }
+                }
+        }
 }
 
 // Main entry point
-main = (args: [string]) i32   {
+main = (args: [string]) i32 {
     // Parse command line arguments
     opts := parse_args(args)
     

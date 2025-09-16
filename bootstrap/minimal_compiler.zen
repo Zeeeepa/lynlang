@@ -2,25 +2,23 @@
 // This is a simplified compiler that can compile a subset of Zen
 // Goal: Eventually compile itself (self-hosting)
 
-{ io } = @std.io
-{ fs } = @std.fs
-{ core } = @std.core
+{ io, fs, core } = @std.io
 
 // Import compiler components
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ codegen } = @std.compiler.codegen
+{ lexer, parser, codegen } = @std.compiler
 
 // Compiler pipeline stages
-CompilerStage: Lexing
-    | Parsing  
-    | TypeChecking
-    | CodeGeneration
-    | Linking
+CompilerStage:
+    .Lexing |
+    .Parsing |
+    .TypeChecking |
+    .CodeGeneration |
+    .Linking
 
 // Compilation result
-CompileResult: Success(output: string)
-    | Error(stage: CompilerStage, message: string)
+CompileResult:
+    .Success { output: string } |
+    .Error { stage: CompilerStage, message: string }
 
 // Main compiler function
 compile = (source_file: string) CompileResult   {
@@ -30,14 +28,14 @@ compile = (source_file: string) CompileResult   {
     
     // Read source file
     source_result := fs.read_file(source_file)
-    source_result.is_err() ?
-        | true { { }
-            return CompileResult.Error(
-                CompilerStage.Lexing,
-                "Failed to read source file"
-            )
+    source_result.is_err() ? {
+            return CompileResult {
+                .Error {
+                    stage = CompilerStage.Lexing,
+                    message = "Failed to read source file"
+                }
+            }
         }
-        | false { { }}
     
     source := source_result.unwrap()
     
@@ -49,14 +47,14 @@ compile = (source_file: string) CompileResult   {
     // Stage 2: Parsing
     io.print("  [2/4] Parsing...")
     ast := parser.parse(tokens)
-    ast.is_err() ?
-        | true { { }
-            return CompileResult.Error(
-                CompilerStage.Parsing,
-                ast.err_msg()
-            )
+    ast.is_err() ? {
+            return CompileResult {
+                .Error {
+                    stage = CompilerStage.Parsing,
+                    message = ast.err_msg()
+                }
+            }
         }
-        | false { { }}
     io.print(" ✓\n")
     
     // Stage 3: Type checking (simplified for now)
@@ -69,7 +67,7 @@ compile = (source_file: string) CompileResult   {
     output := codegen.generate(ast.unwrap())
     io.print(" ✓\n")
     
-    return CompileResult.Success(output)
+    return CompileResult { .Success { output = output } }
 }
 
 // Compile multiple files
@@ -79,10 +77,9 @@ compile_project = (files: [100]string, file_count: i32) bool   {
     success_count := 0
     i := 0
     
-    loop i < file_count {
-        result := compile(files[i])
-        result ?
-            | CompileResult.Success(output) { { }
+    loop (i < file_count) {
+        result = compile(files[i]) ?
+            | .Success { output } {
                 io.print("✓ Success: ")
                 io.print(files[i])
                 io.print("\n")
@@ -92,7 +89,7 @@ compile_project = (files: [100]string, file_count: i32) bool   {
                 output_file := files[i] + ".c"
                 fs.write_file(output_file, output)
             }
-            | CompileResult.Error(stage, msg) { { }
+            | .Error { stage, msg } {
                 io.print("✗ Error in ")
                 print_stage(stage)
                 io.print(": ")
@@ -116,11 +113,11 @@ compile_project = (files: [100]string, file_count: i32) bool   {
 // Helper to print stage name
 print_stage = (stage: CompilerStage) void   {
     stage ?
-        | CompilerStage.Lexing { io.print("Lexing") }
-        | CompilerStage.Parsing { io.print("Parsing") }
-        | CompilerStage.TypeChecking { io.print("Type Checking") }
-        | CompilerStage.CodeGeneration { io.print("Code Generation") }
-        | CompilerStage.Linking { io.print("Linking") }
+        | .Lexing { io.print("Lexing") }
+        | .Parsing { io.print("Parsing") }
+        | .TypeChecking { io.print("Type Checking") }
+        | .CodeGeneration { io.print("Code Generation") }
+        | .Linking { io.print("Linking") }
 }
 
 // Entry point
@@ -129,11 +126,11 @@ main = () i32   {
     test_files := ["test.zen"]
     
     compile_project(test_files, 1) ?
-        | true { { }
+        | true {
             io.print("\nCompilation successful!\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("\nCompilation failed!\n")
             return 1
         }

@@ -1,7 +1,7 @@
 // Example web server using allocator-based colorless concurrency
 // Demonstrates the progressive enhancement from sync to concurrent execution
 
-build {  } = @std.build
+build := @std.build
 std := build.import("std")
 allocator := build.import("allocator")
 runtime := build.import("concurrent_runtime_enhanced")
@@ -21,8 +21,8 @@ HttpMethod:
 HttpRequest: {
     method: HttpMethod
     path: String
-    headers: []Header
-    body: []u8
+    headers: Vec<Header>
+    body: Vec<u8>
     
     Header: {
         name: String
@@ -32,13 +32,13 @@ HttpRequest: {
 
 HttpResponse: {
     status: u16
-    headers: []HttpRequest.Header
-    body: []u8
+    headers: Vec<HttpRequest.Header>
+    body: Vec<u8>
     
     ok: (body: String) HttpResponse {
         return HttpResponse{
             status: 200,
-            headers: []HttpRequest.Header{
+            headers: Vec<HttpRequest.Header>{
                 { name: "Content-Type", value: "text/plain" },
                 { name: "Content-Length", value: std.fmt.format("{}", body.len) }
             },
@@ -49,7 +49,7 @@ HttpResponse: {
     json: (data: String) HttpResponse {
         return HttpResponse{
             status: 200,
-            headers: []HttpRequest.Header{
+            headers: Vec<HttpRequest.Header>{
                 { name: "Content-Type", value: "application/json" },
                 { name: "Content-Length", value: std.fmt.format("{}", data.len) }
             },
@@ -60,7 +60,7 @@ HttpResponse: {
     not_found: () HttpResponse {
         return HttpResponse{
             status: 404,
-            headers: []HttpRequest.Header{
+            headers: Vec<HttpRequest.Header>{
                 { name: "Content-Type", value: "text/plain" }
             },
             body: "Not Found".bytes()
@@ -70,7 +70,7 @@ HttpResponse: {
     error: (message: String) HttpResponse {
         return HttpResponse{
             status: 500,
-            headers: []HttpRequest.Header{
+            headers: Vec<HttpRequest.Header>{
                 { name: "Content-Type", value: "text/plain" }
             },
             body: message.bytes()
@@ -80,7 +80,7 @@ HttpResponse: {
 
 // Router for handling HTTP requests
 Router: {
-    routes: []Route
+    routes: Vec<Route>
     alloc: *allocator.Allocator
     
     Route: {
@@ -91,13 +91,13 @@ Router: {
     
     init: (alloc: *allocator.Allocator) Router {
         return Router{
-            routes: []Route{},
+            routes: Vec<Route>{},
             alloc: alloc
         }
     }
     
     get: (pattern: String, handler: (HttpRequest, *allocator.Allocator) HttpResponse) void {
-        self.routes.append(Route{
+        self.routes.push(Route{
             method: .GET,
             pattern: pattern,
             handler: handler
@@ -105,7 +105,7 @@ Router: {
     }
     
     post: (pattern: String, handler: (HttpRequest, *allocator.Allocator) HttpResponse) void {
-        self.routes.append(Route{
+        self.routes.push(Route{
             method: .POST,
             pattern: pattern,
             handler: handler
@@ -113,7 +113,7 @@ Router: {
     }
     
     handle: (req: HttpRequest) HttpResponse {
-        loop i := 0; i < self.routes.len; i += 1 {
+        loop i := 0; i < self.routes.len(); i += 1 {
             route := self.routes[i]
             
             route.method == req.method && matchPattern(route.pattern, req.path) ? {
@@ -140,17 +140,17 @@ matchPattern = (pattern: String, path: String) bool   {
 
 // Database simulation
 Database: {
-    data: std.HashMap(String, String)
+    data: HashMap<String, String>
     alloc: *allocator.Allocator
     
     init: (alloc: *allocator.Allocator) Database {
         return Database{
-            data: std.HashMap(String, String).init(),
+            data: HashMap<String, String>.init(alloc),
             alloc: alloc
         }
     }
     
-    query: (sql: String, params: []anytype, alloc: *allocator.Allocator) []Row {
+    query: (sql: String, params: Vec<anytype>, alloc: *allocator.Allocator) Vec<Row> {
         // Simulated database query
         // In real implementation, would use concurrent I/O if alloc.is_concurrent
         
@@ -164,18 +164,18 @@ Database: {
         } : {}
         
         // Return mock data
-        return []Row{}
+        return Vec<Row>{}
     }
     
     Row: {
-        columns: []String
-        values: []String
+        columns: Vec<String>
+        values: Vec<String>
     }
 }
 
 // Cache implementation
 Cache: {
-    entries: std.HashMap(String, CacheEntry)
+    entries: HashMap<String, CacheEntry>
     alloc: *allocator.Allocator
     
     CacheEntry: {
@@ -185,7 +185,7 @@ Cache: {
     
     init: (alloc: *allocator.Allocator) Cache {
         return Cache{
-            entries: std.HashMap(String, CacheEntry).init(),
+            entries: HashMap<String, CacheEntry>.init(alloc),
             alloc: alloc
         }
     }
@@ -198,7 +198,7 @@ Cache: {
             entry.?.expiry > now ? {
                 return entry.?.value
             } : {
-                self.entries.remove(key)
+                self.entries.remove(key, alloc)
                 return null
             }
         } : {
@@ -207,7 +207,7 @@ Cache: {
     }
     
     set: (key: String, value: String, ttl: u64, alloc: *allocator.Allocator) void {
-        self.entries.put(key, CacheEntry{
+        self.entries.insert(key, CacheEntry{
             value: value,
             expiry: std.time.timestamp() + ttl
         })
@@ -275,7 +275,7 @@ handleCreateUser = (req: HttpRequest, state: *AppState, alloc: *allocator.Alloca
                   ["New User", "user@example.com"], alloc)
     
     // Clear cache
-    state.cache.entries.clear()
+    state.cache.entries.clear(alloc)
     
     return HttpResponse.json("{ \"success\": true }")
 }
@@ -303,15 +303,15 @@ HttpServer: {
     }
     
     setupRoutes: () void {
-        self.router.get("/api/users", (req, alloc) => handleUsers(req, &self.state, alloc))
-        self.router.get("/api/users/*", (req, alloc) => {
+        self.router.get("/api/users", (req, alloc) handleUsers(req, &self.state, alloc)
+        self.router.get("/api/users/*", (req, alloc) (req, alloc) {
             // Extract ID from path
             id := req.path[11..]  // Skip "/api/users/"
-            return handleUser(req, id, &self.state, alloc)
+            return handleUser(req, id, &self.state, alloc))
         })
-        self.router.post("/api/users", (req, alloc) => handleCreateUser(req, &self.state, alloc))
+        self.router.post("/api/users", (req, alloc) handleCreateUser(req, &self.state, alloc))
         
-        self.router.get("/health", (req, alloc) => HttpResponse.ok("OK"))
+        self.router.get("/health", (req, alloc) HttpResponse.ok("OK"))
     }
     
     run: () !void {
@@ -428,24 +428,24 @@ main = () void   {
     
     // Choose allocator based on mode
     alloc := mode ?
-        | "sync" { { }
+        | "sync" {
             // Synchronous mode - simple debugging
             sync_alloc := allocator.SyncAllocator.init()
             defer sync_alloc.deinit()
             sync_alloc.allocator()
         }
-        | "concurrent" { { }
+        | "concurrent" {
             // Concurrent mode - production performance
             runtime := allocator.Runtime.init()
             concurrent_alloc := allocator.ConcurrentAllocator.init(&runtime)
             concurrent_alloc.allocator()
         }
-        | "auto" { { }
+        | "auto" {
             // Auto mode - chooses based on environment
             auto_alloc := allocator.AutoAllocator.init()
             auto_alloc.allocator()
         }
-        | _ { { }
+        | _ {
             io.print("Unknown mode: {}. Use sync, concurrent, or auto\n", mode)
             std.process.exit(1)
         }
@@ -455,7 +455,7 @@ main = () void   {
     server.setupRoutes()
     
     // Handle shutdown signal
-    std.signal.handle(.INT, () => {
+    std.signal.handle(.INT, () {
         io.print("\nShutting down server...\n")
         server.stop()
     })

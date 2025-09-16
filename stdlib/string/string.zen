@@ -28,7 +28,7 @@ is_empty = (s: string) bool   {
 char_at = (s: string, index: usize) u8   {
     index >= s.len ?
         | true { return 0 }
-        | false { { }}
+        | false {}
     
     return s.data[index]
 }
@@ -37,13 +37,13 @@ char_at = (s: string, index: usize) u8   {
 equals = (s1: string, s2: string) bool   {
     s1.len != s2.len ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     i := 0
     loop i < s1.len {
         s1.data[i] != s2.data[i] ?
             | true { return false }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     
@@ -54,13 +54,13 @@ equals = (s1: string, s2: string) bool   {
 starts_with = (s: string, prefix: string) bool   {
     prefix.len > s.len ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     i := 0
     loop i < prefix.len {
         s.data[i] != prefix.data[i] ?
             | true { return false }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     
@@ -71,14 +71,14 @@ starts_with = (s: string, prefix: string) bool   {
 ends_with = (s: string, suffix: string) bool   {
     suffix.len > s.len ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     offset := s.len - suffix.len
     i := 0
     loop i < suffix.len {
         s.data[offset + i] != suffix.data[i] ?
             | true { return false }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     
@@ -89,11 +89,11 @@ ends_with = (s: string, suffix: string) bool   {
 index_of = (s: string, needle: string) i32   {
     needle.len == 0 ?
         | true { return 0 }
-        | false { { }}
+        | false {}
     
     needle.len > s.len ?
         | true { return -1 }
-        | false { { }}
+        | false {}
     
     i := 0
     loop i <= s.len - needle.len {
@@ -101,17 +101,17 @@ index_of = (s: string, needle: string) i32   {
         j := 0
         loop j < needle.len {
             s.data[i + j] != needle.data[j] ?
-                | true { { }
+                | true {
                     found = false
                     break
                 }
-                | false { { }}
+                | false {}
             j = j + 1
         }
         
         found ?
             | true { return i as i32 }
-            | false { { }}
+            | false {}
         
         i = i + 1
     }
@@ -128,12 +128,12 @@ contains = (s: string, needle: string) bool   {
 substring = (s: string, start: usize, length: usize) string   {
     start >= s.len ?
         | true { return "" }
-        | false { { }}
+        | false {}
     
     actual_len := length
     start + length > s.len ?
         | true { actual_len = s.len - start }
-        | false { { }}
+        | false {}
     
     return from_bytes(s.data + start, actual_len)
 }
@@ -142,12 +142,12 @@ substring = (s: string, start: usize, length: usize) string   {
 slice = (s: string, start: usize, end: usize) string   {
     start >= s.len || start >= end ?
         | true { return "" }
-        | false { { }}
+        | false {}
     
     actual_end := end
     end > s.len ?
         | true { actual_end = s.len }
-        | false { { }}
+        | false {}
     
     return from_bytes(s.data + start, actual_end - start)
 }
@@ -174,7 +174,7 @@ concat_many = (strings: []string) string   {
 join = (strings: []string, separator: string) string   {
     strings.len == 0 ?
         | true { return "" }
-        | false { { }}
+        | false {}
     
     result := strings[0]
     i := 1
@@ -198,7 +198,7 @@ trim = (s: string) string   {
         is_whitespace := c == 32 || c == 9 || c == 10 || c == 13  // space, tab, \n, \r
         !is_whitespace ?
             | true { break }
-            | false { { }}
+            | false {}
         start = start + 1
     }
     
@@ -208,7 +208,7 @@ trim = (s: string) string   {
         is_whitespace := c == 32 || c == 9 || c == 10 || c == 13
         !is_whitespace ?
             | true { break }
-            | false { { }}
+            | false {}
         end = end - 1
     }
     
@@ -247,7 +247,7 @@ split = (s: string, separator: string) []string   {
 parse_int = (s: string) i32   {
     s.len == 0 ?
         | true { return 0 }
-        | false { { }}
+        | false {}
     
     result := 0
     negative := false
@@ -255,17 +255,17 @@ parse_int = (s: string) i32   {
     
     // Check for negative sign
     s.data[0] == 45 ?  // '-'
-        | true { { }
+        | true {
             negative = true
             i = 1
         }
-        | false { { }}
+        | false {}
     
     loop i < s.len {
         c := s.data[i]
         c < 48 || c > 57 ?  // Not a digit
             | true { break }
-            | false { { }}
+            | false {}
         
         digit := (c - 48) as i32
         result = result * 10 + digit
@@ -274,7 +274,7 @@ parse_int = (s: string) i32   {
     
     negative ?
         | true { result = -result }
-        | false { { }}
+        | false {}
     
     return result
 }

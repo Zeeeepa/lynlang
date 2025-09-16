@@ -51,13 +51,13 @@ read_file = (path: String, alloc: *Allocator) Result<[]u8, io.Error>  {
     
     // Read file - execution mode depends on allocator
     bytes_read := alloc.is_concurrent ?
-        | true { { }
+        | true {
             // Concurrent path: suspend and resume
             cont := alloc.suspend()
             io.read_concurrent(fd, buffer, cont)
             alloc.runtime.wait()
         }
-        | false { { }
+        | false {
             // Sync path: just block
             io.read_sync(fd, buffer)
         }
@@ -71,7 +71,7 @@ handle_request = (req: HttpRequest, alloc: *Allocator) Result<HttpResponse, Erro
     response := req.path ?
         | "/users" { fetch_users(alloc)? }
         | "/posts" { fetch_posts(alloc)? }
-        | "/api/data" { { }
+        | "/api/data" {
             // Read from file - colorless!
             data := read_file("data.json", alloc)?
             HttpResponse.json(data)
@@ -108,7 +108,7 @@ run_server = (port: u16, alloc: *Allocator) Result<void, Error>  {
         client_result := listener.accept(alloc)
         
         client_result ?
-            | .Ok -> client { { }
+            | .Ok -> client {
                 // Spawn handler task
                 spawn_task(() => {
                     result := handle_client(client, alloc)
@@ -117,7 +117,7 @@ run_server = (port: u16, alloc: *Allocator) Result<void, Error>  {
                         | .Err -> e { io.println("Client error: $(e)") }
                 }, alloc)
             }
-            | .Err -> e { { }
+            | .Err -> e {
                 io.println("Accept error: $(e)")
                 break
             }
@@ -143,11 +143,11 @@ handle_client = (client: Connection, alloc: *Allocator) Result<void, Error>  {
 // Task spawning based on allocator
 spawn_task = (task: () void, alloc: *Allocator) void  {
     alloc.is_concurrent ?
-        | true { { }
+        | true {
             // Spawn as green thread/fiber
             alloc.runtime.spawn_fiber(task)
         }
-        | false { { }
+        | false {
             // Execute immediately in sync mode
             task()
         }
@@ -174,12 +174,12 @@ main = () i32  {
     debug_mode := @compileVar("DEBUG")
     
     debug_mode ?
-        | true { { }
+        | true {
             io.println("Running in SYNC mode (debug)")
             sync_alloc := SyncAllocator{}
             run_demo(&sync_alloc)
         }
-        | false { { }
+        | false {
             io.println("Running in CONCURRENT mode (production)")
             concurrent_alloc := ConcurrentAllocator{ runtime: Runtime.init() }
             run_demo(&concurrent_alloc)

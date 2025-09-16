@@ -215,7 +215,7 @@ test("loop_infinite_with_break") {
         count = count + 1
         count >= 3 ?
             | true { break }
-            | false { { }}
+            | false {}
     }
     assert_eq(count, 3)
 }
@@ -242,7 +242,7 @@ test("loop_with_continue") {
     (1..=10).loop((i) => {
         i % 2 == 0 ?  // Skip even numbers
             | true { continue }
-            | false { { }}
+            | false {}
         sum = sum + i
     })
     assert_eq(sum, 25)  // 1 + 3 + 5 + 7 + 9
@@ -254,11 +254,11 @@ test("loop_nested_with_labels") {
         (0..3).loop((i) => {
             (0..3).loop((j) => {
                 (i == 1 && j == 2) ?
-                    | true { { }
+                    | true {
                         found = true
                         break outer
                     }
-                    | false { { }}
+                    | false {}
             })
         })
         break  // Should not reach here
@@ -359,7 +359,7 @@ test("enum_option_type") {
         items.loop((item) => {
             pred(item) ?
                 | true { return Option:Some(item) }
-                | false { { }}
+                | false {}
         })
         Option:None
     }

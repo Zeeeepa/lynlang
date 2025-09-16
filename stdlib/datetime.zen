@@ -101,7 +101,7 @@ as_nanos = (d: Duration) i64   {
 
 // Check if year is leap year
 is_leap_year = (year: i32) bool   {
-    year % 4 == 0 ? | true { { }
+    year % 4 == 0 ? | true {
         year % 100 == 0 ? | true { year % 400 == 0 }
                          | false { true }
     }
@@ -188,27 +188,27 @@ add_duration = (dt: DateTime, d: Duration) DateTime   {
 // Compare DateTimes
 datetime_before = (a: DateTime, b: DateTime) bool   {
     a.year < b.year ? | true { true }
-                     | false { { }
+                     | false {
         a.year > b.year ? | true { false }
-                         | false { { }
+                         | false {
             a.month < b.month ? | true { true }
-                               | false { { }
+                               | false {
                 a.month > b.month ? | true { false }
-                                   | false { { }
+                                   | false {
                     a.day < b.day ? | true { true }
-                                   | false { { }
+                                   | false {
                         a.day > b.day ? | true { false }
-                                       | false { { }
+                                       | false {
                             a.hour < b.hour ? | true { true }
-                                            | false { { }
+                                            | false {
                                 a.hour > b.hour ? | true { false }
-                                                | false { { }
+                                                | false {
                                     a.minute < b.minute ? | true { true }
-                                                        | false { { }
+                                                        | false {
                                         a.minute > b.minute ? | true { false }
-                                                            | false { { }
+                                                            | false {
                                             a.second < b.second ? | true { true }
-                                                                | false { { }
+                                                                | false {
                                                 a.second > b.second ? | true { false }
                                                                     | false { a.nanos < b.nanos }
                                             }

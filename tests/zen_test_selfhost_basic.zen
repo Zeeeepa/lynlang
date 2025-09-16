@@ -63,25 +63,25 @@ main = () i32   {
     
     // Run lexer test
     test_count = test_count + 1
-    test_lexer() ? | true { { }
+    test_lexer() ? | true {
         passed_count = passed_count + 1
-    } | false { { }
+    } | false {
         io.print("FAILED: Lexer test\n")
     }
     
     // Run parser test
     test_count = test_count + 1
-    test_parser() ? | true { { }
+    test_parser() ? | true {
         passed_count = passed_count + 1
-    } | false { { }
+    } | false {
         io.print("FAILED: Parser test\n")
     }
     
     // Run type checker test
     test_count = test_count + 1
-    test_type_checker() ? | true { { }
+    test_type_checker() ? | true {
         passed_count = passed_count + 1
-    } | false { { }
+    } | false {
         io.print("FAILED: Type checker test\n")
     }
     
@@ -94,10 +94,10 @@ main = () i32   {
     io.print("\n")
     
     // Return 0 if all tests passed, 1 otherwise
-    passed_count == test_count ? | true { { }
+    passed_count == test_count ? | true {
         io.print("\nAll tests passed!\n")
         return 0
-    } | false { { }
+    } | false {
         io.print("\nSome tests failed.\n")
         return 1
     }

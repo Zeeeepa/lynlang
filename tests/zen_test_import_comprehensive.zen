@@ -52,11 +52,11 @@ test_function_imports = () void   {
 DEBUG := true
 
 compile_time_import = () void   {
-    DEBUG ? | true { { }
+    DEBUG ? | true {
         { debug } = @std.debug
         { log } = @std.log
         log.debug("Debug mode enabled")
-    } | false { { }}
+    } | false {}
 }
 
 // Test imports in match expressions
@@ -64,19 +64,19 @@ import_based_on_platform = () void   {
     platform := core.get_platform()
     
     match platform {
-        | "linux" { { }
+        | "linux" {
             { linux } = @std.linux
             linux.specific_function()
         }
-        | "windows" { { }
+        | "windows" {
             { windows } = @std.windows
             windows.specific_function()
         }
-        | "macos" { { }
+        | "macos" {
             { macos } = @std.macos
             macos.specific_function()
         }
-        | _ { { }
+        | _ {
             { generic } = @std.generic
             generic.fallback()
         }

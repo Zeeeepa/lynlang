@@ -49,11 +49,11 @@ create_dynamic_array = (initial_capacity: i32) *DynamicArray {
 
 push = (arr: *DynamicArray, value: i32) void   {
     arr.len < arr.capacity ?
-        | true { { }
+        | true {
             arr.data[arr.len] = value
             arr.len = arr.len + 1
         }
-        | false { { }
+        | false {
             printf("Array is full!\n")
         }
 }
@@ -82,14 +82,14 @@ sum_array = (arr: *i32, size: i32) i32   {
 find_max = (arr: *i32, size: i32) i32   {
     size <= 0 ?
         | true { return 0 }
-        | false { { }}
+        | false {}
     
     max := arr[0]
     i := 1
     loop i < size {
         arr[i] > max ?
             | true { { max = arr[i]  }}
-            | false { { }}
+            | false {}
         i = i + 1
     }
     return max

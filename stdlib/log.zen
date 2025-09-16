@@ -182,17 +182,17 @@ format_text = (entry: &LogEntry) string   {
     // Add location
     GLOBAL_LOGGER.config.show_location ? {
         match entry.file {
-            | Option<string>.Some(f) { { }
+            | Option<string>.Some(f) {
                 match entry.line {
-                    | Option<u32>.Some(l) { { }
+                    | Option<u32>.Some(l) {
                         output = output + f + ":" + u32_to_string(l) + " "
                     }
-                    | Option<u32>.None { { }
+                    | Option<u32>.None {
                         output = output + f + " "
                     }
                 }
             }
-            | Option<string>.None { { }}
+            | Option<string>.None {}
         }
     } : {}
     
@@ -211,17 +211,17 @@ format_json = (entry: &LogEntry) string   {
     
     // Add optional fields
     match entry.file {
-        | Option<string>.Some(f) { { }
+        | Option<string>.Some(f) {
             output = output + ",\"file\":\"" + escape_json(f) + "\""
         }
-        | Option<string>.None { { }}
+        | Option<string>.None {}
     }
     
     match entry.line {
-        | Option<u32>.Some(l) { { }
+        | Option<u32>.Some(l) {
             output = output + ",\"line\":" + u32_to_string(l)
         }
-        | Option<u32>.None { { }}
+        | Option<u32>.None {}
     }
     
     output = output + "}\n"

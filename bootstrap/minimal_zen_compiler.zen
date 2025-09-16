@@ -54,11 +54,12 @@ is_at_end = (pos: i32, len: i32) bool   {
 
 // Get character at position
 char_at = (pos: i32, len: i32) i32   {
-    if pos >= len {
-        return 0
-    }
-    // For now, just return a placeholder
-    return 65  // 'A'
+    pos >= len ?
+        | true { return 0 }
+        | false {
+            // For now, just return a placeholder
+            return 65  // 'A'
+        }
 }
 
 // Simple tokenizer
@@ -71,25 +72,27 @@ tokenize = (source: string) i32   {
     i := 0;
     source_len := 100;  // Placeholder length
     
-    loop {
-        if i >= source_len {
-            break
-        }
+    loop(() {
+        i >= source_len ?
+            | true { break }
+            | false { }
         
         // For simplicity, just count transitions
         // Real implementation would properly handle tokens
-        if !in_token {
-            in_token = true;
-            token_count = token_count + 1;
-        }
+        !in_token ?
+            | true {
+                in_token = true
+                token_count = token_count + 1
+            }
+            | false { }
         
-        i = i + 1;
+        i = i + 1
         
         // Simple break condition
-        if i > 1000 {  // Safety limit
-            break
-        }
-    }
+        i > 1000 ?  // Safety limit
+            | true { break }
+            | false { }
+    })
     
     return token_count
 }
@@ -123,11 +126,13 @@ main = () i32   {
     // Test compilation
     success := compile_file("test.zen");
     
-    if success {
-        io.print("✅ Basic compilation test passed!\n");
-        return 0
-    } else {
-        io.print("❌ Compilation failed!\n");
-        return 1
-    }
+    success ?
+        | true {
+            io.print("✅ Basic compilation test passed!\n")
+            return 0
+        }
+        | false {
+            io.print("❌ Compilation failed!\n")
+            return 1
+        }
 }

@@ -28,88 +28,96 @@ check_file = (filepath: string) i32   {
     in_comptime := false
     comptime_start := 0
     
-    loop i < lines.len() {
-        line := lines[i]
-        line_num := i + 1
-        
-        // Check for comptime blocks
-        string.contains(line, "comptime") && string.contains(line, "{") ?
-            | true => {
-                in_comptime = true
-                comptime_start = line_num
-            }
-            | false => {}
-        
-        // Check for imports in comptime blocks
-        in_comptime && (string.contains(line, "@std") || string.contains(line, ".import(")) ?
-            | true => {
-                io.print("\x1b[31m[ERROR]\x1b[0m Line ")
-                io.print(string.from_int(line_num))
-                io.print(": Imports should not be inside comptime blocks\n")
-                errors_found = errors_found + 1
-            }
-            | false => {}
-        
-        // Check for closing brace of comptime
-        in_comptime && string.contains(line, "}") ?
-            | true => {
-                in_comptime = false
-            }
-            | false => {}
-        
-        // Check for proper import syntax at module level
-        in_comptime == false && string.contains(line, "@std") ?
-            | true => {
-                // Count leading spaces/tabs
-                leading_spaces := 0
-                j := 0
-                loop j < line.len() {
-                    c := line[j]
-                    (c == ' ' || c == '\t') ?
-                        | true => { leading_spaces = leading_spaces + 1 }
-                        | false => { break }
-                    j = j + 1
-                }
+    loop(() {
+        i < lines.len() ?
+            | false { break }
+            | true {
+                line := lines[i]
+                line_num := i + 1
                 
-                leading_spaces > 0 ?
-                    | true => {
+                // Check for comptime blocks
+                string.contains(line, "comptime") && string.contains(line, "{") ?
+                    | true {
+                        in_comptime = true
+                        comptime_start = line_num
+                    }
+                    | false {}
+                
+                // Check for imports in comptime blocks
+                in_comptime && (string.contains(line, "@std") || string.contains(line, ".import(")) ?
+                    | true {
+                        io.print("\x1b[31m[ERROR]\x1b[0m Line ")
+                        io.print(string.from_int(line_num))
+                        io.print(": Imports should not be inside comptime blocks\n")
+                        errors_found = errors_found + 1
+                    }
+                    | false {}
+                
+                // Check for closing brace of comptime
+                in_comptime && string.contains(line, "}") ?
+                    | true {
+                        in_comptime = false
+                    }
+                    | false {}
+                
+                // Check for proper import syntax at module level
+                in_comptime == false && string.contains(line, "@std") ?
+                    | true {
+                        // Count leading spaces/tabs
+                        leading_spaces := 0
+                        j := 0
+                        loop(() {
+                            j < line.len() ?
+                                | false { break }
+                                | true {
+                                    c := line[j]
+                                    (c == ' ' || c == '\t') ?
+                                        | true { leading_spaces = leading_spaces + 1 }
+                                        | false { break }
+                                    j = j + 1
+                                }
+                        })
+                        
+                        leading_spaces > 0 ?
+                            | true {
+                                io.print("\x1b[33m[WARNING]\x1b[0m Line ")
+                                io.print(string.from_int(line_num))
+                                io.print(": Import should be at module level (no indentation)\n")
+                                warnings_found = warnings_found + 1
+                            }
+                            | false {}
+                    }
+                    | false {}
+                
+                // Check for tabs vs spaces consistency
+                has_tabs := string.contains(line, "\t")
+                has_leading_spaces := false
+                line.len() >= 4 ?
+                    | true {
+                        has_leading_spaces = line[0] == ' ' && line[1] == ' ' && line[2] == ' ' && line[3] == ' '
+                    }
+                    | false {}
+                
+                has_tabs && has_leading_spaces ?
+                    | true {
                         io.print("\x1b[33m[WARNING]\x1b[0m Line ")
                         io.print(string.from_int(line_num))
-                        io.print(": Import should be at module level (no indentation)\n")
+                        io.print(": Mixed tabs and spaces for indentation\n")
                         warnings_found = warnings_found + 1
                     }
-                    | false => {}
+                    | false {}
+                
+                i = i + 1
             }
-            | false => {}
-        
-        // Check for tabs vs spaces consistency
-        has_tabs := string.contains(line, "\t")
-        has_leading_spaces := false
-        line.len() >= 4 ?
-            | true => {
-                has_leading_spaces = line[0] == ' ' && line[1] == ' ' && line[2] == ' ' && line[3] == ' '
-            }
-            | false => {}
-        
-        has_tabs && has_leading_spaces ?
-            | true => {
-                io.print("\x1b[33m[WARNING]\x1b[0m Line ")
-                io.print(string.from_int(line_num))
-                io.print(": Mixed tabs and spaces for indentation\n")
-                warnings_found = warnings_found + 1
-            }
-            | false => {}
-        
-        i = i + 1
-    }
+    })
     
     // Print summary
     errors_found == 0 && warnings_found == 0 ?
-        | true => {
+        | true {
             io.print("\x1b[32m✓ No issues found!\x1b[0m\n")
             return 0
         }
-        | false => {
+        | false {
             io.print("\nSummary: ")
             io.print(string.from_int(errors_found))
             io.print(" error(s), ")
@@ -117,8 +125,8 @@ check_file = (filepath: string) i32   {
             io.print(" warning(s)\n")
             
             errors_found > 0 ?
-                | true => { return 1 }
-                | false => { return 0 }
+                | true { return 1 }
+                | false { return 0 }
         }
 }
 

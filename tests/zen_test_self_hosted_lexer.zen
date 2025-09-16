@@ -220,10 +220,10 @@ main = () void   {
     io.print("Tests completed\n")
     
     tests_failed == 0 ?
-        | true { { }
+        | true {
             io.print("\nAll tests passed!\n")
         }
-        | false { { }
+        | false {
             io.print("\nSome tests failed\n")
         }
 }

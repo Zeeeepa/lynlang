@@ -44,19 +44,20 @@ test_pattern_matching = () void   {
     // Range patterns
     age := 25
     category := age ?
-        | 0..=12 => "Child"
-        | 13..=19 => "Teen"
-        | 20..=64 => "Adult"
+        | 0..=12 { "Child" }
+        | 13..=19 { "Teen" }
+        | 20..=64 { "Adult" }
         | _ { "Senior" }
     assert(category == "Adult")
     
-    // Guards with arrow
+    // Guards with pattern matching
     value := 75
     size := value ?
-        | v -> v > 100 { "Large" }
-        | v -> v > 50 { "Medium" }
-        | v -> v > 0 { "Small" }
-        | _ { "Zero or negative" }
+        | v { v > 100 ? | true { "Large" } | false {
+            v > 50 ? | true { "Medium" } | false {
+                v > 0 ? | true { "Small" } | false { "Zero or negative" }
+            }
+        } }
     assert(size == "Medium")
     
     // Multiple patterns (or-patterns)
@@ -141,23 +142,27 @@ test_loops = () void   {
     // Conditional loop (while-like)
     counter := 5
     sum := 0
-    loop (counter > 0) {
-        sum = sum + counter
-        counter = counter - 1
-    }
+    loop(() {
+        counter > 0 ?
+            | true {
+                sum = sum + counter
+                counter = counter - 1
+            }
+            | false { break }
+    })
     assert(sum == 15)  // 5+4+3+2+1
     
     // Infinite loop with break
     value := 0
-    loop {
+    loop(() {
         value = value + 1
         value >= 10 ? | true { break }
-    }
+    })
     assert(value == 10)
     
     // Range iteration
     total := 0
-    (0..5).loop((i) => {
+    (0..5).loop((i) {
         total = total + i
     })
     assert(total == 10)  // 0+1+2+3+4
@@ -165,14 +170,14 @@ test_loops = () void   {
     // Collection iteration
     items := [3, i32]{ 10, 20, 30 }
     product := 1
-    items.to_slice().loop((item) => {
+    items.to_slice().loop((item) {
         product = product * item
     })
     assert(product == 6000)
     
     // Loop with continue
     even_sum := 0
-    (0..10).loop((i) => {
+    (0..10).loop((i) {
         i % 2 != 0 ? | true { continue }
         even_sum = even_sum + i
     })
@@ -427,7 +432,7 @@ main = () void   {
 // ====================================
 
 assert = (condition: bool, message: string = "") void   {
-    condition ? | false { { }
+    condition ? | false {
         msg := message == "" ? 
             | true { "Assertion failed" }
             | false { message }

@@ -65,23 +65,23 @@ Lexer.new = (input: string) Lexer {
 
 Lexer.advance = (self) void {
     self.position < self.input.len() ?
-        | true { { }
+        | true {
             self.current = .Some(self.input[self.position])
             self.current ?
-                | .Some -> c { { }
+                | .Some(c) {
                     c == '\n' ?
-                        | true { { }
+                        | true {
                             self.line = self.line + 1
                             self.column = 1
                         }
-                        | false { { }
+                        | false {
                             self.column = self.column + 1
                         }
                 }
-                | .None { { }}
+                | .None {}
             self.position = self.position + 1
         }
-        | false { { }
+        | false {
             self.current = .None
         }
 }
@@ -95,7 +95,7 @@ Lexer.peek = (self) Option<char> {
 Lexer:skip_whitespace = (self) void {
     loop {
         self.current ?
-            | .Some -> c { { }
+            | .Some(c) {
                 c.is_whitespace() ?
                     | true { self.advance() }
                     | false { break }
@@ -106,17 +106,17 @@ Lexer:skip_whitespace = (self) void {
 
 Lexer:skip_comment = (self) void {
     self.current ?
-        | .Some -> c { { }
+        | .Some(c) {
             c == '/' ?
-                | true { { }
+                | true {
                     self.peek() ?
-                        | .Some -> next { { }
+                        | .Some(next) {
                             next == '/' ?
-                                | true { { }
+                                | true {
                                     // Single-line comment
                                     loop {
                                         self.current ?
-                                            | .Some -> ch { { }
+                                            | .Some(ch) {
                                                 ch == '\n' ?
                                                     | true { break }
                                                     | false { self.advance() }
@@ -124,13 +124,13 @@ Lexer:skip_comment = (self) void {
                                             | .None { break }
                                     }
                                 }
-                                | false { { }}
+                                | false {}
                         }
-                        | .None { { }}
+                        | .None {}
                 }
-                | false { { }}
+                | false {}
         }
-        | .None { { }}
+        | .None {}
 }
 
 Lexer:read_string = (self) string {
@@ -139,18 +139,18 @@ Lexer:read_string = (self) string {
     
     loop {
         self.current ?
-            | .Some -> c { { }
+            | .Some(c) {
                 c == '"' ?
-                    | true { { }
+                    | true {
                         self.advance() // Skip closing quote
                         break
                     }
-                    | false { { }
+                    | false {
                         c == '\\' ?
-                            | true { { }
+                            | true {
                                 self.advance()
                                 self.current ?
-                                    | .Some -> esc { { }
+                                    | .Some(esc) {
                                         escaped := esc ?
                                             | 'n' { '\n' }
                                             | 't' { '\t' }
@@ -163,7 +163,7 @@ Lexer:read_string = (self) string {
                                     }
                                     | .None { break }
                             }
-                            | false { { }
+                            | false {
                                 result = result + c
                                 self.advance()
                             }
@@ -183,19 +183,19 @@ Lexer:read_number = (self) Token {
     
     loop {
         self.current ?
-            | .Some -> c { { }
+            | .Some(c) {
                 c.is_digit() ?
-                    | true { { }
+                    | true {
                         num_str = num_str + c
                         self.advance()
                     }
-                    | false { { }
+                    | false {
                         c == '.' && !is_float ?
-                            | true { { }
+                            | true {
                                 self.peek() ?
-                                    | .Some -> next { { }
+                                    | .Some(next) {
                                         next.is_digit() ?
-                                            | true { { }
+                                            | true {
                                                 is_float = true
                                                 num_str = num_str + c
                                                 self.advance()
@@ -211,7 +211,9 @@ Lexer:read_number = (self) Token {
     }
     
     Token{
-        token_type: is_float ? | true { TokenType:Float | false => TokenType:Integer, }
+        token_type: is_float ?
+            | true { TokenType.Float }
+            | false { TokenType.Integer }
         lexeme: num_str,
         line: start_line,
         column: start_column
@@ -225,9 +227,9 @@ Lexer:read_identifier = (self) Token {
     
     loop {
         self.current ?
-            | .Some -> c { { }
+            | .Some(c) {
                 (c.is_alphanumeric() || c == '_') ?
-                    | true { { }
+                    | true {
                         ident = ident + c
                         self.advance()
                     }
@@ -274,83 +276,85 @@ Lexer:next_token = (self) Token {
             line: start_line,
             column: start_column
         }
-        | .Some -> c { { }
+        | .Some(c) {
             // Single character tokens
             single_char := c ?
-                | '+' { { }
+                | '+' {
                     self.advance()
                     Token{ token_type: TokenType:Plus, lexeme: "+", line: start_line, column: start_column }
                 }
-                | '-' { { }
+                | '-' {
                     self.advance()
                     self.current ?
-                        | .Some -> next if next == '>' => {
+                        | .Some(next) {
+                            next == '>' ?
+                                | true {
                             self.advance()
                             Token{ token_type: TokenType:Arrow, lexeme: "->", line: start_line, column: start_column }
                         }
-                        | _ { Token{ token_type: TokenType:Minus, lexeme: "-", line: start_line, column: start_column  }}
+                                | false { Token{ token_type: TokenType:Minus, lexeme: "-", line: start_line, column: start_column } }
                 }
-                | '*' { { }
+                | '*' {
                     self.advance()
                     Token{ token_type: TokenType:Star, lexeme: "*", line: start_line, column: start_column }
                 }
-                | '/' { { }
+                | '/' {
                     self.advance()
                     Token{ token_type: TokenType:Slash, lexeme: "/", line: start_line, column: start_column }
                 }
-                | '%' { { }
+                | '%' {
                     self.advance()
                     Token{ token_type: TokenType:Percent, lexeme: "%", line: start_line, column: start_column }
                 }
-                | '(' { { }
+                | '(' {
                     self.advance()
                     Token{ token_type: TokenType:LeftParen, lexeme: "(", line: start_line, column: start_column }
                 }
-                | ')' { { }
+                | ')' {
                     self.advance()
                     Token{ token_type: TokenType:RightParen, lexeme: ")", line: start_line, column: start_column }
                 }
-                | '{' { { }
+                | '{' {
                     self.advance()
                     Token{ token_type: TokenType:LeftBrace, lexeme: "{", line: start_line, column: start_column }
                 }
-                | '}' { { }
+                | '}' {
                     self.advance()
                     Token{ token_type: TokenType:RightBrace, lexeme: "}", line: start_line, column: start_column }
                 }
-                | '[' { { }
+                | '[' {
                     self.advance()
                     Token{ token_type: TokenType:LeftBracket, lexeme: "[", line: start_line, column: start_column }
                 }
-                | ']' { { }
+                | ']' {
                     self.advance()
                     Token{ token_type: TokenType:RightBracket, lexeme: "]", line: start_line, column: start_column }
                 }
-                | ',' { { }
+                | ',' {
                     self.advance()
                     Token{ token_type: TokenType:Comma, lexeme: ",", line: start_line, column: start_column }
                 }
-                | ';' { { }
+                | ';' {
                     self.advance()
                     Token{ token_type: TokenType:Semicolon, lexeme: ";", line: start_line, column: start_column }
                 }
-                | '?' { { }
+                | '?' {
                     self.advance()
                     Token{ token_type: TokenType:Question, lexeme: "?", line: start_line, column: start_column }
                 }
-                | '|' { { }
+                | '|' {
                     self.advance()
                     Token{ token_type: TokenType:Pipe, lexeme: "|", line: start_line, column: start_column }
                 }
-                | _ { { }
+                | _ {
                     // Multi-character tokens and special cases
                     c == ':' ?
-                        | true { { }
+                        | true {
                             self.advance()
                             self.current ?
-                                | .Some -> next { { }
+                                | .Some(next) {
                                     next == ':' ?
-                                        | true { { }
+                                        | true {
                                             self.advance()
                                             self.current ?
                                                 | .Some -> next2 if next2 == '=' => {
@@ -359,9 +363,9 @@ Lexer:next_token = (self) Token {
                                                 }
                                                 | _ { Token{ token_type: TokenType:DoubleColon, lexeme: ":", line: start_line, column: start_column  }}
                                         }
-                                        | false { { }
+                                        | false {
                                             next == '=' ?
-                                                | true { { }
+                                                | true {
                                                     self.advance()
                                                     Token{ token_type: TokenType:ColonEqual, lexeme: ":=", line: start_line, column: start_column }
                                                 }
@@ -370,12 +374,14 @@ Lexer:next_token = (self) Token {
                                 }
                                 | .None { Token{ token_type: TokenType:Colon, lexeme: ":", line: start_line, column: start_column  }}
                         }
-                        | false { { }
+                        | false {
                             c == '=' ?
-                                | true { { }
+                                | true {
                                     self.advance()
                                     self.current ?
-                                        | .Some -> next if next == '>' => {
+                                        | .Some(next) {
+                            next == '>' ?
+                                | true {
                                             self.advance()
                                             Token{ token_type: TokenType:FatArrow, lexeme: "=>", line: start_line, column: start_column }
                                         }
@@ -385,9 +391,9 @@ Lexer:next_token = (self) Token {
                                         }
                                         | _ { Token{ token_type: TokenType:Equal, lexeme: "=", line: start_line, column: start_column  }}
                                 }
-                                | false { { }
+                                | false {
                                     c == '!' ?
-                                        | true { { }
+                                        | true {
                                             self.advance()
                                             self.current ?
                                                 | .Some -> next if next == '=' => {
@@ -396,9 +402,9 @@ Lexer:next_token = (self) Token {
                                                 }
                                                 | _ { Token{ token_type: TokenType:Error, lexeme: "!", line: start_line, column: start_column  }}
                                         }
-                                        | false { { }
+                                        | false {
                                             c == '<' ?
-                                                | true { { }
+                                                | true {
                                                     self.advance()
                                                     self.current ?
                                                         | .Some -> next if next == '=' => {
@@ -407,9 +413,9 @@ Lexer:next_token = (self) Token {
                                                         }
                                                         | _ { Token{ token_type: TokenType:Less, lexeme: "<", line: start_line, column: start_column  }}
                                                 }
-                                                | false { { }
+                                                | false {
                                                     c == '>' ?
-                                                        | true { { }
+                                                        | true {
                                                             self.advance()
                                                             self.current ?
                                                                 | .Some -> next if next == '=' => {
@@ -418,19 +424,19 @@ Lexer:next_token = (self) Token {
                                                                 }
                                                                 | _ { Token{ token_type: TokenType:Greater, lexeme: ">", line: start_line, column: start_column  }}
                                                         }
-                                                        | false { { }
+                                                        | false {
                                                             c == '"' ?
-                                                                | true { { }
+                                                                | true {
                                                                     lexeme := self.read_string()
                                                                     Token{ token_type: TokenType:String, lexeme: lexeme, line: start_line, column: start_column }
                                                                 }
-                                                                | false { { }
+                                                                | false {
                                                                     c.is_digit() ?
                                                                         | true { self.read_number() }
-                                                                        | false { { }
+                                                                        | false {
                                                                             c.is_alphabetic() || c == '_' ?
                                                                                 | true { self.read_identifier() }
-                                                                                | false { { }
+                                                                                | false {
                                                                                     self.advance()
                                                                                     Token{ token_type: TokenType:Error, lexeme: c.to_string(), line: start_line, column: start_column }
                                                                                 }
@@ -506,7 +512,7 @@ Parser.advance = (self) void {
 
 Parser.expect = (self, token_type: TokenType) Result<void, string> {
     self.current.token_type == token_type ?
-        | true { { }
+        | true {
             self.advance()
             Ok(void)
         }
@@ -515,32 +521,32 @@ Parser.expect = (self, token_type: TokenType) Result<void, string> {
 
 Parser.parse_primary = (self) Result<AstNode, string> {
     self.current.token_type ?
-        | TokenType:Integer { { }
+        | TokenType:Integer {
             value := self.current.lexeme.parse_int()
             self.advance()
             Ok(AstNode:IntegerLiteral(value))
         }
-        | TokenType:Float { { }
+        | TokenType:Float {
             value := self.current.lexeme.parse_float()
             self.advance()
             Ok(AstNode:FloatLiteral(value))
         }
-        | TokenType:String { { }
+        | TokenType:String {
             value := self.current.lexeme
             self.advance()
             Ok(AstNode:StringLiteral(value))
         }
-        | TokenType:Bool { { }
+        | TokenType:Bool {
             value := self.current.lexeme == "true"
             self.advance()
             Ok(AstNode:BoolLiteral(value))
         }
-        | TokenType:Identifier { { }
+        | TokenType:Identifier {
             name := self.current.lexeme
             self.advance()
             Ok(AstNode:Identifier(name))
         }
-        | TokenType:LeftParen { { }
+        | TokenType:LeftParen {
             self.advance()
             expr := self.parse_expression()?
             self.expect(TokenType:RightParen)?
@@ -556,40 +562,40 @@ Parser.parse_expression = (self) Result<AstNode, string> {
 
 Parser.parse_statement = (self) Result<AstNode, string> {
     self.current.token_type ?
-        | TokenType:Identifier { { }
+        | TokenType:Identifier {
             name := self.current.lexeme
             self.advance()
             
             self.current.token_type ?
-                | TokenType:ColonEqual { { }
+                | TokenType:ColonEqual {
                     self.advance()
                     value := self.parse_expression()?
                     Ok(AstNode:VariableDecl{ name: name, value: Box:new(value), mutable: false })
                 }
-                | TokenType:DoubleColonEqual { { }
+                | TokenType:DoubleColonEqual {
                     self.advance()
                     value := self.parse_expression()?
                     Ok(AstNode:VariableDecl{ name: name, value: Box:new(value), mutable: true })
                 }
                 | _ { Ok(AstNode:Identifier(name)) }
         }
-        | TokenType:Keyword { { }
+        | TokenType:Keyword {
             self.current.lexeme ?
                 | "struct" { self.parse_struct() }
                 | "enum" { self.parse_enum() }
                 | "loop" { self.parse_loop() }
-                | "break" { { }
+                | "break" {
                     self.advance()
                     Ok(AstNode:Break)
                 }
-                | "continue" { { }
+                | "continue" {
                     self.advance()
                     Ok(AstNode:Continue)
                 }
-                | "return" { { }
+                | "return" {
                     self.advance()
                     self.current.token_type != TokenType:Semicolon ?
-                        | true { { }
+                        | true {
                             expr := self.parse_expression()?
                             Ok(AstNode:Return(Some(Box:new(expr))))
                         }
@@ -611,7 +617,7 @@ Parser:parse_struct = (self) Result<AstNode, string> {
     loop {
         self.current.token_type == TokenType:RightBrace ?
             | true { break }
-            | false { { }
+            | false {
                 field_name := self.current.lexeme
                 self.expect(TokenType:Identifier)?
                 self.expect(TokenType:Colon)?
@@ -621,7 +627,7 @@ Parser:parse_struct = (self) Result<AstNode, string> {
                 
                 self.current.token_type == TokenType:Comma ?
                     | true { self.advance() }
-                    | false { { }}
+                    | false {}
             }
     }
     
@@ -640,14 +646,14 @@ Parser:parse_enum = (self) Result<AstNode, string> {
     loop {
         self.current.token_type == TokenType:RightBrace ?
             | true { break }
-            | false { { }
+            | false {
                 variant := self.current.lexeme
                 self.expect(TokenType:Identifier)?
                 variants.push(variant)
                 
                 self.current.token_type == TokenType:Comma ?
                     | true { self.advance() }
-                    | false { { }}
+                    | false {}
             }
     }
     
@@ -659,7 +665,7 @@ Parser:parse_loop = (self) Result<AstNode, string> {
     self.expect(TokenType:Keyword)? // loop
     
     condition := self.current.token_type == TokenType:LeftParen ?
-        | true { { }
+        | true {
             self.advance()
             cond := self.parse_expression()?
             self.expect(TokenType:RightParen)?
@@ -673,7 +679,7 @@ Parser:parse_loop = (self) Result<AstNode, string> {
     loop {
         self.current.token_type == TokenType:RightBrace ?
             | true { break }
-            | false { { }
+            | false {
                 stmt := self.parse_statement()?
                 body.push(stmt)
             }
@@ -689,7 +695,7 @@ Parser:parse_program = (self) Result<AstNode, string> {
     loop {
         self.current.token_type == TokenType:Eof ?
             | true { break }
-            | false { { }
+            | false {
                 stmt := self.parse_statement()?
                 statements.push(stmt)
             }
@@ -717,27 +723,29 @@ CodeGen.emit_line = (self, code: string) void {
 
 CodeGen:generate = (self, node: AstNode) void {
     node ?
-        | AstNode:IntegerLiteral -> n { self.emit(n.to_string()) }
-        | AstNode:FloatLiteral -> f { self.emit(f.to_string()) }
-        | AstNode:StringLiteral -> s { self.emit("\"$(s)\"") }
-        | AstNode:BoolLiteral -> b { self.emit(b.to_string()) }
-        | AstNode:Identifier -> name { self.emit(name) }
-        | AstNode:VariableDecl -> decl { { }
+        | AstNode.IntegerLiteral(n) { self.emit(n.to_string()) }
+        | AstNode.FloatLiteral(f) { self.emit(f.to_string()) }
+        | AstNode.StringLiteral(s) { self.emit("\"$(s)\"") }
+        | AstNode.BoolLiteral(b) { self.emit(b.to_string()) }
+        | AstNode.Identifier(name) { self.emit(name) }
+        | AstNode.VariableDecl(decl) {
             self.emit(decl.name)
-            self.emit(decl.mutable ? | true { " := " | false => " := ") }
+            self.emit(decl.mutable ?
+                | true { " ::= " }
+                | false { " = " })
             self.generate(*decl.value)
         }
-        | AstNode:Loop -> loop_node { { }
+        | AstNode.Loop(loop_node) {
             self.emit("loop ")
             loop_node.condition ?
-                | .Some -> cond { { }
+                | .Some(cond) {
                     self.emit("(")
                     self.generate(*cond)
                     self.emit(") ")
                 }
-                | .None { { }}
+                | .None {}
             self.emit_line("{")
-            loop_node.body.loop((stmt) => {
+            loop_node.body.loop((stmt) {
                 self.emit("    ")
                 self.generate(stmt)
                 self.emit_line("")
@@ -746,17 +754,17 @@ CodeGen:generate = (self, node: AstNode) void {
         }
         | AstNode:Break { self.emit("break") }
         | AstNode:Continue { self.emit("continue") }
-        | AstNode:Return -> ret { { }
+        | AstNode.Return(ret) {
             self.emit("return")
             ret ?
-                | .Some -> expr { { }
+                | .Some(expr) {
                     self.emit(" ")
                     self.generate(*expr)
                 }
-                | .None { { }}
+                | .None {}
         }
-        | AstNode:Program -> stmts { { }
-            stmts.loop((stmt) => {
+        | AstNode.Program(stmts) {
+            stmts.loop((stmt) {
                 self.generate(stmt)
                 self.emit_line("")
             })
@@ -795,7 +803,7 @@ main = () void {
         token ::= lexer.next_token()
         token.token_type == TokenType:Eof ?
             | true { break }
-            | false { { }
+            | false {
                 io.print("  $(token.token_type): '$(token.lexeme)' at $(token.line):$(token.column)\n")
             }
     }
@@ -821,11 +829,11 @@ loop (x < y) {
     parse_result ::= parser.parse_program()
     
     parse_result ?
-        | .Ok -> ast { { }
+        | .Ok(ast) {
             io.print("✓ Parsing successful!\n")
             io.print("AST nodes created\n")
         }
-        | .Err -> e { io.print("✗ Parse error: $(e)\n") }
+        | .Err(e) { io.print("✗ Parse error: $(e)\n") }
     
     io.print("\n")
     
@@ -845,11 +853,11 @@ loop {
     
     compile_result ::= compile(simple_program)
     compile_result ?
-        | .Ok -> output { { }
+        | .Ok(output) {
             io.print("Generated code:\n")
             io.print(output)
         }
-        | .Err -> e { io.print("✗ Compilation error: $(e)\n") }
+        | .Err(e) { io.print("✗ Compilation error: $(e)\n") }
     
     io.print("\n")
     io.print("=== Demo Complete ===\n")

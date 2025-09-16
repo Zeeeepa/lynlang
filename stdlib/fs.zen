@@ -44,11 +44,11 @@ path_extension = (path: PathBuf) core.Option<string> {
     loop {
 
     
-        i >= 0 ? | false { { break  }} | true { { }}
-        path.path[i] == '.' ? | true { { }
+        i >= 0 ? | false { { break  }} | true {}
+        path.path[i] == '.' ? | true {
             last_dot = i
             break
-        } | false { { }}
+        } | false {}
         
         path.path[i] == '/' ? | true { break | false => { }}
         i = i - 1
@@ -67,15 +67,15 @@ path_stem = (path: PathBuf) core.Option<string> {
     loop {
 
     
-        i >= 0 ? | false { { break  }} | true { { }}
-        path.path[i] == '/' ? | true { { }
+        i >= 0 ? | false { { break  }} | true {}
+        path.path[i] == '/' ? | true {
             last_slash = i
             break
-        } | false { { }}
+        } | false {}
         
-        path.path[i] == '.' && last_dot == -1 ? | true { { }
+        path.path[i] == '.' && last_dot == -1 ? | true {
             last_dot = i
-        } | false { { }}
+        } | false {}
         
         i = i - 1
     }
@@ -93,16 +93,16 @@ path_parent = (path: PathBuf) core.Option<PathBuf> {
     i := path.path.len - 1
     
     // Skip trailing slash if present
-    i > 0 && path.path[i] == '/' ? | true { { i = i - 1  }} | false { { }}
+    i > 0 && path.path[i] == '/' ? | true { { i = i - 1  }} | false {}
     
     loop {
 
     
-        i >= 0 ? | false { { break  }} | true { { }}
-        path.path[i] == '/' ? | true { { }
+        i >= 0 ? | false { { break  }} | true {}
+        path.path[i] == '/' ? | true {
             last_slash = i
             break
-        } | false { { }}
+        } | false {}
         i = i - 1
     }
     
@@ -265,12 +265,12 @@ walk_dir = (path: string, callback: (DirEntry) void) io.IOResult<void> {
     i := 0
     loop {
 
-        i < entries.len ? | false { { break  }} | true { { }}
+        i < entries.len ? | false { { break  }} | true {}
         entry := entries[i]
         callback(entry)
-        is_dir(entry.path) ? | true { { }
+        is_dir(entry.path) ? | true {
             walk_dir(entry.path, callback)?
-        } | false { { }}
+        } | false {}
         i = i + 1
     }
     

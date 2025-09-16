@@ -52,18 +52,18 @@ eprintln = (s: string) void   {
 // Print an integer
 print_int = (n: i32) void   {
     n < 0 ?
-        | true { { }
+        | true {
             print("-")
             n = -n
         }
-        | false { { }}
+        | false {}
     
     n == 0 ?
-        | true { { }
+        | true {
             print("0")
             return
         }
-        | false { { }}
+        | false {}
     
     // Convert to string (reverse order)
     buffer: [32]u8
@@ -97,18 +97,18 @@ read_line = () string   {
     
     bytes_read <= 0 ?
         | true { return "" }
-        | false { { }}
+        | false {}
     
     // Find newline and trim
     len := bytes_read as usize
     i := 0
     loop i < len {
         buffer[i] == 10 ?  // '\n'
-            | true { { }
+            | true {
                 len = i
                 break
             }
-            | false { { }}
+            | false {}
         i = i + 1
     }
     
@@ -141,18 +141,18 @@ open = (path: string, flags: i32) File   {
 // Close a file
 close = (file: *File) void   {
     file.is_open ?
-        | true { { }
+        | true {
             syscall(SYS_CLOSE, file.fd as i64, 0, 0)
             file.is_open = false
         }
-        | false { { }}
+        | false {}
 }
 
 // Write to a file
 write = (file: *File, data: string) isize   {
     !file.is_open ?
         | true { return -1 }
-        | false { { }}
+        | false {}
     
     return write_fd(file.fd, data.data, data.len)
 }
@@ -161,7 +161,7 @@ write = (file: *File, data: string) isize   {
 read = (file: *File, buffer: *u8, len: usize) isize   {
     !file.is_open ?
         | true { return -1 }
-        | false { { }}
+        | false {}
     
     return read_fd(file.fd, buffer, len)
 }
@@ -179,7 +179,7 @@ read_file = (path: string) string   {
     file := open(path, O_RDONLY)
     !file.is_open ?
         | true { return "" }
-        | false { { }}
+        | false {}
     
     // Read file contents (simplified - assumes small file)
     buffer: [65536]u8
@@ -188,7 +188,7 @@ read_file = (path: string) string   {
     
     bytes_read <= 0 ?
         | true { return "" }
-        | false { { }}
+        | false {}
     
     return string:from_bytes(&buffer[0], bytes_read as usize)
 }
@@ -197,7 +197,7 @@ write_file = (path: string, content: string) bool   {
     file := open(path, O_WRONLY | O_CREAT | O_TRUNC)
     !file.is_open ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     bytes_written := write(&file, content)
     close(&file)
@@ -209,7 +209,7 @@ append_file = (path: string, content: string) bool   {
     file := open(path, O_WRONLY | O_CREAT | O_APPEND)
     !file.is_open ?
         | true { return false }
-        | false { { }}
+        | false {}
     
     bytes_written := write(&file, content)
     close(&file)

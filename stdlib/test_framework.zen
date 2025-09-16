@@ -103,19 +103,19 @@ run_test = (test: TestCase) TestResult   {
     // Check if test should be skipped
     test.skip ?
         | true { return TestResult.Skipped(test.skip_reason) }
-        | false { { }}
+        | false {}
     
     // Try to catch panics (simplified - real implementation would use proper panic handling)
     // For now, we'll just run the test and assume success if it doesn't crash
     
     test.should_panic ?
-        | true { { }
+        | true {
             // Test should panic - in real implementation would catch panic
             test.test_fn()
             // If we get here, test didn't panic when it should have
             return TestResult.Failed("Expected test to panic but it didn't")
         }
-        | false { { }
+        | false {
             // Normal test execution
             test.test_fn()
             return TestResult.Passed
@@ -128,11 +128,11 @@ run_suite = (suite: Ptr<TestSuite>) void   {
     
     // Run setup if provided
     suite.setup ?
-        | Some(setup_fn) { { }
+        | Some(setup_fn) {
             io.println("  Running setup...")
             setup_fn()
         }
-        | None { { }}
+        | None {}
     
     // Run each test
     range(0, suite.tests.len()).loop(i -> {
@@ -142,19 +142,19 @@ run_suite = (suite: Ptr<TestSuite>) void   {
         result := run_test(test)
         
         result ?
-            | TestResult.Passed { { }
+            | TestResult.Passed {
                 io.println("✓ PASSED")
                 suite.results.push((test.name, result))
             }
-            | TestResult.Failed(msg) { { }
+            | TestResult.Failed(msg) {
                 io.println("✗ FAILED: $(msg)")
                 suite.results.push((test.name, result))
             }
-            | TestResult.Skipped(reason) { { }
+            | TestResult.Skipped(reason) {
                 io.println("⊘ SKIPPED: $(reason)")
                 suite.results.push((test.name, result))
             }
-            | TestResult.Panicked(err) { { }
+            | TestResult.Panicked(err) {
                 io.println("✗ PANICKED: $(err)")
                 suite.results.push((test.name, result))
             }
@@ -162,11 +162,11 @@ run_suite = (suite: Ptr<TestSuite>) void   {
     
     // Run teardown if provided
     suite.teardown ?
-        | Some(teardown_fn) { { }
+        | Some(teardown_fn) {
             io.println("  Running teardown...")
             teardown_fn()
         }
-        | None { { }}
+        | None {}
 }
 
 // Create a new test runner
@@ -228,12 +228,12 @@ runner_run = (runner: Ptr<TestRunner>) bool   {
     io.println("  Pass Rate: $(pass_rate)%")
     
     runner.failed == 0 ?
-        | true { { }
+        | true {
             io.println("\n✓ All tests passed!")
             io.println(string_repeat("=", 60))
             return true
         }
-        | false { { }
+        | false {
             io.println("\n✗ Some tests failed!")
             io.println(string_repeat("=", 60))
             return false
@@ -243,90 +243,90 @@ runner_run = (runner: Ptr<TestRunner>) bool   {
 // Assertion helpers for tests
 assert_eq = <T>(actual: T, expected: T, message: string = "") void {
     actual == expected ?
-        | false { { }
+        | false {
             msg := message.empty() ?
                 | true { "Expected $(expected), got $(actual)" }
                 | false { message }
             panic(msg)
         }
-        | true { { }}
+        | true {}
 }
 
 assert_ne = <T>(actual: T, expected: T, message: string = "") void {
     actual != expected ?
-        | false { { }
+        | false {
             msg := message.empty() ?
                 | true { "Expected values to be different, both were $(actual)" }
                 | false { message }
             panic(msg)
         }
-        | true { { }}
+        | true {}
 }
 
 assert_true = (value: bool, message: string = "") void   {
     value ?
-        | false { { }
+        | false {
             msg := message.empty() ?
                 | true { "Expected true, got false" }
                 | false { message }
             panic(msg)
         }
-        | true { { }}
+        | true {}
 }
 
 assert_false = (value: bool, message: string = "") void   {
     value ?
-        | true { { }
+        | true {
             msg := message.empty() ?
                 | true { "Expected false, got true" }
                 | false { message }
             panic(msg)
         }
-        | false { { }}
+        | false {}
 }
 
 assert_lt = <T>(a: T, b: T, message: string = "") void {
     a < b ?
-        | false { { }
+        | false {
             msg := message.empty() ?
                 | true { "Expected $(a) < $(b)" }
                 | false { message }
             panic(msg)
         }
-        | true { { }}
+        | true {}
 }
 
 assert_le = <T>(a: T, b: T, message: string = "") void {
     a <= b ?
-        | false { { }
+        | false {
             msg := message.empty() ?
                 | true { "Expected $(a) <= $(b)" }
                 | false { message }
             panic(msg)
         }
-        | true { { }}
+        | true {}
 }
 
 assert_gt = <T>(a: T, b: T, message: string = "") void {
     a > b ?
-        | false { { }
+        | false {
             msg := message.empty() ?
                 | true { "Expected $(a) > $(b)" }
                 | false { message }
             panic(msg)
         }
-        | true { { }}
+        | true {}
 }
 
 assert_ge = <T>(a: T, b: T, message: string = "") void {
     a >= b ?
-        | false { { }
+        | false {
             msg := message.empty() ?
                 | true { "Expected $(a) >= $(b)" }
                 | false { message }
             panic(msg)
         }
-        | true { { }}
+        | true {}
 }
 
 // Benchmark support
@@ -385,11 +385,11 @@ benchmark_run = (bench: Ptr<Benchmark>) void   {
         
         time < min ?
             | true { min = time }
-            | false { { }}
+            | false {}
         
         time > max ?
             | true { max = time }
-            | false { { }}
+            | false {}
     })
     
     avg := total / bench.iterations

@@ -193,7 +193,7 @@ memoize = <K, V>(compute: (K) V) Memo<K, V> {
 memo_get = <K, V>(m: *Memo<K, V>, key: K) V {
     existing := m.cache.get(key)
     existing ? | .Some -> value { value }
-              | .None { { }
+              | .None {
                   value := m.compute(key)
                   m.cache.insert(key, value)
                   value
@@ -310,17 +310,17 @@ hash_string = (s: string) u32   {
 // Format time duration in human-readable format
 format_duration = (seconds: i64) string   {
     seconds < 60 ? | true { string.format("{ }}s", seconds)
-                   | false { { }
+                   | false {
         minutes := seconds / 60
         remaining_seconds := seconds % 60
         
         minutes < 60 ? | true { string.format("{ }}m {}s", minutes, remaining_seconds)
-                       | false { { }
+                       | false {
             hours := minutes / 60
             remaining_minutes := minutes % 60
             
             hours < 24 ? | true { string.format("{ }}h {}m", hours, remaining_minutes)
-                         | false { { }
+                         | false {
                 days := hours / 24
                 remaining_hours := hours % 24
                 string.format("{}d {}h", days, remaining_hours)
@@ -355,12 +355,12 @@ retry = <T, E>(f: () Result<T, E>, max_attempts: i32) Result<T, E> {
     loop attempt < max_attempts {
         result := f()
         is_ok(result) ? | true { return result }
-                        | false { { }
+                        | false {
             attempt = attempt + 1
-            attempt < max_attempts ? | true { { }
+            attempt < max_attempts ? | true {
                 core.sleep_ms(delay)
                 delay = delay * 2  // Exponential backoff
-            } | false { { }}
+            } | false {}
         }
     }
     
@@ -370,7 +370,7 @@ retry = <T, E>(f: () Result<T, E>, max_attempts: i32) Result<T, E> {
 // Simple assert for testing
 assert = (condition: bool, message: string) void   {
     !condition ? | true { core.panic(string.format("Assertion failed: { }}", message))
-                 | false { { }}
+                 | false {}
 }
 
 // Assert equality for testing
@@ -378,7 +378,7 @@ assert_eq = <T>(actual: T, expected: T, message: string) void {
     actual != expected ? | true { core.panic( }
         string.format("Assertion failed: {}. Expected: {:?}, Got: {:?}", 
                      message, expected, actual))
-                        | false { { }}
+                        | false {}
 }
 
 // Timing guard for measuring scope duration

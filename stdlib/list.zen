@@ -46,13 +46,13 @@ push_back = <T>(list: &mut List<T>, value: T) void {
         mut current := list.head
         loop {
             match current {
-                | Option<*ListNode<T>>.Some(n) { { }
+                | Option<*ListNode<T>>.Some(n) {
                     match n.next {
-                        | Option<*ListNode<T>>.None { { }
+                        | Option<*ListNode<T>>.None {
                             n.next = Option<*ListNode<T>>.Some(node)
                             break
                         }
-                        | Option<*ListNode<T>>.Some(_) { { }
+                        | Option<*ListNode<T>>.Some(_) {
                             current = n.next
                         }
                     }
@@ -68,7 +68,7 @@ push_back = <T>(list: &mut List<T>, value: T) void {
 pop_front = <T>(list: &mut List<T>) Option<T> {
     match list.head {
         | Option<*ListNode<T>>.None { return Option<T>.None }
-        | Option<*ListNode<T>>.Some(node) { { }
+        | Option<*ListNode<T>>.Some(node) {
             value := node.value
             list.head = node.next
             mem.free(node)
@@ -101,7 +101,7 @@ clear = <T>(list: &mut List<T>) void {
     mut current := list.head
     loop {
         match current {
-            | Option<*ListNode<T>>.Some(node) { { }
+            | Option<*ListNode<T>>.Some(node) {
                 next := node.next
                 mem.free(node)
                 current = next
@@ -118,7 +118,7 @@ contains = <T>(list: &List<T>, value: T) bool {
     mut current := list.head
     loop {
         match current {
-            | Option<*ListNode<T>>.Some(node) { { }
+            | Option<*ListNode<T>>.Some(node) {
                 if node.value == value {
                     return true
                 }
@@ -139,7 +139,7 @@ get = <T>(list: &List<T>, index: usize) Option<T> {
     mut i := 0
     loop {
         match current {
-            | Option<*ListNode<T>>.Some(node) { { }
+            | Option<*ListNode<T>>.Some(node) {
                 if i == index {
                     return Option<T>.Some(node.value)
                 }
@@ -159,7 +159,7 @@ to_array = <T>(list: &List<T>) []T {
     
     loop {
         match current {
-            | Option<*ListNode<T>>.Some(node) { { }
+            | Option<*ListNode<T>>.Some(node) {
                 array[i] = node.value
                 i = i + 1
                 current = node.next
@@ -187,13 +187,13 @@ reverse = <T>(list: &mut List<T>) void {
     
     loop {
         match current {
-            | Option<*ListNode<T>>.Some(node) { { }
+            | Option<*ListNode<T>>.Some(node) {
                 next := node.next
                 node.next = prev
                 prev = current
                 current = next
             }
-            | Option<*ListNode<T>>.None { { }
+            | Option<*ListNode<T>>.None {
                 list.head = prev
                 break
             }

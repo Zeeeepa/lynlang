@@ -40,7 +40,7 @@ push = <T>(vec: &Vec<T>, value: T) void {
 // Pop element from vector
 pop = <T>(vec: &Vec<T>) Option<T> {
     vec.len > 0 ?
-        | true { { }
+        | true {
             vec.len = vec.len - 1
             Option<T>.Some(vec.data[vec.len])
         }
@@ -57,7 +57,7 @@ get = <T>(vec: &Vec<T>, index: usize) Option<T> {
 // Set element at index
 set = <T>(vec: &Vec<T>, index: usize, value: T) bool {
     index < vec.len ?
-        | true { { }
+        | true {
             vec.data[index] = value
             true
         }

@@ -40,22 +40,22 @@ compile = () bool   {
     parse_ok := parse_source();
     
     parse_ok ?
-        | false { { }
+        | false {
             io.print("Parse error!\n");
             return false
         }
-        | true { { }}
+        | true {}
     
     // Code generation
     io.print("3. Code Generation...\n");
     gen_ok := generate_code();
     
     gen_ok ?
-        | false { { }
+        | false {
             io.print("Code generation error!\n");
             return false
         }
-        | true { { }}
+        | true {}
     
     io.print("✅ Compilation successful!\n");
     return true
@@ -69,11 +69,13 @@ main = () i32   {
     
     success := compile();
     
-    if success {
-        io.print("\n✨ Self-hosting test passed!\n");
-        return 0
-    } else {
-        io.print("\n❌ Self-hosting test failed!\n");
-        return 1
-    }
+    success ?
+        | true {
+            io.print("\n✨ Self-hosting test passed!\n")
+            return 0
+        }
+        | false {
+            io.print("\n❌ Self-hosting test failed!\n")
+            return 1
+        }
 }

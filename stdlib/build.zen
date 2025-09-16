@@ -107,7 +107,7 @@ build_project = (config: BuildConfig) BuildResult   {
     
     files.loop(file -> {
         compile_file(file, config) ?
-            | Success(obj, warn) { { }
+            | Success(obj, warn) {
                 objects.push(obj)
                 warnings.extend(warn)
             }
@@ -165,12 +165,12 @@ test = (config: BuildConfig) Result<TestResults, string>   {
     
     test_files.loop(file -> {
         run_test_file(file, config) ?
-            | Ok(r) { { }
+            | Ok(r) {
                 results.passed = results.passed + r.passed
                 results.failed = results.failed + r.failed
                 results.failures.extend(r.failures)
             }
-            | Err(e) { { }
+            | Err(e) {
                 results.failed = results.failed + 1
                 results.failures.push(TestFailure {
                     name: file,
@@ -201,7 +201,7 @@ run_test_file = (path: string, config: BuildConfig) Result<TestResults, string> 
     // Compile and run the test file
     // This is simplified - in reality would need more infrastructure
     compile_file(path, config) ?
-        | Success(obj, _) { { }
+        | Success(obj, _) {
             result := process.run([obj]) ?
                 | Ok(r) { r }
                 | Err(e) { return Result.Err(e) }

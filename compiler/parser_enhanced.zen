@@ -209,7 +209,7 @@ parse = (p: *Parser) Result<vec.Vec<*AstNode>, vec.Vec<string>> {
     loop !is_at_end(p) {
         parse_declaration(p) ?
             | .Ok -> node { nodes.push(node) }
-            | .Err -> msg { { }
+            | .Err -> msg {
                 p.errors.push(msg)
                 synchronize(p)
             }
@@ -231,7 +231,7 @@ parse_declaration = (p: *Parser) Result<*AstNode, string>  {
         | lexer.TokenType.Impl { parse_impl(p) }
         | lexer.TokenType.Type { parse_type_alias(p) }
         | lexer.TokenType.Const | lexer.TokenType.Let { parse_variable(p) }
-        | lexer.TokenType.Identifier -> _ { { }
+        | lexer.TokenType.Identifier -> _ {
             // Could be variable declaration or expression
             peek_ahead(p, 1).type == lexer.TokenType.ColonEqual ||
             peek_ahead(p, 1).type == lexer.TokenType.ColonColonEqual ?
@@ -365,7 +365,7 @@ synchronize = (p: *Parser) void   {
               lexer.TokenType.Enum | lexer.TokenType.Trait |
               lexer.TokenType.Type | lexer.TokenType.Const |
               lexer.TokenType.Let => return
-            | _ { { }}
+            | _ {}
         
         advance(p)
     }

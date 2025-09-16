@@ -94,7 +94,7 @@ assert = (condition: bool, message: string) TestResult   {
 assert_eq = <T>(actual: T, expected: T, message: string) TestResult {
     actual == expected ?
         | true { return TestResult.Pass }
-        | false { { }
+        | false {
             // Format error message
             msg := "Assertion failed: " + message + "\n  Expected: " + @std.str(expected) + "\n  Actual: " + @std.str(actual)
             return TestResult.Fail(msg)
@@ -104,7 +104,7 @@ assert_eq = <T>(actual: T, expected: T, message: string) TestResult {
 assert_ne = <T>(actual: T, expected: T, message: string) TestResult {
     actual != expected ?
         | true { return TestResult.Pass }
-        | false { { }
+        | false {
             msg := "Assertion failed: " + message + "\n  Values should not be equal: " + @std.str(actual)
             return TestResult.Fail(msg)
         }
@@ -113,7 +113,7 @@ assert_ne = <T>(actual: T, expected: T, message: string) TestResult {
 assert_lt = <T>(actual: T, expected: T, message: string) TestResult {
     actual < expected ?
         | true { return TestResult.Pass }
-        | false { { }
+        | false {
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be less than " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -122,7 +122,7 @@ assert_lt = <T>(actual: T, expected: T, message: string) TestResult {
 assert_le = <T>(actual: T, expected: T, message: string) TestResult {
     actual <= expected ?
         | true { return TestResult.Pass }
-        | false { { }
+        | false {
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be less than or equal to " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -131,7 +131,7 @@ assert_le = <T>(actual: T, expected: T, message: string) TestResult {
 assert_gt = <T>(actual: T, expected: T, message: string) TestResult {
     actual > expected ?
         | true { return TestResult.Pass }
-        | false { { }
+        | false {
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be greater than " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -140,7 +140,7 @@ assert_gt = <T>(actual: T, expected: T, message: string) TestResult {
 assert_ge = <T>(actual: T, expected: T, message: string) TestResult {
     actual >= expected ?
         | true { return TestResult.Pass }
-        | false { { }
+        | false {
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be greater than or equal to " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -157,14 +157,14 @@ assert_panic = (fn: () void, message: string) TestResult {
 run_test = (test: TestCase, verbose: bool) TestResult   {
     verbose ?
         | true { io.print("Running test: " + test.name + "...") }
-        | false { { }}
+        | false {}
     
     // Execute the test function
     result := test.test_fn()
     
     // Print result if verbose
     verbose ?
-        | true { { }
+        | true {
             match result {
                 | Pass { io.print("  ✓ PASS") }
                 | Fail(reason) { io.print("  ✗ FAIL: " + reason) }
@@ -172,7 +172,7 @@ run_test = (test: TestCase, verbose: bool) TestResult   {
                 | Panic(msg) { io.print("  ⚠ PANIC: " + msg) }
             }
         }
-        | false { { }}
+        | false {}
     
     return result
 }
@@ -184,7 +184,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void   {
     // Run setup if present
     match suite.setup {
         | Some(setup_fn) { setup_fn() }
-        | None { { }}
+        | None {}
     }
     
     // Run each test
@@ -196,7 +196,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void   {
         // Update statistics
         match result {
             | Pass { runner.passed = runner.passed + 1 }
-            | Fail(reason) { { }
+            | Fail(reason) {
                 runner.failed = runner.failed + 1
                 io.println("FAILED: " + test.name)
                 io.println("  " + reason)
@@ -204,10 +204,10 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void   {
                 
                 runner.stop_on_failure ?
                     | true { return }
-                    | false { { }}
+                    | false {}
             }
             | Skip(_) { runner.skipped = runner.skipped + 1 }
-            | Panic(msg) { { }
+            | Panic(msg) {
                 runner.panicked = runner.panicked + 1
                 io.println("PANIC: " + test.name)
                 io.println("  " + msg)
@@ -221,7 +221,7 @@ run_suite = (suite: TestSuite, runner: *TestRunner) void   {
     // Run teardown if present
     match suite.teardown {
         | Some(teardown_fn) { teardown_fn() }
-        | None { { }}
+        | None {}
     }
 }
 
@@ -243,7 +243,7 @@ run_all_tests = () i32   {
         
         global_runner.panicked > 0 ?
             | true { break  // Stop if any test panicked }
-            | false { { }}
+            | false {}
         
         i = i + 1
     }
@@ -311,11 +311,11 @@ benchmark = (name: string, iterations: i64, bench_fn: () void) Benchmark {
         
         elapsed < min_time ?
             | true { { min_time = elapsed  }}
-            | false { { }}
+            | false {}
         
         elapsed > max_time ?
             | true { { max_time = elapsed  }}
-            | false { { }}
+            | false {}
         
         i = i + 1
     }

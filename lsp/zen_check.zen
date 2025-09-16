@@ -7,10 +7,7 @@ fs := build.import("fs")
 string := build.import("string")
 
 // Diagnostic types
-DiagnosticSeverity: Error
-    | Warning
-    | Info
-    | Hint
+DiagnosticSeverity: Error | Warning | Info | Hint
 
 // Diagnostic message
 Diagnostic: {
@@ -27,7 +24,7 @@ SEVERITY_INFO := 2
 SEVERITY_HINT := 3
 
 // Check for comptime import anti-pattern
-check_comptime_imports = (content: string) i32   {
+check_comptime_imports = (content: string) i32 {
     // Simple check - look for "comptime" followed by "@std"
     // In a real implementation, we'd parse properly
     diagnostics := 0;
@@ -51,7 +48,7 @@ check_comptime_imports = (content: string) i32   {
 }
 
 // Check for correct import syntax
-check_import_syntax = (content: string) i32   {
+check_import_syntax = (content: string) i32 {
     diagnostics := 0;
     
     // Check for @std imports at module level
@@ -61,7 +58,7 @@ check_import_syntax = (content: string) i32   {
 }
 
 // Analyze a Zen file
-analyze_file = (filename: string) bool   {
+analyze_file = (filename: string) bool {
     io.print("Analyzing: ");
     io.print(filename);
     io.print("\n");
@@ -92,7 +89,7 @@ analyze_file = (filename: string) bool   {
 }
 
 // Main entry point
-main = () i32   {
+main = () i32 {
     io.print("🔍 Zen Check - Diagnostic Tool\n");
     io.print("==============================\n\n");
     
@@ -102,11 +99,13 @@ main = () i32   {
     success := analyze_file(test_file);
     
     io.print("\n");
-    success ? {
-        io.print("✨ Analysis complete - no issues found!\n");
-        return 0
-    } : {
-        io.print("⚠️  Analysis complete - issues detected\n");
-        return 1
-    }
+    success ?
+        | true => {
+            io.print("✨ Analysis complete - no issues found!\n");
+            return 0
+        }
+        | false => {
+            io.print("⚠️  Analysis complete - issues detected\n");
+            return 1
+        }
 }

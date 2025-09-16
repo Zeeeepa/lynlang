@@ -22,7 +22,7 @@ test_lexer = () bool   {
     tok1 := lexer.lexer_next_token(&lex)
     tok1.token_type match {
         | Identifier { io.print("✓ Identifier token recognized\n") }
-        | _ { { }
+        | _ {
             io.print("✗ Expected identifier, got other token\n")
             return false
         }
@@ -32,7 +32,7 @@ test_lexer = () bool   {
     tok2 := lexer.lexer_next_token(&lex)
     tok2.token_type match {
         | Symbol { io.print("✓ Assignment operator recognized\n") }
-        | _ { { }
+        | _ {
             io.print("✗ Expected symbol token\n")
             return false
         }
@@ -42,7 +42,7 @@ test_lexer = () bool   {
     tok3 := lexer.lexer_next_token(&lex)
     tok3.token_type match {
         | Integer { io.print("✓ Integer literal recognized\n") }
-        | _ { { }
+        | _ {
             io.print("✗ Expected integer token\n")
             return false
         }
@@ -64,7 +64,7 @@ test_parser = () bool   {
     // Parse statement
     stmt := parser.parser_parse_statement(&p)
     stmt match {
-        | null { { }
+        | null {
             io.print("✗ Failed to parse statement\n")
             return false
         }
@@ -78,7 +78,7 @@ test_parser = () bool   {
     
     func := parser.parser_parse_function(&func_parser)
     func match {
-        | null { { }
+        | null {
             io.print("✗ Failed to parse function\n")
             return false
         }
@@ -104,7 +104,7 @@ test_type_checker = () bool   {
     
     int_type match {
         | I32 { io.print("✓ Integer type inference correct\n") }
-        | _ { { }
+        | _ {
             io.print("✗ Integer type inference failed\n")
             return false
         }
@@ -121,7 +121,7 @@ test_type_checker = () bool   {
     add_type := type_checker.infer_expression_type(&checker, add_expr)
     add_type match {
         | I32 { io.print("✓ Binary operation type checking correct\n") }
-        | _ { { }
+        | _ {
             io.print("✗ Binary operation type checking failed\n")
             return false
         }
@@ -150,7 +150,7 @@ test_codegen = () bool   {
     ir := codegen.codegen_get_ir(&gen)
     string.contains(ir, "define i32 @main()") match {
         | true { io.print("✓ Function declaration generated\n") }
-        | false { { }
+        | false {
             io.print("✗ Function declaration not generated\n")
             return false
         }
@@ -158,7 +158,7 @@ test_codegen = () bool   {
     
     string.contains(ir, "ret i32 0") match {
         | true { io.print("✓ Return instruction generated\n") }
-        | false { { }
+        | false {
             io.print("✗ Return instruction not generated\n")
             return false
         }
@@ -192,7 +192,7 @@ test_integration = () bool   {
     ast := parser.parser_parse_program(&p)
     
     ast match {
-        | null { { }
+        | null {
             io.print("✗ Failed to parse program\n")
             return false
         }
@@ -205,7 +205,7 @@ test_integration = () bool   {
     
     type_checker.check_program(&checker, ast) match {
         | true { io.print("✓ Type checking passed\n") }
-        | false { { }
+        | false {
             io.print("✗ Type checking failed\n")
             return false
         }
@@ -222,7 +222,7 @@ test_integration = () bool   {
     string.contains(ir, "@main") &&
     string.contains(ir, "call") match {
         | true { io.print("✓ Code generation successful\n") }
-        | false { { }
+        | false {
             io.print("✗ Code generation incomplete\n")
             return false
         }
@@ -285,11 +285,11 @@ main = () i32   {
     io.print(" failed\n")
     
     failed == 0 match {
-        | true { { }
+        | true {
             io.print("✓ All tests passed!\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("✗ Some tests failed\n")
             return 1
         }

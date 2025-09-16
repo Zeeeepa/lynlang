@@ -73,11 +73,11 @@ main = () i32   {
     io.print("\n\n")
     
     stats.errors_found == 0 ?
-        | true => {
+        | true {
             print_success("All checks passed!")
             return 0
         }
-        | false => {
+        | false {
             print_error("Some checks failed")
             return 1
         }

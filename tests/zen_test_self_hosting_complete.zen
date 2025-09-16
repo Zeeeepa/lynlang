@@ -279,10 +279,10 @@ main = () i32   {
         test := tests[i]
         printf("Running test: %s\n", test.0)
         
-        test.1() ? | true { { }
+        test.1() ? | true {
             passed = passed + 1
             printf("  PASSED\n")
-        } | false { { }
+        } | false {
             failed = failed + 1
             printf("  FAILED\n")
         }
@@ -295,10 +295,10 @@ main = () i32   {
     printf("Failed: %d\n", failed)
     printf("Total:  %d\n", passed + failed)
     
-    failed == 0 ? | true { { }
+    failed == 0 ? | true {
         printf("\n✅ All tests passed! Zen is ready for self-hosting!\n")
         return 0
-    } | false { { }
+    } | false {
         printf("\n❌ Some tests failed. Please review.\n")
         return 1
     }

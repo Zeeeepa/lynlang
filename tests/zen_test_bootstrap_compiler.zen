@@ -81,7 +81,7 @@ test_args_module = () bool   {
     result := args.parse(&parser, test_args)
     
     match result {
-        | Result<args.ParsedArgs, string>.Ok(parsed) { { }
+        | Result<args.ParsedArgs, string>.Ok(parsed) {
             args.has_flag(&parsed, "help") && 
             args.get_flag(&parsed, "output") == Option<string>.Some("output.txt") &&
             vec.len(parsed.positional) == 1 ? {
@@ -92,7 +92,7 @@ test_args_module = () bool   {
                 return false
             }
         }
-        | Result<args.ParsedArgs, string>.Err(e) { { }
+        | Result<args.ParsedArgs, string>.Err(e) {
             io.print("[FAIL] Args parsing error: ")
             io.print(e)
             io.print("\n")

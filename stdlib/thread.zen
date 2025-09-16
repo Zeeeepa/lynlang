@@ -227,7 +227,7 @@ atomic_store = <T>(a: Ref<Atomic<T>>, value: T) void {
 
 // Compare and swap
 atomic_cas = <T>(a: Ref<Atomic<T>>, expected: T, new_value: T) bool {
-    a.value == expected ? | true { { }
+    a.value == expected ? | true {
         a.value = new_value
         true
     } | false { false }

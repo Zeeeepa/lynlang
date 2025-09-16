@@ -52,7 +52,7 @@ Iterator<T>.has_next = (self: Iterator<T>) bool {
 Iterator<T>.next = (self: *Iterator<T>) Option<T> {
     self.current >= self.size ? 
         | true { return Option<T>:None }
-        | false { { }
+        | false {
             idx := self.current
             self.current = self.current + 1
             // Note: Array indexing would be: self.data[idx]
@@ -122,7 +122,7 @@ Iterator<T>.find = (self: *Iterator<T>, predicate: (T) bool) Option<T> {
     self.loop(value -> {
         predicate(value) ?
             | true { result = Option<T>:Some(value) }
-            | false { { }}
+            | false {}
     })
     return result
 }
@@ -133,7 +133,7 @@ Iterator<T>.any = (self: *Iterator<T>, predicate: (T) bool) bool {
     self.loop(value -> {
         predicate(value) ?
             | true { found = true }
-            | false { { }}
+            | false {}
     })
     return found
 }
@@ -144,7 +144,7 @@ Iterator<T>.all = (self: *Iterator<T>, predicate: (T) bool) bool {
     self.loop(value -> {
         predicate(value) ?
             | false { all_match = false }
-            | true { { }}
+            | true {}
     })
     return all_match
 }
@@ -155,7 +155,7 @@ Iterator<T>.count = (self: *Iterator<T>, predicate: (T) bool) i64 {
     self.loop(value -> {
         predicate(value) ?
             | true { count = count + 1 }
-            | false { { }}
+            | false {}
     })
     return count
 }
@@ -174,7 +174,7 @@ Iterator<T>.take = (self: Iterator<T>, n: i64) Iterator<T> {
 Iterator<T>.skip = (self: Iterator<T>, n: i64) Iterator<T> {
     n >= self.size ? 
         | true { return Iterator<T> { data: self.data, size: 0, current: 0  }}
-        | false { { }}
+        | false {}
     
     // Would need pointer arithmetic to skip elements
     return Iterator<T> {
@@ -256,15 +256,15 @@ Iterator<T>.collect = (self: *Iterator<T>) Vec<T> {
 // Find the maximum element (for comparable types)
 Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
     self.size == 0 ? | true { return Option<T>:None }
-                     | false { { }}
+                     | false {}
     
     max_val := Option<T>:None
     self.loop(value -> {
         max_val ? | .None { max_val = Option<T>:Some(value) }
-                 | .Some -> current { { }
+                 | .Some -> current {
                      compare(value, current) > 0 ?
                          | true { max_val = Option<T>:Some(value) }
-                         | false { { }}
+                         | false {}
                  }
     })
     return max_val
@@ -273,15 +273,15 @@ Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
 // Find the minimum element (for comparable types)
 Iterator<T>.min = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
     self.size == 0 ? | true { return Option<T>:None }
-                     | false { { }}
+                     | false {}
     
     min_val := Option<T>:None
     self.loop(value -> {
         min_val ? | .None { min_val = Option<T>:Some(value) }
-                 | .Some -> current { { }
+                 | .Some -> current {
                      compare(value, current) < 0 ?
                          | true { min_val = Option<T>:Some(value) }
-                         | false { { }}
+                         | false {}
                  }
     })
     return min_val
@@ -311,7 +311,7 @@ Iterator<T>.cycle = (self: Iterator<T>) Iterator<T> {
 Iterator<T>.peek = (self: Iterator<T>) Option<T> {
     self.current >= self.size ?
         | true { return Option<T>:None }
-        | false { { }
+        | false {
             // Return current element without advancing
             return Option<T>:Some(self.data[self.current])
         }

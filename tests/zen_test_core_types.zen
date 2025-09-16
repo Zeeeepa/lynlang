@@ -84,7 +84,7 @@ test_case("Vec operations") {
     
     // Test set
     vec_ptr.set(1, 25) ?
-        | Ok -> _ { { }
+        | Ok -> _ {
             vec_ptr.get(1) ?
                 | Some -> v { assert_eq(v, 25) }
                 | None { assert(false, "Value should exist") }
@@ -222,14 +222,14 @@ test_case("Vec with custom types") {
     assert_eq(people_ptr.len(), 2)
     
     people_ptr.get(0) ?
-        | Some -> p { { }
+        | Some -> p {
             assert_eq(p.name, "Alice")
             assert_eq(p.age, 30)
         }
         | None { assert(false, "Expected person at index 0") }
     
     people_ptr.get(1) ?
-        | Some -> p { { }
+        | Some -> p {
             assert_eq(p.name, "Bob")
             assert_eq(p.age, 25)
         }
@@ -250,7 +250,7 @@ test_case("HashMap with custom types") {
     color_map_ptr.insert("sky", Color:Blue)
     
     color_map_ptr.get("stop") ?
-        | Some -> c { { }
+        | Some -> c {
             c ?
                 | .Red { assert(true) }
                 | _ { assert(false, "Expected Red") }
@@ -258,7 +258,7 @@ test_case("HashMap with custom types") {
         | None { assert(false, "Expected color for 'stop'") }
     
     color_map_ptr.get("go") ?
-        | Some -> c { { }
+        | Some -> c {
             c ?
                 | .Green { assert(true) }
                 | _ { assert(false, "Expected Green") }

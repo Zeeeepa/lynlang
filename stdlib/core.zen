@@ -2,26 +2,22 @@
 // Essential types and utilities for the Zen language
 
 // Type aliases for clarity
-type size = i64
-type index = i64
-type byte = i8
+size: i64
+index: i64
+byte: i8
 
 // Memory allocation result
-Result<T, E> = 
-    | Ok(value: T)
-    | Err(error: E)
+Result<T, E>: .Ok(T) | .Err(E)
 
 // Optional type
-Option<T> = 
-    | Some(value: T)
-    | None
+Option<T>: .Some(T) | .None
 
 // Basic error types
-Error: OutOfMemory
-    | InvalidArgument(msg: string)
-    | IndexOutOfBounds(index: i64, len: i64)
-    | NullPointer
-    | SystemError(code: i32)
+Error: .OutOfMemory
+    | .InvalidArgument(string)
+    | .IndexOutOfBounds(i64, i64)
+    | .NullPointer
+    | .SystemError(i32)
 
 // Memory operations (will be implemented with comptime/intrinsics)
 extern malloc = (size: i64) RawPtr<void>
@@ -30,35 +26,42 @@ extern memcpy = (dest: RawPtr<void>, src: RawPtr<void>, n: i64) RawPtr<void>
 extern memset = (ptr: RawPtr<void>, value: i32, n: i64) RawPtr<void>
 
 // Assertion for debugging
-assert = (condition: bool, message: string) void   {
-    condition ? | false { { }
-        // In the future, this would panic with the message
-        // For now, we'll use a placeholder
-        extern exit = (code: i32) void
-        exit(1)
-    }
-    | true { { }}
+assert = (condition: bool, message: string) void {
+    condition ?
+        | false {
+            // In the future, this would panic with the message
+            // For now, we'll use a placeholder
+            extern exit = (code: i32) void
+            exit(1)
+        }
+        | true {}
 }
 
 // Min/max functions
-min = (a: i64, b: i64) i64   {
-    a < b ? | true { a | false => b }
+min = (a: i64, b: i64) i64 {
+    a < b ?
+        | true { return a }
+        | false { return b }
 }
 
-max = (a: i64, b: i64) i64   {
-    a > b ? | true { a | false => b }
+max = (a: i64, b: i64) i64 {
+    a > b ?
+        | true { return a }
+        | false { return b }
 }
 
 // Absolute value
-abs = (n: i64) i64   {
-    n < 0 ? | true { -n | false => n }
+abs = (n: i64) i64 {
+    n < 0 ?
+        | true { return -n }
+        | false { return n }
 }
 
 // Swap two values (when we have references)
-swap = (a: *i64, b: *i64) void   {
-    temp := *a
-    *a = *b
-    *b = temp
+swap = (a: MutPtr<i64>, b: MutPtr<i64>) void {
+    temp ::= a.val
+    a.val = b.val
+    b.val = temp
 }
 
 // Range type for iteration
@@ -80,11 +83,15 @@ range_step = (start: i64, end: i64, step: i64) Range   {
 
 // Functional loop method for Range
 Range.loop = (self: Range, callback: (i64) void) void {
-    i := self.start
-    loop i < self.end {
-        callback(i)
-        i = i + self.step
-    }
+    i ::= self.start
+    loop(() {
+        i >= self.end ?
+            | true { break }
+            | false {
+                callback(i)
+                i = i + self.step
+            }
+    })
 }
 
 // Inclusive range
@@ -95,43 +102,61 @@ range_inclusive = (start: i64, end: i64) Range   {
 // ===== Additional Core Operations =====
 
 // Clamp a value between min and max
-clamp = (value: i64, min_val: i64, max_val: i64) i64   {
-    value < min_val ? | true { min_val }
-    | false { value > max_val ? | true => max_val }
-    | false { value }
+clamp = (value: i64, min_val: i64, max_val: i64) i64 {
+    value < min_val ?
+        | true { return min_val }
+        | false {
+            value > max_val ?
+                | true { return max_val }
+                | false { return value }
+        }
 }
 
 // Sign function
-sign = (n: i64) i64   {
-    n < 0 ? | true { -1 }
-    | false { n > 0 ? | true => 1 }
-    | false { 0 }
+sign = (n: i64) i64 {
+    n < 0 ?
+        | true { return -1 }
+        | false {
+            n > 0 ?
+                | true { return 1 }
+                | false { return 0 }
+        }
 }
 
 // Power of 2 check
-is_power_of_two = (n: i64) bool   {
-    n > 0 && (n & (n - 1)) == 0 ? | true { true | false => false }
+is_power_of_two = (n: i64) bool {
+    (n > 0 && (n & (n - 1)) == 0) ?
+        | true { return true }
+        | false { return false }
 }
 
 // Next power of 2
-next_power_of_two = (n: i64) i64   {
-    n <= 1 ? | true { return 1 | false => { }}
+next_power_of_two = (n: i64) i64 {
+    n <= 1 ?
+        | true { return 1 }
+        | false {}
     
-    result := 1
-    loop result < n {
-        result = result << 1
-    }
+    result ::= 1
+    loop(() {
+        result >= n ?
+            | true { break }
+            | false { result = result << 1 }
+    })
     return result
 }
 
 // Bit counting operations
-count_ones = (n: i64) i64   {
-    count := 0
-    val := n
-    loop val != 0 {
-        count = count + (val & 1)
-        val = val >> 1
-    }
+count_ones = (n: i64) i64 {
+    count ::= 0
+    val ::= n
+    loop(() {
+        val == 0 ?
+            | true { break }
+            | false {
+                count = count + (val & 1)
+                val = val >> 1
+            }
+    })
     return count
 }
 
@@ -140,156 +165,241 @@ count_zeros = (n: i64) i64   {
 }
 
 // Array/slice utilities
-reverse_array = (arr: *i64, len: i64) void   {
-    i := 0
-    j := len - 1
-    loop i < j {
-        swap(&arr[i], &arr[j])
-        i = i + 1
-        j = j - 1
-    }
+reverse_array = (arr: MutPtr<i64>, len: i64) void {
+    i ::= 0
+    j ::= len - 1
+    loop(() {
+        i >= j ?
+            | true { break }
+            | false {
+                // Would need array indexing syntax for MutPtr
+                temp ::= (arr.addr + i * 8).val  // Assuming i64 is 8 bytes
+                (arr.addr + i * 8).val = (arr.addr + j * 8).val
+                (arr.addr + j * 8).val = temp
+                i = i + 1
+                j = j - 1
+            }
+    })
 }
 
 // Find minimum in array
-array_min = (arr: *i64, len: i64) i64   {
-    len == 0 ? | true { return 0 | false => { }}
+array_min = (arr: Ptr<i64>, len: i64) i64 {
+    len == 0 ?
+        | true { return 0 }
+        | false {}
     
-    min_val := arr[0]
-    i := 1
-    loop i < len {
-        arr[i] < min_val ? | true { { min_val = arr[i]  }} | false { { }}
-        i = i + 1
-    }
+    min_val ::= (arr.addr).val  // First element
+    i ::= 1
+    loop(() {
+        i >= len ?
+            | true { break }
+            | false {
+                current ::= (arr.addr + i * 8).val
+                current < min_val ?
+                    | true { min_val = current }
+                    | false {}
+                i = i + 1
+            }
+    })
     return min_val
 }
 
 // Find maximum in array  
-array_max = (arr: *i64, len: i64) i64   {
-    len == 0 ? | true { return 0 | false => { }}
+array_max = (arr: Ptr<i64>, len: i64) i64 {
+    len == 0 ?
+        | true { return 0 }
+        | false {}
     
-    max_val := arr[0]
-    i := 1
-    loop i < len {
-        arr[i] > max_val ? | true { { max_val = arr[i]  }} | false { { }}
-        i = i + 1
-    }
+    max_val ::= (arr.addr).val  // First element
+    i ::= 1
+    loop(() {
+        i >= len ?
+            | true { break }
+            | false {
+                current ::= (arr.addr + i * 8).val
+                current > max_val ?
+                    | true { max_val = current }
+                    | false {}
+                i = i + 1
+            }
+    })
     return max_val
 }
 
 // Sum of array elements
-array_sum = (arr: *i64, len: i64) i64   {
-    sum := 0
-    i := 0
-    loop i < len {
-        sum = sum + arr[i]
-        i = i + 1
-    }
+array_sum = (arr: Ptr<i64>, len: i64) i64 {
+    sum ::= 0
+    i ::= 0
+    loop(() {
+        i >= len ?
+            | true { break }
+            | false {
+                sum = sum + (arr.addr + i * 8).val
+                i = i + 1
+            }
+    })
     return sum
 }
 
 // Equality check for arrays
-arrays_equal = (a: *i64, b: *i64, len: i64) bool   {
-    i := 0
-    loop i < len {
-        a[i] != b[i] ? | true { return false | false => { }}
-        i = i + 1
-    }
+arrays_equal = (a: Ptr<i64>, b: Ptr<i64>, len: i64) bool {
+    i ::= 0
+    loop(() {
+        i >= len ?
+            | true { break }
+            | false {
+                val_a ::= (a.addr + i * 8).val
+                val_b ::= (b.addr + i * 8).val
+                val_a != val_b ?
+                    | true { return false }
+                    | false {}
+                i = i + 1
+            }
+    })
     return true
 }
 
 // Copy array
-array_copy = (dest: *i64, src: *i64, len: i64) void   {
-    i := 0
-    loop i < len {
-        dest[i] = src[i]
-        i = i + 1
-    }
+array_copy = (dest: MutPtr<i64>, src: Ptr<i64>, len: i64) void {
+    i ::= 0
+    loop(() {
+        i >= len ?
+            | true { break }
+            | false {
+                (dest.addr + i * 8).val = (src.addr + i * 8).val
+                i = i + 1
+            }
+    })
 }
 
 // Fill array with value
-array_fill = (arr: *i64, len: i64, value: i64) void   {
-    i := 0
-    loop i < len {
-        arr[i] = value
-        i = i + 1
-    }
+array_fill = (arr: MutPtr<i64>, len: i64, value: i64) void {
+    i ::= 0
+    loop(() {
+        i >= len ?
+            | true { break }
+            | false {
+                (arr.addr + i * 8).val = value
+                i = i + 1
+            }
+    })
 }
 
 // Linear search
-array_find = (arr: *i64, len: i64, value: i64) i64   {
-    i := 0
-    loop i < len {
-        arr[i] == value ? | true { return i | false => { }}
-        i = i + 1
-    }
+array_find = (arr: Ptr<i64>, len: i64, value: i64) i64 {
+    i ::= 0
+    loop(() {
+        i >= len ?
+            | true { break }
+            | false {
+                (arr.addr + i * 8).val == value ?
+                    | true { return i }
+                    | false {}
+                i = i + 1
+            }
+    })
     return -1  // Not found
 }
 
 // Contains check
-array_contains = (arr: *i64, len: i64, value: i64) bool   {
+array_contains = (arr: Ptr<i64>, len: i64, value: i64) bool {
     return array_find(arr, len, value) != -1
 }
 
 // GCD and LCM
-gcd = (a: i64, b: i64) i64   {
-    a_val := abs(a)
-    b_val := abs(b)
+gcd = (a: i64, b: i64) i64 {
+    a_val ::= abs(a)
+    b_val ::= abs(b)
     
-    loop b_val != 0 {
-        temp := b_val
-        b_val = a_val % b_val
-        a_val = temp
-    }
+    loop(() {
+        b_val == 0 ?
+            | true { break }
+            | false {
+                temp := b_val
+                b_val = a_val % b_val
+                a_val = temp
+            }
+    })
     return a_val
 }
 
-lcm = (a: i64, b: i64) i64   {
-    a == 0 || b == 0 ? | true { return 0 | false => { }}
+lcm = (a: i64, b: i64) i64 {
+    (a == 0 || b == 0) ?
+        | true { return 0 }
+        | false {}
     return abs(a * b) / gcd(a, b)
 }
 
 // Factorial
-factorial = (n: i64) i64   {
-    n < 0 ? | true { return 0 | false => { }}
-    n <= 1 ? | true { return 1 | false => { }}
+factorial = (n: i64) i64 {
+    n < 0 ?
+        | true { return 0 }
+        | false {}
+    n <= 1 ?
+        | true { return 1 }
+        | false {}
     
-    result := 1
-    i := 2
-    loop i <= n {
-        result = result * i
-        i = i + 1
-    }
+    result ::= 1
+    i ::= 2
+    loop(() {
+        i > n ?
+            | true { break }
+            | false {
+                result = result * i
+                i = i + 1
+            }
+    })
     return result
 }
 
 // Fibonacci
-fibonacci = (n: i64) i64   {
-    n <= 0 ? | true { return 0 | false => { }}
-    n == 1 ? | true { return 1 | false => { }}
+fibonacci = (n: i64) i64 {
+    n <= 0 ?
+        | true { return 0 }
+        | false {}
+    n == 1 ?
+        | true { return 1 }
+        | false {}
     
-    a := 0
-    b := 1
-    i := 2
-    loop i <= n {
-        temp := a + b
-        a = b
-        b = temp
-        i = i + 1
-    }
+    a ::= 0
+    b ::= 1
+    i ::= 2
+    loop(() {
+        i > n ?
+            | true { break }
+            | false {
+                temp := a + b
+                a = b
+                b = temp
+                i = i + 1
+            }
+    })
     return b
 }
 
 // Is prime
-is_prime = (n: i64) bool   {
-    n <= 1 ? | true { return false | false => { }}
-    n <= 3 ? | true { return true | false => { }}
-    n % 2 == 0 || n % 3 == 0 ? | true { return false | false => { }}
+is_prime = (n: i64) bool {
+    n <= 1 ?
+        | true { return false }
+        | false {}
+    n <= 3 ?
+        | true { return true }
+        | false {}
+    (n % 2 == 0 || n % 3 == 0) ?
+        | true { return false }
+        | false {}
     
-    i := 5
-    loop i * i <= n {
-        n % i == 0 || n % (i + 2) == 0 ? | true { return false | false => { }}
-        i = i + 6
-    }
+    i ::= 5
+    loop(() {
+        i * i > n ?
+            | true { break }
+            | false {
+                (n % i == 0 || n % (i + 2) == 0) ?
+                    | true { return false }
+                    | false {}
+                i = i + 6
+            }
+    })
     return true
 }
 

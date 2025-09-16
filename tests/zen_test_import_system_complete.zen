@@ -81,11 +81,11 @@ test_import_with_patterns = () bool   {
     
     result := 42
     result ? 
-        | 42 { { }
+        | 42 {
             io.print("  ✓ Pattern matching works with imported modules\n")
             return true
         }
-        | _ { { }
+        | _ {
             io.print("  ✗ Pattern matching failed\n")
             return false
         }

@@ -48,7 +48,7 @@ CompilationResult:
 
 // Main compiler driver
 compile = (options: CompilerOptions) CompilationResult   {
-    options.verbose ? | true { { }
+    options.verbose ? | true {
         io.print("Zen Compiler v$(VERSION)\n");
         io.print("Compiling: $(options.input_file)\n");
     }
@@ -71,7 +71,7 @@ compile = (options: CompilerOptions) CompilationResult   {
         | .Err -> err { return .ParserError -> msg: err }
     
     // Early exit if just dumping AST
-    options.emit_type ? | .AST { { }
+    options.emit_type ? | .AST {
         dump_ast(ast, options.output_file);
         return .Success
     }
@@ -86,19 +86,19 @@ compile = (options: CompilerOptions) CompilationResult   {
     options.verbose ? | true { io.print("Generating code...\n") }
     
     result := options.emit_type ?
-        | .C_Code { { }
+        | .C_Code {
             code := codegen.generate_c(typed_ast);
             fs.write_file(options.output_file, code) ?
                 | .Ok { .Success }
                 | .Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
         }
-        | .LLVM_IR { { }
+        | .LLVM_IR {
             ir := llvm_backend.generate_ir(typed_ast);
             fs.write_file(options.output_file, ir) ?
                 | .Ok { .Success }
                 | .Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
         }
-        | .Binary { { }
+        | .Binary {
             // Generate LLVM IR then compile to binary
             ir := llvm_backend.generate_ir(typed_ast);
             llvm_backend.compile_to_binary(ir, options) ?
@@ -138,7 +138,7 @@ parse_args = (args: []string) Result<CompilerOptions, string>   {
         arg := args[i];
         
         arg ?
-            | "-o" | "--output" { { }
+            | "-o" | "--output" {
                 i += 1;
                 i >= args.len ? | true { return .Err -> "Expected output file after -o" }
                 options.output_file = args[i]
@@ -149,17 +149,17 @@ parse_args = (args: []string) Result<CompilerOptions, string>   {
             | "-O" | "--optimize" { options.optimize = true }
             | "-g" | "--debug" { options.debug = true }
             | "-v" | "--verbose" { options.verbose = true }
-            | "--target" { { }
+            | "--target" {
                 i += 1;
                 i >= args.len ? | true { return .Err -> "Expected target after --target" }
                 options.target = args[i]
             }
-            | "--stdlib" { { }
+            | "--stdlib" {
                 i += 1;
                 i >= args.len ? | true { return .Err -> "Expected path after --stdlib" }
                 options.stdlib_path = args[i]
             }
-            | "-h" | "--help" { { }
+            | "-h" | "--help" {
                 print_help();
                 process.exit(0)
             }
@@ -193,7 +193,7 @@ main = (args: []string) i32   {
     // Parse command line arguments
     options := parse_args(args) ?
         | .Ok -> opts { opts }
-        | .Err -> msg { { }
+        | .Err -> msg {
             io.error("$(msg)\n");
             return 1
         }

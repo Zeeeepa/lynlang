@@ -38,11 +38,11 @@ main = () i32   {
     
     io.print("\n=== Test Results ===\n")
     all_pass ? 
-        | true { { }
+        | true {
             io.print("All tests PASSED!\n")
             return 0
         }
-        | false { { }
+        | false {
             io.print("Some tests FAILED!\n")
             return 1
         }
