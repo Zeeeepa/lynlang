@@ -1,0 +1,136 @@
+// Zen Language - Working Features Demo
+// Based on LANGUAGE_SPEC.zen
+// This file demonstrates the features that are currently working
+
+// ============================================================================
+// WORKING FEATURES
+// ============================================================================
+
+// Imports from @std work
+io = @std
+
+// Local enum definitions work with pattern matching
+Shape: Circle | Rectangle
+
+// Structs work
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Functions work
+square = (x: f64) f64 {
+    return x * x
+}
+
+main = () void {
+    // Mutable variables with ::= work
+    counter ::= 0
+    counter = counter + 1
+    io.println("Counter: ${counter}")
+    
+    // String interpolation works
+    name = "Zen"
+    io.println("Hello, ${name}!")
+    
+    // Struct creation works (but field access in functions has issues)
+    p1 = Point { x: 0.0, y: 0.0 }
+    p2 = Point { x: 3.0, y: 4.0 }
+    
+    // Functions work
+    result = square(5.0)
+    io.println("5 squared is: ${result}")
+    
+    // Enum pattern matching works
+    shape = Shape.Circle
+    shape ?
+        | Circle { io.println("It's a circle") }
+        | Rectangle { io.println("It's a rectangle") }
+    
+    // Boolean pattern matching works
+    is_ready = true
+    is_ready ? { 
+        io.println("Ready!") 
+    }
+    
+    // Full boolean pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // Range loops work
+    io.println("Counting from 0 to 4:")
+    (0..5).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Infinite loops with break work
+    io.println("Infinite loop with break:")
+    loop_counter ::= 0
+    loop(() {
+        loop_counter = loop_counter + 1
+        loop_counter > 3 ?
+            | true { break }
+            | false { io.println("  Loop ${loop_counter}") }
+    })
+    
+    // @this.defer works
+    @this.defer(io.println("Deferred: This runs at the end"))
+    
+    io.println("Main function done")
+}
+
+// ============================================================================
+// FEATURES NOT YET WORKING (from LANGUAGE_SPEC.zen)
+// ============================================================================
+
+// These features are specified in LANGUAGE_SPEC.zen but not yet implemented:
+
+// 1. Generic enums like Option<T> and Result<T,E> with type parameters
+//    Option<T>: Some(T) | None
+//    Result<T, E>: Ok(T) | Err(E)
+
+// 2. Trait system with .implements() and .requires()
+//    Geometric: { area: (self) f64 }
+//    Circle.implements(Geometric, { ... })
+
+// 3. Error propagation with .raise()
+//    file = File.open(path).raise()
+
+// 4. Vec and DynVec types with methods
+//    v = Vec<i32, 10>()
+//    v.push(42)
+
+// 5. Pointer types (Ptr, MutPtr, RawPtr)
+//    ptr: Ptr<Circle> = circle.ref()
+
+// 6. Allocator-based async/sync behavior
+//    async_alloc = AsyncPool.init()
+
+// 7. Module exports
+//    module.exports = { ... }
+
+// 8. Destructured imports
+//    { String, StringBuilder } = @std
+
+// 9. Compile-time metaprogramming
+//    @meta.comptime(() { ... })
+
+// 10. Inline C/LLVM
+//     inline.c("...")
+
+// 11. SIMD operations
+//     simd.add(a, b)
+
+// 12. Actor system
+//     Actor(() { ... })
+
+// 13. Channels and concurrency primitives
+//     Channel<string>(10)
+
+// 14. Method syntax for structs
+//     circle.area()
+
+// 15. Generic functions and structs
+//     Container<T: Geometric>: { ... }
