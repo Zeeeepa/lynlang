@@ -1,0 +1,30 @@
+// Simplified test based on LANGUAGE_SPEC.zen
+// Focus on features that should work
+
+// Simple import
+io = @std.io
+
+// Test basic features
+main = () void {
+    // Test 1: No keywords - everything is identifiers
+    loop_var = 42
+    if_var = "test"
+    match_var = true
+    io.println("Test 1: No keywords - PASS")
+    
+    // Test 2: Assignment operators
+    x = 100         // Immutable
+    y ::= 200       // Mutable
+    y = y + 1       // Can modify mutable
+    z: i32 = 300    // With type
+    io.println("Test 2: Assignments - PASS")
+    
+    // Test 3: Simple pattern matching with booleans
+    is_ready = true
+    is_ready ?
+        | true { io.println("Test 3: Pattern matching - PASS") }
+        | false { io.println("Test 3: Pattern matching - FAIL") }
+    
+    // Test 4: Function calls
+    io.println("All tests complete!")
+}

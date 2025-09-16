@@ -1,8 +1,7 @@
 // Test enum with io
 
 { io } = @std
-
-Option<T>: Some(T) | None
+{ Option } = @std.option
 
 main = () void {
     maybe = Some(42)

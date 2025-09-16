@@ -1,7 +1,6 @@
 // Test enum definitions from LANGUAGE_SPEC.zen - simplified version
 
-// Option type - fundamental to Zen's no-null philosophy  
-Option<T>: Some(T) | None
+{ Option } = @std.option
 
 // Result type for error handling
 Result<T, E>: Ok(T) | Err(E)

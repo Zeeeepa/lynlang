@@ -942,9 +942,9 @@ mod tests {
     #[test]
     fn test_basic_type_checking() {
         let input = "main: () void = {
-            x := 42
+            x = 42
             y : i32 = 100
-            z := x + y
+            z = x + y
         }";
 
         let lexer = Lexer::new(input);

@@ -1,5 +1,5 @@
 // Test enum with shorthand variant syntax
-Option<T>: Some(T) | None
+{ Option } = @std.option
 
 main = () void {
     x: Option<i32> = Some(42)

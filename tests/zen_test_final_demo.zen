@@ -2,9 +2,9 @@
 // Based on LANGUAGE_SPEC.zen
 
 { io } = @std
+{ Option } = @std.option
 
 // Core types from spec
-Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Simple struct

@@ -1,7 +1,6 @@
 // Test generic enum
 { io } = @std
-
-Option<T>: Some(T) | None
+{ Option } = @std.option
 
 main = () void {
     io.print("Testing generic enum")

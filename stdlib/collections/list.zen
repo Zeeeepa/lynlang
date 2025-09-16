@@ -1,101 +1,202 @@
-// List - Simple linked list implementation in Zen
-// A basic collections module for the standard library
+// Linked list implementation for Zen
+// Provides a simple linked list data structure
 
-core = @std
 mem = @std
+core = @std
 
-// List node structure (simplified)
-// In real implementation this would use generics
-ListNode: {
-    value: i32,
-    next: *ListNode,
+// Node in the linked list
+ListNode<T>: {
+    value: T
+    next: Option<*ListNode<T>>
 }
 
-// List structure
-List: {
-    head: *ListNode,
-    size: u32,
+// Linked list structure
+List<T>: {
+    head: Option<*ListNode<T>>
+    size: usize
 }
 
 // Create a new empty list
-new = () List   {
-    return List {
-        head: null,
-        size: 0,
+new = <T>() List<T> {
+    return List<T> {
+        head: Option<*ListNode<T>>.None,
+        size: 0
     }
 }
 
 // Add element to the front of the list
-push_front = (list: *List, value: i32) void   {
-    node := mem.alloc(ListNode)
+push_front = <T>(list: &mut List<T>, value: T) void {
+    node := mem.alloc<ListNode<T>>()
     node.value = value
     node.next = list.head
-    list.head = node
+    list.head = Option<*ListNode<T>>.Some(node)
     list.size = list.size + 1
 }
 
-// Remove element from front of the list
-pop_front = (list: *List) i32   {
-    if list.head .== None {
-        return 0  // Error case
+// Add element to the back of the list
+push_back = <T>(list: &mut List<T>, value: T) void {
+    node := mem.alloc<ListNode<T>>()
+    node.value = value
+    node.next = Option<*ListNode<T>>.None
+    
+    if list.size == 0 {
+        list.head = Option<*ListNode<T>>.Some(node)
+    } | false {
+        // Find the last node
+        mut current := list.head
+        loop {
+            current ?
+                | Option<*ListNode<T>>.Some(n) {
+                    n.next ?
+                        | Option<*ListNode<T>>.None {
+                            n.next = Option<*ListNode<T>>.Some(node)
+                            break
+                        }
+                        | Option<*ListNode<T>>.Some(_) {
+                            current = n.next
+                        }
+                    }
+                }
+                | Option<*ListNode<T>>.None { break }
+            }
+        }
     }
-    
-    node := list.head
-    value := node.value
-    list.head = node.next
-    list.size = list.size - 1
-    mem.free(node)
-    
-    return value
+    list.size = list.size + 1
+}
+
+// Remove and return element from front
+pop_front = <T>(list: &mut List<T>) Option<T> {
+    list.head ?
+        | Option<*ListNode<T>>.None { return Option<T>.None }
+        | Option<*ListNode<T>>.Some(node) {
+            value := node.value
+            list.head = node.next
+            mem.free(node)
+            list.size = list.size - 1
+            return Option<T>.Some(value)
+        }
+    }
+}
+
+// Get the first element without removing
+peek_front = <T>(list: &List<T>) Option<T> {
+    list.head ?
+        | Option<*ListNode<T>>.None { return Option<T>.None }
+        | Option<*ListNode<T>>.Some(node) { return Option<T>.Some(node.value) }
+    }
 }
 
 // Get the size of the list
-len = (list: *List) u32   {
+len = <T>(list: &List<T>) usize {
     return list.size
 }
 
 // Check if list is empty
-is_empty = (list: *List) bool   {
+is_empty = <T>(list: &List<T>) bool {
     return list.size == 0
 }
 
 // Clear all elements from the list
-clear = (list: *List) void   {
-    while list.head != null {
-        node := list.head
-        list.head = node.next
-        mem.free(node)
+clear = <T>(list: &mut List<T>) void {
+    mut current := list.head
+    loop {
+        current ?
+            | Option<*ListNode<T>>.Some(node) {
+                next := node.next
+                mem.free(node)
+                current = next
+            }
+            | Option<*ListNode<T>>.None { break }
+        }
     }
+    list.head = Option<*ListNode<T>>.None
     list.size = 0
 }
 
-// Find an element in the list
-contains = (list: *List, value: i32) bool   {
-    current := list.head
-    while current != null {
-        if current.value == value {
-            return true
+// Find element in list
+contains = <T>(list: &List<T>, value: T) bool {
+    mut current := list.head
+    loop {
+        current ?
+            | Option<*ListNode<T>>.Some(node) {
+                if node.value == value {
+                    return true
+                }
+                current = node.next
+            }
+            | Option<*ListNode<T>>.None { return false }
         }
-        current = current.next
     }
-    return false
 }
 
-// Convert list to array (for debugging)
-to_array = (list: *List) []i32   {
-    if list.size == 0 {
-        return []
+// Get element at index
+get = <T>(list: &List<T>, index: usize) Option<T> {
+    if index >= list.size {
+        return Option<T>.None
     }
     
-    array := mem.alloc_array(i32, list.size)
-    current := list.head
-    i := 0
+    mut current := list.head
+    mut i := 0
+    loop {
+        current ?
+            | Option<*ListNode<T>>.Some(node) {
+                if i == index {
+                    return Option<T>.Some(node.value)
+                }
+                i = i + 1
+                current = node.next
+            }
+            | Option<*ListNode<T>>.None { return Option<T>.None }
+        }
+    }
+}
+
+// Convert list to array
+to_array = <T>(list: &List<T>) []T {
+    array := mem.alloc_array<T>(list.size)
+    mut current := list.head
+    mut i := 0
     
-    while current != null {
-        array[i] = current.value
-        current = current.next
-        i = i + 1
+    loop {
+        current ?
+            | Option<*ListNode<T>>.Some(node) {
+                array[i] = node.value
+                i = i + 1
+                current = node.next
+            }
+            | Option<*ListNode<T>>.None { break }
+        }
     }
     
     return array
+}
+
+// Create list from array
+from_array = <T>(array: []T) List<T> {
+    mut list := new<T>()
+    for i := 0; i < array.len(); i = i + 1 {
+        push_back(&mut list, array[i])
+    }
+    return list
+}
+
+// Reverse the list in place
+reverse = <T>(list: &mut List<T>) void {
+    mut prev := Option<*ListNode<T>>.None
+    mut current := list.head
+    
+    loop {
+        current ?
+            | Option<*ListNode<T>>.Some(node) {
+                next := node.next
+                node.next = prev
+                prev = current
+                current = next
+            }
+            | Option<*ListNode<T>>.None {
+                list.head = prev
+                break
+            }
+        }
+    }
 }

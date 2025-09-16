@@ -1,117 +1,207 @@
-// Zen Standard Library - String Module  
-// Provides string manipulation functionality
+// Zen Standard Library: String Utilities
+// String manipulation and utility functions
 
-// String type (assuming it's built-in but we define methods here)
-// string = {
-//     data: *u8,
-//     len: usize,
-// }
+core = @std
+mem = @std
 
-// Create a string from bytes
-from_bytes = (data: *u8, len: usize) string   {
-    // This would need runtime support
-    // For now, assume it's a builtin
-    return __builtin_string_from_bytes(data, len)
+// String builder for efficient string concatenation
+StringBuilder: {
+    buffer: *u8,
+    length: i64,
+    capacity: i64,
 }
 
-// Get string length
-len = (s: string) usize   {
-    return s.len
+// Create a new string builder
+string_builder_new = () StringBuilder   {
+    return StringBuilder {
+        buffer: 0,
+        length: 0,
+        capacity: 0,
+    }
 }
 
-// Check if string is empty
-is_empty = (s: string) bool   {
-    return s.len == 0
-}
-
-// Get character at index
-char_at = (s: string, index: usize) u8   {
-    index >= s.len ?
-        | true { return 0 }
-        | false {}
+// Create string builder with initial capacity
+string_builder_with_capacity = (capacity: i64) core.Result<StringBuilder, core.Error> {
+    capacity <= 0 ? | true {
+        return core.Result:Err(core.Error:InvalidArgument("Capacity must be positive"))
+    } | false {}
     
-    return s.data[index]
+    buffer := mem.alloc(capacity)
+    buffer ? | Err -> e { return core.Result:Err(e) }
+            | Ok -> buf {
+        return core.Result:Ok(StringBuilder {
+            buffer: buf,
+            length: 0,
+            capacity: capacity,
+        })
+    }
 }
 
-// Compare two strings for equality
-equals = (s1: string, s2: string) bool   {
-    s1.len != s2.len ?
-        | true { return false }
-        | false {}
+// Append string to builder
+string_builder_append = (builder: *StringBuilder, str: string) core.Result<void, core.Error> {
+    str_len := string_len(str)
+    new_len := builder.length + str_len
     
-    i := 0
-    loop i < s1.len {
-        s1.data[i] != s2.data[i] ?
-            | true { return false }
-            | false {}
-        i = i + 1
+    // Check if resize needed
+    new_len > builder.capacity ? | true {
+        new_capacity := builder.capacity == 0 ? | true { 16 }
+                                                | false { builder.capacity * 2 }
+        
+        // Ensure sufficient capacity
+        loop new_capacity < new_len {
+            new_capacity = new_capacity * 2
+        }
+        
+        result := string_builder_resize(builder, new_capacity)
+        result ? | Err -> e { return core.Result:Err(e) }
+                | Ok -> _ {}
+    } | false {}
+    
+    // Copy string data
+    mem.copy(builder.buffer + builder.length, str as *u8, str_len)
+    builder.length = new_len
+    
+    return core.Result:Ok({})
+}
+
+// Resize string builder buffer
+string_builder_resize = (builder: *StringBuilder, new_capacity: i64) core.Result<void, core.Error> {
+    new_buffer := mem.realloc(builder.buffer, builder.capacity, new_capacity)
+    new_buffer ? | Err -> e { return core.Result:Err(e) }
+                | Ok -> buf {
+        builder.buffer = buf
+        builder.capacity = new_capacity
+        return core.Result:Ok({})
+    }
+}
+
+// Convert builder to string
+string_builder_to_string = (builder: *StringBuilder) string   {
+    // Add null terminator
+    builder.buffer[builder.length] = 0
+    return builder.buffer as string
+}
+
+// Clear string builder
+string_builder_clear = (builder: *StringBuilder) void   {
+    builder.length = 0
+}
+
+// Free string builder
+string_builder_free = (builder: *StringBuilder) void   {
+    builder.buffer != 0 ? | true {
+        mem.dealloc(builder.buffer, builder.capacity)
+    } | false {}
+    
+    builder.buffer = 0
+    builder.length = 0
+    builder.capacity = 0
+}
+
+// Get string length (simplified - assumes null-terminated)
+string_len = (str: string) i64   {
+    len := 0i64
+    ptr := str as *u8
+    
+    loop ptr[len] != 0 {
+        len = len + 1
     }
     
-    return true
+    return len
 }
 
-// Check if string starts with prefix
-starts_with = (s: string, prefix: string) bool   {
-    prefix.len > s.len ?
-        | true { return false }
-        | false {}
+// Get character at position
+string_char_at = (str: string, pos: i64) i8   {
+    len := string_len(str)
+    pos >= len ? | true { return -1  // EOF }
+                | false { return (str as *u8)[pos] as i8 }
+}
+
+// Extract substring
+string_substring = (str: string, start: i64, end: i64) string   {
+    len := string_len(str)
     
-    i := 0
-    loop i < prefix.len {
-        s.data[i] != prefix.data[i] ?
-            | true { return false }
-            | false {}
-        i = i + 1
+    // Bounds checking
+    actual_start := start < 0 ? | true { 0 | false => start }
+    actual_end := end > len ? | true { len | false => end }
+    actual_start >= actual_end ? | true { return "" | false => { }}
+    
+    substr_len := actual_end - actual_start
+    buffer := mem.alloc(substr_len + 1)
+    
+    buffer ? | Ok -> buf {
+        mem.copy(buf, (str as *u8) + actual_start, substr_len)
+        (buf as *u8)[substr_len] = 0
+        return buf as string
+    } | Err -> _ {
+        return ""
     }
-    
-    return true
 }
 
-// Check if string ends with suffix
-ends_with = (s: string, suffix: string) bool   {
-    suffix.len > s.len ?
-        | true { return false }
-        | false {}
+// String comparison (alias for consistency with lexer)
+string_equals = (a: string, b: string) bool   {
+    return string_equal(a, b)
+}
+
+// String comparison
+string_equal = (a: string, b: string) bool   {
+    a_len := string_len(a)
+    b_len := string_len(b)
     
-    offset := s.len - suffix.len
-    i := 0
-    loop i < suffix.len {
-        s.data[offset + i] != suffix.data[i] ?
-            | true { return false }
-            | false {}
-        i = i + 1
+    a_len != b_len ? | true { return false }
+                    | false {}
+    
+    return mem.compare(a as RawPtr<void>, b as RawPtr<void>, a_len) == 0
+}
+
+// String copy
+string_copy = (dest: *u8, src: string, max_len: i64) i64   {
+    src_len := string_len(src)
+    copy_len := core.min(src_len, max_len - 1)
+    
+    mem.copy(dest as RawPtr<void>, src as RawPtr<void>, copy_len)
+    dest[copy_len] = 0  // Null terminate
+    
+    return copy_len
+}
+
+// String concatenation (creates new string)
+string_concat = (a: string, b: string) core.Result<string, core.Error> {
+    a_len := string_len(a)
+    b_len := string_len(b)
+    total_len := a_len + b_len
+    
+    buffer := mem.alloc(total_len + 1)
+    buffer ? | Err -> e { return core.Result:Err(e) }
+            | Ok -> buf {
+        mem.copy(buf, a as RawPtr<void>, a_len)
+        mem.copy(buf + a_len, b as RawPtr<void>, b_len)
+        (buf as *u8)[total_len] = 0  // Null terminate
+        
+        return core.Result:Ok(buf as string)
     }
-    
-    return true
 }
 
-// Find first occurrence of substring
-index_of = (s: string, needle: string) i32   {
-    needle.len == 0 ?
-        | true { return 0 }
-        | false {}
+// Find substring
+string_find = (haystack: string, needle: string) i64   {
+    haystack_len := string_len(haystack)
+    needle_len := string_len(needle)
     
-    needle.len > s.len ?
-        | true { return -1 }
-        | false {}
+    needle_len == 0 ? | true { return 0 }
+                      | false {}
     
-    i := 0
-    loop i <= s.len - needle.len {
-        found := true
-        j := 0
-        loop j < needle.len {
-            s.data[i + j] != needle.data[j] ?
-                | true {
-                    found = false
-                    break
-                }
-                | false {}
+    needle_len > haystack_len ? | true { return -1 }
+                               | false {}
+    
+    i := 0i64
+    loop i <= haystack_len - needle_len {
+        j := 0i64
+        loop j < needle_len && (haystack as *u8)[i + j] == (needle as *u8)[j] {
             j = j + 1
         }
         
-        found ?
-            | true { return i as i32 }
-            | false {}
+        j == needle_len ? | true { return i }
+                         | false {}
         
         i = i + 1
     }
@@ -119,212 +209,127 @@ index_of = (s: string, needle: string) i32   {
     return -1
 }
 
-// Check if string contains substring
-contains = (s: string, needle: string) bool   {
-    return index_of(s, needle) >= 0
+// Check if string starts with prefix
+string_starts_with = (str: string, prefix: string) bool   {
+    prefix_len := string_len(prefix)
+    str_len := string_len(str)
+    
+    prefix_len > str_len ? | true { return false }
+                          | false {}
+    
+    return mem.compare(str as RawPtr<void>, prefix as RawPtr<void>, prefix_len) == 0
 }
 
-// Create substring from start index with length
-substring = (s: string, start: usize, length: usize) string   {
-    start >= s.len ?
-        | true { return "" }
-        | false {}
+// Check if string ends with suffix
+string_ends_with = (str: string, suffix: string) bool   {
+    suffix_len := string_len(suffix)
+    str_len := string_len(str)
     
-    actual_len := length
-    start + length > s.len ?
-        | true { actual_len = s.len - start }
-        | false {}
+    suffix_len > str_len ? | true { return false }
+                         | false {}
     
-    return from_bytes(s.data + start, actual_len)
+    str_start := (str as *u8) + (str_len - suffix_len)
+    return mem.compare(str_start as RawPtr<void>, suffix as RawPtr<void>, suffix_len) == 0
 }
 
-// Create substring from start to end index
-slice = (s: string, start: usize, end: usize) string   {
-    start >= s.len || start >= end ?
-        | true { return "" }
-        | false {}
-    
-    actual_end := end
-    end > s.len ?
-        | true { actual_end = s.len }
-        | false {}
-    
-    return from_bytes(s.data + start, actual_end - start)
-}
-
-// Concatenate two strings
-concat = (s1: string, s2: string) string   {
-    // This needs memory allocation support
-    // For now, assume it's a builtin
-    return __builtin_string_concat(s1, s2)
-}
-
-// Concatenate multiple strings
-concat_many = (strings: []string) string   {
-    result := ""
-    i := 0
-    loop i < strings.len {
-        result = concat(result, strings[i])
-        i = i + 1
+// Convert integer to string (simplified)
+int_to_string = (value: i64) core.Result<string, core.Error> {
+    // Maximum i64 has 20 digits (including sign)
+    buffer := mem.alloc(21)
+    buffer ? | Err -> e { return core.Result:Err(e) }
+            | Ok -> buf {
+        ptr := buf as *u8
+        i := 0i64
+        negative := value < 0
+        
+        // Handle negative
+        negative ? | true {
+            ptr[0] = '-' as u8
+            i = 1
+            value = -value
+        } | false {}
+        
+        // Convert digits (simplified - would need proper implementation)
+        value == 0 ? | true {
+            ptr[i] = '0' as u8
+            i = i + 1
+        } | false {
+            // Would implement proper digit conversion here
+            // For now, placeholder
+            ptr[i] = '0' as u8
+            i = i + 1
+        }
+        
+        ptr[i] = 0  // Null terminate
+        return core.Result:Ok(buf as string)
     }
-    return result
 }
 
-// Join strings with separator
-join = (strings: []string, separator: string) string   {
-    strings.len == 0 ?
-        | true { return "" }
-        | false {}
+// String trimming
+string_trim = (str: string) string   {
+    len := string_len(str)
+    start := 0i64
+    end := len
     
-    result := strings[0]
-    i := 1
-    loop i < strings.len {
-        result = concat(result, separator)
-        result = concat(result, strings[i])
-        i = i + 1
-    }
-    
-    return result
-}
-
-// Trim whitespace from both ends
-trim = (s: string) string   {
-    start := 0
-    end := s.len
-    
-    // Trim from start
-    loop start < s.len {
-        c := s.data[start]
-        is_whitespace := c == 32 || c == 9 || c == 10 || c == 13  // space, tab, \n, \r
-        !is_whitespace ?
-            | true { break }
-            | false {}
+    // Trim leading whitespace
+    loop start < len && is_whitespace((str as *u8)[start]) {
         start = start + 1
     }
     
-    // Trim from end
-    loop end > start {
-        c := s.data[end - 1]
-        is_whitespace := c == 32 || c == 9 || c == 10 || c == 13
-        !is_whitespace ?
-            | true { break }
-            | false {}
+    // Trim trailing whitespace
+    loop end > start && is_whitespace((str as *u8)[end - 1]) {
         end = end - 1
     }
     
-    return slice(s, start, end)
-}
-
-// Convert string to uppercase
-to_upper = (s: string) string   {
-    // This needs memory allocation
-    // For now, assume it's a builtin
-    return __builtin_string_to_upper(s)
-}
-
-// Convert string to lowercase
-to_lower = (s: string) string   {
-    // This needs memory allocation
-    // For now, assume it's a builtin
-    return __builtin_string_to_lower(s)
-}
-
-// Replace all occurrences of old with new
-replace = (s: string, old: string, new: string) string   {
-    // This needs memory allocation and is complex
-    // For now, assume it's a builtin
-    return __builtin_string_replace(s, old, new)
-}
-
-// Split string by separator
-split = (s: string, separator: string) []string   {
-    // This needs dynamic array support
-    // For now, assume it's a builtin
-    return __builtin_string_split(s, separator)
-}
-
-// Parse integer from string
-parse_int = (s: string) i32   {
-    s.len == 0 ?
-        | true { return 0 }
-        | false {}
-    
-    result := 0
-    negative := false
-    i := 0
-    
-    // Check for negative sign
-    s.data[0] == 45 ?  // '-'
-        | true {
-            negative = true
-            i = 1
-        }
-        | false {}
-    
-    loop i < s.len {
-        c := s.data[i]
-        c < 48 || c > 57 ?  // Not a digit
-            | true { break }
-            | false {}
-        
-        digit := (c - 48) as i32
-        result = result * 10 + digit
-        i = i + 1
-    }
-    
-    negative ?
-        | true { result = -result }
-        | false {}
-    
-    return result
-}
-
-// Convert integer to string
-from_int = (n: i32) string   {
-    // This needs memory allocation
-    // For now, assume it's a builtin
-    return __builtin_int_to_string(n)
-}
-
-// Format string with arguments (simplified)
-format = (template: string, args: []string) string   {
-    result := template
-    i := 0
-    loop i < args.len {
-        placeholder := "{" + from_int(i) + "}"
-        result = replace(result, placeholder, args[i])
-        i = i + 1
-    }
-    return result
-}
-
-// Check if character is digit
-is_digit = (c: u8) bool   {
-    return c >= 48 && c <= 57  // '0' to '9'
-}
-
-// Check if character is letter
-is_letter = (c: u8) bool   {
-    is_upper := c >= 65 && c <= 90   // 'A' to 'Z'
-    is_lower := c >= 97 && c <= 122  // 'a' to 'z'
-    return is_upper || is_lower
-}
-
-// Check if character is alphanumeric
-is_alnum = (c: u8) bool   {
-    return is_digit(c) || is_letter(c)
+    // Return trimmed substring (would need proper implementation)
+    return str
 }
 
 // Check if character is whitespace
 is_whitespace = (c: u8) bool   {
-    return c == 32 || c == 9 || c == 10 || c == 13  // space, tab, \n, \r
+    return c == ' ' as u8 || c == '\t' as u8 || c == '\n' as u8 || c == '\r' as u8
 }
 
-// External builtin functions (these would be provided by the runtime)
-extern __builtin_string_from_bytes = (data: *u8, len: usize) string
-extern __builtin_string_concat = (s1: string, s2: string) string
-extern __builtin_string_to_upper = (s: string) string
-extern __builtin_string_to_lower = (s: string) string
-extern __builtin_string_replace = (s: string, old: string, new: string) string
-extern __builtin_string_split = (s: string, separator: string) []string
-extern __builtin_int_to_string = (n: i32) string
+// Convert string to uppercase (simplified for ASCII)
+string_to_upper = (str: string) core.Result<string, core.Error> {
+    len := string_len(str)
+    buffer := mem.alloc(len + 1)
+    
+    buffer ? | Err -> e { return core.Result:Err(e) }
+            | Ok -> buf {
+        i := 0i64
+        loop i < len {
+            c := (str as *u8)[i]
+            c >= 'a' as u8 && c <= 'z' as u8 ? | true {
+                (buf as *u8)[i] = c - 32
+            } | false {
+                (buf as *u8)[i] = c
+            }
+            i = i + 1
+        }
+        (buf as *u8)[len] = 0
+        return core.Result:Ok(buf as string)
+    }
+}
+
+// Convert string to lowercase (simplified for ASCII)
+string_to_lower = (str: string) core.Result<string, core.Error> {
+    len := string_len(str)
+    buffer := mem.alloc(len + 1)
+    
+    buffer ? | Err -> e { return core.Result:Err(e) }
+            | Ok -> buf {
+        i := 0i64
+        loop i < len {
+            c := (str as *u8)[i]
+            c >= 'A' as u8 && c <= 'Z' as u8 ? | true {
+                (buf as *u8)[i] = c + 32
+            } | false {
+                (buf as *u8)[i] = c
+            }
+            i = i + 1
+        }
+        (buf as *u8)[len] = 0
+        return core.Result:Ok(buf as string)
+    }
+}

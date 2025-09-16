@@ -2,9 +2,9 @@
 // This tests what currently works in our implementation
 
 { io } = @std
+{ Option } = @std.option
 
-// Option type - the foundation of no-null approach
-Option<T>: Some(T) | None
+// Option type - the foundation of no-null approach - using stdlib
 
 // Result type for error handling  
 Result<T, E>: Ok(T) | Err(E)

@@ -1,7 +1,6 @@
 // Test enum variant creation
 
-// Define Option type
-Option<T>: Some(T) | None
+{ Option } = @std.option
 
 main = () void {
     // Try using enum literal directly
