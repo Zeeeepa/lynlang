@@ -6,7 +6,7 @@
 // ============================================================================
 // - No keywords: no if/else/while/for/match/async/await/impl/trait/class/null
 // - Pattern matching with `?` operator replaces conditionals
-// - No null - only Option<T> with .Some(T) and .None
+// - No null - only Option<T> with Some(T) and None
 // - Assignment: `=` (immutable), `::=` (mutable)
 // - Ranges and .loop() for iteration
 
@@ -17,8 +17,8 @@
 { io } = @std
 
 // Define Option and Result types for no-null safety
-Option<T>: .Some(T) | .None
-Result<T, E>: .Ok(T) | .Err(E)
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
 
 // Simple struct definition
 Point: {
@@ -59,28 +59,28 @@ main = () void {
     // 4. NO NULL - OPTION TYPES
     io.println("")
     io.println("4. No null values - use Option type:")
-    maybe_value = .Some(100)
+    maybe_value = Some(100)
     maybe_value ?
-        | .Some(v) { io.println("   Found value: ${v}") }
-        | .None { io.println("   No value") }
+        | Some(v) { io.println("   Found value: ${v}") }
+        | None { io.println("   No value") }
     
-    empty = .None
+    empty = None
     empty ?
-        | .Some(v) { io.println("   Should not print") }
-        | .None { io.println("   Empty as expected") }
+        | Some(v) { io.println("   Should not print") }
+        | None { io.println("   Empty as expected") }
     
     // 5. ERROR HANDLING WITH RESULT
     io.println("")
     io.println("5. Error handling with Result type:")
-    success = .Ok(42.0)
+    success = Ok(42.0)
     success ?
-        | .Ok(val) { io.println("   Success: ${val}") }
-        | .Err(msg) { io.println("   Error: ${msg}") }
+        | Ok(val) { io.println("   Success: ${val}") }
+        | Err(msg) { io.println("   Error: ${msg}") }
     
-    failure = .Err("Connection timeout")
+    failure = Err("Connection timeout")
     failure ?
-        | .Ok(val) { io.println("   Value: ${val}") }
-        | .Err(msg) { io.println("   Error: ${msg}") }
+        | Ok(val) { io.println("   Value: ${val}") }
+        | Err(msg) { io.println("   Error: ${msg}") }
     
     // 6. NO FOR/WHILE - RANGE LOOPS
     io.println("")
@@ -114,14 +114,14 @@ main = () void {
     // 9. NESTED PATTERN MATCHING
     io.println("")
     io.println("9. Nested pattern matching:")
-    nested = .Ok(.Some(777))
+    nested = Ok(.Some(777))
     nested ?
-        | .Ok(inner) {
+        | Ok(inner) {
             inner ?
-                | .Some(val) { io.println("   Found nested value: ${val}") }
-                | .None { io.println("   Ok but empty") }
+                | Some(val) { io.println("   Found nested value: ${val}") }
+                | None { io.println("   Ok but empty") }
         }
-        | .Err(e) { io.println("   Error: ${e}") }
+        | Err(e) { io.println("   Error: ${e}") }
     
     io.println("")
     io.println("=== Demo Complete ===")

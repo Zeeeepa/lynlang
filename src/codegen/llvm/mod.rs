@@ -232,9 +232,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 AstType::Bool => self.context.bool_type().as_basic_type_enum(),
                 AstType::String => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
                 AstType::Void => return Err(CompileError::TypeError("Void type not allowed in struct fields".to_string(), None)),
-                AstType::Ptr(_inner) => {
+                AstType::Ptr(_inner) | AstType::MutPtr(_inner) | AstType::RawPtr(_inner) => {
                     // For pointer types in struct fields, we'll use a generic pointer type
                     // This is a simplification - in a full implementation we'd need to handle nested types
+                    self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
+                },
+                AstType::Generic { name, .. } => {
+                    // For now, treat generic types as pointers
+                    // In a full implementation, we'd need generic instantiation
                     self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
                 },
                 AstType::Struct { name, .. } => {
@@ -247,6 +252,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             None
                         ))
                     }
+                },
+                AstType::FunctionPointer { .. } => {
+                    // Function pointers in struct fields are represented as generic pointers
+                    self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
                 },
                 _ => return Err(CompileError::TypeError(format!("Unsupported type in struct: {:?}", field.type_), None)),
             };

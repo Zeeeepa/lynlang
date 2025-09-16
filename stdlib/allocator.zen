@@ -64,7 +64,7 @@ SyncAllocator: {
             free: (ptr) { self.heap.free(ptr) },
             realloc: (ptr, old_size, new_size) { self.heap.realloc(ptr, old_size, new_size) },
             is_concurrent: false,
-            suspend: () { .None },
+            suspend: () { None },
             resume: (cont) { @panic("Cannot resume in sync context") }
         }
     }

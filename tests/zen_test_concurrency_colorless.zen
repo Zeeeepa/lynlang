@@ -62,18 +62,18 @@ read_data = (source: string, alloc: Ptr<Allocator>) Result<string, Error>   {
         | true {
             // Concurrent path - may suspend
             cont := alloc.value.suspend()
-            cont ? | .Some -> c {
+            cont ? | Some -> c {
                       // Simulated concurrent read
                       "concurrent data from $(source)"
                   }
-                  | .None { "sync fallback" }
+                  | None { "sync fallback" }
         }
         | false {
             // Sync path - blocks
             "sync data from $(source)"
         }
     
-    .Ok(result)
+    Ok(result)
 }
 
 // Test synchronous execution
@@ -81,8 +81,8 @@ test("sync execution with sync allocator") {
     sync_alloc := Ptr:new(SyncAllocator{})
     
     result := read_data("file.txt", sync_alloc)
-    data := result ? | .Ok -> d { d }
-                    | .Err -> _ { "" }
+    data := result ? | Ok -> d { d }
+                    | Err -> _ { "" }
     
     assert(data == "sync data from file.txt")
 }
@@ -93,8 +93,8 @@ test("concurrent execution with concurrent allocator") {
     concurrent_alloc := Ptr:new(ConcurrentAllocator{ runtime: runtime })
     
     result := read_data("file.txt", concurrent_alloc)
-    data := result ? | .Ok -> d { d }
-                    | .Err -> _ { "" }
+    data := result ? | Ok -> d { d }
+                    | Err -> _ { "" }
     
     assert(data == "concurrent data from file.txt")
 }
@@ -131,8 +131,8 @@ test("channel message passing") {
     
     // Try receive
     maybe_msg := channel.try_receive()
-    value := maybe_msg ? | .Some -> v { v }
-                        | .None { 0 }
+    value := maybe_msg ? | Some -> v { v }
+                        | None { 0 }
     assert(value == 42)
 }
 

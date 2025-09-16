@@ -1,0 +1,9 @@
+// Test parsing Option and Result enum declarations with generics
+
+// Option type definition - Zen spec style
+Option<T>: Some(T) | None
+
+main = () void {
+    // Use the Option type
+    maybe = Some(42)
+}

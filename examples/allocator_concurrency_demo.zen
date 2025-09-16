@@ -62,7 +62,7 @@ read_file = (path: String, alloc: *Allocator) Result<[]u8, io.Error>  {
             io.read_sync(fd, buffer)
         }
     
-    .Ok(buffer[0..bytes_read])
+    Ok(buffer[0..bytes_read])
 }
 
 // HTTP handler - colorless function
@@ -78,7 +78,7 @@ handle_request = (req: HttpRequest, alloc: *Allocator) Result<HttpResponse, Erro
         }
         | _ { HttpResponse.not_found() }
     
-    .Ok(response)
+    Ok(response)
 }
 
 // Database operations - colorless
@@ -92,7 +92,7 @@ query_database = (query: String, alloc: *Allocator) Result<[]Row, Error>  {
         | true { conn.execute_concurrent(query, alloc)? }
         | false { conn.execute_sync(query)? }
     
-    .Ok(rows)
+    Ok(rows)
 }
 
 // Web server - colorless server
@@ -108,22 +108,22 @@ run_server = (port: u16, alloc: *Allocator) Result<void, Error>  {
         client_result := listener.accept(alloc)
         
         client_result ?
-            | .Ok -> client {
+            | Ok -> client {
                 // Spawn handler task
                 spawn_task(() => {
                     result := handle_client(client, alloc)
                     result ?
-                        | .Ok -> _ { io.println("Client handled successfully") }
-                        | .Err -> e { io.println("Client error: $(e)") }
+                        | Ok -> _ { io.println("Client handled successfully") }
+                        | Err -> e { io.println("Client error: $(e)") }
                 }, alloc)
             }
-            | .Err -> e {
+            | Err -> e {
                 io.println("Accept error: $(e)")
                 break
             }
     }
     
-    .Ok(())
+    Ok(())
 }
 
 // Client handler
@@ -137,7 +137,7 @@ handle_client = (client: Connection, alloc: *Allocator) Result<void, Error>  {
     // Send response
     send_response(client, response, alloc)?
     
-    .Ok(())
+    Ok(())
 }
 
 // Task spawning based on allocator
@@ -161,7 +161,7 @@ process_pipeline = (input: String, alloc: *Allocator) Result<String, Error>  {
     transformed := transform(validated, alloc)?
     formatted := format_output(transformed, alloc)?
     
-    .Ok(formatted)
+    Ok(formatted)
 }
 
 // Main demonstrates different execution modes
@@ -193,26 +193,26 @@ run_demo = (alloc: *Allocator) void  {
     io.println("\n1. Reading files...")
     file_result := read_file("test.txt", alloc)
     file_result ?
-        | .Ok -> data { io.println("Read $(data.len) bytes") }
-        | .Err -> e { io.println("File error: $(e)") }
+        | Ok -> data { io.println("Read $(data.len) bytes") }
+        | Err -> e { io.println("File error: $(e)") }
     
     io.println("\n2. Database query...")
     db_result := query_database("SELECT * FROM users", alloc)
     db_result ?
-        | .Ok -> rows { io.println("Found $(rows.len) rows") }
-        | .Err -> e { io.println("DB error: $(e)") }
+        | Ok -> rows { io.println("Found $(rows.len) rows") }
+        | Err -> e { io.println("DB error: $(e)") }
     
     io.println("\n3. Processing pipeline...")
     pipeline_result := process_pipeline("input data", alloc)
     pipeline_result ?
-        | .Ok -> output { io.println("Pipeline output: $(output)") }
-        | .Err -> e { io.println("Pipeline error: $(e)") }
+        | Ok -> output { io.println("Pipeline output: $(output)") }
+        | Err -> e { io.println("Pipeline error: $(e)") }
     
     io.println("\n4. Starting server...")
     server_result := run_server(8080, alloc)
     server_result ?
-        | .Ok -> _ { io.println("Server stopped gracefully") }
-        | .Err -> e { io.println("Server error: $(e)") }
+        | Ok -> _ { io.println("Server stopped gracefully") }
+        | Err -> e { io.println("Server error: $(e)") }
 }
 
 // Testing with sync allocator for determinism
@@ -225,8 +225,8 @@ test "database operations" {
     result := conn.execute("INSERT INTO users VALUES (1, 'Alice')", &test_alloc)
     
     result ?
-        | .Ok -> _ { assert(true) }
-        | .Err -> e { assert(false, "Database error: $(e)") }
+        | Ok -> _ { assert(true) }
+        | Err -> e { assert(false, "Database error: $(e)") }
     
     // Check for memory leaks
     assert(test_alloc.bytes_leaked() == 0)
@@ -280,22 +280,22 @@ Heap.free: (ptr: RawPtr<void>) void = @stdp.free(ptr)
 Error: { message: String }
 
 db: {}
-db.connect: (url: String, alloc: *Allocator) Result<Connection, Error> = .Ok(Connection{})
+db.connect: (url: String, alloc: *Allocator) Result<Connection, Error> = Ok(Connection{})
 Connection.close = () void  {}
-Connection.execute_sync: (query: String) Result<[]Row, Error> = .Ok([])
-Connection.execute_concurrent: (query: String, alloc: *Allocator) Result<[]Row, Error> = .Ok([])
+Connection.execute_sync: (query: String) Result<[]Row, Error> = Ok([])
+Connection.execute_concurrent: (query: String, alloc: *Allocator) Result<[]Row, Error> = Ok([])
 
-fetch_users: (alloc: *Allocator) Result<HttpResponse, Error> = .Ok(HttpResponse.json([]))
-fetch_posts: (alloc: *Allocator) Result<HttpResponse, Error> = .Ok(HttpResponse.json([]))
+fetch_users: (alloc: *Allocator) Result<HttpResponse, Error> = Ok(HttpResponse.json([]))
+fetch_posts: (alloc: *Allocator) Result<HttpResponse, Error> = Ok(HttpResponse.json([]))
 read_request = (client: Connection, alloc: *Allocator) Result<HttpRequest, Error>  {
-    .Ok(HttpRequest{ path: "/", method: "GET", body: "" })
+    Ok(HttpRequest{ path: "/", method: "GET", body: "" })
 }
-send_response: (client: Connection, response: HttpResponse, alloc: *Allocator) Result<void, Error> = .Ok(())
+send_response: (client: Connection, response: HttpResponse, alloc: *Allocator) Result<void, Error> = Ok(())
 
-parse_data: (input: String, alloc: *Allocator) Result<String, Error> = .Ok(input)
-validate: (data: String, alloc: *Allocator) Result<String, Error> = .Ok(data)
-transform: (data: String, alloc: *Allocator) Result<String, Error> = .Ok(data)
-format_output: (data: String, alloc: *Allocator) Result<String, Error> = .Ok(data)
+parse_data: (input: String, alloc: *Allocator) Result<String, Error> = Ok(input)
+validate: (data: String, alloc: *Allocator) Result<String, Error> = Ok(data)
+transform: (data: String, alloc: *Allocator) Result<String, Error> = Ok(data)
+format_output: (data: String, alloc: *Allocator) Result<String, Error> = Ok(data)
 
 simple_task = (alloc: *Allocator) void  {
     io.println("Task executed with allocator mode: $(alloc.is_concurrent ? \"concurrent\" : \"sync\")")

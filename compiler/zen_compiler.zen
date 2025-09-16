@@ -55,20 +55,20 @@ compile = (options: CompilerOptions) CompilationResult   {
     
     // Read source file
     source := fs.read_file(options.input_file) ? 
-        | .Ok -> content { content }
-        | .Err -> err { return .IOError -> msg: "Failed to read file: $(err)" }
+        | Ok -> content { content }
+        | Err -> err { return .IOError -> msg: "Failed to read file: $(err)" }
     
     // Lexical analysis
     options.verbose ? | true { io.print("Lexing...\n") }
     tokens := lexer.tokenize(source) ?
-        | .Ok -> toks { toks }
-        | .Err -> err { return .LexerError -> msg: err }
+        | Ok -> toks { toks }
+        | Err -> err { return .LexerError -> msg: err }
     
     // Parsing
     options.verbose ? | true { io.print("Parsing...\n") }
     ast := parser.parse(tokens) ?
-        | .Ok -> tree { tree }
-        | .Err -> err { return .ParserError -> msg: err }
+        | Ok -> tree { tree }
+        | Err -> err { return .ParserError -> msg: err }
     
     // Early exit if just dumping AST
     options.emit_type ? | .AST {
@@ -79,8 +79,8 @@ compile = (options: CompilerOptions) CompilationResult   {
     // Type checking
     options.verbose ? | true { io.print("Type checking...\n") }
     typed_ast := type_checker.check(ast) ?
-        | .Ok -> tree { tree }
-        | .Err -> err { return .TypeError -> msg: err }
+        | Ok -> tree { tree }
+        | Err -> err { return .TypeError -> msg: err }
     
     // Code generation
     options.verbose ? | true { io.print("Generating code...\n") }
@@ -89,21 +89,21 @@ compile = (options: CompilerOptions) CompilationResult   {
         | .C_Code {
             code := codegen.generate_c(typed_ast);
             fs.write_file(options.output_file, code) ?
-                | .Ok { .Success }
-                | .Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
+                | Ok { .Success }
+                | Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
         }
         | .LLVM_IR {
             ir := llvm_backend.generate_ir(typed_ast);
             fs.write_file(options.output_file, ir) ?
-                | .Ok { .Success }
-                | .Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
+                | Ok { .Success }
+                | Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
         }
         | .Binary {
             // Generate LLVM IR then compile to binary
             ir := llvm_backend.generate_ir(typed_ast);
             llvm_backend.compile_to_binary(ir, options) ?
-                | .Ok { .Success }
-                | .Err -> err { .CodegenError -> msg: err }
+                | Ok { .Success }
+                | Err -> err { .CodegenError -> msg: err }
         }
     
     options.verbose ? | true { io.print("Compilation successful!\n") }
@@ -115,12 +115,12 @@ compile = (options: CompilerOptions) CompilationResult   {
 dump_ast = (ast: AST, output_file: string) void   {
     json := ast.to_json();
     fs.write_file(output_file, json) ?
-        | .Err -> err { io.error("Failed to write AST: $(err)\n") }
+        | Err -> err { io.error("Failed to write AST: $(err)\n") }
 }
 
 // Parse command line arguments
 parse_args = (args: []string) Result<CompilerOptions, string>   {
-    args.len < 2 ? | true { return .Err -> "Usage: zenc <input.zen> [options]" }
+    args.len < 2 ? | true { return Err -> "Usage: zenc <input.zen> [options]" }
     
     options := CompilerOptions {
         input_file: args[1],
@@ -140,7 +140,7 @@ parse_args = (args: []string) Result<CompilerOptions, string>   {
         arg ?
             | "-o" | "--output" {
                 i += 1;
-                i >= args.len ? | true { return .Err -> "Expected output file after -o" }
+                i >= args.len ? | true { return Err -> "Expected output file after -o" }
                 options.output_file = args[i]
             }
             | "--emit-llvm" { options.emit_type = .LLVM_IR }
@@ -151,24 +151,24 @@ parse_args = (args: []string) Result<CompilerOptions, string>   {
             | "-v" | "--verbose" { options.verbose = true }
             | "--target" {
                 i += 1;
-                i >= args.len ? | true { return .Err -> "Expected target after --target" }
+                i >= args.len ? | true { return Err -> "Expected target after --target" }
                 options.target = args[i]
             }
             | "--stdlib" {
                 i += 1;
-                i >= args.len ? | true { return .Err -> "Expected path after --stdlib" }
+                i >= args.len ? | true { return Err -> "Expected path after --stdlib" }
                 options.stdlib_path = args[i]
             }
             | "-h" | "--help" {
                 print_help();
                 process.exit(0)
             }
-            | _ { return .Err -> "Unknown option: $(arg)" }
+            | _ { return Err -> "Unknown option: $(arg)" }
         
         i += 1
     }
     
-    return .Ok -> options
+    return Ok -> options
 }
 
 // Print help message
@@ -192,8 +192,8 @@ print_help = () void   {
 main = (args: []string) i32   {
     // Parse command line arguments
     options := parse_args(args) ?
-        | .Ok -> opts { opts }
-        | .Err -> msg {
+        | Ok -> opts { opts }
+        | Err -> msg {
             io.error("$(msg)\n");
             return 1
         }

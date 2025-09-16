@@ -159,7 +159,7 @@ worker_loop = (executor: TaskExecutor) void   {
         task_opt := executor.task_queue.pop_timeout(100)
         
         task_opt.is_some() ? {
-            task_opt ? | .Some(task) {
+            task_opt ? | Some(task) {
             
             // Mark task as running
             task.status = TaskStatus.Running
@@ -169,7 +169,7 @@ worker_loop = (executor: TaskExecutor) void   {
             // Execute the task
             result := task.func()
             result ?
-                | .Ok(value) {
+                | Ok(value) {
                     task.result = Option.Some(value)
                     task.status = TaskStatus.Completed
                     
@@ -177,7 +177,7 @@ worker_loop = (executor: TaskExecutor) void   {
                         | Option.None
                         | metrics { metrics.tasks_completed.fetch_add(1) }
                 }
-                | .Err(error) {
+                | Err(error) {
                     task.result = TaskResult.Failure(error.to_string())
                     task.status = TaskStatus.Failed
                     

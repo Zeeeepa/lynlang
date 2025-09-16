@@ -44,8 +44,8 @@ LinkedList<T>: {
 // Create new linked list
 LinkedList<T>.new = () LinkedList<T> {
     return LinkedList<T>{
-        head: .None,
-        tail: .None,
+        head: None,
+        tail: None,
         len: 0
     }
 }
@@ -56,12 +56,12 @@ LinkedList<T>.push_front = (self: Ref<LinkedList<T>>, value: T) void {
     node.val.value = value
     node.val.next = self.val.head
     
-    self.val.head = .Some(node)
+    self.val.head = Some(node)
     self.val.tail ?
-        | .None {
-            self.val.tail = .Some(node)
+        | None {
+            self.val.tail = Some(node)
         }
-        | .Some(_) {}
+        | Some(_) {}
     
     self.val.len = self.val.len + 1
 }
@@ -70,40 +70,40 @@ LinkedList<T>.push_front = (self: Ref<LinkedList<T>>, value: T) void {
 LinkedList<T>.push_back = (self: Ref<LinkedList<T>>, value: T) void {
     node ::= memory.alloc(ListNode<T>)
     node.val.value = value
-    node.val.next = .None
+    node.val.next = None
     
     self.val.tail ?
-        | .Some(tail_node) {
-            tail_node.val.next = .Some(node)
+        | Some(tail_node) {
+            tail_node.val.next = Some(node)
         }
-        | .None {
-            self.val.head = .Some(node)
+        | None {
+            self.val.head = Some(node)
         }
     
-    self.val.tail = .Some(node)
+    self.val.tail = Some(node)
     self.val.len = self.val.len + 1
 }
 
 // Pop element from front
 LinkedList<T>.pop_front = (self: Ref<LinkedList<T>>) Option<T> {
     self.val.head ?
-        | .None {
-            return .None
+        | None {
+            return None
         }
-        | .Some(node) {
+        | Some(node) {
             value ::= node.val.value
             
             self.val.head = node.val.next
             self.val.head ?
-                | .None {
-                    self.val.tail = .None
+                | None {
+                    self.val.tail = None
                 }
-                | .Some(_) {}
+                | Some(_) {}
             
             memory.free(node)
             self.val.len = self.val.len - 1
             
-            return .Some(value)
+            return Some(value)
         }
 }
 
@@ -164,8 +164,8 @@ Queue<T>.dequeue = (self: Ref<Queue<T>>) Option<T> {
 // Peek at front element
 Queue<T>.peek = (self: Ref<Queue<T>>) Option<T> {
     self.list.head ?
-        | .Some(node) => .Some(node.value)
-        | .None => .None
+        | Some(node) => Some(node.value)
+        | None => None
 }
 
 // Check if queue is empty
@@ -277,8 +277,8 @@ HashMap<K, V>.remove = (self: Ref<HashMap<K, V>>, key: K) bool {
 // Check if key exists
 HashMap<K, V>.contains = (self: Ref<HashMap<K, V>>, key: K) bool {
     return self.get(key) ?
-        | .Some(_) => true
-        | .None => false
+        | Some(_) => true
+        | None => false
 }
 
 // Resize hash map

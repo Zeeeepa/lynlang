@@ -368,12 +368,13 @@ impl<'a> Parser<'a> {
                                 && (self.peek_token == Token::Pipe 
                                     || matches!(&self.peek_token, Token::Identifier(_))
                                     || self.peek_token == Token::Symbol('.')); // Support .Variant syntax
-                            let is_function = self.current_token == Token::Symbol(':') 
-                                && self.peek_token == Token::Symbol('(');
+                            // Generic function: name<T>(params) return_type { ... }
+                            let is_generic_function = self.current_token == Token::Symbol('(');
+                            let is_function = (self.current_token == Token::Symbol(':') 
+                                && self.peek_token == Token::Symbol('('))
+                                || is_generic_function;
                             let is_behavior = self.current_token == Token::Symbol(':') 
                                 && matches!(&self.peek_token, Token::Identifier(name) if name == "behavior");
-                            let is_struct = self.current_token == Token::Symbol(':') 
-                                && self.peek_token == Token::Symbol('{');
                             
                             // Restore lexer state
                             self.lexer.position = saved_position;

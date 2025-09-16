@@ -1,0 +1,108 @@
+// Test file to validate LANGUAGE_SPEC.zen features
+// This tests all core language features from the spec
+
+// ============================================================================
+// Core imports - only @std and @this are special
+// ============================================================================
+{ io } = @std
+
+// ============================================================================
+// Basic types and enums
+// ============================================================================
+
+// Option type - no null!
+Option<T>: Some(T) | None
+
+// Result type for error handling  
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Enum with variant constructors
+Shape: .Circle | .Rectangle
+
+// Test enum variant access
+test_enum_variants = () void {
+    // Creating enum variants directly
+    shape1 = Shape.Circle
+    shape2 = Shape.Rectangle
+    
+    // Pattern matching on enum
+    shape1 ?
+        | .Circle { io.println("It's a circle!") }
+        | .Rectangle { io.println("It's a rectangle!") }
+}
+
+// ============================================================================
+// Variables and mutability
+// ============================================================================
+test_variables = () void {
+    // Immutable binding with =
+    x = 42
+    
+    // Mutable binding with ::=
+    y ::= 100
+    y = y + 1  // Can reassign
+    
+    io.println("x: ${x}, y: ${y}")
+}
+
+// ============================================================================
+// Pattern matching with ?
+// ============================================================================
+test_pattern_matching = () void {
+    // Boolean pattern matching - no if/else keywords!
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Full boolean pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data") }
+        | false { io.println("No data") }
+    
+    // Option pattern matching
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(v) { io.println("Value: ${v}") }
+        | None { io.println("No value") }
+}
+
+// ============================================================================
+// Loops and ranges
+// ============================================================================
+test_loops = () void {
+    // Range loop
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("Loop ${counter}") }
+    })
+}
+
+// ============================================================================
+// Main entry point
+// ============================================================================
+main = () void {
+    io.println("Testing LANGUAGE_SPEC.zen features...")
+    
+    test_enum_variants()
+    test_variables()
+    test_pattern_matching()
+    test_loops()
+    
+    io.println("Tests complete!")
+}

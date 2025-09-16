@@ -1,0 +1,4 @@
+// Ultra basic test
+main = () i32 {
+    return 42
+}

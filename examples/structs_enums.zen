@@ -75,7 +75,7 @@ main = () void   {
     message := status3 ? | .Active { "System is active" }
                         | .Inactive { "System is inactive" }
                         | .Pending -> since { "Pending since $(since)" }
-                        | .Error -> err { "Error $(err.code): $(err.message)" }
+                        | Error -> err { "Error $(err.code): $(err.message)" }
     
     io.print("Status: $(message)\n")
     io.print("Employee: $(employee.person.name) in $(employee.address.city)\n")

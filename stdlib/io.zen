@@ -44,7 +44,7 @@ IOError: .FileNotFound
     | .Other
 
 // Result type for IO operations
-IOResult<T>: .Ok(T) | .Err(IOError)
+IOResult<T>: Ok(T) | Err(IOError)
 
 // File handle type
 File: {
@@ -97,7 +97,7 @@ file_open = (path: RawPtr<i8>, mode: FileMode) IOResult<File> {
     // Check if open succeeded
     handle == 0 ?
         | true {
-            return .Err(.FileNotFound)
+            return Err(.FileNotFound)
         }
         | false {
             file := File {
@@ -106,7 +106,7 @@ file_open = (path: RawPtr<i8>, mode: FileMode) IOResult<File> {
                 mode: mode,
                 is_open: true,
             }
-            return .Ok(file)
+            return Ok(file)
         }
 }
 
@@ -114,17 +114,17 @@ file_open = (path: RawPtr<i8>, mode: FileMode) IOResult<File> {
 file_close = (file: File) IOResult<bool> {
     file.is_open ?
         | false {
-            return .Err(.Other)
+            return Err(.Other)
         }
         | true {}
     
     result := fclose(file.handle)
     result == 0 ?
         | true {
-            return .Ok(true)
+            return Ok(true)
         }
         | false {
-            return .Err(.Other)
+            return Err(.Other)
         }
 }
 
@@ -132,7 +132,7 @@ file_close = (file: File) IOResult<bool> {
 file_write = (file: File, data: RawPtr<i8>, len: i64) IOResult<i64> {
     file.is_open ?
         | false {
-            return .Err(.Other)
+            return Err(.Other)
         }
         | true {}
     
@@ -140,15 +140,15 @@ file_write = (file: File, data: RawPtr<i8>, len: i64) IOResult<i64> {
     
     written == len ?
         | true {
-            return .Ok(written)
+            return Ok(written)
         }
         | false {
             written == 0 ?
                 | true {
-                    return .Err(.WriteZero)
+                    return Err(.WriteZero)
                 }
                 | false {
-                    return .Err(.WriteError)
+                    return Err(.WriteError)
                 }
         }
 }
@@ -157,7 +157,7 @@ file_write = (file: File, data: RawPtr<i8>, len: i64) IOResult<i64> {
 file_read = (file: File, buffer: RawPtr<i8>, max_len: i64) IOResult<i64> {
     file.is_open ?
         | false {
-            return .Err(.Other)
+            return Err(.Other)
         }
         | true {}
     
@@ -166,16 +166,16 @@ file_read = (file: File, buffer: RawPtr<i8>, max_len: i64) IOResult<i64> {
     has_error := ferror(file.handle)
     has_error != 0 ?
         | true {
-            return .Err(.ReadError)
+            return Err(.ReadError)
         }
         | false {
             is_eof := feof(file.handle)
             (is_eof != 0 && bytes_read == 0) ?
                 | true {
-                    return .Err(.UnexpectedEof)
+                    return Err(.UnexpectedEof)
                 }
                 | false {
-                    return .Ok(bytes_read)
+                    return Ok(bytes_read)
                 }
         }
 }
@@ -185,10 +185,10 @@ flush = (file: File) IOResult<bool> {
     result := fflush(file.handle)
     result == 0 ?
         | true {
-            return .Ok(true)
+            return Ok(true)
         }
         | false {
-            return .Err(.Other)
+            return Err(.Other)
         }
 }
 
@@ -248,16 +248,16 @@ buffered_writer_flush = (writer: BufferedWriter) IOResult<bool> {
         | true {
             result := file_write(writer.file, writer.buffer, writer.buffer_pos)
             result ?
-                | .Ok(written) {
+                | Ok(written) {
                     writer.buffer_pos = 0
-                    return .Ok(true)
+                    return Ok(true)
                 }
-                | .Err(e) {
-                    return .Err(e)
+                | Err(e) {
+                    return Err(e)
                 }
         }
         | false {
-            return .Ok(true)
+            return Ok(true)
         }
 }
 

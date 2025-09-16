@@ -238,8 +238,8 @@ test_structs_and_enums = () void   {
     
     result := divide(10, 2)
     value := result ?
-        | .Ok -> v { v }
-        | .Err -> _ { -1 }
+        | Ok -> v { v }
+        | Err -> _ { -1 }
     assert(value == 5)
 }
 
@@ -259,13 +259,13 @@ test_error_handling = () void   {
     // Handle Result
     result1 := parse_int("42")
     result1 ?
-        | .Ok -> n { assert(n == 42) }
-        | .Err -> _ { assert(false) }
+        | Ok -> n { assert(n == 42) }
+        | Err -> _ { assert(false) }
     
     result2 := parse_int("invalid")
     result2 ?
-        | .Ok -> _ { assert(false) }
-        | .Err -> e { assert(e == "Invalid number") }
+        | Ok -> _ { assert(false) }
+        | Err -> e { assert(e == "Invalid number") }
     
     // Option handling
     find_value = (key: string) Option<i32>   {
@@ -276,13 +276,13 @@ test_error_handling = () void   {
     
     opt1 := find_value("exists")
     opt1 ?
-        | .Some -> v { assert(v == 100) }
-        | .None { assert(false) }
+        | Some -> v { assert(v == 100) }
+        | None { assert(false) }
     
     opt2 := find_value("missing")
     opt2 ?
-        | .Some -> _ { assert(false) }
-        | .None { assert(true) }
+        | Some -> _ { assert(false) }
+        | None { assert(true) }
 }
 
 // ====================================

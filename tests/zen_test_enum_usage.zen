@@ -1,0 +1,14 @@
+// Test enum usage
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    // Test creating enum variant
+    maybe_value = Some(42)
+    
+    // Test pattern matching
+    maybe_value ?
+        | Some(v) { io.print("Got value") }
+        | None { io.print("No value") }
+}

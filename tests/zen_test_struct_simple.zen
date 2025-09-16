@@ -1,0 +1,13 @@
+// Test struct definition and usage
+
+Point: {
+    x: i32,
+    y: i32,
+}
+
+main = () void {
+    // Test with explicit type
+    p: Point = Point { x: 10, y: 20 }
+    
+    @std.io.println("Created point")
+}

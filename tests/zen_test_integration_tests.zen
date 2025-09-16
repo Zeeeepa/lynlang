@@ -272,8 +272,8 @@ test_worker_pool = test("Worker Pool Pattern", () void => {
         worker := thread.spawn(() void => {
             loop {
                 job := work_queue.recv() ?
-                    | .Ok -> j { j }
-                    | .Err { break }
+                    | Ok -> j { j }
+                    | Err { break }
                 
                 // Process job (square the number)
                 result := job * job;
@@ -319,9 +319,9 @@ test_worker_pool = test("Worker Pool Pattern", () void => {
 test_error_propagation = test("Error Propagation", () void => {
     // Function that may fail
     risky_operation = (value: i32) Result<i32, string> => {
-        value < 0 ? | true { return .Err -> "Negative value not allowed" }
-        value > 100 ? | true { return .Err -> "Value too large" }
-        return .Ok -> value * 2
+        value < 0 ? | true { return Err -> "Negative value not allowed" }
+        value > 100 ? | true { return Err -> "Value too large" }
+        return Ok -> value * 2
     }
     
     // Chain operations
@@ -330,7 +330,7 @@ test_error_propagation = test("Error Propagation", () void => {
         doubled := risky_operation(input)?;
         tripled := risky_operation(doubled)?;
         
-        return .Ok -> "Result: $(tripled)"
+        return Ok -> "Result: $(tripled)"
     }
     
     // Test success case
@@ -409,8 +409,8 @@ integration_suite := test.TestSuite {
         test_error_propagation,
         test_custom_allocator,
     ],
-    setup: .None,
-    teardown: .None,
+    setup: None,
+    teardown: None,
     parallel: false,
 }
 

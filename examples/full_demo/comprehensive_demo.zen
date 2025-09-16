@@ -88,8 +88,8 @@ max3 = (a: i32, b: i32, c: i32) i32 {
 // Function returning Result
 divide = (a: f64, b: f64) Result<f64, string> {
     b == 0.0 ?
-        | true { return .Err("Division by zero") }
-        | false { return .Ok(a / b) }
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
 }
 
 // Generic function
@@ -109,8 +109,8 @@ map<T, U> = (items: Vec<T>, f: (T) U) Vec<U> {
 // Function with optional parameters
 greet = (name: string, greeting: Option<string>) string {
     g = greeting ?
-        | .Some(val) { val }
-        | .None { "Hello" }
+        | Some(val) { val }
+        | None { "Hello" }
     return "${g}, ${name}!"
 }
 
@@ -147,7 +147,7 @@ handle_message = (msg: Message) void {
         | .Warning(warn) {
             io.println("[WARN] ${warn.text}")
         }
-        | .Error(err) {
+        | Error(err) {
             io.println("ERROR ${err.code}")
         }
         | .Binary {
@@ -158,7 +158,7 @@ handle_message = (msg: Message) void {
 // Nested pattern matching
 process_result = (r: Result<i32, string>) string {
     r ?
-        | .Ok(val) {
+        | Ok(val) {
             val > 0 ?
                 | true { return "Positive: ${val}" }
                 | false {
@@ -167,7 +167,7 @@ process_result = (r: Result<i32, string>) string {
                         | false { return "Zero" }
                 }
         }
-        | .Err(err) { return "Error: ${err}" }
+        | Err(err) { return "Error: ${err}" }
 }
 
 // ========================================
@@ -191,8 +191,8 @@ demo_bindings = () void {
     // Pattern matching in binding
     result = divide(10.0, 2.0)
     value = result ?
-        | .Ok(v) { v }
-        | .Err(_) { 0.0 }
+        | Ok(v) { v }
+        | Err(_) { 0.0 }
 }
 
 // ========================================
@@ -234,7 +234,7 @@ create_shared = (alloc: Allocator) Ptr<SharedData> {
 fetch_data = (url: string, alloc: Allocator) Result<string, string> {
     // Allocator determines sync/async behavior
     // This is a simplified example
-    return .Ok("Data from ${url}")
+    return Ok("Data from ${url}")
 }
 
 // Parallel processing demonstration
@@ -257,7 +257,7 @@ process_parallel = (items: DynVec<i32>, alloc: Allocator) DynVec<i32> {
 process_string = (s: string) Result<i32, string> {
     // Validate
     s.is_empty() ?
-        | true { return .Err("Empty string") }
+        | true { return Err("Empty string") }
         | false { }
     
     // Parse (simplified - would use actual parsing)
@@ -265,8 +265,8 @@ process_string = (s: string) Result<i32, string> {
     
     // Process
     num < 0 ?
-        | true { return .Err("Negative number not allowed") }
-        | false { return .Ok(num * 2) }
+        | true { return Err("Negative number not allowed") }
+        | false { return Ok(num * 2) }
 }
 
 // Error propagation with .raise()
@@ -335,7 +335,7 @@ HttpRequestBuilder_new = () HttpRequestBuilder {
         url: "",
         method: "GET",
         headers: HashMap<string, string>(),
-        body: .None,
+        body: None,
         timeout: 30000,
     }
 }
@@ -357,7 +357,7 @@ add_header = (self: HttpRequestBuilder, key: string, value: string) HttpRequestB
 }
 
 set_json = (self: HttpRequestBuilder, data: string) HttpRequestBuilder {
-    self.body = .Some(data)
+    self.body = Some(data)
     self.headers.insert("Content-Type", "application/json")
     return self
 }
@@ -464,12 +464,12 @@ test_pattern_matching = () void {
 
 test_error_handling = () void {
     divide(10.0, 0.0) ?
-        | .Ok(_) { panic("Should have failed") }
-        | .Err(e) { assert(e == "Division by zero") }
+        | Ok(_) { panic("Should have failed") }
+        | Err(e) { assert(e == "Division by zero") }
     
     divide(10.0, 2.0) ?
-        | .Ok(v) { assert(v == 5.0) }
-        | .Err(_) { panic("Should have succeeded") }
+        | Ok(v) { assert(v == 5.0) }
+        | Err(_) { panic("Should have succeeded") }
 }
 
 test_builder_pattern = () void {
@@ -527,8 +527,8 @@ main = () void {
     
     result2 = divide(10.0, 0.0)
     result2 ?
-        | .Ok(_) { }
-        | .Err(e) { io.println("  Error: ${e}") }
+        | Ok(_) { }
+        | Err(e) { io.println("  Error: ${e}") }
     
     // Structs and Builders
     io.println("\nStructs and Builders:")

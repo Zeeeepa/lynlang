@@ -25,8 +25,8 @@ test("pattern matching - range patterns") {
 
 test("pattern matching - destructuring") {
     result := Result:Ok(42)
-    value := result ? | .Ok -> v { v }
-                      | .Err -> _ { 0 }
+    value := result ? | Ok -> v { v }
+                      | Err -> _ { 0 }
     assert(value == 42)
 }
 
@@ -174,8 +174,8 @@ test("enums - basic") {
     success := Result:Ok(42)
     failure := Result:Err("Not found")
     
-    success ? | .Ok -> v { assert(v == 42) }
-              | .Err -> _ { assert(false) }
+    success ? | Ok -> v { assert(v == 42) }
+              | Err -> _ { assert(false) }
 }
 
 // Test Behaviors
@@ -213,17 +213,17 @@ test("pointers - smart pointers") {
 // Test Error Handling (NO exceptions)
 test("error handling - result type") {
     divide = (a: i32, b: i32) Result<i32, string>   {
-        b == 0 ? | true { .Err("Division by zero") }
-                 | false { .Ok(a / b) }
+        b == 0 ? | true { Err("Division by zero") }
+                 | false { Ok(a / b) }
     }
     
     result := divide(10, 2)
-    result ? | .Ok -> v { assert(v == 5) }
-             | .Err -> _ { assert(false) }
+    result ? | Ok -> v { assert(v == 5) }
+             | Err -> _ { assert(false) }
     
     error := divide(10, 0)
-    error ? | .Ok -> _ { assert(false) }
-            | .Err -> e { assert(e == "Division by zero") }
+    error ? | Ok -> _ { assert(false) }
+            | Err -> e { assert(e == "Division by zero") }
 }
 
 test("error handling - option type") {
@@ -236,8 +236,8 @@ test("error handling - option type") {
     
     arr := [5, i32]{ 10, 20, 30, 40, 50 }
     result := find(arr, 30)
-    result ? | .Some -> i { assert(i == 2) }
-             | .None { assert(false) }
+    result ? | Some -> i { assert(i == 2) }
+             | None { assert(false) }
 }
 
 // Test Arrays and Slices

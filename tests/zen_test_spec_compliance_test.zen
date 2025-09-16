@@ -27,8 +27,8 @@ test("pattern_matching_ranges") {
 test("pattern_matching_destructuring") {
     result := Result:Ok(42)
     value := result ?
-        | .Ok -> v { v }
-        | .Err -> _ { 0 }
+        | Ok -> v { v }
+        | Err -> _ { 0 }
     assert_eq(value, 42)
 }
 
@@ -134,8 +134,8 @@ test("enum_with_data") {
     
     opt := Option:Some(42)
     value := opt ?
-        | .Some -> v { v }
-        | .None { 0 }
+        | Some -> v { v }
+        | None { 0 }
     assert_eq(value, 42)
 }
 
@@ -147,14 +147,14 @@ test("result_type") {
     
     divide = (a: i32, b: i32) Result<i32, string>   {
         b == 0 ?
-            | true { .Err("division by zero") }
-            | false { .Ok(a / b) }
+            | true { Err("division by zero") }
+            | false { Ok(a / b) }
     }
     
     result := divide(10, 2)
     value := result ?
-        | .Ok -> v { v }
-        | .Err -> _ { -1 }
+        | Ok -> v { v }
+        | Err -> _ { -1 }
     assert_eq(value, 5)
 }
 

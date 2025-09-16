@@ -1,0 +1,4 @@
+Option<T>: Some(T) | None
+
+main = () void {
+}

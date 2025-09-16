@@ -45,8 +45,8 @@ test("pattern_matching_ranges") {
 test("pattern_matching_destructuring_enum") {
     result := Result:Ok(100)
     value := result ?
-        | .Ok -> v { v * 2 }
-        | .Err -> _ { 0 }
+        | Ok -> v { v * 2 }
+        | Err -> _ { 0 }
     assert_eq(value, 200)
 }
 
@@ -76,10 +76,10 @@ test("pattern_matching_guards") {
 test("pattern_matching_nested") {
     opt := Option:Some(Result:Ok(42))
     value := opt ?
-        | .Some -> inner { inner ? }
-            | .Ok -> v { v }
-            | .Err -> _ { 0 }
-        | .None { -1 }
+        | Some -> inner { inner ? }
+            | Ok -> v { v }
+            | Err -> _ { 0 }
+        | None { -1 }
     assert_eq(value, 42)
 }
 
@@ -349,8 +349,8 @@ test("enum_result_type") {
     
     result := divide(10, 2)
     value := result ?
-        | .Ok -> v { v }
-        | .Err -> _ { 0 }
+        | Ok -> v { v }
+        | Err -> _ { 0 }
     assert_eq(value, 5)
 }
 
@@ -367,8 +367,8 @@ test("enum_option_type") {
     nums := Vec<i32>:from([1, 2, 3, 4, 5])
     result := find_first(nums, (x) => { x > 3 })
     value := result ?
-        | .Some -> v { v }
-        | .None { 0 }
+        | Some -> v { v }
+        | None { 0 }
     assert_eq(value, 4)
 }
 
@@ -418,8 +418,8 @@ test("vec_operations") {
     
     popped := vec.pop()
     value := popped ?
-        | .Some -> v { v }
-        | .None { 0 }
+        | Some -> v { v }
+        | None { 0 }
     assert_eq(value, 3)
     assert_eq(vec.len(), 2)
 }
@@ -434,8 +434,8 @@ test("hashmap_operations") {
     
     value := map.get("two")
     result := value ?
-        | .Some -> v { v }
-        | .None { 0 }
+        | Some -> v { v }
+        | None { 0 }
     assert_eq(result, 2)
     
     removed := map.remove("one")
@@ -504,15 +504,15 @@ test("error_propagation") {
     process = (input: string) Result<i32, string>   {
         num_result := parse_number(input)
         num := num_result ?
-            | .Ok -> n { n * 2 }
-            | .Err -> e { return Result:Err(e) }
+            | Ok -> n { n * 2 }
+            | Err -> e { return Result:Err(e) }
         Result:Ok(num)
     }
     
     result := process("42")
     value := result ?
-        | .Ok -> v { v }
-        | .Err -> _ { 0 }
+        | Ok -> v { v }
+        | Err -> _ { 0 }
     assert_eq(value, 84)
 }
 

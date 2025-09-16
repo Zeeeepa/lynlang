@@ -1,4 +1,4 @@
-use crate::ast::{BehaviorDefinition, BehaviorMethod, TraitDefinition, TraitMethod, TraitImplementation, TraitRequirement, Parameter, TypeParameter, TraitConstraint};
+use crate::ast::{BehaviorDefinition, BehaviorMethod, TraitDefinition, TraitMethod, TraitImplementation, TraitRequirement, Parameter, TypeParameter, TraitConstraint, AstType as Type};
 use crate::lexer::Token;
 use crate::parser::core::Parser;
 use crate::error::{CompileError, Result};
@@ -96,17 +96,27 @@ impl<'a> Parser<'a> {
         };
         self.next_token();
         
-        // Expect ':' for type annotation
-        if self.current_token != Token::Symbol(':') {
-            return Err(CompileError::SyntaxError(
-                format!("Expected ':' after parameter name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
-        
-        // Parse parameter type
-        let type_ = self.parse_type()?;
+        // Special handling for 'self' parameter - type is optional
+        let type_ = if name == "self" && self.current_token != Token::Symbol(':') {
+            // For 'self' without explicit type, use a placeholder type
+            // This will be resolved during type checking based on the implementing type
+            Type::Generic { 
+                name: "Self".to_string(), 
+                type_args: Vec::new() 
+            }
+        } else {
+            // Expect ':' for type annotation
+            if self.current_token != Token::Symbol(':') {
+                return Err(CompileError::SyntaxError(
+                    format!("Expected ':' after parameter name, got {:?}", self.current_token),
+                    Some(self.current_span.clone()),
+                ));
+            }
+            self.next_token();
+            
+            // Parse parameter type
+            self.parse_type()?
+        };
         
         Ok(Parameter {
             name,
@@ -417,16 +427,24 @@ impl<'a> Parser<'a> {
                 };
                 self.next_token();
                 
-                // Parameter type
-                if self.current_token != Token::Symbol(':') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected ':' after parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
-                self.next_token();
-                
-                let param_type = self.parse_type()?;
+                // Parameter type - special handling for 'self'
+                let param_type = if param_name == "self" && self.current_token != Token::Symbol(':') {
+                    // For 'self' without explicit type, use a placeholder type
+                    Type::Generic { 
+                        name: "Self".to_string(), 
+                        type_args: Vec::new() 
+                    }
+                } else {
+                    if self.current_token != Token::Symbol(':') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ':' after parameter name".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token();
+                    
+                    self.parse_type()?
+                };
                 args.push((param_name, param_type));
                 
                 if self.current_token == Token::Symbol(')') {
@@ -534,16 +552,24 @@ impl<'a> Parser<'a> {
                 };
                 self.next_token();
                 
-                // Parameter type
-                if self.current_token != Token::Symbol(':') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected ':' after parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
-                self.next_token();
-                
-                let param_type = self.parse_type()?;
+                // Parameter type - special handling for 'self'
+                let param_type = if param_name == "self" && self.current_token != Token::Symbol(':') {
+                    // For 'self' without explicit type, use a placeholder type
+                    Type::Generic { 
+                        name: "Self".to_string(), 
+                        type_args: Vec::new() 
+                    }
+                } else {
+                    if self.current_token != Token::Symbol(':') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ':' after parameter name".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token();
+                    
+                    self.parse_type()?
+                };
                 args.push((param_name, param_type));
                 
                 if self.current_token == Token::Symbol(')') {
@@ -664,8 +690,8 @@ impl<'a> Parser<'a> {
             self.next_token(); // consume '='
             
             // Parse method as a function (name has already been parsed)
-            let method = self.parse_impl_function_with_name(method_name)?;
-            methods.push(method);
+            let func = self.parse_impl_function_with_name(method_name)?;
+            methods.push(func);
             
             // Check for comma between methods
             if self.current_token == Token::Symbol(',') {

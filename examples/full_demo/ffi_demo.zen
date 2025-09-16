@@ -29,9 +29,9 @@ SafeFFI: {
     // Wrap malloc/free with Zen memory safety
     alloc = (size: usize) Result<Ptr<void>, string> {
         ptr = malloc(size)
-        ptr == .None ?
-            | true { .Err("Allocation failed") }
-            | false { .Ok(Ptr<void>.from_raw(ptr)) }
+        ptr == None ?
+            | true { Err("Allocation failed") }
+            | false { Ok(Ptr<void>.from_raw(ptr)) }
     }
     
     dealloc = (ptr: Ptr<void>) void {
@@ -58,8 +58,8 @@ call_c_function = () string {
     // Allocate memory using C malloc
     buffer = ffi.alloc(256)
     @this.defer(buffer ?
-        | .Ok(ptr) { ffi.dealloc(ptr) }
-        | .Err(_) { })
+        | Ok(ptr) { ffi.dealloc(ptr) }
+        | Err(_) { })
     
     // Use C math functions
     angle = 45.0
@@ -89,17 +89,17 @@ CLibWrapper: {
     // Load dynamic library
     load = (path: string) Result<CLibWrapper, string> {
         handle = ffi.dlopen(path, ffi.RTLD_LAZY)
-        handle == .None ?
-            | true { .Err("Failed to load library") }
-            | false { .Ok(CLibWrapper{ handle: handle }) }
+        handle == None ?
+            | true { Err("Failed to load library") }
+            | false { Ok(CLibWrapper{ handle: handle }) }
     }
     
     // Get function pointer
     get_symbol<T> = (self: CLibWrapper, name: string) Result<T, string> {
         sym = ffi.dlsym(self.handle, name)
-        sym == .None ?
-            | true { .Err("Symbol not found: " + name) }
-            | false { .Ok(ffi.cast<T>(sym)) }
+        sym == None ?
+            | true { Err("Symbol not found: " + name) }
+            | false { Ok(ffi.cast<T>(sym)) }
     }
     
     // Close library
@@ -120,7 +120,7 @@ use_custom_library = () Result<void, string> {
     result = custom_func(10, 20)
     @std.io.println("Custom library result: " + result)
     
-    .Ok(void)
+    Ok(void)
 }
 
 // Export the main demo function
@@ -132,6 +132,6 @@ demonstrate_ffi = () void {
     // Try to use a custom library (may fail if not present)
     custom_result = use_custom_library()
     custom_result ?
-        | .Ok(_) { io.println("  Custom library demo successful") }
-        | .Err(msg) { io.println("  Custom library demo skipped: " + msg) }
+        | Ok(_) { io.println("  Custom library demo successful") }
+        | Err(msg) { io.println("  Custom library demo skipped: " + msg) }
 }

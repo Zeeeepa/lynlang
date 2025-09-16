@@ -209,12 +209,12 @@ parseOsTag = (s: String) Build.OsTag {
 
 parseAbi = (s: String) Build.Abi {
     return s ?
-        | "none" => .none
+        | "none" => None
         | "gnu" => .gnu
         | "musl" => .musl
         | "msvc" => .msvc
         | "wasi" => .wasi
-        | _ => .none
+        | _ => None
 }
 
 formatTarget = (target: Build.Target) String   {
@@ -239,7 +239,7 @@ formatTarget = (target: Build.Target) String   {
     
     target.abi ? {
         abi_str := target.abi.? ?
-            | .none => "none"
+            | None => "none"
             | .gnu => "gnu"
             | .musl => "musl"
             | .msvc => "msvc"

@@ -1,0 +1,4 @@
+main = () void {
+    x: i32 = 42
+    @std.io.print_int(x)
+}

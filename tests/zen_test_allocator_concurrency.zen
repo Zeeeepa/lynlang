@@ -209,7 +209,7 @@ test "channel send and receive" {
     
     // Empty channel
     v4 := ch.receive()
-    test.expect(v4 .== .None)  // Would block in concurrent mode
+    test.expect(v4 .== None)  // Would block in concurrent mode
 }
 
 test "channel close behavior" {
@@ -229,7 +229,7 @@ test "channel close behavior" {
     
     // After buffer empty, returns null
     v2 := ch.receive()
-    test.expect(v2 .== .None)
+    test.expect(v2 .== None)
     
     // Cannot send to closed channel
     test.expect(!ch.send(100))

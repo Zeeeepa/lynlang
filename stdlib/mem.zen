@@ -31,13 +31,13 @@ global_stats := AllocStats {
 alloc_aligned = (size: i64, alignment: i64) core.Result<RawPtr<void>, core.Error> {
     size <= 0 ?
         | true {
-            return .Err(.InvalidArgument("Size must be positive"))
+            return Err(.InvalidArgument("Size must be positive"))
         }
         | false {}
     
     (alignment <= 0 || (alignment & (alignment - 1)) != 0) ?
         | true {
-            return .Err(.InvalidArgument("Alignment must be power of 2"))
+            return Err(.InvalidArgument("Alignment must be power of 2"))
         }
         | false {}
     
@@ -47,7 +47,7 @@ alloc_aligned = (size: i64, alignment: i64) core.Result<RawPtr<void>, core.Error
     
     ptr == 0 ?
         | true {
-            return .Err(.OutOfMemory)
+            return Err(.OutOfMemory)
         }
         | false {}
     
@@ -65,7 +65,7 @@ alloc_aligned = (size: i64, alignment: i64) core.Result<RawPtr<void>, core.Error
         }
         | false {}
     
-    return .Ok(aligned_ptr)
+    return Ok(aligned_ptr)
 }
 
 // Standard allocation with default alignment
@@ -79,12 +79,12 @@ calloc = (count: i64, size: i64) core.Result<RawPtr<void>, core.Error> {
     result := alloc(total_size)
     
     result ?
-        | .Ok(ptr) {
+        | Ok(ptr) {
             core.memset(ptr, 0, total_size)
-            return .Ok(ptr)
+            return Ok(ptr)
         }
-        | .Err(e) {
-            return .Err(e)
+        | Err(e) {
+            return Err(e)
         }
 }
 
@@ -95,15 +95,15 @@ realloc = (ptr: RawPtr<void>, old_size: i64, new_size: i64) core.Result<RawPtr<v
             ptr != 0 ?
                 | true { dealloc(ptr, old_size) }
                 | false {}
-            return .Ok(0)
+            return Ok(0)
         }
         | false {}
     
     // Allocate new block
     new_ptr := alloc(new_size)
     new_ptr ?
-        | .Err(e) { return .Err(e) }
-        | .Ok(p) {
+        | Err(e) { return Err(e) }
+        | Ok(p) {
             // Copy old data if exists
             (ptr != 0 && old_size > 0) ?
                 | true {
@@ -113,7 +113,7 @@ realloc = (ptr: RawPtr<void>, old_size: i64, new_size: i64) core.Result<RawPtr<v
                 }
                 | false {}
             
-            return .Ok(p)
+            return Ok(p)
         }
 }
 
@@ -162,7 +162,7 @@ Pool<T>: {
 pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
     block_count <= 0 ?
         | true {
-            return .Err(.InvalidArgument("Block count must be positive"))
+            return Err(.InvalidArgument("Block count must be positive"))
         }
         | false {}
     
@@ -172,17 +172,17 @@ pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
     // Allocate memory for blocks
     memory := alloc(total_size)
     memory ?
-        | .Err(e) { return .Err(e) }
-        | .Ok(mem) {
+        | Err(e) { return Err(e) }
+        | Ok(mem) {
             // Allocate free list
             free_list_size := block_count * sizeof(i64)
             free_list := alloc(free_list_size)
             free_list ?
-                | .Err(e) {
+                | Err(e) {
                     dealloc(mem, total_size)
-                    return .Err(e)
+                    return Err(e)
                 }
-                | .Ok(list) {
+                | Ok(list) {
                     // Initialize free list
                     i ::= 0
                     loop(() {
@@ -194,7 +194,7 @@ pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
                             }
                     })
                     
-                    return .Ok(Pool<T> {
+                    return Ok(Pool<T> {
                         block_size: block_size,
                         block_count: block_count,
                         memory: mem,
@@ -210,13 +210,13 @@ pool_new<T> = (block_count: i64) core.Result<Pool<T>, core.Error> {
 pool_alloc<T> = (pool: MutPtr<Pool<T>>) core.Result<MutPtr<T>, core.Error> {
     !pool.val.initialized ?
         | true {
-            return .Err(.InvalidArgument("Pool not initialized"))
+            return Err(.InvalidArgument("Pool not initialized"))
         }
         | false {}
     
     pool.val.free_count == 0 ?
         | true {
-            return .Err(.OutOfMemory)
+            return Err(.OutOfMemory)
         }
         | false {}
     
@@ -224,14 +224,14 @@ pool_alloc<T> = (pool: MutPtr<Pool<T>>) core.Result<MutPtr<T>, core.Error> {
     pool.val.free_count = pool.val.free_count - 1
     block_index ::= (pool.val.free_list.addr + pool.val.free_count * 8).val
     
-    return .Ok(pool.val.memory.addr + block_index * pool.val.block_size)
+    return Ok(pool.val.memory.addr + block_index * pool.val.block_size)
 }
 
 // Return block to pool
 pool_free<T> = (pool: MutPtr<Pool<T>>, ptr: MutPtr<T>) core.Result<void, core.Error> {
     !pool.val.initialized ?
         | true {
-            return .Err(.InvalidArgument("Pool not initialized"))
+            return Err(.InvalidArgument("Pool not initialized"))
         }
         | false {}
     
@@ -239,7 +239,7 @@ pool_free<T> = (pool: MutPtr<Pool<T>>, ptr: MutPtr<T>) core.Result<void, core.Er
     offset := (ptr.addr - pool.val.memory.addr) / pool.val.block_size
     (offset < 0 || offset >= pool.val.block_count) ?
         | true {
-            return .Err(.InvalidArgument("Pointer not from this pool"))
+            return Err(.InvalidArgument("Pointer not from this pool"))
         }
         | false {}
     
@@ -247,7 +247,7 @@ pool_free<T> = (pool: MutPtr<Pool<T>>, ptr: MutPtr<T>) core.Result<void, core.Er
     (pool.val.free_list.addr + pool.val.free_count * 8).val = offset
     pool.val.free_count = pool.val.free_count + 1
     
-    return .Ok()
+    return Ok()
 }
 
 // Destroy pool

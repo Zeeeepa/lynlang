@@ -83,8 +83,8 @@ test_pattern_matching = test("Pattern Matching", () void => {
     Result(T, E): | Ok { value: T } | Err { error: E }
     
     process = (r: Result<i32, string>) i32 => {
-        r ? | .Ok -> value { value * 2 }
-           | .Err -> _ { -1 }
+        r ? | Ok -> value { value * 2 }
+           | Err -> _ { -1 }
     }
     
     ok_result := Result.Ok -> value: 10;
@@ -193,8 +193,8 @@ test_loops = test("Loops", () void => {
 test_error_handling = test("Error Handling", () void => {
     // Result type
     divide = (a: i32, b: i32) Result<i32, string> => {
-        b == 0 ? | true { return .Err -> "Division by zero" }
-               | false { return .Ok -> a / b }
+        b == 0 ? | true { return Err -> "Division by zero" }
+               | false { return Ok -> a / b }
     }
     
     result1 := divide(10, 2);
@@ -207,10 +207,10 @@ test_error_handling = test("Error Handling", () void => {
     find = (arr: []i32, target: i32) Option<usize> => {
         i := 0;
         loop i < arr.len {
-            arr[i] == target ? | true { return .Some -> i; }
+            arr[i] == target ? | true { return Some -> i; }
             i += 1
         }
-        return .None
+        return None
     }
     
     arr := [10, 20, 30, 40];
@@ -326,8 +326,8 @@ test_collections_module = test("Collections Module", () void => {
     v.push(30);
     
     test.assert_eq(v.len(), 3);
-    test.assert_eq(v.get(0), .Some -> 10);
-    test.assert_eq(v.pop(), .Some -> 30);
+    test.assert_eq(v.get(0), Some -> 10);
+    test.assert_eq(v.pop(), Some -> 30);
     test.assert_eq(v.len(), 2);
     
     // HashMap
@@ -336,7 +336,7 @@ test_collections_module = test("Collections Module", () void => {
     map.set("two", 2);
     map.set("three", 3);
     
-    test.assert_eq(map.get("two"), .Some -> 2);
+    test.assert_eq(map.get("two"), Some -> 2);
     test.assert_eq(map.len(), 3);
     test.assert(map.contains("one"));
     test.assert_false(map.contains("four"));
@@ -461,10 +461,10 @@ suite := test.TestSuite {
         test_collections_module,
         test_fs_module,
     ],
-    setup: .Some -> () void => {
+    setup: Some -> () void => {
         io.print("Setting up test environment...\n");
     },
-    teardown: .Some -> () void => {
+    teardown: Some -> () void => {
         io.print("Cleaning up test environment...\n");
     },
     parallel: false,

@@ -111,7 +111,7 @@ perform_syntax_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
     result := parser.parse_program(p)
     
     result ?
-        | .Err(errors) {
+        | Err(errors) {
             errors.loop((error) => add_diagnostic(analyzer,
                 create_error_diagnostic(
                     error.message,
@@ -122,7 +122,7 @@ perform_syntax_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
             ))
 
         }
-        | .Ok(program) {
+        | Ok(program) {
             // Check for additional syntax issues
             check_syntax_patterns(analyzer, program)
         }
@@ -240,7 +240,7 @@ perform_type_checking = (analyzer: Ptr<DiagnosticAnalyzer>) void {
             type_result := type_checker.check(tc, program)
             
             type_result ?
-                | .Err(type_errors) {
+                | Err(type_errors) {
                     type_errors.loop((error) => {
                         severity := string.contains(error.message, "warning") ?
                             | true => DiagnosticSeverity:Warning

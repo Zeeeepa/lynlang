@@ -28,7 +28,7 @@ Status: Success
 handle_status = (status: Status) string   {
     return status ? | .Success { "All good!" }
                    | .Warning -> msg { "Warning: $(msg)" }
-                   | .Error -> code { "Error code: $(code)" }
+                   | Error -> code { "Error code: $(code)" }
 }
 
 main = () void   {

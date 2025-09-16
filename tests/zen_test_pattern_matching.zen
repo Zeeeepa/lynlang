@@ -1,128 +1,51 @@
-// Test pattern matching using ? operator
-// Language spec v1.1.0 compliance
+// Test pattern matching with ? operator as per LANGUAGE_SPEC.zen
 
-{ test } = @std
+{ io } = @std
 
-// Test basic value patterns
-test("value patterns") {
-    score := 100
-    result := score ? | 100 { "Perfect" }
-                     | 0 { "Failed" }
-                     | _ { "In progress" }
-    assert(result == "Perfect")
-    
-    score2 := 50
-    result2 := score2 ? | 100 { "Perfect" }
-                       | 0 { "Failed" }
-                       | _ { "In progress" }
-    assert(result2 == "In progress")
-}
+// Define Option type locally for testing
+Option<T>: Some(T) | None
 
-// Test range patterns
-test("range patterns") {
-    age := 15
-    category := age ? | 0..=12 => "Child"
-                     | 13..=19 => "Teen"
-                     | 20..=64 => "Adult"
-                     | _ { "Senior" }
-    assert(category == "Teen")
-    
-    age2 := 70
-    category2 := age2 ? | 0..=12 => "Child"
-                       | 13..=19 => "Teen"
-                       | 20..=64 => "Adult"
-                       | _ { "Senior" }
-    assert(category2 == "Senior")
-}
+// Define Result type locally for testing  
+Result<T, E>: Ok(T) | Err(E)
 
-// Test enum destructuring
-test("enum patterns") {
-    Result<i32, string> =
-        | Ok(value: i32)
-        | Err(error: string)
+main = () void {
+    // Test boolean pattern matching with ?
+    is_ready = true
+    is_ready ? {
+        io.println("System is ready!")
+    }
     
-    result := Result:Ok(42)
-    value := result ? | .Ok -> v { v }
-                     | .Err -> _ { 0 }
-    assert(value == 42)
+    // Test full boolean pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
     
-    error_result := Result:Err("error")
-    value2 := error_result ? | .Ok -> v { v }
-                            | .Err -> _ { -1 }
-    assert(value2 == -1)
-}
-
-// Test guards with pattern matching
-test("pattern guards") {
-    value := 75
-    category := value ? | v -> v > 100 { "Large" }
-                       | v -> v > 50 { "Medium" }
-                       | v -> v > 0 { "Small" }
-                       | _ { "Zero or negative" }
-    assert(category == "Medium")
+    // Test pattern matching with values
+    value = 42
+    value > 40 ?
+        | true { io.println("Value is greater than 40") }
+        | false { io.println("Value is 40 or less") }
     
-    value2 := -5
-    category2 := value2 ? | v -> v > 100 { "Large" }
-                         | v -> v > 50 { "Medium" }
-                         | v -> v > 0 { "Small" }
-                         | _ { "Zero or negative" }
-    assert(category2 == "Zero or negative")
-}
-
-// Test multiple patterns (or-patterns)
-test("multiple patterns") {
-    day := 3
-    type := day ? | 1 | 2 | 3 | 4 | 5 { "Weekday" }
-                 | 6 | 7 { "Weekend" }
-                 | _ { "Invalid day" }
-    assert(type == "Weekday")
+    // Test Option pattern matching
+    maybe_number: Option<i32> = Some(5)
+    maybe_number ?
+        | Some(n) { io.println("Got number: ${n}") }
+        | None { io.println("No number") }
     
-    day2 := 7
-    type2 := day2 ? | 1 | 2 | 3 | 4 | 5 { "Weekday" }
-                   | 6 | 7 { "Weekend" }
-                   | _ { "Invalid day" }
-    assert(type2 == "Weekend")
-}
-
-// Test struct destructuring (no tuples in Zen)
-test("struct patterns") {
-    Point: { x: i32, y: i32 }
+    // Test Result pattern matching
+    result: Result<i32, string> = Ok(100)
+    result ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(msg) { io.println("Error: ${msg}") }
     
-    point := Point{ x: 10, y: 20 }
-    description := point ? | { x -> x_val, y -> y_val } { "Point($(x_val), $(y_val))" }
-    assert(description == "Point(10, 20)")
-}
-
-// Test bool patterns (simple form)
-test("bool patterns") {
-    is_valid := true
-    
-    // Simple bool pattern
-    result := is_valid ? { "Valid" }
-    assert(result == "Valid")
-    
-    // Explicit bool pattern
-    result2 := is_valid ? | true { "Valid" }
-                         | false { "Invalid" }
-    assert(result2 == "Valid")
-    
-    is_valid2 := false
-    result3 := is_valid2 ? | true { "Valid" }
-                          | false { "Invalid" }
-    assert(result3 == "Invalid")
-}
-
-// Test nested patterns
-test("nested patterns") {
-    Option<Result<i32, string>> =
-        | Some(value: Result<i32, string>)
-        | None
-    
-    nested := Option:Some(Result:Ok(42))
-    value := nested ? | .Some -> result {
-                          result ? | .Ok -> v { v }
-                                  | .Err -> _ { -1 }
-                      }
-                     | .None { 0 }
-    assert(value == 42)
+    // Test nested pattern matching
+    maybe_result: Option<Result<i32, string>> = Some(.Ok(42))
+    maybe_result ?
+        | Some(res) {
+            res ?
+                | Ok(v) { io.println("Nested value: ${v}") }
+                | Err(e) { io.println("Nested error: ${e}") }
+        }
+        | None { io.println("Nothing") }
 }

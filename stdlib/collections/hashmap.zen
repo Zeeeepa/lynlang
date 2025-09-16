@@ -121,7 +121,7 @@ remove = (map: *HashMap, key: string) bool   {
     
     loop (current != null) {
         (current.key == key) ? {
-            (prev .== .None) ? {
+            (prev .== None) ? {
                 map.buckets[index] = current.next
             } : {
                 prev.next = current.next

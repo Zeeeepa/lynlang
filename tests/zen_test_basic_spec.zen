@@ -1,0 +1,18 @@
+// Test basic LANGUAGE_SPEC.zen features
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+main = () void {
+    // Test @std.io.println
+    @std.io.println("Testing Zen language features!")
+    
+    // Test struct creation
+    p = Point { x: 10.0, y: 20.0 }
+    
+    // Test member access
+    @std.io.println("Point x: ${p.x}")
+}

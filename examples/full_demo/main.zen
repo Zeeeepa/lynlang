@@ -36,31 +36,31 @@ demonstrate_pattern_matching = () void {
     // Destructuring with Result types
     divide = (a: f64, b: f64) Result<f64, string> {
         b == 0.0 ?
-            | true { return .Err("Division by zero") }
-            | false { return .Ok(a / b) }
+            | true { return Err("Division by zero") }
+            | false { return Ok(a / b) }
     }
     
     result = divide(10.0, 2.0)
     result ?
-        | .Ok(value) { io.println("10 / 2 = ${value}") }
-        | .Err(error) { io.println("Error: ${error}") }
+        | Ok(value) { io.println("10 / 2 = ${value}") }
+        | Err(error) { io.println("Error: ${error}") }
     
     // Option pattern matching
     find_user = (id: u32) Option<string> {
         id == 1 ?
-            | true { return .Some("Alice") }
+            | true { return Some("Alice") }
             | false {
                 id == 2 ?
-                    | true { return .Some("Bob") }
-                    | false { return .None }
+                    | true { return Some("Bob") }
+                    | false { return None }
             }
         }
     }
     
     user = find_user(1)
     user ?
-        | .Some(name) { io.println("Found user: ${name}") }
-        | .None { io.println("User not found") }
+        | Some(name) { io.println("Found user: ${name}") }
+        | None { io.println("User not found") }
     
     // Guards in patterns - removed in new spec, use nested patterns
     classify_number = (n: i32) string {
@@ -255,7 +255,7 @@ demonstrate_concurrency = () void {
         @this.defer(connection.close())
         
         data = connection.read_all(alloc).raise()
-        return .Ok(data)
+        return Ok(data)
     }
     
     // Channel communication
@@ -276,8 +276,8 @@ demonstrate_concurrency = () void {
             loop(() {
                 item = chan.receive()
                 item ?
-                    | .Some(val) { io.println("Received: ${val}") }
-                    | .None { break }
+                    | Some(val) { io.println("Received: ${val}") }
+                    | None { break }
             })
         }
         
@@ -345,7 +345,7 @@ demonstrate_error_handling = () void {
         @this.defer(file.close())
         
         content = file.read_all().raise()
-        return .Ok(content)
+        return Ok(content)
     }
     
     // Chain operations with ?
@@ -365,13 +365,13 @@ demonstrate_error_handling = () void {
                 | false { }
         })
         
-        return .Ok(void)
+        return Ok(void)
     }
     
     result = process_config("config.ini")
     result ?
-        | .Ok(_) { io.println("✓ Config processed successfully") }
-        | .Err(e) { io.println("✗ Error: ${e}") }
+        | Ok(_) { io.println("✓ Config processed successfully") }
+        | Err(e) { io.println("✗ Error: ${e}") }
 }
 
 // ==========================================

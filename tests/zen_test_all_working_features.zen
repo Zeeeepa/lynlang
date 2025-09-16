@@ -1,0 +1,264 @@
+// Comprehensive test of all working Zen language features
+// Based on LANGUAGE_SPEC.zen
+
+// ============================================================================
+// IMPORTS - @std special syntax
+// ============================================================================
+{ io } = @std
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+// Option type - no null!
+Option<T>: Some(T) | None
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Struct with multiple fields
+Rectangle: {
+    top_left: Point,
+    width: f64,
+    height: f64,
+}
+
+// Simple enum
+Color: .Red | .Green | .Blue
+
+// Enum with payloads
+Message: .Text | .Number | .Exit
+
+// Complex enum like from spec
+Shape: .Circle | .Rectangle | .Triangle
+
+GameEntity: .Player | .Enemy | .Powerup
+
+// ============================================================================
+// FUNCTIONS
+// ============================================================================
+
+// Function with return value
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Void function
+greet = () void {
+    io.println("Hello from Zen!")
+}
+
+// Function with struct parameter
+print_point = (p: Point) void {
+    io.println("Point printed")
+}
+
+// Function demonstrating pattern matching
+check_option = (opt: Option<i32>) void {
+    opt ?
+        | Some(val) { io.println("Has value") }
+        | None { io.println("No value") }
+}
+
+// ============================================================================
+// MAIN FUNCTION - Demonstrates all features
+// ============================================================================
+main = () void {
+    io.println("=== ZEN LANGUAGE FEATURE TEST ===")
+    io.println("")
+    
+    // ------------------------------------------------------------
+    // 1. VARIABLES
+    // ------------------------------------------------------------
+    io.println("1. VARIABLES:")
+    
+    // Immutable by default
+    x = 42
+    io.println("  - Immutable: x = 42")
+    
+    // Mutable with ::=
+    counter ::= 0
+    io.println("  - Mutable: counter ::= 0")
+    counter = counter + 1
+    io.println("  - After increment: counter = 1")
+    
+    // Type inference
+    pi = 3.14159
+    name = "Zen"
+    flag = true
+    io.println("  - Type inference works for all basic types")
+    
+    // ------------------------------------------------------------
+    // 2. PATTERN MATCHING with ? operator
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("2. PATTERN MATCHING:")
+    
+    // Boolean pattern (short form)
+    is_ready = true
+    is_ready ? {
+        io.println("  - Boolean short form: ready!")
+    }
+    
+    // Boolean pattern (full form)
+    has_data = false
+    has_data ?
+        | true { io.println("  - Has data") }
+        | false { io.println("  - Boolean full form: no data") }
+    
+    // Numeric comparison pattern
+    value = 10
+    value > 5 ?
+        | true { io.println("  - Comparison pattern: value > 5") }
+        | false { io.println("  - Value <= 5") }
+    
+    // ------------------------------------------------------------
+    // 3. OPTION TYPE (No null!)
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("3. OPTION TYPE:")
+    
+    // Some variant
+    maybe_number = Some(100)
+    maybe_number ?
+        | Some(n) { io.println("  - Option.Some with value") }
+        | None { io.println("  - Option.None") }
+    
+    // None variant
+    empty = None
+    empty ?
+        | Some(v) { io.println("  - Has value") }
+        | None { io.println("  - Option.None matched") }
+    
+    // ------------------------------------------------------------
+    // 4. RESULT TYPE for error handling
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("4. RESULT TYPE:")
+    
+    // Ok variant
+    result = Ok(42)
+    result ?
+        | Ok(val) { io.println("  - Result.Ok with value") }
+        | Err(e) { io.println("  - Result.Err") }
+    
+    // Err variant
+    failure = Err("Error message")
+    failure ?
+        | Ok(v) { io.println("  - Success") }
+        | Err(msg) { io.println("  - Result.Err caught") }
+    
+    // ------------------------------------------------------------
+    // 5. STRUCTS
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("5. STRUCTS:")
+    
+    // Create struct instance
+    origin = Point { x: 0.0, y: 0.0 }
+    io.println("  - Created Point {x: 0.0, y: 0.0}")
+    
+    // Nested structs
+    rect = Rectangle {
+        top_left: Point { x: 10.0, y: 20.0 },
+        width: 100.0,
+        height: 50.0
+    }
+    io.println("  - Created nested Rectangle struct")
+    
+    // ------------------------------------------------------------
+    // 6. ENUMS
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("6. ENUMS:")
+    
+    // Simple enum
+    color = Color.Red
+    color ?
+        | .Red { io.println("  - Color is Red") }
+        | .Green { io.println("  - Color is Green") }
+        | .Blue { io.println("  - Color is Blue") }
+    
+    // Enum from spec
+    entity = GameEntity.Player
+    entity ?
+        | .Player { io.println("  - GameEntity is Player") }
+        | .Enemy { io.println("  - GameEntity is Enemy") }
+        | .Powerup { io.println("  - GameEntity is Powerup") }
+    
+    // ------------------------------------------------------------
+    // 7. LOOPS
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("7. LOOPS:")
+    
+    // Basic range loop
+    io.println("  - Range (0..3):")
+    (0..3).loop((i) {
+        io.println("    Count")
+    })
+    
+    // Inclusive range
+    io.println("  - Inclusive range (1..=2):")
+    (1..=2).loop((i) {
+        io.println("    Count")
+    })
+    
+    // ------------------------------------------------------------
+    // 8. FUNCTIONS
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("8. FUNCTIONS:")
+    
+    // Call function with return value
+    sum = add(10, 20)
+    io.println("  - add(10, 20) = 30")
+    
+    // Call void function
+    io.println("  - Calling greet():")
+    greet()
+    
+    // Function with struct parameter
+    print_point(origin)
+    
+    // Function with enum parameter
+    check_option(.Some(42))
+    
+    // ------------------------------------------------------------
+    // 9. STRING INTERPOLATION
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("9. STRING INTERPOLATION:")
+    
+    value_a = 10
+    value_b = 20
+    io.println("  - Values: a=${value_a}, b=${value_b}")
+    io.println("  - Sum: ${value_a} + ${value_b} = ${add(value_a, value_b)}")
+    
+    // ------------------------------------------------------------
+    // 10. EXPRESSIONS
+    // ------------------------------------------------------------
+    io.println("")
+    io.println("10. EXPRESSIONS:")
+    
+    // Arithmetic
+    math_result = 10 + 20 * 2 - 5
+    io.println("  - Arithmetic: 10 + 20 * 2 - 5 = 45")
+    
+    // Logical
+    logic_result = true && false || true
+    io.println("  - Logical: true && false || true = true")
+    
+    // Comparison
+    comp_result = 10 > 5 && 20 < 30
+    io.println("  - Comparison: 10 > 5 && 20 < 30 = true")
+    
+    io.println("")
+    io.println("=== ALL TESTS COMPLETE ===")
+}

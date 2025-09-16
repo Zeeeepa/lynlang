@@ -683,7 +683,7 @@ main = () i32   {
     loop {
         // Read Content-Length header
         header := io.read_line()
-        header .== .None || string.string_len(header) == 0 ? { break }
+        header .== None || string.string_len(header) == 0 ? { break }
         
         !string.string_starts_with(header, "Content-Length: ") ? {
             // Skip other headers

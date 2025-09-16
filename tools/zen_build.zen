@@ -77,15 +77,15 @@ BuildCache: {
 // Load build configuration from zen.toml
 load_config = (path: string) Result<BuildConfig, string>   {
     content := fs.read_file(path) ?
-        | .Ok -> data => data
-        | .Err -> err => return .Err -> "Failed to read config: $(err)"
+        | Ok -> data => data
+        | Err -> err => return Err -> "Failed to read config: $(err)"
     
     // Parse TOML (simplified for now, would use proper TOML parser)
     config := parse_build_config(content) ?
-        | .Ok -> cfg => cfg
-        | .Err -> err => return .Err -> "Failed to parse config: $(err)"
+        | Ok -> cfg => cfg
+        | Err -> err => return Err -> "Failed to parse config: $(err)"
     
-    return .Ok -> config
+    return Ok -> config
 }
 
 // Parse build configuration
@@ -127,7 +127,7 @@ parse_build_config = (content: string) Result<BuildConfig, string>   {
             | "entry_point" => config.entry_point = string.unquote(value)
     }
     
-    return .Ok -> config
+    return Ok -> config
 }
 
 // Initialize build system
@@ -148,8 +148,8 @@ init_build_system = (config: BuildConfig, verbose: bool) BuildSystem   {
 discover_targets = (bs: &BuildSystem) Result<void, string>   {
     // Find all .zen files in source directory
     files := fs.walk(bs.config.source_dir, "*.zen") ?
-        | .Ok -> list => list
-        | .Err -> err => return .Err -> "Failed to scan sources: $(err)"
+        | Ok -> list => list
+        | Err -> err => return Err -> "Failed to scan sources: $(err)"
     
     // Create main executable target
     main_target := Target {
@@ -177,14 +177,14 @@ discover_targets = (bs: &BuildSystem) Result<void, string>   {
         bs.targets.set("test", test_target)
     }
     
-    return .Ok
+    return Ok
 }
 
 // Build a specific target
 build_target = (bs: &BuildSystem, target_name: string) BuildResult   {
     target := bs.targets.get(target_name) ?
-        | .Some -> t => t
-        | .None => return .Failed -> error: "Unknown target: $(target_name)"
+        | Some -> t => t
+        | None => return .Failed -> error: "Unknown target: $(target_name)"
     
     bs.verbose ? | true => io.print("Building target: $(target.name)\n")
     
@@ -198,7 +198,7 @@ build_target = (bs: &BuildSystem, target_name: string) BuildResult   {
     
     // Create output directory
     fs.create_dir_all(bs.config.output_dir) ?
-        | .Err -> err => return .Failed -> error: "Failed to create output dir: $(err)"
+        | Err -> err => return .Failed -> error: "Failed to create output dir: $(err)"
     
     // Compile each source file
     objects := [];
@@ -207,8 +207,8 @@ build_target = (bs: &BuildSystem, target_name: string) BuildResult   {
         bs.verbose ? | true => io.print("  Compiling: $(source)\n")
         
         object := compile_file(bs, source) ?
-            | .Ok -> obj => obj
-            | .Err -> err => return .Failed -> error: err
+            | Ok -> obj => obj
+            | Err -> err => return .Failed -> error: err
         
         objects.push(object)
     }
@@ -217,8 +217,8 @@ build_target = (bs: &BuildSystem, target_name: string) BuildResult   {
     bs.verbose ? | true => io.print("  Linking: $(target.output)\n")
     
     link_result := link_objects(bs, objects, target.output) ?
-        | .Ok => .Success -> artifacts: [target.output]
-        | .Err -> err => .Failed -> error: err
+        | Ok => .Success -> artifacts: [target.output]
+        | Err -> err => .Failed -> error: err
     
     // Update cache
     update_cache(bs, target, objects);
@@ -234,12 +234,12 @@ check_needs_rebuild = (bs: &BuildSystem, target: Target) bool   {
     // Check source file modifications
     loop source in target.sources {
         source_time := fs.get_modified_time(source) ?
-            | .Ok -> time => time
-            | .Err => return true
+            | Ok -> time => time
+            | Err => return true
         
         cached_time := bs.cache.timestamps.get(source) ?
-            | .Some -> time => time
-            | .None => return true
+            | Some -> time => time
+            | None => return true
         
         source_time > cached_time ? | true => return true
     }
@@ -258,12 +258,12 @@ compile_file = (bs: &BuildSystem, source: string) Result<string, string>   {
     
     // Run compiler
     result := process.run(cmd) ?
-        | .Ok -> output => {
+        | Ok -> output => {
             output.exit_code != 0 ? | true => 
-                return .Err -> "Compilation failed:\n$(output.stderr)"
-            return .Ok -> object
+                return Err -> "Compilation failed:\n$(output.stderr)"
+            return Ok -> object
         }
-        | .Err -> err => return .Err -> "Failed to run compiler: $(err)"
+        | Err -> err => return Err -> "Failed to run compiler: $(err)"
 }
 
 // Link object files
@@ -275,12 +275,12 @@ link_objects = (bs: &BuildSystem, objects: []string, output: string) Result<void
     
     // Run linker
     result := process.run(cmd) ?
-        | .Ok -> output => {
+        | Ok -> output => {
             output.exit_code != 0 ? | true =>
-                return .Err -> "Linking failed:\n$(output.stderr)"
-            return .Ok
+                return Err -> "Linking failed:\n$(output.stderr)"
+            return Ok
         }
-        | .Err -> err => return .Err -> "Failed to run linker: $(err)"
+        | Err -> err => return Err -> "Failed to run linker: $(err)"
 }
 
 // Update build cache
@@ -288,8 +288,8 @@ update_cache = (bs: &BuildSystem, target: Target, objects: []string) void   {
     // Update timestamps
     loop source in target.sources {
         time := fs.get_modified_time(source) ?
-            | .Ok -> t => t
-            | .Err => continue
+            | Ok -> t => t
+            | Err => continue
         
         bs.cache.timestamps.set(source, time)
     }
@@ -303,7 +303,7 @@ clean = (bs: &BuildSystem) Result<void, string>   {
     io.print("Cleaning build artifacts...\n");
     
     fs.remove_dir_all(bs.config.output_dir) ?
-        | .Err -> err => return .Err -> "Failed to clean: $(err)"
+        | Err -> err => return Err -> "Failed to clean: $(err)"
     
     // Clear cache
     bs.cache.hashes.clear();
@@ -311,7 +311,7 @@ clean = (bs: &BuildSystem) Result<void, string>   {
     bs.cache.artifacts.clear();
     
     io.print("Clean complete\n");
-    return .Ok
+    return Ok
 }
 
 // Run tests
@@ -325,18 +325,18 @@ run_tests = (bs: &BuildSystem) Result<void, string>   {
             
             // Execute test runner
             test_result := process.run([artifacts[0]]) ?
-                | .Ok -> output => {
+                | Ok -> output => {
                     io.print(output.stdout);
                     output.exit_code != 0 ? | true =>
-                        return .Err -> "Tests failed"
-                    return .Ok
+                        return Err -> "Tests failed"
+                    return Ok
                 }
-                | .Err -> err => return .Err -> "Failed to run tests: $(err)"
+                | Err -> err => return Err -> "Failed to run tests: $(err)"
         }
-        | .Failed -> error => return .Err -> error
+        | .Failed -> error => return Err -> error
         | .Skipped => {
             io.print("Tests are up to date\n");
-            return .Ok
+            return Ok
         }
 }
 
@@ -376,8 +376,8 @@ build = (args: []string) i32   {
     
     // Load configuration
     config := load_config(config_file) ?
-        | .Ok -> cfg => cfg
-        | .Err -> err => {
+        | Ok -> cfg => cfg
+        | Err -> err => {
             io.error("$(err)\n");
             return 1
         }
@@ -387,7 +387,7 @@ build = (args: []string) i32   {
     
     // Discover targets
     discover_targets(&bs) ?
-        | .Err -> err => {
+        | Err -> err => {
             io.error("Failed to discover targets: $(err)\n");
             return 1
         }
@@ -395,7 +395,7 @@ build = (args: []string) i32   {
     // Handle clean
     clean_build ? | true => {
         clean(&bs) ?
-            | .Err -> err => {
+            | Err -> err => {
                 io.error("$(err)\n");
                 return 1
             }
@@ -407,7 +407,7 @@ build = (args: []string) i32   {
     target ?
         | "test" => {
             run_tests(&bs) ?
-                | .Err -> err => {
+                | Err -> err => {
                     io.error("$(err)\n");
                     return 1
                 }

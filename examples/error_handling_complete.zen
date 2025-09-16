@@ -41,19 +41,19 @@ load_config = (path: String) AppResult<Config>  {
     // Extract fields with validation
     config := Config{
         database_url: data.get("database_url")
-            .ok_or(AppError.ValidationError(["database_url required"]))?
+            Ok_or(AppError.ValidationError(["database_url required"]))?
             .as_string()
-            .ok_or(AppError.ValidationError(["database_url must be string"]))?,
+            Ok_or(AppError.ValidationError(["database_url must be string"]))?,
         
         api_key: data.get("api_key")
-            .ok_or(AppError.ValidationError(["api_key required"]))?
+            Ok_or(AppError.ValidationError(["api_key required"]))?
             .as_string()
-            .ok_or(AppError.ValidationError(["api_key must be string"]))?,
+            Ok_or(AppError.ValidationError(["api_key must be string"]))?,
         
         port: data.get("port")
-            .ok_or(AppError.ValidationError(["port required"]))?
+            Ok_or(AppError.ValidationError(["port required"]))?
             .as_u16()
-            .ok_or(AppError.ValidationError(["port must be number"]))?,
+            Ok_or(AppError.ValidationError(["port must be number"]))?,
         
         max_connections: data.get("max_connections")
             .unwrap_or(json.Value.Number(10))
@@ -61,7 +61,7 @@ load_config = (path: String) AppResult<Config>  {
             .unwrap_or(10)
     }
     
-    .Ok(config)
+    Ok(config)
 }
 
 // Validate user - collect multiple errors
@@ -93,8 +93,8 @@ validate_user = (user: User) AppResult<User>  {
     
     // Return error if validation failed
     errors.is_empty() ?
-        | true { .Ok(user) }
-        | false { .Err(AppError.ValidationError{fields: errors}) }
+        | true { Ok(user) }
+        | false { Err(AppError.ValidationError{fields: errors}) }
 }
 
 // Database operations with error bubbling
@@ -108,7 +108,7 @@ fetch_user = (id: u64, db: Database, alloc: Ptr<Allocator>) AppResult<User>  {
     
     // Check if user exists
     result.rows.is_empty() ?
-        | true { .Err(AppError.BusinessLogicError("User not found")) }
+        | true { Err(AppError.BusinessLogicError("User not found")) }
         | false {
             row := result.rows[0]
             user := User{
@@ -117,7 +117,7 @@ fetch_user = (id: u64, db: Database, alloc: Ptr<Allocator>) AppResult<User>  {
                 email: row.get("email").as_string()?,
                 age: row.get("age").as_u32()?
             }
-            .Ok(user)
+            Ok(user)
         }
 }
 
@@ -134,7 +134,7 @@ fetch_external_data = (url: String, alloc: Ptr<Allocator>) AppResult<json.Value>
             json.parse(response.body)
                 .map_err((e) => AppError.ParseError("Invalid JSON from API"))
         }
-        | false { .Err(AppError.NetworkError(url, response.status)) }
+        | false { Err(AppError.NetworkError(url, response.status)) }
 }
 
 // Complex operation with multiple error sources
@@ -158,7 +158,7 @@ process_user_request: (
                 "https://api.example.com/profile/" + user_id.to_string(),
                 alloc
             )?
-            .Ok("Profile: " + profile_data.to_string())
+            Ok("Profile: " + profile_data.to_string())
         }
         | "delete" {
             // Check permissions
@@ -166,9 +166,9 @@ process_user_request: (
                 | true {
                     db.execute("DELETE FROM users WHERE id = ?", [user_id], alloc)
                         .map_err((e) => AppError.DatabaseError("delete", e.to_string()))?
-                    .Ok("User deleted")
+                    Ok("User deleted")
                 }
-                | false { .Err(AppError.BusinessLogicError("Cannot delete minor account")) }
+                | false { Err(AppError.BusinessLogicError("Cannot delete minor account")) }
         }
         | "update" -> new_data {
             // Parse and update
@@ -181,9 +181,9 @@ process_user_request: (
                 alloc
             ).map_err((e) => AppError.DatabaseError("update", e.to_string()))?
             
-            .Ok("User updated")
+            Ok("User updated")
         }
-        | _ { .Err(AppError.BusinessLogicError("Unknown action: " + action)) }
+        | _ { Err(AppError.BusinessLogicError("Unknown action: " + action)) }
     
     result
 }
@@ -192,8 +192,8 @@ process_user_request: (
 resilient_config_load = (primary: String, fallback: String) AppResult<Config>  {
     // Try primary config
     load_config(primary) ?
-        | .Ok -> config { .Ok(config) }
-        | .Err -> e {
+        | Ok -> config { Ok(config) }
+        | Err -> e {
             // Log the error
             io.println("Primary config failed: $(e), trying fallback...")
             
@@ -210,16 +210,16 @@ process_batch = (users: DynVec<User>, db: Database, alloc: Ptr<Allocator>) (DynV
     users.loop((user) {
         // Process each user, collecting errors
         validate_user(user) ?
-            | .Ok -> valid {
+            | Ok -> valid {
                 // Save to database
                 save_result := db.insert("users", valid, alloc)
                 save_result ?
-                    | .Ok -> _ { successes.push(valid) }
-                    | .Err -> e { failures.push( }
+                    | Ok -> _ { successes.push(valid) }
+                    | Err -> e { failures.push( }
                         AppError.DatabaseError("insert", e.to_string())
                     )
             }
-            | .Err -> e { failures.push(e) }
+            | Err -> e { failures.push(e) }
     }
     
     (successes, failures)
@@ -234,8 +234,8 @@ main = () void  {
     
     // Load configuration with fallback
     config := resilient_config_load("config.json", "default.json") ?
-        | .Ok -> c { c }
-        | .Err -> e {
+        | Ok -> c { c }
+        | Err -> e {
             io.println("Failed to load config: ${e}")
             io.println("Using defaults...")
             Config{
@@ -248,8 +248,8 @@ main = () void  {
     
     // Connect to database
     db := Database.connect(config.database_url, &alloc) ?
-        | .Ok -> conn { conn }
-        | .Err -> e {
+        | Ok -> conn { conn }
+        | Err -> e {
             io.println("Database connection failed: $(e)")
             return
         }
@@ -260,8 +260,8 @@ main = () void  {
     
     // Handle the result
     result ?
-        | .Ok(message) { io.println("Success: ${message}") }
-        | .Err(error) {
+        | Ok(message) { io.println("Success: ${message}") }
+        | Err(error) {
             // Pattern match on error types for specific handling
             error ?
                 | .FileError -> path, cause {  }
@@ -341,7 +341,7 @@ test "user validation" {
     multiple := User{ id: 4, name: "B", email: "bad", age: 200 }
     result3 := validate_user(multiple)
     result3 ?
-        | .Err -> .ValidationError -> fields { assert(fields.len() == 3) }
+        | Err -> .ValidationError -> fields { assert(fields.len() == 3) }
         | _ { assert(false, "Should have validation errors") }
 }
 

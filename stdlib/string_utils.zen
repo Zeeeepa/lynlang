@@ -76,7 +76,7 @@ string_builder_to_string = (sb: Ptr<StringBuilder>) string   {
     // Create string from buffer
     result := mem.alloc(sb.length + 1)
     result ?
-        | .Ok -> ptr {
+        | Ok -> ptr {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i <= sb.length {
@@ -85,7 +85,7 @@ string_builder_to_string = (sb: Ptr<StringBuilder>) string   {
             }
             return bytes as string
         }
-        | .Err -> _ {
+        | Err -> _ {
             return ""
         }
 }
@@ -98,7 +98,7 @@ string_builder_clear = (sb: Ptr<StringBuilder>) void   {
 
 // String length
 string_len = (s: string) u32   {
-    s .== .None ? | true { return 0 | false => { }}
+    s .== None ? | true { return 0 | false => { }}
     
     len := 0
     loop s[len] != 0 {
@@ -109,8 +109,8 @@ string_len = (s: string) u32   {
 
 // String comparison
 string_eq = (a: string, b: string) bool   {
-    a .== .None && b .== .None ? | true { return true | false => { }}
-    a .== .None || b .== .None ? | true { return false | false => { }}
+    a .== None && b .== None ? | true { return true | false => { }}
+    a .== None || b .== None ? | true { return false | false => { }}
     
     i := 0
     loop {
@@ -122,9 +122,9 @@ string_eq = (a: string, b: string) bool   {
 
 // Lexicographic comparison
 string_compare = (a: string, b: string) i32   {
-    a .== .None && b .== .None ? | true { return 0 | false => { }}
-    a .== .None ? | true { return -1 | false => { }}
-    b .== .None ? | true { return 1 | false => { }}
+    a .== None && b .== None ? | true { return 0 | false => { }}
+    a .== None ? | true { return -1 | false => { }}
+    b .== None ? | true { return 1 | false => { }}
     
     i := 0
     loop {
@@ -137,7 +137,7 @@ string_compare = (a: string, b: string) i32   {
 
 // Check if string starts with prefix
 string_starts_with = (s: string, prefix: string) bool   {
-    s .== .None || prefix .== .None ? | true { return false | false => { }}
+    s .== None || prefix .== None ? | true { return false | false => { }}
     
     prefix_len := string_len(prefix)
     s_len := string_len(s)
@@ -154,7 +154,7 @@ string_starts_with = (s: string, prefix: string) bool   {
 
 // Check if string ends with suffix
 string_ends_with = (s: string, suffix: string) bool   {
-    s .== .None || suffix .== .None ? | true { return false | false => { }}
+    s .== None || suffix .== None ? | true { return false | false => { }}
     
     suffix_len := string_len(suffix)
     s_len := string_len(s)
@@ -172,7 +172,7 @@ string_ends_with = (s: string, suffix: string) bool   {
 
 // Find substring
 string_find = (haystack: string, needle: string) i32   {
-    haystack .== .None || needle .== .None ? | true { return -1 | false => { }}
+    haystack .== None || needle .== None ? | true { return -1 | false => { }}
     
     needle_len := string_len(needle)
     haystack_len := string_len(haystack)
@@ -202,7 +202,7 @@ string_find = (haystack: string, needle: string) i32   {
 
 // Find last occurrence of substring
 string_rfind = (haystack: string, needle: string) i32   {
-    haystack .== .None || needle .== .None ? | true { return -1 | false => { }}
+    haystack .== None || needle .== None ? | true { return -1 | false => { }}
     
     needle_len := string_len(needle)
     haystack_len := string_len(haystack)
@@ -232,7 +232,7 @@ string_rfind = (haystack: string, needle: string) i32   {
 
 // Count occurrences of substring
 string_count = (haystack: string, needle: string) u32   {
-    haystack .== .None || needle .== .None ? | true { return 0 | false => { }}
+    haystack .== None || needle .== None ? | true { return 0 | false => { }}
     
     needle_len := string_len(needle)
     needle_len == 0 ? | true { return 0 | false => { }}
@@ -252,7 +252,7 @@ string_count = (haystack: string, needle: string) u32   {
 
 // Substring extraction
 string_substring = (s: string, start: u32, length: u32) string   {
-    s .== .None ? | true { return null | false => { }}
+    s .== None ? | true { return null | false => { }}
     
     s_len := string_len(s)
     start >= s_len ? | true { return "" | false => { }}
@@ -263,7 +263,7 @@ string_substring = (s: string, start: u32, length: u32) string   {
     
     result := mem.alloc(actual_len + 1)
     result ?
-        | .Ok -> ptr {
+        | Ok -> ptr {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < actual_len {
@@ -273,19 +273,19 @@ string_substring = (s: string, start: u32, length: u32) string   {
             bytes[actual_len] = 0
             return bytes as string
         }
-        | .Err -> _ {
+        | Err -> _ {
             return ""
         }
 }
 
 // Convert to uppercase
 string_to_upper = (s: string) string   {
-    s .== .None ? | true { return null | false => { }}
+    s .== None ? | true { return null | false => { }}
     
     len := string_len(s)
     result := mem.alloc(len + 1)
     result ?
-        | .Ok -> ptr {
+        | Ok -> ptr {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < len {
@@ -298,19 +298,19 @@ string_to_upper = (s: string) string   {
             bytes[len] = 0
             return bytes as string
         }
-        | .Err -> _ {
+        | Err -> _ {
             return s
         }
 }
 
 // Convert to lowercase
 string_to_lower = (s: string) string   {
-    s .== .None ? | true { return null | false => { }}
+    s .== None ? | true { return null | false => { }}
     
     len := string_len(s)
     result := mem.alloc(len + 1)
     result ?
-        | .Ok -> ptr {
+        | Ok -> ptr {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < len {
@@ -323,14 +323,14 @@ string_to_lower = (s: string) string   {
             bytes[len] = 0
             return bytes as string
         }
-        | .Err -> _ {
+        | Err -> _ {
             return s
         }
 }
 
 // Trim whitespace from both ends
 string_trim = (s: string) string   {
-    s .== .None ? | true { return null | false => { }}
+    s .== None ? | true { return null | false => { }}
     
     len := string_len(s)
     len == 0 ? | true { return s | false => { }}
@@ -363,7 +363,7 @@ string_trim = (s: string) string   {
 
 // Trim whitespace from left
 string_ltrim = (s: string) string   {
-    s .== .None ? | true { return null | false => { }}
+    s .== None ? | true { return null | false => { }}
     
     len := string_len(s)
     len == 0 ? | true { return s | false => { }}
@@ -383,7 +383,7 @@ string_ltrim = (s: string) string   {
 
 // Trim whitespace from right
 string_rtrim = (s: string) string   {
-    s .== .None ? | true { return null | false => { }}
+    s .== None ? | true { return null | false => { }}
     
     len := string_len(s)
     len == 0 ? | true { return s | false => { }}
@@ -403,7 +403,7 @@ string_rtrim = (s: string) string   {
 
 // Replace all occurrences of a substring
 string_replace = (s: string, old: string, new: string) string   {
-    s .== .None || old .== .None || new .== .None ? | true { return s | false => { }}
+    s .== None || old .== None || new .== None ? | true { return s | false => { }}
     
     old_len := string_len(old)
     old_len == 0 ? | true { return s | false => { }}
@@ -419,7 +419,7 @@ string_replace = (s: string, old: string, new: string) string   {
     // Allocate result
     result := mem.alloc(result_len + 1)
     result ?
-        | .Ok -> ptr {
+        | Ok -> ptr {
             bytes := ptr as Ptr<i8>
             src_pos := 0
             dst_pos := 0
@@ -456,7 +456,7 @@ string_replace = (s: string, old: string, new: string) string   {
             bytes[dst_pos] = 0
             return bytes as string
         }
-        | .Err -> _ {
+        | Err -> _ {
             return s
         }
 }
@@ -465,7 +465,7 @@ string_replace = (s: string, old: string, new: string) string   {
 string_split = (s: string, delimiter: string) DynVec<string>   {
     result := DynVec.new<string>()
     
-    s .== .None || delimiter .== .None ? | true { return result | false => { }}
+    s .== None || delimiter .== None ? | true { return result | false => { }}
     
     s_len := string_len(s)
     del_len := string_len(delimiter)
@@ -517,7 +517,7 @@ string_join = (strings: DynVec<string>, separator: string) string   {
     // Build result
     result := mem.alloc(total_len + 1)
     result ?
-        | .Ok -> ptr {
+        | Ok -> ptr {
             bytes := ptr as Ptr<i8>
             pos := 0
             
@@ -550,7 +550,7 @@ string_join = (strings: DynVec<string>, separator: string) string   {
             bytes[pos] = 0
             return bytes as string
         }
-        | .Err -> _ {
+        | Err -> _ {
             return ""
         }
 }
@@ -577,7 +577,7 @@ char_is_space = (c: i8) bool   {
 
 // Parse integer from string
 string_to_i32 = (s: string) core.Result<i32, string> {
-    s .== .None || string_len(s) == 0 ? | true {
+    s .== None || string_len(s) == 0 ? | true {
         return core.Result.Err("Empty string")
     } | false {}
     
@@ -633,7 +633,7 @@ i32_to_string = (n: i32) string   {
     len := digits + (negative ? 1 : 0)
     result := mem.alloc(len + 1)
     result ?
-        | .Ok -> ptr {
+        | Ok -> ptr {
             bytes := ptr as Ptr<i8>
             
             // Fill from right to left
@@ -649,7 +649,7 @@ i32_to_string = (n: i32) string   {
             
             return bytes as string
         }
-        | .Err -> _ {
+        | Err -> _ {
             return ""
         }
 }

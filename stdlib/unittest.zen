@@ -162,7 +162,7 @@ assert_false = (value: bool) TestResult   {
 }
 
 assert_nil = <T>(value: ?T) TestResult {
-    if value .== .None {
+    if value .== None {
         return TestResult.Pass
     }
     return TestResult.Fail("Expected nil value")

@@ -1,0 +1,9 @@
+Point: {
+    x: i32,
+    y: i32,
+}
+
+main = () void {
+    p: Point = { x: 10, y: 20 }
+    @std.io.println("Created point")
+}

@@ -1,0 +1,4 @@
+// Ultra minimal test
+main = () void {
+    @std.io.println("Hello, Zen!")
+}

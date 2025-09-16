@@ -1,0 +1,7 @@
+// Test @std import syntax
+
+{ io } = @std
+
+main = () void {
+    io.println("Hello World")
+}

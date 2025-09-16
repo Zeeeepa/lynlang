@@ -43,8 +43,8 @@ main = () void   {
     // Pattern matching
     result := compute_something();
     result ? 
-        | .Ok -> value { io.println("Success: " + value.to_string()) }
-        | .Err -> error { io.println("Error: " + error); }
+        | Ok -> value { io.println("Success: " + value.to_string()) }
+        | Err -> error { io.println("Error: " + error); }
     
     // Loop constructs
     count := 0;

@@ -7,10 +7,10 @@ index: i64
 byte: i8
 
 // Memory allocation result
-Result<T, E>: .Ok(T) | .Err(E)
+Result<T, E>: Ok(T) | Err(E)
 
 // Optional type
-Option<T>: .Some(T) | .None
+Option<T>: Some(T) | None
 
 // Basic error types
 Error: .OutOfMemory
