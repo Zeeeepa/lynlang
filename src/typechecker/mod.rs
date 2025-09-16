@@ -13,6 +13,7 @@ use behaviors::BehaviorResolver;
 pub struct VariableInfo {
     pub type_: AstType,
     pub is_mutable: bool,
+    pub is_initialized: bool,
 }
 
 pub struct TypeChecker {
@@ -249,13 +250,14 @@ impl TypeChecker {
                                 None
                             ));
                         }
-                        self.declare_variable(name, declared_type.clone(), *is_mutable)?;
+                        self.declare_variable_with_init(name, declared_type.clone(), *is_mutable, true)?;
                     } else {
                         // Inferred type from initializer
-                        self.declare_variable(name, inferred_type, *is_mutable)?;
+                        self.declare_variable_with_init(name, inferred_type, *is_mutable, true)?;
                     }
                 } else if let Some(declared_type) = type_ {
-                    self.declare_variable(name, declared_type.clone(), *is_mutable)?;
+                    // Forward declaration without initializer
+                    self.declare_variable_with_init(name, declared_type.clone(), *is_mutable, false)?;
                 } else {
                     return Err(CompileError::TypeError(
                         format!("Cannot infer type for variable '{}' without initializer", name),
@@ -268,29 +270,46 @@ impl TypeChecker {
                 if !self.variable_exists(name) {
                     // This is a new immutable declaration using = operator
                     let value_type = self.infer_expression_type(value)?;
-                    self.declare_variable(name, value_type, false)?; // false = immutable
+                    self.declare_variable_with_init(name, value_type, false, true)?; // false = immutable
                 } else {
-                    // This is a reassignment to existing variable
+                    // This is an assignment to existing variable
                     let var_info = self.get_variable_info(name)?;
                     
-                    // Check if variable is mutable
-                    if !var_info.is_mutable {
-                        return Err(CompileError::TypeError(
-                            format!("Cannot reassign to immutable variable '{}'", name),
-                            None
-                        ));
-                    }
-                    
-                    let value_type = self.infer_expression_type(value)?;
-                    
-                    if !self.types_compatible(&var_info.type_, &value_type) {
-                        return Err(CompileError::TypeError(
-                            format!(
-                                "Type mismatch: cannot assign {:?} to variable '{}' of type {:?}",
-                                value_type, name, var_info.type_
-                            ),
-                            None
-                        ));
+                    // Check if this is the first assignment to a forward-declared variable
+                    if !var_info.is_initialized {
+                        // This is the initial assignment
+                        let value_type = self.infer_expression_type(value)?;
+                        if !self.types_compatible(&var_info.type_, &value_type) {
+                            return Err(CompileError::TypeError(
+                                format!(
+                                    "Type mismatch in initial assignment to '{}': expected {:?}, got {:?}",
+                                    name, var_info.type_, value_type
+                                ),
+                                None
+                            ));
+                        }
+                        // Mark as initialized
+                        self.mark_variable_initialized(name)?;
+                    } else {
+                        // This is a reassignment
+                        if !var_info.is_mutable {
+                            return Err(CompileError::TypeError(
+                                format!("Cannot reassign to immutable variable '{}'", name),
+                                None
+                            ));
+                        }
+                        
+                        let value_type = self.infer_expression_type(value)?;
+                        
+                        if !self.types_compatible(&var_info.type_, &value_type) {
+                            return Err(CompileError::TypeError(
+                                format!(
+                                    "Type mismatch: cannot assign {:?} to variable '{}' of type {:?}",
+                                    value_type, name, var_info.type_
+                                ),
+                                None
+                            ));
+                        }
                     }
                 }
             }
@@ -933,6 +952,10 @@ impl TypeChecker {
     }
 
     fn declare_variable(&mut self, name: &str, type_: AstType, is_mutable: bool) -> Result<()> {
+        self.declare_variable_with_init(name, type_, is_mutable, true)
+    }
+
+    fn declare_variable_with_init(&mut self, name: &str, type_: AstType, is_mutable: bool, is_initialized: bool) -> Result<()> {
         if let Some(scope) = self.scopes.last_mut() {
             if scope.contains_key(name) {
                 return Err(CompileError::TypeError(
@@ -943,11 +966,26 @@ impl TypeChecker {
             scope.insert(name.to_string(), VariableInfo {
                 type_,
                 is_mutable,
+                is_initialized,
             });
             Ok(())
         } else {
             Err(CompileError::TypeError("No active scope".to_string(), None))
         }
+    }
+
+    fn mark_variable_initialized(&mut self, name: &str) -> Result<()> {
+        // Search from innermost to outermost scope
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some(var_info) = scope.get_mut(name) {
+                var_info.is_initialized = true;
+                return Ok(());
+            }
+        }
+        Err(CompileError::TypeError(
+            format!("Undefined variable: {}", name),
+            None
+        ))
     }
 
     fn get_variable_type(&self, name: &str) -> Result<AstType> {

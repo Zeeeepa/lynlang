@@ -967,9 +967,9 @@ pub fn enhanced_hover(program: &Program, content: &str, position: Position) -> O
                 hover_text.push_str("\n💡 **Pattern Matching:**\n");
                 hover_text.push_str("```zen\n");
                 hover_text.push_str("value ? \n");
-                hover_text.push_str("  | .Variant1 => handle1()\n");
-                hover_text.push_str("  | .Variant2 -> data => handle2(data)\n");
-                hover_text.push_str("  | _ => default()\n");
+                hover_text.push_str("  Variant1 {handle1()}\n");
+                hover_text.push_str("  Variant2(data) { handle2(data)}\n");
+                hover_text.push_str("  _ => default()\n");
                 hover_text.push_str("```\n");
                 
                 // Add variant documentation if available

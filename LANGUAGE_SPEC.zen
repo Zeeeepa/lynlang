@@ -115,8 +115,8 @@ Result<T, E>: Ok(T) | Err(E)
 
 // Simple struct
 Point: {
-    x: f64,
-    y: f64,
+    x:: f64, // mutable field
+    y:: f64 = 0 // with default value
 }
 
 
@@ -295,6 +295,16 @@ vector_add = (a: Vec<f32, 8>, b: Vec<f32, 8>) Vec<f32, 8> {
 
 
 main = () void {
+
+    x: i32 // forward declaration must be declared in the same scope 
+    x = 10
+    y = 10    // Immutable assignment 
+    z : i32 = 20 // Immutable assignment with type
+    w :: i32 // mutable forward declaration must be declared in the same scope
+    w = 20
+    v ::= 30 // Mutable assignment
+    u :: i32 = 40 // mutable assignment with type
+
     // Sync allocator - everything blocks
     sync_alloc = GPA.init()
     @this.defer(sync_alloc.deinit())

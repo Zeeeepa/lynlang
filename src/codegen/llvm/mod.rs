@@ -53,11 +53,20 @@ pub struct StructTypeInfo<'ctx> {
     pub fields: HashMap<String, (usize, AstType)>,
 }
 
+// Variable information with mutability tracking
+#[derive(Debug, Clone)]
+pub struct VariableInfo<'ctx> {
+    pub pointer: PointerValue<'ctx>,
+    pub ast_type: AstType,
+    pub is_mutable: bool,
+    pub is_initialized: bool,
+}
+
 pub struct LLVMCompiler<'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
-    pub variables: HashMap<String, (PointerValue<'ctx>, AstType)>,
+    pub variables: HashMap<String, VariableInfo<'ctx>>,
     pub functions: HashMap<String, FunctionValue<'ctx>>,
     pub function_types: HashMap<String, AstType>,  // Track function return types
     pub current_function: Option<FunctionValue<'ctx>>,
@@ -122,8 +131,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn get_variable(&self, name: &str) -> Result<(PointerValue<'ctx>, AstType), CompileError> {
-        if let Some(entry) = self.variables.get(name) {
-            return Ok(entry.clone());
+        if let Some(var_info) = self.variables.get(name) {
+            return Ok((var_info.pointer, var_info.ast_type.clone()));
         }
         if let Some(function) = self.module.get_function(name) {
             let ptr = function.as_global_value().as_pointer_value();

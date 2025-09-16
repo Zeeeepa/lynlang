@@ -1,0 +1,15 @@
+// Test minimal features from LANGUAGE_SPEC.zen
+
+// Import the io module
+{ io } = @std
+
+// Main function
+main = () void {
+    // Test basic println
+    io.println("Testing Zen Language Features")
+    
+    // Test integer variable
+    x: i32 = 42
+    io.print_int(x)
+    io.println("")
+}

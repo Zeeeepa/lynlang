@@ -282,8 +282,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // .raise() propagates errors early by transforming to pattern matching:
                 // expr.raise() becomes:
                 // expr ? 
-                //     | .Ok(val) { val }
-                //     | .Err(e) { return .Err(e) }
+                //     | Ok(val) { val }
+                //     | Err(e) { return Err(e) }
                 self.compile_raise_expression(expr)
             }
             Expression::Break { label: _ } => {
@@ -996,7 +996,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.symbols.enter_scope();
         
         // Also store in the variables map for compatibility
-        self.variables.insert(param_name.clone(), (loop_var, crate::ast::AstType::I32));
+        self.variables.insert(param_name.clone(), super::VariableInfo {
+            pointer: loop_var,
+            ast_type: crate::ast::AstType::I32,
+            is_mutable: true,  // Loop variables are mutable
+        });
         
         // Compile the loop body
         match loop_body {

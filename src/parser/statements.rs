@@ -1080,11 +1080,21 @@ impl<'a> Parser<'a> {
                 // This might be :: T directly (for mutable with type)
                 self.next_token();
                 let type_ = self.parse_type()?;
-                if self.current_token != Token::Operator("=".to_string()) {
-                    return Err(CompileError::SyntaxError("Expected '=' after type".to_string(), Some(self.current_span.clone())));
+                
+                // Check if there's an initializer
+                if self.current_token == Token::Operator("=".to_string()) {
+                    self.next_token();
+                    (true, VariableDeclarationType::ExplicitMutable, Some(type_))
+                } else {
+                    // Forward declaration without initializer
+                    return Ok(Statement::VariableDeclaration {
+                        name,
+                        type_: Some(type_),
+                        initializer: None,
+                        is_mutable: true,
+                        declaration_type: VariableDeclarationType::ExplicitMutable,
+                    });
                 }
-                self.next_token();
-                (true, VariableDeclarationType::ExplicitMutable, Some(type_))
             }
             _ => {
                 return Err(CompileError::SyntaxError(
