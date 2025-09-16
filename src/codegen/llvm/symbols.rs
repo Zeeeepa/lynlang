@@ -129,6 +129,17 @@ impl<'ctx> SymbolTable<'ctx> {
         
         depth - 1 // Subtract 1 because we start counting from 0
     }
+    
+    /// Get all symbols from all scopes
+    pub fn all_symbols(&self) -> Vec<&Symbol<'ctx>> {
+        let mut symbols = Vec::new();
+        for scope in &self.scopes {
+            for symbol in scope.symbols.values() {
+                symbols.push(symbol);
+            }
+        }
+        symbols
+    }
 }
 
 #[cfg(test)]

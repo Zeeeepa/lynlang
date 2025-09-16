@@ -137,7 +137,7 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 
                 // Check if the string contains interpolation syntax
-                if value.contains("$(") {
+                if value.contains("${") {
                     self.parse_interpolated_string(value)
                 } else {
                     Ok(Expression::String(value))
@@ -1064,9 +1064,9 @@ impl<'a> Parser<'a> {
         let mut chars = input.chars().peekable();
         
         while let Some(ch) = chars.next() {
-            if ch == '$' && chars.peek() == Some(&'(') {
+            if ch == '$' && chars.peek() == Some(&'{') {
                 // Found interpolation start
-                chars.next(); // consume '('
+                chars.next(); // consume '{'
                 
                 // Save any literal part before this interpolation
                 if !current.is_empty() {
@@ -1076,15 +1076,15 @@ impl<'a> Parser<'a> {
                 
                 // Parse the interpolated expression
                 let mut expr_str = String::new();
-                let mut paren_count = 1;
+                let mut brace_count = 1;
                 
                 while let Some(ch) = chars.next() {
-                    if ch == '(' {
-                        paren_count += 1;
+                    if ch == '{' {
+                        brace_count += 1;
                         expr_str.push(ch);
-                    } else if ch == ')' {
-                        paren_count -= 1;
-                        if paren_count == 0 {
+                    } else if ch == '}' {
+                        brace_count -= 1;
+                        if brace_count == 0 {
                             break;
                         }
                         expr_str.push(ch);
@@ -1093,9 +1093,9 @@ impl<'a> Parser<'a> {
                     }
                 }
                 
-                if paren_count != 0 {
+                if brace_count != 0 {
                     return Err(CompileError::SyntaxError(
-                        "Unmatched parentheses in string interpolation".to_string(),
+                        "Unmatched braces in string interpolation".to_string(),
                         Some(self.current_span.clone()),
                     ));
                 }

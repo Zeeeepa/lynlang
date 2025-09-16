@@ -267,6 +267,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
     
     pub fn register_enum_type(&mut self, enum_def: &ast::EnumDefinition) -> Result<(), CompileError> {
+        // For now, skip generic enums and register them as non-generic
+        // This is a simplification - proper generic handling will come later
+        
         // Create variant index mapping
         let mut variant_indices = HashMap::new();
         for (index, variant) in enum_def.variants.iter().enumerate() {

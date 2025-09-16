@@ -1,0 +1,9 @@
+// Test simple pattern matching
+{ io } = @std
+
+main = () void {
+    value = 42
+    value ?
+        | 42 { io.print("Matched 42") }
+        | _ { io.print("Other") }
+}

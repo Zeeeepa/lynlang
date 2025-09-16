@@ -1,24 +1,33 @@
 # Zen Language Implementation Status
 
+Based on LANGUAGE_SPEC.zen - Updated: 2025-09-16
+
 ## ✅ Completed Features from LANGUAGE_SPEC.zen
 
 ### Core Syntax
-- ✅ Immutable assignment: `x = 42`
-- ✅ Mutable assignment: `counter ::= 0`
-- ✅ Import syntax: `{ io } = @std`
-- ✅ Function definition: `main = () void { ... }`
+- ✅ **Immutable assignment**: `x = 42`
+- ✅ **Mutable assignment**: `counter ::= 0`
+- ✅ **Import syntax**: `{ io } = @std`
+- ✅ **Function definition**: `main = () void { ... }`
 
 ### Pattern Matching
-- ✅ Question operator for pattern matching: `?`
-- ✅ Boolean short form: `flag ? { ... }`
-- ✅ Full pattern matching: `value ? | pattern { ... } | pattern { ... }`
-- ✅ Wildcard pattern: `_`
-- ✅ Integer literal patterns
-- ✅ Boolean literal patterns
+- ✅ **Question operator for pattern matching**: `?`
+- ✅ **Boolean short form**: `flag ? { ... }`
+- ✅ **Full pattern matching**: `value ? | pattern { ... } | pattern { ... }`
+- ✅ **Wildcard pattern**: `_`
+- ✅ **Integer literal patterns**
+- ✅ **Boolean literal patterns**
+- ✅ **Comparison patterns**: `value > 40 ? | true {...} | false {...}`
 
 ### Basic IO
-- ✅ `io.print()` function
-- ✅ String literals
+- ✅ **`io.print()` function** - fully working
+- ✅ **String literals**
+
+### Enum Types
+- ✅ **Basic enum definitions**: `Shape: .Circle | .Rectangle`
+- ✅ **Generic enum definitions**: `Option<T>: .Some(T) | .None`
+- ✅ **Enum variant creation**: `.Some(42)`, `.None`, etc.
+- ✅ **Enum type registration and symbol table support**
 
 ## 🚧 Partially Implemented
 

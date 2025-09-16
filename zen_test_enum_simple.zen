@@ -1,0 +1,10 @@
+// Even simpler enum test - just define and print
+
+{ io } = @std
+
+// Simple enum
+Status: .Ready | .Working | .Done
+
+main = () void {
+    io.println("Enum defined successfully")
+}

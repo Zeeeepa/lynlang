@@ -78,20 +78,21 @@ parse_args = (args: []string) (Command, Map<string, string>) {
     }
     
     // Map command string to enum
-    cmd := match (cmd_str) {
-        "init" => Command.Init
-        "install" | "i" => Command.Install
-        "uninstall" | "remove" | "rm" => Command.Uninstall
+    cmd :=  (cmd_str) ? 
+         | "init" => Command.Init
+        | "install" | "i" | "install" => Command.Install
+        | "uninstall" | "remove" | "rm" => Command.Uninstall
         "update" | "upgrade" => Command.Update
-        "search" | "find" => Command.Search
-        "publish" | "pub" => Command.Publish
-        "run" | "r" => Command.Run
+        "search" | "find" | "s" => Command.Search
+        | "publish" | "pub" => Command.Publish
+        "run" | "r" | "run" => Command.Run
         "build" | "b" => Command.Build
         "test" | "t" => Command.Test
-        "clean" => Command.Clean
-        "list" | "ls" => Command.List
-        "info" | "show" => Command.Info
+        | "clean" => Command.Clean
+        | "list" | "ls" => Command.List
+        "info" | "show" | "i" => Command.Info
         _ => Command.Help
+    }
     }
     
     return (cmd, options)

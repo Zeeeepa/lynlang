@@ -425,8 +425,7 @@ handle_method = (server: *LanguageServer, method: string, msg: JsonRpcMessage) v
             send_message(response)
         }
     
-    method == "exit" ?
-        {
+    method == "exit" ? {
             io.log("Exit requested")
             // Exit the server
             core.exit(0)

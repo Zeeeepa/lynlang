@@ -179,7 +179,7 @@ zen_type_to_llvm = (zen_type: Ptr<ast.AstType>) LLVMType   {
             elem_type := zen_type_to_llvm(elem)
             return LLVMType.Array(mem.alloc<LLVMType>(elem_type), size)
         }
-        | _ => LLVMType.I32  // Default for unhandled types
+        | _ { LLVMType.I32 } // Default for unhandled types
 }
 
 // Add string constant
@@ -235,7 +235,6 @@ generate_expression = (ctx: Ptr<LLVMContext>, expr: Ptr<ast.AstExpr>) LLVMValue 
             ctx.current_block ? {
                 ctx.current_block ? {
                     Option.Some(block) ? DynVec.push(&block.instructions, instruction)
-                    _ => {}
                 }
             }
             
@@ -261,7 +260,6 @@ generate_statement = (ctx: Ptr<LLVMContext>, stmt: Ptr<ast.AstStmt>) void   {
                 ctx.current_block ? {
                     ctx.current_block ? {
                         Option.Some(block) ? block.terminator = Option.Some(terminator)
-                        _ => {}
                     }
                 }
             } 
@@ -271,19 +269,19 @@ generate_statement = (ctx: Ptr<LLVMContext>, stmt: Ptr<ast.AstStmt>) void   {
                 ctx.current_block ? {
                         ctx.current_block ?
                         Option.Some(block) ? block.terminator = Option.Some(terminator)
-                        _ => {}
                     }
                 }
             }
         }
-        | _ => {}
+        | _ {
 }
 
 // Generate LLVM IR for function
 generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
     // Convert parameters
     params := DynVec.new()
-    for (i := 0; i < func.params.len(); i += 1) {
+    i := 0
+    loop i < func.params.len() {
         param := func.params[i]
         llvm_type := zen_type_to_llvm(param.type_)
         llvm_param := LLVMParam{
@@ -291,6 +289,7 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
             type_: llvm_type
         }
         DynVec.push(&params, llvm_param)
+        i = i + 1
     }
     
     // Convert return type
@@ -325,12 +324,11 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
     // Add default return if needed
     ctx.current_block ? {
         ctx.current_block ? {
-            Option.Some(block) => {
+            Option.Some(block) { 
                 !block.terminator ? {
                     block.terminator = Option.Some(LLVMTerminator.Ret(Option.None, LLVMType.Void))
                 }
             }
-            _ => {}
         }
     }
     
@@ -340,44 +338,44 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
 
 // Emit LLVM IR to string
 emit_type = (type_: LLVMType) string   {
-     type_ ? {
-        LLVMType.Void => "void"
-        LLVMType.I1 => "i1"
-        LLVMType.I8 => "i8"
-        LLVMType.I16 => "i16"
-        LLVMType.I32 => "i32"
-        LLVMType.I64 => "i64"
-        LLVMType.F32 => "float"
-        LLVMType.F64 => "double"
-        LLVMType.Ptr(inner) => {
-            inner_str := emit_type(*inner)
+     type_ ? 
+        | LLVMType.Void { "void" }, 
+        | LLVMType.I1 { "i1" }, 
+        | LLVMType.I8 { "i8" }, 
+        | LLVMType.I16 { "i16" },
+        | LLVMType.I32 { "i32" },
+        | LLVMType.I64 { "i64" },
+        | LLVMType.F32 { "float" },
+        | LLVMType.F64 { "double" },
+        | LLVMType.Ptr(inner) { 
+            inner_str = emit_type(*inner) 
             return string.format("{}*", inner_str)
         }
-        LLVMType.Array(elem, size) => {
-            elem_str := emit_type(*elem)
+        | LLVMType.Array(elem, size) { 
+            elem_str = emit_type(*elem) 
             return string.format("[{} x {}]", size, elem_str)
-        }
-        _ => "i32"
+        }   
+        _ { "i32" }
     }
 }
 
 // Emit value
 emit_value = (val: LLVMValue) string   {
     val ? {
-        LLVMValue.Register(id) => string.format("%{}", id)
-        LLVMValue.Global(name) => string.format("@{}", name)
-        LLVMValue.Argument(idx) => string.format("%{}", idx)
-        LLVMValue.Constant(c) => {
+        | LLVMValue.Register(id) { string.format("%{}", id)},
+        | LLVMValue.Global(name) { string.format("@{}", name)},
+        | LLVMValue.Argument(idx) { string.format("%{}", idx)},
+        | LLVMValue.Constant(c) { {},
             c ? {
-                LLVMConstant.I32(v) => string.format("{}", v)
-                LLVMConstant.I64(v) => string.format("{}", v)
-                LLVMConstant.F32(v) => string.format("{}", v)
-                LLVMConstant.F64(v) => string.format("{}", v)
-                LLVMConstant.I1(v) => if (v) "true" else "false"
-                LLVMConstant.String(id) => string.format("@.str.{}", id)
-                LLVMConstant.Null => "null"
-                LLVMConstant.Undef => "undef"
-                _ => "0"
+                | LLVMConstant.I32(v) { string.format("{}", v)},
+                | LLVMConstant.I64(v) { string.format("{}", v)},
+                | LLVMConstant.F32(v) { string.format("{}", v)},
+                | LLVMConstant.F64(v) { string.format("{}", v)},
+                | LLVMConstant.I1(v) { if (v) "true" else "false"},
+                | LLVMConstant.String(id) { string.format("@.str.{}", id)},
+                | LLVMConstant.Null => "null"
+                | LLVMConstant.Undef => "undef"
+                _ { "0" }
             }
         }
     }
@@ -386,30 +384,30 @@ emit_value = (val: LLVMValue) string   {
 // Emit instruction
 emit_instruction = (inst: LLVMInstruction, out: Ptr<string>) void   {
     inst ? {
-        LLVMInstruction.Add(dest, type_, lhs, rhs) => {
+        LLVMInstruction.Add(dest, type_, lhs, rhs) { {},
             type_str := emit_type(type_)
             lhs_str := emit_value(lhs)
             rhs_str := emit_value(rhs)
             string.append(out, string.format("  %{} = add {} {}, {}\n", dest, type_str, lhs_str, rhs_str))
         }
-        LLVMInstruction.Sub(dest, type_, lhs, rhs) => {
+        LLVMInstruction.Sub(dest, type_, lhs, rhs) { {},
             type_str := emit_type(type_)
             lhs_str := emit_value(lhs)
             rhs_str := emit_value(rhs)
             string.append(out, string.format("  %{} = sub {} {}, {}\n", dest, type_str, lhs_str, rhs_str))
         }
-        LLVMInstruction.Mul(dest, type_, lhs, rhs) => {
+        LLVMInstruction.Mul(dest, type_, lhs, rhs) { {},
             type_str := emit_type(type_)
             lhs_str := emit_value(lhs)
             rhs_str := emit_value(rhs)
             string.append(out, string.format("  %{} = mul {} {}, {}\n", dest, type_str, lhs_str, rhs_str))
         }
-        LLVMInstruction.Call(dest, func, ret_type, args) => {
+        LLVMInstruction.Call(dest, func, ret_type, args) { {},
             ret_str := emit_type(ret_type)
             
         dest ? {
                 dest ? {
-                    Option.Some(d) => {
+                    Option.Some(d) { {},
                         string.append(out, string.format("  %{} = call {} @{}(", d, ret_str, func))
                     }
                     _ => {
@@ -438,10 +436,10 @@ emit_instruction = (inst: LLVMInstruction, out: Ptr<string>) void   {
 // Emit terminator
 emit_terminator = (term: LLVMTerminator, out: Ptr<string>) void   {
     term ? {
-        LLVMTerminator.Ret(val, type_) => {
+        LLVMTerminator.Ret(val, type_) { {},
             val ? {
                 val ? {
-                    Option.Some(v) => {
+                    Option.Some(v) { {},
                         type_str := emit_type(type_)
                         val_str := emit_value(v)
                         string.append(out, string.format("  ret {} {}\n", type_str, val_str))
@@ -452,10 +450,10 @@ emit_terminator = (term: LLVMTerminator, out: Ptr<string>) void   {
                 string.append(out, "  ret void\n")
             }
         }
-        LLVMTerminator.Br(target) => {
+        LLVMTerminator.Br(target) { {},
             string.append(out, string.format("  br label %{}\n", target))
         }
-        LLVMTerminator.CondBr(cond, true_target, false_target) => {
+        LLVMTerminator.CondBr(cond, true_target, false_target) { {},
             cond_str := emit_value(cond)
             string.append(out, string.format("  br i1 {}, label %{}, label %{}\n", 
                                             cond_str, true_target, false_target))
@@ -515,7 +513,7 @@ generate_module = (ctx: Ptr<LLVMContext>) string   {
         
         global.initializer ? {
             global.initializer ? {
-                Option.Some(init) => {
+                Option.Some(init) { {},
                     string.append(output, " ")
                     string.append(output, emit_value(LLVMValue.Constant(init)))
                 }
@@ -591,7 +589,7 @@ generate_module = (ctx: Ptr<LLVMContext>) string   {
                 // Terminator
                 block.terminator ? {
                     block.terminator ?
-                        Option.Some(term) => emit_terminator(term, output)
+                        Option.Some(term) { emit_terminator(term, output)},
                         _ => {}
                     }
                 }
@@ -615,10 +613,10 @@ generate_llvm_from_ast = (ast: Ptr<ast.AstProgram>, module_name: string) string 
         decl := ast.declarations[i]
         
         decl ?
-            ast.AstDecl.Function(func) => {
+            ast.AstDecl.Function(func) { {},
                 generate_function(ctx, func)
             }
-            ast.AstDecl.Global(name, type_, init) => {
+            ast.AstDecl.Global(name, type_, init) { {},
                 llvm_type := zen_type_to_llvm(type_)
                 
                 global := LLVMGlobal{

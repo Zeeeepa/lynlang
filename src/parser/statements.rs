@@ -302,7 +302,9 @@ impl<'a> Parser<'a> {
                             let is_struct = self.current_token == Token::Symbol(':') 
                                 && self.peek_token == Token::Symbol('{');
                             let is_enum = self.current_token == Token::Symbol(':')
-                                && (self.peek_token == Token::Pipe || matches!(&self.peek_token, Token::Identifier(_)));
+                                && (self.peek_token == Token::Pipe 
+                                    || matches!(&self.peek_token, Token::Identifier(_))
+                                    || self.peek_token == Token::Symbol('.')); // Support .Variant syntax
                             let is_function = self.current_token == Token::Symbol(':') 
                                 && self.peek_token == Token::Symbol('(');
                             let is_behavior = self.current_token == Token::Symbol(':') 
@@ -347,7 +349,9 @@ impl<'a> Parser<'a> {
                         
                         // Check what comes after ':'
                         let is_struct = matches!(&self.current_token, Token::Symbol('{'));
-                        let is_enum = matches!(&self.current_token, Token::Pipe) || matches!(&self.current_token, Token::Identifier(_));
+                        let is_enum = matches!(&self.current_token, Token::Pipe) 
+                            || matches!(&self.current_token, Token::Identifier(_))
+                            || matches!(&self.current_token, Token::Symbol('.')); // Support .Variant syntax
                         let is_function = matches!(&self.current_token, Token::Symbol('('));
                         let is_behavior = matches!(&self.current_token, Token::Identifier(name) if name == "behavior");
 

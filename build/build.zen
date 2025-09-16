@@ -325,11 +325,11 @@ main: () i32  = {
     result = build(&mut sys)
     
     result ? {
-        | ok(_) => {
+        | ok(_) {
             io.print("Build succeeded!\n")
             return 0
         }
-        | err(msg) => {
+        | err(msg) {
             io.eprint("Build failed: " + msg + "\n")
             return 1
         }

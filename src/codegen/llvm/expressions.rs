@@ -391,31 +391,70 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(gep)
     }
 
-    fn compile_enum_variant(&mut self, enum_name: &str, variant: &str, payload: &Option<Box<Expression>>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    pub(super) fn compile_enum_variant(&mut self, enum_name: &str, variant: &str, payload: &Option<Box<Expression>>) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Look up the enum info from the symbol table
-        let enum_info = match self.symbols.lookup(enum_name) {
-            Some(symbols::Symbol::EnumType(info)) => info.clone(),
-            _ => {
-                // Fallback to basic representation if enum not found in symbol table
-                // This maintains backward compatibility
-                let tag = 0;
-                let tag_val = self.context.i64_type().const_int(tag, false);
-                let payload_val = if let Some(expr) = payload {
-                    self.compile_expression(expr)?
-                } else {
-                    self.context.i64_type().const_int(0, false).into()
-                };
-                let enum_struct_type = self.context.struct_type(&[
-                    self.context.i64_type().into(),
-                    self.context.i64_type().into(),
-                ], false);
-                let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
-                let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
-                self.builder.build_store(tag_ptr, tag_val)?;
-                let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-                self.builder.build_store(payload_ptr, payload_val)?;
-                let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
-                return Ok(loaded);
+        let enum_info = if enum_name.is_empty() {
+            // If enum_name is empty, we need to search for an enum that has this variant
+            // This happens when we use .Some(x) without specifying the enum type
+            let mut found_enum = None;
+            for symbol in self.symbols.all_symbols() {
+                if let symbols::Symbol::EnumType(info) = symbol {
+                    if info.variant_indices.contains_key(variant) {
+                        found_enum = Some(info.clone());
+                        break;
+                    }
+                }
+            }
+            match found_enum {
+                Some(info) => info,
+                None => {
+                    // Fallback to basic representation if enum not found in symbol table
+                    // This maintains backward compatibility
+                    let tag = 0;
+                    let tag_val = self.context.i64_type().const_int(tag, false);
+                    let payload_val = if let Some(expr) = payload {
+                        self.compile_expression(expr)?
+                    } else {
+                        self.context.i64_type().const_int(0, false).into()
+                    };
+                    let enum_struct_type = self.context.struct_type(&[
+                        self.context.i64_type().into(),
+                        self.context.i64_type().into(),
+                    ], false);
+                    let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
+                    let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
+                    self.builder.build_store(tag_ptr, tag_val)?;
+                    let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+                    self.builder.build_store(payload_ptr, payload_val)?;
+                    let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
+                    return Ok(loaded);
+                }
+            }
+        } else {
+            match self.symbols.lookup(enum_name) {
+                Some(symbols::Symbol::EnumType(info)) => info.clone(),
+                _ => {
+                    // Fallback to basic representation if enum not found in symbol table
+                    // This maintains backward compatibility
+                    let tag = 0;
+                    let tag_val = self.context.i64_type().const_int(tag, false);
+                    let payload_val = if let Some(expr) = payload {
+                        self.compile_expression(expr)?
+                    } else {
+                        self.context.i64_type().const_int(0, false).into()
+                    };
+                    let enum_struct_type = self.context.struct_type(&[
+                        self.context.i64_type().into(),
+                        self.context.i64_type().into(),
+                    ], false);
+                    let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
+                    let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
+                    self.builder.build_store(tag_ptr, tag_val)?;
+                    let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+                    self.builder.build_store(payload_ptr, payload_val)?;
+                    let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
+                    return Ok(loaded);
+                }
             }
         };
         
@@ -446,7 +485,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     fn compile_member_access(&mut self, object: &Expression, member: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Delegate to the struct field access logic
+        // Check if this is an enum variant access (GameEntity.Player syntax)
+        if let Expression::Identifier(enum_name) = object {
+            // Check if this identifier is an enum type
+            if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(enum_name) {
+                // This is an enum variant creation, not a member access
+                // Check if the member is a valid variant
+                if enum_info.variant_indices.contains_key(member) {
+                    // Create the enum variant
+                    return self.compile_enum_variant(enum_name, member, &None);
+                }
+            }
+        }
+        
+        // Not an enum, delegate to the struct field access logic
         self.compile_struct_field(object, member)
     }
 

@@ -144,7 +144,7 @@ generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
             })
             c.val.output.append(")")
         }
-        .ArrayLiteral => {
+        .ArrayLiteral {
             c.output.append("{")
             i := 0
             loop i < expr.elements.len {
@@ -154,11 +154,11 @@ generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
             }
             c.output.append("}")
         }
-        .StructLiteral => {
+        .StructLiteral {
             c.output.append("{")
             i := 0
             loop i < expr.fields.len {
-                if (i > 0) c.output.append(", ")
+                (i > 0) ? { c.output.append(", ") } 
                 c.output.append(".")
                 c.output.append(expr.fields[i].name)
                 c.output.append(" = ")
@@ -167,12 +167,11 @@ generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
             }
             c.output.append("}")
         }
-        else => {
+        | _ {
             c.output.append("/* TODO: expr kind ")
             c.output.append(expr.kind)
             c.output.append(" */")
         }
-    }
 }
 
 // Generate statement
@@ -228,40 +227,6 @@ generate_stmt = (c: &CBackend, stmt: &parser.Statement) void   {
             }
             c.output.append("\n")
         }
-        .While => {
-            c.output.append("while (")
-            generate_expr(c, stmt.condition)
-            c.output.append(") {\n")
-            c.indent = c.indent + 1
-            generate_block(c, stmt.body)
-            c.indent = c.indent - 1
-            write_indent(c)
-            c.output.append("}\n")
-        }
-        .For => {
-            // Generate C-style for loop
-            c.output.append("for (")
-            stmt.init != null ? {
-                generate_stmt(c, stmt.init)
-                c.output.seek(-2)  // Remove ";\n"
-                c.output.append("; ")
-            } | false {
-                c.output.append("; ")
-            }
-            stmt.condition != null ? {
-                generate_expr(c, stmt.condition)
-            }
-            c.output.append("; ")
-            stmt.update != null ? {
-                generate_expr(c, stmt.update)
-            }
-            c.output.append(") {\n")
-            c.indent = c.indent + 1
-            generate_block(c, stmt.body)
-            c.indent = c.indent - 1
-            write_indent(c)
-            c.output.append("}\n")
-        }
         .Block => {
             c.output.append("{\n")
             c.indent = c.indent + 1
@@ -270,7 +235,7 @@ generate_stmt = (c: &CBackend, stmt: &parser.Statement) void   {
             write_indent(c)
             c.output.append("}\n")
         }
-        else => {
+        | _ {
             c.output.append("/* TODO: stmt kind ")
             c.output.append(stmt.kind)
             c.output.append(" */\n")
@@ -304,7 +269,7 @@ generate_function = (c: &CBackend, func: &parser.Function) void   {
     // Generate parameters
     i := 0
     loop i < func.params.len {
-        if (i > 0) c.output.append(", ")
+        (i > 0) ? { c.output.append(", ") } | false { }
         param_type := map_zen_type_to_c(func.params[i].type)
         c.output.append(param_type)
         c.output.append(" ")
@@ -323,6 +288,11 @@ generate_function = (c: &CBackend, func: &parser.Function) void   {
     generate_block(c, func.body)
     
     // Add default return for void functions
+    func.return_type == "void" ? {
+    func.return_type == "void" ? {
+        write_indent(c)
+        c.output.append("return;\n")
+    }
     func.return_type == "void" ? {
         write_indent(c)
         c.output.append("return;\n")
@@ -371,7 +341,7 @@ generate_enum = (c: &CBackend, e: &parser.Enum) void   {
         c.output.append(e.name)
         c.output.append("_")
         c.output.append(e.values[i])
-        i < e.values.len - 1 ? {
+        (i < e.values.len - 1) ? {
             c.output.append(",")
         }
         c.output.append("\n")
@@ -430,7 +400,7 @@ generate_c_from_ast = (ast: &parser.AST) string   {
             
             i := 0
             loop i < func.params.len {
-                if (i > 0) backend.output.append(", ")
+                (i > 0) ? { backend.output.append(", ") } | false { }
                 param_type := map_zen_type_to_c(func.params[i].type)
                 backend.output.append(param_type)
                 backend.output.append(" ")
@@ -448,9 +418,9 @@ generate_c_from_ast = (ast: &parser.AST) string   {
     
     // Generate function implementations
     backend.output.append("// Function implementations\n")
-    for (ast.functions) |func| {
+    ast.functions.loop((func) {
         generate_function(&backend, &func)
-    }
+    })
     
     return backend.output.to_string()
 }

@@ -1,0 +1,9 @@
+// Simplest enum test
+{ io } = @std
+
+// Test basic enum without generics first
+Shape: .Circle | .Rectangle
+
+main = () void {
+    io.print("Testing enum")
+}

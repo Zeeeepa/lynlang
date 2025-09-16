@@ -1,9 +1,11 @@
 // Option type for nullable values
+// As per LANGUAGE_SPEC.zen: No null! Only Option types
 
 core = @std
 
-// Option type - represents a value that may or may not exist
-Option<T>: Some: {value: T} | None
+// Option type - represents a value that may or may not exist  
+// Using the spec syntax: Option<T>: .Some(T) | .None
+Option<T>: .Some(T) | .None
 
 // Create Some variant
 some = (value: T) Option<T> {

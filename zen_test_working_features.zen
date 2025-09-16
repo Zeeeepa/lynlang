@@ -1,0 +1,36 @@
+// Working Zen Language Features from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+// Enum type definitions work!
+Option<T>: .Some(T) | .None
+Result<T, E>: .Ok(T) | .Err(E)
+Shape: .Circle | .Rectangle
+
+// Struct definitions work
+Point: {
+    x: f64,
+    y: f64,
+}
+
+main = () void {
+    // Variable assignments work
+    x = 42
+    counter ::= 0
+    counter = counter + 1
+    
+    // Enum variant creation works!
+    some_value = .Some(42)
+    none_value = .None
+    ok_result = .Ok(100)
+    err_result = .Err("error")
+    circle = .Circle
+    
+    // Basic I/O works
+    io.print("Successfully created enum variants!")
+    
+    // Note: Pattern matching syntax is parsed but execution needs work
+    // Note: io.println() needs implementation  
+    // Note: String interpolation needs implementation
+    // Note: Range and .loop() iteration need implementation
+}
