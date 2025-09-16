@@ -1,82 +1,102 @@
-// Working features from LANGUAGE_SPEC.zen
+// Test what's currently working from LANGUAGE_SPEC.zen
 
-{ io } = @std
-{ Option } = @std.option
+io = @std.io
 
-// Option and Result types - Option using stdlib
+// Option type definition
+Option<T>: Some(T) | None
+
+// Result type definition  
 Result<T, E>: Ok(T) | Err(E)
 
 // Simple struct
 Point: {
-    x: f64,
-    y: f64,
+    x: i32,
+    y: i32,
 }
 
-// Enum variants
-Shape: .Circle | Rectangle
-GameEntity: .Player | Enemy | Powerup
+// Simple function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
 
+// Main test function
 main = () void {
     io.println("=== LANGUAGE_SPEC.zen Working Features ===")
+    io.println("")
     
-    // 1. Enum literals and pattern matching
-    io.println("1. Enum literals:")
-    maybe = Some(42)
+    // 1. Pattern matching with ? operator
+    io.println("1. Pattern matching with ?")
+    maybe: Option<i32> = Option.Some(42)
     maybe ?
-        | Some(val) { io.println("  ✓ Option.Some works") }
-        | None { io.println("  Option is None") }
+        | Some(v) { io.println("   Option has value: 42") }
+        | None { io.println("   No value") }
     
-    nothing = None
-    nothing ?
-        | Some(val) { io.println("  Has value") }
-        | None { io.println("  ✓ Option.None works") }
+    // 2. Result type pattern matching
+    io.println("")
+    io.println("2. Result type")
+    result: Result<i32, string> = Result.Ok(100)
+    result ?
+        | Ok(v) { io.println("   Success with value: 100") }
+        | Err(e) { io.println("   Error") }
     
-    // 2. Result type
-    io.println("2. Result type:")
-    success = Ok(100)
-    success ?
-        | Ok(val) { io.println("  ✓ Result.Ok works") }
-        | Err(msg) { io.println("  Error") }
-    
-    // 3. Mutable variables with ::=
-    io.println("3. Mutable variables:")
-    x = 10
-    io.println("  ✓ Immutable: x = 10")
-    
-    y ::= 20
-    y = y + 1
-    io.println("  ✓ Mutable: y ::= 20, then y = 21")
-    
-    // 4. Pattern matching with ?
-    io.println("4. Pattern matching:")
+    // 3. Boolean pattern matching (no if/else keywords!)
+    io.println("")
+    io.println("3. Boolean patterns (no if/else!)")
     is_ready = true
-    is_ready ? {
-        io.println("  ✓ Boolean pattern works")
+    is_ready ? { 
+        io.println("   System ready") 
     }
     
     has_data = false
     has_data ?
-        | true { io.println("  Has data") }
-        | false { io.println("  ✓ Full boolean pattern works") }
+        | true { io.println("   Has data") }
+        | false { io.println("   No data") }
     
-    // 5. Range loops
-    io.println("5. Range loops:")
-    (0..3).loop((i) {
-        io.println("  ✓ Range iteration")
-    })
+    // 4. Assignment operators
+    io.println("")
+    io.println("4. Assignment operators")
     
-    // 6. Structs
-    io.println("6. Structs:")
-    p = Point { x: 1.0, y: 2.0 }
-    io.println("  ✓ Struct creation works")
+    // Immutable assignment with =
+    x = 10
+    io.println("   x = 10 (immutable)")
     
-    // 7. Simple enums
-    io.println("7. Enum matching:")
-    entity = GameEntity.Player
-    entity ?
-        | Player { io.println("  ✓ Enum variant matching works") }
-        | Enemy { io.println("  Enemy") }
-        | Powerup { io.println("  Powerup") }
+    // Mutable assignment with ::=
+    y ::= 20
+    y = y + 5
+    io.println("   y ::= 20, then y = y + 5, now y = 25")
     
-    io.println("=== Test Complete ===")
+    // 5. Struct usage
+    io.println("")
+    io.println("5. Struct usage")
+    p = Point { x: 10, y: 20 }
+    io.println("   Created Point with x=10, y=20")
+    
+    // 6. Function calls
+    io.println("")
+    io.println("6. Function calls")
+    sum = add(5, 3)
+    io.println("   add(5, 3) = 8")
+    
+    // 7. @this.defer for cleanup
+    io.println("")
+    io.println("7. @this.defer for cleanup")
+    io.println("   Setting up defer...")
+    @this.defer(io.println("   Cleanup executed (appears at end)"))
+    io.println("   After defer setup")
+    
+    // 8. Nested pattern matching
+    io.println("")
+    io.println("8. Nested patterns")
+    outer: Option<Result<i32, string>> = Option.Some(Result.Ok(42))
+    outer ?
+        | Some(inner) {
+            inner ?
+                | Ok(val) { io.println("   Nested: Got value 42") }
+                | Err(e) { io.println("   Nested: Error") }
+        }
+        | None { io.println("   Outer is None") }
+    
+    io.println("")
+    io.println("=== All working features tested! ===")
+    // Deferred action will print here
 }

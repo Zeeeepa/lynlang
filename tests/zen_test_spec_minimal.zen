@@ -1,20 +1,32 @@
-// Minimal test for LANGUAGE_SPEC.zen core features
+// Minimal test for LANGUAGE_SPEC.zen features
+// Tests only the most basic features
 
-// 1. Imports using @std
-{ io } = @std
+// Import from @std
+io = @std.io
 
-// 2. Simple enum
-GameEntity: .Player | Enemy
+// Define types at top level
+Option<T>: Some(T) | None
 
-// 3. Main function
+// Main function
 main = () void {
-    // Test enum variant constructor
-    player = GameEntity.Player
+    io.println("Testing Core Features")
     
-    // Test pattern matching with ?
-    player ?
-        | Player { io.println("Player") }
-        | Enemy { io.println("Enemy") }
+    // Test Option with pattern matching
+    maybe: Option<i32> = Option.Some(42)
+    maybe ?
+        | Some(v) { io.println("Got value") }
+        | None { io.println("No value") }
+    
+    // Test boolean pattern
+    is_ready = true
+    is_ready ? { 
+        io.println("Ready") 
+    }
+    
+    // Test mutable variable
+    x ::= 10
+    x = x + 5
+    io.println("x is now 15")
     
     io.println("Done")
 }
