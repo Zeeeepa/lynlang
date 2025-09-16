@@ -1,0 +1,18 @@
+// Test simple loop construct
+{ io } = @std
+
+main = () void {
+    // Test infinite loop with explicit break
+    counter ::= 0
+    loop(() {
+        io.println("In loop")
+        counter = counter + 1
+        
+        // Use pattern matching for the condition
+        counter > 2 ?
+            | true { break }
+            | false { }
+    })
+    
+    io.println("Loop finished")
+}
