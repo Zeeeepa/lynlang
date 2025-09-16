@@ -1,314 +1,302 @@
 # Zen Programming Language
 
-A revolutionary systems programming language based on the principles from LANGUAGE_SPEC.zen: zero keywords, pattern-first design, and colorless async through allocators.
+A revolutionary systems programming language that eliminates traditional keywords in favor of pattern-first design and allocator-based async/sync behavior.
 
-## Key Design Principles
+**Implementation Status**: ~50% of LANGUAGE_SPEC.zen implemented
+- ✅ Core features working: variables, functions, structs, arithmetic, range loops
+- ⚠️ Pattern matching partially working
+- ❌ Advanced features not yet implemented: traits, allocators, metaprogramming
 
-### 🚫 No Keywords
-Zen has **zero keywords**. No `if/else/while/for/match/async/await/impl/trait/class/interface/null`. Everything is achieved through:
-- Pattern matching with `?` operator
-- Only two special symbols: `@std` (standard library) and `@this` (current scope)
-- Method calls and UFC (Uniform Function Call)
-- Loops via `loop()` function and `.loop()` method on collections
+## 🎯 Core Philosophy
 
-### 📋 Pattern Matching First
-All control flow uses the `?` operator:
+Zen follows the principles defined in `LANGUAGE_SPEC.zen`:
+- **No traditional keywords**: No `if/else/while/for/match/async/await/impl/trait/class/interface/null`
+- **Pattern matching everywhere**: All control flow via the `?` operator
+- **UFC (Uniform Function Call)**: Any function can be called as a method
+- **Allocator-determined behavior**: Sync/async determined by allocator, not function coloring
+- **No null**: Only `Option<T>` with `.Some(T)` and `.None`
+- **Explicit pointer types**: `Ptr<>`, `MutPtr<>`, `RawPtr<>` (no `*` or `&`)
+
+## 🚀 Quick Start
+
+### Building the Compiler
+
+```bash
+# Build the Rust-based compiler
+cargo build --release
+
+# Run a Zen program directly
+./target/release/zen myprogram.zen
+
+# Or compile to executable (coming soon)
+./target/release/zen myprogram.zen -o myprogram
+```
+
+### Hello World
+
 ```zen
-// Boolean patterns
+// hello.zen
+io = @std
+
+main = () i32 {
+    io.println("Hello from Zen!")
+    return 0
+}
+```
+
+## 📖 Language Features
+
+### Special Symbols
+Only two `@` symbols exist in Zen:
+- `@std` - Access to standard library
+- `@this` - Reference to current scope
+
+### Assignment Operators
+```zen
+x = 10           // Immutable binding (working ✅)
+y ::= 20         // Mutable assignment (working ✅)
+z: i32 = 30      // Immutable with type annotation (working ✅)
+w :: i32 = 40    // Mutable with type annotation (working ✅)
+```
+
+### Pattern Matching
+All control flow uses the `?` operator:
+
+```zen
+// Simple boolean pattern
 is_ready ? { start_game() }
 
-// Multi-branch patterns
-has_data ?
-    | true { process_data() }
-    | false { io.println("Waiting for data...") }
+// Multi-branch pattern
+score ?
+    | 0..50 { io.println("Beginner") }
+    | 50..90 { io.println("Intermediate") }
+    | 90..=100 { io.println("Expert") }
+    | _ { io.println("Invalid score") }
 
-// Option type matching
-maybe_value ?
-    | Some(val) { io.println("Value: ${val}") }
+// Option type matching (no null!)
+result ?
+    | Some(value) { process(value) }
     | None { io.println("No value") }
 
-// Enum matching
-shape ?
-    | Circle { io.println("Circle area: ${shape.area()}") }
-    | Rectangle { io.println("Rectangle area: ${shape.area()}") }
+// Result type for errors
+file_result ?
+    | Ok(content) { io.println(content) }
+    | Err(error) { io.eprintln("Error: ${error}") }
 ```
 
-### 🔄 Assignment Operators
-Three distinct operators for clarity:
-- `=` - Immutable binding
-- `::=` - Mutable assignment with type inference
-- `:` - Type annotation
-- `::` - Mutable type annotation
+### Loops
+No `while` or `for` keywords - only `loop`:
 
 ```zen
-// From LANGUAGE_SPEC.zen lines 298-306
-x: i32              // Forward declaration (immutable)
-x = 10              // Assignment
-y = 10              // Immutable assignment
-z: i32 = 20         // Immutable with explicit type
-w :: i32            // Mutable forward declaration
-w = 20              // Assignment to mutable
-v ::= 30            // Mutable assignment
-u :: i32 = 40       // Mutable with explicit type
+// Infinite loop (partially working ⚠️)
+loop(() {
+    io.println("Forever...")
+    should_stop ? { break }
+})
+
+// Range iteration (working ✅)
+(0..10).loop((i) {
+    io.print("Index: ")
+    io.print_int(i)
+    io.println("")
+})
+
+// Inclusive range (working ✅)
+(1..=5).loop((i) {
+    io.print_int(i)
+})
+
+// Collection iteration with UFC (not yet implemented ❌)
+items.loop((item) {
+    process(item)
+})
 ```
 
-### 🎯 Explicit Pointer Types
-No `*` or `&` operators. Instead, explicit types (Ptr<>, MutPtr<>, RawPtr<>):
+### Types and Structs
+
 ```zen
-// From LANGUAGE_SPEC.zen lines 364-372
-circle = Circle { center: Point { x: 100, y: 100 }, radius: 50 }
-circle_ptr: Ptr<Circle> = circle.ref()          // Immutable pointer
-circle_mut: MutPtr<Circle> = circle.mut_ref()   // Mutable pointer
-
-io.println("Circle area: ${circle_ptr.val.area()}")  // .val to dereference
-circle_mut.val.radius = 75                           // Modify through pointer
-io.println("New area: ${circle_mut.val.area()}")
-io.println("Address: ${circle_ptr.addr}")            // Get pointer address
-```
-
-### ❌ No Null - Only Option Types
-```zen
-// From LANGUAGE_SPEC.zen lines 110, 462-473
-Option<T>: Some(T) | None
-
-maybe_radius: Option<f64> = Some(5.5)
-maybe_radius ?
-    | Some(r) {
-        circle = Circle {
-            center: Point { x: 100.0, y: 100.0 },
-            radius: r
-        }
-        io.println("Created circle with area: ${circle.area()}")
-    }
-    | None {
-        io.println("No radius provided")
-    }
-```
-
-### 🚀 Colorless Async via Allocators
-Functions aren't colored async/sync. The allocator determines behavior:
-```zen
-// From LANGUAGE_SPEC.zen lines 213-224
-fetch_game_data = (url: string, alloc: Allocator) Result<Data, Error> {
-    client = HttpClient(alloc)
-    @this.defer(client.deinit())
-    
-    // This blocks or doesn't based on allocator!
-    response = client.get(url)
-    response ?
-        | Ok(data) { return Ok(parse_data(data)) }
-        | Err(e) { return Err(e) }
+// Simple struct (working ✅)
+Point: {
+    x: i32,
+    y: i32,
 }
 
-// Synchronous execution
+// Create struct instance
+p ::= Point { x: 10, y: 20 }
+io.print_int(p.x)  // Field access works!
+
+// Enum (sum type) - parsing works, codegen incomplete ⚠️
+Shape: Circle(radius: f64) | Rectangle(width: f64, height: f64)
+
+// Generic types
+Container<T>: {
+    items: DynVec<T>,
+    add: (item: T) void,
+}
+```
+
+### Traits and Implementation
+
+```zen
+// Define a trait
+Drawable: {
+    draw: (self) void,
+}
+
+// Implement trait for type
+Circle.implements(Drawable, {
+    draw = (self) void {
+        io.println("Drawing circle with radius ${self.radius}")
+    }
+})
+
+// Require trait implementation
+Shape.requires(Drawable)
+```
+
+### Memory Management
+
+```zen
+// No * or & operators - explicit pointer types
+ptr: Ptr<Circle> = circle.ref()
+mut_ptr: MutPtr<Circle> = circle.mut_ref()
+
+// Dereference with .val
+area = ptr.val.area()
+
+// Allocators determine sync/async behavior
 sync_alloc = GPA.init()
-data = fetch_game_data("api.com", sync_alloc)  // Blocks
-
-// Asynchronous execution  
 async_alloc = AsyncPool.init()
-data = fetch_game_data("api.com", async_alloc)  // Non-blocking
+@this.defer(sync_alloc.deinit())
+@this.defer(async_alloc.deinit())
+
+// Same function, different behavior based on allocator!
+data1 = fetch_data(url, sync_alloc)   // Blocks
+data2 = fetch_data(url, async_alloc)  // Non-blocking
 ```
 
-### 📦 Container Types
+### Error Handling
+
 ```zen
-// From LANGUAGE_SPEC.zen lines 374-385
-// Static sized vector
-shapes = Vec<Shape, 100>()
-shapes.push(Circle { center: Point { x: 0, y: 0 }, radius: 10 })
-
-// Dynamic vector with allocator
-dynamic_shapes = DynVec<Shape>(sync_alloc.allocator())
-@this.defer(dynamic_shapes.deinit())
-
-// Mixed type vector - can hold multiple variant types!
-entities = DynVec<GameEntity.Player, GameEntity.Enemy>(sync_alloc)
-entities.push(GameEntity.Player)
-entities.push(GameEntity.Enemy)
-
-// Loop over mixed types with pattern matching
-entities.loop((entity) {
-    entity ?
-        | Player { io.println("Player health: ${entity.get_health()}") }
-        | Enemy { io.println("Enemy health: ${entity.get_health()}") }
-})
-```
-
-### 🔧 UFC (Uniform Function Call)
-Any function can be called as a method on its first parameter:
-```zen
-// Traditional function call
-distance = calculate_distance(point1, point2)
-
-// UFC style - same function called as method
-distance = point1.calculate_distance(point2)
-
-// Works with any function
-doubled = multiply(value, 2)     // Traditional
-doubled = value.multiply(2)      // UFC style
-```
-
-### 🔄 Loops
-No `while` or `for` keywords. Use `loop()` and range operators:
-```zen
-// From LANGUAGE_SPEC.zen lines 431-459
-// Range iteration
-(0..10).loop((i) {
-    io.println("Count: ${i}")
-})
-
-// Step ranges
-(0..100).step(10).loop((i) {
-    io.println("Step: ${i}")  // 0, 10, 20, ...
-})
-
-// Collection iteration with UFC
-shapes.loop((shape) {
-    io.println("Area: ${shape.area()}")
-})
-
-// Infinite loop with break
-counter ::= 0
-loop(() {
-    counter = counter + 1
-    counter > 10 ?
-        | true { break }
-        | false { io.println("Count: ${counter}") }
-})
-```
-
-### 💫 String Interpolation
-Built-in string interpolation with `${}` syntax:
-```zen
-name = "World"
-count = 42
-message = "Hello ${name}! Count is ${count}"
-io.println(message)  // "Hello World! Count is 42"
-
-// With expressions
-x = 10
-y = 20
-result = "The sum of ${x} and ${y} is ${x + y}"
-io.println(result)  // "The sum of 10 and 20 is 30"
-```
-
-### 🔀 Error Propagation
-Use `.raise()` instead of exceptions or `?` operator from Rust:
-```zen
-// From LANGUAGE_SPEC.zen lines 205-211
+// No exceptions - explicit error propagation
 load_config = (path: string) Result<Config, Error> {
-    file = File.open(path).raise()      // If Err, returns early with that error
-    contents = file.read_all().raise()  // Automatic error propagation
+    file = File.open(path).raise()  // .raise() returns early if Err
+    contents = file.read_all().raise()
     config = json.parse(contents).raise()
     return Ok(config)
 }
 ```
 
-### 🧹 Defer Mechanism
-Cleanup with `@this.defer()`:
+### Metaprogramming
+
 ```zen
-// From LANGUAGE_SPEC.zen line 217, 309-314
-main = () void {
-    sync_alloc = GPA.init()
-    @this.defer(sync_alloc.deinit())  // Cleanup at scope exit
-    
-    file = File.open("data.txt")
-    @this.defer(file.close())         // Ensures file is closed
-    
-    // ... use file and allocator ...
-}  // Deferred operations execute here in reverse order
+// Compile-time reflection
+@meta.comptime(() {
+    ast = reflect.ast(MyType)
+    ast.kind ?
+        | Struct(s) {
+            s.fields.loop((field) {
+                io.println("Field: ${field.name}: ${field.type}")
+            })
+        }
+        | _ {}
+})
+
+// AST manipulation
+original = reflect.ast(my_function)
+new_body = original.body.prepend(logging_statement)
+meta.replace(my_function, original.with_body(new_body))
 ```
 
-## Implementation Status
-
-### ✅ Working Features
-- Variable declarations (all forms: `=`, `::=`, `:`, `::`)
-- Pattern matching with `?` operator
-- Enums and Option types
-- UFC (Uniform Function Call)
-- Loops (`loop()`, ranges with `.loop()`)
-- Structs with mutable fields
-- String interpolation
-- Error propagation with `.raise()`
-- Defer mechanism with `@this.defer()`
-- Basic pointer operations (`.ref()`, `.mut_ref()`, `.val`, `.addr`)
-- Container types (Vec, DynVec) - partial
-
-### 🚧 In Progress
-- Trait system (`.implements()`, `.requires()`)
-- Allocators (GPA, AsyncPool)
-- Colorless async/sync
-- Metaprogramming and comptime
-- Full generic type system
-
-### ❌ Not Yet Implemented
-- Actor model and channels
-- Mutex and atomic types
-- AST reflection
-- Inline C/LLVM
-- SIMD operations
-- Module system (`module.exports`, `module.import()`)
-- Build system integration
-- FFI (Foreign Function Interface)
-
-## Quick Start
-
-### Building
-```bash
-cargo build --release
-```
-
-### Running Examples
-```bash
-# Run comprehensive language spec showcase
-./target/release/zen tests/zen_test_language_spec_showcase.zen
-
-# Test string interpolation
-./target/release/zen tests/zen_test_string_interp_demo.zen
-
-# Test all working features
-./target/release/zen tests/zen_test_spec_complete.zen
-```
-
-## Language Specification
-
-The complete language specification is in `LANGUAGE_SPEC.zen`, which serves as both documentation and a compilable example of the language's features.
-
-## Project Structure
+## 🏗️ Project Structure
 
 ```
 zenlang/
-├── src/
-│   ├── parser/         # Parser implementation
-│   ├── codegen/        # LLVM code generation
-│   │   └── llvm/       # LLVM backend
-│   ├── typechecker/    # Type system
-│   ├── ast/            # Abstract syntax tree
-│   └── lexer.rs        # Lexical analysis
-├── tests/              # Test files (zen_test_*.zen)
-├── LANGUAGE_SPEC.zen   # Complete language specification
-└── IMPLEMENTATION_STATUS.md  # Detailed implementation progress
+├── LANGUAGE_SPEC.zen    # Complete language specification (source of truth)
+├── src/                 # Rust compiler implementation
+│   ├── lexer.rs        # Tokenization (working ✅)
+│   ├── parser/         # AST generation (mostly working ✅)
+│   ├── typechecker/    # Type checking (basic features ✅)
+│   └── codegen/llvm/   # LLVM code generation (partial ⚠️)
+├── compiler/            # Self-hosted Zen compiler (in progress)
+│   ├── lexer.zen       # Tokenization 
+│   ├── parser.zen      # AST generation
+│   └── type_checker.zen # Type checking
+├── stdlib/              # Standard library
+│   ├── option_result.zen # Option and Result types
+│   ├── io.zen         # I/O operations
+│   └── math.zen       # Mathematical functions
+├── tests/               # Test suite
+│   └── zen_test_*.zen # Test files
+└── zenc.c              # Bootstrap C compiler (deprecated)
 ```
 
-## Philosophy
+## 🧪 Running Tests
 
-Zen represents a radical rethinking of systems programming languages:
+```bash
+# Run a specific test
+./target/release/zen tests/zen_test_basic.zen
 
-1. **No Keywords**: Everything is data and functions. Control flow emerges from pattern matching.
+# Test working features
+./target/release/zen tests/zen_test_language_spec_working.zen
+```
 
-2. **Pattern-First**: The `?` operator is the universal control flow mechanism.
+## 📊 Implementation Status
 
-3. **No Function Coloring**: Async/sync is determined by allocators, not function signatures.
+### Working Features (✅)
+Core features fully implemented and tested:
+- **Variables**: All declaration patterns (`=`, `:=`, `:: i32 =`, etc.)
+- **Functions**: Definition, calls, return values
+- **Structs**: Definition, instantiation, field access
+- **Arithmetic**: All basic operators (+, -, *, /, %)
+- **Comparisons**: All comparison operators (<, >, <=, >=, ==, !=)
+- **Range Loops**: `(0..10).loop()` and `(0..=10).loop()` 
+- **I/O**: Basic print functions
+- **@std Reference**: Standard library access
 
-4. **Explicit Over Implicit**: Pointer types are explicit. No hidden allocations.
+### Partially Working (⚠️)
+- **Pattern Matching**: Simple patterns work, complex patterns have issues
+- **Enums**: Parsing complete, codegen incomplete
+- **Infinite Loops**: Basic structure, needs break/continue support
 
-5. **No Null**: Option types eliminate null pointer exceptions at compile time.
+### Not Yet Implemented (❌)
+- **Option/Result Types**: Defined but not integrated
+- **Pointer Types**: `Ptr<>`, `MutPtr<>`, `RawPtr<>`
+- **Container Types**: `Vec<>`, `DynVec<>`
+- **UFC**: Uniform Function Call for all functions
+- **Traits**: `.implements()` and `.requires()`
+- **Error Propagation**: `.raise()`
+- **Defer Statements**: `@this.defer()`
+- **Allocator System**: Sync/async behavior control
+- **Metaprogramming**: Compile-time reflection and AST manipulation
+- **Concurrency**: Actors, Channels, Mutex
+- **Module System**: Import/export
 
-6. **Simplicity**: Only two special symbols (`@std`, `@this`). Everything else is regular syntax.
+Original core features from bootstrap compiler:
+- ✅ Lexer with all operators including `::=`
+- ✅ Parser with pattern matching support
+- ✅ @std and @this special symbols
+- ✅ Basic C code generation
+- ✅ Option and Result types
+- ✅ Standard library foundation
 
-## Contributing
+In progress:
+- 🚧 Type system and semantic analysis
+- 🚧 Full pattern matching compilation
+- 🚧 UFC implementation
+- 🚧 Allocator framework
+- 🚧 Metaprogramming support
 
-This is an experimental language exploring new paradigms in systems programming. Contributions are welcome! Check `IMPLEMENTATION_STATUS.md` for areas that need work.
+## 🤝 Contributing
 
-## License
+Zen is actively being developed. The language specification in `LANGUAGE_SPEC.zen` is the source of truth for all language features.
 
-[License information to be added]
+## 📜 License
+
+This project is open source. See LICENSE file for details.
+
+## 🔗 Resources
+
+- [Language Specification](./LANGUAGE_SPEC.zen) - Complete language design
+- [Compiler Documentation](./compiler/README.md) - Compiler internals
+- [Standard Library Docs](./std/README.md) - Standard library reference

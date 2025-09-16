@@ -154,8 +154,8 @@ test_arrays = () i32   {
     arr := [1, 2, 3, 4, 5]
     
     // Sum array elements
-    sum := 0
-    i := 0
+    sum = 0
+    i = 0
     loop i < 5 {
         sum = sum + arr[i]
         i = i + 1

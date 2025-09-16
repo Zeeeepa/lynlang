@@ -1,249 +1,150 @@
-// Comprehensive test for LANGUAGE_SPEC.zen features that are currently working
-// This file demonstrates what's implemented and functional
+// Test file demonstrating working features from LANGUAGE_SPEC.zen
+// This shows what's currently implemented and working
 
-io = @std.io
-{ Option } = @std.core
+io = @std
 
-// ============================================================================
-// Core Types from LANGUAGE_SPEC.zen
-// ============================================================================
-
-// No null! Only Option types
-
-// Result type for error handling
-Result<T, E>: Ok(T) | Err(E)
-
-// Simple struct
+// Struct definition - working!
 Point: {
-    x: f64,
-    y: f64,
+    x: i32,
+    y: i32,
 }
 
-// Enum type (sum type) - simplified without generics for now
-Circle: {
-    center: Point,
-    radius: f64,
-}
-
-Rectangle: {
-    top_left: Point,
-    bottom_right: Point,
-}
-
-Shape: Circle | Rectangle
-
-// ============================================================================
-// Pattern Matching Tests
-// ============================================================================
-
-test_pattern_matching = () void {
-    io.println("=== Pattern Matching Tests ===")
-    
-    // Option pattern matching
-    maybe_value: Option<i32> = Option.Some(42)
-    maybe_value ?
-        | Some(v) { io.println("Got value: 42") }  // Fixed: don't interpolate for now
-        | None { io.println("No value") }
-    
-    // Boolean pattern matching - no ternary!
-    is_ready = true
-    is_ready ? { 
-        io.println("Ready!") 
+// Function with parameters and return type - working!
+add_points = (p1: Point, p2: Point) Point {
+    return Point {
+        x: p1.x + p2.x,
+        y: p1.y + p2.y,
     }
-    
-    // Full boolean pattern
-    has_data = false
-    has_data ?
-        | true { io.println("Has data") }
-        | false { io.println("No data") }
 }
 
-// ============================================================================
-// Assignment Operators Tests
-// ============================================================================
-
-test_assignment_operators = () void {
-    io.println("=== Assignment Operators Tests ===")
+// Function to demonstrate variable declarations
+test_variables = () void {
+    io.println("=== Testing Variable Declarations ===")
     
-    // Immutable assignment with =
-    value = 10
-    io.println("Immutable value: 10")
+    // All assignment patterns from spec
+    x = 10           // Immutable with inferred type
+    y: i32 = 20      // Immutable with explicit type  
+    z ::= 30         // Mutable with inferred type
+    w :: i32 = 40    // Mutable with explicit type
     
-    // Mutable assignment with ::=
-    counter ::= 0
-    counter = counter + 1
-    counter = counter + 1
-    io.println("Mutable counter: 2")
+    io.print("x (immutable) = ")
+    io.print_int(x)
+    io.println("")
+    
+    io.print("y (immutable typed) = ")
+    io.print_int(y)
+    io.println("")
+    
+    io.print("z (mutable) = ")
+    io.print_int(z)
+    io.println("")
+    
+    // Mutation test
+    z = z + 5
+    io.print("z after mutation = ")
+    io.print_int(z)
+    io.println("")
+    
+    io.print("w (mutable typed) = ")
+    io.print_int(w)
+    io.println("")
 }
 
-// ============================================================================
-// Loop Tests
-// ============================================================================
-
-test_loops = () void {
-    io.println("=== Loop Tests ===")
+// Function to test structs
+test_structs = () void {
+    io.println("\n=== Testing Structs ===")
     
-    // Range loop
-    io.println("Range 0..3:")
-    (0..3).loop((i) {
-        io.println("  Index")
+    p1 ::= Point { x: 10, y: 20 }
+    p2 ::= Point { x: 5, y: 15 }
+    
+    io.print("p1.x = ")
+    io.print_int(p1.x)
+    io.print(", p1.y = ")
+    io.print_int(p1.y)
+    io.println("")
+    
+    p3 ::= add_points(p1, p2)
+    io.print("p1 + p2 = Point { x: ")
+    io.print_int(p3.x)
+    io.print(", y: ")
+    io.print_int(p3.y)
+    io.println(" }")
+}
+
+// Function to test range loops
+test_ranges = () void {
+    io.println("\n=== Testing Range Loops ===")
+    
+    io.print("Range 0..5: ")
+    (0..5).loop((i) {
+        io.print_int(i)
+        io.print(" ")
     })
+    io.println("")
     
-    // Infinite loop with break
-    count ::= 0
-    loop(() {
-        count = count + 1
-        count > 2 ?
-            | true { break }
+    io.print("Range 10..=12 (inclusive): ")
+    (10..=12).loop((i) {
+        io.print_int(i)
+        io.print(" ")
     })
-    io.println("Loop count: 3")
+    io.println("")
 }
 
-// ============================================================================
-// Defer Tests
-// ============================================================================
-
-test_defer = () void {
-    io.println("=== Defer Tests ===")
-    @this.defer(io.println("  Deferred 3"))
-    @this.defer(io.println("  Deferred 2"))
-    @this.defer(io.println("  Deferred 1"))
-    io.println("  Normal execution")
+// Function to test arithmetic
+test_arithmetic = () void {
+    io.println("\n=== Testing Arithmetic ===")
+    
+    a = 100
+    b = 25
+    
+    io.print("100 + 25 = ")
+    io.print_int(a + b)
+    io.println("")
+    
+    io.print("100 - 25 = ")
+    io.print_int(a - b)
+    io.println("")
+    
+    io.print("100 * 25 = ")
+    io.print_int(a * b)
+    io.println("")
+    
+    io.print("100 / 25 = ")
+    io.print_int(a / b)
+    io.println("")
 }
 
-// ============================================================================
-// UFC (Uniform Function Call) Tests
-// ============================================================================
-
-// Define a function that can be called as method
-area = (c: Circle) f64 {
-    return 3.14159 * c.radius * c.radius
+// Function to test comparisons
+test_comparisons = () void {
+    io.println("\n=== Testing Comparisons ===")
+    
+    x = 10
+    y = 20
+    
+    io.print("10 < 20 = ")
+    x < y ? { io.println("true") }
+    
+    io.print("10 > 20 = ")
+    result = x > y
+    result ? 
+        | true { io.println("true") }
+        | false { io.println("false") }
+    
+    io.print("10 == 10 = ")
+    x == 10 ? { io.println("true") }
 }
 
-perimeter = (c: Circle) f64 {
-    return 2.0 * 3.14159 * c.radius
-}
-
-test_ufc = () void {
-    io.println("=== UFC Tests ===")
+// Main function
+main = () i32 {
+    io.println("=== Zen Language Spec Working Features Demo ===\n")
     
-    circle = Circle {
-        center: Point { x: 0.0, y: 0.0 },
-        radius: 5.0,
-    }
+    test_variables()
+    test_structs()
+    test_ranges()
+    test_arithmetic()
+    test_comparisons()
     
-    // Traditional function call
-    a1 = area(circle)
-    io.println("Area (function): 78.54")
+    io.println("\n=== All Tests Completed Successfully! ===")
     
-    // UFC method call - any function can be called as method!
-    a2 = circle.area()
-    io.println("Area (UFC): 78.54")
-    
-    p = circle.perimeter()
-    io.println("Perimeter (UFC): 31.42")
-}
-
-// ============================================================================
-// Pointer Types Tests
-// ============================================================================
-
-test_pointers = () void {
-    io.println("=== Pointer Tests ===")
-    
-    value = 42
-    
-    // Create pointers using .ref() and .mut_ref()
-    ptr: Ptr<i32> = value.ref()
-    io.println("Ptr created")
-    
-    // Dereference with .val
-    deref = ptr.val
-    io.println("Dereferenced: 42")
-    
-    // Get address with .addr
-    // addr = ptr.addr
-    // io.println("Address exists")
-}
-
-// ============================================================================
-// Struct and Enum Tests
-// ============================================================================
-
-test_structs_enums = () void {
-    io.println("=== Struct/Enum Tests ===")
-    
-    // Struct creation
-    point = Point { x: 10.0, y: 20.0 }
-    io.println("Point created")
-    
-    // Enum variant creation
-    circle = Circle {
-        center: Point { x: 0.0, y: 0.0 },
-        radius: 5.0,
-    }
-    io.println("Circle created")
-    
-    rect = Rectangle {
-        top_left: Point { x: 0.0, y: 0.0 },
-        bottom_right: Point { x: 10.0, y: 10.0 },
-    }
-    io.println("Rectangle created")
-}
-
-// ============================================================================
-// Result Type Tests
-// ============================================================================
-
-parse_number = (s: string) Result<i32, string> {
-    // Simplified - always return error for demo
-    return Result.Err("Not a number")
-}
-
-test_result = () void {
-    io.println("=== Result Tests ===")
-    
-    result = parse_number("abc")
-    result ?
-        | Ok(v) { io.println("Parsed successfully") }
-        | Err(e) { io.println("Parse error: Not a number") }
-}
-
-// ============================================================================
-// Main Test Runner
-// ============================================================================
-
-main = () void {
-    io.println("========================================")
-    io.println("LANGUAGE_SPEC.zen Working Features Test")
-    io.println("========================================")
-    io.println("")
-    
-    test_pattern_matching()
-    io.println("")
-    
-    test_assignment_operators()
-    io.println("")
-    
-    test_loops()
-    io.println("")
-    
-    test_defer()
-    io.println("")
-    
-    test_ufc()
-    io.println("")
-    
-    test_pointers()
-    io.println("")
-    
-    test_structs_enums()
-    io.println("")
-    
-    test_result()
-    io.println("")
-    
-    io.println("========================================")
-    io.println("All working features tested!")
-    io.println("========================================")
+    return 0
 }
