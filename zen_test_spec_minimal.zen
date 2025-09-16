@@ -1,10 +1,20 @@
-// From LANGUAGE_SPEC.zen - simplified test
+// Minimal test for LANGUAGE_SPEC.zen core features
+
+// 1. Imports using @std
 { io } = @std
 
+// 2. Simple enum
+GameEntity: .Player | .Enemy
+
+// 3. Main function
 main = () void {
-    // Boolean pattern matching - no ternary
-    is_ready = true
-    is_ready ? { 
-        io.println("Starting game!") 
-    }
+    // Test enum variant constructor
+    player = GameEntity.Player
+    
+    // Test pattern matching with ?
+    player ?
+        | .Player { io.println("Player") }
+        | .Enemy { io.println("Enemy") }
+    
+    io.println("Done")
 }

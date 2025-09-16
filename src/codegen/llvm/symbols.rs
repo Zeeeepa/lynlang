@@ -140,6 +140,23 @@ impl<'ctx> SymbolTable<'ctx> {
         }
         symbols
     }
+    
+    /// Iterate over all symbols in the current scope chain
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Symbol<'ctx>)> {
+        // Collect all symbols from current scope and parent scopes
+        let mut all_symbols = Vec::new();
+        let mut scope_idx = Some(self.current_scope);
+        
+        while let Some(idx) = scope_idx {
+            let scope = &self.scopes[idx];
+            for (name, symbol) in &scope.symbols {
+                all_symbols.push((name.as_str(), symbol));
+            }
+            scope_idx = scope.parent;
+        }
+        
+        all_symbols.into_iter()
+    }
 }
 
 #[cfg(test)]

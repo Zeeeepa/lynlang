@@ -75,6 +75,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
+                AstType::EnumType { .. } => {
+                    // For enum types, we need to load the struct value
+                    // First get the enum struct type from the symbols
+                    let enum_struct_type = self.context.struct_type(&[
+                        self.context.i64_type().into(),
+                        self.context.i64_type().into(),
+                    ], false);
+                    match self.builder.build_load(enum_struct_type, ptr, name) {
+                        Ok(val) => val.into(),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                    }
+                }
                 _ => {
                     let elem_type = self.to_llvm_type(&ast_type)?;
                     let basic_type = self.expect_basic_type(elem_type)?;

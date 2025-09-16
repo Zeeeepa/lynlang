@@ -203,6 +203,38 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     _ => AstType::I64,
                                 }
                             }
+                        } else if let Expression::MemberAccess { object, member } = init_expr {
+                            // Check if this is an enum variant access (e.g., GameEntity.Player)
+                            if let Expression::Identifier(enum_name) = &**object {
+                                // Check if this identifier is an enum type
+                                if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
+                                    // This is an enum variant, use the enum type
+                                    AstType::EnumType {
+                                        name: enum_name.clone(),
+                                    }
+                                } else {
+                                    // Regular member access, infer from value
+                                    match value {
+                                        BasicValueEnum::StructValue(_) => {
+                                            // For struct values (including enums), use a generic enum type
+                                            AstType::EnumType {
+                                                name: String::new(),
+                                            }
+                                        }
+                                        _ => AstType::I64,
+                                    }
+                                }
+                            } else {
+                                match value {
+                                    BasicValueEnum::StructValue(_) => {
+                                        // For struct values (including enums), use a generic enum type
+                                        AstType::EnumType {
+                                            name: String::new(),
+                                        }
+                                    }
+                                    _ => AstType::I64,
+                                }
+                            }
                         } else {
                             match value {
                                 BasicValueEnum::IntValue(int_val) => {
@@ -222,6 +254,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         AstType::String
                                     } else {
                                         AstType::Ptr(Box::new(AstType::I8)) // Generic pointer type
+                                    }
+                                }
+                                BasicValueEnum::StructValue(_) => {
+                                    // For struct values (including enums), use a generic enum type
+                                    AstType::EnumType {
+                                        name: String::new(),
                                     }
                                 }
                                 _ => AstType::I64, // Default
@@ -323,9 +361,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let struct_type = struct_val.get_type();
                         let alloca = self.builder.build_alloca(struct_type, name)?;
                         self.builder.build_store(alloca, struct_val)?;
-                        // For now, use a generic enum type in the symbol table
-                        // TODO: Properly track the specific enum type
-                        self.variables.insert(name.clone(), (alloca, AstType::I64)); // Simplified for now
+                        // Check if this is an enum variant assignment
+                        let inferred_type = if let Expression::MemberAccess { object, member } = value {
+                            if let Expression::Identifier(enum_name) = &**object {
+                                // Check if this is an enum type
+                                if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
+                                    AstType::EnumType {
+                                        name: enum_name.clone(),
+                                    }
+                                } else {
+                                    // Generic enum type
+                                    AstType::EnumType {
+                                        name: String::new(),
+                                    }
+                                }
+                            } else {
+                                // Generic enum type
+                                AstType::EnumType {
+                                    name: String::new(),
+                                }
+                            }
+                        } else {
+                            // Generic enum type
+                            AstType::EnumType {
+                                name: String::new(),
+                            }
+                        };
+                        self.variables.insert(name.clone(), (alloca, inferred_type));
                     } else {
                         let llvm_type = self.to_llvm_type(&var_type)?;
                         let basic_type = match llvm_type {

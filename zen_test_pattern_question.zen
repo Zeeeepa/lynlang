@@ -1,0 +1,14 @@
+// Test pattern matching with ? operator
+{ io } = @std
+
+// Simple enum
+MyEnum: .First | .Second
+
+main = () void {
+    val = MyEnum.First
+    
+    // Pattern matching with ? operator
+    val ?
+        | .First { io.println("It's First!") }
+        | .Second { io.println("It's Second!") }
+}
