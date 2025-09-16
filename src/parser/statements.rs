@@ -372,6 +372,8 @@ impl<'a> Parser<'a> {
                                 && self.peek_token == Token::Symbol('(');
                             let is_behavior = self.current_token == Token::Symbol(':') 
                                 && matches!(&self.peek_token, Token::Identifier(name) if name == "behavior");
+                            let is_struct = self.current_token == Token::Symbol(':') 
+                                && self.peek_token == Token::Symbol('{');
                             
                             // Restore lexer state
                             self.lexer.position = saved_position;
@@ -406,17 +408,17 @@ impl<'a> Parser<'a> {
                             declarations.push(Declaration::Struct(self.parse_struct()?));
                         }
                     } else {
-                        // Need to look ahead to determine if it's a struct, enum, behavior, or function
+                        // Need to look ahead to determine if it's a struct, enum, behavior, trait, or function
                         self.next_token(); // Move to ':'
                         self.next_token(); // Move past ':' to see what comes after
                         
                         // Check what comes after ':'
-                        let is_struct = matches!(&self.current_token, Token::Symbol('{'));
                         let is_enum = matches!(&self.current_token, Token::Pipe) 
                             || matches!(&self.current_token, Token::Identifier(_))
                             || matches!(&self.current_token, Token::Symbol('.')); // Support .Variant syntax
                         let is_function = matches!(&self.current_token, Token::Symbol('('));
                         let is_behavior = matches!(&self.current_token, Token::Identifier(name) if name == "behavior");
+                        let is_struct = matches!(&self.current_token, Token::Symbol('{'));
 
                         // Restore lexer state
                         self.lexer.position = saved_position;
@@ -427,12 +429,12 @@ impl<'a> Parser<'a> {
 
                         if is_behavior {
                             declarations.push(Declaration::Behavior(self.parse_behavior()?));
-                        } else if is_struct {
-                            declarations.push(Declaration::Struct(self.parse_struct()?));
                         } else if is_enum {
                             declarations.push(Declaration::Enum(self.parse_enum()?));
                         } else if is_function {
                             declarations.push(Declaration::Function(self.parse_function()?));
+                        } else if is_struct {
+                            declarations.push(Declaration::Struct(self.parse_struct()?));
                         } else {
                             // Try to parse as function (fallback)
                             declarations.push(Declaration::Function(self.parse_function()?));
@@ -841,6 +843,60 @@ impl<'a> Parser<'a> {
                 }
                 self.next_token(); // consume '}'
                 Ok(Statement::ComptimeBlock(statements))
+            }
+            Token::Identifier(id) if id == "@this" => {
+                // Parse @this.defer() statement
+                self.next_token(); // consume '@this'
+                
+                if self.current_token != Token::Symbol('.') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '.' after '@this'".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '.'
+                
+                if let Token::Identifier(method) = &self.current_token {
+                    if method == "defer" {
+                        self.next_token(); // consume 'defer'
+                        
+                        if self.current_token != Token::Symbol('(') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected '(' after '@this.defer'".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume '('
+                        
+                        // Parse the expression to defer
+                        let expr = self.parse_expression()?;
+                        
+                        if self.current_token != Token::Symbol(')') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ')' after defer expression".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume ')'
+                        
+                        // Optional semicolon
+                        if self.current_token == Token::Symbol(';') {
+                            self.next_token();
+                        }
+                        
+                        Ok(Statement::ThisDefer(expr))
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            format!("Unexpected method '{}' after '@this.' - only 'defer' is supported", method),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected method name after '@this.'".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
             }
             // Generic identifier case (after all specific keywords)
             Token::Identifier(_name) => {

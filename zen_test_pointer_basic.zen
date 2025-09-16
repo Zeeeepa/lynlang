@@ -1,0 +1,31 @@
+// Basic pointer test for Zen language spec compliance
+// Tests Ptr<T>, MutPtr<T>, RawPtr<T> basic operations
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn main() {
+    // Test 1: Basic integer pointers
+    value: i32 = 42
+    ptr: Ptr<i32> = value.ref()
+    io.println("Value: ${value}, Pointer: ${ptr.val}")
+    
+    // Test 2: Mutable pointer
+    :: mut_val: i32 = 100
+    mut_ptr: MutPtr<i32> = mut_val.mut_ref()
+    mut_ptr.val = 200
+    io.println("Mutable value: ${mut_val}")
+    
+    // Test 3: Struct pointer
+    point = Point { x: 10, y: 20 }
+    point_ptr: Ptr<Point> = point.ref()
+    io.println("Point x: ${point_ptr.val.x}, y: ${point_ptr.val.y}")
+    
+    // Test 4: Raw pointer
+    raw_ptr: RawPtr<i32> = value.ref() as RawPtr<i32>
+    io.println("Raw pointer value: ${raw_ptr.val}")
+    
+    io.println("Pointer test complete")
+}

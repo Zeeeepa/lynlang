@@ -1,5 +1,0 @@
-// Test enum definition
-Shape: Circle | Rectangle
-
-main = () void {
-}

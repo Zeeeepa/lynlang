@@ -127,7 +127,7 @@ fn test_struct_pointer() {
                 },
                 Statement::VariableDeclaration { 
                     name: "p".to_string(),
-                    type_: Some(AstType::Pointer(Box::new(AstType::Struct {
+                    type_: Some(AstType::Ptr(Box::new(AstType::Struct {
                         name: "Point".to_string(),
                         fields: vec![
                             ("x".to_string(), AstType::I64),

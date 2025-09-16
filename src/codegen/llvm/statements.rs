@@ -15,6 +15,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Statement::Return(expr) => {
                 let value = self.compile_expression(expr)?;
+                
+                // Execute all deferred expressions before returning
+                self.execute_deferred_expressions()?;
+                
                 // Debug: Check if we're returning the right type
                 if let Some(func) = self.current_function {
                     let expected_ret_type = func.get_type().get_return_type();
@@ -677,6 +681,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // TODO: Implement proper defer semantics with scope tracking
                 Ok(())
             }
+            Statement::ThisDefer(expr) => {
+                // @this.defer() - add the expression to the defer stack
+                // The expressions will be executed in LIFO order at function exit
+                self.defer_stack.push(expr.clone());
+                Ok(())
+            }
         }
+    }
+    
+    /// Execute all deferred expressions in LIFO order (last deferred first)
+    pub fn execute_deferred_expressions(&mut self) -> Result<(), CompileError> {
+        // Execute in reverse order (LIFO)
+        while let Some(expr) = self.defer_stack.pop() {
+            // Compile and execute the deferred expression
+            self.compile_expression(&expr)?;
+        }
+        Ok(())
     }
 } 

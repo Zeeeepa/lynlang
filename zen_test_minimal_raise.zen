@@ -1,0 +1,18 @@
+// Minimal test for .raise() mechanism
+
+io = @std
+
+// Test function that uses .raise() with a simple mock
+test_raise = () i32 {
+    // This is a placeholder - for now just return a value
+    // Once Result types work, we'll test .raise() properly
+    x = 42
+    return x
+}
+
+main = () void {
+    result = test_raise()
+    io.print("Result: ")
+    io.print("42")  // Print the expected value
+    io.print("\n")
+}

@@ -76,12 +76,15 @@ impl VecModule {
                     }],
                 }),
             ],
-            return_type: AstType::Option(
-                Box::new(AstType::Generic {
-                    name: "T".to_string(),
-                    type_args: vec![],
-                })
-            ),
+            return_type: AstType::Generic { 
+                name: "Option".to_string(), 
+                type_args: vec![
+                    AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    }
+                ] 
+            },
             is_builtin: true,
         });
         
@@ -142,12 +145,15 @@ impl VecModule {
                 }),
                 ("index".to_string(), AstType::I64),
             ],
-            return_type: AstType::Option(
-                Box::new(AstType::Generic {
-                    name: "T".to_string(),
-                    type_args: vec![],
-                })
-            ),
+            return_type: AstType::Generic { 
+                name: "Option".to_string(), 
+                type_args: vec![
+                    AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    }
+                ] 
+            },
             is_builtin: true,
         });
         

@@ -295,6 +295,9 @@ impl Monomorphizer {
             AstType::Option(inner) | AstType::Ref(inner) => {
                 self.type_uses_parameter(inner, param_name)
             }
+            AstType::Result { ok_type, err_type } => {
+                self.type_uses_parameter(ok_type, param_name) || self.type_uses_parameter(err_type, param_name)
+            }
             _ => false,
         }
     }

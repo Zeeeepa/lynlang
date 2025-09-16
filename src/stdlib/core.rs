@@ -91,13 +91,17 @@ impl CoreModule {
         // Core types
         types.insert("type".to_string(), AstType::Generic { name: "type".to_string(), type_args: vec![] });
         types.insert("Any".to_string(), AstType::Generic { name: "Any".to_string(), type_args: vec![] });
-        types.insert("Result".to_string(), AstType::Result {
-            ok_type: Box::new(AstType::Generic { name: "T".to_string(), type_args: vec![] }),
-            err_type: Box::new(AstType::Generic { name: "E".to_string(), type_args: vec![] }),
+        types.insert("Result".to_string(), AstType::Generic {
+            name: "Result".to_string(),
+            type_args: vec![
+                AstType::Generic { name: "T".to_string(), type_args: vec![] },
+                AstType::Generic { name: "E".to_string(), type_args: vec![] },
+            ]
         });
-        types.insert("Option".to_string(), AstType::Option(
-            Box::new(AstType::Generic { name: "T".to_string(), type_args: vec![] })
-        ));
+        types.insert("Option".to_string(), AstType::Generic {
+            name: "Option".to_string(),
+            type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }]
+        });
         types.insert("Range".to_string(), AstType::Generic { name: "Range".to_string(), type_args: vec![] });
         
         CoreModule { functions, types }

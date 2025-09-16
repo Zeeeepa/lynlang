@@ -1,0 +1,4 @@
+// Simple trait test
+Geometric: {
+    area: (self: Circle) f64,
+}

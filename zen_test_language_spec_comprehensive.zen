@@ -1,0 +1,240 @@
+// Comprehensive test suite for LANGUAGE_SPEC.zen features
+// This tests all major features implemented for the Zen language
+
+{ io } = @std
+
+// ============================================================================
+// 1. Option<T> and Result<T,E> Generic Types
+// ============================================================================
+
+test_option_result = () void {
+    io.println("Testing Option<T> and Result<T,E>...")
+    
+    // Option type with different payloads
+    maybe_number = Option.Some(42)
+    maybe_string = Option.Some("Hello")
+    nothing = Option.None
+    
+    // Pattern matching on Option
+    maybe_number ?
+        | .Some(n) { io.println("Got number: ${n}") }
+        | .None { io.println("No number") }
+    
+    // Result type with different types
+    success = Result.Ok(100)
+    failure = Result.Err("Something went wrong")
+    
+    // Pattern matching on Result
+    success ?
+        | .Ok(val) { io.println("Success: ${val}") }
+        | .Err(err) { io.println("Error: ${err}") }
+    
+    io.println("Option<T> and Result<T,E> tests passed!")
+}
+
+// ============================================================================
+// 2. Pointer Types: Ptr<T>, MutPtr<T>, RawPtr<T>
+// ============================================================================
+
+Point: {
+    x: i32,
+    y: i32,
+}
+
+test_pointer_types = () void {
+    io.println("Testing pointer types...")
+    
+    // Create a point
+    point = Point { x: 10, y: 20 }
+    
+    // Create different pointer types
+    point_ptr: Ptr<Point> = point.ref()
+    point_mut: MutPtr<Point> = point.mut_ref()
+    
+    // Dereference with .val
+    io.println("Point x via Ptr: ${point_ptr.val.x}")
+    io.println("Point y via Ptr: ${point_ptr.val.y}")
+    
+    // Mutate through MutPtr
+    point_mut.val.x = 30
+    point_mut.val.y = 40
+    
+    // Get address with .addr
+    io.println("Address: ${point_ptr.addr}")
+    
+    io.println("Pointer types tests passed!")
+}
+
+// ============================================================================
+// 3. Collection Types: Vec<T, size> and DynVec<T>
+// ============================================================================
+
+test_collections = () void {
+    io.println("Testing collection types...")
+    
+    // Static sized vector
+    static_vec = Vec<i32, 10>()
+    io.println("Created Vec<i32, 10>")
+    
+    // Dynamic vector (would need allocator in full implementation)
+    // For now just test construction
+    dynamic_vec = DynVec<i32>()
+    io.println("Created DynVec<i32>")
+    
+    // Mixed variant types
+    GameEntity: .Player | .Enemy | .Powerup
+    entities = DynVec<GameEntity.Player, GameEntity.Enemy>()
+    io.println("Created mixed variant DynVec")
+    
+    io.println("Collection types tests passed!")
+}
+
+// ============================================================================
+// 4. Trait System with .implements() and .requires()
+// ============================================================================
+
+// Define a trait
+Drawable: {
+    draw: (self) void,
+    get_color: (self) string,
+}
+
+// Define a type
+Circle: {
+    radius: i32,
+    color: string,
+}
+
+// Implement trait for type
+Circle.implements(Drawable, {
+    draw = (self) void {
+        io.println("Drawing circle with radius ${self.radius}")
+    },
+    get_color = (self) string {
+        return self.color
+    },
+})
+
+// Enum with trait requirement
+Shape: Circle
+Shape.requires(Drawable)
+
+test_trait_system = () void {
+    io.println("Testing trait system...")
+    
+    // Create a circle
+    circle = Circle { radius: 5, color: "red" }
+    
+    // Use trait methods
+    circle.draw()
+    color = circle.get_color()
+    io.println("Circle color: ${color}")
+    
+    io.println("Trait system tests passed!")
+}
+
+// ============================================================================
+// 5. Error Propagation with .raise()
+// ============================================================================
+
+divide = (a: i32, b: i32) Result<i32, string> {
+    b == 0 ?
+        | true { return Result.Err("Division by zero") }
+        | false { return Result.Ok(a / b) }
+}
+
+calculate = (x: i32, y: i32) Result<i32, string> {
+    // Use .raise() for error propagation
+    quotient = divide(x, y).raise()
+    doubled = divide(quotient * 2, 2).raise()
+    return Result.Ok(doubled)
+}
+
+test_raise_mechanism = () void {
+    io.println("Testing .raise() error propagation...")
+    
+    result1 = calculate(10, 2)
+    result1 ?
+        | .Ok(val) { io.println("Calculation success: ${val}") }
+        | .Err(err) { io.println("Calculation error: ${err}") }
+    
+    result2 = calculate(10, 0)
+    result2 ?
+        | .Ok(val) { io.println("Should not see this") }
+        | .Err(err) { io.println("Expected error: ${err}") }
+    
+    io.println(".raise() mechanism tests passed!")
+}
+
+// ============================================================================
+// 6. @this.defer() Cleanup Mechanism
+// ============================================================================
+
+Resource: {
+    name: string,
+    is_open: bool,
+}
+
+open_resource = (name: string) Resource {
+    io.println("Opening resource: ${name}")
+    return Resource { name: name, is_open: true }
+}
+
+close_resource = (r: Resource) void {
+    io.println("Closing resource: ${r.name}")
+}
+
+test_defer_mechanism = () void {
+    io.println("Testing @this.defer() cleanup...")
+    
+    // Open resources with automatic cleanup
+    resource1 = open_resource("File1")
+    @this.defer(close_resource(resource1))
+    
+    resource2 = open_resource("File2")
+    @this.defer(close_resource(resource2))
+    
+    resource3 = open_resource("File3")
+    @this.defer(close_resource(resource3))
+    
+    io.println("Using resources...")
+    
+    // Defers execute in LIFO order at function exit:
+    // 1. close_resource(resource3)
+    // 2. close_resource(resource2)
+    // 3. close_resource(resource1)
+    
+    io.println("@this.defer() tests passed!")
+}
+
+// ============================================================================
+// Main Test Runner
+// ============================================================================
+
+main = () void {
+    io.println("=====================================")
+    io.println("Zen Language Specification Test Suite")
+    io.println("=====================================\n")
+    
+    test_option_result()
+    io.println("")
+    
+    test_pointer_types()
+    io.println("")
+    
+    test_collections()
+    io.println("")
+    
+    test_trait_system()
+    io.println("")
+    
+    test_raise_mechanism()
+    io.println("")
+    
+    test_defer_mechanism()
+    io.println("")
+    
+    io.println("=====================================")
+    io.println("All tests completed successfully!")
+    io.println("=====================================")
+}

@@ -75,7 +75,48 @@ impl AstType {
             AstType::F32 | AstType::F64 => "0.0".to_string(),
             AstType::Bool => "false".to_string(),
             AstType::String => "\"\"".to_string(),
+            AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => "null".to_string(),
             _ => "null".to_string(),
         }
     }
+
+    /// Check if this type is a pointer type
+    pub fn is_pointer(&self) -> bool {
+        matches!(self, AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_))
+    }
+
+    /// Get the pointed-to type if this is a pointer type
+    pub fn pointee_type(&self) -> Option<&AstType> {
+        match self {
+            AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => Some(inner),
+            _ => None,
+        }
+    }
+
+    /// Check if this is a mutable pointer type
+    pub fn is_mutable_pointer(&self) -> bool {
+        matches!(self, AstType::MutPtr(_))
+    }
+
+    /// Check if this is a raw/unsafe pointer type
+    pub fn is_raw_pointer(&self) -> bool {
+        matches!(self, AstType::RawPtr(_))
+    }
+
+    /// Convert between pointer types while preserving the pointee type
+    pub fn as_pointer_type(&self, pointer_kind: PointerKind) -> Option<AstType> {
+        self.pointee_type().map(|inner| match pointer_kind {
+            PointerKind::Immutable => AstType::Ptr(Box::new(inner.clone())),
+            PointerKind::Mutable => AstType::MutPtr(Box::new(inner.clone())),
+            PointerKind::Raw => AstType::RawPtr(Box::new(inner.clone())),
+        })
+    }
+}
+
+/// Enum for different pointer kinds
+#[derive(Debug, Clone, PartialEq)]
+pub enum PointerKind {
+    Immutable,  // Ptr<T>
+    Mutable,    // MutPtr<T>
+    Raw,        // RawPtr<T>
 }

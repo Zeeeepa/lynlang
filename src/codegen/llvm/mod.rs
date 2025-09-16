@@ -64,6 +64,7 @@ pub struct LLVMCompiler<'ctx> {
     pub symbols: symbols::SymbolTable<'ctx>,
     pub struct_types: HashMap<String, StructTypeInfo<'ctx>>,
     pub loop_stack: Vec<(BasicBlock<'ctx>, BasicBlock<'ctx>)>, // (continue_target, break_target)
+    pub defer_stack: Vec<ast::Expression>, // Stack of deferred expressions (LIFO order)
     pub comptime_evaluator: comptime::ComptimeInterpreter,
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
 }
@@ -96,6 +97,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             symbols,
             struct_types: HashMap::new(),
             loop_stack: Vec::new(),
+            defer_stack: Vec::new(),
             comptime_evaluator,
             behavior_codegen: Some(behaviors::BehaviorCodegen::new()),
         }
@@ -160,6 +162,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::Enum(_) => {} // Already handled above
                 ast::Declaration::ModuleImport { .. } => {}
                 ast::Declaration::Behavior(_) => {} // Behaviors are interface definitions, no codegen needed
+                ast::Declaration::Trait(_) => {} // Trait definitions are interface definitions, no direct codegen needed
                 ast::Declaration::TraitImplementation(trait_impl) => {
                     self.compile_trait_implementation(trait_impl)?;
                 }

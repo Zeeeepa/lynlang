@@ -71,12 +71,15 @@ pub enum AstType {
     MutPtr(Box<AstType>),    // Mutable pointer  
     RawPtr(Box<AstType>),    // Raw pointer for FFI/unsafe
     Array(Box<AstType>),
-    DynVec {                 // Dynamic vector with allocator
-        element_types: Vec<AstType>, // Multiple types for mixed vectors
-    },
-    Vec {                    // Static sized vector
+    // Vec<T, size> - Fixed-size vector with compile-time size
+    Vec {                    
         element_type: Box<AstType>,
-        size: Option<usize>,  // None for dynamic
+        size: usize,         // Always has compile-time size
+    },
+    // DynVec<T> or DynVec<T1, T2, ...> - Dynamic vector with allocator
+    DynVec {                 
+        element_types: Vec<AstType>, // Multiple types for mixed variant vectors
+        allocator_type: Option<Box<AstType>>, // Optional allocator type
     },
     FixedArray { 
         element_type: Box<AstType>,
@@ -100,11 +103,12 @@ pub enum AstType {
     },
     // Enhanced type system support
     Ref(Box<AstType>), // Managed reference
-    Option(Box<AstType>), // Option<T>
+    // TODO: These should be removed once stdlib is updated to use Generic types
+    Option(Box<AstType>), // Option<T> - legacy, use Generic instead
     Result {
         ok_type: Box<AstType>,
         err_type: Box<AstType>,
-    }, // Result<T, E>
+    }, // Result<T, E> - legacy, use Generic instead
     Range {
         start_type: Box<AstType>,
         end_type: Box<AstType>,
@@ -130,7 +134,12 @@ pub struct EnumVariant {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeParameter {
     pub name: String,
-    pub constraints: Vec<String>, // For future trait bounds
+    pub constraints: Vec<TraitConstraint>, // Trait bounds like T: Geometric + Serializable
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TraitConstraint {
+    pub trait_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -219,6 +228,11 @@ pub enum Expression {
         object: Box<Expression>,
         member: String,
     },
+    // Pointer-specific operations for Zen spec
+    PointerDereference(Box<Expression>),  // .val operation
+    PointerAddress(Box<Expression>),      // .addr operation
+    CreateReference(Box<Expression>),     // .ref() method
+    CreateMutableReference(Box<Expression>), // .mut_ref() method
     StringLength(Box<Expression>),
     // String interpolation: "Hello $(name)!"
     StringInterpolation {
@@ -271,6 +285,19 @@ pub enum Expression {
     Break { label: Option<String> },
     // Continue expression for loops
     Continue { label: Option<String> },
+    // Collection constructors
+    // Vec<T, size>() - Fixed-size vector constructor
+    VecConstructor {
+        element_type: AstType,
+        size: usize,
+        initial_values: Option<Vec<Expression>>, // Optional initial values
+    },
+    // DynVec<T>(allocator) or DynVec<T1, T2, ...>(allocator) - Dynamic vector constructor
+    DynVecConstructor {
+        element_types: Vec<AstType>,
+        allocator: Box<Expression>, // Allocator expression
+        initial_capacity: Option<Box<Expression>>, // Optional initial capacity
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -377,8 +404,10 @@ pub enum Statement {
         alias: String,
         module_path: String,
     },
-    // Defer statement for cleanup
+    // Defer statement for cleanup - traditional defer syntax
     Defer(Box<Statement>),
+    // @this.defer() for scope-based cleanup
+    ThisDefer(Expression),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -470,6 +499,20 @@ pub struct BehaviorMethod {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct TraitDefinition {
+    pub name: String,
+    pub type_params: Vec<TypeParameter>,
+    pub methods: Vec<TraitMethod>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraitMethod {
+    pub name: String,
+    pub params: Vec<Parameter>,
+    pub return_type: AstType,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TraitImplementation {
     pub type_name: String,
     pub trait_name: String,
@@ -490,6 +533,7 @@ pub enum Declaration {
     Struct(StructDefinition),
     Enum(EnumDefinition),
     Behavior(BehaviorDefinition),
+    Trait(TraitDefinition),
     TraitImplementation(TraitImplementation),
     TraitRequirement(TraitRequirement),
     ComptimeBlock(Vec<Statement>),

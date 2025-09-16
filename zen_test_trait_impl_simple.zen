@@ -1,0 +1,6 @@
+// Test trait requirement syntax 
+Circle: {
+    radius: f64,
+}
+
+Circle.requires(Geometric)

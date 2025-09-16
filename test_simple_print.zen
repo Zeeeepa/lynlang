@@ -1,7 +1,0 @@
-// Simple print test
-
-{ io } = @std
-
-main = () void {
-    io.print("Hello")
-}

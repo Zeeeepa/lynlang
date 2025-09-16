@@ -39,6 +39,155 @@ impl<'a> Parser<'a> {
                     "String" | "string" => Ok(AstType::String),
                     "void" => Ok(AstType::Void),
                     "ptr" => Ok(AstType::Ptr(Box::new(AstType::Void))),
+                    // Zen spec pointer types
+                    "Ptr" => {
+                        // Ptr<T> type
+                        if self.current_token == Token::Operator("<".to_string()) {
+                            self.next_token();
+                            let inner_type = self.parse_type()?;
+                            if self.current_token != Token::Operator(">".to_string()) {
+                                return Err(CompileError::SyntaxError(
+                                    "Expected '>' after Ptr type argument".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                            self.next_token();
+                            Ok(AstType::Ptr(Box::new(inner_type)))
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "Ptr type requires type argument: Ptr<T>".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    }
+                    "MutPtr" => {
+                        // MutPtr<T> type
+                        if self.current_token == Token::Operator("<".to_string()) {
+                            self.next_token();
+                            let inner_type = self.parse_type()?;
+                            if self.current_token != Token::Operator(">".to_string()) {
+                                return Err(CompileError::SyntaxError(
+                                    "Expected '>' after MutPtr type argument".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                            self.next_token();
+                            Ok(AstType::MutPtr(Box::new(inner_type)))
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "MutPtr type requires type argument: MutPtr<T>".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    }
+                    "RawPtr" => {
+                        // RawPtr<T> type
+                        if self.current_token == Token::Operator("<".to_string()) {
+                            self.next_token();
+                            let inner_type = self.parse_type()?;
+                            if self.current_token != Token::Operator(">".to_string()) {
+                                return Err(CompileError::SyntaxError(
+                                    "Expected '>' after RawPtr type argument".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                            self.next_token();
+                            Ok(AstType::RawPtr(Box::new(inner_type)))
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "RawPtr type requires type argument: RawPtr<T>".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    }
+                    "Vec" => {
+                        // Vec<T, size> - Fixed-size vector with compile-time size
+                        if self.current_token == Token::Operator("<".to_string()) {
+                            self.next_token();
+                            
+                            // Parse element type
+                            let element_type = self.parse_type()?;
+                            
+                            // Expect comma
+                            if self.current_token != Token::Symbol(',') {
+                                return Err(CompileError::SyntaxError(
+                                    "Expected ',' after element type in Vec<T, size>".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                            self.next_token();
+                            
+                            // Parse size (must be integer literal)
+                            let size = match &self.current_token {
+                                Token::Integer(size_str) => {
+                                    size_str.parse::<usize>().map_err(|_| {
+                                        CompileError::SyntaxError(
+                                            format!("Invalid Vec size: {}", size_str),
+                                            Some(self.current_span.clone()),
+                                        )
+                                    })?
+                                }
+                                _ => {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected integer literal for Vec size".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            };
+                            self.next_token();
+                            
+                            if self.current_token != Token::Operator(">".to_string()) {
+                                return Err(CompileError::SyntaxError(
+                                    "Expected '>' after Vec size".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                            self.next_token();
+                            
+                            Ok(AstType::Vec {
+                                element_type: Box::new(element_type),
+                                size,
+                            })
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "Vec type requires type arguments: Vec<T, size>".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    }
+                    "DynVec" => {
+                        // DynVec<T> or DynVec<T1, T2, ...> - Dynamic vector with optional mixed types
+                        if self.current_token == Token::Operator("<".to_string()) {
+                            self.next_token();
+                            let mut element_types = Vec::new();
+                            
+                            loop {
+                                element_types.push(self.parse_type()?);
+                                
+                                if self.current_token == Token::Operator(">".to_string()) {
+                                    self.next_token();
+                                    break;
+                                } else if self.current_token == Token::Symbol(',') {
+                                    self.next_token();
+                                } else {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ',' or '>' in DynVec type arguments".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            }
+                            
+                            Ok(AstType::DynVec {
+                                element_types,
+                                allocator_type: None, // Allocator is specified at construction time
+                            })
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "DynVec type requires type arguments: DynVec<T> or DynVec<T1, T2, ...>".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    }
                     _ => {
                         // Check for generic type instantiation (e.g., List<T>)
                         if self.current_token == Token::Operator("<".to_string()) {
