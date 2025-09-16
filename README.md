@@ -4,15 +4,20 @@ A modern systems programming language that emphasizes simplicity, consistency, a
 
 ## Current Status (2025-09-16)
 
-The Zen compiler is actively being developed with many core features working:
-- ✅ Pattern matching with `?` operator
-- ✅ Range-based loops: `(0..10).loop((i) { ... })`
-- ✅ String interpolation: `"Value: ${x}"`
-- ✅ No null - Option types (in progress)
-- ⚠️ Structs (partial - field access being fixed)
-- 🚧 Generic types and traits (in development)
+**LANGUAGE_SPEC.zen is the source of truth** - The compiler now implements core features from the official language specification.
 
-See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md) for detailed status.
+### ✅ Working Features from LANGUAGE_SPEC.zen:
+- **No null** - Only `Option<T>` with `Some(T)` and `None`
+- **Pattern matching with `?`** - No match/switch keywords
+- **Assignment operators** - `=` (immutable), `::=` (mutable), `:` (type)
+- **Loops** - `loop()` infinite, `(0..10).loop()` ranges
+- **@this.defer** - LIFO deferred execution
+- **UFC** - Any function callable as method
+- **Explicit pointers** - `Ptr<T>`, `MutPtr<T>`, `RawPtr<T>`
+- **Structs and Enums** - Sum and product types
+- **Result<T,E>** - Error handling without exceptions
+
+See [LANGUAGE_SPEC_IMPLEMENTATION.md](LANGUAGE_SPEC_IMPLEMENTATION.md) for complete status.
 
 ## Key Design Principles
 

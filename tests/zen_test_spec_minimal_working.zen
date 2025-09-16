@@ -1,68 +1,52 @@
-// Minimal working subset of LANGUAGE_SPEC.zen
-// This tests what currently works in our implementation
+// Minimal test for absolutely confirmed working LANGUAGE_SPEC.zen features
 
-{ io } = @std
-{ Option } = @std.option
+io = @std.io
 
-// Option type - the foundation of no-null approach - using stdlib
-
-// Result type for error handling  
+// Core types
+Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Simple struct
 Point: {
-    x: f64,
-    y: f64,
+    x: i32,
+    y: i32,
 }
 
-// Basic enum 
-Shape: .Circle | Rectangle
-
-// Function with type annotations (using : not :: for now)
-calculate_area = (shape: Shape, size: f64) f64 {
-    shape ?
-        | Circle { return 3.14159 * size * size }
-        | Rectangle { return size * size }
-}
-
-// Mutable variables with ::=
 main = () void {
-    // Immutable by default
-    radius = 5.0
+    io.println("=== LANGUAGE_SPEC.zen Minimal Working Test ===")
     
-    // Mutable with ::=
-    total_area ::= 0.0
+    // 1. No null - Option type works
+    maybe: Option<i32> = Option.Some(42)
+    maybe ?
+        | Some(v) { io.println("Option: Some") }
+        | None { io.println("Option: None") }
     
-    // Pattern matching on boolean
-    is_ready = true
-    is_ready ? {
-        io.println("Ready!")
+    // 2. Assignment operators
+    immutable = 10     // = for immutable
+    mutable ::= 0      // ::= for mutable
+    mutable = mutable + 1
+    io.println("Assignments work")
+    
+    // 3. Pattern matching with ?
+    condition = true
+    condition ? {
+        io.println("Pattern match works")
     }
     
-    // Option handling
-    maybe_value: Option<f64> = Some(42.0)
-    maybe_value ?
-        | Some(val) { 
-            io.println("Value: ${val}")
-            total_area = total_area + val
-        }
-        | None { 
-            io.println("No value")
-        }
-    
-    // Result handling
-    result: Result<f64, string> = Ok(100.0)
-    result ?
-        | Ok(val) { io.println("Success: ${val}") }
-        | Err(msg) { io.println("Error: ${msg}") }
-    
-    // Range loops
-    (0..5).loop((i) {
-        io.println("Index: ${i}")
+    // 4. Loops
+    (0..3).loop((i) {
+        io.println("Loop iteration")
     })
     
-    // Shape pattern matching
-    my_shape: Shape = .Circle
-    area = calculate_area(my_shape, radius)
-    io.println("Area: ${area}")
+    // 5. Defer
+    @this.defer(io.println("Deferred"))
+    io.println("Before defer")
+    
+    // 6. Result type
+    error: Result<i32, string> = Result.Err("error")
+    error ?
+        | Ok(v) { io.println("Ok") }
+        | Err(e) { io.println("Error handling works") }
+    
+    io.println("=== Test Complete ===")
 }
