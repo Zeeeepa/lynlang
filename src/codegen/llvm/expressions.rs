@@ -130,12 +130,67 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_type_cast(expr, target_type)
             }
             Expression::MethodCall { object, method, args } => {
-                // For now, compile as regular function call
+                // Special handling for range.loop()
+                if method == "loop" {
+                    if let Expression::Range { start, end, inclusive } = object.as_ref() {
+                        // Implement range iteration
+                        return self.compile_range_loop(start, end, *inclusive, args);
+                    }
+                }
+                
+                // For other methods, compile as regular function call for now
                 // TODO: Implement proper UFC method calls
                 self.compile_function_call(method, args)
             }
             Expression::Loop { body } => {
-                // TODO: Implement loop expressions
+                // Loop expression: loop(() { body })
+                // This creates an infinite loop that must be exited with break
+                
+                let loop_body_block = self.context.append_basic_block(self.current_function.unwrap(), "loop_expr_body");
+                let after_loop_block = self.context.append_basic_block(self.current_function.unwrap(), "after_loop_expr");
+                
+                // Push loop context for break/continue
+                self.loop_stack.push((loop_body_block, after_loop_block));
+                
+                // Jump to loop body
+                self.builder.build_unconditional_branch(loop_body_block).map_err(|e| CompileError::from(e))?;
+                self.builder.position_at_end(loop_body_block);
+                
+                // Compile the loop body based on its type
+                match body.as_ref() {
+                    Expression::Closure { params: _, body: closure_body } => {
+                        // If the closure body is a Block, compile its statements
+                        if let Expression::Block(statements) = closure_body.as_ref() {
+                            for stmt in statements {
+                                self.compile_statement(stmt)?;
+                            }
+                        } else {
+                            // Otherwise compile the expression
+                            self.compile_expression(closure_body)?;
+                        }
+                    }
+                    Expression::Block(statements) => {
+                        // Direct block in loop
+                        for stmt in statements {
+                            self.compile_statement(stmt)?;
+                        }
+                    }
+                    _ => {
+                        // Otherwise just compile the expression
+                        self.compile_expression(body)?;
+                    }
+                }
+                
+                // Loop back if no terminator (no break was executed)
+                let current_block = self.builder.get_insert_block().unwrap();
+                if current_block.get_terminator().is_none() {
+                    self.builder.build_unconditional_branch(loop_body_block).map_err(|e| CompileError::from(e))?;
+                }
+                
+                self.loop_stack.pop();
+                self.builder.position_at_end(after_loop_block);
+                
+                // Return void value
                 Ok(self.context.i32_type().const_int(0, false).into())
             }
             Expression::Closure { params: _, body: _ } => {
@@ -146,6 +201,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // .raise() propagates errors early - for now just compile the inner expression
                 // TODO: Implement proper error propagation semantics
                 self.compile_expression(expr)
+            }
+            Expression::Break { label: _ } => {
+                // Break out of the current loop
+                if let Some((_, after_loop)) = self.loop_stack.last() {
+                    self.builder.build_unconditional_branch(*after_loop).map_err(|e| CompileError::from(e))?;
+                    // Create a new block after the break (unreachable but needed for LLVM)
+                    let unreachable_block = self.context.append_basic_block(self.current_function.unwrap(), "after_break");
+                    self.builder.position_at_end(unreachable_block);
+                    // Return a dummy value
+                    Ok(self.context.i32_type().const_int(0, false).into())
+                } else {
+                    Err(CompileError::InternalError("Break outside of loop".to_string(), None))
+                }
+            }
+            Expression::Continue { label: _ } => {
+                // Continue to the next iteration of the current loop
+                if let Some((loop_header, _)) = self.loop_stack.last() {
+                    self.builder.build_unconditional_branch(*loop_header).map_err(|e| CompileError::from(e))?;
+                    // Create a new block after the continue (unreachable but needed for LLVM)
+                    let unreachable_block = self.context.append_basic_block(self.current_function.unwrap(), "after_continue");
+                    self.builder.position_at_end(unreachable_block);
+                    // Return a dummy value
+                    Ok(self.context.i32_type().const_int(0, false).into())
+                } else {
+                    Err(CompileError::InternalError("Continue outside of loop".to_string(), None))
+                }
             }
         }
     }
@@ -750,5 +831,115 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(value)
             }
         }
+    }
+    
+    fn compile_range_loop(&mut self, start: &Expression, end: &Expression, inclusive: bool, args: &[Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Extract the loop variable and body from args
+        // args[0] should be a closure with one parameter
+        let closure = args.get(0).ok_or_else(|| 
+            CompileError::InternalError("Range.loop() requires a closure argument".to_string(), None))?;
+        
+        let (param_name, loop_body) = match closure {
+            Expression::Closure { params, body } => {
+                let param = params.get(0).ok_or_else(||
+                    CompileError::InternalError("Range.loop() closure must have one parameter".to_string(), None))?;
+                (param.0.clone(), body.as_ref())
+            }
+            _ => return Err(CompileError::InternalError("Range.loop() requires a closure argument".to_string(), None))
+        };
+        
+        // Compile start and end values
+        let start_val = self.compile_expression(start)?;
+        let end_val = self.compile_expression(end)?;
+        
+        // Ensure both are integers
+        let (start_int, end_int) = match (start_val, end_val) {
+            (BasicValueEnum::IntValue(s), BasicValueEnum::IntValue(e)) => (s, e),
+            _ => return Err(CompileError::InternalError("Range bounds must be integers".to_string(), None))
+        };
+        
+        // Create loop blocks
+        let loop_header = self.context.append_basic_block(self.current_function.unwrap(), "range_header");
+        let loop_body_block = self.context.append_basic_block(self.current_function.unwrap(), "range_body");
+        let after_loop = self.context.append_basic_block(self.current_function.unwrap(), "after_range");
+        
+        // Allocate space for the loop variable
+        let loop_var = self.builder.build_alloca(start_int.get_type(), &param_name)?;
+        self.builder.build_store(loop_var, start_int)?;
+        
+        // Jump to loop header
+        self.builder.build_unconditional_branch(loop_header)?;
+        self.builder.position_at_end(loop_header);
+        
+        // Load current value
+        let current = self.builder.build_load(start_int.get_type(), loop_var, &param_name)?;
+        let current_int = current.into_int_value();
+        
+        // Check loop condition
+        let condition = if inclusive {
+            self.builder.build_int_compare(
+                inkwell::IntPredicate::SLE,
+                current_int,
+                end_int,
+                "range_check"
+            )?
+        } else {
+            self.builder.build_int_compare(
+                inkwell::IntPredicate::SLT,
+                current_int,
+                end_int,
+                "range_check"
+            )?
+        };
+        
+        self.builder.build_conditional_branch(condition, loop_body_block, after_loop)?;
+        self.builder.position_at_end(loop_body_block);
+        
+        // Push loop context for break/continue
+        self.loop_stack.push((loop_header, after_loop));
+        
+        // Store the loop variable in symbols table
+        use crate::codegen::llvm::symbols::Symbol;
+        self.symbols.insert(&param_name, Symbol::Variable(loop_var));
+        
+        // Enter a new scope for the loop body
+        self.symbols.enter_scope();
+        
+        // Also store in the variables map for compatibility
+        self.variables.insert(param_name.clone(), (loop_var, crate::ast::AstType::I32));
+        
+        // Compile the loop body
+        match loop_body {
+            Expression::Block(statements) => {
+                for stmt in statements {
+                    self.compile_statement(stmt)?;
+                }
+            }
+            _ => {
+                self.compile_expression(loop_body)?;
+            }
+        }
+        
+        // Exit the scope and remove from variables map
+        self.symbols.exit_scope();
+        self.variables.remove(&param_name);
+        
+        // Increment the loop variable
+        let current = self.builder.build_load(start_int.get_type(), loop_var, &param_name)?;
+        let one = start_int.get_type().const_int(1, false);
+        let next = self.builder.build_int_add(current.into_int_value(), one, "next")?;
+        self.builder.build_store(loop_var, next)?;
+        
+        // Jump back to header if no break was executed
+        let current_block = self.builder.get_insert_block().unwrap();
+        if current_block.get_terminator().is_none() {
+            self.builder.build_unconditional_branch(loop_header)?;
+        }
+        
+        self.loop_stack.pop();
+        self.builder.position_at_end(after_loop);
+        
+        // Return void value
+        Ok(self.context.i32_type().const_int(0, false).into())
     }
 } 

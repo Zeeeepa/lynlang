@@ -661,6 +661,11 @@ impl TypeChecker {
                     }
                 }
             }
+            Expression::Break { .. } | Expression::Continue { .. } => {
+                // Break and continue don't return a value, they transfer control
+                // For type checking purposes, they can be considered to return void
+                Ok(AstType::Void)
+            }
         }
     }
 

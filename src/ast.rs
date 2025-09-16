@@ -253,6 +253,10 @@ pub enum Expression {
     },
     // Error propagation: expr.raise()
     Raise(Box<Expression>),
+    // Break expression for loops (can be used in expression contexts like pattern arms)
+    Break { label: Option<String> },
+    // Continue expression for loops
+    Continue { label: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
