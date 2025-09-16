@@ -2,9 +2,9 @@
 
 // Test 1: Import from @std
 io = @std.io
+{ Option } = @std.core.option
 
 // Test 2: Basic Option type
-Option<T>: Some(T) | None
 
 test_option = () void {
     maybe: Option<i32> = Option.Some(42)

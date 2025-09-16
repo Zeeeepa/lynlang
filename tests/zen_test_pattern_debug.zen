@@ -1,9 +1,13 @@
-{ io } = @std
+// Pattern debug test  
+io = @std.io
+
+Shape: Circle | Square
+
 main = () void {
-    value = 42
-    io.print("Before match")
-    value ?
-        | 42 { io.print("Matched 42") }
-        | _ { io.print("Other") }
-    io.print("After match")
+    s = Shape.Circle
+    
+    // Pattern with actual body
+    s ?
+        | Circle { io.println("Circle") }
+        | Square { io.println("Square") }
 }
