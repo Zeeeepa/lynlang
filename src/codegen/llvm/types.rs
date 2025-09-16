@@ -17,6 +17,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::U16 => Ok(Type::Basic(self.context.i16_type().into())),
             AstType::U32 => Ok(Type::Basic(self.context.i32_type().into())),
             AstType::U64 => Ok(Type::Basic(self.context.i64_type().into())),
+            AstType::Usize => Ok(Type::Basic(self.context.i64_type().into())), // usize as i64 on 64-bit systems
             AstType::F32 => Ok(Type::Basic(self.context.f32_type().into())),
             AstType::F64 => Ok(Type::Basic(self.context.f64_type().into())),
             AstType::Bool => Ok(Type::Basic(self.context.bool_type().into())),
@@ -244,6 +245,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Check if this is actually a user-defined struct type
                 if let Some(struct_info) = self.struct_types.get(name) {
                     Ok(Type::Struct(struct_info.llvm_type))
+                } else if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
+                    // Check if it's an enum type that was parsed as Generic
+                    Ok(Type::Struct(enum_info.llvm_type))
                 } else {
                     // After monomorphization, we should not encounter generic types
                     // If we do, it means monomorphization failed to resolve this type

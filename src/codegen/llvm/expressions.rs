@@ -183,9 +183,45 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
                 
-                // For other methods, compile as regular function call for now
-                // TODO: Implement proper UFC method calls
-                self.compile_function_call(method, args)
+                // Implement UFC (Uniform Function Call)
+                // object.method(args) becomes method(object, args)
+                
+                // First compile the object
+                let object_value = self.compile_expression(object)?;
+                
+                // Special handling for pointer methods
+                if method == "val" {
+                    // Dereference pointer
+                    if object_value.is_pointer_value() {
+                        let deref = self.builder.build_load(
+                            object_value.get_type(),
+                            object_value.into_pointer_value(),
+                            "ptr_deref"
+                        ).map_err(|e| CompileError::from(e))?;
+                        return Ok(deref);
+                    }
+                } else if method == "addr" {
+                    // Get pointer address as integer
+                    if object_value.is_pointer_value() {
+                        let addr = self.builder.build_ptr_to_int(
+                            object_value.into_pointer_value(),
+                            self.context.i64_type(),
+                            "ptr_addr"
+                        ).map_err(|e| CompileError::from(e))?;
+                        return Ok(addr.into());
+                    }
+                } else if method == "raise" {
+                    // Handle Result.raise() - for now just return the value
+                    // TODO: Implement proper error propagation
+                    return Ok(object_value);
+                }
+                
+                // For regular UFC calls, prepend object to arguments
+                let mut ufc_args = vec![*object.clone()];
+                ufc_args.extend(args.clone());
+                
+                // Try to call as a regular function with object as first argument
+                self.compile_function_call(method, &ufc_args)
             }
             Expression::Loop { body } => {
                 // Loop expression: loop(() { body })

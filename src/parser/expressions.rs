@@ -962,19 +962,12 @@ impl<'a> Parser<'a> {
                     args: arguments,
                 }
             } else {
-                // This is UFCS: transform object.method(args) into method(object, args)
-                // But preserve the full qualified name for debugging/display purposes
-                let full_name = match &object {
-                    Expression::Identifier(obj_name) => format!("{}.{}", obj_name, method_name),
-                    _ => method_name.clone(),
-                };
-                
-                let mut ufcs_args = vec![object];
-                ufcs_args.extend(arguments);
-                
-                Expression::FunctionCall {
-                    name: full_name,
-                    args: ufcs_args,
+                // This is UFC: any function can be called as a method
+                // Create a MethodCall expression to be resolved during compilation
+                Expression::MethodCall {
+                    object: Box::new(object),
+                    method: method_name,
+                    args: arguments,
                 }
             }
         };

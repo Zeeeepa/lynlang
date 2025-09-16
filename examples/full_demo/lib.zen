@@ -26,11 +26,8 @@ factorial = (n: i32) i32 {
         | false { n * factorial(n - 1) }
 }
 
-// Generic Result type for error handling
-Result<T, E>: Ok(T) | Err(E)
-
-// Generic Option type for nullable values
-Option<T>: Some(T) | None
+// Import generic types from stdlib
+{ Option, Result } = @std
 
 // Vector mathematics
 Vector2D: {

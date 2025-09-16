@@ -1,16 +1,14 @@
 // Zen Standard Library: Core Module
 // Essential types and utilities for the Zen language
 
+// Import core types from their respective modules
+{ Option } = @std.import("core/option")
+{ Result } = @std.import("core/result")
+
 // Type aliases for clarity
 size: i64
 index: i64
 byte: i8
-
-// Memory allocation result
-Result<T, E>: Ok(T) | Err(E)
-
-// Optional type
-Option<T>: Some(T) | None
 
 // Basic error types
 Error: .OutOfMemory

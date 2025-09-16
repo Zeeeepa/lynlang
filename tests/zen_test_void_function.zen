@@ -1,0 +1,11 @@
+// Test void functions
+io = @std.io
+
+do_something = () void {
+    io.println("Doing something")
+}
+
+main = () void {
+    do_something()
+    io.println("Done")
+}

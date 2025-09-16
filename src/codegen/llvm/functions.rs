@@ -373,9 +373,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ))
                 .collect::<Result<Vec<_>, _>>()?;
             let call = self.builder.build_call(function, &args_metadata, "calltmp")?;
-            Ok(call.try_as_basic_value().left().ok_or_else(||
-                CompileError::InternalError("Function call did not return a value".to_string(), None)
-            )?)
+            // Check if the function returns void
+            if function.get_type().get_return_type().is_none() {
+                // Return a dummy value for void functions
+                Ok(self.context.i32_type().const_zero().into())
+            } else {
+                Ok(call.try_as_basic_value().left().ok_or_else(||
+                    CompileError::InternalError("Function call did not return a value".to_string(), None)
+                )?)
+            }
         } else if let Ok((alloca, var_type)) = self.get_variable(name) {
             // Function pointer call - load the function pointer from variable
             let function_ptr = self.builder.build_load(
@@ -496,9 +502,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 &args_metadata,
                 "indirect_call"
             )?;
-            Ok(call.try_as_basic_value().left().ok_or_else(||
-                CompileError::InternalError("Function call did not return a value".to_string(), None)
-            )?)
+            // Check if the function returns void
+            if function_type.get_return_type().is_none() {
+                // Return a dummy value for void functions
+                Ok(self.context.i32_type().const_zero().into())
+            } else {
+                Ok(call.try_as_basic_value().left().ok_or_else(||
+                    CompileError::InternalError("Function call did not return a value".to_string(), None)
+                )?)
+            }
         } else {
             // Function not found
             Err(CompileError::UndeclaredFunction(name.to_string(), None))

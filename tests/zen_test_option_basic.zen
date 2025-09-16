@@ -1,0 +1,21 @@
+// Test Option type
+io = @std.io
+
+// Define Option type per spec
+Option<T>: Some(T) | None
+
+main = () void {
+    // Test with Some
+    maybe: Option<i32> = Option.Some(42)
+    
+    // Pattern match on Option
+    maybe ?
+        | Some(v) { io.println("Got value") }
+        | None { io.println("No value") }
+    
+    // Test with None  
+    nothing: Option<i32> = Option.None
+    nothing ?
+        | Some(v) { io.println("Should not print") }
+        | None { io.println("No value as expected") }
+}

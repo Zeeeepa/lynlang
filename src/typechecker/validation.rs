@@ -44,6 +44,14 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
         (AstType::Enum { name: expected_name, .. }, AstType::Enum { name: actual_name, .. }) => {
             expected_name == actual_name
         }
+        // Allow Generic type to match Enum type when name matches (for type declarations)
+        (AstType::Generic { name: expected_name, type_args }, AstType::Enum { name: actual_name, .. }) => {
+            expected_name == actual_name && type_args.is_empty()
+        }
+        // Allow Enum type to match Generic type when name matches (for type declarations)
+        (AstType::Enum { name: expected_name, .. }, AstType::Generic { name: actual_name, type_args }) => {
+            expected_name == actual_name && type_args.is_empty()
+        }
         // Check option compatibility
         (AstType::Option(expected_inner), AstType::Option(actual_inner)) => {
             types_compatible(expected_inner, actual_inner)
