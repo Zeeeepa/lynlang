@@ -1,0 +1,14 @@
+// Simple spec test
+{ io } = @std
+
+main = () void {
+    // Test loop
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("Loop: ${counter}")
+        counter >= 3 ? { break }
+    })
+    
+    io.println("Done!")
+}

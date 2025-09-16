@@ -1,0 +1,14 @@
+// Simple enum test
+io = @std.io
+
+// Define enum
+Color: Red | Green | Blue
+
+main = () void {
+    color = Color.Red
+    
+    color ?
+        | Red { io.println("Red color") }
+        | Green { io.println("Green color") }  
+        | Blue { io.println("Blue color") }
+}

@@ -1,0 +1,93 @@
+// Comprehensive test of LANGUAGE_SPEC.zen features
+// This tests all major language features as defined in the spec
+
+// Destructuring imports - as per spec
+{ io, math } = @std
+
+// Main function to run tests
+main = () void {
+    io.println("Testing LANGUAGE_SPEC.zen features...")
+    
+    // Test 1: Assignment operators
+    test_assignments()
+    
+    // Test 2: Pattern matching with ?
+    test_pattern_matching()
+    
+    // Test 3: Loops (no for/while)
+    test_loops()
+    
+    io.println("All tests completed!")
+}
+
+// Test assignment operators: = (immutable), ::= (mutable), : (type)
+test_assignments = () void {
+    io.println("\n=== Testing Assignment Operators ===")
+    
+    // Immutable assignment
+    x = 42
+    io.println("Immutable x = ${x}")
+    
+    // Mutable assignment with ::=
+    y ::= 10
+    io.println("Mutable y (initial) = ${y}")
+    y = y + 5
+    io.println("Mutable y (modified) = ${y}")
+    
+    // Typed assignment with :
+    z: i32 = 100
+    io.println("Typed z: i32 = ${z}")
+}
+
+// Test pattern matching with ? operator (no match/switch keywords)
+test_pattern_matching = () void {
+    io.println("\n=== Testing Pattern Matching ===")
+    
+    // Boolean pattern matching - single condition
+    is_ready = true
+    is_ready ? {
+        io.println("Single condition: System is ready")
+    }
+    
+    // Boolean pattern matching - with else
+    has_data = false
+    has_data ?
+        | true { io.println("Has data: Processing...") }
+        | false { io.println("Has data: Waiting...") }
+    
+    // Value pattern matching
+    status = 200
+    status ?
+        | 200 { io.println("Status: Success") }
+        | 404 { io.println("Status: Not Found") }
+        | 500 { io.println("Status: Server Error") }
+        | _ { io.println("Status: Unknown") }
+}
+
+// Test loops without for/while keywords
+test_loops = () void {
+    io.println("\n=== Testing Loops ===")
+    
+    // Infinite loop with break condition
+    counter ::= 0
+    io.print("Counting: ")
+    loop(() {
+        counter = counter + 1
+        io.print("${counter} ")
+        
+        // Pattern match to break
+        counter >= 5 ?
+            | true { 
+                io.println("")
+                break 
+            }
+            | false { continue }
+    })
+    
+    // TODO: Range loop with (0..5).loop() - requires UFC implementation
+    // (0..5).loop((i) {
+    //     io.println("Range index: ${i}")
+    // })
+    
+    io.println("Loop tests completed")
+}

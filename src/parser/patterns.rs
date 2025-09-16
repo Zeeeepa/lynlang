@@ -116,11 +116,15 @@ impl<'a> Parser<'a> {
                     });
                 }
                 
-                // Check if we're parsing an enum variant without payload (like None, Some, Ok, Err)
+                // Check if we're parsing an enum variant without payload
                 // Common enum variant names should be treated as enum literals
                 let is_common_enum_variant = matches!(name.as_str(), "Some" | "None" | "Ok" | "Err");
                 
-                if is_common_enum_variant && self.current_token != Token::Symbol('(') {
+                // Also check if the identifier starts with a capital letter (enum convention)
+                let is_capitalized = name.chars().next().map_or(false, |c| c.is_uppercase());
+                
+                // If it's a known enum variant or capitalized, treat as enum pattern
+                if is_common_enum_variant || is_capitalized {
                     // It's an enum variant without payload
                     return Ok(Pattern::EnumLiteral {
                         variant: name,

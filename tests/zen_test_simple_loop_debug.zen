@@ -1,0 +1,12 @@
+// Minimal loop test
+io = @std.io
+
+main = () void {
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("Count: ${counter}")
+        counter > 2 ? { break }
+    })
+    io.println("Done")
+}

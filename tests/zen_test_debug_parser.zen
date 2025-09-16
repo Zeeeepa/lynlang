@@ -1,0 +1,10 @@
+// Debug parser issue
+io = @std.io
+
+main = () void {
+    x = 1
+    loop(() {
+        break
+    })
+    y = 2
+}

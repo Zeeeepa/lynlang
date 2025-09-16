@@ -1,0 +1,15 @@
+// Debug enum test
+io = @std.io
+
+// Simple enum using spec syntax
+MyEnum: A | B | C
+
+main = () void {
+    value = MyEnum.A
+    
+    // Pattern match
+    value ?
+        | A { io.println("Got A") }
+        | B { io.println("Got B") }  
+        | C { io.println("Got C") }
+}

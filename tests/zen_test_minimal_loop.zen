@@ -1,0 +1,9 @@
+// Absolutely minimal loop test
+io = @std.io
+
+main = () void {
+    loop(() {
+        io.println("In loop")
+        break
+    })
+}
