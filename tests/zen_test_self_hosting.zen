@@ -46,7 +46,6 @@ run_test = (test_case: TestCase) TestResult   {
                             "Lexer failed: " + tokens.unwrap_err()
                         )
                 }
-                | false {}
             
             // Compare tokens
             actual := tokens.unwrap()
@@ -57,11 +56,9 @@ run_test = (test_case: TestCase) TestResult   {
                     test_case.name,
                     "Token count mismatch"
                 )
-                | false {}
             
             // Detailed token comparison would go here
         }
-        | false {}
     
     // Test parser
     test_case.expected_ast.is_some() ?
@@ -72,7 +69,6 @@ run_test = (test_case: TestCase) TestResult   {
                     test_case.name,
                     "Lexer failed in parser test"
                 )
-                | false {}
             
             ast := parser.parse(tokens.unwrap())
             ast.is_err() ?
@@ -84,11 +80,9 @@ run_test = (test_case: TestCase) TestResult   {
                             "Parser failed: " + ast.unwrap_err()
                         )
                 }
-                | false {}
             
             // AST comparison would go here
         }
-        | false {}
     
     return TestResult:Pass(test_case.name)
 }

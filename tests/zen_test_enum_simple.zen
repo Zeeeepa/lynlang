@@ -1,10 +1,12 @@
-// Even simpler enum test - just define and print
-
 { io } = @std
 
-// Simple enum
-Status: .Ready | Working | Done
+// Define simple enum
+Color: Red | Green | Blue
 
 main = () void {
-    io.println("Enum defined successfully")
+    c = Color.Red
+    c ?
+        | Red { io.println("Red") }
+        | Green { io.println("Green") }
+        | Blue { io.println("Blue") }
 }

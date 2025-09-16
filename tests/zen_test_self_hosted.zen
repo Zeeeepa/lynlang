@@ -96,7 +96,7 @@ test_conditional_loops = () bool   {
     loop value > 10 {
         value = value / 2
         steps = steps + 1
-        value < 20 ? | true { { break  }} | false {}
+        value < 20 ? { { break  }}
     }
     passed = passed && assert(value < 20, "Early exit condition")
     passed = passed && assert(steps > 0, "Loop executed steps")
@@ -136,7 +136,7 @@ test_vec_functional = () bool   {
         elem_result ? | core.Result:Ok(val) {
             val > 25 ? | true {
                 filtered.push(val).unwrap()
-            } | false {}
+            }
         } | core.Result:Err(_) {}
         j = j + 1
     }
@@ -210,7 +210,7 @@ test_algorithms = () bool   {
                 temp := arr[j]
                 arr[j] = arr[j + 1]
                 arr[j + 1] = temp
-            } | false {}
+            }
             j = j + 1
         }
         i = i + 1
@@ -267,7 +267,7 @@ test_string_operations = () bool   {
     loop str[i] != 0 {
         str[i] == 'l' ? | true {
             char_count = char_count + 1
-        } | false {}
+        }
         i = i + 1
     }
     passed = passed && assert_eq(char_count, 2, "Character 'l' count")
@@ -296,7 +296,7 @@ test_math_operations = () bool   {
     
     // Test fibonacci using loops
     fibonacci = (n: i64) i64   {
-        n <= 1 ? | true { { return n  }} | false {}
+        n <= 1 ? { { return n  }}
         
         prev := 0
         curr := 1

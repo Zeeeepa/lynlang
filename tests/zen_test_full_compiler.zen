@@ -142,7 +142,7 @@ main = () i32   {
     lex.errors.len() > 0 ? | true {
         io.print("✗ Lexer failed\n")
         return false
-    } | false {}
+    }
     
     p := parser.parser_new(tokens)
     ast := parser.parser_parse_program(&p)
@@ -150,7 +150,7 @@ main = () i32   {
     p.errors.len() > 0 ? | true {
         io.print("✗ Parser failed\n")
         return false
-    } | false {}
+    }
     
     tc := type_checker.type_checker_new()
     type_check_result := type_checker.type_check_program(&tc, ast)
@@ -158,7 +158,7 @@ main = () i32   {
     !type_check_result ? | true {
         io.print("✗ Type checker failed\n")
         return false
-    } | false {}
+    }
     
     cg := codegen.codegen_new(codegen.Target.C)
     codegen_result := codegen.generate_program(&cg, ast)
@@ -166,7 +166,7 @@ main = () i32   {
     !codegen_result ? | true {
         io.print("✗ Code generator failed\n")
         return false
-    } | false {}
+    }
     
     io.print("✓ All phases successful!\n")
     io.print("\nGenerated code preview (first 500 chars):\n")

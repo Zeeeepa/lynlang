@@ -378,7 +378,6 @@ test("fs_file_operations") {
             // Remove file
             fs.remove("test_output.txt")
         }
-        | false {}
 }
 
 // ============================================================================
@@ -533,7 +532,6 @@ test("stdlib_integration_io_fs") {
             // Clean up
             fs.remove(filename)
         }
-        | false {}
 }
 
 test("stdlib_integration_collections_algorithms") {

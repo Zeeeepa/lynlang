@@ -115,7 +115,7 @@ clear = <T>(list: &mut List<T>) void {
 
 // Find element in list
 contains = <T>(list: &List<T>, value: T) bool {
-    mut current := list.head
+    mut current ::= list.head
     loop {
         current ?
             | Option<*ListNode<T>>.Some(node) {
@@ -126,7 +126,6 @@ contains = <T>(list: &List<T>, value: T) bool {
             }
             | Option<*ListNode<T>>.None { return false }
         }
-    }
 }
 
 // Get element at index
@@ -134,7 +133,7 @@ get = <T>(list: &List<T>, index: usize) Option<T> {
     if index >= list.size {
         return Option<T>.None
     }
-    
+
     mut current := list.head
     mut i := 0
     loop {
@@ -147,9 +146,9 @@ get = <T>(list: &List<T>, index: usize) Option<T> {
                 current = node.next
             }
             | Option<*ListNode<T>>.None { return Option<T>.None }
-        }
     }
 }
+
 
 // Convert list to array
 to_array = <T>(list: &List<T>) []T {

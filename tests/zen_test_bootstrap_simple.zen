@@ -155,7 +155,6 @@ main = () i32   {
         | true {
             passed_tests = passed_tests + 1
         }
-        | false {}
     
     passed_tests = passed_tests + test_arithmetic()
     
@@ -163,7 +162,6 @@ main = () i32   {
         | true {
             passed_tests = passed_tests + 1
         }
-        | false {}
     
     passed_tests = passed_tests + test_control_flow()
     
@@ -171,13 +169,11 @@ main = () i32   {
         | true {
             passed_tests = passed_tests + 1
         }
-        | false {}
     
     test_pattern_matching() ?
         | true {
             passed_tests = passed_tests + 1
         }
-        | false {}
     
     // Print results
     io.print("\n=====================================\n")

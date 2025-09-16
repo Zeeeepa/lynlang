@@ -1,0 +1,232 @@
+// ============================================================================
+// Zen Language - LANGUAGE_SPEC.zen Feature Showcase
+// This test demonstrates the working features from the specification
+// ============================================================================
+
+// Key Design Principles Implemented:
+// - No keywords: no if/else/while/for/match/async/await/impl/trait/class/interface/null
+// - Only two @ symbols: @std and @this
+// - Pattern matching with ? operator
+// - UFC (Uniform Function Call) - any function can be called as method
+// - No null/nil - only Option<T>
+// - Assignment operators: = (immutable), ::= (mutable), : (type definition)
+// - Loops: loop() for infinite, .loop() for collections, ranges like (0..10)
+// - @this.defer() for cleanup
+
+// ============================================================================
+// IMPORTS - Only @std is special
+// ============================================================================
+{ io } = @std
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+// Option type - No null!
+Option<T>: Some(T) | None
+
+// Simple struct
+Point: {
+    x: i32,
+    y: i32
+}
+
+// Struct with mutable fields
+Counter: {
+    value :: i32,
+    label: string
+}
+
+// Enum type (sum type)
+Shape: Circle | Rectangle | Triangle
+
+// ============================================================================
+// FUNCTIONS
+// ============================================================================
+
+// Regular function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Function for UFC demonstration
+double = (n: i32) i32 {
+    return n * 2
+}
+
+// Function taking struct
+distance = (p: Point) i32 {
+    // Simplified distance calculation
+    return p.x + p.y
+}
+
+// Cleanup function for defer
+cleanup = () void {
+    io.println("  ✓ Defer executed at function exit")
+}
+
+// ============================================================================
+// MAIN TEST FUNCTION
+// ============================================================================
+main = () void {
+    io.println("=== ZEN LANGUAGE SPEC FEATURE SHOWCASE ===")
+    io.println("")
+    
+    // --------------------------------------------------------------------
+    // 1. VARIABLE DECLARATIONS
+    // --------------------------------------------------------------------
+    io.println("1. Variable Declarations:")
+    
+    // Immutable assignment
+    x = 10
+    io.print("  Immutable: x = ")
+    io.print_int(x)
+    io.println("")
+    
+    // Mutable assignment
+    counter ::= 0
+    counter = counter + 1
+    io.print("  Mutable: counter = ")
+    io.print_int(counter)
+    io.println("")
+    
+    // Type annotations
+    y: i32 = 20
+    z :: i32 = 30
+    io.println("  ✓ Type annotations work")
+    
+    // Forward declaration with mutable
+    w :: i32
+    w = 40
+    io.print("  Forward declaration: w = ")
+    io.print_int(w)
+    io.println("")
+    
+    // --------------------------------------------------------------------
+    // 2. PATTERN MATCHING WITH ?
+    // --------------------------------------------------------------------
+    io.println("")
+    io.println("2. Pattern Matching with ?:")
+    
+    // Boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("  ✓ Single branch pattern")
+    }
+    
+    // Full boolean pattern
+    has_data = false
+    has_data ?
+        | true { io.println("  Has data") }
+        | false { io.println("  ✓ Boolean pattern with branches") }
+    
+    // Option pattern matching
+    maybe: Option<i32> = Option.Some(42)
+    maybe ?
+        | Some(val) { 
+            io.print("  ✓ Option Some: ")
+            io.print_int(val)
+            io.println("")
+        }
+        | None { io.println("  Option None") }
+    
+    // Enum pattern matching
+    shape = Shape.Circle
+    shape ?
+        | Circle { io.println("  ✓ Enum pattern: Circle") }
+        | Rectangle { io.println("  Rectangle") }
+        | Triangle { io.println("  Triangle") }
+    
+    // --------------------------------------------------------------------
+    // 3. LOOPS
+    // --------------------------------------------------------------------
+    io.println("")
+    io.println("3. Loops:")
+    
+    // Range loop
+    io.print("  Range (0..3): ")
+    (0..3).loop((i) {
+        io.print_int(i)
+        io.print(" ")
+    })
+    io.println("")
+    
+    // Infinite loop with break
+    loop_counter ::= 0
+    io.print("  Infinite loop: ")
+    loop(() {
+        io.print_int(loop_counter)
+        io.print(" ")
+        loop_counter = loop_counter + 1
+        loop_counter > 2 ? { break }
+    })
+    io.println("")
+    
+    // --------------------------------------------------------------------
+    // 4. STRUCT OPERATIONS
+    // --------------------------------------------------------------------
+    io.println("")
+    io.println("4. Structs:")
+    
+    // Create struct
+    point = Point { x: 3, y: 4 }
+    io.print("  Point.x = ")
+    io.print_int(point.x)
+    io.print(", Point.y = ")
+    io.print_int(point.y)
+    io.println("")
+    
+    // --------------------------------------------------------------------
+    // 5. UFC (UNIFORM FUNCTION CALL)
+    // --------------------------------------------------------------------
+    io.println("")
+    io.println("5. UFC (Uniform Function Call):")
+    
+    // Traditional call
+    result1 = add(5, 3)
+    io.print("  Traditional: add(5, 3) = ")
+    io.print_int(result1)
+    io.println("")
+    
+    // UFC style
+    num = 7
+    result2 = num.double()
+    io.print("  UFC: 7.double() = ")
+    io.print_int(result2)
+    io.println("")
+    
+    // UFC with struct
+    dist = point.distance()
+    io.print("  UFC: point.distance() = ")
+    io.print_int(dist)
+    io.println("")
+    
+    // --------------------------------------------------------------------
+    // 6. @this.defer() FOR CLEANUP
+    // --------------------------------------------------------------------
+    io.println("")
+    io.println("6. Defer with @this:")
+    
+    // Register cleanup to run at function exit
+    @this.defer(cleanup())
+    
+    io.println("  Registered defer...")
+    io.println("  Doing work...")
+    
+    // --------------------------------------------------------------------
+    // 7. NO NULL - ONLY OPTION
+    // --------------------------------------------------------------------
+    io.println("")
+    io.println("7. No null - Only Option:")
+    
+    nothing: Option<i32> = Option.None
+    nothing ?
+        | Some(v) { io.println("  Has value") }
+        | None { io.println("  ✓ None handled properly") }
+    
+    // --------------------------------------------------------------------
+    io.println("")
+    io.println("=== ALL TESTS COMPLETED ===")
+    
+    // Defer will execute here automatically
+}

@@ -17,7 +17,6 @@ test_math_functions = () bool   {
             io.print("\n")
             return false
         }
-        | false {}
     
     // Test float operations
     y := math.sqrt(16.0)
@@ -26,7 +25,6 @@ test_math_functions = () bool   {
             io.print("FAIL: math.sqrt(16.0) incorrect\n")
             return false
         }
-        | false {}
     
     return true
 }

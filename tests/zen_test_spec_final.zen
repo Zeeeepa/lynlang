@@ -127,7 +127,6 @@ main = () void {
                 io.println("   Loop completed 3 iterations")
                 break 
             }
-            | false { }
     })
     
     io.println("")

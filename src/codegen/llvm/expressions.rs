@@ -81,8 +81,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_dereference(expr)
             }
             Expression::PointerAddress(expr) => {
-                // Same as address-of, but for getting address from pointer
-                self.compile_address_of(expr)
+                // Get the numeric address value from a pointer (ptr.addr returns usize)
+                self.compile_pointer_to_int(expr)
             }
             Expression::CreateReference(expr) => {
                 // Create an immutable reference (Ptr<T>)
@@ -1000,6 +1000,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             pointer: loop_var,
             ast_type: crate::ast::AstType::I32,
             is_mutable: true,  // Loop variables are mutable
+            is_initialized: true,
         });
         
         // Compile the loop body
@@ -1044,63 +1045,38 @@ impl<'ctx> LLVMCompiler<'ctx> {
         size: usize, 
         initial_values: Option<&Vec<Expression>>
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // Get element LLVM type
-        let elem_llvm_type = self.to_llvm_type(element_type)?;
-        let elem_basic_type = self.expect_basic_type(elem_llvm_type)?;
+        // For now, simplify Vec to just return a placeholder
+        // TODO: Implement proper Vec with array storage
         
-        // Create the Vec struct type: { [T; size], i64 }
-        let array_type = elem_basic_type.array_type(size as u32);
-        let len_type = self.context.i64_type();
+        // Get element LLVM type
+        let _elem_llvm_type = self.to_llvm_type(element_type)?;
+        
+        // Create a simple struct type: { i64 capacity, i64 len }
+        let i64_type = self.context.i64_type();
         let vec_struct_type = self.context.struct_type(&[
-            array_type.into(),
-            len_type.into(),
+            i64_type.into(),  // capacity
+            i64_type.into(),  // length
         ], false);
         
         // Allocate the Vec on the stack
         let vec_ptr = self.builder.build_alloca(vec_struct_type, "vec")?;
         
-        // Initialize the length field
+        // Initialize capacity field
+        let cap_field_ptr = self.builder.build_struct_gep(vec_struct_type, vec_ptr, 0, "cap_field")?;
+        let cap_value = i64_type.const_int(size as u64, false);
+        self.builder.build_store(cap_field_ptr, cap_value)?;
+        
+        // Initialize length field
         let initial_len = if let Some(values) = initial_values {
             values.len() as u64
         } else {
             0
         };
         let len_field_ptr = self.builder.build_struct_gep(vec_struct_type, vec_ptr, 1, "len_field")?;
-        let len_value = len_type.const_int(initial_len, false);
+        let len_value = i64_type.const_int(initial_len, false);
         self.builder.build_store(len_field_ptr, len_value)?;
         
-        // Initialize the array data
-        let array_field_ptr = self.builder.build_struct_gep(vec_struct_type, vec_ptr, 0, "array_field")?;
-        
-        if let Some(values) = initial_values {
-            // Initialize with provided values
-            for (i, value_expr) in values.iter().enumerate() {
-                let value = self.compile_expression(value_expr)?;
-                let element_ptr = unsafe { 
-                    self.builder.build_gep(array_type, array_field_ptr, &[
-                        self.context.i32_type().const_int(i as u64, false)
-                    ], &format!("elem_{}", i))?
-                };
-                self.builder.build_store(element_ptr, value)?;
-            }
-        } else {
-            // Initialize with default values (zero)
-            let zero_value: BasicValueEnum = match elem_basic_type {
-                inkwell::types::BasicTypeEnum::IntType(int_type) => int_type.const_int(0, false).into(),
-                inkwell::types::BasicTypeEnum::FloatType(float_type) => float_type.const_float(0.0).into(),
-                inkwell::types::BasicTypeEnum::PointerType(ptr_type) => ptr_type.const_null().into(),
-                _ => return Err(CompileError::UnsupportedFeature("Unsupported element type for Vec initialization".to_string(), None)),
-            };
-            
-            for i in 0..size {
-                let element_ptr = unsafe { 
-                    self.builder.build_gep(array_type, array_field_ptr, &[
-                        self.context.i32_type().const_int(i as u64, false)
-                    ], &format!("elem_{}", i))?
-                };
-                self.builder.build_store(element_ptr, zero_value)?;
-            }
-        }
+        // TODO: Actually allocate and initialize the data array
         
         // Load and return the Vec struct value
         Ok(self.builder.build_load(vec_struct_type, vec_ptr, "vec_value")?)

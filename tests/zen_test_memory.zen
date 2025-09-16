@@ -13,7 +13,7 @@ test_basic_malloc = () bool   {
     ptr .== None ? | true {
         io.print("ERROR: malloc returned null\n")
         return false
-    } | false {}
+    }
     
     // Write some data
     bytes := ptr as RawPtr<i8>
@@ -30,7 +30,7 @@ test_basic_malloc = () bool   {
             io.print("ERROR: Data mismatch at index $(i)\n")
             core.free(ptr)
             return false
-        } | false {}
+        }
         i = i + 1
     }
     
@@ -59,7 +59,7 @@ test_aligned_alloc = () bool   {
                     io.print("ERROR: Pointer not aligned to $(align)\n")
                     mem.dealloc(ptr, 256)
                     return false
-                } | false {}
+                }
                 
                 // Clean up
                 mem.dealloc(ptr, 256)
@@ -91,7 +91,7 @@ test_calloc = () bool   {
                     io.print("ERROR: calloc memory not zeroed at index $(i)\n")
                     mem.dealloc(ptr, 80)
                     return false
-                } | false {}
+                }
                 i = i + 1
             }
             
@@ -135,7 +135,7 @@ test_realloc = () bool   {
                             io.print("ERROR: realloc didn't preserve data at index $(i)\n")
                             mem.dealloc(new_ptr, 100)
                             return false
-                        } | false {}
+                        }
                         i = i + 1
                     }
                     
@@ -248,7 +248,7 @@ test_memory_stats = () bool   {
     initial_stats.current_usage != 0 ? | true {
         io.print("ERROR: Stats not reset properly\n")
         return false
-    } | false {}
+    }
     
     // Do some allocations
     result1 := mem.alloc(100)
@@ -266,21 +266,21 @@ test_memory_stats = () bool   {
                         mem.dealloc(ptr1, 100)
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false {}
+                    }
                     
                     stats.current_usage != 300 ? | true {
                         io.print("ERROR: current_usage incorrect\n")
                         mem.dealloc(ptr1, 100)
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false {}
+                    }
                     
                     stats.allocation_count != 2 ? | true {
                         io.print("ERROR: allocation_count incorrect\n")
                         mem.dealloc(ptr1, 100)
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false {}
+                    }
                     
                     // Free one allocation
                     mem.dealloc(ptr1, 100)
@@ -290,13 +290,13 @@ test_memory_stats = () bool   {
                         io.print("ERROR: current_usage not updated after free\n")
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false {}
+                    }
                     
                     stats.free_count != 1 ? | true {
                         io.print("ERROR: free_count incorrect\n")
                         mem.dealloc(ptr2, 200)
                         return false
-                    } | false {}
+                    }
                     
                     mem.dealloc(ptr2, 200)
                 }

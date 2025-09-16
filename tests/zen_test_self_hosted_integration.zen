@@ -31,7 +31,6 @@ test_lexer_integration = () bool   {
             io.print("\n")
             return false
         }
-        | false {}
     
     return true
 }

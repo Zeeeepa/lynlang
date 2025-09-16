@@ -9,8 +9,8 @@ test_loops = () i32   {
     puts("Testing loops...")
     
     // Test 1: Simple countdown
-    count := 5
-    sum := 0
+    count = 5
+    sum = 0
     loop count > 0 {
         sum = sum + count
         count = count - 1
@@ -24,10 +24,10 @@ test_loops = () i32   {
     }
     
     // Test 2: Nested loops
-    outer := 0
-    result := 0
+    outer = 0
+    result = 0
     loop outer < 3 {
-        inner := 0
+        inner = 0
         loop inner < 3 {
             result = result + 1
             inner = inner + 1
@@ -43,12 +43,12 @@ test_loops = () i32   {
     }
     
     // Test 3: Loop with break
-    i := 0
-    loop_result := 0
+    i = 0
+    loop_result = 0
     loop true {
         i = i + 1
         loop_result = loop_result + i
-        i >= 5 ? | true { { break  }} | false {}
+        i >= 5 ? { { break  }}
     }
     
     loop_result == 15 ? | true {
@@ -67,9 +67,7 @@ test_pattern_matching = () i32   {
     
     // Test 1: Simple pattern matching
     x := 42
-    result := x ? | val -> val > 40 { "big" }
-                 | val -> val > 20 { "medium" }
-                 | _ { "small" }
+    result := x ? | val { val > 40 ? { "big" } | val > 20 ? { "medium" } | { "small" } }
     
     result == "big" ? | true {
         puts("[PASS] Pattern matching with guards")
@@ -79,9 +77,9 @@ test_pattern_matching = () i32   {
     }
     
     // Test 2: Nested pattern matching
-    a := 10
-    b := 20
-    sum := a + b
+    a = 10
+    b = 20
+    sum = a + b
     
     check := sum ? | 30 { true }
                   | _ { false }
@@ -102,10 +100,10 @@ test_math = () i32   {
     
     // Factorial
     factorial = (n: i64) i64   {
-        n <= 1 ? | true { { return 1  }} | false {}
+        n <= 1 ? { { return 1  }}
         
-        result := 1
-        i := 2
+        result = 1
+        i = 2
         loop i <= n {
             result = result * i
             i = i + 1
@@ -123,13 +121,13 @@ test_math = () i32   {
     
     // Fibonacci
     fibonacci = (n: i64) i64   {
-        n <= 1 ? | true { { return n  }} | false {}
+        n <= 1 ? { { return n  }}
         
-        prev := 0
-        curr := 1
-        i := 2
+        prev = 0
+        curr = 1
+        i = 2
         loop i <= n {
-            next := prev + curr
+            next = prev + curr
             prev = curr
             curr = next
             i = i + 1

@@ -69,10 +69,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_struct_field(&mut self, struct_: &Expression, field: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Special handling for identifiers
         if let Expression::Identifier(name) = struct_ {
-            eprintln!("DEBUG: compile_struct_field - identifier: {}, field: {}", name, field);
             // First check if this is an enum type (GameEntity.Player syntax)
             if let Some(symbol) = self.symbols.lookup(name) {
-                eprintln!("DEBUG: Found symbol for {}", name);
                 if let symbols::Symbol::EnumType(enum_info) = symbol {
                     // This is an enum variant creation, not a struct field access
                     if enum_info.variant_indices.contains_key(field) {
@@ -86,7 +84,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
             } else {
-                eprintln!("DEBUG: No symbol found for {}", name);
             }
             
             // Not an enum, check if it's a variable
@@ -489,6 +486,50 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     Err(CompileError::TypeError(
                         format!("Struct type '{}' not found", parent_struct_name),
+                        None
+                    ))
+                }
+            }
+            Expression::PointerDereference(ptr_expr) => {
+                // For ptr.val where ptr is Ptr<Struct> or MutPtr<Struct> or RawPtr<Struct>
+                match ptr_expr.as_ref() {
+                    Expression::Identifier(name) => {
+                        if let Some(var_info) = self.variables.get(name) {
+                            match &var_info.ast_type {
+                                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                                    match &**inner {
+                                        AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),
+                                        AstType::Generic { name: type_name, .. } => {
+                                            // Check if this generic is actually a registered struct type
+                                            if self.struct_types.contains_key(type_name) {
+                                                Ok(type_name.clone())
+                                            } else {
+                                                Err(CompileError::TypeError(
+                                                    format!("Pointer does not point to a struct type, got Generic: {}", type_name),
+                                                    None
+                                                ))
+                                            }
+                                        }
+                                        _ => Err(CompileError::TypeError(
+                                            format!("Pointer does not point to a struct type, got: {:?}", &**inner),
+                                            None
+                                        ))
+                                    }
+                                }
+                                _ => Err(CompileError::TypeError(
+                                    format!("Cannot dereference non-pointer type"),
+                                    None
+                                ))
+                            }
+                        } else {
+                            Err(CompileError::TypeError(
+                                format!("Unknown variable '{}'", name),
+                                None
+                            ))
+                        }
+                    }
+                    _ => Err(CompileError::TypeError(
+                        format!("Complex pointer dereference not yet supported in struct field access"),
                         None
                     ))
                 }

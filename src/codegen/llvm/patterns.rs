@@ -545,6 +545,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 pointer: alloca,
                 ast_type,
                 is_mutable: false,  // Pattern bindings are immutable
+                is_initialized: true,
             });
         }
         

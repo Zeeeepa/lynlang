@@ -56,7 +56,7 @@ compile_time_import = () void   {
         debug = @std
         log = @std
         log.debug("Debug mode enabled")
-    } | false {}
+    }
 }
 
 // Test imports in match expressions
