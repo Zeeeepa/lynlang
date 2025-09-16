@@ -1,0 +1,17 @@
+// Test to understand pattern matching issue
+{ io } = @std
+
+main = () void {
+    // Test with explicit block return value
+    result = true ? 
+        | true { 
+            io.println("Evaluating true branch")
+            1
+        }
+        | false { 
+            io.println("Evaluating false branch")
+            0
+        }
+    
+    io.println("Result should be 1")
+}

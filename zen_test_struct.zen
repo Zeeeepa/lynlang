@@ -1,0 +1,25 @@
+// Test struct definitions from the spec
+{ io } = @std
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+main = () void {
+    io.println("Testing structs")
+    
+    // Create a struct instance
+    p = Point { x: 10.5, y: 20.3 }
+    
+    // Access struct fields
+    io.println("Point x: ${p.x}")
+    io.println("Point y: ${p.y}")
+    
+    // Struct in variable
+    origin = Point { x: 0.0, y: 0.0 }
+    io.println("Origin x: ${origin.x}, y: ${origin.y}")
+    
+    io.println("Struct test complete")
+}

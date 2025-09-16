@@ -42,7 +42,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             
                             match init_value {
                                 BasicValueEnum::IntValue(int_val) => {
-                                    if int_val.get_type().get_bit_width() <= 32 {
+                                    let bit_width = int_val.get_type().get_bit_width();
+                                    if bit_width == 1 {
+                                        // Boolean type
+                                        Type::Basic(self.context.bool_type().into())
+                                    } else if bit_width <= 32 {
                                         Type::Basic(self.context.i32_type().into())
                                     } else {
                                         Type::Basic(self.context.i64_type().into())

@@ -1,0 +1,21 @@
+// Test only features that currently work
+{ io } = @std
+
+main = () void {
+    // Basic printing works
+    io.println("Starting basic tests")
+    
+    // Variables work
+    x = 42
+    y ::= 10
+    
+    // Basic pattern matching works
+    x > 30 ?
+        | true { io.println("x is greater than 30") }
+        | false { io.println("x is not greater than 30") }
+    
+    // Boolean short form works
+    true ? { io.println("Boolean short form works") }
+    
+    io.println("Tests complete")
+}

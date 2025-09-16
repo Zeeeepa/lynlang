@@ -1,0 +1,9 @@
+// Test boolean variable pattern matching
+{ io } = @std
+
+main = () void {
+    is_big = true
+    is_big ?
+        | true { io.println("Variable is true") }
+        | false { io.println("Variable is false") }
+}

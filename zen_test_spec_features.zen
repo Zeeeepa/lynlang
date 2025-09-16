@@ -1,0 +1,46 @@
+// Test key language features from LANGUAGE_SPEC.zen
+{ io } = @std
+
+// Test Option type (no null!)
+Option<T>: .Some(T) | .None
+
+// Test simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Test pattern matching with ? operator
+test_pattern = (val: i32) void {
+    val > 10 ?
+        | true { io.println("Greater than 10") }
+        | false { io.println("Not greater than 10") }
+}
+
+// Test range loop
+test_range = () void {
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+}
+
+main = () void {
+    io.println("Testing Zen Language Features")
+    
+    // Test pattern matching
+    test_pattern(15)
+    test_pattern(5)
+    
+    // Test Option
+    maybe: Option<i32> = .Some(42)
+    maybe ?
+        | .Some(val) { io.println("Got value: ${val}") }
+        | .None { io.println("Got None") }
+    
+    // Test struct
+    p = Point { x: 10.0, y: 20.0 }
+    io.println("Point x: ${p.x}, y: ${p.y}")
+    
+    // Test range loop
+    test_range()
+}
