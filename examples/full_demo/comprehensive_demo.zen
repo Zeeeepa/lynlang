@@ -43,10 +43,10 @@ Address: {
 }
 
 // Enum without leading | (new syntax)
-Color: .Red | .Green | .Blue | .Custom(u32)
+Color: Red | Green | Blue | Custom: {value: u32}
 
 // Complex enum with associated data
-Message: .Text(string) | .Warning(string) | .Error(i32) | .Binary
+Message: Text: {content: string} | Warning: {text: string} | Error: {code: i32} | Binary
 
 // Type aliases
 UserId: u64
@@ -135,20 +135,20 @@ describe_color = (c: Color) string {
         | .Red { return "Primary: Red" }
         | .Green { return "Primary: Green" }
         | .Blue { return "Primary: Blue" }
-        | .Custom(val) { return "Custom color: ${val}" }
+        | .Custom(custom) { return "Custom color: ${custom.value}" }
 }
 
 // Message handler with destructuring
 handle_message = (msg: Message) void {
     msg ?
-        | .Text(content) {
-            io.println("Text: ${content}")
+        | .Text(text) {
+            io.println("Text: ${text.content}")
         }
-        | .Warning(w) {
-            io.println("[WARN] ${w}")
+        | .Warning(warn) {
+            io.println("[WARN] ${warn.text}")
         }
-        | .Error(code) {
-            io.println("ERROR ${code}")
+        | .Error(err) {
+            io.println("ERROR ${err.code}")
         }
         | .Binary {
             io.println("Binary data received")
@@ -180,7 +180,7 @@ demo_bindings = () void {
     
     // Mutable binding (use ::= for mutable)
     y ::= 100
-    y = y + 1
+    y ::= y + 1
     
     // Destructuring
     point = Point { x: 3.14, y: 2.71 }
@@ -423,9 +423,9 @@ BUFFER_SIZE = 4096
 MAX_CONNECTIONS = 100
 
 // Compile-time computed value
-CACHE_SIZE = @comptime {
+CACHE_SIZE = @meta.comptime((){
     BUFFER_SIZE * 4
-}
+})
 
 // ========================================
 // Foreign Function Interface
@@ -457,7 +457,7 @@ test_pattern_matching = () void {
     assert(fibonacci(1) == 1)
     assert(fibonacci(10) == 55)
     
-    color = Color.Custom(255)
+    color = Color.Custom {value: 255}
     desc = describe_color(color)
     assert(desc.contains("Custom"))
 }
@@ -557,9 +557,9 @@ main = () void {
     messages = DynVec<Message>(sync_alloc)
     @this.defer(messages.deinit())
     
-    messages.push(Message.Text("Hello, World!"))
-    messages.push(Message.Warning("Low memory"))
-    messages.push(Message.Error(404))
+    messages.push(Message.Text {content: "Hello, World!"})
+    messages.push(Message.Warning {text: "Low memory"})
+    messages.push(Message.Error {code: 404})
     
     messages.loop((msg) {
         handle_message(msg)

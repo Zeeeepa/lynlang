@@ -1,7 +1,6 @@
 // Zen Language - Code Generator Module (Simplified)
 // Generates C code from AST for bootstrapping
 
-{ core } = @std.core
 { io } = @std.io
 
 // Main entry point for code generator

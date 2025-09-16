@@ -3,62 +3,62 @@
 { core } = @std.core
 
 // Option type - represents a value that may or may not exist
-Option<T>: Some(T) | None
+Option<T>: Some: {value: T} | None
 
 // Create Some variant
-some = <T>(value: T) Option<T> {
+some = (value: T) Option<T> {
     return Option.Some(value)
 }
 
 // Create None variant
-none = <T>() Option<T> {
+none = () Option<T> {
     return Option.None
 }
 
 // Check if option has value
-is_some = <T>(opt: Option<T>) bool {
+is_some = (opt: Option<T>) bool {
     opt ?
         | Some(_) { true }
         | None { false }
 }
 
 // Check if option is none
-is_none = <T>(opt: Option<T>) bool {
+is_none = (opt: Option<T>) bool {
     opt ?
         | Some(_) { false }
         | None { true }
 }
 
 // Get value or panic
-unwrap = <T>(opt: Option<T>) T {
+unwrap = (opt: Option<T>) T {
     opt ?
         | Some(v) { v }
         | None { core.panic("called unwrap on None value") }
 }
 
 // Get value or default
-unwrap_or = <T>(opt: Option<T>, default: T) T {
+unwrap_or = (opt: Option<T>, default: T) T {
     opt ?
         | Some(v) { v }
         | None { default }
 }
 
 // Get value or compute default
-unwrap_or_else = <T>(opt: Option<T>, f: () T) T {
+unwrap_or_else = (opt: Option<T>, f: () { T }) T {
     opt ?
         | Some(v) { v }
         | None { f() }
 }
 
 // Expect with custom message
-expect = <T>(opt: Option<T>, msg: string) T {
+expect = (opt: Option<T>, msg: string) T {
     opt ?
         | Some(v) { v }
         | None { core.panic(msg) }
 }
 
 // Map value through function
-map = <T, U>(opt: Option<T>, f: (T) U) Option<U> {
+map = (opt: Option<T>, f: (T) { U }) Option<U> {
     opt ?
         | Some(v) { Option.Some(f(v)) }
         | None { Option.None }

@@ -119,10 +119,12 @@ demonstrate_memory_management = () void {
     
     SharedData.release = (self) void {
         old_refs = self.refs.fetch_sub(1, .SeqCst)
-        old_refs == 1 ? {
-            io.println("Freeing shared data with value: ${self.value}")
-            // Memory would be freed here
-        }
+        old_refs == 1 ?
+            | true {
+                io.println("Freeing shared data with value: ${self.value}")
+                // Memory would be freed here
+            }
+            | false { }
     }
     
     // RAII with defer
@@ -159,8 +161,13 @@ Person.format = (self) string {
 }
 
 Person.compare = (self, other: Person) i32 {
-    (self.age < other.age) ? { return -1 }
-    (self.age > other.age) ? { return 1 }
+    (self.age < other.age) ?
+        | true { return -1 }
+        | false {
+            (self.age > other.age) ?
+                | true { return 1 }
+                | false { }
+        }
     return 0
 }
 
@@ -174,9 +181,17 @@ demonstrate_behaviors = () void {
     io.println("${bob.format()}")
     
     comparison = alice.compare(bob)
-    (comparison == -1) ? { io.println("${alice.name} is younger than ${bob.name}") }
-    (comparison == 0) ? { io.println("${alice.name} and ${bob.name} are the same age") }
-    (comparison == 1) ? { io.println("${alice.name} is older than ${bob.name}") }
+    comparison == -1 ?
+        | true { io.println("${alice.name} is younger than ${bob.name}") }
+        | false {
+            comparison == 0 ?
+                | true { io.println("${alice.name} and ${bob.name} are the same age") }
+                | false {
+                    comparison == 1 ?
+                        | true { io.println("${alice.name} is older than ${bob.name}") }
+                        | false { }
+                }
+        }
 }
 
 // ==========================================
@@ -338,11 +353,15 @@ demonstrate_error_handling = () void {
         lines = content.split('\n')
         
         lines.loop((line) {
-            line.is_empty() ? { continue }
+            line.is_empty() ?
+                | true { continue }
+                | false { }
 
             
             parts = line.split('=')
-            parts.len() == 2 ? { io.println("Config: ${parts[0]} = ${parts[1]}") }
+            parts.len() == 2 ?
+                | true { io.println("Config: ${parts[0]} = ${parts[1]}") }
+                | false { }
         })
         
         return .Ok(void)
@@ -393,14 +412,18 @@ demonstrate_loops = () void {
     counter ::= 0
     loop(() {
         counter = counter + 1
-        counter >= 5 ? { break }
+        counter >= 5 ?
+            | true { break }
+            | false { }
         io.println("Infinite loop iteration: ${counter}")
     })
     
     // Conditional loop
     x ::= 10
     loop(() {
-        x <= 0 ? { break }
+        x <= 0 ?
+            | true { break }
+            | false { }
         io.println("Conditional loop: x = ${x}")
         x = x - 2
     })

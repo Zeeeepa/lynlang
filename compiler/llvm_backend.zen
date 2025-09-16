@@ -22,32 +22,13 @@ LLVMContext: {
 }
 
 // LLVM types
-LLVMType:
-    Void,
-    I1,
-    I8,
-    I16,
-    I32,
-    I64,
-    F32,
-    F64,
-    Ptr: (inner: Ptr<LLVMType>),
-    Array:(element: Ptr<LLVMType>, size: u64),
-    Struct:(fields: DynVec<LLVMType>),
-    Function: (ret: Ptr<LLVMType>, params: DynVec<LLVMType>)
+LLVMType: Void | I1 | I8 | I16 | I32 | I64 | F32 | F64 | Ptr: {inner: Ptr<LLVMType>} | Array: {element: Ptr<LLVMType>, size: u64} | Struct: {fields: DynVec<LLVMType>} | Function: {ret: Ptr<LLVMType>, params: DynVec<LLVMType>}
 
 // LLVM value representation
-LLVMValue:
-    Register{ id: u32},
-    Constant{ val: LLVMConstant},
-    Global{ name: string},
-    Argument{index: u32}
+LLVMValue: Register: {id: u32} | Constant: {val: LLVMConstant} | Global: {name: string} | Argument: {index: u32}
 
 // LLVM constants
-LLVMConstant:
-    I1: {val: bool},
-    I8: {val: i8},
-    I16: {val: i16},
+LLVMConstant: I1: {val: bool} | I8: {val: i8} | I16: {val: i16} |
     I32: {val: i32},
     I64: {val: i64},
     F32: {val: f32},

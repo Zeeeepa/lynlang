@@ -1,41 +1,52 @@
 // Zen Standard Library: Vector (Dynamic Array) Implementation
 // A growable array type
 
-{ core } = @std.core
+core := @std.core
 
 // Vector structure - dynamic array
-Vec<T> = {
-    data: *T,           // Pointer to the data
-    len: i64,           // Current number of elements
-    capacity: i64,      // Total allocated capacity
+Vec<T>: {
+    data: Ptr<T>         // Pointer to the data
+    len: usize           // Current number of elements
+    capacity: usize      // Total allocated capacity
 }
 
+// DynVec is an alias for Vec for compatibility
+DynVec<T>: Vec<T>
+
 // Create a new empty vector
-vec_new<T>: () Vec<T>  = {
-    return Vec<T> {
-        data: 0,
+Vec<T>.new = () Vec<T> {
+    return Vec<T>{
+        data: core.null_ptr<T>(),
         len: 0,
-        capacity: 0,
+        capacity: 0
     }
 }
 
-// Create a vector with initial capacity
-vec_with_capacity<T> = (capacity: i64) core.Result<Vec<T>, core.Error> {
-    capacity <= 0 ? | true {
-        return core.Result:Err(core.Error:InvalidArgument("Capacity must be positive"))
-    } | false {}
-    
-    data := core.malloc(capacity * sizeof(T)) as *T
-    data .== .None ? | true {
-        return core.Result:Err(core.Error:OutOfMemory)
-    } | false {}
-    
-    return core.Result:Ok(Vec<T> {
-        data: data,
-        len: 0,
-        capacity: capacity,
-    })
+// DynVec constructor for compatibility
+DynVec<T>.new = (initial_capacity: usize) Vec<T> {
+    initial_capacity == 0 ? 
+        | true => Vec<T>.new()
+        | false => Vec<T>.with_capacity(initial_capacity).unwrap_or(Vec<T>.new())
 }
+
+// Create a vector with initial capacity  
+Vec<T>.with_capacity = (capacity: usize) Result<Vec<T>, Error> {
+    capacity == 0 ? 
+        | true => Vec<T>.new()
+        | false => {
+    
+            data := core.malloc(capacity * core.sizeOf<T>())
+            data == core.null_ptr<T>() ?
+                | true => .Err(.OutOfMemory)
+                | false => {
+    
+                    .Ok(Vec<T>{
+                        data: data,
+                        len: 0,
+                        capacity: capacity
+                    })
+                }
+        }
 
 // Push element to the vector
 vec_push<T> = (vec: *Vec<T>, value: T) core.Result<void, core.Error> {
