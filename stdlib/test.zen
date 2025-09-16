@@ -1,8 +1,11 @@
 // Zen Standard Library: Testing Framework
 // Simple but effective testing utilities
 
-{ core } = @std.core
-{ io } = @std.io
+core := @std.core
+build := @std.build
+io := build.import("io")
+vec_module := build.import("vec")
+Vec := vec_module.Vec
 
 // Test result types
 TestResult: Pass

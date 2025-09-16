@@ -1,11 +1,13 @@
 // Path manipulation utilities for Zen
 // Provides cross-platform path handling and manipulation
 
-{ core } = @std.core
-{ string } = @std.string
-{ vec } = @std.vec
-{ result } = @std.result
-{ fs } = @std.fs
+core := @std.core
+build := @std.build
+string := build.import("string")
+vec := build.import("vec")
+result := build.import("result")
+fs := build.import("fs")
+Vec := vec.Vec
 
 // Path separator for the current platform
 PATH_SEPARATOR := "/" // Unix-like systems
