@@ -2,12 +2,12 @@
 // A compiler written in Zen that can compile Zen programs
 
 // Module imports at top level (not in comptime!)
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ vec } = @std.vec
-{ core } = @std.core
-{ process } = @std.process
+io = @std.io
+fs = @std.fs
+string = @std.string
+{ Vec, DynVec } = @std.collections
+core = @std.core
+process = @std.process
 
 // Compiler version
 VERSION := "0.1.0"
@@ -93,7 +93,7 @@ Lexer: {
     current: i32,
     line: i32,
     column: i32,
-    tokens: vec.Vec<Token>,
+    tokens: DynVec<Token>,
 }
 
 // Create a new lexer
@@ -103,7 +103,7 @@ new_lexer = (source: string) Lexer   {
         current: 0,
         line: 1,
         column: 1,
-        tokens: vec.new<Token>(),
+        tokens: DynVec.new(),
     }
 }
 
@@ -172,7 +172,7 @@ add_token = (lexer: &mut Lexer, type: TokenType, lexeme: string) void   {
         line: lexer.line,
         column: lexer.column - string.len(lexeme),
     };
-    vec.push(&lexer.tokens, token);
+    DynVec.push(&lexer.tokens, token);
 }
 
 // Scan identifier or keyword
@@ -403,13 +403,13 @@ scan_tokens = (lexer: &mut Lexer) void   {
 
 // Simple AST nodes
 AstNode:
-    .Program { declarations: vec.Vec<Declaration> } |
-    .FunctionDecl { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> } |
+    .Program { declarations: DynVec<Declaration> } |
+    .FunctionDecl { name: string, params: DynVec<Parameter>, return_type: string, body: DynVec<Statement> } |
     .VariableDecl { name: string, type: string, value: Expression } |
     .ImportDecl { alias: string, path: string }
 
 Declaration:
-    .Function { name: string, params: vec.Vec<Parameter>, return_type: string, body: vec.Vec<Statement> } |
+    .Function { name: string, params: DynVec<Parameter>, return_type: string, body: DynVec<Statement> } |
     .Variable { name: string, type: string, value: Expression } |
     .Import { alias: string, path: string }
 
@@ -421,8 +421,8 @@ Parameter: {
 Statement:
     .Return { value: Expression } |
     .Expression { expr: Expression } |
-    .PatternMatch { condition: Expression, then_branch: vec.Vec<Statement>, else_branch: vec.Vec<Statement> } |
-    .Loop { body: vec.Vec<Statement> } |
+    .PatternMatch { condition: Expression, then_branch: DynVec<Statement>, else_branch: DynVec<Statement> } |
+    .Loop { body: DynVec<Statement> } |
     .Break |
     .Continue
 
@@ -434,7 +434,7 @@ Expression:
     .Identifier { name: string } |
     .Binary { left: Box<Expression>, op: string, right: Box<Expression> } |
     .Unary { op: string, operand: Box<Expression> } |
-    .Call { callee: Box<Expression>, args: vec.Vec<Expression> } |
+    .Call { callee: Box<Expression>, args: DynVec<Expression> } |
     .Member { object: Box<Expression>, member: string }
 
 // Simple compiler driver
@@ -460,11 +460,11 @@ compile_file = (filename: string) bool   {
     scan_tokens(&lexer);
     
     io.print("Found ");
-    io.print_int(vec.len(lexer.tokens));
+    io.print_int(DynVec.len(lexer.tokens));
     io.println(" tokens");
     
     // For now, just verify we can tokenize
-    vec.len(lexer.tokens) > 0 ?
+    DynVec.len(lexer.tokens) > 0 ?
         | true {
             io.println("✅ Lexing successful!")
             return true

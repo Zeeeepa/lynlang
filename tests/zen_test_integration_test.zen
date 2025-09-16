@@ -1,12 +1,12 @@
 // Comprehensive Integration Tests for Zen Language
 // Tests all major language features and stdlib modules
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ math } = @std.math
-{ collections } = @std.collections
-{ fs } = @std.fs
+core = @std.core
+io = @std.io
+string = @std.string
+math = @std.math
+collections = @std.collections
+fs = @std.fs
 
 // Test result tracking
 TestResult: {

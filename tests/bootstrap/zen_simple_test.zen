@@ -1,5 +1,5 @@
 // Simple test program for bootstrap compiler
-{ io } = @std.io
+io = @std.io
 
 // Simple function to test
 add = (a: i32, b: i32) i32   {

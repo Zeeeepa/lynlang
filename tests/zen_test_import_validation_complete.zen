@@ -1,11 +1,11 @@
 // Comprehensive Import Validation Tests
 // Tests all aspects of the new import system
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
-{ test } = @std.test
+core = @std.core
+io = @std.io
+string = @std.string
+{ Vec, DynVec } = @std.collections
+test = @std.test
 
 // Test module-level imports
 test_module_level_imports = () bool   {
@@ -22,7 +22,7 @@ test_std_imports = () bool   {
     len := string.len(s)
     test.assert_eq(len, 5, "String module works")
     
-    v := vec.new<i32>()
+    v := DynVec.new<i32>()
     vec.push<i32>(&v, 42)
     test.assert_eq(vec.len<i32>(v), 1, "Vec module works")
     
@@ -32,7 +32,7 @@ test_std_imports = () bool   {
 // Test that imports cannot be inside functions
 test_no_function_imports = () bool   {
     // This would be a compile error:
-    // { math } = @std.math  // ERROR: Imports must be at module level
+    // math = @std.math  // ERROR: Imports must be at module level
     
     // Instead, we use the module-level import
     test.assert_true(true, "Cannot import inside functions")
@@ -44,7 +44,7 @@ test_no_block_imports = () bool   {
     x := 10
     x > 5 ? | true {
         // This would be a compile error:
-        // { fs } = @std.fs  // ERROR: Imports must be at module level
+        // fs = @std.fs  // ERROR: Imports must be at module level
         test.assert_true(true, "Cannot import inside blocks")
     } | false {
         test.assert_true(false, "Should not reach here")
@@ -57,7 +57,7 @@ test_no_loop_imports = () bool   {
     i := 0
     loop (i < 3) {
         // This would be a compile error:
-        // { net } = @std.net  // ERROR: Imports must be at module level
+        // net = @std.net  // ERROR: Imports must be at module level
         i = i + 1
     }
     test.assert_eq(i, 3, "Loop executed correctly")
@@ -69,7 +69,7 @@ test_no_loop_imports = () bool   {
 TestStruct: {
     value: i32,
     // This would be a compile error:
-    // { json } = @std.json  // ERROR: Imports must be at module level
+    // json = @std.json  // ERROR: Imports must be at module level
 }
 
 test_no_struct_imports = () bool   {
@@ -83,7 +83,7 @@ TestEnum:
     First,
     Second,
     // This would be a compile error:
-    // { crypto } = @std.crypto  // ERROR: Imports must be at module level
+    // crypto = @std.crypto  // ERROR: Imports must be at module level
 
 test_no_enum_imports = () bool   {
     e := TestEnum.First
@@ -96,7 +96,7 @@ test_no_enum_imports = () bool   {
 }
 
 // Test that imports work with aliases
-{ math_alias } = @std.math
+{ math_alias } = @std
 test_import_aliases = () bool   {
     // Use aliased import (would work if math module exists)
     test.assert_true(true, "Import aliases work")
@@ -116,7 +116,7 @@ test_no_comptime_imports = () bool   {
     // Comptime blocks are for meta-programming only
     CONST := @comptime {
         // This would be a compile error:
-        // { regex } = @std.regex  // ERROR: Imports not allowed in comptime
+        // regex = @std.regex  // ERROR: Imports not allowed in comptime
         
         // Instead, do compile-time computation
         x := 10
@@ -166,7 +166,7 @@ test_import_scoping = () bool   {
 // Helper function that uses module-level imports
 helper_function = () void   {
     // Can use all module-level imports here
-    v := vec.new<String>()
+    v := DynVec.new<String>()
     vec.push<String>(&v, "test")
     test.assert_eq(vec.len<String>(v), 1, "Helper can use imports")
 }

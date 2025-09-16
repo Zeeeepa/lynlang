@@ -4,11 +4,11 @@
 // This comptime block contains imports, which is NOT allowed
 @comptime {
     // ERROR: Imports are not allowed in comptime blocks
-    { io } = @std.io
-    { math } = @std.math
+    io = @std.io
+    math = @std.math
     
     // ERROR: build.import also not allowed in comptime
-    { fs } = @std.fs
+    fs = @std.fs
 }
 
 main = () i32   {

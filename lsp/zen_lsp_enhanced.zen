@@ -1,12 +1,12 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides comprehensive IDE support for Zen development
 
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ vec } = @std.vec
-{ json } = @std.json
-{ net } = @std.net
+io = @std.io
+fs = @std.fs
+string = @std.string
+{ Vec, DynVec } = @std.collections
+json = @std.json
+net = @std.net
 
 // LSP Message types
 LspMessage := {
@@ -60,14 +60,14 @@ CompletionCapabilities := {
 CompletionItemCapabilities := {
     snippet_support: bool
     commit_characters_support: bool
-    documentation_format: Vec<string>
+    documentation_format: DynVec<string>
     deprecated_support: bool
     preselect_support: bool
 }
 
 HoverCapabilities := {
     dynamic_registration: bool
-    content_format: Vec<string>
+    content_format: DynVec<string>
 }
 
 SignatureHelpCapabilities := {
@@ -76,7 +76,7 @@ SignatureHelpCapabilities := {
 }
 
 SignatureInformationCapabilities := {
-    documentation_format: Vec<string>
+    documentation_format: DynVec<string>
     parameter_information: Option<ParameterInformationCapabilities>
 }
 
@@ -100,9 +100,9 @@ FormattingCapabilities := {
 SemanticTokensCapabilities := {
     dynamic_registration: bool
     requests: SemanticTokensRequests
-    token_types: Vec<string>
-    token_modifiers: Vec<string>
-    formats: Vec<string>
+    token_types: DynVec<string>
+    token_modifiers: DynVec<string>
+    formats: DynVec<string>
 }
 
 SemanticTokensRequests := {
@@ -137,12 +137,12 @@ TextDocumentSyncKind: None | Full | Incremental
 
 CompletionOptions := {
     resolve_provider: bool
-    trigger_characters: Vec<string>
+    trigger_characters: DynVec<string>
 }
 
 SignatureHelpOptions := {
-    trigger_characters: Vec<string>
-    retrigger_characters: Vec<string>
+    trigger_characters: DynVec<string>
+    retrigger_characters: DynVec<string>
 }
 
 CodeLensOptions := {
@@ -160,8 +160,8 @@ SemanticTokensOptions := {
 }
 
 SemanticTokensLegend := {
-    token_types: Vec<string>
-    token_modifiers: Vec<string>
+    token_types: DynVec<string>
+    token_modifiers: DynVec<string>
 }
 
 // Document management
@@ -193,8 +193,8 @@ Diagnostic := {
     code: Option<string>
     source: Option<string>
     message: string
-    tags: Vec<DiagnosticTag>
-    related_information: Vec<DiagnosticRelatedInformation>
+    tags: DynVec<DiagnosticTag>
+    related_information: DynVec<DiagnosticRelatedInformation>
 }
 
 DiagnosticSeverity: Error | Warning | Information | Hint
@@ -219,8 +219,8 @@ CompletionItem := {
     insert_text: Option<string>
     insert_text_format: InsertTextFormat
     text_edit: Option<TextEdit>
-    additional_text_edits: Vec<TextEdit>
-    commit_characters: Vec<string>
+    additional_text_edits: DynVec<TextEdit>
+    commit_characters: DynVec<string>
     command: Option<Command>
 }
 
@@ -236,7 +236,7 @@ TextEdit := {
 Command := {
     title: string
     command: string
-    arguments: Vec<json.Value>
+    arguments: DynVec<json.Value>
 }
 
 // Hover
@@ -254,7 +254,7 @@ MarkupKind: PlainText | Markdown
 
 // Signature Help
 SignatureHelp := {
-    signatures: Vec<SignatureInformation>
+    signatures: DynVec<SignatureInformation>
     active_signature: Option<i32>
     active_parameter: Option<i32>
 }
@@ -262,7 +262,7 @@ SignatureHelp := {
 SignatureInformation := {
     label: string
     documentation: Option<MarkupContent>
-    parameters: Vec<ParameterInformation>
+    parameters: DynVec<ParameterInformation>
 }
 
 ParameterInformation := {
@@ -278,7 +278,7 @@ DocumentSymbol := {
     deprecated: bool
     range: Range
     selection_range: Range
-    children: Vec<DocumentSymbol>
+    children: DynVec<DocumentSymbol>
 }
 
 SymbolKind: File | Module | Namespace | Package | Class | Method | Property | Field | Constructor | Enum | Interface | Function | Variable | Constant | String | Number | Boolean | Array | Object | Key | Null | EnumMember | Struct | Event | Operator | TypeParameter
@@ -287,7 +287,7 @@ SymbolKind: File | Module | Namespace | Package | Class | Method | Property | Fi
 CodeAction := {
     title: string
     kind: Option<CodeActionKind>
-    diagnostics: Vec<Diagnostic>
+    diagnostics: DynVec<Diagnostic>
     is_preferred: bool
     edit: Option<WorkspaceEdit>
     command: Option<Command>
@@ -296,7 +296,7 @@ CodeAction := {
 CodeActionKind: QuickFix | Refactor | RefactorExtract | RefactorInline | RefactorRewrite | Source | SourceOrganizeImports | SourceFixAll
 
 WorkspaceEdit := {
-    changes: HashMap<string, Vec<TextEdit>>
+    changes: HashMap<string, DynVec<TextEdit>>
 }
 
 // Language Server State
@@ -304,8 +304,8 @@ LanguageServer := {
     initialized: bool
     root_uri: Option<string>
     documents: HashMap<string, TextDocument>
-    diagnostics: HashMap<string, Vec<Diagnostic>>
-    symbols: HashMap<string, Vec<DocumentSymbol>>
+    diagnostics: HashMap<string, DynVec<Diagnostic>>
+    symbols: HashMap<string, DynVec<DocumentSymbol>>
     client_capabilities: Option<ClientCapabilities>
 }
 
@@ -315,8 +315,8 @@ create_server = () LanguageServer {
         initialized: false
         root_uri: Option.None
         documents: HashMap.new<string, TextDocument>()
-        diagnostics: HashMap.new<string, Vec<Diagnostic>>()
-        symbols: HashMap.new<string, Vec<DocumentSymbol>>()
+        diagnostics: HashMap.new<string, DynVec<Diagnostic>>()
+        symbols: HashMap.new<string, DynVec<DocumentSymbol>>()
         client_capabilities: Option.None
     }
 }
@@ -331,12 +331,12 @@ handle_initialize = (server: Ptr<LanguageServer>, params: InitializeParams) json
         text_document_sync: TextDocumentSyncKind.Full
         completion_provider: Option.Some(CompletionOptions {
             resolve_provider: false
-            trigger_characters: vec.from_array([".", "@", ":"])
+            trigger_characters: DynVec.from_array([".", "@", ":"])
         })
         hover_provider: true
         signature_help_provider: Option.Some(SignatureHelpOptions {
-            trigger_characters: vec.from_array(["(", ","])
-            retrigger_characters: vec.new<string>()
+            trigger_characters: DynVec.from_array(["(", ","])
+            retrigger_characters: DynVec.new<string>()
         })
         definition_provider: true
         references_provider: true
@@ -350,14 +350,14 @@ handle_initialize = (server: Ptr<LanguageServer>, params: InitializeParams) json
         rename_provider: true
         semantic_tokens_provider: Option.Some(SemanticTokensOptions {
             legend: SemanticTokensLegend {
-                token_types: vec.from_array([
+                token_types: DynVec.from_array([
                     "namespace", "type", "class", "enum", "interface",
                     "struct", "typeParameter", "parameter", "variable",
                     "property", "enumMember", "event", "function",
                     "method", "macro", "keyword", "modifier", "comment",
                     "string", "number", "regexp", "operator"
                 ])
-                token_modifiers: vec.from_array([
+                token_modifiers: DynVec.from_array([
                     "declaration", "definition", "readonly", "static",
                     "deprecated", "abstract", "modification",
                     "documentation", "defaultLibrary"
@@ -374,8 +374,8 @@ handle_initialize = (server: Ptr<LanguageServer>, params: InitializeParams) json
 }
 
 // Check for import syntax errors
-check_import_syntax = (content: string) Vec<Diagnostic>   {
-    diagnostics := vec.new<Diagnostic>()
+check_import_syntax = (content: string) DynVec<Diagnostic>   {
+    diagnostics := DynVec.new<Diagnostic>()
     lines := string.split(content, "\n")
     
     in_comptime := false
@@ -411,7 +411,7 @@ check_import_syntax = (content: string) Vec<Diagnostic>   {
         // Check for imports
         if string.contains(line, ":= @std") || string.contains(line, ":= @compiler") {
             if in_@comptime {
-                vec.push(&diagnostics, Diagnostic {
+                DynVec.push(&diagnostics, Diagnostic {
                     range: Range {
                         start: Position { line: i, character: 0 }
                         end: Position { line: i, character: string.len(line) }
@@ -420,8 +420,8 @@ check_import_syntax = (content: string) Vec<Diagnostic>   {
                     code: Option.Some("E001")
                     source: Option.Some("zen-lsp")
                     message: "Import statements are not allowed inside comptime blocks. Move imports to module level."
-                    tags: vec.new<DiagnosticTag>()
-                    related_information: vec.from_array([
+                    tags: DynVec.new<DiagnosticTag>()
+                    related_information: DynVec.from_array([
                         DiagnosticRelatedInformation {
                             location: Location {
                                 uri: ""
@@ -439,7 +439,7 @@ check_import_syntax = (content: string) Vec<Diagnostic>   {
         
         // Check for incorrect import patterns
         if string.contains(line, "comptime") && string.contains(line, "@std") {
-            vec.push(&diagnostics, Diagnostic {
+            DynVec.push(&diagnostics, Diagnostic {
                 range: Range {
                     start: Position { line: i, character: 0 }
                     end: Position { line: i, character: string.len(line) }
@@ -448,8 +448,8 @@ check_import_syntax = (content: string) Vec<Diagnostic>   {
                 code: Option.Some("E002")
                 source: Option.Some("zen-lsp")
                 message: "Imports should not be wrapped with comptime"
-                tags: vec.new<DiagnosticTag>()
-                related_information: vec.new<DiagnosticRelatedInformation>()
+                tags: DynVec.new<DiagnosticTag>()
+                related_information: DynVec.new<DiagnosticRelatedInformation>()
             })
         }
     }
@@ -458,8 +458,8 @@ check_import_syntax = (content: string) Vec<Diagnostic>   {
 }
 
 // Provide completion items
-provide_completions = (server: *LanguageServer, uri: string, position: Position) Vec<CompletionItem>   {
-    items := vec.new<CompletionItem>()
+provide_completions = (server: *LanguageServer, uri: string, position: Position) DynVec<CompletionItem>   {
+    items := DynVec.new<CompletionItem>()
     
     // Get document
     doc := HashMap.get(server.documents, uri)
@@ -483,7 +483,7 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
         if string.ends_with(before_cursor, "@std.") {
             // Provide stdlib module completions
             for mod in stdlib_modules {
-                vec.push(&items, CompletionItem {
+                DynVec.push(&items, CompletionItem {
                     label: mod
                     kind: CompletionItemKind.Module
                     detail: Option.Some("Standard library module")
@@ -495,14 +495,14 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
                     insert_text: Option.Some(mod)
                     insert_text_format: InsertTextFormat.PlainText
                     text_edit: Option.None
-                    additional_text_edits: vec.new<TextEdit>()
-                    commit_characters: vec.new<string>()
+                    additional_text_edits: DynVec.new<TextEdit>()
+                    commit_characters: DynVec.new<string>()
                     command: Option.None
                 })
             }
         } else if string.ends_with(before_cursor, ":= ") {
             // Suggest @std for imports
-            vec.push(&items, CompletionItem {
+            DynVec.push(&items, CompletionItem {
                 label: "@std"
                 kind: CompletionItemKind.Snippet
                 detail: Option.Some("Import from standard library")
@@ -514,8 +514,8 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
                 insert_text: Option.Some("@std.$1")
                 insert_text_format: InsertTextFormat.Snippet
                 text_edit: Option.None
-                additional_text_edits: vec.new<TextEdit>()
-                commit_characters: vec.new<string>()
+                additional_text_edits: DynVec.new<TextEdit>()
+                commit_characters: DynVec.new<string>()
                 command: Option.None
             })
         }
@@ -528,7 +528,7 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
         ]
         
         for kw in keywords {
-            vec.push(&items, CompletionItem {
+            DynVec.push(&items, CompletionItem {
                 label: kw
                 kind: CompletionItemKind.Keyword
                 detail: Option.None
@@ -540,8 +540,8 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
                 insert_text: Option.Some(kw)
                 insert_text_format: InsertTextFormat.PlainText
                 text_edit: Option.None
-                additional_text_edits: vec.new<TextEdit>()
-                commit_characters: vec.new<string>()
+                additional_text_edits: DynVec.new<TextEdit>()
+                commit_characters: DynVec.new<string>()
                 command: Option.None
             })
         }
@@ -568,7 +568,7 @@ handle_did_change = (server: *LanguageServer, uri: string, content: string, vers
 }
 
 // Publish diagnostics to client
-publish_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void   {
+publish_diagnostics = (uri: string, diagnostics: DynVec<Diagnostic>) void   {
     notification := json.object([
         ("jsonrpc", json.string("2.0")),
         ("method", json.string("textDocument/publishDiagnostics")),

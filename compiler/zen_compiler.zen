@@ -2,18 +2,18 @@
 // Main entry point for the Zen compiler written in Zen
 
 // Imports - using correct syntax without comptime
-{ core } = @std.core
-{ io } = @std.io
-{ fs } = @std.fs
-{ process } = @std.process
-{ string } = @std.string
+core = @std.core
+io = @std.io
+fs = @std.fs
+process = @std.process
+string = @std.string
 
 // Import compiler modules
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
-{ codegen } = @std.compiler.codegen
-{ llvm_backend } = @std.compiler.llvm_backend
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
+codegen = @std.codegen
+llvm_backend = @std.llvm_backend
 
 // Compiler version
 VERSION := "1.0.0"

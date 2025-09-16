@@ -1,19 +1,19 @@
 // Zen Language Syntax Checker
 // Simple tool to validate Zen source files
 
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ vec } = @std.vec
-{ process } = @std.process
-{ lexer } = @std.compiler.lexer_enhanced
-{ parser } = @std.compiler.parser_enhanced
+io = @std.io
+fs = @std.fs
+string = @std.string
+{ Vec, DynVec } = @std.collections
+process = @std.process
+{ lexer } = @std
+{ parser } = @std
 
 // Checker result
 CheckResult: {
     file: string,
-    errors: vec.Vec<Error>,
-    warnings: vec.Vec<Warning>,
+    errors: DynVec<Error>,
+    warnings: DynVec<Warning>,
     valid: bool,
 }
 
@@ -41,8 +41,8 @@ ErrorSeverity:
 check_file = (path: string) CheckResult   {
     result := CheckResult{
         file: path,
-        errors: vec.new<Error>(),
-        warnings: vec.new<Warning>(),
+        errors: DynVec.new<Error>(),
+        warnings: DynVec.new<Warning>(),
         valid: true,
     }
     
@@ -110,7 +110,7 @@ check_file = (path: string) CheckResult   {
 }
 
 // Perform semantic checks on AST
-check_semantics = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
+check_semantics = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
     // Check for imports inside comptime blocks
     check_import_placement(result, ast)
     
@@ -125,7 +125,7 @@ check_semantics = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
 }
 
 // Check that imports are at module level only
-check_import_placement = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
+check_import_placement = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
     i := 0
     loop i < ast.len {
         check_import_in_node(result, ast[i], false)
@@ -181,8 +181,8 @@ check_import_in_node = (result: *CheckResult, node: *parser.AstNode, in_comptime
 }
 
 // Check for duplicate declarations
-check_duplicates = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
-    declarations := vec.new<string>()
+check_duplicates = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
+    declarations := DynVec.new<string>()
     
     i := 0
     loop i < ast.len {
@@ -221,7 +221,7 @@ get_declaration_name = (node: *parser.AstNode) string   {
 }
 
 // Check for unused variables (simplified)
-check_unused = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
+check_unused = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
     // This is a simplified check - real implementation would track usage
     i := 0
     loop i < ast.len {
@@ -243,7 +243,7 @@ check_unused = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
 }
 
 // Check for unreachable code
-check_unreachable = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
+check_unreachable = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
     i := 0
     loop i < ast.len {
         check_unreachable_in_node(result, ast[i])
@@ -278,7 +278,7 @@ check_unreachable_in_node = (result: *CheckResult, node: *parser.AstNode) void  
 }
 
 // Print results
-print_results = (results: vec.Vec<CheckResult>) void   {
+print_results = (results: DynVec<CheckResult>) void   {
     total_errors := 0
     total_warnings := 0
     
@@ -331,13 +331,13 @@ print_results = (results: vec.Vec<CheckResult>) void   {
 }
 
 // Main entry point
-main = (args: vec.Vec<string>) i32   {
+main = (args: DynVec<string>) i32   {
     args.len < 2 ? {
         io.println("Usage: zen-check <file.zen> [file2.zen ...]")
         return 1
     } : {}
     
-    results := vec.new<CheckResult>()
+    results := DynVec.new<CheckResult>()
     
     // Check each file
     i := 1

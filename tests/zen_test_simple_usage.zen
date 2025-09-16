@@ -1,6 +1,6 @@
 // Test the simple test module
-{ io } = @std.io
-{ test } = @std.test_simple
+io = @std.io
+{ test } = @std
 
 // Example tests
 test_addition = () bool   {

@@ -2,10 +2,10 @@
 // Tests basic compilation pipeline with the new import syntax
 
 // Import standard library modules (no comptime needed!)
-{ core } = @std.core
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
+core = @std.core
+io = @std.io
+fs = @std.fs
+string = @std.string
 
 // Test data structure to verify imports work
 TestResult: {

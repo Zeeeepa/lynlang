@@ -1,8 +1,8 @@
 // Test FFI Builder Pattern - Enhanced Version
 // Demonstrates the complete FFI builder pattern according to spec v1.1.0
 
-{ ffi } = @std.build.import("ffi")
-{ io } = @std.build.import("io")
+{ ffi } = @std("ffi")
+{ io } = @std("io")
 
 // Test building SQLite3 bindings
 test_sqlite_bindings = () void   {

@@ -1,7 +1,7 @@
 // Ultra-simple bootstrap test
 // Just tests that we can compile anything at all
 
-{ io } = @std.io
+io = @std.io
 
 main = () i32   {
     io.print("Hello from Zen!\n")

@@ -1,17 +1,17 @@
 // Zen Interactive Debugger
 // Provides step-through debugging capabilities for Zen programs
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ fs } = @std.fs
-{ process } = @std.process
-{ colors } = @std.colors
+core = @std.core
+io = @std.io
+string = @std.string
+{ Vec, DynVec } = @std.collections
+hashmap = @std.hashmap
+fs = @std.fs
+process = @std.process
+colors = @std.colors
 
 // Debugger state
-DebuggerState := |
+DebuggerState : 
     | Idle
     | Running
     | Paused
@@ -38,7 +38,7 @@ StackFrame := {
 }
 
 // Variable value representation
-Value := |
+Value : 
     Null
     Bool(val: bool)
     I8(val: i8)
@@ -79,7 +79,7 @@ Debugger := {
 }
 
 // Step modes
-StepMode := |
+StepMode : 
     | None
     | StepOver
     | StepInto
@@ -91,11 +91,11 @@ new_debugger = (program_path: string) Ptr<Debugger>   {
     dbg.state = DebuggerState.Idle
     dbg.program_path = program_path
     dbg.source_files = hashmap.new<string, Vec<string>>()
-    dbg.breakpoints = vec.new<Breakpoint>()
+    dbg.breakpoints = DynVec.new<Breakpoint>()
     dbg.next_breakpoint_id = 1
-    dbg.call_stack = vec.new<StackFrame>()
+    dbg.call_stack = DynVec.new<StackFrame>()
     dbg.current_frame = 0
-    dbg.watches = vec.new<WatchExpression>()
+    dbg.watches = DynVec.new<WatchExpression>()
     dbg.next_watch_id = 1
     dbg.step_mode = StepMode.None
     dbg.output_buffer = string.new()
@@ -138,7 +138,7 @@ add_breakpoint = (dbg: Ptr<Debugger>, file: string, line: u32) u32   {
         enabled: true
     }
     
-    vec.push(dbg.breakpoints, bp)
+    DynVec.push(dbg.breakpoints, bp)
     dbg.next_breakpoint_id += 1
     
     io.println(colors.green("Breakpoint ") + string.format("#{} set at {}:{}", 
@@ -151,7 +151,7 @@ remove_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.breakpoints.len()) {
         if (dbg.breakpoints[i].id == id) {
-            vec.remove(dbg.breakpoints, i)
+            DynVec.remove(dbg.breakpoints, i)
             io.println(colors.yellow("Breakpoint ") + string.format("#{} removed", id))
             return true
         }
@@ -202,7 +202,7 @@ add_watch = (dbg: Ptr<Debugger>, expression: string) u32   {
         value: Option.None
     }
     
-    vec.push(dbg.watches, watch)
+    DynVec.push(dbg.watches, watch)
     dbg.next_watch_id += 1
     
     io.println(colors.green("Watch ") + string.format("#{} added: {}", 
@@ -215,7 +215,7 @@ remove_watch = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.watches.len()) {
         if (dbg.watches[i].id == id) {
-            vec.remove(dbg.watches, i)
+            DynVec.remove(dbg.watches, i)
             io.println(colors.yellow("Watch ") + string.format("#{} removed", id))
             return true
         }
@@ -474,7 +474,7 @@ simulate_execution = (dbg: Ptr<Debugger>) void   {
     hashmap.insert(frame.locals, "y", Value.F64(3.14))
     hashmap.insert(frame.locals, "name", Value.String("test"))
     
-    vec.push(dbg.call_stack, frame)
+    DynVec.push(dbg.call_stack, frame)
     
     // Simulate hitting a breakpoint
     dbg.state = DebuggerState.Paused

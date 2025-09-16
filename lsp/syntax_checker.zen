@@ -1,14 +1,14 @@
 // Zen LSP: Basic Syntax Checker
 // Provides real-time syntax checking for Zen code
 
-{ core } = @std.core
-{ vec } = @std.vec
-{ string } = @std.string
-{ io } = @std.io
+core = @std.core
+{ Vec, DynVec } = @std.collections
+string = @std.string
+io = @std.io
 
 // Import compiler components
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
+lexer = @std.lexer
+parser = @std.parser
 
 // Diagnostic severity levels
 DiagnosticSeverity: Error | Warning | Information | Hint
@@ -35,22 +35,22 @@ Range: {
 
 // Syntax checker state
 SyntaxChecker: {
-    diagnostics: Vec<Diagnostic>,
+    diagnostics: DynVec<Diagnostic>,
     source: string,
 }
 
 // Create new syntax checker
 syntax_checker_new = () SyntaxChecker {
     SyntaxChecker {
-        diagnostics: vec_new<Diagnostic>(),
+        diagnostics: DynVec.new<Diagnostic>(),
         source: "",
     }
 }
 
 // Check syntax of source code
-check_syntax = (checker: Ptr<SyntaxChecker>, source: string) Vec<Diagnostic> {
+check_syntax = (checker: Ptr<SyntaxChecker>, source: string) DynVec<Diagnostic> {
     checker.source = source
-    checker.diagnostics = vec_new<Diagnostic>()
+    checker.diagnostics = DynVec.new<Diagnostic>()
     
     // Lexical analysis
     lex_result := perform_lexical_analysis(checker, source)
@@ -137,8 +137,8 @@ check_unused_imports = (checker: Ptr<SyntaxChecker>) void {
     lex := lexer.lexer_new(checker.source)
     tokens := lexer.tokenize(&lex)
     
-    imports := vec_new<string>()
-    used_imports := vec_new<string>()
+    imports := DynVec.new<string>()
+    used_imports := DynVec.new<string>()
     
     // Find all imports
     i := 0
@@ -314,7 +314,7 @@ check_identifier_naming = (checker: Ptr<SyntaxChecker>, name: string, line: u32,
 }
 
 // Format diagnostics as JSON
-format_diagnostics_json = (diagnostics: Vec<Diagnostic>) string {
+format_diagnostics_json = (diagnostics: DynVec<Diagnostic>) string {
     result := "["
     
     i := 0
@@ -355,9 +355,9 @@ string_contains = (s: string, pattern: string) bool {
     return false
 }
 
-string_split = (s: string, delimiter: char) Vec<string> {
+string_split = (s: string, delimiter: char) DynVec<string> {
     // Implementation would split string by delimiter
-    return vec_new<string>()
+    return DynVec.new<string>()
 }
 
 string_trim = (s: string) string {

@@ -25,10 +25,10 @@ main = () i32   {
     p2 := my_rect.perimeter()
     
     // Convert to integers for comparison
-    a1_int := a1 as i32
-    p1_int := p1 as i32
-    a2_int := a2 as i32
-    p2_int := p2 as i32
+    a1_int := cast<i32>(a1)
+    p1_int := cast<i32>(p1)
+    a2_int := cast<i32>(a2)
+    p2_int := cast<i32>(p2)
     
     // Check if direct calls work (should be 50 and 30)
     direct_sum := a1_int + p1_int  // Should be 80

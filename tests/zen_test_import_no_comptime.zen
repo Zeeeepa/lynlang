@@ -2,12 +2,12 @@
 // This is the new, correct way to import modules in Zen
 
 // Standard library imports - NO comptime needed
-{ core } = @std.core
-{ math } = @std.math
-{ vec } = @std.vec
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
+core = @std.core
+math = @std.math
+vec = @std.vec
+io = @std.io
+fs = @std.fs
+string = @std.string
 
 // Test function using imports
 test_imports_work = () bool   {

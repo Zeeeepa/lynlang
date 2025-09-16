@@ -2,11 +2,11 @@
 // Minimal LSP implementation for syntax checking and diagnostics
 
 // Standard library imports
-{ build } = @std.build
-{ core } = @std.core
+build = @std.build
+core = @std.core
 io := build.import("io")
 string := build.import("string")
-vec := build.import("vec")
+{ Vec, DynVec } = @std.collections
 json := build.import("json")
 
 // JSON-RPC message structure

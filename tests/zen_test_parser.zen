@@ -2,8 +2,8 @@
 // Demonstrates that the parser module compiles
 
 // Import modules
-{ core } = @std.core
-{ build } = @std.build
+core = @std.core
+build = @std.build
 
 // Simple test of parser concepts
 test_ast = () i32   {

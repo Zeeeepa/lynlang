@@ -4,8 +4,7 @@
 core := @std.core
 build := @std.build
 io := build.import("io")
-vec_module := build.import("vec")
-Vec := vec_module.Vec
+{ Vec, DynVec } = @std.collections
 
 // Test result types
 TestResult: Pass
@@ -24,14 +23,14 @@ TestCase: {
 // Test suite structure
 TestSuite: {
     name: string,
-    tests: Vec<TestCase>,
+    tests: DynVec<TestCase>,
     setup: Option<() void>,
     teardown: Option<() void>,
 }
 
 // Test runner state
 TestRunner: {
-    suites: Vec<TestSuite>,
+    suites: DynVec<TestSuite>,
     passed: i32,
     failed: i32,
     skipped: i32,
@@ -42,7 +41,7 @@ TestRunner: {
 
 // Global test runner
 global_runner := TestRunner{
-    suites: Vec<TestSuite>.new(),
+    suites: DynVec<TestSuite>.new(),
     passed: 0,
     failed: 0,
     skipped: 0,
@@ -55,7 +54,7 @@ global_runner := TestRunner{
 suite = (name: string) TestSuite   {
     return TestSuite{
         name: name,
-        tests: Vec<TestCase>.new(),
+        tests: DynVec<TestCase>.new(),
         setup: Option<() void>.None,
         teardown: Option<() void>.None,
     }

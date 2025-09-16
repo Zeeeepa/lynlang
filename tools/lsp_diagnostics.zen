@@ -1,11 +1,11 @@
 // LSP Diagnostics for Zen Language Server
 // Provides error reporting and diagnostic capabilities
 
-{ core } = @std.core
-{ string } = @std.string
-{ array } = @std.array
-{ json } = @std.json
-{ io } = @std.io
+core = @std.core
+string = @std.string
+array = @std.array
+json = @std.json
+io = @std.io
 
 // Diagnostic severity levels (LSP spec)
 DiagnosticSeverity: Error

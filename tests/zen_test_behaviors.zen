@@ -1,7 +1,7 @@
 // Test behaviors (structural contracts)
 // Language spec v1.1.0 compliance
 
-test, assert, { assert_eq } = @std.testing
+test, assert, { assert_eq } = @std
 
 // Define behaviors as structs with function pointers
 Comparable<T> = {

@@ -2,8 +2,8 @@
 // This tests basic tokenization capabilities
 
 // Import the self-hosted lexer
-{ lexer } = @std.lexer
-{ io } = @std.io
+lexer = @std.lexer
+io = @std.io
 
 // Test helper to print token info
 print_token = (tok: lexer.Token) void   {

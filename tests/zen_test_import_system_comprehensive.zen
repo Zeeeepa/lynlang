@@ -2,13 +2,13 @@
 // Validates that imports work correctly at module level only
 
 // Module-level imports (CORRECT)
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
-{ test } = @std.test
-{ fs } = @std.fs
-{ process } = @std.process
+core = @std.core
+io = @std.io
+string = @std.string
+vec = @std.vec
+test = @std.test
+fs = @std.fs
+process = @std.process
 
 // Test basic module imports
 test_basic_imports = () bool   {
@@ -24,7 +24,7 @@ test_basic_imports = () bool   {
     }
     
     // Test vector operations
-    v := vec.new<i32>()
+    v := DynVec.new<i32>()
     v.push(42)
     if v.len() != 1 {
         io.println("Vec module not working correctly")
@@ -57,8 +57,8 @@ test_comptime_metaprogramming = () bool   {
 // Test nested module imports
 test_nested_imports = () bool   {
     // Import from nested module paths
-    { result } = @std.result
-    { option } = @std.core.option
+    result = @std.result
+    option = @std.option
     
     // Test Result type
     ok_result := result.Ok(42)
@@ -117,7 +117,7 @@ test_cross_module_deps = () bool   {
 // Test build.import pattern
 test_build_import = () bool   {
     // Test the build.import syntax
-    { build } = @std.build
+    build = @std.build
     custom := build.import("custom_module")
     
     // The import should work at module level
@@ -134,7 +134,7 @@ TestStruct: {
 
 test_imports_in_structs = () bool   {
     s := TestStruct {
-        data: vec.new<i32>()
+        data: DynVec.new<i32>()
         name: "test"
     }
     
@@ -152,7 +152,7 @@ test_imports_in_structs = () bool   {
 
 // Test that imports can be used in functions
 process_data = (input: vec.Vec<i32>) vec.Vec<i32> {
-    output := vec.new<i32>()
+    output := DynVec.new<i32>()
     
     for val in input {
         output.push(val * 2)
@@ -180,7 +180,7 @@ test_imports_in_functions = () bool   {
 
 // Test generic functions with imported types
 map_vec = <T, U>(input: vec.Vec<T>, f: (T) U) vec.Vec<U> {
-    output := vec.new<U>()
+    output := DynVec.new<U>()
     
     for item in input {
         output.push(f(item))

@@ -1,21 +1,21 @@
 // Zen Compiler - Bootstrap Implementation
 // Main compiler driver that coordinates all compilation phases
 
-{ core } = @std.core
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ vec } = @std.vec
-{ args } = @std.args
-{ log } = @std.log
-{ time } = @std.time
+core = @std.core
+io = @std.io
+fs = @std.fs
+string = @std.string
+{ Vec, DynVec } = @std.collections
+args = @std.args
+log = @std.log
+time = @std.time
 
 // Import compiler modules
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
-{ codegen } = @std.compiler.codegen
-{ codegen_llvm } = @std.compiler.codegen_llvm
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
+codegen = @std.codegen
+codegen_llvm = @std.codegen_llvm
 
 // Compiler configuration
 CompilerConfig: {
@@ -64,7 +64,7 @@ default_config = () CompilerConfig   {
 }
 
 // Parse command line arguments
-parse_args = (argv: Vec<string>) Result<CompilerConfig, string>   {
+parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
     parser := args.new_parser("zenc", "The Zen compiler")
     
     // Add flags
@@ -104,8 +104,8 @@ parse_args = (argv: Vec<string>) Result<CompilerConfig, string>   {
             config := default_config()
             
             // Get input file
-            vec.len(parsed.positional) > 0 ? {
-                config.input_file = vec.get(parsed.positional, 0)
+            DynVec.len(parsed.positional) > 0 ? {
+                config.input_file = DynVec.get(parsed.positional, 0)
             } : {
                 return Result<CompilerConfig, string>.Err("No input file specified")
             }
@@ -191,12 +191,12 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
     
     tokens := lexer.tokenize(source)
     match tokens {
-        | Result<Vec<lexer.Token>, string>.Err(e) {
+        | Result<DynVec<lexer.Token>, string>.Err(e) {
             return CompileResult.LexerError(e)
         }
-        | Result<Vec<lexer.Token>, string>.Ok(toks) {
+        | Result<DynVec<lexer.Token>, string>.Ok(toks) {
             config.verbose ? {
-                log.info("  Lexed " + int_to_string(vec.len(toks)) + " tokens")
+                log.info("  Lexed " + int_to_string(DynVec.len(toks)) + " tokens")
             } : {}
         }
     }
@@ -380,7 +380,7 @@ int_to_string = (n: i32) string   {
 }
 
 // Main entry point
-main = (argc: i32, argv: Vec<string>) i32   {
+main = (argc: i32, argv: DynVec<string>) i32   {
     // Configure logging
     log.set_level(log.LogLevel.Info)
     

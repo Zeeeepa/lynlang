@@ -2,21 +2,21 @@
 // This demonstrates the correct import syntax for Zen
 
 // Standard library imports (module level, no comptime)
-{ core } = @std.core
-{ io } = @std.io
-{ math } = @std.math
-{ string } = @std.string
-{ vec } = @std.vec
-{ fs } = @std.fs
+core = @std.core
+io = @std.io
+math = @std.math
+string = @std.string
+vec = @std.vec
+fs = @std.fs
 
 // Build system imports
-{ json } = @std.json
-{ network } = @std.network
+json = @std.json
+network = @std.network
 
 // Compiler module imports
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ codegen } = @std.compiler.codegen
+lexer = @std.lexer
+parser = @std.parser
+codegen = @std.codegen
 
 // Test that imports work correctly
 test_std_imports = () bool   {
@@ -63,7 +63,7 @@ test_string_ops = () bool   {
 // Test vector operations
 test_vec_ops = () bool   {
     // Create a new vector
-    numbers := vec.new<i32>()
+    numbers := DynVec.new<i32>()
     
     // Add elements
     numbers.push(1)

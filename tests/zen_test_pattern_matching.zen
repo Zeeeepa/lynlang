@@ -1,7 +1,7 @@
 // Test pattern matching using ? operator
 // Language spec v1.1.0 compliance
 
-{ test } = @std.testing
+{ test } = @std
 
 // Test basic value patterns
 test("value patterns") {

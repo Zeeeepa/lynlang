@@ -1,9 +1,9 @@
 // Basic self-hosting test
 // Tests that fundamental language features work correctly
 
-{ io } = @std.io
-{ string } = @std.string
-{ core } = @std.core
+io = @std.io
+string = @std.string
+core = @std.core
 
 // Test function declarations
 add = (a: i32, b: i32) i32   {

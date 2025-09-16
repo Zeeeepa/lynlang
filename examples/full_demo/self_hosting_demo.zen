@@ -1,10 +1,10 @@
 // Zenlang Self-Hosting Demo
 // Demonstrates key language features for building a compiler in Zenlang
 
-{ io } = @std.io
-{ vec } = @std.vec
-{ string } = @std.string
-{ result } = @std.result
+io = @std.io
+{ Vec, DynVec } = @std.collections
+string = @std.string
+result = @std.result
 
 // Token types for lexer
 TokenType: .Integer | .Float | .String | .Char | .Bool | .Identifier | .Keyword | .Plus | .Minus | .Star | .Slash | .Percent | .Equal | .NotEqual | .Less

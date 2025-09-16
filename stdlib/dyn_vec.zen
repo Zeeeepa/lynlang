@@ -1,0 +1,563 @@
+// Zen Standard Library: Dynamic Vector Implementation
+// A heap-allocated, growable array type
+
+core := @std.core
+
+// Dynamic vector structure - heap allocated, growable
+DynVec<T>: {
+    data: Ptr<T>         // Pointer to the data
+    len: usize           // Current number of elements
+    capacity: usize      // Total allocated capacity
+}
+
+// Create a new empty dynamic vector
+DynVec<T>.new = () DynVec<T> {
+    return DynVec<T>{
+        data: core.null_ptr<T>(),
+        len: 0,
+        capacity: 0
+    }
+}
+
+// Create a vector with initial capacity  
+DynVec<T>.with_capacity = (capacity: usize) core.Result<DynVec<T>, core.Error> {
+    capacity == 0 ? 
+        | true => DynVec<T>.new()
+        | false => {
+            data := core.malloc(capacity * core.sizeOf<T>())
+            data == core.null_ptr<T>() ?
+                | true => core.Result:Err(core.Error:OutOfMemory)
+                | false => core.Result:Ok(DynVec<T>{
+                    data: data,
+                    len: 0,
+                    capacity: capacity
+                })
+        }
+}
+
+// Push element to the vector
+DynVec<T>.push = (self: *DynVec<T>, value: T) core.Result<void, core.Error> {
+    // Check if we need to grow
+    self.len >= self.capacity ? 
+        | true => {
+            new_capacity := self.capacity == 0 ? 
+                | true => 8
+                | false => self.capacity * 2
+            
+            result := self.grow(new_capacity)
+            result ? 
+                | core.Result:Err(e) => return core.Result:Err(e)
+                | core.Result:Ok(_) => {}
+        }
+        | false => {}
+    
+    // Add the element
+    self.data[self.len] = value
+    self.len = self.len + 1
+    return core.Result:Ok({})
+}
+
+// Pop element from the vector
+DynVec<T>.pop = (self: *DynVec<T>) core.Option<T> {
+    self.len == 0 ? 
+        | true => core.Option:None
+        | false => {
+            self.len = self.len - 1
+            core.Option:Some(self.data[self.len])
+        }
+}
+
+// Get element at index
+DynVec<T>.get = (self: *DynVec<T>, index: usize) core.Result<T, core.Error> {
+    index >= self.len ? 
+        | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
+        | false => core.Result:Ok(self.data[index])
+}
+
+// Set element at index
+DynVec<T>.set = (self: *DynVec<T>, index: usize, value: T) core.Result<void, core.Error> {
+    index >= self.len ? 
+        | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
+        | false => {
+            self.data[index] = value
+            core.Result:Ok({})
+        }
+}
+
+// Get vector length
+DynVec<T>.len = (self: *DynVec<T>) usize {
+    return self.len
+}
+
+// Get vector capacity
+DynVec<T>.capacity = (self: *DynVec<T>) usize {
+    return self.capacity
+}
+
+// Check if vector is empty
+DynVec<T>.is_empty = (self: *DynVec<T>) bool {
+    return self.len == 0
+}
+
+// Clear the vector (remove all elements but keep capacity)
+DynVec<T>.clear = (self: *DynVec<T>) void {
+    self.len = 0
+}
+
+// Grow the vector's capacity
+DynVec<T>.grow = (self: *DynVec<T>, new_capacity: usize) core.Result<void, core.Error> {
+    new_capacity <= self.capacity ? 
+        | true => core.Result:Ok({})
+        | false => {
+            new_data := core.malloc(new_capacity * core.sizeOf<T>())
+            new_data == core.null_ptr<T>() ?
+                | true => core.Result:Err(core.Error:OutOfMemory)
+                | false => {
+                    // Copy existing data
+                    self.len > 0 ?
+                        | true => core.memcpy(new_data, self.data, self.len * core.sizeOf<T>())
+                        | false => {}
+                    
+                    // Free old data if it exists
+                    self.data != core.null_ptr<T>() ?
+                        | true => core.free(self.data)
+                        | false => {}
+                    
+                    self.data = new_data
+                    self.capacity = new_capacity
+                    core.Result:Ok({})
+                }
+        }
+}
+
+// Free the vector's memory
+DynVec<T>.free = (self: *DynVec<T>) void {
+    self.data != core.null_ptr<T>() ?
+        | true => core.free(self.data)
+        | false => {}
+    
+    self.data = core.null_ptr<T>()
+    self.len = 0
+    self.capacity = 0
+}
+
+// Insert element at position
+DynVec<T>.insert = (self: *DynVec<T>, index: usize, value: T) core.Result<void, core.Error> {
+    index > self.len ?
+        | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
+        | false => {
+            // Ensure capacity
+            self.len >= self.capacity ?
+                | true => {
+                    new_capacity := self.capacity == 0 ?
+                        | true => 8
+                        | false => self.capacity * 2
+                    result := self.grow(new_capacity)
+                    result ?
+                        | core.Result:Err(e) => return core.Result:Err(e)
+                        | core.Result:Ok(_) => {}
+                }
+                | false => {}
+            
+            // Shift elements to the right
+            i ::= self.len
+            loop {
+                i == index ? | true => break
+                           | false => {}
+                self.data[i] = self.data[i - 1]
+                i = i - 1
+            }
+            
+            self.data[index] = value
+            self.len = self.len + 1
+            core.Result:Ok({})
+        }
+}
+
+// Remove element at position
+DynVec<T>.remove = (self: *DynVec<T>, index: usize) core.Result<T, core.Error> {
+    index >= self.len ?
+        | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
+        | false => {
+            removed := self.data[index]
+            
+            // Shift elements to the left
+            i ::= index
+            loop {
+                i >= self.len - 1 ? | true => break
+                                   | false => {}
+                self.data[i] = self.data[i + 1]
+                i = i + 1
+            }
+            
+            self.len = self.len - 1
+            core.Result:Ok(removed)
+        }
+}
+
+// Reserve capacity for at least n additional elements
+DynVec<T>.reserve = (self: *DynVec<T>, additional: usize) core.Result<void, core.Error> {
+    required_capacity := self.len + additional
+    required_capacity > self.capacity ?
+        | true => self.grow(required_capacity)
+        | false => core.Result:Ok({})
+}
+
+// Shrink capacity to fit current length
+DynVec<T>.shrink_to_fit = (self: *DynVec<T>) core.Result<void, core.Error> {
+    self.capacity == self.len ? 
+        | true => core.Result:Ok({})
+        | false => {
+            self.len == 0 ?
+                | true => {
+                    self.free()
+                    core.Result:Ok({})
+                }
+                | false => {
+                    new_data := core.malloc(self.len * core.sizeOf<T>())
+                    new_data == core.null_ptr<T>() ?
+                        | true => core.Result:Err(core.Error:OutOfMemory)
+                        | false => {
+                            core.memcpy(new_data, self.data, self.len * core.sizeOf<T>())
+                            core.free(self.data)
+                            self.data = new_data
+                            self.capacity = self.len
+                            core.Result:Ok({})
+                        }
+                }
+        }
+}
+
+// Swap remove - O(1) removal by swapping with last element
+DynVec<T>.swap_remove = (self: *DynVec<T>, index: usize) core.Result<T, core.Error> {
+    index >= self.len ?
+        | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
+        | false => {
+            removed := self.data[index]
+            self.len = self.len - 1
+            
+            index < self.len ?
+                | true => self.data[index] = self.data[self.len]
+                | false => {}
+            
+            core.Result:Ok(removed)
+        }
+}
+
+// Extend vector with elements from another vector
+DynVec<T>.extend = (self: *DynVec<T>, other: *DynVec<T>) core.Result<void, core.Error> {
+    required_capacity := self.len + other.len
+    required_capacity > self.capacity ?
+        | true => {
+            result := self.grow(required_capacity)
+            result ?
+                | core.Result:Err(e) => return core.Result:Err(e)
+                | core.Result:Ok(_) => {}
+        }
+        | false => {}
+    
+    i ::= 0
+    loop {
+        i >= other.len ? | true => break
+                        | false => {}
+        self.data[self.len + i] = other.data[i]
+        i = i + 1
+    }
+    self.len = self.len + other.len
+    core.Result:Ok({})
+}
+
+// Truncate vector to specified length
+DynVec<T>.truncate = (self: *DynVec<T>, len: usize) void {
+    len < self.len ?
+        | true => self.len = len
+        | false => {}
+}
+
+// Split off vector at index, returns new vector with elements from index
+DynVec<T>.split_off = (self: *DynVec<T>, at: usize) core.Result<DynVec<T>, core.Error> {
+    at > self.len ?
+        | true => core.Result:Err(core.Error:IndexOutOfBounds(at, self.len))
+        | false => {
+            split_len := self.len - at
+            split_vec := DynVec<T>.with_capacity(split_len)
+            split_vec ?
+                | core.Result:Err(e) => return core.Result:Err(e)
+                | core.Result:Ok(new_vec) => {
+                    i ::= 0
+                    loop {
+                        i >= split_len ? | true => break
+                                        | false => {}
+                        new_vec.data[i] = self.data[at + i]
+                        i = i + 1
+                    }
+                    new_vec.len = split_len
+                    self.len = at
+                    core.Result:Ok(new_vec)
+                }
+        }
+}
+
+// Reverse the vector in place
+DynVec<T>.reverse = (self: *DynVec<T>) void {
+    i ::= 0
+    j ::= self.len - 1
+    loop {
+        i >= j ? | true => break
+               | false => {}
+        temp := self.data[i]
+        self.data[i] = self.data[j]
+        self.data[j] = temp
+        i = i + 1
+        j = j - 1
+    }
+}
+
+// Iterator support
+DynVec<T>.iter = (self: *DynVec<T>) DynVecIterator<T> {
+    return DynVecIterator<T>{
+        vec: self,
+        index: 0
+    }
+}
+
+DynVecIterator<T>: {
+    vec: *DynVec<T>
+    index: usize
+}
+
+DynVecIterator<T>.next = (self: *DynVecIterator<T>) core.Option<T> {
+    self.index >= self.vec.len ?
+        | true => core.Option:None
+        | false => {
+            value := self.vec.data[self.index]
+            self.index = self.index + 1
+            core.Option:Some(value)
+        }
+}
+
+// Functional operations
+DynVec<T>.map<U> = (self: *DynVec<T>, f: (T) U) core.Result<DynVec<U>, core.Error> {
+    result := DynVec<U>.with_capacity(self.len)
+    result ?
+        | core.Result:Err(e) => return core.Result:Err(e)
+        | core.Result:Ok(new_vec) => {
+            i ::= 0
+            loop {
+                i >= self.len ? | true => break
+                              | false => {}
+                push_result := new_vec.push(f(self.data[i]))
+                push_result ?
+                    | core.Result:Err(e) => return core.Result:Err(e)
+                    | core.Result:Ok(_) => {}
+                i = i + 1
+            }
+            core.Result:Ok(new_vec)
+        }
+}
+
+DynVec<T>.filter = (self: *DynVec<T>, predicate: (T) bool) core.Result<DynVec<T>, core.Error> {
+    result := DynVec<T>.new()
+    
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        predicate(self.data[i]) ?
+            | true => {
+                push_result := result.push(self.data[i])
+                push_result ?
+                    | core.Result:Err(e) => return core.Result:Err(e)
+                    | core.Result:Ok(_) => {}
+            }
+            | false => {}
+        i = i + 1
+    }
+    core.Result:Ok(result)
+}
+
+DynVec<T>.fold<U> = (self: *DynVec<T>, initial: U, f: (U, T) U) U {
+    acc ::= initial
+    
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        acc = f(acc, self.data[i])
+        i = i + 1
+    }
+    
+    return acc
+}
+
+// Find first element matching predicate
+DynVec<T>.find = (self: *DynVec<T>, predicate: (T) bool) core.Option<T> {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        predicate(self.data[i]) ?
+            | true => return core.Option:Some(self.data[i])
+            | false => {}
+        i = i + 1
+    }
+    return core.Option:None
+}
+
+// Find index of first element matching predicate
+DynVec<T>.find_index = (self: *DynVec<T>, predicate: (T) bool) core.Option<usize> {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        predicate(self.data[i]) ?
+            | true => return core.Option:Some(i)
+            | false => {}
+        i = i + 1
+    }
+    return core.Option:None
+}
+
+// Check if any element matches predicate
+DynVec<T>.any = (self: *DynVec<T>, predicate: (T) bool) bool {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        predicate(self.data[i]) ?
+            | true => return true
+            | false => {}
+        i = i + 1
+    }
+    return false
+}
+
+// Check if all elements match predicate
+DynVec<T>.all = (self: *DynVec<T>, predicate: (T) bool) bool {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        predicate(self.data[i]) ?
+            | false => return false
+            | true => {}
+        i = i + 1
+    }
+    return true
+}
+
+// Count elements matching predicate
+DynVec<T>.count = (self: *DynVec<T>, predicate: (T) bool) usize {
+    count ::= 0
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        predicate(self.data[i]) ?
+            | true => count = count + 1
+            | false => {}
+        i = i + 1
+    }
+    return count
+}
+
+// Apply function to each element
+DynVec<T>.for_each = (self: *DynVec<T>, f: (T) void) void {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        f(self.data[i])
+        i = i + 1
+    }
+}
+
+// Get first element
+DynVec<T>.first = (self: *DynVec<T>) core.Option<T> {
+    self.len > 0 ?
+        | true => core.Option:Some(self.data[0])
+        | false => core.Option:None
+}
+
+// Get last element
+DynVec<T>.last = (self: *DynVec<T>) core.Option<T> {
+    self.len > 0 ?
+        | true => core.Option:Some(self.data[self.len - 1])
+        | false => core.Option:None
+}
+
+// Clone vector
+DynVec<T>.clone = (self: *DynVec<T>) core.Result<DynVec<T>, core.Error> {
+    new_vec := DynVec<T>.with_capacity(self.capacity)
+    new_vec ?
+        | core.Result:Err(e) => return core.Result:Err(e)
+        | core.Result:Ok(cloned) => {
+            core.memcpy(cloned.data, self.data, self.len * core.sizeOf<T>())
+            cloned.len = self.len
+            core.Result:Ok(cloned)
+        }
+}
+
+// Check if vector contains element
+DynVec<T>.contains = (self: *DynVec<T>, value: T, equals: (T, T) bool) bool {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        equals(self.data[i], value) ?
+            | true => return true
+            | false => {}
+        i = i + 1
+    }
+    return false
+}
+
+// Get slice as pointer and length  
+DynVec<T>.as_slice = (self: *DynVec<T>) (Ptr<T>, usize) {
+    return (self.data, self.len)
+}
+
+// Functional loop method - executes callback for each element
+DynVec<T>.loop = (self: *DynVec<T>, callback: (T) void) void {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        callback(self.data[i])
+        i = i + 1
+    }
+}
+
+// Loop with index - executes callback for each element with its index
+DynVec<T>.loop_indexed = (self: *DynVec<T>, callback: (usize, T) void) void {
+    i ::= 0
+    loop {
+        i >= self.len ? | true => break
+                      | false => {}
+        callback(i, self.data[i])
+        i = i + 1
+    }
+}
+
+// Create from array
+DynVec<T>.from_array = (array: [T], len: usize) core.Result<DynVec<T>, core.Error> {
+    vec := DynVec<T>.with_capacity(len)
+    vec ?
+        | core.Result:Err(e) => return core.Result:Err(e)
+        | core.Result:Ok(v) => {
+            i ::= 0
+            loop {
+                i >= len ? | true => break
+                         | false => {}
+                result := v.push(array[i])
+                result ?
+                    | core.Result:Err(e) => return core.Result:Err(e)
+                    | core.Result:Ok(_) => {}
+                i = i + 1
+            }
+            core.Result:Ok(v)
+        }
+}
+
+// Export the type
+export DynVec

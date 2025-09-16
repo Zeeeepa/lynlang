@@ -1,12 +1,12 @@
 // Zen Language LLVM Backend
 // Generates LLVM IR for high-performance compilation
 
-{ core } = @std.core
-{ vec } = @std.vec
-{ string } = @std.string
-{ io } = @std.io
-{ mem } = @std.mem
-{ ast } = @std.ast
+core = @std.core
+{ Vec, DynVec } = @std.collections
+string = @std.string
+io = @std.io
+mem = @std.mem
+ast = @std.ast
 
 // LLVM IR Builder context
 LLVMContext: {
@@ -22,10 +22,10 @@ LLVMContext: {
 }
 
 // LLVM types
-LLVMType: Void | I1 | I8 | I16 | I32 | I64 | F32 | F64 | Ptr: {inner: Ptr<LLVMType>} | Array: {element: Ptr<LLVMType>, size: u64} | Struct: {fields: DynVec<LLVMType>} | Function: {ret: Ptr<LLVMType>, params: DynVec<LLVMType>}
+LLVMType: Void, I1, I8, I16, I32, I64, F32, F64, Ptr: {inner: Ptr<LLVMType>}, Array: {element: Ptr<LLVMType>, size: u64}, Struct: {fields: DynVec<LLVMType>}, Function: {ret: Ptr<LLVMType>, params: DynVec<LLVMType>}
 
 // LLVM value representation
-LLVMValue: Register: {id: u32} | Constant: {val: LLVMConstant} | Global: {name: string} | Argument: {index: u32}
+LLVMValue: Register: {id: u32}, Constant: {val: LLVMConstant}, Global: {name: string}, Argument: {index: u32}
 
 // LLVM constants
 LLVMConstant: I1: {val: bool} | I8: {val: i8} | I16: {val: i16} |
@@ -118,9 +118,9 @@ LLVMInstruction:
     Bitcast{dest: u32, value: LLVMValue, from: LLVMType, to: LLVMType},
     
     // Other operations
-    Call{dest: Option<u32>, func: string, ret_type: LLVMType, args: Vec<{LLVMType, LLVMValue}>},
-    GetElementPtr{dest: u32, type_: LLVMType, ptr: LLVMValue, indices: Vec<LLVMValue>},
-    Phi{dest: u32, type_: LLVMType, incoming: Vec<{LLVMValue, string}>},
+    Call{dest: Option<u32>, func: string, ret_type: LLVMType, args: DynVec<{LLVMType, LLVMValue}>},
+    GetElementPtr{dest: u32, type_: LLVMType, ptr: LLVMValue, indices: DynVec<LLVMValue>},
+    Phi{dest: u32, type_: LLVMType, incoming: DynVec<{LLVMValue, string}>},
     Select{dest: u32, cond: LLVMValue, true_val: LLVMValue, false_val: LLVMValue, type_: LLVMType},
 
 // Block terminators
@@ -128,7 +128,7 @@ LLVMTerminator:
     Ret{value: Option<LLVMValue>, type_: LLVMType},
     Br{target: string},
     CondBr{cond: LLVMValue, true_target: string, false_target: string},
-    Switch{value: LLVMValue, default: string, cases: Vec<(LLVMConstant, string)>},
+    Switch{value: LLVMValue, default: string, cases: DynVec<(LLVMConstant, string)>},
     Unreachable
 
 // Create new LLVM context
@@ -137,12 +137,12 @@ new_context = (module_name: string) LLVMContext   {
         module_name: module_name,
         target_triple: "x86_64-unknown-linux-gnu",
         data_layout: "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128",
-        globals: vec.new<LLVMGlobal>(),
-        functions: vec.new<LLVMFunction>(),
-        types: vec.new<LLVMType>(),
+        globals: DynVec.new(),
+        functions: DynVec.new(),
+        types: DynVec.new(),
         current_block: Option<LLVMBlock>.None,
         next_reg: 0,
-        string_constants: vec.new<StringConstant>()
+        string_constants: DynVec.new()
     }
 }
 
@@ -193,7 +193,7 @@ add_string_constant = (ctx: Ptr<LLVMContext>, value: string) u32   {
         global_name: global_name
     }
     
-    vec.push(ctx.string_constants, constant)
+    DynVec.push(&ctx.string_constants, constant)
     return id
 }
 
@@ -234,7 +234,7 @@ generate_expression = (ctx: Ptr<LLVMContext>, expr: Ptr<ast.AstExpr>) LLVMValue 
             // Add instruction to current block
             ctx.current_block ? {
                 ctx.current_block ? {
-                    Option.Some(block) ? vec.push(block.instructions, instruction)
+                    Option.Some(block) ? DynVec.push(&block.instructions, instruction)
                     _ => {}
                 }
             }
@@ -282,7 +282,7 @@ generate_statement = (ctx: Ptr<LLVMContext>, stmt: Ptr<ast.AstStmt>) void   {
 // Generate LLVM IR for function
 generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
     // Convert parameters
-    params := vec.new<LLVMParam>()
+    params := DynVec.new()
     for (i := 0; i < func.params.len(); i += 1) {
         param := func.params[i]
         llvm_type := zen_type_to_llvm(param.type_)
@@ -290,7 +290,7 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
             name: param.name,
             type_: llvm_type
         }
-        vec.push(params, llvm_param)
+        DynVec.push(&params, llvm_param)
     }
     
     // Convert return type
@@ -299,7 +299,7 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
     // Create entry block
     entry_block := LLVMBlock{
         label: "entry",
-        instructions: vec.new<LLVMInstruction>(),
+        instructions: DynVec.new(),
         terminator: Option.None
     }
     
@@ -308,13 +308,13 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
         name: func.name,
         return_type: ret_type,
         params: params,
-        blocks: vec.new<LLVMBlock>(),
+        blocks: DynVec.new(),
         is_declaration: false,
         linkage: "define",
-        attributes: vec.new<string>()
+        attributes: DynVec.new()
     }
     
-    vec.push(llvm_func.blocks, entry_block)
+    DynVec.push(&llvm_func.blocks, entry_block)
     ctx.current_block = Option.Some(llvm_func.blocks[0])
     
     // Generate body
@@ -334,7 +334,7 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
         }
     }
     
-    vec.push(ctx.functions, llvm_func)
+    DynVec.push(&ctx.functions, llvm_func)
     ctx.current_block = Option.None
 }
 
@@ -629,7 +629,7 @@ generate_llvm_from_ast = (ast: Ptr<ast.AstProgram>, module_name: string) string 
                     linkage: "global"
                 }
                 
-                vec.push(ctx.globals, global)
+                DynVec.push(&ctx.globals, global)
             }
             _ => {}
         }
@@ -674,7 +674,7 @@ compile_to_native = (ir_path: string, output_path: string, opt_level: string) bo
 }
 
 // Link object files to create executable
-link_executable = (obj_files: Vec<string>, output_path: string) bool   {
+link_executable = (obj_files: DynVec<string>, output_path: string) bool   {
     // Build linker command
     ld_cmd := string.format("cc -o {} ", output_path)
     

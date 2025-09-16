@@ -1,23 +1,23 @@
 // Zen Language Server Protocol Implementation
 // Provides IDE support for Zen language
 
-{ io } = @std.io
-{ json } = @std.json
-{ net } = @std.net
-{ string } = @std.string
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ thread } = @std.thread
-{ fs } = @std.fs
-{ result } = @std.result
+io = @std.io
+json = @std.json
+net = @std.net
+string = @std.string
+{ Vec, DynVec } = @std.collections
+hashmap = @std.hashmap
+thread = @std.thread
+fs = @std.fs
+result = @std.result
 
 // Import compiler components
-{ lexer } = @std.compiler.lexer
-{ parser } = @std.compiler.parser
-{ type_checker } = @std.compiler.type_checker
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
 
 // LSP message types
-MessageType := |
+MessageType : 
     Request,
     Response,
     Notification
@@ -75,7 +75,7 @@ Diagnostic : {
     code: ?string,
     source: string,
     message: string,
-    related_information: vec.Vec<DiagnosticRelatedInformation>
+    related_information: DynVec<DiagnosticRelatedInformation>
 }
 
 // Related diagnostic information
@@ -186,7 +186,7 @@ DocumentSymbol := {
     deprecated: bool,
     range: Range,
     selection_range: Range,
-    children: vec.Vec<DocumentSymbol>
+    children: DynVec<DocumentSymbol>
 }
 
 // Hover information
@@ -212,7 +212,7 @@ ServerCapabilities : {
 
 // Execute command options
 ExecuteCommandOptions : {
-    commands: vec.Vec<string>
+    commands: DynVec<string>
 }
 
 // Language server state
@@ -220,8 +220,8 @@ LanguageServer : {
     initialized: bool,
     root_uri: ?string,
     documents: hashmap.HashMap<string, TextDocumentItem>,
-    diagnostics: hashmap.HashMap<string, vec.Vec<Diagnostic>>,
-    symbols: hashmap.HashMap<string, vec.Vec<DocumentSymbol>>,
+    diagnostics: hashmap.HashMap<string, DynVec<Diagnostic>>,
+    symbols: hashmap.HashMap<string, DynVec<DocumentSymbol>>,
     capabilities: ServerCapabilities
 }
 
@@ -231,8 +231,8 @@ new_server = () RawPtr<LanguageServer>   {
         initialized: false,
         root_uri: null,
         documents: hashmap.new<string, TextDocumentItem>(),
-        diagnostics: hashmap.new<string, vec.Vec<Diagnostic>>(),
-        symbols: hashmap.new<string, vec.Vec<DocumentSymbol>>(),
+        diagnostics: hashmap.new<string, DynVec<Diagnostic>>(),
+        symbols: hashmap.new<string, DynVec<DocumentSymbol>>(),
         capabilities: ServerCapabilities{
             text_document_sync: 1,  // Full sync
             hover_provider: true,
@@ -245,7 +245,7 @@ new_server = () RawPtr<LanguageServer>   {
             document_formatting_provider: true,
             document_range_formatting_provider: true,
             execute_command_provider: ExecuteCommandOptions{
-                commands: vec.from_slice(["zen.compile", "zen.format", "zen.check"])
+                commands: DynVec.from_slice(["zen.compile", "zen.format", "zen.check"])
             }
         }
     }
@@ -327,7 +327,7 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
     }
     
     doc := server.documents.get(uri)
-    diagnostics := vec.Vec.new<Diagnostic>()
+    diagnostics := DynVec.new<Diagnostic>()
     
     // Tokenize
     tokens_result := lexer.tokenize(doc.text)
@@ -342,7 +342,7 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
             code: null,
             source: "zen-lexer",
             message: tokens_result.unwrap_error(),
-            related_information: vec.Vec.new()
+            related_information: DynVec.new()
         }
         diagnostics.push(diagnostic)
     } else {
@@ -361,7 +361,7 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
                 code: null,
                 source: "zen-parser",
                 message: ast_result.unwrap_error(),
-                related_information: vec.Vec.new()
+                related_information: DynVec.new()
             }
             diagnostics.push(diagnostic)
         } else {
@@ -380,7 +380,7 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
                     code: null,
                     source: "zen-type-checker",
                     message: type_result.unwrap_error(),
-                    related_information: vec.Vec.new()
+                    related_information: DynVec.new()
                 }
                 diagnostics.push(diagnostic)
             }
@@ -402,7 +402,7 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
 }
 
 // Check style issues
-check_style = (text: string, diagnostics: *vec.Vec<Diagnostic>) void   {
+check_style = (text: string, diagnostics: *DynVec<Diagnostic>) void   {
     lines := string.split(text, "\n")
     
     for (line_num, line in lines) {
@@ -417,7 +417,7 @@ check_style = (text: string, diagnostics: *vec.Vec<Diagnostic>) void   {
                 code: "line-too-long",
                 source: "zen-style",
                 message: "Line exceeds 100 characters",
-                related_information: vec.Vec.new()
+                related_information: DynVec.new()
             }
             diagnostics.push(diagnostic)
         }
@@ -433,7 +433,7 @@ check_style = (text: string, diagnostics: *vec.Vec<Diagnostic>) void   {
                 code: "mixed-indentation",
                 source: "zen-style",
                 message: "Mixed tabs and spaces for indentation",
-                related_information: vec.Vec.new()
+                related_information: DynVec.new()
             }
             diagnostics.push(diagnostic)
         }
@@ -454,7 +454,7 @@ check_style = (text: string, diagnostics: *vec.Vec<Diagnostic>) void   {
                 code: "todo-comment",
                 source: "zen-style",
                 message: "TODO comment found",
-                related_information: vec.Vec.new()
+                related_information: DynVec.new()
             }
             diagnostics.push(diagnostic)
         }
@@ -462,8 +462,8 @@ check_style = (text: string, diagnostics: *vec.Vec<Diagnostic>) void   {
 }
 
 // Extract symbols from AST
-extract_symbols = (ast: ASTNode) vec.Vec<DocumentSymbol> {
-    symbols := vec.Vec.new<DocumentSymbol>()
+extract_symbols = (ast: ASTNode) DynVec<DocumentSymbol> {
+    symbols := DynVec.new<DocumentSymbol>()
     
     // Walk AST and extract symbols
     for (node in ast.children) {
@@ -476,7 +476,7 @@ extract_symbols = (ast: ASTNode) vec.Vec<DocumentSymbol> {
                     deprecated: false,
                     range: node_to_range(node),
                     selection_range: node_to_range(node),
-                    children: vec.Vec.new()
+                    children: DynVec.new()
                 }
                 symbols.push(symbol)
             },
@@ -512,7 +512,7 @@ extract_symbols = (ast: ASTNode) vec.Vec<DocumentSymbol> {
                     deprecated: false,
                     range: node_to_range(node),
                     selection_range: node_to_range(node),
-                    children: vec.Vec.new()
+                    children: DynVec.new()
                 }
                 symbols.push(symbol)
             },
@@ -538,7 +538,7 @@ handle_completion = (server: *LanguageServer, params: json.Value) json.Value {
     context := get_context_at_position(doc.text, position)
     
     // Generate completions
-    items := vec.Vec.new<json.Value>()
+    items := DynVec.new<json.Value>()
     
     // Add keywords
     keywords := ["if", "else", "while", "for", "return", "struct", "enum", "fn", "const", "let", "match", "comptime"]
@@ -709,8 +709,8 @@ handle_definition = (server: *LanguageServer, params: json.Value) json.Value  {
 }
 
 // Publish diagnostics notification
-publish_diagnostics = (uri: string, diagnostics: vec.Vec<Diagnostic>) void   {
-    diag_array := vec.Vec.new<json.Value>()
+publish_diagnostics = (uri: string, diagnostics: DynVec<Diagnostic>) void   {
+    diag_array := DynVec.new<json.Value>()
     
     for (diagnostic in diagnostics) {
         diag_json := json.object([
@@ -867,14 +867,14 @@ is_word_char = (c: u8) bool   {
            c == '_'
 }
 
-extract_struct_fields = (node: ASTNode) vec.Vec<DocumentSymbol> {
-    fields := vec.Vec.new<DocumentSymbol>()
+extract_struct_fields = (node: ASTNode) DynVec<DocumentSymbol> {
+    fields := DynVec.new<DocumentSymbol>()
     // Implementation would extract fields from struct AST node
     return fields
 }
 
-extract_enum_members = (node: ASTNode) vec.Vec<DocumentSymbol> {
-    members := vec.Vec.new<DocumentSymbol>()
+extract_enum_members = (node: ASTNode) DynVec<DocumentSymbol> {
+    members := DynVec.new<DocumentSymbol>()
     // Implementation would extract members from enum AST node
     return members
 }
@@ -910,7 +910,7 @@ find_definition_in_imports = (server: *LanguageServer, doc: Document, word: stri
 find_definition_in_stdlib = (word: string) json.Value? {
     // Map of standard library symbols to their locations
     stdlib_symbols := hashmap.new<string, (string, u32, u32)>()
-    stdlib_symbols.insert("Vec", ("stdlib/vec.zen", 10, 0))
+    stdlib_symbols.insert("DynVec", ("stdlib/collections.zen", 10, 0))
     stdlib_symbols.insert("Option", ("stdlib/option.zen", 5, 0))
     stdlib_symbols.insert("Result", ("stdlib/result.zen", 5, 0))
     stdlib_symbols.insert("io", ("stdlib/io.zen", 1, 0))
@@ -938,8 +938,8 @@ find_definition_in_stdlib = (word: string) json.Value? {
 }
 
 // Extract import statements from document
-extract_imports = (text: string) vec.Vec<string> {
-    imports := vec.Vec.new<string>()
+extract_imports = (text: string) DynVec<string> {
+    imports := DynVec.new<string>()
     lines := string.split(text, "\n")
     
     for (line in lines) {

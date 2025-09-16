@@ -1,22 +1,10 @@
 // Zen Build System - Self-hosting build orchestrator
 
-io := @std.io
-fs := @std.fs
-path := @std.path
-process := @std.process
-string := @std.string
-vec := @std.vec
-map := @std.map
-result := @std.result
+{ io, fs, path, process, string, vec, map, result } = @std
+{ vec, map, result } = @std.collections
 
 // Import compiler modules
-compiler := @std.compiler.compiler
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
-optimizer := @std.compiler.optimizer
-codegen := @std.compiler.codegen
-linker := @std.compiler.linker
+{ compiler, lexer, parser, type_checker, optimizer, codegen, linker } = @std.compiler
 
 // Build configuration
 BuildConfig: {
@@ -45,9 +33,9 @@ BuildConfig: {
 
 // Build target
 Target: 
-    Native
-    | Wasm
-    | LLVM
+    Native,
+    Wasm,
+    LLVM
 
 // Build artifact
 Artifact: {
@@ -59,9 +47,9 @@ Artifact: {
 }
 
 ArtifactKind: 
-    Executable
-    | Library
-    | Object
+    Executable,
+    Library,
+    Object
 
 // Build task
 BuildTask: {
@@ -90,7 +78,7 @@ init_build_system: (config: BuildConfig) BuildSystem  = {
 }
 
 // Stage 0: Build with Rust compiler
-build_stage0 = (sys: &mut BuildSystem) result.Result<(), string> {
+build_stage0 = (sys: &mut BuildSystem) Result<(), string> {
     io.print("Stage 0: Building with Rust compiler...\n")
     
     // Compile stdlib modules
@@ -104,18 +92,18 @@ build_stage0 = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Compile stdlib with Rust compiler
-compile_stdlib_rust = (sys: &mut BuildSystem) result.Result<(), string> {
-    let stdlib_files = fs.list_files(sys.config.stdlib_dir, "*.zen")?
+compile_stdlib_rust = (sys: &mut BuildSystem) Result<(), string> {
+    stdlib_files = fs.list_files(sys.config.stdlib_dir, "*.zen")?
     
     stdlib_files.iter() |file| {
         io.print("  Compiling stdlib: " + file + "\n")
         
         // Use external Rust compiler
-        let cmd = "cargo run --bin zenc -- " + file + " -o " + 
+        cmd = "cargo run --bin zenc -- " + file + " -o " + 
                   path.join(sys.config.lib_dir, path.basename(file) + ".o")
         
-        let res = process.run(cmd)
-        if res.is_err() {
+        res = process.run(cmd)
+         res.error ? {
             return result.err("Failed to compile: " + file)
         }
     }
@@ -124,17 +112,17 @@ compile_stdlib_rust = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Compile bootstrap compiler with Rust
-compile_bootstrap_rust = (sys: &mut BuildSystem) result.Result<(), string> {
+compile_bootstrap_rust = (sys: &mut BuildSystem) Result<(), string> {
     io.print("  Compiling bootstrap compiler...\n")
     
-    let bootstrap_file = path.join(sys.config.bootstrap_dir, "compiler.zen")
-    let output = path.join(sys.config.bin_dir, "zenc-bootstrap")
+    bootstrap_file = path.join(sys.config.bootstrap_dir, "compiler.zen")
+    output = path.join(sys.config.bin_dir, "zenc-bootstrap")
     
-    let cmd = "cargo run --bin zenc -- " + bootstrap_file + " -o " + output + 
+    cmd = "cargo run --bin zenc -- " + bootstrap_file + " -o " + output + 
               " -L " + sys.config.lib_dir
     
-    let res = process.run(cmd)
-    if res.is_err() {
+    res = process.run(cmd)
+     res.error ? {
         return result.err("Failed to compile bootstrap compiler")
     }
     
@@ -142,7 +130,7 @@ compile_bootstrap_rust = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Stage 1: Build with bootstrap compiler
-build_stage1 = (sys: &mut BuildSystem) result.Result<(), string> {
+build_stage1 = (sys: &mut BuildSystem) Result<(), string> {
     io.print("Stage 1: Building with bootstrap compiler...\n")
     
     // Initialize Zen compiler
@@ -163,18 +151,18 @@ build_stage1 = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Compile stdlib with bootstrap compiler
-compile_stdlib_bootstrap = (sys: &mut BuildSystem) result.Result<(), string> {
-    let comp = sys.compiler_instance.unwrap()
-    let stdlib_files = fs.list_files(sys.config.stdlib_dir, "*.zen")?
+compile_stdlib_bootstrap = (sys: &mut BuildSystem) Result<(), string> {
+    comp = sys.compiler_instance.unwrap()
+    stdlib_files = fs.list_files(sys.config.stdlib_dir, "*.zen")?
     
     stdlib_files.iter() |file| {
         io.print("  Compiling stdlib: " + file + "\n")
         
-        let source = fs.read_file(file)?
-        let output = path.join(sys.config.lib_dir, path.basename(file) + ".o")
+        source = fs.read_file(file)?
+        output = path.join(sys.config.lib_dir, path.basename(file) + ".o")
         
-        let res = compiler.compile_file(comp, file, output)
-        if res.is_err() {
+        res = compiler.compile_file(comp, file, output)
+         res.error ? {
             return result.err("Failed to compile: " + file)
         }
     }
@@ -183,11 +171,11 @@ compile_stdlib_bootstrap = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Stage 2: Self-hosted build
-build_stage2 = (sys: &mut BuildSystem) result.Result<(), string> {
+build_stage2 = (sys: &mut BuildSystem) Result<(), string> {
     io.print("Stage 2: Self-hosted build...\n")
     
     // Use self-hosted compiler
-    let zenc = path.join(sys.config.bin_dir, "zenc")
+    zenc = path.join(sys.config.bin_dir, "zenc")
     
     // Rebuild everything with self-hosted compiler
     rebuild_with_self_hosted(sys, zenc)?
@@ -200,32 +188,32 @@ build_stage2 = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Rebuild with self-hosted compiler
-rebuild_with_self_hosted = (sys: &mut BuildSystem, compiler_path: string) result.Result<(), string> {
+rebuild_with_self_hosted = (sys: &mut BuildSystem, compiler_path: string) Result<(), string> {
     // Rebuild stdlib
-    let stdlib_files = fs.list_files(sys.config.stdlib_dir, "*.zen")?
+    stdlib_files = fs.list_files(sys.config.stdlib_dir, "*.zen")?
     
     stdlib_files.iter() |file| {
         io.print("  Self-compiling: " + file + "\n")
         
-        let output = path.join(sys.config.lib_dir, path.basename(file) + ".o")
-        let cmd = compiler_path + " " + file + " -o " + output
+        output = path.join(sys.config.lib_dir, path.basename(file) + ".o")
+        cmd = compiler_path + " " + file + " -o " + output
         
-        let res = process.run(cmd)
-        if res.is_err() {
+        res = process.run(cmd)
+         res.error ? {
             return result.err("Self-compilation failed: " + file)
         }
     }
     
     // Rebuild compiler itself
     io.print("  Self-compiling compiler...\n")
-    let compiler_src = path.join(sys.config.bootstrap_dir, "compiler.zen")
-    let compiler_out = compiler_path + ".new"
+    compiler_src = path.join(sys.config.bootstrap_dir, "compiler.zen")
+    compiler_out = compiler_path + ".new"
     
-    let cmd = compiler_path + " " + compiler_src + " -o " + compiler_out + 
+    cmd = compiler_path + " " + compiler_src + " -o " + compiler_out + 
               " -L " + sys.config.lib_dir
     
-    let res = process.run(cmd)
-    if res.is_err() {
+    res = process.run(cmd)
+     res.error ? {
         return result.err("Failed to self-compile compiler")
     }
     
@@ -233,26 +221,26 @@ rebuild_with_self_hosted = (sys: &mut BuildSystem, compiler_path: string) result
 }
 
 // Verify self-hosting worked
-verify_self_hosting = (sys: &mut BuildSystem) result.Result<(), string> {
+verify_self_hosting = (sys: &mut BuildSystem) Result<(), string> {
     io.print("Verifying self-hosted build...\n")
     
-    let original = path.join(sys.config.bin_dir, "zenc")
-    let rebuilt = original + ".new"
+    original = path.join(sys.config.bin_dir, "zenc")
+    rebuilt = original + ".new"
     
     // Compare file sizes (basic check)
-    let orig_size = fs.file_size(original)?
-    let new_size = fs.file_size(rebuilt)?
+    orig_size = fs.file_size(original)?
+    new_size = fs.file_size(rebuilt)?
     
-    if (orig_size - new_size).abs() > 1000 {
+     (orig_size - new_size).abs() > 1000 ? {
         io.print("Warning: Binary sizes differ significantly\n")
     }
     
     // Run test suite with new compiler
     io.print("Running tests with self-hosted compiler...\n")
-    let cmd = rebuilt + " --test tests/"
+    cmd = rebuilt + " --test tests/"
     
-    let res = process.run(cmd)
-    if res.is_err() {
+    res = process.run(cmd)
+    res.error ? {
         return result.err("Self-hosted compiler tests failed")
     }
     
@@ -261,7 +249,7 @@ verify_self_hosting = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Clean build artifacts
-clean = (sys: &mut BuildSystem) result.Result<(), string> {
+clean = (sys: &mut BuildSystem) Result<(), string> {
     io.print("Cleaning build artifacts...\n")
     
     fs.remove_dir(sys.config.build_dir)?
@@ -273,25 +261,25 @@ clean = (sys: &mut BuildSystem) result.Result<(), string> {
 }
 
 // Run full build pipeline
-build = (sys: &mut BuildSystem) result.Result<(), string> {
+build = (sys: &mut BuildSystem) Result<(), string> {
     // Clean if requested
-    if sys.config.clean {
-        clean(sys)?
+    sys.config.clean ? {
+        clean(sys).raise()
     }
     
     // Stage 0: Rust compiler
-    if sys.config.use_rust_compiler {
-        build_stage0(sys)?
+    sys.config.use_rust_compiler ? {
+        build_stage0(sys).raise()
     }
     
     // Stage 1: Bootstrap
-    if sys.config.use_bootstrap {
-        build_stage1(sys)?
+    sys.config.use_bootstrap ? {
+        build_stage1(sys).raise()
     }
     
     // Stage 2: Self-hosted
-    if sys.config.self_hosted {
-        build_stage2(sys)?
+    sys.config.self_hosted ? {
+        build_stage2(sys).raise()
     }
     
     io.print("\n✅ Build complete!\n")
@@ -300,10 +288,10 @@ build = (sys: &mut BuildSystem) result.Result<(), string> {
 
 // Convert build target to compiler target
 compiler_target = (target: Target) compiler.Target {
-    target match {
-        | Native => compiler.Target.Native
-        | Wasm => compiler.Target.Wasm
-        | LLVM => compiler.Target.LLVM
+    target ? {
+        | Native {return compiler.Target.Native}
+        | Wasm {return compiler.Target.Wasm}
+        | LLVM {return compiler.Target.LLVM}
     }
 }
 
@@ -313,7 +301,7 @@ main: () i32  = {
     io.print("========================\n\n")
     
     // Default configuration
-    let config = BuildConfig {
+    config = BuildConfig {
         src_dir: "src/",
         stdlib_dir: "stdlib/",
         bootstrap_dir: "bootstrap/",
@@ -331,12 +319,12 @@ main: () i32  = {
     }
     
     // Initialize build system
-    let mut sys = init_build_system(config)
+    mut sys = init_build_system(config)
     
     // Run build
-    let result = build(&mut sys)
+    result = build(&mut sys)
     
-    result match {
+    result ? {
         | ok(_) => {
             io.print("Build succeeded!\n")
             return 0

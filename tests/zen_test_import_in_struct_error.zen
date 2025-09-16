@@ -2,6 +2,6 @@
 
 MyStruct := {
     // ERROR: Import inside struct definition
-    { io } = @std.io
+    io = @std.io
     value: i32
 }

@@ -1,12 +1,12 @@
 // Import validation test suite
 // Tests that imports work correctly at module level and are rejected in invalid contexts
 
-{ core } = @std.core
-{ test } = @std.test
-{ io } = @std.io
-{ mem } = @std.mem
-{ string } = @std.string
-{ vec } = @std.vec
+core = @std.core
+test = @std.test
+io = @std.io
+mem = @std.mem
+string = @std.string
+vec = @std.vec
 
 // Test 1: Module-level imports work correctly
 test_module_level_imports = () void   {

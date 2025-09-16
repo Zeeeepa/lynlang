@@ -1,8 +1,8 @@
 // List - Simple linked list implementation in Zen
 // A basic collections module for the standard library
 
-{ core } = @std.core
-{ mem } = @std.mem
+core = @std.core
+mem = @std.mem
 
 // List node structure (simplified)
 // In real implementation this would use generics

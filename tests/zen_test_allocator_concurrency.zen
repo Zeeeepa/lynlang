@@ -1,6 +1,6 @@
 // Tests for the allocator-based colorless concurrency system
 
-{ build } = @std.build
+build = @std.build
 std := build.import("std")
 test := std.test
 allocator := build.import("allocator")

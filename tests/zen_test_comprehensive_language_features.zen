@@ -390,7 +390,7 @@ test_defer = () void   {
 // ====================================
 
 main = () void   {
-    { io } = @std.build.import("io")
+    { io } = @std("io")
     
     io.print("Running Zenlang Comprehensive Test Suite...")
     

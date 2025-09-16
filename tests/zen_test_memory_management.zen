@@ -1,8 +1,8 @@
 // Test memory management and pointer types
 // Language spec v1.1.0 compliance
 
-test, assert, { assert_eq } = @std.testing
-{ mem } = @std.build.import("mem")
+test, assert, { assert_eq } = @std
+{ mem } = @std("mem")
 
 // Test Ptr<T> operations
 test("smart pointer operations") {

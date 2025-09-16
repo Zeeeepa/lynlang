@@ -4,23 +4,26 @@
 core := @std.core
 build := @std.build
 memory := build.import("memory")
-vec_module := build.import("vec")
 
-// Import DynVec from vec module
-DynVec := vec_module.DynVec
-Vec := vec_module.Vec
+// Import the new Vec and DynVec types
+fixed_vec := build.import("fixed_vec")
+dyn_vec := build.import("dyn_vec")
 
-// Vector is now just an alias for Vec for backwards compatibility
-Vector<T>: Vec<T>
+// Export the proper types
+Vec := fixed_vec.Vec       // Fixed-size vector
+DynVec := dyn_vec.DynVec   // Dynamic vector
 
-// Create new vector - delegates to Vec
+// Vector is now an alias for DynVec for backwards compatibility
+Vector<T>: DynVec<T>
+
+// Create new vector - delegates to DynVec
 Vector<T>.new = () Vector<T> {
-    return Vec<T>.with_capacity(16).unwrap_or(Vec<T>.new())
+    return DynVec<T>.new()
 }
 
-// Create vector with initial capacity - delegates to Vec
+// Create vector with initial capacity - delegates to DynVec
 Vector<T>.with_capacity = (cap: usize) Vector<T> {
-    return Vec<T>.with_capacity(cap).unwrap_or(Vec<T>.new())
+    return DynVec<T>.with_capacity(cap).unwrap_or(DynVec<T>.new())
 }
 
 // Vector methods are inherited from Vec since Vector<T> is an alias

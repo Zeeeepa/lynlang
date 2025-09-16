@@ -1,11 +1,11 @@
 // Zen Standard Library - Test Framework
 // Provides testing infrastructure for Zen programs
 
-{ core } = @std.core
-{ io } = @std.io
-{ assert } = @std.assert
-{ vec } = @std.vec
-{ string } = @std.string
+core = @std.core
+io = @std.io
+assert = @std.assert
+{ Vec, DynVec } = @std.collections
+string = @std.string
 
 // TestResult represents the outcome of a test
 TestResult: Passed
@@ -25,15 +25,15 @@ TestCase: {
 // TestSuite represents a collection of tests
 TestSuite: {
     name: string,
-    tests: Vec<TestCase>,
+    tests: DynVec<TestCase>,
     setup: Option<() void>,
     teardown: Option<() void>,
-    results: Vec<(string, TestResult)>,
+    results: DynVec<(string, TestResult)>,
 }
 
 // TestRunner manages test execution
 TestRunner: {
-    suites: Vec<TestSuite>,
+    suites: DynVec<TestSuite>,
     total_tests: u32,
     passed: u32,
     failed: u32,
@@ -45,10 +45,10 @@ TestRunner: {
 suite_new = (name: string) TestSuite   {
     TestSuite{
         name: name,
-        tests: vec_new<TestCase>(),
+        tests: DynVec.new<TestCase>(),
         setup: None,
         teardown: None,
-        results: vec_new<(string, TestResult)>(),
+        results: DynVec.new<(string, TestResult)>(),
     }
 }
 
@@ -172,7 +172,7 @@ run_suite = (suite: Ptr<TestSuite>) void   {
 // Create a new test runner
 runner_new = () TestRunner   {
     TestRunner{
-        suites: vec_new<TestSuite>(),
+        suites: DynVec.new<TestSuite>(),
         total_tests: 0,
         passed: 0,
         failed: 0,
@@ -335,7 +335,7 @@ Benchmark: {
     fn: () void,
     iterations: u32,
     warmup: u32,
-    times: Vec<u64>,
+    times: DynVec<u64>,
 }
 
 // Create a new benchmark
@@ -345,7 +345,7 @@ benchmark_new = (name: string, fn: () void) Benchmark {
         fn: fn,
         iterations: 1000,
         warmup: 100,
-        times: vec_new<u64>(),
+        times: DynVec.new<u64>(),
     }
 }
 

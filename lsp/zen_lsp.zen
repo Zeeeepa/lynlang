@@ -1,13 +1,13 @@
 // Zen Language Server Protocol Implementation
 // This LSP server provides IDE features for Zen language development
 
-{ build } = @std.build
+build = @std.build
 io := build.import("io")
 json := build.import("json")
 net := build.import("net")
 fs := build.import("fs")
 string := build.import("string")
-vec := build.import("vec")
+{ Vec, DynVec } = @std.collections
 map := build.import("map")
 result := build.import("result")
 
@@ -69,7 +69,7 @@ ServerCapabilities: {
 
 CompletionOptions: {
     resolveProvider: bool,
-    triggerCharacters: vec.Vec<string>,
+    triggerCharacters: DynVec<string>,
 }
 
 // Text document types
@@ -111,7 +111,7 @@ Diagnostic: {
     code: ?string,
     source: string,
     message: string,
-    relatedInformation: ?vec.Vec<DiagnosticRelatedInformation>,
+    relatedInformation: ?DynVec<DiagnosticRelatedInformation>,
 }
 
 DiagnosticRelatedInformation: {
@@ -192,7 +192,7 @@ handle_initialize = (server: &mut LSPServer, msg: Message) result.Result<Message
         textDocumentSync: 1, // Full sync
         completionProvider: some(CompletionOptions {
             resolveProvider: false,
-            triggerCharacters: vec.from_array([".", ":", "@"]),
+            triggerCharacters: DynVec.from_array([".", ":", "@"]),
         }),
         hoverProvider: true,
         definitionProvider: true,
@@ -286,8 +286,8 @@ send_diagnostics = (server: &LSPServer, uri: string) result.Result<(), string> {
 }
 
 // Get diagnostics for a document
-get_diagnostics = (server: &LSPServer, uri: string) result.Result<vec.Vec<Diagnostic>, string> {
-    let diagnostics = vec.new<Diagnostic>()
+get_diagnostics = (server: &LSPServer, uri: string) result.Result<DynVec<Diagnostic>, string> {
+    let diagnostics = DynVec.new<Diagnostic>()
     
     // Get parser errors
     let p = map.get(server.parsers, uri)?
@@ -300,7 +300,7 @@ get_diagnostics = (server: &LSPServer, uri: string) result.Result<vec.Vec<Diagno
             message: error.message,
             relatedInformation: none,
         }
-        vec.push(diagnostics, diag)
+        DynVec.push(diagnostics, diag)
     }
     
     // Get type checker errors
@@ -314,7 +314,7 @@ get_diagnostics = (server: &LSPServer, uri: string) result.Result<vec.Vec<Diagno
             message: error.message,
             relatedInformation: none,
         }
-        vec.push(diagnostics, diag)
+        DynVec.push(diagnostics, diag)
     }
     
     return result.ok(diagnostics)
@@ -339,8 +339,8 @@ handle_completion = (server: &LSPServer, msg: Message) result.Result<Message, st
 }
 
 // Get completion items at position
-get_completions = (server: &LSPServer, uri: string, pos: Position) result.Result<vec.Vec<CompletionItem>, string> {
-    let items = vec.new<CompletionItem>()
+get_completions = (server: &LSPServer, uri: string, pos: Position) result.Result<DynVec<CompletionItem>, string> {
+    let items = DynVec.new<CompletionItem>()
     
     // Add keyword completions
     add_keyword_completions(items)
@@ -358,7 +358,7 @@ get_completions = (server: &LSPServer, uri: string, pos: Position) result.Result
 }
 
 // Add keyword completions
-add_keyword_completions = (items: &mut vec.Vec<CompletionItem>)  {
+add_keyword_completions = (items: &mut DynVec<CompletionItem>)  {
     let keywords = [
         "return", "break", "continue", "loop",
         "struct", "enum", "type", "comptime", "pub", "mut",
@@ -366,7 +366,7 @@ add_keyword_completions = (items: &mut vec.Vec<CompletionItem>)  {
     ]
     
     keywords.iter() |kw| {
-        vec.push(items, CompletionItem {
+        DynVec.push(items, CompletionItem {
             label: kw,
             kind: 14, // Keyword
             detail: some("keyword"),
@@ -378,7 +378,7 @@ add_keyword_completions = (items: &mut vec.Vec<CompletionItem>)  {
 }
 
 // Add type completions
-add_type_completions = (items: &mut vec.Vec<CompletionItem>)  {
+add_type_completions = (items: &mut DynVec<CompletionItem>)  {
     let types = [
         "i8", "i16", "i32", "i64", "i128",
         "u8", "u16", "u32", "u64", "u128",
@@ -387,7 +387,7 @@ add_type_completions = (items: &mut vec.Vec<CompletionItem>)  {
     ]
     
     types.iter() |ty| {
-        vec.push(items, CompletionItem {
+        DynVec.push(items, CompletionItem {
             label: ty,
             kind: 7, // Class/Type
             detail: some("primitive type"),
@@ -399,7 +399,7 @@ add_type_completions = (items: &mut vec.Vec<CompletionItem>)  {
 }
 
 // Add stdlib completions
-add_stdlib_completions = (items: &mut vec.Vec<CompletionItem>)  {
+add_stdlib_completions = (items: &mut DynVec<CompletionItem>)  {
     let modules = [
         "@std.io", "@std.fs", "@std.net", "@std.math",
         "@std.string", "@std.vec", "@std.map", "@std.set",
@@ -409,7 +409,7 @@ add_stdlib_completions = (items: &mut vec.Vec<CompletionItem>)  {
     ]
     
     modules.iter() |mod| {
-        vec.push(items, CompletionItem {
+        DynVec.push(items, CompletionItem {
             label: mod,
             kind: 9, // Module
             detail: some("standard library module"),

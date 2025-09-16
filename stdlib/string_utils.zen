@@ -1,14 +1,14 @@
 // Zen Standard Library - String Utilities
 // Comprehensive string manipulation and processing functions
 
-{ core } = @std.core
-{ mem } = @std.mem
-{ vec } = @std.vec
-{ io } = @std.io
+core = @std.core
+mem = @std.mem
+{ Vec, DynVec } = @std.collections
+io = @std.io
 
 // String builder for efficient string concatenation
 StringBuilder: {
-    buffer: Vec<i8>,
+    buffer: DynVec<i8>,
     length: u32,
     capacity: u32,
 }
@@ -17,7 +17,7 @@ StringBuilder: {
 string_builder_new = () StringBuilder   {
     initial_capacity := 64
     StringBuilder{
-        buffer: vec_with_capacity<i8>(initial_capacity),
+        buffer: DynVec.with_capacity<i8>(initial_capacity),
         length: 0,
         capacity: initial_capacity,
     }
@@ -26,7 +26,7 @@ string_builder_new = () StringBuilder   {
 // Create string builder with specific capacity
 string_builder_with_capacity = (capacity: u32) StringBuilder   {
     StringBuilder{
-        buffer: vec_with_capacity<i8>(capacity),
+        buffer: DynVec.with_capacity<i8>(capacity),
         length: 0,
         capacity: capacity,
     }
@@ -462,8 +462,8 @@ string_replace = (s: string, old: string, new: string) string   {
 }
 
 // Split string by delimiter
-string_split = (s: string, delimiter: string) Vec<string>   {
-    result := vec_new<string>()
+string_split = (s: string, delimiter: string) DynVec<string>   {
+    result := DynVec.new<string>()
     
     s .== .None || delimiter .== .None ? | true { return result | false => { }}
     
@@ -497,7 +497,7 @@ string_split = (s: string, delimiter: string) Vec<string>   {
 }
 
 // Join strings with separator
-string_join = (strings: Vec<string>, separator: string) string   {
+string_join = (strings: DynVec<string>, separator: string) string   {
     strings.len() == 0 ? | true { return "" | false => { }}
     strings.len() == 1 ? | true { return strings.at(0) | false => { }}
     

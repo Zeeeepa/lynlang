@@ -4,10 +4,9 @@
 core := @std.core
 build := @std.build
 string := build.import("string")
-vec := build.import("vec")
+{ Vec, DynVec } = @std.collections
 result := build.import("result")
 fs := build.import("fs")
-Vec := vec.Vec
 
 // Path separator for the current platform
 PATH_SEPARATOR := "/" // Unix-like systems
@@ -140,16 +139,16 @@ stem = (path: string) string   {
 }
 
 // Split a path into its components
-split = (path: string) Vec<string>   {
+split = (path: string) DynVec<string>   {
     string.is_empty(path) ? {
-        return vec.new<string>()
+        return DynVec.new<string>()
     }
     
-    components := vec.new<string>()
+    components := DynVec.new<string>()
     
     // Handle absolute paths
     is_absolute(path) ? {
-        vec.push(components, PATH_SEPARATOR)
+        components.push(PATH_SEPARATOR)
         path = string.substring(path, 1, path.len())
     }
     
@@ -159,7 +158,7 @@ split = (path: string) Vec<string>   {
     loop (i < parts.len()) {
         part := parts[i]
         !string.is_empty(part) ? {
-            vec.push(components, part)
+            components.push(part)
         }
         i += 1
     }
@@ -174,7 +173,7 @@ normalize = (path: string) string   {
     }
     
     components := split(path)
-    normalized := vec.new<string>()
+    normalized := DynVec.new<string>()
     
     i := 0
     loop (i < components.len()) {
@@ -186,12 +185,12 @@ normalize = (path: string) string   {
         } : component == ".." ? {
             // Go up one directory if possible
             (normalized.len() > 0 && normalized[normalized.len() - 1] != "..") ? {
-                vec.pop(normalized)
+                normalized.pop()
             } : !is_absolute(path) ? {
-                vec.push(normalized, "..")
+                normalized.push("..")
             }
         } : {
-            vec.push(normalized, component)
+            normalized.push(component)
         }
         i += 1
     }
@@ -244,19 +243,19 @@ relative = (base: string, target: string) PathResult<string>   {
     }
     
     // Build relative path
-    relative_parts := vec.new<string>()
+    relative_parts := DynVec.new<string>()
     
     // Add .. for each remaining base component
     i := common_len
     loop (i < base_parts.len()) {
-        vec.push(relative_parts, "..")
+        relative_parts.push("..")
         i += 1
     }
     
     // Add remaining target components
     i := common_len
     loop (i < target_parts.len()) {
-        vec.push(relative_parts, target_parts[i])
+        relative_parts.push(target_parts[i])
         i += 1
     }
     
@@ -415,19 +414,19 @@ matches = (path: string, pattern: string) bool   {
 
 // Path builder for fluent API
 PathBuilder := {
-    components: Vec<string>
+    components: DynVec<string>
 }
 
 // Create a new path builder
 builder = () PathBuilder   {
     return PathBuilder{
-        components: vec.new<string>()
+        components: DynVec.new<string>()
     }
 }
 
 // Add a component to the path
 PathBuilder.add = (self: &mut PathBuilder, component: string) &mut PathBuilder {
-    vec.push(self.components, component)
+    self.components.push(component)
     return self
 }
 

@@ -1,7 +1,7 @@
 // Actor system with allocator-based execution
 // Supports both sync and concurrent modes via allocator
 
-{ build } = @std.build
+build = @std.build
 std := build.import("std")
 allocator := build.import("allocator")
 runtime := build.import("concurrent_runtime_enhanced")
@@ -226,7 +226,7 @@ ActorSystem: {
     send: (target: ActorRef, msg: anytype) void {
         // Serialize message (simplified)
         msg_data := @ptrCast([*]const u8, &msg)[0..@std.sizeOf(@std.TypeOf(msg))]
-        { type_id } = @std.typeId(@std.TypeOf(msg))
+        { type_id } = @std(@std.TypeOf(msg))
         
         target.mailbox.send_raw(msg_data, type_id)
     }

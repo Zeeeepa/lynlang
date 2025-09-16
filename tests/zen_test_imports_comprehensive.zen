@@ -2,16 +2,16 @@
 // This file tests that imports work at the top level without comptime blocks
 
 // Standard library imports - direct style
-{ core } = @std.core
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ io } = @std.io
-{ math } = @std.math
-{ string } = @std.string
+core = @std.core
+{ Vec, DynVec } = @std.collections
+hashmap = @std.hashmap
+io = @std.io
+math = @std.math
+string = @std.string
 
 // Build system imports
-{ fs } = @std.fs
-{ net } = @std.net
+fs = @std.fs
+net = @std.net
 
 // Test that we can use imported modules
 main = () i32   {

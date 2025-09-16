@@ -1,10 +1,10 @@
 // Test colorless concurrency via allocators
 // Language spec v1.1.0 compliance
 
-test, { assert } = @std.testing
-{ io } = @std.build.import("io")
-{ mem } = @std.build.import("mem")
-{ thread } = @std.build.import("thread")
+test, { assert } = @std
+{ io } = @std("io")
+{ mem } = @std("mem")
+{ thread } = @std("thread")
 
 // Mock concurrent/sync allocators for testing
 SyncAllocator: {

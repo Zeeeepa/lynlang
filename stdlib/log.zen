@@ -1,10 +1,10 @@
 // Zen Standard Library - Logging Module
 // Provides structured logging capabilities
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
-{ time } = @std.time
+core = @std.core
+io = @std.io
+string = @std.string
+time = @std.time
 
 // Log levels
 LogLevel: 

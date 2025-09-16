@@ -1,11 +1,11 @@
 // utils.zen - General utility functions and helpers
 // Pure Zen implementation without comptime imports
 
-{ core } = @std.core
-{ string } = @std.string
-{ io } = @std.io
-{ vec } = @std.vec
-{ math } = @std.math
+core = @std.core
+string = @std.string
+io = @std.io
+{ Vec, DynVec } = @std.collections
+math = @std.math
 
 // Option type for nullable values
 Option<T> = 
@@ -91,13 +91,13 @@ map_result = <T, U, E>(result: Result<T, E>, f: (T) U) Result<U, E> {
 
 // Defer mechanism for cleanup
 Defer: {
-    callbacks: Vec<() void>
+    callbacks: DynVec<() void>
 }
 
 // Create new defer context
 defer_new = () Defer   {
     return Defer {
-        callbacks: vec.new<() void>()
+        callbacks: DynVec.new<() void>()
     }
 }
 

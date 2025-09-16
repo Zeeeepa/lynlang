@@ -2,9 +2,9 @@
 // Generates LLVM IR from Zen AST
 
 { core, io }= @std
-{ string } = @std.string
+string = @std.string
 { Vec, DynVec } = @std.collections
-{ parser } = @std.compiler.parser
+parser = @std.parser
 
 // Import AST types from parser
 AstNode := parser.AstNode
@@ -25,10 +25,10 @@ CodeGen: {
     next_register: u32,
     
     // Symbol tables
-    globals: Vec<GlobalVar>,
-    functions: Vec<Function>,
-    locals: Vec<LocalVar>,
-    string_constants: Vec<StringConstant>,
+    globals: DynVec<GlobalVar>,
+    functions: DynVec<Function>,
+    locals: DynVec<LocalVar>,
+    string_constants: DynVec<StringConstant>,
     
     // Output buffer
     output: string,
@@ -49,7 +49,7 @@ GlobalVar: {
 Function: {
     name: string,
     return_type: string,
-    params: Vec<(string, string)>,  // (name, type)
+    params: DynVec<(string, string)>,  // (name, type)
     is_declaration: bool,
 }
 
@@ -401,28 +401,16 @@ string_len = (s: string) u32   {
     return len
 }
 
-vec_len = <T>(v: Vec<T>) u32 {
-    // Get vector length
-    return 0
-}
+// Use DynVec.len instead
 
-vec_get = <T>(v: Vec<T>, i: u32) T {
-    // Get vector element (stub)
-    // In real implementation, would access element
-    return v[0]
-}
+// Use DynVec.get instead
 
-vec_push = <T>(v: &mut Vec<T>, elem: T) {
-    // Push to vector (stub)
-}
+// Use DynVec.push instead
 
-vec_new = <T>() Vec<T> {
-    // Create new vector (stub)
-    return Vec<T>{}
-}
+// Use DynVec.new instead
 
 // Generate complete module
-gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>)  {
+gen_module = (gen: &mut CodeGen, ast: DynVec<AstNode>)  {
     // Generate module header
     emit(gen, "; ModuleID = '" + gen.module_name + "'")
     emit(gen, "source_filename = \"" + gen.module_name + ".zen\"")

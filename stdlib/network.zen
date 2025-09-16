@@ -1,12 +1,12 @@
 // Network programming utilities for Zen
 // Provides TCP/UDP sockets, HTTP client/server, and networking primitives
 
-{ core } = @std.core
-{ mem } = @std.mem
-{ string } = @std.string
-{ result } = @std.result
-{ file } = @std.file
-{ concurrency } = @std.concurrency
+core = @std.core
+mem = @std.mem
+string = @std.string
+result = @std.result
+file = @std.file
+concurrency = @std.concurrency
 
 // Socket types
 SocketType: 

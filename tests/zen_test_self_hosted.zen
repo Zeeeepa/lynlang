@@ -1,14 +1,14 @@
 // Comprehensive self-hosted test suite for Zen
 // Demonstrates the language's ability to implement complex systems in itself
 
-{ core } = @std.core
-{ vec } = @std.vec
-{ hashmap } = @std.hashmap
-{ string } = @std.string
-{ math } = @std.math
-{ algorithms } = @std.algorithms
-{ collections } = @std.collections
-{ iterator } = @std.iterator
+core = @std.core
+{ Vec, DynVec } = @std.collections
+hashmap = @std.hashmap
+string = @std.string
+math = @std.math
+algorithms = @std.algorithms
+collections = @std.collections
+iterator = @std.iterator
 
 // External functions for testing
 extern printf = (format: RawPtr<i8>, ...) i32
@@ -109,41 +109,41 @@ test_vec_functional = () bool   {
     puts("\n=== Testing Vec with Functional Patterns ===")
     passed := true
     
-    // Create and populate vec
-    v := vec.vec_new<i64>()
+    // Create and populate DynVec
+    v := DynVec<i64>.new()
     core.range(1, 11).loop((i: i64) void {
-        vec.vec_push(&v, i * i)  // Store squares
+        v.push(i * i).unwrap()  // Store squares
     })
-    passed = passed && assert_eq(vec.vec_len(&v), 10, "Vec populated with squares")
+    passed = passed && assert_eq(v.len(), 10, "DynVec populated with squares")
     
     // Sum all elements using functional iteration
     sum := 0
     i := 0
-    loop i < vec.vec_len(&v) {
-        elem := vec.vec_get(&v, i)
-        elem ? | core.Option:Some(val) {
+    loop i < v.len() {
+        elem_result := v.get(i)
+        elem_result ? | core.Result:Ok(val) {
             sum = sum + val
-        } | core.Option:None {}
+        } | core.Result:Err(_) {}
         i = i + 1
     }
     passed = passed && assert_eq(sum, 385, "Sum of squares 1-10")
     
     // Filter-like operation
-    filtered := vec.vec_new<i64>()
+    filtered := DynVec<i64>.new()
     j := 0
-    loop j < vec.vec_len(&v) {
-        elem := vec.vec_get(&v, j)
-        elem ? | core.Option:Some(val) {
+    loop j < v.len() {
+        elem_result := v.get(j)
+        elem_result ? | core.Result:Ok(val) {
             val > 25 ? | true {
-                vec.vec_push(&filtered, val)
+                filtered.push(val).unwrap()
             } | false {}
-        } | core.Option:None {}
+        } | core.Result:Err(_) {}
         j = j + 1
     }
-    passed = passed && assert_eq(vec.vec_len(&filtered), 5, "Filtered vec size")
+    passed = passed && assert_eq(filtered.len(), 5, "Filtered DynVec size")
     
-    vec.vec_free(&v)
-    vec.vec_free(&filtered)
+    v.free()
+    filtered.free()
     
     return passed
 }

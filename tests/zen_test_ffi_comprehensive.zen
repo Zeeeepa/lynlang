@@ -1,9 +1,9 @@
 // Comprehensive FFI Tests for Zen
 // Tests Foreign Function Interface with Builder Pattern per Language Spec v1.1.0
 
-{ test } = @std.testing.test
-{ assert } = @std.testing.assert
-{ assert_eq } = @std.testing.assert_eq
+test = @std.test
+assert = @std.assert
+assert_eq = @std.assert_eq
 
 // Test FFI builder pattern for basic C library
 test("ffi builder basic") {
@@ -183,7 +183,7 @@ test("ffi callbacks") {
     
     // Define a callback function
     my_handler = (code: i32, msg: string) void   {
-        { io } = @std.build.import("io")
+        { io } = @std("io")
         io.print("Event $(code): $(msg)")
     }
     
@@ -385,7 +385,7 @@ test("ffi calling conventions") {
 
 // Main test runner
 main = () void   {
-    { io } = @std.build.import("io")
+    { io } = @std("io")
     io.print("Running comprehensive FFI tests...")
     
     // All tests run automatically via test() blocks

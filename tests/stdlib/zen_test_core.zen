@@ -1,9 +1,9 @@
 // Comprehensive tests for Zen stdlib core module
 
-{ core } = @std.core
-{ test } = @std.test
-{ io } = @std.io
-{ assert } = @std.assert
+core = @std.core
+test = @std.test
+io = @std.io
+assert = @std.assert
 
 // Test Option type
 test_option = () void   {

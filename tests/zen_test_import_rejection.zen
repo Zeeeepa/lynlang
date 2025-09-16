@@ -1,8 +1,8 @@
 // Test file to verify that imports are rejected in invalid contexts
 // This test should fail to compile if the parser is working correctly
 
-{ core } = @std.core
-{ io } = @std.io
+core = @std.core
+io = @std.io
 
 // This function contains invalid import attempts that should be rejected
 test_invalid_imports = () void   {
@@ -10,18 +10,18 @@ test_invalid_imports = () void   {
     
     // INVALID: Import inside function body
     // Uncomment to test rejection:
-    // { mem } = @std.mem  // ERROR: Imports must be at module level
+    // mem = @std.mem  // ERROR: Imports must be at module level
     
     // INVALID: Import inside if block
     // Uncomment to test rejection:
     // if (true) {
-    //     { string } = @std.string  // ERROR: Imports must be at module level
+    //     string = @std.string  // ERROR: Imports must be at module level
     // }
     
     // INVALID: Import inside loop
     // Uncomment to test rejection:
     // for (i := 0; i < 1; i += 1) {
-    //     { vec } = @std.vec  // ERROR: Imports must be at module level
+    //     { Vec, DynVec } = @std.collections  // ERROR: Imports must be at module level
     // }
     
     io.println("If this compiles, imports are correctly restricted to module level")
@@ -31,7 +31,7 @@ test_invalid_imports = () void   {
 // This should be rejected by the parser
 // Uncomment to test rejection:
 // @std.@comptime {
-//     { math } = @std.math  // ERROR: Imports not allowed in comptime blocks
+//     math = @std.math  // ERROR: Imports not allowed in comptime blocks
 //     TABLE_SIZE := 256
 // }
 

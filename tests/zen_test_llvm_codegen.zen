@@ -1,11 +1,11 @@
 // Test for LLVM Code Generation Module
 
-{ core } = @std.core
-{ io } = @std.io
-{ string } = @std.string
+core = @std.core
+io = @std.io
+string = @std.string
 
 // Import the codegen module
-{ codegen } = @std.compiler.codegen_llvm
+{ codegen } = @std
 
 // Test basic LLVM IR generation
 test_basic_ir_generation = () bool   {

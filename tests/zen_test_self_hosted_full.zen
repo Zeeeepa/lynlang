@@ -2,13 +2,13 @@
 // Tests all major components: lexer, parser, type checker, and codegen
 
 // Import all compiler modules
-{ io } = @std.io
-{ lexer } = @std.lexer
-{ parser } = @std.parser
-{ type_checker } = @std.type_checker
-{ codegen } = @std.codegen
-{ string } = @std.string
-{ mem } = @std.mem
+io = @std.io
+lexer = @std.lexer
+parser = @std.parser
+type_checker = @std.type_checker
+codegen = @std.codegen
+string = @std.string
+mem = @std.mem
 
 // Test the lexer component
 test_lexer = () bool   {

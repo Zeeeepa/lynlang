@@ -1,12 +1,12 @@
 // Enhanced Zen Code Checker
 // A comprehensive validation tool for Zen source files with detailed error reporting
 
-{ io } = @std.io
-{ fs } = @std.fs
-{ string } = @std.string
-{ vec } = @std.vec
-{ core } = @std.core
-{ path } = @std.path
+io = @std.io
+fs = @std.fs
+string = @std.string
+{ Vec, DynVec } = @std.collections
+core = @std.core
+path = @std.path
 
 // Error severity levels
 Severity: Error | Warning | Info
@@ -377,7 +377,7 @@ check_style = (lines: Vec<string>, result: *CheckResult) void   {
 check_file = (filepath: string) CheckResult   {
     result := CheckResult {
         filepath: filepath,
-        diagnostics: vec.new<Diagnostic>(),
+        diagnostics: DynVec.new<Diagnostic>(),
         error_count: 0,
         warning_count: 0,
         info_count: 0,

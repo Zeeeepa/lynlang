@@ -1,10 +1,10 @@
 // Unit Testing Framework for Zen
 
-{ io } = @std.io
-{ string } = @std.string
-{ vec } = @std.vec
-{ core } = @std.core
-{ time } = @std.time
+io = @std.io
+string = @std.string
+vec = @std.vec
+core = @std.core
+time = @std.time
 
 // Test result types
 TestResult: Pass

@@ -1,6 +1,6 @@
 // Simple stdlib test without complex pattern matching
 
-{ io } = @std.io
+io = @std.io
 
 main = () i32   {
     io.print("Testing Basic Stdlib Functionality\n")
