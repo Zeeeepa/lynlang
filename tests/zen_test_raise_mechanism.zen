@@ -1,0 +1,207 @@
+// Test cases for .raise() error propagation mechanism
+// This demonstrates the core functionality as specified in LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+// Basic Result type for testing
+TestResult<T, E>: Ok(T) | Err(E)
+
+// Test error types
+TestError: .FileNotFound | .ParseError | .NetworkError
+
+// Helper functions that return Results
+read_file = (filename: string) TestResult<string, TestError> {
+    filename == "missing.txt" ?
+        | true { Err(.FileNotFound) }
+        | false { Ok("file contents: ${filename}") }
+}
+
+parse_number = (content: string) TestResult<i32, TestError> {
+    content.contains("error") ?
+        | true { Err(.ParseError) }
+        | false { Ok(42) }
+}
+
+network_call = (url: string) TestResult<string, TestError> {
+    url == "bad_url" ?
+        | true { Err(.NetworkError) }
+        | false { Ok("response data") }
+}
+
+// Test 1: Basic .raise() functionality - should propagate errors
+process_file_basic = (filename: string) TestResult<i32, TestError> {
+    // This should propagate the error if read_file returns Err
+    content = read_file(filename).raise()
+    
+    // This should also propagate error if parse_number returns Err
+    number = parse_number(content).raise()
+    
+    // If we get here, both operations succeeded
+    return Ok(number + 10)
+}
+
+// Test 2: Multiple .raise() calls in sequence
+complex_operation = (filename: string, url: string) TestResult<string, TestError> {
+    // Chain multiple operations with .raise()
+    file_content = read_file(filename).raise()
+    network_data = network_call(url).raise()
+    parsed_num = parse_number(file_content).raise()
+    
+    // Combine results
+    result = "Number: ${parsed_num}, Data: ${network_data}"
+    return Ok(result)
+}
+
+// Test 3: .raise() in pattern matching context
+conditional_process = (should_fail: bool) TestResult<string, TestError> {
+    filename = should_fail ?
+        | true { "missing.txt" }  // This will cause read_file to return Err
+        | false { "good.txt" }
+    
+    // The .raise() should propagate the error if should_fail is true
+    content = read_file(filename).raise()
+    
+    return Ok("Processed: ${content}")
+}
+
+// Test 4: Nested function calls with .raise()
+nested_operation = () TestResult<i32, TestError> {
+    // Nested calls where inner function uses .raise()
+    inner_result = () TestResult<i32, TestError> {
+        content = read_file("data.txt").raise()
+        return parse_number(content)
+    }
+    
+    // This .raise() should propagate errors from the inner function
+    value = inner_result().raise()
+    return Ok(value * 2)
+}
+
+// Test 5: .raise() with early return semantics
+early_return_test = (items: [string]) TestResult<[i32], TestError> {
+    results = [i32]()
+    
+    (0..items.length).loop((i) {
+        // Each .raise() should cause early return if there's an error
+        content = read_file(items[i]).raise()
+        number = parse_number(content).raise()
+        results.push(number)
+    })
+    
+    return Ok(results)
+}
+
+// Test function to verify behavior
+test_raise_behavior = () void {
+    io.println("Testing .raise() error propagation mechanism...")
+    
+    // Test 1: Success case
+    result1 = process_file_basic("good.txt")
+    result1 ?
+        | Ok(value) { io.println("Test 1 SUCCESS: ${value}") }
+        | Err(e) { io.println("Test 1 unexpected error: ${e}") }
+    
+    // Test 2: Error propagation case
+    result2 = process_file_basic("missing.txt")
+    result2 ?
+        | Ok(value) { io.println("Test 2 unexpected success: ${value}") }
+        | Err(.FileNotFound) { io.println("Test 2 SUCCESS: FileNotFound error propagated") }
+        | Err(e) { io.println("Test 2 wrong error: ${e}") }
+    
+    // Test 3: Parse error propagation
+    result3 = process_file_basic("error_file.txt")
+    result3 ?
+        | Ok(value) { io.println("Test 3 unexpected success: ${value}") }
+        | Err(.ParseError) { io.println("Test 3 SUCCESS: ParseError propagated") }
+        | Err(e) { io.println("Test 3 wrong error: ${e}") }
+    
+    // Test 4: Complex operation success
+    result4 = complex_operation("good.txt", "good_url")
+    result4 ?
+        | Ok(value) { io.println("Test 4 SUCCESS: ${value}") }
+        | Err(e) { io.println("Test 4 unexpected error: ${e}") }
+    
+    // Test 5: Complex operation with network error
+    result5 = complex_operation("good.txt", "bad_url")
+    result5 ?
+        | Ok(value) { io.println("Test 5 unexpected success: ${value}") }
+        | Err(.NetworkError) { io.println("Test 5 SUCCESS: NetworkError propagated") }
+        | Err(e) { io.println("Test 5 wrong error: ${e}") }
+    
+    // Test 6: Conditional processing
+    result6 = conditional_process(false)
+    result6 ?
+        | Ok(value) { io.println("Test 6 SUCCESS: ${value}") }
+        | Err(e) { io.println("Test 6 unexpected error: ${e}") }
+    
+    // Test 7: Conditional processing with error
+    result7 = conditional_process(true)
+    result7 ?
+        | Ok(value) { io.println("Test 7 unexpected success: ${value}") }
+        | Err(.FileNotFound) { io.println("Test 7 SUCCESS: Conditional error propagated") }
+        | Err(e) { io.println("Test 7 wrong error: ${e}") }
+    
+    // Test 8: Nested operations
+    result8 = nested_operation()
+    result8 ?
+        | Ok(value) { io.println("Test 8 SUCCESS: ${value}") }
+        | Err(e) { io.println("Test 8 error: ${e}") }
+    
+    // Test 9: Early return in loops
+    good_items = ["good1.txt", "good2.txt", "good3.txt"]
+    result9 = early_return_test(good_items)
+    result9 ?
+        | Ok(values) { io.println("Test 9 SUCCESS: processed ${values.length} items") }
+        | Err(e) { io.println("Test 9 unexpected error: ${e}") }
+    
+    // Test 10: Early return with error in middle
+    mixed_items = ["good1.txt", "missing.txt", "good3.txt"]
+    result10 = early_return_test(mixed_items)
+    result10 ?
+        | Ok(values) { io.println("Test 10 unexpected success: ${values.length} items") }
+        | Err(.FileNotFound) { io.println("Test 10 SUCCESS: Early return on error") }
+        | Err(e) { io.println("Test 10 wrong error: ${e}") }
+    
+    io.println("All .raise() tests completed!")
+}
+
+// Demonstrate equivalence with manual pattern matching
+manual_equivalent = (filename: string) TestResult<i32, TestError> {
+    // This is what .raise() should transform to:
+    file_result = read_file(filename)
+    content = file_result ?
+        | Ok(val) { val }
+        | Err(e) { return Err(e) }
+    
+    parse_result = parse_number(content)
+    number = parse_result ?
+        | Ok(val) { val }
+        | Err(e) { return Err(e) }
+    
+    return Ok(number + 10)
+}
+
+// Test that demonstrates the transformation semantics
+test_transformation_equivalence = () void {
+    io.println("Testing .raise() transformation equivalence...")
+    
+    // Both should behave identically
+    result_raise = process_file_basic("missing.txt")
+    result_manual = manual_equivalent("missing.txt")
+    
+    // Compare results
+    (result_raise, result_manual) ?
+        | (.Err(.FileNotFound), Err(.FileNotFound)) { 
+            io.println("EQUIVALENCE SUCCESS: Both propagate FileNotFound") 
+        }
+        | _ { 
+            io.println("EQUIVALENCE FAILURE: Results differ")
+            io.println("  .raise() result: ${result_raise}")
+            io.println("  manual result: ${result_manual}")
+        }
+}
+
+main = () void {
+    test_raise_behavior()
+    test_transformation_equivalence()
+}

@@ -80,7 +80,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
     duration := time.since(start)
     
     result_val ?
-        | .Ok -> passed {
+        | Ok -> passed {
             result := TestResult {
                 name: name,
                 passed: passed,
@@ -100,7 +100,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
             
             vec.push(&mut suite.tests, result)
         }
-        | .Err -> msg {
+        | Err -> msg {
             result := TestResult {
                 name: name,
                 passed: false,
@@ -152,11 +152,11 @@ print_summary = (suite: &TestSuite) void   {
                         io.print("  - ")
                         io.print(test.name)
                         test.error_message ? 
-                            | .Some -> msg {
+                            | Some -> msg {
                                 io.print(": ")
                                 io.print(msg)
                             }
-                            | .None {}
+                            | None {}
                         io.print("\n")
                     }
                     | false {}

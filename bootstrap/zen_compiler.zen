@@ -77,7 +77,7 @@ TokenType:
     
     // Special
     .Eof |
-    .Error
+    Error
 
 // Token structure
 Token: {

@@ -1,0 +1,44 @@
+// Basic test for LANGUAGE_SPEC.zen compliance
+// Tests core features without complex dependencies
+
+{ io } = @std
+
+// Simple enum 
+Option<T>: Some(T) | None
+
+// Basic struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Function with pattern matching
+test_option = (opt: Option<i32>) void {
+    opt ?
+        | Some(val) { io.println("Value: ${val}") }
+        | None { io.println("No value") }
+}
+
+main = () void {
+    // Test immutable assignment
+    p = Point { x: 10.0, y: 20.0 }
+    
+    // Test mutable assignment  
+    counter ::= 0
+    counter = counter + 1
+    
+    // Test Option
+    some_val = Option.Some(42)
+    test_option(some_val)
+    
+    // Test boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Test range loop
+    (0..3).loop((i) {
+        io.println("Index: ${i}")
+    })
+}

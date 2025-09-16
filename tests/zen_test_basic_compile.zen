@@ -1,0 +1,5 @@
+// Test basic Zen compilation
+main = () void {
+    io = @std.io
+    io.println("Hello from Zen!")
+}

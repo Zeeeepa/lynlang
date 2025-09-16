@@ -133,38 +133,38 @@ Library: {
     // Load the library
     load: (self: Ptr<Library>) Result<void, string> {
         self.value.path ?
-            | .Some -> p {
+            | Some -> p {
                 // Call dlopen or equivalent
                 handle := load_library(p)
                 handle ?
-                    | .Ok -> h {
+                    | Ok -> h {
                         self.value.handle = Some(h)
-                        .Ok(void)
+                        Ok(void)
                     }
-                    | .Err -> e { .Err(e) }
+                    | Err -> e { Err(e) }
             }
-            | .None { .Err("No library path specified") }
+            | None { Err("No library path specified") }
     },
     
     // Get function pointer with caching
     get_function: (self: Ptr<Library>, name: string) Result<RawPtr<void>, string> {
         // Check cache first
         self.value.symbol_cache.get(name) ?
-            | .Some -> ptr { .Ok(ptr) }
-            | .None {
+            | Some -> ptr { Ok(ptr) }
+            | None {
                 self.value.handle ?
-                    | .Some -> h {
+                    | Some -> h {
                         // Call dlsym or equivalent
                         result := get_symbol(h, name)
                         result ?
-                            | .Ok -> ptr {
+                            | Ok -> ptr {
                                 // Cache the symbol
                                 self.value.symbol_cache.insert(name, ptr)
-                                .Ok(ptr)
+                                Ok(ptr)
                             }
-                            | .Err -> e { .Err(e) }
+                            | Err -> e { Err(e) }
                     }
-                    | .None { .Err("Library not loaded") }
+                    | None { Err("Library not loaded") }
             }
     },
     
@@ -176,32 +176,32 @@ Library: {
     // Unload library and clean up
     unload: (self: Ptr<Library>) Result<void, string> {
         self.value.handle ?
-            | .Some -> h {
+            | Some -> h {
                 // Clear cache
                 self.value.symbol_cache.clear()
                 
                 // Platform-specific unload
                 result := unload_library(h)
                 result ?
-                    | .Ok -> _ {
+                    | Ok -> _ {
                         self.value.handle = None
-                        .Ok(void)
+                        Ok(void)
                     }
-                    | .Err -> e { .Err(e) }
+                    | Err -> e { Err(e) }
             }
-            | .None { .Ok(void) // Already unloaded }
+            | None { Ok(void) // Already unloaded }
     },
     
     // Call a function with type safety
     call_function<Args, Ret>: (self: Ptr<Library>, name: string, args: Args) Result<Ret, string> {
         fn_ptr := self.get_function(name)
         fn_ptr ?
-            | .Ok -> ptr {
+            | Ok -> ptr {
                 // Cast to function type and call
                 func := ptr as (Args) Ret
-                .Ok(func(args))
+                Ok(func(args))
             }
-            | .Err -> e { .Err(e) }
+            | Err -> e { Err(e) }
     },
 }
 
@@ -211,7 +211,7 @@ load_library = (path: string) Result<RawPtr<void>, string>   {
         | .linux { load_library_linux(path) }
         | .windows { load_library_windows(path) }
         | .macos { load_library_macos(path) }
-        | _ { .Err("Unsupported platform") }
+        | _ { Err("Unsupported platform") }
 }
 
 // Platform-specific library unloading
@@ -220,7 +220,7 @@ unload_library = (handle: RawPtr<void>) Result<void, string>   {
         | .linux { unload_library_linux(handle) }
         | .windows { unload_library_windows(handle) }
         | .macos { unload_library_macos(handle) }
-        | _ { .Err("Unsupported platform") }
+        | _ { Err("Unsupported platform") }
 }
 
 // Platform-specific symbol lookup
@@ -229,7 +229,7 @@ get_symbol = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>  
         | .linux { get_symbol_linux(handle, name) }
         | .windows { get_symbol_windows(handle, name)   }
         | .macos { get_symbol_macos(handle, name) }
-        | _ { .Err("Unsupported platform") }
+        | _ { Err("Unsupported platform") }
 }
 
 // Linux implementation
@@ -242,22 +242,22 @@ load_library_linux = (path: string) Result<RawPtr<void>, string>   {
     RTLD_LAZY := 1
     handle := dlopen(path, RTLD_LAZY)
     handle.address \!= 0 ?
-        | true { .Ok(handle) }
-        | false { .Err(dlerror()) }
+        | true { Ok(handle) }
+        | false { Err(dlerror()) }
 }
 
 get_symbol_linux = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>   {
     symbol := dlsym(handle, name)
     symbol.address \!= 0 ?
-        | true { .Ok(symbol) }
-        | false { .Err(dlerror()) }
+        | true { Ok(symbol) }
+        | false { Err(dlerror()) }
 }
 
 unload_library_linux = (handle: RawPtr<void>) Result<void, string>   {
     result := dlclose(handle)
     result == 0 ?
-        | true { .Ok(void) }
-        | false { .Err(dlerror()) }
+        | true { Ok(void) }
+        | false { Err(dlerror()) }
 }
 
 // Windows implementation
@@ -269,22 +269,22 @@ extern GetLastError = () u32
 load_library_windows = (path: string) Result<RawPtr<void>, string>   {
     handle := LoadLibraryA(path)
     handle.address \!= 0 ?
-        | true { .Ok(handle) }
-        | false { .Err("Failed to load library: error code $(GetLastError())") }
+        | true { Ok(handle) }
+        | false { Err("Failed to load library: error code $(GetLastError())") }
 }
 
 get_symbol_windows = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>   {
     symbol := GetProcAddress(handle, name)
     symbol.address \!= 0 ?
-        | true { .Ok(symbol) }
-        | false { .Err("Symbol not found: error code $(GetLastError())") }
+        | true { Ok(symbol) }
+        | false { Err("Symbol not found: error code $(GetLastError())") }
 }
 
 unload_library_windows = (handle: RawPtr<void>) Result<void, string>   {
     result := FreeLibrary(handle)
     result ?
-        | true { .Ok(void) }
-        | false { .Err("Failed to unload library: error code $(GetLastError())") }
+        | true { Ok(void) }
+        | false { Err("Failed to unload library: error code $(GetLastError())") }
 }
 
 // macOS implementation (uses same as Linux)  

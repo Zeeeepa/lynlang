@@ -1,6 +1,0 @@
-// Test enum with shorthand variant syntax
-Option<T>: .Some(T) | .None
-
-main = () void {
-    x: Option<i32> = .Some(42)
-}

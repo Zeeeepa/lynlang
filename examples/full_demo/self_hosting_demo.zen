@@ -55,7 +55,7 @@ Lexer.new = (input: string) Lexer {
     lexer ::= Lexer{
         input: input,
         position: 0,
-        current: .None,
+        current: None,
         line: 1,
         column: 1
     }
@@ -66,9 +66,9 @@ Lexer.new = (input: string) Lexer {
 Lexer.advance = (self) void {
     self.position < self.input.len() ?
         | true {
-            self.current = .Some(self.input[self.position])
+            self.current = Some(self.input[self.position])
             self.current ?
-                | .Some(c) {
+                | Some(c) {
                     c == '\n' ?
                         | true {
                             self.line = self.line + 1
@@ -78,59 +78,59 @@ Lexer.advance = (self) void {
                             self.column = self.column + 1
                         }
                 }
-                | .None {}
+                | None {}
             self.position = self.position + 1
         }
         | false {
-            self.current = .None
+            self.current = None
         }
 }
 
 Lexer.peek = (self) Option<char> {
     self.position < self.input.len() ?
-        | true { return .Some(self.input[self.position]) }
-        | false { return .None }
+        | true { return Some(self.input[self.position]) }
+        | false { return None }
 }
 
 Lexer:skip_whitespace = (self) void {
     loop {
         self.current ?
-            | .Some(c) {
+            | Some(c) {
                 c.is_whitespace() ?
                     | true { self.advance() }
                     | false { break }
             }
-            | .None { break }
+            | None { break }
     }
 }
 
 Lexer:skip_comment = (self) void {
     self.current ?
-        | .Some(c) {
+        | Some(c) {
             c == '/' ?
                 | true {
                     self.peek() ?
-                        | .Some(next) {
+                        | Some(next) {
                             next == '/' ?
                                 | true {
                                     // Single-line comment
                                     loop {
                                         self.current ?
-                                            | .Some(ch) {
+                                            | Some(ch) {
                                                 ch == '\n' ?
                                                     | true { break }
                                                     | false { self.advance() }
                                             }
-                                            | .None { break }
+                                            | None { break }
                                     }
                                 }
                                 | false {}
                         }
-                        | .None {}
+                        | None {}
                 }
                 | false {}
         }
-        | .None {}
+        | None {}
 }
 
 Lexer:read_string = (self) string {
@@ -139,7 +139,7 @@ Lexer:read_string = (self) string {
     
     loop {
         self.current ?
-            | .Some(c) {
+            | Some(c) {
                 c == '"' ?
                     | true {
                         self.advance() // Skip closing quote
@@ -150,7 +150,7 @@ Lexer:read_string = (self) string {
                             | true {
                                 self.advance()
                                 self.current ?
-                                    | .Some(esc) {
+                                    | Some(esc) {
                                         escaped := esc ?
                                             | 'n' { '\n' }
                                             | 't' { '\t' }
@@ -161,7 +161,7 @@ Lexer:read_string = (self) string {
                                         result = result + escaped
                                         self.advance()
                                     }
-                                    | .None { break }
+                                    | None { break }
                             }
                             | false {
                                 result = result + c
@@ -169,7 +169,7 @@ Lexer:read_string = (self) string {
                             }
                     }
             }
-            | .None { break }
+            | None { break }
     }
     
     result
@@ -183,7 +183,7 @@ Lexer:read_number = (self) Token {
     
     loop {
         self.current ?
-            | .Some(c) {
+            | Some(c) {
                 c.is_digit() ?
                     | true {
                         num_str = num_str + c
@@ -193,7 +193,7 @@ Lexer:read_number = (self) Token {
                         c == '.' && !is_float ?
                             | true {
                                 self.peek() ?
-                                    | .Some(next) {
+                                    | Some(next) {
                                         next.is_digit() ?
                                             | true {
                                                 is_float = true
@@ -202,12 +202,12 @@ Lexer:read_number = (self) Token {
                                             }
                                             | false { break }
                                     }
-                                    | .None { break }
+                                    | None { break }
                             }
                             | false { break }
                     }
             }
-            | .None { break }
+            | None { break }
     }
     
     Token{
@@ -227,7 +227,7 @@ Lexer:read_identifier = (self) Token {
     
     loop {
         self.current ?
-            | .Some(c) {
+            | Some(c) {
                 (c.is_alphanumeric() || c == '_') ?
                     | true {
                         ident = ident + c
@@ -235,7 +235,7 @@ Lexer:read_identifier = (self) Token {
                     }
                     | false { break }
             }
-            | .None { break }
+            | None { break }
     }
     
     // Check if it's a keyword
@@ -270,13 +270,13 @@ Lexer:next_token = (self) Token {
     start_column := self.column
     
     self.current ?
-        | .None { Token{ }
+        | None { Token{ }
             token_type: TokenType:Eof,
             lexeme: "",
             line: start_line,
             column: start_column
         }
-        | .Some(c) {
+        | Some(c) {
             // Single character tokens
             single_char := c ?
                 | '+' {
@@ -286,7 +286,7 @@ Lexer:next_token = (self) Token {
                 | '-' {
                     self.advance()
                     self.current ?
-                        | .Some(next) {
+                        | Some(next) {
                             next == '>' ?
                                 | true {
                             self.advance()
@@ -352,12 +352,12 @@ Lexer:next_token = (self) Token {
                         | true {
                             self.advance()
                             self.current ?
-                                | .Some(next) {
+                                | Some(next) {
                                     next == ':' ?
                                         | true {
                                             self.advance()
                                             self.current ?
-                                                | .Some -> next2 if next2 == '=' => {
+                                                | Some -> next2 if next2 == '=' => {
                                                     self.advance()
                                                     Token{ token_type: TokenType:DoubleColonEqual, lexeme: ":=", line: start_line, column: start_column }
                                                 }
@@ -372,20 +372,20 @@ Lexer:next_token = (self) Token {
                                                 | false { Token{ token_type: TokenType:Colon, lexeme: ":", line: start_line, column: start_column  }}
                                         }
                                 }
-                                | .None { Token{ token_type: TokenType:Colon, lexeme: ":", line: start_line, column: start_column  }}
+                                | None { Token{ token_type: TokenType:Colon, lexeme: ":", line: start_line, column: start_column  }}
                         }
                         | false {
                             c == '=' ?
                                 | true {
                                     self.advance()
                                     self.current ?
-                                        | .Some(next) {
+                                        | Some(next) {
                             next == '>' ?
                                 | true {
                                             self.advance()
                                             Token{ token_type: TokenType:FatArrow, lexeme: "=>", line: start_line, column: start_column }
                                         }
-                                        | .Some -> next if next == '=' => {
+                                        | Some -> next if next == '=' => {
                                             self.advance()
                                             Token{ token_type: TokenType:Equal, lexeme: "==", line: start_line, column: start_column }
                                         }
@@ -396,7 +396,7 @@ Lexer:next_token = (self) Token {
                                         | true {
                                             self.advance()
                                             self.current ?
-                                                | .Some -> next if next == '=' => {
+                                                | Some -> next if next == '=' => {
                                                     self.advance()
                                                     Token{ token_type: TokenType:NotEqual, lexeme: "!=", line: start_line, column: start_column }
                                                 }
@@ -407,7 +407,7 @@ Lexer:next_token = (self) Token {
                                                 | true {
                                                     self.advance()
                                                     self.current ?
-                                                        | .Some -> next if next == '=' => {
+                                                        | Some -> next if next == '=' => {
                                                             self.advance()
                                                             Token{ token_type: TokenType:LessEqual, lexeme: "<=", line: start_line, column: start_column }
                                                         }
@@ -418,7 +418,7 @@ Lexer:next_token = (self) Token {
                                                         | true {
                                                             self.advance()
                                                             self.current ?
-                                                                | .Some -> next if next == '=' => {
+                                                                | Some -> next if next == '=' => {
                                                                     self.advance()
                                                                     Token{ token_type: TokenType:GreaterEqual, lexeme: ">=", line: start_line, column: start_column }
                                                                 }
@@ -738,12 +738,12 @@ CodeGen:generate = (self, node: AstNode) void {
         | AstNode.Loop(loop_node) {
             self.emit("loop ")
             loop_node.condition ?
-                | .Some(cond) {
+                | Some(cond) {
                     self.emit("(")
                     self.generate(*cond)
                     self.emit(") ")
                 }
-                | .None {}
+                | None {}
             self.emit_line("{")
             loop_node.body.loop((stmt) {
                 self.emit("    ")
@@ -757,11 +757,11 @@ CodeGen:generate = (self, node: AstNode) void {
         | AstNode.Return(ret) {
             self.emit("return")
             ret ?
-                | .Some(expr) {
+                | Some(expr) {
                     self.emit(" ")
                     self.generate(*expr)
                 }
-                | .None {}
+                | None {}
         }
         | AstNode.Program(stmts) {
             stmts.loop((stmt) {
@@ -782,7 +782,7 @@ compile = (source: string) Result<string, string> {
     codegen ::= CodeGen.new()
     codegen.generate(ast)
     
-    return .Ok(codegen.output)
+    return Ok(codegen.output)
 }
 
 // Test the self-hosting compiler
@@ -829,11 +829,11 @@ loop (x < y) {
     parse_result ::= parser.parse_program()
     
     parse_result ?
-        | .Ok(ast) {
+        | Ok(ast) {
             io.print("✓ Parsing successful!\n")
             io.print("AST nodes created\n")
         }
-        | .Err(e) { io.print("✗ Parse error: $(e)\n") }
+        | Err(e) { io.print("✗ Parse error: $(e)\n") }
     
     io.print("\n")
     
@@ -853,11 +853,11 @@ loop {
     
     compile_result ::= compile(simple_program)
     compile_result ?
-        | .Ok(output) {
+        | Ok(output) {
             io.print("Generated code:\n")
             io.print(output)
         }
-        | .Err(e) { io.print("✗ Compilation error: $(e)\n") }
+        | Err(e) { io.print("✗ Compilation error: $(e)\n") }
     
     io.print("\n")
     io.print("=== Demo Complete ===\n")

@@ -1,0 +1,13 @@
+// Test enum with io
+
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    maybe = Some(42)
+    
+    maybe ?
+        | Some(val) { io.println("Got Some") }
+        | None { io.println("Got None") }
+}

@@ -1,0 +1,22 @@
+// Test trait implementation
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+Circle: {
+    radius: f64,
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return 3.14159 * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * 3.14159 * self.radius
+    },
+})
+
+main = () void {
+    // Test
+}

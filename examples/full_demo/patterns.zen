@@ -129,21 +129,21 @@ describe_shape = (shape: Shape) string {
 // Pattern matching with Option and Result
 safe_divide = (a: i32, b: i32) Result<i32, string> {
     b == 0 ?
-        | true { .Err("Division by zero") }
-        | false { .Ok(a / b) }
+        | true { Err("Division by zero") }
+        | false { Ok(a / b) }
 }
 
 chain_operations = (x: i32) Result<i32, string> {
     // Chain multiple operations with pattern matching
     result1 = safe_divide(x, 2)
     result1 ?
-        | .Ok(val) {
+        | Ok(val) {
             result2 = safe_divide(val + 10, 3)
             result2 ?
-                | .Ok(val2) { .Ok(val2 * 2) }
-                | .Err(e) { .Err(e) }
+                | Ok(val2) { Ok(val2 * 2) }
+                | Err(e) { Err(e) }
         }
-        | .Err(e) { .Err(e) }
+        | Err(e) { Err(e) }
 }
 
 // Main demonstration function

@@ -184,14 +184,7 @@ impl<'a> Parser<'a> {
                 let name = name.clone();
                 self.next_token();
                 
-                // Check for special identifiers
-                if name == "@std" {
-                    return Ok(Expression::StdReference);
-                } else if name == "@this" {
-                    return Ok(Expression::ThisReference);
-                }
-                
-                // Check for boolean literals
+                // Check for boolean literals first (these don't chain)
                 if name == "true" {
                     return Ok(Expression::Boolean(true));
                 } else if name == "false" {
@@ -383,7 +376,14 @@ impl<'a> Parser<'a> {
                     return self.parse_call_expression(name_with_generics);
                 }
                 
-                let mut expr = Expression::Identifier(name);
+                // Initialize expression based on special identifiers or regular names
+                let mut expr = if name == "@std" {
+                    Expression::StdReference
+                } else if name == "@this" {
+                    Expression::ThisReference
+                } else {
+                    Expression::Identifier(name)
+                };
                 
                 // Handle member access, array indexing, and function calls
                 loop {
@@ -741,6 +741,16 @@ impl<'a> Parser<'a> {
                 obj_name == "net" || obj_name == "os" || obj_name == "fs" ||
                 obj_name == "json" || obj_name == "http" || obj_name == "time"
             }
+            // Handle @std.module.function syntax
+            Expression::MemberAccess { object: base, member } => {
+                // Check if this is @std.module accessing a function
+                if let Expression::StdReference = base.as_ref() {
+                    // This is @std.module, so it's a module call
+                    true
+                } else {
+                    false
+                }
+            }
             _ => false,
         };
         
@@ -876,15 +886,27 @@ impl<'a> Parser<'a> {
         // UFCS implementation: Transform object.method(args) into method(object, args)
         // First, check if this is a stdlib method call (module function)
         let mut expr = if is_module_call {
-            // This is a stdlib call like io.print, keep the original format
+            // This is a stdlib call like io.print or @std.io.println
+            let module_name = match &object {
+                Expression::Identifier(name) => name.clone(),
+                Expression::MemberAccess { object: base, member } => {
+                    // Handle @std.module syntax
+                    if let Expression::StdReference = base.as_ref() {
+                        member.clone()
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected module identifier for method call".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+                _ => return Err(CompileError::SyntaxError(
+                    "Expected identifier for object in method call".to_string(),
+                    Some(self.current_span.clone()),
+                )),
+            };
             Expression::FunctionCall {
-                name: format!("{}.{}", match &object {
-                    Expression::Identifier(name) => name.clone(),
-                    _ => return Err(CompileError::SyntaxError(
-                        "Expected identifier for object in method call".to_string(),
-                        Some(self.current_span.clone()),
-                    )),
-                }, method_name),
+                name: format!("{}.{}", module_name, method_name),
                 args: arguments,
             }
         } else if method_name.contains('.') {

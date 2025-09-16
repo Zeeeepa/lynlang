@@ -386,14 +386,14 @@ string_free = (s: *String) void   {
 // Result and Option Types
 // ==========================================
 
-Option<T>: .Some(T) | .None
+Option<T>: Some(T) | None
 
-Result<T, E>: .Ok(T) | .Err(E)
+Result<T, E>: Ok(T) | Err(E)
 
 option_is_some<T>: (opt: Option<T>) bool = {
     opt ?
-        | .Some(_) { return true }
-        | .None { return false }
+        | Some(_) { return true }
+        | None { return false }
 }
 
 option_is_none<T>: (opt: Option<T>) bool  = {
@@ -402,20 +402,20 @@ option_is_none<T>: (opt: Option<T>) bool  = {
 
 option_unwrap<T>: (opt: Option<T>) T = {
     opt ?
-        | .Some(value) { return value }
-        | .None { panic("Attempted to unwrap None") }
+        | Some(value) { return value }
+        | None { panic("Attempted to unwrap None") }
 }
 
 option_unwrap_or<T>: (opt: Option<T>, default: T) T = {
     opt ?
-        | .Some(value) { return value }
-        | .None { return default }
+        | Some(value) { return value }
+        | None { return default }
 }
 
 result_is_ok<T, E>: (res: Result<T, E>) bool = {
     res ?
-        | .Ok(_) { return true }
-        | .Err(_) { return false }
+        | Ok(_) { return true }
+        | Err(_) { return false }
 }
 
 result_is_err<T, E>: (res: Result<T, E>) bool  = {
@@ -424,14 +424,14 @@ result_is_err<T, E>: (res: Result<T, E>) bool  = {
 
 result_unwrap<T, E>: (res: Result<T, E>) T = {
     res ?
-        | .Ok(value) { return value }
-        | .Err(_) { panic("Attempted to unwrap Err") }
+        | Ok(value) { return value }
+        | Err(_) { panic("Attempted to unwrap Err") }
 }
 
 result_unwrap_err<T, E>: (res: Result<T, E>) E = {
     res ?
-        | .Ok(_) { panic("Attempted to unwrap_err on Ok") }
-        | .Err(error) { return error }
+        | Ok(_) { panic("Attempted to unwrap_err on Ok") }
+        | Err(error) { return error }
 }
 
 // ==========================================

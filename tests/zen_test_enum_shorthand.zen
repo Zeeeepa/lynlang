@@ -1,9 +1,6 @@
-// Test enum shorthand syntax
-test = () void   {
-    result := .Ok(42)
-    error := .Err("failed")
-    
-    result ? 
-        | .Ok -> val { print(val) }
-        | .Err -> err { return .Err(err) }
+// Test enum with shorthand variant syntax
+Option<T>: Some(T) | None
+
+main = () void {
+    x: Option<i32> = Some(42)
 }

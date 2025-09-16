@@ -74,11 +74,11 @@ Mailbox: {
         
         // Wake up waiting actor if any
         self.waiting ?
-            | .Some(cont) {
+            | Some(cont) {
                 self.alloc.resume(cont)
-                self.waiting = .None
+                self.waiting = None
             }
-            | .None { }
+            | None { }
     }
     
     receive_raw: () ?([]u8, u64) {
@@ -109,20 +109,20 @@ Mailbox: {
                 | true {
                     cont := self.alloc.suspend()
                     cont ?
-                        | .Some(c) {
-                            self.waiting = .Some(c)
+                        | Some(c) {
+                            self.waiting = Some(c)
                             self.lock.unlock()
                             self.alloc.resume(c)
                             self.lock.lock()
                             // Loop back to check for messages
                         }
-                        | .None {
-                            return .None
+                        | None {
+                            return None
                         }
                 }
                 | false {
                     // Sync mode - no messages available
-                    return .None
+                    return None
                 }
         })
     }

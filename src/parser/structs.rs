@@ -16,37 +16,8 @@ impl<'a> Parser<'a> {
         };
         self.next_token();
 
-        // Parse generics if present: <T, U, ...>
-        let mut type_params = Vec::new();
-        if self.current_token == Token::Operator("<".to_string()) {
-            self.next_token();
-            loop {
-                if let Token::Identifier(gen) = &self.current_token {
-                    type_params.push(TypeParameter {
-                        name: gen.clone(),
-                        constraints: Vec::new(),
-                    });
-                    self.next_token();
-                    
-                    if self.current_token == Token::Operator(">".to_string()) {
-                        self.next_token();
-                        break;
-                    } else if self.current_token == Token::Symbol(',') {
-                        self.next_token();
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ',' or '>' in generic parameters".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected generic parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
-            }
-        }
+        // Parse generics if present: <T: Trait1 + Trait2, U, ...>
+        let type_params = self.parse_type_parameters()?;
 
         // Expect and consume ':' for type definition
         if self.current_token != Token::Symbol(':') {

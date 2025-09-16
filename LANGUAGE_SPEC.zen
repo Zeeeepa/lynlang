@@ -38,9 +38,9 @@ builder = (b :: Build) void {
     
     // Output target selection - compile to different backends
     b.target ?
-        | .C { b.emit_c("output.c") }  // Transpile to C
-        | .LLVM { b.emit_llvm_ir("output.ll") }  // LLVM IR
-        | .Native { b.emit_native() }  // Direct to machine code
+        | C { b.emit_c("output.c") }  // Transpile to C
+        | LLVM { b.emit_llvm_ir("output.ll") }  // LLVM IR
+        | Native { b.emit_native() }  // Direct to machine code
 
     // Create SDL2 game executable
     builder.add_executable("sdl2-game", "src/main.zen")
@@ -50,38 +50,38 @@ builder = (b :: Build) void {
     // SDL2 FFI bindings
     // TODO: Support anonymous struct literals with type inference
     // For now, comment out as FFI.Library type doesn't exist yet
-    // sdl2_library :: FFI.Library = {
-    //     name: "SDL2",
-    // }
+    sdl2_library :: FFI.Library = {
+        name: "SDL2",
+    }
 
-    // Pattern matching for OS-specific paths
-    // TODO: Uncomment when sdl2_library is defined
-    // std.os ? 
-    //     | .Linux {
-    //         sdl2_library.path = "/usr/lib/x86_64-linux-gnu/libSDL2.so"
-    //     }
-    //     | .Macos {
-    //         sdl2_library.path = "/usr/local/lib/libSDL2.dylib"
-    //     }
-    //     | .Windows {
-    //         sdl2_library.path = "SDL2.dll"
-    //     }
-    //     | _ {
-    //         sdl2_library.path = "SDL2.dll"
-    //     }
+    Pattern matching for OS-specific paths
+    TODO: Uncomment when sdl2_library is defined
+    std.os ? 
+        | Linux {
+            sdl2_library.path = "/usr/lib/x86_64-linux-gnu/libSDL2.so"
+        }
+        | Macos {
+            sdl2_library.path = "/usr/local/lib/libSDL2.dylib"
+        }
+        | Windows {
+            sdl2_library.path = "SDL2.dll"
+        }
+        | _ {
+            sdl2_library.path = "SDL2.dll"
+        }
 
-    // build.add_dependency("sdl2-game", sdl2_library)
+    build.add_dependency("sdl2-game", sdl2_library)
 
-    // External dependencies from GitHub
-    // TODO: Support anonymous struct literals
-    // builder
-    //     .add_dependency({
-    //         name: "ecs",
-    //         source: .Git -> {
-    //             url: "github.com/zenlang/zen-ecs",
-    //             branch: "main"
-    //         }
-    //     })   
+    External dependencies from GitHub
+    TODO: Support anonymous struct literals
+    builder
+        .add_dependency({
+            name: "ecs",
+            source: .Git -> {
+                url: "github.com/zenlang/zen-ecs",
+                branch: "main"
+            }
+        })   
 }
 
 // ============================================================================
@@ -107,10 +107,10 @@ ecs = @std.import("ecs")
 
 
 // No null! Only Option types
-Option<T>: .Some(T) | .None
+Option<T>: Some(T) | None
 
 // Result type for error handling
-Result<T, E>: .Ok(T) | .Err(E)
+Result<T, E>: Ok(T) | Err(E)
 
 
 // Simple struct
@@ -169,7 +169,7 @@ Shape.requires(Geometric)
 
 
 // UFC overloading based on enum variants
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: Player | Enemy | Powerup
 
 // Overload functions for each variant
 get_health = (e: GameEntity.Player) u32 { return 100 }
@@ -198,8 +198,8 @@ Container<T: Geometric + Serializable>: {
 // Parse shape from string - demonstrates Result type
 parse_radius = (s: string) Result<f64, string> {
     s.to_f64() ?
-        | .Some(val) { return .Ok(val) }
-        | .None { return .Err("Invalid radius") }
+        | Some(val) { return Ok(val) }
+        | None { return Err("Invalid radius") }
 }
 
 // Error propagation with .raise()
@@ -207,7 +207,7 @@ load_config = (path: string) Result<Config, Error> {
     file = File.open(path).raise()  // If Err, returns early with that error
     contents = file.read_all().raise()
     config = json.parse(contents).raise()
-    return .Ok(config)
+    return Ok(config)
 }
 
 
@@ -219,8 +219,8 @@ fetch_game_data = (url: string, alloc: Allocator) Result<Data, Error> {
     // This blocks or doesn't based on allocator!
     response = client.get(url)
     response ?
-        | .Ok(data) { return .Ok(parse_data(data)) }
-        | .Err(e) { return .Err(e) }
+        | Ok(data) { return Ok(parse_data(data)) }
+        | Err(e) { return Err(e) }
 }
 
 
@@ -244,26 +244,26 @@ create_fibonacci = () Actor {
 inspect_type = (T: type) void {
     ast = reflect.ast(T)
     ast.kind ?
-        | .Struct(s) {
+        | Struct(s) {
             io.println("Struct: ${s.name}")
             s.fields.loop((f) {
                 io.println("  Field: ${f.name}: ${f.type}")
             })
         }
-        | .Enum(e) {  // Enum types like Shape: Circle | Rectangle
+        | Enum(e) {  // Enum types like Shape: Circle | Rectangle
             io.println("Enum: ${e.name}")
             e.variants.loop((v) {
                 io.println("  Variant: ${v.name}")
             })
         }
-        | .Function(f) {
+        | Function(f) {
             io.println("Function: ${f.name}")
             f.params.loop((p) {
                 io.println("  Param ${p.name}: ${p.type}, mut: ${p.is_mut}")
             })
             io.println("  Returns: ${f.return_type}")
         }
-        | .TypeDef(t) {
+        | TypeDef(t) {
             io.println("TypeDef: ${t.name}")
             t.methods.loop((m) {
                 io.println("  Method: ${m.name}")
@@ -314,11 +314,11 @@ main = () void {
     // Loop over mixed types with pattern matching
     entities.loop((entity) {
         entity ?
-            | .Player { 
+            | Player { 
                 io.println("Player health: ${entity.get_health()}")
                 io.println("Player speed: ${entity.get_speed()}")
             }
-            | .Enemy { 
+            | Enemy { 
                 io.println("Enemy health: ${entity.get_health()}")
                 io.println("Enemy speed: ${entity.get_speed()}")
             }
@@ -397,8 +397,8 @@ main = () void {
     // Receive messages
     loop(() {
         message_chan.receive() ?
-            | .Some(msg) { io.println("Received: ${msg}") }
-            | .None { break }
+            | Some(msg) { io.println("Received: ${msg}") }
+            | None { break }
     })
     
     // Mutex for shared state
@@ -406,11 +406,11 @@ main = () void {
     @this.defer(counter_mutex.deinit())
     
     counter_mutex.lock() ?
-        | .Ok(val) {
+        | Ok(val) {
             val = val + 1
             counter_mutex.unlock()
         }
-        | .Err(e) { io.println("Lock failed: ${e}") }
+        | Err(e) { io.println("Lock failed: ${e}") }
     
     // Atomic operations
     atomic_counter = AtomicU32(0)
@@ -449,16 +449,16 @@ main = () void {
     })
     
     // Option handling - no null!
-    maybe_radius: Option<f64> = .Some(5.5)
+    maybe_radius: Option<f64> = Some(5.5)
     maybe_radius ?
-        | .Some(r) {
+        | Some(r) {
             circle = Circle {
                 center: Point { x: 100.0, y: 100.0 },
                 radius: r,
             }
             io.println("Created circle with area: ${circle.area()}")
         }
-        | .None {
+        | None {
             io.println("No radius provided")
         }
     

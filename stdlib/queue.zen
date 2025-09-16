@@ -43,7 +43,7 @@ enqueue = (T: type, q: *Queue(T), value: T) void {
     node.value = value
     node.next = null
     
-    q.tail .== .None ? {
+    q.tail .== None ? {
         q.head = node
         q.tail = node
     } | false {
@@ -56,7 +56,7 @@ enqueue = (T: type, q: *Queue(T), value: T) void {
 
 // Dequeue (remove from front)
 dequeue = (T: type, q: *Queue(T)) ?T {
-    q.head .== .None ? {
+    q.head .== None ? {
         return null
     }
     
@@ -64,7 +64,7 @@ dequeue = (T: type, q: *Queue(T)) ?T {
     value := node.value
     q.head = node.next
     
-    q.head .== .None ? {
+    q.head .== None ? {
         q.tail = null
     }
     
@@ -76,7 +76,7 @@ dequeue = (T: type, q: *Queue(T)) ?T {
 
 // Peek at front without removing
 peek = (T: type, q: *Queue(T)) ?T {
-    q.head .== .None ? {
+    q.head .== None ? {
         return null
     }
     return q.head.value
@@ -145,7 +145,7 @@ QueueIterator(T: type): {
 }
 
 next = (T: type, it: *QueueIterator(T)) ?T {
-    it.current .== .None ? {
+    it.current .== None ? {
         return null
     }
     value := it.current.value

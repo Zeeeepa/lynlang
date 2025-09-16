@@ -1,0 +1,5 @@
+{ Vec, DynVec} = @std
+
+Option<T>: Some(T) | None
+
+main = () void {}

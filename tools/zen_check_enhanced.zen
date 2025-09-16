@@ -126,8 +126,8 @@ SyntaxChecker.new = (config: CheckerConfig) SyntaxChecker => {
 SyntaxChecker.check_file = (self: &SyntaxChecker, path: string) CheckResult => {
     // Read file
     content := fs.read_file(path) ?
-        | .Ok -> c => c
-        | .Err -> err => {
+        | Ok -> c => c
+        | Err -> err => {
             return CheckResult {
                 file: path,
                 errors: [Error {
@@ -135,7 +135,7 @@ SyntaxChecker.check_file = (self: &SyntaxChecker, path: string) CheckResult => {
                     column: 0,
                     message: "Failed to read file: $(err)",
                     code: "E001",
-                    severity: .Error,
+                    severity: Error,
                 }],
                 warnings: [],
                 hints: [],
@@ -153,14 +153,14 @@ SyntaxChecker.check_file = (self: &SyntaxChecker, path: string) CheckResult => {
     
     // Lexical analysis
     tokens := lexer.tokenize(content) ?
-        | .Ok -> t => t
-        | .Err -> err => {
+        | Ok -> t => t
+        | Err -> err => {
             result.errors.push(Error {
                 line: err.line,
                 column: err.column,
                 message: err.message,
                 code: "E002",
-                severity: .Error,
+                severity: Error,
             });
             return result
         }
@@ -170,14 +170,14 @@ SyntaxChecker.check_file = (self: &SyntaxChecker, path: string) CheckResult => {
     
     // Parse syntax tree
     ast := parser.parse(tokens) ?
-        | .Ok -> tree => tree
-        | .Err -> err => {
+        | Ok -> tree => tree
+        | Err -> err => {
             result.errors.push(Error {
                 line: err.line,
                 column: err.column,
                 message: err.message,
                 code: "E003",
-                severity: .Error,
+                severity: Error,
             });
             return result
         }
@@ -187,14 +187,14 @@ SyntaxChecker.check_file = (self: &SyntaxChecker, path: string) CheckResult => {
     
     // Type checking
     typed_ast := type_checker.check(ast) ?
-        | .Ok -> tree => tree
-        | .Err -> err => {
+        | Ok -> tree => tree
+        | Err -> err => {
             result.errors.push(Error {
                 line: err.line,
                 column: err.column,
                 message: err.message,
                 code: "E004",
-                severity: .Error,
+                severity: Error,
             });
             return result
         }
@@ -221,7 +221,7 @@ check_lexical_issues = (result: &CheckResult, tokens: []Token, config: CheckerCo
                 column: token.column,
                 message: "Invalid character: '$(token.value)'",
                 code: "E100",
-                severity: .Error,
+                severity: Error,
             })
         }
     }
@@ -239,7 +239,7 @@ check_lexical_issues = (result: &CheckResult, tokens: []Token, config: CheckerCo
                     column: config.max_line_length,
                     message: "Line exceeds maximum length of $(config.max_line_length)",
                     code: "W101",
-                    suggestion: .Some -> "Break long lines for better readability",
+                    suggestion: Some -> "Break long lines for better readability",
                 })
             }
             
@@ -268,7 +268,7 @@ check_syntax_issues = (result: &CheckResult, ast: AST, config: CheckerConfig) vo
             column: var.column,
             message: "Unused variable: '$(var.name)'",
             code: "W200",
-            suggestion: .Some -> "Remove unused variable or prefix with '_'",
+            suggestion: Some -> "Remove unused variable or prefix with '_'",
         })
     }
     
@@ -287,7 +287,7 @@ check_syntax_issues = (result: &CheckResult, ast: AST, config: CheckerConfig) vo
                     column: 0,
                     message: "Function '$(func.name)' missing return statement",
                     code: "E201",
-                    severity: .Error,
+                    severity: Error,
                 })
             }
         }
@@ -309,7 +309,7 @@ check_comptime_imports = (result: &CheckResult, node: ASTNode) void => {
                     column: stmt.column,
                     message: "Imports should not be wrapped in comptime blocks",
                     code: "E300",
-                    severity: .Error,
+                    severity: Error,
                 });
                 
                 result.hints.push(Hint {
@@ -333,7 +333,7 @@ check_semantic_issues = (result: &CheckResult, ast: TypedAST, config: CheckerCon
                 column: expr.column,
                 message: "Type mismatch: expected '$(expr.expected_type)', got '$(expr.actual_type)'",
                 code: "E400",
-                severity: .Error,
+                severity: Error,
             })
         }
     }
@@ -347,7 +347,7 @@ check_semantic_issues = (result: &CheckResult, ast: TypedAST, config: CheckerCon
                     column: call.column,
                     message: "Unhandled Result type from '$(call.name)'",
                     code: "W401",
-                    suggestion: .Some -> "Handle the error with pattern matching or ? operator",
+                    suggestion: Some -> "Handle the error with pattern matching or ? operator",
                 })
             }
         }
@@ -400,7 +400,7 @@ check_style_issues = (result: &CheckResult, content: string, config: CheckerConf
                 column: 0,
                 message: "Mixed tabs and spaces for indentation",
                 code: "W500",
-                suggestion: .Some -> "Use consistent indentation (prefer spaces)",
+                suggestion: Some -> "Use consistent indentation (prefer spaces)",
             })
         }
         
@@ -419,7 +419,7 @@ check_long_functions = (result: &CheckResult, ast: TypedAST, config: CheckerConf
                 column: 0,
                 message: "Function '$(func.name)' is too long ($(line_count) lines)",
                 code: "W600",
-                suggestion: .Some -> "Consider breaking into smaller functions",
+                suggestion: Some -> "Consider breaking into smaller functions",
             })
         }
     }
@@ -436,7 +436,7 @@ check_deep_nesting = (result: &CheckResult, ast: TypedAST, config: CheckerConfig
                 column: 0,
                 message: "Function '$(func.name)' has deep nesting (depth: $(max_depth))",
                 code: "W601",
-                suggestion: .Some -> "Reduce nesting by extracting functions or early returns",
+                suggestion: Some -> "Reduce nesting by extracting functions or early returns",
             })
         }
     }
@@ -497,7 +497,7 @@ format_output = (result: &CheckResult, use_colors: bool) string => {
         output += "    --> $(result.file):$(warning.line):$(warning.column)\n";
         
         warning.suggestion ?
-            | .Some -> suggestion => {
+            | Some -> suggestion => {
                 output += "    $(CYAN)help$(RESET): $(suggestion)\n"
             }
     }
@@ -528,8 +528,8 @@ check = (paths: []string, config: CheckerConfig) i32 => {
     loop path in paths {
         // Expand wildcards
         files := fs.glob(path) ?
-            | .Ok -> f => f
-            | .Err => [path]
+            | Ok -> f => f
+            | Err => [path]
         
         loop file in files {
             file.ends_with(".zen") ? | false => continue

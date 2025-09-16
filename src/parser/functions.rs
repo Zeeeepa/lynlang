@@ -16,41 +16,18 @@ impl<'a> Parser<'a> {
         };
         self.next_token();
         
-        // Parse generic type parameters if present: <T, U, ...>
-        let mut type_params = Vec::new();
-        if self.current_token == Token::Operator("<".to_string()) {
-            self.next_token();
-            loop {
-                if let Token::Identifier(gen) = &self.current_token {
-                    type_params.push(TypeParameter {
-                        name: gen.clone(),
-                        constraints: Vec::new(),
-                    });
-                    self.next_token();
-                    
-                    if self.current_token == Token::Operator(">".to_string()) {
-                        self.next_token();
-                        break;
-                    } else if self.current_token == Token::Symbol(',') {
-                        self.next_token();
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            "Expected ',' or '>' in generic parameters".to_string(),
-                            Some(self.current_span.clone()),
-                        ));
-                    }
-                } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected generic parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
-            }
-        }
+        // Parse generic type parameters if present: <T: Trait1 + Trait2, U, ...>
+        let type_params = self.parse_type_parameters()?;
         
-        // Check for ':' or '=' for function definition
-        // Both syntaxes are valid: name : (params) or name = (params)
-        let uses_equals_syntax = if self.current_token == Token::Symbol(':') {
+        // Check for ':' or '=' for function definition OR '(' for direct parameters
+        // Valid syntaxes:
+        // - name = (params) return_type { ... }
+        // - name : (params) return_type = { ... }  
+        // - name<T>(params) return_type { ... }  (generic function direct syntax)
+        let uses_equals_syntax = if self.current_token == Token::Symbol('(') {
+            // Direct parameter syntax (no : or = before params)
+            true  // treat like equals syntax for simplicity
+        } else if self.current_token == Token::Symbol(':') {
             self.next_token();
             false
         } else if self.current_token == Token::Operator("=".to_string()) {
@@ -58,7 +35,7 @@ impl<'a> Parser<'a> {
             true
         } else {
             return Err(CompileError::SyntaxError(
-                "Expected ':' or '=' after function name for type definition".to_string(),
+                "Expected ':' or '=' after function name for type definition, or '(' for parameters".to_string(),
                 Some(self.current_span.clone()),
             ));
         };
@@ -87,20 +64,30 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 
                 // Parameter type - support both : and :: for now
-                let _is_double_colon = if self.current_token == Token::Symbol(':') {
-                    self.next_token();
-                    false
-                } else if self.current_token == Token::Operator("::".to_string()) {
-                    self.next_token();
-                    true
+                // Special handling for 'self' parameter - type is optional
+                let param_type = if param_name == "self" && self.current_token != Token::Symbol(':') 
+                    && self.current_token != Token::Operator("::".to_string()) {
+                    // For 'self' without explicit type, use a placeholder type
+                    crate::ast::AstType::Generic { 
+                        name: "Self".to_string(), 
+                        type_args: Vec::new() 
+                    }
                 } else {
-                    return Err(CompileError::SyntaxError(
-                        "Expected ':' or '::' after parameter name".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                    let _is_double_colon = if self.current_token == Token::Symbol(':') {
+                        self.next_token();
+                        false
+                    } else if self.current_token == Token::Operator("::".to_string()) {
+                        self.next_token();
+                        true
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ':' or '::' after parameter name".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    };
+                    
+                    self.parse_type()?
                 };
-                
-                let param_type = self.parse_type()?;
                 args.push((param_name, param_type));
                 
                 if self.current_token == Token::Symbol(')') {

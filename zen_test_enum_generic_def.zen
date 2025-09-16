@@ -1,6 +1,0 @@
-// Test generic enum definition with the spec syntax
-Option<T>: .Some(T) | .None
-
-main = () void {
-    x = 42
-}

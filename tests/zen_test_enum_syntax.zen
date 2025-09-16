@@ -1,0 +1,22 @@
+// Test enum literal syntax first
+
+{ io } = @std
+
+// Basic Result type
+TestResult<T>: Ok(T) | Err(string)
+
+// Function that returns a simple result
+get_ok = () TestResult<i32> {
+    return TestResult.Ok(42)
+}
+
+get_err = () TestResult<i32> {
+    return TestResult.Err("error message")
+}
+
+main = () void {
+    result1 = get_ok()
+    result2 = get_err()
+    
+    io.println("Test completed")
+}

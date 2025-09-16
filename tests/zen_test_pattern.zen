@@ -1,0 +1,10 @@
+// Test pattern matching
+
+{ io } = @std
+
+main = () void {
+    x = true
+    x ?
+        | true { io.println("TRUE") }
+        | false { io.println("FALSE") }
+}

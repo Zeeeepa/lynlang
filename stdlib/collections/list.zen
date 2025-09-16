@@ -36,7 +36,7 @@ push_front = (list: *List, value: i32) void   {
 
 // Remove element from front of the list
 pop_front = (list: *List) i32   {
-    if list.head .== .None {
+    if list.head .== None {
         return 0  // Error case
     }
     

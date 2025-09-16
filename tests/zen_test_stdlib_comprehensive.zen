@@ -425,7 +425,7 @@ test_memory = () bool   {
     
     // Test allocation
     ptr := mem.alloc<i32>(10)
-    if ptr .== .None {
+    if ptr .== None {
         all_passed = false
         return false
     }
@@ -438,7 +438,7 @@ test_memory = () bool   {
     
     // Test array allocation
     arr := mem.alloc_array<i32>(5)
-    if arr.data .== .None {
+    if arr.data .== None {
         all_passed = false
     }
     if arr.len != 5 {

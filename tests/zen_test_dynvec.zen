@@ -1,0 +1,8 @@
+// Test DynVec type usage
+Container<T>: {
+    items: DynVec<T>,
+}
+
+main = () void {
+    // Empty
+}

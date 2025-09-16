@@ -195,12 +195,12 @@ pool_alloc = (pool: &MemoryPool) RawPtr<i8> {
             pool.val.allocated_count ::= pool.val.allocated_count + 1
             block
         }
-        | false { .None }
+        | false { None }
 }
 
 // Free pool memory
 pool_destroy = (pool: &MemoryPool) void   {
-    pool.val.blocks != .None ?
+    pool.val.blocks != None ?
         | true {
             dealloc(pool.val.blocks[0], pool.val.block_size * pool.val.block_count)
             dealloc(pool.val.blocks as RawPtr<i8>, pool.val.block_count * 8)

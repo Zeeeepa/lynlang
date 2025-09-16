@@ -73,7 +73,7 @@ add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void {
     ctx.val.diagnostics.push(diag)
     
     diag.severity ?
-        | .Error { ctx.val.error_count = ctx.val.error_count + 1 }
+        | Error { ctx.val.error_count = ctx.val.error_count + 1 }
         | .Warning { ctx.val.warning_count = ctx.val.warning_count + 1 }
         | _ {}
 }
@@ -86,8 +86,8 @@ syntax_error = (message: string, loc: SourceLocation) Diagnostic {
         message: message,
         location: loc,
         notes: DynVec.new(),
-        suggestion: .None,
-        code_snippet: .None,
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
@@ -99,8 +99,8 @@ type_error = (message: string, loc: SourceLocation) Diagnostic {
         message: message,
         location: loc,
         notes: DynVec.new(),
-        suggestion: .None,
-        code_snippet: .None,
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
@@ -112,8 +112,8 @@ import_error = (message: string, loc: SourceLocation) Diagnostic {
         message: message,
         location: loc,
         notes: DynVec.new(),
-        suggestion: .None,
-        code_snippet: .None,
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
@@ -125,8 +125,8 @@ warning = (message: string, loc: SourceLocation) Diagnostic {
         message: message,
         location: loc,
         notes: DynVec.new(),
-        suggestion: .None,
-        code_snippet: .None,
+        suggestion: None,
+        code_snippet: None,
     }
 }
 
@@ -137,7 +137,7 @@ add_note = (diag: Ptr<Diagnostic>, note: string) void {
 
 // Add a suggestion to a diagnostic
 add_suggestion = (diag: Ptr<Diagnostic>, suggestion: string) void {
-    diag.val.suggestion = .Some(suggestion)
+    diag.val.suggestion = Some(suggestion)
 }
 
 // Extract code snippet around error location
@@ -167,7 +167,7 @@ extract_snippet = (content: string, loc: SourceLocation) string {
 // Format severity for display
 format_severity = (severity: ErrorSeverity) string {
     severity ?
-        | .Error { "error" }
+        | Error { "error" }
         | .Warning { "warning" }
         | .Info { "info" }
         | .Hint { "hint" }
@@ -200,11 +200,11 @@ format_diagnostic = (diag: Diagnostic) string {
     
     // Add code snippet if available
     diag.code_snippet ?
-        | .Some(snippet) {
+        | Some(snippet) {
             result = concat(result, "\n")
             result = concat(result, snippet)
         }
-        | .None {}
+        | None {}
     
     // Add notes
     (diag.notes.len() > 0) ?
@@ -218,11 +218,11 @@ format_diagnostic = (diag: Diagnostic) string {
     
     // Add suggestion
     diag.suggestion ?
-        | .Some(sugg) {
+        | Some(sugg) {
             result = concat(result, "\n  suggestion: ")
             result = concat(result, sugg)
         }
-        | .None {}
+        | None {}
     
     result
 }

@@ -1,0 +1,10 @@
+// Test simple enum usage without pattern matching
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    // Just create enum variant
+    value = Some(42)
+    io.print("Created enum variant")
+}

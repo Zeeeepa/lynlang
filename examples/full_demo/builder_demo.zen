@@ -24,13 +24,13 @@ build_sqlite_bindings = () ffi.Library {
                 ffi.Type.String                            // zVfs
             ],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("sqlite3_close_v2", ffi.FnSignature{
             params: vec![ffi.Type.Pointer(Ptr<SQLiteDB>)],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // Prepared statements
@@ -43,19 +43,19 @@ build_sqlite_bindings = () ffi.Library {
                 ffi.Type.Pointer(Ptr<String>)              // pzTail
             ],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("sqlite3_step", ffi.FnSignature{
             params: vec![ffi.Type.Pointer(Ptr<SQLiteStmt>)],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("sqlite3_finalize", ffi.FnSignature{
             params: vec![ffi.Type.Pointer(Ptr<SQLiteStmt>)],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // Binding parameters
@@ -68,7 +68,7 @@ build_sqlite_bindings = () ffi.Library {
                 ffi.Type.Pointer(Ptr<void>)                // destructor
             ],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("sqlite3_bind_int64", ffi.FnSignature{
@@ -78,7 +78,7 @@ build_sqlite_bindings = () ffi.Library {
                 ffi.Type.I64
             ],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // Getting results
@@ -88,7 +88,7 @@ build_sqlite_bindings = () ffi.Library {
                 ffi.Type.I32
             ],
             returns: ffi.Type.String,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("sqlite3_column_int64", ffi.FnSignature{
@@ -97,14 +97,14 @@ build_sqlite_bindings = () ffi.Library {
                 ffi.Type.I32
             ],
             returns: ffi.Type.I64,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // Error handling
         .function("sqlite3_errmsg", ffi.FnSignature{
             params: vec![ffi.Type.Pointer(Ptr<SQLiteDB>)],
             returns: ffi.Type.String,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // Constants
@@ -124,7 +124,7 @@ build_sqlite_bindings = () ffi.Library {
                 ffi.Type.Pointer(Ptr<String>)              // column names
             ],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .validate()
@@ -145,7 +145,7 @@ build_opengl_bindings = () ffi.Library {
         .function("glCreateContext", ffi.FnSignature{
             params: vec![ffi.Type.Pointer(Ptr<void>)],
             returns: ffi.Type.Pointer(Ptr<void>),
-            calling_convention: .Some(.StdCall),
+            calling_convention: Some(.StdCall),
             variadic: false
         })
         .function("glMakeCurrent", ffi.FnSignature{
@@ -154,52 +154,52 @@ build_opengl_bindings = () ffi.Library {
                 ffi.Type.Pointer(Ptr<void>)
             ],
             returns: ffi.Type.Bool,
-            calling_convention: .Some(.StdCall),
+            calling_convention: Some(.StdCall),
             variadic: false
         })
         // Rendering
         .function("glClear", ffi.FnSignature{
             params: vec![ffi.Type.U32],
             returns: ffi.Type.Void,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("glClearColor", ffi.FnSignature{
             params: vec![ffi.Type.F32, ffi.Type.F32, ffi.Type.F32, ffi.Type.F32],
             returns: ffi.Type.Void,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // Vertex operations
         .function("glBegin", ffi.FnSignature{
             params: vec![ffi.Type.U32],
             returns: ffi.Type.Void,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("glEnd", ffi.FnSignature{
             params: vec![],
             returns: ffi.Type.Void,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("glVertex3f", ffi.FnSignature{
             params: vec![ffi.Type.F32, ffi.Type.F32, ffi.Type.F32],
             returns: ffi.Type.Void,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("glColor3f", ffi.FnSignature{
             params: vec![ffi.Type.F32, ffi.Type.F32, ffi.Type.F32],
             returns: ffi.Type.Void,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // Buffer operations
         .function("glSwapBuffers", ffi.FnSignature{
             params: vec![ffi.Type.Pointer(Ptr<void>)],
             returns: ffi.Type.Void,
-            calling_convention: .Some(.StdCall),
+            calling_convention: Some(.StdCall),
             variadic: false
         })
         // Constants
@@ -233,14 +233,14 @@ build_system_bindings = () ffi.Library {
         .function("fork", ffi.FnSignature{
             params: vec![],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false,
             platform: Some(vec![.linux, .macos])
         })
         .function("exec", ffi.FnSignature{
             params: vec![ffi.Type.String, ffi.Type.Pointer(Ptr<String>)],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false,
             platform: Some(vec![.linux, .macos])
         })
@@ -258,7 +258,7 @@ build_system_bindings = () ffi.Library {
                 ffi.Type.Pointer(Ptr<void>)               // lpProcessInformation
             ],
             returns: ffi.Type.Bool,
-            calling_convention: .Some(.StdCall),
+            calling_convention: Some(.StdCall),
             variadic: false,
             platform: Some(vec![.windows])
         })
@@ -266,41 +266,41 @@ build_system_bindings = () ffi.Library {
         .function("malloc", ffi.FnSignature{
             params: vec![ffi.Type.USize],
             returns: ffi.Type.Pointer(Ptr<void>),
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         .function("free", ffi.FnSignature{
             params: vec![ffi.Type.Pointer(Ptr<void>)],
             returns: ffi.Type.Void,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false
         })
         // File operations
         .function("open", ffi.FnSignature{
             params: vec![ffi.Type.String, ffi.Type.I32, ffi.Type.I32],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: true,
             platform: Some(vec![.linux, .macos])
         })
         .function("read", ffi.FnSignature{
             params: vec![ffi.Type.I32, ffi.Type.Pointer(Ptr<void>), ffi.Type.USize],
             returns: ffi.Type.ISize,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false,
             platform: Some(vec![.linux, .macos])
         })
         .function("write", ffi.FnSignature{
             params: vec![ffi.Type.I32, ffi.Type.Pointer(Ptr<void>), ffi.Type.USize],
             returns: ffi.Type.ISize,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false,
             platform: Some(vec![.linux, .macos])
         })
         .function("close", ffi.FnSignature{
             params: vec![ffi.Type.I32],
             returns: ffi.Type.I32,
-            calling_convention: .Some(ffi.CallingConvention.CDecl),
+            calling_convention: Some(ffi.CallingConvention.CDecl),
             variadic: false,
             platform: Some(vec![.linux, .macos])
         })
@@ -321,28 +321,28 @@ Database.open = (path: string) Result<Database, string> {
     
     // Load the library
     lib.load() ?
-        | .Ok(_) {
-            db_ptr: Ptr<SQLiteDB> = .None
+        | Ok(_) {
+            db_ptr: Ptr<SQLiteDB> = None
             flags ::= lib.get_constant("SQLITE_OPEN_READWRITE") | lib.get_constant("SQLITE_OPEN_CREATE")
             
-            result ::= lib.call("sqlite3_open_v2", vec![path, db_ptr.ref(), flags, .None])
+            result ::= lib.call("sqlite3_open_v2", vec![path, db_ptr.ref(), flags, None])
             result == lib.get_constant("SQLITE_OK") ?
-                | true { return .Ok(Database{ handle: db_ptr, lib: lib  })}
+                | true { return Ok(Database{ handle: db_ptr, lib: lib  })}
                 | false {
                     error_msg ::= lib.call("sqlite3_errmsg", vec![db_ptr])
                     lib.call("sqlite3_close_v2", vec![db_ptr])
-                    return .Err("Failed to open database: ${error_msg}")
+                    return Err("Failed to open database: ${error_msg}")
                 }
         }
-        | .Err(e) { return .Err("Failed to load SQLite library: ${e}") }
+        | Err(e) { return Err("Failed to load SQLite library: ${e}") }
 }
 
 Database.execute = (self, query: string) Result<void, string> {
-    stmt_ptr: Ptr<SQLiteStmt> = .None
+    stmt_ptr: Ptr<SQLiteStmt> = None
     
     // Prepare statement
     result ::= self.lib.call("sqlite3_prepare_v2", vec![
-        self.handle, query, -1, stmt_ptr.ref(), .None
+        self.handle, query, -1, stmt_ptr.ref(), None
     ])
     
     result == self.lib.get_constant("SQLITE_OK") ?
@@ -352,15 +352,15 @@ Database.execute = (self, query: string) Result<void, string> {
             self.lib.call("sqlite3_finalize", vec![stmt_ptr])
             
             step_result == self.lib.get_constant("SQLITE_DONE") ?
-                | true { return .Ok(void) }
+                | true { return Ok(void) }
                 | false {
                     error_msg ::= self.lib.call("sqlite3_errmsg", vec![self.handle])
-                    return .Err("Execution failed: ${error_msg}")
+                    return Err("Execution failed: ${error_msg}")
                 }
         }
         | false {
             error_msg ::= self.lib.call("sqlite3_errmsg", vec![self.handle])
-            return .Err("Failed to prepare statement: ${error_msg}")
+            return Err("Failed to prepare statement: ${error_msg}")
         }
 }
 
@@ -369,9 +369,9 @@ Database.close = (self) Result<void, string> {
     result == self.lib.get_constant("SQLITE_OK") ?
         | true {
             self.lib.unload()
-            return .Ok(void)
+            return Ok(void)
         }
-        | false { return .Err("Failed to close database") }
+        | false { return Err("Failed to close database") }
 }
 
 // OpenGL Renderer using FFI
@@ -384,16 +384,16 @@ Renderer.create = () Result<Renderer, string> {
     lib ::= build_opengl_bindings()
     
     lib.load() ?
-        | .Ok(_) {
+        | Ok(_) {
             context ::= lib.call("glCreateContext", vec![.None])
-            context != .None ?
+            context != None ?
                 | true {
                     lib.call("glMakeCurrent", vec![.None, context])
-                    return .Ok(Renderer{ context: context, lib: lib })
+                    return Ok(Renderer{ context: context, lib: lib })
                 }
-                | false { return .Err("Failed to create OpenGL context") }
+                | false { return Err("Failed to create OpenGL context") }
         }
-        | .Err(e) { return .Err("Failed to load OpenGL library: ${e}") }
+        | Err(e) { return Err("Failed to load OpenGL library: ${e}") }
 }
 
 Renderer.clear = (self, r: f32, g: f32, b: f32, a: f32) void {
@@ -435,7 +435,7 @@ main = () void {
     
     db_result ::= Database.open("demo.db")
     db_result ?
-        | .Ok(db) {
+        | Ok(db) {
             io.print("✓ Database opened successfully\n")
             
             // Create table
@@ -448,8 +448,8 @@ main = () void {
             ")
             
             create_table ?
-                | .Ok(_) { io.print("✓ Table created\n") }
-                | .Err(e) { io.print("✗ Table creation failed: ${e}\n") }
+                | Ok(_) { io.print("✓ Table created\n") }
+                | Err(e) { io.print("✗ Table creation failed: ${e}\n") }
             
             // Insert data
             insert_data ::= db.execute("
@@ -458,15 +458,15 @@ main = () void {
             ")
             
             insert_data ?
-                | .Ok(_) { io.print("✓ Data inserted\n") }
-                | .Err(e) { io.print("✗ Insert failed: ${e}\n") }
+                | Ok(_) { io.print("✓ Data inserted\n") }
+                | Err(e) { io.print("✗ Insert failed: ${e}\n") }
             
             // Close database
             db.close() ?
-                | .Ok(_) { io.print("✓ Database closed\n") }
-                | .Err(e) { io.print("✗ Close failed: ${e}\n") }
+                | Ok(_) { io.print("✓ Database closed\n") }
+                | Err(e) { io.print("✗ Close failed: ${e}\n") }
         }
-        | .Err(e) { io.print("✗ Failed to open database: ${e}\n") }
+        | Err(e) { io.print("✗ Failed to open database: ${e}\n") }
     
     io.print("\n")
     
@@ -476,7 +476,7 @@ main = () void {
     
     renderer_result ::= Renderer.create()
     renderer_result ?
-        | .Ok(renderer) {
+        | Ok(renderer) {
             io.print("✓ OpenGL context created\n")
             
             // Clear screen with blue background
@@ -491,7 +491,7 @@ main = () void {
             renderer.swap_buffers()
             io.print("✓ Buffers swapped\n")
         }
-        | .Err(e) { io.print("✗ Failed to create renderer: ${e}\n") }
+        | Err(e) { io.print("✗ Failed to create renderer: ${e}\n") }
     
     io.print("\n")
     
@@ -501,13 +501,13 @@ main = () void {
     
     system ::= build_system_bindings()
     system.load() ?
-        | .Ok(_) {
+        | Ok(_) {
             io.print("✓ System library loaded\n")
             
             // Allocate memory
             size ::= 1024
             mem ::= system.call("malloc", vec![size])
-            mem != .None ?
+            mem != None ?
                 | true {
                     io.print("✓ Allocated ${size} bytes\n")
                     
@@ -520,7 +520,7 @@ main = () void {
             system.unload()
             io.print("✓ System library unloaded\n")
         }
-        | .Err(e) { io.print("✗ Failed to load system library: ${e}\n") }
+        | Err(e) { io.print("✗ Failed to load system library: ${e}\n") }
     
     io.print("\n")
     io.print("=== Demo Complete ===\n")

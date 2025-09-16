@@ -1160,7 +1160,7 @@ main = () i32   {
     while (true) {
         // Read message header
         header := io.read_line()
-        header .== .None ? {
+        header .== None ? {
             break
         }
         

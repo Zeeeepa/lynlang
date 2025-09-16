@@ -396,8 +396,8 @@ read_message = () Option<LSPMessage>   {
     // Parse JSON
     msg := json.parse(content)
     msg ?
-        | .Ok -> m return parse_lsp_message(m)
-        | .Err -> _ return None
+        | Ok -> m return parse_lsp_message(m)
+        | Err -> _ return None
 }
 
 // Parse JSON into LSP message

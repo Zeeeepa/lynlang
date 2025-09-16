@@ -1,8 +1,0 @@
-// Test that enum variant access works
-MyOption: .Some | .None
-
-main = () void {
-    // Test with explicit enum name
-    x = MyOption.Some
-    y = MyOption.None
-}

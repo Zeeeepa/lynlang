@@ -409,7 +409,7 @@ remove_dir = (path: core.String) Result<void, core.String>  {
 // Read directory contents
 read_dir = (path: core.String) Result<[]DirEntry, core.String>  {
     dir := __sys_opendir(path.data)
-    if dir .== .None {
+    if dir .== None {
         return Result<[]DirEntry, core.String>.Err("Failed to open directory")
     }
     defer __sys_closedir(dir)
@@ -418,7 +418,7 @@ read_dir = (path: core.String) Result<[]DirEntry, core.String>  {
     
     loop {
         entry := __sys_readdir(dir)
-        if entry .== .None {
+        if entry .== None {
             break
         }
         

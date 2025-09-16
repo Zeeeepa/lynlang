@@ -1,4 +1,4 @@
 test = () void   {
-    fd := fs.open(path) ? | .Ok -> f { f }
-                          | .Err -> e { return .Err(e) }
+    fd := fs.open(path) ? | Ok -> f { f }
+                          | Err -> e { return Err(e) }
 }

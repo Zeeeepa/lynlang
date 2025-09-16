@@ -44,13 +44,13 @@ TestResult<T, E> =
 
 test("enum destructuring") {
     result := TestResult:Ok(42)
-    value := result ? | .Ok -> val { val }
-                       | .Err -> err { 0 }
+    value := result ? | Ok -> val { val }
+                       | Err -> err { 0 }
     assert_eq(value, 42)
     
     error_result := TestResult:Err("Not found")
-    error_msg := error_result ? | .Ok -> _ { "" }
-                                 | .Err -> msg { msg }
+    error_msg := error_result ? | Ok -> _ { "" }
+                                 | Err -> msg { msg }
     assert_eq(error_msg, "Not found")
 }
 
@@ -223,13 +223,13 @@ Option<T> =
 test("option pattern matching") {
     maybe_value := Option:Some(42)
     
-    result := maybe_value ? | .Some -> val { val * 2 }
-                            | .None { 0 }
+    result := maybe_value ? | Some -> val { val * 2 }
+                            | None { 0 }
     assert_eq(result, 84)
     
     nothing := Option<i32>:None
-    result2 := nothing ? | .Some -> val { val * 2 }
-                         | .None { -1 }
+    result2 := nothing ? | Some -> val { val * 2 }
+                         | None { -1 }
     assert_eq(result2, -1)
 }
 

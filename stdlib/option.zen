@@ -4,8 +4,8 @@
 core = @std
 
 // Option type - represents a value that may or may not exist  
-// Using the spec syntax: Option<T>: .Some(T) | .None
-Option<T>: .Some(T) | .None
+// Using the spec syntax: Option<T>: Some(T) | None
+Option<T>: Some(T) | None
 
 // Create Some variant
 some = (value: T) Option<T> {

@@ -1,6 +1,0 @@
-// Test enum definition and usage
-Option: .Some | .None
-
-main = () void {
-    x = Option.Some
-}

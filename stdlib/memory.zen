@@ -48,7 +48,7 @@ allocate = <T>(count: usize) Ptr<T> {
     size := count * @std.sizeof(T)
     ptr := allocate_raw(size)
     
-    (ptr .== .None) ? { panic("Memory allocation failed") }
+    (ptr .== None) ? { panic("Memory allocation failed") }
     
     // Track allocation in debug mode
     @std.debug ? { track_allocation(ptr, size, @std.line, @std.file) }
@@ -60,7 +60,7 @@ allocate = <T>(count: usize) Ptr<T> {
 allocate_zeroed = <T>(count: usize) Ptr<T> {
     ptr := allocate_zeroed_raw(count, @std.sizeof(T))
     
-    (ptr .== .None) ? { panic("Memory allocation failed") }
+    (ptr .== None) ? { panic("Memory allocation failed") }
     
     // Track allocation in debug mode
     @std.debug ? { track_allocation(ptr, count * @std.sizeof(T), @std.line, @std.file) }
@@ -73,7 +73,7 @@ reallocate = <T>(ptr: Ptr<T>, new_count: usize) Ptr<T> {
     new_size := new_count * @std.sizeof(T)
     new_ptr := reallocate_raw(ptrcast(Ptr<void>, ptr), new_size)
     
-    (new_ptr .== .None) ? { panic("Memory reallocation failed") }
+    (new_ptr .== None) ? { panic("Memory reallocation failed") }
     
     // Update tracking in debug mode
     @std.debug ? {
@@ -86,7 +86,7 @@ reallocate = <T>(ptr: Ptr<T>, new_count: usize) Ptr<T> {
 
 // Deallocate memory
 deallocate = <T>(ptr: Ptr<T>) void {
-    (ptr .== .None) ? { return }
+    (ptr .== None) ? { return }
     
     // Untrack allocation in debug mode
     @std.debug ? { untrack_allocation(ptrcast(Ptr<void>, ptr)) }

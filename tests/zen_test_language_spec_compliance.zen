@@ -85,16 +85,16 @@ test_error_as_values = () bool   {
     
     // Pattern match on Result
     success ?
-        | .Ok(val) {
+        | Ok(val) {
             val == 42 ?
                 | true {}
                 | false { return false }
         }
-        | .Err(_) { return false }
+        | Err(_) { return false }
     
     failure ?
-        | .Ok(_) { return false }
-        | .Err(err) {
+        | Ok(_) { return false }
+        | Err(err) {
             err == "error" ?
                 | true {}
                 | false { return false }
@@ -106,16 +106,16 @@ test_error_as_values = () bool   {
     
     // Pattern match on Option
     some_value ?
-        | .Some(val) {
+        | Some(val) {
             val == 10 ?
                 | true {}
                 | false { return false }
         }
-        | .None { return false }
+        | None { return false }
     
     none_value ?
-        | .Some(_) { return false }
-        | .None {}
+        | Some(_) { return false }
+        | None {}
     
     return true
 }

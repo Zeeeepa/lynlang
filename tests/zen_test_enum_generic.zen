@@ -1,0 +1,8 @@
+// Test generic enum
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    io.print("Testing generic enum")
+}

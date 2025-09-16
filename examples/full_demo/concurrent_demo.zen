@@ -25,9 +25,9 @@ SyncAllocator: {
     is_concurrent: false,
     alloc: (size) { return @std.heap.alloc(size) },
     free: (ptr) { @std.heap.free(ptr) },
-    suspend: () { return .None },  // Can't suspend
+    suspend: () { return None },  // Can't suspend
     resume: (cont) { @panic("Cannot resume in sync context") },
-    runtime: .None,
+    runtime: None,
 }
 
 ConcurrentAllocator: {
@@ -94,8 +94,8 @@ fetch_data = (url: string, alloc: Ptr<Allocator>) Result<string, string> {
     
     // Return mock data
     return url.contains("error") ?
-        | true { .Err("Network error") }
-        | false { .Ok("Data from " + url) }
+        | true { Err("Network error") }
+        | false { Ok("Data from " + url) }
 };
 
 process_data = (data: string, alloc: Ptr<Allocator>) Result<i32, string> {
@@ -114,7 +114,7 @@ process_data = (data: string, alloc: Ptr<Allocator>) Result<i32, string> {
         }
     
     // Return processed result
-    return .Ok(data.len())
+    return Ok(data.len())
 };
 
 // Run multiple tasks - allocator determines concurrency
@@ -140,13 +140,13 @@ run_tasks = (alloc: Ptr<Allocator>) i32 {
     total_length ::= 0
     results.loop((result) {
         result ? 
-            | .Ok(data) {
+            | Ok(data) {
                 processed = process_data(data, alloc)
                 processed ? 
-                    | .Ok(len) { total_length ::= total_length + len }
-                    | .Err(_) { }
+                    | Ok(len) { total_length ::= total_length + len }
+                    | Err(_) { }
             }
-            | .Err(err) { @std.io.println("Error: " + err) }
+            | Err(err) { @std.io.println("Error: " + err) }
     })
     
     @std.io.println("Total processed length: " + total_length)
@@ -181,8 +181,8 @@ demonstrate_channels = (alloc: Ptr<Allocator>) void {
         loop(() {
             value = chan.receive()
             value ?
-                | .Some(v) { @std.io.println("Received: " + v) }
-                | .None { break }
+                | Some(v) { @std.io.println("Received: " + v) }
+                | None { break }
         })
     }
     
@@ -278,8 +278,8 @@ Counter.spawn = (alloc: Ptr<Allocator>) ActorHandle<Counter> {
         loop(() {
             msg ::= counter.mailbox.receive()
             msg ?
-                | .Some(m) { counter.handle(m, alloc) }
-                | .None { break }
+                | Some(m) { counter.handle(m, alloc) }
+                | None { break }
         })
     }
     
