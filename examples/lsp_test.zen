@@ -62,7 +62,7 @@ main = () void   {
     defer io.println("Cleanup done");
     
     // Comptime evaluation
-    comptime {
+    @comptime {
         const_value := 42;
         static_assert(const_value == 42);
     }

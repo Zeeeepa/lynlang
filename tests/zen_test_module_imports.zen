@@ -2,14 +2,14 @@
 // This file demonstrates the correct import syntax
 
 // Module-level imports (no comptime wrapper needed)
-core := @std.core
-build := @std.build
+{ core } = @std.core
+{ build } = @std.build
 io := build.import("io")
 mem := build.import("memory")
 string := build.import("string")
 
 // Test that imports work
-test_imports: () i32  = {
+test_imports = () i32   {
     // Use imported modules
     io.print("Testing module imports\n")
     
@@ -28,7 +28,7 @@ test_imports: () i32  = {
     return sum  // Should return 10
 }
 
-main: () i32  = {
+main = () i32   {
     result := test_imports()
     io.print_int(result)
     return 0

@@ -23,7 +23,7 @@ match result {
 test := x > 5 ? { print("test") }
 
 // Valid function syntax
-test_func: () i32  = {
+test_func = () i32   {
     return 42
 }
 

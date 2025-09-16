@@ -3,14 +3,14 @@
 // This is the main entry point for the self-hosted compiler
 
 // Module-level imports (correct syntax - no comptime blocks)
-io := @std.io
-fs := @std.fs
-string := @std.string
-vec := @std.vec
-core := @std.core
-path := @std.path
-process := @std.process
-result := @std.result
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ vec } = @std.vec
+{ core } = @std.core
+{ path } = @std.path
+{ process } = @std.process
+{ result } = @std.result
 
 // Compiler pipeline stages
 CompilerStage: 
@@ -173,7 +173,7 @@ TypeEnvironment: {
 }
 
 // Create a new compiler
-compiler_new: (config: CompilerConfig) Compiler  = {
+compiler_new = (config: CompilerConfig) Compiler   {
     return Compiler {
         config = config,
         source_code = "",
@@ -190,13 +190,13 @@ compiler_new: (config: CompilerConfig) Compiler  = {
 }
 
 // Main compilation pipeline
-compile: (compiler: *Compiler) CompilationResult  = {
+compile = (compiler: *Compiler) CompilationResult   {
     start_time := core.time_now()
     
     // Read source file
     fs.read_file(compiler.config.input_file) ? 
-        | .Ok -> content => compiler.source_code = content
-        | .Err -> err => return CompilationResult {
+        | .Ok -> content { compiler.source_code = content }
+        | .Err -> err { return CompilationResult { }
             success = false,
             output_path = "",
             warnings = vec.new<string>(),
@@ -209,30 +209,30 @@ compile: (compiler: *Compiler) CompilationResult  = {
     compiler.config.verbose ? { io.print("Stage 1: Lexical Analysis\n") }
     
     lex(compiler.source_code) ?
-        | .Ok -> tokens => {
+        | .Ok -> tokens { { }
             compiler.tokens = tokens
             compiler.config.verbose ? { io.print(string.format("  Generated {} tokens\n", tokens.len())) }
         }
-        | .Err -> err => return compilation_error(err, compiler)
+        | .Err -> err { return compilation_error(err, compiler) }
     
     // Parsing
     compiler.current_stage = CompilerStage.Parsing
     compiler.config.verbose ? { io.print("Stage 2: Parsing\n") }
     
     parse(compiler.tokens) ?
-        | .Ok -> ast => {
+        | .Ok -> ast { { }
             compiler.ast = Option.Some(ast)
             compiler.config.emit_ast ? { emit_ast(ast, compiler.config.output_file + ".ast") }
         }
-        | .Err -> err => return compilation_error(err, compiler)
+        | .Err -> err { return compilation_error(err, compiler) }
     
     // Type checking
     compiler.current_stage = CompilerStage.TypeChecking
     compiler.config.verbose ? { io.print("Stage 3: Type Checking\n") }
     
     type_check(compiler.ast.unwrap(), &compiler.type_env) ?
-        | .Ok -> typed_ast => compiler.ast = Option.Some(typed_ast)
-        | .Err -> err => return compilation_error(err, compiler)
+        | .Ok -> typed_ast { compiler.ast = Option.Some(typed_ast) }
+        | .Err -> err { return compilation_error(err, compiler) }
     
     // Optimization
     compiler.config.optimization_level > 0 ? {
@@ -250,11 +250,11 @@ compile: (compiler: *Compiler) CompilationResult  = {
     compiler.config.verbose ? { io.print("Stage 5: Code Generation\n") }
     
     generate_code(compiler.ast.unwrap(), compiler.config.target) ?
-        | .Ok -> ir => {
+        | .Ok -> ir { { }
             compiler.ir_code = ir
             compiler.config.emit_ir ? { fs.write_file(compiler.config.output_file + ".ir", ir) }
         }
-        | .Err -> err => return compilation_error(err, compiler)
+        | .Err -> err { return compilation_error(err, compiler) }
         }
     }
     
@@ -263,7 +263,7 @@ compile: (compiler: *Compiler) CompilationResult  = {
     compiler.config.verbose ? { io.print("Stage 6: Linking\n") }
     
     link(compiler.ir_code, compiler.config.output_file, compiler.config.target) ?
-        | .Ok -> output_path => {
+        | .Ok -> output_path { { }
             end_time := core.time_now()
             
             return CompilationResult {
@@ -280,11 +280,11 @@ compile: (compiler: *Compiler) CompilationResult  = {
                 },
             }
         }
-        | .Err -> err => return compilation_error(err, compiler)
+        | .Err -> err { return compilation_error(err, compiler) }
 }
 
 // Lexical analysis
-lex: (source: string) Result<vec<Token>, string>  = {
+lex = (source: string) Result<vec<Token>, string>   {
     tokens := vec.new<Token>()
     lexer := lexer_new(source)
     
@@ -299,20 +299,20 @@ lex: (source: string) Result<vec<Token>, string>  = {
 }
 
 // Parser
-parse: (tokens: vec<Token>) Result<ASTNode, string>  = {
+parse = (tokens: vec<Token>) Result<ASTNode, string>   {
     parser := parser_new(tokens)
     return parser_parse_program(&parser)
 }
 
 // Type checker
-type_check: (ast: ASTNode, env: *TypeEnvironment) Result<ASTNode, string>  = {
+type_check = (ast: ASTNode, env: *TypeEnvironment) Result<ASTNode, string>   {
     // Type checking implementation
     // This would traverse the AST and assign types to all expressions
     return Result.Ok(ast)  // Placeholder
 }
 
 // Optimizer
-optimize: (ast: ASTNode, level: i32) ASTNode  = {
+optimize = (ast: ASTNode, level: i32) ASTNode   {
     // Apply optimization passes based on level
     optimized := ast
     
@@ -338,30 +338,30 @@ optimize: (ast: ASTNode, level: i32) ASTNode  = {
 }
 
 // Code generator
-generate_code: (ast: ASTNode, target: string) Result<string, string>  = {
+generate_code = (ast: ASTNode, target: string) Result<string, string>   {
     target ?
-        | "native" => generate_native_code(ast)
-        | "wasm" => generate_wasm_code(ast)
-        | "llvm-ir" => generate_llvm_ir(ast)
-        | _ => Result.Err(string.format("Unknown target: {}", target))
+        | "native" { generate_native_code(ast) }
+        | "wasm" { generate_wasm_code(ast) }
+        | "llvm-ir" { generate_llvm_ir(ast) }
+        | _ { Result.Err(string.format("Unknown target: { }}", target))
 }
 
 // Linker
-link: (ir: string, output: string, target: string) Result<string, string>  = {
+link = (ir: string, output: string, target: string) Result<string, string>   {
     // Link the generated code with runtime and produce executable
     target ?
-        | "native" => {
+        | "native" { { }
             // Use system linker (ld, lld, etc.)
             cmd := string.format("ld -o {} {}.o", output, output)
             process.execute(cmd)
             Result.Ok(output)
         }
-        | "wasm" => Result.Ok(output + ".wasm")
-        | _ => Result.Err("Unsupported target for linking")
+        | "wasm" { Result.Ok(output + ".wasm") }
+        | _ { Result.Err("Unsupported target for linking") }
 }
 
 // Helper functions
-compilation_error: (err: string, compiler: *Compiler) CompilationResult  = {
+compilation_error = (err: string, compiler: *Compiler) CompilationResult   {
     return CompilationResult {
         success = false,
         output_path = "",
@@ -372,7 +372,7 @@ compilation_error: (err: string, compiler: *Compiler) CompilationResult  = {
     }
 }
 
-empty_stats: () CompilationStats  = {
+empty_stats = () CompilationStats   {
     return CompilationStats {
         lines_processed = 0,
         tokens_generated = 0,
@@ -382,7 +382,7 @@ empty_stats: () CompilationStats  = {
     }
 }
 
-count_lines: (text: string) i32  = {
+count_lines = (text: string) i32   {
     count := 1
     for ch in text {
         ch == '\n' ? { count = count + 1 }
@@ -390,29 +390,29 @@ count_lines: (text: string) i32  = {
     return count
 }
 
-count_ast_nodes: (ast: ASTNode) i32  = {
+count_ast_nodes = (ast: ASTNode) i32   {
     // Recursively count all nodes in the AST
     return 1  // Placeholder
 }
 
 // Placeholder functions for optimization passes
-optimize_constants: (ast: ASTNode) ASTNode  = { return ast }
-eliminate_dead_code: (ast: ASTNode) ASTNode  = { return ast }
-inline_functions: (ast: ASTNode) ASTNode  = { return ast }
-unroll_loops: (ast: ASTNode) ASTNode  = { return ast }
-vectorize_operations: (ast: ASTNode) ASTNode  = { return ast }
-allocate_registers: (ast: ASTNode) ASTNode  = { return ast }
+optimize_constants = (ast: ASTNode) ASTNode   { return ast }
+eliminate_dead_code = (ast: ASTNode) ASTNode   { return ast }
+inline_functions = (ast: ASTNode) ASTNode   { return ast }
+unroll_loops = (ast: ASTNode) ASTNode   { return ast }
+vectorize_operations = (ast: ASTNode) ASTNode   { return ast }
+allocate_registers = (ast: ASTNode) ASTNode   { return ast }
 
 // Placeholder functions for code generation
-generate_native_code: (ast: ASTNode) Result<string, string>  = {
+generate_native_code = (ast: ASTNode) Result<string, string>   {
     return Result.Ok("// Native code generation placeholder")
 }
 
-generate_wasm_code: (ast: ASTNode) Result<string, string>  = {
+generate_wasm_code = (ast: ASTNode) Result<string, string>   {
     return Result.Ok("// WASM code generation placeholder")
 }
 
-generate_llvm_ir: (ast: ASTNode) Result<string, string>  = {
+generate_llvm_ir = (ast: ASTNode) Result<string, string>   {
     // Generate LLVM IR from AST
     ir := "; LLVM IR generated by Zen compiler\n"
     ir = ir + "target triple = \"x86_64-unknown-linux-gnu\"\n\n"
@@ -428,19 +428,19 @@ generate_llvm_ir: (ast: ASTNode) Result<string, string>  = {
 }
 
 // Emit AST to file
-emit_ast: (ast: ASTNode, path: string) void  = {
+emit_ast = (ast: ASTNode, path: string) void   {
     // Convert AST to readable format and write to file
     ast_str := ast_to_string(ast, 0)
     fs.write_file(path, ast_str)
 }
 
-ast_to_string: (node: ASTNode, indent: i32) string  = {
+ast_to_string = (node: ASTNode, indent: i32) string   {
     // Convert AST node to string representation
     return "// AST placeholder"
 }
 
 // Main entry point
-main: (args: vec<string>) i32  = {
+main = (args: vec<string>) i32   {
     io.print("Zen Self-Hosted Compiler v1.0.0\n")
     
     args.len() < 2 ? {

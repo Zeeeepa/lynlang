@@ -40,28 +40,28 @@ push = <T>(vec: &Vec<T>, value: T) void {
 // Pop element from vector
 pop = <T>(vec: &Vec<T>) Option<T> {
     vec.len > 0 ?
-        | true => {
+        | true { { }
             vec.len = vec.len - 1
             Option<T>.Some(vec.data[vec.len])
         }
-        | false => Option<T>.None
+        | false { Option<T>.None }
 }
 
 // Get element at index
 get = <T>(vec: &Vec<T>, index: usize) Option<T> {
     index < vec.len ?
-        | true => Option<T>.Some(vec.data[index])
-        | false => Option<T>.None
+        | true { Option<T>.Some(vec.data[index]) }
+        | false { Option<T>.None }
 }
 
 // Set element at index
 set = <T>(vec: &Vec<T>, index: usize, value: T) bool {
     index < vec.len ?
-        | true => {
+        | true { { }
             vec.data[index] = value
             true
         }
-        | false => false
+        | false { false }
 }
 
 // Get length
@@ -82,8 +82,8 @@ clear = <T>(vec: &Vec<T>) void {
 // Internal: grow vector capacity
 grow = <T>(vec: &Vec<T>) void {
     new_capacity := vec.capacity == 0 ?
-        | true => 4
-        | false => vec.capacity * 2
+        | true { 4 }
+        | false { vec.capacity * 2 }
     
     new_data := allocate<T>(new_capacity)
     

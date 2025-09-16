@@ -1,13 +1,13 @@
 // Comprehensive tests for Zen stdlib string module
 
-string := @std.string
-test := @std.test
-io := @std.io
-assert := @std.assert
-vec := @std.vec
+{ string } = @std.string
+{ test } = @std.test
+{ io } = @std.io
+{ assert } = @std.assert
+{ vec } = @std.vec
 
 // Test string creation and basic operations
-test_string_creation: () void  = {
+test_string_creation = () void   {
     suite := test.suite_new("String Creation Tests")
     
     test.suite_add_test(&suite, "String from literal", () void {
@@ -45,7 +45,7 @@ test_string_creation: () void  = {
 }
 
 // Test string manipulation
-test_string_manipulation: () void  = {
+test_string_manipulation = () void   {
     suite := test.suite_new("String Manipulation Tests")
     
     test.suite_add_test(&suite, "String concatenation", () void {
@@ -98,7 +98,7 @@ test_string_manipulation: () void  = {
 }
 
 // Test string searching
-test_string_searching: () void  = {
+test_string_searching = () void   {
     suite := test.suite_new("String Searching Tests")
     
     test.suite_add_test(&suite, "Contains substring", () void {
@@ -146,7 +146,7 @@ test_string_searching: () void  = {
 }
 
 // Test string transformation
-test_string_transformation: () void  = {
+test_string_transformation = () void   {
     suite := test.suite_new("String Transformation Tests")
     
     test.suite_add_test(&suite, "To uppercase", () void {
@@ -195,7 +195,7 @@ test_string_transformation: () void  = {
 }
 
 // Test string splitting and joining
-test_string_split_join: () void  = {
+test_string_split_join = () void   {
     suite := test.suite_new("String Split/Join Tests")
     
     test.suite_add_test(&suite, "Split by delimiter", () void {
@@ -236,7 +236,7 @@ test_string_split_join: () void  = {
 }
 
 // Test string parsing
-test_string_parsing: () void  = {
+test_string_parsing = () void   {
     suite := test.suite_new("String Parsing Tests")
     
     test.suite_add_test(&suite, "Parse integer", () void {
@@ -257,15 +257,15 @@ test_string_parsing: () void  = {
         s := string.from("3.14")
         f := s.parse_f64()
         match f {
-            | Ok(val) => assert.approx_equal(val, 3.14, 0.001)
-            | Err(_) => assert.fail("Failed to parse float")
+            | Ok(val) { assert.approx_equal(val, 3.14, 0.001) }
+            | Err(_) { assert.fail("Failed to parse float") }
         }
         
         s2 := string.from("-2.5")
         f2 := s2.parse_f64()
         match f2 {
-            | Ok(val) => assert.approx_equal(val, -2.5, 0.001)
-            | Err(_) => assert.fail("Failed to parse negative float")
+            | Ok(val) { assert.approx_equal(val, -2.5, 0.001) }
+            | Err(_) { assert.fail("Failed to parse negative float") }
         }
     })
     
@@ -279,7 +279,7 @@ test_string_parsing: () void  = {
 }
 
 // Test string formatting
-test_string_formatting: () void  = {
+test_string_formatting = () void   {
     suite := test.suite_new("String Formatting Tests")
     
     test.suite_add_test(&suite, "Format with placeholders", () void {
@@ -314,7 +314,7 @@ test_string_formatting: () void  = {
 }
 
 // Test string iteration
-test_string_iteration: () void  = {
+test_string_iteration = () void   {
     suite := test.suite_new("String Iteration Tests")
     
     test.suite_add_test(&suite, "Iterate chars", () void {
@@ -360,7 +360,7 @@ test_string_iteration: () void  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Running String Module Tests ===\n")
     
     test_string_creation()

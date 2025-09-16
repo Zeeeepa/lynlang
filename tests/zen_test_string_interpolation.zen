@@ -1,5 +1,5 @@
 // Test string interpolation
-main: () i32  = {
+main = () i32   {
     name := "World"
     age := 42
     pi := 3.14159

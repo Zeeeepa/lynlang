@@ -1,10 +1,10 @@
 // Test simplified loop syntax for Zen
 // Demonstrates the language works with the new loop requirements
 
-extern printf = (format: *i8, ...) i32
-extern puts = (str: *i8) i32
+extern printf = (format: RawPtr<i8>, ...) i32
+extern puts = (str: RawPtr<i8>) i32
 
-main: () i32  = {
+main = () i32   {
     puts("Testing Zen Loop Simplification")
     puts("================================")
     
@@ -23,10 +23,10 @@ main: () i32  = {
     i := 0
     loop {
         i = i + 1
-        i == 5 ? | true => {
+        i == 5 ? | true { { }
             printf("Breaking at i = %d\n", i)
             break
-        } | false => {}
+        } | false { { }}
     }
     
     // Test 3: Nested loops
@@ -53,9 +53,9 @@ main: () i32  = {
     n := 0
     loop n < 10 {
         n = n + 1
-        n % 2 == 0 ? | true => {
+        n % 2 == 0 ? | true { { }
             continue
-        } | false => {}
+        } | false { { }}
         result = result + n
     }
     printf("Sum of odd numbers 1-9: %d\n", result)
@@ -80,18 +80,18 @@ main: () i32  = {
     count := 0
     x := 1
     loop x <= 20 {
-        x % 15 == 0 ? | true => {
+        x % 15 == 0 ? | true { { }
             puts("FizzBuzz")
             count = count + 1
-        } | false => {
-            x % 3 == 0 ? | true => {
+        } | false { { }
+            x % 3 == 0 ? | true { { }
                 puts("Fizz")
                 count = count + 1
-            } | false => {
-                x % 5 == 0 ? | true => {
+            } | false { { }
+                x % 5 == 0 ? | true { { }
                     puts("Buzz")
                     count = count + 1
-                } | false => {}
+                } | false { { }}
             }
         }
         x = x + 1

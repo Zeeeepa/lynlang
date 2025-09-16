@@ -1,11 +1,11 @@
 // Test FFI Builder Pattern - Enhanced Version
 // Demonstrates the complete FFI builder pattern according to spec v1.1.0
 
-ffi := @std.build.import("ffi")
-io := @std.build.import("io")
+{ ffi } = @std.build.import("ffi")
+{ io } = @std.build.import("io")
 
 // Test building SQLite3 bindings
-test_sqlite_bindings: () void  = {
+test_sqlite_bindings = () void   {
     // Build SQLite3 library configuration
     sqlite := ffi.FFI.lib("sqlite3")
         .path("/usr/lib/libsqlite3.so")
@@ -42,7 +42,7 @@ test_sqlite_bindings: () void  = {
 }
 
 // Test building OpenGL bindings
-test_opengl_bindings: () void  = {
+test_opengl_bindings = () void   {
     gl := ffi.FFI.lib("GL")
         .path("/usr/lib/libGL.so")
         .function("glClear", ffi.FnSignature{
@@ -65,7 +65,7 @@ test_opengl_bindings: () void  = {
 }
 
 // Test building libc bindings with variadic functions
-test_libc_bindings: () void  = {
+test_libc_bindings = () void   {
     libc := ffi.FFI.lib("c")
         .path("/lib/libc.so.6")
         .function("printf", ffi.FnSignature{
@@ -92,7 +92,7 @@ test_libc_bindings: () void  = {
 }
 
 // Test struct bindings
-test_struct_bindings: () void  = {
+test_struct_bindings = () void   {
     // Define a C struct: struct Point { int x; int y; }
     point_fields := vec![
         ffi.FieldType{ name: "x", field_type: ffi.Type:I32 },
@@ -114,7 +114,7 @@ test_struct_bindings: () void  = {
 }
 
 // Test actual library loading (if available)
-test_library_loading: () void  = {
+test_library_loading = () void   {
     // Try to load a simple library
     math_lib := ffi.FFI.lib("m")
         .path("/usr/lib/libm.so")
@@ -135,25 +135,25 @@ test_library_loading: () void  = {
     // Try loading the library
     load_result := math_lib.load()
     load_result ?
-        | .Ok -> _ => {
+        | .Ok -> _ { { }
             io.print("Math library loaded successfully\n")
             
             // Test function retrieval
             sin_ptr := math_lib.get_function("sin")
             sin_ptr ?
-                | .Ok -> _ => io.print("Retrieved sin function pointer\n")
-                | .Err -> e => io.print("Failed to get sin function: $(e)\n")
+                | .Ok -> _ { io.print("Retrieved sin function pointer\n") }
+                | .Err -> e { io.print("Failed to get sin function: $(e)\n") }
             
             // Unload library
             unload_result := math_lib.unload()
             unload_result ?
-                | .Ok -> _ => io.print("Library unloaded successfully\n")
-                | .Err -> e => io.print("Failed to unload: $(e)\n")
+                | .Ok -> _ { io.print("Library unloaded successfully\n") }
+                | .Err -> e { io.print("Failed to unload: $(e)\n") }
         }
-        | .Err -> e => io.print("Failed to load library: $(e)\n")
+        | .Err -> e { io.print("Failed to load library: $(e)\n") }
 }
 
-main: () void  = {
+main = () void   {
     io.print("Testing FFI Builder Pattern\n")
     io.print("============================\n\n")
     

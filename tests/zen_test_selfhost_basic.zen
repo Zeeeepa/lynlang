@@ -2,22 +2,22 @@
 // This test verifies that our Zen compiler components work correctly
 
 // Correct module-level imports
-io := @std.io
-core := @std.core
-string := @std.string
+{ io } = @std.io
+{ core } = @std.core
+{ string } = @std.string
 
 // Simple test program to compile
 test_program = "
-    io := @std.io
+    { io } = @std.io
     
-    main: () i32  = {
+    main = () i32   {
         io.print(\"Hello from self-hosted Zen!\\n\")
         return 0
     }
 "
 
 // Test lexer functionality
-test_lexer: () bool  = {
+test_lexer = () bool   {
     // In a real implementation, we'd use the lexer module
     // For now, just return true to indicate the test structure is correct
     io.print("Testing lexer...")
@@ -31,7 +31,7 @@ test_lexer: () bool  = {
 }
 
 // Test parser functionality  
-test_parser: () bool  = {
+test_parser = () bool   {
     io.print("Testing parser...")
     
     // Verify we can parse basic statements
@@ -43,7 +43,7 @@ test_parser: () bool  = {
 }
 
 // Test type checker
-test_type_checker: () bool  = {
+test_type_checker = () bool   {
     io.print("Testing type checker...")
     
     // Verify type checking works
@@ -55,7 +55,7 @@ test_type_checker: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("=== Zen Self-Hosting Test Suite ===\n\n")
     
     test_count := 0
@@ -63,25 +63,25 @@ main: () i32  = {
     
     // Run lexer test
     test_count = test_count + 1
-    test_lexer() ? | true => {
+    test_lexer() ? | true { { }
         passed_count = passed_count + 1
-    } | false => {
+    } | false { { }
         io.print("FAILED: Lexer test\n")
     }
     
     // Run parser test
     test_count = test_count + 1
-    test_parser() ? | true => {
+    test_parser() ? | true { { }
         passed_count = passed_count + 1
-    } | false => {
+    } | false { { }
         io.print("FAILED: Parser test\n")
     }
     
     // Run type checker test
     test_count = test_count + 1
-    test_type_checker() ? | true => {
+    test_type_checker() ? | true { { }
         passed_count = passed_count + 1
-    } | false => {
+    } | false { { }
         io.print("FAILED: Type checker test\n")
     }
     
@@ -94,10 +94,10 @@ main: () i32  = {
     io.print("\n")
     
     // Return 0 if all tests passed, 1 otherwise
-    passed_count == test_count ? | true => {
+    passed_count == test_count ? | true { { }
         io.print("\nAll tests passed!\n")
         return 0
-    } | false => {
+    } | false { { }
         io.print("\nSome tests failed.\n")
         return 1
     }

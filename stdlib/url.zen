@@ -1,11 +1,11 @@
 // URL Parser and Builder for Zen
 // Provides URL parsing, validation, and manipulation utilities
 
-string := @std.string
-vec := @std.vec
-result := @std.result
-hashmap := @std.hashmap
-io := @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ result } = @std.result
+{ hashmap } = @std.hashmap
+{ io } = @std.io
 
 // URL components
 URL := {
@@ -278,7 +278,7 @@ parse_fragment = (url: *string) result.Result<string, URLError> {
 }
 
 // Build a URL string from components
-build: (url: URL) string  = {
+build = (url: URL) string   {
     result := ""
     
     // Add scheme
@@ -341,7 +341,7 @@ build: (url: URL) string  = {
 }
 
 // URL encoding (percent-encoding)
-url_encode: (s: string) string  = {
+url_encode = (s: string) string   {
     result := ""
     
     for (c in s) {
@@ -356,7 +356,7 @@ url_encode: (s: string) string  = {
 }
 
 // URL decoding
-url_decode: (s: string) string  = {
+url_decode = (s: string) string   {
     result := ""
     i := 0
     
@@ -384,7 +384,7 @@ url_decode: (s: string) string  = {
 }
 
 // Check if character is unreserved in URLs
-is_unreserved: (c: u8) bool  = {
+is_unreserved = (c: u8) bool   {
     return (c >= 'A' && c <= 'Z') ||
            (c >= 'a' && c <= 'z') ||
            (c >= '0' && c <= '9') ||
@@ -392,7 +392,7 @@ is_unreserved: (c: u8) bool  = {
 }
 
 // Convert byte to hex string
-to_hex: (c: u8) string  = {
+to_hex = (c: u8) string   {
     hex_chars := "0123456789ABCDEF"
     high := (c >> 4) & 0x0F
     low := c & 0x0F
@@ -416,7 +416,7 @@ from_hex = (hex: string) result.Result<u8, string> {
 }
 
 // Get hex digit value
-hex_digit_value: (c: u8) i8  = {
+hex_digit_value = (c: u8) i8   {
     if (c >= '0' && c <= '9') {
         return c - '0'
     } else if (c >= 'A' && c <= 'F') {
@@ -428,7 +428,7 @@ hex_digit_value: (c: u8) i8  = {
 }
 
 // Validation functions
-is_valid_scheme: (scheme: string) bool  = {
+is_valid_scheme = (scheme: string) bool   {
     if (scheme == "") return false
     
     // Must start with letter
@@ -444,7 +444,7 @@ is_valid_scheme: (scheme: string) bool  = {
     return true
 }
 
-is_valid_host: (host: string) bool  = {
+is_valid_host = (host: string) bool   {
     if (host == "") return false
     
     // Check for IPv6
@@ -461,7 +461,7 @@ is_valid_host: (host: string) bool  = {
     return is_valid_domain(host)
 }
 
-is_valid_ipv4: (ip: string) bool  = {
+is_valid_ipv4 = (ip: string) bool   {
     parts := string.split(ip, ".")
     if (parts.len() != 4) return false
     
@@ -473,13 +473,13 @@ is_valid_ipv4: (ip: string) bool  = {
     return true
 }
 
-is_valid_ipv6: (ip: string) bool  = {
+is_valid_ipv6 = (ip: string) bool   {
     // Simplified IPv6 validation
     // Should handle full, compressed, and mixed notation
     return string.contains(ip, ":")
 }
 
-is_valid_domain: (domain: string) bool  = {
+is_valid_domain = (domain: string) bool   {
     if (domain == "") return false
     
     labels := string.split(domain, ".")
@@ -496,18 +496,18 @@ is_valid_domain: (domain: string) bool  = {
     return true
 }
 
-is_valid_path: (path: string) bool  = {
+is_valid_path = (path: string) bool   {
     // Simplified path validation
     return true
 }
 
-is_valid_fragment: (fragment: string) bool  = {
+is_valid_fragment = (fragment: string) bool   {
     // Simplified fragment validation
     return true
 }
 
 // Helper to find end of authority section
-find_authority_end: (s: string) usize  = {
+find_authority_end = (s: string) usize   {
     for (i, c in s) {
         if (c == '/' || c == '?' || c == '#') {
             return i
@@ -517,7 +517,7 @@ find_authority_end: (s: string) usize  = {
 }
 
 // Join URL paths
-join_path: (base: string, relative: string) string  = {
+join_path = (base: string, relative: string) string   {
     if (string.starts_with(relative, "/")) {
         return relative
     }
@@ -530,7 +530,7 @@ join_path: (base: string, relative: string) string  = {
 }
 
 // Get URL without query and fragment
-without_query: (url: URL) URL  = {
+without_query = (url: URL) URL   {
     return URL{
         scheme: url.scheme,
         username: url.username,
@@ -545,7 +545,7 @@ without_query: (url: URL) URL  = {
 }
 
 // Get default port for scheme
-default_port: (scheme: string) ?u16  = {
+default_port = (scheme: string) ?u16   {
     if (scheme == "http") return 80
     if (scheme == "https") return 443
     if (scheme == "ftp") return 21

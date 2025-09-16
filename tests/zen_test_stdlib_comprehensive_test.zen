@@ -1,7 +1,7 @@
 // Comprehensive Standard Library Test Suite
 // Tests all stdlib modules per LANGUAGE_SPEC.md v1.1.0
 
-build := @std.build
+{ build } = @std.build
 testing := build.import("testing")
 { test, assert, assert_eq, assert_ne } := testing
 
@@ -47,8 +47,8 @@ test("io_read_functionality") {
 test("io_file_operations") {
     file_result := io.File:open("test.txt", io.Mode:Write)
     file := file_result ?
-        | .Ok -> f => f
-        | .Err -> _ => {
+        | .Ok -> f { f }
+        | .Err -> _ { { }
             // File operations might fail in test env
             return
         }
@@ -57,8 +57,8 @@ test("io_file_operations") {
     
     write_result := file.write("Hello, World!")
     bytes_written := write_result ?
-        | .Ok -> n => n
-        | .Err -> _ => 0
+        | .Ok -> n { n }
+        | .Err -> _ { 0 }
     
     assert(bytes_written > 0)
 }
@@ -144,8 +144,8 @@ test("collections_vec_comprehensive") {
     // Pop element
     popped := vec.pop()
     value := popped ?
-        | .Some -> v => v
-        | .None => 0
+        | .Some -> v { v }
+        | .None { 0 }
     assert_eq(value, 30)
     
     // Iteration
@@ -176,8 +176,8 @@ test("collections_hashmap_comprehensive") {
     // Get elements
     value := map.get("two")
     result := value ?
-        | .Some -> v => v
-        | .None => 0
+        | .Some -> v { v }
+        | .None { 0 }
     assert_eq(result, 2)
     
     // Contains key
@@ -234,11 +234,11 @@ test("collections_list_operations") {
     back := list.pop_back()
     
     front_val := front ?
-        | .Some -> v => v
-        | .None => -1
+        | .Some -> v { v }
+        | .None { -1 }
     back_val := back ?
-        | .Some -> v => v
-        | .None => -1
+        | .Some -> v { v }
+        | .None { -1 }
     
     assert_eq(front_val, 0)
     assert_eq(back_val, 2)
@@ -325,15 +325,15 @@ test("string_parsing") {
     // Parse integers
     int_result := string.parse_i32("42")
     value := int_result ?
-        | .Ok -> v => v
-        | .Err -> _ => 0
+        | .Ok -> v { v }
+        | .Err -> _ { 0 }
     assert_eq(value, 42)
     
     // Parse floats
     float_result := string.parse_f64("3.14")
     fvalue := float_result ?
-        | .Ok -> v => v
-        | .Err -> _ => 0.0
+        | .Ok -> v { v }
+        | .Err -> _ { 0.0 }
     assert(math.abs(fvalue - 3.14) < 0.001)
 }
 
@@ -360,16 +360,16 @@ test("fs_file_operations") {
     // Write file
     write_result := fs.write_file("test_output.txt", "Hello, World!")
     write_ok := write_result ?
-        | .Ok -> _ => true
-        | .Err -> _ => false
+        | .Ok -> _ { true }
+        | .Err -> _ { false }
     
     write_ok ?
-        | true => {
+        | true { { }
             // Read file
             read_result := fs.read_file("test_output.txt")
             content := read_result ?
-                | .Ok -> c => c
-                | .Err -> _ => ""
+                | .Ok -> c { c }
+                | .Err -> _ { "" }
             assert_eq(content, "Hello, World!")
             
             // Check existence
@@ -378,7 +378,7 @@ test("fs_file_operations") {
             // Remove file
             fs.remove("test_output.txt")
         }
-        | false => {}
+        | false { { }}
 }
 
 // ============================================================================
@@ -401,8 +401,8 @@ test("thread_atomic_operations") {
     // Compare and exchange
     result := counter.compare_exchange(15, 20, thread.Ordering:SeqCst)
     success := result ?
-        | .Ok -> _ => true
-        | .Err -> _ => false
+        | .Ok -> _ { true }
+        | .Err -> _ { false }
     assert(success)
     assert_eq(counter.load(thread.Ordering:SeqCst), 20)
 }
@@ -432,8 +432,8 @@ test("thread_channel_operations") {
     // Try receive when empty
     maybe_value := channel.try_receive()
     is_none := maybe_value ?
-        | .Some -> _ => false
-        | .None => true
+        | .Some -> _ { false }
+        | .None { true }
     assert(is_none)
 }
 
@@ -509,31 +509,31 @@ test("stdlib_integration_io_fs") {
     // Write using FS
     write_result := fs.write_file(filename, content)
     write_ok := write_result ?
-        | .Ok -> _ => true
-        | .Err -> _ => false
+        | .Ok -> _ { true }
+        | .Err -> _ { false }
     
     write_ok ?
-        | true => {
+        | true { { }
             // Read using IO
             file_result := io.File:open(filename, io.Mode:Read)
             file := file_result ?
-                | .Ok -> f => f
-                | .Err -> _ => return
+                | .Ok -> f { f }
+                | .Err -> _ { return }
             
             defer file.close()
             
             buffer := [100, u8]
             read_result := file.read(buffer)
             bytes_read := read_result ?
-                | .Ok -> n => n
-                | .Err -> _ => 0
+                | .Ok -> n { n }
+                | .Err -> _ { 0 }
             
             assert(bytes_read > 0)
             
             // Clean up
             fs.remove(filename)
         }
-        | false => {}
+        | false { { }}
 }
 
 test("stdlib_integration_collections_algorithms") {
@@ -566,7 +566,7 @@ test("stdlib_integration_collections_algorithms") {
 // MAIN TEST RUNNER
 // ============================================================================
 
-main: () void  = {
+main = () void   {
     io.println("Running comprehensive standard library test suite...")
     io.println("Testing IO module...")
     io.println("Testing Memory module...")

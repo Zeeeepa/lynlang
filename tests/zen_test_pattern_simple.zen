@@ -1,7 +1,7 @@
 // Simple pattern matching test
-io := @std.io
+{ io } = @std.io
 
-main: () i32  = {
+main = () i32   {
     io.print("=== Pattern Matching Test ===\n");
     
     // Test basic value pattern

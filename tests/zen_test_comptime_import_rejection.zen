@@ -2,16 +2,16 @@
 // It tests that imports inside comptime blocks are rejected
 
 // This comptime block contains imports, which is NOT allowed
-comptime {
+@comptime {
     // ERROR: Imports are not allowed in comptime blocks
-    io := @std.io
-    math := @std.math
+    { io } = @std.io
+    { math } = @std.math
     
     // ERROR: build.import also not allowed in comptime
-    fs := @std.fs
+    { fs } = @std.fs
 }
 
-main: () i32  = {
+main = () i32   {
     // This won't compile due to the errors above
     return 1
 }

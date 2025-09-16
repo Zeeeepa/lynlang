@@ -2,11 +2,11 @@
 // This shows that imports work at module level without comptime
 
 // Module-level imports (CORRECT - no comptime wrapper)
-core := @std.core
-build := @std.build
+{ core } = @std.core
+{ build } = @std.build
 
 // Simple arithmetic using core functions
-calculate: () i32  = {
+calculate = () i32   {
     // Use min and max from core
     a := 10
     b := 20
@@ -24,7 +24,7 @@ calculate: () i32  = {
 }
 
 // Main function
-main: () i32  = {
+main = () i32   {
     result := calculate()
     return result
 }

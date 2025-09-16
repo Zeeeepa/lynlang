@@ -17,7 +17,7 @@
 // build.zen
 // ============================================================================
 
-{ Build } := @std.build
+Build := @std.build
 
 builder = (b :: Build) void {
     builder = b.builder()
@@ -85,13 +85,15 @@ builder = (b :: Build) void {
 // ============================================================================
 
 // Imports - only @std and @this are special
-{ io } = @std.io
-{ math } = @std.math
-{ string, StringBuilder } = @std.string
+{ io,
+  maths
+ } = @std
+{ String, StringBuilder } = @std.string
 { requires, implements, reflect, meta, inline, simd } = @std.meta
-{ GPA, AsyncPool, Allocator } = @std.mem
-{ Vec, DynVec } = @std.collections
+{ GPA, AsyncPool, Allocator}  = @std.mem
+{ Vec, DynVec}  = @std.collections
 { Actor, Channel, Mutex, AtomicU32 } = @std.concurrent
+
 sdl2 = @std.build.import("sdl2")
 ecs = @std.build.import("ecs")
 
@@ -262,7 +264,7 @@ inspect_type = (T: type) void {
 }
 
 // Compile-time AST modification
-@meta.comptime {
+@meta.@comptime {
     original = reflect.ast(parse_radius)
     new_body = original.body.prepend(
         AST.Call("io.println", ["Parsing radius from: ${s}"])

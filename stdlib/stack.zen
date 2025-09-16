@@ -1,9 +1,9 @@
 // Stack implementation for Zen
 // LIFO (Last In First Out) data structure
 
-core := @std.core
-mem := @std.mem
-array := @std.array
+{ core } = @std.core
+{ mem } = @std.mem
+{ array } = @std.array
 
 // Stack structure using array backing
 Stack(T: type): {
@@ -109,7 +109,7 @@ transfer = (T: type, from: *Stack(T), to: *Stack(T)) void {
 // Duplicate top element
 dup = (T: type, s: *Stack(T)) bool {
     top := peek(T, s)
-    if (top == null) {
+    if (top .== .None) {
         return false
     }
     push(T, s, top)
@@ -190,7 +190,7 @@ push_minmax = (T: type, s: *MinMaxStack(T), value: T) void {
     
     // Update min stack
     current_min := peek(T, &s.mins)
-    if (current_min == null or s.compare(value, current_min) <= 0) {
+    if (current_min .== .None or s.compare(value, current_min) <= 0) {
         push(T, &s.mins, value)
     } else {
         push(T, &s.mins, current_min)
@@ -198,7 +198,7 @@ push_minmax = (T: type, s: *MinMaxStack(T), value: T) void {
     
     // Update max stack
     current_max := peek(T, &s.maxs)
-    if (current_max == null or s.compare(value, current_max) >= 0) {
+    if (current_max .== .None or s.compare(value, current_max) >= 0) {
         push(T, &s.maxs, value)
     } else {
         push(T, &s.maxs, current_max)

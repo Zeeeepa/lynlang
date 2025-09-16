@@ -1,8 +1,8 @@
 // Zen Standard Library: Testing Framework
 // Simple but effective testing utilities
 
-core := @std.core
-io := @std.io
+{ core } = @std.core
+{ io } = @std.io
 
 // Test result types
 TestResult: Pass
@@ -49,7 +49,7 @@ global_runner := TestRunner{
 }
 
 // Create a new test suite
-suite: (name: string) TestSuite  = {
+suite = (name: string) TestSuite   {
     return TestSuite{
         name: name,
         tests: Vec<TestCase>.new(),
@@ -80,21 +80,21 @@ TestSuite.set_teardown = (self: *TestSuite, teardown_fn: () void) void {
 }
 
 // Register a suite with the global runner
-register_suite: (suite: TestSuite) void  = {
+register_suite = (suite: TestSuite) void   {
     global_runner.suites.push(suite)
 }
 
 // Assertion functions
-assert: (condition: bool, message: string) TestResult  = {
+assert = (condition: bool, message: string) TestResult   {
     condition ?
-        | true => return TestResult.Pass
-        | false => return TestResult.Fail(message)
+        | true { return TestResult.Pass }
+        | false { return TestResult.Fail(message) }
 }
 
 assert_eq = <T>(actual: T, expected: T, message: string) TestResult {
     actual == expected ?
-        | true => return TestResult.Pass
-        | false => {
+        | true { return TestResult.Pass }
+        | false { { }
             // Format error message
             msg := "Assertion failed: " + message + "\n  Expected: " + @std.str(expected) + "\n  Actual: " + @std.str(actual)
             return TestResult.Fail(msg)
@@ -103,8 +103,8 @@ assert_eq = <T>(actual: T, expected: T, message: string) TestResult {
 
 assert_ne = <T>(actual: T, expected: T, message: string) TestResult {
     actual != expected ?
-        | true => return TestResult.Pass
-        | false => {
+        | true { return TestResult.Pass }
+        | false { { }
             msg := "Assertion failed: " + message + "\n  Values should not be equal: " + @std.str(actual)
             return TestResult.Fail(msg)
         }
@@ -112,8 +112,8 @@ assert_ne = <T>(actual: T, expected: T, message: string) TestResult {
 
 assert_lt = <T>(actual: T, expected: T, message: string) TestResult {
     actual < expected ?
-        | true => return TestResult.Pass
-        | false => {
+        | true { return TestResult.Pass }
+        | false { { }
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be less than " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -121,8 +121,8 @@ assert_lt = <T>(actual: T, expected: T, message: string) TestResult {
 
 assert_le = <T>(actual: T, expected: T, message: string) TestResult {
     actual <= expected ?
-        | true => return TestResult.Pass
-        | false => {
+        | true { return TestResult.Pass }
+        | false { { }
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be less than or equal to " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -130,8 +130,8 @@ assert_le = <T>(actual: T, expected: T, message: string) TestResult {
 
 assert_gt = <T>(actual: T, expected: T, message: string) TestResult {
     actual > expected ?
-        | true => return TestResult.Pass
-        | false => {
+        | true { return TestResult.Pass }
+        | false { { }
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be greater than " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -139,8 +139,8 @@ assert_gt = <T>(actual: T, expected: T, message: string) TestResult {
 
 assert_ge = <T>(actual: T, expected: T, message: string) TestResult {
     actual >= expected ?
-        | true => return TestResult.Pass
-        | false => {
+        | true { return TestResult.Pass }
+        | false { { }
             msg := "Assertion failed: " + message + "\n  " + @std.str(actual) + " should be greater than or equal to " + @std.str(expected)
             return TestResult.Fail(msg)
         }
@@ -154,37 +154,37 @@ assert_panic = (fn: () void, message: string) TestResult {
 }
 
 // Run a single test case
-run_test: (test: TestCase, verbose: bool) TestResult  = {
+run_test = (test: TestCase, verbose: bool) TestResult   {
     verbose ?
-        | true => io.print("Running test: " + test.name + "...")
-        | false => {}
+        | true { io.print("Running test: " + test.name + "...") }
+        | false { { }}
     
     // Execute the test function
     result := test.test_fn()
     
     // Print result if verbose
     verbose ?
-        | true => {
+        | true { { }
             match result {
-                | Pass => io.print("  ✓ PASS")
-                | Fail(reason) => io.print("  ✗ FAIL: " + reason)
-                | Skip(reason) => io.print("  ⊘ SKIP: " + reason)
-                | Panic(msg) => io.print("  ⚠ PANIC: " + msg)
+                | Pass { io.print("  ✓ PASS") }
+                | Fail(reason) { io.print("  ✗ FAIL: " + reason) }
+                | Skip(reason) { io.print("  ⊘ SKIP: " + reason) }
+                | Panic(msg) { io.print("  ⚠ PANIC: " + msg) }
             }
         }
-        | false => {}
+        | false { { }}
     
     return result
 }
 
 // Run a test suite
-run_suite: (suite: TestSuite, runner: *TestRunner) void  = {
+run_suite = (suite: TestSuite, runner: *TestRunner) void   {
     io.println("\n=== Test Suite: " + suite.name + " ===")
     
     // Run setup if present
     match suite.setup {
-        | Some(setup_fn) => setup_fn()
-        | None => {}
+        | Some(setup_fn) { setup_fn() }
+        | None { { }}
     }
     
     // Run each test
@@ -195,19 +195,19 @@ run_suite: (suite: TestSuite, runner: *TestRunner) void  = {
         
         // Update statistics
         match result {
-            | Pass => runner.passed = runner.passed + 1
-            | Fail(reason) => {
+            | Pass { runner.passed = runner.passed + 1 }
+            | Fail(reason) { { }
                 runner.failed = runner.failed + 1
                 io.println("FAILED: " + test.name)
                 io.println("  " + reason)
                 io.println("  at " + test.file + ":" + @std.str(test.line))
                 
                 runner.stop_on_failure ?
-                    | true => return
-                    | false => {}
+                    | true { return }
+                    | false { { }}
             }
-            | Skip(_) => runner.skipped = runner.skipped + 1
-            | Panic(msg) => {
+            | Skip(_) { runner.skipped = runner.skipped + 1 }
+            | Panic(msg) { { }
                 runner.panicked = runner.panicked + 1
                 io.println("PANIC: " + test.name)
                 io.println("  " + msg)
@@ -220,13 +220,13 @@ run_suite: (suite: TestSuite, runner: *TestRunner) void  = {
     
     // Run teardown if present
     match suite.teardown {
-        | Some(teardown_fn) => teardown_fn()
-        | None => {}
+        | Some(teardown_fn) { teardown_fn() }
+        | None { { }}
     }
 }
 
 // Run all registered test suites
-run_all_tests: () i32  = {
+run_all_tests = () i32   {
     io.println("=== Running Zen Tests ===")
     
     // Reset statistics
@@ -242,8 +242,8 @@ run_all_tests: () i32  = {
         run_suite(suite, &global_runner)
         
         global_runner.panicked > 0 ?
-            | true => break  // Stop if any test panicked
-            | false => {}
+            | true { break  // Stop if any test panicked }
+            | false { { }}
         
         i = i + 1
     }
@@ -260,8 +260,8 @@ run_all_tests: () i32  = {
     
     // Return exit code (0 for success, 1 for failure)
     global_runner.failed > 0 || global_runner.panicked > 0 ?
-        | true => return 1
-        | false => return 0
+        | true { return 1 }
+        | false { return 0 }
 }
 
 // Convenience macro-like functions for test definition
@@ -310,12 +310,12 @@ benchmark = (name: string, iterations: i64, bench_fn: () void) Benchmark {
         total_time = total_time + elapsed
         
         elapsed < min_time ?
-            | true => { min_time = elapsed }
-            | false => {}
+            | true { { min_time = elapsed  }}
+            | false { { }}
         
         elapsed > max_time ?
-            | true => { max_time = elapsed }
-            | false => {}
+            | true { { max_time = elapsed  }}
+            | false { { }}
         
         i = i + 1
     }
@@ -340,7 +340,7 @@ benchmark = (name: string, iterations: i64, bench_fn: () void) Benchmark {
 }
 
 // Example test usage (would be in separate test files)
-example_test_suite: () void  = {
+example_test_suite = () void   {
     s := suite("Example Tests")
     
     s.add_test("basic assertion", () TestResult {

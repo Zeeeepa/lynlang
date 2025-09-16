@@ -1,16 +1,16 @@
 // Language Specification Compliance Test Suite
 // Tests all critical features per LANGUAGE_SPEC.md v1.1.0
 
-test := @std.testing.test
-assert := @std.testing.assert
-assert_eq := @std.testing.assert_eq
+{ test } = @std.testing.test
+{ assert } = @std.testing.assert
+{ assert_eq } = @std.testing.assert_eq
 
 // Test pattern matching with ? operator
 test("pattern_matching_basic") {
     value := 42
     result := value ? 
-        | 42 => "correct"
-        | _ => "incorrect"
+        | 42 { "correct" }
+        | _ { "incorrect" }
     assert_eq(result, "correct")
 }
 
@@ -20,25 +20,25 @@ test("pattern_matching_ranges") {
         | 0..=12 => "child"
         | 13..=19 => "teen"
         | 20..=64 => "adult"
-        | _ => "senior"
+        | _ { "senior" }
     assert_eq(category, "adult")
 }
 
 test("pattern_matching_destructuring") {
     result := Result:Ok(42)
     value := result ?
-        | .Ok -> v => v
-        | .Err -> _ => 0
+        | .Ok -> v { v }
+        | .Err -> _ { 0 }
     assert_eq(value, 42)
 }
 
 test("pattern_matching_guards") {
     value := 75
     category := value ?
-        | v -> v > 100 => "large"
-        | v -> v > 50 => "medium"
-        | v -> v > 0 => "small"
-        | _ => "zero or negative"
+        | v -> v > 100 { "large" }
+        | v -> v > 50 { "medium" }
+        | v -> v > 0 { "small" }
+        | _ { "zero or negative" }
     assert_eq(category, "medium")
 }
 
@@ -61,7 +61,7 @@ test("variable_typed") {
 
 // Test functions
 test("function_basic") {
-    double: (x: i32) i32  = { x * 2 }
+    double = (x: i32) i32   { x * 2 }
     assert_eq(double(5), 10)
 }
 
@@ -73,7 +73,7 @@ test("function_generic") {
 
 test("function_ufcs") {
     Rectangle: { width: f64, height: f64 }
-    area: (rect: Rectangle) f64  = { rect.width * rect.height }
+    area = (rect: Rectangle) f64   { rect.width * rect.height }
     
     r := Rectangle{ width: 10.0, height: 5.0 }
     assert_eq(r.area(), 50.0)
@@ -121,9 +121,9 @@ test("enum_basic") {
     
     s := Status:Active
     result := s ?
-        | .Active => "running"
-        | .Inactive => "stopped"
-        | .Pending => "waiting"
+        | .Active { "running" }
+        | .Inactive { "stopped" }
+        | .Pending { "waiting" }
     assert_eq(result, "running")
 }
 
@@ -134,8 +134,8 @@ test("enum_with_data") {
     
     opt := Option:Some(42)
     value := opt ?
-        | .Some -> v => v
-        | .None => 0
+        | .Some -> v { v }
+        | .None { 0 }
     assert_eq(value, 42)
 }
 
@@ -145,16 +145,16 @@ test("result_type") {
         | Ok(value: T)
         | Err(error: E)
     
-    divide: (a: i32, b: i32) Result<i32, string>  = {
+    divide = (a: i32, b: i32) Result<i32, string>   {
         b == 0 ?
-            | true => .Err("division by zero")
-            | false => .Ok(a / b)
+            | true { .Err("division by zero") }
+            | false { .Ok(a / b) }
     }
     
     result := divide(10, 2)
     value := result ?
-        | .Ok -> v => v
-        | .Err -> _ => -1
+        | .Ok -> v { v }
+        | .Err -> _ { -1 }
     assert_eq(value, 5)
 }
 
@@ -187,9 +187,9 @@ test("behavior_comparable") {
     
     i32_comparable := Comparable<i32>{
         compare: (a: i32, b: i32) i32 {
-            a < b ? | true => -1
-                   | false => a > b ? | true => 1
-                                      | false => 0
+            a < b ? | true { -1 }
+                   | false { a > b ? | true => 1 }
+                                      | false { 0 }
         }
     }
     
@@ -216,24 +216,24 @@ test("operator_precedence") {
 
 // Test bool patterns
 test("bool_pattern_simple") {
-    is_valid: () bool  = { true }
+    is_valid = () bool   { true }
     
     result := is_valid() ? { "valid" }
     assert_eq(result, "valid")
 }
 
 test("bool_pattern_with_branches") {
-    check: (x: i32) bool  = { x > 0 }
+    check = (x: i32) bool   { x > 0 }
     
     result := check(5) ?
-        | true => "positive"
-        | false => "non-positive"
+        | true { "positive" }
+        | false { "non-positive" }
     assert_eq(result, "positive")
 }
 
 // Test comptime execution
 test("comptime_basic") {
-    TABLE := comptime {
+    TABLE := @comptime {
         table: [4, i32]
         (0..4).loop((i) => {
             table[i] = i * i
@@ -263,7 +263,7 @@ test("type_alias") {
 test("defer_execution") {
     counter := 0
     
-    run: () void  = {
+    run = () void   {
         counter = 1
         defer counter = 3
         counter = 2
@@ -287,6 +287,6 @@ test("null_coalesce") {
 }
 
 // Run all tests
-main: () void  = {
+main = () void   {
     @std.testing.run_all()
 }

@@ -1,7 +1,7 @@
 // Simple testing framework for Zen
 // Provides basic test runner and assertion utilities
 
-build := @std.build
+{ build } = @std.build
 io := build.import("io")
 string := build.import("string")
 time := build.import("time")
@@ -24,7 +24,7 @@ TestSuite: {
 }
 
 // Create a new test suite
-new_suite: (name: string) TestSuite  = {
+new_suite = (name: string) TestSuite   {
     return TestSuite {
         name: name,
         tests: vec.new<TestResult>(),
@@ -52,11 +52,11 @@ run_test = (suite: &mut TestSuite, name: string, test_fn: () bool) void {
     }
     
     passed ? 
-        | true => {
+        | true { { }
             io.print("✓ PASS")
             suite.passed = suite.passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ FAIL")
             suite.failed = suite.failed + 1
         }
@@ -80,7 +80,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
     duration := time.since(start)
     
     result_val ?
-        | .Ok -> passed => {
+        | .Ok -> passed { { }
             result := TestResult {
                 name: name,
                 passed: passed,
@@ -89,18 +89,18 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
             }
             
             passed ? 
-                | true => {
+                | true { { }
                     io.print("✓ PASS")
                     suite.passed = suite.passed + 1
                 }
-                | false => {
+                | false { { }
                     io.print("✗ FAIL")
                     suite.failed = suite.failed + 1
                 }
             
             vec.push(&mut suite.tests, result)
         }
-        | .Err -> msg => {
+        | .Err -> msg { { }
             result := TestResult {
                 name: name,
                 passed: false,
@@ -123,7 +123,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
 }
 
 // Print test suite summary
-print_summary: (suite: &TestSuite) void  = {
+print_summary = (suite: &TestSuite) void   {
     io.print("\n")
     io.print("=" * 50)
     io.print("\n")
@@ -142,52 +142,52 @@ print_summary: (suite: &TestSuite) void  = {
     io.print("\n")
     
     (suite.failed > 0) ? 
-        | true => {
+        | true { { }
             io.print("\nFailed tests:\n")
             i := 0
             loop (i < vec.len(suite.tests)) {
                 test := vec.get(suite.tests, i)
                 (!test.passed) ? 
-                    | true => {
+                    | true { { }
                         io.print("  - ")
                         io.print(test.name)
                         test.error_message ? 
-                            | .Some -> msg => {
+                            | .Some -> msg { { }
                                 io.print(": ")
                                 io.print(msg)
                             }
-                            | .None => {}
+                            | .None { { }}
                         io.print("\n")
                     }
-                    | false => {}
+                    | false { { }}
                 i = i + 1
             }
         }
-        | false => {}
+        | false { { }}
     
     io.print("\n")
     (suite.failed == 0) ? 
-        | true => io.print("✅ All tests passed!\n")
-        | false => io.print("❌ Some tests failed.\n")
+        | true { io.print("✅ All tests passed!\n") }
+        | false { io.print("❌ Some tests failed.\n") }
 }
 
 // Basic assertions
-assert_true: (condition: bool, message: string) Result<bool, string>  = {
+assert_true = (condition: bool, message: string) Result<bool, string>   {
     condition ? 
-        | true => Result<bool, string>.Ok(true)
-        | false => Result<bool, string>.Err(message)
+        | true { Result<bool, string>.Ok(true) }
+        | false { Result<bool, string>.Err(message) }
 }
 
-assert_false: (condition: bool, message: string) Result<bool, string>  = {
+assert_false = (condition: bool, message: string) Result<bool, string>   {
     (!condition) ? 
-        | true => Result<bool, string>.Ok(true)
-        | false => Result<bool, string>.Err(message)
+        | true { Result<bool, string>.Ok(true) }
+        | false { Result<bool, string>.Err(message) }
 }
 
 assert_eq = <T>(actual: T, expected: T, message: string) Result<bool, string> {
     (actual == expected) ? 
-        | true => Result<bool, string>.Ok(true)
-        | false => {
+        | true { Result<bool, string>.Ok(true) }
+        | false { { }
             msg := string.concat(message, " - Expected: ")
             msg = string.concat(msg, string.to_string(expected))
             msg = string.concat(msg, ", Got: ")
@@ -198,8 +198,8 @@ assert_eq = <T>(actual: T, expected: T, message: string) Result<bool, string> {
 
 assert_ne = <T>(actual: T, not_expected: T, message: string) Result<bool, string> {
     (actual != not_expected) ? 
-        | true => Result<bool, string>.Ok(true)
-        | false => Result<bool, string>.Err(message)
+        | true { Result<bool, string>.Ok(true) }
+        | false { Result<bool, string>.Err(message) }
 }
 
 // Benchmark a function
@@ -241,6 +241,6 @@ run_tests = (name: string, tests: [](() bool)) i32 {
     print_summary(&suite)
     
     (suite.failed > 0) ? 
-        | true => 1
-        | false => 0
+        | true { 1 }
+        | false { 0 }
 }

@@ -1,14 +1,14 @@
 // Comprehensive Test Suite for Zen Language
 // Tests all major language features
 
-io := @std.io
-string := @std.string
-string := @std.string
-vec := @std.vec
-hashmap := @std.hashmap
+{ io } = @std.io
+{ string } = @std.string
+{ string } = @std.string
+{ vec } = @std.vec
+{ hashmap } = @std.hashmap
 
 // Test lexer functionality
-test_lexer_basic: () void  = {
+test_lexer_basic = () void   {
     source := "let x = 42"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -17,37 +17,37 @@ test_lexer_basic: () void  = {
     
     // Check token types
     tokens[0].kind ?
-        | lexer.TokenKind.Keyword("let") => test.assert_true(true, "First token is 'let'")
-        | _ => test.assert_true(false, "First token should be 'let'")
+        | lexer.TokenKind.Keyword("let") { test.assert_true(true, "First token is 'let'") }
+        | _ { test.assert_true(false, "First token should be 'let'") }
     
     tokens[1].kind ?
-        | lexer.TokenKind.Identifier("x") => test.assert_true(true, "Second token is identifier 'x'")
-        | _ => test.assert_true(false, "Second token should be identifier 'x'")
+        | lexer.TokenKind.Identifier("x") { test.assert_true(true, "Second token is identifier 'x'") }
+        | _ { test.assert_true(false, "Second token should be identifier 'x'") }
     
     tokens[2].kind ?
-        | lexer.TokenKind.Assign => test.assert_true(true, "Third token is '='")
-        | _ => test.assert_true(false, "Third token should be '='")
+        | lexer.TokenKind.Assign { test.assert_true(true, "Third token is '='") }
+        | _ { test.assert_true(false, "Third token should be '='") }
     
     tokens[3].kind ?
-        | lexer.TokenKind.IntLiteral(42) => test.assert_true(true, "Fourth token is 42")
-        | _ => test.assert_true(false, "Fourth token should be 42")
+        | lexer.TokenKind.IntLiteral(42) { test.assert_true(true, "Fourth token is 42") }
+        | _ { test.assert_true(false, "Fourth token should be 42") }
 }
 
-test_lexer_strings: () void  = {
+test_lexer_strings = () void   {
     source := "\"hello world\" 'a'"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
     
     tokens[0].kind ?
-        | lexer.TokenKind.StringLiteral("hello world") => test.assert_true(true, "String literal parsed")
-        | _ => test.assert_true(false, "Failed to parse string literal")
+        | lexer.TokenKind.StringLiteral("hello world") { test.assert_true(true, "String literal parsed") }
+        | _ { test.assert_true(false, "Failed to parse string literal") }
     
     tokens[1].kind ?
-        | lexer.TokenKind.CharLiteral('a') => test.assert_true(true, "Char literal parsed")
-        | _ => test.assert_true(false, "Failed to parse char literal")
+        | lexer.TokenKind.CharLiteral('a') { test.assert_true(true, "Char literal parsed") }
+        | _ { test.assert_true(false, "Failed to parse char literal") }
 }
 
-test_lexer_operators: () void  = {
+test_lexer_operators = () void   {
     source := "+ - * / == != <= >= && || << >>"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -77,7 +77,7 @@ test_lexer_operators: () void  = {
 }
 
 // Test parser functionality
-test_parser_variable: () void  = {
+test_parser_variable = () void   {
     source := "let x: i32 = 42"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -89,21 +89,21 @@ test_parser_variable: () void  = {
     test.assert_eq(parse.errors.len(), 0, "No parser errors expected")
     
     ast[0] ?
-        | parser.AstNode.VarDecl(name, type_ann, value, is_mut) => {
+        | parser.AstNode.VarDecl(name, type_ann, value, is_mut) { { }
             test.assert_eq(name, "x", "Variable name should be 'x'")
             test.assert_false(is_mut, "Variable should be immutable")
             
             value ?
-                | Option.Some(v) => {
+                | Option.Some(v) { { }
                     // Check value is 42
                     test.assert_true(true, "Variable has initializer")
                 }
-                | Option.None => test.assert_true(false, "Variable should have initializer")
+                | Option.None { test.assert_true(false, "Variable should have initializer") }
         }
-        | _ => test.assert_true(false, "Expected VarDecl node")
+        | _ { test.assert_true(false, "Expected VarDecl node") }
 }
 
-test_parser_function: () void  = {
+test_parser_function = () void   {
     source := "add = (a: i32, b: i32) i32 { return a + b }"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -115,19 +115,19 @@ test_parser_function: () void  = {
     test.assert_eq(parse.errors.len(), 0, "No parser errors expected")
     
     ast[0] ?
-        | parser.AstNode.FuncDecl(name, params, ret_type, body, is_generic) => {
+        | parser.AstNode.FuncDecl(name, params, ret_type, body, is_generic) { { }
             test.assert_eq(name, "add", "Function name should be 'add'")
             test.assert_eq(params.len(), 2, "Function should have 2 parameters")
             test.assert_false(is_generic, "Function should not be generic")
             
             ret_type ?
-                | Option.Some(t) => test.assert_true(true, "Function has return type")
-                | Option.None => test.assert_true(false, "Function should have return type")
+                | Option.Some(t) { test.assert_true(true, "Function has return type") }
+                | Option.None { test.assert_true(false, "Function should have return type") }
         }
-        | _ => test.assert_true(false, "Expected FuncDecl node")
+        | _ { test.assert_true(false, "Expected FuncDecl node") }
 }
 
-test_parser_struct: () void  = {
+test_parser_struct = () void   {
     source := "Point: { x: f32, y: f32 }"
     lex := lexer.lexer_new(source)
     tokens := lexer.tokenize(ptr_of(lex))
@@ -139,16 +139,16 @@ test_parser_struct: () void  = {
     test.assert_eq(parse.errors.len(), 0, "No parser errors expected")
     
     ast[0] ?
-        | parser.AstNode.StructDecl(name, fields, generics) => {
+        | parser.AstNode.StructDecl(name, fields, generics) { { }
             test.assert_eq(name, "Point", "Struct name should be 'Point'")
             test.assert_eq(fields.len(), 2, "Struct should have 2 fields")
             test.assert_eq(generics.len(), 0, "Struct should not be generic")
         }
-        | _ => test.assert_true(false, "Expected StructDecl node")
+        | _ { test.assert_true(false, "Expected StructDecl node") }
 }
 
 // Test string operations
-test_string_operations: () void  = {
+test_string_operations = () void   {
     // Test string length
     s := "hello"
     test.assert_eq(string.string_len(s), 5, "String length")
@@ -180,12 +180,12 @@ test_string_operations: () void  = {
 }
 
 // Test control flow
-test_control_flow: () void  = {
+test_control_flow = () void   {
     // Test if-else
     x := 10
     result := x > 5 ?
-        | true => "greater"
-        | false => "less"
+        | true { "greater" }
+        | false { "less" }
     test.assert_eq(result, "greater", "Ternary operator")
     
     // Test loop
@@ -198,15 +198,15 @@ test_control_flow: () void  = {
     // Test match
     value := 2
     result = value ?
-        | 1 => "one"
-        | 2 => "two"
-        | 3 => "three"
-        | _ => "other"
+        | 1 { "one" }
+        | 2 { "two" }
+        | 3 { "three" }
+        | _ { "other" }
     test.assert_eq(result, "two", "Match expression")
 }
 
 // Test arrays
-test_arrays: () void  = {
+test_arrays = () void   {
     // Create array
     arr: [5]i32 = [1, 2, 3, 4, 5]
     
@@ -229,7 +229,7 @@ test_arrays: () void  = {
 }
 
 // Test vectors
-test_vectors: () void  = {
+test_vectors = () void   {
     // Create vector
     v := vec.vec_new<i32>()
     
@@ -256,7 +256,7 @@ test_vectors: () void  = {
 }
 
 // Test hash maps
-test_hashmaps: () void  = {
+test_hashmaps = () void   {
     // Create hashmap
     map := hashmap.hashmap_new<string, i32>()
     
@@ -287,34 +287,34 @@ test_hashmaps: () void  = {
 }
 
 // Test error handling
-test_error_handling: () void  = {
+test_error_handling = () void   {
     // Test Option
     opt_some: Option<i32> = Option.Some(42)
     opt_none: Option<i32> = Option.None
     
     opt_some ?
-        | Option.Some(val) => test.assert_eq(val, 42, "Option Some value")
-        | Option.None => test.assert_true(false, "Should be Some")
+        | Option.Some(val) { test.assert_eq(val, 42, "Option Some value") }
+        | Option.None { test.assert_true(false, "Should be Some") }
     
     opt_none ?
-        | Option.Some(_) => test.assert_true(false, "Should be None")
-        | Option.None => test.assert_true(true, "Option None")
+        | Option.Some(_) { test.assert_true(false, "Should be None") }
+        | Option.None { test.assert_true(true, "Option None") }
     
     // Test Result
     res_ok: Result<i32, string> = Result.Ok(100)
     res_err: Result<i32, string> = Result.Err("error message")
     
     res_ok ?
-        | Result.Ok(val) => test.assert_eq(val, 100, "Result Ok value")
-        | Result.Err(_) => test.assert_true(false, "Should be Ok")
+        | Result.Ok(val) { test.assert_eq(val, 100, "Result Ok value") }
+        | Result.Err(_) { test.assert_true(false, "Should be Ok") }
     
     res_err ?
-        | Result.Ok(_) => test.assert_true(false, "Should be Err")
-        | Result.Err(msg) => test.assert_eq(msg, "error message", "Result Err message")
+        | Result.Ok(_) { test.assert_true(false, "Should be Err") }
+        | Result.Err(msg) { test.assert_eq(msg, "error message", "Result Err message") }
 }
 
 // Test generics
-test_generics: () void  = {
+test_generics = () void   {
     // Generic function
     identity = <T>(value: T) T {
         return value
@@ -336,9 +336,9 @@ test_generics: () void  = {
 }
 
 // Test comptime evaluation
-test_comptime: () void  = {
+test_comptime = () void   {
     // Compile-time constant
-    CONST_VALUE := comptime {
+    CONST_VALUE := @comptime {
         x := 10
         y := 20
         x + y
@@ -347,7 +347,7 @@ test_comptime: () void  = {
     test.assert_eq(CONST_VALUE, 30, "Comptime constant evaluation")
     
     // Compile-time array generation
-    POWERS := comptime {
+    POWERS := @comptime {
         arr: [8]i32
         i := 0
         loop i < 8 {
@@ -363,7 +363,7 @@ test_comptime: () void  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Zen Language Test Suite ===\n")
     
     // Create test runner
@@ -414,6 +414,6 @@ main: () i32  = {
     all_passed := test.runner_run(ptr_of(runner))
     
     all_passed ?
-        | true => return 0
-        | false => return 1
+        | true { return 0 }
+        | false { return 1 }
 }

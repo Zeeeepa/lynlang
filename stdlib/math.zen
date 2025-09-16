@@ -51,139 +51,139 @@ F32_EPSILON := 0.00000011920929
 F64_EPSILON := 0.0000000000000002220446049250313
 
 // Convert degrees to radians
-deg_to_rad: (degrees: f64) f64  = {
+deg_to_rad = (degrees: f64) f64   {
     return degrees * DEG_TO_RAD
 }
 
 // Convert radians to degrees
-rad_to_deg: (radians: f64) f64  = {
+rad_to_deg = (radians: f64) f64   {
     return radians * RAD_TO_DEG
 }
 
 // Absolute value for integers
-abs_i32: (x: i32) i32  = {
+abs_i32 = (x: i32) i32   {
     x < 0 ?
-        | true => return -x
-        | false => return x
+        | true { return -x }
+        | false { return x }
 }
 
-abs_i64: (x: i64) i64  = {
+abs_i64 = (x: i64) i64   {
     x < 0 ?
-        | true => return -x
-        | false => return x
+        | true { return -x }
+        | false { return x }
 }
 
 // Min/Max for integers
-min_i32: (a: i32, b: i32) i32  = {
+min_i32 = (a: i32, b: i32) i32   {
     a < b ?
-        | true => return a
-        | false => return b
+        | true { return a }
+        | false { return b }
 }
 
-max_i32: (a: i32, b: i32) i32  = {
+max_i32 = (a: i32, b: i32) i32   {
     a > b ?
-        | true => return a
-        | false => return b
+        | true { return a }
+        | false { return b }
 }
 
-min_i64: (a: i64, b: i64) i64  = {
+min_i64 = (a: i64, b: i64) i64   {
     a < b ?
-        | true => return a
-        | false => return b
+        | true { return a }
+        | false { return b }
 }
 
-max_i64: (a: i64, b: i64) i64  = {
+max_i64 = (a: i64, b: i64) i64   {
     a > b ?
-        | true => return a
-        | false => return b
+        | true { return a }
+        | false { return b }
 }
 
 // Clamp a value between min and max
-clamp_i32: (value: i32, min: i32, max: i32) i32  = {
+clamp_i32 = (value: i32, min: i32, max: i32) i32   {
     value < min ?
-        | true => return min
-        | false => {
+        | true { return min }
+        | false { { }
             value > max ?
-                | true => return max
-                | false => return value
+                | true { return max }
+                | false { return value }
         }
 }
 
-clamp_f64: (value: f64, min: f64, max: f64) f64  = {
+clamp_f64 = (value: f64, min: f64, max: f64) f64   {
     value < min ?
-        | true => return min
-        | false => {
+        | true { return min }
+        | false { { }
             value > max ?
-                | true => return max
-                | false => return value
+                | true { return max }
+                | false { return value }
         }
 }
 
 // Sign function
-sign_i32: (x: i32) i32  = {
+sign_i32 = (x: i32) i32   {
     x < 0 ?
-        | true => return -1
-        | false => {
+        | true { return -1 }
+        | false { { }
             x > 0 ?
-                | true => return 1
-                | false => return 0
+                | true { return 1 }
+                | false { return 0 }
         }
 }
 
-sign_f64: (x: f64) f64  = {
+sign_f64 = (x: f64) f64   {
     x < 0.0 ?
-        | true => return -1.0
-        | false => {
+        | true { return -1.0 }
+        | false { { }
             x > 0.0 ?
-                | true => return 1.0
-                | false => return 0.0
+                | true { return 1.0 }
+                | false { return 0.0 }
         }
 }
 
 // Check if a number is approximately equal (for floating point)
-approx_eq_f32: (a: f32, b: f32, epsilon: f32) bool  = {
+approx_eq_f32 = (a: f32, b: f32, epsilon: f32) bool   {
     diff := a - b
     diff < 0.0 ?
-        | true => { diff = -diff }
-        | false => {}
+        | true { { diff = -diff  }}
+        | false { { }}
     
     return diff < epsilon
 }
 
-approx_eq_f64: (a: f64, b: f64, epsilon: f64) bool  = {
+approx_eq_f64 = (a: f64, b: f64, epsilon: f64) bool   {
     diff := a - b
     diff < 0.0 ?
-        | true => { diff = -diff }
-        | false => {}
+        | true { { diff = -diff  }}
+        | false { { }}
     
     return diff < epsilon
 }
 
 // Linear interpolation
-lerp: (start: f64, end: f64, t: f64) f64  = {
+lerp = (start: f64, end: f64, t: f64) f64   {
     return start + t * (end - start)
 }
 
 // Inverse linear interpolation
-inverse_lerp: (start: f64, end: f64, value: f64) f64  = {
+inverse_lerp = (start: f64, end: f64, value: f64) f64   {
     return (value - start) / (end - start)
 }
 
 // Map a value from one range to another
-map_range: (value: f64, in_min: f64, in_max: f64, out_min: f64, out_max: f64) f64  = {
+map_range = (value: f64, in_min: f64, in_max: f64, out_min: f64, out_max: f64) f64   {
     t := inverse_lerp(in_min, in_max, value)
     return lerp(out_min, out_max, t)
 }
 
 // Calculate distance between two 2D points
-distance_2d: (x1: f64, y1: f64, x2: f64, y2: f64) f64  = {
+distance_2d = (x1: f64, y1: f64, x2: f64, y2: f64) f64   {
     dx := x2 - x1
     dy := y2 - y1
     return sqrt(dx * dx + dy * dy)
 }
 
 // Calculate distance between two 3D points
-distance_3d: (x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z2: f64) f64  = {
+distance_3d = (x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z2: f64) f64   {
     dx := x2 - x1
     dy := y2 - y1
     dz := z2 - z1
@@ -191,20 +191,20 @@ distance_3d: (x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z2: f64) f64  = {
 }
 
 // Fast inverse square root (Quake III algorithm - approximation)
-fast_inv_sqrt: (x: f32) f32  = {
+fast_inv_sqrt = (x: f32) f32   {
     // This is a simplified version - real implementation would use bit manipulation
     return 1.0 / sqrt(x)
 }
 
 // Factorial (iterative)
-factorial: (n: i64) i64  = {
+factorial = (n: i64) i64   {
     n < 0 ?
-        | true => return 0  // Undefined for negative numbers
-        | false => {}
+        | true { return 0  // Undefined for negative numbers }
+        | false { { }}
     
     n == 0 || n == 1 ?
-        | true => return 1
-        | false => {}
+        | true { return 1 }
+        | false { { }}
     
     result := 1
     i := 2
@@ -218,10 +218,10 @@ factorial: (n: i64) i64  = {
 }
 
 // Greatest common divisor (Euclidean algorithm)
-gcd: (a: i64, b: i64) i64  = {
+gcd = (a: i64, b: i64) i64   {
     // Make positive
-    a < 0 ? | true => { a = -a } | false => {}
-    b < 0 ? | true => { b = -b } | false => {}
+    a < 0 ? | true { { a = -a  }} | false { { }}
+    b < 0 ? | true { { b = -b  }} | false { { }}
     
     // TODO: Need proper loop implementation
     // loop b != 0 {
@@ -234,44 +234,44 @@ gcd: (a: i64, b: i64) i64  = {
 }
 
 // Least common multiple
-lcm: (a: i64, b: i64) i64  = {
+lcm = (a: i64, b: i64) i64   {
     g := gcd(a, b)
     g == 0 ?
-        | true => return 0
-        | false => return (a / g) * b
+        | true { return 0 }
+        | false { return (a / g) * b }
 }
 
 // Check if a number is prime (simple trial division)
-is_prime: (n: i64) bool  = {
+is_prime = (n: i64) bool   {
     n <= 1 ?
-        | true => return false
-        | false => {}
+        | true { return false }
+        | false { { }}
     
     n <= 3 ?
-        | true => return true
-        | false => {}
+        | true { return true }
+        | false { { }}
     
     n % 2 == 0 || n % 3 == 0 ?
-        | true => return false
-        | false => {}
+        | true { return false }
+        | false { { }}
     
     // TODO: Complete implementation with proper loop
     return true
 }
 
 // Calculate n-th Fibonacci number (iterative)
-fibonacci: (n: i64) i64  = {
+fibonacci = (n: i64) i64   {
     n < 0 ?
-        | true => return 0
-        | false => {}
+        | true { return 0 }
+        | false { { }}
     
     n == 0 ?
-        | true => return 0
-        | false => {}
+        | true { return 0 }
+        | false { { }}
     
     n == 1 ?
-        | true => return 1
-        | false => {}
+        | true { return 1 }
+        | false { { }}
     
     prev := 0
     curr := 1
@@ -302,51 +302,51 @@ Vec3: {
 }
 
 // 2D vector operations
-vec2_add: (a: Vec2, b: Vec2) Vec2  = {
+vec2_add = (a: Vec2, b: Vec2) Vec2   {
     return Vec2 { x: a.x + b.x, y: a.y + b.y }
 }
 
-vec2_sub: (a: Vec2, b: Vec2) Vec2  = {
+vec2_sub = (a: Vec2, b: Vec2) Vec2   {
     return Vec2 { x: a.x - b.x, y: a.y - b.y }
 }
 
-vec2_scale: (v: Vec2, s: f64) Vec2  = {
+vec2_scale = (v: Vec2, s: f64) Vec2   {
     return Vec2 { x: v.x * s, y: v.y * s }
 }
 
-vec2_dot: (a: Vec2, b: Vec2) f64  = {
+vec2_dot = (a: Vec2, b: Vec2) f64   {
     return a.x * b.x + a.y * b.y
 }
 
-vec2_length: (v: Vec2) f64  = {
+vec2_length = (v: Vec2) f64   {
     return sqrt(v.x * v.x + v.y * v.y)
 }
 
-vec2_normalize: (v: Vec2) Vec2  = {
+vec2_normalize = (v: Vec2) Vec2   {
     len := vec2_length(v)
     len > 0.0 ?
-        | true => return Vec2 { x: v.x / len, y: v.y / len }
-        | false => return v
+        | true { return Vec2 { x: v.x / len, y: v.y / len  }}
+        | false { return v }
 }
 
 // 3D vector operations
-vec3_add: (a: Vec3, b: Vec3) Vec3  = {
+vec3_add = (a: Vec3, b: Vec3) Vec3   {
     return Vec3 { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }
 }
 
-vec3_sub: (a: Vec3, b: Vec3) Vec3  = {
+vec3_sub = (a: Vec3, b: Vec3) Vec3   {
     return Vec3 { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }
 }
 
-vec3_scale: (v: Vec3, s: f64) Vec3  = {
+vec3_scale = (v: Vec3, s: f64) Vec3   {
     return Vec3 { x: v.x * s, y: v.y * s, z: v.z * s }
 }
 
-vec3_dot: (a: Vec3, b: Vec3) f64  = {
+vec3_dot = (a: Vec3, b: Vec3) f64   {
     return a.x * b.x + a.y * b.y + a.z * b.z
 }
 
-vec3_cross: (a: Vec3, b: Vec3) Vec3  = {
+vec3_cross = (a: Vec3, b: Vec3) Vec3   {
     return Vec3 {
         x: a.y * b.z - a.z * b.y,
         y: a.z * b.x - a.x * b.z,
@@ -354,15 +354,15 @@ vec3_cross: (a: Vec3, b: Vec3) Vec3  = {
     }
 }
 
-vec3_length: (v: Vec3) f64  = {
+vec3_length = (v: Vec3) f64   {
     return sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
 }
 
-vec3_normalize: (v: Vec3) Vec3  = {
+vec3_normalize = (v: Vec3) Vec3   {
     len := vec3_length(v)
     len > 0.0 ?
-        | true => return Vec3 { x: v.x / len, y: v.y / len, z: v.z / len }
-        | false => return v
+        | true { return Vec3 { x: v.x / len, y: v.y / len, z: v.z / len  }}
+        | false { return v }
 }
 
 // Export main functions and constants

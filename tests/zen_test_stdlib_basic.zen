@@ -1,10 +1,10 @@
 // Test basic stdlib functionality
 // This test verifies that our stdlib modules work correctly
 
-io := @std.io
+{ io } = @std.io
 
 // Simple test of option type
-test_option: () bool  = {
+test_option = () bool   {
     // Create Some value
     some_val := 42
     
@@ -14,14 +14,14 @@ test_option: () bool  = {
     // Test unwrap_or
     has_value := some_val != 0
     result := has_value ?
-        | true => some_val
-        | false => 99
+        | true { some_val }
+        | false { 99 }
     
     result == 42
 }
 
 // Simple test of result type
-test_result: () bool  = {
+test_result = () bool   {
     // Simulate Ok result
     ok_val := 100
     
@@ -35,7 +35,7 @@ test_result: () bool  = {
 }
 
 // Simple test of vector operations
-test_vector: () bool  = {
+test_vector = () bool   {
     // Simulate vector operations
     len := 0
     
@@ -51,7 +51,7 @@ test_vector: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("Testing Stdlib Modules\n")
     io.print("======================\n\n")
     
@@ -60,33 +60,33 @@ main: () i32  = {
     
     // Test Option
     test_option() ?
-        | true => {
+        | true { { }
             io.print("✓ Option test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Option test failed\n")
             failed = failed + 1
         }
     
     // Test Result
     test_result() ?
-        | true => {
+        | true { { }
             io.print("✓ Result test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Result test failed\n")
             failed = failed + 1
         }
     
     // Test Vector
     test_vector() ?
-        | true => {
+        | true { { }
             io.print("✓ Vector test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Vector test failed\n")
             failed = failed + 1
         }
@@ -99,11 +99,11 @@ main: () i32  = {
     io.print("\n")
     
     failed == 0 ?
-        | true => {
+        | true { { }
             io.print("\n✓ All stdlib tests passed!\n")
             return 0
         }
-        | false => {
+        | false { { }
             io.print("\n✗ Some tests failed\n")
             return 1
         }

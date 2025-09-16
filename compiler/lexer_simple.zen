@@ -1,8 +1,8 @@
 // Simple self-hosted lexer for Zen
 // A minimal lexer implementation for bootstrapping
 
-core := @std.core
-io := @std.io
+core  = @std.core
+io  = @std.io
 
 // Token types
 TokenType: 
@@ -83,7 +83,7 @@ Lexer: {
 }
 
 // Create a new lexer
-new_lexer: (input: string) Lexer  = {
+new_lexer = (input: string) Lexer   {
     lex := Lexer {
         input: input
         position: 0
@@ -99,7 +99,7 @@ new_lexer: (input: string) Lexer  = {
 }
 
 // Read the next character
-read_char: (lex: *Lexer) void  = {
+read_char = (lex: *Lexer) void   {
     if lex.read_position >= string_len(lex.input) {
         lex.current_char = 0  // EOF
     } else {
@@ -119,7 +119,7 @@ read_char: (lex: *Lexer) void  = {
 }
 
 // Peek at the next character without advancing
-peek_char: (lex: *Lexer) i8  = {
+peek_char = (lex: *Lexer) i8   {
     if lex.read_position >= string_len(lex.input) {
         return 0
     }
@@ -127,7 +127,7 @@ peek_char: (lex: *Lexer) i8  = {
 }
 
 // Skip whitespace
-skip_whitespace: (lex: *Lexer) void  = {
+skip_whitespace = (lex: *Lexer) void   {
     while lex.current_char == ' ' || lex.current_char == '\t' || 
           lex.current_char == '\n' || lex.current_char == '\r' {
         read_char(lex)
@@ -135,7 +135,7 @@ skip_whitespace: (lex: *Lexer) void  = {
 }
 
 // Skip line comments
-skip_line_comment: (lex: *Lexer) void  = {
+skip_line_comment = (lex: *Lexer) void   {
     // Skip until end of line
     while lex.current_char != '\n' && lex.current_char != 0 {
         read_char(lex)
@@ -143,7 +143,7 @@ skip_line_comment: (lex: *Lexer) void  = {
 }
 
 // Read an identifier or keyword
-read_identifier: (lex: *Lexer) string  = {
+read_identifier = (lex: *Lexer) string   {
     start_pos := lex.position
     
     // Read while alphanumeric or underscore
@@ -156,7 +156,7 @@ read_identifier: (lex: *Lexer) string  = {
 }
 
 // Read a number
-read_number: (lex: *Lexer) string  = {
+read_number = (lex: *Lexer) string   {
     start_pos := lex.position
     has_dot := false
     
@@ -174,7 +174,7 @@ read_number: (lex: *Lexer) string  = {
 }
 
 // Read a string literal
-read_string: (lex: *Lexer) string  = {
+read_string = (lex: *Lexer) string   {
     read_char(lex)  // Skip opening quote
     start_pos := lex.position
     
@@ -199,17 +199,17 @@ read_string: (lex: *Lexer) string  = {
 }
 
 // Check if character is a letter
-is_letter: (ch: i8) bool  = {
+is_letter = (ch: i8) bool   {
     return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 
 // Check if character is a digit
-is_digit: (ch: i8) bool  = {
+is_digit = (ch: i8) bool   {
     return ch >= '0' && ch <= '9'
 }
 
 // Check if identifier is a keyword
-is_keyword: (ident: string) bool  = {
+is_keyword = (ident: string) bool   {
     // Check common keywords
     if ident == "if" || ident == "else" || ident == "while" || ident == "for" {
         return true
@@ -233,7 +233,7 @@ is_keyword: (ident: string) bool  = {
 }
 
 // Get the next token
-next_token: (lex: *Lexer) Token  = {
+next_token = (lex: *Lexer) Token   {
     skip_whitespace(lex)
     
     // Skip comments
@@ -368,7 +368,7 @@ next_token: (lex: *Lexer) Token  = {
     }
     
     // Single-character tokens
-    match ch {
+    ch ?{
         '+' => {
             tok.type = TokenType.Plus
             tok.value = "+"
@@ -491,27 +491,27 @@ tokenize = (input: string) [Token; 1000] {
 }
 
 // String helper functions (simplified stubs)
-string_len: (s: string) i32  = {
+string_len = (s: string) i32   {
     // Stub: would need actual implementation
     return 0
 }
 
-string_char_at: (s: string, index: i32) i8  = {
+string_char_at = (s: string, index: i32) i8   {
     // Stub: would need actual implementation  
     return 0
 }
 
-string_substring: (s: string, start: i32, end: i32) string  = {
+string_substring = (s: string, start: i32, end: i32) string   {
     // Stub: would need actual implementation
     return ""
 }
 
-string_contains: (s: string, substr: string) bool  = {
+string_contains = (s: string, substr: string) bool   {
     // Stub: would need actual implementation
     return false
 }
 
-string_from_char: (ch: i8) string  = {
+string_from_char = (ch: i8) string   {
     // Stub: would need actual implementation
     return ""
 }

@@ -1,11 +1,11 @@
 // This test should FAIL - imports not allowed inside if blocks
 
-main: () i32  = {
+main = () i32   {
     x := 10
     
     if (x > 5) {
         // ERROR: Import inside if block
-        io := @std.io
+        { io } = @std.io
         io.print("This should not compile\n")
     }
     

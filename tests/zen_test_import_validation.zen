@@ -1,15 +1,15 @@
 // Import validation test suite
 // Tests that imports work correctly at module level and are rejected in invalid contexts
 
-core := @std.core
-test := @std.test
-io := @std.io
-mem := @std.mem
-string := @std.string
-vec := @std.vec
+{ core } = @std.core
+{ test } = @std.test
+{ io } = @std.io
+{ mem } = @std.mem
+{ string } = @std.string
+{ vec } = @std.vec
 
 // Test 1: Module-level imports work correctly
-test_module_level_imports: () void  = {
+test_module_level_imports = () void   {
     // These imports are at module level (defined above)
     // They should be accessible throughout the module
     test.assert(core != null, "core import should be available")
@@ -18,14 +18,14 @@ test_module_level_imports: () void  = {
 }
 
 // Test 2: Imports are accessible in functions
-test_imports_in_functions: () void  = {
+test_imports_in_functions = () void   {
     // Should be able to use module-level imports
     io.println("Testing import accessibility in functions")
     test.assert(true, "Function should have access to module imports")
 }
 
 // Test 3: Imports are accessible in nested blocks
-test_imports_in_nested_blocks: () void  = {
+test_imports_in_nested_blocks = () void   {
     if (true) {
         // Should still have access to imports
         io.println("Imports work in nested blocks")
@@ -38,7 +38,7 @@ test_imports_in_nested_blocks: () void  = {
 }
 
 // Test 4: Multiple import styles
-test_multiple_import_styles: () void  = {
+test_multiple_import_styles = () void   {
     // All these imports should work
     buffer := mem.allocate(u8, 100)
     test.assert(buffer != null, "mem.allocate should work")
@@ -60,7 +60,7 @@ MyStruct: {
     name: string,        // Built-in type (not an import)
 }
 
-test_imports_with_types: () void  = {
+test_imports_with_types = () void   {
     s := MyStruct {
         data: vec.new(i32),
         name: "test"
@@ -72,7 +72,7 @@ test_imports_with_types: () void  = {
 }
 
 // Test 6: Imports in match expressions
-test_imports_in_match: () void  = {
+test_imports_in_match = () void   {
     value := 42
     
     result := match value {
@@ -90,7 +90,7 @@ test_imports_in_match: () void  = {
 }
 
 // Test 7: Imports with generics
-test_imports_with_generics: () void  = {
+test_imports_with_generics = () void   {
     // Create vectors of different types
     int_vec := vec.new(i32)
     string_vec := vec.new(string)
@@ -106,7 +106,7 @@ test_imports_with_generics: () void  = {
 }
 
 // Run all tests
-main: () i32  = {
+main = () i32   {
     io.println("Running import validation tests...")
     
     test_module_level_imports()

@@ -2,13 +2,13 @@
 // Tests io, string, core, and fs modules
 
 // Import all stdlib modules
-io := @std.io
-string := @std.string
-core := @std.core
-fs := @std.fs
+{ io } = @std.io
+{ string } = @std.string
+{ core } = @std.core
+{ fs } = @std.fs
 
 // Test IO module
-test_io: () bool  = {
+test_io = () bool   {
     io.println("Testing IO module...")
     
     // Test print functions
@@ -35,7 +35,7 @@ test_io: () bool  = {
 }
 
 // Test String module
-test_string: () bool  = {
+test_string = () bool   {
     io.println("\nTesting String module...")
     
     // Test string length
@@ -110,7 +110,7 @@ test_string: () bool  = {
 }
 
 // Test Core module
-test_core: () bool  = {
+test_core = () bool   {
     io.println("\nTesting Core module...")
     
     // Test abs
@@ -135,16 +135,16 @@ test_core: () bool  = {
     greater := core.compare(7, 5)
     
     less ?
-        | core.Ordering:Less => io.println("✓ Core compare Less works")
-        | _ => core.panic("compare(3, 5) should be Less")
+        | core.Ordering:Less { io.println("✓ Core compare Less works") }
+        | _ { core.panic("compare(3, 5) should be Less") }
     
     equal ?
-        | core.Ordering:Equal => io.println("✓ Core compare Equal works")
-        | _ => core.panic("compare(5, 5) should be Equal")
+        | core.Ordering:Equal { io.println("✓ Core compare Equal works") }
+        | _ { core.panic("compare(5, 5) should be Equal") }
     
     greater ?
-        | core.Ordering:Greater => io.println("✓ Core compare Greater works")
-        | _ => core.panic("compare(7, 5) should be Greater")
+        | core.Ordering:Greater { io.println("✓ Core compare Greater works") }
+        | _ { core.panic("compare(7, 5) should be Greater") }
     
     // Test identity
     core.assert(core.id(42) == 42, "id(42) should be 42")
@@ -193,7 +193,7 @@ test_core: () bool  = {
 }
 
 // Test FS module
-test_fs: () bool  = {
+test_fs = () bool   {
     io.println("\nTesting FS module...")
     
     // Test path utilities
@@ -251,7 +251,7 @@ test_fs: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Zen Standard Library Tests ===\n")
     
     passed := 0
@@ -259,23 +259,23 @@ main: () i32  = {
     
     // Run IO tests
     test_io() ?
-        | true => passed = passed + 1
-        | false => failed = failed + 1
+        | true { passed = passed + 1 }
+        | false { failed = failed + 1 }
     
     // Run String tests
     test_string() ?
-        | true => passed = passed + 1
-        | false => failed = failed + 1
+        | true { passed = passed + 1 }
+        | false { failed = failed + 1 }
     
     // Run Core tests
     test_core() ?
-        | true => passed = passed + 1
-        | false => failed = failed + 1
+        | true { passed = passed + 1 }
+        | false { failed = failed + 1 }
     
     // Run FS tests
     test_fs() ?
-        | true => passed = passed + 1
-        | false => failed = failed + 1
+        | true { passed = passed + 1 }
+        | false { failed = failed + 1 }
     
     // Print summary
     io.println("\n=== Test Summary ===")
@@ -288,11 +288,11 @@ main: () i32  = {
     io.print("\n")
     
     failed == 0 ?
-        | true => {
+        | true { 
             io.println("\n✅ All standard library tests passed!")
             return 0
         }
-        | false => {
+        | false { 
             io.println("\n❌ Some tests failed")
             return 1
         }

@@ -5,7 +5,7 @@
 // Test 1: Variable Declarations
 // ====================================
 
-test_variable_declarations: () void  = {
+test_variable_declarations = () void   {
     // Immutable bindings
     x := 42
     name := "Zen"
@@ -32,13 +32,13 @@ test_variable_declarations: () void  = {
 // Test 2: Pattern Matching (NO if/else/match)
 // ====================================
 
-test_pattern_matching: () void  = {
+test_pattern_matching = () void   {
     // Basic value patterns
     score := 100
     result := score ? 
-        | 100 => "Perfect"
-        | 0 => "Failed"
-        | _ => "In progress"
+        | 100 { "Perfect" }
+        | 0 { "Failed" }
+        | _ { "In progress" }
     assert(result == "Perfect")
     
     // Range patterns
@@ -47,24 +47,24 @@ test_pattern_matching: () void  = {
         | 0..=12 => "Child"
         | 13..=19 => "Teen"
         | 20..=64 => "Adult"
-        | _ => "Senior"
+        | _ { "Senior" }
     assert(category == "Adult")
     
     // Guards with arrow
     value := 75
     size := value ?
-        | v -> v > 100 => "Large"
-        | v -> v > 50 => "Medium"
-        | v -> v > 0 => "Small"
-        | _ => "Zero or negative"
+        | v -> v > 100 { "Large" }
+        | v -> v > 50 { "Medium" }
+        | v -> v > 0 { "Small" }
+        | _ { "Zero or negative" }
     assert(size == "Medium")
     
     // Multiple patterns (or-patterns)
     day := 6
     day_type := day ?
-        | 1 | 2 | 3 | 4 | 5 => "Weekday"
-        | 6 | 7 => "Weekend"
-        | _ => "Invalid"
+        | 1 | 2 | 3 | 4 | 5 { "Weekday" }
+        | 6 | 7 { "Weekend" }
+        | _ { "Invalid" }
     assert(day_type == "Weekend")
     
     // Bool patterns
@@ -76,8 +76,8 @@ test_pattern_matching: () void  = {
     // Alternative bool syntax
     condition := false
     condition ?
-        | true => assert(false)
-        | false => assert(true)
+        | true { assert(false) }
+        | false { assert(true) }
 }
 
 // ====================================
@@ -85,7 +85,7 @@ test_pattern_matching: () void  = {
 // ====================================
 
 // Basic function
-add: (a: i32, b: i32) i32  = {
+add = (a: i32, b: i32) i32   {
     a + b
 }
 
@@ -95,7 +95,7 @@ identity<T>: (value: T) T  = {
 }
 
 // Function with default parameter
-greet: (name: string, greeting: string = "Hello") string  = {
+greet = (name: string, greeting: string = "Hello") string   {
     "$(greeting), $(name)!"
 }
 
@@ -106,11 +106,11 @@ Rectangle: {
 }
 
 // UFCS-style function
-area: (rect: Rectangle) f64  = {
+area = (rect: Rectangle) f64   {
     rect.width * rect.height
 }
 
-test_functions_and_ufcs: () void  = {
+test_functions_and_ufcs = () void   {
     // Test basic function
     sum := add(10, 20)
     assert(sum == 30)
@@ -137,7 +137,7 @@ test_functions_and_ufcs: () void  = {
 // Test 4: Loops (only 'loop' keyword)
 // ====================================
 
-test_loops: () void  = {
+test_loops = () void   {
     // Conditional loop (while-like)
     counter := 5
     sum := 0
@@ -151,7 +151,7 @@ test_loops: () void  = {
     value := 0
     loop {
         value = value + 1
-        value >= 10 ? | true => break
+        value >= 10 ? | true { break }
     }
     assert(value == 10)
     
@@ -173,7 +173,7 @@ test_loops: () void  = {
     // Loop with continue
     even_sum := 0
     (0..10).loop((i) => {
-        i % 2 != 0 ? | true => continue
+        i % 2 != 0 ? | true { continue }
         even_sum = even_sum + i
     })
     assert(even_sum == 20)  // 0+2+4+6+8
@@ -203,7 +203,7 @@ Option<T> =
     | Some(value: T)
     | None
 
-test_structs_and_enums: () void  = {
+test_structs_and_enums = () void   {
     // Test struct creation and field access
     alice := Person{
         name: "Alice",
@@ -219,22 +219,22 @@ test_structs_and_enums: () void  = {
     // Test enum creation and pattern matching
     status := Status:Active
     msg := status ?
-        | .Active => "System is active"
-        | .Inactive -> reason => "Inactive: $(reason)"
-        | .Pending -> since => "Pending since $(since)"
+        | .Active { "System is active" }
+        | .Inactive -> reason { "Inactive: $(reason)" }
+        | .Pending -> since { "Pending since $(since)" }
     assert(msg == "System is active")
     
     // Test Result type
-    divide: (a: i32, b: i32) Result<i32, string>  = {
+    divide = (a: i32, b: i32) Result<i32, string>   {
         b == 0 ?
-            | true => Result:Err("Division by zero")
-            | false => Result:Ok(a / b)
+            | true { Result:Err("Division by zero") }
+            | false { Result:Ok(a / b) }
     }
     
     result := divide(10, 2)
     value := result ?
-        | .Ok -> v => v
-        | .Err -> _ => -1
+        | .Ok -> v { v }
+        | .Err -> _ { -1 }
     assert(value == 5)
 }
 
@@ -242,42 +242,42 @@ test_structs_and_enums: () void  = {
 // Test 6: Error Handling (No exceptions)
 // ====================================
 
-test_error_handling: () void  = {
+test_error_handling = () void   {
     // Function that returns Result
-    parse_int: (s: string) Result<i32, string>  = {
+    parse_int = (s: string) Result<i32, string>   {
         // Simplified - would actually parse
         s == "42" ?
-            | true => Result:Ok(42)
-            | false => Result:Err("Invalid number")
+            | true { Result:Ok(42) }
+            | false { Result:Err("Invalid number") }
     }
     
     // Handle Result
     result1 := parse_int("42")
     result1 ?
-        | .Ok -> n => assert(n == 42)
-        | .Err -> _ => assert(false)
+        | .Ok -> n { assert(n == 42) }
+        | .Err -> _ { assert(false) }
     
     result2 := parse_int("invalid")
     result2 ?
-        | .Ok -> _ => assert(false)
-        | .Err -> e => assert(e == "Invalid number")
+        | .Ok -> _ { assert(false) }
+        | .Err -> e { assert(e == "Invalid number") }
     
     // Option handling
-    find_value: (key: string) Option<i32>  = {
+    find_value = (key: string) Option<i32>   {
         key == "exists" ?
-            | true => Option:Some(100)
-            | false => Option:None
+            | true { Option:Some(100) }
+            | false { Option:None }
     }
     
     opt1 := find_value("exists")
     opt1 ?
-        | .Some -> v => assert(v == 100)
-        | .None => assert(false)
+        | .Some -> v { assert(v == 100) }
+        | .None { assert(false) }
     
     opt2 := find_value("missing")
     opt2 ?
-        | .Some -> _ => assert(false)
-        | .None => assert(true)
+        | .Some -> _ { assert(false) }
+        | .None { assert(true) }
 }
 
 // ====================================
@@ -292,20 +292,20 @@ Comparable<T> = {
 // Provide implementation for i32
 i32_comparable := Comparable<i32>{
     compare: (a: i32, b: i32) i32 {
-        a < b ? | true => -1
-                | false => a > b ? | true => 1
-                                   | false => 0
+        a < b ? | true { -1 }
+                | false { a > b ? | true => 1 }
+                                   | false { 0 }
     }
 }
 
 // Generic sort using behavior
 sort_pair<T>: (a: T, b: T, cmp: Comparable<T>)   = { first: T, second: T } {
     cmp.compare(a, b) <= 0 ?
-        | true => { first: a, second: b }
-        | false => { first: b, second: a }
+        | true { { first: a, second: b  }}
+        | false { { first: b, second: a  }}
 }
 
-test_behaviors: () void  = {
+test_behaviors = () void   {
     // Test behavior usage
     sorted := sort_pair(5, 3, i32_comparable)
     assert(sorted.first == 3)
@@ -320,7 +320,7 @@ test_behaviors: () void  = {
 // Test 8: Pointers and Memory
 // ====================================
 
-test_pointers: () void  = {
+test_pointers = () void   {
     // Smart pointer creation
     ptr := Ptr:new(42)
     assert(ptr.value == 42)
@@ -345,7 +345,7 @@ test_pointers: () void  = {
 // Test 9: String Interpolation
 // ====================================
 
-test_string_interpolation: () void  = {
+test_string_interpolation = () void   {
     name := "Zen"
     version := 1
     
@@ -364,10 +364,10 @@ test_string_interpolation: () void  = {
 // Test 10: Defer and Cleanup
 // ====================================
 
-test_defer: () void  = {
+test_defer = () void   {
     counter := Ref:new(0)
     
-    process: () void  = {
+    process = () void   {
         counter.value = counter.value + 1
         defer {
             counter.value = counter.value * 2
@@ -384,8 +384,8 @@ test_defer: () void  = {
 // Main Test Runner
 // ====================================
 
-main: () void  = {
-    io := @std.build.import("io")
+main = () void   {
+    { io } = @std.build.import("io")
     
     io.print("Running Zenlang Comprehensive Test Suite...")
     
@@ -426,16 +426,16 @@ main: () void  = {
 // Helper: Assert function
 // ====================================
 
-assert: (condition: bool, message: string = "") void  = {
-    condition ? | false => {
+assert = (condition: bool, message: string = "") void   {
+    condition ? | false { { }
         msg := message == "" ? 
-            | true => "Assertion failed"
-            | false => message
+            | true { "Assertion failed" }
+            | false { message }
         panic(msg)
     }
 }
 
-panic: (message: string) void  = {
+panic = (message: string) void   {
     // In real implementation, would terminate with error
     // For testing, we'd use @std.core.panic
     @std.core.panic(message)

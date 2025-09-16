@@ -1,15 +1,15 @@
 // Simple test for module-level imports
 
 // Module imports - at module level, not in comptime
-core := @std.core
-build := @std.build
+{ core } = @std.core
+{ build } = @std.build
 
 // Simple function to test
-add: (a: i32, b: i32) i32  = {
+add = (a: i32, b: i32) i32   {
     return a + b
 }
 
-main: () i32  = {
+main = () i32   {
     result := add(5, 10)
     return result
 }

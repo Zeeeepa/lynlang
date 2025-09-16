@@ -1,14 +1,14 @@
 // Test for LLVM Code Generation Module
 
-core := @std.core
-io := @std.io
-string := @std.string
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
 
 // Import the codegen module
-codegen := @std.compiler.codegen_llvm
+{ codegen } = @std.compiler.codegen_llvm
 
 // Test basic LLVM IR generation
-test_basic_ir_generation: () bool  = {
+test_basic_ir_generation = () bool   {
     gen := codegen.new_codegen("test_module")
     
     // Test register allocation
@@ -25,7 +25,7 @@ test_basic_ir_generation: () bool  = {
 }
 
 // Test type conversion
-test_type_conversion: () bool  = {
+test_type_conversion = () bool   {
     // Test basic types
     i32_type := codegen.zen_type_to_llvm(Type.Named("i32"))
     i64_type := codegen.zen_type_to_llvm(Type.Named("i64"))
@@ -47,7 +47,7 @@ test_type_conversion: () bool  = {
 }
 
 // Test emit function
-test_emit_function: () bool  = {
+test_emit_function = () bool   {
     gen := codegen.new_codegen("test_emit")
     
     codegen.emit(&mut gen, "test line 1")
@@ -65,7 +65,7 @@ test_emit_function: () bool  = {
 }
 
 // Test number to string conversions
-test_number_to_string: () bool  = {
+test_number_to_string = () bool   {
     // Test u32_to_string
     str0 := codegen.u32_to_string(0)
     str42 := codegen.u32_to_string(42)
@@ -88,7 +88,7 @@ test_number_to_string: () bool  = {
 }
 
 // Test module generation
-test_module_generation: () bool  = {
+test_module_generation = () bool   {
     gen := codegen.new_codegen("test_gen_module")
     
     // Create empty AST
@@ -111,7 +111,7 @@ test_module_generation: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("Testing LLVM Code Generator\n")
     io.print("============================\n\n")
     

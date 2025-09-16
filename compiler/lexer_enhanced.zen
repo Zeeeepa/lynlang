@@ -1,10 +1,10 @@
 // Enhanced Zen Lexer for Self-Hosting
 // Complete tokenization for all Zen language features
 
-io := @std.io
-string := @std.string
-vec := @std.vec
-core := @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ core } = @std.core
 
 // Token types covering all Zen syntax
 TokenType: 
@@ -56,7 +56,7 @@ Lexer: {
 }
 
 // Create a new lexer
-lexer_new: (input: string) Lexer  = {
+lexer_new = (input: string) Lexer   {
     return Lexer{
         input: input,
         tokens: vec.new<Token>(),
@@ -86,22 +86,22 @@ lexer_scan_tokens = (l: *Lexer) vec.Vec<Token> {
 }
 
 // Check if at end of input
-is_at_end: (l: *Lexer) bool  = {
+is_at_end = (l: *Lexer) bool   {
     return l.current >= l.input.len()
 }
 
 // Get current character
-peek: (l: *Lexer) char  = {
+peek = (l: *Lexer) char   {
     is_at_end(l) ? { return '\0' } : { return l.input[l.current] }
 }
 
 // Get next character without advancing
-peek_next: (l: *Lexer) char  = {
+peek_next = (l: *Lexer) char   {
     (l.current + 1) >= l.input.len() ? { return '\0' } : { return l.input[l.current + 1] }
 }
 
 // Advance and return current character
-advance: (l: *Lexer) char  = {
+advance = (l: *Lexer) char   {
     ch := l.input[l.current]
     l.current = l.current + 1
     l.column = l.column + 1
@@ -109,7 +109,7 @@ advance: (l: *Lexer) char  = {
 }
 
 // Check if current matches expected and advance if so
-match_char: (l: *Lexer, expected: char) bool  = {
+match_char = (l: *Lexer, expected: char) bool   {
     is_at_end(l) ? { return false } : {}
     l.input[l.current] != expected ? { return false } : {}
     l.current = l.current + 1
@@ -118,7 +118,7 @@ match_char: (l: *Lexer, expected: char) bool  = {
 }
 
 // Add a token
-add_token: (l: *Lexer, type: TokenType) void  = {
+add_token = (l: *Lexer, type: TokenType) void   {
     text := string.substring(l.input, l.start, l.current)
     l.tokens.push(Token{
         type: type,
@@ -129,30 +129,30 @@ add_token: (l: *Lexer, type: TokenType) void  = {
 }
 
 // Scan a single token
-scan_token: (l: *Lexer) void  = {
+scan_token = (l: *Lexer) void   {
     c := advance(l)
     
     match c {
         // Single character tokens
-        | '(' => add_token(l, TokenType.LeftParen)
-        | ')' => add_token(l, TokenType.RightParen)
-        | '{' => add_token(l, TokenType.LeftBrace)
-        | '}' => add_token(l, TokenType.RightBrace)
-        | '[' => add_token(l, TokenType.LeftBracket)
-        | ']' => add_token(l, TokenType.RightBracket)
-        | ',' => add_token(l, TokenType.Comma)
-        | '.' => add_token(l, TokenType.Dot)
-        | ';' => add_token(l, TokenType.Semicolon)
-        | '+' => add_token(l, TokenType.Plus)
-        | '*' => add_token(l, TokenType.Star)
-        | '%' => add_token(l, TokenType.Percent)
-        | '?' => add_token(l, TokenType.Question)
-        | '|' => add_token(l, TokenType.Pipe)
-        | '@' => add_token(l, TokenType.At)
-        | '$' => add_token(l, TokenType.Dollar)
+        | '(' { add_token(l, TokenType.LeftParen) }
+        | ')' { add_token(l, TokenType.RightParen) }
+        | '{' { add_token(l, TokenType.LeftBrace) }
+        | '}' { add_token(l, TokenType.RightBrace) }
+        | '[' { add_token(l, TokenType.LeftBracket) }
+        | ']' { add_token(l, TokenType.RightBracket) }
+        | ',' { add_token(l, TokenType.Comma) }
+        | '.' { add_token(l, TokenType.Dot) }
+        | ';' { add_token(l, TokenType.Semicolon) }
+        | '+' { add_token(l, TokenType.Plus) }
+        | '*' { add_token(l, TokenType.Star) }
+        | '%' { add_token(l, TokenType.Percent) }
+        | '?' { add_token(l, TokenType.Question) }
+        | '|' { add_token(l, TokenType.Pipe) }
+        | '@' { add_token(l, TokenType.At) }
+        | '$' { add_token(l, TokenType.Dollar) }
         
         // Multi-character tokens
-        | '-' => {
+        | '-' { { }
             match_char(l, '>') ? 
                 { add_token(l, TokenType.Arrow) } : 
                 { add_token(l, TokenType.Minus) }
@@ -164,22 +164,22 @@ scan_token: (l: *Lexer) void  = {
                 { add_token(l, TokenType.FatArrow) } :
                 { add_token(l, TokenType.Assign) }
         }
-        | '!' => {
+        | '!' { { }
             match_char(l, '=') ? 
                 { add_token(l, TokenType.NotEqual) } : 
                 { add_token(l, TokenType.Not) }
         }
-        | '<' => {
+        | '<' { { }
             match_char(l, '=') ? 
                 { add_token(l, TokenType.LessEqual) } : 
                 { add_token(l, TokenType.Less) }
         }
-        | '>' => {
+        | '>' { { }
             match_char(l, '=') ? 
                 { add_token(l, TokenType.GreaterEqual) } : 
                 { add_token(l, TokenType.Greater) }
         }
-        | ':' => {
+        | ':' { { }
             match_char(l, ':') ? {
                 match_char(l, '=') ?
                     { add_token(l, TokenType.ColonColonEqual) } :
@@ -188,12 +188,12 @@ scan_token: (l: *Lexer) void  = {
                 { add_token(l, TokenType.ColonEqual) } :
                 { add_token(l, TokenType.Colon) }
         }
-        | '&' => {
+        | '&' { { }
             match_char(l, '&') ? 
                 { add_token(l, TokenType.And) } : 
                 { add_token(l, TokenType.Invalid) }
         }
-        | '/' => {
+        | '/' { { }
             match_char(l, '/') ? {
                 // Single-line comment - skip to end of line
                 loop peek(l) != '\n' && !is_at_end(l) {
@@ -217,20 +217,20 @@ scan_token: (l: *Lexer) void  = {
         }
         
         // Whitespace
-        | ' ' | '\r' | '\t' => {} // Ignore
-        | '\n' => {
+        | ' ' | '\r' | '\t' { { }} // Ignore
+        | '\n' { { }
             l.line = l.line + 1
             l.column = 1
         }
         
         // String literals
-        | '"' => scan_string(l)
+        | '"' { scan_string(l) }
         
         // Character literals
-        | '\'' => scan_char(l)
+        | '\'' { scan_char(l) }
         
         // Default cases
-        | _ => {
+        | _ { { }
             is_digit(c) ? { scan_number(l) } :
             is_alpha(c) ? { scan_identifier(l) } :
             { add_token(l, TokenType.Invalid) }
@@ -239,7 +239,7 @@ scan_token: (l: *Lexer) void  = {
 }
 
 // Scan string literal
-scan_string: (l: *Lexer) void  = {
+scan_string = (l: *Lexer) void   {
     loop peek(l) != '"' && !is_at_end(l) {
         peek(l) == '\n' ? {
             l.line = l.line + 1
@@ -262,7 +262,7 @@ scan_string: (l: *Lexer) void  = {
 }
 
 // Scan character literal
-scan_char: (l: *Lexer) void  = {
+scan_char = (l: *Lexer) void   {
     peek(l) == '\\' ? {
         advance(l) // Skip backslash
         advance(l) // Skip escape character
@@ -283,7 +283,7 @@ scan_char: (l: *Lexer) void  = {
 }
 
 // Scan number literal
-scan_number: (l: *Lexer) void  = {
+scan_number = (l: *Lexer) void   {
     loop is_digit(peek(l)) {
         advance(l)
     }
@@ -301,7 +301,7 @@ scan_number: (l: *Lexer) void  = {
 }
 
 // Scan identifier or keyword
-scan_identifier: (l: *Lexer) void  = {
+scan_identifier = (l: *Lexer) void   {
     loop is_alphanumeric(peek(l)) {
         advance(l)
     }
@@ -312,40 +312,40 @@ scan_identifier: (l: *Lexer) void  = {
 }
 
 // Check if character is digit
-is_digit: (c: char) bool  = {
+is_digit = (c: char) bool   {
     return c >= '0' && c <= '9'
 }
 
 // Check if character is alpha
-is_alpha: (c: char) bool  = {
+is_alpha = (c: char) bool   {
     return (c >= 'a' && c <= 'z') || 
            (c >= 'A' && c <= 'Z') || 
            c == '_'
 }
 
 // Check if character is alphanumeric
-is_alphanumeric: (c: char) bool  = {
+is_alphanumeric = (c: char) bool   {
     return is_alpha(c) || is_digit(c)
 }
 
 // Get keyword token type or identifier
-get_keyword_type: (text: string) TokenType  = {
+get_keyword_type = (text: string) TokenType   {
     match text {
-        | "return" => TokenType.Return
-        | "loop" => TokenType.Loop
-        | "break" => TokenType.Break
-        | "continue" => TokenType.Continue
-        | "struct" => TokenType.Struct
-        | "enum" => TokenType.Enum
-        | "trait" => TokenType.Trait
-        | "impl" => TokenType.Impl
-        | "comptime" => TokenType.Comptime
-        | "type" => TokenType.Type
-        | "const" => TokenType.Const
-        | "let" => TokenType.Let
-        | "true" => TokenType.True
-        | "false" => TokenType.False
-        | "null" => TokenType.Null
-        | _ => TokenType.Identifier -> value: text
+        | "return" { TokenType.Return }
+        | "loop" { TokenType.Loop }
+        | "break" { TokenType.Break }
+        | "continue" { TokenType.Continue }
+        | "struct" { TokenType.Struct }
+        | "enum" { TokenType.Enum }
+        | "trait" { TokenType.Trait }
+        | "impl" { TokenType.Impl }
+        | "comptime" { TokenType.Comptime }
+        | "type" { TokenType.Type }
+        | "const" { TokenType.Const }
+        | "let" { TokenType.Let }
+        | "true" { TokenType.True }
+        | "false" { TokenType.False }
+        | "null" { TokenType.Null }
+        | _ { TokenType.Identifier -> value: text }
     }
 }

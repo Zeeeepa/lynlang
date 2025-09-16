@@ -1,7 +1,7 @@
 // Very simple loop test
-extern printf = (format: *i8, ...) i32
+extern printf = (format: RawPtr<i8>, ...) i32
 
-main: () i32  = {
+main = () i32   {
     // Test conditional loop
     counter := 5
     sum := 0

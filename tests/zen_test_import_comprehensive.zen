@@ -2,25 +2,25 @@
 // Tests imports at module level and in comptime blocks
 
 // Module-level imports (new syntax without comptime)
-core := @std.core
-vec := @std.vec
-string := @std.string
-build := @std.build
+{ core } = @std.core
+{ vec } = @std.vec
+{ string } = @std.string
+{ build } = @std.build
 io := build.import("io")
 fs := build.import("fs")
-math := @std.math
-meta := @std.meta
+{ math } = @std.math
+{ meta } = @std.meta
 reflect := build.import("reflect")
-ast := @std.compiler.ast
-outer_meta := @std.meta
-inner_reflect := @std.reflect
-inner_ast := @std.compiler.ast
+{ ast } = @std.compiler.ast
+{ outer_meta } = @std.meta
+{ inner_reflect } = @std.reflect
+{ inner_ast } = @std.compiler.ast
 
 // Test imports inside functions
-test_function_imports: () void  = {
+test_function_imports = () void   {
     // Local imports work too
-    json := @std.json
-    http := @std.http
+    { json } = @std.json
+    { http } = @std.http
     
     // Use imported modules
     data := json.parse("{\"test\": true}")
@@ -28,9 +28,9 @@ test_function_imports: () void  = {
 }
 
 // Comptime blocks are for meta-programming, not imports
-comptime {
+@comptime {
     // Can use imports for compile-time code generation
-    generate_struct: (name: string) void  = {
+    generate_struct = (name: string) void   {
         meta.define_type(name, reflect.struct_type([
             ("id", "i64"),
             ("name", "string"),
@@ -39,10 +39,10 @@ comptime {
 }
 
 // Test nested comptime for meta-programming
-comptime {
-    comptime {
+@comptime {
+    @comptime {
         // Meta-programming logic
-        process_ast: (node: inner_ast.Node) void  = {
+        process_ast = (node: inner_ast.Node) void   {
             inner_reflect.inspect(node)
         }
     }
@@ -51,40 +51,40 @@ comptime {
 // Test conditional imports
 DEBUG := true
 
-compile_time_import: () void  = {
-    DEBUG ? | true => {
-        debug := @std.debug
-        log := @std.log
+compile_time_import = () void   {
+    DEBUG ? | true { { }
+        { debug } = @std.debug
+        { log } = @std.log
         log.debug("Debug mode enabled")
-    } | false => {}
+    } | false { { }}
 }
 
 // Test imports in match expressions
-import_based_on_platform: () void  = {
+import_based_on_platform = () void   {
     platform := core.get_platform()
     
     match platform {
-        | "linux" => {
-            linux := @std.linux
+        | "linux" { { }
+            { linux } = @std.linux
             linux.specific_function()
         }
-        | "windows" => {
-            windows := @std.windows
+        | "windows" { { }
+            { windows } = @std.windows
             windows.specific_function()
         }
-        | "macos" => {
-            macos := @std.macos
+        | "macos" { { }
+            { macos } = @std.macos
             macos.specific_function()
         }
-        | _ => {
-            generic := @std.generic
+        | _ { { }
+            { generic } = @std.generic
             generic.fallback()
         }
     }
 }
 
 // Test imports in loops (unusual but valid)
-test_loop_imports: () void  = {
+test_loop_imports = () void   {
     modules := ["math", "string", "vec"]
     
     i := 0
@@ -98,11 +98,11 @@ test_loop_imports: () void  = {
 }
 
 // Test imports with aliases
-test_aliased_imports: () void  = {
+test_aliased_imports = () void   {
     // Multiple ways to import with aliases
-    v := @std.vec
-    Vector := @std.vec
-    DynamicArray := @std.vec
+    { v } = @std.vec
+    { Vector } = @std.vec
+    { DynamicArray } = @std.vec
     
     // All refer to the same module
     v1 := v.new()
@@ -111,7 +111,7 @@ test_aliased_imports: () void  = {
 }
 
 // Main test function
-main: () i32  = {
+main = () i32   {
     // Test that all imports work
     io.println("Testing comprehensive import syntax...")
     

@@ -2,11 +2,11 @@
 // A minimal compiler that can compile itself
 // This is the first step towards full self-hosting
 
-io := @std.io
-fs := @std.fs
-string := @std.string
-vec := @std.vec
-core := @std.core
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ vec } = @std.vec
+{ core } = @std.core
 
 // Token types for the lexer
 TokenType: Identifier
@@ -36,7 +36,7 @@ Lexer: {
 }
 
 // Create a new lexer
-lexer_new: (input: string) Lexer  = {
+lexer_new = (input: string) Lexer   {
     l := Lexer {
         input = input,
         position = 0,
@@ -50,34 +50,34 @@ lexer_new: (input: string) Lexer  = {
 }
 
 // Read the next character
-lexer_read_char: (l: *Lexer) void  = {
+lexer_read_char = (l: *Lexer) void   {
     l.read_position >= l.input.len() ?
-        | true => { l.current_char = '\0' }
-        | false => {
+        | true { { l.current_char = '\0'  }}
+        | false { { }
             l.current_char = l.input[l.read_position]
             l.position = l.read_position
             l.read_position = l.read_position + 1
             
             l.current_char == '\n' ?
-                | true => {
+                | true { { }
                     l.line = l.line + 1
                     l.column = 1
                 }
-                | false => {
+                | false { { }
                     l.column = l.column + 1
                 }
         }
 }
 
 // Peek at the next character
-lexer_peek_char: (l: *Lexer) char  = {
+lexer_peek_char = (l: *Lexer) char   {
     l.read_position >= l.input.len() ?
-        | true => { return '\0' }
-        | false => { return l.input[l.read_position] }
+        | true { { return '\0'  }}
+        | false { { return l.input[l.read_position]  }}
 }
 
 // Skip whitespace
-lexer_skip_whitespace: (l: *Lexer) void  = {
+lexer_skip_whitespace = (l: *Lexer) void   {
     loop (l.current_char == ' ' || l.current_char == '\t' || 
           l.current_char == '\r' || l.current_char == '\n') {
         lexer_read_char(l)
@@ -85,17 +85,17 @@ lexer_skip_whitespace: (l: *Lexer) void  = {
 }
 
 // Check if character is a letter
-is_letter: (ch: char) bool  = {
+is_letter = (ch: char) bool   {
     return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 }
 
 // Check if character is a digit
-is_digit: (ch: char) bool  = {
+is_digit = (ch: char) bool   {
     return ch >= '0' && ch <= '9'
 }
 
 // Read an identifier
-lexer_read_identifier: (l: *Lexer) string  = {
+lexer_read_identifier = (l: *Lexer) string   {
     start := l.position
     loop (is_letter(l.current_char) || is_digit(l.current_char)) {
         lexer_read_char(l)
@@ -104,7 +104,7 @@ lexer_read_identifier: (l: *Lexer) string  = {
 }
 
 // Read a number
-lexer_read_number: (l: *Lexer) string  = {
+lexer_read_number = (l: *Lexer) string   {
     start := l.position
     loop is_digit(l.current_char) {
         lexer_read_char(l)
@@ -112,29 +112,29 @@ lexer_read_number: (l: *Lexer) string  = {
     
     // Check for decimal point
     l.current_char == '.' && is_digit(lexer_peek_char(l)) ?
-        | true => {
+        | true { { }
             lexer_read_char(l) // consume '.'
             loop is_digit(l.current_char) {
                 lexer_read_char(l)
             }
         }
-        | false => {}
+        | false { { }}
     
     return string.substring(l.input, start, l.position)
 }
 
 // Read a string literal
-lexer_read_string: (l: *Lexer) string  = {
+lexer_read_string = (l: *Lexer) string   {
     lexer_read_char(l) // skip opening quote
     start := l.position
     
     loop l.current_char != '"' && l.current_char != '\0' {
         l.current_char == '\\' ?
-            | true => {
+            | true { { }
                 lexer_read_char(l) // skip escape char
                 lexer_read_char(l) // skip escaped char
             }
-            | false => {
+            | false { { }
                 lexer_read_char(l)
             }
     }
@@ -145,7 +145,7 @@ lexer_read_string: (l: *Lexer) string  = {
 }
 
 // Get next token
-lexer_next_token: (l: *Lexer) Token  = {
+lexer_next_token = (l: *Lexer) Token   {
     lexer_skip_whitespace(l)
     
     tok := Token {
@@ -156,11 +156,11 @@ lexer_next_token: (l: *Lexer) Token  = {
     }
     
     l.current_char ?
-        | '\0' => {
+        | '\0' { { }
             tok.type = TokenType.Eof
             return tok
         }
-        | '+' | '-' | '*' | '/' | '=' | '<' | '>' | '!' => {
+        | '+' | '-' | '*' | '/' | '=' | '<' | '>' | '!' { { }
             tok.type = TokenType.Operator
             tok.value = string.from_char(l.current_char)
             
@@ -171,39 +171,39 @@ lexer_next_token: (l: *Lexer) Token  = {
             (l.current_char == '<' && next == '=') ||
             (l.current_char == '>' && next == '=') ||
             (l.current_char == ':' && next == '=') ?
-                | true => {
+                | true { { }
                     lexer_read_char(l)
                     tok.value = tok.value + string.from_char(l.current_char)
                 }
-                | false => {}
+                | false { { }}
             
             lexer_read_char(l)
         }
-        | '(' | ')' | '{' | '}' | '[' | ']' | ',' | ';' | ':' | '.' => {
+        | '(' | ')' | '{' | '}' | '[' | ']' | ',' | ';' | ':' | '.' { { }
             tok.type = TokenType.Symbol
             tok.value = string.from_char(l.current_char)
             lexer_read_char(l)
         }
-        | '"' => {
+        | '"' { { }
             tok.type = TokenType.String
             tok.value = lexer_read_string(l)
         }
-        | _ => {
+        | _ { { }
             is_letter(l.current_char) ?
-                | true => {
+                | true { { }
                     tok.value = lexer_read_identifier(l)
                     // Check if it's a keyword
                     is_keyword(tok.value) ?
-                        | true => { tok.type = TokenType.Keyword }
-                        | false => { tok.type = TokenType.Identifier }
+                        | true { { tok.type = TokenType.Keyword  }}
+                        | false { { tok.type = TokenType.Identifier  }}
                 }
-                | false => {
+                | false { { }
                     is_digit(l.current_char) ?
-                        | true => {
+                        | true { { }
                             tok.type = TokenType.Number
                             tok.value = lexer_read_number(l)
                         }
-                        | false => {
+                        | false { { }
                             // Unknown character
                             tok.value = string.from_char(l.current_char)
                             lexer_read_char(l)
@@ -215,7 +215,7 @@ lexer_next_token: (l: *Lexer) Token  = {
 }
 
 // Check if a string is a keyword
-is_keyword: (s: string) bool  = {
+is_keyword = (s: string) bool   {
     return s == "if" || s == "else" || s == "loop" || s == "return" ||
            s == "true" || s == "false" || s == "void" || s == "i32" ||
            s == "i64" || s == "f32" || s == "f64" || s == "bool" ||
@@ -241,7 +241,7 @@ Parser: {
 }
 
 // Create a new parser
-parser_new: (tokens: Vec<Token>) Parser  = {
+parser_new = (tokens: Vec<Token>) Parser   {
     return Parser {
         tokens = tokens,
         current = 0,
@@ -249,33 +249,33 @@ parser_new: (tokens: Vec<Token>) Parser  = {
 }
 
 // Get current token
-parser_current: (p: *Parser) Token  = {
+parser_current = (p: *Parser) Token   {
     p.current >= p.tokens.len() ?
-        | true => { return Token { type = TokenType.Eof, value = "", line = 0, column = 0 } }
-        | false => { return p.tokens[p.current] }
+        | true { { return Token { type = TokenType.Eof, value = "", line = 0, column = 0  }} }
+        | false { { return p.tokens[p.current]  }}
 }
 
 // Advance to next token
-parser_advance: (p: *Parser) void  = {
+parser_advance = (p: *Parser) void   {
     p.current < p.tokens.len() ?
-        | true => { p.current = p.current + 1 }
-        | false => {}
+        | true { { p.current = p.current + 1  }}
+        | false { { }}
 }
 
 // Check if current token matches
-parser_check: (p: *Parser, type: TokenType) bool  = {
+parser_check = (p: *Parser, type: TokenType) bool   {
     tok := parser_current(p)
     return tok.type == type
 }
 
 // Check if current token is a specific value
-parser_check_value: (p: *Parser, value: string) bool  = {
+parser_check_value = (p: *Parser, value: string) bool   {
     tok := parser_current(p)
     return tok.value == value
 }
 
 // Parse the program
-parser_parse: (p: *Parser) AstNode  = {
+parser_parse = (p: *Parser) AstNode   {
     declarations := vec.new<AstNode>()
     
     loop !parser_check(p, TokenType.Eof) {
@@ -287,27 +287,27 @@ parser_parse: (p: *Parser) AstNode  = {
 }
 
 // Parse a declaration (function or variable)
-parser_parse_declaration: (p: *Parser) AstNode  = {
+parser_parse_declaration = (p: *Parser) AstNode   {
     // For now, just handle simple function declarations
     name_tok := parser_current(p)
     parser_advance(p)
     
     parser_check_value(p, "=") ?
-        | true => {
+        | true { { }
             parser_advance(p) // skip '='
             
             // Check if it's a function
             parser_check_value(p, "(") ?
-                | true => {
+                | true { { }
                     return parser_parse_function(name_tok.value, p)
                 }
-                | false => {
+                | false { { }
                     // Variable declaration
                     value := parser_parse_expression(p)
                     return AstNode.Variable(name_tok.value, "auto", value)
                 }
         }
-        | false => {
+        | false { { }
             // Error: expected '='
             io.print("Error: expected '=' after identifier\n")
             return AstNode.IntLiteral(0)
@@ -315,52 +315,52 @@ parser_parse_declaration: (p: *Parser) AstNode  = {
 }
 
 // Parse a function
-parser_parse_function: (p: *Parser, name: string) AstNode  = {
+parser_parse_function = (p: *Parser, name: string) AstNode   {
     parser_advance(p) // skip '('
     
     // Parse parameters (simplified)
     params := vec.new<(string, string)>()
     
     !parser_check_value(p, ")") ?
-        | true => {
+        | true { { }
             // Simple parameter parsing
             loop {
                 param_name := parser_current(p)
                 parser_advance(p)
                 
                 parser_check_value(p, ":") ?
-                    | true => {
+                    | true { { }
                         parser_advance(p)
                         type_tok := parser_current(p)
                         parser_advance(p)
                         vec.push(params, (param_name.value, type_tok.value))
                     }
-                    | false => {
+                    | false { { }
                         vec.push(params, (param_name.value, "auto"))
                     }
                 
                 parser_check_value(p, ",") ?
-                    | true => {
+                    | true { { }
                         parser_advance(p)
                     }
-                    | false => {
+                    | false { { }
                         break
                     }
             }
         }
-        | false => {}
+        | false { { }}
     
     parser_advance(p) // skip ')'
     
     // Parse return type
     return_type := "void"
     !parser_check_value(p, "{") ?
-        | true => {
+        | true { { }
             type_tok := parser_current(p)
             return_type = type_tok.value
             parser_advance(p)
         }
-        | false => {}
+        | false { { }}
     
     // Parse body
     parser_advance(p) // skip '{'
@@ -377,95 +377,95 @@ parser_parse_function: (p: *Parser, name: string) AstNode  = {
 }
 
 // Parse a statement
-parser_parse_statement: (p: *Parser) AstNode  = {
+parser_parse_statement = (p: *Parser) AstNode   {
     parser_check(p, TokenType.Keyword) ?
-        | true => {
+        | true { { }
             tok := parser_current(p)
             tok.value ?
-                | "return" => {
+                | "return" { { }
                     parser_advance(p)
                     value := parser_parse_expression(p)
                     return AstNode.Return(value)
                 }
-                | _ => {
+                | _ { { }
                     return parser_parse_expression(p)
                 }
         }
-        | false => {
+        | false { { }
             return parser_parse_expression(p)
         }
 }
 
 // Parse an expression (simplified)
-parser_parse_expression: (p: *Parser) AstNode  = {
+parser_parse_expression = (p: *Parser) AstNode   {
     left := parser_parse_primary(p)
     
     // Check for binary operators
     parser_check(p, TokenType.Operator) ?
-        | true => {
+        | true { { }
             op := parser_current(p)
             parser_advance(p)
             right := parser_parse_expression(p)
             return AstNode.BinaryOp(op.value, left, right)
         }
-        | false => {
+        | false { { }
             return left
         }
 }
 
 // Parse primary expression
-parser_parse_primary: (p: *Parser) AstNode  = {
+parser_parse_primary = (p: *Parser) AstNode   {
     tok := parser_current(p)
     
     tok.type ?
-        | TokenType.Number => {
+        | TokenType.Number { { }
             parser_advance(p)
             value := string.to_int(tok.value)
             return AstNode.IntLiteral(value)
         }
-        | TokenType.String => {
+        | TokenType.String { { }
             parser_advance(p)
             return AstNode.StringLiteral(tok.value)
         }
-        | TokenType.Identifier => {
+        | TokenType.Identifier { { }
             parser_advance(p)
             
             // Check for function call
             parser_check_value(p, "(") ?
-                | true => {
+                | true { { }
                     parser_advance(p)
                     args := vec.new<AstNode>()
                     
                     !parser_check_value(p, ")") ?
-                        | true => {
+                        | true { { }
                             loop {
                                 arg := parser_parse_expression(p)
                                 vec.push(args, arg)
                                 
                                 parser_check_value(p, ",") ?
-                                    | true => { parser_advance(p) }
-                                    | false => { break }
+                                    | true { { parser_advance(p)  }}
+                                    | false { { break  }}
                             }
                         }
-                        | false => {}
+                        | false { { }}
                     
                     parser_advance(p) // skip ')'
                     return AstNode.FunctionCall(tok.value, args)
                 }
-                | false => {
+                | false { { }
                     return AstNode.Identifier(tok.value)
                 }
         }
-        | _ => {
+        | _ { { }
             parser_advance(p)
             return AstNode.IntLiteral(0)
         }
 }
 
 // Code generator - generates simple C code
-codegen_generate: (ast: AstNode) string  = {
+codegen_generate = (ast: AstNode) string   {
     ast ?
-        | AstNode.Program(declarations) => {
+        | AstNode.Program(declarations) { { }
             output := "#include <stdio.h>\n\n"
             
             i := 0
@@ -476,7 +476,7 @@ codegen_generate: (ast: AstNode) string  = {
             
             return output
         }
-        | AstNode.Function(name, params, return_type, body) => {
+        | AstNode.Function(name, params, return_type, body) { { }
             output := return_type + " " + name + "("
             
             i := 0
@@ -484,8 +484,8 @@ codegen_generate: (ast: AstNode) string  = {
                 param := params[i]
                 output = output + param.1 + " " + param.0
                 i < params.len() - 1 ?
-                    | true => { output = output + ", " }
-                    | false => {}
+                    | true { { output = output + ", "  }}
+                    | false { { }}
                 i = i + 1
             }
             
@@ -500,53 +500,53 @@ codegen_generate: (ast: AstNode) string  = {
             output = output + "}\n"
             return output
         }
-        | AstNode.Return(value) => {
+        | AstNode.Return(value) { { }
             return "return " + codegen_generate(value)
         }
-        | AstNode.IntLiteral(value) => {
+        | AstNode.IntLiteral(value) { { }
             return string.from_int(value)
         }
-        | AstNode.StringLiteral(value) => {
+        | AstNode.StringLiteral(value) { { }
             return "\"" + value + "\""
         }
-        | AstNode.Identifier(name) => {
+        | AstNode.Identifier(name) { { }
             return name
         }
-        | AstNode.FunctionCall(name, args) => {
+        | AstNode.FunctionCall(name, args) { { }
             output := name + "("
             
             i := 0
             loop i < args.len() {
                 output = output + codegen_generate(args[i])
                 i < args.len() - 1 ?
-                    | true => { output = output + ", " }
-                    | false => {}
+                    | true { { output = output + ", "  }}
+                    | false { { }}
                 i = i + 1
             }
             
             output = output + ")"
             return output
         }
-        | AstNode.BinaryOp(op, left, right) => {
+        | AstNode.BinaryOp(op, left, right) { { }
             return codegen_generate(left) + " " + op + " " + codegen_generate(right)
         }
-        | _ => {
+        | _ { { }
             return ""
         }
 }
 
 // Main compiler function
-compile_file: (input_path: string, output_path: string) i32  = {
+compile_file = (input_path: string, output_path: string) i32   {
     // Read input file
     input := fs.read_file(input_path)
     input.is_error() ?
-        | true => {
+        | true { { }
             io.print("Error: Could not read file ")
             io.print(input_path)
             io.print("\n")
             return 1
         }
-        | false => {}
+        | false { { }}
     
     content := input.unwrap()
     
@@ -558,8 +558,8 @@ compile_file: (input_path: string, output_path: string) i32  = {
         tok := lexer_next_token(&lexer)
         vec.push(tokens, tok)
         tok.type == TokenType.Eof ?
-            | true => { break }
-            | false => {}
+            | true { { break  }}
+            | false { { }}
     }
     
     // Parse the tokens
@@ -572,13 +572,13 @@ compile_file: (input_path: string, output_path: string) i32  = {
     // Write output file
     result := fs.write_file(output_path, output)
     result.is_error() ?
-        | true => {
+        | true { { }
             io.print("Error: Could not write file ")
             io.print(output_path)
             io.print("\n")
             return 1
         }
-        | false => {}
+        | false { { }}
     
     io.print("Successfully compiled ")
     io.print(input_path)
@@ -590,7 +590,7 @@ compile_file: (input_path: string, output_path: string) i32  = {
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("Zen Bootstrap Compiler v0.1\n")
     io.print("===========================\n\n")
     

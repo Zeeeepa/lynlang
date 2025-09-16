@@ -2,10 +2,10 @@
 // Following Language Spec v1.1.0
 
 // Import FFI module
-ffi := @std.ffi
+{ ffi } = @std.ffi
 
 // Test building a library configuration
-test_ffi_builder: () void  = {
+test_ffi_builder = () void   {
     // Create sqlite3 library configuration using builder pattern
     sqlite := ffi.FFI.lib("sqlite3")
         .set_path("/usr/lib/libsqlite3.so")
@@ -24,9 +24,9 @@ test_ffi_builder: () void  = {
     // actual FFI calls would require library loading
 }
 
-main: () void  = {
+main = () void   {
     test_ffi_builder()
     // If we get here without crashing, the FFI builder works
-    io := @std.io
+    { io } = @std.io
     io.print("FFI builder pattern test passed!\n")
 }

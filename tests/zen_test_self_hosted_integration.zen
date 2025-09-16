@@ -2,19 +2,19 @@
 // This test verifies that all self-hosted components work together
 
 // Correct import syntax - no comptime wrapper
-core := @std.core
-io := @std.io
-test := @std.test
+{ core } = @std.core
+{ io } = @std.io
+{ test } = @std.test
 
 // Import self-hosted compiler modules
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
-codegen := @std.compiler.codegen
-errors := @std.compiler.errors
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
+{ codegen } = @std.compiler.codegen
+{ errors } = @std.compiler.errors
 
 // Test lexer integration
-test_lexer_integration: () bool  = {
+test_lexer_integration = () bool   {
     input := "x := 42"
     
     // Create lexer
@@ -35,7 +35,7 @@ test_lexer_integration: () bool  = {
 }
 
 // Test parser integration
-test_parser_integration: () bool  = {
+test_parser_integration = () bool   {
     input := "x := 42\ny := x + 1"
     
     // Create lexer
@@ -58,7 +58,7 @@ test_parser_integration: () bool  = {
 }
 
 // Test type checker integration
-test_type_checker_integration: () bool  = {
+test_type_checker_integration = () bool   {
     input := "x: i32 = 42\ny := x + 1"
     
     // Create lexer
@@ -84,7 +84,7 @@ test_type_checker_integration: () bool  = {
 }
 
 // Test full compilation pipeline
-test_full_pipeline: () bool  = {
+test_full_pipeline = () bool   {
     input := "main = () i32 { return 42 }"
     
     // Lexer phase
@@ -123,7 +123,7 @@ test_full_pipeline: () bool  = {
 }
 
 // Test error reporting
-test_error_reporting: () bool  = {
+test_error_reporting = () bool   {
     input := "x := \"hello\" + 42"  // Type error
     
     // Create lexer
@@ -155,11 +155,11 @@ test_error_reporting: () bool  = {
 }
 
 // Test import validation
-test_import_validation: () bool  = {
+test_import_validation = () bool   {
     // Test that imports work at module level (this file demonstrates it)
     // and that the parser rejects imports in comptime blocks
     
-    bad_input := "comptime { io := @std.io }"
+    bad_input := "@comptime { { io } = @std.io }"
     
     // Create lexer
     lex := lexer.new(bad_input)
@@ -179,7 +179,7 @@ test_import_validation: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("Testing Self-Hosted Compiler Integration\n")
     io.print("=========================================\n\n")
     
@@ -188,61 +188,61 @@ main: () i32  = {
     
     // Run tests
     test_lexer_integration() ?
-        | true => {
+        | true { { }
             io.print("✓ Lexer integration test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Lexer integration test failed\n")
             failed = failed + 1
         }
     
     test_parser_integration() ?
-        | true => {
+        | true { { }
             io.print("✓ Parser integration test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Parser integration test failed\n")
             failed = failed + 1
         }
     
     test_type_checker_integration() ?
-        | true => {
+        | true { { }
             io.print("✓ Type checker integration test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Type checker integration test failed\n")
             failed = failed + 1
         }
     
     test_full_pipeline() ?
-        | true => {
+        | true { { }
             io.print("✓ Full pipeline test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Full pipeline test failed\n")
             failed = failed + 1
         }
     
     test_error_reporting() ?
-        | true => {
+        | true { { }
             io.print("✓ Error reporting test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Error reporting test failed\n")
             failed = failed + 1
         }
     
     test_import_validation() ?
-        | true => {
+        | true { { }
             io.print("✓ Import validation test passed\n")
             passed = passed + 1
         }
-        | false => {
+        | false { { }
             io.print("✗ Import validation test failed\n")
             failed = failed + 1
         }
@@ -256,11 +256,11 @@ main: () i32  = {
     io.print("\n")
     
     failed == 0 ?
-        | true => {
+        | true { { }
             io.print("\n✓ All self-hosted integration tests passed!\n")
             return 0
         }
-        | false => {
+        | false { { }
             io.print("\n✗ Some tests failed\n")
             return 1
         }

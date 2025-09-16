@@ -1,12 +1,12 @@
 // Zen Language Server Protocol Checker
 // Provides syntax and semantic checking for Zen files
 
-io := @std.io
-fs := @std.fs
-string := @std.string
-path := @std.path
-args := @std.args
-vec := @std.vec
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ path } = @std.path
+{ args } = @std.args
+{ vec } = @std.vec
 
 // Diagnostic severity levels
 Severity: 
@@ -43,7 +43,7 @@ CheckConfig: {
 }
 
 // Create default configuration
-default_config: () CheckConfig  = {
+default_config = () CheckConfig   {
     return CheckConfig {
         check_syntax: true,
         check_imports: true,
@@ -55,7 +55,7 @@ default_config: () CheckConfig  = {
 }
 
 // Check if line contains import statement
-is_import_line: (line: string) bool  = {
+is_import_line = (line: string) bool   {
     trimmed := string.trim(line)
     
     // Check for @std imports
@@ -82,7 +82,7 @@ is_import_line: (line: string) bool  = {
 }
 
 // Check if import is in valid context
-check_import_context: (lines: []string, line_num: i32) Option<Diagnostic>  = {
+check_import_context = (lines: []string, line_num: i32) Option<Diagnostic>   {
     if line_num == 0 {
         return Option<Diagnostic>.None
     }
@@ -116,7 +116,7 @@ check_import_context: (lines: []string, line_num: i32) Option<Diagnostic>  = {
     mut in_comptime := false
     for i := line_num - 1; i >= 0; i = i - 1 {
         line := lines[i]
-        if string.contains(line, "comptime {") || string.contains(line, "@comptime {") {
+        if string.contains(line, "@comptime {") || string.contains(line, "@comptime {") {
             in_comptime = true
             break
         }
@@ -126,7 +126,7 @@ check_import_context: (lines: []string, line_num: i32) Option<Diagnostic>  = {
         }
     }
     
-    if in_comptime {
+    if in_@comptime {
         return Option<Diagnostic>.Some(Diagnostic {
             file: "",
             line: line_num + 1,
@@ -141,7 +141,7 @@ check_import_context: (lines: []string, line_num: i32) Option<Diagnostic>  = {
 }
 
 // Check syntax of a single file
-check_syntax: (file_path: string) vec<Diagnostic>  = {
+check_syntax = (file_path: string) vec<Diagnostic>   {
     mut diagnostics := vec.new<Diagnostic>()
     
     // Read file contents
@@ -165,7 +165,7 @@ check_syntax: (file_path: string) vec<Diagnostic>  = {
         line := lines[i]
         
         // Check for common syntax errors
-        if string.contains(line, "comptime {") {
+        if string.contains(line, "@comptime {") {
             // Check if there's an import inside
             mut j := i + 1
             mut depth := 1
@@ -213,7 +213,7 @@ check_syntax: (file_path: string) vec<Diagnostic>  = {
 }
 
 // Check imports in a file
-check_imports: (file_path: string) vec<Diagnostic>  = {
+check_imports = (file_path: string) vec<Diagnostic>   {
     mut diagnostics := vec.new<Diagnostic>()
     
     content := fs.read_file(file_path)
@@ -242,7 +242,7 @@ check_imports: (file_path: string) vec<Diagnostic>  = {
 }
 
 // Format diagnostic for output
-format_diagnostic: (diag: Diagnostic) string  = {
+format_diagnostic = (diag: Diagnostic) string   {
     mut result := diag.file
     result = string.concat(result, ":")
     result = string.concat(result, string.from_int(diag.line))
@@ -275,7 +275,7 @@ format_diagnostic: (diag: Diagnostic) string  = {
 }
 
 // Check a single file
-check_file: (file_path: string, config: CheckConfig) CheckResult  = {
+check_file = (file_path: string, config: CheckConfig) CheckResult   {
     mut all_diagnostics := vec.new<Diagnostic>()
     
     if config.check_syntax {
@@ -310,7 +310,7 @@ check_file: (file_path: string, config: CheckConfig) CheckResult  = {
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     // Parse command line arguments
     parser := args.new_parser("zen-lsp-check", "Zen Language Server Protocol Checker")
     

@@ -23,47 +23,47 @@ Allocator = {
 // Different allocator implementations
 SyncAllocator = {
     is_concurrent: false,
-    alloc: (size) => @std.heap.alloc(size),
-    free: (ptr) => @std.heap.free(ptr),
-    suspend: () => null,  // Can't suspend
-    resume: (cont) => @panic("Cannot resume in sync context"),
+    alloc: (size) { return @std.heap.alloc(size) },
+    free: (ptr) { @std.heap.free(ptr) },
+    suspend: () { return .None },  // Can't suspend
+    resume: (cont) { @panic("Cannot resume in sync context") },
     runtime: null,
 }
 
 ConcurrentAllocator = {
     is_concurrent: true,
     runtime: Runtime,
-    alloc: (size) => runtime.heap.alloc(size),
-    free: (ptr) => runtime.heap.free(ptr),
-    suspend: () => runtime.save_continuation(),
-    resume: (cont) => runtime.schedule(cont),
+    alloc: (size) { return runtime.heap.alloc(size) },
+    free: (ptr) { runtime.heap.free(ptr) },
+    suspend: () { return runtime.save_continuation() },
+    resume: (cont) { runtime.schedule(cont) },
 }
 
 // Channel type for message passing
 Channel<T> = {
     buffer: []T,
     capacity: usize,
-    alloc: *Allocator,
+    alloc: Ptr<Allocator>,
     
-    new: (capacity: usize, alloc: *Allocator) Channel<T>,
+    new: (capacity: usize, alloc: Ptr<Allocator>) Channel<T>,
     send: (value: T) void,
     receive: () Option<T>,
     close: () void,
 }
 
 // Other necessary types
-Continuation = *void
+Continuation = RawPtr<void>
 Runtime = @std.runtime.Runtime
 Timer = @std.time.Timer
 Mutex<T> = @std.sync.Mutex<T>
-ActorHandle<T> = { mailbox: Channel<T> }
+ActorHandle<T>: { mailbox: Channel<T> }
 Stream<T> = @std.stream.Stream<T>
 
 // Helper function for channel selection
-select_channels<T, U> = (chan1: Channel<T>, chan2: Channel<U>, timeout: Timer, alloc: *Allocator) void {
+select_channels<T, U> = (chan1: Channel<T>, chan2: Channel<U>, timeout: Timer, alloc: Ptr<Allocator>) void {
     // Implementation would handle channel selection
     // This is a simplified placeholder
-    @std.io.println("Channel selection performed");
+    @std.io.println("Channel selection performed")
 }
 
 // Task structure for concurrent execution
@@ -73,90 +73,86 @@ AsyncTask<T>: {
     status: TaskStatus,
 }
 
-TaskStatus: 
-    Pending
-    | Running
-    | Completed
-    | Failed -> {error: string}
+TaskStatus: .Pending | .Running | .Completed | .Failed
 
 // Colorless fetch operation - allocator determines sync/concurrent
-fetch_data = (url: string, alloc: *Allocator) Result<string, string> {
-    @std.io.println("Fetching from: " + url);
+fetch_data = (url: string, alloc: Ptr<Allocator>) Result<string, string> {
+    @std.io.println("Fetching from: " + url)
     
     // Allocator determines execution mode
     alloc.is_concurrent ?
-        | true { { }
+        | true {
             // Concurrent path: suspend and resume
-            cont := alloc.suspend();
+            cont ::= alloc.suspend()
             // Simulate concurrent sleep with continuation
             // In real implementation, this would be handled by runtime
-            @std.time.sleep(100);
-            alloc.runtime.wait();
+            @std.time.sleep(100)
+            alloc.runtime.wait()
         }
-        | false { { }
+        | false {
             // Sync path: just block
-            @std.time.sleep(100);
+            @std.time.sleep(100)
         }
     
     // Return mock data
-    url.contains("error") ?
-        | true { .Err -> "Network error" }
-        | false { .Ok -> "Data from " + url }
+    return url.contains("error") ?
+        | true { .Err("Network error") }
+        | false { .Ok("Data from " + url) }
 };
 
-process_data = (data: string, alloc: *Allocator) Result<i32, string> {
-    @std.io.println("Processing: " + data);
+process_data = (data: string, alloc: Ptr<Allocator>) Result<i32, string> {
+    @std.io.println("Processing: " + data)
     
     // Allocator determines execution mode
     alloc.is_concurrent ?
-        | true { { }
-            cont := alloc.suspend();
+        | true {
+            cont ::= alloc.suspend()
             // Simulate concurrent sleep with continuation
-            @std.time.sleep(50);
-            alloc.runtime.wait();
+            @std.time.sleep(50)
+            alloc.runtime.wait()
         }
-        | false { { }
-            @std.time.sleep(50);
+        | false {
+            @std.time.sleep(50)
         }
     
     // Return processed result
-    .Ok -> data.len()
+    return .Ok(data.len())
 };
 
 // Run multiple tasks - allocator determines concurrency
-run_tasks = (alloc: *Allocator) i32 {
-    @std.io.println("Starting tasks...");
+run_tasks = (alloc: Ptr<Allocator>) i32 {
+    @std.io.println("Starting tasks...")
     
     // Fetch data using allocator
-    urls := [
+    urls ::= [
         "https://api.example.com/data1",
         "https://api.example.com/data2",
         "https://api.example.com/data3"
-    ];
+    ]
     
-    results := []Result<string, string>{};
+    results ::= []Result<string, string>{}
     
     // With concurrent allocator, these can run concurrently
-    urls.loop((url) => {
-        result := fetch_data(url, alloc);
-        results.push(result);
-    });
+    urls.loop((url) {
+        result ::= fetch_data(url, alloc)
+        results.push(result)
+    })
     
     // Process results
-    total_length := 0;
-    results.loop((result) => {
+    total_length ::= 0
+    results.loop((result) {
         result ? 
-            | .Ok -> data { { }
-                processed := process_data(data, alloc);
+            | .Ok(data) {
+                processed ::= process_data(data, alloc)
                 processed ? 
-                    | .Ok -> len { total_length = total_length + len }
-                    | .Err -> _ { { }}
+                    | .Ok(len) { total_length = total_length + len }
+                    | .Err(_) { }
             }
-            | .Err -> err { @std.io.println("Error: " + err) }
-    });
+            | .Err(err) { @std.io.println("Error: " + err) }
+    })
     
-    @std.io.println("Total processed length: " + total_length);
-    total_length
+    @std.io.println("Total processed length: " + total_length)
+    return total_length
 };
 
 // Channel-based communication with allocator
@@ -166,220 +162,217 @@ demonstrate_channels = (alloc: *Allocator) void {
     
     // Producer function
     producer_fn = () => {
-        (1..=5).loop((i) => {
-            chan.send(i);
-            @std.io.println("Sent: " + i);
+        (1..5).loop((i) {
+            chan.send(i)
+            @std.io.println("Sent: " + i)
             
             // Use allocator for delays
             alloc.is_concurrent ?
-                | true { { }
-                    cont := alloc.suspend();
-                    @std.time.sleep(10);
-                    alloc.runtime.wait();
+                | true {
+                    cont ::= alloc.suspend()
+                    @std.time.sleep(10)
+                    alloc.runtime.wait()
                 }
-                | false { @std.time.sleep(10); }
-        });
-        chan.close();
-    };
+                | false { @std.time.sleep(10) }
+        })
+        chan.close()
+    }
     
     // Consumer function
-    consumer_fn = () => {
-        loop {
-            value := chan.receive();
+    consumer_fn = () {
+        loop(() {
+            value ::= chan.receive()
             value ?
-                | .Some -> v { @std.io.println("Received: " + v) }
-                | .None { break; }
-        }
-    };
+                | .Some(v) { @std.io.println("Received: " + v) }
+                | .None { break }
+        })
+    }
     
     // Run tasks based on allocator mode
     alloc.is_concurrent ?
-        | true { { }
+        | true {
             // Spawn concurrent tasks
-            @std.spawn(producer_fn);
-            @std.spawn(consumer_fn);
+            @std.spawn(producer_fn)
+            @std.spawn(consumer_fn)
         }
-        | false { { }
+        | false {
             // Run sequentially
-            producer_fn();
-            consumer_fn();
+            producer_fn()
+            consumer_fn()
         }
 };
 
 // Select over multiple channels with allocator
-demonstrate_select = (alloc: *Allocator) void {
-    chan1 := Channel<i32>:new(1, alloc);
-    chan2 := Channel<string>:new(1, alloc);
-    timeout := Timer:new(1000, alloc);
+demonstrate_select = (alloc: Ptr<Allocator>) void {
+    chan1 ::= Channel<i32>.new(1, alloc)
+    chan2 ::= Channel<string>.new(1, alloc)
+    timeout ::= Timer.new(1000, alloc)
     
     // Send to channels after delays
-    send_fn1 = () => {
+    send_fn1 = () {
         alloc.is_concurrent ?
-            | true { { }
-                cont := alloc.suspend();
-                @std.time.sleep(200);
-                alloc.runtime.wait();
+            | true {
+                cont ::= alloc.suspend()
+                @std.time.sleep(200)
+                alloc.runtime.wait()
             }
-            | false { @std.time.sleep(200); }
-        chan1.send(42);
-    };
+            | false { @std.time.sleep(200) }
+        chan1.send(42)
+    }
     
-    send_fn2 = () => {
+    send_fn2 = () {
         alloc.is_concurrent ?
-            | true { { }
-                cont := alloc.suspend();
-                @std.time.sleep(300);
-                alloc.runtime.wait();
+            | true {
+                cont ::= alloc.suspend()
+                @std.time.sleep(300)
+                alloc.runtime.wait()
             }
-            | false { @std.time.sleep(300); }
-        chan2.send("Hello");
-    };
+            | false { @std.time.sleep(300) }
+        chan2.send("Hello")
+    }
     
     // Execute based on allocator mode
     alloc.is_concurrent ?
-        | true { { }
-            @std.spawn(send_fn1);
-            @std.spawn(send_fn2);
+        | true {
+            @std.spawn(send_fn1)
+            @std.spawn(send_fn2)
             
             // Select from multiple sources
-            select_channels(chan1, chan2, timeout, alloc);
+            select_channels(chan1, chan2, timeout, alloc)
         }
-        | false { { }
-            send_fn1();
-            send_fn2();
+        | false {
+            send_fn1()
+            send_fn2()
         }
 };
 
 // Actor model with allocator
-behavior Actor<M> {
-    handle = (self: Self, msg: M, alloc: *Allocator) void;
+Actor<M>: {
+    handle: (self: Self, msg: M, alloc: Ptr<Allocator>) void,
 }
 
 Counter: {
     value: i32,
     mailbox: Channel<CounterMsg>,
-    alloc: *Allocator,
+    alloc: Ptr<Allocator>,
 }
 
-CounterMsg: 
-    Increment
-    | Decrement
-    | Get -> {reply: Channel<i32>}
+CounterMsg: .Increment | .Decrement | .Get
 
-impl Actor<CounterMsg> for Counter {
-    handle = (self: Self, msg: CounterMsg, alloc: *Allocator) void {
+Counter.implements(Actor<CounterMsg>, {
+    handle = (self: Self, msg: CounterMsg, alloc: Ptr<Allocator>) void {
         msg ?
             | .Increment { self.value = self.value + 1 }
             | .Decrement { self.value = self.value - 1 }
-            | .Get -> {reply} { reply.send(self.value); }
-    };
-}
+            | .Get(reply) { reply.send(self.value) }
+    },
+})
 
-Counter:spawn = (alloc: *Allocator) ActorHandle<Counter> {
-    counter := Counter{
+Counter.spawn = (alloc: Ptr<Allocator>) ActorHandle<Counter> {
+    counter ::= Counter{
         value: 0,
-        mailbox: Channel<CounterMsg>:new(100, alloc),
+        mailbox: Channel<CounterMsg>.new(100, alloc),
         alloc: alloc,
-    };
+    }
     
     // Start actor loop
-    actor_loop = () => {
-        loop {
-            msg := counter.mailbox.receive();
+    actor_loop = () {
+        loop(() {
+            msg ::= counter.mailbox.receive()
             msg ?
-                | .Some -> m { counter.handle(m, alloc) }
-                | .None { break; }
-        }
-    };
+                | .Some(m) { counter.handle(m, alloc) }
+                | .None { break }
+        })
+    }
     
     // Run based on allocator mode
     alloc.is_concurrent ?
         | true { @std.spawn(actor_loop) }
-        | false { actor_loop(); }
+        | false { actor_loop() }
     
-    ActorHandle<Counter>{
+    return ActorHandle<Counter>{
         mailbox: counter.mailbox,
     }
 };
 
 // Demonstrate stream processing with allocator
-process_stream = (alloc: *Allocator) void {
+process_stream = (alloc: Ptr<Allocator>) void {
     // Create a stream
-    stream := Stream<i32>:from_iter((1..=10), alloc);
+    stream ::= Stream<i32>.from_iter((1..10), alloc)
     
     // Process stream with allocator-aware operations
-    result := stream
-        .map((x) => {
+    result ::= stream
+        .map((x) {
             // Use allocator for delays
             alloc.is_concurrent ?
-                | true { { }
-                    cont := alloc.suspend();
-                    @std.time.sleep(10);
-                    alloc.runtime.wait();
+                | true {
+                    cont ::= alloc.suspend()
+                    @std.time.sleep(10)
+                    alloc.runtime.wait()
                 }
-                | false { @std.time.sleep(10); }
-            x * 2
+                | false { @std.time.sleep(10) }
+            return x * 2
         })
-        .filter((x) => {
+        .filter((x) {
             // Use allocator for delays
             alloc.is_concurrent ?
-                | true { { }
-                    cont := alloc.suspend();
-                    @std.time.sleep(5);
-                    alloc.runtime.wait();
+                | true {
+                    cont ::= alloc.suspend()
+                    @std.time.sleep(5)
+                    alloc.runtime.wait()
                 }
-                | false { @std.time.sleep(5); }
-            x % 3 == 0
+                | false { @std.time.sleep(5) }
+            return x % 3 == 0
         })
-        .collect();
+        .collect()
     
-    @std.io.println("Stream result: " + result);
+    @std.io.println("Stream result: " + result)
 };
 
 // Demonstrate mutex with allocator
-demonstrate_mutex = (alloc: *Allocator) void {
-    mutex := Mutex<i32>:new(0, alloc);
+demonstrate_mutex = (alloc: Ptr<Allocator>) void {
+    mutex ::= Mutex<i32>.new(0, alloc)
     
     // Spawn multiple tasks that access the mutex
-    task_fn = (i: i32) => {
-        guard := mutex.lock();
-        old_value := guard.value;
-        guard.value = old_value + 1;
-        @std.io.println("Task " + i + " incremented to " + guard.value);
+    task_fn = (i: i32) {
+        guard ::= mutex.lock()
+        old_value ::= guard.value
+        guard.value = old_value + 1
+        @std.io.println("Task " + i + " incremented to " + guard.value)
         // Lock automatically released when guard goes out of scope
-    };
+    }
     
     // Execute based on allocator mode
     alloc.is_concurrent ?
-        | true { { }
+        | true {
             // Spawn concurrent tasks
-            (0..5).loop((i) => {
-                @std.spawn(() => task_fn(i));
-            });
+            (0..5).loop((i) {
+                @std.spawn(() { task_fn(i) })
+            })
         }
-        | false { { }
+        | false {
             // Run sequentially
-            (0..5).loop((i) => {
-                task_fn(i);
-            });
+            (0..5).loop((i) {
+                task_fn(i)
+            })
         }
     
-    final_value := mutex.lock().value;
-    @std.io.println("Final mutex value: " + final_value);
+    final_value ::= mutex.lock().value
+    @std.io.println("Final mutex value: " + final_value)
 };
 
 // Export the main demo function
-run_concurrent_demo = () void   {
+run_concurrent_demo = () void {
     // Choose allocator based on build flag or runtime preference
-    alloc := @compileVar("EXECUTION_MODE") ?
+    alloc ::= @compileVar("EXECUTION_MODE") ?
         | "sync" { SyncAllocator{ }}
         | "concurrent" { ConcurrentAllocator{ runtime: @std.runtime.init()  }}
         | _ { ConcurrentAllocator{ runtime: @std.runtime.init()  }}  // Default to concurrent
     
     // Run demonstrations with allocator
-    run_tasks(&alloc);
-    demonstrate_channels(&alloc);
-    demonstrate_select(&alloc);
-    process_stream(&alloc);
-    demonstrate_mutex(&alloc);
+    run_tasks(alloc.ref())
+    demonstrate_channels(alloc.ref())
+    demonstrate_select(alloc.ref())
+    process_stream(alloc.ref())
+    demonstrate_mutex(alloc.ref())
 }

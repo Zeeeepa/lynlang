@@ -1,37 +1,37 @@
 // Zen Standard Library - Algorithm Module
 // Common algorithms and data manipulation functions
 
-core := @std.core
-build := @std.build
+{ core } = @std.core
+{ build } = @std.build
 
 // Swap two values
-swap: (a: &T, b: &T) void  = {
+swap = (a: &T, b: &T) void   {
     temp := *a
     *a = *b
     *b = temp
 }
 
 // Find minimum of two values
-min: (a: T, b: T) T  = {
+min = (a: T, b: T) T   {
     if (a < b) return a
     return b
 }
 
 // Find maximum of two values
-max: (a: T, b: T) T  = {
+max = (a: T, b: T) T   {
     if (a > b) return a
     return b
 }
 
 // Clamp value between min and max
-clamp: (value: T, min_val: T, max_val: T) T  = {
+clamp = (value: T, min_val: T, max_val: T) T   {
     if (value < min_val) return min_val
     if (value > max_val) return max_val
     return value
 }
 
 // Linear search in array
-find: (arr: []T, value: T) ?usize  = {
+find = (arr: []T, value: T) ?usize   {
     i := 0
     while (i < arr.len) {
         if (arr[i] == value) {
@@ -43,7 +43,7 @@ find: (arr: []T, value: T) ?usize  = {
 }
 
 // Binary search in sorted array
-binary_search: (arr: []T, value: T) ?usize  = {
+binary_search = (arr: []T, value: T) ?usize   {
     left := 0
     right := arr.len - 1
     
@@ -63,7 +63,7 @@ binary_search: (arr: []T, value: T) ?usize  = {
 }
 
 // Reverse array in place
-reverse: (arr: []T) void  = {
+reverse = (arr: []T) void   {
     left := 0
     right := arr.len - 1
     
@@ -75,7 +75,7 @@ reverse: (arr: []T) void  = {
 }
 
 // Rotate array left by n positions
-rotate_left: (arr: []T, n: usize) void  = {
+rotate_left = (arr: []T, n: usize) void   {
     if (arr.len == 0) return
     
     n = n % arr.len
@@ -90,13 +90,13 @@ rotate_left: (arr: []T, n: usize) void  = {
 }
 
 // Rotate array right by n positions
-rotate_right: (arr: []T, n: usize) void  = {
+rotate_right = (arr: []T, n: usize) void   {
     if (arr.len == 0) return
     rotate_left(arr, arr.len - (n % arr.len))
 }
 
 // Reverse a range within an array
-reverse_range: (arr: []T, start: usize, end: usize) void  = {
+reverse_range = (arr: []T, start: usize, end: usize) void   {
     while (start < end) {
         swap(&arr[start], &arr[end])
         start = start + 1
@@ -105,7 +105,7 @@ reverse_range: (arr: []T, start: usize, end: usize) void  = {
 }
 
 // Check if array is sorted
-is_sorted: (arr: []T) bool  = {
+is_sorted = (arr: []T) bool   {
     if (arr.len <= 1) return true
     
     i := 1
@@ -120,7 +120,7 @@ is_sorted: (arr: []T) bool  = {
 }
 
 // Count occurrences of value in array
-count: (arr: []T, value: T) usize  = {
+count = (arr: []T, value: T) usize   {
     result := 0
     for (arr) |item| {
         if (item == value) {
@@ -131,7 +131,7 @@ count: (arr: []T, value: T) usize  = {
 }
 
 // Remove duplicates from sorted array (in place)
-unique: (arr: []T) usize  = {
+unique = (arr: []T) usize   {
     if (arr.len <= 1) return arr.len
     
     write_pos := 1
@@ -149,7 +149,7 @@ unique: (arr: []T) usize  = {
 }
 
 // Partition array around pivot (for quicksort)
-partition: (arr: []T, low: usize, high: usize) usize  = {
+partition = (arr: []T, low: usize, high: usize) usize   {
     pivot := arr[high]
     i := low - 1
     
@@ -167,7 +167,7 @@ partition: (arr: []T, low: usize, high: usize) usize  = {
 }
 
 // Quick sort implementation
-quicksort: (arr: []T, low: usize, high: usize) void  = {
+quicksort = (arr: []T, low: usize, high: usize) void   {
     if (low < high) {
         pi := partition(arr, low, high)
         
@@ -179,14 +179,14 @@ quicksort: (arr: []T, low: usize, high: usize) void  = {
 }
 
 // Sort array using quicksort
-sort: (arr: []T) void  = {
+sort = (arr: []T) void   {
     if (arr.len > 1) {
         quicksort(arr, 0, arr.len - 1)
     }
 }
 
 // Merge two sorted arrays
-merge: (arr1: []T, arr2: []T) []T  = {
+merge = (arr1: []T, arr2: []T) []T   {
     result := make([]T, arr1.len + arr2.len)
     i := 0
     j := 0

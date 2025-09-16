@@ -1,6 +1,6 @@
 // Option type for nullable values
 
-core := @std.core
+{ core } = @std.core
 
 // Option type - represents a value that may or may not exist
 Option<T>: Some(T) | None
@@ -18,127 +18,127 @@ none = <T>() Option<T> {
 // Check if option has value
 is_some = <T>(opt: Option<T>) bool {
     opt ?
-        | Some(_) => true
-        | None => false
+        | Some(_) { true }
+        | None { false }
 }
 
 // Check if option is none
 is_none = <T>(opt: Option<T>) bool {
     opt ?
-        | Some(_) => false
-        | None => true
+        | Some(_) { false }
+        | None { true }
 }
 
 // Get value or panic
 unwrap = <T>(opt: Option<T>) T {
     opt ?
-        | Some(v) => v
-        | None => core.panic("called unwrap on None value")
+        | Some(v) { v }
+        | None { core.panic("called unwrap on None value") }
 }
 
 // Get value or default
 unwrap_or = <T>(opt: Option<T>, default: T) T {
     opt ?
-        | Some(v) => v
-        | None => default
+        | Some(v) { v }
+        | None { default }
 }
 
 // Get value or compute default
 unwrap_or_else = <T>(opt: Option<T>, f: () T) T {
     opt ?
-        | Some(v) => v
-        | None => f()
+        | Some(v) { v }
+        | None { f() }
 }
 
 // Expect with custom message
 expect = <T>(opt: Option<T>, msg: string) T {
     opt ?
-        | Some(v) => v
-        | None => core.panic(msg)
+        | Some(v) { v }
+        | None { core.panic(msg) }
 }
 
 // Map value through function
 map = <T, U>(opt: Option<T>, f: (T) U) Option<U> {
     opt ?
-        | Some(v) => Option.Some(f(v))
-        | None => Option.None
+        | Some(v) { Option.Some(f(v)) }
+        | None { Option.None }
 }
 
 // Map or return default
 map_or = <T, U>(opt: Option<T>, default: U, f: (T) U) U {
     opt ?
-        | Some(v) => f(v)
-        | None => default
+        | Some(v) { f(v) }
+        | None { default }
 }
 
 // Map or compute default
 map_or_else = <T, U>(opt: Option<T>, default_fn: () U, f: (T) U) U {
     opt ?
-        | Some(v) => f(v)
-        | None => default_fn()
+        | Some(v) { f(v) }
+        | None { default_fn() }
 }
 
 // Chain operations
 and_then = <T, U>(opt: Option<T>, f: (T) Option<U>) Option<U> {
     opt ?
-        | Some(v) => f(v)
-        | None => Option.None
+        | Some(v) { f(v) }
+        | None { Option.None }
 }
 
 // Filter based on predicate
 filter = <T>(opt: Option<T>, predicate: (T) bool) Option<T> {
     opt ?
-        | Some(v) => {
+        | Some(v) { { }
             predicate(v) ? {
                 Option.Some(v)
             } : {
                 Option.None
             }
         }
-        | None => Option.None
+        | None { Option.None }
 }
 
 // Combine with another option
 and = <T, U>(opt: Option<T>, other: Option<U>) Option<U> {
     opt ?
-        | Some(_) => other
-        | None => Option.None
+        | Some(_) { other }
+        | None { Option.None }
 }
 
 // Alternative option
 or = <T>(opt: Option<T>, other: Option<T>) Option<T> {
     opt ?
-        | Some(v) => Option.Some(v)
-        | None => other
+        | Some(v) { Option.Some(v) }
+        | None { other }
 }
 
 // Alternative with function
 or_else = <T>(opt: Option<T>, f: () Option<T>) Option<T> {
     opt ?
-        | Some(v) => Option.Some(v)
-        | None => f()
+        | Some(v) { Option.Some(v) }
+        | None { f() }
 }
 
 // XOR - one or the other but not both
 xor = <T>(opt: Option<T>, other: Option<T>) Option<T> {
     (opt.is_some(), other.is_some()) ?
-        | (true, false) => opt
-        | (false, true) => other
-        | _ => Option.None
+        | (true, false) { opt }
+        | (false, true) { other }
+        | _ { Option.None }
 }
 
 // Get contained value by reference
 as_ref = <T>(opt: &Option<T>) Option<&T> {
     opt ?
-        | Some(ref v) => Option.Some(v)
-        | None => Option.None
+        | Some(ref v) { Option.Some(v) }
+        | None { Option.None }
 }
 
 // Get contained value by mutable reference
 as_mut = <T>(opt: &mut Option<T>) Option<&mut T> {
     opt ?
-        | Some(ref mut v) => Option.Some(v)
-        | None => Option.None
+        | Some(ref mut v) { Option.Some(v) }
+        | None { Option.None }
 }
 
 // Take value out, leaving None
@@ -158,42 +158,42 @@ replace = <T>(opt: &mut Option<T>, value: T) Option<T> {
 // Zip two options
 zip = <T, U>(opt1: Option<T>, opt2: Option<U>) Option<(T, U)> {
     (opt1, opt2) ?
-        | (Some(v1), Some(v2)) => Option.Some((v1, v2))
-        | _ => Option.None
+        | (Some(v1), Some(v2)) { Option.Some((v1, v2)) }
+        | _ { Option.None }
 }
 
 // Unzip option of tuple
 unzip = <T, U>(opt: Option<(T, U)>) (Option<T>, Option<U>) {
     opt ?
-        | Some((v1, v2)) => (Option.Some(v1), Option.Some(v2))
-        | None => (Option.None, Option.None)
+        | Some((v1, v2)) { (Option.Some(v1), Option.Some(v2)) }
+        | None { (Option.None, Option.None) }
 }
 
 // Flatten nested option
 flatten = <T>(opt: Option<Option<T>>) Option<T> {
     opt ?
-        | Some(inner) => inner
-        | None => Option.None
+        | Some(inner) { inner }
+        | None { Option.None }
 }
 
 // Convert to Result
 ok_or = <T, E>(opt: Option<T>, err: E) Result<T, E> {
     opt ?
-        | Some(v) => Result.Ok(v)
-        | None => Result.Err(err)
+        | Some(v) { Result.Ok(v) }
+        | None { Result.Err(err) }
 }
 
 // Convert to Result with error function
 ok_or_else = <T, E>(opt: Option<T>, err_fn: () E) Result<T, E> {
     opt ?
-        | Some(v) => Result.Ok(v)
-        | None => Result.Err(err_fn())
+        | Some(v) { Result.Ok(v) }
+        | None { Result.Err(err_fn()) }
 }
 
 // Transpose Option of Result
 transpose = <T, E>(opt: Option<Result<T, E>>) Result<Option<T>, E> {
     opt ?
-        | Some(Ok(v)) => Result.Ok(Option.Some(v))
-        | Some(Err(e)) => Result.Err(e)
-        | None => Result.Ok(Option.None)
+        | Some(Ok(v)) { Result.Ok(Option.Some(v)) }
+        | Some(Err(e)) { Result.Err(e) }
+        | None { Result.Ok(Option.None) }
 }

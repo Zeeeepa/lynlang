@@ -10,7 +10,7 @@ RandomState: {
 }
 
 // Initialize a new random state with given seed
-new_random: (seed: u64) RandomState  = {
+new_random = (seed: u64) RandomState   {
     RandomState {
         seed: seed,
         state: seed,
@@ -18,7 +18,7 @@ new_random: (seed: u64) RandomState  = {
 }
 
 // Get system random seed (using current time)
-system_seed: () u64  = {
+system_seed = () u64   {
     // In real implementation, would use system time or entropy
     // For now, return a fixed seed for determinism
     0x853c49e6748fea9b
@@ -26,42 +26,42 @@ system_seed: () u64  = {
 
 // Linear congruential generator (LCG)
 // Using parameters from Numerical Recipes
-next_u64: (rng: Ref<RandomState>) u64  = {
+next_u64 = (rng: Ref<RandomState>) u64   {
     rng.state = rng.state * 1664525 + 1013904223
     rng.state
 }
 
 // Generate random u32
-next_u32: (rng: Ref<RandomState>) u32  = {
+next_u32 = (rng: Ref<RandomState>) u32   {
     (next_u64(rng) >> 32): u32
 }
 
 // Generate random integer in range [min, max)
-next_int_range: (rng: Ref<RandomState>, min: i32, max: i32) i32  = {
+next_int_range = (rng: Ref<RandomState>, min: i32, max: i32) i32   {
     range := (max - min): u32
-    range == 0 ? | true => min
-                | false => {
+    range == 0 ? | true { min }
+                | false { { }
                     value := next_u32(rng) % range
                     min + value: i32
                 }
 }
 
 // Generate random float in [0, 1)
-next_f32: (rng: Ref<RandomState>) f32  = {
+next_f32 = (rng: Ref<RandomState>) f32   {
     // Use upper 24 bits for mantissa (float32 has 23-bit mantissa)
     mantissa := (next_u64(rng) >> 40): u32
     mantissa: f32 / 16777216.0  // 2^24
 }
 
 // Generate random float in [0, 1)
-next_f64: (rng: Ref<RandomState>) f64  = {
+next_f64 = (rng: Ref<RandomState>) f64   {
     // Use upper 53 bits for mantissa (float64 has 52-bit mantissa)
     mantissa := next_u64(rng) >> 11
     mantissa: f64 / 9007199254740992.0  // 2^53
 }
 
 // Generate random boolean
-next_bool: (rng: Ref<RandomState>) bool  = {
+next_bool = (rng: Ref<RandomState>) bool   {
     (next_u64(rng) & 1) == 1
 }
 
@@ -79,7 +79,7 @@ shuffle = <T>(rng: Ref<RandomState>, arr: Ref<Array<T>>, len: usize) void {
 }
 
 // Generate random bytes
-random_bytes: (rng: Ref<RandomState>, buffer: Ref<Array<u8>>, len: usize) void  = {
+random_bytes = (rng: Ref<RandomState>, buffer: Ref<Array<u8>>, len: usize) void   {
     i := 0: usize
     loop i < len {
         buffer[i] = next_u32(rng): u8
@@ -91,13 +91,13 @@ random_bytes: (rng: Ref<RandomState>, buffer: Ref<Array<u8>>, len: usize) void  
 global_rng := new_random(system_seed())
 
 // Convenience functions using global state
-rand: () f64  = { next_f64(&global_rng) }
-rand_f32: () f32  = { next_f32(&global_rng) }
-rand_int: (min: i32, max: i32) i32  = { next_int_range(&global_rng, min, max) }
-rand_bool: () bool  = { next_bool(&global_rng) }
+rand = () f64   { next_f64(&global_rng) }
+rand_f32 = () f32   { next_f32(&global_rng) }
+rand_int = (min: i32, max: i32) i32   { next_int_range(&global_rng, min, max) }
+rand_bool = () bool   { next_bool(&global_rng) }
 
 // Seed the global generator
-seed: (s: u64) void  = {
+seed = (s: u64) void   {
     global_rng.seed = s
     global_rng.state = s
 }

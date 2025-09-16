@@ -1,7 +1,7 @@
 // Comprehensive Language Test Suite
 // Tests all core features per LANGUAGE_SPEC.md v1.1.0
 
-build := @std.build
+{ build } = @std.build
 testing := build.import("testing")
 { test, assert, assert_eq, assert_ne, expect_panic } := testing
 
@@ -16,18 +16,18 @@ core := build.import("core")
 test("pattern_matching_basic_values") {
     value := 42
     result := value ?
-        | 42 => "correct"
-        | 0 => "zero"
-        | _ => "other"
+        | 42 { "correct" }
+        | 0 { "zero" }
+        | _ { "other" }
     assert_eq(result, "correct")
 }
 
 test("pattern_matching_multiple_patterns") {
     day := 3
     category := day ?
-        | 1 | 2 | 3 | 4 | 5 => "weekday"
-        | 6 | 7 => "weekend"
-        | _ => "invalid"
+        | 1 | 2 | 3 | 4 | 5 { "weekday" }
+        | 6 | 7 { "weekend" }
+        | _ { "invalid" }
     assert_eq(category, "weekday")
 }
 
@@ -38,15 +38,15 @@ test("pattern_matching_ranges") {
         | 80..=89 => "B"
         | 70..=79 => "C"
         | 60..=69 => "D"
-        | _ => "F"
+        | _ { "F" }
     assert_eq(grade, "B")
 }
 
 test("pattern_matching_destructuring_enum") {
     result := Result:Ok(100)
     value := result ?
-        | .Ok -> v => v * 2
-        | .Err -> _ => 0
+        | .Ok -> v { v * 2 }
+        | .Err -> _ { 0 }
     assert_eq(value, 200)
 }
 
@@ -55,10 +55,10 @@ test("pattern_matching_destructuring_struct") {
     p := Point{ x: 10, y: 20 }
     
     desc := p ?
-        | { x -> 0, y -> 0 } => "origin"
-        | { x -> x_val, y -> 0 } => "on x-axis at $(x_val)"
-        | { x -> 0, y -> y_val } => "on y-axis at $(y_val)"
-        | { x -> x_val, y -> y_val } => "at ($(x_val), $(y_val))"
+        | { x -> 0, y -> 0 } { "origin" }
+        | { x -> x_val, y -> 0 } { "on x-axis at $(x_val)" }
+        | { x -> 0, y -> y_val } { "on y-axis at $(y_val)" }
+        | { x -> x_val, y -> y_val } { "at ($(x_val), $(y_val))" }
     
     assert_eq(desc, "at (10, 20)")
 }
@@ -66,20 +66,20 @@ test("pattern_matching_destructuring_struct") {
 test("pattern_matching_guards") {
     value := 75
     category := value ?
-        | v -> v > 100 => "large"
-        | v -> v > 50 => "medium"
-        | v -> v > 0 => "small"
-        | _ => "zero or negative"
+        | v -> v > 100 { "large" }
+        | v -> v > 50 { "medium" }
+        | v -> v > 0 { "small" }
+        | _ { "zero or negative" }
     assert_eq(category, "medium")
 }
 
 test("pattern_matching_nested") {
     opt := Option:Some(Result:Ok(42))
     value := opt ?
-        | .Some -> inner => inner ?
-            | .Ok -> v => v
-            | .Err -> _ => 0
-        | .None => -1
+        | .Some -> inner { inner ? }
+            | .Ok -> v { v }
+            | .Err -> _ { 0 }
+        | .None { -1 }
     assert_eq(value, 42)
 }
 
@@ -91,8 +91,8 @@ test("pattern_matching_bool_shorthand") {
     // With both branches
     is_ready := false
     status := is_ready ?
-        | true => "ready"
-        | false => "not ready"
+        | true { "ready" }
+        | false { "not ready" }
     assert_eq(status, "not ready")
 }
 
@@ -134,24 +134,24 @@ test("variable_default_initialization") {
 // ============================================================================
 
 test("function_basic") {
-    add: (a: i32, b: i32) i32  = {
+    add = (a: i32, b: i32) i32   {
         a + b
     }
     assert_eq(add(3, 4), 7)
 }
 
 test("function_implicit_return") {
-    square: (x: i32) i32  = {
+    square = (x: i32) i32   {
         x * x  // No semicolon - implicit return
     }
     assert_eq(square(5), 25)
 }
 
 test("function_explicit_return") {
-    abs: (x: i32) i32  = {
+    abs = (x: i32) i32   {
         x < 0 ?
-            | true => return -x
-            | false => return x
+            | true { return -x }
+            | false { return x }
     }
     assert_eq(abs(-10), 10)
 }
@@ -174,11 +174,11 @@ test("function_multiple_generics") {
 test("function_ufcs") {
     Rectangle := { width: f64, height: f64 }
     
-    area: (rect: Rectangle) f64  = {
+    area = (rect: Rectangle) f64   {
         rect.width * rect.height
     }
     
-    perimeter: (rect: Rectangle) f64  = {
+    perimeter = (rect: Rectangle) f64   {
         2.0 * (rect.width + rect.height)
     }
     
@@ -188,7 +188,7 @@ test("function_ufcs") {
 }
 
 test("function_default_parameters") {
-    greet: (name: string, greeting: string = "Hello") string  = {
+    greet = (name: string, greeting: string = "Hello") string   {
         "$(greeting), $(name)!"
     }
     assert_eq(greet("World"), "Hello, World!")
@@ -214,8 +214,8 @@ test("loop_infinite_with_break") {
     loop {
         count = count + 1
         count >= 3 ?
-            | true => break
-            | false => {}
+            | true { break }
+            | false { { }}
     }
     assert_eq(count, 3)
 }
@@ -241,8 +241,8 @@ test("loop_with_continue") {
     sum := 0
     (1..=10).loop((i) => {
         i % 2 == 0 ?  // Skip even numbers
-            | true => continue
-            | false => {}
+            | true { continue }
+            | false { { }}
         sum = sum + i
     })
     assert_eq(sum, 25)  // 1 + 3 + 5 + 7 + 9
@@ -254,11 +254,11 @@ test("loop_nested_with_labels") {
         (0..3).loop((i) => {
             (0..3).loop((j) => {
                 (i == 1 && j == 2) ?
-                    | true => {
+                    | true { { }
                         found = true
                         break outer
                     }
-                    | false => {}
+                    | false { { }}
             })
         })
         break  // Should not reach here
@@ -320,9 +320,9 @@ test("enum_basic") {
     
     s := Status:Active
     desc := s ?
-        | .Active => "running"
-        | .Inactive => "stopped"
-        | .Pending => "waiting"
+        | .Active { "running" }
+        | .Inactive { "stopped" }
+        | .Pending { "waiting" }
     assert_eq(desc, "running")
 }
 
@@ -334,23 +334,23 @@ test("enum_with_data") {
     
     msg := Message:Text("Hello")
     result := msg ?
-        | .Text -> c => c
-        | .Number -> n => "$(n)"
-        | .Empty => ""
+        | .Text -> c { c }
+        | .Number -> n { "$(n)" }
+        | .Empty { "" }
     assert_eq(result, "Hello")
 }
 
 test("enum_result_type") {
-    divide: (a: i32, b: i32) Result<i32, string>  = {
+    divide = (a: i32, b: i32) Result<i32, string>   {
         b == 0 ?
-            | true => Result:Err("Division by zero")
-            | false => Result:Ok(a / b)
+            | true { Result:Err("Division by zero") }
+            | false { Result:Ok(a / b) }
     }
     
     result := divide(10, 2)
     value := result ?
-        | .Ok -> v => v
-        | .Err -> _ => 0
+        | .Ok -> v { v }
+        | .Err -> _ { 0 }
     assert_eq(value, 5)
 }
 
@@ -358,8 +358,8 @@ test("enum_option_type") {
     find_first = (items: Vec<i32>, pred: (i32) bool) Option<i32> {
         items.loop((item) => {
             pred(item) ?
-                | true => return Option:Some(item)
-                | false => {}
+                | true { return Option:Some(item) }
+                | false { { }}
         })
         Option:None
     }
@@ -367,8 +367,8 @@ test("enum_option_type") {
     nums := Vec<i32>:from([1, 2, 3, 4, 5])
     result := find_first(nums, (x) => { x > 3 })
     value := result ?
-        | .Some -> v => v
-        | .None => 0
+        | .Some -> v { v }
+        | .None { 0 }
     assert_eq(value, 4)
 }
 
@@ -418,8 +418,8 @@ test("vec_operations") {
     
     popped := vec.pop()
     value := popped ?
-        | .Some -> v => v
-        | .None => 0
+        | .Some -> v { v }
+        | .None { 0 }
     assert_eq(value, 3)
     assert_eq(vec.len(), 2)
 }
@@ -434,8 +434,8 @@ test("hashmap_operations") {
     
     value := map.get("two")
     result := value ?
-        | .Some -> v => v
-        | .None => 0
+        | .Some -> v { v }
+        | .None { 0 }
     assert_eq(result, 2)
     
     removed := map.remove("one")
@@ -494,25 +494,25 @@ test("string_operations") {
 // ============================================================================
 
 test("error_propagation") {
-    parse_number: (s: string) Result<i32, string>  = {
+    parse_number = (s: string) Result<i32, string>   {
         // Simplified for testing
         s == "42" ?
-            | true => Result:Ok(42)
-            | false => Result:Err("Invalid number")
+            | true { Result:Ok(42) }
+            | false { Result:Err("Invalid number") }
     }
     
-    process: (input: string) Result<i32, string>  = {
+    process = (input: string) Result<i32, string>   {
         num_result := parse_number(input)
         num := num_result ?
-            | .Ok -> n => n * 2
-            | .Err -> e => return Result:Err(e)
+            | .Ok -> n { n * 2 }
+            | .Err -> e { return Result:Err(e) }
         Result:Ok(num)
     }
     
     result := process("42")
     value := result ?
-        | .Ok -> v => v
-        | .Err -> _ => 0
+        | .Ok -> v { v }
+        | .Err -> _ { 0 }
     assert_eq(value, 84)
 }
 
@@ -540,10 +540,10 @@ test("behavior_comparable") {
     i32_comparable := Comparable<i32>{
         compare: (a: i32, b: i32) i32 {
             a < b ?
-                | true => -1
-                | false => a > b ?
-                    | true => 1
-                    | false => 0
+                | true { -1 }
+                | false { a > b ? }
+                    | true { 1 }
+                    | false { 0 }
         }
     }
     
@@ -571,11 +571,11 @@ test("type_aliases") {
 // ============================================================================
 
 test("comptime_computation") {
-    FACTORIAL_5 := comptime {
-        fact: (n: i32) i32  = {
+    FACTORIAL_5 := @comptime {
+        fact = (n: i32) i32   {
             n <= 1 ?
-                | true => 1
-                | false => n * fact(n - 1)
+                | true { 1 }
+                | false { n * fact(n - 1) }
         }
         fact(5)
     }
@@ -586,7 +586,7 @@ test("comptime_computation") {
 // RUN ALL TESTS
 // ============================================================================
 
-main: () void  = {
+main = () void   {
     io := build.import("io")
     io.print("Running comprehensive language test suite...")
     io.print("All tests passed!")

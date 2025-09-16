@@ -1,7 +1,7 @@
 // Test behaviors (structural contracts)
 // Language spec v1.1.0 compliance
 
-test, assert, assert_eq := @std.testing
+test, assert, { assert_eq } = @std.testing
 
 // Define behaviors as structs with function pointers
 Comparable<T> = {
@@ -22,9 +22,9 @@ test("behavior implementation") {
     // Create behavior instance for i32
     i32_comparable := Comparable<i32>{
         compare: (a: i32, b: i32) i32 {
-            a < b ? | true => -1
-                   | false => a > b ? | true => 1
-                                     | false => 0
+            a < b ? | true { -1 }
+                   | false { a > b ? | true => 1 }
+                                     | false { 0 }
         }
     }
     
@@ -62,7 +62,7 @@ test("behavior with structs") {
 }
 
 // Helper hash function for testing
-hash_string: (s: string) u64  = {
+hash_string = (s: string) u64   {
     hash := 5381 as u64
     (0..s.len()).loop((i) => {
         hash = ((hash << 5) + hash) + (s.bytes()[i] as u64)
@@ -77,13 +77,13 @@ test("generic functions with behaviors") {
         (0..len).loop((i) => {
             ((i+1)..len).loop((j) => {
                 cmp.compare(items.value[i], items.value[j]) > 0 ?
-                    | true => {
+                    | true { { }
                         // Swap items
                         temp := items.value[i]
                         items.value[i] = items.value[j]
                         items.value[j] = temp
                     }
-                    | false => {}
+                    | false { { }}
             })
         })
     }
@@ -92,9 +92,9 @@ test("generic functions with behaviors") {
     numbers := Ptr:new([5, i32]{ 3, 1, 4, 1, 5 })
     i32_cmp := Comparable<i32>{
         compare: (a: i32, b: i32) i32 {
-            a < b ? | true => -1
-                   | false => a > b ? | true => 1
-                                     | false => 0
+            a < b ? | true { -1 }
+                   | false { a > b ? | true => 1 }
+                                     | false { 0 }
         }
     }
     
@@ -120,9 +120,9 @@ test("multiple behaviors") {
             // Compare by distance from origin
             dist_a := (a.x * a.x + a.y * a.y)
             dist_b := (b.x * b.x + b.y * b.y)
-            dist_a < dist_b ? | true => -1
-                            | false => dist_a > dist_b ? | true => 1
-                                                        | false => 0
+            dist_a < dist_b ? | true { -1 }
+                            | false { dist_a > dist_b ? | true => 1 }
+                                                        | false { 0 }
         }
     }
     
@@ -167,9 +167,9 @@ test("behavior composition") {
     
     i32_cmp := Comparable<i32>{
         compare: (a: i32, b: i32) i32 {
-            a < b ? | true => -1
-                   | false => a > b ? | true => 1
-                                     | false => 0
+            a < b ? | true { -1 }
+                   | false { a > b ? | true => 1 }
+                                     | false { 0 }
         }
     }
     
@@ -195,14 +195,14 @@ test("derived behaviors") {
         compare: (a: Color, b: Color) i32 {
             // Lexicographic comparison
             a.r != b.r ? 
-                | true => a.r < b.r ? | true => -1
-                                     | false => 1
-                | false => a.g != b.g ?
-                    | true => a.g < b.g ? | true => -1
-                                         | false => 1
-                    | false => a.b < b.b ? | true => -1
-                                          | false => a.b > b.b ? | true => 1
-                                                                | false => 0
+                | true { a.r < b.r ? | true => -1 }
+                                     | false { 1 }
+                | false { a.g != b.g ? }
+                    | true { a.g < b.g ? | true => -1 }
+                                         | false { 1 }
+                    | false { a.b < b.b ? | true => -1 }
+                                          | false { a.b > b.b ? | true => 1 }
+                                                                | false { 0 }
         }
     }
     

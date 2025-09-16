@@ -2,8 +2,8 @@
 // Minimal LSP implementation for syntax checking and diagnostics
 
 // Standard library imports
-build := @std.build
-core := @std.core
+{ build } = @std.build
+{ core } = @std.core
 io := build.import("io")
 string := build.import("string")
 vec := build.import("vec")
@@ -100,7 +100,7 @@ LanguageServer: {
 }
 
 // Create a new language server
-new_server: () LanguageServer  = {
+new_server = () LanguageServer   {
     return LanguageServer{
         initialized: false,
         root_uri: Option<string>.None,
@@ -109,7 +109,7 @@ new_server: () LanguageServer  = {
 }
 
 // Handle initialize request
-handle_initialize: (server: *LanguageServer, params: InitializeParams) InitializeResult  = {
+handle_initialize = (server: *LanguageServer, params: InitializeParams) InitializeResult   {
     server.initialized = true
     server.root_uri = params.rootUri
     
@@ -126,7 +126,7 @@ handle_initialize: (server: *LanguageServer, params: InitializeParams) Initializ
 }
 
 // Handle text document open
-handle_did_open: (server: *LanguageServer, uri: string, version: i32, text: string) void  = {
+handle_did_open = (server: *LanguageServer, uri: string, version: i32, text: string) void   {
     doc := Document{
         uri: uri,
         version: version,
@@ -145,7 +145,7 @@ handle_did_open: (server: *LanguageServer, uri: string, version: i32, text: stri
 }
 
 // Handle text document change
-handle_did_change: (server: *LanguageServer, uri: string, version: i32, text: string) void  = {
+handle_did_change = (server: *LanguageServer, uri: string, version: i32, text: string) void   {
     // Find and update document
     i := 0
     loop i < server.documents.len() {
@@ -168,7 +168,7 @@ handle_did_change: (server: *LanguageServer, uri: string, version: i32, text: st
 }
 
 // Check document for errors
-check_document: (doc: *Document) void  = {
+check_document = (doc: *Document) void   {
     // Basic syntax checks
     diagnostics := Vec<Diagnostic>.new()
     
@@ -247,7 +247,7 @@ check_document: (doc: *Document) void  = {
 }
 
 // Publish diagnostics notification
-publish_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
+publish_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void   {
     notification := JsonRpcMessage{
         jsonrpc: "2.0",
         id: Option<i32>.None,
@@ -302,7 +302,7 @@ diagnostics_to_json = (diagnostics: Vec<Diagnostic>) json.Value {
 }
 
 // Read message from stdin
-read_message: () Option<JsonRpcMessage>  = {
+read_message = () Option<JsonRpcMessage>   {
     // Read Content-Length header
     header := io.read_line()
     !string.starts_with(header, "Content-Length:") ?
@@ -327,7 +327,7 @@ read_message: () Option<JsonRpcMessage>  = {
 }
 
 // Send message to stdout
-send_message: (msg: JsonRpcMessage) void  = {
+send_message = (msg: JsonRpcMessage) void   {
     // Convert to JSON
     json_str := message_to_json(msg)
     
@@ -339,7 +339,7 @@ send_message: (msg: JsonRpcMessage) void  = {
 }
 
 // Main server loop
-run_server: () void  = {
+run_server = () void   {
     server := new_server()
     
     io.log("Zen Language Server starting...")
@@ -372,7 +372,7 @@ run_server: () void  = {
 }
 
 // Handle specific method
-handle_method: (server: *LanguageServer, method: string, msg: JsonRpcMessage) void  = {
+handle_method = (server: *LanguageServer, method: string, msg: JsonRpcMessage) void   {
     method == "initialize" ?
         | true => {
             // Parse params and handle initialize
@@ -462,7 +462,7 @@ handle_method: (server: *LanguageServer, method: string, msg: JsonRpcMessage) vo
 }
 
 // Entry point
-main: () i32  = {
+main = () i32   {
     run_server()
     return 0
 }

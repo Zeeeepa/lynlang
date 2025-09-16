@@ -1,11 +1,11 @@
 // Zen Language - Code Generator Module
 // Generates C code from AST for bootstrapping
 
-core := @std.core
-io := @std.io
-string := @std.string
-fs := @std.fs
-parser := @std.compiler.parser
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ fs } = @std.fs
+{ parser } = @std.compiler.parser
 
 // Code generation context (simplified)
 CodeGen: {
@@ -14,7 +14,7 @@ CodeGen: {
 }
 
 // Create new code generator
-new_codegen: () CodeGen  = {
+new_codegen = () CodeGen   {
     return CodeGen{
         indent_level: 0,
         temp_counter: 0
@@ -22,13 +22,13 @@ new_codegen: () CodeGen  = {
 }
 
 // Generate temporary variable name
-gen_temp_var: (gen: &CodeGen) string  = {
+gen_temp_var = (gen: &CodeGen) string   {
     gen.temp_counter = gen.temp_counter + 1
     return string.format("_tmp_%d", gen.temp_counter)
 }
 
 // Generate C type from Zen type
-gen_c_type: (type_name: string) string  = {
+gen_c_type = (type_name: string) string   {
     type_name == "i8" ? { return "int8_t" } :
     type_name == "i16" ? { return "int16_t" } :
     type_name == "i32" ? { return "int32_t" } :
@@ -45,7 +45,7 @@ gen_c_type: (type_name: string) string  = {
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("Zen Code Generator\n")
     io.print("==================\n")
     

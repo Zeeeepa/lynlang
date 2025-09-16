@@ -1,12 +1,12 @@
 // Zen Language LLVM Backend
 // Generates LLVM IR for high-performance compilation
 
-core := @std.core
-vec := @std.vec
-string := @std.string
-io := @std.io
-mem := @std.mem
-ast := @std.ast
+{ core } = @std.core
+{ vec } = @std.vec
+{ string } = @std.string
+{ io } = @std.io
+{ mem } = @std.mem
+{ ast } = @std.ast
 
 // LLVM IR Builder context
 LLVMContext: {
@@ -151,7 +151,7 @@ LLVMTerminator:
     Unreachable
 
 // Create new LLVM context
-new_context: (module_name: string) LLVMContext  = {
+new_context = (module_name: string) LLVMContext   {
     return LLVMContext{
         module_name: module_name,
         target_triple: "x86_64-unknown-linux-gnu",
@@ -166,16 +166,16 @@ new_context: (module_name: string) LLVMContext  = {
 }
 
 // Get next register ID
-next_register: (ctx: Ptr<LLVMContext>) u32  = {
+next_register = (ctx: Ptr<LLVMContext>) u32   {
     reg := ctx.next_reg
     ctx.next_reg += 1
     return reg
 }
 
 // Convert Zen type to LLVM type
-zen_type_to_llvm: (zen_type: Ptr<ast.AstType>) LLVMType  = {
-    match zen_type {
-        ast.AstType.Basic(name) {
+zen_type_to_llvm = (zen_type: Ptr<ast.AstType>) LLVMType   {
+    zen_type ? 
+        | ast.AstType.Basic(name) {
             string.equals(name, "void") ? return LLVMType.Void
             string.equals(name, "bool") ? return LLVMType.I1
             string.equals(name, "i8") ? return LLVMType.I8
@@ -190,20 +190,19 @@ zen_type_to_llvm: (zen_type: Ptr<ast.AstType>) LLVMType  = {
             string.equals(name, "u64") ? return LLVMType.I64
             return LLVMType.I32  // Default
         }
-        ast.AstType.Pointer(inner) => {
+        | ast.AstType.Pointer(inner)  {
             inner_type := zen_type_to_llvm(inner)
             return LLVMType.Ptr(mem.alloc<LLVMType>(inner_type))
         }
-        ast.AstType.Array(elem, size) => {
+        | ast.AstType.Array(elem, size)  {
             elem_type := zen_type_to_llvm(elem)
             return LLVMType.Array(mem.alloc<LLVMType>(elem_type), size)
         }
-        _ => LLVMType.I32  // Default for unhandled types
-    }
+        | _ => LLVMType.I32  // Default for unhandled types
 }
 
 // Add string constant
-add_string_constant: (ctx: Ptr<LLVMContext>, value: string) u32  = {
+add_string_constant = (ctx: Ptr<LLVMContext>, value: string) u32   {
     id := ctx.string_constants.len()
     global_name := string.format("@.str.{}", id)
     
@@ -218,7 +217,7 @@ add_string_constant: (ctx: Ptr<LLVMContext>, value: string) u32  = {
 }
 
 // Generate LLVM IR for expression
-generate_expression: (ctx: Ptr<LLVMContext>, expr: Ptr<ast.AstExpr>) LLVMValue  = {
+generate_expression = (ctx: Ptr<LLVMContext>, expr: Ptr<ast.AstExpr>) LLVMValue   {
     expr ? 
         | ast.AstExpr.IntLiteral(val)  {
             return LLVMValue.Constant(LLVMConstant.I32(val))
@@ -243,7 +242,7 @@ generate_expression: (ctx: Ptr<LLVMContext>, expr: Ptr<ast.AstExpr>) LLVMValue  
             dest := next_register(ctx)
             
             // Generate appropriate instruction based on operator
-            instruction := match op {
+            instruction := op ? {
                 "+" ? LLVMInstruction.Add(dest, LLVMType.I32, lhs_val, rhs_val) 
                 "-" ? LLVMInstruction.Sub(dest, LLVMType.I32, lhs_val, rhs_val)
                 "*" ? LLVMInstruction.Mul(dest, LLVMType.I32, lhs_val, rhs_val)
@@ -253,7 +252,7 @@ generate_expression: (ctx: Ptr<LLVMContext>, expr: Ptr<ast.AstExpr>) LLVMValue  
             
             // Add instruction to current block
             ctx.current_block ? {
-                match ctx.current_block {
+                ctx.current_block ? {
                     Option.Some(block) ? vec.push(block.instructions, instruction)
                     _ => {}
                 }
@@ -261,20 +260,20 @@ generate_expression: (ctx: Ptr<LLVMContext>, expr: Ptr<ast.AstExpr>) LLVMValue  
             
             return LLVMValue.Register(dest)
         }
-        | _  LLVMValue.Constant(LLVMConstant.I32(0))  // Default
+        | _ => LLVMValue.Constant(LLVMConstant.I32(0))  // Default
     }
 }
 
 // Generate LLVM IR for statement
-generate_statement: (ctx: Ptr<LLVMContext>, stmt: Ptr<ast.AstStmt>) void  = {
+generate_statement = (ctx: Ptr<LLVMContext>, stmt: Ptr<ast.AstStmt>) void   {
     stmt ? 
         | ast.AstStmt.Expression(expr)  {
-        ast.AstStmt.Expression(expr) => {
+        ast.AstStmt.Expression(expr)  {
             generate_expression(ctx, expr)
         }
         | ast.AstStmt.Return(expr)  {
             expr ?
-                | true => {
+                | true { 
                 val := generate_expression(ctx, expr)
                 terminator := LLVMTerminator.Ret(Option.Some(val), LLVMType.I32)
                 
@@ -285,7 +284,7 @@ generate_statement: (ctx: Ptr<LLVMContext>, stmt: Ptr<ast.AstStmt>) void  = {
                     }
                 }
             } 
-            | false => {
+            | false { 
                 terminator := LLVMTerminator.Ret(Option.None, LLVMType.Void)
                 
                 ctx.current_block ? {
@@ -296,11 +295,11 @@ generate_statement: (ctx: Ptr<LLVMContext>, stmt: Ptr<ast.AstStmt>) void  = {
                 }
             }
         }
-        | _  {}
+        | _ => {}
 }
 
 // Generate LLVM IR for function
-generate_function: (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void  = {
+generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
     // Convert parameters
     params := vec.new<LLVMParam>()
     for (i := 0; i < func.params.len(); i += 1) {
@@ -344,7 +343,7 @@ generate_function: (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void  = {
     
     // Add default return if needed
     if (ctx.current_block) {
-        match ctx.current_block {
+        ctx.current_block ? {
             Option.Some(block) => {
                 if (!block.terminator) {
                     block.terminator = Option.Some(LLVMTerminator.Ret(Option.None, LLVMType.Void))
@@ -359,7 +358,7 @@ generate_function: (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void  = {
 }
 
 // Emit LLVM IR to string
-emit_type: (type_: LLVMType) string  = {
+emit_type = (type_: LLVMType) string   {
      type_ ? {
         LLVMType.Void => "void"
         LLVMType.I1 => "i1"
@@ -382,13 +381,13 @@ emit_type: (type_: LLVMType) string  = {
 }
 
 // Emit value
-emit_value: (val: LLVMValue) string  = {
-    match val {
+emit_value = (val: LLVMValue) string   {
+    val ? {
         LLVMValue.Register(id) => string.format("%{}", id)
         LLVMValue.Global(name) => string.format("@{}", name)
         LLVMValue.Argument(idx) => string.format("%{}", idx)
         LLVMValue.Constant(c) => {
-            match c {
+            c ? {
                 LLVMConstant.I32(v) => string.format("{}", v)
                 LLVMConstant.I64(v) => string.format("{}", v)
                 LLVMConstant.F32(v) => string.format("{}", v)
@@ -404,8 +403,8 @@ emit_value: (val: LLVMValue) string  = {
 }
 
 // Emit instruction
-emit_instruction: (inst: LLVMInstruction, out: Ptr<string>) void  = {
-    match inst {
+emit_instruction = (inst: LLVMInstruction, out: Ptr<string>) void   {
+    inst ? {
         LLVMInstruction.Add(dest, type_, lhs, rhs) => {
             type_str := emit_type(type_)
             lhs_str := emit_value(lhs)
@@ -427,8 +426,8 @@ emit_instruction: (inst: LLVMInstruction, out: Ptr<string>) void  = {
         LLVMInstruction.Call(dest, func, ret_type, args) => {
             ret_str := emit_type(ret_type)
             
-            if (dest) {
-                match dest {
+        dest ? {
+                dest ? {
                     Option.Some(d) => {
                         string.append(out, string.format("  %{} = call {} @{}(", d, ret_str, func))
                     }
@@ -436,12 +435,13 @@ emit_instruction: (inst: LLVMInstruction, out: Ptr<string>) void  = {
                         string.append(out, string.format("  call {} @{}(", ret_str, func))
                     }
                 }
-            } else {
+            } 
+            | false {
                 string.append(out, string.format("  call {} @{}(", ret_str, func))
             }
             
             for (i := 0; i < args.len(); i += 1) {
-                if (i > 0) string.append(out, ", ")
+                i > 0 ? string.append(out, ", ")
                 arg := args[i]
                 type_str := emit_type(arg.0)
                 val_str := emit_value(arg.1)
@@ -455,11 +455,11 @@ emit_instruction: (inst: LLVMInstruction, out: Ptr<string>) void  = {
 }
 
 // Emit terminator
-emit_terminator: (term: LLVMTerminator, out: Ptr<string>) void  = {
-    match term {
+emit_terminator = (term: LLVMTerminator, out: Ptr<string>) void   {
+    term ? {
         LLVMTerminator.Ret(val, type_) => {
             if (val) {
-                match val {
+                val ? {
                     Option.Some(v) => {
                         type_str := emit_type(type_)
                         val_str := emit_value(v)
@@ -479,12 +479,12 @@ emit_terminator: (term: LLVMTerminator, out: Ptr<string>) void  = {
             string.append(out, string.format("  br i1 {}, label %{}, label %{}\n", 
                                             cond_str, true_target, false_target))
         }
-        _ => {}
+        | _ => {}
     }
 }
 
 // Generate complete LLVM IR module
-generate_module: (ctx: Ptr<LLVMContext>) string  = {
+generate_module = (ctx: Ptr<LLVMContext>) string   {
     output := string.new()
     
     // Module header
@@ -626,7 +626,7 @@ generate_module: (ctx: Ptr<LLVMContext>) string  = {
 }
 
 // Generate LLVM IR from AST
-generate_llvm_from_ast: (ast: Ptr<ast.AstProgram>, module_name: string) string  = {
+generate_llvm_from_ast = (ast: Ptr<ast.AstProgram>, module_name: string) string   {
     ctx := new_context(module_name)
     
     // Process all top-level declarations
@@ -658,7 +658,7 @@ generate_llvm_from_ast: (ast: Ptr<ast.AstProgram>, module_name: string) string  
 }
 
 // Write LLVM IR to file
-write_llvm_ir: (ir: string, output_path: string) bool  = {
+write_llvm_ir = (ir: string, output_path: string) bool   {
     file := io.open(output_path, "w")
     if (!file) {
         io.print("Error: Could not open output file\n")
@@ -671,7 +671,7 @@ write_llvm_ir: (ir: string, output_path: string) bool  = {
 }
 
 // Compile LLVM IR to native code using llc
-compile_to_native: (ir_path: string, output_path: string, opt_level: string) bool  = {
+compile_to_native = (ir_path: string, output_path: string, opt_level: string) bool   {
     // Use llc to compile LLVM IR to assembly
     asm_path := string.replace(output_path, ".o", ".s")
     llc_cmd := string.format("llc -{} -filetype=asm {} -o {}", opt_level, ir_path, asm_path)
@@ -693,7 +693,7 @@ compile_to_native: (ir_path: string, output_path: string, opt_level: string) boo
 }
 
 // Link object files to create executable
-link_executable: (obj_files: Vec<string>, output_path: string) bool  = {
+link_executable = (obj_files: Vec<string>, output_path: string) bool   {
     // Build linker command
     ld_cmd := string.format("cc -o {} ", output_path)
     

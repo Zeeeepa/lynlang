@@ -1,14 +1,14 @@
 // Zen Language REPL (Read-Eval-Print Loop)
 // Interactive shell for experimenting with Zen code
 
-core := @std.core
-io := @std.io
-string := @std.string
-process := @std.process
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
-interpreter := @std.compiler.interpreter
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ process } = @std.process
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
+{ interpreter } = @std.compiler.interpreter
 
 // REPL state
 ReplState := {
@@ -22,7 +22,7 @@ ReplState := {
 }
 
 // Create new REPL state
-new_repl_state: () ReplState  = {
+new_repl_state = () ReplState   {
     return ReplState{
         line_number: 1,
         history: [],
@@ -45,12 +45,12 @@ RESET := "\x1b[0m"
 BOLD := "\x1b[1m"
 
 // Print colored text
-print_colored: (color: string, text: string) void  = {
+print_colored = (color: string, text: string) void   {
     io.print(color + text + RESET)
 }
 
 // Print welcome banner
-print_banner: () void  = {
+print_banner = () void   {
     print_colored(CYAN, "╔═══════════════════════════════════════╗\n")
     print_colored(CYAN, "║      ")
     print_colored(YELLOW + BOLD, "Zen Language REPL v1.0")
@@ -62,7 +62,7 @@ print_banner: () void  = {
 }
 
 // Print help
-print_help: () void  = {
+print_help = () void   {
     print_colored(GREEN + BOLD, "Available Commands:\n")
     io.println("  help          - Show this help message")
     io.println("  exit/quit     - Exit the REPL")
@@ -85,7 +85,7 @@ print_help: () void  = {
 }
 
 // Get prompt string
-get_prompt: (state: &ReplState) string  = {
+get_prompt = (state: &ReplState) string   {
     if (state.in_multiline) {
         return BLUE + "... " + RESET
     }
@@ -93,13 +93,13 @@ get_prompt: (state: &ReplState) string  = {
 }
 
 // Check if line continues (ends with backslash)
-is_continuation: (line: string) bool  = {
+is_continuation = (line: string) bool   {
     trimmed := string.trim(line)
     return string.ends_with(trimmed, "\\")
 }
 
 // Remove continuation character
-remove_continuation: (line: string) string  = {
+remove_continuation = (line: string) string   {
     if (is_continuation(line)) {
         return string.substring(line, 0, line.len - 1)
     }
@@ -107,7 +107,7 @@ remove_continuation: (line: string) string  = {
 }
 
 // Process special commands
-process_command: (state: &mut ReplState, input: string) bool  = {
+process_command = (state: &mut ReplState, input: string) bool   {
     parts := string.split(input, " ")
     if (parts.len == 0) return false
     
@@ -183,7 +183,7 @@ process_command: (state: &mut ReplState, input: string) bool  = {
 }
 
 // Evaluate Zen expression
-evaluate: (state: &mut ReplState, input: string) void  = {
+evaluate = (state: &mut ReplState, input: string) void   {
     // Add to history
     state.history.append(input)
     
@@ -238,7 +238,7 @@ evaluate: (state: &mut ReplState, input: string) void  = {
 }
 
 // Save session to file
-save_session: (state: &ReplState, filename: string) void  = {
+save_session = (state: &ReplState, filename: string) void   {
     content := string.Builder.new()
     content.append("// Zen REPL session\n")
     content.append("// Generated on " + get_timestamp() + "\n\n")
@@ -257,7 +257,7 @@ save_session: (state: &ReplState, filename: string) void  = {
 }
 
 // Load and execute file
-load_file: (state: &mut ReplState, filename: string) void  = {
+load_file = (state: &mut ReplState, filename: string) void   {
     content := fs.read_file(filename)
     if (content.is_error()) {
         print_colored(RED, "Error loading file: " + content.error() + "\n")
@@ -278,7 +278,7 @@ load_file: (state: &mut ReplState, filename: string) void  = {
 }
 
 // Main REPL loop
-repl_loop: () void  = {
+repl_loop = () void   {
     state := new_repl_state()
     print_banner()
     
@@ -337,7 +337,7 @@ repl_loop: () void  = {
 }
 
 // Entry point
-main: () i32  = {
+main = () i32   {
     // Set up signal handlers for graceful exit
     setup_signal_handlers()
     

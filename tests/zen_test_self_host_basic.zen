@@ -1,12 +1,12 @@
 // Basic self-hosting test
 // Tests that fundamental language features work correctly
 
-io := @std.io
-string := @std.string
-core := @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ core } = @std.core
 
 // Test function declarations
-add: (a: i32, b: i32) i32  = {
+add = (a: i32, b: i32) i32   {
     return a + b
 }
 
@@ -22,15 +22,15 @@ Status:
     Error -> code: i32,
 
 // Test pattern matching
-check_status: (s: Status) string  = {
+check_status = (s: Status) string   {
     match s {
-        | Status.Ok => "Success"
-        | Status.Error -> code => string.from_int(code)
+        | Status.Ok { "Success" }
+        | Status.Error -> code { string.from_int(code) }
     }
 }
 
 // Test loops
-factorial: (n: i32) i32  = {
+factorial = (n: i32) i32   {
     n <= 1 ? { return 1 } : {}
     
     result := 1
@@ -43,7 +43,7 @@ factorial: (n: i32) i32  = {
 }
 
 // Test string operations
-test_strings: () void  = {
+test_strings = () void   {
     s1 := "Hello"
     s2 := "World"
     combined := string.join([s1, s2], " ")
@@ -54,12 +54,12 @@ test_strings: () void  = {
 }
 
 // Test conditionals
-max: (a: i32, b: i32) i32  = {
+max = (a: i32, b: i32) i32   {
     a > b ? { return a } : { return b }
 }
 
 // Test arrays
-sum_array: (arr: [i32], len: usize) i32  = {
+sum_array = (arr: [i32], len: usize) i32   {
     sum := 0
     i := 0 as usize
     loop i < len {
@@ -70,7 +70,7 @@ sum_array: (arr: [i32], len: usize) i32  = {
 }
 
 // Main test function
-main: () i32  = {
+main = () i32   {
     io.println("=== Zen Self-Hosting Test ===")
     
     // Test arithmetic

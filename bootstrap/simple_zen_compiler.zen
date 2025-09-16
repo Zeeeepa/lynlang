@@ -1,19 +1,19 @@
 // Simple Zen Compiler Bootstrap
 // Demonstrates self-hosting capability
 
-io := @std.io
+{ io } = @std.io
 
 // Version constant
 VERSION := "0.1.0"
 
 // Simple token counter (placeholder for real lexer)
-count_tokens: () i32  = {
+count_tokens = () i32   {
     // Simplified - just return a fixed count
     return 42
 }
 
 // Simple parser (placeholder)
-parse_source: () bool  = {
+parse_source = () bool   {
     tokens := count_tokens();
     io.print("Token count: ");
     io.print_int(tokens);
@@ -22,13 +22,13 @@ parse_source: () bool  = {
 }
 
 // Simple code generator (placeholder)
-generate_code: () bool  = {
+generate_code = () bool   {
     io.print("Generating code...\n");
     return true
 }
 
 // Main compiler pipeline
-compile: () bool  = {
+compile = () bool   {
     io.print("=== Zen Compiler Pipeline ===\n");
     
     // Lexical analysis
@@ -40,29 +40,29 @@ compile: () bool  = {
     parse_ok := parse_source();
     
     parse_ok ?
-        | false => {
+        | false { { }
             io.print("Parse error!\n");
             return false
         }
-        | true => {}
+        | true { { }}
     
     // Code generation
     io.print("3. Code Generation...\n");
     gen_ok := generate_code();
     
     gen_ok ?
-        | false => {
+        | false { { }
             io.print("Code generation error!\n");
             return false
         }
-        | true => {}
+        | true { { }}
     
     io.print("✅ Compilation successful!\n");
     return true
 }
 
 // Entry point
-main: () i32  = {
+main = () i32   {
     io.print("Zen Self-Hosting Compiler v");
     io.print(VERSION);
     io.print("\n\n");

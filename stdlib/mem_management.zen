@@ -2,14 +2,14 @@
 // Low-level memory management utilities
 
 // External C functions for memory management
-extern malloc = (size: i64) *i8
-extern calloc = (num: i64, size: i64) *i8
-extern realloc = (ptr: *i8, size: i64) *i8
-extern free = (ptr: *i8) void
-extern memcpy = (dest: *i8, src: *i8, n: i64) *i8
-extern memmove = (dest: *i8, src: *i8, n: i64) *i8
-extern memset = (ptr: *i8, value: i32, n: i64) *i8
-extern memcmp = (ptr1: *i8, ptr2: *i8, n: i64) i32
+extern malloc = (size: i64) RawPtr<i8>
+extern calloc = (num: i64, size: i64) RawPtr<i8>
+extern realloc = (ptr: RawPtr<i8>, size: i64) RawPtr<i8>
+extern free = (ptr: RawPtr<i8>) void
+extern memcpy = (dest: RawPtr<i8>, src: RawPtr<i8>, n: i64) RawPtr<i8>
+extern memmove = (dest: RawPtr<i8>, src: RawPtr<i8>, n: i64) RawPtr<i8>
+extern memset = (ptr: RawPtr<i8>, value: i32, n: i64) RawPtr<i8>
+extern memcmp = (ptr1: RawPtr<i8>, ptr2: RawPtr<i8>, n: i64) i32
 
 // Memory alignment
 ALIGNMENT := 8
@@ -35,7 +35,7 @@ global_stats := MemoryStats {
 }
 
 // Allocate memory with tracking
-alloc = (size: i64) *i8 {
+alloc = (size: i64) RawPtr<i8> {
     ptr := malloc(size)
     ptr != null ? {
         global_stats.total_allocated = global_stats.total_allocated + size
@@ -50,7 +50,7 @@ alloc = (size: i64) *i8 {
 }
 
 // Allocate zeroed memory
-alloc_zeroed = (size: i64) *i8 {
+alloc_zeroed = (size: i64) RawPtr<i8> {
     ptr := calloc(1, size)
     ptr != null ? {
         global_stats.total_allocated = global_stats.total_allocated + size
@@ -65,7 +65,7 @@ alloc_zeroed = (size: i64) *i8 {
 }
 
 // Reallocate memory
-realloc_mem = (ptr: *i8, old_size: i64, new_size: i64) *i8 {
+realloc_mem = (ptr: RawPtr<i8>, old_size: i64, new_size: i64) RawPtr<i8> {
     new_ptr := realloc(ptr, new_size)
     new_ptr != null ? {
         global_stats.total_allocated = global_stats.total_allocated + new_size
@@ -80,7 +80,7 @@ realloc_mem = (ptr: *i8, old_size: i64, new_size: i64) *i8 {
 }
 
 // Free memory with tracking
-dealloc: (ptr: *i8, size: i64) void  = {
+dealloc = (ptr: RawPtr<i8>, size: i64) void   {
     ptr != null ? {
         free(ptr)
         global_stats.total_freed = global_stats.total_freed + size
@@ -90,52 +90,52 @@ dealloc: (ptr: *i8, size: i64) void  = {
 }
 
 // Copy memory
-copy: (dest: *i8, src: *i8, size: i64) void  = {
+copy = (dest: RawPtr<i8>, src: RawPtr<i8>, size: i64) void   {
     memcpy(dest, src, size)
 }
 
 // Move memory (handles overlapping regions)
-move: (dest: *i8, src: *i8, size: i64) void  = {
+move = (dest: RawPtr<i8>, src: RawPtr<i8>, size: i64) void   {
     memmove(dest, src, size)
 }
 
 // Set memory to a value
-set: (ptr: *i8, value: i8, size: i64) void  = {
+set = (ptr: RawPtr<i8>, value: i8, size: i64) void   {
     memset(ptr, value, size)
 }
 
 // Compare memory regions
-compare: (ptr1: *i8, ptr2: *i8, size: i64) i32  = {
+compare = (ptr1: RawPtr<i8>, ptr2: RawPtr<i8>, size: i64) i32   {
     memcmp(ptr1, ptr2, size)
 }
 
 // Zero out memory
-zero: (ptr: *i8, size: i64) void  = {
+zero = (ptr: RawPtr<i8>, size: i64) void   {
     memset(ptr, 0, size)
 }
 
 // Check if memory regions are equal
-equals: (ptr1: *i8, ptr2: *i8, size: i64) bool  = {
+equals = (ptr1: RawPtr<i8>, ptr2: RawPtr<i8>, size: i64) bool   {
     memcmp(ptr1, ptr2, size) == 0
 }
 
 // Align size to boundary
-align_size: (size: i64, alignment: i64) i64  = {
+align_size = (size: i64, alignment: i64) i64   {
     (size + alignment - 1) & ~(alignment - 1)
 }
 
 // Check if pointer is aligned
-is_aligned: (ptr: *i8, alignment: i64) bool  = {
+is_aligned = (ptr: RawPtr<i8>, alignment: i64) bool   {
     (ptr as i64) & (alignment - 1) == 0
 }
 
 // Get current memory statistics
-get_stats: () MemoryStats  = {
+get_stats = () MemoryStats   {
     global_stats
 }
 
 // Reset memory statistics
-reset_stats: () void  = {
+reset_stats = () void   {
     global_stats.total_allocated = 0
     global_stats.total_freed = 0
     global_stats.current_usage = 0
@@ -146,7 +146,7 @@ reset_stats: () void  = {
 
 // Memory pool for efficient small allocations
 MemoryPool: {
-    blocks: **i8,
+    blocks: *RawPtr<i8>,
     block_size: i64,
     block_count: i64,
     free_list: *i64,
@@ -154,12 +154,12 @@ MemoryPool: {
 }
 
 // Create a new memory pool
-pool_create: (block_size: i64, block_count: i64) MemoryPool  = {
+pool_create = (block_size: i64, block_count: i64) MemoryPool   {
     aligned_size := align_size(block_size, ALIGNMENT)
     total_size := aligned_size * block_count
     
     memory := alloc(total_size)
-    blocks := alloc(block_count * 8) as **i8
+    blocks := alloc(block_count * 8) as *RawPtr<i8>
     
     i := 0
     for i < block_count {
@@ -177,7 +177,7 @@ pool_create: (block_size: i64, block_count: i64) MemoryPool  = {
 }
 
 // Allocate from pool
-pool_alloc = (pool: &MemoryPool) *i8 {
+pool_alloc = (pool: &MemoryPool) RawPtr<i8> {
     pool.allocated_count < pool.block_count ? {
         block := pool.blocks[pool.allocated_count]
         pool.allocated_count = pool.allocated_count + 1
@@ -186,9 +186,9 @@ pool_alloc = (pool: &MemoryPool) *i8 {
 }
 
 // Free pool memory
-pool_destroy: (pool: &MemoryPool) void  = {
+pool_destroy = (pool: &MemoryPool) void   {
     pool.blocks != null ? {
         dealloc(pool.blocks[0], pool.block_size * pool.block_count)
-        dealloc(pool.blocks as *i8, pool.block_count * 8)
+        dealloc(pool.blocks as RawPtr<i8>, pool.block_count * 8)
     }
 }

@@ -1,21 +1,21 @@
 // Core allocator trait for colorless concurrent/sync execution
 // Based on the design in agent/zen-allocator-concurrent.md
 
-build := @std.build
+{ build } = @std.build
 std := build.import("std")
 
 // Continuation type for concurrent execution
 Continuation: {
-    state: *void
-    resume_fn: (*void) void
+    state: RawPtr<void>
+    resume_fn: (RawPtr<void>) void
 }
 
 // Base allocator trait - memory + execution context
 Allocator: {
     // Memory operations
-    alloc: (size: usize) *void
-    free: (ptr: *void) void
-    realloc: (ptr: *void, old_size: usize, new_size: usize) *void
+    alloc: (size: usize) RawPtr<void>
+    free: (ptr: RawPtr<void>) void
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize) RawPtr<void>
     
     // Execution mode
     is_concurrent: bool
@@ -31,7 +31,7 @@ Allocator: {
     }
     
     destroy: (ptr: anytype) void {
-        self.free(@std.ptrCast(*void, ptr))
+        self.free(@std.ptrCast(RawPtr<void>, ptr))
     }
     
     alloc_slice: (comptime T: type, n: usize) []T {
@@ -40,7 +40,7 @@ Allocator: {
     }
     
     free_slice: (slice: anytype) void {
-        self.free(@std.ptrCast(*void, slice.ptr))
+        self.free(@std.ptrCast(RawPtr<void>, slice.ptr))
     }
 }
 
@@ -158,8 +158,8 @@ AutoAllocator: {
     allocator: () Allocator {
         // Choose based on whether we have a runtime
         self.runtime ? 
-            | null => self.sync_alloc.allocator()
-            | runtime => self.concurrent_alloc.?.allocator()
+            | null { self.sync_alloc.allocator() }
+            | runtime { self.concurrent_alloc.?.allocator() }
     }
 }
 
@@ -171,7 +171,7 @@ TestAllocator: {
     total_freed: usize
     
     AllocationInfo: {
-        ptr: *void
+        ptr: RawPtr<void>
         size: usize
         freed: bool
     }

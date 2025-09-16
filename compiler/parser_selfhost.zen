@@ -2,8 +2,8 @@
 // Parses tokenized Zen source code into an AST
 
 // Import standard modules
-core := @std.core
-build := @std.build
+{ core } = @std.core
+{ build } = @std.build
 
 // AST Node Types
 AstNodeType: Program
@@ -70,14 +70,14 @@ ProgramNode: {
 // Import node
 ImportNode: {
     base: AstNode,
-    alias: *i8,
-    module_path: *i8,
+    alias: RawPtr<i8>,
+    module_path: RawPtr<i8>,
 }
 
 // Declaration node
 DeclNode: {
     base: AstNode,
-    name: *i8,
+    name: RawPtr<i8>,
     exported: bool,
 }
 
@@ -93,7 +93,7 @@ FunctionDecl: {
 
 // Parameter node
 ParamNode: {
-    name: *i8,
+    name: RawPtr<i8>,
     type_: TypeNode,
     is_comptime: bool,
 }
@@ -111,13 +111,13 @@ StructDecl: {
     decl: DeclNode,
     fields: [FieldNode; 20],  // Fixed size array
     field_count: i32,
-    generics: [*i8; 10],  // Fixed size array
+    generics: [RawPtr<i8>; 10],  // Fixed size array
     generic_count: i32,
 }
 
 // Field node
 FieldNode: {
-    name: *i8,
+    name: RawPtr<i8>,
     type_: TypeNode,
     default_value: ExprNode,
 }
@@ -127,13 +127,13 @@ EnumDecl: {
     decl: DeclNode,
     variants: [VariantNode; 20],  // Fixed size array
     variant_count: i32,
-    generics: [*i8; 10],  // Fixed size array
+    generics: [RawPtr<i8>; 10],  // Fixed size array
     generic_count: i32,
 }
 
 // Variant node
 VariantNode: {
-    name: *i8,
+    name: RawPtr<i8>,
     fields: [FieldNode; 10],  // Fixed size array
     field_count: i32,
 }
@@ -142,7 +142,7 @@ VariantNode: {
 TypeNode: {
     base: AstNode,
     kind: TypeKind,
-    name: *i8,
+    name: RawPtr<i8>,
 }
 
 // Expression node
@@ -154,7 +154,7 @@ ExprNode: {
 // Literal expression
 LiteralExpr: {
     expr: ExprNode,
-    value: *i8,
+    value: RawPtr<i8>,
     literal_type: TypeNode,
 }
 
@@ -163,14 +163,14 @@ BinaryExpr: {
     expr: ExprNode,
     left: ExprNode,
     right: ExprNode,
-    operator: *i8,
+    operator: RawPtr<i8>,
 }
 
 // Unary operation
 UnaryExpr: {
     expr: ExprNode,
     operand: ExprNode,
-    operator: *i8,
+    operator: RawPtr<i8>,
 }
 
 // Function call
@@ -185,7 +185,7 @@ CallExpr: {
 FieldAccessExpr: {
     expr: ExprNode,
     object: ExprNode,
-    field: *i8,
+    field: RawPtr<i8>,
 }
 
 // If expression
@@ -250,13 +250,13 @@ Parser: {
 // Token (from lexer)
 Token: {
     type_: i32,  // TokenType
-    value: *i8,
+    value: RawPtr<i8>,
     line: i32,
     column: i32,
 }
 
 // Create a new parser
-parser_new: (tokens: [Token; 1000], count: i32) Parser  = {
+parser_new = (tokens: [Token; 1000], count: i32) Parser   {
     return Parser {
         tokens: tokens,
         current: 0,
@@ -265,15 +265,15 @@ parser_new: (tokens: [Token; 1000], count: i32) Parser  = {
 }
 
 // Check if at end of tokens
-is_at_end: (parser: Parser) bool  = {
+is_at_end = (parser: Parser) bool   {
     return parser.current >= parser.token_count
 }
 
 // Get current token
-current_token: (parser: Parser) Token  = {
+current_token = (parser: Parser) Token   {
     parser.current < parser.token_count ?
-        | true => return parser.tokens[parser.current]
-        | false => {
+        | true { return parser.tokens[parser.current] }
+        | false { { }
             // Return EOF token
             return Token {
                 type_: 0,  // EOF
@@ -285,18 +285,18 @@ current_token: (parser: Parser) Token  = {
 }
 
 // Advance to next token
-advance: (parser: *Parser) Token  = {
+advance = (parser: *Parser) Token   {
     current := current_token(*parser)
     parser.current = parser.current + 1
     return current
 }
 
 // Peek at next token
-peek: (parser: Parser) Token  = {
+peek = (parser: Parser) Token   {
     next_pos := parser.current + 1
     next_pos < parser.token_count ?
-        | true => return parser.tokens[next_pos]
-        | false => {
+        | true { return parser.tokens[next_pos] }
+        | false { { }
             return Token {
                 type_: 0,  // EOF
                 value: 0,
@@ -307,17 +307,17 @@ peek: (parser: Parser) Token  = {
 }
 
 // Check if current token matches type
-check: (parser: Parser, type_: i32) bool  = {
+check = (parser: Parser, type_: i32) bool   {
     is_at_end(parser) ?
-        | true => return false
-        | false => return current_token(parser).type_ == type_
+        | true { return false }
+        | false { return current_token(parser).type_ == type_ }
 }
 
 // Consume token of expected type
-consume: (parser: *Parser, type_: i32, message: *i8) Token  = {
+consume = (parser: *Parser, type_: i32, message: RawPtr<i8>) Token   {
     check(*parser, type_) ?
-        | true => return advance(parser)
-        | false => {
+        | true { return advance(parser) }
+        | false { { }
             // Error: expected token not found
             // In real implementation, would report error
             return current_token(*parser)
@@ -325,7 +325,7 @@ consume: (parser: *Parser, type_: i32, message: *i8) Token  = {
 }
 
 // Parse program (entry point)
-parse_program: (parser: *Parser) ProgramNode  = {
+parse_program = (parser: *Parser) ProgramNode   {
     program := ProgramNode {
         base: AstNode {
             type_: AstNodeType:Program,
@@ -341,8 +341,8 @@ parse_program: (parser: *Parser) ProgramNode  = {
     // Parse imports and declarations
     loop {
         is_at_end(*parser) ?
-            | true => break
-            | false => {
+            | true { break }
+            | false { { }
                 // Check for import
                 current := current_token(*parser)
                 
@@ -356,8 +356,8 @@ parse_program: (parser: *Parser) ProgramNode  = {
 }
 
 // Parse import statement
-parse_import: (parser: *Parser) ImportNode  = {
-    // alias := @std.module or alias := build.import("module")
+parse_import = (parser: *Parser) ImportNode   {
+    // { alias } = @std.module or alias := build.import("module")
     
     import := ImportNode {
         base: AstNode {
@@ -384,7 +384,7 @@ parse_import: (parser: *Parser) ImportNode  = {
 }
 
 // Parse function declaration
-parse_function: (parser: *Parser) FunctionDecl  = {
+parse_function = (parser: *Parser) FunctionDecl   {
     func := FunctionDecl {
         decl: DeclNode {
             base: AstNode {
@@ -416,13 +416,13 @@ parse_function: (parser: *Parser) FunctionDecl  = {
 }
 
 // Parse expression
-parse_expression: (parser: *Parser) ExprNode  = {
+parse_expression = (parser: *Parser) ExprNode   {
     // Start with primary expression
     return parse_primary(parser)
 }
 
 // Parse primary expression
-parse_primary: (parser: *Parser) ExprNode  = {
+parse_primary = (parser: *Parser) ExprNode   {
     current := current_token(*parser)
     
     // Check for literals
@@ -442,7 +442,7 @@ parse_primary: (parser: *Parser) ExprNode  = {
 }
 
 // Parse type
-parse_type: (parser: *Parser) TypeNode  = {
+parse_type = (parser: *Parser) TypeNode   {
     type_node := TypeNode {
         base: AstNode {
             type_: AstNodeType:Type,

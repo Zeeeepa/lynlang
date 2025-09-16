@@ -1,11 +1,11 @@
 // Zen Self-Hosting Driver
 // Uses the Zen standard library compiler to compile Zen code
 
-io := @std.io
-fs := @std.fs
-string := @std.string
-core := @std.core
-build := @std.build
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ core } = @std.core
+{ build } = @std.build
 
 // Import compiler components
 lexer := build.import("compiler/lexer")
@@ -23,7 +23,7 @@ CompileOptions: {
 }
 
 // Compile a Zen source file
-compile: (options: CompileOptions) Result<void, string>  = {
+compile = (options: CompileOptions) Result<void, string>   {
     if options.verbose {
         io.println("Zen Self-Hosted Compiler")
         io.printf("Input: {}\n", options.input_file)
@@ -75,7 +75,7 @@ compile: (options: CompileOptions) Result<void, string>  = {
 }
 
 // Parse command line arguments
-parse_args: (args: [string]) CompileOptions  = {
+parse_args = (args: [string]) CompileOptions   {
     options := CompileOptions {
         input_file: "",
         output_file: "output",
@@ -151,7 +151,7 @@ parse_args: (args: [string]) CompileOptions  = {
 }
 
 // Print help message
-print_help: () void  = {
+print_help = () void   {
     io.println("Usage: zen-self-host [options] <input.zen>")
     io.println("")
     io.println("Options:")
@@ -163,7 +163,7 @@ print_help: () void  = {
 }
 
 // Main entry point
-main: (args: [string]) i32  = {
+main = (args: [string]) i32   {
     options := parse_args(args)
     
     result := compile(options)

@@ -1,14 +1,14 @@
 // Test suite for self-hosted lexer
 // Tests the lexer implementation written in Zen
 
-core := @std.core
-io := @std.io
+{ core } = @std.core
+{ io } = @std.io
 
 // Import the lexer (when module system supports it)
 // For now, we'll test basic concepts
 
 // Test token types
-test_token_recognition: () void  = {
+test_token_recognition = () void   {
     io.print("Testing token recognition...\n")
     io.print("  Testing identifier: hello\n")
     io.print("  Testing integer: 123\n")
@@ -22,7 +22,7 @@ test_token_recognition: () void  = {
 }
 
 // Test operator recognition
-test_operators: () void  = {
+test_operators = () void   {
     io.print("Testing operator recognition...\n")
     io.print("  Operators: :=, :=, =, ==, !=, <=, >=, <, >\n")
     io.print("  Operators: +, -, *, /, %, &, |, ^, <<, >>\n")
@@ -30,7 +30,7 @@ test_operators: () void  = {
 }
 
 // Test keywords
-test_keywords: () void  = {
+test_keywords = () void   {
     io.print("Testing keyword recognition...\n")
     io.print("  Keywords: loop, break, continue, return\n")
     io.print("  Keywords: extern, export, import, comptime\n")
@@ -38,7 +38,7 @@ test_keywords: () void  = {
 }
 
 // Test string parsing
-test_string_parsing: () void  = {
+test_string_parsing = () void   {
     io.print("Testing string parsing...\n")
     io.print("  Simple string\n")
     io.print("  String with newline\n")
@@ -49,7 +49,7 @@ test_string_parsing: () void  = {
 }
 
 // Test number parsing
-test_number_parsing: () void  = {
+test_number_parsing = () void   {
     io.print("Testing number parsing...\n")
     io.print("  Integer: 0\n")
     io.print("  Integer: 42\n")
@@ -63,7 +63,7 @@ test_number_parsing: () void  = {
 }
 
 // Test comment handling
-test_comments: () void  = {
+test_comments = () void   {
     io.print("Testing comment handling...\n")
     
     // Single-line comments
@@ -77,7 +77,7 @@ test_comments: () void  = {
 }
 
 // Test error cases
-test_error_cases: () void  = {
+test_error_cases = () void   {
     io.print("Testing error cases...\n")
     io.print("  Unterminated string\n")
     io.print("  Invalid characters\n")
@@ -85,7 +85,7 @@ test_error_cases: () void  = {
 }
 
 // Test position tracking
-test_position_tracking: () void  = {
+test_position_tracking = () void   {
     io.print("Testing position tracking...\n")
     io.print("  Line numbers\n")
     io.print("  Column numbers\n")
@@ -94,7 +94,7 @@ test_position_tracking: () void  = {
 }
 
 // Main test runner
-main: () void  = {
+main = () void   {
     io.print("=== Self-Hosted Lexer Tests ===\n\n")
     
     // Run tests

@@ -1,9 +1,9 @@
 // HashMap - Simple hash map implementation in Zen
 // A key-value store using chaining for collision resolution
 
-core := @std.core
-mem := @std.mem
-hash := @std.hash
+{ core } = @std.core
+{ mem } = @std.mem
+{ hash } = @std.hash
 
 // HashMap entry (key-value pair)
 HashEntry: {
@@ -23,7 +23,7 @@ HashMap: {
 DEFAULT_CAPACITY := 16
 
 // Create a new empty hashmap
-new: () HashMap  = {
+new = () HashMap   {
     buckets := mem.alloc_array(*HashEntry, DEFAULT_CAPACITY)
     
     // Initialize all buckets to null
@@ -41,7 +41,7 @@ new: () HashMap  = {
 }
 
 // Hash function for strings (simple djb2)
-hash_string: (key: string) u32  = {
+hash_string = (key: string) u32   {
     hash_value := 5381u32
     i := 0
     
@@ -55,7 +55,7 @@ hash_string: (key: string) u32  = {
 }
 
 // Insert or update a key-value pair
-put: (map: *HashMap, key: string, value: i32) void  = {
+put = (map: *HashMap, key: string, value: i32) void   {
     index := hash_string(key) % map.capacity
     
     // Check if key already exists
@@ -84,7 +84,7 @@ put: (map: *HashMap, key: string, value: i32) void  = {
 }
 
 // Get value for a key
-get: (map: *HashMap, key: string) i32  = {
+get = (map: *HashMap, key: string) i32   {
     index := hash_string(key) % map.capacity
     current := map.buckets[index]
     
@@ -99,7 +99,7 @@ get: (map: *HashMap, key: string) i32  = {
 }
 
 // Check if key exists
-contains_key: (map: *HashMap, key: string) bool  = {
+contains_key = (map: *HashMap, key: string) bool   {
     index := hash_string(key) % map.capacity
     current := map.buckets[index]
     
@@ -114,14 +114,14 @@ contains_key: (map: *HashMap, key: string) bool  = {
 }
 
 // Remove a key-value pair
-remove: (map: *HashMap, key: string) bool  = {
+remove = (map: *HashMap, key: string) bool   {
     index := hash_string(key) % map.capacity
     current := map.buckets[index]
     prev := null as *HashEntry
     
     loop (current != null) {
         (current.key == key) ? {
-            (prev == null) ? {
+            (prev .== .None) ? {
                 map.buckets[index] = current.next
             } : {
                 prev.next = current.next
@@ -138,17 +138,17 @@ remove: (map: *HashMap, key: string) bool  = {
 }
 
 // Get the size of the hashmap
-len: (map: *HashMap) u32  = {
+len = (map: *HashMap) u32   {
     return map.size
 }
 
 // Check if hashmap is empty
-is_empty: (map: *HashMap) bool  = {
+is_empty = (map: *HashMap) bool   {
     return map.size == 0
 }
 
 // Clear all entries
-clear: (map: *HashMap) void  = {
+clear = (map: *HashMap) void   {
     i := 0
     loop (i < map.capacity) {
         current := map.buckets[i]
@@ -164,7 +164,7 @@ clear: (map: *HashMap) void  = {
 }
 
 // Resize the hashmap when load factor is too high
-resize: (map: *HashMap) void  = {
+resize = (map: *HashMap) void   {
     old_capacity := map.capacity
     old_buckets := map.buckets
     

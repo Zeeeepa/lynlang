@@ -8,7 +8,7 @@ Point: {
 // Another comment with type notation: Token: {...}
 // The above should not trigger an error
 
-main: () void = {
+main = () void  {
     // Test comment with symbol {
     x := 5;
 }

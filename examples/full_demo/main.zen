@@ -19,24 +19,31 @@ demonstrate_pattern_matching = () void {
     // Simple boolean pattern
     is_adult = (age: i32) bool {
         age >= 18 ?
-            | true { true }
-            | false { false }
+            | true { return true }
+            | false { return false }
     }
     
-    // Range patterns
+    // Range patterns - check explicitly in new spec
     categorize_age = (age: i32) string {
-        age ?
-            | (0..12) { "Child" }
-            | (13..19) { "Teenager" }
-            | (20..64) { "Adult" }
-            | _ { "Senior" }
+        age <= 12 ?
+            | true { return "Child" }
+            | false {
+                age <= 19 ?
+                    | true { return "Teenager" }
+                    | false {
+                        age <= 64 ?
+                            | true { return "Adult" }
+                            | false { return "Senior" }
+                    }
+            }
+        }
     }
     
     // Destructuring with Result types
     divide = (a: f64, b: f64) Result<f64, string> {
         b == 0.0 ?
-            | true { .Err("Division by zero") }
-            | false { .Ok(a / b) }
+            | true { return .Err("Division by zero") }
+            | false { return .Ok(a / b) }
     }
     
     result = divide(10.0, 2.0)
@@ -46,10 +53,14 @@ demonstrate_pattern_matching = () void {
     
     // Option pattern matching
     find_user = (id: u32) Option<string> {
-        id ?
-            | 1 { .Some("Alice") }
-            | 2 { .Some("Bob") }
-            | _ { .None }
+        id == 1 ?
+            | true { return .Some("Alice") }
+            | false {
+                id == 2 ?
+                    | true { return .Some("Bob") }
+                    | false { return .None }
+            }
+        }
     }
     
     user = find_user(1)
@@ -57,14 +68,24 @@ demonstrate_pattern_matching = () void {
         | .Some(name) { io.println("Found user: ${name}") }
         | .None { io.println("User not found") }
     
-    // Guards in patterns
+    // Guards in patterns - removed in new spec, use nested patterns
     classify_number = (n: i32) string {
-        n ?
-            | _ when n < 0 { "Negative" }
-            | _ when n == 0 { "Zero" }
-            | _ when n > 0 && n < 10 { "Single digit" }
-            | _ when n >= 10 && n < 100 { "Double digit" }
-            | _ { "Large number" }
+        n < 0 ?
+            | true { return "Negative" }
+            | false {
+                n == 0 ?
+                    | true { return "Zero" }
+                    | false {
+                        n < 10 ?
+                            | true { return "Single digit" }
+                            | false {
+                                n < 100 ?
+                                    | true { return "Double digit" }
+                                    | false { return "Large number" }
+                            }
+                    }
+            }
+        }
     }
     
     io.println("Number 42 is: ${classify_number(42)}")
@@ -82,7 +103,7 @@ demonstrate_memory_management = () void {
         ptr = Ptr<i32>.new(42)
         io.println("Allocated value: ${ptr.value}")
         io.println("Address: ${ptr.address}")
-        ptr
+        return ptr
     }
     
     // Reference counting
@@ -96,7 +117,7 @@ demonstrate_memory_management = () void {
             value: val,
             refs: Atomic<u32>.new(1)
         })
-        data
+        return data
     }
     
     SharedData.retain = (self) void {
@@ -143,16 +164,16 @@ Person: {
 }
 
 Person.format = (self) string {
-    "Person { name: ${self.name}, age: ${self.age} }"
+    return "Person { name: ${self.name}, age: ${self.age} }"
 }
 
 Person.compare = (self, other: Person) i32 {
     self.age < other.age ?
-        | true { -1 }
+        | true { return -1 }
         | false {
             self.age > other.age ?
-                | true { 1 }
-                | false { 0 }
+                | true { return 1 }
+                | false { return 0 }
         }
 }
 
@@ -166,11 +187,17 @@ demonstrate_behaviors = () void {
     io.println("${bob.format()}")
     
     comparison = alice.compare(bob)
-    comparison ?
-        | -1 { io.println("${alice.name} is younger than ${bob.name}") }
-        | 0 { io.println("${alice.name} and ${bob.name} are the same age") }
-        | 1 { io.println("${alice.name} is older than ${bob.name}") }
-        | _ { }
+    comparison == -1 ?
+        | true { io.println("${alice.name} is younger than ${bob.name}") }
+        | false {
+            comparison == 0 ?
+                | true { io.println("${alice.name} and ${bob.name} are the same age") }
+                | false {
+                    comparison == 1 ?
+                        | true { io.println("${alice.name} is older than ${bob.name}") }
+                        | false { }
+                }
+        }
 }
 
 // ==========================================
@@ -233,7 +260,7 @@ demonstrate_concurrency = () void {
         @this.defer(connection.close())
         
         data = connection.read_all(alloc).raise()
-        .Ok(data)
+        return .Ok(data)
     }
     
     // Channel communication
@@ -282,9 +309,9 @@ demonstrate_concurrency = () void {
 // ==========================================
 
 // Free functions that can be called as methods
-square = (x: i32) i32 { x * x }
-double = (x: i32) i32 { x * 2 }
-is_even = (x: i32) bool { x % 2 == 0 }
+square = (x: i32) i32 { return x * x }
+double = (x: i32) i32 { return x * 2 }
+is_even = (x: i32) bool { return x % 2 == 0 }
 
 demonstrate_ufcs = () void {
     io.println("\n=== UFCS Demo ===\n")
@@ -323,7 +350,7 @@ demonstrate_error_handling = () void {
         @this.defer(file.close())
         
         content = file.read_all().raise()
-        .Ok(content)
+        return .Ok(content)
     }
     
     // Chain operations with ?
@@ -342,7 +369,7 @@ demonstrate_error_handling = () void {
                 | false { }
         })
         
-        .Ok(void)
+        return .Ok(void)
     }
     
     result = process_config("config.ini")
@@ -372,7 +399,7 @@ demonstrate_string_interpolation = () void {
     
     // Nested interpolation
     format_user = (name: string, id: u32) string {
-        "User[id=${id}, name=\"${name}\"]"
+        return "User[id=${id}, name=\"${name}\"]"
     }
     
     user_info = format_user("Alice", 42)
@@ -425,9 +452,9 @@ demonstrate_loops = () void {
     // Iterator chaining
     numbers = vec![1, 2, 3, 4, 5]
     sum = numbers
-        .filter((n) bool { n % 2 == 0 })
-        .map((n) i32 { n * n })
-        .reduce(0, (acc, n) i32 { acc + n })
+        .filter((n) bool { return n % 2 == 0 })
+        .map((n) i32 { return n * n })
+        .reduce(0, (acc, n) i32 { return acc + n })
     
     io.println("Sum of squares of even numbers: ${sum}")
 }

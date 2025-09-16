@@ -1,27 +1,27 @@
 // Comprehensive tests for Zen stdlib core module
 
-core := @std.core
-test := @std.test
-io := @std.io
-assert := @std.assert
+{ core } = @std.core
+{ test } = @std.test
+{ io } = @std.io
+{ assert } = @std.assert
 
 // Test Option type
-test_option: () void  = {
+test_option = () void   {
     suite := test.suite_new("Option Tests")
     
     test.suite_add_test(&suite, "Option.Some construction", () void {
         opt := Option<i32>.Some(42)
         match opt {
-            | Some(value) => assert.equal(value, 42)
-            | None => assert.fail("Expected Some, got None")
+            | Some(value) { assert.equal(value, 42) }
+            | None { assert.fail("Expected Some, got None") }
         }
     })
     
     test.suite_add_test(&suite, "Option.None construction", () void {
         opt := Option<i32>.None
         match opt {
-            | Some(_) => assert.fail("Expected None, got Some")
-            | None => assert.ok(true)
+            | Some(_) { assert.fail("Expected None, got Some") }
+            | None { assert.ok(true) }
         }
     })
     
@@ -29,8 +29,8 @@ test_option: () void  = {
         opt := Option<i32>.Some(10)
         mapped := opt.map((x) i32 { x * 2 })
         match mapped {
-            | Some(value) => assert.equal(value, 20)
-            | None => assert.fail("map failed")
+            | Some(value) { assert.equal(value, 20) }
+            | None { assert.fail("map failed") }
         }
     })
     
@@ -56,22 +56,22 @@ test_option: () void  = {
 }
 
 // Test Result type
-test_result: () void  = {
+test_result = () void   {
     suite := test.suite_new("Result Tests")
     
     test.suite_add_test(&suite, "Result.Ok construction", () void {
         res := Result<i32, string>.Ok(42)
         match res {
-            | Ok(value) => assert.equal(value, 42)
-            | Err(_) => assert.fail("Expected Ok, got Err")
+            | Ok(value) { assert.equal(value, 42) }
+            | Err(_) { assert.fail("Expected Ok, got Err") }
         }
     })
     
     test.suite_add_test(&suite, "Result.Err construction", () void {
         res := Result<i32, string>.Err("error message")
         match res {
-            | Ok(_) => assert.fail("Expected Err, got Ok")
-            | Err(msg) => assert.equal(msg, "error message")
+            | Ok(_) { assert.fail("Expected Err, got Ok") }
+            | Err(msg) { assert.equal(msg, "error message") }
         }
     })
     
@@ -79,8 +79,8 @@ test_result: () void  = {
         ok_res := Result<i32, string>.Ok(10)
         mapped := ok_res.map((x) i32 { x * 2 })
         match mapped {
-            | Ok(value) => assert.equal(value, 20)
-            | Err(_) => assert.fail("map failed")
+            | Ok(value) { assert.equal(value, 20) }
+            | Err(_) { assert.fail("map failed") }
         }
     })
     
@@ -88,8 +88,8 @@ test_result: () void  = {
         err_res := Result<i32, string>.Err("error")
         mapped := err_res.map_err((s) string { s + "!" })
         match mapped {
-            | Ok(_) => assert.fail("Expected Err")
-            | Err(msg) => assert.equal(msg, "error!")
+            | Ok(_) { assert.fail("Expected Err") }
+            | Err(msg) { assert.equal(msg, "error!") }
         }
     })
     
@@ -115,7 +115,7 @@ test_result: () void  = {
 }
 
 // Test numeric operations
-test_numeric: () void  = {
+test_numeric = () void   {
     suite := test.suite_new("Numeric Tests")
     
     test.suite_add_test(&suite, "Integer arithmetic", () void {
@@ -157,7 +157,7 @@ test_numeric: () void  = {
 }
 
 // Test type utilities
-test_type_utilities: () void  = {
+test_type_utilities = () void   {
     suite := test.suite_new("Type Utility Tests")
     
     test.suite_add_test(&suite, "sizeof", () void {
@@ -190,7 +190,7 @@ test_type_utilities: () void  = {
 }
 
 // Test panic recovery
-test_panic_recovery: () void  = {
+test_panic_recovery = () void   {
     suite := test.suite_new("Panic Recovery Tests")
     
     test.suite_add_panic_test(&suite, "Panic on unwrap None", () void {
@@ -211,7 +211,7 @@ test_panic_recovery: () void  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Running Core Module Tests ===\n")
     
     test_option()

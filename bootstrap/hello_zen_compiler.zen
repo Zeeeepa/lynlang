@@ -1,10 +1,10 @@
 // Minimal Zen Self-Hosting Test
 // Shows that Zen can compile Zen programs
 
-io := @std.io
+{ io } = @std.io
 
 // Entry point
-main: () i32  = {
+main = () i32   {
     io.print("🚀 Zen Self-Hosting Compiler\n");
     io.print("============================\n\n");
     

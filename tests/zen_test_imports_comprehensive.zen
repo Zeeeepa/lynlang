@@ -2,19 +2,19 @@
 // This file tests that imports work at the top level without comptime blocks
 
 // Standard library imports - direct style
-core := @std.core
-vec := @std.vec
-hashmap := @std.hashmap
-io := @std.io
-math := @std.math
-string := @std.string
+{ core } = @std.core
+{ vec } = @std.vec
+{ hashmap } = @std.hashmap
+{ io } = @std.io
+{ math } = @std.math
+{ string } = @std.string
 
 // Build system imports
-fs := @std.fs
-net := @std.net
+{ fs } = @std.fs
+{ net } = @std.net
 
 // Test that we can use imported modules
-main: () i32  = {
+main = () i32   {
     // Test io module
     io.print("Testing new import syntax\n");
     
@@ -33,7 +33,7 @@ main: () i32  = {
 }
 
 // Test that imports can be used in function definitions
-test_imports_in_functions: () void  = {
+test_imports_in_functions = () void   {
     io.print("Imports accessible in functions\n");
 }
 
@@ -43,7 +43,7 @@ TestStruct: {
 }
 
 // Verify that comptime blocks still work for meta-programming
-comptime {
+@comptime {
     // This should still work for actual compile-time evaluation
     // but is not required for imports
     const_value := 42
