@@ -1,14 +1,28 @@
-// Test mutable assignment from LANGUAGE_SPEC.zen
+// Test mutable variables
 { io } = @std
 
 main = () void {
-    // Test mutable variable with ::=
-    counter ::= 0
-    io.print_int(counter)
-    io.println("")
+    // Immutable variable
+    x = 10
+    io.println("Initial x:")
+    io.println(x)
     
-    // Try to modify it
-    counter = 1
-    io.print_int(counter)
-    io.println("")
+    // Mutable variable with ::=
+    y ::= 20
+    io.println("Initial y (mutable):")
+    io.println(y)
+    
+    // Modify mutable variable
+    y = y + 5
+    io.println("After y = y + 5:")
+    io.println(y)
+    
+    // Mutable with type declaration
+    z :: i32 = 30
+    io.println("Initial z (mutable with type):")
+    io.println(z)
+    
+    z = z * 2
+    io.println("After z = z * 2:")
+    io.println(z)
 }

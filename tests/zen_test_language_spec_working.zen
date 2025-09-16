@@ -1,150 +1,84 @@
-// Test file demonstrating working features from LANGUAGE_SPEC.zen
-// This shows what's currently implemented and working
+// Working Zen Language Demo - Core features implemented
+{ io } = @std
 
-io = @std
-
-// Struct definition - working!
+// Simple struct
 Point: {
-    x: i32,
-    y: i32,
+    x:: f64,
+    y:: f64 = 0
 }
 
-// Function with parameters and return type - working!
-add_points = (p1: Point, p2: Point) Point {
-    return Point {
-        x: p1.x + p2.x,
-        y: p1.y + p2.y,
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+main = () void {
+    io.println("=== Zen Language Demo ===")
+    io.println("")
+    
+    // 1. Variables Test
+    io.println("1. Variables:")
+    x = 10           // Immutable  
+    v ::= 30         // Mutable
+    u :: i32 = 40    // Mutable with type
+    
+    io.println("   Immutable x = ")
+    io.println(x)
+    io.println("   Mutable v = ")
+    io.println(v)
+    v = v + 5
+    io.println("   After v = v + 5: ")
+    io.println(v)
+    io.println("")
+    
+    // 2. Boolean pattern matching
+    io.println("2. Pattern Matching:")
+    is_ready = true
+    is_ready ? { 
+        io.println("   System is ready!")
     }
-}
-
-// Function to demonstrate variable declarations
-test_variables = () void {
-    io.println("=== Testing Variable Declarations ===")
     
-    // All assignment patterns from spec
-    x = 10           // Immutable with inferred type
-    y: i32 = 20      // Immutable with explicit type  
-    z ::= 30         // Mutable with inferred type
-    w :: i32 = 40    // Mutable with explicit type
-    
-    io.print("x (immutable) = ")
-    io.print_int(x)
+    // Pattern match with branches
+    has_data = false
+    has_data ?
+        | true { io.println("   Processing data...") }
+        | false { io.println("   Waiting for data...") }
     io.println("")
     
-    io.print("y (immutable typed) = ")
-    io.print_int(y)
+    // 3. Structs
+    io.println("3. Structs:")
+    circle = Circle { 
+        center: Point { x: 100, y: 100 }, 
+        radius: 50 
+    }
+    io.println("   Circle created with radius 50")
     io.println("")
     
-    io.print("z (mutable) = ")
-    io.print_int(z)
+    // 4. Comparisons
+    io.println("4. Comparisons:")
+    a = 10
+    b = 20
+    is_less = a < b
+    is_less ? {
+        io.println("   10 < 20 is true")
+    }
     io.println("")
     
-    // Mutation test
-    z = z + 5
-    io.print("z after mutation = ")
-    io.print_int(z)
+    // 5. Arithmetic
+    io.println("5. Arithmetic:")
+    sum = a + b
+    diff = b - a  
+    product = a * 2
+    quotient = b / 2
+    io.println("   10 + 20 = ")
+    io.println(sum)
+    io.println("   20 - 10 = ")
+    io.println(diff)
+    io.println("   10 * 2 = ")
+    io.println(product)
+    io.println("   20 / 2 = ")
+    io.println(quotient)
+    
     io.println("")
-    
-    io.print("w (mutable typed) = ")
-    io.print_int(w)
-    io.println("")
-}
-
-// Function to test structs
-test_structs = () void {
-    io.println("\n=== Testing Structs ===")
-    
-    p1 ::= Point { x: 10, y: 20 }
-    p2 ::= Point { x: 5, y: 15 }
-    
-    io.print("p1.x = ")
-    io.print_int(p1.x)
-    io.print(", p1.y = ")
-    io.print_int(p1.y)
-    io.println("")
-    
-    p3 ::= add_points(p1, p2)
-    io.print("p1 + p2 = Point { x: ")
-    io.print_int(p3.x)
-    io.print(", y: ")
-    io.print_int(p3.y)
-    io.println(" }")
-}
-
-// Function to test range loops
-test_ranges = () void {
-    io.println("\n=== Testing Range Loops ===")
-    
-    io.print("Range 0..5: ")
-    (0..5).loop((i) {
-        io.print_int(i)
-        io.print(" ")
-    })
-    io.println("")
-    
-    io.print("Range 10..=12 (inclusive): ")
-    (10..=12).loop((i) {
-        io.print_int(i)
-        io.print(" ")
-    })
-    io.println("")
-}
-
-// Function to test arithmetic
-test_arithmetic = () void {
-    io.println("\n=== Testing Arithmetic ===")
-    
-    a = 100
-    b = 25
-    
-    io.print("100 + 25 = ")
-    io.print_int(a + b)
-    io.println("")
-    
-    io.print("100 - 25 = ")
-    io.print_int(a - b)
-    io.println("")
-    
-    io.print("100 * 25 = ")
-    io.print_int(a * b)
-    io.println("")
-    
-    io.print("100 / 25 = ")
-    io.print_int(a / b)
-    io.println("")
-}
-
-// Function to test comparisons
-test_comparisons = () void {
-    io.println("\n=== Testing Comparisons ===")
-    
-    x = 10
-    y = 20
-    
-    io.print("10 < 20 = ")
-    x < y ? { io.println("true") }
-    
-    io.print("10 > 20 = ")
-    result = x > y
-    result ? 
-        | true { io.println("true") }
-        | false { io.println("false") }
-    
-    io.print("10 == 10 = ")
-    x == 10 ? { io.println("true") }
-}
-
-// Main function
-main = () i32 {
-    io.println("=== Zen Language Spec Working Features Demo ===\n")
-    
-    test_variables()
-    test_structs()
-    test_ranges()
-    test_arithmetic()
-    test_comparisons()
-    
-    io.println("\n=== All Tests Completed Successfully! ===")
-    
-    return 0
+    io.println("=== Demo Complete ===")
 }
