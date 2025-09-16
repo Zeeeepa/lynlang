@@ -283,16 +283,127 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.bool_type().const_int(1, false)
             }
             
-            Pattern::EnumLiteral { variant: _, payload } => {
+            Pattern::EnumLiteral { variant, payload } => {
                 // EnumLiteral patterns are like .Some(x) or .None
-                // For now, treat them similarly to EnumVariant patterns but without enum name
-                // TODO: Implement proper enum literal matching
-                if let Some(payload_pattern) = payload {
-                    let (_payload_match, mut payload_bindings) = self.compile_pattern_test(scrutinee_val, payload_pattern)?;
-                    bindings.append(&mut payload_bindings);
+                // We need to infer the enum type from the scrutinee
+                
+                // Try to extract enum info from scrutinee type
+                // For now, we'll try to match against any enum that has this variant
+                // In a more complete implementation, we'd use type information
+                
+                
+                // Check if scrutinee is an enum value
+                if scrutinee_val.is_struct_value() || scrutinee_val.is_pointer_value() {
+                    // Extract the discriminant
+                    let discriminant = if scrutinee_val.is_pointer_value() {
+                        // Assume it's a pointer to an enum struct
+                        let discriminant_gep = self.builder.build_struct_gep(
+                            self.context.struct_type(&[
+                                self.context.i64_type().into(),
+                                self.context.i64_type().into(),
+                            ], false),
+                            scrutinee_val.into_pointer_value(),
+                            0,
+                            "discriminant_ptr"
+                        )?;
+                        self.builder.build_load(
+                            self.context.i64_type(),
+                            discriminant_gep,
+                            "discriminant"
+                        )?
+                    } else if scrutinee_val.is_struct_value() {
+                        // Extract discriminant from struct value
+                        let struct_val = scrutinee_val.into_struct_value();
+                        self.builder.build_extract_value(struct_val, 0, "discriminant")?
+                    } else {
+                        return Err(CompileError::TypeMismatch {
+                            expected: "enum value for enum literal pattern".to_string(),
+                            found: format!("{:?}", scrutinee_val.get_type()),
+                            span: None,
+                        });
+                    };
+                    
+                    // Search through all known enum types to find one with this variant
+                    // This is a temporary solution - ideally we'd have type information
+                    let mut variant_tag = None;
+                    let mut enum_info = None;
+                    
+                    for (name, symbol) in self.symbols.iter() {
+                        if let symbols::Symbol::EnumType(info) = symbol {
+                            if let Some(tag) = info.variant_indices.get(variant) {
+                                variant_tag = Some(*tag);
+                                enum_info = Some(info.clone());
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if let Some(tag) = variant_tag {
+                        // Compare discriminant with expected value
+                        let expected_tag_val = self.context.i64_type().const_int(tag, false);
+                        let matches = self.builder.build_int_compare(
+                            inkwell::IntPredicate::EQ,
+                            discriminant.into_int_value(),
+                            expected_tag_val,
+                            "enum_literal_match"
+                        )?;
+                        
+                        // Handle payload pattern if present
+                        if let Some(payload_pattern) = payload {
+                            // Extract the payload value
+                            let payload_val = if scrutinee_val.is_pointer_value() {
+                                let payload_gep = self.builder.build_struct_gep(
+                                    self.context.struct_type(&[
+                                        self.context.i64_type().into(),
+                                        self.context.i64_type().into(),
+                                    ], false),
+                                    scrutinee_val.into_pointer_value(),
+                                    1,
+                                    "payload_ptr"
+                                )?;
+                                self.builder.build_load(
+                                    self.context.i64_type(),
+                                    payload_gep,
+                                    "payload"
+                                )?
+                            } else if scrutinee_val.is_struct_value() {
+                                let struct_val = scrutinee_val.into_struct_value();
+                                self.builder.build_extract_value(struct_val, 1, "payload")?
+                            } else {
+                                self.context.i64_type().const_int(0, false).into()
+                            };
+                            
+                            // Recursively match the payload pattern
+                            let (payload_match, mut payload_bindings) = self.compile_pattern_test(
+                                &payload_val,
+                                payload_pattern
+                            )?;
+                            
+                            // Combine the discriminant match with payload match
+                            let combined_match = self.builder.build_and(
+                                matches,
+                                payload_match,
+                                "enum_literal_full_match"
+                            )?;
+                            
+                            bindings.append(&mut payload_bindings);
+                            combined_match
+                        } else {
+                            matches
+                        }
+                    } else {
+                        return Err(CompileError::UndeclaredVariable(
+                            format!("Unknown enum variant '{}'", variant),
+                            None
+                        ));
+                    }
+                } else {
+                    return Err(CompileError::TypeMismatch {
+                        expected: "enum value for enum literal pattern".to_string(),
+                        found: format!("{:?}", scrutinee_val.get_type()),
+                        span: None,
+                    });
                 }
-                // For now, just return true
-                self.context.bool_type().const_int(1, false)
             }
             
             Pattern::Guard { pattern, condition } => {

@@ -1,0 +1,51 @@
+// Test for more LANGUAGE_SPEC.zen features
+// This tests what's currently working
+
+{ io } = @std
+
+// 1. Enum types
+GameEntity: .Player | .Enemy | .Powerup
+
+// 2. Boolean pattern matching  
+main = () void {
+    // Test enum variants
+    entity1 = GameEntity.Player
+    entity2 = GameEntity.Enemy
+    entity3 = GameEntity.Powerup
+    
+    // Test enum pattern matching
+    entity1 ?
+        | .Player { io.println("Entity 1 is Player") }
+        | .Enemy { io.println("Entity 1 is Enemy") }
+        | .Powerup { io.println("Entity 1 is Powerup") }
+    
+    entity2 ?
+        | .Player { io.println("Entity 2 is Player") }
+        | .Enemy { io.println("Entity 2 is Enemy") }
+        | .Powerup { io.println("Entity 2 is Powerup") }
+        
+    // Test boolean pattern matching
+    is_ready = true
+    is_ready ?
+        | true { io.println("System is ready") }
+        | false { io.println("System not ready") }
+        
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // Test ranges
+    (0..3).loop((i) {
+        io.print("Loop iteration: ")
+        io.print_int(i)
+        io.println("")
+    })
+    
+    // Test string interpolation
+    name = "Zen"
+    message = "Hello from ${name} language!"
+    io.println(message)
+    
+    io.println("All tests completed!")
+}

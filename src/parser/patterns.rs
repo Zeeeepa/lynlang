@@ -65,8 +65,8 @@ impl<'a> Parser<'a> {
                     None
                 };
                 
-                return Ok(Pattern::EnumVariant {
-                    enum_name: String::new(), // Will be inferred from context
+                // Use EnumLiteral for shorthand syntax (no enum name)
+                return Ok(Pattern::EnumLiteral {
                     variant: variant_name,
                     payload,
                 });

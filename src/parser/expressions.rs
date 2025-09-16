@@ -404,10 +404,31 @@ impl<'a> Parser<'a> {
                                 self.next_token(); // consume ')'
                                 expr = Expression::Raise(Box::new(expr));
                             } else {
-                                expr = Expression::MemberAccess {
-                                    object: Box::new(expr),
-                                    member,
-                                };
+                                // Check if this could be an enum variant constructor (EnumName.Variant)
+                                // First letter capitalized usually indicates a type/variant name
+                                if member.chars().next().map_or(false, |c| c.is_uppercase()) {
+                                    // Check if the base is an identifier (potential enum name)
+                                    if let Expression::Identifier(enum_name) = &expr {
+                                        // This looks like an enum variant constructor
+                                        expr = Expression::EnumVariant {
+                                            enum_name: enum_name.clone(),
+                                            variant: member,
+                                            payload: None,
+                                        };
+                                    } else {
+                                        // Regular member access
+                                        expr = Expression::MemberAccess {
+                                            object: Box::new(expr),
+                                            member,
+                                        };
+                                    }
+                                } else {
+                                    // Regular member access
+                                    expr = Expression::MemberAccess {
+                                        object: Box::new(expr),
+                                        member,
+                                    };
+                                }
                             }
                         }
                         Token::Symbol('[') => {

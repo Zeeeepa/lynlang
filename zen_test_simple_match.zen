@@ -1,0 +1,12 @@
+// Simple pattern matching test
+{ io } = @std
+
+main = () void {
+    // Test boolean pattern matching first
+    flag = true
+    flag ? {
+        io.println("True!")
+    }
+    
+    io.println("Done")
+}
