@@ -5,7 +5,7 @@
 
 // Enum definitions
 MyOption: Some | None
-Status: .Success | Error | .Pending
+Status: .Success | Error | Pending
 
 main = () void {
     // ========== Basic Types ==========

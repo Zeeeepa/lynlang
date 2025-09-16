@@ -85,6 +85,49 @@ impl<'a> Parser<'a> {
                     return Ok(Pattern::Literal(Expression::Boolean(name == "true")));
                 }
                 
+                // Check if it's an enum variant without prefix (Some, None, Ok, Err)
+                // followed by payload in parentheses
+                if self.current_token == Token::Symbol('(') {
+                    self.next_token();
+                    
+                    // Check if it's empty parentheses (unit variant)
+                    if self.current_token == Token::Symbol(')') {
+                        self.next_token();
+                        return Ok(Pattern::EnumLiteral {
+                            variant: name,
+                            payload: None,
+                        });
+                    }
+                    
+                    // Parse the payload pattern
+                    let payload_pattern = self.parse_pattern()?;
+                    
+                    if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ')' after enum variant payload".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token();
+                    
+                    return Ok(Pattern::EnumLiteral {
+                        variant: name,
+                        payload: Some(Box::new(payload_pattern)),
+                    });
+                }
+                
+                // Check if we're parsing an enum variant without payload (like None, Some, Ok, Err)
+                // Common enum variant names should be treated as enum literals
+                let is_common_enum_variant = matches!(name.as_str(), "Some" | "None" | "Ok" | "Err");
+                
+                if is_common_enum_variant && self.current_token != Token::Symbol('(') {
+                    // It's an enum variant without payload
+                    return Ok(Pattern::EnumLiteral {
+                        variant: name,
+                        payload: None,
+                    });
+                }
+                
                 // Check if it's a struct pattern: StructName { field: pattern, ... }
                 if self.current_token == Token::Symbol('{') {
                     self.next_token();

@@ -8,13 +8,13 @@
 
 // Token types for the lexer
 TokenType:
-    .Identifier |
-    .Number |
-    .String |
-    .Keyword |
-    .Operator |
-    .Symbol |
-    .Eof
+    .Identifier,
+    Number,
+    String,
+    Keyword,
+    Operator,
+    Symbol,
+    Eof
 
 // Token structure
 Token: {
@@ -223,16 +223,16 @@ is_keyword = (s: string) bool   {
 
 // AST Node types
 AstNode:
-    .Program { declarations: DynVec<AstNode> } |
-    .Function { name: string, params: DynVec<(string, string)>, return_type: string, body: DynVec<AstNode> } |
-    .Variable { name: string, type: string, value: AstNode } |
-    .IntLiteral { value: i64 } |
-    .StringLiteral { value: string } |
-    .Identifier { name: string } |
-    .BinaryOp { op: string, left: AstNode, right: AstNode } |
-    .FunctionCall { name: string, args: DynVec<AstNode> } |
-    .Return { value: AstNode } |
-    .PatternMatch { condition: AstNode, then_body: DynVec<AstNode>, else_body: DynVec<AstNode> }
+    .Program { declarations: DynVec<AstNode> },
+    Function { name: string, params: DynVec<(string, string)>, return_type: string, body: DynVec<AstNode> },
+    Variable { name: string, type: string, value: AstNode },
+    IntLiteral { value: i64 },
+    StringLiteral { value: string },
+    Identifier { name: string },
+    BinaryOp { op: string, left: AstNode, right: AstNode },
+    FunctionCall { name: string, args: DynVec<AstNode> },
+    Return { value: AstNode },
+    PatternMatch { condition: AstNode, then_body: DynVec<AstNode>, else_body: DynVec<AstNode> }
 
 // Parser state
 Parser: {
@@ -465,7 +465,7 @@ parser_parse_primary = (p: *Parser) AstNode   {
 // Code generator - generates simple C code
 codegen_generate = (ast: AstNode) string   {
     ast ?
-        | .Program { declarations } {
+        | Program { declarations } {
             output := "#include <stdio.h>\n\n"
             
             i := 0
@@ -476,7 +476,7 @@ codegen_generate = (ast: AstNode) string   {
             
             return output
         }
-        | .Function { name, params, return_type, body } {
+        | Function { name, params, return_type, body } {
             output := return_type + " " + name + "("
             
             i := 0
@@ -500,19 +500,19 @@ codegen_generate = (ast: AstNode) string   {
             output = output + "}\n"
             return output
         }
-        | .Return { value } {
+        | Return { value } {
             return "return " + codegen_generate(value)
         }
-        | .IntLiteral { value } {
+        | IntLiteral { value } {
             return string.from_int(value)
         }
-        | .StringLiteral { value } {
+        | StringLiteral { value } {
             return "\"" + value + "\""
         }
-        | .Identifier { name } {
+        | Identifier { name } {
             return name
         }
-        | .FunctionCall { name, args } {
+        | FunctionCall { name, args } {
             output := name + "("
             
             i := 0
@@ -527,7 +527,7 @@ codegen_generate = (ast: AstNode) string   {
             output = output + ")"
             return output
         }
-        | .BinaryOp { op, left, right } {
+        | BinaryOp { op, left, right } {
             return codegen_generate(left) + " " + op + " " + codegen_generate(right)
         }
         | _ {

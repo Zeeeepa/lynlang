@@ -127,10 +127,10 @@ Message: Text(content: string)
 test("nested pattern matching") {
     msg := Message:Image({ url: "pic.jpg", width: 800, height: 600 })
     
-    info := msg ? | .Text -> content { "Text: $(content)" }
-                  | .Image -> img { "Image: $(img.url) ($(img.width)x$(img.height))" }
-                  | .Video -> url { "Video: $(url)" }
-                  | .Empty { "No content" }
+    info := msg ? | Text -> content { "Text: $(content)" }
+                  | Image -> img { "Image: $(img.url) ($(img.width)x$(img.height))" }
+                  | Video -> url { "Video: $(url)" }
+                  | Empty { "No content" }
     
     assert_eq(info, "Image: pic.jpg (800x600)")
 }
@@ -161,13 +161,13 @@ test("exhaustive pattern matching") {
     status := Status:Pending
     
     // All cases covered
-    result := status ? | .Active { "Running" }
-                       | .Inactive { "Stopped" }
-                       | .Pending { "Waiting" }
+    result := status ? | Active { "Running" }
+                       | Inactive { "Stopped" }
+                       | Pending { "Waiting" }
     assert_eq(result, "Waiting")
     
     // With default case
-    result2 := status ? | .Active { "Running" }
+    result2 := status ? | Active { "Running" }
                         | _ { "Not active" }
     assert_eq(result2, "Not active")
 }

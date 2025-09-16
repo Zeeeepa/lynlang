@@ -17,9 +17,9 @@ Shape:
 // Function calculating area using pattern matching
 calculate_area = (shape: Shape) f64  {
     // No if/else - only pattern matching with ?
-    area := shape ? | .Circle(r) { 3.14159 * r * r }
-                   | .Rectangle(w, h) { w * h }
-                   | .Triangle(b, h) { 0.5 * b * h }
+    area := shape ? | Circle(r) { 3.14159 * r * r }
+                   | Rectangle(w, h) { w * h }
+                   | Triangle(b, h) { 0.5 * b * h }
     return area
 }
 
@@ -45,9 +45,9 @@ main = () void  {
         total_area = total_area + area
         
         // Pattern match for description
-        desc := shape ? | .Circle(r) { "Circle with radius $(r)" }
-                       | .Rectangle(w, h) { "Rectangle $(w)x$(h)" }
-                       | .Triangle(b, h) { "Triangle base=$(b) height=$(h)" }
+        desc := shape ? | Circle(r) { "Circle with radius $(r)" }
+                       | Rectangle(w, h) { "Rectangle $(w)x$(h)" }
+                       | Triangle(b, h) { "Triangle base=$(b) height=$(h)" }
         
         io.print("$(desc): area = $(area)\n")
     })

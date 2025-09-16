@@ -121,9 +121,9 @@ test("enum_basic") {
     
     s := Status:Active
     result := s ?
-        | .Active { "running" }
-        | .Inactive { "stopped" }
-        | .Pending { "waiting" }
+        | Active { "running" }
+        | Inactive { "stopped" }
+        | Pending { "waiting" }
     assert_eq(result, "running")
 }
 

@@ -3,7 +3,7 @@
 { io } = @std
 
 // Simple enum
-Status: .Ready | .Working | .Done
+Status: .Ready | Working | Done
 
 main = () void {
     io.println("Enum defined successfully")

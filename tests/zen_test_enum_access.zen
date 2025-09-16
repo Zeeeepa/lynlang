@@ -3,7 +3,7 @@
 { io } = @std
 
 // Simple enum
-Status: .Ready | .Working | .Done
+Status: .Ready | Working | Done
 
 main = () void {
     // Try accessing the enum variant
@@ -13,7 +13,7 @@ main = () void {
     
     // Pattern match on the variant
     status ?
-        | .Ready { io.println("Status is Ready") }
-        | .Working { io.println("Status is Working") }
-        | .Done { io.println("Status is Done") }
+        | Ready { io.println("Status is Ready") }
+        | Working { io.println("Status is Working") }
+        | Done { io.println("Status is Done") }
 }

@@ -4,7 +4,7 @@
 { io, GPA } = @std
 
 // Test entities for method testing
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // Define UFC overloads for GameEntity variants (from spec)
 get_health = (e: GameEntity.Player) u32 { return 100 }
@@ -92,11 +92,11 @@ test_loop_method_entities = () void {
     // Loop over mixed types with pattern matching
     // entities.loop((entity) {
     //     entity ?
-    //         | .Player { 
+    //         | Player { 
     //             io.println("Player health: ${entity.get_health()}")
     //             io.println("Player speed: ${entity.get_speed()}")
     //         }
-    //         | .Enemy { 
+    //         | Enemy { 
     //             io.println("Enemy health: ${entity.get_health()}")
     //             io.println("Enemy speed: ${entity.get_speed()}")
     //         }

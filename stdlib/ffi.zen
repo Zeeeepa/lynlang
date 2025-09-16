@@ -208,27 +208,27 @@ Library: {
 // Platform-specific library loading
 load_library = (path: string) Result<RawPtr<void>, string>   {
     @std.target.os ?
-        | .linux { load_library_linux(path) }
-        | .windows { load_library_windows(path) }
-        | .macos { load_library_macos(path) }
+        | linux { load_library_linux(path) }
+        | windows { load_library_windows(path) }
+        | macos { load_library_macos(path) }
         | _ { Err("Unsupported platform") }
 }
 
 // Platform-specific library unloading
 unload_library = (handle: RawPtr<void>) Result<void, string>   {
     @std.target.os ?
-        | .linux { unload_library_linux(handle) }
-        | .windows { unload_library_windows(handle) }
-        | .macos { unload_library_macos(handle) }
+        | linux { unload_library_linux(handle) }
+        | windows { unload_library_windows(handle) }
+        | macos { unload_library_macos(handle) }
         | _ { Err("Unsupported platform") }
 }
 
 // Platform-specific symbol lookup
 get_symbol = (handle: RawPtr<void>, name: string) Result<RawPtr<void>, string>   {
     @std.target.os ?
-        | .linux { get_symbol_linux(handle, name) }
-        | .windows { get_symbol_windows(handle, name)   }
-        | .macos { get_symbol_macos(handle, name) }
+        | linux { get_symbol_linux(handle, name) }
+        | windows { get_symbol_windows(handle, name)   }
+        | macos { get_symbol_macos(handle, name) }
         | _ { Err("Unsupported platform") }
 }
 

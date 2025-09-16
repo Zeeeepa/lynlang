@@ -5,7 +5,7 @@
 { io } = @std
 
 // 2. Simple enum with variants
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // 3. Option type
 Option<T>: Some(T) | None
@@ -22,9 +22,9 @@ Point: {
 // 6. Function with pattern matching using ?
 get_health = (e: GameEntity) u32 {
     e ?
-        | .Player { return 100 }
-        | .Enemy { return 50 }
-        | .Powerup { return 0 }
+        | Player { return 100 }
+        | Enemy { return 50 }
+        | Powerup { return 0 }
 }
 
 // 7. Main function with various features
@@ -41,9 +41,9 @@ main = () void {
     
     // Pattern matching with ?
     player ?
-        | .Player { io.println("It's a player!") }
-        | .Enemy { io.println("It's an enemy!") }
-        | .Powerup { io.println("It's a powerup!") }
+        | Player { io.println("It's a player!") }
+        | Enemy { io.println("It's an enemy!") }
+        | Powerup { io.println("It's a powerup!") }
     
     // Option type usage
     maybe_value: Option<i32> = Some(42)

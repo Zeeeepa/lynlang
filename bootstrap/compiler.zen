@@ -98,67 +98,66 @@ TokenType:
 
 // AST Node types
 ASTNode: 
-    .Program {
+    Program: {
         imports: DynVec<Import>,
         declarations: DynVec<Declaration>,
-    } |
-    .Import {
+    },
+    Import: {
         name: string,
         alias: Option<string>,
         items: DynVec<string>,
-    } |
-    .Declaration {
+    },
+    Declaration: {
         kind: DeclKind,
         name: string,
         type_params: DynVec<string>,
         body: Box<ASTNode>,
-    } |
-    .Expression {
+    },
+    Expression: {
         kind: ExprKind,
         type_info: Option<Type>,
-    } |
-    .Statement {
+    },
+    Statement: {
         kind: StmtKind,
     },
-
 DeclKind: 
     Function, Struct, Enum, Trait, TypeAlias, Const, Static,
 
 ExprKind: 
-    .Literal { value: LiteralValue } |
-    .Identifier { name: string } |
-    .Binary { left: Box<ASTNode>, op: BinaryOp, right: Box<ASTNode> } |
-    .Unary { op: UnaryOp, expr: Box<ASTNode> } |
-    .Call { callee: Box<ASTNode>, args: DynVec<ASTNode> } |
-    .MemberAccess { object: Box<ASTNode>, member: string } |
-    .Index { array: Box<ASTNode>, index: Box<ASTNode> } |
-    .PatternMatch { expr: Box<ASTNode>, arms: DynVec<MatchArm> } |
-    .Conditional { condition: Box<ASTNode>, then_branch: Box<ASTNode>, else_branch: Option<Box<ASTNode>> } |
-    .Block { statements: DynVec<ASTNode> } |
-    .Lambda { params: DynVec<Parameter>, body: Box<ASTNode> },
+    Literal: { value: LiteralValue }
+    Identifier: { name: string }
+    Binary: { left: Box<ASTNode>, op: BinaryOp, right: Box<ASTNode> }
+    Unary: { op: UnaryOp, expr: Box<ASTNode> }
+    Call: { callee: Box<ASTNode>, args: DynVec<ASTNode> }
+    MemberAccess: { object: Box<ASTNode>, member: string }
+    Index: { array: Box<ASTNode>, index: Box<ASTNode> }
+    PatternMatch: { expr: Box<ASTNode>, arms: DynVec<MatchArm> }
+    Conditional: { condition: Box<ASTNode>, then_branch: Box<ASTNode>, else_branch: Option<Box<ASTNode>> }
+    Block: { statements: DynVec<ASTNode> }
+    Lambda: { params: DynVec<Parameter>, body: Box<ASTNode> },
 
 StmtKind: 
-    .Expression: { expr: Box<ASTNode> } 
-    .Return: { value: Option<Box<ASTNode>> } 
-    .Break: { label: Option<string> } 
-    .Continue: { label: Option<string> } 
-    .Assignment: { target: Box<ASTNode>, value: Box<ASTNode> } 
-    .VariableDecl: { name: string, type_annotation: Option<Type>, init: Option<Box<ASTNode>> } 
+    Expression: { expr: Box<ASTNode> } 
+    Return: { value: Option<Box<ASTNode>> } 
+    Break: { label: Option<string> } 
+    Continue: { label: Option<string> } 
+    Assignment: { target: Box<ASTNode>, value: Box<ASTNode> } 
+    VariableDecl: { name: string, type_annotation: Option<Type>, init: Option<Box<ASTNode>> } 
 
 // Type system
 Type: 
-    .Primitive: { name: string }  // i32, f64, bool, char, etc.
-    .Array: { element: Box<Type>, size: Option<i32> } 
-    .Slice: { element: Box<Type> } 
-    .Tuple: { elements: DynVec<Type> } 
-    .Struct: { name: string, fields: DynVec<Field> } 
-    .Enum: { name: string, variants: DynVec<Variant> } 
-    .Function: { params: DynVec<Type>, return_type: Box<Type> } 
-    .Generic: { name: string, constraints: DynVec<string> } 
-    .Reference: { mutable: bool, inner: Box<Type> } 
-    .Pointer: { mutable: bool, inner: Box<Type> } 
-    .Never
-    .Unknown,
+    Primitive: { name: string }  // i32, f64, bool, char, etc.
+    Array: { element: Box<Type>, size: Option<i32> } 
+    Slice: { element: Box<Type> } 
+    Tuple: { elements: DynVec<Type> } 
+    Struct: { name: string, fields: DynVec<Field> } 
+    Enum: { name: string, variants: DynVec<Variant> } 
+    Function: { params: DynVec<Type>, return_type: Box<Type> } 
+    Generic: { name: string, constraints: DynVec<string> } 
+    Reference: { mutable: bool, inner: Box<Type> } 
+    Pointer: { mutable: bool, inner: Box<Type> } 
+    Never
+    Unknown,
 
 TypeEnvironment: {
     types: hashmap<string, Type>,
@@ -332,9 +331,9 @@ optimize = (ast: ASTNode, level: i32) ASTNode   {
 // Code generator
 generate_code = (ast: ASTNode, target: string) Result<string, string>   {
     target ?
-        | .Native { generate_native_code(ast) }
-        | .Wasm { generate_wasm_code(ast) }
-        | .LlvmIr { generate_llvm_ir(ast) }
+        | Native { generate_native_code(ast) }
+        | Wasm { generate_wasm_code(ast) }
+        | LlvmIr { generate_llvm_ir(ast) }
         | _ { Result.Err(string.format("Unknown target: {}", target)) }
 }
 
@@ -342,13 +341,13 @@ generate_code = (ast: ASTNode, target: string) Result<string, string>   {
 link = (ir: string, output: string, target: string) Result<string, string>   {
     // Link the generated code with runtime and produce executable
     target ?
-        | .Native {
+        | Native {
             // Use system linker (ld, lld, etc.)
             cmd := string.format("ld -o {} {}.o", output, output)
             process.execute(cmd)
             Result.Ok(output)
         }
-        | .Wasm { Result.Ok(output + ".wasm") }
+        | Wasm { Result.Ok(output + ".wasm") }
         | _ { Result.Err("Unsupported target for linking") }
 }
 

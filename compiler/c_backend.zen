@@ -82,18 +82,18 @@ write_includes = (c: MutPtr<CBackend>) void {
 // Generate expression
 generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
     expr.val.kind ?
-        | .IntLiteral {
+        | IntLiteral {
             c.val.output.append(expr.val.value)
         }
-        | .FloatLiteral {
+        | FloatLiteral {
             c.val.output.append(expr.val.value)
         }
-        | .StringLiteral {
+        | StringLiteral {
             c.val.output.append("\"")
             c.val.output.append(expr.val.value)
             c.val.output.append("\"")
         }
-        | .BoolLiteral {
+        | BoolLiteral {
             (expr.val.value == "true") ?
                 | true {
                     c.val.output.append("true")
@@ -102,10 +102,10 @@ generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
                     c.val.output.append("false")
                 }
         }
-        | .Identifier {
+        | Identifier {
             c.val.output.append(expr.val.value)
         }
-        | .BinaryOp {
+        | BinaryOp {
             c.val.output.append("(")
             generate_expr(c, expr.val.left)
             c.val.output.append(" ")
@@ -114,13 +114,13 @@ generate_expr = (c: MutPtr<CBackend>, expr: Ptr<parser.Expression>) void {
             generate_expr(c, expr.val.right)
             c.val.output.append(")")
         }
-        | .UnaryOp {
+        | UnaryOp {
             c.val.output.append(expr.val.op)
             c.val.output.append("(")
             generate_expr(c, expr.val.operand)
             c.val.output.append(")")
         }
-        | .FunctionCall {
+        | FunctionCall {
             // Special case for print functions
             (expr.val.name == "io.print" || expr.val.name == "print") ?
                 | true {
@@ -363,34 +363,34 @@ generate_c_from_ast = (ast: &parser.AST) string   {
     
     // Forward declare all structs and enums
     backend.output.append("// Type declarations\n")
-    for (ast.structs) |s| {
+    ast.structs.loop ((s) {
         backend.output.append("typedef struct ")
         backend.output.append(s.name)
         backend.output.append(" ")
         backend.output.append(s.name)
         backend.output.append(";\n")
-    }
+    })
     backend.output.append("\n")
     
     // Generate structs
     ast.structs.len > 0 ? {
         backend.output.append("// Struct definitions\n")
-        for (ast.structs) |s| {
+        ast.structs.loop ((s) {
             generate_struct(&backend, &s)
-        }
+        })
     }
     
     // Generate enums
     ast.enums.len > 0 ? {
         backend.output.append("// Enum definitions\n")
-        for (ast.enums) |e| {
+        ast.enums.loop ((e) {
             generate_enum(&backend, &e)
-        }
+        })
     }
     
     // Forward declare functions
     backend.output.append("// Function declarations\n")
-    for (ast.functions) |func| {
+    ast.functions.loop ((func) {
         func.name != "main" ? {
             return_type := map_zen_type_to_c(func.return_type)
             backend.output.append(return_type)
@@ -413,7 +413,7 @@ generate_c_from_ast = (ast: &parser.AST) string   {
             }
             backend.output.append(");\n")
         }
-    }
+    })
     backend.output.append("\n")
     
     // Generate function implementations

@@ -256,13 +256,13 @@ test "actor system basic messaging" {
     counter_behavior := actor.Behavior(CounterState, TestMsg){
         handle: (state, msg, ctx) => {
             msg ?
-                | .Increment -> amount {
+                | Increment -> amount {
                     state.value += amount
                 }
-                | .GetValue {
+                | GetValue {
                     ctx.reply(.Value(state.value))
                 }
-                | .Value -> v {}
+                | Value -> v {}
         }
     }
     

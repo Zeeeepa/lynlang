@@ -302,9 +302,9 @@ test("type reflection") {
 // Test Platform-specific code
 test("platform specific") {
     { os_name } = @std ?
-        | .linux { "Linux" }
-        | .windows { "Windows" }
-        | .macos { "macOS" }
+        | linux { "Linux" }
+        | windows { "Windows" }
+        | macos { "macOS" }
         | _ { "Unknown" }
     
     // Should be Linux on current system

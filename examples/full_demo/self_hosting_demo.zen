@@ -7,7 +7,7 @@ string = @std
 result = @std
 
 // Token types for lexer
-TokenType: .Integer | .Float | .String | .Char | .Bool | .Identifier | .Keyword | .Plus | .Minus | .Star | .Slash | .Percent | .Equal | .NotEqual | .Less
+TokenType: .Integer | Float | String | Char | Bool | Identifier | Keyword | Plus | Minus | Star | Slash | Percent | Equal | NotEqual | Less
     | Greater
     | LessEqual
     | GreaterEqual

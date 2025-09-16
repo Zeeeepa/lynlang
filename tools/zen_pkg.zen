@@ -246,9 +246,9 @@ queue.len() > 0 ? {
 fetch_package_info = (name: string, req: VersionReq) Result<PackageInfo, string>   {
     // Determine version to fetch
     version := req ?
-        | .Exact -> v => v
-        | .Latest => "latest"
-        | .Range -> min, max => resolve_version_range(name, min, max)?
+        | Exact -> v => v
+        | Latest => "latest"
+        | Range -> min, max => resolve_version_range(name, min, max)?
         | _ => return Err -> "Unsupported version requirement"
     
     // Fetch from registry

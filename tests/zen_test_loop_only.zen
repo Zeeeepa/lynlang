@@ -1,0 +1,6 @@
+// Just test loop
+main = () void {
+    loop(() {
+        break
+    })
+}

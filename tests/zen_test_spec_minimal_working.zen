@@ -16,13 +16,13 @@ Point: {
 }
 
 // Basic enum 
-Shape: .Circle | .Rectangle
+Shape: .Circle | Rectangle
 
 // Function with type annotations (using : not :: for now)
 calculate_area = (shape: Shape, size: f64) f64 {
     shape ?
-        | .Circle { return 3.14159 * size * size }
-        | .Rectangle { return size * size }
+        | Circle { return 3.14159 * size * size }
+        | Rectangle { return size * size }
 }
 
 // Mutable variables with ::=

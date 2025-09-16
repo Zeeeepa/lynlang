@@ -224,9 +224,9 @@ test_structs_and_enums = () void   {
     // Test enum creation and pattern matching
     status := Status:Active
     msg := status ?
-        | .Active { "System is active" }
-        | .Inactive -> reason { "Inactive: $(reason)" }
-        | .Pending -> since { "Pending since $(since)" }
+        | Active { "System is active" }
+        | Inactive -> reason { "Inactive: $(reason)" }
+        | Pending -> since { "Pending since $(since)" }
     assert(msg == "System is active")
     
     // Test Result type

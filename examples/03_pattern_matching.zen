@@ -26,8 +26,8 @@ Status: Success
 
 // Enum pattern matching with destructuring
 handle_status = (status: Status) string   {
-    return status ? | .Success { "All good!" }
-                   | .Warning -> msg { "Warning: $(msg)" }
+    return status ? | Success { "All good!" }
+                   | Warning -> msg { "Warning: $(msg)" }
                    | Error -> code { "Error code: $(code)" }
 }
 

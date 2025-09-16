@@ -252,7 +252,7 @@ test_case("HashMap with custom types") {
     color_map_ptr.get("stop") ?
         | Some -> c {
             c ?
-                | .Red { assert(true) }
+                | Red { assert(true) }
                 | _ { assert(false, "Expected Red") }
         }
         | None { assert(false, "Expected color for 'stop'") }
@@ -260,7 +260,7 @@ test_case("HashMap with custom types") {
     color_map_ptr.get("go") ?
         | Some -> c {
             c ?
-                | .Green { assert(true) }
+                | Green { assert(true) }
                 | _ { assert(false, "Expected Green") }
         }
         | None { assert(false, "Expected color for 'go'") }

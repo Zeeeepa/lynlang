@@ -30,15 +30,15 @@ Rectangle: {
 }
 
 // Simple enum
-Color: .Red | .Green | .Blue
+Color: .Red | Green | Blue
 
 // Enum with payloads
-Message: .Text | .Number | .Exit
+Message: .Text | Number | Exit
 
 // Complex enum like from spec
-Shape: .Circle | .Rectangle | .Triangle
+Shape: .Circle | Rectangle | Triangle
 
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // ============================================================================
 // FUNCTIONS
@@ -181,16 +181,16 @@ main = () void {
     // Simple enum
     color = Color.Red
     color ?
-        | .Red { io.println("  - Color is Red") }
-        | .Green { io.println("  - Color is Green") }
-        | .Blue { io.println("  - Color is Blue") }
+        | Red { io.println("  - Color is Red") }
+        | Green { io.println("  - Color is Green") }
+        | Blue { io.println("  - Color is Blue") }
     
     // Enum from spec
     entity = GameEntity.Player
     entity ?
-        | .Player { io.println("  - GameEntity is Player") }
-        | .Enemy { io.println("  - GameEntity is Enemy") }
-        | .Powerup { io.println("  - GameEntity is Powerup") }
+        | Player { io.println("  - GameEntity is Player") }
+        | Enemy { io.println("  - GameEntity is Enemy") }
+        | Powerup { io.println("  - GameEntity is Powerup") }
     
     // ------------------------------------------------------------
     // 7. LOOPS

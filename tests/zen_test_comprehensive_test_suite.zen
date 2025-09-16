@@ -149,7 +149,7 @@ test_enums = test("Enums", () void => {
     
     msg := Message.Text -> content: "Hello";
     
-    msg ? | .Text -> content { test.assert_eq(content, "Hello") }
+    msg ? | Text -> content { test.assert_eq(content, "Hello") }
          | _ { test.assert(false, "Expected Text message") }
 })
 

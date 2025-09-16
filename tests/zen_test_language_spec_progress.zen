@@ -4,7 +4,7 @@
 { io } = @std
 
 // 1. Enum types
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // 2. Boolean pattern matching  
 main = () void {
@@ -15,14 +15,14 @@ main = () void {
     
     // Test enum pattern matching
     entity1 ?
-        | .Player { io.println("Entity 1 is Player") }
-        | .Enemy { io.println("Entity 1 is Enemy") }
-        | .Powerup { io.println("Entity 1 is Powerup") }
+        | Player { io.println("Entity 1 is Player") }
+        | Enemy { io.println("Entity 1 is Enemy") }
+        | Powerup { io.println("Entity 1 is Powerup") }
     
     entity2 ?
-        | .Player { io.println("Entity 2 is Player") }
-        | .Enemy { io.println("Entity 2 is Enemy") }
-        | .Powerup { io.println("Entity 2 is Powerup") }
+        | Player { io.println("Entity 2 is Player") }
+        | Enemy { io.println("Entity 2 is Enemy") }
+        | Powerup { io.println("Entity 2 is Powerup") }
         
     // Test boolean pattern matching
     is_ready = true

@@ -14,8 +14,8 @@ Point: {
 }
 
 // Enums
-Color: .Red | .Green | .Blue
-GameEntity: .Player | .Enemy | .Powerup
+Color: .Red | Green | Blue
+GameEntity: .Player | Enemy | Powerup
 
 main = () void {
     io.println("=== ZEN LANGUAGE WORKING FEATURES ===")
@@ -70,9 +70,9 @@ main = () void {
     io.println("Enums:")
     entity = GameEntity.Player
     entity ?
-        | .Player { io.println("  ✓ Enum matching") }
-        | .Enemy { }
-        | .Powerup { }
+        | Player { io.println("  ✓ Enum matching") }
+        | Enemy { }
+        | Powerup { }
     
     // 7. Range loops
     io.println("Loops:")

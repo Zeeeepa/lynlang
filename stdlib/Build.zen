@@ -75,13 +75,13 @@ Step: {
         
         // Execute this step
         self.kind ?
-            | .Exe { self.buildExecutable()? }
-            | .Lib { self.buildLibrary()? }
-            | .Test { self.runTests()? }
-            | .Run { self.runExecutable()? }
-            | .Install { self.installArtifacts()? }
-            | .System { self.runSystemCommand()? }
-            | .Custom { self.runCustom()? }
+            | Exe { self.buildExecutable()? }
+            | Lib { self.buildLibrary()? }
+            | Test { self.runTests()? }
+            | Run { self.runExecutable()? }
+            | Install { self.installArtifacts()? }
+            | System { self.runSystemCommand()? }
+            | Custom { self.runCustom()? }
     }
     
     buildExecutable: () !void
@@ -424,10 +424,10 @@ Build: {
     
     getInstallPath: (install_dir: InstallDir, name: String) String {
         base := install_dir ?
-            | .bin { self.install_prefix ++ "/bin/" }
-            | .lib { self.install_prefix ++ "/lib/" }
-            | .include { self.install_prefix ++ "/include/" }
-            | .share { self.install_prefix ++ "/share/" }
+            | bin { self.install_prefix ++ "/bin/" }
+            | lib { self.install_prefix ++ "/lib/" }
+            | include { self.install_prefix ++ "/include/" }
+            | share { self.install_prefix ++ "/share/" }
         
         return base ++ name
     }

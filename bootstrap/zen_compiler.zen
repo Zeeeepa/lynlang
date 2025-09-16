@@ -15,65 +15,65 @@ VERSION := "0.1.0"
 // Token types for lexer
 TokenType:
     // Literals
-    .IntLiteral |
-    .FloatLiteral |
-    .StringLiteral |
-    .CharLiteral |
-    .BoolLiteral |
+    .IntLiteral,
+    FloatLiteral,
+    StringLiteral,
+    CharLiteral,
+    BoolLiteral |
     
     // Identifiers and keywords
-    .Identifier |
-    .Return |
-    .Loop |
-    .Break |
-    .Continue |
-    .Const |
-    .Enum |
-    .Struct |
-    .Comptime |
-    .Import |
+    .Identifier,
+    Return,
+    Loop,
+    Break,
+    Continue,
+    Const,
+    Enum,
+    Struct,
+    Comptime,
+    Import |
     
     // Types
-    .I32 |
-    .I64 |
-    .U32 |
-    .U64 |
-    .F32 |
-    .F64 |
-    .Bool |
-    .Void |
+    .I32,
+    I64,
+    U32,
+    U64,
+    F32,
+    F64,
+    Bool,
+    Void |
     
     // Operators
-    .Plus |
-    .Minus |
-    .Star |
-    .Slash |
-    .Percent |
-    .Equal |
-    .NotEqual |
-    .Less |
-    .Greater |
-    .LessEqual |
-    .GreaterEqual |
-    .And |
-    .Or |
-    .Not |
-    .Assign |
-    .ColonAssign |
-    .PatternMatch |
+    .Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Equal,
+    NotEqual,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    And,
+    Or,
+    Not,
+    Assign,
+    ColonAssign,
+    PatternMatch |
     
     // Delimiters
-    .LeftParen |
-    .RightParen |
-    .LeftBrace |
-    .RightBrace |
-    .LeftBracket |
-    .RightBracket |
-    .Comma |
-    .Dot |
-    .Semicolon |
-    .Colon |
-    .At |
+    .LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    Comma,
+    Dot,
+    Semicolon,
+    Colon,
+    At |
     
     // Special
     .Eof |
@@ -403,15 +403,15 @@ scan_tokens = (lexer: &mut Lexer) void   {
 
 // Simple AST nodes
 AstNode:
-    .Program { declarations: DynVec<Declaration> } |
-    .FunctionDecl { name: string, params: DynVec<Parameter>, return_type: string, body: DynVec<Statement> } |
-    .VariableDecl { name: string, type: string, value: Expression } |
-    .ImportDecl { alias: string, path: string }
+    .Program { declarations: DynVec<Declaration> },
+    FunctionDecl { name: string, params: DynVec<Parameter>, return_type: string, body: DynVec<Statement> },
+    VariableDecl { name: string, type: string, value: Expression },
+    ImportDecl { alias: string, path: string }
 
 Declaration:
-    .Function { name: string, params: DynVec<Parameter>, return_type: string, body: DynVec<Statement> } |
-    .Variable { name: string, type: string, value: Expression } |
-    .Import { alias: string, path: string }
+    .Function { name: string, params: DynVec<Parameter>, return_type: string, body: DynVec<Statement> },
+    Variable { name: string, type: string, value: Expression },
+    Import { alias: string, path: string }
 
 Parameter: {
     name: string,
@@ -419,23 +419,23 @@ Parameter: {
 }
 
 Statement:
-    .Return { value: Expression } |
-    .Expression { expr: Expression } |
-    .PatternMatch { condition: Expression, then_branch: DynVec<Statement>, else_branch: DynVec<Statement> } |
-    .Loop { body: DynVec<Statement> } |
-    .Break |
-    .Continue
+    .Return { value: Expression },
+    Expression { expr: Expression },
+    PatternMatch { condition: Expression, then_branch: DynVec<Statement>, else_branch: DynVec<Statement> },
+    Loop { body: DynVec<Statement> },
+    Break,
+    Continue
 
 Expression:
-    .IntLiteral { value: i32 } |
-    .FloatLiteral { value: f64 } |
-    .StringLiteral { value: string } |
-    .BoolLiteral { value: bool } |
-    .Identifier { name: string } |
-    .Binary { left: Box<Expression>, op: string, right: Box<Expression> } |
-    .Unary { op: string, operand: Box<Expression> } |
-    .Call { callee: Box<Expression>, args: DynVec<Expression> } |
-    .Member { object: Box<Expression>, member: string }
+    .IntLiteral { value: i32 },
+    FloatLiteral { value: f64 },
+    StringLiteral { value: string },
+    BoolLiteral { value: bool },
+    Identifier { name: string },
+    Binary { left: Box<Expression>, op: string, right: Box<Expression> },
+    Unary { op: string, operand: Box<Expression> },
+    Call { callee: Box<Expression>, args: DynVec<Expression> },
+    Member { object: Box<Expression>, member: string }
 
 // Simple compiler driver
 compile_file = (filename: string) bool   {

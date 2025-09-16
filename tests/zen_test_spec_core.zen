@@ -9,7 +9,7 @@ Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Test basic enum
-Shape: .Circle | .Rectangle
+Shape: .Circle | Rectangle
 
 // Test struct
 Point: {

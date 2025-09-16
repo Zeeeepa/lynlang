@@ -14,10 +14,10 @@ Option<T>: Some(T) | None
 
 // Basic error types
 Error: .OutOfMemory
-    | .InvalidArgument(string)
-    | .IndexOutOfBounds(i64, i64)
-    | .NullPointer
-    | .SystemError(i32)
+    | InvalidArgument(string)
+    | IndexOutOfBounds(i64, i64)
+    | NullPointer
+    | SystemError(i32)
 
 // Memory operations (will be implemented with comptime/intrinsics)
 extern malloc = (size: i64) RawPtr<void>

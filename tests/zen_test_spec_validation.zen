@@ -23,7 +23,7 @@ Point: {
 }
 
 // Enum with variant constructors
-Shape: .Circle | .Rectangle
+Shape: .Circle | Rectangle
 
 // Test enum variant access
 test_enum_variants = () void {
@@ -33,8 +33,8 @@ test_enum_variants = () void {
     
     // Pattern matching on enum
     shape1 ?
-        | .Circle { io.println("It's a circle!") }
-        | .Rectangle { io.println("It's a rectangle!") }
+        | Circle { io.println("It's a circle!") }
+        | Rectangle { io.println("It's a rectangle!") }
 }
 
 // ============================================================================

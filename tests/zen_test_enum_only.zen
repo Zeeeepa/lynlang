@@ -2,7 +2,7 @@
 { io } = @std
 
 // Simple enum with : syntax
-MyEnum: .First | .Second
+MyEnum: .First | Second
 
 main = () void {
     // Test creating enum variant

@@ -1,0 +1,13 @@
+// Debug loop parsing
+{ io } = @std
+
+test_closure = (f: () void) void {
+    // Just call it
+}
+
+main = () void {
+    // Try calling a function with empty closure
+    test_closure(() {
+        io.println("In closure")
+    })
+}

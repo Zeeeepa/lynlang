@@ -7,25 +7,25 @@ Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Simple enum without payloads
-FileMode: .ReadOnly | .WriteOnly | .ReadWrite | .Append | .CreateNew
+FileMode: .ReadOnly | WriteOnly | ReadWrite | Append | CreateNew
 
 // Enum with mixed payload types
-Shape: .Circle(radius: f64) | .Rectangle(width: f64, height: f64) | .Point
+Shape: .Circle(radius: f64) | Rectangle(width: f64, height: f64) | Point
 
 // Game entity enum from spec
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // IO Error types from spec
 IOError: .FileNotFound
-    | .PermissionDenied
-    | .AlreadyExists
-    | .BrokenPipe
-    | .UnexpectedEof
-    | .InvalidInput
-    | .WriteZero
-    | .ReadError
-    | .WriteError
-    | .Other
+    | PermissionDenied
+    | AlreadyExists
+    | BrokenPipe
+    | UnexpectedEof
+    | InvalidInput
+    | WriteZero
+    | ReadError
+    | WriteError
+    | Other
 
 // Import io for testing
 { io } = @std
@@ -47,14 +47,14 @@ main = () void {
     // Simple enum pattern matching
     mode = FileMode.ReadOnly
     mode ?
-        | .ReadOnly { io.println("Read only mode") }
-        | .WriteOnly { io.println("Write only mode") }
+        | ReadOnly { io.println("Read only mode") }
+        | WriteOnly { io.println("Write only mode") }
         | _ { io.println("Other mode") }
     
     // Entity enum usage
     entity = GameEntity.Player
     entity ?
-        | .Player { io.println("It's a player!") }
-        | .Enemy { io.println("It's an enemy!") }
-        | .Powerup { io.println("It's a powerup!") }
+        | Player { io.println("It's a player!") }
+        | Enemy { io.println("It's an enemy!") }
+        | Powerup { io.println("It's a powerup!") }
 }

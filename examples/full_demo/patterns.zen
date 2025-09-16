@@ -9,18 +9,18 @@ Message: Text: {content: string} | Number: {value: i32} | Pair: {first: i32, sec
 // Pattern matching with guards and destructuring
 process_message = (msg: Message) string {
     msg ?
-        | .Text(content) { "Text: " + content.content }
-        | .Number(value) {
+        | Text(content) { "Text: " + content.content }
+        | Number(value) {
             value.value > 100 ?
                 | true { "Large number: " + value.value }
                 | false { "Small number: " + value.value }
         }
-        | .Pair(pair) {
+        | Pair(pair) {
             pair.first == pair.second ?
                 | true { "Equal pair: " + pair.first }
                 | false { "Pair: (" + pair.first + ", " + pair.second + ")" }
         }
-        | .List(list) {
+        | List(list) {
             list.items.len() == 0 ?
                 | true { "Empty list" }
                 | false {
@@ -29,8 +29,8 @@ process_message = (msg: Message) string {
                         | false { "List with " + list.items.len() + " items" }
                 }
         }
-        | .Nested(nested) { "Nested: " + process_message(nested.msg) }
-        | .Empty { "Empty message" }
+        | Nested(nested) { "Nested: " + process_message(nested.msg) }
+        | Empty { "Empty message" }
 }
 
 // Tree structure for recursive patterns
@@ -39,15 +39,15 @@ Tree<T>: Leaf: {value: T} | Node: {left: Tree<T>, right: Tree<T>}
 // Sum all values in a tree
 sum_tree = (tree: Tree<i32>) i32 {
     tree ?
-        | .Leaf(leaf) { leaf.value }
-        | .Node(node) { sum_tree(node.left) + sum_tree(node.right) }
+        | Leaf(leaf) { leaf.value }
+        | Node(node) { sum_tree(node.left) + sum_tree(node.right) }
 }
 
 // Find maximum depth of tree
 tree_depth<T> = (tree: Tree<T>) i32 {
     tree ?
-        | .Leaf(_) { 1 }
-        | .Node(node) {
+        | Leaf(_) { 1 }
+        | Node(node) {
             left_depth = tree_depth(node.left)
             right_depth = tree_depth(node.right)
             1 + (left_depth > right_depth ?
@@ -109,13 +109,13 @@ Shape: Circle: {center: Point, radius: f32} | Rectangle: {top_left: Point, botto
 
 describe_shape = (shape: Shape) string {
     shape ?
-        | .Circle(circle) { 
+        | Circle(circle) { 
             "Circle at (" + circle.center.x + ", " + circle.center.y + ") with radius " + circle.radius
         }
-        | .Rectangle(rect) {
+        | Rectangle(rect) {
             "Rectangle from (" + rect.top_left.x + ", " + rect.top_left.y + ") to (" + rect.bottom_right.x + ", " + rect.bottom_right.y + ")"
         }
-        | .Polygon(poly) {
+        | Polygon(poly) {
             poly.vertices.len() == 3 ?
                 | true { "Triangle" }
                 | false {

@@ -82,7 +82,7 @@ test_collections = () void {
     io.println("Created DynVec<i32>")
     
     // Mixed variant types
-    GameEntity: .Player | .Enemy | .Powerup
+    GameEntity: .Player | Enemy | Powerup
     entities = DynVec<GameEntity.Player, GameEntity.Enemy>()
     io.println("Created mixed variant DynVec")
     

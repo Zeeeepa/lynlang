@@ -72,9 +72,9 @@ main = () void   {
     })
     
     // Pattern match on status
-    message := status3 ? | .Active { "System is active" }
-                        | .Inactive { "System is inactive" }
-                        | .Pending -> since { "Pending since $(since)" }
+    message := status3 ? | Active { "System is active" }
+                        | Inactive { "System is inactive" }
+                        | Pending -> since { "Pending since $(since)" }
                         | Error -> err { "Error $(err.code): $(err.message)" }
     
     io.print("Status: $(message)\n")

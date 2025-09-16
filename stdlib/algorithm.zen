@@ -6,7 +6,7 @@ build = @std
 
 // Swap two values
 swap = (a: &T, b: &T) void   {
-    temp := *a
+    temp = *a
     *a = *b
     *b = temp
 }
@@ -31,8 +31,8 @@ clamp = (value: T, min_val: T, max_val: T) T   {
 }
 
 // Linear search in array
-find = (arr: []T, value: T) ?usize   {
-    i := 0
+find = (arr: DynVec<T>, value: T) ?usize   {
+    i = 0
     while (i < arr.len) {
         arr[i] == value ? {
             return i
@@ -43,12 +43,12 @@ find = (arr: []T, value: T) ?usize   {
 }
 
 // Binary search in sorted array
-binary_search = (arr: []T, value: T) ?usize   {
-    left := 0
-    right := arr.len - 1
+binary_search = (arr: DynVec<T>, value: T) ?usize   {
+    left = 0
+    right = arr.len - 1
     
     while (left <= right) {
-        mid := (left + right) / 2
+        mid = (left + right) / 2
         
         arr[mid] == value ? {
             return mid
@@ -63,9 +63,9 @@ binary_search = (arr: []T, value: T) ?usize   {
 }
 
 // Reverse array in place
-reverse = (arr: []T) void   {
-    left := 0
-    right := arr.len - 1
+reverse = (arr: DynVec<T>) void   {
+    left = 0
+    right = arr.len - 1
     
     while (left < right) {
         swap(&arr[left], &arr[right])
@@ -75,7 +75,7 @@ reverse = (arr: []T) void   {
 }
 
 // Rotate array left by n positions
-rotate_left = (arr: []T, n: usize) void   {
+rotate_left = (arr: DynVec<T>, n: usize) void   {
     if (arr.len == 0) return
     
     n = n % arr.len
@@ -90,13 +90,13 @@ rotate_left = (arr: []T, n: usize) void   {
 }
 
 // Rotate array right by n positions
-rotate_right = (arr: []T, n: usize) void   {
+rotate_right = (arr: DynVec<T>, n: usize) void   {
     if (arr.len == 0) return
     rotate_left(arr, arr.len - (n % arr.len))
 }
 
 // Reverse a range within an array
-reverse_range = (arr: []T, start: usize, end: usize) void   {
+reverse_range = (arr: DynVec<T>, start: usize, end: usize) void   {
     while (start < end) {
         swap(&arr[start], &arr[end])
         start = start + 1
@@ -105,10 +105,10 @@ reverse_range = (arr: []T, start: usize, end: usize) void   {
 }
 
 // Check if array is sorted
-is_sorted = (arr: []T) bool   {
+is_sorted = (arr: DynVec<T>) bool   {
     if (arr.len <= 1) return true
     
-    i := 1
+    i = 1
     while (i < arr.len) {
         arr[i-1] > arr[i] ? {
             return false
@@ -120,22 +120,22 @@ is_sorted = (arr: []T) bool   {
 }
 
 // Count occurrences of value in array
-count = (arr: []T, value: T) usize   {
-    result := 0
-    for (arr) |item| {
+count = (arr: DynVec<T>, value: T) usize   {
+    result = 0
+    arr.loop((item) {
         item == value ? {
             result = result + 1
         }
-    }
+    })
     return result
 }
 
 // Remove duplicates from sorted array (in place)
-unique = (arr: []T) usize   {
+unique = (arr: DynVec<T>) usize   {
     if (arr.len <= 1) return arr.len
     
-    write_pos := 1
-    i := 1
+    write_pos = 1
+    i = 1
     
     while (i < arr.len) {
         arr[i] != arr[write_pos - 1] ? {
@@ -149,11 +149,11 @@ unique = (arr: []T) usize   {
 }
 
 // Partition array around pivot (for quicksort)
-partition = (arr: []T, low: usize, high: usize) usize   {
-    pivot := arr[high]
-    i := low - 1
+partition = (arr: DynVec<T>, low: usize, high: usize) usize   {
+    pivot = arr[high]
+    i = low - 1
     
-    j := low
+    j = low
     while (j < high) {
         arr[j] <= pivot ? {
             i = i + 1
@@ -167,9 +167,9 @@ partition = (arr: []T, low: usize, high: usize) usize   {
 }
 
 // Quick sort implementation
-quicksort = (arr: []T, low: usize, high: usize) void   {
+quicksort = (arr: DynVec<T>, low: usize, high: usize) void   {
     low < high ? {
-        pi := partition(arr, low, high)
+        pi = partition(arr, low, high)
         
         pi > 0 ? {
             quicksort(arr, low, pi - 1)
@@ -179,20 +179,20 @@ quicksort = (arr: []T, low: usize, high: usize) void   {
 }
 
 // Sort array using quicksort
-sort = (arr: []T) void   {
+sort = (arr: DynVec<T>) void   {
     arr.len > 1 ? {
         quicksort(arr, 0, arr.len - 1)
     }
 }
 
 // Merge two sorted arrays
-merge = (arr1: []T, arr2: []T) []T   {
-    result := make([]T, arr1.len + arr2.len)
-    i := 0
-    j := 0
-    k := 0
+merge = (arr1:: DynVec<T>, arr2: DynVec<T>) DynVec<T>   {
+    result = DynVec<T>.new()
+    i ::= 0
+    j ::= 0
+    k ::= 0
     
-    while (i < arr1.len && j < arr2.len) {
+    loop (i < arr1.len && j < arr2.len) {
         arr1[i] <= arr2[j] ? {
             result[k] = arr1[i]
             i = i + 1
@@ -203,13 +203,13 @@ merge = (arr1: []T, arr2: []T) []T   {
         k = k + 1
     }
     
-    while (i < arr1.len) {
+    loop (i < arr1.len) {
         result[k] = arr1[i]
         i = i + 1
         k = k + 1
     }
     
-    while (j < arr2.len) {
+    loop (j < arr2.len) {
         result[k] = arr2[j]
         j = j + 1
         k = k + 1
@@ -219,10 +219,10 @@ merge = (arr1: []T, arr2: []T) []T   {
 }
 
 // Apply function to each element
-map = (arr: []T, f: fn(T) U) []U {
-    result := make([]U, arr.len)
-    i := 0
-    while (i < arr.len) {
+map = (alloc: Ptr<Allocator>, arr: DynVec<T>, f: fn(T) U) []U {
+    result = DynVec<U>.new()
+    i = 0
+    loop (i < arr.len) {
         result[i] = f(arr[i])
         i = i + 1
     }
@@ -230,63 +230,63 @@ map = (arr: []T, f: fn(T) U) []U {
 }
 
 // Filter elements based on predicate
-filter = (arr: []T, pred: fn(T) bool) []T {
+filter = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) DynVec<T> {
     // Count matching elements
-    count := 0
-    for (arr) |item| {
+    count = 0
+    arr.loop ((item) {
         pred(item) ? {
             count = count + 1
         }
-    }
+    })      
     
     // Create result array
-    result := make([]T, count)
-    j := 0
-    for (arr) |item| {
+    result = DynVec<T>.new()
+    j = 0
+    arr.loop ((item) {
         pred(item) ? {
             result[j] = item
             j = j + 1
         }
-    }
+    })
     
     return result
 }
 
 // Reduce array to single value
-reduce = (arr: []T, initial: U, f: fn(U, T) U) U {
-    result := initial
-    for (arr) |item| {
+reduce = (alloc: Ptr<Allocator>, arr: DynVec<T>, initial: U, f: fn(U, T) U) U {
+    result = initial
+    arr.loop ((item) {
         result = f(result, item)
-    }
+    })
     return result
 }
 
 // Check if all elements satisfy predicate
-all = (arr: []T, pred: fn(T) bool) bool {
-    for (arr) |item| {
+all = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) bool {
+    array.loop ((item) {
         !pred(item) ? {
             return false
         }
-    }
+    })
     return true
 }
 
 // Check if any element satisfies predicate
-any = (arr: []T, pred: fn(T) bool) bool {
-    for (arr) |item| {
+any = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) bool {
+    arr.loop((item) {
         pred(item) ? {
             return true
         }
-    }
+    })
     return false
 }
 
 // Find first element that satisfies predicate
-find_if = (arr: []T, pred: fn(T) bool) ?T {
-    for (arr) |item| {
+find_if = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) ?T {
+    arr.loop((item) {
         pred(item) ? {
             return item
         }
-    }
+    })
     return null
 }

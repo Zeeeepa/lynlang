@@ -264,17 +264,17 @@ main = () void  {
         | Err(error) {
             // Pattern match on error types for specific handling
             error ?
-                | .FileError -> path, cause {  }
+                | FileError -> path, cause {  }
                     io.println("File error at $(path): $(cause)")
-                | .ParseError -> msg {  }
+                | ParseError -> msg {  }
                     io.println("Parse error: $(msg)")
-                | .NetworkError -> url, status {  }
+                | NetworkError -> url, status {  }
                     io.println("Network error from $(url): HTTP $(status)")
-                | .ValidationError -> fields {  }
+                | ValidationError -> fields {  }
                     io.println("Validation failed: $(fields.join(", "))")
-                | .DatabaseError -> query, cause {  }
+                | DatabaseError -> query, cause {  }
                     io.println("Database error in query '$(query)': $(cause)")
-                | .BusinessLogicError -> rule {  }
+                | BusinessLogicError -> rule {  }
                     io.println("Business rule violation: $(rule)")
         }
     

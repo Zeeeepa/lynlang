@@ -3,13 +3,13 @@
 { io } = @std
 
 // Try simple enum without generics first
-Color: .Red | .Green | .Blue
+Color: .Red | Green | Blue
 
 main = () void {
     color = Color.Red
     
     color ?
-        | .Red { io.println("Red") }
-        | .Green { io.println("Green") }
-        | .Blue { io.println("Blue") }
+        | Red { io.println("Red") }
+        | Green { io.println("Green") }
+        | Blue { io.println("Blue") }
 }
