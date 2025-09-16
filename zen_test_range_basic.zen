@@ -1,0 +1,17 @@
+// Test basic range syntax
+{ io } = @std
+
+main = () void {
+    // Test range creation
+    range = 0..10
+    io.println("Created range")
+    
+    // Test range with loop() method
+    (0..5).loop((i) {
+        io.print("Count: ")
+        io.print_int(i)
+        io.println("")
+    })
+    
+    io.println("Done")
+}

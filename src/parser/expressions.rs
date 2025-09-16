@@ -197,6 +197,26 @@ impl<'a> Parser<'a> {
                     return Ok(Expression::Boolean(true));
                 } else if name == "false" {
                     return Ok(Expression::Boolean(false));
+                } else if name == "break" {
+                    // Parse break as an expression
+                    let label = if let Token::Identifier(label_name) = &self.current_token {
+                        let label_name = label_name.clone();
+                        self.next_token();
+                        Some(label_name)
+                    } else {
+                        None
+                    };
+                    return Ok(Expression::Break { label });
+                } else if name == "continue" {
+                    // Parse continue as an expression
+                    let label = if let Token::Identifier(label_name) = &self.current_token {
+                        let label_name = label_name.clone();
+                        self.next_token();
+                        Some(label_name)
+                    } else {
+                        None
+                    };
+                    return Ok(Expression::Continue { label });
                 }
                 
                 // Check for loop() function syntax
