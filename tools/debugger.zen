@@ -1,14 +1,14 @@
 // Zen Interactive Debugger
 // Provides step-through debugging capabilities for Zen programs
 
-core := @std.core
-io := @std.io
-string := @std.string
-vec := @std.vec
-hashmap := @std.hashmap
-fs := @std.fs
-process := @std.process
-colors := @std.colors
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ hashmap } = @std.hashmap
+{ fs } = @std.fs
+{ process } = @std.process
+{ colors } = @std.colors
 
 // Debugger state
 DebuggerState := |
@@ -86,7 +86,7 @@ StepMode := |
     | StepOut
 
 // Create new debugger instance
-new_debugger: (program_path: string) Ptr<Debugger>  = {
+new_debugger = (program_path: string) Ptr<Debugger>   {
     dbg := mem.allocate<Debugger>(1)
     dbg.state = DebuggerState.Idle
     dbg.program_path = program_path
@@ -103,7 +103,7 @@ new_debugger: (program_path: string) Ptr<Debugger>  = {
 }
 
 // Load source file
-load_source_file: (dbg: Ptr<Debugger>, file_path: string) bool  = {
+load_source_file = (dbg: Ptr<Debugger>, file_path: string) bool   {
     // Check if already loaded
     if (hashmap.contains(dbg.source_files, file_path)) {
         return true
@@ -123,7 +123,7 @@ load_source_file: (dbg: Ptr<Debugger>, file_path: string) bool  = {
 }
 
 // Add breakpoint
-add_breakpoint: (dbg: Ptr<Debugger>, file: string, line: u32) u32  = {
+add_breakpoint = (dbg: Ptr<Debugger>, file: string, line: u32) u32   {
     // Load source file if needed
     if (!load_source_file(dbg, file)) {
         return 0
@@ -147,7 +147,7 @@ add_breakpoint: (dbg: Ptr<Debugger>, file: string, line: u32) u32  = {
 }
 
 // Remove breakpoint
-remove_breakpoint: (dbg: Ptr<Debugger>, id: u32) bool  = {
+remove_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.breakpoints.len()) {
         if (dbg.breakpoints[i].id == id) {
@@ -161,7 +161,7 @@ remove_breakpoint: (dbg: Ptr<Debugger>, id: u32) bool  = {
 }
 
 // Toggle breakpoint
-toggle_breakpoint: (dbg: Ptr<Debugger>, id: u32) bool  = {
+toggle_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.breakpoints.len()) {
         if (dbg.breakpoints[i].id == id) {
@@ -177,7 +177,7 @@ toggle_breakpoint: (dbg: Ptr<Debugger>, id: u32) bool  = {
 }
 
 // List breakpoints
-list_breakpoints: (dbg: Ptr<Debugger>) void  = {
+list_breakpoints = (dbg: Ptr<Debugger>) void   {
     if (dbg.breakpoints.len() == 0) {
         io.println("No breakpoints set")
         return
@@ -195,7 +195,7 @@ list_breakpoints: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Add watch expression
-add_watch: (dbg: Ptr<Debugger>, expression: string) u32  = {
+add_watch = (dbg: Ptr<Debugger>, expression: string) u32   {
     watch := WatchExpression{
         id: dbg.next_watch_id,
         expression: expression,
@@ -211,7 +211,7 @@ add_watch: (dbg: Ptr<Debugger>, expression: string) u32  = {
 }
 
 // Remove watch
-remove_watch: (dbg: Ptr<Debugger>, id: u32) bool  = {
+remove_watch = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
     while (i < dbg.watches.len()) {
         if (dbg.watches[i].id == id) {
@@ -225,7 +225,7 @@ remove_watch: (dbg: Ptr<Debugger>, id: u32) bool  = {
 }
 
 // List watches
-list_watches: (dbg: Ptr<Debugger>) void  = {
+list_watches = (dbg: Ptr<Debugger>) void   {
     if (dbg.watches.len() == 0) {
         io.println("No watches set")
         return
@@ -246,7 +246,7 @@ list_watches: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Convert value to string
-value_to_string: (val: Value) string  = {
+value_to_string = (val: Value) string   {
     match val {
         Value.Null => "null"
         Value.Bool(v) => if (v) "true" else "false"
@@ -285,7 +285,7 @@ value_to_string: (val: Value) string  = {
 }
 
 // Print call stack
-print_call_stack: (dbg: Ptr<Debugger>) void  = {
+print_call_stack = (dbg: Ptr<Debugger>) void   {
     if (dbg.call_stack.len() == 0) {
         io.println("Call stack is empty")
         return
@@ -304,7 +304,7 @@ print_call_stack: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Print local variables
-print_locals: (dbg: Ptr<Debugger>) void  = {
+print_locals = (dbg: Ptr<Debugger>) void   {
     if (dbg.current_frame >= dbg.call_stack.len()) {
         io.println("No active frame")
         return
@@ -323,7 +323,7 @@ print_locals: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Show source context
-show_source_context: (dbg: Ptr<Debugger>, file: string, line: u32, context: u32) void  = {
+show_source_context = (dbg: Ptr<Debugger>, file: string, line: u32, context: u32) void   {
     // Get source lines
     lines_opt := hashmap.get(dbg.source_files, file)
     if (!lines_opt) {
@@ -380,7 +380,7 @@ show_source_context: (dbg: Ptr<Debugger>, file: string, line: u32, context: u32)
 }
 
 // Run program
-run_program: (dbg: Ptr<Debugger>) void  = {
+run_program = (dbg: Ptr<Debugger>) void   {
     dbg.state = DebuggerState.Running
     io.println(colors.green("Running: ") + dbg.program_path)
     
@@ -396,7 +396,7 @@ run_program: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Continue execution
-continue_execution: (dbg: Ptr<Debugger>) void  = {
+continue_execution = (dbg: Ptr<Debugger>) void   {
     if (dbg.state != DebuggerState.Paused) {
         io.println(colors.red("Program is not paused"))
         return
@@ -411,7 +411,7 @@ continue_execution: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Step over
-step_over: (dbg: Ptr<Debugger>) void  = {
+step_over = (dbg: Ptr<Debugger>) void   {
     if (dbg.state != DebuggerState.Paused) {
         io.println(colors.red("Program is not paused"))
         return
@@ -426,7 +426,7 @@ step_over: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Step into
-step_into: (dbg: Ptr<Debugger>) void  = {
+step_into = (dbg: Ptr<Debugger>) void   {
     if (dbg.state != DebuggerState.Paused) {
         io.println(colors.red("Program is not paused"))
         return
@@ -441,7 +441,7 @@ step_into: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Step out
-step_out: (dbg: Ptr<Debugger>) void  = {
+step_out = (dbg: Ptr<Debugger>) void   {
     if (dbg.state != DebuggerState.Paused) {
         io.println(colors.red("Program is not paused"))
         return
@@ -456,7 +456,7 @@ step_out: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Simulate execution (placeholder)
-simulate_execution: (dbg: Ptr<Debugger>) void  = {
+simulate_execution = (dbg: Ptr<Debugger>) void   {
     // This is a simulation for demonstration
     // Real implementation would use ptrace or similar
     
@@ -486,7 +486,7 @@ simulate_execution: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Simulate step (placeholder)
-simulate_step: (dbg: Ptr<Debugger>) void  = {
+simulate_step = (dbg: Ptr<Debugger>) void   {
     // Update current frame's line
     if (dbg.current_frame < dbg.call_stack.len()) {
         dbg.call_stack[dbg.current_frame].line += 1
@@ -504,7 +504,7 @@ simulate_step: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Debugger REPL
-debugger_repl: (dbg: Ptr<Debugger>) void  = {
+debugger_repl = (dbg: Ptr<Debugger>) void   {
     io.println(colors.bold("Zen Debugger v1.0"))
     io.println("Type 'help' for commands")
     io.println("")
@@ -611,7 +611,7 @@ debugger_repl: (dbg: Ptr<Debugger>) void  = {
 }
 
 // Print help
-print_help: () void  = {
+print_help = () void   {
     io.println(colors.bold("Debugger Commands:"))
     io.println("  help, h           - Show this help")
     io.println("  quit, q           - Exit debugger")
@@ -638,7 +638,7 @@ print_help: () void  = {
 }
 
 // Main entry point
-main: (args: []string) i32  = {
+main = (args: []string) i32   {
     if (args.len() < 2) {
         io.eprintln("Usage: zen-debug <program.zen>")
         return 1

@@ -1,13 +1,13 @@
 // Zen Language Syntax Checker
 // Simple tool to validate Zen source files
 
-io := @std.io
-fs := @std.fs
-string := @std.string
-vec := @std.vec
-process := @std.process
-lexer := @std.compiler.lexer_enhanced
-parser := @std.compiler.parser_enhanced
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ vec } = @std.vec
+{ process } = @std.process
+{ lexer } = @std.compiler.lexer_enhanced
+{ parser } = @std.compiler.parser_enhanced
 
 // Checker result
 CheckResult: {
@@ -38,7 +38,7 @@ ErrorSeverity:
     Fatal,
 
 // Check a single file
-check_file: (path: string) CheckResult  = {
+check_file = (path: string) CheckResult   {
     result := CheckResult{
         file: path,
         errors: vec.new<Error>(),
@@ -110,7 +110,7 @@ check_file: (path: string) CheckResult  = {
 }
 
 // Perform semantic checks on AST
-check_semantics: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = {
+check_semantics = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
     // Check for imports inside comptime blocks
     check_import_placement(result, ast)
     
@@ -125,7 +125,7 @@ check_semantics: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = {
 }
 
 // Check that imports are at module level only
-check_import_placement: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = {
+check_import_placement = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
     i := 0
     loop i < ast.len {
         check_import_in_node(result, ast[i], false)
@@ -134,7 +134,7 @@ check_import_placement: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) vo
 }
 
 // Recursively check for imports in wrong places
-check_import_in_node: (result: *CheckResult, node: *parser.AstNode, in_comptime: bool) void  = {
+check_import_in_node = (result: *CheckResult, node: *parser.AstNode, in_comptime: bool) void   {
     match node.type {
         | parser.AstNodeType.ComptimeExpr => {
             // Mark that we're inside comptime
@@ -181,7 +181,7 @@ check_import_in_node: (result: *CheckResult, node: *parser.AstNode, in_comptime:
 }
 
 // Check for duplicate declarations
-check_duplicates: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = {
+check_duplicates = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
     declarations := vec.new<string>()
     
     i := 0
@@ -210,7 +210,7 @@ check_duplicates: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = 
 }
 
 // Get declaration name from node
-get_declaration_name: (node: *parser.AstNode) string  = {
+get_declaration_name = (node: *parser.AstNode) string   {
     match node.data {
         | parser.AstData.FunctionDecl -> decl => decl.name
         | parser.AstData.VariableDecl -> decl => decl.name
@@ -221,7 +221,7 @@ get_declaration_name: (node: *parser.AstNode) string  = {
 }
 
 // Check for unused variables (simplified)
-check_unused: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = {
+check_unused = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
     // This is a simplified check - real implementation would track usage
     i := 0
     loop i < ast.len {
@@ -243,7 +243,7 @@ check_unused: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = {
 }
 
 // Check for unreachable code
-check_unreachable: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  = {
+check_unreachable = (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void   {
     i := 0
     loop i < ast.len {
         check_unreachable_in_node(result, ast[i])
@@ -252,7 +252,7 @@ check_unreachable: (result: *CheckResult, ast: vec.Vec<*parser.AstNode>) void  =
 }
 
 // Check for unreachable code in a node
-check_unreachable_in_node: (result: *CheckResult, node: *parser.AstNode) void  = {
+check_unreachable_in_node = (result: *CheckResult, node: *parser.AstNode) void   {
     match node.data {
         | parser.AstData.BlockStmt -> statements => {
             j := 0
@@ -278,7 +278,7 @@ check_unreachable_in_node: (result: *CheckResult, node: *parser.AstNode) void  =
 }
 
 // Print results
-print_results: (results: vec.Vec<CheckResult>) void  = {
+print_results = (results: vec.Vec<CheckResult>) void   {
     total_errors := 0
     total_warnings := 0
     
@@ -331,7 +331,7 @@ print_results: (results: vec.Vec<CheckResult>) void  = {
 }
 
 // Main entry point
-main: (args: vec.Vec<string>) i32  = {
+main = (args: vec.Vec<string>) i32   {
     args.len < 2 ? {
         io.println("Usage: zen-check <file.zen> [file2.zen ...]")
         return 1

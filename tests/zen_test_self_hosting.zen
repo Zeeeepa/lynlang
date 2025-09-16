@@ -1,17 +1,17 @@
 // Zen Self-Hosting Test Suite
 // Tests to validate the self-hosted compiler
 
-io := @std.io
-fs := @std.fs
-test := @std.test
-string := @std.string
-vec := @std.vec
+{ io } = @std.io
+{ fs } = @std.fs
+{ test } = @std.test
+{ string } = @std.string
+{ vec } = @std.vec
 
 // Import compiler components
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
-codegen := @std.compiler.codegen
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
+{ codegen } = @std.compiler.codegen
 
 // Test case structure
 TestCase: {
@@ -29,72 +29,72 @@ TestResult: Pass(name: string)
     | Skip(name: string, reason: string)
 
 // Run a single test case
-run_test: (test_case: TestCase) TestResult  = {
+run_test = (test_case: TestCase) TestResult   {
     io.print("Testing: ")
     io.println(test_case.name)
     
     // Test lexer
     test_case.expected_tokens.is_some() ?
-        | true => {
+        | true { { }
             tokens := lexer.tokenize(test_case.input)
             tokens.is_err() ?
-                | true => {
+                | true { { }
                     test_case.should_fail ?
-                        | true => return TestResult:Pass(test_case.name)
-                        | false => return TestResult:Fail(
+                        | true { return TestResult:Pass(test_case.name) }
+                        | false { return TestResult:Fail( }
                             test_case.name,
                             "Lexer failed: " + tokens.unwrap_err()
                         )
                 }
-                | false => {}
+                | false { { }}
             
             // Compare tokens
             actual := tokens.unwrap()
             expected := test_case.expected_tokens.unwrap()
             
             actual.len() != expected.len() ?
-                | true => return TestResult:Fail(
+                | true { return TestResult:Fail( }
                     test_case.name,
                     "Token count mismatch"
                 )
-                | false => {}
+                | false { { }}
             
             // Detailed token comparison would go here
         }
-        | false => {}
+        | false { { }}
     
     // Test parser
     test_case.expected_ast.is_some() ?
-        | true => {
+        | true { { }
             tokens := lexer.tokenize(test_case.input)
             tokens.is_err() ?
-                | true => return TestResult:Fail(
+                | true { return TestResult:Fail( }
                     test_case.name,
                     "Lexer failed in parser test"
                 )
-                | false => {}
+                | false { { }}
             
             ast := parser.parse(tokens.unwrap())
             ast.is_err() ?
-                | true => {
+                | true { { }
                     test_case.should_fail ?
-                        | true => return TestResult:Pass(test_case.name)
-                        | false => return TestResult:Fail(
+                        | true { return TestResult:Pass(test_case.name) }
+                        | false { return TestResult:Fail( }
                             test_case.name,
                             "Parser failed: " + ast.unwrap_err()
                         )
                 }
-                | false => {}
+                | false { { }}
             
             // AST comparison would go here
         }
-        | false => {}
+        | false { { }}
     
     return TestResult:Pass(test_case.name)
 }
 
 // Test suite for basic language features
-test_basic_features: () Vec<TestResult>  = {
+test_basic_features = () Vec<TestResult>   {
     results := Vec<TestResult>:new()
     
     // Test 1: Simple variable declaration
@@ -122,7 +122,7 @@ test_basic_features: () Vec<TestResult>  = {
     // Test 3: Import statement
     test3 := TestCase {
         name: "Module import",
-        input: "io := @std.io",
+        input: "{ io } = @std.io",
         expected_tokens: Option:None,
         expected_ast: Option:None,
         expected_output: Option:None,
@@ -133,7 +133,7 @@ test_basic_features: () Vec<TestResult>  = {
     // Test 4: Pattern matching
     test4 := TestCase {
         name: "Pattern matching",
-        input: "x ? | true => 1 | false => 0",
+        input: "x ? | true { 1 | false => 0", }
         expected_tokens: Option:None,
         expected_ast: Option:None,
         expected_output: Option:None,
@@ -156,7 +156,7 @@ test_basic_features: () Vec<TestResult>  = {
 }
 
 // Test suite for type system
-test_type_system: () Vec<TestResult>  = {
+test_type_system = () Vec<TestResult>   {
     results := Vec<TestResult>:new()
     
     // Test 1: Type inference
@@ -207,7 +207,7 @@ test_type_system: () Vec<TestResult>  = {
 }
 
 // Test suite for error handling
-test_error_handling: () Vec<TestResult>  = {
+test_error_handling = () Vec<TestResult>   {
     results := Vec<TestResult>:new()
     
     // Test 1: Invalid syntax
@@ -247,7 +247,7 @@ test_error_handling: () Vec<TestResult>  = {
 }
 
 // Test self-hosting capability
-test_self_hosting: () Vec<TestResult>  = {
+test_self_hosting = () Vec<TestResult>   {
     results := Vec<TestResult>:new()
     
     io.println("\n=== Self-Hosting Tests ===")
@@ -256,19 +256,19 @@ test_self_hosting: () Vec<TestResult>  = {
     io.println("Test: Compiler can tokenize its own source")
     lexer_source := fs.read_file("stdlib/compiler/lexer.zen")
     lexer_source.is_ok() ?
-        | true => {
+        | true { { }
             tokens := lexer.tokenize(lexer_source.unwrap())
             tokens.is_ok() ?
-                | true => {
+                | true { { }
                     io.println("  ✓ Successfully tokenized lexer.zen")
                     results.push(TestResult:Pass("Self-tokenization"))
                 }
-                | false => {
+                | false { { }
                     io.println("  ✗ Failed to tokenize lexer.zen")
                     results.push(TestResult:Fail("Self-tokenization", tokens.unwrap_err()))
                 }
         }
-        | false => {
+        | false { { }
             results.push(TestResult:Skip("Self-tokenization", "Could not read lexer.zen"))
         }
     
@@ -276,26 +276,26 @@ test_self_hosting: () Vec<TestResult>  = {
     io.println("Test: Compiler can parse its own source")
     parser_source := fs.read_file("stdlib/compiler/parser.zen")
     parser_source.is_ok() ?
-        | true => {
+        | true { { }
             tokens := lexer.tokenize(parser_source.unwrap())
             tokens.is_ok() ?
-                | true => {
+                | true { { }
                     ast := parser.parse(tokens.unwrap())
                     ast.is_ok() ?
-                        | true => {
+                        | true { { }
                             io.println("  ✓ Successfully parsed parser.zen")
                             results.push(TestResult:Pass("Self-parsing"))
                         }
-                        | false => {
+                        | false { { }
                             io.println("  ✗ Failed to parse parser.zen")
                             results.push(TestResult:Fail("Self-parsing", ast.unwrap_err()))
                         }
                 }
-                | false => {
+                | false { { }
                     results.push(TestResult:Fail("Self-parsing", "Tokenization failed"))
                 }
         }
-        | false => {
+        | false { { }
             results.push(TestResult:Skip("Self-parsing", "Could not read parser.zen"))
         }
     
@@ -303,7 +303,7 @@ test_self_hosting: () Vec<TestResult>  = {
 }
 
 // Run all test suites
-run_all_tests: () i32  = {
+run_all_tests = () i32   {
     io.println("Zen Self-Hosting Test Suite")
     io.println("===========================\n")
     
@@ -342,19 +342,19 @@ run_all_tests: () i32  = {
         total_tests = total_tests + 1
         
         result ?
-            | Pass(name) => {
+            | Pass(name) { { }
                 passed_tests = passed_tests + 1
                 io.print("  ✓ ")
                 io.println(name)
             }
-            | Fail(name, msg) => {
+            | Fail(name, msg) { { }
                 failed_tests = failed_tests + 1
                 io.print("  ✗ ")
                 io.print(name)
                 io.print(": ")
                 io.println(msg)
             }
-            | Skip(name, reason) => {
+            | Skip(name, reason) { { }
                 skipped_tests = skipped_tests + 1
                 io.print("  ⊘ ")
                 io.print(name)
@@ -379,17 +379,17 @@ run_all_tests: () i32  = {
     io.print_int(skipped_tests)
     
     failed_tests > 0 ?
-        | true => {
+        | true { { }
             io.println("\nSome tests failed!")
             return 1
         }
-        | false => {
+        | false { { }
             io.println("\nAll tests passed!")
             return 0
         }
 }
 
 // Entry point
-main: () i32  = {
+main = () i32   {
     return run_all_tests()
 }

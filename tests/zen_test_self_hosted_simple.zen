@@ -1,27 +1,27 @@
 // Simplified self-hosted test suite for Zen
 // Tests core stdlib functionality written in Zen
 
-core := @std.core
-vec := @std.vec 
-hashmap := @std.hashmap
+{ core } = @std.core
+{ vec } = @std.vec 
+{ hashmap } = @std.hashmap
 
 // External functions
-extern printf = (format: *i8, ...) i32
-extern puts = (str: *i8) i32
+extern printf = (format: RawPtr<i8>, ...) i32
+extern puts = (str: RawPtr<i8>) i32
 
 // Test helper
-assert_eq: (actual: i64, expected: i64, test_name: string) bool  = {
-    actual == expected ? | true => {
+assert_eq = (actual: i64, expected: i64, test_name: string) bool   {
+    actual == expected ? | true { { }
         printf("[PASS] %s\n", test_name)
         return true
-    } | false => {
+    } | false { { }
         printf("[FAIL] %s: expected %d, got %d\n", test_name, expected, actual)
         return false  
     }
 }
 
 // Test basic loops
-test_loops: () bool  = {
+test_loops = () bool   {
     puts("\nTesting Loops...")
     passed := true
     
@@ -60,7 +60,7 @@ test_loops: () bool  = {
 }
 
 // Test Vec operations
-test_vec: () bool  = {
+test_vec = () bool   {
     puts("\nTesting Vec...")
     passed := true
     
@@ -74,19 +74,19 @@ test_vec: () bool  = {
     
     // Get element
     elem := vec.vec_get(&v, 1)
-    elem ? | core.Option:Some(val) => {
+    elem ? | core.Option:Some(val) { { }
         passed = passed && assert_eq(val, 20, "Vec get element")
-    } | core.Option:None => {
+    } | core.Option:None { { }
         passed = false
         puts("[FAIL] Vec get returned None")
     }
     
     // Pop element  
     popped := vec.vec_pop(&v)
-    popped ? | core.Option:Some(val) => {
+    popped ? | core.Option:Some(val) { { }
         passed = passed && assert_eq(val, 30, "Vec pop value")
         passed = passed && assert_eq(vec.vec_len(&v), 2, "Vec length after pop")
-    } | core.Option:None => {
+    } | core.Option:None { { }
         passed = false
         puts("[FAIL] Vec pop returned None")
     }
@@ -96,7 +96,7 @@ test_vec: () bool  = {
 }
 
 // Test HashMap operations
-test_hashmap: () bool  = {
+test_hashmap = () bool   {
     puts("\nTesting HashMap...")
     passed := true
     
@@ -112,19 +112,19 @@ test_hashmap: () bool  = {
     
     // Get value
     val := hashmap.hashmap_get(&map, 2)
-    val ? | core.Option:Some(v) => {
+    val ? | core.Option:Some(v) { { }
         passed = passed && assert_eq(v, 200, "HashMap get value")
-    } | core.Option:None => {
+    } | core.Option:None { { }
         passed = false
         puts("[FAIL] HashMap get returned None")
     }
     
     // Remove value
     removed := hashmap.hashmap_remove(&map, 2)
-    removed ? | core.Option:Some(v) => {
+    removed ? | core.Option:Some(v) { { }
         passed = passed && assert_eq(v, 200, "HashMap remove value")
         passed = passed && assert_eq(hashmap.hashmap_len(&map), 2, "HashMap length after remove")
-    } | core.Option:None => {
+    } | core.Option:None { { }
         passed = false
         puts("[FAIL] HashMap remove returned None")
     }
@@ -134,12 +134,12 @@ test_hashmap: () bool  = {
 }
 
 // Test algorithms
-test_algorithms: () bool  = {
+test_algorithms = () bool   {
     puts("\nTesting Algorithms...")
     passed := true
     
     // Factorial using loops
-    factorial: (n: i64) i64  = {
+    factorial = (n: i64) i64   {
         result := 1
         i := 1
         loop i <= n {
@@ -153,8 +153,8 @@ test_algorithms: () bool  = {
     passed = passed && assert_eq(factorial(6), 720, "Factorial of 6")
     
     // Fibonacci using loops
-    fibonacci: (n: i64) i64  = {
-        n <= 1 ? | true => { return n } | false => {}
+    fibonacci = (n: i64) i64   {
+        n <= 1 ? | true { { return n  }} | false { { }}
         
         prev := 0
         curr := 1
@@ -175,34 +175,34 @@ test_algorithms: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     puts("===== Zen Self-Hosted Tests =====")
     
     passed := 0
     failed := 0
     
     // Run tests
-    test_loops() ? | true => {
+    test_loops() ? | true { { }
         passed = passed + 1
-    } | false => {
+    } | false { { }
         failed = failed + 1
     }
     
-    test_vec() ? | true => {
+    test_vec() ? | true { { }
         passed = passed + 1
-    } | false => {
+    } | false { { }
         failed = failed + 1
     }
     
-    test_hashmap() ? | true => {
+    test_hashmap() ? | true { { }
         passed = passed + 1
-    } | false => {
+    } | false { { }
         failed = failed + 1
     }
     
-    test_algorithms() ? | true => {
+    test_algorithms() ? | true { { }
         passed = passed + 1
-    } | false => {
+    } | false { { }
         failed = failed + 1
     }
     
@@ -211,10 +211,10 @@ main: () i32  = {
     printf("Passed: %d\n", passed)
     printf("Failed: %d\n", failed)
     
-    failed == 0 ? | true => {
+    failed == 0 ? | true { { }
         puts("\nAll tests passed!")
         return 0
-    } | false => {
+    } | false { { }
         puts("\nSome tests failed!")
         return 1
     }

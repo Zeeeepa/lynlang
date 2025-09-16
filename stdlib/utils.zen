@@ -1,11 +1,11 @@
 // utils.zen - General utility functions and helpers
 // Pure Zen implementation without comptime imports
 
-core := @std.core
-string := @std.string
-io := @std.io
-vec := @std.vec
-math := @std.math
+{ core } = @std.core
+{ string } = @std.string
+{ io } = @std.io
+{ vec } = @std.vec
+{ math } = @std.math
 
 // Option type for nullable values
 Option<T> = 
@@ -39,8 +39,8 @@ err = <T, E>(error: E) Result<T, E> {
 
 // Check if Option has value
 is_some = <T>(opt: Option<T>) bool {
-    opt ? | .Some(_) => true
-          | .None => false
+    opt ? | .Some(_) { true }
+          | .None { false }
 }
 
 // Check if Option is None
@@ -50,26 +50,26 @@ is_none = <T>(opt: Option<T>) bool {
 
 // Unwrap Option or panic
 unwrap = <T>(opt: Option<T>) T {
-    opt ? | .Some -> value => value
-          | .None => core.panic("Called unwrap on None value")
+    opt ? | .Some -> value { value }
+          | .None { core.panic("Called unwrap on None value") }
 }
 
 // Unwrap Option or return default
 unwrap_or = <T>(opt: Option<T>, default: T) T {
-    opt ? | .Some -> value => value
-          | .None => default
+    opt ? | .Some -> value { value }
+          | .None { default }
 }
 
 // Map function over Option
 map_option = <T, U>(opt: Option<T>, f: (T) U) Option<U> {
-    opt ? | .Some -> value => some(f(value))
-          | .None => none<U>()
+    opt ? | .Some -> value { some(f(value)) }
+          | .None { none<U>() }
 }
 
 // Check if Result is Ok
 is_ok = <T, E>(result: Result<T, E>) bool {
-    result ? | .Ok(_) => true
-             | .Err(_) => false
+    result ? | .Ok(_) { true }
+             | .Err(_) { false }
 }
 
 // Check if Result is Err
@@ -79,14 +79,14 @@ is_err = <T, E>(result: Result<T, E>) bool {
 
 // Unwrap Result or panic
 unwrap_result = <T, E>(result: Result<T, E>) T {
-    result ? | .Ok -> value => value
-             | .Err -> e => core.panic("Called unwrap on Err result")
+    result ? | .Ok -> value { value }
+             | .Err -> e { core.panic("Called unwrap on Err result") }
 }
 
 // Map function over Result
 map_result = <T, U, E>(result: Result<T, E>, f: (T) U) Result<U, E> {
-    result ? | .Ok -> value => ok(f(value))
-             | .Err -> e => err<U, E>(e)
+    result ? | .Ok -> value { ok(f(value)) }
+             | .Err -> e { err<U, E>(e) }
 }
 
 // Defer mechanism for cleanup
@@ -95,7 +95,7 @@ Defer: {
 }
 
 // Create new defer context
-defer_new: () Defer  = {
+defer_new = () Defer   {
     return Defer {
         callbacks: vec.new<() void>()
     }
@@ -107,7 +107,7 @@ defer_add = (d: *Defer, callback: () void) void {
 }
 
 // Execute all deferred callbacks in reverse order
-defer_run: (d: *Defer) void  = {
+defer_run = (d: *Defer) void   {
     i := d.callbacks.len()
     loop i > 0 {
         i = i - 1
@@ -124,7 +124,7 @@ Range: {
 }
 
 // Create inclusive range
-range: (start: i32, end: i32) Range  = {
+range = (start: i32, end: i32) Range   {
     return Range {
         start: start
         end: end
@@ -133,7 +133,7 @@ range: (start: i32, end: i32) Range  = {
 }
 
 // Create range with custom step
-range_step: (start: i32, end: i32, step: i32) Range  = {
+range_step = (start: i32, end: i32, step: i32) Range   {
     return Range {
         start: start
         end: end
@@ -192,8 +192,8 @@ memoize = <K, V>(compute: (K) V) Memo<K, V> {
 // Get memoized value
 memo_get = <K, V>(m: *Memo<K, V>, key: K) V {
     existing := m.cache.get(key)
-    existing ? | .Some -> value => value
-              | .None => {
+    existing ? | .Some -> value { value }
+              | .None { { }
                   value := m.compute(key)
                   m.cache.insert(key, value)
                   value
@@ -258,13 +258,13 @@ swap = <T>(a: *T, b: *T) void {
 
 // Clamp value between min and max
 clamp = <T>(value: T, min: T, max: T) T {
-    value < min ? | true => min
-                  | false => value > max ? | true => max
-                                           | false => value
+    value < min ? | true { min }
+                  | false { value > max ? | true => max }
+                                           | false { value }
 }
 
 // Linear interpolation
-lerp: (a: f32, b: f32, t: f32) f32  = {
+lerp = (a: f32, b: f32, t: f32) f32   {
     return a + (b - a) * t
 }
 
@@ -275,28 +275,28 @@ in_range = <T>(value: T, min: T, max: T) bool {
 
 // Get maximum of two values
 max = <T>(a: T, b: T) T {
-    return a > b ? | true => a
-                   | false => b
+    return a > b ? | true { a }
+                   | false { b }
 }
 
 // Get minimum of two values
 min = <T>(a: T, b: T) T {
-    return a < b ? | true => a
-                   | false => b
+    return a < b ? | true { a }
+                   | false { b }
 }
 
 // Convert degrees to radians
-deg_to_rad: (degrees: f32) f32  = {
+deg_to_rad = (degrees: f32) f32   {
     return degrees * math.PI / 180.0
 }
 
 // Convert radians to degrees
-rad_to_deg: (radians: f32) f32  = {
+rad_to_deg = (radians: f32) f32   {
     return radians * 180.0 / math.PI
 }
 
 // Simple hash function for strings
-hash_string: (s: string) u32  = {
+hash_string = (s: string) u32   {
     hash := 5381u32
     i := 0
     loop i < string.len(s) {
@@ -308,19 +308,19 @@ hash_string: (s: string) u32  = {
 }
 
 // Format time duration in human-readable format
-format_duration: (seconds: i64) string  = {
-    seconds < 60 ? | true => string.format("{}s", seconds)
-                   | false => {
+format_duration = (seconds: i64) string   {
+    seconds < 60 ? | true { string.format("{ }}s", seconds)
+                   | false { { }
         minutes := seconds / 60
         remaining_seconds := seconds % 60
         
-        minutes < 60 ? | true => string.format("{}m {}s", minutes, remaining_seconds)
-                       | false => {
+        minutes < 60 ? | true { string.format("{ }}m {}s", minutes, remaining_seconds)
+                       | false { { }
             hours := minutes / 60
             remaining_minutes := minutes % 60
             
-            hours < 24 ? | true => string.format("{}h {}m", hours, remaining_minutes)
-                         | false => {
+            hours < 24 ? | true { string.format("{ }}h {}m", hours, remaining_minutes)
+                         | false { { }
                 days := hours / 24
                 remaining_hours := hours % 24
                 string.format("{}d {}h", days, remaining_hours)
@@ -331,7 +331,7 @@ format_duration: (seconds: i64) string  = {
 
 // Generate unique ID
 next_id := 0u64
-unique_id: () u64  = {
+unique_id = () u64   {
     id := next_id
     next_id = next_id + 1
     return id
@@ -354,13 +354,13 @@ retry = <T, E>(f: () Result<T, E>, max_attempts: i32) Result<T, E> {
     
     loop attempt < max_attempts {
         result := f()
-        is_ok(result) ? | true => return result
-                        | false => {
+        is_ok(result) ? | true { return result }
+                        | false { { }
             attempt = attempt + 1
-            attempt < max_attempts ? | true => {
+            attempt < max_attempts ? | true { { }
                 core.sleep_ms(delay)
                 delay = delay * 2  // Exponential backoff
-            } | false => {}
+            } | false { { }}
         }
     }
     
@@ -368,17 +368,17 @@ retry = <T, E>(f: () Result<T, E>, max_attempts: i32) Result<T, E> {
 }
 
 // Simple assert for testing
-assert: (condition: bool, message: string) void  = {
-    !condition ? | true => core.panic(string.format("Assertion failed: {}", message))
-                 | false => {}
+assert = (condition: bool, message: string) void   {
+    !condition ? | true { core.panic(string.format("Assertion failed: { }}", message))
+                 | false { { }}
 }
 
 // Assert equality for testing
 assert_eq = <T>(actual: T, expected: T, message: string) void {
-    actual != expected ? | true => core.panic(
+    actual != expected ? | true { core.panic( }
         string.format("Assertion failed: {}. Expected: {:?}, Got: {:?}", 
                      message, expected, actual))
-                        | false => {}
+                        | false { { }}
 }
 
 // Timing guard for measuring scope duration
@@ -388,7 +388,7 @@ TimingGuard: {
 }
 
 // Start timing a scope
-time_scope: (name: string) TimingGuard  = {
+time_scope = (name: string) TimingGuard   {
     return TimingGuard {
         name: name
         start: core.time_ns()
@@ -396,7 +396,7 @@ time_scope: (name: string) TimingGuard  = {
 }
 
 // Finish timing (called automatically via defer)
-finish_timing: (guard: TimingGuard) void  = {
+finish_timing = (guard: TimingGuard) void   {
     end := core.time_ns()
     duration := (end - guard.start) / 1_000_000
     io.println(string.format("'{}' took {}ms", guard.name, duration))

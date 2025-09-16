@@ -2,22 +2,22 @@
 // Tests both builtin (@std) and regular imports
 
 // Test 1: Builtin imports (correct syntax - no comptime)
-core := @std.core
-io := @std.io
-math := @std.math
-string := @std.string
-vec := @std.vec
-fs := @std.fs
+{ core } = @std.core
+{ io } = @std.io
+{ math } = @std.math
+{ string } = @std.string
+{ vec } = @std.vec
+{ fs } = @std.fs
 
 // Test 2: Compiler module imports
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-codegen := @std.compiler.codegen
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ codegen } = @std.compiler.codegen
 
 // Test 3: Import with build.import() pattern
-json := @std.json
-network := @std.network
-http := @std.http
+{ json } = @std.json
+{ network } = @std.network
+{ http } = @std.http
 
 // Test 4: Custom module imports
 // These would be user modules in a real project
@@ -25,7 +25,7 @@ http := @std.http
 // utils := @project.utils
 
 // Test function using various imported modules
-test_imports: () bool  = {
+test_imports = () bool   {
     // Test core functionality
     result := core.assert(true, "Core assert works")
     
@@ -49,30 +49,30 @@ test_imports: () bool  = {
 }
 
 // Test that comptime is NOT used for imports
-test_no_comptime_imports: () bool  = {
+test_no_comptime_imports = () bool   {
     // This function exists to document that we don't use comptime for imports
     // The imports at the top of this file are the correct way
     return true
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("Testing Zen import syntax...\n")
     
     test_imports() ?
-        | true => {
+        | true { { }
             io.print("✓ Import tests passed\n")
         }
-        | false => {
+        | false { { }
             io.print("✗ Import tests failed\n")
             return 1
         }
     
     test_no_comptime_imports() ?
-        | true => {
+        | true { { }
             io.print("✓ No comptime imports check passed\n")
         }
-        | false => {
+        | false { { }
             io.print("✗ Comptime check failed\n")
             return 1
         }

@@ -9,8 +9,8 @@ fs {  } = @std.fs
 // Explicit allocator parameters control execution mode
 Allocator: {
     // Memory operations
-    alloc: (size: usize) *void
-    free: (ptr: *void) void
+    alloc: (size: usize) RawPtr<void>
+    free: (ptr: RawPtr<void>) void
     
     // Execution mode flag
     is_concurrent: bool
@@ -274,8 +274,8 @@ Runtime.wait = () void  {}
 
 Continuation: {}
 Heap: {}
-Heap.alloc: (size: usize) *void = @std.heap.alloc(size)
-Heap.free: (ptr: *void) void = @std.heap.free(ptr)
+Heap.alloc: (size: usize) RawPtr<void> = @std.heap.alloc(size)
+Heap.free: (ptr: RawPtr<void>) void = @std.heap.free(ptr)
 
 Error: { message: String }
 

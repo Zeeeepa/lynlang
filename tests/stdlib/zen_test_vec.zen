@@ -1,12 +1,12 @@
 // Comprehensive tests for Zen stdlib vec (vector) module
 
-vec := @std.vec
-test := @std.test
-io := @std.io
-assert := @std.assert
+{ vec } = @std.vec
+{ test } = @std.test
+{ io } = @std.io
+{ assert } = @std.assert
 
 // Test vector creation
-test_vec_creation: () void  = {
+test_vec_creation = () void   {
     suite := test.suite_new("Vector Creation Tests")
     
     test.suite_add_test(&suite, "Create empty vector", () void {
@@ -51,7 +51,7 @@ test_vec_creation: () void  = {
 }
 
 // Test vector push/pop operations
-test_vec_push_pop: () void  = {
+test_vec_push_pop = () void   {
     suite := test.suite_new("Vector Push/Pop Tests")
     
     test.suite_add_test(&suite, "Push elements", () void {
@@ -94,7 +94,7 @@ test_vec_push_pop: () void  = {
 }
 
 // Test vector insertion and removal
-test_vec_insert_remove: () void  = {
+test_vec_insert_remove = () void   {
     suite := test.suite_new("Vector Insert/Remove Tests")
     
     test.suite_add_test(&suite, "Insert at index", () void {
@@ -173,7 +173,7 @@ test_vec_insert_remove: () void  = {
 }
 
 // Test vector access and bounds checking
-test_vec_access: () void  = {
+test_vec_access = () void   {
     suite := test.suite_new("Vector Access Tests")
     
     test.suite_add_test(&suite, "Index access", () void {
@@ -225,7 +225,7 @@ test_vec_access: () void  = {
 }
 
 // Test vector iteration
-test_vec_iteration: () void  = {
+test_vec_iteration = () void   {
     suite := test.suite_new("Vector Iteration Tests")
     
     test.suite_add_test(&suite, "Iterate values", () void {
@@ -266,7 +266,7 @@ test_vec_iteration: () void  = {
 }
 
 // Test vector algorithms
-test_vec_algorithms: () void  = {
+test_vec_algorithms = () void   {
     suite := test.suite_new("Vector Algorithm Tests")
     
     test.suite_add_test(&suite, "Sort vector", () void {
@@ -344,7 +344,7 @@ test_vec_algorithms: () void  = {
 }
 
 // Test vector functional operations
-test_vec_functional: () void  = {
+test_vec_functional = () void   {
     suite := test.suite_new("Vector Functional Tests")
     
     test.suite_add_test(&suite, "Map operation", () void {
@@ -405,7 +405,7 @@ test_vec_functional: () void  = {
 }
 
 // Test vector concatenation and extension
-test_vec_concat: () void  = {
+test_vec_concat = () void   {
     suite := test.suite_new("Vector Concatenation Tests")
     
     test.suite_add_test(&suite, "Extend with another vector", () void {
@@ -455,7 +455,7 @@ test_vec_concat: () void  = {
 }
 
 // Test vector memory management
-test_vec_memory: () void  = {
+test_vec_memory = () void   {
     suite := test.suite_new("Vector Memory Tests")
     
     test.suite_add_test(&suite, "Reserve capacity", () void {
@@ -497,7 +497,7 @@ test_vec_memory: () void  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Running Vector Module Tests ===\n")
     
     test_vec_creation()

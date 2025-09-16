@@ -1,12 +1,12 @@
 // Test for the Zen stdlib test framework
 // Demonstrates usage of the new testing utilities
 
-test := @std.test
-core := @std.core
-io := @std.io
+{ test } = @std.test
+{ core } = @std.core
+{ io } = @std.io
 
 // Test basic assertions
-test_basic_assertions: () void  = {
+test_basic_assertions = () void   {
     suite := test.suite("Basic Assertions")
     
     suite.add_test("assert true condition", () test.TestResult {
@@ -41,7 +41,7 @@ test_basic_assertions: () void  = {
 }
 
 // Test core library functions
-test_core_functions: () void  = {
+test_core_functions = () void   {
     suite := test.suite("Core Library Functions")
     
     suite.add_test("min function", () test.TestResult {
@@ -89,8 +89,8 @@ test_core_functions: () void  = {
         is_pow2_10 := core.is_power_of_two(10)
         
         test.assert(is_pow2_8, "8 should be a power of 2") ?
-            | test.TestResult.Pass => {}
-            | fail => return fail
+            | test.TestResult.Pass { { }}
+            | fail { return fail }
         
         return test.assert(!is_pow2_10, "10 should not be a power of 2")
     })
@@ -104,22 +104,22 @@ test_core_functions: () void  = {
 }
 
 // Test Option type
-test_option_type: () void  = {
+test_option_type = () void   {
     suite := test.suite("Option Type")
     
     suite.add_test("Option Some", () test.TestResult {
         opt := core.Option<i32>.Some(42)
         match opt {
-            | Some(value) => return test.assert_eq(value, 42, "Some should contain 42")
-            | None => return test.TestResult.Fail("Expected Some, got None")
+            | Some(value) { return test.assert_eq(value, 42, "Some should contain 42") }
+            | None { return test.TestResult.Fail("Expected Some, got None") }
         }
     })
     
     suite.add_test("Option None", () test.TestResult {
         opt := core.Option<i32>.None
         match opt {
-            | Some(_) => return test.TestResult.Fail("Expected None, got Some")
-            | None => return test.TestResult.Pass
+            | Some(_) { return test.TestResult.Fail("Expected None, got Some") }
+            | None { return test.TestResult.Pass }
         }
     })
     
@@ -127,22 +127,22 @@ test_option_type: () void  = {
 }
 
 // Test Result type
-test_result_type: () void  = {
+test_result_type = () void   {
     suite := test.suite("Result Type")
     
     suite.add_test("Result Ok", () test.TestResult {
         res := core.Result<i32, string>.Ok(42)
         match res {
-            | Ok(value) => return test.assert_eq(value, 42, "Ok should contain 42")
-            | Err(_) => return test.TestResult.Fail("Expected Ok, got Err")
+            | Ok(value) { return test.assert_eq(value, 42, "Ok should contain 42") }
+            | Err(_) { return test.TestResult.Fail("Expected Ok, got Err") }
         }
     })
     
     suite.add_test("Result Err", () test.TestResult {
         res := core.Result<i32, string>.Err("error message")
         match res {
-            | Ok(_) => return test.TestResult.Fail("Expected Err, got Ok")
-            | Err(msg) => return test.assert_eq(msg, "error message", "Err should contain error message")
+            | Ok(_) { return test.TestResult.Fail("Expected Err, got Ok") }
+            | Err(msg) { return test.assert_eq(msg, "error message", "Err should contain error message") }
         }
     })
     
@@ -150,18 +150,18 @@ test_result_type: () void  = {
 }
 
 // Test Range functionality
-test_range: () void  = {
+test_range = () void   {
     suite := test.suite("Range Functionality")
     
     suite.add_test("Range creation", () test.TestResult {
         r := core.range(0, 10)
         test.assert_eq(r.start, 0, "Range start should be 0") ?
-            | test.TestResult.Pass => {}
-            | fail => return fail
+            | test.TestResult.Pass { { }}
+            | fail { return fail }
         
         test.assert_eq(r.end, 10, "Range end should be 10") ?
-            | test.TestResult.Pass => {}
-            | fail => return fail
+            | test.TestResult.Pass { { }}
+            | fail { return fail }
         
         return test.assert_eq(r.step, 1, "Range step should be 1")
     })
@@ -190,7 +190,7 @@ test_range: () void  = {
 }
 
 // Test with setup and teardown
-test_with_setup_teardown: () void  = {
+test_with_setup_teardown = () void   {
     suite := test.suite("Setup and Teardown")
     
     // Shared state for tests
@@ -219,7 +219,7 @@ test_with_setup_teardown: () void  = {
 }
 
 // Benchmark example
-test_benchmarks: () void  = {
+test_benchmarks = () void   {
     io.println("\n=== Benchmarks ===")
     
     // Benchmark simple arithmetic
@@ -243,7 +243,7 @@ test_benchmarks: () void  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Zen Standard Library Test Suite ===\n")
     
     // Register all test suites

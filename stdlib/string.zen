@@ -1,8 +1,8 @@
 // Zen Standard Library: String Utilities
 // String manipulation and utility functions
 
-core := @std.core
-mem := @std.mem
+{ core } = @std.core
+{ mem } = @std.mem
 
 // String builder for efficient string concatenation
 StringBuilder: {
@@ -12,7 +12,7 @@ StringBuilder: {
 }
 
 // Create a new string builder
-string_builder_new: () StringBuilder  = {
+string_builder_new = () StringBuilder   {
     return StringBuilder {
         buffer: 0,
         length: 0,
@@ -22,13 +22,13 @@ string_builder_new: () StringBuilder  = {
 
 // Create string builder with initial capacity
 string_builder_with_capacity = (capacity: i64) core.Result<StringBuilder, core.Error> {
-    capacity <= 0 ? | true => {
+    capacity <= 0 ? | true { { }
         return core.Result:Err(core.Error:InvalidArgument("Capacity must be positive"))
-    } | false => {}
+    } | false { { }}
     
     buffer := mem.alloc(capacity)
-    buffer ? | .Err -> e => return core.Result:Err(e)
-            | .Ok -> buf => {
+    buffer ? | .Err -> e { return core.Result:Err(e) }
+            | .Ok -> buf { { }
         return core.Result:Ok(StringBuilder {
             buffer: buf,
             length: 0,
@@ -43,9 +43,9 @@ string_builder_append = (builder: *StringBuilder, str: string) core.Result<void,
     new_len := builder.length + str_len
     
     // Check if resize needed
-    new_len > builder.capacity ? | true => {
-        new_capacity := builder.capacity == 0 ? | true => 16
-                                                | false => builder.capacity * 2
+    new_len > builder.capacity ? | true { { }
+        new_capacity := builder.capacity == 0 ? | true { 16 }
+                                                | false { builder.capacity * 2 }
         
         // Ensure sufficient capacity
         loop new_capacity < new_len {
@@ -53,9 +53,9 @@ string_builder_append = (builder: *StringBuilder, str: string) core.Result<void,
         }
         
         result := string_builder_resize(builder, new_capacity)
-        result ? | .Err -> e => return core.Result:Err(e)
-                | .Ok -> _ => {}
-    } | false => {}
+        result ? | .Err -> e { return core.Result:Err(e) }
+                | .Ok -> _ { { }}
+    } | false { { }}
     
     // Copy string data
     mem.copy(builder.buffer + builder.length, str as *u8, str_len)
@@ -67,8 +67,8 @@ string_builder_append = (builder: *StringBuilder, str: string) core.Result<void,
 // Resize string builder buffer
 string_builder_resize = (builder: *StringBuilder, new_capacity: i64) core.Result<void, core.Error> {
     new_buffer := mem.realloc(builder.buffer, builder.capacity, new_capacity)
-    new_buffer ? | .Err -> e => return core.Result:Err(e)
-                | .Ok -> buf => {
+    new_buffer ? | .Err -> e { return core.Result:Err(e) }
+                | .Ok -> buf { { }
         builder.buffer = buf
         builder.capacity = new_capacity
         return core.Result:Ok({})
@@ -76,22 +76,22 @@ string_builder_resize = (builder: *StringBuilder, new_capacity: i64) core.Result
 }
 
 // Convert builder to string
-string_builder_to_string: (builder: *StringBuilder) string  = {
+string_builder_to_string = (builder: *StringBuilder) string   {
     // Add null terminator
     builder.buffer[builder.length] = 0
     return builder.buffer as string
 }
 
 // Clear string builder
-string_builder_clear: (builder: *StringBuilder) void  = {
+string_builder_clear = (builder: *StringBuilder) void   {
     builder.length = 0
 }
 
 // Free string builder
-string_builder_free: (builder: *StringBuilder) void  = {
-    builder.buffer != 0 ? | true => {
+string_builder_free = (builder: *StringBuilder) void   {
+    builder.buffer != 0 ? | true { { }
         mem.dealloc(builder.buffer, builder.capacity)
-    } | false => {}
+    } | false { { }}
     
     builder.buffer = 0
     builder.length = 0
@@ -99,7 +99,7 @@ string_builder_free: (builder: *StringBuilder) void  = {
 }
 
 // Get string length (simplified - assumes null-terminated)
-string_len: (str: string) i64  = {
+string_len = (str: string) i64   {
     len := 0i64
     ptr := str as *u8
     
@@ -111,55 +111,55 @@ string_len: (str: string) i64  = {
 }
 
 // Get character at position
-string_char_at: (str: string, pos: i64) i8  = {
+string_char_at = (str: string, pos: i64) i8   {
     len := string_len(str)
-    pos >= len ? | true => return -1  // EOF
-                | false => return (str as *u8)[pos] as i8
+    pos >= len ? | true { return -1  // EOF }
+                | false { return (str as *u8)[pos] as i8 }
 }
 
 // Extract substring
-string_substring: (str: string, start: i64, end: i64) string  = {
+string_substring = (str: string, start: i64, end: i64) string   {
     len := string_len(str)
     
     // Bounds checking
-    actual_start := start < 0 ? | true => 0 | false => start
-    actual_end := end > len ? | true => len | false => end
-    actual_start >= actual_end ? | true => return "" | false => {}
+    actual_start := start < 0 ? | true { 0 | false => start }
+    actual_end := end > len ? | true { len | false => end }
+    actual_start >= actual_end ? | true { return "" | false => { }}
     
     substr_len := actual_end - actual_start
     buffer := mem.alloc(substr_len + 1)
     
-    buffer ? | .Ok -> buf => {
+    buffer ? | .Ok -> buf { { }
         mem.copy(buf, (str as *u8) + actual_start, substr_len)
         (buf as *u8)[substr_len] = 0
         return buf as string
-    } | .Err -> _ => {
+    } | .Err -> _ { { }
         return ""
     }
 }
 
 // String comparison (alias for consistency with lexer)
-string_equals: (a: string, b: string) bool  = {
+string_equals = (a: string, b: string) bool   {
     return string_equal(a, b)
 }
 
 // String comparison
-string_equal: (a: string, b: string) bool  = {
+string_equal = (a: string, b: string) bool   {
     a_len := string_len(a)
     b_len := string_len(b)
     
-    a_len != b_len ? | true => return false
-                    | false => {}
+    a_len != b_len ? | true { return false }
+                    | false { { }}
     
-    return mem.compare(a as *void, b as *void, a_len) == 0
+    return mem.compare(a as RawPtr<void>, b as RawPtr<void>, a_len) == 0
 }
 
 // String copy
-string_copy: (dest: *u8, src: string, max_len: i64) i64  = {
+string_copy = (dest: *u8, src: string, max_len: i64) i64   {
     src_len := string_len(src)
     copy_len := core.min(src_len, max_len - 1)
     
-    mem.copy(dest as *void, src as *void, copy_len)
+    mem.copy(dest as RawPtr<void>, src as RawPtr<void>, copy_len)
     dest[copy_len] = 0  // Null terminate
     
     return copy_len
@@ -172,10 +172,10 @@ string_concat = (a: string, b: string) core.Result<string, core.Error> {
     total_len := a_len + b_len
     
     buffer := mem.alloc(total_len + 1)
-    buffer ? | .Err -> e => return core.Result:Err(e)
-            | .Ok -> buf => {
-        mem.copy(buf, a as *void, a_len)
-        mem.copy(buf + a_len, b as *void, b_len)
+    buffer ? | .Err -> e { return core.Result:Err(e) }
+            | .Ok -> buf { { }
+        mem.copy(buf, a as RawPtr<void>, a_len)
+        mem.copy(buf + a_len, b as RawPtr<void>, b_len)
         (buf as *u8)[total_len] = 0  // Null terminate
         
         return core.Result:Ok(buf as string)
@@ -183,15 +183,15 @@ string_concat = (a: string, b: string) core.Result<string, core.Error> {
 }
 
 // Find substring
-string_find: (haystack: string, needle: string) i64  = {
+string_find = (haystack: string, needle: string) i64   {
     haystack_len := string_len(haystack)
     needle_len := string_len(needle)
     
-    needle_len == 0 ? | true => return 0
-                      | false => {}
+    needle_len == 0 ? | true { return 0 }
+                      | false { { }}
     
-    needle_len > haystack_len ? | true => return -1
-                               | false => {}
+    needle_len > haystack_len ? | true { return -1 }
+                               | false { { }}
     
     i := 0i64
     loop i <= haystack_len - needle_len {
@@ -200,8 +200,8 @@ string_find: (haystack: string, needle: string) i64  = {
             j = j + 1
         }
         
-        j == needle_len ? | true => return i
-                         | false => {}
+        j == needle_len ? | true { return i }
+                         | false { { }}
         
         i = i + 1
     }
@@ -210,50 +210,50 @@ string_find: (haystack: string, needle: string) i64  = {
 }
 
 // Check if string starts with prefix
-string_starts_with: (str: string, prefix: string) bool  = {
+string_starts_with = (str: string, prefix: string) bool   {
     prefix_len := string_len(prefix)
     str_len := string_len(str)
     
-    prefix_len > str_len ? | true => return false
-                          | false => {}
+    prefix_len > str_len ? | true { return false }
+                          | false { { }}
     
-    return mem.compare(str as *void, prefix as *void, prefix_len) == 0
+    return mem.compare(str as RawPtr<void>, prefix as RawPtr<void>, prefix_len) == 0
 }
 
 // Check if string ends with suffix
-string_ends_with: (str: string, suffix: string) bool  = {
+string_ends_with = (str: string, suffix: string) bool   {
     suffix_len := string_len(suffix)
     str_len := string_len(str)
     
-    suffix_len > str_len ? | true => return false
-                         | false => {}
+    suffix_len > str_len ? | true { return false }
+                         | false { { }}
     
     str_start := (str as *u8) + (str_len - suffix_len)
-    return mem.compare(str_start as *void, suffix as *void, suffix_len) == 0
+    return mem.compare(str_start as RawPtr<void>, suffix as RawPtr<void>, suffix_len) == 0
 }
 
 // Convert integer to string (simplified)
 int_to_string = (value: i64) core.Result<string, core.Error> {
     // Maximum i64 has 20 digits (including sign)
     buffer := mem.alloc(21)
-    buffer ? | .Err -> e => return core.Result:Err(e)
-            | .Ok -> buf => {
+    buffer ? | .Err -> e { return core.Result:Err(e) }
+            | .Ok -> buf { { }
         ptr := buf as *u8
         i := 0i64
         negative := value < 0
         
         // Handle negative
-        negative ? | true => {
+        negative ? | true { { }
             ptr[0] = '-' as u8
             i = 1
             value = -value
-        } | false => {}
+        } | false { { }}
         
         // Convert digits (simplified - would need proper implementation)
-        value == 0 ? | true => {
+        value == 0 ? | true { { }
             ptr[i] = '0' as u8
             i = i + 1
-        } | false => {
+        } | false { { }
             // Would implement proper digit conversion here
             // For now, placeholder
             ptr[i] = '0' as u8
@@ -266,7 +266,7 @@ int_to_string = (value: i64) core.Result<string, core.Error> {
 }
 
 // String trimming
-string_trim: (str: string) string  = {
+string_trim = (str: string) string   {
     len := string_len(str)
     start := 0i64
     end := len
@@ -286,7 +286,7 @@ string_trim: (str: string) string  = {
 }
 
 // Check if character is whitespace
-is_whitespace: (c: u8) bool  = {
+is_whitespace = (c: u8) bool   {
     return c == ' ' as u8 || c == '\t' as u8 || c == '\n' as u8 || c == '\r' as u8
 }
 
@@ -295,14 +295,14 @@ string_to_upper = (str: string) core.Result<string, core.Error> {
     len := string_len(str)
     buffer := mem.alloc(len + 1)
     
-    buffer ? | .Err -> e => return core.Result:Err(e)
-            | .Ok -> buf => {
+    buffer ? | .Err -> e { return core.Result:Err(e) }
+            | .Ok -> buf { { }
         i := 0i64
         loop i < len {
             c := (str as *u8)[i]
-            c >= 'a' as u8 && c <= 'z' as u8 ? | true => {
+            c >= 'a' as u8 && c <= 'z' as u8 ? | true { { }
                 (buf as *u8)[i] = c - 32
-            } | false => {
+            } | false { { }
                 (buf as *u8)[i] = c
             }
             i = i + 1
@@ -317,14 +317,14 @@ string_to_lower = (str: string) core.Result<string, core.Error> {
     len := string_len(str)
     buffer := mem.alloc(len + 1)
     
-    buffer ? | .Err -> e => return core.Result:Err(e)
-            | .Ok -> buf => {
+    buffer ? | .Err -> e { return core.Result:Err(e) }
+            | .Ok -> buf { { }
         i := 0i64
         loop i < len {
             c := (str as *u8)[i]
-            c >= 'A' as u8 && c <= 'Z' as u8 ? | true => {
+            c >= 'A' as u8 && c <= 'Z' as u8 ? | true { { }
                 (buf as *u8)[i] = c + 32
-            } | false => {
+            } | false { { }
                 (buf as *u8)[i] = c
             }
             i = i + 1

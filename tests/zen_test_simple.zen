@@ -1,11 +1,11 @@
 // Simple test to verify compiler works
 
-main: () void  = {
+main = () void   {
     // Test basic pattern matching - No if/else!
     value := 42
     result := value ?
-        | 42 => "The answer"
-        | _ => "Not the answer"
+        | 42 { "The answer" }
+        | _ { "Not the answer" }
     
     // Test loop
     counter := 3

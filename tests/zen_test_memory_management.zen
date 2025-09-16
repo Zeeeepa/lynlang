@@ -1,8 +1,8 @@
 // Test memory management and pointer types
 // Language spec v1.1.0 compliance
 
-test, assert, assert_eq := @std.testing
-mem := @std.build.import("mem")
+test, assert, { assert_eq } = @std.testing
+{ mem } = @std.build.import("mem")
 
 // Test Ptr<T> operations
 test("smart pointer operations") {
@@ -109,14 +109,14 @@ test("option type for null safety") {
     
     // Safe optional value
     maybe_ptr := Option:Some(Ptr:new(42))
-    value := maybe_ptr ? | .Some -> p => p.value
-                        | .None => 0
+    value := maybe_ptr ? | .Some -> p { p.value }
+                        | .None { 0 }
     assert(value == 42)
     
     // None case
     empty := Option<Ptr<i32>>:None
-    value2 := empty ? | .Some -> p => p.value
-                     | .None => -1
+    value2 := empty ? | .Some -> p { p.value }
+                     | .None { -1 }
     assert(value2 == -1)
 }
 

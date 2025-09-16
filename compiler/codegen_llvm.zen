@@ -1,11 +1,11 @@
 // Zen Language - LLVM Code Generator Module
 // Generates LLVM IR from Zen AST
 
-core := @std.core
-io := @std.io
-string := @std.string
-vec := @std.vec
-parser := @std.compiler.parser
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ parser } = @std.compiler.parser
 
 // Import AST types from parser
 AstNode := parser.AstNode
@@ -69,7 +69,7 @@ StringConstant: {
 }
 
 // Create new code generator
-new_codegen: (module_name: string) CodeGen  = {
+new_codegen = (module_name: string) CodeGen   {
     return CodeGen{
         module_name: module_name,
         current_function: Option<string>.None,
@@ -85,14 +85,14 @@ new_codegen: (module_name: string) CodeGen  = {
 }
 
 // Allocate new register
-alloc_register: (gen: &mut CodeGen) u32  = {
+alloc_register = (gen: &mut CodeGen) u32   {
     reg := gen.next_register
     gen.next_register = gen.next_register + 1
     return reg
 }
 
 // Emit LLVM IR line
-emit: (gen: &mut CodeGen, line: string)   = {
+emit = (gen: &mut CodeGen, line: string)  {
     i := 0
     loop i < gen.indent_level {
         gen.output = gen.output + "  "
@@ -102,9 +102,9 @@ emit: (gen: &mut CodeGen, line: string)   = {
 }
 
 // Convert Zen type to LLVM type
-zen_type_to_llvm: (t: Type) string  = {
+zen_type_to_llvm = (t: Type) string   {
     match t {
-        | Type.Named(name) => {
+        | Type.Named(name) { { }
             name == "i8" ? { return "i8" } :
             name == "i16" ? { return "i16" } :
             name == "i32" ? { return "i32" } :
@@ -120,50 +120,50 @@ zen_type_to_llvm: (t: Type) string  = {
             name == "string" ? { return "i8*" } :
             { return name }
         }
-        | Type.Pointer(inner, _) => {
+        | Type.Pointer(inner, _) { { }
             inner_type := zen_type_to_llvm(*inner)
             return inner_type + "*"
         }
-        | Type.Array(elem, size) => {
+        | Type.Array(elem, size) { { }
             elem_type := zen_type_to_llvm(*elem)
             match size {
-                | Option<u32>.Some(s) => return "[" + u32_to_string(s) + " x " + elem_type + "]"
-                | Option<u32>.None => return elem_type + "*"
+                | Option<u32>.Some(s) { return "[" + u32_to_string(s) + " x " + elem_type + "]" }
+                | Option<u32>.None { return elem_type + "*" }
             }
         }
-        | Type.Function(params, ret) => {
+        | Type.Function(params, ret) { { }
             ret_type := zen_type_to_llvm(*ret)
             // Function pointer type
             return ret_type + " (...)*"
         }
-        | _ => return "i32"  // Default
+        | _ { return "i32"  // Default }
     }
 }
 
 // Generate code for binary operation
-gen_binary_op: (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg: u32, ty: string) u32  = {
+gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg: u32, ty: string) u32   {
     result_reg := alloc_register(gen)
     
     op_instr := match op {
-        | BinaryOperator.Add => ty == "float" || ty == "double" ? "fadd" : "add"
-        | BinaryOperator.Sub => ty == "float" || ty == "double" ? "fsub" : "sub"
-        | BinaryOperator.Mul => ty == "float" || ty == "double" ? "fmul" : "mul"
-        | BinaryOperator.Div => ty == "float" || ty == "double" ? "fdiv" : "sdiv"
-        | BinaryOperator.Mod => "srem"
-        | BinaryOperator.Equal => ty == "float" || ty == "double" ? "fcmp oeq" : "icmp eq"
-        | BinaryOperator.NotEqual => ty == "float" || ty == "double" ? "fcmp one" : "icmp ne"
-        | BinaryOperator.Less => ty == "float" || ty == "double" ? "fcmp olt" : "icmp slt"
-        | BinaryOperator.Greater => ty == "float" || ty == "double" ? "fcmp ogt" : "icmp sgt"
-        | BinaryOperator.LessEqual => ty == "float" || ty == "double" ? "fcmp ole" : "icmp sle"
-        | BinaryOperator.GreaterEqual => ty == "float" || ty == "double" ? "fcmp oge" : "icmp sge"
-        | BinaryOperator.LogicalAnd => "and"
-        | BinaryOperator.LogicalOr => "or"
-        | BinaryOperator.BitwiseAnd => "and"
-        | BinaryOperator.BitwiseOr => "or"
-        | BinaryOperator.BitwiseXor => "xor"
-        | BinaryOperator.LeftShift => "shl"
-        | BinaryOperator.RightShift => "ashr"
-        | _ => "add"  // Default
+        | BinaryOperator.Add { ty == "float" || ty == "double" ? "fadd" : "add" }
+        | BinaryOperator.Sub { ty == "float" || ty == "double" ? "fsub" : "sub" }
+        | BinaryOperator.Mul { ty == "float" || ty == "double" ? "fmul" : "mul" }
+        | BinaryOperator.Div { ty == "float" || ty == "double" ? "fdiv" : "sdiv" }
+        | BinaryOperator.Mod { "srem" }
+        | BinaryOperator.Equal { ty == "float" || ty == "double" ? "fcmp oeq" : "icmp eq" }
+        | BinaryOperator.NotEqual { ty == "float" || ty == "double" ? "fcmp one" : "icmp ne" }
+        | BinaryOperator.Less { ty == "float" || ty == "double" ? "fcmp olt" : "icmp slt" }
+        | BinaryOperator.Greater { ty == "float" || ty == "double" ? "fcmp ogt" : "icmp sgt" }
+        | BinaryOperator.LessEqual { ty == "float" || ty == "double" ? "fcmp ole" : "icmp sle" }
+        | BinaryOperator.GreaterEqual { ty == "float" || ty == "double" ? "fcmp oge" : "icmp sge" }
+        | BinaryOperator.LogicalAnd { "and" }
+        | BinaryOperator.LogicalOr { "or" }
+        | BinaryOperator.BitwiseAnd { "and" }
+        | BinaryOperator.BitwiseOr { "or" }
+        | BinaryOperator.BitwiseXor { "xor" }
+        | BinaryOperator.LeftShift { "shl" }
+        | BinaryOperator.RightShift { "ashr" }
+        | _ { "add"  // Default }
     }
     
     emit(gen, "  %" + u32_to_string(result_reg) + " = " + op_instr + " " + ty + " %" + 
@@ -173,25 +173,25 @@ gen_binary_op: (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg:
 }
 
 // Generate code for expression
-gen_expression: (gen: &mut CodeGen, expr: AstNode) u32  = {
+gen_expression = (gen: &mut CodeGen, expr: AstNode) u32   {
     match expr {
-        | AstNode.IntLit(val) => {
+        | AstNode.IntLit(val) { { }
             reg := alloc_register(gen)
             emit(gen, "  %" + u32_to_string(reg) + " = add i32 0, " + i64_to_string(val))
             return reg
         }
-        | AstNode.FloatLit(val) => {
+        | AstNode.FloatLit(val) { { }
             reg := alloc_register(gen)
             emit(gen, "  %" + u32_to_string(reg) + " = fadd double 0.0, " + f64_to_string(val))
             return reg
         }
-        | AstNode.BoolLit(val) => {
+        | AstNode.BoolLit(val) { { }
             reg := alloc_register(gen)
             val_str := val ? "1" : "0"
             emit(gen, "  %" + u32_to_string(reg) + " = add i1 0, " + val_str)
             return reg
         }
-        | AstNode.StringLit(val) => {
+        | AstNode.StringLit(val) { { }
             // Add string constant
             str_id := vec_len(gen.string_constants)
             str_name := "@.str." + u32_to_string(str_id)
@@ -210,29 +210,29 @@ gen_expression: (gen: &mut CodeGen, expr: AstNode) u32  = {
                  u32_to_string(string_len(val) + 1) + " x i8]* " + str_name + ", i32 0, i32 0")
             return reg
         }
-        | AstNode.Ident(name) => {
+        | AstNode.Ident(name) { { }
             // Load variable
             var := find_variable(gen, name)
             match var {
-                | Option<LocalVar>.Some(v) => {
+                | Option<LocalVar>.Some(v) { { }
                     reg := alloc_register(gen)
                     emit(gen, "  %" + u32_to_string(reg) + " = load " + v.llvm_type + 
                          ", " + v.llvm_type + "* %" + u32_to_string(v.register))
                     return reg
                 }
-                | Option<LocalVar>.None => {
+                | Option<LocalVar>.None { { }
                     // Variable not found, return dummy register
                     return 0
                 }
             }
         }
-        | AstNode.BinaryOp(op, left, right) => {
+        | AstNode.BinaryOp(op, left, right) { { }
             left_reg := gen_expression(gen, *left)
             right_reg := gen_expression(gen, *right)
             // For now, assume i32 type
             return gen_binary_op(gen, op, left_reg, right_reg, "i32")
         }
-        | _ => {
+        | _ { { }
             // Unsupported expression, return dummy register
             return 0
         }
@@ -240,7 +240,7 @@ gen_expression: (gen: &mut CodeGen, expr: AstNode) u32  = {
 }
 
 // Find variable in symbol table
-find_variable: (gen: &CodeGen, name: string) Option<LocalVar>  = {
+find_variable = (gen: &CodeGen, name: string) Option<LocalVar>   {
     i := 0
     loop i < vec_len(gen.locals) {
         var := vec_get(gen.locals, i)
@@ -253,9 +253,9 @@ find_variable: (gen: &CodeGen, name: string) Option<LocalVar>  = {
 }
 
 // Generate code for statement
-gen_statement: (gen: &mut CodeGen, stmt: AstNode)   = {
+gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
     match stmt {
-        | AstNode.VarDecl(name, ty, init) => {
+        | AstNode.VarDecl(name, ty, init) { { }
             // Allocate local variable
             llvm_ty := zen_type_to_llvm(ty)
             var_reg := alloc_register(gen)
@@ -263,12 +263,12 @@ gen_statement: (gen: &mut CodeGen, stmt: AstNode)   = {
             
             // Store initial value if present
             match init {
-                | Option<AstNode>.Some(expr) => {
+                | Option<AstNode>.Some(expr) { { }
                     val_reg := gen_expression(gen, expr)
                     emit(gen, "  store " + llvm_ty + " %" + u32_to_string(val_reg) + 
                          ", " + llvm_ty + "* %" + u32_to_string(var_reg))
                 }
-                | Option<AstNode>.None => {}
+                | Option<AstNode>.None { { }}
             }
             
             // Add to locals table
@@ -279,22 +279,22 @@ gen_statement: (gen: &mut CodeGen, stmt: AstNode)   = {
             }
             vec_push(gen.locals, var)
         }
-        | AstNode.Return(expr) => {
+        | AstNode.Return(expr) { { }
             match expr {
-                | Option<AstNode>.Some(e) => {
+                | Option<AstNode>.Some(e) { { }
                     val_reg := gen_expression(gen, e)
                     emit(gen, "  ret i32 %" + u32_to_string(val_reg))
                 }
-                | Option<AstNode>.None => {
+                | Option<AstNode>.None { { }
                     emit(gen, "  ret void")
                 }
             }
         }
-        | AstNode.Expression(expr) => {
+        | AstNode.Expression(expr) { { }
             // Generate expression (result discarded)
             gen_expression(gen, expr)
         }
-        | AstNode.Block(stmts) => {
+        | AstNode.Block(stmts) { { }
             // Generate each statement in block
             i := 0
             loop i < vec_len(stmts) {
@@ -302,14 +302,14 @@ gen_statement: (gen: &mut CodeGen, stmt: AstNode)   = {
                 i = i + 1
             }
         }
-        | _ => {}
+        | _ { { }}
     }
 }
 
 // Generate function definition
-gen_function: (gen: &mut CodeGen, func: AstNode)   = {
+gen_function = (gen: &mut CodeGen, func: AstNode)  {
     match func {
-        | AstNode.FnDecl(name, params, ret_ty, body) => {
+        | AstNode.FnDecl(name, params, ret_ty, body) { { }
             // Clear locals for new function
             gen.locals = vec_new<LocalVar>()
             gen.next_register = 0
@@ -346,10 +346,10 @@ gen_function: (gen: &mut CodeGen, func: AstNode)   = {
             
             // Generate function body
             match body {
-                | Option<AstNode>.Some(b) => {
+                | Option<AstNode>.Some(b) { { }
                     gen_statement(gen, b)
                 }
-                | Option<AstNode>.None => {}
+                | Option<AstNode>.None { { }}
             }
             
             // Add implicit return if needed
@@ -360,12 +360,12 @@ gen_function: (gen: &mut CodeGen, func: AstNode)   = {
             gen.indent_level = 0
             emit(gen, "}")
         }
-        | _ => {}
+        | _ { { }}
     }
 }
 
 // Helper functions (improved implementations)
-u32_to_string: (n: u32) string  = {
+u32_to_string = (n: u32) string   {
     n == 0 ? { return "0" } : {}
     
     // Simple implementation for now
@@ -376,7 +376,7 @@ u32_to_string: (n: u32) string  = {
     { return "999" }  // Truncate for now
 }
 
-i64_to_string: (n: i64) string  = {
+i64_to_string = (n: i64) string   {
     n < 0 ? { return "-" + i64_to_string(-n) } : {}
     n == 0 ? { return "0" } : {}
     
@@ -385,14 +385,14 @@ i64_to_string: (n: i64) string  = {
     { return i64_to_string(n / 10) + i64_to_string(n % 10) }
 }
 
-f64_to_string: (n: f64) string  = {
+f64_to_string = (n: f64) string   {
     // Simple implementation - just return fixed strings for now
     n == 0.0 ? { return "0.0" } :
     n == 1.0 ? { return "1.0" } :
     { return "0.0" }  // Default
 }
 
-string_len: (s: string) u32  = {
+string_len = (s: string) u32   {
     // Count characters until null terminator
     len := 0
     i := 0
@@ -424,7 +424,7 @@ vec_new = <T>() Vec<T> {
 }
 
 // Generate complete module
-gen_module: (gen: &mut CodeGen, ast: Vec<AstNode>)   = {
+gen_module = (gen: &mut CodeGen, ast: Vec<AstNode>)  {
     // Generate module header
     emit(gen, "; ModuleID = '" + gen.module_name + "'")
     emit(gen, "source_filename = \"" + gen.module_name + ".zen\"")
@@ -445,19 +445,19 @@ gen_module: (gen: &mut CodeGen, ast: Vec<AstNode>)   = {
     loop i < vec_len(ast) {
         node := vec_get(ast, i)
         match node {
-            | AstNode.FnDecl(_, _, _, _) => {
+            | AstNode.FnDecl(_, _, _, _) { { }
                 gen_function(gen, node)
             }
-            | AstNode.GlobalVar(name, ty, init) => {
+            | AstNode.GlobalVar(name, ty, init) { { }
                 // Generate global variable
                 llvm_ty := zen_type_to_llvm(ty)
                 init_val := match init {
-                    | Option<AstNode>.Some(e) => "0"  // TODO: evaluate constant
-                    | Option<AstNode>.None => "zeroinitializer"
+                    | Option<AstNode>.Some(e) { "0"  // TODO: evaluate constant }
+                    | Option<AstNode>.None { "zeroinitializer" }
                 }
                 emit(gen, "@" + name + " = global " + llvm_ty + " " + init_val)
             }
-            | _ => {}
+            | _ { { }}
         }
         i = i + 1
     }
@@ -478,7 +478,7 @@ gen_module: (gen: &mut CodeGen, ast: Vec<AstNode>)   = {
 }
 
 // Main entry point for testing
-main: () i32  = {
+main = () i32   {
     io.print("Zen LLVM Code Generator\n")
     io.print("=======================\n\n")
     

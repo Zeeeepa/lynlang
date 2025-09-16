@@ -2,15 +2,15 @@
 // A package manager for Zen written in Zen
 
 // Imports
-core := @std.core
-io := @std.io
-fs := @std.fs
-net := @std.network
-http := @std.http
-json := @std.json
-process := @std.process
-string := @std.string
-crypto := @std.crypto
+{ core } = @std.core
+{ io } = @std.io
+{ fs } = @std.fs
+{ net } = @std.network
+{ http } = @std.http
+{ json } = @std.json
+{ process } = @std.process
+{ string } = @std.string
+{ crypto } = @std.crypto
 
 // Package registry URL
 REGISTRY_URL := "https://registry.zenlang.org"
@@ -69,7 +69,7 @@ Command:
     Doctor,
 
 // Initialize a new package
-init_package: (name: string, path: string) Result<void, string>  = {
+init_package = (name: string, path: string) Result<void, string>   {
     io.print("Initializing new Zen package: $(name)\n");
     
     // Check if directory exists
@@ -110,7 +110,7 @@ init_package: (name: string, path: string) Result<void, string>  = {
     
     // Create main.zen
     main_content := "// $(name) - Main entry point\n\n";
-    main_content += "io := @std.io\n\n";
+    main_content += "{ io } = @std.io\n\n";
     main_content += "main = () i32 {\n";
     main_content += "    io.print(\"Hello from $(name)!\\n\");\n";
     main_content += "    return 0\n";
@@ -139,7 +139,7 @@ init_package: (name: string, path: string) Result<void, string>  = {
 }
 
 // Install dependencies
-install_packages: (manifest_path: string) Result<void, string>  = {
+install_packages = (manifest_path: string) Result<void, string>   {
     io.print("Installing packages...\n");
     
     // Load manifest
@@ -167,7 +167,7 @@ install_packages: (manifest_path: string) Result<void, string>  = {
 }
 
 // Resolve dependency tree
-resolve_dependencies: (deps: HashMap<string, VersionReq>) Result<[]LockEntry, string>  = {
+resolve_dependencies = (deps: HashMap<string, VersionReq>) Result<[]LockEntry, string>   {
     resolved := [];
     queue := [];
     seen := HashMap.new<string, string>();
@@ -211,7 +211,7 @@ resolve_dependencies: (deps: HashMap<string, VersionReq>) Result<[]LockEntry, st
 }
 
 // Fetch package information from registry
-fetch_package_info: (name: string, req: VersionReq) Result<PackageInfo, string>  = {
+fetch_package_info = (name: string, req: VersionReq) Result<PackageInfo, string>   {
     // Determine version to fetch
     version := req ?
         | .Exact -> v => v
@@ -238,7 +238,7 @@ fetch_package_info: (name: string, req: VersionReq) Result<PackageInfo, string> 
 }
 
 // Install a single package
-install_package: (entry: LockEntry) Result<void, string>  = {
+install_package = (entry: LockEntry) Result<void, string>   {
     io.print("  Installing $(entry.name)@$(entry.version)...\n");
     
     package_dir := "$(PACKAGES_DIR)/$(entry.name)/$(entry.version)";
@@ -281,7 +281,7 @@ install_package: (entry: LockEntry) Result<void, string>  = {
 }
 
 // Download package archive
-download_package: (name: string, version: string) Result<string, string>  = {
+download_package = (name: string, version: string) Result<string, string>   {
     url := "$(REGISTRY_URL)/packages/$(name)/$(version)/download";
     cache_path := "$(CACHE_DIR)/$(name)-$(version).tar.gz";
     
@@ -297,7 +297,7 @@ download_package: (name: string, version: string) Result<string, string>  = {
 }
 
 // Search for packages
-search_packages: (query: string) Result<void, string>  = {
+search_packages = (query: string) Result<void, string>   {
     io.print("Searching for packages matching '$(query)'...\n\n");
     
     url := "$(REGISTRY_URL)/search?q=$(url_encode(query))";
@@ -327,7 +327,7 @@ search_packages: (query: string) Result<void, string>  = {
 }
 
 // Publish package to registry
-publish_package: (manifest_path: string) Result<void, string>  = {
+publish_package = (manifest_path: string) Result<void, string>   {
     io.print("Publishing package...\n");
     
     // Load manifest
@@ -370,7 +370,7 @@ publish_package: (manifest_path: string) Result<void, string>  = {
 }
 
 // List installed packages
-list_packages: (global: bool) Result<void, string>  = {
+list_packages = (global: bool) Result<void, string>   {
     io.print("Installed packages:\n\n");
     
     dir := global ? | true => PACKAGES_DIR | false => "./node_modules";
@@ -403,7 +403,7 @@ list_packages: (global: bool) Result<void, string>  = {
 }
 
 // Clean package cache
-clean_cache: () Result<void, string>  = {
+clean_cache = () Result<void, string>   {
     io.print("Cleaning package cache...\n");
     
     fs.exists(CACHE_DIR) ? | false => {
@@ -421,7 +421,7 @@ clean_cache: () Result<void, string>  = {
 }
 
 // Check system configuration
-doctor: () Result<void, string>  = {
+doctor = () Result<void, string>   {
     io.print("Checking Zen package manager configuration...\n\n");
     
     errors := 0;
@@ -492,7 +492,7 @@ doctor: () Result<void, string>  = {
 }
 
 // Main entry point
-main: (args: []string) i32  = {
+main = (args: []string) i32   {
     args.len < 2 ? | true => {
         print_usage();
         return 1
@@ -543,13 +543,13 @@ main: (args: []string) i32  = {
 }
 
 // Print usage
-print_usage: () void  = {
+print_usage = () void   {
     io.print("Usage: zen-pkg <command> [options]\n");
     io.print("Run 'zen-pkg --help' for more information\n")
 }
 
 // Print help
-print_help: () void  = {
+print_help = () void   {
     io.print("Zen Package Manager\n\n");
     io.print("Usage: zen-pkg <command> [options]\n\n");
     io.print("Commands:\n");

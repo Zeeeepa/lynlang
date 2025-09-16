@@ -2,7 +2,7 @@
 // Fully compliant with Zenlang Language Specification v1.1.0
 
 // Import core modules
-build := @std.build
+{ build } = @std.build
 core := build.import("../std/core")
 { Option, Result, Vec, HashMap, Ptr } := core
 
@@ -205,7 +205,7 @@ LSPServer: {
 }
 
 // Create a new LSP server
-new_server: () LSPServer  = {
+new_server = () LSPServer   {
     LSPServer {
         documents: HashMap:new(),
         root_uri: Option:None,
@@ -217,7 +217,7 @@ new_server: () LSPServer  = {
 }
 
 // Handle incoming LSP message
-handle_message: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_message = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     msg.method ?
         | Some -> method => {
             method == "initialize" ? | true => handle_initialize(server, msg)
@@ -253,7 +253,7 @@ handle_message: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  
 }
 
 // Initialize request handler
-handle_initialize: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_initialize = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_initialize_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -302,7 +302,7 @@ handle_initialize: (server: Ptr<LSPServer>, msg: Message) Result<Message, string
 }
 
 // Initialized notification handler
-handle_initialized: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_initialized = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     // No response needed for notification
     Result:Ok(Message {
         jsonrpc: "2.0",
@@ -315,7 +315,7 @@ handle_initialized: (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
 }
 
 // Shutdown request handler
-handle_shutdown: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_shutdown = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     server.value.shutdown_requested = true
     
     Result:Ok(Message {
@@ -329,7 +329,7 @@ handle_shutdown: (server: Ptr<LSPServer>, msg: Message) Result<Message, string> 
 }
 
 // Text document opened handler
-handle_did_open: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_did_open = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_did_open_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -353,7 +353,7 @@ handle_did_open: (server: Ptr<LSPServer>, msg: Message) Result<Message, string> 
 }
 
 // Text document changed handler
-handle_did_change: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_did_change = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_did_change_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -388,7 +388,7 @@ handle_did_change: (server: Ptr<LSPServer>, msg: Message) Result<Message, string
 }
 
 // Text document closed handler
-handle_did_close: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_did_close = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_did_close_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -413,7 +413,7 @@ handle_did_close: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>
 }
 
 // Completion request handler
-handle_completion: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_completion = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_completion_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -432,7 +432,7 @@ handle_completion: (server: Ptr<LSPServer>, msg: Message) Result<Message, string
 }
 
 // Hover request handler
-handle_hover: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_hover = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_hover_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -456,7 +456,7 @@ handle_hover: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = 
 }
 
 // Go to definition handler
-handle_definition: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_definition = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_definition_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -477,7 +477,7 @@ handle_definition: (server: Ptr<LSPServer>, msg: Message) Result<Message, string
 }
 
 // Find references handler
-handle_references: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_references = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_references_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -496,7 +496,7 @@ handle_references: (server: Ptr<LSPServer>, msg: Message) Result<Message, string
 }
 
 // Document formatting handler
-handle_formatting: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_formatting = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_formatting_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -515,7 +515,7 @@ handle_formatting: (server: Ptr<LSPServer>, msg: Message) Result<Message, string
 }
 
 // Document symbols handler
-handle_document_symbol: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_document_symbol = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_document_symbol_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -534,7 +534,7 @@ handle_document_symbol: (server: Ptr<LSPServer>, msg: Message) Result<Message, s
 }
 
 // Workspace symbols handler
-handle_workspace_symbol: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_workspace_symbol = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_workspace_symbol_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -553,7 +553,7 @@ handle_workspace_symbol: (server: Ptr<LSPServer>, msg: Message) Result<Message, 
 }
 
 // Code actions handler
-handle_code_action: (server: Ptr<LSPServer>, msg: Message) Result<Message, string>  = {
+handle_code_action = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_code_action_params(msg.params) ?
         | Ok -> p => p
         | Err -> e => return Result:Err(e)
@@ -572,7 +572,7 @@ handle_code_action: (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
 }
 
 // Analyze document and generate diagnostics
-analyze_document: (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>  = {
+analyze_document = (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>   {
     diagnostics := Vec<Diagnostic>:new()
     diagnostics_ptr := Ptr:new(diagnostics)
     
@@ -659,7 +659,7 @@ analyze_document: (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>  = {
 }
 
 // Check for language spec compliance
-check_spec_compliance: (text: string) Vec<SpecViolation>  = {
+check_spec_compliance = (text: string) Vec<SpecViolation>   {
     violations := Vec<SpecViolation>:new()
     violations_ptr := Ptr:new(violations)
     
@@ -735,7 +735,7 @@ SpecViolation: {
 }
 
 // Send diagnostics to client
-send_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
+send_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void   {
     notification := Message {
         jsonrpc: "2.0",
         id: Option:None,
@@ -752,7 +752,7 @@ send_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
 }
 
 // Send message to client
-send_message: (msg: Message) void  = {
+send_message = (msg: Message) void   {
     json_str := json.stringify(msg)
     content_length := json_str.len()
     
@@ -760,7 +760,7 @@ send_message: (msg: Message) void  = {
 }
 
 // Main entry point
-main: () void  = {
+main = () void   {
     server := Ptr:new(new_server())
     
     loop {
@@ -810,88 +810,88 @@ main: () void  = {
 }
 
 // Placeholder functions for parsing params
-parse_initialize_params: (params: Option<json.Value>) Result<InitializeParams, string>  = {
+parse_initialize_params = (params: Option<json.Value>) Result<InitializeParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_did_open_params: (params: Option<json.Value>) Result<DidOpenTextDocumentParams, string>  = {
+parse_did_open_params = (params: Option<json.Value>) Result<DidOpenTextDocumentParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_did_change_params: (params: Option<json.Value>) Result<DidChangeTextDocumentParams, string>  = {
+parse_did_change_params = (params: Option<json.Value>) Result<DidChangeTextDocumentParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_did_close_params: (params: Option<json.Value>) Result<DidCloseTextDocumentParams, string>  = {
+parse_did_close_params = (params: Option<json.Value>) Result<DidCloseTextDocumentParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_completion_params: (params: Option<json.Value>) Result<CompletionParams, string>  = {
+parse_completion_params = (params: Option<json.Value>) Result<CompletionParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_hover_params: (params: Option<json.Value>) Result<HoverParams, string>  = {
+parse_hover_params = (params: Option<json.Value>) Result<HoverParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_definition_params: (params: Option<json.Value>) Result<DefinitionParams, string>  = {
+parse_definition_params = (params: Option<json.Value>) Result<DefinitionParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_references_params: (params: Option<json.Value>) Result<ReferenceParams, string>  = {
+parse_references_params = (params: Option<json.Value>) Result<ReferenceParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_formatting_params: (params: Option<json.Value>) Result<DocumentFormattingParams, string>  = {
+parse_formatting_params = (params: Option<json.Value>) Result<DocumentFormattingParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_document_symbol_params: (params: Option<json.Value>) Result<DocumentSymbolParams, string>  = {
+parse_document_symbol_params = (params: Option<json.Value>) Result<DocumentSymbolParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_workspace_symbol_params: (params: Option<json.Value>) Result<WorkspaceSymbolParams, string>  = {
+parse_workspace_symbol_params = (params: Option<json.Value>) Result<WorkspaceSymbolParams, string>   {
     Result:Err("Not implemented")
 }
 
-parse_code_action_params: (params: Option<json.Value>) Result<CodeActionParams, string>  = {
+parse_code_action_params = (params: Option<json.Value>) Result<CodeActionParams, string>   {
     Result:Err("Not implemented")
 }
 
 // Placeholder functions for LSP features
-get_completions: (server: Ptr<LSPServer>, uri: string, position: Position) Vec<CompletionItem>  = {
+get_completions = (server: Ptr<LSPServer>, uri: string, position: Position) Vec<CompletionItem>   {
     Vec:new()
 }
 
-get_hover_info: (server: Ptr<LSPServer>, uri: string, position: Position) Option<string>  = {
+get_hover_info = (server: Ptr<LSPServer>, uri: string, position: Position) Option<string>   {
     Option:None
 }
 
-find_definition: (server: Ptr<LSPServer>, uri: string, position: Position) Option<Location>  = {
+find_definition = (server: Ptr<LSPServer>, uri: string, position: Position) Option<Location>   {
     Option:None
 }
 
-find_references: (server: Ptr<LSPServer>, uri: string, position: Position) Vec<Location>  = {
+find_references = (server: Ptr<LSPServer>, uri: string, position: Position) Vec<Location>   {
     Vec:new()
 }
 
-format_document: (server: Ptr<LSPServer>, uri: string) Vec<TextEdit>  = {
+format_document = (server: Ptr<LSPServer>, uri: string) Vec<TextEdit>   {
     Vec:new()
 }
 
-get_document_symbols: (server: Ptr<LSPServer>, uri: string) Vec<SymbolInformation>  = {
+get_document_symbols = (server: Ptr<LSPServer>, uri: string) Vec<SymbolInformation>   {
     Vec:new()
 }
 
-search_workspace_symbols: (server: Ptr<LSPServer>, query: string) Vec<SymbolInformation>  = {
+search_workspace_symbols = (server: Ptr<LSPServer>, query: string) Vec<SymbolInformation>   {
     Vec:new()
 }
 
-get_code_actions: (server: Ptr<LSPServer>, uri: string, range: Range) Vec<CodeAction>  = {
+get_code_actions = (server: Ptr<LSPServer>, uri: string, range: Range) Vec<CodeAction>   {
     Vec:new()
 }
 
-read_lsp_message: () Result<Message, string>  = {
+read_lsp_message = () Result<Message, string>   {
     Result:Err("Not implemented")
 }
 

@@ -1,20 +1,20 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides advanced IDE support with hover, go-to-definition, and more
 
-core := @std.core
-io := @std.io
-string := @std.string
-vec := @std.vec
-hashmap := @std.hashmap
-fs := @std.fs
-json := @std.json
-result := @std.result
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ hashmap } = @std.hashmap
+{ fs } = @std.fs
+{ json } = @std.json
+{ result } = @std.result
 
 // Import compiler modules
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
-ast := @std.compiler.ast
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
+{ ast } = @std.compiler.ast
 
 // Symbol information for tracking definitions and references
 Symbol := {
@@ -145,7 +145,7 @@ DiagnosticRelatedInformation := {
 }
 
 // Create enhanced language server
-create_enhanced_server: () EnhancedLanguageServer  = {
+create_enhanced_server = () EnhancedLanguageServer   {
     return EnhancedLanguageServer{
         initialized: false,
         root_uri: Option.None,
@@ -159,7 +159,7 @@ create_enhanced_server: () EnhancedLanguageServer  = {
 }
 
 // Create server capabilities
-create_server_capabilities: () ServerCapabilities  = {
+create_server_capabilities = () ServerCapabilities   {
     return ServerCapabilities{
         textDocumentSync: 1,  // Full sync
         completionProvider: CompletionOptions{
@@ -190,7 +190,7 @@ create_server_capabilities: () ServerCapabilities  = {
 }
 
 // Analyze document and build symbol table
-analyze_document: (server: &mut EnhancedLanguageServer, doc: &mut EnhancedDocument) Result<void, string>  = {
+analyze_document = (server: &mut EnhancedLanguageServer, doc: &mut EnhancedDocument) Result<void, string>   {
     // Clear previous analysis
     doc.symbols = hashmap.new<string, Symbol>()
     doc.imports = vec.new<ImportInfo>()
@@ -237,7 +237,7 @@ analyze_document: (server: &mut EnhancedLanguageServer, doc: &mut EnhancedDocume
 }
 
 // Extract symbols from AST
-extract_symbols: (doc: &mut EnhancedDocument, program: ast.Program) Result<void, string>  = {
+extract_symbols = (doc: &mut EnhancedDocument, program: ast.Program) Result<void, string>   {
     for (decl in program.declarations) {
         match decl {
             ast.Declaration.Function(func) => {
@@ -295,7 +295,7 @@ extract_symbols: (doc: &mut EnhancedDocument, program: ast.Program) Result<void,
 }
 
 // Handle hover request
-handle_hover: (server: &EnhancedLanguageServer, params: TextDocumentPositionParams) Result<Option<Hover>, string>  = {
+handle_hover = (server: &EnhancedLanguageServer, params: TextDocumentPositionParams) Result<Option<Hover>, string>   {
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
     if (doc.is_none()) {
@@ -327,7 +327,7 @@ handle_hover: (server: &EnhancedLanguageServer, params: TextDocumentPositionPara
 }
 
 // Build hover content for symbol
-build_hover_content: (symbol: &Symbol) string  = {
+build_hover_content = (symbol: &Symbol) string   {
     content := string.new()
     
     // Add signature or type info
@@ -376,7 +376,7 @@ build_hover_content: (symbol: &Symbol) string  = {
 }
 
 // Handle go-to-definition request
-handle_definition: (server: &EnhancedLanguageServer, params: TextDocumentPositionParams) Result<Option<Location>, string>  = {
+handle_definition = (server: &EnhancedLanguageServer, params: TextDocumentPositionParams) Result<Option<Location>, string>   {
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
     if (doc.is_none()) {
@@ -421,7 +421,7 @@ handle_definition: (server: &EnhancedLanguageServer, params: TextDocumentPositio
 }
 
 // Find symbol at position
-find_symbol_at_position: (doc: &EnhancedDocument, pos: Position) Option<&Symbol> = {
+find_symbol_at_position = (doc: &EnhancedDocument, pos: Position) Option<&Symbol>  {
     // Convert position to offset
     offset := position_to_offset(doc, pos)
     
@@ -454,7 +454,7 @@ find_symbol_at_position: (doc: &EnhancedDocument, pos: Position) Option<&Symbol>
 }
 
 // Find references to symbol
-handle_references: (server: &EnhancedLanguageServer, params: ReferenceParams) Result<Vec<Location>, string>  = {
+handle_references = (server: &EnhancedLanguageServer, params: ReferenceParams) Result<Vec<Location>, string>   {
     references := vec.new<Location>()
     
     // Get document
@@ -491,7 +491,7 @@ handle_references: (server: &EnhancedLanguageServer, params: ReferenceParams) Re
 }
 
 // Find references in document
-find_references_in_document: (doc: &EnhancedDocument, symbol_name: string) Vec<Location>  = {
+find_references_in_document = (doc: &EnhancedDocument, symbol_name: string) Vec<Location>   {
     references := vec.new<Location>()
     
     // Search through tokens
@@ -514,7 +514,7 @@ find_references_in_document: (doc: &EnhancedDocument, symbol_name: string) Vec<L
 }
 
 // Document symbols for outline
-handle_document_symbols: (server: &EnhancedLanguageServer, params: DocumentSymbolParams) Result<Vec<DocumentSymbol>, string>  = {
+handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymbolParams) Result<Vec<DocumentSymbol>, string>   {
     symbols := vec.new<DocumentSymbol>()
     
     // Get document
@@ -545,7 +545,7 @@ handle_document_symbols: (server: &EnhancedLanguageServer, params: DocumentSymbo
 }
 
 // Rename symbol
-handle_rename: (server: &mut EnhancedLanguageServer, params: RenameParams) Result<WorkspaceEdit, string>  = {
+handle_rename = (server: &mut EnhancedLanguageServer, params: RenameParams) Result<WorkspaceEdit, string>   {
     edits := WorkspaceEdit{
         changes: hashmap.new<string, Vec<TextEdit>>()
     }
@@ -576,7 +576,7 @@ handle_rename: (server: &mut EnhancedLanguageServer, params: RenameParams) Resul
 }
 
 // Signature help for function calls
-handle_signature_help: (server: &EnhancedLanguageServer, params: SignatureHelpParams) Result<Option<SignatureHelp>, string>  = {
+handle_signature_help = (server: &EnhancedLanguageServer, params: SignatureHelpParams) Result<Option<SignatureHelp>, string>   {
     // Get document
     doc := hashmap.get(server.documents, params.textDocument.uri)
     if (doc.is_none()) {
@@ -622,7 +622,7 @@ handle_signature_help: (server: &EnhancedLanguageServer, params: SignatureHelpPa
 }
 
 // Code actions for quick fixes
-handle_code_actions: (server: &EnhancedLanguageServer, params: CodeActionParams) Result<Vec<CodeAction>, string>  = {
+handle_code_actions = (server: &EnhancedLanguageServer, params: CodeActionParams) Result<Vec<CodeAction>, string>   {
     actions := vec.new<CodeAction>()
     
     // Get document
@@ -650,7 +650,7 @@ handle_code_actions: (server: &EnhancedLanguageServer, params: CodeActionParams)
 }
 
 // Check for comptime import violations
-check_comptime_imports: (doc: &mut EnhancedDocument) void  = {
+check_comptime_imports = (doc: &mut EnhancedDocument) void   {
     if (doc.ast.is_none()) return
     
     program := doc.ast.unwrap()
@@ -685,7 +685,7 @@ check_comptime_imports: (doc: &mut EnhancedDocument) void  = {
 }
 
 // Helper to check if expression is an import
-is_import_expression: (expr: ast.Expression) bool  = {
+is_import_expression = (expr: ast.Expression) bool   {
     match expr {
         ast.Expression.StdModule(_) => true
         ast.Expression.FunctionCall(call) => {
@@ -696,7 +696,7 @@ is_import_expression: (expr: ast.Expression) bool  = {
 }
 
 // Helper functions
-position_to_offset: (doc: &EnhancedDocument, pos: Position) usize  = {
+position_to_offset = (doc: &EnhancedDocument, pos: Position) usize   {
     if (pos.line >= vec.len(doc.lines)) {
         return string.len(doc.content)
     }
@@ -712,7 +712,7 @@ position_to_offset: (doc: &EnhancedDocument, pos: Position) usize  = {
     return offset
 }
 
-offset_to_position: (doc: &EnhancedDocument, offset: usize) Position  = {
+offset_to_position = (doc: &EnhancedDocument, offset: usize) Position   {
     current := 0usize
     line := 0u32
     
@@ -734,7 +734,7 @@ offset_to_position: (doc: &EnhancedDocument, offset: usize) Position  = {
     }
 }
 
-span_to_range: (span: lexer.Span, doc: &EnhancedDocument) Range  = {
+span_to_range = (span: lexer.Span, doc: &EnhancedDocument) Range   {
     return Range{
         start: offset_to_position(doc, span.start),
         end: offset_to_position(doc, span.end)

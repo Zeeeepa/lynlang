@@ -1,12 +1,12 @@
 // Comprehensive Integration Tests for Zen Language
 // Tests all major language features and stdlib modules
 
-core := @std.core
-io := @std.io
-string := @std.string
-math := @std.math
-collections := @std.collections
-fs := @std.fs
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ math } = @std.math
+{ collections } = @std.collections
+{ fs } = @std.fs
 
 // Test result tracking
 TestResult: {
@@ -24,7 +24,7 @@ TestSuite: {
 }
 
 // Create new test suite
-suite_new: (name: string) TestSuite  = {
+suite_new = (name: string) TestSuite   {
     return TestSuite {
         name: name
         tests: collections.vec_new<TestResult>()
@@ -34,7 +34,7 @@ suite_new: (name: string) TestSuite  = {
 }
 
 // Add test result
-suite_add: (suite: *TestSuite, name: string, passed: bool, message: string) void  = {
+suite_add = (suite: *TestSuite, name: string, passed: bool, message: string) void   {
     result := TestResult {
         name: name
         passed: passed
@@ -51,7 +51,7 @@ suite_add: (suite: *TestSuite, name: string, passed: bool, message: string) void
 }
 
 // Assert helper
-assert: (suite: *TestSuite, name: string, condition: bool, message: string) void  = {
+assert = (suite: *TestSuite, name: string, condition: bool, message: string) void   {
     suite_add(suite, name, condition, message)
 }
 
@@ -63,7 +63,7 @@ assert_eq = <T>(suite: *TestSuite, name: string, expected: T, actual: T) void {
 }
 
 // Print test results
-print_results: (suite: TestSuite) void  = {
+print_results = (suite: TestSuite) void   {
     io.print("\n")
     io.print("=" * 60)
     io.print("\n")
@@ -94,7 +94,7 @@ print_results: (suite: TestSuite) void  = {
 }
 
 // Test basic language features
-test_basics: () TestSuite  = {
+test_basics = () TestSuite   {
     suite := suite_new("Basic Language Features")
     
     // Variables and bindings
@@ -128,7 +128,7 @@ test_basics: () TestSuite  = {
 }
 
 // Test control flow
-test_control_flow: () TestSuite  = {
+test_control_flow = () TestSuite   {
     suite := suite_new("Control Flow")
     
     // If expressions
@@ -168,17 +168,17 @@ test_control_flow: () TestSuite  = {
 }
 
 // Test functions
-test_functions: () TestSuite  = {
+test_functions = () TestSuite   {
     suite := suite_new("Functions")
     
     // Simple function
-    add: (a: i32, b: i32) i32  = {
+    add = (a: i32, b: i32) i32   {
         return a + b
     }
     assert_eq(&suite, "Function call", 15, add(10, 5))
     
     // Recursive function
-    factorial: (n: i32) i32  = {
+    factorial = (n: i32) i32   {
         if n <= 1 {
             return 1
         }
@@ -190,7 +190,7 @@ test_functions: () TestSuite  = {
     apply = (f: fn(i32) i32, x: i32) i32 {
         return f(x)
     }
-    double: (x: i32) i32  = { return x * 2 }
+    double = (x: i32) i32   { return x * 2 }
     assert_eq(&suite, "Higher-order function", 20, apply(double, 10))
     
     // Closures
@@ -204,7 +204,7 @@ test_functions: () TestSuite  = {
 }
 
 // Test arrays and slices
-test_arrays: () TestSuite  = {
+test_arrays = () TestSuite   {
     suite := suite_new("Arrays and Slices")
     
     // Fixed arrays
@@ -229,7 +229,7 @@ test_arrays: () TestSuite  = {
 }
 
 // Test strings
-test_strings: () TestSuite  = {
+test_strings = () TestSuite   {
     suite := suite_new("String Operations")
     
     // String basics
@@ -280,7 +280,7 @@ test_strings: () TestSuite  = {
 }
 
 // Test math module
-test_math: () TestSuite  = {
+test_math = () TestSuite   {
     suite := suite_new("Math Module")
     
     // Basic math
@@ -322,7 +322,7 @@ test_math: () TestSuite  = {
 }
 
 // Test collections module
-test_collections: () TestSuite  = {
+test_collections = () TestSuite   {
     suite := suite_new("Collections Module")
     
     // Vector operations
@@ -375,7 +375,7 @@ test_collections: () TestSuite  = {
 }
 
 // Test structs and enums
-test_structs_enums: () TestSuite  = {
+test_structs_enums = () TestSuite   {
     suite := suite_new("Structs and Enums")
     
     // Struct definition and usage
@@ -389,7 +389,7 @@ test_structs_enums: () TestSuite  = {
     assert_eq(&suite, "Struct field y", 20, p.y)
     
     // Struct methods
-    distance: (p: Point) f64  = {
+    distance = (p: Point) f64   {
         return math.sqrt((p.x * p.x + p.y * p.y) as f64)
     }
     
@@ -421,11 +421,11 @@ test_structs_enums: () TestSuite  = {
 }
 
 // Test error handling
-test_error_handling: () TestSuite  = {
+test_error_handling = () TestSuite   {
     suite := suite_new("Error Handling")
     
     // Option type
-    divide: (a: i32, b: i32) Option<i32>  = {
+    divide = (a: i32, b: i32) Option<i32>   {
         if b == 0 {
             return none
         }
@@ -443,7 +443,7 @@ test_error_handling: () TestSuite  = {
     assert(&suite, "Option None", is_none, "Division by zero returns None")
     
     // Result type
-    parse_int: (s: string) Result<i32>  = {
+    parse_int = (s: string) Result<i32>   {
         // Simplified - would actually parse
         if s == "42" {
             return Result.Ok(42)
@@ -469,7 +469,7 @@ test_error_handling: () TestSuite  = {
 }
 
 // Test generics
-test_generics: () TestSuite  = {
+test_generics = () TestSuite   {
     suite := suite_new("Generic Programming")
     
     // Generic function
@@ -510,7 +510,7 @@ test_generics: () TestSuite  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("\n")
     io.print("╔════════════════════════════════════════════════════════╗\n")
     io.print("║         Zen Language Integration Test Suite           ║\n")

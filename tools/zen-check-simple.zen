@@ -1,7 +1,7 @@
 // Zen Code Checker - Working Version
 // A basic validation tool for Zen source files
 
-io := @std.io
+{ io } = @std.io
 
 // Check result structure
 CheckStats: {
@@ -11,26 +11,26 @@ CheckStats: {
 }
 
 // Print colored message
-print_error: (msg: *i8) void  = {
+print_error = (msg: RawPtr<i8>) void   {
     io.print("\x1b[31m[ERROR]\x1b[0m ")
     io.print(msg)
     io.print("\n")
 }
 
-print_warning: (msg: *i8) void  = {
+print_warning = (msg: RawPtr<i8>) void   {
     io.print("\x1b[33m[WARNING]\x1b[0m ")
     io.print(msg)
     io.print("\n")
 }
 
-print_success: (msg: *i8) void  = {
+print_success = (msg: RawPtr<i8>) void   {
     io.print("\x1b[32m[OK]\x1b[0m ")
     io.print(msg)
     io.print("\n")
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("=== Zen Code Checker v0.2 ===\n")
     io.print("==============================\n\n")
     
@@ -52,7 +52,7 @@ main: () i32  = {
     print_success("Enforced by parser")
     
     // Rule 3: Proper import syntax
-    io.print("3. Import syntax (name := @std.module): ")
+    io.print("3. Import syntax ({ name } = @std.module): ")
     print_success("Validated")
     
     // Rule 4: Structs at module level

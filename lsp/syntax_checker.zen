@@ -1,14 +1,14 @@
 // Zen LSP: Basic Syntax Checker
 // Provides real-time syntax checking for Zen code
 
-core := @std.core
-vec := @std.vec
-string := @std.string
-io := @std.io
+{ core } = @std.core
+{ vec } = @std.vec
+{ string } = @std.string
+{ io } = @std.io
 
 // Import compiler components
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
 
 // Diagnostic severity levels
 DiagnosticSeverity: Error
@@ -43,7 +43,7 @@ SyntaxChecker: {
 }
 
 // Create new syntax checker
-syntax_checker_new: () SyntaxChecker  = {
+syntax_checker_new = () SyntaxChecker   {
     SyntaxChecker {
         diagnostics: vec_new<Diagnostic>(),
         source: "",
@@ -51,7 +51,7 @@ syntax_checker_new: () SyntaxChecker  = {
 }
 
 // Check syntax of source code
-check_syntax: (checker: Ptr<SyntaxChecker>, source: string) Vec<Diagnostic>  = {
+check_syntax = (checker: Ptr<SyntaxChecker>, source: string) Vec<Diagnostic>   {
     checker.source = source
     checker.diagnostics = vec_new<Diagnostic>()
     
@@ -74,7 +74,7 @@ check_syntax: (checker: Ptr<SyntaxChecker>, source: string) Vec<Diagnostic>  = {
 }
 
 // Perform lexical analysis
-perform_lexical_analysis: (checker: Ptr<SyntaxChecker>, source: string) bool  = {
+perform_lexical_analysis = (checker: Ptr<SyntaxChecker>, source: string) bool   {
     lex := lexer.lexer_new(source)
     
     loop {
@@ -102,7 +102,7 @@ perform_lexical_analysis: (checker: Ptr<SyntaxChecker>, source: string) bool  = 
 }
 
 // Perform syntactic analysis
-perform_syntactic_analysis: (checker: Ptr<SyntaxChecker>) bool  = {
+perform_syntactic_analysis = (checker: Ptr<SyntaxChecker>) bool   {
     lex := lexer.lexer_new(checker.source)
     tokens := lexer.tokenize(&lex)
     
@@ -127,7 +127,7 @@ perform_syntactic_analysis: (checker: Ptr<SyntaxChecker>) bool  = {
 }
 
 // Perform basic semantic checks
-perform_basic_semantic_checks: (checker: Ptr<SyntaxChecker>) void  = {
+perform_basic_semantic_checks = (checker: Ptr<SyntaxChecker>) void   {
     // Check for common issues
     check_unused_imports(checker)
     check_unreachable_code(checker)
@@ -135,7 +135,7 @@ perform_basic_semantic_checks: (checker: Ptr<SyntaxChecker>) void  = {
 }
 
 // Check for unused imports
-check_unused_imports: (checker: Ptr<SyntaxChecker>) void  = {
+check_unused_imports = (checker: Ptr<SyntaxChecker>) void   {
     // Parse source to find imports
     lex := lexer.lexer_new(checker.source)
     tokens := lexer.tokenize(&lex)
@@ -198,14 +198,14 @@ check_unused_imports: (checker: Ptr<SyntaxChecker>) void  = {
 }
 
 // Check if an import is used in the source
-check_import_usage: (source: string, import_name: string) bool  = {
+check_import_usage = (source: string, import_name: string) bool   {
     // Simple check: look for import_name followed by dot
     pattern := import_name + "."
     return string_contains(source, pattern)
 }
 
 // Check for unreachable code
-check_unreachable_code: (checker: Ptr<SyntaxChecker>) void  = {
+check_unreachable_code = (checker: Ptr<SyntaxChecker>) void   {
     // Look for code after return statements
     lines := string_split(checker.source, '\n')
     
@@ -256,7 +256,7 @@ check_unreachable_code: (checker: Ptr<SyntaxChecker>) void  = {
 }
 
 // Check naming conventions
-check_naming_conventions: (checker: Ptr<SyntaxChecker>) void  = {
+check_naming_conventions = (checker: Ptr<SyntaxChecker>) void   {
     lex := lexer.lexer_new(checker.source)
     tokens := lexer.tokenize(&lex)
     
@@ -274,7 +274,7 @@ check_naming_conventions: (checker: Ptr<SyntaxChecker>) void  = {
 }
 
 // Check identifier naming conventions
-check_identifier_naming: (checker: Ptr<SyntaxChecker>, name: string, line: u32, column: u32) void  = {
+check_identifier_naming = (checker: Ptr<SyntaxChecker>, name: string, line: u32, column: u32) void   {
     // Constants should be UPPER_CASE
     is_all_caps := true
     has_underscore := false
@@ -317,7 +317,7 @@ check_identifier_naming: (checker: Ptr<SyntaxChecker>, name: string, line: u32, 
 }
 
 // Format diagnostics as JSON
-format_diagnostics_json: (diagnostics: Vec<Diagnostic>) string  = {
+format_diagnostics_json = (diagnostics: Vec<Diagnostic>) string   {
     result := "["
     
     i := 0
@@ -353,27 +353,27 @@ format_diagnostics_json: (diagnostics: Vec<Diagnostic>) string  = {
 }
 
 // Helper functions (would be in string module)
-string_contains: (s: string, pattern: string) bool  = {
+string_contains = (s: string, pattern: string) bool   {
     // Implementation would check if pattern is in s
     return false
 }
 
-string_split: (s: string, delimiter: char) Vec<string>  = {
+string_split = (s: string, delimiter: char) Vec<string>   {
     // Implementation would split string by delimiter
     return vec_new<string>()
 }
 
-string_trim: (s: string) string  = {
+string_trim = (s: string) string   {
     // Implementation would trim whitespace
     return s
 }
 
-string_starts_with: (s: string, prefix: string) bool  = {
+string_starts_with = (s: string, prefix: string) bool   {
     // Implementation would check if s starts with prefix
     return false
 }
 
-u32_to_string: (n: u32) string  = {
+u32_to_string = (n: u32) string   {
     // Implementation would convert number to string
     return ""
 }

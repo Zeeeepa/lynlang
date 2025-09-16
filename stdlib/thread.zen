@@ -1,8 +1,8 @@
 // Zen Standard Library: Thread Module  
 // Threading and concurrency primitives
 
-core := @std.core
-mem := @std.mem
+{ core } = @std.core
+{ mem } = @std.mem
 
 // Thread ID type
 ThreadId: i64
@@ -11,7 +11,7 @@ ThreadId: i64
 Thread<T> = {
     id: ThreadId,
     name: core.Option<string>,
-    join_handle: *void,  // Platform-specific handle
+    join_handle: RawPtr<void>,  // Platform-specific handle
 }
 
 // Thread-local storage key
@@ -23,18 +23,18 @@ ThreadLocal<T> = {
 // Mutex for thread synchronization
 Mutex<T> = {
     data: T,
-    lock_state: *void,  // Platform-specific lock
+    lock_state: RawPtr<void>,  // Platform-specific lock
 }
 
 // Read-write lock
 RwLock<T> = {
     data: T,
-    lock_state: *void,  // Platform-specific lock
+    lock_state: RawPtr<void>,  // Platform-specific lock
 }
 
 // Condition variable
 Condvar: {
-    state: *void,  // Platform-specific state
+    state: RawPtr<void>,  // Platform-specific state
 }
 
 // Atomic types
@@ -77,13 +77,13 @@ spawn_with = <T>(opts: SpawnOptions, f: () T) core.Result<Thread<T>, core.Error>
 }
 
 // Get current thread ID
-current_id: () ThreadId  = {
+current_id = () ThreadId   {
     // Mock implementation
     1000
 }
 
 // Get current thread
-current: () Thread<void>  = {
+current = () Thread<void>   {
     Thread<void> {
         id: current_id(),
         name: core.Option:Some("main"),
@@ -92,13 +92,13 @@ current: () Thread<void>  = {
 }
 
 // Sleep current thread
-sleep: (millis: i64) void  = {
+sleep = (millis: i64) void   {
     // Mock implementation - would use system call
     // In real implementation: nanosleep or similar
 }
 
 // Yield current thread
-yield_now: () void  = {
+yield_now = () void   {
     // Mock implementation - would use system call
     // In real implementation: sched_yield or similar
 }
@@ -183,7 +183,7 @@ WriteGuard<T> = {
 }
 
 // Create a new condition variable
-condvar_new: () Condvar  = {
+condvar_new = () Condvar   {
     Condvar {
         state: core.nullptr(),
     }
@@ -197,13 +197,13 @@ condvar_wait = <T>(cv: Ref<Condvar>, guard: MutexGuard<T>) MutexGuard<T> {
 }
 
 // Signal one waiting thread
-condvar_notify_one: (cv: Ref<Condvar>) void  = {
+condvar_notify_one = (cv: Ref<Condvar>) void   {
     // Mock implementation
     // In real implementation, would signal one waiter
 }
 
 // Signal all waiting threads
-condvar_notify_all: (cv: Ref<Condvar>) void  = {
+condvar_notify_all = (cv: Ref<Condvar>) void   {
     // Mock implementation
     // In real implementation, would signal all waiters
 }
@@ -227,21 +227,21 @@ atomic_store = <T>(a: Ref<Atomic<T>>, value: T) void {
 
 // Compare and swap
 atomic_cas = <T>(a: Ref<Atomic<T>>, expected: T, new_value: T) bool {
-    a.value == expected ? | true => {
+    a.value == expected ? | true { { }
         a.value = new_value
         true
-    } | false => false
+    } | false { false }
 }
 
 // Atomic add (for numeric types)
-atomic_add: (a: Ref<Atomic<i64>>, val: i64) i64  = {
+atomic_add = (a: Ref<Atomic<i64>>, val: i64) i64   {
     old := a.value
     a.value = old + val
     old
 }
 
 // Atomic subtract
-atomic_sub: (a: Ref<Atomic<i64>>, val: i64) i64  = {
+atomic_sub = (a: Ref<Atomic<i64>>, val: i64) i64   {
     old := a.value
     a.value = old - val
     old
@@ -294,7 +294,7 @@ ThreadPool: {
 }
 
 // Create thread pool
-thread_pool: (num_threads: i64) ThreadPool  = {
+thread_pool = (num_threads: i64) ThreadPool   {
     ThreadPool {
         num_threads: num_threads,
         threads: [],
@@ -309,7 +309,7 @@ submit = <T>(pool: Ref<ThreadPool>, f: () T) core.Future<T> {
 }
 
 // Shutdown thread pool
-shutdown: (pool: Ref<ThreadPool>) void  = {
+shutdown = (pool: Ref<ThreadPool>) void   {
     // Mock implementation
     // In real implementation, would stop all threads
 }

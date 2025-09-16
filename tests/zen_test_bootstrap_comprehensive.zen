@@ -1,20 +1,20 @@
 // Comprehensive Bootstrap Compiler Test
 // Tests all aspects of the self-hosted Zen compiler
 
-core := @std.core
-io := @std.io
-test := @std.test
-string := @std.string
-vec := @std.vec
+{ core } = @std.core
+{ io } = @std.io
+{ test } = @std.test
+{ string } = @std.string
+{ vec } = @std.vec
 
 // Import compiler modules
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
-codegen := @std.compiler.codegen
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
+{ codegen } = @std.compiler.codegen
 
 // Test suite for lexer
-test_lexer_comprehensive: () bool  = {
+test_lexer_comprehensive = () bool   {
     io.print("Testing lexer...\n")
     
     // Test 1: Basic tokens
@@ -75,7 +75,7 @@ test_lexer_comprehensive: () bool  = {
 }
 
 // Test suite for parser
-test_parser_comprehensive: () bool  = {
+test_parser_comprehensive = () bool   {
     io.print("Testing parser...\n")
     
     // Test 1: Variable declarations
@@ -147,7 +147,7 @@ test_parser_comprehensive: () bool  = {
 }
 
 // Test suite for type checker
-test_type_checker_comprehensive: () bool  = {
+test_type_checker_comprehensive = () bool   {
     io.print("Testing type checker...\n")
     
     // Test 1: Basic type inference
@@ -226,7 +226,7 @@ test_type_checker_comprehensive: () bool  = {
 }
 
 // Test suite for code generation
-test_codegen_comprehensive: () bool  = {
+test_codegen_comprehensive = () bool   {
     io.print("Testing code generation...\n")
     
     // Test 1: Simple expression
@@ -301,13 +301,13 @@ test_codegen_comprehensive: () bool  = {
 }
 
 // Test end-to-end compilation
-test_end_to_end: () bool  = {
+test_end_to_end = () bool   {
     io.print("Testing end-to-end compilation...\n")
     
     // Complete program
     program := "
 // Fibonacci function
-fib: (n: i32) i32  = {
+fib = (n: i32) i32   {
     if n <= 1 {
         return n
     }
@@ -315,7 +315,7 @@ fib: (n: i32) i32  = {
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     result := fib(10)
     return result
 }
@@ -357,7 +357,7 @@ main: () i32  = {
 }
 
 // Performance test
-test_performance: () bool  = {
+test_performance = () bool   {
     io.print("Testing compiler performance...\n")
     
     // Generate a large program
@@ -388,7 +388,7 @@ test_performance: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("=== Zen Bootstrap Compiler Test Suite ===\n\n")
     
     passed := 0

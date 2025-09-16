@@ -1,15 +1,15 @@
 // Enhanced Zen Syntax Checker
 // Provides comprehensive syntax checking and linting
 
-io := @std.io
-fs := @std.fs
-string := @std.string
-process := @std.process
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ process } = @std.process
 
 // Import compiler modules
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
 
 // Check result
 CheckResult: {

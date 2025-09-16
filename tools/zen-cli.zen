@@ -1,7 +1,7 @@
 // ZenLang CLI tool
 // Main entry point for zen command
 
-build := @std.build
+{ build } = @std.build
 std := build.import("std")
 Build := std.Build
 fs := build.import("fs")
@@ -92,7 +92,7 @@ parseArgs = (args: []String) !Args {
 }
 
 // Find build.zen file
-findBuildFile: () ?String  = {
+findBuildFile = () ?String   {
     // Check current directory
     fs.exists("build.zen") ? {
         return "build.zen"
@@ -193,7 +193,7 @@ parseAbi = (s: String) Build.Abi {
         | _ => .none
 }
 
-formatTarget: (target: Build.Target) String  = {
+formatTarget = (target: Build.Target) String   {
     arch_str := target.cpu_arch ?
         | .x86_64 => "x86_64"
         | .x86 => "x86"
@@ -413,7 +413,7 @@ handleInit = (args: Args) !void {
     // Create build.zen
     build_content := `Build := @import("std").Build
 
-build: (b: *Build) void  = {
+build = (b: *Build) void   {
     target := b.standardTargetOptions(.{})
     optimize := b.standardOptimizeOption(.{})
     
@@ -442,7 +442,7 @@ build: (b: *Build) void  = {
     // Create main.zen
     main_content := `std := @import("std")
 
-main: () void  = {
+main = () void   {
     std.io.print("Hello, Zen!\n")
 }
 `
@@ -464,13 +464,13 @@ main: () void  = {
     io.print("  zen run\n")
 }
 
-handleVersion: () void  = {
+handleVersion = () void   {
     io.print("Zen Language Compiler\n")
     io.print("Version: 0.1.0-dev\n")
     io.print("LLVM: 18.1\n")
 }
 
-handleHelp: () void  = {
+handleHelp = () void   {
     io.print("Zen - A systems programming language\n\n")
     io.print("Usage: zen <command> [options] [target] [-- args]\n\n")
     io.print("Commands:\n")
@@ -491,7 +491,7 @@ handleHelp: () void  = {
 }
 
 // Utility functions
-removeExtension: (path: String) String  = {
+removeExtension = (path: String) String   {
     last_dot := path.lastIndexOf(".")
     last_dot ? {
         return path[0..last_dot.?]
@@ -501,7 +501,7 @@ removeExtension: (path: String) String  = {
 }
 
 // Main entry point
-main: () void  = {
+main = () void   {
     args := process.args()
     
     parsed := parseArgs(args) catch |err| {

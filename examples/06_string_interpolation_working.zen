@@ -1,11 +1,11 @@
 // String Interpolation in Zen - Working Example
 // Demonstrates the $(expr) syntax for string interpolation
 
-extern printf = (*i8, ...) i32
+extern printf = (RawPtr<i8>, ...) i32
 
 // Person struct for examples
 Person: {
-    name: *i8,
+    name: RawPtr<i8>,
     age: i32,
     height: f64,
 }
@@ -61,7 +61,7 @@ complex_expressions = () void   {
 }
 
 // String building patterns
-build_report = (name: *i8, score: i32) void   {
+build_report = (name: RawPtr<i8>, score: i32) void   {
     // Grade calculation
     grade := 'F'
     score >= 90 ?

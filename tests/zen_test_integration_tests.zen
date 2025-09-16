@@ -1,14 +1,14 @@
 // Integration Tests for Zen Language
 // Tests real-world scenarios and module interactions
 
-test := @std.test
-io := @std.io
-fs := @std.fs
-net := @std.network
-http := @std.http
-json := @std.json
-thread := @std.thread
-process := @std.process
+{ test } = @std.test
+{ io } = @std.io
+{ fs } = @std.fs
+{ net } = @std.network
+{ http } = @std.http
+{ json } = @std.json
+{ thread } = @std.thread
+{ process } = @std.process
 
 // Test: Web server with JSON API
 test_web_server = test("Web Server Integration", () void => {
@@ -132,7 +132,7 @@ test_database_operations = test("Database-like Operations", () void => {
     // Filter users
     filtered := [];
     loop (id, user) in db {
-        id % 10 == 0 ? | true => filtered.push(user)
+        id % 10 == 0 ? | true { filtered.push(user) }
     }
     test.assert_eq(filtered.len, 10);
     
@@ -272,8 +272,8 @@ test_worker_pool = test("Worker Pool Pattern", () void => {
         worker := thread.spawn(() void => {
             loop {
                 job := work_queue.recv() ?
-                    | .Ok -> j => j
-                    | .Err => break
+                    | .Ok -> j { j }
+                    | .Err { break }
                 
                 // Process job (square the number)
                 result := job * job;
@@ -319,8 +319,8 @@ test_worker_pool = test("Worker Pool Pattern", () void => {
 test_error_propagation = test("Error Propagation", () void => {
     // Function that may fail
     risky_operation = (value: i32) Result<i32, string> => {
-        value < 0 ? | true => return .Err -> "Negative value not allowed"
-        value > 100 ? | true => return .Err -> "Value too large"
+        value < 0 ? | true { return .Err -> "Negative value not allowed" }
+        value > 100 ? | true { return .Err -> "Value too large" }
         return .Ok -> value * 2
     }
     
@@ -362,12 +362,12 @@ test_custom_allocator = test("Custom Memory Allocator", () void => {
         }
     }
     
-    PoolAllocator.alloc = (self: &PoolAllocator, size: usize) *void => {
-        self.used + size > self.capacity ? | true => return null
+    PoolAllocator.alloc = (self: &PoolAllocator, size: usize) RawPtr<void> => {
+        self.used + size > self.capacity ? | true { return null }
         
         ptr := &self.pool[self.used];
         self.used += size;
-        return ptr as *void
+        return ptr as RawPtr<void>
     }
     
     PoolAllocator.reset = (self: &PoolAllocator) void => {
@@ -415,7 +415,7 @@ integration_suite := test.TestSuite {
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("Zen Integration Test Suite\n");
     io.print("==========================\n\n");
     
@@ -430,5 +430,5 @@ main: () i32  = {
     report := test.generate_report(&runner, "json");
     fs.write_file("integration_test_results.json", report)?;
     
-    return success ? | true => 0 | false => 1
+    return success ? | true { 0 | false => 1 }
 }

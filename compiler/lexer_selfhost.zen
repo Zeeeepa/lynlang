@@ -2,8 +2,8 @@
 // Tokenizes Zen source code
 
 // Import standard modules
-core := @std.core
-build := @std.build
+{ core } = @std.core
+{ build } = @std.build
 
 // Token types
 TokenType:  
@@ -80,7 +80,7 @@ TokenType:
 // Token structure
 Token: {
     type_: TokenType,
-    value: *i8,
+    value: RawPtr<i8>,
     line: i32,
     column: i32,
     length: i32,
@@ -88,7 +88,7 @@ Token: {
 
 // Lexer state
 Lexer: {
-    input: *i8,
+    input: RawPtr<i8>,
     position: i32,
     read_position: i32,
     current_char: i8,
@@ -98,7 +98,7 @@ Lexer: {
 }
 
 // Create a new lexer
-lexer_new: (input: *i8, length: i32) Lexer  = {
+lexer_new = (input: RawPtr<i8>, length: i32) Lexer   {
     lexer := Lexer {
         input: input,
         position: 0,
@@ -117,70 +117,70 @@ lexer_new: (input: *i8, length: i32) Lexer  = {
 }
 
 // Read next character
-lexer_read_char: (lexer: *Lexer) void  = {
+lexer_read_char = (lexer: *Lexer) void   {
     lexer.read_position >= lexer.input_length ?
-        | true => {
+        | true { { }
             lexer.current_char = 0  // EOF
         }
-        | false => {
+        | false { { }
             lexer.current_char = lexer.input[lexer.read_position]
             lexer.position = lexer.read_position
             lexer.read_position = lexer.read_position + 1
             
             // Update line and column
             lexer.current_char == '\n' ?
-                | true => {
+                | true { { }
                     lexer.line = lexer.line + 1
                     lexer.column = 1
                 }
-                | false => {
+                | false { { }
                     lexer.column = lexer.column + 1
                 }
         }
 }
 
 // Peek at next character without advancing
-lexer_peek_char: (lexer: *Lexer) i8  = {
+lexer_peek_char = (lexer: *Lexer) i8   {
     lexer.read_position >= lexer.input_length ?
-        | true => return 0
-        | false => return lexer.input[lexer.read_position]
+        | true { return 0 }
+        | false { return lexer.input[lexer.read_position] }
 }
 
 // Skip whitespace
-lexer_skip_whitespace: (lexer: *Lexer) void  = {
+lexer_skip_whitespace = (lexer: *Lexer) void   {
     loop {
         lexer.current_char == ' ' || lexer.current_char == '\t' || lexer.current_char == '\r' ?
-            | true => {
+            | true { { }
                 lexer_read_char(lexer)
             }
-            | false => {
+            | false { { }
                 break
             }
     }
 }
 
 // Skip line comment
-lexer_skip_line_comment: (lexer: *Lexer) void  = {
+lexer_skip_line_comment = (lexer: *Lexer) void   {
     loop {
         lexer.current_char == '\n' || lexer.current_char == 0 ?
-            | true => break
-            | false => lexer_read_char(lexer)
+            | true { break }
+            | false { lexer_read_char(lexer) }
     }
 }
 
 // Skip block comment
-lexer_skip_block_comment: (lexer: *Lexer) void  = {
+lexer_skip_block_comment = (lexer: *Lexer) void   {
     loop {
         lexer.current_char == 0 ?
-            | true => break
-            | false => {
+            | true { break }
+            | false { { }
                 lexer.current_char == '*' && lexer_peek_char(lexer) == '/' ?
-                    | true => {
+                    | true { { }
                         lexer_read_char(lexer)  // Skip *
                         lexer_read_char(lexer)  // Skip /
                         break
                     }
-                    | false => {
+                    | false { { }
                         lexer_read_char(lexer)
                     }
             }
@@ -188,22 +188,22 @@ lexer_skip_block_comment: (lexer: *Lexer) void  = {
 }
 
 // Check if character is a digit
-is_digit: (ch: i8) bool  = {
+is_digit = (ch: i8) bool   {
     return ch >= '0' && ch <= '9'
 }
 
 // Check if character is alphabetic
-is_alpha: (ch: i8) bool  = {
+is_alpha = (ch: i8) bool   {
     return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 
 // Check if character is alphanumeric or underscore
-is_alnum: (ch: i8) bool  = {
+is_alnum = (ch: i8) bool   {
     return is_alpha(ch) || is_digit(ch) || ch == '_'
 }
 
 // Read an identifier or keyword
-lexer_read_identifier: (lexer: *Lexer) Token  = {
+lexer_read_identifier = (lexer: *Lexer) Token   {
     start_pos := lexer.position
     start_col := lexer.column
     
@@ -213,8 +213,8 @@ lexer_read_identifier: (lexer: *Lexer) Token  = {
     // Read remaining characters
     loop {
         is_alnum(lexer.current_char) ?
-            | true => lexer_read_char(lexer)
-            | false => break
+            | true { lexer_read_char(lexer) }
+            | false { break }
     }
     
     length := lexer.position - start_pos
@@ -232,7 +232,7 @@ lexer_read_identifier: (lexer: *Lexer) Token  = {
 }
 
 // Read a number (integer or float)
-lexer_read_number: (lexer: *Lexer) Token  = {
+lexer_read_number = (lexer: *Lexer) Token   {
     start_pos := lexer.position
     start_col := lexer.column
     is_float := false
@@ -240,27 +240,27 @@ lexer_read_number: (lexer: *Lexer) Token  = {
     // Read digits
     loop {
         is_digit(lexer.current_char) ?
-            | true => lexer_read_char(lexer)
-            | false => {
+            | true { lexer_read_char(lexer) }
+            | false { { }
                 lexer.current_char == '.' && is_digit(lexer_peek_char(lexer)) ?
-                    | true => {
+                    | true { { }
                         is_float = true
                         lexer_read_char(lexer)  // Skip .
                         loop {
                             is_digit(lexer.current_char) ?
-                                | true => lexer_read_char(lexer)
-                                | false => break
+                                | true { lexer_read_char(lexer) }
+                                | false { break }
                         }
                     }
-                    | false => break
+                    | false { break }
             }
     }
     
     length := lexer.position - start_pos
     
     token_type := is_float ?
-        | true => TokenType:FloatLiteral
-        | false => TokenType:IntegerLiteral
+        | true { TokenType:FloatLiteral }
+        | false { TokenType:IntegerLiteral }
     
     return Token {
         type_: token_type,
@@ -272,7 +272,7 @@ lexer_read_number: (lexer: *Lexer) Token  = {
 }
 
 // Read a string literal
-lexer_read_string: (lexer: *Lexer) Token  = {
+lexer_read_string = (lexer: *Lexer) Token   {
     start_pos := lexer.position
     start_col := lexer.column
     quote_char := lexer.current_char
@@ -281,22 +281,22 @@ lexer_read_string: (lexer: *Lexer) Token  = {
     
     loop {
         lexer.current_char == 0 ?
-            | true => break  // EOF - unterminated string
-            | false => {
+            | true { break  // EOF - unterminated string }
+            | false { { }
                 lexer.current_char == '\\' ?
-                    | true => {
+                    | true { { }
                         lexer_read_char(lexer)  // Skip backslash
                         lexer.current_char != 0 ?
-                            | true => lexer_read_char(lexer)  // Skip escaped char
-                            | false => break
+                            | true { lexer_read_char(lexer)  // Skip escaped char }
+                            | false { break }
                     }
-                    | false => {
+                    | false { { }
                         lexer.current_char == quote_char ?
-                            | true => {
+                            | true { { }
                                 lexer_read_char(lexer)  // Skip closing quote
                                 break
                             }
-                            | false => lexer_read_char(lexer)
+                            | false { lexer_read_char(lexer) }
                     }
             }
     }
@@ -313,13 +313,13 @@ lexer_read_string: (lexer: *Lexer) Token  = {
 }
 
 // Get next token
-lexer_next_token: (lexer: *Lexer) Token  = {
+lexer_next_token = (lexer: *Lexer) Token   {
     // Skip whitespace
     lexer_skip_whitespace(lexer)
     
     // Check for EOF
     lexer.current_char == 0 ?
-        | true => {
+        | true { { }
             return Token {
                 type_: TokenType:Eof,
                 value: 0,
@@ -328,40 +328,40 @@ lexer_next_token: (lexer: *Lexer) Token  = {
                 length: 0,
             }
         }
-        | false => {}
+        | false { { }}
     
     start_col := lexer.column
     ch := lexer.current_char
     
     // Check for comments
     ch == '/' && lexer_peek_char(lexer) == '/' ?
-        | true => {
+        | true { { }
             lexer_skip_line_comment(lexer)
             return lexer_next_token(lexer)
         }
-        | false => {}
+        | false { { }}
     
     ch == '/' && lexer_peek_char(lexer) == '*' ?
-        | true => {
+        | true { { }
             lexer_skip_block_comment(lexer)
             return lexer_next_token(lexer)
         }
-        | false => {}
+        | false { { }}
     
     // Check for identifiers and keywords
     is_alpha(ch) || ch == '_' ?
-        | true => return lexer_read_identifier(lexer)
-        | false => {}
+        | true { return lexer_read_identifier(lexer) }
+        | false { { }}
     
     // Check for numbers
     is_digit(ch) ?
-        | true => return lexer_read_number(lexer)
-        | false => {}
+        | true { return lexer_read_number(lexer) }
+        | false { { }}
     
     // Check for strings
     ch == '"' || ch == '\'' ?
-        | true => return lexer_read_string(lexer)
-        | false => {}
+        | true { return lexer_read_string(lexer) }
+        | false { { }}
     
     // Check for operators and symbols
     token := Token {
@@ -373,239 +373,239 @@ lexer_next_token: (lexer: *Lexer) Token  = {
     }
     
     ch ?
-        | '+' => {
+        | '+' { { }
             lexer_read_char(lexer)
             lexer.current_char == '=' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:PlusAssign
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => token.type_ = TokenType:Plus
+                | false { token.type_ = TokenType:Plus }
         }
-        | '-' => {
+        | '-' { { }
             lexer_read_char(lexer)
             lexer.current_char == '>' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:Arrow
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => {
+                | false { { }
                     lexer.current_char == '=' ?
-                        | true => {
+                        | true { { }
                             token.type_ = TokenType:MinusAssign
                             token.length = 2
                             lexer_read_char(lexer)
                         }
-                        | false => token.type_ = TokenType:Minus
+                        | false { token.type_ = TokenType:Minus }
                 }
         }
-        | '*' => {
+        | '*' { { }
             lexer_read_char(lexer)
             lexer.current_char == '=' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:StarAssign
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => token.type_ = TokenType:Star
+                | false { token.type_ = TokenType:Star }
         }
-        | '/' => {
+        | '/' { { }
             lexer_read_char(lexer)
             lexer.current_char == '=' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:SlashAssign
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => token.type_ = TokenType:Slash
+                | false { token.type_ = TokenType:Slash }
         }
         | '=' => {
             lexer_read_char(lexer)
             lexer.current_char == '=' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:Equal
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => {
+                | false { { }
                     lexer.current_char == '>' ?
-                        | true => {
+                        | true { { }
                             token.type_ = TokenType:FatArrow
                             token.length = 2
                             lexer_read_char(lexer)
                         }
-                        | false => token.type_ = TokenType:Assign
+                        | false { token.type_ = TokenType:Assign }
                 }
         }
-        | '<' => {
+        | '<' { { }
             lexer_read_char(lexer)
             lexer.current_char == '=' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:LessEqual
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => {
+                | false { { }
                     lexer.current_char == '<' ?
-                        | true => {
+                        | true { { }
                             token.type_ = TokenType:LeftShift
                             token.length = 2
                             lexer_read_char(lexer)
                         }
-                        | false => token.type_ = TokenType:Less
+                        | false { token.type_ = TokenType:Less }
                 }
         }
-        | '>' => {
+        | '>' { { }
             lexer_read_char(lexer)
             lexer.current_char == '=' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:GreaterEqual
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => {
+                | false { { }
                     lexer.current_char == '>' ?
-                        | true => {
+                        | true { { }
                             token.type_ = TokenType:RightShift
                             token.length = 2
                             lexer_read_char(lexer)
                         }
-                        | false => token.type_ = TokenType:Greater
+                        | false { token.type_ = TokenType:Greater }
                 }
         }
-        | '!' => {
+        | '!' { { }
             lexer_read_char(lexer)
             lexer.current_char == '=' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:NotEqual
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => token.type_ = TokenType:Not
+                | false { token.type_ = TokenType:Not }
         }
-        | '&' => {
+        | '&' { { }
             lexer_read_char(lexer)
             lexer.current_char == '&' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:And
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => token.type_ = TokenType:Ampersand
+                | false { token.type_ = TokenType:Ampersand }
         }
-        | '|' => {
+        | '|' { { }
             lexer_read_char(lexer)
             lexer.current_char == '|' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:Or
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => token.type_ = TokenType:Pipe
+                | false { token.type_ = TokenType:Pipe }
         }
-        | ':' => {
+        | ':' { { }
             lexer_read_char(lexer)
             lexer.current_char == ':' ?
-                | true => {
+                | true { { }
                     lexer_read_char(lexer)
                     lexer.current_char == '=' ?
-                        | true => {
+                        | true { { }
                             token.type_ = TokenType:DoubleColonEqual
                             token.length = 3
                             lexer_read_char(lexer)
                         }
-                        | false => {
+                        | false { { }
                             token.type_ = TokenType:DoubleColon
                             token.length = 2
                         }
                 }
-                | false => {
+                | false { { }
                     lexer.current_char == '=' ?
-                        | true => {
+                        | true { { }
                             token.type_ = TokenType:ColonEqual
                             token.length = 2
                             lexer_read_char(lexer)
                         }
-                        | false => token.type_ = TokenType:Colon
+                        | false { token.type_ = TokenType:Colon }
                 }
         }
-        | '.' => {
+        | '.' { { }
             lexer_read_char(lexer)
             lexer.current_char == '.' ?
-                | true => {
+                | true { { }
                     token.type_ = TokenType:DotDot
                     token.length = 2
                     lexer_read_char(lexer)
                 }
-                | false => token.type_ = TokenType:Dot
+                | false { token.type_ = TokenType:Dot }
         }
-        | '(' => {
+        | '(' { { }
             token.type_ = TokenType:LeftParen
             lexer_read_char(lexer)
         }
-        | ')' => {
+        | ')' { { }
             token.type_ = TokenType:RightParen
             lexer_read_char(lexer)
         }
-        | '{' => {
+        | '{' { { }
             token.type_ = TokenType:LeftBrace
             lexer_read_char(lexer)
         }
-        | '}' => {
+        | '}' { { }
             token.type_ = TokenType:RightBrace
             lexer_read_char(lexer)
         }
-        | '[' => {
+        | '[' { { }
             token.type_ = TokenType:LeftBracket
             lexer_read_char(lexer)
         }
-        | ']' => {
+        | ']' { { }
             token.type_ = TokenType:RightBracket
             lexer_read_char(lexer)
         }
-        | ',' => {
+        | ',' { { }
             token.type_ = TokenType:Comma
             lexer_read_char(lexer)
         }
-        | ';' => {
+        | ';' { { }
             token.type_ = TokenType:Semicolon
             lexer_read_char(lexer)
         }
-        | '?' => {
+        | '?' { { }
             token.type_ = TokenType:Question
             lexer_read_char(lexer)
         }
-        | '@' => {
+        | '@' { { }
             token.type_ = TokenType:At
             lexer_read_char(lexer)
         }
-        | '#' => {
+        | '#' { { }
             token.type_ = TokenType:Hash
             lexer_read_char(lexer)
         }
-        | '$' => {
+        | '$' { { }
             token.type_ = TokenType:Dollar
             lexer_read_char(lexer)
         }
-        | '%' => {
+        | '%' { { }
             token.type_ = TokenType:Percent
             lexer_read_char(lexer)
         }
-        | '^' => {
+        | '^' { { }
             token.type_ = TokenType:BitwiseXor
             lexer_read_char(lexer)
         }
-        | '~' => {
+        | '~' { { }
             token.type_ = TokenType:BitwiseNot
             lexer_read_char(lexer)
         }
-        | '\n' => {
+        | '\n' { { }
             token.type_ = TokenType:Newline
             lexer_read_char(lexer)
         }
-        | _ => {
+        | _ { { }
             lexer_read_char(lexer)
         }
     

@@ -1,14 +1,14 @@
 // Comprehensive Import Validation Tests
 // Tests all aspects of the new import system
 
-core := @std.core
-io := @std.io
-string := @std.string
-vec := @std.vec
-test := @std.test
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ test } = @std.test
 
 // Test module-level imports
-test_module_level_imports: () bool  = {
+test_module_level_imports = () bool   {
     // All imports should be at module level (they are, see top of file)
     // This test passes if the file compiles
     test.assert_true(true, "Module-level imports work")
@@ -16,7 +16,7 @@ test_module_level_imports: () bool  = {
 }
 
 // Test standard library imports
-test_std_imports: () bool  = {
+test_std_imports = () bool   {
     // Test that we can use imported modules
     s := "Hello"
     len := string.len(s)
@@ -30,9 +30,9 @@ test_std_imports: () bool  = {
 }
 
 // Test that imports cannot be inside functions
-test_no_function_imports: () bool  = {
+test_no_function_imports = () bool   {
     // This would be a compile error:
-    // math := @std.math  // ERROR: Imports must be at module level
+    // { math } = @std.math  // ERROR: Imports must be at module level
     
     // Instead, we use the module-level import
     test.assert_true(true, "Cannot import inside functions")
@@ -40,24 +40,24 @@ test_no_function_imports: () bool  = {
 }
 
 // Test that imports cannot be inside blocks
-test_no_block_imports: () bool  = {
+test_no_block_imports = () bool   {
     x := 10
-    x > 5 ? | true => {
+    x > 5 ? | true { { }
         // This would be a compile error:
-        // fs := @std.fs  // ERROR: Imports must be at module level
+        // { fs } = @std.fs  // ERROR: Imports must be at module level
         test.assert_true(true, "Cannot import inside blocks")
-    } | false => {
+    } | false { { }
         test.assert_true(false, "Should not reach here")
     }
     return true
 }
 
 // Test that imports cannot be inside loops
-test_no_loop_imports: () bool  = {
+test_no_loop_imports = () bool   {
     i := 0
     loop (i < 3) {
         // This would be a compile error:
-        // net := @std.net  // ERROR: Imports must be at module level
+        // { net } = @std.net  // ERROR: Imports must be at module level
         i = i + 1
     }
     test.assert_eq(i, 3, "Loop executed correctly")
@@ -69,10 +69,10 @@ test_no_loop_imports: () bool  = {
 TestStruct: {
     value: i32,
     // This would be a compile error:
-    // json := @std.json  // ERROR: Imports must be at module level
+    // { json } = @std.json  // ERROR: Imports must be at module level
 }
 
-test_no_struct_imports: () bool  = {
+test_no_struct_imports = () bool   {
     ts := TestStruct { value: 100 }
     test.assert_eq(ts.value, 100, "Struct works without imports")
     return true
@@ -83,28 +83,28 @@ TestEnum:
     First,
     Second,
     // This would be a compile error:
-    // crypto := @std.crypto  // ERROR: Imports must be at module level
+    // { crypto } = @std.crypto  // ERROR: Imports must be at module level
 
-test_no_enum_imports: () bool  = {
+test_no_enum_imports = () bool   {
     e := TestEnum.First
-    e == TestEnum.First ? | true => {
+    e == TestEnum.First ? | true { { }
         test.assert_true(true, "Enum works without imports")
-    } | false => {
+    } | false { { }
         test.assert_true(false, "Enum comparison failed")
     }
     return true
 }
 
 // Test that imports work with aliases
-math_alias := @std.math
-test_import_aliases: () bool  = {
+{ math_alias } = @std.math
+test_import_aliases = () bool   {
     // Use aliased import (would work if math module exists)
     test.assert_true(true, "Import aliases work")
     return true
 }
 
 // Test multiple imports on separate lines
-test_multiple_imports: () bool  = {
+test_multiple_imports = () bool   {
     // We have multiple imports at the top of this file
     // They all work correctly
     test.assert_true(true, "Multiple imports work")
@@ -112,11 +112,11 @@ test_multiple_imports: () bool  = {
 }
 
 // Test that comptime blocks cannot contain imports
-test_no_comptime_imports: () bool  = {
+test_no_comptime_imports = () bool   {
     // Comptime blocks are for meta-programming only
-    CONST := comptime {
+    CONST := @comptime {
         // This would be a compile error:
-        // regex := @std.regex  // ERROR: Imports not allowed in comptime
+        // { regex } = @std.regex  // ERROR: Imports not allowed in comptime
         
         // Instead, do compile-time computation
         x := 10
@@ -130,7 +130,7 @@ test_no_comptime_imports: () bool  = {
 }
 
 // Test import error messages
-test_import_error_messages: () bool  = {
+test_import_error_messages = () bool   {
     // These would all produce clear error messages:
     // 1. "Import statements must be at module level"
     // 2. "Imports are not allowed inside comptime blocks"
@@ -142,7 +142,7 @@ test_import_error_messages: () bool  = {
 }
 
 // Test that imports are resolved at compile time
-test_compile_time_resolution: () bool  = {
+test_compile_time_resolution = () bool   {
     // Imports are resolved during compilation, not runtime
     // This means:
     // - No dynamic imports
@@ -154,7 +154,7 @@ test_compile_time_resolution: () bool  = {
 }
 
 // Test import visibility and scoping
-test_import_scoping: () bool  = {
+test_import_scoping = () bool   {
     // Imports at module level are visible to entire module
     // All functions in this file can use: core, io, string, vec, test
     
@@ -164,7 +164,7 @@ test_import_scoping: () bool  = {
 }
 
 // Helper function that uses module-level imports
-helper_function: () void  = {
+helper_function = () void   {
     // Can use all module-level imports here
     v := vec.new<String>()
     vec.push<String>(&v, "test")
@@ -172,7 +172,7 @@ helper_function: () void  = {
 }
 
 // Test that imports don't pollute global namespace
-test_namespace_isolation: () bool  = {
+test_namespace_isolation = () bool   {
     // Each module's imports are isolated
     // Importing 'io' here doesn't affect other modules
     
@@ -181,7 +181,7 @@ test_namespace_isolation: () bool  = {
 }
 
 // Test circular import detection
-test_circular_imports: () bool  = {
+test_circular_imports = () bool   {
     // The compiler should detect and report circular imports
     // Example: A imports B, B imports C, C imports A
     // This would be caught at compile time
@@ -191,7 +191,7 @@ test_circular_imports: () bool  = {
 }
 
 // Test import path resolution
-test_import_paths: () bool  = {
+test_import_paths = () bool   {
     // @std.* resolves to standard library
     // @local.* would resolve to local modules
     // @third_party.* would resolve to third-party modules
@@ -201,7 +201,7 @@ test_import_paths: () bool  = {
 }
 
 // Test re-exports and module composition
-test_module_composition: () bool  = {
+test_module_composition = () bool   {
     // Modules can re-export other modules
     // This allows for module composition and facades
     
@@ -210,7 +210,7 @@ test_module_composition: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("=== Import Validation Test Suite ===\n\n")
     
     passed := 0
@@ -246,10 +246,10 @@ main: () i32  = {
         io.print(test_name)
         io.print("... ")
         
-        test_func() ? | true => {
+        test_func() ? | true { { }
             io.print("PASS\n")
             passed = passed + 1
-        } | false => {
+        } | false { { }
             io.print("FAIL\n")
             failed = failed + 1
         }
@@ -264,10 +264,10 @@ main: () i32  = {
     io.print(string.from_int(failed))
     io.print(" failed\n")
     
-    failed == 0 ? | true => {
+    failed == 0 ? | true { { }
         io.print("\nAll tests passed!\n")
         return 0
-    } | false => {
+    } | false { { }
         io.print("\nSome tests failed.\n")
         return 1
     }

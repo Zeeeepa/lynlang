@@ -2,12 +2,12 @@
 // Tests that imports work correctly at module level
 
 // CORRECT: Module-level imports
-io := @std.io
-core := @std.core
-string := @std.string
-vec := @std.vec
-math := @std.math
-fs := @std.fs
+{ io } = @std.io
+{ core } = @std.core
+{ string } = @std.string
+{ vec } = @std.vec
+{ math } = @std.math
+{ fs } = @std.fs
 
 // Test struct with methods
 TestRunner := {
@@ -30,7 +30,7 @@ assert_eq = <T>(actual: T, expected: T, message: string) bool {
     }
 }
 
-assert_true: (condition: bool, message: string) bool  = {
+assert_true = (condition: bool, message: string) bool   {
     if condition {
         io.println("[PASS] " + message)
         return true
@@ -41,7 +41,7 @@ assert_true: (condition: bool, message: string) bool  = {
 }
 
 // Test that imported modules are accessible
-test_module_access: () bool  = {
+test_module_access = () bool   {
     io.println("\n=== Testing Module Access ===")
     
     // Test io module
@@ -70,10 +70,10 @@ test_module_access: () bool  = {
 }
 
 // Test that functions can use imported modules
-test_function_with_imports: () bool  = {
+test_function_with_imports = () bool   {
     io.println("\n=== Testing Functions with Imports ===")
     
-    calculate: (x: f64, y: f64) f64  = {
+    calculate = (x: f64, y: f64) f64   {
         // Using math module inside function
         return math.sqrt(x * x + y * y)
     }
@@ -85,7 +85,7 @@ test_function_with_imports: () bool  = {
 }
 
 // Test that structs can use imported modules in methods
-test_struct_methods_with_imports: () bool  = {
+test_struct_methods_with_imports = () bool   {
     io.println("\n=== Testing Struct Methods with Imports ===")
     
     Logger := {
@@ -94,11 +94,11 @@ test_struct_methods_with_imports: () bool  = {
     }
     
     impl Logger {
-        new: (prefix: string) Logger  = {
+        new = (prefix: string) Logger   {
             return Logger { prefix: prefix, count: 0 }
         }
         
-        log: (self: *Logger, msg: string) void  = {
+        log = (self: *Logger, msg: string) void   {
             // Using io module in method
             io.print(self.prefix)
             io.print(": ")
@@ -106,7 +106,7 @@ test_struct_methods_with_imports: () bool  = {
             self.count = self.count + 1
         }
         
-        get_count: (self: Logger) i32  = {
+        get_count = (self: Logger) i32   {
             return self.count
         }
     }
@@ -120,11 +120,11 @@ test_struct_methods_with_imports: () bool  = {
 }
 
 // Test comptime blocks (should NOT contain imports)
-test_comptime_blocks: () bool  = {
+test_comptime_blocks = () bool   {
     io.println("\n=== Testing Comptime Blocks ===")
     
     // CORRECT: Comptime for metaprogramming, not imports
-    COMPILE_TIME_VALUE := comptime {
+    COMPILE_TIME_VALUE := @comptime {
         // Calculate something at compile time
         value := 10 * 20
         value + 5
@@ -133,7 +133,7 @@ test_comptime_blocks: () bool  = {
     assert_eq(COMPILE_TIME_VALUE, 205, "Comptime block for computation")
     
     // CORRECT: Using imported module in comptime computation
-    ARRAY_SIZE := comptime {
+    ARRAY_SIZE := @comptime {
         // Can use math in computation, but math was imported at module level
         base := 8
         math.pow(2, base)
@@ -145,14 +145,14 @@ test_comptime_blocks: () bool  = {
 }
 
 // Test nested scopes and imports
-test_nested_scopes: () bool  = {
+test_nested_scopes = () bool   {
     io.println("\n=== Testing Nested Scopes ===")
     
-    outer: () void  = {
+    outer = () void   {
         // Can use module-level imports here
         io.println("In outer function")
         
-        inner: () void  = {
+        inner = () void   {
             // Can still use module-level imports
             io.println("In inner function")
             v := vec.new<string>()
@@ -168,11 +168,11 @@ test_nested_scopes: () bool  = {
 }
 
 // Test pattern matching with imported types
-test_pattern_matching: () bool  = {
+test_pattern_matching = () bool   {
     io.println("\n=== Testing Pattern Matching with Imports ===")
     
     // Using Result type from imported module
-    divide: (a: i32, b: i32) Result<i32, string>  = {
+    divide = (a: i32, b: i32) Result<i32, string>   {
         if b == 0 {
             return Result.Err("Division by zero")
         }
@@ -193,7 +193,7 @@ test_pattern_matching: () bool  = {
 }
 
 // Test that imports work with generic functions
-test_generics_with_imports: () bool  = {
+test_generics_with_imports = () bool   {
     io.println("\n=== Testing Generics with Imports ===")
     
     print_vec = <T>(v: vec.Vec<T>) void {
@@ -214,7 +214,7 @@ test_generics_with_imports: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Zen Import Syntax Validation Tests ===")
     io.println("Testing that imports work correctly at module level\n")
     

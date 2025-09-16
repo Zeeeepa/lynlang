@@ -1,14 +1,14 @@
 // Test for Bootstrap Compiler Components
 
-core := @std.core
-io := @std.io
-string := @std.string
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
 
 // Test imports work correctly (no comptime needed)
-test_imports: () bool  = {
+test_imports = () bool   {
     // These imports should work at module level
-    math := @std.math
-    vec := @std.vec
+    { math } = @std.math
+    { vec } = @std.vec
     
     // Test we can use imported modules
     v := vec.new<i32>()
@@ -24,8 +24,8 @@ test_imports: () bool  = {
 }
 
 // Test time module functionality
-test_time_module: () bool  = {
-    time := @std.time
+test_time_module = () bool   {
+    { time } = @std.time
     
     // Create duration
     ms := time.milliseconds(100)
@@ -42,8 +42,8 @@ test_time_module: () bool  = {
 }
 
 // Test logging module
-test_log_module: () bool  = {
-    log := @std.log
+test_log_module = () bool   {
+    { log } = @std.log
     
     // Set log level
     log.set_level(log.LogLevel.Debug)
@@ -64,8 +64,8 @@ test_log_module: () bool  = {
 }
 
 // Test args module parsing
-test_args_module: () bool  = {
-    args := @std.args
+test_args_module = () bool   {
+    { args } = @std.args
     
     // Create parser
     parser := args.new_parser("test", "Test program")
@@ -81,7 +81,7 @@ test_args_module: () bool  = {
     result := args.parse(&parser, test_args)
     
     match result {
-        | Result<args.ParsedArgs, string>.Ok(parsed) => {
+        | Result<args.ParsedArgs, string>.Ok(parsed) { { }
             args.has_flag(&parsed, "help") && 
             args.get_flag(&parsed, "output") == Option<string>.Some("output.txt") &&
             vec.len(parsed.positional) == 1 ? {
@@ -92,7 +92,7 @@ test_args_module: () bool  = {
                 return false
             }
         }
-        | Result<args.ParsedArgs, string>.Err(e) => {
+        | Result<args.ParsedArgs, string>.Err(e) { { }
             io.print("[FAIL] Args parsing error: ")
             io.print(e)
             io.print("\n")
@@ -102,8 +102,8 @@ test_args_module: () bool  = {
 }
 
 // Test LLVM codegen module
-test_llvm_codegen: () bool  = {
-    codegen_llvm := @std.compiler.codegen_llvm
+test_llvm_codegen = () bool   {
+    { codegen_llvm } = @std.compiler.codegen_llvm
     
     // Create code generator
     gen := codegen_llvm.new_codegen("test_module")
@@ -126,12 +126,12 @@ test_llvm_codegen: () bool  = {
 }
 
 // Test compiler driver structure
-test_compiler_driver: () bool  = {
+test_compiler_driver = () bool   {
     // Test that compiler modules can be imported
-    lexer := @std.compiler.lexer
-    parser := @std.compiler.parser
-    type_checker := @std.compiler.type_checker
-    codegen := @std.compiler.codegen
+    { lexer } = @std.compiler.lexer
+    { parser } = @std.compiler.parser
+    { type_checker } = @std.compiler.type_checker
+    { codegen } = @std.compiler.codegen
     
     // Basic smoke test - modules exist and can be referenced
     io.print("[PASS] Compiler driver modules accessible\n")
@@ -139,7 +139,7 @@ test_compiler_driver: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("=================================\n")
     io.print("Testing Bootstrap Compiler\n")
     io.print("=================================\n\n")

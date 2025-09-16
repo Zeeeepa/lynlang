@@ -2,24 +2,24 @@
 // This file shows that imports can be done directly at module level
 
 // Direct module imports - no comptime wrapper needed
-core := @std.core
+{ core } = @std.core
 
 // Import standard library modules
-io := @std.io
-mem := @std.mem
-math := @std.math
-collections := @std.collections
+{ io } = @std.io
+{ mem } = @std.mem
+{ math } = @std.math
+{ collections } = @std.collections
 
 // Test that comptime blocks still work for actual compile-time computation
 // but are NOT needed for imports
-comptime {
+@comptime {
     // This is for compile-time computation, not imports
     LOOKUP_TABLE := generate_lookup_table()
     MAX_SIZE := 1024
 }
 
 // Helper function for comptime
-generate_lookup_table: () [256]i32  = {
+generate_lookup_table = () [256]i32   {
     table: [256]i32
     i := 0
     loop i < 256 {
@@ -37,7 +37,7 @@ TestResult: {
 }
 
 // Test function that uses imported modules
-test_imports: () void  = {
+test_imports = () void   {
     // Test io module
     io.print("Testing import system...\n")
     
@@ -56,14 +56,14 @@ test_imports: () void  = {
     loop i < 3 {
         result := test_results[i]
         result.passed ? 
-            | true => io.print("✓ $(result.name): $(result.message)\n")
-            | false => io.print("✗ $(result.name): $(result.message)\n")
+            | true { io.print("✓ $(result.name): $(result.message)\n") }
+            | false { io.print("✗ $(result.name): $(result.message)\n") }
         i = i + 1
     }
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("=== Zen Import System Test ===\n")
     io.print("Testing module imports without comptime wrapper\n\n")
     

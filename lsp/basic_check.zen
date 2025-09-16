@@ -1,9 +1,9 @@
 // Basic Zen Check Tool
 
-io := @std.io
+{ io } = @std.io
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("🔍 Zen Basic Check\n");
     io.print("==================\n\n");
     

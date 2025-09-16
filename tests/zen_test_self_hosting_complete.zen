@@ -25,13 +25,13 @@ process := std.process
 thread := std.thread
 concurrency := std.concurrency
 
-extern puts = (s: *i8) i32
-extern printf = (format: *i8, ...) i32
-extern malloc = (size: i64) *void
-extern free = (ptr: *void) void
+extern puts = (s: RawPtr<i8>) i32
+extern printf = (format: RawPtr<i8>, ...) i32
+extern malloc = (size: i64) RawPtr<void>
+extern free = (ptr: RawPtr<void>) void
 
 // Test lexer functionality
-test_lexer: () bool  = {
+test_lexer = () bool   {
     puts("Testing Lexer...")
     
     // Create a simple token test
@@ -58,7 +58,7 @@ test_lexer: () bool  = {
 }
 
 // Test parser functionality
-test_parser: () bool  = {
+test_parser = () bool   {
     puts("Testing Parser...")
     
     input := "x := 42; y := x + 1"
@@ -74,7 +74,7 @@ test_parser: () bool  = {
 }
 
 // Test AST functionality
-test_ast: () bool  = {
+test_ast = () bool   {
     puts("Testing AST...")
     
     // Create a simple AST node
@@ -90,7 +90,7 @@ test_ast: () bool  = {
 }
 
 // Test type checker functionality
-test_type_checker: () bool  = {
+test_type_checker = () bool   {
     puts("Testing Type Checker...")
     
     // Create type environment
@@ -108,7 +108,7 @@ test_type_checker: () bool  = {
 }
 
 // Test code generation functionality
-test_codegen: () bool  = {
+test_codegen = () bool   {
     puts("Testing Code Generator...")
     
     // Create a code generator
@@ -127,7 +127,7 @@ test_codegen: () bool  = {
 }
 
 // Test Vec (dynamic array)
-test_vec: () bool  = {
+test_vec = () bool   {
     puts("Testing Vec...")
     
     v := vec.Vec<i32>.new()
@@ -149,7 +149,7 @@ test_vec: () bool  = {
 }
 
 // Test HashMap
-test_hashmap: () bool  = {
+test_hashmap = () bool   {
     puts("Testing HashMap...")
     
     map := hashmap.HashMap<string, i32>.new()
@@ -171,7 +171,7 @@ test_hashmap: () bool  = {
 }
 
 // Test functional loop syntax
-test_functional_loops: () bool  = {
+test_functional_loops = () bool   {
     puts("Testing Functional Loops...")
     
     sum := 0
@@ -191,7 +191,7 @@ test_functional_loops: () bool  = {
 }
 
 // Test concurrency functionality
-test_concurrency: () bool  = {
+test_concurrency = () bool   {
     puts("Testing Concurrency...")
     
     // Create a concurrent task using allocator
@@ -209,7 +209,7 @@ test_concurrency: () bool  = {
 }
 
 // Test thread functionality
-test_threads: () bool  = {
+test_threads = () bool   {
     puts("Testing Threads...")
     
     counter := 0
@@ -238,7 +238,7 @@ test_threads: () bool  = {
 }
 
 // Test process functionality
-test_process: () bool  = {
+test_process = () bool   {
     puts("Testing Process...")
     
     // Get current process ID
@@ -254,7 +254,7 @@ test_process: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     printf("\n=== Zen Self-Hosting Comprehensive Test Suite ===\n\n")
     
     passed := 0
@@ -279,10 +279,10 @@ main: () i32  = {
         test := tests[i]
         printf("Running test: %s\n", test.0)
         
-        test.1() ? | true => {
+        test.1() ? | true { { }
             passed = passed + 1
             printf("  PASSED\n")
-        } | false => {
+        } | false { { }
             failed = failed + 1
             printf("  FAILED\n")
         }
@@ -295,10 +295,10 @@ main: () i32  = {
     printf("Failed: %d\n", failed)
     printf("Total:  %d\n", passed + failed)
     
-    failed == 0 ? | true => {
+    failed == 0 ? | true { { }
         printf("\n✅ All tests passed! Zen is ready for self-hosting!\n")
         return 0
-    } | false => {
+    } | false { { }
         printf("\n❌ Some tests failed. Please review.\n")
         return 1
     }

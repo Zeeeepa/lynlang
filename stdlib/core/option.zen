@@ -7,45 +7,45 @@ Option = <T> | Some(T) | None
 // Check if Option has a value
 is_some = <T>(opt: Option<T>) bool {
     opt ?
-        | Some(_) => true
-        | None => false
+        | Some(_) { true }
+        | None { false }
 }
 
 // Check if Option is None
 is_none = <T>(opt: Option<T>) bool {
     opt ?
-        | Some(_) => false
-        | None => true
+        | Some(_) { false }
+        | None { true }
 }
 
 // Get value or default
 unwrap_or = <T>(opt: Option<T>, default: T) T {
     opt ?
-        | Some(value) => value
-        | None => default
+        | Some(value) { value }
+        | None { default }
 }
 
 // Map a function over an Option
 map = <T, U>(opt: Option<T>, f: (T) U) Option<U> {
     opt ?
-        | Some(value) => Option<U>.Some(f(value))
-        | None => Option<U>.None
+        | Some(value) { Option<U>.Some(f(value)) }
+        | None { Option<U>.None }
 }
 
 // Chain Options
 and_then = <T, U>(opt: Option<T>, f: (T) Option<U>) Option<U> {
     opt ?
-        | Some(value) => f(value)
-        | None => Option<U>.None
+        | Some(value) { f(value) }
+        | None { Option<U>.None }
 }
 
 // Filter an Option based on a predicate
 filter = <T>(opt: Option<T>, pred: (T) bool) Option<T> {
     opt ?
-        | Some(value) => {
+        | Some(value) { { }
             pred(value) ?
-                | true => Option<T>.Some(value)
-                | false => Option<T>.None
+                | true { Option<T>.Some(value) }
+                | false { Option<T>.None }
         }
-        | None => Option<T>.None
+        | None { Option<T>.None }
 }

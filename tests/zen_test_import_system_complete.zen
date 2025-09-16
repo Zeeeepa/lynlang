@@ -1,28 +1,28 @@
 // test_import_system_complete.zen - Comprehensive import system test
 
 // Test 1: Standard library imports (correct syntax)
-io := @std.io
-core := @std.core
-string := @std.string
-vec := @std.vec
-math := @std.math
+{ io } = @std.io
+{ core } = @std.core
+{ string } = @std.string
+{ vec } = @std.vec
+{ math } = @std.math
 
 // Test 2: Nested module paths
-io_enhanced := @std.io_enhanced
-test_framework := @std.test_framework
+{ io_enhanced } = @std.io_enhanced
+{ test_framework } = @std.test_framework
 
 // Test 3: Build system imports (if available)
 // custom := build.import("custom_module")
 
 // Test 4: Compiler module imports (for self-hosting)
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
-codegen := @std.compiler.codegen
-errors := @std.compiler.errors
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
+{ codegen } = @std.compiler.codegen
+{ errors } = @std.compiler.errors
 
 // Test function to verify imports work correctly
-test_std_imports: () bool  = {
+test_std_imports = () bool   {
     io.print("Testing standard library imports...\n")
     
     // Test io module
@@ -41,7 +41,7 @@ test_std_imports: () bool  = {
     return true
 }
 
-test_compiler_imports: () bool  = {
+test_compiler_imports = () bool   {
     io.print("Testing compiler module imports...\n")
     
     // Test lexer
@@ -76,23 +76,23 @@ test_compiler_imports: () bool  = {
 }
 
 // Test that imports work with pattern matching
-test_import_with_patterns: () bool  = {
+test_import_with_patterns = () bool   {
     io.print("Testing imports with pattern matching...\n")
     
     result := 42
     result ? 
-        | 42 => {
+        | 42 { { }
             io.print("  ✓ Pattern matching works with imported modules\n")
             return true
         }
-        | _ => {
+        | _ { { }
             io.print("  ✗ Pattern matching failed\n")
             return false
         }
 }
 
 // Test that imports are validated at compile time
-test_import_validation: () bool  = {
+test_import_validation = () bool   {
     io.print("Testing import validation...\n")
     
     // These should all compile correctly:
@@ -105,14 +105,14 @@ test_import_validation: () bool  = {
 }
 
 // Test import error detection (via comments to show what would fail)
-test_import_errors: () bool  = {
+test_import_errors = () bool   {
     io.print("Testing import error scenarios (via comments)...\n")
     
     // This would fail: imports inside function
-    // BAD: test := @std.test
+    // BAD: { test } = @std.test
     
     // This would fail: imports inside comptime block
-    // BAD: comptime { x := @std.x }
+    // BAD: @comptime { { x } = @std.x }
     
     // This would fail: invalid module path
     // BAD: invalid := @not_a_module
@@ -122,7 +122,7 @@ test_import_errors: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("===========================================\n")
     io.print("    Comprehensive Import System Test\n")
     io.print("===========================================\n\n")

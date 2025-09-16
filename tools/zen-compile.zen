@@ -1,16 +1,16 @@
 // Zen Language - Bootstrap Compiler
 // Compiles Zen source code to C for bootstrapping
 
-core := @std.core
-io := @std.io
-fs := @std.fs
-os := @std.os
-string := @std.string
-path := @std.path
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-codegen := @std.compiler.codegen
-type_checker := @std.compiler.type_checker
+{ core } = @std.core
+{ io } = @std.io
+{ fs } = @std.fs
+{ os } = @std.os
+{ string } = @std.string
+{ path } = @std.path
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ codegen } = @std.compiler.codegen
+{ type_checker } = @std.compiler.type_checker
 
 // Compiler options
 CompilerOptions := {
@@ -24,7 +24,7 @@ CompilerOptions := {
 }
 
 // Parse command line arguments
-parse_args: (args: []string) CompilerOptions  = {
+parse_args = (args: []string) CompilerOptions   {
     options := CompilerOptions{
         input_file: "",
         output_file: "",
@@ -97,7 +97,7 @@ parse_args: (args: []string) CompilerOptions  = {
 }
 
 // Print usage information
-print_usage: () void  = {
+print_usage = () void   {
     io.print("zen-compile - Zen Language Bootstrap Compiler\n\n")
     io.print("Usage: zen-compile [options] <input-file>\n\n")
     io.print("Options:\n")
@@ -111,7 +111,7 @@ print_usage: () void  = {
 }
 
 // Compile a Zen source file
-compile_file: (options: &CompilerOptions) bool  = {
+compile_file = (options: &CompilerOptions) bool   {
     if (options.verbose) {
         io.print("Compiling: ")
         io.print(options.input_file)
@@ -265,7 +265,7 @@ compile_file: (options: &CompilerOptions) bool  = {
 }
 
 // Main entry point
-main: (args: []string) i32  = {
+main = (args: []string) i32   {
     io.print("zen-compile v0.1.0 - Zen Language Bootstrap Compiler\n")
     
     // Parse command line arguments

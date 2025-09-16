@@ -1,10 +1,10 @@
 // Basic Test Suite for Zen Language
 // Simple tests that should actually compile and run
 
-io := @std.io
+{ io } = @std.io
 
 // Test 1: Basic arithmetic
-test_arithmetic: () bool  = {
+test_arithmetic = () bool   {
     a := 10
     b := 5
     
@@ -12,33 +12,33 @@ test_arithmetic: () bool  = {
     diff := a - b
     
     sum == 15 && diff == 5 ?
-        | true => {
+        | true { { }
             io.println("✓ Arithmetic test passed")
             return true
         }
-        | false => {
+        | false { { }
             io.println("✗ Arithmetic test failed")
             return false
         }
 }
 
 // Test 2: Simple conditions
-test_conditions: () bool  = {
+test_conditions = () bool   {
     x := 10
     
     x > 5 ?
-        | true => {
+        | true { { }
             io.println("✓ Condition test passed")
             return true
         }
-        | false => {
+        | false { { }
             io.println("✗ Condition test failed")
             return false
         }
 }
 
 // Test 3: Simple loop
-test_loop: () bool  = {
+test_loop = () bool   {
     mut count := 0
     mut i := 0
     
@@ -48,18 +48,18 @@ test_loop: () bool  = {
     }
     
     count == 5 ?
-        | true => {
+        | true { { }
             io.println("✓ Loop test passed")
             return true
         }
-        | false => {
+        | false { { }
             io.println("✗ Loop test failed")
             return false
         }
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("=== Basic Zen Test Suite ===\n")
     
     mut passed := 0
@@ -67,16 +67,16 @@ main: () i32  = {
     
     // Run tests
     test_arithmetic() ?
-        | true => { passed = passed + 1 }
-        | false => { failed = failed + 1 }
+        | true { { passed = passed + 1  }}
+        | false { { failed = failed + 1  }}
     
     test_conditions() ?
-        | true => { passed = passed + 1 }
-        | false => { failed = failed + 1 }
+        | true { { passed = passed + 1  }}
+        | false { { failed = failed + 1  }}
     
     test_loop() ?
-        | true => { passed = passed + 1 }
-        | false => { failed = failed + 1 }
+        | true { { passed = passed + 1  }}
+        | false { { failed = failed + 1  }}
     
     // Report results
     io.println("\n=== Results ===")
@@ -86,11 +86,11 @@ main: () i32  = {
     io.println("0")
     
     failed == 0 ?
-        | true => {
+        | true { { }
             io.println("\nAll tests passed!")
             return 0
         }
-        | false => {
+        | false { { }
             io.println("\nSome tests failed")
             return 1
         }

@@ -1,21 +1,21 @@
 // Comprehensive Standard Library Test Suite
 // Tests all major stdlib modules and their integration
 
-core := @std.core
-string := @std.string
-vec := @std.vec
-hashmap := @std.hashmap
-math := @std.math
-mem := @std.mem
-result := @std.result
-io := @std.io
-file := @std.file
-network := @std.network
-concurrency := @std.concurrency
-test := @std.test
+{ core } = @std.core
+{ string } = @std.string
+{ vec } = @std.vec
+{ hashmap } = @std.hashmap
+{ math } = @std.math
+{ mem } = @std.mem
+{ result } = @std.result
+{ io } = @std.io
+{ file } = @std.file
+{ network } = @std.network
+{ concurrency } = @std.concurrency
+{ test } = @std.test
 
 // Test runner
-main: () i32  = {
+main = () i32   {
     io.print("Running Zen Standard Library Comprehensive Tests\n")
     io.print("================================================\n\n")
     
@@ -129,7 +129,7 @@ main: () i32  = {
 }
 
 // Core module tests
-test_core: () bool  = {
+test_core = () bool   {
     mut all_passed := true
     
     // Test min/max
@@ -163,7 +163,7 @@ test_core: () bool  = {
 }
 
 // String module tests
-test_string: () bool  = {
+test_string = () bool   {
     mut all_passed := true
     
     // Test string creation and comparison
@@ -219,7 +219,7 @@ test_string: () bool  = {
 }
 
 // Vector module tests
-test_vec: () bool  = {
+test_vec = () bool   {
     mut all_passed := true
     
     // Create vector
@@ -291,7 +291,7 @@ test_vec: () bool  = {
 }
 
 // HashMap module tests
-test_hashmap: () bool  = {
+test_hashmap = () bool   {
     mut all_passed := true
     
     // Create hashmap
@@ -356,7 +356,7 @@ test_hashmap: () bool  = {
 }
 
 // Math module tests
-test_math: () bool  = {
+test_math = () bool   {
     mut all_passed := true
     
     // Test basic math functions
@@ -420,12 +420,12 @@ test_math: () bool  = {
 }
 
 // Memory module tests
-test_memory: () bool  = {
+test_memory = () bool   {
     mut all_passed := true
     
     // Test allocation
     ptr := mem.alloc<i32>(10)
-    if ptr == null {
+    if ptr .== .None {
         all_passed = false
         return false
     }
@@ -438,7 +438,7 @@ test_memory: () bool  = {
     
     // Test array allocation
     arr := mem.alloc_array<i32>(5)
-    if arr.data == null {
+    if arr.data .== .None {
         all_passed = false
     }
     if arr.len != 5 {
@@ -483,7 +483,7 @@ test_memory: () bool  = {
 }
 
 // File I/O module tests
-test_file_io: () bool  = {
+test_file_io = () bool   {
     mut all_passed := true
     
     test_file_path := "/tmp/zen_test_file.txt"
@@ -557,7 +557,7 @@ test_file_io: () bool  = {
 }
 
 // Network module tests
-test_network: () bool  = {
+test_network = () bool   {
     mut all_passed := true
     
     // Test IP address parsing
@@ -624,7 +624,7 @@ test_network: () bool  = {
 }
 
 // Concurrency module tests
-test_concurrency: () bool  = {
+test_concurrency = () bool   {
     mut all_passed := true
     
     // Test mutex creation and locking

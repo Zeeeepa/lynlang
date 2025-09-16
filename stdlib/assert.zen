@@ -1,84 +1,84 @@
 // Zen Standard Library: Assert Module
 // Testing and assertion utilities
 
-core := @std.core
-io := @std.io
+{ core } = @std.core
+{ io } = @std.io
 
 // Assert that a condition is true
-assert: (condition: bool, message: string = "Assertion failed") void  = {
-    condition ? | false => {
+assert = (condition: bool, message: string = "Assertion failed") void   {
+    condition ? | false { { }
         io.println("ASSERTION FAILED: $(message)")
         core.panic(message)
-    } | true => {}
+    } | true { { }}
 }
 
 // Assert two values are equal
 assert_eq = <T>(actual: T, expected: T, message: string = "") void {
-    actual == expected ? | false => {
-        msg := message == "" ? | true => 
+    actual == expected ? | false { { }
+        msg := message == "" ? | true {  }
             "Expected $(expected), but got $(actual)" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
-    } | true => {}
+    } | true { { }}
 }
 
 // Assert two values are not equal
 assert_ne = <T>(actual: T, expected: T, message: string = "") void {
-    actual != expected ? | false => {
-        msg := message == "" ? | true => 
+    actual != expected ? | false { { }
+        msg := message == "" ? | true {  }
             "Expected values to be different, but both were $(actual)" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
-    } | true => {}
+    } | true { { }}
 }
 
 // Assert a value is less than another
 assert_lt = <T>(actual: T, limit: T, message: string = "") void {
-    actual < limit ? | false => {
-        msg := message == "" ? | true => 
+    actual < limit ? | false { { }
+        msg := message == "" ? | true {  }
             "Expected $(actual) to be less than $(limit)" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
-    } | true => {}
+    } | true { { }}
 }
 
 // Assert a value is greater than another
 assert_gt = <T>(actual: T, limit: T, message: string = "") void {
-    actual > limit ? | false => {
-        msg := message == "" ? | true => 
+    actual > limit ? | false { { }
+        msg := message == "" ? | true {  }
             "Expected $(actual) to be greater than $(limit)" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
-    } | true => {}
+    } | true { { }}
 }
 
 // Assert a value is within a range
 assert_in_range = <T>(value: T, min: T, max: T, message: string = "") void {
-    value >= min && value <= max ? | false => {
-        msg := message == "" ? | true => 
+    value >= min && value <= max ? | false { { }
+        msg := message == "" ? | true {  }
             "Expected $(value) to be in range [$(min), $(max)]" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
-    } | true => {}
+    } | true { { }}
 }
 
 // Assert an Option is Some
 assert_some = <T>(opt: core.Option<T>, message: string = "") T {
-    opt ? | core.Option:Some(val) => val 
-          | core.Option:None => {
-        msg := message == "" ? | true => 
+    opt ? | core.Option:Some(val) { val  }
+          | core.Option:None { { }
+        msg := message == "" ? | true {  }
             "Expected Some value, but got None" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
@@ -89,11 +89,11 @@ assert_some = <T>(opt: core.Option<T>, message: string = "") T {
 
 // Assert an Option is None
 assert_none = <T>(opt: core.Option<T>, message: string = "") void {
-    opt ? | core.Option:None => {} 
-          | core.Option:Some(val) => {
-        msg := message == "" ? | true => 
+    opt ? | core.Option:None { { }} 
+          | core.Option:Some(val) { { }
+        msg := message == "" ? | true {  }
             "Expected None, but got Some($(val))" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
@@ -102,11 +102,11 @@ assert_none = <T>(opt: core.Option<T>, message: string = "") void {
 
 // Assert a Result is Ok
 assert_ok = <T, E>(result: core.Result<T, E>, message: string = "") T {
-    result ? | core.Result:Ok(val) => val 
-             | core.Result:Err(err) => {
-        msg := message == "" ? | true => 
+    result ? | core.Result:Ok(val) { val  }
+             | core.Result:Err(err) { { }
+        msg := message == "" ? | true {  }
             "Expected Ok value, but got Err($(err))" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
@@ -117,11 +117,11 @@ assert_ok = <T, E>(result: core.Result<T, E>, message: string = "") T {
 
 // Assert a Result is Err
 assert_err = <T, E>(result: core.Result<T, E>, message: string = "") E {
-    result ? | core.Result:Err(err) => err 
-             | core.Result:Ok(val) => {
-        msg := message == "" ? | true => 
+    result ? | core.Result:Err(err) { err  }
+             | core.Result:Ok(val) { { }
+        msg := message == "" ? | true {  }
             "Expected Err, but got Ok($(val))" 
-        | false => 
+        | false {  }
             message
         io.println("ASSERTION FAILED: $(msg)")
         core.panic(msg)
@@ -166,7 +166,7 @@ run_suite = (suite_name: string, tests: [(string, () void)]) void {
 }
 
 // Macro-like helper for defining test suites
-test_suite: (name: string) TestContext  = {
+test_suite = (name: string) TestContext   {
     TestContext {
         name: name,
         passed: 0,

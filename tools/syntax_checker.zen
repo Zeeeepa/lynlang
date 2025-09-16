@@ -1,10 +1,10 @@
 // Zen Syntax Checker - A step towards self-hosting
 // This tool validates Zen source files for basic syntax errors
 
-core := @std.core
-io := @std.io
-fs := @std.fs
-string := @std.string
+{ core } = @std.core
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
 
 // Error types for syntax checking
 SyntaxError: UnmatchedBrace(line: i32, column: i32)
@@ -50,7 +50,7 @@ CheckerState: {
 }
 
 // Initialize checker state
-init_checker: () CheckerState  = {
+init_checker = () CheckerState   {
     return CheckerState {
         brace_count: 0,
         paren_count: 0,
@@ -63,7 +63,7 @@ init_checker: () CheckerState  = {
 }
 
 // Add error to checker state
-add_error: (state: *CheckerState, error: SyntaxError) void  = {
+add_error = (state: *CheckerState, error: SyntaxError) void   {
     state.error_count < 100 ?
         | true => {
             state.errors[state.error_count] = error
@@ -73,7 +73,7 @@ add_error: (state: *CheckerState, error: SyntaxError) void  = {
 }
 
 // Check character for syntax issues
-check_character: (state: *CheckerState, ch: i8) void  = {
+check_character = (state: *CheckerState, ch: i8) void   {
     ch ?
         | '{' => {
             state.brace_count = state.brace_count + 1
@@ -118,14 +118,14 @@ check_character: (state: *CheckerState, ch: i8) void  = {
 }
 
 // Check for common operator patterns
-check_operators: (content: string) bool  = {
+check_operators = (content: string) bool   {
     // Check for valid operators: :=, :=, =, ==, !=, <=, >=, <, >, +, -, *, /, %, &, |, ^, <<, >>
     // This is simplified - would need proper tokenization
     return true
 }
 
 // Validate bracket balance at end of file
-validate_final_state: (state: *CheckerState) void  = {
+validate_final_state = (state: *CheckerState) void   {
     state.brace_count != 0 ?
         | true => {
             add_error(state, SyntaxError:UnmatchedBrace(state.current_line, state.current_column))
@@ -146,7 +146,7 @@ validate_final_state: (state: *CheckerState) void  = {
 }
 
 // Check a string of Zen code
-check_syntax: (content: string) CheckResult  = {
+check_syntax = (content: string) CheckResult   {
     state := init_checker()
     
     // Process each character
@@ -192,7 +192,7 @@ check_syntax: (content: string) CheckResult  = {
 }
 
 // Print error message
-print_error: (error: SyntaxError) void  = {
+print_error = (error: SyntaxError) void   {
     error ?
         | UnmatchedBrace(line, col) => {
             io.print("Error: Unmatched '{' at line ")
@@ -230,7 +230,7 @@ print_error: (error: SyntaxError) void  = {
 }
 
 // Check a file
-check_file: (filename: string) bool  = {
+check_file = (filename: string) bool   {
     io.print("Checking ")
     io.print(filename)
     io.print("...\n")
@@ -260,7 +260,7 @@ check_file: (filename: string) bool  = {
 }
 
 // Main entry point
-main: (args: [string]) i32  = {
+main = (args: [string]) i32   {
     io.print("Zen Syntax Checker v0.1.0\n")
     io.print("==========================\n\n")
     

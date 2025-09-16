@@ -61,7 +61,7 @@ ErrorContext: {
 }
 
 // Create a new error context
-create_context: (file: string, content: string) ErrorContext  = {
+create_context = (file: string, content: string) ErrorContext   {
     ErrorContext {
         source_file: file,
         source_content: content,
@@ -72,17 +72,17 @@ create_context: (file: string, content: string) ErrorContext  = {
 }
 
 // Add a diagnostic to the context
-add_diagnostic: (ctx: Ptr<ErrorContext>, diag: Diagnostic) void  = {
+add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void   {
     ctx.value.diagnostics.push(diag)
     
     diag.severity ?
-        | .Error => ctx.value.error_count = ctx.value.error_count + 1
-        | .Warning => ctx.value.warning_count = ctx.value.warning_count + 1
-        | _ => {}
+        | .Error { ctx.value.error_count = ctx.value.error_count + 1 }
+        | .Warning { ctx.value.warning_count = ctx.value.warning_count + 1 }
+        | _ { { }}
 }
 
 // Create a syntax error
-syntax_error: (message: string, loc: SourceLocation) Diagnostic  = {
+syntax_error = (message: string, loc: SourceLocation) Diagnostic   {
     Diagnostic {
         severity: ErrorSeverity:Error,
         category: ErrorCategory:Syntax,
@@ -95,7 +95,7 @@ syntax_error: (message: string, loc: SourceLocation) Diagnostic  = {
 }
 
 // Create a type error
-type_error: (message: string, loc: SourceLocation) Diagnostic  = {
+type_error = (message: string, loc: SourceLocation) Diagnostic   {
     Diagnostic {
         severity: ErrorSeverity:Error,
         category: ErrorCategory:Type,
@@ -108,7 +108,7 @@ type_error: (message: string, loc: SourceLocation) Diagnostic  = {
 }
 
 // Create an import error
-import_error: (message: string, loc: SourceLocation) Diagnostic  = {
+import_error = (message: string, loc: SourceLocation) Diagnostic   {
     Diagnostic {
         severity: ErrorSeverity:Error,
         category: ErrorCategory:Import,
@@ -121,7 +121,7 @@ import_error: (message: string, loc: SourceLocation) Diagnostic  = {
 }
 
 // Create a warning
-warning: (message: string, loc: SourceLocation) Diagnostic  = {
+warning = (message: string, loc: SourceLocation) Diagnostic   {
     Diagnostic {
         severity: ErrorSeverity:Warning,
         category: ErrorCategory:Semantic,
@@ -134,22 +134,22 @@ warning: (message: string, loc: SourceLocation) Diagnostic  = {
 }
 
 // Add a note to a diagnostic
-add_note: (diag: Ptr<Diagnostic>, note: string) void  = {
+add_note = (diag: Ptr<Diagnostic>, note: string) void   {
     diag.value.notes.push(note)
 }
 
 // Add a suggestion to a diagnostic
-add_suggestion: (diag: Ptr<Diagnostic>, suggestion: string) void  = {
+add_suggestion = (diag: Ptr<Diagnostic>, suggestion: string) void   {
     diag.value.suggestion = Some(suggestion)
 }
 
 // Extract code snippet around error location
-extract_snippet: (content: string, loc: SourceLocation) string  = {
+extract_snippet = (content: string, loc: SourceLocation) string   {
     lines := split_lines(content)
     
     loc.line == 0 || loc.line > lines.len() ?
-        | true => ""
-        | false => {
+        | true { "" }
+        | false { { }
             line_idx := loc.line - 1
             line := lines[line_idx]
             
@@ -168,27 +168,27 @@ extract_snippet: (content: string, loc: SourceLocation) string  = {
 }
 
 // Format severity for display
-format_severity: (severity: ErrorSeverity) string  = {
+format_severity = (severity: ErrorSeverity) string   {
     severity ?
-        | .Error => "error"
-        | .Warning => "warning"
-        | .Info => "info"
-        | .Hint => "hint"
+        | .Error { "error" }
+        | .Warning { "warning" }
+        | .Info { "info" }
+        | .Hint { "hint" }
 }
 
 // Format category for display
-format_category: (category: ErrorCategory) string  = {
+format_category = (category: ErrorCategory) string   {
     category ?
-        | .Syntax => "syntax"
-        | .Type => "type"
-        | .Semantic => "semantic"
-        | .Import => "import"
-        | .Comptime => "comptime"
-        | .Internal => "internal"
+        | .Syntax { "syntax" }
+        | .Type { "type" }
+        | .Semantic { "semantic" }
+        | .Import { "import" }
+        | .Comptime { "comptime" }
+        | .Internal { "internal" }
 }
 
 // Format a diagnostic for display
-format_diagnostic: (diag: Diagnostic) string  = {
+format_diagnostic = (diag: Diagnostic) string   {
     // Format: file:line:column: severity[category]: message
     result := concat(diag.location.file, ":")
     result = concat(result, format_u32(diag.location.line))
@@ -203,38 +203,38 @@ format_diagnostic: (diag: Diagnostic) string  = {
     
     // Add code snippet if available
     diag.code_snippet ?
-        | .Some -> snippet => {
+        | .Some -> snippet { { }
             result = concat(result, "\n")
             result = concat(result, snippet)
         }
-        | .None => {}
+        | .None { { }}
     
     // Add notes
     diag.notes.len() > 0 ?
-        | true => {
+        | true { { }
             (0..diag.notes.len()).loop((i) => {
                 result = concat(result, "\n  note: ")
                 result = concat(result, diag.notes[i])
             })
         }
-        | false => {}
+        | false { { }}
     
     // Add suggestion
     diag.suggestion ?
-        | .Some -> sugg => {
+        | .Some -> sugg { { }
             result = concat(result, "\n  suggestion: ")
             result = concat(result, sugg)
         }
-        | .None => {}
+        | .None { { }}
     
     result
 }
 
 // Print all diagnostics in context
-print_diagnostics: (ctx: ErrorContext) void  = {
+print_diagnostics = (ctx: ErrorContext) void   {
     ctx.diagnostics.len() == 0 ?
-        | true => {}
-        | false => {
+        | true { { }}
+        | false { { }
             (0..ctx.diagnostics.len()).loop((i) => {
                 formatted := format_diagnostic(ctx.diagnostics[i])
                 print_line(formatted)
@@ -250,32 +250,32 @@ print_diagnostics: (ctx: ErrorContext) void  = {
 }
 
 // Check if compilation should stop
-should_stop_compilation: (ctx: ErrorContext) bool  = {
+should_stop_compilation = (ctx: ErrorContext) bool   {
     ctx.error_count > 0
 }
 
 // Helper functions (would be imported from string module in real implementation)
-split_lines: (s: string) Vec<string>  = {
+split_lines = (s: string) Vec<string>   {
     @intrinsic("string_split_lines", s)
 }
 
-concat: (a: string, b: string) string  = {
+concat = (a: string, b: string) string   {
     @intrinsic("string_concat", a, b)
 }
 
-format_u32: (n: u32) string  = {
+format_u32 = (n: u32) string   {
     @intrinsic("format_u32", n)
 }
 
-string_len: (s: string) u32  = {
+string_len = (s: string) u32   {
     @intrinsic("string_len", s)
 }
 
-repeat_char: (c: u8, count: u32) string  = {
+repeat_char = (c: u8, count: u32) string   {
     @intrinsic("repeat_char", c, count)
 }
 
-print_line: (s: string) void  = {
+print_line = (s: string) void   {
     @intrinsic("print_line", s)
 }
 

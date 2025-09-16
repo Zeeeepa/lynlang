@@ -1,11 +1,11 @@
 // Zen-Check: Syntax checker and linter for Zen language
 // Written in Zen for self-hosting
 
-io := @std.io
-string := @std.string
-core := @std.core
-fs := @std.fs
-check_file: (filepath: string) i32  = {
+{ io } = @std.io
+{ string } = @std.string
+{ core } = @std.core
+{ fs } = @std.fs
+check_file = (filepath: string) i32   {
     // Read the file content
     content_result := fs.read_file(filepath)
     content_result.is_err() ?
@@ -123,7 +123,7 @@ check_file: (filepath: string) i32  = {
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     // Simple argument handling for now
     // In a real implementation, we'd parse command-line arguments properly
     io.print("Zen Code Checker v0.1.0\n")

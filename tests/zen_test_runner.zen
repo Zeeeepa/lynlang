@@ -1,18 +1,18 @@
 // Test runner for self-hosted Zen compiler
 
-io := @std.io
-fs := @std.fs
-path := @std.path
-process := @std.process
-string := @std.string
-vec := @std.vec
-result := @std.result
+{ io } = @std.io
+{ fs } = @std.fs
+{ path } = @std.path
+{ process } = @std.process
+{ string } = @std.string
+{ vec } = @std.vec
+{ result } = @std.result
 
 // Import compiler for testing
-compiler := @std.compiler.compiler
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-type_checker := @std.compiler.type_checker
+{ compiler } = @std.compiler.compiler
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ type_checker } = @std.compiler.type_checker
 
 // Test case structure
 TestCase: {
@@ -39,7 +39,7 @@ TestSuite: {
 }
 
 // Create test suite
-create_suite: (name: string) TestSuite  = {
+create_suite = (name: string) TestSuite   {
     return TestSuite {
         name: name,
         tests: vec.new<TestCase>(),
@@ -48,12 +48,12 @@ create_suite: (name: string) TestSuite  = {
 }
 
 // Add test to suite
-add_test: (suite: &mut TestSuite, test: TestCase)   = {
+add_test = (suite: &mut TestSuite, test: TestCase)  {
     vec.push(suite.tests, test)
 }
 
 // Run single test
-run_test: (test: TestCase) TestResult  = {
+run_test = (test: TestCase) TestResult   {
     io.print("  Running: " + test.name + "... ")
     
     // Read test file
@@ -85,7 +85,7 @@ run_test: (test: TestCase) TestResult  = {
             
             // Check error pattern if specified
             if test.error_pattern? {
-                | some(pattern) => {
+                | some(pattern) { { }
                     if string.contains(error_msg, pattern) {
                         io.print("✅\n")
                         return TestResult {
@@ -104,7 +104,7 @@ run_test: (test: TestCase) TestResult  = {
                         }
                     }
                 }
-                | none => {
+                | none { { }
                     io.print("✅\n")
                     return TestResult {
                         test: test,
@@ -137,7 +137,7 @@ run_test: (test: TestCase) TestResult  = {
         
         // Run the compiled program if output is expected
         if test.expected_output? {
-            | some(expected) => {
+            | some(expected) { { }
                 let output_file = "/tmp/zen_test_" + string.replace(test.name, " ", "_")
                 compiler.write_executable(comp, output_file)?
                 
@@ -171,7 +171,7 @@ run_test: (test: TestCase) TestResult  = {
                     }
                 }
             }
-            | none => {
+            | none { { }
                 io.print("✅\n")
                 return TestResult {
                     test: test,
@@ -185,7 +185,7 @@ run_test: (test: TestCase) TestResult  = {
 }
 
 // Run test suite
-run_suite: (suite: &mut TestSuite)   = {
+run_suite = (suite: &mut TestSuite)  {
     io.print("\nRunning test suite: " + suite.name + "\n")
     io.print("=" * 50 + "\n")
     
@@ -215,8 +215,8 @@ run_suite: (suite: &mut TestSuite)   = {
             if !r.passed {
                 io.print("  • " + r.test.name + "\n")
                 if r.error? {
-                    | some(err) => io.print("    Error: " + err + "\n")
-                    | none => {}
+                    | some(err) { io.print("    Error: " + err + "\n") }
+                    | none { { }}
                 }
             }
         }
@@ -224,7 +224,7 @@ run_suite: (suite: &mut TestSuite)   = {
 }
 
 // Create integration test suite
-create_integration_tests: () TestSuite  = {
+create_integration_tests = () TestSuite   {
     let mut suite = create_suite("Integration Tests")
     
     // Hello world test
@@ -258,7 +258,7 @@ create_integration_tests: () TestSuite  = {
 }
 
 // Create syntax error test suite
-create_error_tests: () TestSuite  = {
+create_error_tests = () TestSuite   {
     let mut suite = create_suite("Error Handling Tests")
     
     // Import in comptime block test
@@ -283,7 +283,7 @@ create_error_tests: () TestSuite  = {
 }
 
 // Create compiler feature test suite
-create_feature_tests: () TestSuite  = {
+create_feature_tests = () TestSuite   {
     let mut suite = create_suite("Compiler Feature Tests")
     
     // Generics test
@@ -317,7 +317,7 @@ create_feature_tests: () TestSuite  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("Zen Compiler Test Runner\n")
     io.print("========================\n")
     

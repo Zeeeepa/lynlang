@@ -1,12 +1,12 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides comprehensive IDE support for Zen development
 
-io := @std.io
-fs := @std.fs
-string := @std.string
-vec := @std.vec
-json := @std.json
-net := @std.net
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ vec } = @std.vec
+{ json } = @std.json
+{ net } = @std.net
 
 // LSP Message types
 LspMessage := {
@@ -382,7 +382,7 @@ LanguageServer := {
 }
 
 // Create new language server
-create_server: () LanguageServer  = {
+create_server = () LanguageServer   {
     return LanguageServer {
         initialized: false
         root_uri: Option.None
@@ -446,7 +446,7 @@ handle_initialize = (server: *LanguageServer, params: InitializeParams) json.Val
 }
 
 // Check for import syntax errors
-check_import_syntax: (content: string) Vec<Diagnostic>  = {
+check_import_syntax = (content: string) Vec<Diagnostic>   {
     diagnostics := vec.new<Diagnostic>()
     lines := string.split(content, "\n")
     
@@ -466,7 +466,7 @@ check_import_syntax: (content: string) Vec<Diagnostic>  = {
         }
         
         // Track braces in comptime
-        if in_comptime {
+        if in_@comptime {
             for j := 0; j < string.len(line); j = j + 1 {
                 ch := string.char_at(line, j)
                 if ch == '{' {
@@ -482,7 +482,7 @@ check_import_syntax: (content: string) Vec<Diagnostic>  = {
         
         // Check for imports
         if string.contains(line, ":= @std") || string.contains(line, ":= @compiler") {
-            if in_comptime {
+            if in_@comptime {
                 vec.push(&diagnostics, Diagnostic {
                     range: Range {
                         start: Position { line: i, character: 0 }
@@ -530,7 +530,7 @@ check_import_syntax: (content: string) Vec<Diagnostic>  = {
 }
 
 // Provide completion items
-provide_completions: (server: *LanguageServer, uri: string, position: Position) Vec<CompletionItem>  = {
+provide_completions = (server: *LanguageServer, uri: string, position: Position) Vec<CompletionItem>   {
     items := vec.new<CompletionItem>()
     
     // Get document
@@ -623,7 +623,7 @@ provide_completions: (server: *LanguageServer, uri: string, position: Position) 
 }
 
 // Handle text document changes
-handle_did_change: (server: *LanguageServer, uri: string, content: string, version: i32) void  = {
+handle_did_change = (server: *LanguageServer, uri: string, content: string, version: i32) void   {
     // Update document
     doc := HashMap.get_mut(server.documents, uri)
     if doc != Option.None {
@@ -640,7 +640,7 @@ handle_did_change: (server: *LanguageServer, uri: string, content: string, versi
 }
 
 // Publish diagnostics to client
-publish_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
+publish_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void   {
     notification := json.object([
         ("jsonrpc", json.string("2.0")),
         ("method", json.string("textDocument/publishDiagnostics")),
@@ -654,14 +654,14 @@ publish_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
 }
 
 // Send message to client
-send_message: (msg: json.Value) void  = {
+send_message = (msg: json.Value) void   {
     content := json.stringify(msg)
     io.printf("Content-Length: {}\r\n\r\n{}", string.len(content), content)
     io.flush()
 }
 
 // Main server loop
-main: () i32  = {
+main = () i32   {
     server := create_server()
     
     io.eprintln("Zen Language Server starting...")

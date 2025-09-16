@@ -1,23 +1,23 @@
 // Language Specification Compliance Tests
 // Tests to ensure core language features follow the spec
 
-build := @std.build
+{ build } = @std.build
 core := build.import("core")
 testing := build.import("testing")
 io := build.import("io")
 
 // Test pattern matching with ? operator
-test_pattern_matching: () bool  = {
+test_pattern_matching = () bool   {
     // Test basic value patterns
     score := 100
     result := score ? 
-        | 100 => "Perfect"
-        | 0 => "Failed"
-        | _ => "In progress"
+        | 100 { "Perfect" }
+        | 0 { "Failed" }
+        | _ { "In progress" }
     
     result == "Perfect" ? 
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Test range patterns
     age := 25
@@ -25,49 +25,49 @@ test_pattern_matching: () bool  = {
         | 0..=12 => "Child"
         | 13..=19 => "Teen"
         | 20..=64 => "Adult"
-        | _ => "Senior"
+        | _ { "Senior" }
     
     category == "Adult" ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Test guards with ->
     value := 75
     size := value ?
-        | v -> v > 100 => "Large"
-        | v -> v > 50 => "Medium"
-        | v -> v > 0 => "Small"
-        | _ => "Zero or negative"
+        | v -> v > 100 { "Large" }
+        | v -> v > 50 { "Medium" }
+        | v -> v > 0 { "Small" }
+        | _ { "Zero or negative" }
     
     size == "Medium" ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Test multiple patterns (or-patterns)
     day := 3
     day_type := day ?
-        | 1 | 2 | 3 | 4 | 5 => "Weekday"
-        | 6 | 7 => "Weekend"
-        | _ => "Invalid day"
+        | 1 | 2 | 3 | 4 | 5 { "Weekday" }
+        | 6 | 7 { "Weekend" }
+        | _ { "Invalid day" }
     
     day_type == "Weekday" ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     return true
 }
 
 // Test that there are no if/else keywords
-test_no_if_else_keywords: () bool  = {
+test_no_if_else_keywords = () bool   {
     // All conditionals must use ? operator
     condition := true
     result := condition ?
-        | true => "yes"
-        | false => "no"
+        | true { "yes" }
+        | false { "no" }
     
     result == "yes" ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Test bool shorthand
     is_valid := false
@@ -77,26 +77,26 @@ test_no_if_else_keywords: () bool  = {
 }
 
 // Test Result/Option types for error handling
-test_error_as_values: () bool  = {
+test_error_as_values = () bool   {
     // Create a Result
     success := Result:Ok(42)
     failure := Result:Err("error")
     
     // Pattern match on Result
     success ?
-        | .Ok -> val => {
+        | .Ok -> val { { }
             val == 42 ?
-                | true => {}
-                | false => return false
+                | true { { }}
+                | false { return false }
         }
-        | .Err -> _ => return false
+        | .Err -> _ { return false }
     
     failure ?
-        | .Ok -> _ => return false
-        | .Err -> err => {
+        | .Ok -> _ { return false }
+        | .Err -> err { { }
             err == "error" ?
-                | true => {}
-                | false => return false
+                | true { { }}
+                | false { return false }
         }
     
     // Create an Option
@@ -105,22 +105,22 @@ test_error_as_values: () bool  = {
     
     // Pattern match on Option
     some_value ?
-        | .Some -> val => {
+        | .Some -> val { { }
             val == 10 ?
-                | true => {}
-                | false => return false
+                | true { { }}
+                | false { return false }
         }
-        | .None => return false
+        | .None { return false }
     
     none_value ?
-        | .Some -> _ => return false
-        | .None => {}
+        | .Some -> _ { return false }
+        | .None { { }}
     
     return true
 }
 
 // Test loop keyword (only loop, no while/for)
-test_loop_keyword: () bool  = {
+test_loop_keyword = () bool   {
     // Conditional loop (while-like)
     counter := 5
     sum := 0
@@ -131,8 +131,8 @@ test_loop_keyword: () bool  = {
     }
     
     sum == 15 ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Range iteration
     range_sum := 0
@@ -141,27 +141,27 @@ test_loop_keyword: () bool  = {
     })
     
     range_sum == 10 ?  // 0 + 1 + 2 + 3 + 4
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Break from infinite loop
     count := 0
     loop {
         count = count + 1
         count >= 3 ? 
-            | true => break
-            | false => {}
+            | true { break }
+            | false { { }}
     }
     
     count == 3 ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     return true
 }
 
 // Test struct syntax (no tuples allowed)
-test_struct_syntax: () bool  = {
+test_struct_syntax = () bool   {
     // Structs are the only product type
     Point := {
         x: f64,
@@ -171,8 +171,8 @@ test_struct_syntax: () bool  = {
     p := Point{ x: 3.0, y: 4.0 }
     
     p.x == 3.0 && p.y == 4.0 ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // No tuples - must use structs
     Pair := {
@@ -183,14 +183,14 @@ test_struct_syntax: () bool  = {
     pair := Pair{ first: 42, second: "answer" }
     
     pair.first == 42 && pair.second == "answer" ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     return true
 }
 
 // Test variable declarations
-test_variable_declarations: () bool  = {
+test_variable_declarations = () bool   {
     // Immutable binding
     PI := 3.14159
     
@@ -199,29 +199,29 @@ test_variable_declarations: () bool  = {
     counter = counter + 1
     
     counter == 1 ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Typed immutable
     MAX_SIZE: u32 = 1000
     
     MAX_SIZE == 1000 ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     // Typed mutable
     buffer: [10, u8]
     buffer[0] = 65  // 'A'
     
     buffer[0] == 65 ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     return true
 }
 
 // Test @std namespace (only allowed namespace)
-test_std_namespace: () bool  = {
+test_std_namespace = () bool   {
     // All imports must go through @std.build
     // This test verifies the pattern works
     
@@ -229,14 +229,14 @@ test_std_namespace: () bool  = {
     build_exists := true  // If we got here, build exists
     
     build_exists ?
-        | true => {}
-        | false => return false
+        | true { { }}
+        | false { return false }
     
     return true
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.print("🧪 Zen Language Specification Compliance Tests\n")
     io.print("=" * 50 + "\n\n")
     
@@ -259,11 +259,11 @@ main: () i32  = {
     io.print("  Failed: " + suite.failed + " ❌\n")
     
     suite.failed == 0 ?
-        | true => {
+        | true { { }
             io.print("\n🎉 All tests passed! Language spec compliant.\n")
             return 0
         }
-        | false => {
+        | false { { }
             io.print("\n❌ Some tests failed. Review spec compliance.\n")
             return 1
         }

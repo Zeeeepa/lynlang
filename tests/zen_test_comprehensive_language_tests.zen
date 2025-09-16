@@ -1,16 +1,16 @@
 // Comprehensive Language Tests
 // Tests all features from Language Spec v1.1.0
 
-test := @std.testing.test
-assert := @std.testing.assert
-expect_panic := @std.testing.expect_panic
+{ test } = @std.testing.test
+{ assert } = @std.testing.assert
+{ expect_panic } = @std.testing.expect_panic
 
 // Test Pattern Matching (NO if/else/match keywords)
 test("pattern matching - basic value patterns") {
     score := 100
-    result := score ? | 100 => "Perfect"
-                      | 0 => "Failed"
-                      | _ => "In progress"
+    result := score ? | 100 { "Perfect" }
+                      | 0 { "Failed" }
+                      | _ { "In progress" }
     assert(result == "Perfect")
 }
 
@@ -19,31 +19,31 @@ test("pattern matching - range patterns") {
     category := age ? | 0..=12 => "Child"
                       | 13..=19 => "Teen"
                       | 20..=64 => "Adult"
-                      | _ => "Senior"
+                      | _ { "Senior" }
     assert(category == "Adult")
 }
 
 test("pattern matching - destructuring") {
     result := Result:Ok(42)
-    value := result ? | .Ok -> v => v
-                      | .Err -> _ => 0
+    value := result ? | .Ok -> v { v }
+                      | .Err -> _ { 0 }
     assert(value == 42)
 }
 
 test("pattern matching - guards") {
     value := 75
-    size := value ? | v -> v > 100 => "Large"
-                    | v -> v > 50 => "Medium"
-                    | v -> v > 0 => "Small"
-                    | _ => "Zero"
+    size := value ? | v -> v > 100 { "Large" }
+                    | v -> v > 50 { "Medium" }
+                    | v -> v > 0 { "Small" }
+                    | _ { "Zero" }
     assert(size == "Medium")
 }
 
 test("pattern matching - multiple patterns") {
     day := 3
-    type := day ? | 1 | 2 | 3 | 4 | 5 => "Weekday"
-                  | 6 | 7 => "Weekend"
-                  | _ => "Invalid"
+    type := day ? | 1 | 2 | 3 | 4 | 5 { "Weekday" }
+                  | 6 | 7 { "Weekend" }
+                  | _ { "Invalid" }
     assert(type == "Weekday")
 }
 
@@ -52,8 +52,8 @@ test("pattern matching - bool patterns") {
     is_ready ? { assert(true) }
     
     is_valid := false
-    is_valid ? | true => assert(false)
-               | false => assert(true)
+    is_valid ? | true { assert(false) }
+               | false { assert(true) }
 }
 
 // Test Variable Declarations
@@ -76,15 +76,15 @@ test("variable declarations - mutable") {
 
 // Test Functions
 test("functions - basic") {
-    add: (a: i32, b: i32) i32  = { a + b }
+    add = (a: i32, b: i32) i32   { a + b }
     result := add(3, 4)
     assert(result == 7)
 }
 
 test("functions - default parameters") {
-    format: (value: i32, base: u8 = 10) string  = {
-        base == 10 ? | true => "decimal: $(value)"
-                     | false => "other base"
+    format = (value: i32, base: u8 = 10) string   {
+        base == 10 ? | true { "decimal: $(value)" }
+                     | false { "other base" }
     }
     assert(format(42) == "decimal: 42")
     assert(format(42, 16) == "other base")
@@ -93,7 +93,7 @@ test("functions - default parameters") {
 test("functions - UFCS") {
     Rectangle: { width: f64, height: f64 }
     
-    area: (rect: Rectangle) f64  = {
+    area = (rect: Rectangle) f64   {
         rect.width * rect.height
     }
     
@@ -117,7 +117,7 @@ test("loops - infinite with break") {
     counter := 0
     loop {
         counter = counter + 1
-        counter == 5 ? | true => break
+        counter == 5 ? | true { break }
     }
     assert(counter == 5)
 }
@@ -133,7 +133,7 @@ test("loops - range iteration") {
 test("loops - with continue") {
     sum := 0
     (0..10).loop((i) => {
-        i % 2 == 0 ? | true => continue
+        i % 2 == 0 ? | true { continue }
         sum = sum + i
     })
     assert(sum == 25)  // 1 + 3 + 5 + 7 + 9
@@ -174,8 +174,8 @@ test("enums - basic") {
     success := Result:Ok(42)
     failure := Result:Err("Not found")
     
-    success ? | .Ok -> v => assert(v == 42)
-              | .Err -> _ => assert(false)
+    success ? | .Ok -> v { assert(v == 42) }
+              | .Err -> _ { assert(false) }
 }
 
 // Test Behaviors
@@ -186,9 +186,9 @@ test("behaviors - comparable") {
     
     i32_comparable := Comparable<i32>{
         compare: (a: i32, b: i32) i32 {
-            a < b ? | true => -1
-                    | false => a > b ? | true => 1
-                                       | false => 0
+            a < b ? | true { -1 }
+                    | false { a > b ? | true => 1 }
+                                       | false { 0 }
         }
     }
     
@@ -212,32 +212,32 @@ test("pointers - smart pointers") {
 
 // Test Error Handling (NO exceptions)
 test("error handling - result type") {
-    divide: (a: i32, b: i32) Result<i32, string>  = {
-        b == 0 ? | true => .Err("Division by zero")
-                 | false => .Ok(a / b)
+    divide = (a: i32, b: i32) Result<i32, string>   {
+        b == 0 ? | true { .Err("Division by zero") }
+                 | false { .Ok(a / b) }
     }
     
     result := divide(10, 2)
-    result ? | .Ok -> v => assert(v == 5)
-             | .Err -> _ => assert(false)
+    result ? | .Ok -> v { assert(v == 5) }
+             | .Err -> _ { assert(false) }
     
     error := divide(10, 0)
-    error ? | .Ok -> _ => assert(false)
-            | .Err -> e => assert(e == "Division by zero")
+    error ? | .Ok -> _ { assert(false) }
+            | .Err -> e { assert(e == "Division by zero") }
 }
 
 test("error handling - option type") {
-    find: (arr: [5, i32], target: i32) Option<usize>  = {
+    find = (arr: [5, i32], target: i32) Option<usize>   {
         (0..5).loop((i) => {
-            arr[i] == target ? | true => return Some(i)
+            arr[i] == target ? | true { return Some(i) }
         })
         None
     }
     
     arr := [5, i32]{ 10, 20, 30, 40, 50 }
     result := find(arr, 30)
-    result ? | .Some -> i => assert(i == 2)
-             | .None => assert(false)
+    result ? | .Some -> i { assert(i == 2) }
+             | .None { assert(false) }
 }
 
 // Test Arrays and Slices
@@ -275,7 +275,7 @@ test("defer - cleanup") {
 
 // Test Compile-time execution
 test("comptime - basic") {
-    CONSTANT := comptime {
+    CONSTANT := @comptime {
         result := 1
         (1..5).loop((i) => {
             result = result * i
@@ -301,19 +301,19 @@ test("type reflection") {
 
 // Test Platform-specific code
 test("platform specific") {
-    os_name := @std.target.os ?
-        | .linux => "Linux"
-        | .windows => "Windows"
-        | .macos => "macOS"
-        | _ => "Unknown"
+    { os_name } = @std.target.os ?
+        | .linux { "Linux" }
+        | .windows { "Windows" }
+        | .macos { "macOS" }
+        | _ { "Unknown" }
     
     // Should be Linux on current system
     assert(os_name == "Linux")
 }
 
 // Main test runner
-main: () void  = {
-    io := @std.build.import("io")
+main = () void   {
+    { io } = @std.build.import("io")
     io.print("Running Comprehensive Language Tests\n")
     io.print("=====================================\n")
     

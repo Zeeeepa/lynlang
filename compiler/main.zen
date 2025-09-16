@@ -1,16 +1,16 @@
 // Zen Language Self-Hosted Compiler
 // Main entry point for the self-hosted compiler
 
-core := @std.core
-io := @std.io
-fs := @std.fs
-string := @std.string
-process := @std.process
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-c_backend := @std.compiler.c_backend
-llvm_backend := @std.compiler.llvm_backend
-type_checker := @std.compiler.type_checker
+{ core } = @std.core
+{ io } = @std.io
+{ fs } = @std.fs
+{ string } = @std.string
+{ process } = @std.process
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ c_backend } = @std.compiler.c_backend
+{ llvm_backend } = @std.compiler.llvm_backend
+{ type_checker } = @std.compiler.type_checker
 
 // Compiler options
 CompilerOptions := {
@@ -23,7 +23,7 @@ CompilerOptions := {
 }
 
 // Parse command line arguments
-parse_args: (args: [string]) CompilerOptions  = {
+parse_args = (args: [string]) CompilerOptions   {
     opts := CompilerOptions{
         input_file: "",
         output_file: "",
@@ -84,7 +84,7 @@ parse_args: (args: [string]) CompilerOptions  = {
 }
 
 // Print help message
-print_help: () void  = {
+print_help = () void   {
     io.println("Zen Language Compiler")
     io.println("Usage: zen-compile [options] <input.zen>")
     io.println("")
@@ -98,7 +98,7 @@ print_help: () void  = {
 }
 
 // Compile a Zen file
-compile_file: (opts: CompilerOptions) i32  = {
+compile_file = (opts: CompilerOptions) i32   {
     if opts.verbose {
         io.println("Compiling: " + opts.input_file)
         io.println("Output: " + opts.output_file)
@@ -160,7 +160,7 @@ compile_file: (opts: CompilerOptions) i32  = {
 }
 
 // Generate code based on backend
-generate_code: (ast: ASTNode, opts: CompilerOptions) Result<string>  = {
+generate_code = (ast: ASTNode, opts: CompilerOptions) Result<string>   {
     if opts.backend == "c") {
         backend := c_backend.new_c_backend()
         return backend.generate(ast, opts.debug)
@@ -177,7 +177,7 @@ generate_code: (ast: ASTNode, opts: CompilerOptions) Result<string>  = {
 }
 
 // Main entry point
-main: (args: [string]) i32  = {
+main = (args: [string]) i32   {
     // Parse command line arguments
     opts := parse_args(args)
     

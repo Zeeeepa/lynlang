@@ -2,20 +2,20 @@
 // Verifies that lexer, parser, and other components work correctly
 
 // Import self-hosted compiler components (no comptime!)
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
-errors := @std.compiler.errors
-codegen := @std.compiler.codegen
-type_checker := @std.compiler.type_checker
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
+{ errors } = @std.compiler.errors
+{ codegen } = @std.compiler.codegen
+{ type_checker } = @std.compiler.type_checker
 
 // Import standard library
-core := @std.core
-io := @std.io
-string := @std.string
-vec := @std.vec
+{ core } = @std.core
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
 
 // Test the lexer component
-test_lexer: () bool  = {
+test_lexer = () bool   {
     // Create a lexer instance
     source := "let x = 42 + 3.14"
     lex := lexer.Lexer {
@@ -37,19 +37,19 @@ test_lexer: () bool  = {
     // Check first token is 'let' keyword
     first := tokens.get(0)
     match first.kind {
-        | Keyword(kw) => {
+        | Keyword(kw) { { }
             if !string.equals(kw, "let") {
                 return false
             }
         }
-        | _ => return false
+        | _ { return false }
     }
     
     return true
 }
 
 // Test the parser component
-test_parser: () bool  = {
+test_parser = () bool   {
     // Create tokens for a simple expression
     tokens := vec.new<lexer.Token>()
     
@@ -97,7 +97,7 @@ test_parser: () bool  = {
 }
 
 // Test error handling
-test_error_handling: () bool  = {
+test_error_handling = () bool   {
     // Create a diagnostic
     diag := errors.Diagnostic {
         level: errors.Level:Error,
@@ -112,29 +112,29 @@ test_error_handling: () bool  = {
     
     // Verify diagnostic properties
     match diag.level {
-        | Error => {
+        | Error { { }
             return string.equals(diag.message, "Test error message")
         }
-        | _ => return false
+        | _ { return false }
     }
 }
 
 // Test type checker component
-test_type_checker: () bool  = {
+test_type_checker = () bool   {
     // Create a simple type
     int_type := type_checker.Type:Integer(32, true)
     
     // Check type properties
     match int_type {
-        | Integer(bits, signed) => {
+        | Integer(bits, signed) { { }
             return bits == 32 && signed == true
         }
-        | _ => return false
+        | _ { return false }
     }
 }
 
 // Test codegen component
-test_codegen: () bool  = {
+test_codegen = () bool   {
     // Create a simple AST node
     node := parser.AstNode:IntLit(42)
     
@@ -154,7 +154,7 @@ test_codegen: () bool  = {
 }
 
 // Test integration between components
-test_integration: () bool  = {
+test_integration = () bool   {
     // Full pipeline test: source -> tokens -> AST -> type check -> codegen
     source := "func add(a: i32, b: i32) i32 { return a + b }"
     
@@ -196,7 +196,7 @@ test_integration: () bool  = {
 }
 
 // Main test runner
-main: () i32  = {
+main = () i32   {
     io.println("Testing self-hosted compiler components...")
     io.println("==========================================")
     

@@ -1,11 +1,11 @@
 // Enhanced Zen Parser for Self-Hosting
 // Complete AST generation for all Zen language features
 
-io := @std.io
-string := @std.string
-vec := @std.vec
-core := @std.core
-lexer := @std.compiler.lexer_enhanced
+{ io } = @std.io
+{ string } = @std.string
+{ vec } = @std.vec
+{ core } = @std.core
+{ lexer } = @std.compiler.lexer_enhanced
 
 // AST Node Types
 AstNodeType: FunctionDecl,
@@ -194,7 +194,7 @@ Parser: {
 }
 
 // Create a new parser
-parser_new: (tokens: vec.Vec<lexer.Token>) Parser  = {
+parser_new = (tokens: vec.Vec<lexer.Token>) Parser   {
     return Parser{
         tokens: tokens,
         current: 0,
@@ -208,8 +208,8 @@ parse = (p: *Parser) Result<vec.Vec<*AstNode>, vec.Vec<string>> {
     
     loop !is_at_end(p) {
         parse_declaration(p) ?
-            | .Ok -> node => nodes.push(node)
-            | .Err -> msg => {
+            | .Ok -> node { nodes.push(node) }
+            | .Err -> msg { { }
                 p.errors.push(msg)
                 synchronize(p)
             }
@@ -221,27 +221,27 @@ parse = (p: *Parser) Result<vec.Vec<*AstNode>, vec.Vec<string>> {
 }
 
 // Parse a declaration
-parse_declaration: (p: *Parser) Result<*AstNode, string> = {
+parse_declaration = (p: *Parser) Result<*AstNode, string>  {
     current := peek(p)
     
     current.type ? 
-        | lexer.TokenType.Struct => parse_struct(p)
-        | lexer.TokenType.Enum => parse_enum(p)
-        | lexer.TokenType.Trait => parse_trait(p)
-        | lexer.TokenType.Impl => parse_impl(p)
-        | lexer.TokenType.Type => parse_type_alias(p)
-        | lexer.TokenType.Const | lexer.TokenType.Let => parse_variable(p)
-        | lexer.TokenType.Identifier -> _ => {
+        | lexer.TokenType.Struct { parse_struct(p) }
+        | lexer.TokenType.Enum { parse_enum(p) }
+        | lexer.TokenType.Trait { parse_trait(p) }
+        | lexer.TokenType.Impl { parse_impl(p) }
+        | lexer.TokenType.Type { parse_type_alias(p) }
+        | lexer.TokenType.Const | lexer.TokenType.Let { parse_variable(p) }
+        | lexer.TokenType.Identifier -> _ { { }
             // Could be variable declaration or expression
             peek_ahead(p, 1).type == lexer.TokenType.ColonEqual ||
             peek_ahead(p, 1).type == lexer.TokenType.ColonColonEqual ?
                 { parse_variable(p) } : { parse_statement(p) }
         }
-        | _ => parse_statement(p)
+        | _ { parse_statement(p) }
 }
 
 // Parse function declaration
-parse_function: (p: *Parser) Result<*AstNode, string> = {
+parse_function = (p: *Parser) Result<*AstNode, string>  {
     start_token := advance(p) // consume identifier
     
     // Parse function name
@@ -276,7 +276,7 @@ parse_function: (p: *Parser) Result<*AstNode, string> = {
 }
 
 // Parse struct declaration
-parse_struct: (p: *Parser) Result<*AstNode, string> = {
+parse_struct = (p: *Parser) Result<*AstNode, string>  {
     start_token := advance(p) // consume 'struct' or identifier
     
     name := start_token.type == lexer.TokenType.Struct ?
@@ -324,7 +324,7 @@ parse_struct: (p: *Parser) Result<*AstNode, string> = {
 
 // Helper functions
 
-is_at_end: (p: *Parser) bool  = {
+is_at_end = (p: *Parser) bool   {
     return peek(p).type == lexer.TokenType.Eof
 }
 
@@ -344,17 +344,17 @@ advance = (p: *Parser) lexer.Token {
     return p.tokens[p.current - 1]
 }
 
-check: (p: *Parser, type: lexer.TokenType) bool  = {
+check = (p: *Parser, type: lexer.TokenType) bool   {
     is_at_end(p) ? { return false } : { return peek(p).type == type }
 }
 
-consume: (p: *Parser, type: lexer.TokenType, message: string) Result<lexer.Token, string> = {
+consume = (p: *Parser, type: lexer.TokenType, message: string) Result<lexer.Token, string>  {
     check(p, type) ? 
         { return Result.Ok(advance(p)) } : 
         { return Result.Err(message + " at line " + string.from_u32(peek(p).line)) }
 }
 
-synchronize: (p: *Parser) void  = {
+synchronize = (p: *Parser) void   {
     advance(p)
     
     loop !is_at_end(p) {
@@ -365,7 +365,7 @@ synchronize: (p: *Parser) void  = {
               lexer.TokenType.Enum | lexer.TokenType.Trait |
               lexer.TokenType.Type | lexer.TokenType.Const |
               lexer.TokenType.Let => return
-            | _ => {}
+            | _ { { }}
         
         advance(p)
     }

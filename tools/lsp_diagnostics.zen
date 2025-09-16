@@ -1,11 +1,11 @@
 // LSP Diagnostics for Zen Language Server
 // Provides error reporting and diagnostic capabilities
 
-core := @std.core
-string := @std.string
-array := @std.array
-json := @std.json
-io := @std.io
+{ core } = @std.core
+{ string } = @std.string
+{ array } = @std.array
+{ json } = @std.json
+{ io } = @std.io
 
 // Diagnostic severity levels (LSP spec)
 DiagnosticSeverity: Error
@@ -89,7 +89,7 @@ JsonValue: {
 }
 
 // Create new diagnostic context
-new_context: (file: String, max_diagnostics: usize) DiagnosticContext  = {
+new_context = (file: String, max_diagnostics: usize) DiagnosticContext   {
     return DiagnosticContext{
         diagnostics: array.new(Diagnostic, 32),
         current_file: file,
@@ -98,7 +98,7 @@ new_context: (file: String, max_diagnostics: usize) DiagnosticContext  = {
 }
 
 // Create position
-make_position: (line: u32, character: u32) Position  = {
+make_position = (line: u32, character: u32) Position   {
     return Position{
         line: line,
         character: character,
@@ -106,7 +106,7 @@ make_position: (line: u32, character: u32) Position  = {
 }
 
 // Create range
-make_range: (start_line: u32, start_char: u32, end_line: u32, end_char: u32) Range  = {
+make_range = (start_line: u32, start_char: u32, end_line: u32, end_char: u32) Range   {
     return Range{
         start: make_position(start_line, start_char),
         end: make_position(end_line, end_char),
@@ -114,7 +114,7 @@ make_range: (start_line: u32, start_char: u32, end_line: u32, end_char: u32) Ran
 }
 
 // Add error diagnostic
-add_error: (ctx: *DiagnosticContext, range: Range, message: String) void  = {
+add_error = (ctx: *DiagnosticContext, range: Range, message: String) void   {
     ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
@@ -133,7 +133,7 @@ add_error: (ctx: *DiagnosticContext, range: Range, message: String) void  = {
 }
 
 // Add warning diagnostic
-add_warning: (ctx: *DiagnosticContext, range: Range, message: String) void  = {
+add_warning = (ctx: *DiagnosticContext, range: Range, message: String) void   {
     ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
@@ -152,7 +152,7 @@ add_warning: (ctx: *DiagnosticContext, range: Range, message: String) void  = {
 }
 
 // Add information diagnostic
-add_info: (ctx: *DiagnosticContext, range: Range, message: String) void  = {
+add_info = (ctx: *DiagnosticContext, range: Range, message: String) void   {
     ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
@@ -171,7 +171,7 @@ add_info: (ctx: *DiagnosticContext, range: Range, message: String) void  = {
 }
 
 // Add hint diagnostic
-add_hint: (ctx: *DiagnosticContext, range: Range, message: String) void  = {
+add_hint = (ctx: *DiagnosticContext, range: Range, message: String) void   {
     ctx.diagnostics.len >= ctx.max_diagnostics ? { return }
     
     diag := Diagnostic{
@@ -211,7 +211,7 @@ add_diagnostic_with_code: (ctx: *DiagnosticContext, range: Range,
 }
 
 // Add related information to last diagnostic
-add_related_info: (ctx: *DiagnosticContext, location: Location, message: String) void  = {
+add_related_info = (ctx: *DiagnosticContext, location: Location, message: String) void   {
     ctx.diagnostics.len == 0 ? { return }
     
     last_diag := &ctx.diagnostics.data[ctx.diagnostics.len - 1]
@@ -225,7 +225,7 @@ add_related_info: (ctx: *DiagnosticContext, location: Location, message: String)
 }
 
 // Mark diagnostic as deprecated
-mark_deprecated: (ctx: *DiagnosticContext, index: usize) void  = {
+mark_deprecated = (ctx: *DiagnosticContext, index: usize) void   {
     index >= ctx.diagnostics.len ? { return }
     
     diag := &ctx.diagnostics.data[index]
@@ -233,7 +233,7 @@ mark_deprecated: (ctx: *DiagnosticContext, index: usize) void  = {
 }
 
 // Mark diagnostic as unnecessary
-mark_unnecessary: (ctx: *DiagnosticContext, index: usize) void  = {
+mark_unnecessary = (ctx: *DiagnosticContext, index: usize) void   {
     index >= ctx.diagnostics.len ? { return }
     
     diag := &ctx.diagnostics.data[index]
@@ -241,7 +241,7 @@ mark_unnecessary: (ctx: *DiagnosticContext, index: usize) void  = {
 }
 
 // Common error diagnostics
-add_syntax_error: (ctx: *DiagnosticContext, range: Range, details: String) void  = {
+add_syntax_error = (ctx: *DiagnosticContext, range: Range, details: String) void   {
     message := string.format("Syntax error: {}", details)
     add_diagnostic_with_code(ctx, range, DiagnosticSeverity.Error, 
                             string.from_literal("E001"), message)
@@ -255,25 +255,25 @@ add_type_error: (ctx: *DiagnosticContext, range: Range, expected: String,
                             string.from_literal("E002"), message)
 }
 
-add_undefined_symbol: (ctx: *DiagnosticContext, range: Range, symbol: String) void  = {
+add_undefined_symbol = (ctx: *DiagnosticContext, range: Range, symbol: String) void   {
     message := string.format("Undefined symbol: '{}'", symbol)
     add_diagnostic_with_code(ctx, range, DiagnosticSeverity.Error,
                             string.from_literal("E003"), message)
 }
 
-add_duplicate_symbol: (ctx: *DiagnosticContext, range: Range, symbol: String) void  = {
+add_duplicate_symbol = (ctx: *DiagnosticContext, range: Range, symbol: String) void   {
     message := string.format("Duplicate symbol: '{}'", symbol)
     add_diagnostic_with_code(ctx, range, DiagnosticSeverity.Error,
                             string.from_literal("E004"), message)
 }
 
-add_unused_variable: (ctx: *DiagnosticContext, range: Range, variable: String) void  = {
+add_unused_variable = (ctx: *DiagnosticContext, range: Range, variable: String) void   {
     message := string.format("Unused variable: '{}'", variable)
     add_diagnostic_with_code(ctx, range, DiagnosticSeverity.Warning,
                             string.from_literal("W001"), message)
 }
 
-add_unused_import: (ctx: *DiagnosticContext, range: Range, import: String) void  = {
+add_unused_import = (ctx: *DiagnosticContext, range: Range, import: String) void   {
     message := string.format("Unused import: '{}'", import)
     add_diagnostic_with_code(ctx, range, DiagnosticSeverity.Warning,
                             string.from_literal("W002"), message)
@@ -288,7 +288,7 @@ add_deprecated_usage: (ctx: *DiagnosticContext, range: Range, feature: String,
 }
 
 // Convert diagnostics to JSON for LSP
-diagnostics_to_json: (ctx: *DiagnosticContext) String  = {
+diagnostics_to_json = (ctx: *DiagnosticContext) String   {
     result := string.from_literal("[")
     
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
@@ -301,7 +301,7 @@ diagnostics_to_json: (ctx: *DiagnosticContext) String  = {
 }
 
 // Helper to get severity numeric value for LSP
-severity_to_int: (severity: DiagnosticSeverity) i32  = {
+severity_to_int = (severity: DiagnosticSeverity) i32   {
     severity ?
         | DiagnosticSeverity.Error => 1
         | DiagnosticSeverity.Warning => 2
@@ -310,14 +310,14 @@ severity_to_int: (severity: DiagnosticSeverity) i32  = {
 }
 
 // Helper to get tag numeric value for LSP
-tag_to_int: (tag: DiagnosticTag) i32  = {
+tag_to_int = (tag: DiagnosticTag) i32   {
     tag ?
         | DiagnosticTag.Unnecessary => 1
         | DiagnosticTag.Deprecated => 2
 }
 
 // Convert single diagnostic to JSON
-diagnostic_to_json: (diag: *Diagnostic) String  = {
+diagnostic_to_json = (diag: *Diagnostic) String   {
     result := string.from_literal("{")
     
     // Range
@@ -375,14 +375,14 @@ diagnostic_to_json: (diag: *Diagnostic) String  = {
 }
 
 // Convert range to JSON
-range_to_json: (range: *Range) String  = {
+range_to_json = (range: *Range) String   {
     return string.format("{{\"start\":{{\"line\":{},\"character\":{}}},\"end\":{{\"line\":{},\"character\":{}}}}}",
                         range.start.line, range.start.character,
                         range.end.line, range.end.character)
 }
 
 // Convert related information to JSON
-related_info_to_json: (info: *DiagnosticRelatedInformation) String  = {
+related_info_to_json = (info: *DiagnosticRelatedInformation) String   {
     result := string.from_literal("{\"location\":{\"uri\":\"")
     result = string.concat(result, info.location.uri)
     result = string.concat(result, "\",\"range\":")
@@ -394,7 +394,7 @@ related_info_to_json: (info: *DiagnosticRelatedInformation) String  = {
 }
 
 // Escape string for JSON
-escape_json_string: (s: String) String  = {
+escape_json_string = (s: String) String   {
     // Simple escaping - would need full implementation
     result := string.replace(s, "\\", "\\\\")
     result = string.replace(result, "\"", "\\\"")
@@ -405,17 +405,17 @@ escape_json_string: (s: String) String  = {
 }
 
 // Clear all diagnostics
-clear_diagnostics: (ctx: *DiagnosticContext) void  = {
+clear_diagnostics = (ctx: *DiagnosticContext) void   {
     array.clear(Diagnostic, &ctx.diagnostics)
 }
 
 // Get diagnostic count
-diagnostic_count: (ctx: *DiagnosticContext) usize  = {
+diagnostic_count = (ctx: *DiagnosticContext) usize   {
     return ctx.diagnostics.len
 }
 
 // Get error count
-error_count: (ctx: *DiagnosticContext) usize  = {
+error_count = (ctx: *DiagnosticContext) usize   {
     count := 0
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
         ctx.diagnostics.data[i].severity == DiagnosticSeverity.Error ? { count += 1 }
@@ -424,7 +424,7 @@ error_count: (ctx: *DiagnosticContext) usize  = {
 }
 
 // Get warning count
-warning_count: (ctx: *DiagnosticContext) usize  = {
+warning_count = (ctx: *DiagnosticContext) usize   {
     count := 0
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
         ctx.diagnostics.data[i].severity == DiagnosticSeverity.Warning ? { count += 1 }
@@ -433,7 +433,7 @@ warning_count: (ctx: *DiagnosticContext) usize  = {
 }
 
 // Free diagnostic context
-free_context: (ctx: *DiagnosticContext) void  = {
+free_context = (ctx: *DiagnosticContext) void   {
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
         diag := &ctx.diagnostics.data[i]
         array.free(DiagnosticTag, &diag.tags)

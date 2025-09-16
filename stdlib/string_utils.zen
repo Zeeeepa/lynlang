@@ -1,10 +1,10 @@
 // Zen Standard Library - String Utilities
 // Comprehensive string manipulation and processing functions
 
-core := @std.core
-mem := @std.mem
-vec := @std.vec
-io := @std.io
+{ core } = @std.core
+{ mem } = @std.mem
+{ vec } = @std.vec
+{ io } = @std.io
 
 // String builder for efficient string concatenation
 StringBuilder: {
@@ -14,7 +14,7 @@ StringBuilder: {
 }
 
 // Create a new string builder
-string_builder_new: () StringBuilder  = {
+string_builder_new = () StringBuilder   {
     initial_capacity := 64
     StringBuilder{
         buffer: vec_with_capacity<i8>(initial_capacity),
@@ -24,7 +24,7 @@ string_builder_new: () StringBuilder  = {
 }
 
 // Create string builder with specific capacity
-string_builder_with_capacity: (capacity: u32) StringBuilder  = {
+string_builder_with_capacity = (capacity: u32) StringBuilder   {
     StringBuilder{
         buffer: vec_with_capacity<i8>(capacity),
         length: 0,
@@ -33,18 +33,18 @@ string_builder_with_capacity: (capacity: u32) StringBuilder  = {
 }
 
 // Append a string to the builder
-string_builder_append: (sb: Ptr<StringBuilder>, s: string) void  = {
+string_builder_append = (sb: Ptr<StringBuilder>, s: string) void   {
     len := string_len(s)
     
     // Ensure capacity
-    sb.length + len > sb.capacity ? | true => {
+    sb.length + len > sb.capacity ? | true { { }
         new_capacity := (sb.capacity * 2) > (sb.length + len) ?
-            | true => sb.capacity * 2
-            | false => sb.length + len + 64
+            | true { sb.capacity * 2 }
+            | false { sb.length + len + 64 }
         
         sb.buffer.reserve(new_capacity)
         sb.capacity = new_capacity
-    } | false => {}
+    } | false { { }}
     
     // Copy string to buffer
     i := 0
@@ -57,26 +57,26 @@ string_builder_append: (sb: Ptr<StringBuilder>, s: string) void  = {
 }
 
 // Append a character
-string_builder_append_char: (sb: Ptr<StringBuilder>, c: i8) void  = {
-    sb.length + 1 > sb.capacity ? | true => {
+string_builder_append_char = (sb: Ptr<StringBuilder>, c: i8) void   {
+    sb.length + 1 > sb.capacity ? | true { { }
         new_capacity := sb.capacity * 2
         sb.buffer.reserve(new_capacity)
         sb.capacity = new_capacity
-    } | false => {}
+    } | false { { }}
     
     sb.buffer.push(c)
     sb.length = sb.length + 1
 }
 
 // Convert to string
-string_builder_to_string: (sb: Ptr<StringBuilder>) string  = {
+string_builder_to_string = (sb: Ptr<StringBuilder>) string   {
     // Add null terminator
     sb.buffer.push(0)
     
     // Create string from buffer
     result := mem.alloc(sb.length + 1)
     result ?
-        | .Ok -> ptr => {
+        | .Ok -> ptr { { }
             bytes := ptr as Ptr<i8>
             i := 0
             loop i <= sb.length {
@@ -85,20 +85,20 @@ string_builder_to_string: (sb: Ptr<StringBuilder>) string  = {
             }
             return bytes as string
         }
-        | .Err -> _ => {
+        | .Err -> _ { { }
             return ""
         }
 }
 
 // Clear the builder
-string_builder_clear: (sb: Ptr<StringBuilder>) void  = {
+string_builder_clear = (sb: Ptr<StringBuilder>) void   {
     sb.buffer.clear()
     sb.length = 0
 }
 
 // String length
-string_len: (s: string) u32  = {
-    s == null ? | true => return 0 | false => {}
+string_len = (s: string) u32   {
+    s .== .None ? | true { return 0 | false => { }}
     
     len := 0
     loop s[len] != 0 {
@@ -108,77 +108,77 @@ string_len: (s: string) u32  = {
 }
 
 // String comparison
-string_eq: (a: string, b: string) bool  = {
-    a == null && b == null ? | true => return true | false => {}
-    a == null || b == null ? | true => return false | false => {}
+string_eq = (a: string, b: string) bool   {
+    a .== .None && b .== .None ? | true { return true | false => { }}
+    a .== .None || b .== .None ? | true { return false | false => { }}
     
     i := 0
     loop {
-        a[i] != b[i] ? | true => return false | false => {}
-        a[i] == 0 ? | true => return true | false => {}
+        a[i] != b[i] ? | true { return false | false => { }}
+        a[i] == 0 ? | true { return true | false => { }}
         i = i + 1
     }
 }
 
 // Lexicographic comparison
-string_compare: (a: string, b: string) i32  = {
-    a == null && b == null ? | true => return 0 | false => {}
-    a == null ? | true => return -1 | false => {}
-    b == null ? | true => return 1 | false => {}
+string_compare = (a: string, b: string) i32   {
+    a .== .None && b .== .None ? | true { return 0 | false => { }}
+    a .== .None ? | true { return -1 | false => { }}
+    b .== .None ? | true { return 1 | false => { }}
     
     i := 0
     loop {
-        a[i] < b[i] ? | true => return -1 | false => {}
-        a[i] > b[i] ? | true => return 1 | false => {}
-        a[i] == 0 ? | true => return 0 | false => {}
+        a[i] < b[i] ? | true { return -1 | false => { }}
+        a[i] > b[i] ? | true { return 1 | false => { }}
+        a[i] == 0 ? | true { return 0 | false => { }}
         i = i + 1
     }
 }
 
 // Check if string starts with prefix
-string_starts_with: (s: string, prefix: string) bool  = {
-    s == null || prefix == null ? | true => return false | false => {}
+string_starts_with = (s: string, prefix: string) bool   {
+    s .== .None || prefix .== .None ? | true { return false | false => { }}
     
     prefix_len := string_len(prefix)
     s_len := string_len(s)
     
-    prefix_len > s_len ? | true => return false | false => {}
+    prefix_len > s_len ? | true { return false | false => { }}
     
     i := 0
     loop i < prefix_len {
-        s[i] != prefix[i] ? | true => return false | false => {}
+        s[i] != prefix[i] ? | true { return false | false => { }}
         i = i + 1
     }
     return true
 }
 
 // Check if string ends with suffix
-string_ends_with: (s: string, suffix: string) bool  = {
-    s == null || suffix == null ? | true => return false | false => {}
+string_ends_with = (s: string, suffix: string) bool   {
+    s .== .None || suffix .== .None ? | true { return false | false => { }}
     
     suffix_len := string_len(suffix)
     s_len := string_len(s)
     
-    suffix_len > s_len ? | true => return false | false => {}
+    suffix_len > s_len ? | true { return false | false => { }}
     
     offset := s_len - suffix_len
     i := 0
     loop i < suffix_len {
-        s[offset + i] != suffix[i] ? | true => return false | false => {}
+        s[offset + i] != suffix[i] ? | true { return false | false => { }}
         i = i + 1
     }
     return true
 }
 
 // Find substring
-string_find: (haystack: string, needle: string) i32  = {
-    haystack == null || needle == null ? | true => return -1 | false => {}
+string_find = (haystack: string, needle: string) i32   {
+    haystack .== .None || needle .== .None ? | true { return -1 | false => { }}
     
     needle_len := string_len(needle)
     haystack_len := string_len(haystack)
     
-    needle_len == 0 ? | true => return 0 | false => {}
-    needle_len > haystack_len ? | true => return -1 | false => {}
+    needle_len == 0 ? | true { return 0 | false => { }}
+    needle_len > haystack_len ? | true { return -1 | false => { }}
     
     i := 0
     loop i <= haystack_len - needle_len {
@@ -186,14 +186,14 @@ string_find: (haystack: string, needle: string) i32  = {
         match := true
         j := 0
         loop j < needle_len {
-            haystack[i + j] != needle[j] ? | true => {
+            haystack[i + j] != needle[j] ? | true { { }
                 match = false
                 break
-            } | false => {}
+            } | false { { }}
             j = j + 1
         }
         
-        match ? | true => return i | false => {}
+        match ? | true { return i | false => { }}
         i = i + 1
     }
     
@@ -201,14 +201,14 @@ string_find: (haystack: string, needle: string) i32  = {
 }
 
 // Find last occurrence of substring
-string_rfind: (haystack: string, needle: string) i32  = {
-    haystack == null || needle == null ? | true => return -1 | false => {}
+string_rfind = (haystack: string, needle: string) i32   {
+    haystack .== .None || needle .== .None ? | true { return -1 | false => { }}
     
     needle_len := string_len(needle)
     haystack_len := string_len(haystack)
     
-    needle_len == 0 ? | true => return haystack_len | false => {}
-    needle_len > haystack_len ? | true => return -1 | false => {}
+    needle_len == 0 ? | true { return haystack_len | false => { }}
+    needle_len > haystack_len ? | true { return -1 | false => { }}
     
     i := haystack_len - needle_len
     loop i >= 0 {
@@ -216,14 +216,14 @@ string_rfind: (haystack: string, needle: string) i32  = {
         match := true
         j := 0
         loop j < needle_len {
-            haystack[i + j] != needle[j] ? | true => {
+            haystack[i + j] != needle[j] ? | true { { }
                 match = false
                 break
-            } | false => {}
+            } | false { { }}
             j = j + 1
         }
         
-        match ? | true => return i | false => {}
+        match ? | true { return i | false => { }}
         i = i - 1
     }
     
@@ -231,17 +231,17 @@ string_rfind: (haystack: string, needle: string) i32  = {
 }
 
 // Count occurrences of substring
-string_count: (haystack: string, needle: string) u32  = {
-    haystack == null || needle == null ? | true => return 0 | false => {}
+string_count = (haystack: string, needle: string) u32   {
+    haystack .== .None || needle .== .None ? | true { return 0 | false => { }}
     
     needle_len := string_len(needle)
-    needle_len == 0 ? | true => return 0 | false => {}
+    needle_len == 0 ? | true { return 0 | false => { }}
     
     count := 0
     pos := 0
     loop {
         found := string_find(haystack + pos, needle)
-        found < 0 ? | true => break | false => {}
+        found < 0 ? | true { break | false => { }}
         
         count = count + 1
         pos = pos + found + needle_len
@@ -251,19 +251,19 @@ string_count: (haystack: string, needle: string) u32  = {
 }
 
 // Substring extraction
-string_substring: (s: string, start: u32, length: u32) string  = {
-    s == null ? | true => return null | false => {}
+string_substring = (s: string, start: u32, length: u32) string   {
+    s .== .None ? | true { return null | false => { }}
     
     s_len := string_len(s)
-    start >= s_len ? | true => return "" | false => {}
+    start >= s_len ? | true { return "" | false => { }}
     
     actual_len := start + length > s_len ?
-        | true => s_len - start
-        | false => length
+        | true { s_len - start }
+        | false { length }
     
     result := mem.alloc(actual_len + 1)
     result ?
-        | .Ok -> ptr => {
+        | .Ok -> ptr { { }
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < actual_len {
@@ -273,88 +273,88 @@ string_substring: (s: string, start: u32, length: u32) string  = {
             bytes[actual_len] = 0
             return bytes as string
         }
-        | .Err -> _ => {
+        | .Err -> _ { { }
             return ""
         }
 }
 
 // Convert to uppercase
-string_to_upper: (s: string) string  = {
-    s == null ? | true => return null | false => {}
+string_to_upper = (s: string) string   {
+    s .== .None ? | true { return null | false => { }}
     
     len := string_len(s)
     result := mem.alloc(len + 1)
     result ?
-        | .Ok -> ptr => {
+        | .Ok -> ptr { { }
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < len {
                 c := s[i]
                 c >= 'a' && c <= 'z' ?
-                    | true => bytes[i] = c - ('a' - 'A')
-                    | false => bytes[i] = c
+                    | true { bytes[i] = c - ('a' - 'A') }
+                    | false { bytes[i] = c }
                 i = i + 1
             }
             bytes[len] = 0
             return bytes as string
         }
-        | .Err -> _ => {
+        | .Err -> _ { { }
             return s
         }
 }
 
 // Convert to lowercase
-string_to_lower: (s: string) string  = {
-    s == null ? | true => return null | false => {}
+string_to_lower = (s: string) string   {
+    s .== .None ? | true { return null | false => { }}
     
     len := string_len(s)
     result := mem.alloc(len + 1)
     result ?
-        | .Ok -> ptr => {
+        | .Ok -> ptr { { }
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < len {
                 c := s[i]
                 c >= 'A' && c <= 'Z' ?
-                    | true => bytes[i] = c + ('a' - 'A')
-                    | false => bytes[i] = c
+                    | true { bytes[i] = c + ('a' - 'A') }
+                    | false { bytes[i] = c }
                 i = i + 1
             }
             bytes[len] = 0
             return bytes as string
         }
-        | .Err -> _ => {
+        | .Err -> _ { { }
             return s
         }
 }
 
 // Trim whitespace from both ends
-string_trim: (s: string) string  = {
-    s == null ? | true => return null | false => {}
+string_trim = (s: string) string   {
+    s .== .None ? | true { return null | false => { }}
     
     len := string_len(s)
-    len == 0 ? | true => return s | false => {}
+    len == 0 ? | true { return s | false => { }}
     
     // Find start of non-whitespace
     start := 0
     loop start < len {
         c := s[start]
         c != ' ' && c != '\t' && c != '\n' && c != '\r' ?
-            | true => break
-            | false => {}
+            | true { break }
+            | false { { }}
         start = start + 1
     }
     
     // All whitespace?
-    start >= len ? | true => return "" | false => {}
+    start >= len ? | true { return "" | false => { }}
     
     // Find end of non-whitespace
     end := len - 1
     loop end > start {
         c := s[end]
         c != ' ' && c != '\t' && c != '\n' && c != '\r' ?
-            | true => break
-            | false => {}
+            | true { break }
+            | false { { }}
         end = end - 1
     }
     
@@ -362,55 +362,55 @@ string_trim: (s: string) string  = {
 }
 
 // Trim whitespace from left
-string_ltrim: (s: string) string  = {
-    s == null ? | true => return null | false => {}
+string_ltrim = (s: string) string   {
+    s .== .None ? | true { return null | false => { }}
     
     len := string_len(s)
-    len == 0 ? | true => return s | false => {}
+    len == 0 ? | true { return s | false => { }}
     
     start := 0
     loop start < len {
         c := s[start]
         c != ' ' && c != '\t' && c != '\n' && c != '\r' ?
-            | true => break
-            | false => {}
+            | true { break }
+            | false { { }}
         start = start + 1
     }
     
-    start >= len ? | true => return "" | false => {}
+    start >= len ? | true { return "" | false => { }}
     return string_substring(s, start, len - start)
 }
 
 // Trim whitespace from right
-string_rtrim: (s: string) string  = {
-    s == null ? | true => return null | false => {}
+string_rtrim = (s: string) string   {
+    s .== .None ? | true { return null | false => { }}
     
     len := string_len(s)
-    len == 0 ? | true => return s | false => {}
+    len == 0 ? | true { return s | false => { }}
     
     end := len - 1
     loop end >= 0 {
         c := s[end]
         c != ' ' && c != '\t' && c != '\n' && c != '\r' ?
-            | true => break
-            | false => {}
+            | true { break }
+            | false { { }}
         end = end - 1
     }
     
-    end < 0 ? | true => return "" | false => {}
+    end < 0 ? | true { return "" | false => { }}
     return string_substring(s, 0, end + 1)
 }
 
 // Replace all occurrences of a substring
-string_replace: (s: string, old: string, new: string) string  = {
-    s == null || old == null || new == null ? | true => return s | false => {}
+string_replace = (s: string, old: string, new: string) string   {
+    s .== .None || old .== .None || new .== .None ? | true { return s | false => { }}
     
     old_len := string_len(old)
-    old_len == 0 ? | true => return s | false => {}
+    old_len == 0 ? | true { return s | false => { }}
     
     // Count occurrences
     count := string_count(s, old)
-    count == 0 ? | true => return s | false => {}
+    count == 0 ? | true { return s | false => { }}
     
     s_len := string_len(s)
     new_len := string_len(new)
@@ -419,7 +419,7 @@ string_replace: (s: string, old: string, new: string) string  = {
     // Allocate result
     result := mem.alloc(result_len + 1)
     result ?
-        | .Ok -> ptr => {
+        | .Ok -> ptr { { }
             bytes := ptr as Ptr<i8>
             src_pos := 0
             dst_pos := 0
@@ -429,14 +429,14 @@ string_replace: (s: string, old: string, new: string) string  = {
                 match := true
                 i := 0
                 loop i < old_len && src_pos + i < s_len {
-                    s[src_pos + i] != old[i] ? | true => {
+                    s[src_pos + i] != old[i] ? | true { { }
                         match = false
                         break
-                    } | false => {}
+                    } | false { { }}
                     i = i + 1
                 }
                 
-                match && i == old_len ? | true => {
+                match && i == old_len ? | true { { }
                     // Copy replacement
                     j := 0
                     loop j < new_len {
@@ -445,7 +445,7 @@ string_replace: (s: string, old: string, new: string) string  = {
                         j = j + 1
                     }
                     src_pos = src_pos + old_len
-                } | false => {
+                } | false { { }
                     // Copy original character
                     bytes[dst_pos] = s[src_pos]
                     dst_pos = dst_pos + 1
@@ -456,36 +456,36 @@ string_replace: (s: string, old: string, new: string) string  = {
             bytes[dst_pos] = 0
             return bytes as string
         }
-        | .Err -> _ => {
+        | .Err -> _ { { }
             return s
         }
 }
 
 // Split string by delimiter
-string_split: (s: string, delimiter: string) Vec<string>  = {
+string_split = (s: string, delimiter: string) Vec<string>   {
     result := vec_new<string>()
     
-    s == null || delimiter == null ? | true => return result | false => {}
+    s .== .None || delimiter .== .None ? | true { return result | false => { }}
     
     s_len := string_len(s)
     del_len := string_len(delimiter)
     
-    del_len == 0 ? | true => {
+    del_len == 0 ? | true { { }
         result.push(s)
         return result
-    } | false => {}
+    } | false { { }}
     
     start := 0
     loop {
         // Find next delimiter
         pos := string_find(s + start, delimiter)
         
-        pos < 0 ? | true => {
+        pos < 0 ? | true { { }
             // No more delimiters, add remaining string
             remaining := string_substring(s, start, s_len - start)
             result.push(remaining)
             break
-        } | false => {
+        } | false { { }
             // Add substring before delimiter
             part := string_substring(s, start, pos)
             result.push(part)
@@ -497,9 +497,9 @@ string_split: (s: string, delimiter: string) Vec<string>  = {
 }
 
 // Join strings with separator
-string_join: (strings: Vec<string>, separator: string) string  = {
-    strings.len() == 0 ? | true => return "" | false => {}
-    strings.len() == 1 ? | true => return strings.at(0) | false => {}
+string_join = (strings: Vec<string>, separator: string) string   {
+    strings.len() == 0 ? | true { return "" | false => { }}
+    strings.len() == 1 ? | true { return strings.at(0) | false => { }}
     
     sep_len := string_len(separator)
     
@@ -508,16 +508,16 @@ string_join: (strings: Vec<string>, separator: string) string  = {
     i := 0
     loop i < strings.len() {
         total_len = total_len + string_len(strings.at(i))
-        i < strings.len() - 1 ? | true => {
+        i < strings.len() - 1 ? | true { { }
             total_len = total_len + sep_len
-        } | false => {}
+        } | false { { }}
         i = i + 1
     }
     
     // Build result
     result := mem.alloc(total_len + 1)
     result ?
-        | .Ok -> ptr => {
+        | .Ok -> ptr { { }
             bytes := ptr as Ptr<i8>
             pos := 0
             
@@ -535,14 +535,14 @@ string_join: (strings: Vec<string>, separator: string) string  = {
                 }
                 
                 // Add separator if not last
-                i < strings.len() - 1 ? | true => {
+                i < strings.len() - 1 ? | true { { }
                     j = 0
                     loop j < sep_len {
                         bytes[pos] = separator[j]
                         pos = pos + 1
                         j = j + 1
                     }
-                } | false => {}
+                } | false { { }}
                 
                 i = i + 1
             }
@@ -550,48 +550,48 @@ string_join: (strings: Vec<string>, separator: string) string  = {
             bytes[pos] = 0
             return bytes as string
         }
-        | .Err -> _ => {
+        | .Err -> _ { { }
             return ""
         }
 }
 
 // Check if character is digit
-char_is_digit: (c: i8) bool  = {
+char_is_digit = (c: i8) bool   {
     return c >= '0' && c <= '9'
 }
 
 // Check if character is letter
-char_is_alpha: (c: i8) bool  = {
+char_is_alpha = (c: i8) bool   {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 // Check if character is alphanumeric
-char_is_alnum: (c: i8) bool  = {
+char_is_alnum = (c: i8) bool   {
     return char_is_alpha(c) || char_is_digit(c)
 }
 
 // Check if character is whitespace
-char_is_space: (c: i8) bool  = {
+char_is_space = (c: i8) bool   {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
 // Parse integer from string
 string_to_i32 = (s: string) core.Result<i32, string> {
-    s == null || string_len(s) == 0 ? | true => {
+    s .== .None || string_len(s) == 0 ? | true { { }
         return core.Result.Err("Empty string")
-    } | false => {}
+    } | false { { }}
     
     negative := false
     start := 0
     
-    s[0] == '-' ? | true => {
+    s[0] == '-' ? | true { { }
         negative = true
         start = 1
-    } | false => {}
+    } | false { { }}
     
-    s[0] == '+' ? | true => {
+    s[0] == '+' ? | true { { }
         start = 1
-    } | false => {}
+    } | false { { }}
     
     result := 0
     i := start
@@ -599,27 +599,27 @@ string_to_i32 = (s: string) core.Result<i32, string> {
     
     loop i < len {
         c := s[i]
-        !char_is_digit(c) ? | true => {
+        !char_is_digit(c) ? | true { { }
             return core.Result.Err("Invalid character in number")
-        } | false => {}
+        } | false { { }}
         
         digit := c - '0'
         result = result * 10 + digit
         i = i + 1
     }
     
-    negative ? | true => result = -result | false => {}
+    negative ? | true { result = -result | false => { }}
     
     return core.Result.Ok(result)
 }
 
 // Convert integer to string
-i32_to_string: (n: i32) string  = {
-    n == 0 ? | true => return "0" | false => {}
+i32_to_string = (n: i32) string   {
+    n == 0 ? | true { return "0" | false => { }}
     
     // Handle negative
     negative := n < 0
-    negative ? | true => n = -n | false => {}
+    negative ? | true { n = -n | false => { }}
     
     // Count digits
     temp := n
@@ -633,7 +633,7 @@ i32_to_string: (n: i32) string  = {
     len := digits + (negative ? 1 : 0)
     result := mem.alloc(len + 1)
     result ?
-        | .Ok -> ptr => {
+        | .Ok -> ptr { { }
             bytes := ptr as Ptr<i8>
             
             // Fill from right to left
@@ -644,12 +644,12 @@ i32_to_string: (n: i32) string  = {
                 n = n / 10
             }
             
-            negative ? | true => bytes[0] = '-' | false => {}
+            negative ? | true { bytes[0] = '-' | false => { }}
             bytes[len] = 0
             
             return bytes as string
         }
-        | .Err -> _ => {
+        | .Err -> _ { { }
             return ""
         }
 }

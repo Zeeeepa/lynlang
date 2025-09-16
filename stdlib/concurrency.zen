@@ -3,9 +3,9 @@
 // Execution mode determined by allocator - no function coloring
 // No function coloring - concurrency is an allocator property
 
-core := @std.core
-mem := @std.mem
-thread := @std.thread
+{ core } = @std.core
+{ mem } = @std.mem
+{ thread } = @std.thread
 
 // Task represents a computation that produces a value of type T
 Task<T> = {
@@ -56,17 +56,17 @@ task_new = <T>(compute: () T, executor: Ptr<Executor>) Task<T> {
 await = <T>(task: Task<T>) T {
     // If already completed, return result
     task.state ? 
-        | TaskState.Completed => {
+        | TaskState.Completed { { }
             task.result ? 
-                | Some(val) => return val
-                | None => panic("Task completed but no result")
+                | Some(val) { return val }
+                | None { panic("Task completed but no result") }
         }
-        | TaskState.Failed => {
+        | TaskState.Failed { { }
             task.error ?
-                | Some(err) => panic(err.message)
-                | None => panic("Task failed with unknown error")
+                | Some(err) { panic(err.message) }
+                | None { panic("Task failed with unknown error") }
         }
-        | _ => {}
+        | _ { { }}
     
     // Block until task completes
     loop task.state != TaskState.Completed && task.state != TaskState.Failed {
@@ -75,17 +75,17 @@ await = <T>(task: Task<T>) T {
     
     // Return result or panic on error
     task.state ?
-        | TaskState.Completed => {
+        | TaskState.Completed { { }
             task.result ?
-                | Some(val) => return val
-                | None => panic("Task completed but no result")
+                | Some(val) { return val }
+                | None { panic("Task completed but no result") }
         }
-        | TaskState.Failed => {
+        | TaskState.Failed { { }
             task.error ?
-                | Some(err) => panic(err.message)
-                | None => panic("Task failed with unknown error")
+                | Some(err) { panic(err.message) }
+                | None { panic("Task failed with unknown error") }
         }
-        | _ => panic("Unexpected task state after await")
+        | _ { panic("Unexpected task state after await") }
 }
 
 // Create a future from a task
@@ -109,8 +109,8 @@ future_then = <T, U>(future: Future<T>, callback: (T) U) Future<U> {
 // Wait for multiple futures to complete
 future_all = <T>(futures: Vec<Future<T>>) Future<Vec<T>> {
     futures.empty() ? 
-        | true => panic("future_all called with empty vector")
-        | false => {}
+        | true { panic("future_all called with empty vector") }
+        | false { { }}
     
     executor := futures.at(0).task.executor
     
@@ -132,8 +132,8 @@ future_all = <T>(futures: Vec<Future<T>>) Future<Vec<T>> {
 // Wait for first future to complete
 future_race = <T>(futures: Vec<Future<T>>) Future<T> {
     futures.empty() ?
-        | true => panic("future_race called with empty vector")
-        | false => {}
+        | true { panic("future_race called with empty vector") }
+        | false { { }}
     
     executor := futures.at(0).task.executor
     
@@ -145,17 +145,17 @@ future_race = <T>(futures: Vec<Future<T>>) Future<T> {
                 task := deref(future.task)
                 
                 task.state ?
-                    | TaskState.Completed => {
+                    | TaskState.Completed { { }
                         task.result ?
-                            | Some(val) => return val
-                            | None => {}
+                            | Some(val) { return val }
+                            | None { { }}
                     }
-                    | TaskState.Failed => {
+                    | TaskState.Failed { { }
                         task.error ?
-                            | Some(err) => panic(err.message)
-                            | None => {}
+                            | Some(err) { panic(err.message) }
+                            | None { { }}
                     }
-                    | _ => {}
+                    | _ { { }}
             })
             
             thread.yield()
@@ -166,7 +166,7 @@ future_race = <T>(futures: Vec<Future<T>>) Future<T> {
 }
 
 // Create an executor with thread pool
-executor_new: (num_threads: usize) Executor  = {
+executor_new = (num_threads: usize) Executor   {
     Executor{
         tasks: vec_new<Ptr<Task>>(),
         thread_pool: thread_pool_new(num_threads),
@@ -175,31 +175,31 @@ executor_new: (num_threads: usize) Executor  = {
 }
 
 // Start the executor
-executor_start: (executor: Ptr<Executor>) void  = {
+executor_start = (executor: Ptr<Executor>) void   {
     executor.running = true
     
     // Main executor loop
     loop executor.running {
         executor.tasks.empty() ?
-            | true => {
+            | true { { }
                 thread.yield()
                 continue
             }
-            | false => {}
+            | false { { }}
         
         // Get next pending task
         task := executor.tasks.pop_front()
         task ? 
-            | Some(t) => {
+            | Some(t) { { }
                 // Execute task in thread pool
                 thread_pool_execute(executor.thread_pool, t)
             }
-            | None => thread.yield()
+            | None { thread.yield() }
     }
 }
 
 // Stop the executor
-executor_stop: (executor: Ptr<Executor>) void  = {
+executor_stop = (executor: Ptr<Executor>) void   {
     executor.running = false
     thread_pool_shutdown(executor.thread_pool)
 }
@@ -208,13 +208,13 @@ executor_stop: (executor: Ptr<Executor>) void  = {
 create_task = <T>(fn: () T, alloc: *Allocator) Task<T> {
     // Get executor from allocator's runtime if available
     executor := alloc.runtime ? 
-        | Some(rt) => rt.executor
-        | None => get_default_executor()
+        | Some(rt) { rt.executor }
+        | None { get_default_executor() }
     return task_new(fn, executor)
 }
 
 // Get or create default executor
-get_default_executor: () Ptr<Executor>  = {
+get_default_executor = () Ptr<Executor>   {
     // In a real implementation, this would be a global singleton
     // For now, create a new one
     executor := executor_new(4)
@@ -223,7 +223,7 @@ get_default_executor: () Ptr<Executor>  = {
 }
 
 // Sleep for specified milliseconds - colorless based on allocator
-sleep_task: (ms: u64, alloc: *Allocator) Task<void>  = {
+sleep_task = (ms: u64, alloc: *Allocator) Task<void>   {
     create_task(() void {
         thread.sleep(ms)
     }, alloc)
@@ -297,8 +297,8 @@ channel_recv = <T>(ch: Ptr<Channel<T>>, alloc: *Allocator) Task<T> {
         mutex_unlock(ch.mutex)
         
         value ?
-            | Some(val) => return val
-            | None => panic("Failed to receive from channel")
+            | Some(val) { return val }
+            | None { panic("Failed to receive from channel") }
     }, alloc)
 }
 
@@ -311,15 +311,15 @@ select = <T>(channels: Vec<Ptr<Channel<T>>>, alloc: *Allocator) Task<(usize, T)>
                 mutex_lock(ch.mutex)
                 
                 ch.buffer.empty() ?
-                    | false => {
+                    | false { { }
                         value := ch.buffer.pop_front()
                         mutex_unlock(ch.mutex)
                         
                         value ?
-                            | Some(val) => return (i, val)
-                            | None => {}
+                            | Some(val) { return (i, val) }
+                            | None { { }}
                     }
-                    | true => mutex_unlock(ch.mutex)
+                    | true { mutex_unlock(ch.mutex) }
             })
             
             thread.yield()

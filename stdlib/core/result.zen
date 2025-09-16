@@ -7,55 +7,55 @@ Result = <T, E> | Ok(T) | Err(E)
 // Check if Result is Ok
 is_ok = <T, E>(res: Result<T, E>) bool {
     res ?
-        | Ok(_) => true
-        | Err(_) => false
+        | Ok(_) { true }
+        | Err(_) { false }
 }
 
 // Check if Result is Err
 is_err = <T, E>(res: Result<T, E>) bool {
     res ?
-        | Ok(_) => false
-        | Err(_) => true
+        | Ok(_) { false }
+        | Err(_) { true }
 }
 
 // Get value or default
 unwrap_or = <T, E>(res: Result<T, E>, default: T) T {
     res ?
-        | Ok(value) => value
-        | Err(_) => default
+        | Ok(value) { value }
+        | Err(_) { default }
 }
 
 // Map a function over the Ok value
 map = <T, E, U>(res: Result<T, E>, f: (T) U) Result<U, E> {
     res ?
-        | Ok(value) => Result<U, E>.Ok(f(value))
-        | Err(e) => Result<U, E>.Err(e)
+        | Ok(value) { Result<U, E>.Ok(f(value)) }
+        | Err(e) { Result<U, E>.Err(e) }
 }
 
 // Map a function over the Err value
 map_err = <T, E, F>(res: Result<T, E>, f: (E) F) Result<T, F> {
     res ?
-        | Ok(value) => Result<T, F>.Ok(value)
-        | Err(e) => Result<T, F>.Err(f(e))
+        | Ok(value) { Result<T, F>.Ok(value) }
+        | Err(e) { Result<T, F>.Err(f(e)) }
 }
 
 // Chain Results
 and_then = <T, E, U>(res: Result<T, E>, f: (T) Result<U, E>) Result<U, E> {
     res ?
-        | Ok(value) => f(value)
-        | Err(e) => Result<U, E>.Err(e)
+        | Ok(value) { f(value) }
+        | Err(e) { Result<U, E>.Err(e) }
 }
 
 // Convert Result to Option
 ok = <T, E>(res: Result<T, E>) Option<T> {
     res ?
-        | Ok(value) => Option<T>.Some(value)
-        | Err(_) => Option<T>.None
+        | Ok(value) { Option<T>.Some(value) }
+        | Err(_) { Option<T>.None }
 }
 
 // Convert Result error to Option
 err = <T, E>(res: Result<T, E>) Option<E> {
     res ?
-        | Ok(_) => Option<E>.None
-        | Err(e) => Option<E>.Some(e)
+        | Ok(_) { Option<E>.None }
+        | Err(e) { Option<E>.Some(e) }
 }

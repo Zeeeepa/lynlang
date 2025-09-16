@@ -51,22 +51,22 @@ Lexer: {
     column: u32
 }
 
-Lexer:new = (input: string) Lexer {
-    lexer := Lexer{
+Lexer.new = (input: string) Lexer {
+    lexer ::= Lexer{
         input: input,
         position: 0,
-        current: None,
+        current: .None,
         line: 1,
         column: 1
     }
     lexer.advance()
-    lexer
+    return lexer
 }
 
-Lexer:advance = (self) void {
+Lexer.advance = (self) void {
     self.position < self.input.len() ?
         | true { { }
-            self.current = Some(self.input[self.position])
+            self.current = .Some(self.input[self.position])
             self.current ?
                 | .Some -> c { { }
                     c == '\n' ?
@@ -82,14 +82,14 @@ Lexer:advance = (self) void {
             self.position = self.position + 1
         }
         | false { { }
-            self.current = None
+            self.current = .None
         }
 }
 
-Lexer:peek = (self) Option<char> {
+Lexer.peek = (self) Option<char> {
     self.position < self.input.len() ?
-        | true { Some(self.input[self.position]) }
-        | false { None }
+        | true { return .Some(self.input[self.position]) }
+        | false { return .None }
 }
 
 Lexer:skip_whitespace = (self) void {
@@ -487,10 +487,10 @@ Parser: {
     peek: Token
 }
 
-Parser:new = (input: string) Parser {
-    lexer := Lexer:new(input)
-    current := lexer.next_token()
-    peek := lexer.next_token()
+Parser.new = (input: string) Parser {
+    lexer ::= Lexer.new(input)
+    current ::= lexer.next_token()
+    peek ::= lexer.next_token()
     
     Parser{
         lexer: lexer,
@@ -499,12 +499,12 @@ Parser:new = (input: string) Parser {
     }
 }
 
-Parser:advance = (self) void {
+Parser.advance = (self) void {
     self.current = self.peek
     self.peek = self.lexer.next_token()
 }
 
-Parser:expect = (self, token_type: TokenType) Result<void, string> {
+Parser.expect = (self, token_type: TokenType) Result<void, string> {
     self.current.token_type == token_type ?
         | true { { }
             self.advance()
@@ -513,7 +513,7 @@ Parser:expect = (self, token_type: TokenType) Result<void, string> {
         | false { Err("Expected $(token_type), found $(self.current.token_type)") }
 }
 
-Parser:parse_primary = (self) Result<AstNode, string> {
+Parser.parse_primary = (self) Result<AstNode, string> {
     self.current.token_type ?
         | TokenType:Integer { { }
             value := self.current.lexeme.parse_int()
@@ -549,12 +549,12 @@ Parser:parse_primary = (self) Result<AstNode, string> {
         | _ { Err("Unexpected token: $(self.current.lexeme)") }
 }
 
-Parser:parse_expression = (self) Result<AstNode, string> {
+Parser.parse_expression = (self) Result<AstNode, string> {
     // Simplified expression parsing
     self.parse_primary()
 }
 
-Parser:parse_statement = (self) Result<AstNode, string> {
+Parser.parse_statement = (self) Result<AstNode, string> {
     self.current.token_type ?
         | TokenType:Identifier { { }
             name := self.current.lexeme
@@ -703,15 +703,15 @@ CodeGen: {
     output: string
 }
 
-CodeGen:new = () CodeGen {
+CodeGen.new = () CodeGen {
     CodeGen{ output: "" }
 }
 
-CodeGen:emit = (self, code: string) void {
+CodeGen.emit = (self, code: string) void {
     self.output = self.output + code
 }
 
-CodeGen:emit_line = (self, code: string) void {
+CodeGen.emit_line = (self, code: string) void {
     self.output = self.output + code + "\n"
 }
 
@@ -765,34 +765,34 @@ CodeGen:generate = (self, node: AstNode) void {
 }
 
 // Main compiler pipeline
-compile = (source: string) Result<string, string>   {
+compile = (source: string) Result<string, string> {
     // Parse the source code
-    parser := Parser:new(source)
-    ast := parser.parse_program()?
+    parser ::= Parser.new(source)
+    ast ::= parser.parse_program().raise()
     
     // Generate code
-    codegen := CodeGen:new()
+    codegen ::= CodeGen.new()
     codegen.generate(ast)
     
-    Ok(codegen.output)
+    return .Ok(codegen.output)
 }
 
 // Test the self-hosting compiler
-main = () void   {
+main = () void {
     io.print("=== Zenlang Self-Hosting Compiler Demo ===\n\n")
     
     // Test lexer
     io.print("1. Lexer Test\n")
     io.print("-" * 40 + "\n")
     
-    test_input := "x := 42\ny := 3.14\nname := \"Zen\""
-    lexer := Lexer:new(test_input)
+    test_input ::= "x := 42\ny := 3.14\nname := \"Zen\""
+    lexer ::= Lexer.new(test_input)
     
     io.print("Input:\n$(test_input)\n\n")
     io.print("Tokens:\n")
     
     loop {
-        token := lexer.next_token()
+        token ::= lexer.next_token()
         token.token_type == TokenType:Eof ?
             | true { break }
             | false { { }
@@ -817,8 +817,8 @@ loop (x < y) {
     
     io.print("Input:\n$(test_program)\n")
     
-    parser := Parser:new(test_program)
-    parse_result := parser.parse_program()
+    parser ::= Parser.new(test_program)
+    parse_result ::= parser.parse_program()
     
     parse_result ?
         | .Ok -> ast { { }
@@ -843,7 +843,7 @@ loop {
     
     io.print("Input:\n$(simple_program)\n")
     
-    compile_result := compile(simple_program)
+    compile_result ::= compile(simple_program)
     compile_result ?
         | .Ok -> output { { }
             io.print("Generated code:\n")

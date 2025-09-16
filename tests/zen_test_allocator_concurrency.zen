@@ -1,6 +1,6 @@
 // Tests for the allocator-based colorless concurrency system
 
-build := @std.build
+{ build } = @std.build
 std := build.import("std")
 test := std.test
 allocator := build.import("allocator")
@@ -110,7 +110,7 @@ test "test allocator tracks leaks" {
 }
 
 // Test colorless function with different allocators
-read_file_mock: (path: String, alloc: *allocator.Allocator) []u8  = {
+read_file_mock = (path: String, alloc: *allocator.Allocator) []u8   {
     // Simulated file read that works with any allocator
     size := 256
     buffer := alloc.alloc_slice(u8, size)
@@ -209,7 +209,7 @@ test "channel send and receive" {
     
     // Empty channel
     v4 := ch.receive()
-    test.expect(v4 == null)  // Would block in concurrent mode
+    test.expect(v4 .== .None)  // Would block in concurrent mode
 }
 
 test "channel close behavior" {
@@ -229,7 +229,7 @@ test "channel close behavior" {
     
     // After buffer empty, returns null
     v2 := ch.receive()
-    test.expect(v2 == null)
+    test.expect(v2 .== .None)
     
     // Cannot send to closed channel
     test.expect(!ch.send(100))
@@ -256,13 +256,13 @@ test "actor system basic messaging" {
     counter_behavior := actor.Behavior(CounterState, TestMsg){
         handle: (state, msg, ctx) => {
             msg ?
-                | .Increment -> amount => {
+                | .Increment -> amount { { }
                     state.value += amount
                 }
-                | .GetValue => {
+                | .GetValue { { }
                     ctx.reply(.Value(state.value))
                 }
-                | .Value -> v => {}
+                | .Value -> v { { }}
         }
     }
     
@@ -335,7 +335,7 @@ test "worker pool job distribution" {
 // Test progressive enhancement pattern
 test "progressive enhancement from sync to concurrent" {
     // Version 1: Start with sync
-    simple_app: (alloc: *allocator.Allocator) void  = {
+    simple_app = (alloc: *allocator.Allocator) void   {
         // Everything runs synchronously
         data := read_file_mock("config.json", alloc)
         // Process data...
@@ -365,21 +365,21 @@ test "web service with allocator" {
     alloc := sync_alloc.allocator()
     
     // Simulated HTTP request handler
-    handle_request: (path: String, alloc: *allocator.Allocator) String  = {
+    handle_request = (path: String, alloc: *allocator.Allocator) String   {
         response := path ?
-            | "/api/users" => {
+            | "/api/users" { { }
                 // Would fetch from database
                 data := read_file_mock("users.json", alloc)
                 defer alloc.free_slice(data)
                 "Users data"
             }
-            | "/api/posts" => {
+            | "/api/posts" { { }
                 // Would fetch from database
                 data := read_file_mock("posts.json", alloc)
                 defer alloc.free_slice(data)
                 "Posts data"
             }
-            | _ => "Not found"
+            | _ { "Not found" }
         
         return response
     }

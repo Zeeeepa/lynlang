@@ -1,13 +1,13 @@
 // Zen Language Server Protocol Implementation
 // Provides IDE support for Zen language files
 
-core := @std.core
-io := @std.io
-json := @std.json
-net := @std.net
-fs := @std.fs
-lexer := @std.compiler.lexer
-parser := @std.compiler.parser
+{ core } = @std.core
+{ io } = @std.io
+{ json } = @std.json
+{ net } = @std.net
+{ fs } = @std.fs
+{ lexer } = @std.compiler.lexer
+{ parser } = @std.compiler.parser
 
 // LSP Message Types
 LSPMessage: {
@@ -74,7 +74,7 @@ ServerCapabilities: {
 }
 
 // Create new LSP server
-lsp_server_new: () LSPServer  = {
+lsp_server_new = () LSPServer   {
     return LSPServer {
         documents: HashMap:new(),
         workspace_root: None,
@@ -97,7 +97,7 @@ lsp_server_new: () LSPServer  = {
 }
 
 // Handle LSP request
-handle_request: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_request = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     msg.method ? 
         | .Some -> method => {
             method == "initialize" ? 
@@ -155,7 +155,7 @@ handle_request: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
 }
 
 // Initialize handler
-handle_initialize: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_initialize = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // Extract workspace root from params
     msg.params ?
         | .Some -> params => {
@@ -195,7 +195,7 @@ handle_initialize: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
 }
 
 // Document open handler
-handle_did_open: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_did_open = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     msg.params ?
         | .Some -> params => {
             text_document := json.get_object(params, "textDocument")
@@ -230,19 +230,19 @@ handle_did_open: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
 }
 
 // Document change handler
-handle_did_change: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_did_change = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // Similar to did_open but updates existing document
     return Option.None
 }
 
 // Document save handler
-handle_did_save: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_did_save = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // Re-analyze document on save
     return Option.None
 }
 
 // Document close handler
-handle_did_close: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_did_close = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     msg.params ?
         | .Some -> params => {
             text_document := json.get_object(params, "textDocument")
@@ -262,13 +262,13 @@ handle_did_close: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
 }
 
 // Hover handler
-handle_hover: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_hover = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // TODO: Implement hover information
     return create_response(msg.id, json.Null)
 }
 
 // Completion handler
-handle_completion: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_completion = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // TODO: Implement code completion
     completions := json.array([
         create_completion_item("loop", "Keyword", "Loop construct"),
@@ -283,30 +283,30 @@ handle_completion: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
 }
 
 // Definition handler
-handle_definition: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_definition = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // TODO: Implement go-to-definition
     return create_response(msg.id, json.Null)
 }
 
 // References handler
-handle_references: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_references = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // TODO: Implement find references
     return create_response(msg.id, json.Array([]))
 }
 
 // Formatting handler
-handle_formatting: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_formatting = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     // TODO: Implement code formatting
     return create_response(msg.id, json.Array([]))
 }
 
 // Shutdown handler
-handle_shutdown: (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>  = {
+handle_shutdown = (server: *LSPServer, msg: LSPMessage) Option<LSPMessage>   {
     return create_response(msg.id, json.Null)
 }
 
 // Analyze document for diagnostics
-analyze_document: (server: *LSPServer, doc: *Document) void  = {
+analyze_document = (server: *LSPServer, doc: *Document) void   {
     // Create lexer
     lex := lexer.lexer_new(doc.content)
     
@@ -330,7 +330,7 @@ analyze_document: (server: *LSPServer, doc: *Document) void  = {
 }
 
 // Send diagnostics notification
-send_diagnostics: (uri: string, diagnostics: Vec<Diagnostic>) void  = {
+send_diagnostics = (uri: string, diagnostics: Vec<Diagnostic>) void   {
     notification := json.object([
         ("jsonrpc", json.string("2.0")),
         ("method", json.string("textDocument/publishDiagnostics")),
@@ -384,7 +384,7 @@ create_completion_item = (label: string, kind: string, detail: string) json.Valu
 }
 
 // Create response message
-create_response: (id: Option<i32>, result: json.Value) Option<LSPMessage>  = {
+create_response = (id: Option<i32>, result: json.Value) Option<LSPMessage>   {
     id ?
         | .Some -> i => {
             return Some(LSPMessage {
@@ -400,7 +400,7 @@ create_response: (id: Option<i32>, result: json.Value) Option<LSPMessage>  = {
 }
 
 // Create error response
-create_error_response: (id: Option<i32>, code: i32, message: string) Option<LSPMessage>  = {
+create_error_response = (id: Option<i32>, code: i32, message: string) Option<LSPMessage>   {
     id ?
         | .Some -> i => {
             return Some(LSPMessage {
@@ -420,7 +420,7 @@ create_error_response: (id: Option<i32>, code: i32, message: string) Option<LSPM
 }
 
 // Read message from stdin
-read_message: () Option<LSPMessage>  = {
+read_message = () Option<LSPMessage>   {
     // Read Content-Length header
     header := io.read_line()
     header.starts_with("Content-Length: ") ?
@@ -444,13 +444,13 @@ read_message: () Option<LSPMessage>  = {
 }
 
 // Parse JSON into LSP message
-parse_lsp_message: (value: json.Value) Option<LSPMessage>  = {
+parse_lsp_message = (value: json.Value) Option<LSPMessage>   {
     // TODO: Implement JSON to LSPMessage conversion
     return None
 }
 
 // Send message to stdout
-send_message: (msg: json.Value) void  = {
+send_message = (msg: json.Value) void   {
     content := json.stringify(msg)
     length := content.len()
     
@@ -460,7 +460,7 @@ send_message: (msg: json.Value) void  = {
 }
 
 // Main LSP server loop
-main: () void  = {
+main = () void   {
     server := lsp_server_new()
     
     io.print_err("Zen LSP Server starting...\n")

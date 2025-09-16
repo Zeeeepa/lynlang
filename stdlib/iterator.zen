@@ -1,7 +1,7 @@
 // Zen Standard Library: Iterator Module
 // Provides functional iteration patterns for collections
 
-core := @std.core
+{ core } = @std.core
 
 // Range iterator for numeric ranges
 Range: {
@@ -11,7 +11,7 @@ Range: {
 }
 
 // Create a range from start to end (exclusive)
-range: (start: i64, end: i64) Range  = {
+range = (start: i64, end: i64) Range   {
     return Range {
         start: start,
         end: end,
@@ -51,8 +51,8 @@ Iterator<T>.has_next = (self: Iterator<T>) bool {
 // Get next element
 Iterator<T>.next = (self: *Iterator<T>) Option<T> {
     self.current >= self.size ? 
-        | true => return Option<T>:None
-        | false => {
+        | true { return Option<T>:None }
+        | false { { }
             idx := self.current
             self.current = self.current + 1
             // Note: Array indexing would be: self.data[idx]
@@ -108,7 +108,7 @@ Iterator<T>.reduce<U> = (self: Iterator<T>, initial: U, accumulator: (U, T) U) U
 }
 
 // Sum numeric iterator (for i32)
-sum_i32: (iter: *Iterator<i32>) i32  = {
+sum_i32 = (iter: *Iterator<i32>) i32   {
     sum := 0
     iter.loop(value -> {
         sum = sum + value
@@ -121,8 +121,8 @@ Iterator<T>.find = (self: *Iterator<T>, predicate: (T) bool) Option<T> {
     result := Option<T>:None
     self.loop(value -> {
         predicate(value) ?
-            | true => result = Option<T>:Some(value)
-            | false => {}
+            | true { result = Option<T>:Some(value) }
+            | false { { }}
     })
     return result
 }
@@ -132,8 +132,8 @@ Iterator<T>.any = (self: *Iterator<T>, predicate: (T) bool) bool {
     found := false
     self.loop(value -> {
         predicate(value) ?
-            | true => found = true
-            | false => {}
+            | true { found = true }
+            | false { { }}
     })
     return found
 }
@@ -143,8 +143,8 @@ Iterator<T>.all = (self: *Iterator<T>, predicate: (T) bool) bool {
     all_match := true
     self.loop(value -> {
         predicate(value) ?
-            | false => all_match = false
-            | true => {}
+            | false { all_match = false }
+            | true { { }}
     })
     return all_match
 }
@@ -154,15 +154,15 @@ Iterator<T>.count = (self: *Iterator<T>, predicate: (T) bool) i64 {
     count := 0
     self.loop(value -> {
         predicate(value) ?
-            | true => count = count + 1
-            | false => {}
+            | true { count = count + 1 }
+            | false { { }}
     })
     return count
 }
 
 // Take first n elements
 Iterator<T>.take = (self: Iterator<T>, n: i64) Iterator<T> {
-    new_size := n < self.size ? | true => n | false => self.size
+    new_size := n < self.size ? | true { n | false => self.size }
     return Iterator<T> {
         data: self.data,
         size: new_size,
@@ -173,8 +173,8 @@ Iterator<T>.take = (self: Iterator<T>, n: i64) Iterator<T> {
 // Skip first n elements
 Iterator<T>.skip = (self: Iterator<T>, n: i64) Iterator<T> {
     n >= self.size ? 
-        | true => return Iterator<T> { data: self.data, size: 0, current: 0 }
-        | false => {}
+        | true { return Iterator<T> { data: self.data, size: 0, current: 0  }}
+        | false { { }}
     
     // Would need pointer arithmetic to skip elements
     return Iterator<T> {
@@ -198,8 +198,8 @@ Iterator<T>.chain = (self: Iterator<T>, other: Iterator<T>) Iterator<T> {
 zip<T, U>: (iter1: Iterator<T>, iter2: Iterator<U>) Iterator<Pair<T, U>>  = {
     // Placeholder for concept
     min_size := iter1.size < iter2.size ? 
-        | true => iter1.size 
-        | false => iter2.size
+        | true { iter1.size  }
+        | false { iter2.size }
     
     return Iterator<Pair<T, U>> {
         data: 0 as *Pair<T, U>,
@@ -255,16 +255,16 @@ Iterator<T>.collect = (self: *Iterator<T>) Vec<T> {
 
 // Find the maximum element (for comparable types)
 Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
-    self.size == 0 ? | true => return Option<T>:None
-                     | false => {}
+    self.size == 0 ? | true { return Option<T>:None }
+                     | false { { }}
     
     max_val := Option<T>:None
     self.loop(value -> {
-        max_val ? | .None => max_val = Option<T>:Some(value)
-                 | .Some -> current => {
+        max_val ? | .None { max_val = Option<T>:Some(value) }
+                 | .Some -> current { { }
                      compare(value, current) > 0 ?
-                         | true => max_val = Option<T>:Some(value)
-                         | false => {}
+                         | true { max_val = Option<T>:Some(value) }
+                         | false { { }}
                  }
     })
     return max_val
@@ -272,16 +272,16 @@ Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
 
 // Find the minimum element (for comparable types)
 Iterator<T>.min = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
-    self.size == 0 ? | true => return Option<T>:None
-                     | false => {}
+    self.size == 0 ? | true { return Option<T>:None }
+                     | false { { }}
     
     min_val := Option<T>:None
     self.loop(value -> {
-        min_val ? | .None => min_val = Option<T>:Some(value)
-                 | .Some -> current => {
+        min_val ? | .None { min_val = Option<T>:Some(value) }
+                 | .Some -> current { { }
                      compare(value, current) < 0 ?
-                         | true => min_val = Option<T>:Some(value)
-                         | false => {}
+                         | true { min_val = Option<T>:Some(value) }
+                         | false { { }}
                  }
     })
     return min_val
@@ -310,8 +310,8 @@ Iterator<T>.cycle = (self: Iterator<T>) Iterator<T> {
 // Peek at next element without consuming
 Iterator<T>.peek = (self: Iterator<T>) Option<T> {
     self.current >= self.size ?
-        | true => return Option<T>:None
-        | false => {
+        | true { return Option<T>:None }
+        | false { { }
             // Return current element without advancing
             return Option<T>:Some(self.data[self.current])
         }
@@ -332,8 +332,8 @@ Iterator<T>.windows = (self: Iterator<T>, window_size: i64) Iterator<[]T> {
     // Would yield overlapping windows of size window_size
     return Iterator<[]T> {
         data: 0 as *[]T,
-        size: self.size > window_size ? | true => self.size - window_size + 1
-                                        | false => 0,
+        size: self.size > window_size ? | true { self.size - window_size + 1 }
+                                        | false { 0, }
         current: 0,
     }
 }
@@ -351,8 +351,8 @@ Iterator<T>.chunks = (self: Iterator<T>, chunk_size: i64) Iterator<[]T> {
 // Intersperse elements between iterator items
 Iterator<T>.intersperse = (self: Iterator<T>, separator: T) Iterator<T> {
     // Would insert separator between elements
-    new_size := self.size > 0 ? | true => self.size * 2 - 1
-                                | false => 0
+    new_size := self.size > 0 ? | true { self.size * 2 - 1 }
+                                | false { 0 }
     return Iterator<T> {
         data: self.data,
         size: new_size,

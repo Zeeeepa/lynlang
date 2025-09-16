@@ -1,8 +1,8 @@
 // Zen Standard Library - Collections Module
 // Advanced data structures and collections
 
-core := @std.core
-memory := @std.memory
+{ core } = @std.core
+{ memory } = @std.memory
 
 // Dynamic array (vector) implementation
 Vector := {
@@ -160,7 +160,7 @@ LinkedList.push_front = (self: &LinkedList, value: T) void {
     node.next = self.head
     
     self.head = node
-    if (self.tail == null) {
+    if (self.tail .== .None) {
         self.tail = node
     }
     
@@ -185,7 +185,7 @@ LinkedList.push_back = (self: &LinkedList, value: T) void {
 
 // Pop element from front
 LinkedList.pop_front = (self: &LinkedList) ?T {
-    if (self.head == null) {
+    if (self.head .== .None) {
         return null
     }
     
@@ -193,7 +193,7 @@ LinkedList.pop_front = (self: &LinkedList) ?T {
     value := node.value
     
     self.head = node.next
-    if (self.head == null) {
+    if (self.head .== .None) {
         self.tail = null
     }
     
@@ -297,7 +297,7 @@ HashMap.new = () HashMap {
 }
 
 // Hash function (simple for now)
-hash: (key: K, capacity: usize) usize  = {
+hash = (key: K, capacity: usize) usize   {
     // Simple hash for numeric types
     return key % capacity
 }

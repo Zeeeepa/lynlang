@@ -2,16 +2,16 @@
 // Tests core features according to LANGUAGE_SPEC.md v1.1.0
 
 // Test pattern matching - NO if/else/match keywords
-test_pattern_matching: () bool  = {
+test_pattern_matching = () bool   {
     value := 42
     result := value ?
-        | 42 => true
-        | _ => false
+        | 42 { true }
+        | _ { false }
     result
 }
 
 // Test mutable variables
-test_mutable_vars: () bool  = {
+test_mutable_vars = () bool   {
     counter := 0
     counter = counter + 1
     counter == 1
@@ -34,7 +34,7 @@ identity<T>: (value: T) T  = {
 }
 
 // Test loop (only one loop keyword)
-test_loop: () bool  = {
+test_loop = () bool   {
     sum := 0
     counter := 3
     loop (counter > 0) {
@@ -45,7 +45,7 @@ test_loop: () bool  = {
 }
 
 // Test range iteration
-test_range: () bool  = {
+test_range = () bool   {
     sum := 0
     (0..5).loop((i) => {
         sum = sum + i
@@ -54,13 +54,13 @@ test_range: () bool  = {
 }
 
 // Test pointer usage (no raw & or *)
-test_pointer: () bool  = {
+test_pointer = () bool   {
     ptr := Ptr:new(42)
     ptr.value == 42
 }
 
 // Test FFI builder pattern
-test_ffi_builder: () bool  = {
+test_ffi_builder = () bool   {
     sqlite := FFI.lib("sqlite3")
         .set_path("/usr/lib/libsqlite3.so")
         .add_function("sqlite3_open", FnSignature{
@@ -73,28 +73,28 @@ test_ffi_builder: () bool  = {
 }
 
 // Main entry point
-main: () void  = {
+main = () void   {
     test_pattern_matching() ?
-        | true => print("✓ Pattern matching works")
-        | false => print("✗ Pattern matching failed")
+        | true { print("✓ Pattern matching works") }
+        | false { print("✗ Pattern matching failed") }
     
     test_mutable_vars() ?
-        | true => print("✓ Mutable variables work")
-        | false => print("✗ Mutable variables failed")
+        | true { print("✓ Mutable variables work") }
+        | false { print("✗ Mutable variables failed") }
     
     test_loop() ?
-        | true => print("✓ Loops work")
-        | false => print("✗ Loops failed")
+        | true { print("✓ Loops work") }
+        | false { print("✗ Loops failed") }
     
     test_range() ?
-        | true => print("✓ Range iteration works")
-        | false => print("✗ Range iteration failed")
+        | true { print("✓ Range iteration works") }
+        | false { print("✗ Range iteration failed") }
     
     print("All basic tests completed")
 }
 
 // Helper functions
-print: (msg: string) void  = {
+print = (msg: string) void   {
     @intrinsic("print", msg)
 }
 

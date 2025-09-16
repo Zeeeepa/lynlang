@@ -1,7 +1,7 @@
 // Zen Check - Simple diagnostic tool for Zen files
 // Provides basic syntax checking and import validation
 
-build := @std.build
+{ build } = @std.build
 io := build.import("io")
 fs := build.import("fs")
 string := build.import("string")
@@ -27,7 +27,7 @@ SEVERITY_INFO := 2
 SEVERITY_HINT := 3
 
 // Check for comptime import anti-pattern
-check_comptime_imports: (content: string) i32  = {
+check_comptime_imports = (content: string) i32   {
     // Simple check - look for "comptime" followed by "@std"
     // In a real implementation, we'd parse properly
     diagnostics := 0;
@@ -51,7 +51,7 @@ check_comptime_imports: (content: string) i32  = {
 }
 
 // Check for correct import syntax
-check_import_syntax: (content: string) i32  = {
+check_import_syntax = (content: string) i32   {
     diagnostics := 0;
     
     // Check for @std imports at module level
@@ -61,13 +61,13 @@ check_import_syntax: (content: string) i32  = {
 }
 
 // Analyze a Zen file
-analyze_file: (filename: string) bool  = {
+analyze_file = (filename: string) bool   {
     io.print("Analyzing: ");
     io.print(filename);
     io.print("\n");
     
     // For now, use placeholder content
-    content := "io := @std.io\nmain = () i32 { return 0 }";
+    content := "{ io } = @std.io\nmain = () i32 { return 0 }";
     
     // Run checks
     io.print("  ✓ Checking import syntax\n");
@@ -92,7 +92,7 @@ analyze_file: (filename: string) bool  = {
 }
 
 // Main entry point
-main: () i32  = {
+main = () i32   {
     io.print("🔍 Zen Check - Diagnostic Tool\n");
     io.print("==============================\n\n");
     
