@@ -2,9 +2,9 @@
 // Testing all core features that should work
 
 { io } = @std
+{ Option } = @std.option
 
 // Enum definitions - exact from spec
-Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Simple struct

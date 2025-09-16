@@ -5,13 +5,13 @@
 // IMPORTS - @std special syntax
 // ============================================================================
 { io } = @std
+{ Option } = @std.option
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
-// Option type - no null!
-Option<T>: Some(T) | None
+// Option type - no null! - using stdlib
 
 // Result type for error handling
 Result<T, E>: Ok(T) | Err(E)

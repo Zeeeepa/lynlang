@@ -5,6 +5,10 @@ core := @std
 build := @std
 memory := build.import("memory")
 
+// Re-export additional collections from subdirectory
+export * from "collections/hashmap.zen"
+export * from "collections/list.zen"
+
 // Import the new Vec and DynVec types
 fixed_vec := build.import("fixed_vec")
 dyn_vec := build.import("dyn_vec")

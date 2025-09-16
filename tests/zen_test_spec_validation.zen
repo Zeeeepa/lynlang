@@ -5,13 +5,13 @@
 // Core imports - only @std and @this are special
 // ============================================================================
 { io } = @std
+{ Option } = @std.option
 
 // ============================================================================
 // Basic types and enums
 // ============================================================================
 
-// Option type - no null!
-Option<T>: Some(T) | None
+// Option type - no null! - using stdlib
 
 // Result type for error handling  
 Result<T, E>: Ok(T) | Err(E)

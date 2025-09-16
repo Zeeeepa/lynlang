@@ -1,4 +1,4 @@
-use zen::lexer::{Lexer, Token, Keyword};
+use zen::lexer::{Lexer, Token};
 
 #[test]
 fn test_lexer_identifier_integer_eof() {
@@ -14,9 +14,10 @@ fn test_lexer_identifier_integer_eof() {
 
 #[test]
 fn test_lexer_keyword_and_symbol() {
+    // Zen has no keywords - loop is just an identifier
     let input = "loop { }";
     let mut lexer = Lexer::new(input);
-    assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Loop));
+    assert_eq!(lexer.next_token(), Token::Identifier("loop".to_string()));
     assert_eq!(lexer.next_token(), Token::Symbol('{'));
     assert_eq!(lexer.next_token(), Token::Symbol('}'));
     assert_eq!(lexer.next_token(), Token::Eof);
@@ -55,12 +56,13 @@ fn test_lexer_float_numbers() {
 
 #[test]
 fn test_lexer_more_keywords() {
+    // Zen has no keywords - these are all identifiers
     let input = "loop comptime behavior impl";
     let mut lexer = Lexer::new(input);
-    assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Loop));
-    assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Comptime));
-    assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Behavior));
-    assert_eq!(lexer.next_token(), Token::Keyword(Keyword::Impl));
+    assert_eq!(lexer.next_token(), Token::Identifier("loop".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("comptime".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("behavior".to_string()));
+    assert_eq!(lexer.next_token(), Token::Identifier("impl".to_string()));
     assert_eq!(lexer.next_token(), Token::Eof);
 }
 

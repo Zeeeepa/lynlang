@@ -1,9 +1,9 @@
 // Test pattern matching with ? operator as per LANGUAGE_SPEC.zen
 
 { io } = @std
+{ Option } = @std.option
 
-// Define Option type locally for testing
-Option<T>: Some(T) | None
+// Define Option type locally for testing - using stdlib
 
 // Define Result type locally for testing  
 Result<T, E>: Ok(T) | Err(E)

@@ -1,0 +1,8 @@
+// Test destructuring imports from LANGUAGE_SPEC.zen
+
+// Destructuring import from @std
+{ println } = @std.io
+
+main = () void {
+    println("Testing destructuring import!")
+}

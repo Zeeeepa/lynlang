@@ -1,8 +1,8 @@
 // Test Option type from the spec
 { io } = @std
+{ Option } = @std.option
 
-// Define Option type as per spec
-Option<T>: Some(T) | None
+// Define Option type as per spec - using stdlib
 
 main = () void {
     io.println("Testing Option types")

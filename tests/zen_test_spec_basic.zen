@@ -2,9 +2,9 @@
 // Tests core features without complex dependencies
 
 { io } = @std
+{ Option } = @std.option
 
-// Simple enum 
-Option<T>: Some(T) | None
+// Simple enum removed - using stdlib Option
 
 // Basic struct
 Point: {

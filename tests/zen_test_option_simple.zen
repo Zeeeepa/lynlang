@@ -1,8 +1,6 @@
 // Test simple Option usage
 { io } = @std
-
-// Define Option enum
-Option<T>: Some(T) | None
+{ Option } = @std.option
 
 main = () void {
     // Try without type annotation first

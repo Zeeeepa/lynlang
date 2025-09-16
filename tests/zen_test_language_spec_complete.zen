@@ -3,12 +3,12 @@
 
 // 1. Imports using @std
 { io } = @std
+{ Option } = @std.option
 
 // 2. Simple enum with variants
 GameEntity: .Player | Enemy | Powerup
 
-// 3. Option type
-Option<T>: Some(T) | None
+// 3. Option type - using stdlib
 
 // 4. Result type
 Result<T, E>: Ok(T) | Err(E)

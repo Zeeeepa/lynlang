@@ -1,9 +1,9 @@
 // Test enum literals from LANGUAGE_SPEC.zen
 
 { io } = @std
+{ Option } = @std.option
 
-// Define Option type according to spec
-Option<T>: Some(T) | None
+// Define Option type according to spec - using stdlib
 
 // Define Result type according to spec
 Result<T, E>: Ok(T) | Err(E)

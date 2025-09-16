@@ -1,5 +1,6 @@
 // Match exact pattern from LANGUAGE_SPEC.zen
 { GPA, AsyncPool, Allocator} = @std
+{ Option } = @std.option
 
 { Vec, DynVec} = @std
 
@@ -9,8 +10,7 @@ sdl2 = @std.import("sdl2")
 ecs = @std.import("ecs")
 
 
-// No null! Only Option types
-Option<T>: Some(T) | None
+// No null! Only Option types - using stdlib
 
 // Result type for error handling
 Result<T, E>: Ok(T) | Err(E)

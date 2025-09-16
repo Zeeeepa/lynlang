@@ -1,0 +1,9 @@
+// Test basic import syntax from LANGUAGE_SPEC.zen
+
+// Import from @std
+io = @std.io
+
+// Basic main function
+main = () void {
+    io.println("Hello from Zen!")
+}

@@ -53,20 +53,37 @@ impl<'a> Parser<'a> {
                 }
                 self.next_token(); // consume '='
                 
-                // Expect @std or module reference
+                // Expect @std or @std.module reference
                 if let Token::Identifier(module) = &self.current_token {
-                    if module == "@std" {
-                        // Create imports from @std
+                    if module.starts_with("@std") {
+                        let mut module_path = module.clone();
+                        self.next_token();
+                        
+                        // Handle @std.module syntax
+                        while self.current_token == Token::Symbol('.') {
+                            self.next_token(); // consume '.'
+                            if let Token::Identifier(member) = &self.current_token {
+                                module_path.push('.');
+                                module_path.push_str(member);
+                                self.next_token();
+                            } else {
+                                return Err(CompileError::SyntaxError(
+                                    "Expected identifier after '.'".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                        }
+                        
+                        // Create imports from the specified module
                         for name in imported_names {
                             declarations.push(Declaration::ModuleImport {
                                 alias: name.clone(),
-                                module_path: format!("@std.{}", name),
+                                module_path: format!("{}.{}", module_path, name),
                             });
                         }
-                        self.next_token();
                     } else {
                         return Err(CompileError::SyntaxError(
-                            "Expected '@std' after '=' in destructuring import".to_string(),
+                            "Expected '@std' or '@std.module' after '=' in destructuring import".to_string(),
                             Some(self.current_span.clone()),
                         ));
                     }
@@ -903,6 +920,10 @@ impl<'a> Parser<'a> {
             Token::Identifier(_name) => {
                 // Check for variable declarations using peek tokens
                 match &self.peek_token {
+                    Token::Operator(op) if op == ":=" => {
+                        // Immutable declaration with := (inferred type)
+                        self.parse_variable_declaration()
+                    }
                     Token::Operator(op) if op == "::=" => {
                         // Mutable declaration with ::=
                         self.parse_variable_declaration()
@@ -994,8 +1015,13 @@ impl<'a> Parser<'a> {
         self.next_token();
         
         let (is_mutable, declaration_type, type_) = match &self.current_token {
+            Token::Operator(op) if op == ":=" => {
+                // Inferred immutable: name := value (as per LANGUAGE_SPEC.zen)
+                self.next_token();
+                (false, VariableDeclarationType::InferredImmutable, None)
+            }
             Token::Operator(op) if op == "=" => {
-                // Inferred immutable: name = value (as per spec)
+                // Inferred immutable: name = value (also accepted)
                 self.next_token();
                 (false, VariableDeclarationType::InferredImmutable, None)
             }

@@ -1,7 +1,6 @@
 // Test Option enum definition and usage
 
-// Define Option type as in LANGUAGE_SPEC.zen
-Option<T>: Some(T) | None
+{ Option } = @std.option
 
 main = () void {
     // Create an Option value
