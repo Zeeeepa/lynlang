@@ -1,0 +1,11 @@
+// Test loop with explicit closure syntax
+
+{ io } = @std
+
+main = () void {
+    // Loop needs a closure body without parameters
+    counter ::= 0
+    
+    // Test without loop() for now
+    x = 1
+}

@@ -1,0 +1,11 @@
+// Test simple loop syntax
+
+main = () void {
+    // Test 1: Simple infinite loop
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("Loop")
+        break
+    })
+}

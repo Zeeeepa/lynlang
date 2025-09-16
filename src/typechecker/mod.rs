@@ -706,6 +706,15 @@ impl TypeChecker {
                     Ok(AstType::Void)
                 }
             }
+            Expression::Conditional { arms, .. } => {
+                // Conditional expression type is determined by the first arm
+                // All arms should have the same type (checked during type checking)
+                if arms.is_empty() {
+                    Ok(AstType::Void)
+                } else {
+                    self.infer_expression_type(&arms[0].body)
+                }
+            }
         }
     }
 

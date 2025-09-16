@@ -180,6 +180,11 @@ pub enum Expression {
         scrutinee: Box<Expression>,
         arms: Vec<MatchArm>,
     },
+    // Conditional expression for simple boolean patterns (expr ? { block })
+    Conditional {
+        scrutinee: Box<Expression>,
+        arms: Vec<ConditionalArm>,
+    },
     AddressOf(Box<Expression>),
     Dereference(Box<Expression>),
     PointerOffset {
@@ -285,6 +290,13 @@ pub struct MatchArm {
 pub struct PatternArm {
     pub pattern: Pattern,
     pub guard: Option<Expression>, // Optional guard condition using ->
+    pub body: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConditionalArm {
+    pub pattern: Pattern,
+    pub guard: Option<Expression>, // Optional guard condition
     pub body: Expression,
 }
 

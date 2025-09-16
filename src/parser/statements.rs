@@ -554,22 +554,84 @@ impl<'a> Parser<'a> {
                         declarations.push(Declaration::Function(self.parse_function()?));
                     } else {
                         // Variable declaration: name = value
+                        // Could be a module import: name = @std.module
                         self.next_token(); // consume identifier
                         self.next_token(); // consume '='
                         
-                        let value = self.parse_expression()?;
+                        // Check if this is a module import (@std.module)
+                        let is_module_import = if let Token::Identifier(id) = &self.current_token {
+                            id.starts_with("@std")
+                        } else {
+                            false
+                        };
                         
-                        // Skip optional semicolon
-                        if self.current_token == Token::Symbol(';') {
-                            self.next_token();
+                        if is_module_import {
+                            // Parse as module import: name = @std.module
+                            if let Token::Identifier(module_path) = &self.current_token {
+                                let mut full_path = module_path.clone();
+                                self.next_token();
+                                
+                                // Handle member access for @std.module
+                                while self.current_token == Token::Symbol('.') {
+                                    self.next_token(); // consume '.'
+                                    if let Token::Identifier(member) = &self.current_token {
+                                        full_path.push('.');
+                                        full_path.push_str(member);
+                                        self.next_token();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                
+                                // Check for .import() function call
+                                if full_path.ends_with(".import") && self.current_token == Token::Symbol('(') {
+                                    self.next_token(); // consume '('
+                                    if let Token::StringLiteral(module_name) = &self.current_token {
+                                        let imported_module = module_name.clone();
+                                        self.next_token(); // consume string
+                                        if self.current_token != Token::Symbol(')') {
+                                            return Err(CompileError::SyntaxError(
+                                                "Expected ')' after module name".to_string(),
+                                                Some(self.current_span.clone()),
+                                            ));
+                                        }
+                                        self.next_token(); // consume ')'
+                                        
+                                        // Create ModuleImport with the imported module
+                                        declarations.push(Declaration::ModuleImport {
+                                            alias: name,
+                                            module_path: format!("@std.{}", imported_module),
+                                        });
+                                    } else {
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected string literal in import()".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    }
+                                } else {
+                                    // Direct module import: name = @std.module
+                                    declarations.push(Declaration::ModuleImport {
+                                        alias: name,
+                                        module_path: full_path,
+                                    });
+                                }
+                            }
+                        } else {
+                            // Regular variable declaration
+                            let value = self.parse_expression()?;
+                            
+                            // Skip optional semicolon
+                            if self.current_token == Token::Symbol(';') {
+                                self.next_token();
+                            }
+                            
+                            // Create a top-level constant declaration (immutable by default at top level)
+                            declarations.push(Declaration::Constant {
+                                name,
+                                value,
+                                type_: None, // Type will be inferred
+                            });
                         }
-                        
-                        // Create a top-level constant declaration (immutable by default at top level)
-                        declarations.push(Declaration::Constant {
-                            name,
-                            value,
-                            type_: None, // Type will be inferred
-                        });
                     }
                 } else {
                     // Check if we're at EOF or if the identifier is alone (e.g., followed by comments)
