@@ -1,5 +1,0 @@
-// Simple Zen test program
-main = () void {
-    io = @std.io
-    io.println("Hello from Zen!")
-}

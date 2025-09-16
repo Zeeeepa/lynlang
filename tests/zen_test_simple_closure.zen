@@ -1,6 +1,0 @@
-// Test just closure
-main = () void {
-    f = () { 
-        x = 1
-    }
-}

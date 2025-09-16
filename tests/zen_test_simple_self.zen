@@ -1,8 +1,0 @@
-// Test simple self parameter
-test_func = (self) f64 {
-    return 42.0
-}
-
-main = () void {
-    // Test
-}

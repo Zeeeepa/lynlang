@@ -1,9 +1,0 @@
-// Test boolean pattern matching
-{ io } = @std
-
-main = () void {
-    x = true
-    x ?
-        | true { io.println("True") }
-        | false { io.println("False") }
-}

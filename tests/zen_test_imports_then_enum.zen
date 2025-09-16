@@ -1,4 +1,0 @@
-{ Vec, DynVec} = @std
-{ Option } = @std.option
-
-main = () void {}

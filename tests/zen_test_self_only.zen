@@ -1,7 +1,0 @@
-// Test just self parameter parsing
-test = (self) f64 {
-    return 42.0
-}
-
-main = () void {
-}

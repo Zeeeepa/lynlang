@@ -1,6 +1,0 @@
-// Test simple enum definition
-Option: Some | None
-
-main = () void {
-    x = 42
-}

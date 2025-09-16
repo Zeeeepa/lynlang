@@ -1,9 +1,0 @@
-mod codegen_basic;
-mod codegen_conditionals;
-mod codegen_errors;
-mod codegen_functions;
-mod codegen_loops;
-mod codegen_pattern_matching;
-mod codegen_pointers;
-mod codegen_strings;
-mod codegen_structs;

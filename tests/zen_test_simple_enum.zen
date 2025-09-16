@@ -1,4 +1,0 @@
-{ Option } = @std.option
-
-main = () void {
-}

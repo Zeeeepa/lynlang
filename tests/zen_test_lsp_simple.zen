@@ -1,5 +1,0 @@
-// Simple test for LSP position tracking
-x := 42;
-fn test() {  // This should error
-    return x;
-}

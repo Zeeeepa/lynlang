@@ -1,9 +1,0 @@
-// Test @std.import syntax
-
-sdl2 = @std.import("sdl2")
-ecs = @std.import("ecs")
-
-main = () void {
-    // Basic test
-    x = 42
-}

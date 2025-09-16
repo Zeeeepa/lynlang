@@ -1,6 +1,0 @@
-// Simple test to see what works
-{ io } = @std
-
-main = () void {
-    io.println("Hello from Zen!")
-}

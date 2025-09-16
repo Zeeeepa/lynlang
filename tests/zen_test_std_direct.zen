@@ -1,7 +1,0 @@
-// Test @std directly
-
-std = @std
-
-main = () void {
-    x = 1
-}

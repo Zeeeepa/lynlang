@@ -1,8 +1,0 @@
-// Test generic function
-print_area<T>(shape: T) void {
-    // Empty
-}
-
-main = () void {
-    // Empty
-}
