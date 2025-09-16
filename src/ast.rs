@@ -61,6 +61,7 @@ pub enum AstType {
     U16,
     U32,
     U64,
+    Usize,
     F32,
     F64,
     Bool,

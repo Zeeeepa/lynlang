@@ -33,6 +33,7 @@ impl<'a> Parser<'a> {
                     "u16" => Ok(AstType::U16),
                     "u32" => Ok(AstType::U32),
                     "u64" => Ok(AstType::U64),
+                    "usize" => Ok(AstType::Usize),
                     "f32" => Ok(AstType::F32),
                     "f64" => Ok(AstType::F64),
                     "bool" => Ok(AstType::Bool),

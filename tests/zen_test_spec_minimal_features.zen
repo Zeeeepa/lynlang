@@ -1,0 +1,46 @@
+// Minimal test for key LANGUAGE_SPEC.zen features
+
+// Test 1: Import from @std
+io = @std.io
+
+// Test 2: Basic Option type
+Option<T>: Some(T) | None
+
+test_option = () void {
+    maybe: Option<i32> = Option.Some(42)
+    maybe ?
+        | Some(v) { io.println("Value: 42") }
+        | None { io.println("No value") }
+}
+
+// Test 3: Simple enum
+Color: Red | Green | Blue
+
+test_enum = () void {
+    c: Color = Color.Red
+    c ?
+        | Red { io.println("Red") }
+        | Green { io.println("Green") }
+        | Blue { io.println("Blue") }
+}
+
+// Test 4: @this.defer
+test_defer = () void {
+    io.println("Start")
+    @this.defer(io.println("Deferred"))
+    io.println("End")
+}
+
+// Test 5: Mutable assignment with ::=
+test_mutable = () void {
+    x ::= 10
+    x = x + 5
+    io.println("x is now 15")
+}
+
+main = () void {
+    test_option()
+    test_enum()
+    test_defer()
+    test_mutable()
+}

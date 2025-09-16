@@ -636,10 +636,65 @@ impl TypeChecker {
             Expression::StringLength(_) => {
                 Ok(AstType::I64)
             }
-            Expression::MethodCall { object, method: _, args: _ } => {
-                // TODO: Implement proper UFC method call type inference
-                // For now, infer type from the object
-                self.infer_expression_type(object)
+            Expression::MethodCall { object, method, args } => {
+                // Implement UFC (Uniform Function Call)
+                // Any function can be called as a method: object.function(args) -> function(object, args)
+                
+                // First check if it's a built-in method on the object type
+                let object_type = self.infer_expression_type(object)?;
+                
+                // Try to find the function in scope
+                // The method call object.method(args) becomes method(object, args)
+                if let Some(func_type) = self.functions.get(method) {
+                    // For UFC, the first parameter should match the object type
+                    if !func_type.params.is_empty() {
+                        // Return the function's return type
+                        return Ok(func_type.return_type.clone());
+                    }
+                }
+                
+                // Special handling for built-in methods like .loop()
+                if method == "loop" {
+                    // .loop() on ranges and collections returns void
+                    return Ok(AstType::Void);
+                }
+                
+                // Special handling for pointer methods
+                match &object_type {
+                    AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => {
+                        if method == "val" {
+                            // Dereference pointer
+                            return match object_type {
+                                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                                    Ok(inner.as_ref().clone())
+                                }
+                                _ => unreachable!()
+                            };
+                        } else if method == "addr" {
+                            // Get address as usize
+                            return Ok(AstType::Usize);
+                        }
+                    }
+                    _ => {}
+                }
+                
+                // Special handling for Result.raise()
+                if method == "raise" {
+                    match object_type {
+                        AstType::Generic { name, type_args } if name == "Result" && !type_args.is_empty() => {
+                            return Ok(type_args[0].clone());
+                        }
+                        AstType::Result { ok_type, .. } => {
+                            return Ok(ok_type.as_ref().clone());
+                        }
+                        _ => {}
+                    }
+                }
+                
+                // If no specific handling found, try to resolve as UFC
+                // For now, return the object type as a fallback
+                // TODO: Implement full UFC resolution with function lookup
+                Ok(object_type)
             }
             Expression::Loop { body: _ } => {
                 // Loop expressions return void for now

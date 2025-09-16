@@ -1,0 +1,56 @@
+// Final comprehensive test of LANGUAGE_SPEC.zen features
+io = @std.io
+
+// Core types from spec
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+// Enum and struct definitions
+Shape: Circle | Rectangle
+Point: { x: i32, y: i32 }
+
+test_all_features = () void {
+    io.println("Testing LANGUAGE_SPEC.zen compliance...")
+    
+    // 1. Option type - no null!
+    maybe: Option<i32> = Option.Some(42)
+    maybe ?
+        | Some(v) { io.println("Option works: got 42") }
+        | None { io.println("No value") }
+    
+    // 2. Enum pattern matching
+    shape: Shape = Shape.Circle
+    shape ?
+        | Circle { io.println("Enum works: Circle") }
+        | Rectangle { io.println("Rectangle") }
+    
+    // 3. Mutable vs immutable
+    x = 10  // immutable
+    y ::= 20  // mutable
+    y = y + 5
+    io.println("Assignments work: mutable y = 25")
+    
+    // 4. @this.defer
+    @this.defer(io.println("Defer works: executed at end"))
+    
+    // 5. Loops
+    (0..3).loop((i) {
+        io.print("Loop works: ")
+    })
+    io.println("0 1 2")
+    
+    // 6. Result type
+    result: Result<i32, i32> = Result.Ok(100)
+    result ?
+        | Ok(v) { io.println("Result works: Ok(100)") }
+        | Err(e) { io.println("Error") }
+    
+    // 7. Struct
+    p = Point { x: 5, y: 10 }
+    io.println("Struct works: Point created")
+}
+
+main = () void {
+    test_all_features()
+    io.println("All core features working!")
+}

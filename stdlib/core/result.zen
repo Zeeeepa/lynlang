@@ -2,14 +2,11 @@
 // Provides a type-safe way to handle operations that can fail
 
 core = @std
+{ Option } = @std.import("core/option")
 
 // Result type - represents success (Ok) or failure (Err)
 // As per LANGUAGE_SPEC.zen: Result<T, E>: Ok(T) | Err(E)
 Result<T, E>: Ok(T) | Err(E)
-
-// Option type - represents a value that may or may not exist  
-// As per LANGUAGE_SPEC.zen: Option<T>: Some(T) | None
-Option<T>: Some(T) | None
 
 // Result methods implementation
 Result<T, E>.impl = {

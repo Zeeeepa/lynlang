@@ -386,9 +386,9 @@ string_free = (s: *String) void   {
 // Result and Option Types
 // ==========================================
 
-Option<T>: Some(T) | None
-
-Result<T, E>: Ok(T) | Err(E)
+// Import the core types
+{ Option } = @std.import("core/option")
+{ Result } = @std.import("core/result")
 
 option_is_some<T>: (opt: Option<T>) bool = {
     opt ?

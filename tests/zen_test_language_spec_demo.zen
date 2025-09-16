@@ -1,0 +1,37 @@
+// Demo of LANGUAGE_SPEC.zen key features implemented
+// This tests UFC, pointers, pattern matching, and more
+
+// UFC (Uniform Function Call) demo
+double = (x: i32) i32 {
+    return x * 2
+}
+
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+main = () void {
+    // Test UFC - calling function as method
+    x: i32 = 21
+    y = x.double()  // UFC: becomes double(x)
+    @std.io.print_int(y)  // Should print 42
+    
+    // Test UFC with multiple arguments  
+    z = x.add(21)  // UFC: becomes add(x, 21)
+    @std.io.print_int(z)  // Should print 42
+    
+    // Test mutable assignment
+    b ::= 20     // Mutable
+    b = b + 5    // Can reassign mutable
+    @std.io.print_int(b)  // Should print 25
+    
+    // Test loop
+    count ::= 0
+    loop(() {
+        count = count + 1
+        count > 3 ? {
+            break
+        }
+    })
+    @std.io.print_int(count)  // Should print 4
+}
