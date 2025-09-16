@@ -1,0 +1,36 @@
+// Test how much of LANGUAGE_SPEC.zen features we can parse
+
+// Imports
+io = @std
+
+// Structs
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Functions  
+add_points = (p1: Point, p2: Point) Point {
+    return Point {
+        x: p1.x + p2.x,
+        y: p1.y + p2.y,
+    }
+}
+
+// Main
+main = () void {
+    p1 = Point { x: 1.0, y: 2.0 }
+    p2 = Point { x: 3.0, y: 4.0 }
+    p3 = add_points(p1, p2)
+    
+    // Range loops work!
+    (0..5).loop((i) {
+        io.println("Index: ${i}")
+    })
+    
+    // Boolean patterns work!
+    is_valid = true
+    is_valid ? {
+        io.println("Valid!")
+    }
+}

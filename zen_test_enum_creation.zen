@@ -1,0 +1,14 @@
+// Test enum variant creation
+
+// Define Option type
+Option<T>: .Some(T) | .None
+
+main = () void {
+    // Try using enum literal directly
+    maybe = .Some(42)
+    
+    // Pattern match
+    maybe ?
+        | .Some(val) { x = val }
+        | .None { x = 0 }
+}

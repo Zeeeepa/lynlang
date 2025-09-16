@@ -252,8 +252,71 @@ impl<'a> Parser<'a> {
                         }
                     }
                 } else if self.peek_token == Token::Operator("::".to_string()) {
-                    // Function with type annotation: name :: (params) -> returnType { ... }
-                    declarations.push(Declaration::Function(self.parse_function()?));
+                    // Could be either:
+                    // 1. Function with type annotation: name :: (params) -> returnType { ... }
+                    // 2. Variable declaration: name :: Type = value
+                    // Need to look ahead to distinguish
+                    
+                    // Save state for restoration
+                    let saved_position = self.lexer.position;
+                    let saved_read_position = self.lexer.read_position;
+                    let saved_current_char = self.lexer.current_char;
+                    let saved_current_token = self.current_token.clone();
+                    let saved_peek_token = self.peek_token.clone();
+                    
+                    // Look ahead past ::
+                    self.next_token(); // move to ::
+                    self.next_token(); // move past ::
+                    
+                    // Check if it's a function (starts with '(')
+                    let is_function = self.current_token == Token::Symbol('(');
+                    
+                    // Restore state
+                    self.lexer.position = saved_position;
+                    self.lexer.read_position = saved_read_position;
+                    self.lexer.current_char = saved_current_char;
+                    self.current_token = saved_current_token;
+                    self.peek_token = saved_peek_token;
+                    
+                    if is_function {
+                        // Function with type annotation: name :: (params) -> returnType { ... }
+                        declarations.push(Declaration::Function(self.parse_function()?));
+                    } else {
+                        // Variable declaration: name :: Type = value
+                        // Parse as top-level variable declaration
+                        let name = if let Token::Identifier(name) = &self.current_token {
+                            name.clone()
+                        } else {
+                            unreachable!()
+                        };
+                        self.next_token(); // consume identifier
+                        self.next_token(); // consume '::'
+                        
+                        let type_ = self.parse_type()?;
+                        
+                        if self.current_token != Token::Operator("=".to_string()) {
+                            return Err(CompileError::SyntaxError(
+                                "Expected '=' after type in mutable variable declaration".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume '='
+                        
+                        let value = self.parse_expression()?;
+                        
+                        // Skip optional semicolon
+                        if self.current_token == Token::Symbol(';') {
+                            self.next_token();
+                        }
+                        
+                        // Create a top-level mutable variable declaration
+                        // For now, we'll treat it as a constant at the top level
+                        declarations.push(Declaration::Constant {
+                            name,
+                            value,
+                            type_: Some(type_),
+                        });
+                    }
                 } else if self.peek_token == Token::Symbol(':') || self.peek_token == Token::Operator("<".to_string()) {
                     // Check if it's a struct, enum, or function definition
                     let _name = if let Token::Identifier(name) = &self.current_token {
@@ -454,8 +517,60 @@ impl<'a> Parser<'a> {
                         type_: None, // Type will be inferred
                     });
                 } else if self.peek_token == Token::Operator("=".to_string()) {
-                    // Function declaration with = syntax: name = (params) returnType { ... }
-                    declarations.push(Declaration::Function(self.parse_function()?));
+                    // Could be either:
+                    // 1. Function declaration: name = (params) returnType { ... }
+                    // 2. Variable declaration: name = value
+                    // Need to look ahead to distinguish
+                    
+                    // Save state for restoration
+                    let saved_position = self.lexer.position;
+                    let saved_read_position = self.lexer.read_position;
+                    let saved_current_char = self.lexer.current_char;
+                    let saved_current_token = self.current_token.clone();
+                    let saved_peek_token = self.peek_token.clone();
+                    
+                    let name = if let Token::Identifier(n) = &self.current_token {
+                        n.clone()
+                    } else {
+                        unreachable!()
+                    };
+                    
+                    // Look ahead past =
+                    self.next_token(); // move to =
+                    self.next_token(); // move past =
+                    
+                    // Check if it's a function (starts with '(')
+                    let is_function = self.current_token == Token::Symbol('(');
+                    
+                    // Restore state
+                    self.lexer.position = saved_position;
+                    self.lexer.read_position = saved_read_position;
+                    self.lexer.current_char = saved_current_char;
+                    self.current_token = saved_current_token;
+                    self.peek_token = saved_peek_token;
+                    
+                    if is_function {
+                        // Function declaration: name = (params) returnType { ... }
+                        declarations.push(Declaration::Function(self.parse_function()?));
+                    } else {
+                        // Variable declaration: name = value
+                        self.next_token(); // consume identifier
+                        self.next_token(); // consume '='
+                        
+                        let value = self.parse_expression()?;
+                        
+                        // Skip optional semicolon
+                        if self.current_token == Token::Symbol(';') {
+                            self.next_token();
+                        }
+                        
+                        // Create a top-level constant declaration (immutable by default at top level)
+                        declarations.push(Declaration::Constant {
+                            name,
+                            value,
+                            type_: None, // Type will be inferred
+                        });
+                    }
                 } else {
                     // Check if we're at EOF or if the identifier is alone (e.g., followed by comments)
                     if self.peek_token == Token::Eof {

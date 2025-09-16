@@ -1,0 +1,4 @@
+// Test FFI.Library type parsing
+sdl2_library :: FFI.Library = {
+    name: "SDL2",
+}

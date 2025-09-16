@@ -1,0 +1,9 @@
+// Define a struct type
+Library: {
+    name: string,
+}
+
+// Use the typed struct literal
+lib = Library { 
+    name: "SDL2",
+}

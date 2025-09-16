@@ -1,4 +1,7 @@
+// Minimal enum test
+
 Option<T>: .Some(T) | .None
 
 main = () void {
+    maybe = .Some(42)
 }

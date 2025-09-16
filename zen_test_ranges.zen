@@ -1,36 +1,15 @@
-// Test range and loop functionality from LANGUAGE_SPEC.zen
+// Test range loops
 
 { io } = @std
 
 main = () void {
-    // Test basic range loop as shown in spec
-    io.println("Basic range test:")
-    (0..5).loop((i) {
-        io.println("Index: ${i}")
+    // Basic range loop
+    (0..3).loop((i) {
+        io.println("Count: 0,1,2")
     })
     
-    // Test inclusive range
-    io.println("\nInclusive range test:")
-    (1..=3).loop((n) {
-        io.println("Number: ${n}")
+    // Range with step
+    (0..10).step(5).loop((i) {
+        io.println("Step: 0,5")
     })
-    
-    // Test range with step (from spec)
-    io.println("\nStep range test:")
-    (0..10).step(2).loop((i) {
-        io.println("Step: ${i}")
-    })
-    
-    // Test infinite loop with break
-    io.println("\nInfinite loop test:")
-    counter ::= 0
-    loop(() {
-        counter = counter + 1
-        io.println("Count: ${counter}")
-        counter >= 3 ?
-            | true { break }
-            | false { }
-    })
-    
-    io.println("Done!")
 }

@@ -7,8 +7,22 @@ impl<'a> Parser<'a> {
     pub fn parse_type(&mut self) -> Result<AstType> {
         match &self.current_token {
             Token::Identifier(type_name) => {
-                let type_name = type_name.clone();
+                let mut type_name = type_name.clone();
                 self.next_token();
+                
+                // Check for member access in type names (e.g., FFI.Library)
+                while self.current_token == Token::Symbol('.') {
+                    self.next_token(); // consume '.'
+                    if let Token::Identifier(member) = &self.current_token {
+                        type_name = format!("{}.{}", type_name, member);
+                        self.next_token();
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected identifier after '.' in type name".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
                 
                 match type_name.as_str() {
                     "i8" => Ok(AstType::I8),

@@ -1,0 +1,21 @@
+// Test Shape enum  
+{ io } = @std
+
+// Define Shape enum without payload
+Shape: .Circle | .Rectangle
+
+// Test function
+calculate_area = (shape: Shape, size: f64) f64 {
+    shape ?
+        | .Circle { return 3.14159 * size * size }
+        | .Rectangle { return size * size }
+}
+
+main = () void {
+    // Test enum variant creation
+    my_shape = .Circle
+    
+    // Call function with enum
+    area = calculate_area(my_shape, 5.0)
+    io.println("Area: ${area}")
+}

@@ -1,0 +1,4 @@
+// Test simple struct literal parsing
+lib = {
+    name: "SDL2",
+}
