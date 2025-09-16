@@ -1,0 +1,27 @@
+// Test pattern matching from spec
+
+{ io } = @std
+
+main = () void {
+    // Test 1: Boolean short form
+    is_ready = true
+    is_ready ? {
+        io.print("Ready!")
+    }
+    
+    // Test 2: Full boolean pattern
+    status = false
+    status ?
+        | true { io.print("Active") }
+        | false { io.print("Inactive") }
+    
+    // Test 3: Integer patterns with wildcard
+    value = 42
+    value ?
+        | 0 { io.print("Zero") }
+        | 1 { io.print("One") }
+        | 42 { io.print("Answer") }
+        | _ { io.print("Other") }
+    
+    io.print("Done")
+}

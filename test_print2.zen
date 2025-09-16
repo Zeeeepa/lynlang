@@ -1,0 +1,6 @@
+// Test with extern declaration
+extern print(s: string) void
+
+main = () void {
+    print("Hello World")
+}

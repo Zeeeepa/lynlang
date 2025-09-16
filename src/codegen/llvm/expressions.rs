@@ -51,7 +51,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::FunctionCall { name, args } => {
                 self.compile_function_call(name, args)
             }
-            Expression::Conditional { scrutinee, arms } => {
+            Expression::QuestionMatch { scrutinee, arms } => {
                 self.compile_conditional_expression(scrutinee, arms)
             }
             Expression::AddressOf(expr) => {
@@ -96,12 +96,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::PatternMatch { scrutinee, arms } => {
                 self.compile_pattern_match(scrutinee, arms)
             }
-            Expression::StdModule(_module) => {
+            Expression::StdReference => {
                 // For now, std modules return a placeholder value
                 // This will be expanded when we implement the module system
                 Ok(self.context.i32_type().const_int(0, false).into())
             }
-            Expression::Module(_module) => {
+            Expression::ThisReference => {
                 // For now, modules return a placeholder value
                 // This will be expanded when we implement the module system  
                 Ok(self.context.i32_type().const_int(0, false).into())
@@ -129,10 +129,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::TypeCast { expr, target_type } => {
                 self.compile_type_cast(expr, target_type)
             }
+            Expression::MethodCall { object, method, args } => {
+                // For now, compile as regular function call
+                // TODO: Implement proper UFC method calls
+                self.compile_function_call(method, args)
+            }
+            Expression::Loop { body } => {
+                // TODO: Implement loop expressions
+                Ok(self.context.i32_type().const_int(0, false).into())
+            }
+            Expression::Closure { params: _, body: _ } => {
+                // TODO: Implement closures
+                Ok(self.context.i32_type().const_int(0, false).into())
+            }
+            Expression::Raise(expr) => {
+                // .raise() propagates errors early - for now just compile the inner expression
+                // TODO: Implement proper error propagation semantics
+                self.compile_expression(expr)
+            }
         }
     }
 
-    fn compile_conditional_expression(&mut self, scrutinee: &Expression, arms: &[crate::ast::ConditionalArm]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    fn compile_conditional_expression(&mut self, scrutinee: &Expression, arms: &[crate::ast::MatchArm]) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Generate a unique ID for this conditional to avoid block name collisions
         static mut CONDITIONAL_ID: u32 = 0;
         let cond_id = unsafe {
@@ -616,7 +634,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let _target_llvm_type = self.to_llvm_type(target_type)?;
         
         // Handle pointer casts
-        if matches!(target_type, AstType::Pointer(_)) {
+        if matches!(target_type, AstType::Ptr(_)) {
             // Cast to pointer type
             if let Ok(ptr_val) = value.try_into() {
                 let ptr_val: PointerValue = ptr_val;

@@ -6,6 +6,11 @@ use crate::lexer::Token;
 impl<'a> Parser<'a> {
     pub fn parse_pattern(&mut self) -> Result<Pattern> {
         match &self.current_token {
+            Token::Underscore => {
+                // Wildcard pattern
+                self.next_token();
+                Ok(Pattern::Wildcard)
+            }
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {
                 // Literal pattern or range pattern
                 let expr = self.parse_expression()?;

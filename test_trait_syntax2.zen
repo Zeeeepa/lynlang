@@ -1,0 +1,23 @@
+// Test the new .implements() syntax
+
+// Simple struct first
+Circle: {
+    radius: f64,
+}
+
+// Define a trait (behavior)
+Display: behavior {
+    display: (self: Circle) void,
+}
+
+// Now test the implements syntax
+// Circle.implements(Display, {
+//     display = (self: Circle) void {
+//         // Implementation here
+//     },
+// })
+
+// For now, just test basic function
+main = () i32 {
+    42
+}

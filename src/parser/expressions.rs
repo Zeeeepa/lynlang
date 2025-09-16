@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{Expression, BinaryOperator, Pattern};
+use crate::ast::{Expression, BinaryOperator, Pattern, MatchArm};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -9,18 +9,21 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_binary_expression(&mut self, precedence: u8) -> Result<Expression> {
-        use crate::lexer::Keyword;
         let mut left = self.parse_unary_expression()?;
         
         loop {
-            // Check for 'as' keyword for type casting
-            if let Token::Keyword(Keyword::As) = &self.current_token {
-                self.next_token(); // consume 'as'
-                let target_type = self.parse_type()?;
-                left = Expression::TypeCast {
-                    expr: Box::new(left),
-                    target_type,
-                };
+            // Check for 'as' identifier for type casting
+            if let Token::Identifier(id) = &self.current_token {
+                if id == "as" {
+                    self.next_token(); // consume 'as'
+                    let target_type = self.parse_type()?;
+                    left = Expression::TypeCast {
+                        expr: Box::new(left),
+                        target_type,
+                    };
+                } else {
+                    break;
+                }
             } else if let Token::Operator(op) = &self.current_token {
                 let op_clone = op.clone();
                 let next_prec = self.get_precedence(&op_clone);
@@ -46,7 +49,7 @@ impl<'a> Parser<'a> {
                 } else {
                     break;
                 }
-            } else if self.current_token == Token::Symbol('?') {
+            } else if self.current_token == Token::Question {
                 // Handle pattern matching with low precedence (but higher than assignment)
                 // This ensures x < y ? ... parses as (x < y) ? ...
                 if precedence < 1 {  // Pattern match has very low precedence
@@ -99,7 +102,7 @@ impl<'a> Parser<'a> {
 
     fn parse_primary_expression(&mut self) -> Result<Expression> {
         match &self.current_token {
-            Token::Keyword(crate::lexer::Keyword::Comptime) => {
+            Token::Identifier(id) if id == "comptime" => {
                 self.next_token(); // consume 'comptime'
                 let expr = self.parse_expression()?;
                 Ok(Expression::Comptime(Box::new(expr)))
@@ -182,11 +185,91 @@ impl<'a> Parser<'a> {
                 let name = name.clone();
                 self.next_token();
                 
+                // Check for special identifiers
+                if name == "@std" {
+                    return Ok(Expression::StdReference);
+                } else if name == "@this" {
+                    return Ok(Expression::ThisReference);
+                }
+                
                 // Check for boolean literals
                 if name == "true" {
                     return Ok(Expression::Boolean(true));
                 } else if name == "false" {
                     return Ok(Expression::Boolean(false));
+                }
+                
+                // Check for loop() function syntax
+                if name == "loop" && self.current_token == Token::Symbol('(') {
+                    self.next_token(); // consume '('
+                    
+                    // Parse the closure argument
+                    let loop_body = if self.current_token == Token::Symbol('(') {
+                        // Parse closure parameter list
+                        self.next_token(); // consume '('
+                        let mut params = vec![];
+                        
+                        while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
+                            if let Token::Identifier(param_name) = &self.current_token {
+                                params.push((param_name.clone(), None));
+                                self.next_token();
+                                
+                                if self.current_token == Token::Symbol(',') {
+                                    self.next_token();
+                                } else if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ',' or ')' in closure parameters".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            } else {
+                                return Err(CompileError::SyntaxError(
+                                    "Expected parameter name in closure".to_string(),
+                                    Some(self.current_span.clone()),
+                                ));
+                            }
+                        }
+                        
+                        if self.current_token != Token::Symbol(')') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ')' after closure parameters".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume ')'
+                        
+                        // Parse closure body
+                        if self.current_token != Token::Symbol('{') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected '{' for closure body".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        
+                        let body = self.parse_block_expression()?;
+                        Expression::Closure {
+                            params,
+                            body: Box::new(body),
+                        }
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected closure as argument to loop()".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    };
+                    
+                    if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ')' after loop closure".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token(); // consume ')'
+                    
+                    // Return a Loop expression
+                    return Ok(Expression::Loop {
+                        body: Box::new(loop_body),
+                    });
                 }
                 
                 // Check for enum variant syntax: EnumName::VariantName
@@ -281,10 +364,6 @@ impl<'a> Parser<'a> {
                             
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
-                                Token::Keyword(kw) => {
-                                    // Allow keywords as member names (e.g., .loop, .await, etc.)
-                                    format!("{:?}", kw).to_lowercase()
-                                }
                                 _ => {
                                     return Err(CompileError::SyntaxError(
                                         "Expected identifier after '.'".to_string(),
@@ -293,10 +372,24 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            expr = Expression::MemberAccess {
-                                object: Box::new(expr),
-                                member,
-                            };
+                            
+                            // Check for .raise() with empty parens
+                            if member == "raise" && self.current_token == Token::Symbol('(') {
+                                self.next_token(); // consume '('
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after 'raise('".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                expr = Expression::Raise(Box::new(expr));
+                            } else {
+                                expr = Expression::MemberAccess {
+                                    object: Box::new(expr),
+                                    member,
+                                };
+                            }
                         }
                         Token::Symbol('[') => {
                             // Array indexing
@@ -352,10 +445,6 @@ impl<'a> Parser<'a> {
                             
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
-                                Token::Keyword(kw) => {
-                                    // Allow keywords as member names (e.g., .loop, .await, etc.)
-                                    format!("{:?}", kw).to_lowercase()
-                                }
                                 _ => {
                                     return Err(CompileError::SyntaxError(
                                         "Expected identifier after '.'".to_string(),
@@ -364,10 +453,24 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            expr = Expression::MemberAccess {
-                                object: Box::new(expr),
-                                member,
-                            };
+                            
+                            // Check for .raise() with empty parens
+                            if member == "raise" && self.current_token == Token::Symbol('(') {
+                                self.next_token(); // consume '('
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after 'raise('".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                expr = Expression::Raise(Box::new(expr));
+                            } else {
+                                expr = Expression::MemberAccess {
+                                    object: Box::new(expr),
+                                    member,
+                                };
+                            }
                         }
                         Token::Symbol('[') => {
                             // Array indexing
@@ -444,27 +547,151 @@ impl<'a> Parser<'a> {
 
     fn parse_call_expression_with_object(&mut self, object: Expression, method_name: String) -> Result<Expression> {
         self.next_token(); // consume '('
+        
+        // Check if this is a module function call like io.print or math.sqrt
+        // These should be treated as qualified function names, not method calls
+        let is_module_call = match &object {
+            Expression::Identifier(obj_name) => {
+                // Common module names from @std
+                obj_name == "io" || obj_name == "math" || obj_name == "core" || 
+                obj_name == "net" || obj_name == "os" || obj_name == "fs" ||
+                obj_name == "json" || obj_name == "http" || obj_name == "time"
+            }
+            _ => false,
+        };
+        
         let mut arguments = vec![];
         if self.current_token != Token::Symbol(')') {
-            loop {
-                arguments.push(self.parse_expression()?);
-                if self.current_token == Token::Symbol(')') {
-                    break;
+            // Special handling for .loop() which takes a closure
+            if method_name == "loop" && self.current_token == Token::Symbol('(') {
+                // Parse closure argument for .loop()
+                self.next_token(); // consume '('
+                let mut params = vec![];
+                
+                // Parse closure parameters
+                while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
+                    if let Token::Identifier(param_name) = &self.current_token {
+                        params.push((param_name.clone(), None));
+                        self.next_token();
+                        
+                        // Check for optional second parameter (index)
+                        if self.current_token == Token::Symbol(',') {
+                            self.next_token();
+                            if let Token::Identifier(param_name) = &self.current_token {
+                                params.push((param_name.clone(), None));
+                                self.next_token();
+                            }
+                        }
+                        break; // .loop() only takes 1 or 2 params
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected parameter name in closure".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
                 }
-                if self.current_token != Token::Symbol(',') {
+                
+                if self.current_token != Token::Symbol(')') {
                     return Err(CompileError::SyntaxError(
-                        "Expected ',' or ')' in function call".to_string(),
+                        "Expected ')' after closure parameters".to_string(),
                         Some(self.current_span.clone()),
                     ));
                 }
-                self.next_token();
+                self.next_token(); // consume ')'
+                
+                // Parse closure body
+                if self.current_token != Token::Symbol('{') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '{' for closure body".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                
+                let body = self.parse_block_expression()?;
+                arguments.push(Expression::Closure {
+                    params,
+                    body: Box::new(body),
+                });
+            } else {
+                // Regular argument parsing
+                loop {
+                    // Check for closure syntax: (params) { body }
+                    if self.current_token == Token::Symbol('(') {
+                        // Try to parse as closure
+                        let saved_pos = self.lexer.position;
+                        let saved_read_pos = self.lexer.read_position;
+                        let saved_char = self.lexer.current_char;
+                        let saved_current = self.current_token.clone();
+                        let saved_peek = self.peek_token.clone();
+                        
+                        // Try to parse closure
+                        self.next_token(); // consume '('
+                        let mut params = vec![];
+                        let mut is_closure = true;
+                        
+                        while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
+                            if let Token::Identifier(param_name) = &self.current_token {
+                                params.push((param_name.clone(), None));
+                                self.next_token();
+                                if self.current_token == Token::Symbol(',') {
+                                    self.next_token();
+                                }
+                            } else {
+                                // Not a closure, restore and parse as expression
+                                is_closure = false;
+                                break;
+                            }
+                        }
+                        
+                        if is_closure && self.current_token == Token::Symbol(')') {
+                            self.next_token(); // consume ')'
+                            if self.current_token == Token::Symbol('{') {
+                                // It's a closure!
+                                let body = self.parse_block_expression()?;
+                                arguments.push(Expression::Closure {
+                                    params,
+                                    body: Box::new(body),
+                                });
+                            } else {
+                                // Not a closure, restore and parse as expression
+                                self.lexer.position = saved_pos;
+                                self.lexer.read_position = saved_read_pos;
+                                self.lexer.current_char = saved_char;
+                                self.current_token = saved_current;
+                                self.peek_token = saved_peek;
+                                arguments.push(self.parse_expression()?);
+                            }
+                        } else {
+                            // Not a closure, restore and parse as expression
+                            self.lexer.position = saved_pos;
+                            self.lexer.read_position = saved_read_pos;
+                            self.lexer.current_char = saved_char;
+                            self.current_token = saved_current;
+                            self.peek_token = saved_peek;
+                            arguments.push(self.parse_expression()?);
+                        }
+                    } else {
+                        arguments.push(self.parse_expression()?);
+                    }
+                    
+                    if self.current_token == Token::Symbol(')') {
+                        break;
+                    }
+                    if self.current_token != Token::Symbol(',') {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ',' or ')' in function call".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token();
+                }
             }
         }
         self.next_token(); // consume ')'
         
         // UFCS implementation: Transform object.method(args) into method(object, args)
-        // First, check if this is a stdlib method call (contains '.')
-        if method_name.contains('.') {
+        // First, check if this is a stdlib method call (module function)
+        if is_module_call {
             // This is a stdlib call like io.print, keep the original format
             Ok(Expression::FunctionCall {
                 name: format!("{}.{}", match &object {
@@ -476,21 +703,43 @@ impl<'a> Parser<'a> {
                 }, method_name),
                 args: arguments,
             })
-        } else {
-            // This is UFCS: transform object.method(args) into method(object, args)
-            // But preserve the full qualified name for debugging/display purposes
-            let full_name = match &object {
-                Expression::Identifier(obj_name) => format!("{}.{}", obj_name, method_name),
-                _ => method_name.clone(),
-            };
-            
-            let mut ufcs_args = vec![object];
-            ufcs_args.extend(arguments);
-            
+        } else if method_name.contains('.') {
+            // This shouldn't happen anymore but keep for compatibility
             Ok(Expression::FunctionCall {
-                name: full_name,
-                args: ufcs_args,
+                name: format!("{}.{}", match &object {
+                    Expression::Identifier(name) => name.clone(),
+                    _ => return Err(CompileError::SyntaxError(
+                        "Expected identifier for object in method call".to_string(),
+                        Some(self.current_span.clone()),
+                    )),
+                }, method_name),
+                args: arguments,
             })
+        } else {
+            // Special handling for .loop() method on collections
+            if method_name == "loop" {
+                // Create a MethodCall expression for .loop()
+                Ok(Expression::MethodCall {
+                    object: Box::new(object),
+                    method: method_name,
+                    args: arguments,
+                })
+            } else {
+                // This is UFCS: transform object.method(args) into method(object, args)
+                // But preserve the full qualified name for debugging/display purposes
+                let full_name = match &object {
+                    Expression::Identifier(obj_name) => format!("{}.{}", obj_name, method_name),
+                    _ => method_name.clone(),
+                };
+                
+                let mut ufcs_args = vec![object];
+                ufcs_args.extend(arguments);
+                
+                Ok(Expression::FunctionCall {
+                    name: full_name,
+                    args: ufcs_args,
+                })
+            }
         }
     }
     
@@ -547,63 +796,27 @@ impl<'a> Parser<'a> {
         // Check for bool pattern short form: expr ? { block }
         if self.current_token == Token::Symbol('{') {
             // Bool pattern short form - execute block if scrutinee is true
-            self.next_token(); // consume '{'
-            
-            let mut statements = Vec::new();
-            let mut final_expr = None;
-            
-            while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-                // Check if this could be the final expression
-                if self.peek_token == Token::Symbol('}') {
-                    // This might be the final expression (no semicolon)
-                    let expr = self.parse_expression()?;
-                    if self.current_token == Token::Symbol(';') {
-                        // It's a statement, not the final expression
-                        self.next_token();
-                        statements.push(crate::ast::Statement::Expression(expr));
-                    } else {
-                        // It's the final expression
-                        final_expr = Some(expr);
-                    }
-                } else {
-                    // Parse as statement
-                    let expr = self.parse_expression()?;
-                    if self.current_token == Token::Symbol(';') {
-                        self.next_token();
-                    }
-                    statements.push(crate::ast::Statement::Expression(expr));
-                }
-            }
-            
-            if self.current_token != Token::Symbol('}') {
-                return Err(CompileError::SyntaxError(
-                    "Expected '}' to close block in bool pattern".to_string(),
-                    Some(self.current_span.clone()),
-                ));
-            }
-            self.next_token(); // consume '}'
-            
-            let body = final_expr.unwrap_or(Expression::Boolean(true));
+            let body = self.parse_block_expression()?;
             
             // Convert to standard pattern match with true pattern
             let arms = vec![
-                crate::ast::ConditionalArm {
+                MatchArm {
                     pattern: Pattern::Literal(Expression::Boolean(true)),
                     guard: None,
                     body,
                 },
-                crate::ast::ConditionalArm {
+                MatchArm {
                     pattern: Pattern::Wildcard,
                     guard: None,
-                    body: Expression::Boolean(false), // Default to false for else case
+                    body: Expression::Block(vec![]), // Empty block for else case (returns void like the true case)
                 },
             ];
             
-            return Ok(Expression::Conditional { scrutinee, arms });
+            return Ok(Expression::QuestionMatch { scrutinee, arms });
         }
         
         // Standard pattern matching with | pattern => expr
-        if self.current_token != Token::Symbol('|') {
+        if self.current_token != Token::Pipe {
             return Err(CompileError::SyntaxError(
                 "Expected '|' to start pattern matching arms or '{' for bool pattern".to_string(),
                 Some(self.current_span.clone()),
@@ -613,15 +826,15 @@ impl<'a> Parser<'a> {
         let mut arms = vec![];
         
         // Parse arms: | pattern => expr | pattern => expr ...
-        while self.current_token == Token::Symbol('|') {
+        while self.current_token == Token::Pipe {
             self.next_token(); // consume '|'
             
             // Parse pattern - could be single or multiple (or patterns)
             let mut patterns = vec![self.parse_pattern()?];
             
             // Check for additional patterns separated by |
-            while self.current_token == Token::Symbol('|') && 
-                  self.peek_token != Token::Symbol('|') && // Not start of next arm
+            while self.current_token == Token::Pipe && 
+                  self.peek_token != Token::Pipe && // Not start of next arm
                   self.peek_token != Token::Eof {
                 // This is an or pattern - consume the | and parse the next pattern
                 self.next_token();
@@ -636,7 +849,7 @@ impl<'a> Parser<'a> {
             };
             
             // Check for destructuring/guard with ->
-            let guard = if self.current_token == Token::Operator("->".to_string()) {
+            let guard = if self.current_token == Token::Arrow {
                 self.next_token();
                 // TODO: Properly handle destructuring vs guards
                 // For now, treat it as a guard
@@ -645,16 +858,7 @@ impl<'a> Parser<'a> {
                 None
             };
             
-            // Expect =>
-            if self.current_token != Token::Operator("=>".to_string()) {
-                return Err(CompileError::SyntaxError(
-                    "Expected '=>' after pattern in match arm".to_string(),
-                    Some(self.current_span.clone()),
-                ));
-            }
-            self.next_token(); // consume '=>'
-            
-            // Parse the result expression or block
+            // Parse body - can be either { block } or => expr (for compatibility)
             let body = if self.current_token == Token::Symbol('{') {
                 // Parse block as expression
                 self.next_token(); // consume '{'
@@ -696,32 +900,43 @@ impl<'a> Parser<'a> {
                 
                 // For now, treat blocks as the final expression or a default value
                 final_expr.unwrap_or(Expression::Boolean(true))
-            } else {
+            } else if self.current_token == Token::FatArrow {
+                // Legacy => syntax for compatibility
+                self.next_token(); // consume '=>'
                 // Handle return statement in pattern arm specially
-                if let Token::Keyword(crate::lexer::Keyword::Return) = self.current_token {
-                    self.next_token(); // consume 'return'
-                    let return_expr = self.parse_expression()?;
-                    // Wrap return in a special expression type or handle it differently
-                    // For now, we'll just use the return expression directly
-                    // In a full implementation, we'd need a Block expression type with statements
-                    return_expr
+                if let Token::Identifier(id) = &self.current_token {
+                    if id == "return" {
+                        self.next_token(); // consume 'return'
+                        let return_expr = self.parse_expression()?;
+                        // Wrap return in a special expression type or handle it differently
+                        // For now, we'll just use the return expression directly
+                        // In a full implementation, we'd need a Block expression type with statements
+                        return_expr
+                    } else {
+                        self.parse_expression()?
+                    }
                 } else {
                     self.parse_expression()?
                 }
+            } else {
+                return Err(CompileError::SyntaxError(
+                    "Expected '{' or '=>' after pattern in match arm".to_string(),
+                    Some(self.current_span.clone()),
+                ));
             };
             
-            arms.push(crate::ast::ConditionalArm {
+            arms.push(MatchArm {
                 pattern,
                 guard,
                 body,
             });
             
             // Check if there are more arms
-            if self.current_token != Token::Symbol('|') {
+            if self.current_token != Token::Pipe {
                 break;
             }
         }
-        Ok(Expression::Conditional {
+        Ok(Expression::QuestionMatch {
             scrutinee,
             arms,
         })

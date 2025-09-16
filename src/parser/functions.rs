@@ -48,14 +48,20 @@ impl<'a> Parser<'a> {
             }
         }
         
-        // Expect ':' for function type definition
-        if self.current_token != Token::Symbol(':') {
+        // Check for ':' or '=' for function definition
+        // Both syntaxes are valid: name : (params) or name = (params)
+        let uses_equals_syntax = if self.current_token == Token::Symbol(':') {
+            self.next_token();
+            false
+        } else if self.current_token == Token::Operator("=".to_string()) {
+            self.next_token();
+            true
+        } else {
             return Err(CompileError::SyntaxError(
-                "Expected ':' after function name for type definition".to_string(),
+                "Expected ':' or '=' after function name for type definition".to_string(),
                 Some(self.current_span.clone()),
             ));
-        }
-        self.next_token();
+        };
         
         // Parameters
         if self.current_token != Token::Symbol('(') {
@@ -107,26 +113,35 @@ impl<'a> Parser<'a> {
         self.next_token(); // consume ')'
         
         // Parse return type (required in zen, comes directly after parentheses)
-        let return_type = if self.current_token == Token::Operator("=".to_string()) {
-            // If we see '=' immediately, default to void
-            crate::ast::AstType::Void
-        } else {
-            // Parse the return type
-            let ret_type = self.parse_type()?;
-            // After return type, expect '=' before body
-            if self.current_token != Token::Operator("=".to_string()) {
-                return Err(CompileError::SyntaxError(
-                    "Expected '=' after return type before function body".to_string(),
-                    Some(self.current_span.clone()),
-                ));
+        let return_type = if uses_equals_syntax {
+            // For '=' syntax, return type comes directly after ')'
+            if self.current_token == Token::Symbol('{') {
+                // No return type specified, default to void
+                crate::ast::AstType::Void
+            } else {
+                // Parse the return type
+                self.parse_type()?
             }
-            ret_type
+        } else {
+            // For ':' syntax, we may have '=' before the body
+            if self.current_token == Token::Operator("=".to_string()) {
+                // If we see '=' immediately, default to void
+                self.next_token();
+                crate::ast::AstType::Void
+            } else {
+                // Parse the return type
+                let ret_type = self.parse_type()?;
+                // After return type, expect '=' before body
+                if self.current_token != Token::Operator("=".to_string()) {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '=' after return type before function body".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '='
+                ret_type
+            }
         };
-        
-        // Skip '=' if we haven't already
-        if self.current_token == Token::Operator("=".to_string()) {
-            self.next_token();
-        }
         
         // Function body
         if self.current_token != Token::Symbol('{') {

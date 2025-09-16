@@ -219,10 +219,10 @@ impl<'a> TypeInstantiator<'a> {
             Expression::AddressOf(expr) => {
                 Expression::AddressOf(Box::new(self.instantiate_expression(expr, substitution)))
             }
-            Expression::Conditional { scrutinee, arms } => {
-                Expression::Conditional {
+            Expression::QuestionMatch { scrutinee, arms } => {
+                Expression::QuestionMatch {
                     scrutinee: Box::new(self.instantiate_expression(scrutinee, substitution)),
-                    arms: arms.iter().map(|arm| crate::ast::ConditionalArm {
+                    arms: arms.iter().map(|arm| crate::ast::MatchArm {
                         pattern: arm.pattern.clone(),
                         guard: arm.guard.as_ref().map(|g| self.instantiate_expression(g, substitution)),
                         body: self.instantiate_expression(&arm.body, substitution),
@@ -258,7 +258,7 @@ fn type_to_string(ast_type: &AstType) -> String {
         AstType::Bool => "bool".to_string(),
         AstType::String => "string".to_string(),
         AstType::Void => "void".to_string(),
-        AstType::Pointer(inner) => format!("ptr_{}", type_to_string(inner)),
+        AstType::Ptr(inner) => format!("ptr_{}", type_to_string(inner)),
         AstType::Array(inner) => format!("arr_{}", type_to_string(inner)),
         AstType::Generic { name, type_args } => {
             if type_args.is_empty() {

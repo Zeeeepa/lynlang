@@ -1,0 +1,25 @@
+// Test Option and Result types from spec
+
+{ io } = @std
+
+// Option type - as per spec, only two special symbols: @std and @this
+Option<T>: .Some(T) | .None
+
+// Result type for error handling
+Result<T, E>: .Ok(T) | .Err(E)
+
+main = () void {
+    // Test Option type
+    maybe_value: Option<i32> = .Some(42)
+    
+    maybe_value ?
+        | .Some(v) { io.print("Got value") }
+        | .None { io.print("No value") }
+    
+    // Test Result type
+    result: Result<i32, string> = .Ok(100)
+    
+    result ?
+        | .Ok(val) { io.print("Success") }
+        | .Err(e) { io.print("Error") }
+}

@@ -1,0 +1,7 @@
+// Test without destructuring import
+
+io = @std.import("io")
+
+main = () void {
+    io.print("Hello")
+}

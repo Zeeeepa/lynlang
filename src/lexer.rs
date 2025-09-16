@@ -1,29 +1,19 @@
 use crate::error::Span;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Keyword {
-    Loop,
-    Comptime,
-    As,
-    Behavior,
-    Impl,
-    Extern,
-    Break,
-    Continue,
-    Return,
-    Type,
-    Defer,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Identifier(String),
     Integer(String),
     Float(String),
     StringLiteral(String),
-    Keyword(Keyword),
     Symbol(char),
     Operator(String),
+    Arrow,        // ->
+    FatArrow,     // =>
+    Question,     // ?
+    Pipe,         // |
+    Underscore,   // _ (for wildcard patterns)
+    At,           // @ (for @std and @this)
     Eof,
 }
 
@@ -93,12 +83,37 @@ impl<'a> Lexer<'a> {
         let start_column = self.column;
         
         let token = match self.current_char {
-            Some(c) if c.is_ascii_alphabetic() || c == '_' || c == '@' => {
+            Some('@') => {
+                // Handle @std and @this special symbols
                 let ident = self.read_identifier();
-                match self.str_to_keyword(&ident) {
-                    Some(keyword) => Token::Keyword(keyword),
-                    None => Token::Identifier(ident),
+                Token::Identifier(ident)
+            }
+            Some('_') => {
+                // Check if it's just underscore (wildcard) or part of identifier
+                let start = self.position;
+                self.read_char();
+                if let Some(c) = self.current_char {
+                    if c.is_ascii_alphanumeric() || c == '_' {
+                        // Part of identifier, continue reading
+                        while let Some(ch) = self.current_char {
+                            if ch.is_ascii_alphanumeric() || ch == '_' {
+                                self.read_char();
+                            } else {
+                                break;
+                            }
+                        }
+                        Token::Identifier(self.input[start..self.position].to_string())
+                    } else {
+                        // Just underscore (wildcard)
+                        Token::Underscore
+                    }
+                } else {
+                    Token::Underscore
                 }
+            }
+            Some(c) if c.is_ascii_alphabetic() => {
+                let ident = self.read_identifier();
+                Token::Identifier(ident)
             }
             Some(c) if c.is_ascii_digit() => {
                 let number = self.read_number();
@@ -178,10 +193,10 @@ impl<'a> Lexer<'a> {
             }
             Some('?') => {
                 self.read_char();
-                Token::Symbol('?')
+                Token::Question
             }
             Some('|') => {
-                // Only treat as operator if part of '||'
+                // Check for '||' operator
                 if let Some(next) = self.peek_char() {
                     if next == '|' {
                         self.read_char(); // consume '|'
@@ -192,8 +207,9 @@ impl<'a> Lexer<'a> {
                         };
                     }
                 }
+                // Single pipe for pattern matching
                 self.read_char();
-                Token::Symbol('|')
+                Token::Pipe
             }
             Some('&') => {
                 // Check for '&&' operator
@@ -240,6 +256,27 @@ impl<'a> Lexer<'a> {
             Some(c) if self.is_symbol(c) => {
                 self.read_char();
                 Token::Symbol(c)
+            }
+            Some('-') => {
+                self.read_char();
+                if self.current_char == Some('>') {
+                    self.read_char();
+                    Token::Arrow
+                } else {
+                    Token::Operator("-".to_string())
+                }
+            }
+            Some('=') => {
+                self.read_char();
+                if self.current_char == Some('=') {
+                    self.read_char();
+                    Token::Operator("==".to_string())
+                } else if self.current_char == Some('>') {
+                    self.read_char();
+                    Token::FatArrow
+                } else {
+                    Token::Operator("=".to_string())
+                }
             }
             Some(c) if self.is_operator_start(c) => {
                 let op = self.read_operator();
@@ -346,29 +383,13 @@ impl<'a> Lexer<'a> {
         self.input[start..self.position].to_string()
     }
 
-    fn str_to_keyword(&self, ident: &str) -> Option<Keyword> {
-        match ident {
-            "loop" => Some(Keyword::Loop),
-            "comptime" => Some(Keyword::Comptime),
-            "as" => Some(Keyword::As),
-            "behavior" => Some(Keyword::Behavior),
-            "impl" => Some(Keyword::Impl),
-            "extern" => Some(Keyword::Extern),
-            "break" => Some(Keyword::Break),
-            "continue" => Some(Keyword::Continue),
-            "return" => Some(Keyword::Return),
-            "type" => Some(Keyword::Type),
-            "defer" => Some(Keyword::Defer),
-            _ => None,
-        }
-    }
 
     fn is_symbol(&self, c: char) -> bool {
         matches!(c, '{' | '}' | '(' | ')' | '[' | ']' | ';' | ',' | '|' | '&' | '.' | '?')
     }
 
     fn is_operator_start(&self, c: char) -> bool {
-        matches!(c, '+' | '-' | '*' | '/' | '=' | '!' | '<' | '>' | '&' | '|' | ':')
+        matches!(c, '+' | '*' | '/' | '!' | '<' | '>' | '&' | '|' | ':')
     }
 
     fn read_string(&mut self) -> String {
@@ -427,7 +448,7 @@ impl<'a> Lexer<'a> {
         // Handle two-character operators
         if let Some(second_char) = self.current_char {
             let two_char_op = format!("{}{}", first_char, second_char);
-            if matches!(two_char_op.as_str(), "==" | "!=" | "<=" | ">=" | "&&" | "||" | "->" | "=>" | ":=" | "::" | ".." | "..=") {
+            if matches!(two_char_op.as_str(), "==" | "!=" | "<=" | ">=" | "&&" | "||" | ":=" | "::" | ".." | "..=") {
                 self.read_char();
                 return two_char_op;
             }

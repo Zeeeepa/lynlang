@@ -98,8 +98,8 @@ builder = (b :: Build) void {
 
 { Actor, Channel, Mutex, AtomicU32 } = @std
 
-sdl2 = @stdd.import("sdl2")
-ecs = @stdd.import("ecs")
+sdl2 = @std.import("sdl2")
+ecs = @std.import("ecs")
 
 
 // No null! Only Option types

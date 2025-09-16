@@ -25,15 +25,15 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
 
     // Check for pointer compatibility
     match (expected, actual) {
-        (AstType::Pointer(expected_inner), AstType::Pointer(actual_inner)) => {
+        (AstType::Ptr(expected_inner), AstType::Ptr(actual_inner)) => {
             types_compatible(expected_inner, actual_inner)
         }
         // Allow array to decay to pointer
-        (AstType::Pointer(expected_inner), AstType::Array(actual_inner)) => {
+        (AstType::Ptr(expected_inner), AstType::Array(actual_inner)) => {
             types_compatible(expected_inner, actual_inner)
         }
         // Allow fixed array to decay to pointer
-        (AstType::Pointer(expected_inner), AstType::FixedArray { element_type, .. }) => {
+        (AstType::Ptr(expected_inner), AstType::FixedArray { element_type, .. }) => {
             types_compatible(expected_inner, element_type)
         }
         // Check struct compatibility
@@ -109,11 +109,11 @@ pub fn can_implicitly_convert(from: &AstType, to: &AstType) -> bool {
     // Array to pointer decay
     matches!(
         (from, to),
-        (AstType::Array(from_elem), AstType::Pointer(to_elem))
+        (AstType::Array(from_elem), AstType::Ptr(to_elem))
             if types_compatible(from_elem, to_elem)
     ) || matches!(
         (from, to),
-        (AstType::FixedArray { element_type: from_elem, .. }, AstType::Pointer(to_elem))
+        (AstType::FixedArray { element_type: from_elem, .. }, AstType::Ptr(to_elem))
             if types_compatible(from_elem, to_elem)
     )
 }
@@ -142,7 +142,7 @@ pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
     match type_ {
         AstType::Array(elem_type) => Some((**elem_type).clone()),
         AstType::FixedArray { element_type, .. } => Some((**element_type).clone()),
-        AstType::Pointer(elem_type) => Some((**elem_type).clone()),
+        AstType::Ptr(elem_type) => Some((**elem_type).clone()),
         AstType::String => Some(AstType::U8), // Indexing string gives bytes
         _ => None,
     }
@@ -151,7 +151,7 @@ pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
 /// Check if a type supports the dereference operation
 pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
     match type_ {
-        AstType::Pointer(inner) => Some((**inner).clone()),
+        AstType::Ptr(inner) => Some((**inner).clone()),
         AstType::Ref(inner) => Some((**inner).clone()),
         _ => None,
     }

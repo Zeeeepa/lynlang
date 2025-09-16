@@ -200,7 +200,7 @@ impl Monomorphizer {
                 self.collect_instantiations_from_expression(left)?;
                 self.collect_instantiations_from_expression(right)
             }
-            Expression::Conditional { scrutinee, arms } => {
+            Expression::QuestionMatch { scrutinee, arms } => {
                 self.collect_instantiations_from_expression(scrutinee)?;
                 for arm in arms {
                     if let Some(guard) = &arm.guard {
@@ -236,7 +236,7 @@ impl Monomorphizer {
                 }
                 Ok(())
             }
-            AstType::Pointer(inner) | AstType::Array(inner) | 
+            AstType::Ptr(inner) | AstType::Array(inner) | 
             AstType::Option(inner) | AstType::Ref(inner) => {
                 self.collect_instantiations_from_type(inner)
             }
@@ -288,7 +288,7 @@ impl Monomorphizer {
     fn type_uses_parameter(&self, ast_type: &AstType, param_name: &str) -> bool {
         match ast_type {
             AstType::Generic { name, .. } if name == param_name => true,
-            AstType::Pointer(inner) | AstType::Array(inner) | 
+            AstType::Ptr(inner) | AstType::Array(inner) | 
             AstType::Option(inner) | AstType::Ref(inner) => {
                 self.type_uses_parameter(inner, param_name)
             }

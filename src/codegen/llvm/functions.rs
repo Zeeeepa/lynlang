@@ -72,8 +72,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
     /// Defines and compiles a function in one step
     pub fn declare_function(&mut self, function: &ast::Function) -> Result<FunctionValue<'ctx>, CompileError> {
         
+        // Special case for main function - C runtime expects int return
+        let actual_return_type = if function.name == "main" && matches!(function.return_type, AstType::Void) {
+            AstType::I32
+        } else {
+            function.return_type.clone()
+        };
+        
         // First, get the return type
-        let return_type = self.to_llvm_type(&function.return_type)?;
+        let return_type = self.to_llvm_type(&actual_return_type)?;
         
         // Get parameter basic types with their names
         let param_basic_types: Result<Vec<BasicTypeEnum>, CompileError> = function
@@ -211,8 +218,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let casted_value = self.cast_value_to_type(value, return_basic_type)?;
                                 self.builder.build_return(Some(&casted_value))?;
                             } else {
-                                // For void functions, just return void
-                                self.builder.build_return(None)?;
+                                // For void functions, special case for main
+                                if function.name == "main" {
+                                    let zero = self.context.i32_type().const_int(0, false);
+                                    self.builder.build_return(Some(&zero))?;
+                                } else {
+                                    self.builder.build_return(None)?;
+                                }
                             }
                         }
                         ast::Statement::ComptimeBlock(statements) => {
@@ -231,14 +243,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     return Err(CompileError::MissingReturnStatement(function.name.clone(), None));
                                 }
                             } else {
-                                // For void functions, just return void
-                                self.builder.build_return(None)?;
+                                // For void functions, special case for main
+                                if function.name == "main" {
+                                    let zero = self.context.i32_type().const_int(0, false);
+                                    self.builder.build_return(Some(&zero))?;
+                                } else {
+                                    self.builder.build_return(None)?;
+                                }
                             }
                         }
                         _ => {
                             // Not a trailing expression, handle normally
                             if let AstType::Void = function.return_type {
-                                self.builder.build_return(None)?;
+                                // Special case for main function - return 0
+                                if function.name == "main" {
+                                    let zero = self.context.i32_type().const_int(0, false);
+                                    self.builder.build_return(Some(&zero))?;
+                                } else {
+                                    self.builder.build_return(None)?;
+                                }
                             } else {
                                 return Err(CompileError::MissingReturnStatement(function.name.clone(), None));
                             }
@@ -247,7 +270,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     // No statements in function body
                     if let AstType::Void = function.return_type {
-                        self.builder.build_return(None)?;
+                        // Special case for main function - return 0
+                        if function.name == "main" {
+                            let zero = self.context.i32_type().const_int(0, false);
+                            self.builder.build_return(Some(&zero))?;
+                        } else {
+                            self.builder.build_return(None)?;
+                        }
                     } else {
                         return Err(CompileError::MissingReturnStatement(function.name.clone(), None));
                     }
@@ -385,7 +414,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         _ => return Err(CompileError::InternalError("Function return type must be a basic type or void".to_string(), None)),
                     }
                 },
-                AstType::Pointer(inner) if matches!(**inner, AstType::FunctionPointer { .. }) => {
+                AstType::Ptr(inner) if matches!(**inner, AstType::FunctionPointer { .. }) => {
                     let inner_llvm_type = self.to_llvm_type(inner)?;
                     match inner_llvm_type {
                         Type::Basic(inkwell::types::BasicTypeEnum::PointerType(_ptr_type)) => {
@@ -467,6 +496,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
     /// Compile io.print function call
     fn compile_io_print(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if args.len() != 1 {
+            eprintln!("DEBUG: io.print called with {} arguments", args.len());
+            for (i, arg) in args.iter().enumerate() {
+                eprintln!("  Arg {}: {:?}", i, arg);
+            }
             return Err(CompileError::TypeError(
                 format!("io.print expects 1 argument, got {}", args.len()),
                 None,

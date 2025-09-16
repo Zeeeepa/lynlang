@@ -22,7 +22,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::Bool => Ok(Type::Basic(self.context.bool_type().into())),
             AstType::String => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
             AstType::Void => Ok(Type::Void),
-            AstType::Pointer(inner) => {
+            AstType::Ptr(inner) => {
                 let inner_type = self.to_llvm_type(inner)?;
                 match inner_type {
                     Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
@@ -158,6 +158,46 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     self.context.i64_type().into(),
                 ], false);
                 Ok(Type::Struct(range_struct))
+            },
+            AstType::MutPtr(inner) => {
+                // MutPtr<T> is represented as a pointer to T (same as Ptr in LLVM)
+                let inner_type = self.to_llvm_type(inner)?;
+                match inner_type {
+                    Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Struct(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Void => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    _ => Err(CompileError::UnsupportedFeature("Unsupported pointer type".to_string(), None)),
+                }
+            },
+            AstType::RawPtr(inner) => {
+                // RawPtr<T> is represented as a pointer to T (same as Ptr in LLVM)
+                let inner_type = self.to_llvm_type(inner)?;
+                match inner_type {
+                    Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Struct(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Void => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    _ => Err(CompileError::UnsupportedFeature("Unsupported pointer type".to_string(), None)),
+                }
+            },
+            AstType::DynVec { element_types: _ } => {
+                // DynVec is a dynamic vector - represented as pointer for now
+                Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
+            },
+            AstType::Vec { element_type, size } => {
+                // Vec is either static or dynamic sized
+                if let Some(sz) = size {
+                    // Static sized vector - use array type
+                    let elem_type = self.to_llvm_type(element_type)?;
+                    match elem_type {
+                        Type::Basic(basic_type) => {
+                            Ok(Type::Basic(basic_type.array_type(*sz as u32).into()))
+                        },
+                        _ => Ok(Type::Basic(self.context.i8_type().array_type(*sz as u32).into())),
+                    }
+                } else {
+                    // Dynamic vector - use pointer
+                    Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
+                }
             },
             AstType::Generic { name, type_args: _ } => {
                 // Check if this is actually a user-defined struct type

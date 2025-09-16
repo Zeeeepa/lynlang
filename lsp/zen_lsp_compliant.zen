@@ -220,44 +220,32 @@ new_server = () LSPServer   {
 // Handle incoming LSP message
 handle_message = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     msg.method ?
-        | Some -> method => {
-            method == "initialize" ? | true => handle_initialize(server, msg)
-                                    | false =>
-            method == "initialized" ? | true => handle_initialized(server, msg)
-                                     | false =>
-            method == "shutdown" ? | true => handle_shutdown(server, msg)
-                                  | false =>
-            method == "textDocument/didOpen" ? | true => handle_did_open(server, msg)
-                                              | false =>
-            method == "textDocument/didChange" ? | true => handle_did_change(server, msg)
-                                                | false =>
-            method == "textDocument/didClose" ? | true => handle_did_close(server, msg)
-                                               | false =>
-            method == "textDocument/completion" ? | true => handle_completion(server, msg)
-                                                 | false =>
-            method == "textDocument/hover" ? | true => handle_hover(server, msg)
-                                            | false =>
-            method == "textDocument/definition" ? | true => handle_definition(server, msg)
-                                                 | false =>
-            method == "textDocument/references" ? | true => handle_references(server, msg)
-                                                 | false =>
-            method == "textDocument/formatting" ? | true => handle_formatting(server, msg)
-                                                 | false =>
-            method == "textDocument/documentSymbol" ? | true => handle_document_symbol(server, msg)
-                                                      | false =>
-            method == "workspace/symbol" ? | true => handle_workspace_symbol(server, msg)
-                                          | false =>
-            method == "textDocument/codeAction" ? | true => handle_code_action(server, msg)
-                                                 | false => Result:Err("Method not found: $(method)")
+        | Some(method) {
+            method == "initialize" ?  { handle_initialize(server, msg) }
+            method == "initialized" ? { handle_initialized(server, msg) }
+            method == "shutdown" ? { handle_shutdown(server, msg) }
+            method == "textDocument/didOpen" ?  { handle_did_open(server, msg) }
+            method == "textDocument/didChange" ? { handle_did_change(server, msg) }
+            method == "textDocument/didClose" ? { handle_did_close(server, msg) }
+            method == "textDocument/completion" ? { handle_completion(server, msg) }
+            method == "textDocument/hover" ? { handle_hover(server, msg) }
+            method == "textDocument/definition" ? { handle_definition(server, msg) }
+            method == "textDocument/references" ? { handle_references(server, msg) }
+            method == "textDocument/formatting" ? { handle_formatting(server, msg) }
+            method == "textDocument/documentSymbol" ? { handle_document_symbol(server, msg) }
+            method == "workspace/symbol" ? { handle_workspace_symbol(server, msg) }
+            method == "textDocument/codeAction" ? { handle_code_action(server, msg) }
+            
+            Result:Err("Method not found: $(method)")
         }
-        | None => Result:Err("No method specified")
+        | None { Result:Err("No method specified") }
 }
 
 // Initialize request handler
 handle_initialize = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_initialize_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     server.value.root_uri = params.rootUri
     server.value.initialized = true
@@ -332,8 +320,8 @@ handle_shutdown = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>
 // Text document opened handler
 handle_did_open = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_did_open_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Store the document
     server.value.documents.insert(params.textDocument.uri, params.textDocument)
@@ -356,12 +344,12 @@ handle_did_open = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>
 // Text document changed handler
 handle_did_change = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_did_change_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Update the document
     doc := server.value.documents.get(params.textDocument.uri) ?
-        | Some -> d => {
+        | Some(d) {
             // Update document text
             updated_doc := TextDocumentItem {
                 uri: d.uri,
@@ -371,7 +359,7 @@ handle_did_change = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
             }
             server.value.documents.insert(params.textDocument.uri, updated_doc)
         }
-        | None => {}
+        | None { }
     
     // Re-analyze and send diagnostics
     diagnostics := analyze_document(server, params.textDocument.uri)
@@ -391,8 +379,8 @@ handle_did_change = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
 // Text document closed handler
 handle_did_close = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_did_close_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Remove the document and associated data
     server.value.documents.remove(params.textDocument.uri)
@@ -416,8 +404,8 @@ handle_did_close = (server: Ptr<LSPServer>, msg: Message) Result<Message, string
 // Completion request handler
 handle_completion = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_completion_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Get completions
     items := get_completions(server, params.textDocument.uri, params.position)
@@ -435,8 +423,8 @@ handle_completion = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
 // Hover request handler
 handle_hover = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_hover_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Get hover info
     hover_info := get_hover_info(server, params.textDocument.uri, params.position)
@@ -447,11 +435,11 @@ handle_hover = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   
         method: Option:None,
         params: Option:None,
         result: hover_info ?
-            | Some -> info => Option:Some(json.object({
+            | Some(info) { Option:Some(json.object({
                 "contents": info,
                 "range": Option:None,
-            }))
-            | None => Option:Some(json.null()),
+            })) }
+            | None { Option:Some(json.null()) }
         error: Option:None,
     })
 }
@@ -459,8 +447,8 @@ handle_hover = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   
 // Go to definition handler
 handle_definition = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_definition_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Find definition
     location := find_definition(server, params.textDocument.uri, params.position)
@@ -471,8 +459,8 @@ handle_definition = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
         method: Option:None,
         params: Option:None,
         result: location ?
-            | Some -> loc => Option:Some(json.object(loc))
-            | None => Option:Some(json.null()),
+                | Some(loc) { Option:Some(json.object(loc)) }
+            | None { Option:Some(json.null()) }
         error: Option:None,
     })
 }
@@ -480,8 +468,8 @@ handle_definition = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
 // Find references handler
 handle_references = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_references_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Find all references
     locations := find_references(server, params.textDocument.uri, params.position)
@@ -499,8 +487,8 @@ handle_references = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
 // Document formatting handler
 handle_formatting = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_formatting_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Format document
     edits := format_document(server, params.textDocument.uri)
@@ -518,8 +506,8 @@ handle_formatting = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
 // Document symbols handler
 handle_document_symbol = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_document_symbol_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Get document symbols
     symbols := get_document_symbols(server, params.textDocument.uri)
@@ -537,8 +525,8 @@ handle_document_symbol = (server: Ptr<LSPServer>, msg: Message) Result<Message, 
 // Workspace symbols handler
 handle_workspace_symbol = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_workspace_symbol_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e) }
     
     // Search workspace symbols
     symbols := search_workspace_symbols(server, params.query)
@@ -556,8 +544,8 @@ handle_workspace_symbol = (server: Ptr<LSPServer>, msg: Message) Result<Message,
 // Code actions handler
 handle_code_action = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_code_action_params(msg.params) ?
-        | Ok -> p => p
-        | Err -> e => return Result:Err(e)
+        | Ok(p) { p }
+        | Err(e) { return Result:Err(e)}
     
     // Get available code actions
     actions := get_code_actions(server, params.textDocument.uri, params.range)
@@ -578,11 +566,11 @@ analyze_document = (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>   {
     diagnostics_ptr := Ptr:new(diagnostics)
     
     doc := server.value.documents.get(uri) ?
-        | Some -> d => {
+        | Some(d) {
             // Lexical analysis
             tokens := lexer.tokenize(d.text) ?
-                | Ok -> t => t
-                | Err -> e => {
+                | Ok(t) { t }
+                | Err(e) {
                     // Add lexer error diagnostic
                     diag := Diagnostic {
                         range: Range {
@@ -601,8 +589,8 @@ analyze_document = (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>   {
             
             // Syntax analysis
             ast := parser.parse(tokens) ?
-                | Ok -> a => a
-                | Err -> e => {
+                | Ok(a) { a }
+                | Err(e) {
                     // Add parser error diagnostic
                     diag := Diagnostic {
                         range: Range {
@@ -621,11 +609,11 @@ analyze_document = (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>   {
             
             // Type checking
             type_errors := type_checker.check(ast) ?
-                | Ok -> _ => Vec:new()
-                | Err -> errors => errors
+                | Ok(_) { Vec:new() }
+                | Err(errors) { errors }
             
             // Add type error diagnostics
-            type_errors.loop((err) => {
+            type_errors.loop((err) {
                 diag := Diagnostic {
                     range: Range {
                         start: Position { line: err.line, character: err.column },
@@ -642,7 +630,7 @@ analyze_document = (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>   {
             
             // Check for language spec violations
             spec_violations := check_spec_compliance(d.text)
-            spec_violations.loop((violation) => {
+            spec_violations.loop((violation) {
                 diag := Diagnostic {
                     range: violation.range,
                     severity: DIAGNOSTIC_ERROR,
@@ -654,7 +642,7 @@ analyze_document = (server: Ptr<LSPServer>, uri: string) Vec<Diagnostic>   {
                 diagnostics_ptr.push(diag)
             })
         }
-        | None => {}
+        | None { }
     
     diagnostics_ptr.value
 }
@@ -667,24 +655,21 @@ check_spec_compliance = (text: string) Vec<SpecViolation>   {
     lines := text.split("\n")
     line_num := 0
     
-    lines.loop((line) => {
+    lines.loop((line) {
         // Strip comments from the line before checking
         comment_pos := line.find("//")
         line_to_check := comment_pos ?
-            | Some -> pos => line.substring(0, pos)
-            | None => line
+            | Some(pos) { line.substring(0, pos) }
+            | None { line }
         
         // Skip empty lines and lines that are only comments
-        line_to_check.trim().len() == 0 ?
-            | true => {
+        line_to_check.trim().len() == 0 ? {
                 line_num = line_num + 1
                 return
             }
-            | false => {}
         
         // Check for forbidden keywords
-        line_to_check.contains("if ") || line_to_check.contains("else ") || line_to_check.contains("match ") ?
-            | true => {
+        line_to_check.contains("if ") || line_to_check.contains("else ") || line_to_check.contains("match ") ? {
                 violation := SpecViolation {
                     range: Range {
                         start: Position { line: line_num, character: 0 },
@@ -694,11 +679,9 @@ check_spec_compliance = (text: string) Vec<SpecViolation>   {
                 }
                 violations_ptr.push(violation)
             }
-            | false => {}
         
         // Check for struct keyword
-        line_to_check.contains("struct ") ?
-            | true => {
+        line_to_check.contains("struct ") ? {
                 violation := SpecViolation {
                     range: Range {
                         start: Position { line: line_num, character: 0 },
@@ -708,11 +691,9 @@ check_spec_compliance = (text: string) Vec<SpecViolation>   {
                 }
                 violations_ptr.push(violation)
             }
-            | false => {}
         
         // Check for raw pointer syntax
-        line_to_check.contains("&") || line_to_check.contains("*") ?
-            | true => {
+        line_to_check.contains("&") || line_to_check.contains("*") ? {
                 violation := SpecViolation {
                     range: Range {
                         start: Position { line: line_num, character: 0 },
@@ -722,7 +703,6 @@ check_spec_compliance = (text: string) Vec<SpecViolation>   {
                 }
                 violations_ptr.push(violation)
             }
-            | false => {}
         
         line_num = line_num + 1
     })
@@ -767,19 +747,19 @@ main = () void   {
     loop {
         // Read LSP message from stdin
         msg := read_lsp_message() ?
-            | Ok -> m => m
-            | Err -> e => {
+            | Ok(m) { m }
+            | Err(e) {
                 io.error("Failed to read message: $(e)")
                 continue
             }
         
         // Handle the message
         response := handle_message(server, msg) ?
-            | Ok -> r => r
-            | Err -> e => {
+            | Ok(r) { r }
+            | Err(e) {
                 // Send error response if this was a request
                 msg.id ?
-                    | Some -> id => {
+                    | Some(id) {
                         error_response := Message {
                             jsonrpc: "2.0",
                             id: Option:Some(id),
@@ -794,19 +774,17 @@ main = () void   {
                         }
                         send_message(error_response)
                     }
-                    | None => {}
+                    | None { }
                 continue
             }
         
         // Send response if needed
         response.id ?
-            | Some -> _ => send_message(response)
-            | None => {}
+            | Some(_) { send_message(response) }
+            | None { }
         
         // Check for shutdown
-        server.value.shutdown_requested ?
-            | true => break
-            | false => {}
+        server.value.shutdown_requested ? { break }
     }
 }
 

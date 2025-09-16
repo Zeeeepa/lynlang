@@ -1,4 +1,4 @@
-use crate::ast::{ImplBlock, Expression};
+use crate::ast::{TraitImplementation, Expression};
 use crate::error::CompileError;
 use super::LLVMCompiler;
 use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
@@ -85,18 +85,15 @@ impl<'ctx> BehaviorCodegen<'ctx> {
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
-    /// Compile an impl block
-    pub fn compile_impl_block(&mut self, impl_block: &ImplBlock) -> Result<(), CompileError> {
-        let type_name = &impl_block.type_name;
+    /// Compile a trait implementation
+    pub fn compile_trait_implementation(&mut self, trait_impl: &TraitImplementation) -> Result<(), CompileError> {
+        let type_name = &trait_impl.type_name;
+        let trait_name = &trait_impl.trait_name;
         
-        // Process each method in the impl block
-        for method in &impl_block.methods {
+        // Process each method in the trait implementation
+        for method in &trait_impl.methods {
             // Generate a mangled name for the method
-            let mangled_name = if let Some(behavior) = &impl_block.behavior_name {
-                format!("{}_{}_{}", type_name, behavior, method.name)
-            } else {
-                format!("{}_{}", type_name, method.name)
-            };
+            let mangled_name = format!("{}_{}_{}", type_name, trait_name, method.name);
 
             // Create LLVM function for the method
             let llvm_return_type = self.to_llvm_type(&method.return_type)?;
@@ -176,20 +173,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
         
-        // If this implements a behavior, generate vtable
-        if let Some(behavior_name) = &impl_block.behavior_name {
-            let mut methods = Vec::new();
-            
-            for method in &impl_block.methods {
-                let mangled_name = format!("{}_{}_{}", type_name, behavior_name, method.name);
-                if let Some(func) = self.module.get_function(&mangled_name) {
-                    methods.push((method.name.as_str(), func));
-                }
+        // Generate vtable for the trait implementation
+        let mut methods = Vec::new();
+        
+        for method in &trait_impl.methods {
+            let mangled_name = format!("{}_{}_{}", type_name, trait_name, method.name);
+            if let Some(func) = self.module.get_function(&mangled_name) {
+                methods.push((method.name.as_str(), func));
             }
-            
-            if let Some(ref mut behavior_codegen) = self.behavior_codegen {
-                behavior_codegen.generate_vtable(self.context, &self.module, type_name, behavior_name, &methods)?;
-            }
+        }
+        
+        if let Some(ref mut behavior_codegen) = self.behavior_codegen {
+            behavior_codegen.generate_vtable(self.context, &self.module, type_name, trait_name, &methods)?;
         }
         
         Ok(())

@@ -72,7 +72,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Get the variable info
             if let Some((alloca, var_type)) = self.variables.get(name) {
                 // Handle pointer to struct (p.x where p is *Point)
-                if let AstType::Pointer(inner_type) = var_type {
+                if let AstType::Ptr(inner_type) = var_type {
                     // Check if it's a struct or a generic type that represents a struct
                     let struct_name = match &**inner_type {
                         AstType::Struct { name, .. } => Some(name.clone()),
@@ -226,7 +226,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // This is a bit tricky - we need to look up the variable type
                 if let Expression::Identifier(ptr_name) = &**inner {
                     if let Some((_, ptr_type)) = self.variables.get(ptr_name) {
-                        if let AstType::Pointer(inner_type) = ptr_type {
+                        if let AstType::Ptr(inner_type) = ptr_type {
                             if let AstType::Struct { name: struct_name, .. } = &**inner_type {
                                 // Get struct type info
                                 let struct_info = self.struct_types.get(struct_name)
@@ -391,7 +391,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 ))
                             }
                         },
-                        AstType::Pointer(inner) => {
+                        AstType::Ptr(inner) => {
                             // Handle pointer to struct
                             match &**inner {
                                 AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),

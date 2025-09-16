@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{EnumDefinition, EnumVariant};
+use crate::ast::{EnumDefinition, EnumVariant, TypeParameter};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -39,7 +39,7 @@ impl<'a> Parser<'a> {
         while self.current_token != Token::Eof {
             // First variant doesn't need |, subsequent ones do
             if !first_variant {
-                if self.current_token != Token::Symbol('|') {
+                if self.current_token != Token::Pipe {
                     break;
                 }
                 self.next_token();

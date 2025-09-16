@@ -265,7 +265,7 @@ impl LibBuilder {
             name_str.clone(),
             TypeMapping {
                 c_type: format!("struct {}", name_str),
-                zen_type: AstType::Pointer(Box::new(AstType::Void)),
+                zen_type: AstType::Ptr(Box::new(AstType::Void)),
                 marshaller: None,
             }
         );
@@ -546,7 +546,7 @@ impl LibBuilder {
             AstType::F32 | AstType::F64 => true,
             
             // Pointers are FFI-compatible
-            AstType::Pointer(_) => true,
+            AstType::Ptr(_) => true,
             
             // Strings need special handling but are allowed
             AstType::String => true,
@@ -713,7 +713,7 @@ impl Library {
                 if let Ok(_version_fn) = self.get_function("version").or_else(|_| self.get_function("get_version")) {
                     // Validate that the function returns a string-like type
                     match &version_fn_sig.returns {
-                        AstType::String | AstType::Pointer(_) => {
+                        AstType::String | AstType::Ptr(_) => {
                             // Version check would be performed at runtime
                             eprintln!("Version check enabled for: {}", required_version);
                         }
@@ -806,7 +806,7 @@ impl Library {
             FunctionSafety::Trusted => {
                 // Additional validation for trusted functions
                 for param_type in &sig.params {
-                    if matches!(param_type, AstType::Pointer(_)) {
+                    if matches!(param_type, AstType::Ptr(_)) {
                         // Could add more validation here
                     }
                 }
@@ -1240,17 +1240,17 @@ pub mod types {
 
     pub fn c_string() -> AstType {
         // C string is a pointer to char (u8)
-        AstType::Pointer(Box::new(AstType::U8))
+        AstType::Ptr(Box::new(AstType::U8))
     }
 
     pub fn raw_ptr(inner: AstType) -> AstType {
         // Use regular Pointer for raw pointers in FFI
-        AstType::Pointer(Box::new(inner))
+        AstType::Ptr(Box::new(inner))
     }
 
     pub fn ptr(inner: AstType) -> AstType {
         // Use regular Pointer type
-        AstType::Pointer(Box::new(inner))
+        AstType::Ptr(Box::new(inner))
     }
     
     pub fn array(size: usize, element_type: AstType) -> AstType {

@@ -3,14 +3,82 @@
 use super::core::Parser;
 use crate::ast::{Program, Declaration, Statement, VariableDeclarationType, Expression};
 use crate::error::{CompileError, Result};
-use crate::lexer::{self, Token};
+use crate::lexer::Token;
 
 impl<'a> Parser<'a> {
     pub fn parse_program(&mut self) -> Result<Program> {
         let mut declarations = vec![];
         while self.current_token != Token::Eof {
+            // Check for destructuring import: { name, name } = @std
+            if self.current_token == Token::Symbol('{') {
+                self.next_token(); // consume '{'
+                let mut imported_names = vec![];
+                
+                // Parse imported names
+                while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+                    if let Token::Identifier(name) = &self.current_token {
+                        imported_names.push(name.clone());
+                        self.next_token();
+                        
+                        if self.current_token == Token::Symbol(',') {
+                            self.next_token();
+                        } else if self.current_token != Token::Symbol('}') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ',' or '}' in destructuring import".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected identifier in destructuring import".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+                
+                if self.current_token != Token::Symbol('}') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '}' to close destructuring import".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '}'
+                
+                // Expect '=' operator
+                if self.current_token != Token::Operator("=".to_string()) {
+                    return Err(CompileError::SyntaxError(
+                        "Expected '=' after destructuring pattern".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token(); // consume '='
+                
+                // Expect @std or module reference
+                if let Token::Identifier(module) = &self.current_token {
+                    if module == "@std" {
+                        // Create imports from @std
+                        for name in imported_names {
+                            declarations.push(Declaration::ModuleImport {
+                                alias: name.clone(),
+                                module_path: format!("@std.{}", name),
+                            });
+                        }
+                        self.next_token();
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected '@std' after '=' in destructuring import".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected module reference after '=' in destructuring import".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+            }
             // Parse top-level declarations
-            if let Token::Identifier(name) = &self.current_token {
+            else if let Token::Identifier(name) = &self.current_token {
                 // Check for := operator (likely a module import or constant)
                 if self.peek_token == Token::Operator(":=".to_string()) {
                     // Save the name and complete state
@@ -234,11 +302,11 @@ impl<'a> Parser<'a> {
                             let is_struct = self.current_token == Token::Symbol(':') 
                                 && self.peek_token == Token::Symbol('{');
                             let is_enum = self.current_token == Token::Symbol(':')
-                                && (self.peek_token == Token::Symbol('|') || matches!(&self.peek_token, Token::Identifier(_)));
+                                && (self.peek_token == Token::Pipe || matches!(&self.peek_token, Token::Identifier(_)));
                             let is_function = self.current_token == Token::Symbol(':') 
                                 && self.peek_token == Token::Symbol('(');
                             let is_behavior = self.current_token == Token::Symbol(':') 
-                                && self.peek_token == Token::Keyword(lexer::Keyword::Behavior);
+                                && matches!(&self.peek_token, Token::Identifier(name) if name == "behavior");
                             
                             // Restore lexer state
                             self.lexer.position = saved_position;
@@ -279,9 +347,9 @@ impl<'a> Parser<'a> {
                         
                         // Check what comes after ':'
                         let is_struct = matches!(&self.current_token, Token::Symbol('{'));
-                        let is_enum = matches!(&self.current_token, Token::Symbol('|')) || matches!(&self.current_token, Token::Identifier(_));
+                        let is_enum = matches!(&self.current_token, Token::Pipe) || matches!(&self.current_token, Token::Identifier(_));
                         let is_function = matches!(&self.current_token, Token::Symbol('('));
-                        let is_behavior = matches!(&self.current_token, Token::Keyword(lexer::Keyword::Behavior));
+                        let is_behavior = matches!(&self.current_token, Token::Identifier(name) if name == "behavior");
 
                         // Restore lexer state
                         self.lexer.position = saved_position;
@@ -321,12 +389,30 @@ impl<'a> Parser<'a> {
                     self.next_token(); // consume type name
                     self.next_token(); // consume '.'
                     
-                    if let Token::Keyword(lexer::Keyword::Impl) = self.current_token {
-                        // This is an impl block
-                        self.next_token(); // consume 'impl'
-                        declarations.push(Declaration::Impl(self.parse_impl_block_from_type(type_name)?));
+                    if let Token::Identifier(method_name) = &self.current_token {
+                        if method_name == "implements" {
+                            // This is a trait implementation: Type.implements(Trait, { ... })
+                            self.next_token(); // consume 'implements'
+                            declarations.push(Declaration::TraitImplementation(self.parse_trait_implementation(type_name)?));
+                        } else if method_name == "requires" {
+                            // This is a trait requirement: Type.requires(Trait)
+                            self.next_token(); // consume 'requires'
+                            declarations.push(Declaration::TraitRequirement(self.parse_trait_requirement(type_name)?));
+                        } else {
+                            // Not a recognized method, restore and error
+                            self.lexer.position = saved_position;
+                            self.lexer.read_position = saved_read_position;
+                            self.lexer.current_char = saved_current_char;
+                            self.current_token = saved_current_token;
+                            self.peek_token = saved_peek_token;
+                            
+                            return Err(CompileError::SyntaxError(
+                                format!("Expected 'implements' or 'requires' after '{}.'", type_name),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
                     } else {
-                        // Not an impl block, restore and error
+                        // Not an identifier, restore and error
                         self.lexer.position = saved_position;
                         self.lexer.read_position = saved_read_position;
                         self.lexer.current_char = saved_current_char;
@@ -334,7 +420,7 @@ impl<'a> Parser<'a> {
                         self.peek_token = saved_peek_token;
                         
                         return Err(CompileError::SyntaxError(
-                            format!("Expected 'impl' after '{}.'", type_name),
+                            format!("Expected 'implements' or 'requires' after '{}.'", type_name),
                             Some(self.current_span.clone()),
                         ));
                     }
@@ -363,6 +449,9 @@ impl<'a> Parser<'a> {
                         value,
                         type_: None, // Type will be inferred
                     });
+                } else if self.peek_token == Token::Operator("=".to_string()) {
+                    // Function declaration with = syntax: name = (params) returnType { ... }
+                    declarations.push(Declaration::Function(self.parse_function()?));
                 } else {
                     // Check if we're at EOF or if the identifier is alone (e.g., followed by comments)
                     if self.peek_token == Token::Eof {
@@ -379,11 +468,11 @@ impl<'a> Parser<'a> {
                     self.next_token();
                     continue;
                 }
-            } else if let Token::Keyword(keyword) = &self.current_token {
-                if matches!(keyword, crate::lexer::Keyword::Type) {
+            } else if let Token::Identifier(id) = &self.current_token {
+                if id == "type" {
                     // Parse type alias: type Name = Type or type Name<T> = Type<T>
                     declarations.push(Declaration::TypeAlias(self.parse_type_alias()?));
-                } else if matches!(keyword, crate::lexer::Keyword::Comptime) {
+                } else if id == "comptime" {
                     // Parse comptime block
                     self.next_token(); // consume 'comptime'
                     if self.current_token != Token::Symbol('{') {
@@ -442,13 +531,13 @@ impl<'a> Parser<'a> {
                     
                     // Add comptime block to declarations
                     declarations.push(Declaration::ComptimeBlock(statements));
-                } else if matches!(keyword, crate::lexer::Keyword::Extern) {
+                } else if id == "extern" {
                     // Parse external function declaration
                     self.next_token(); // consume 'extern'
                     declarations.push(Declaration::ExternalFunction(self.parse_external_function()?));
                 } else {
                     return Err(CompileError::SyntaxError(
-                        format!("Unexpected keyword at top level: {:?}", keyword),
+                        format!("Unexpected identifier at top level: {:?}", id),
                         Some(self.current_span.clone()),
                     ));
                 }
@@ -471,7 +560,8 @@ impl<'a> Parser<'a> {
             Token::Identifier(_name) => {
                 // Check for variable declarations using peek tokens
                 match &self.peek_token {
-                    Token::Operator(op) if op == ":=" || op == "::=" => {
+                    Token::Operator(op) if op == "::=" => {
+                        // Mutable declaration with ::=
                         self.parse_variable_declaration()
                     }
                     Token::Symbol(':') => {
@@ -481,6 +571,7 @@ impl<'a> Parser<'a> {
                         self.parse_variable_declaration()
                     }
                     Token::Operator(op) if op == "=" => {
+                        // Parse as assignment - typechecker will determine if it's a declaration or reassignment
                         self.parse_variable_assignment()
                     }
                     Token::Symbol('.') | Token::Symbol('[') => {
@@ -534,7 +625,7 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Statement::Expression(expr))
             }
-            Token::Keyword(lexer::Keyword::Return) => {
+            Token::Identifier(id) if id == "return" => {
                 self.next_token();
                 let expr = self.parse_expression()?;
                 if self.current_token == Token::Symbol(';') {
@@ -542,10 +633,10 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Statement::Return(expr))
             }
-            Token::Keyword(lexer::Keyword::Loop) => {
+            Token::Identifier(id) if id == "loop" => {
                 self.parse_loop_statement()
             }
-            Token::Keyword(lexer::Keyword::Break) => {
+            Token::Identifier(id) if id == "break" => {
                 self.next_token();
                 let label = if let Token::Identifier(label_name) = &self.current_token {
                     let label_name = label_name.clone();
@@ -559,7 +650,7 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Statement::Break { label })
             }
-            Token::Keyword(lexer::Keyword::Defer) => {
+            Token::Identifier(id) if id == "defer" => {
                 self.next_token(); // consume 'defer'
                 
                 // Parse the statement or block to defer
@@ -596,7 +687,7 @@ impl<'a> Parser<'a> {
                 
                 Ok(Statement::Defer(Box::new(deferred_stmt)))
             }
-            Token::Keyword(lexer::Keyword::Continue) => {
+            Token::Identifier(id) if id == "continue" => {
                 self.next_token();
                 let label = if let Token::Identifier(label_name) = &self.current_token {
                     let label_name = label_name.clone();
@@ -610,7 +701,7 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Statement::Continue { label })
             }
-            Token::Keyword(lexer::Keyword::Comptime) => {
+            Token::Identifier(id) if id == "comptime" => {
                 // Parse comptime block as statement
                 self.next_token(); // consume 'comptime'
                 if self.current_token != Token::Symbol('{') {
@@ -663,8 +754,8 @@ impl<'a> Parser<'a> {
         self.next_token();
         
         let (is_mutable, declaration_type, type_) = match &self.current_token {
-            Token::Operator(op) if op == ":=" => {
-                // Inferred immutable: name := value
+            Token::Operator(op) if op == "=" => {
+                // Inferred immutable: name = value (as per spec)
                 self.next_token();
                 (false, VariableDeclarationType::InferredImmutable, None)
             }
@@ -674,17 +765,41 @@ impl<'a> Parser<'a> {
                 (true, VariableDeclarationType::InferredMutable, None)
             }
             Token::Symbol(':') => {
-                // Explicit immutable: name : T = value
+                // Check if it's : T (with type) or just : followed by something else
                 self.next_token();
-                let type_ = self.parse_type()?;
-                if self.current_token != Token::Operator("=".to_string()) {
-                    return Err(CompileError::SyntaxError("Expected '=' after type".to_string(), Some(self.current_span.clone())));
+                
+                // Check for :: T (mutable with type)
+                if self.current_token == Token::Symbol(':') {
+                    // Explicit mutable: name :: T = value  
+                    self.next_token();
+                    let type_ = self.parse_type()?;
+                    if self.current_token != Token::Operator("=".to_string()) {
+                        return Err(CompileError::SyntaxError("Expected '=' after type".to_string(), Some(self.current_span.clone())));
+                    }
+                    self.next_token();
+                    (true, VariableDeclarationType::ExplicitMutable, Some(type_))
+                } else {
+                    // Explicit immutable: name : T = value (or just name : T without initializer)
+                    let type_ = self.parse_type()?;
+                    // Check if there's an initializer
+                    if self.current_token == Token::Operator("=".to_string()) {
+                        self.next_token();
+                        (false, VariableDeclarationType::ExplicitImmutable, Some(type_))
+                    } else {
+                        // Just type annotation without initializer - still return for now
+                        // The initializer will be None in the calling code
+                        return Ok(Statement::VariableDeclaration {
+                            name,
+                            type_: Some(type_),
+                            initializer: None,
+                            is_mutable: false,
+                            declaration_type: VariableDeclarationType::ExplicitImmutable,
+                        });
+                    }
                 }
-                self.next_token();
-                (false, VariableDeclarationType::ExplicitImmutable, Some(type_))
             }
             Token::Operator(op) if op == "::" => {
-                // Explicit mutable: name :: T = value
+                // This might be :: T directly (for mutable with type)
                 self.next_token();
                 let type_ = self.parse_type()?;
                 if self.current_token != Token::Operator("=".to_string()) {
@@ -784,6 +899,7 @@ impl<'a> Parser<'a> {
     }
     
     fn parse_variable_assignment(&mut self) -> Result<Statement> {
+        // Parse as either declaration or assignment - typechecker will determine which
         let name = if let Token::Identifier(name) = &self.current_token {
             name.clone()
         } else {
@@ -805,6 +921,8 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
         
+        // Return a VariableAssignment statement - the typechecker will determine if this is valid
+        // (i.e., if the variable was declared as mutable with ::=)
         Ok(Statement::VariableAssignment {
             name,
             value,
