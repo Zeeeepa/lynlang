@@ -1,0 +1,8 @@
+// Minimal working test
+main = () void {
+    x = 42
+    y = true
+    y ? {
+        z = 10
+    }
+}

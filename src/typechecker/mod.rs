@@ -431,7 +431,7 @@ impl TypeChecker {
                     }
                 }
                 let object_type = self.infer_expression_type(object)?;
-                inference::infer_member_type(&object_type, member, &self.structs)
+                inference::infer_member_type(&object_type, member, &self.structs, &self.enums)
             }
             Expression::Comptime(inner) => self.infer_expression_type(inner),
             Expression::Range { .. } => Ok(AstType::Range {
@@ -511,11 +511,11 @@ impl TypeChecker {
                         // Handle pointer to struct - automatically dereference
                         match *inner {
                             AstType::Struct { name, .. } => {
-                                inference::infer_member_type(&AstType::Struct { name, fields: vec![] }, field, &self.structs)
+                                inference::infer_member_type(&AstType::Struct { name, fields: vec![] }, field, &self.structs, &self.enums)
                             }
                             AstType::Generic { ref name, .. } => {
                                 // Handle pointer to generic struct
-                                inference::infer_member_type(&AstType::Generic { name: name.clone(), type_args: vec![] }, field, &self.structs)
+                                inference::infer_member_type(&AstType::Generic { name: name.clone(), type_args: vec![] }, field, &self.structs, &self.enums)
                             }
                             _ => Err(CompileError::TypeError(
                                 format!("Cannot access field '{}' on non-struct pointer type", field),
@@ -524,7 +524,7 @@ impl TypeChecker {
                         }
                     }
                     AstType::Struct { .. } | AstType::Generic { .. } => {
-                        inference::infer_member_type(&struct_type, field, &self.structs)
+                        inference::infer_member_type(&struct_type, field, &self.structs, &self.enums)
                     }
                     _ => Err(CompileError::TypeError(
                         format!("Cannot access field '{}' on type {:?}", field, struct_type),
@@ -666,6 +666,46 @@ impl TypeChecker {
                 // For type checking purposes, they can be considered to return void
                 Ok(AstType::Void)
             }
+            Expression::EnumLiteral { variant, payload } => {
+                // For enum literals, we need to infer the enum type from context
+                // For now, handle known types like Option and Result
+                if variant == "Some" {
+                    let inner_type = if let Some(p) = payload {
+                        self.infer_expression_type(p)?
+                    } else {
+                        AstType::Void
+                    };
+                    Ok(AstType::Option(Box::new(inner_type)))
+                } else if variant == "None" {
+                    // None can be any Option type - will need context to determine
+                    Ok(AstType::Option(Box::new(AstType::Void)))
+                } else if variant == "Ok" {
+                    let ok_type = if let Some(p) = payload {
+                        self.infer_expression_type(p)?
+                    } else {
+                        AstType::Void
+                    };
+                    // For Result, we don't know the error type yet
+                    Ok(AstType::Result {
+                        ok_type: Box::new(ok_type),
+                        err_type: Box::new(AstType::String), // Default to String for errors
+                    })
+                } else if variant == "Err" {
+                    let err_type = if let Some(p) = payload {
+                        self.infer_expression_type(p)?
+                    } else {
+                        AstType::Void
+                    };
+                    // For Result, we don't know the ok type yet
+                    Ok(AstType::Result {
+                        ok_type: Box::new(AstType::Void), // Unknown ok type
+                        err_type: Box::new(err_type),
+                    })
+                } else {
+                    // Unknown enum literal - would need more context
+                    Ok(AstType::Void)
+                }
+            }
         }
     }
 
@@ -793,6 +833,13 @@ impl TypeChecker {
                 return Ok(var_info.type_.clone());
             }
         }
+        
+        // Check if it's an enum type
+        if self.enums.contains_key(name) {
+            // Return a special type to indicate this is an enum type constructor
+            return Ok(AstType::EnumType { name: name.to_string() });
+        }
+        
         Err(CompileError::TypeError(format!("Undefined variable: {}", name), None))
     }
     

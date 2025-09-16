@@ -1,6 +1,6 @@
 use crate::ast::{AstType, BinaryOperator, Expression};
 use crate::error::{CompileError, Result};
-use crate::typechecker::{TypeChecker, StructInfo};
+use crate::typechecker::{TypeChecker, StructInfo, EnumInfo};
 use std::collections::HashMap;
 
 /// Infer the type of a binary operation
@@ -76,6 +76,7 @@ pub fn infer_member_type(
     object_type: &AstType,
     member: &str,
     structs: &HashMap<String, StructInfo>,
+    enums: &HashMap<String, EnumInfo>,
 ) -> Result<AstType> {
     match object_type {
         AstType::Struct { name, .. } => {
@@ -99,7 +100,7 @@ pub fn infer_member_type(
         // Handle pointer to struct types
         AstType::Ptr(inner) => {
             // Dereference the pointer and check the inner type
-            infer_member_type(inner, member, structs)
+            infer_member_type(inner, member, structs, enums)
         }
         // Handle Generic types that represent structs
         AstType::Generic { name, .. } => {
@@ -117,6 +118,36 @@ pub fn infer_member_type(
             } else {
                 Err(CompileError::TypeError(format!(
                     "Type '{}' is not a struct or is not defined",
+                    name
+                ), None))
+            }
+        }
+        // Handle enum type constructors
+        AstType::EnumType { name } => {
+            // Check if the member is a valid variant of this enum
+            if let Some(enum_info) = enums.get(name) {
+                for (variant_name, _variant_type) in &enum_info.variants {
+                    if variant_name == member {
+                        // Return the enum type itself - the variant constructor creates an instance of the enum
+                        let enum_variants = enum_info.variants.iter().map(|(name, payload)| {
+                            crate::ast::EnumVariant {
+                                name: name.clone(),
+                                payload: payload.clone(),
+                            }
+                        }).collect();
+                        return Ok(AstType::Enum {
+                            name: name.clone(),
+                            variants: enum_variants,
+                        });
+                    }
+                }
+                Err(CompileError::TypeError(format!(
+                    "Enum '{}' has no variant '{}'",
+                    name, member
+                ), None))
+            } else {
+                Err(CompileError::TypeError(format!(
+                    "Unknown enum type: {}",
                     name
                 ), None))
             }

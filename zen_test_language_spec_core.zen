@@ -1,0 +1,116 @@
+// Core Language Features Test from LANGUAGE_SPEC.zen
+// Testing the fundamental features described in the specification
+
+{ io } = @std
+
+main = () void {
+    // ============================================================================
+    // 1. IMMUTABLE AND MUTABLE ASSIGNMENT (LANGUAGE_SPEC.zen lines 8-10)
+    // ============================================================================
+    
+    // Immutable assignment with =
+    x = 42
+    message = "Hello, Zen!"
+    
+    // Mutable assignment with ::=
+    counter ::= 0
+    counter = counter + 1
+    counter = counter + 5
+    
+    // ============================================================================  
+    // 2. PATTERN MATCHING WITH ? OPERATOR (lines 3-4)
+    // ============================================================================
+    
+    // Boolean pattern matching - short form
+    is_ready = true
+    is_ready ? {
+        io.print("System is ready!")
+    }
+    
+    // Full pattern matching with multiple arms
+    status_code = 200
+    status_code ?
+        | 200 { io.print("OK") }
+        | 404 { io.print("Not Found") }
+        | 500 { io.print("Server Error") }
+        | _ { io.print("Unknown status") }
+    
+    // Pattern matching with comparisons
+    temperature = 25
+    temperature > 30 ?
+        | true { io.print("It's hot") }
+        | false { io.print("It's not hot") }
+    
+    // ============================================================================
+    // 3. ENUM LITERALS (.Some, .None) (lines 106-109)
+    // ============================================================================
+    
+    // Using Option type with enum literals
+    maybe_value = .Some(100)
+    maybe_value ?
+        | .Some(v) { io.print("Found value") }
+        | .None { io.print("No value") }
+    
+    empty_value = .None
+    empty_value ?
+        | .Some(v) { io.print("Unexpected") }
+        | .None { io.print("Empty as expected") }
+    
+    // ============================================================================
+    // 4. RANGES AND ITERATION (lines 417-425)
+    // ============================================================================
+    
+    // Exclusive range (0..10)
+    (0..3).loop((i) {
+        io.print("Count: ")
+    })
+    
+    // Inclusive range (0..=10) 
+    (0..=2).loop((i) {
+        io.print("Inclusive: ")
+    })
+    
+    // Range with step (not yet implemented)
+    // (0..10).step(2).loop((i) {
+    //     io.print("Step by 2: ")
+    // })
+    
+    // ============================================================================
+    // 5. STRING INTERPOLATION (line 86)
+    // ============================================================================
+    
+    name = "Zen"
+    version = 1
+    info = "Welcome to ${name} v${version}!"
+    io.print(info)
+    
+    // Complex interpolation
+    result = 42
+    output = "The answer is ${result} and double is ${result * 2}"
+    io.print(output)
+    
+    // ============================================================================
+    // 6. DEFER MECHANISM (lines 296, 373-374)
+    // ============================================================================
+    
+    // Note: @this.defer() is for cleanup
+    // Regular defer for statement-level cleanup
+    defer {
+        io.print("Cleanup executed at end of scope")
+    }
+    
+    // ============================================================================
+    // 7. INFINITE LOOP (lines 229, 439-445)
+    // ============================================================================
+    
+    // Infinite loop with break condition
+    loop_count ::= 0
+    loop {
+        loop_count = loop_count + 1
+        loop_count > 3 ?
+            | true { break }
+            | false { io.print("Looping...") }
+    }
+    
+    io.print("Test completed successfully!")
+}
