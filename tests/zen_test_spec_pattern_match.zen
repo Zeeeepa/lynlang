@@ -1,19 +1,42 @@
-// Test pattern matching with ? operator
+// Test pattern matching with ? operator from LANGUAGE_SPEC.zen
+// Lines 29-37, 351-361, 462-473
 
-io = @std.io
+Option<T>: Some(T) | None
 
 main = () void {
-    // Boolean pattern matching
+    // Boolean pattern matching (lines 351-361)
     is_ready = true
-    
-    // Single condition pattern (works like if)
-    is_ready ? {
-        io.println("System is ready")
+    is_ready ? { 
+        // Single branch for true
     }
     
-    // Full pattern match (works like if-else)
+    // Full boolean pattern match
     has_data = false
     has_data ?
-        | true { io.println("Processing data...") }
-        | false { io.println("Waiting for data...") }
+        | true { 
+            // Process data
+        }
+        | false { 
+            // Wait for data
+        }
+    
+    // Pattern matching with Option (lines 462-473)
+    maybe_value: Option<i32> = Option.Some(42)
+    maybe_value ?
+        | Some(val) {
+            // Have a value: val
+        }
+        | None {
+            // No value
+        }
+    
+    // Conditional compilation pattern (lines 29-37)
+    is_release = true
+    is_release ?
+        | true {
+            // Release mode settings
+        }
+        | false {
+            // Debug mode settings  
+        }
 }

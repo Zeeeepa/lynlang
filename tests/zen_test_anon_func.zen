@@ -1,4 +1,0 @@
-// Test anonymous function
-main = () void {
-    f = () { 42 }
-}

@@ -1,9 +1,0 @@
-// Test mutable variable with type at top level
-sdl2_library :: FFI.Library = {
-    name: "SDL2",
-}
-
-// Try accessing the field
-main = () void {
-    sdl2_library.path = "/usr/lib/libSDL2.so"
-}

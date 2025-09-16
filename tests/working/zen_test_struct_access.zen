@@ -1,0 +1,22 @@
+// Test struct field access
+
+{ io } = @std
+
+Point: {
+    x: f64,
+    y: f64
+}
+
+main = () void {
+    io.println("=== Testing Struct Field Access ===")
+    
+    // Create a point
+    point = Point { x: 10.0, y: 20.0 }
+    io.println("Point created")
+    
+    // Access fields
+    io.println(point.x)
+    io.println(point.y)
+    
+    io.println("=== Test completed ===")
+}

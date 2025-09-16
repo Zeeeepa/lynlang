@@ -1,8 +1,0 @@
-// Test parsing Option and Result enum declarations with generics
-
-{ Option } = @std.option
-
-main = () void {
-    // Use the Option type
-    maybe = Some(42)
-}

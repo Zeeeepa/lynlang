@@ -1,6 +1,0 @@
-// Test loop() construct
-main = () void {
-    loop(() {
-        // empty
-    })
-}

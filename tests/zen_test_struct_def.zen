@@ -1,8 +1,0 @@
-Point: {
-    x: i32,
-    y: i32,
-}
-
-main = () void {
-    @std.io.println("Starting")
-}

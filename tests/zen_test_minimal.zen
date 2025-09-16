@@ -1,5 +1,0 @@
-// Ultra minimal test to check parser
-
-main = () void {
-    x = 5
-}

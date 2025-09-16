@@ -1,0 +1,11 @@
+// Basic test to see what works with Rust implementation
+
+{ io } = @std
+
+main = () void {
+    x = 10
+    y = 20
+    io.println("Basic test")
+    io.println(x)
+    io.println(y)
+}

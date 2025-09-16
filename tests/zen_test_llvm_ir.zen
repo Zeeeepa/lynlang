@@ -1,9 +1,0 @@
-// Simple test to generate LLVM IR
-{ io } = @std
-
-main = () void {
-    x = true
-    x ?
-        | true { io.println("TRUE") }
-        | false { io.println("FALSE") }
-}

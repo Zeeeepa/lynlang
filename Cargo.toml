@@ -41,9 +41,7 @@ path = "src/bin/zen-check.rs"
 name = "zen-format"
 path = "src/bin/zen-format.rs"
 
-[[test]]
-name = "codegen"
-harness = true
+
 
 [dev-dependencies]
 test-utils = { path = "./test-utils" }

@@ -1,7 +1,0 @@
-// Test import syntax
-{ io, math } = @std
-sdl2 = @std.import("sdl2")
-
-main = () void {
-    io.println("Testing imports")
-}

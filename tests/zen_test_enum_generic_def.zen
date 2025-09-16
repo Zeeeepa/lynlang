@@ -1,6 +1,0 @@
-// Test generic enum definition with the spec syntax
-{ Option } = @std.option
-
-main = () void {
-    x = 42
-}

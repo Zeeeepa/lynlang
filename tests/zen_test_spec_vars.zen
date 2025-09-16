@@ -1,0 +1,17 @@
+// Test file based on LANGUAGE_SPEC.zen line 297-306
+// Testing variable declarations as specified
+
+main = () void {
+    // Immediate immutable assignments
+    x = 10        // Immutable assignment (inferred type)
+    y: i32 = 20   // Immutable assignment with type
+    
+    // Immediate mutable assignments  
+    v ::= 30      // Mutable assignment (inferred type)
+    u :: i32 = 40 // Mutable assignment with type
+    
+    // Forward declaration for mutable variable
+    w :: i32      // Mutable forward declaration
+    w = 20        // Initial assignment
+    w = 25        // Reassignment (allowed because w is mutable)
+}

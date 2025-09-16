@@ -1,0 +1,10 @@
+// Minimal test that should work with Rust compiler
+
+{ io } = @std
+
+main = () void {
+    x ::= 10  // mutable
+    y = 20    // immutable
+    
+    io.println("Simple test")
+}

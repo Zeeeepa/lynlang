@@ -1,0 +1,29 @@
+// Test Option types from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+main = () void {
+    io.println("=== Testing Option Types ===")
+    
+    // Test Some value (from line 462 of spec)
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) { 
+            io.println("Has radius value")
+        }
+        | None { 
+            io.println("No radius") 
+        }
+    
+    // Test None value
+    empty: Option<i32> = None
+    empty ?
+        | Some(v) { 
+            io.println("Has value") 
+        }
+        | None { 
+            io.println("Empty option") 
+        }
+    
+    io.println("=== Option tests completed ===")
+}

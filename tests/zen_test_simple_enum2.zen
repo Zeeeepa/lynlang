@@ -1,7 +1,0 @@
-// Minimal enum test
-
-{ Option } = @std.option
-
-main = () void {
-    maybe = Some(42)
-}

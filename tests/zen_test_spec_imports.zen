@@ -1,0 +1,20 @@
+// Test imports from LANGUAGE_SPEC.zen lines 91-107
+
+// Standard library imports - only @std is special
+{ io, maths } = @std
+{ String, StringBuilder } = @std
+
+// Single imports
+sdl2 = @std.import("sdl2")
+ecs = @std.import("ecs")
+
+main = () void {
+    // Use io module
+    io.println("Testing imports from LANGUAGE_SPEC.zen")
+    
+    // Use string builder
+    sb = StringBuilder()
+    sb.append("Hello")
+      .append(" ")
+      .append("World")
+}

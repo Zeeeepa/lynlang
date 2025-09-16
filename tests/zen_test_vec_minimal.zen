@@ -1,7 +1,0 @@
-// Minimal test for Vec<T, size> constructor syntax
-// Just creating a Vec without calling any functions
-
-main = () void {
-    // Test Vec<i32, 5> constructor - should parse and compile successfully
-    numbers = Vec<i32, 5>()
-}

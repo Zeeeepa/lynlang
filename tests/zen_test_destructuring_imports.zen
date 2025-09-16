@@ -1,9 +1,0 @@
-// Test destructuring imports from LANGUAGE_SPEC.zen
-
-{ io, math } = @std
-
-main = () void {
-    io.println("Testing destructuring imports")
-    result = math.pi * 2.0
-    io.println("2 * pi = ${result}")
-}

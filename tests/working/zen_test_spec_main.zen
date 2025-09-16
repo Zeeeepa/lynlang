@@ -1,0 +1,20 @@
+// Test file based on LANGUAGE_SPEC.zen
+// Testing core language features
+
+// Simple variable declarations
+main = () void {
+    // Immutable variables
+    x = 10
+    y: i32 = 20
+    
+    // Mutable variables
+    v ::= 30
+    u :: i32 = 40
+    
+    // Forward declarations
+    z: i32
+    z = 100
+    
+    w :: i32
+    w = 200
+}

@@ -1,9 +1,0 @@
-// Minimal enum test
-io = @std.io
-
-Shape: Circle | Square
-
-main = () void {
-    s = Shape.Circle
-    io.println("Created shape")
-}

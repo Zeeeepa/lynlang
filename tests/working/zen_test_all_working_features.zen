@@ -1,0 +1,121 @@
+// Comprehensive test of all working Zen features
+// Based on LANGUAGE_SPEC.zen - demonstrates current implementation
+
+{ io } = @std
+
+// Struct definition
+Point: {
+    x: f64,
+    y: f64
+}
+
+// Enum definition  
+Shape: Circle | Rectangle
+
+// Function with parameters
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Function returning void
+greet = (name: string) void {
+    io.println("Hello")
+    io.println(name)
+}
+
+main = () void {
+    io.println("=== Zen Language Working Features Test ===")
+    
+    // 1. Variable declarations - all forms
+    io.println("1. Variables:")
+    x: i32           // Forward declaration
+    x = 10          // Assignment
+    y = 20          // Immutable
+    z::= 30         // Mutable
+    z = 40          // Reassignment
+    w :: i32 = 50   // Mutable with type
+    
+    io.println(x)
+    io.println(y)
+    io.println(z)
+    io.println(w)
+    
+    // 2. Function calls
+    io.println("2. Functions:")
+    result = add(15, 25)
+    io.println(result)
+    greet("Zen")
+    
+    // 3. Arithmetic expressions
+    io.println("3. Arithmetic:")
+    sum = 10 + 20 + 30
+    product = 5 * 6
+    expr = (100 - 20) / 4
+    io.println(sum)
+    io.println(product)
+    io.println(expr)
+    
+    // 4. Comparisons
+    io.println("4. Comparisons:")
+    is_greater = 10 > 5
+    is_equal = 10 == 10
+    is_less = 5 < 10
+    is_greater ? {
+        io.println("10 is greater than 5")
+    }
+    
+    // 5. Pattern matching with boolean
+    io.println("5. Pattern matching:")
+    is_ready = true
+    is_ready ?
+        | true { io.println("System is ready") }
+        | false { io.println("System not ready") }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // 6. Infinite loop with break
+    io.println("6. Loops:")
+    counter::= 0
+    loop(() {
+        io.println(counter)
+        counter = counter + 1
+        
+        should_stop = counter >= 3
+        should_stop ?
+            | true { break }
+            | false { }
+    })
+    
+    // 7. Struct creation and usage
+    io.println("7. Structs:")
+    point = Point { x: 10.5, y: 20.5 }
+    io.println("Point created successfully")
+    
+    // 8. Boolean literals
+    io.println("8. Booleans:")
+    flag1 = true
+    flag2 = false
+    flag1 ? {
+        io.println("Flag1 is true")
+    }
+    
+    // 9. Nested pattern matching
+    io.println("9. Nested patterns:")
+    value = 15
+    is_positive = value > 0
+    is_positive ?
+        | true {
+            is_large = value > 10
+            is_large ?
+                | true { io.println("Value is large and positive") }
+                | false { io.println("Value is small but positive") }
+        }
+        | false {
+            io.println("Value is not positive")
+        }
+    
+    io.println("=== All tests completed successfully ===")
+}

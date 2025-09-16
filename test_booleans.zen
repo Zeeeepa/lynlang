@@ -1,7 +1,0 @@
-main = () void {
-    flag1 = true
-    flag2 = false
-    @std.io.println("Boolean test:")
-    @std.io.println(flag1)
-    @std.io.println(flag2)
-}
