@@ -1,0 +1,10 @@
+// Test .ref() and .val
+{ io } = @std
+
+main = () void {
+    x = 42
+    x_ptr = x.ref()
+    value = x_ptr.val
+    io.print_int(value)
+    io.println("")
+}

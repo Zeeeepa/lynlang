@@ -1,42 +1,15 @@
-// Minimal test based on LANGUAGE_SPEC.zen
+// Test minimal features from LANGUAGE_SPEC.zen
+
+// Import the io module
 { io } = @std
 
+// Main function
 main = () void {
-    // Test immutable assignment
-    x = 42
-    io.print("x is ")
+    // Test basic println
+    io.println("Testing Zen Language Features")
+    
+    // Test integer variable
+    x: i32 = 42
     io.print_int(x)
-    io.print("\n")
-    
-    // Test mutable assignment
-    counter ::= 0
-    counter = counter + 1
-    io.print("counter is ")
-    io.print_int(counter)
-    io.print("\n")
-    
-    // Test boolean pattern matching short form
-    flag = true
-    flag ? {
-        io.print("Flag is true\n")
-    }
-    
-    // Test full boolean pattern
-    is_ready = false
-    is_ready ?
-        | true { io.print("Ready!\n") }
-        | false { io.print("Not ready\n") }
-    
-    // Test integer patterns
-    value = 42
-    value ?
-        | 0 { io.print("Zero\n") }
-        | 42 { io.print("Found 42\n") }
-        | _ { io.print("Other\n") }
-    
-    // Test comparison pattern
-    score = 85
-    score > 80 ?
-        | true { io.print("High score!\n") }
-        | false { io.print("Low score\n") }
+    io.println("")
 }

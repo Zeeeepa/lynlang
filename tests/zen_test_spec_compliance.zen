@@ -132,7 +132,6 @@ test_loops = () void {
         counter = counter + 1
         counter > 2 ?
             | true { break }
-            | false { }
     })
 }
 

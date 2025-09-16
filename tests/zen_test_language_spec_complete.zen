@@ -68,7 +68,6 @@ main = () void {
         is_done = counter > 10
         is_done ?
             | true { break }
-            | false { }
     })
     
     // Boolean pattern matching

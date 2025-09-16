@@ -83,7 +83,6 @@ test("generic functions with behaviors") {
                         items.value[i] = items.value[j]
                         items.value[j] = temp
                     }
-                    | false {}
             })
         })
     }

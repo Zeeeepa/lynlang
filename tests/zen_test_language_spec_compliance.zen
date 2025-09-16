@@ -155,7 +155,6 @@ test_loop_keyword = () bool   {
         count = count + 1
         count >= 3 ? 
             | true { break }
-            | false {}
     })
     
     count == 3 ?

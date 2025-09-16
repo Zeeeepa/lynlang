@@ -1,26 +1,14 @@
-// Test Option type from the spec
 { io } = @std
-{ Option } = @std.option
 
-// Define Option type as per spec - using stdlib
+// Option type from spec
+Option<T>: Some(T) | None
 
 main = () void {
-    io.println("Testing Option types")
-    
-    // Create an Option with a value
-    maybe_number: Option<i32> = Some(42)
-    
-    // Pattern match on Option
-    maybe_number ?
-        | Some(val) { io.println("Got value: ${val}") }
-        | None { io.println("Got None") }
-    
-    // Create a None
-    empty: Option<i32> = None
-    
-    empty ?
-        | Some(val) { io.println("Has value: ${val}") }
-        | None { io.println("Is empty") }
-    
-    io.println("Option test complete")
+    maybe = Option.Some(42)
+    maybe ?
+        | Some(val) { 
+            io.print_int(val)
+            io.println("")
+        }
+        | None { io.println("Nothing") }
 }

@@ -1,0 +1,97 @@
+// Test Zen pointer types: Ptr<T>, MutPtr<T>, RawPtr<T>
+// According to LANGUAGE_SPEC.zen:
+// - No * or & operators, only explicit pointer types
+// - .ref() creates immutable pointer (Ptr<T>)
+// - .mut_ref() creates mutable pointer (MutPtr<T>)
+// - .val dereferences pointer
+// - .addr gets pointer address as usize
+
+{ io } = @std
+
+// Define a struct type for testing
+Point: {
+    x: i32,
+    y: i32
+}
+
+main = () void {
+    // Test 1: Basic pointer creation and dereferencing
+    x = 42
+    x_ptr: Ptr<i32> = x.ref()      // Create immutable pointer
+    value = x_ptr.val               // Dereference to get value
+    io.print("Ptr value: ")
+    io.print_int(value)
+    io.println("")
+    
+    // Test 2: Mutable pointer operations
+    y ::= 100                       // Mutable variable
+    y_ptr: MutPtr<i32> = y.mut_ref()  // Create mutable pointer
+    y_ptr.val = 200                    // Modify through pointer
+    io.print("Modified via MutPtr: ")
+    io.print_int(y)                    // Should print 200
+    io.println("")
+    
+    // Test 3: Pointer addresses
+    z = 999
+    z_ptr: Ptr<i32> = z.ref()
+    addr = z_ptr.addr                  // Get address as usize
+    io.print("Pointer address: ")
+    io.print_int(addr)                 // Print the address (some number)
+    io.println("")
+    
+    // Test 4: Struct pointers
+    p = Point { x: 10, y: 20 }
+    p_ptr: Ptr<Point> = p.ref()
+    
+    // Access fields through pointer
+    px = p_ptr.val.x
+    py = p_ptr.val.y
+    io.print("Point via Ptr: (")
+    io.print_int(px)
+    io.print(", ")
+    io.print_int(py)
+    io.println(")")
+    
+    // Test 5: Mutable struct pointer
+    q ::= Point { x: 5, y: 15 }
+    q_ptr: MutPtr<Point> = q.mut_ref()
+    q_ptr.val.x = 50                   // Modify field through pointer
+    q_ptr.val.y = 150
+    
+    io.print("Modified Point: (")
+    io.print_int(q.x)
+    io.print(", ")
+    io.print_int(q.y)
+    io.println(")")
+    
+    // Test 6: Pass pointers to functions
+    double_value = (ptr: Ptr<i32>) i32 {
+        return ptr.val * 2
+    }
+    
+    modify_value = (ptr: MutPtr<i32>) void {
+        ptr.val = ptr.val * 3
+    }
+    
+    a = 10
+    a_ptr: Ptr<i32> = a.ref()
+    doubled = double_value(a_ptr)
+    io.print("Doubled via Ptr: ")
+    io.print_int(doubled)
+    io.println("")
+    
+    b ::= 7
+    b_ptr: MutPtr<i32> = b.mut_ref()
+    modify_value(b_ptr)
+    io.print("Tripled via MutPtr: ")
+    io.print_int(b)
+    io.println("")
+    
+    // Test 7: RawPtr for low-level operations (used in FFI)
+    // RawPtr is like void* in C, untyped pointer
+    c = 555
+    c_raw: RawPtr<i32> = c.ref()      // Can convert Ptr to RawPtr
+    // Note: RawPtr operations are unsafe and primarily for FFI
+    
+    io.println("Pointer tests completed!")
+}

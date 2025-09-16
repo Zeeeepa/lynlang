@@ -1,0 +1,49 @@
+// Test pointer operations as per LANGUAGE_SPEC.zen
+// - Explicit pointer types: Ptr<>, MutPtr<>, RawPtr<> (no * or &)
+// - .ref() and .mut_ref() for creating pointers
+// - .val for dereferencing pointers
+// - .addr for getting pointer addresses
+
+{ io } = @std
+
+Point: {
+    x: i32,
+    y: i32
+}
+
+main = () void {
+    // Create a point
+    point = Point { x: 100, y: 200 }
+    
+    // Create an immutable pointer with .ref()
+    point_ptr: Ptr<Point> = point.ref()
+    
+    // Access value through pointer with .val
+    io.print("Point x via ptr: ")
+    io.print_int(point_ptr.val.x)
+    io.println("")
+    
+    io.print("Point y via ptr: ")
+    io.print_int(point_ptr.val.y)
+    io.println("")
+    
+    // Create a mutable pointer with .mut_ref()
+    point_mut: MutPtr<Point> = point.mut_ref()
+    
+    // Modify through mutable pointer
+    point_mut.val.x = 300
+    point_mut.val.y = 400
+    
+    io.print("Modified x: ")
+    io.print_int(point.x)
+    io.println("")
+    
+    io.print("Modified y: ")
+    io.print_int(point.y)
+    io.println("")
+    
+    // Get address with .addr
+    io.print("Pointer address: ")
+    io.print_int(point_ptr.addr)
+    io.println("")
+}

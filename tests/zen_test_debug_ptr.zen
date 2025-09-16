@@ -1,0 +1,16 @@
+// Debug pointer operations with type annotation
+{ io } = @std
+
+main = () void {
+    x = 42
+    
+    // Explicit type annotation
+    x_ptr: Ptr<i32> = x.ref()
+    io.println("Created x_ptr with type annotation")
+    
+    // Try dereference
+    value = x_ptr.val
+    io.print("value = ")
+    io.print_int(value)
+    io.println("")
+}

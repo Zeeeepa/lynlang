@@ -95,7 +95,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         symbols.insert("f64", symbols::Symbol::Type(float_type.as_basic_type_enum()));
         symbols.insert("bool", symbols::Symbol::Type(bool_type.as_basic_type_enum()));
         
-        Self {
+        let mut compiler = Self {
             context,
             module,
             builder,
@@ -109,9 +109,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
             defer_stack: Vec::new(),
             comptime_evaluator,
             behavior_codegen: Some(behaviors::BehaviorCodegen::new()),
-        }
+        };
+        
+        // Declare standard library functions
+        compiler.declare_stdlib_functions();
+        
+        compiler
     }
 
+    fn declare_stdlib_functions(&mut self) {
+        // Declare malloc: i8* @malloc(i64)
+        if self.module.get_function("malloc").is_none() {
+            let i64_type = self.context.i64_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", malloc_type, None);
+        }
+        
+        // Declare free: void @free(i8*)
+        if self.module.get_function("free").is_none() {
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let void_type = self.context.void_type();
+            let free_type = void_type.fn_type(&[ptr_type.into()], false);
+            self.module.add_function("free", free_type, None);
+        }
+        
+        // Declare memcpy: void @memcpy(i8*, i8*, i64)
+        if self.module.get_function("memcpy").is_none() {
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let i64_type = self.context.i64_type();
+            let void_type = self.context.void_type();
+            let memcpy_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+            self.module.add_function("memcpy", memcpy_type, None);
+        }
+    }
+    
     pub fn get_type(&self, name: &str) -> Result<BasicTypeEnum<'ctx>, CompileError> {
         self.symbols.lookup(name)
             .and_then(|sym| match sym {

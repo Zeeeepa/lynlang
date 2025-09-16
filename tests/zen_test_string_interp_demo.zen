@@ -1,0 +1,17 @@
+// Test string interpolation from LANGUAGE_SPEC.zen
+{ io } = @std
+
+main = () void {
+    name = "World"
+    count = 42
+    
+    // Test string interpolation (should compile to sprintf-like calls)
+    message = "Hello ${name}! Count is ${count}"
+    io.println(message)
+    
+    // Test with expressions
+    x = 10
+    y = 20
+    result = "The sum of ${x} and ${y} is ${x + y}"
+    io.println(result)
+}

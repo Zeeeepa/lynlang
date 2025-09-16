@@ -1,0 +1,43 @@
+// Test container types from LANGUAGE_SPEC.zen
+// - Vec<T, N> - Fixed-size vector
+// - DynVec<T> - Dynamic vector with allocator
+
+{ io } = @std
+
+main = () void {
+    io.println("=== Testing Vec<T, N> (Fixed-size vector) ===")
+    
+    // Create a fixed-size vector
+    numbers = Vec<i32, 5>()
+    
+    io.println("Created Vec<i32, 5>")
+    
+    // TODO: Add methods to interact with Vec
+    // numbers.push(10)
+    // numbers.push(20)
+    // numbers.push(30)
+    
+    io.println("")
+    io.println("=== Testing array literal ===")
+    
+    // Array literal syntax 
+    arr = [1, 2, 3, 4, 5]
+    
+    io.println("Created array [1, 2, 3, 4, 5]")
+    
+    // TODO: Add DynVec test once allocators are implemented
+    // io.println("")
+    // io.println("=== Testing DynVec<T> (Dynamic vector) ===")
+    // alloc = GPA.init()
+    // @this.defer(alloc.deinit())
+    // 
+    // dynamic = DynVec<i32>(alloc)
+    // @this.defer(dynamic.deinit())
+    // 
+    // dynamic.push(100)
+    // dynamic.push(200)
+    // 
+    // io.print("Dynamic vector length: ")
+    // io.print_int(dynamic.len())
+    // io.println("")
+}

@@ -12,7 +12,6 @@ main = () void {
         
         counter > 3 ?
             | true { break }
-            | false { }
     })
     
     io.println("After loop, counter = ${counter}")

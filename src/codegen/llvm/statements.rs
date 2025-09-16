@@ -199,6 +199,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     fields: vec![],
                                 }
                             }
+                        } else if let Expression::CreateReference(inner) = init_expr {
+                            // For .ref(), the type is Ptr<T> where T is the type of inner
+                            // Try to infer the inner type
+                            let inner_type = if let Expression::Identifier(var_name) = &**inner {
+                                // Look up the type of the variable
+                                if let Some(var_info) = self.variables.get(var_name) {
+                                    var_info.ast_type.clone()
+                                } else {
+                                    AstType::I32 // Default fallback
+                                }
+                            } else if let Expression::Integer32(_) = &**inner {
+                                AstType::I32
+                            } else if let Expression::Integer64(_) = &**inner {
+                                AstType::I64
+                            } else {
+                                AstType::I32 // Default fallback
+                            };
+                            AstType::Ptr(Box::new(inner_type))
+                        } else if let Expression::CreateMutableReference(inner) = init_expr {
+                            // For .mut_ref(), the type is MutPtr<T> where T is the type of inner
+                            let inner_type = if let Expression::Identifier(var_name) = &**inner {
+                                if let Some(var_info) = self.variables.get(var_name) {
+                                    var_info.ast_type.clone()
+                                } else {
+                                    AstType::I32
+                                }
+                            } else if let Expression::Integer32(_) = &**inner {
+                                AstType::I32
+                            } else if let Expression::Integer64(_) = &**inner {
+                                AstType::I64
+                            } else {
+                                AstType::I32
+                            };
+                            AstType::MutPtr(Box::new(inner_type))
                         } else if let Expression::TypeCast { target_type, .. } = init_expr {
                             // For type casts, use the target type
                             target_type.clone()
@@ -396,13 +430,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let struct_type = struct_val.get_type();
                         let alloca = self.builder.build_alloca(struct_type, name)?;
                         self.builder.build_store(alloca, struct_val)?;
-                        // Check if this is an enum variant assignment
-                        let inferred_type = if let Expression::MemberAccess { object, member } = value {
-                            if let Expression::Identifier(enum_name) = &**object {
-                                // Check if this is an enum type
-                                if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
-                                    AstType::EnumType {
-                                        name: enum_name.clone(),
+                        // Check what type of value this is
+                        let inferred_type = match value {
+                            Expression::StructLiteral { name: struct_name, .. } => {
+                                // This is a struct literal
+                                AstType::Struct {
+                                    name: struct_name.clone(),
+                                    fields: vec![], // Will be populated from struct_types if needed
+                                }
+                            }
+                            Expression::MemberAccess { object, member } => {
+                                if let Expression::Identifier(enum_name) = &**object {
+                                    // Check if this is an enum type
+                                    if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
+                                        AstType::EnumType {
+                                            name: enum_name.clone(),
+                                        }
+                                    } else {
+                                        // Generic enum type
+                                        AstType::EnumType {
+                                            name: String::new(),
+                                        }
                                     }
                                 } else {
                                     // Generic enum type
@@ -410,22 +458,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         name: String::new(),
                                     }
                                 }
-                            } else {
-                                // Generic enum type
+                            }
+                            _ => {
+                                // Default to enum type for other cases
                                 AstType::EnumType {
                                     name: String::new(),
                                 }
-                            }
-                        } else {
-                            // Generic enum type
-                            AstType::EnumType {
-                                name: String::new(),
                             }
                         };
                         self.variables.insert(name.clone(), super::VariableInfo {
                             pointer: alloca,
                             ast_type: inferred_type,
                             is_mutable: false,  // Assignment with = creates immutable variables
+                            is_initialized: true,
                         });
                     } else {
                         let llvm_type = self.to_llvm_type(&var_type)?;
@@ -441,6 +486,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             pointer: alloca,
                             ast_type: var_type,
                             is_mutable: false,  // Assignment with = creates immutable variables
+                            is_initialized: true,
                         });
                     }
                     return Ok(());
@@ -767,6 +813,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         pointer: alloca,
                         ast_type: AstType::I64,
                         is_mutable: true,  // Loop variables are mutable
+                        is_initialized: true,
                     });
                 }
                 

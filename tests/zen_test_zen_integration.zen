@@ -127,12 +127,10 @@ fibonacci = (n: i32) Vec<i32>   {
     
     n <= 0 ?
         | true { return result }
-        | false {}
     
     result.push(0)
     n == 1 ?
         | true { return result }
-        | false {}
     
     result.push(1)
     
@@ -289,12 +287,10 @@ main = () i32   {
                         | Err(msg) {
                             msg == "Division by zero" ?
                                 | true { test_passed = true }
-                                | false {}
                         }
                         | Ok(_) {}
                     }
                 }
-                | false {}
         }
         | Err(_) {}
     }

@@ -1,8 +1,14 @@
-// Very basic test
+{ io } = @std
 
-main = () i32   {
-    x = 5
-    y = 10
-    result = x + y
-    result
+main = () void {
+    // Test basic immutable variable
+    x = 42
+    io.print_int(x)
+    io.println("")
+    
+    // Test mutable variable
+    counter ::= 0
+    counter = counter + 1
+    io.print_int(counter)
+    io.println("")
 }

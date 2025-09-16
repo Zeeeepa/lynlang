@@ -95,7 +95,6 @@ test_loops = () void {
         count = count + 1
         count > 2 ?
             | true { break }
-            | false { }
     })
     io.println("Loop count: 3")
 }

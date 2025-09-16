@@ -199,6 +199,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 pointer: alloca,
                 ast_type: type_.clone(),
                 is_mutable: false,  // Function parameters are immutable by default in Zen
+                is_initialized: true,
             });
         }
 

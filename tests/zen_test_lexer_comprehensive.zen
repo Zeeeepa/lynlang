@@ -350,7 +350,6 @@ test_complex_expression = () bool   {
         tok_count = tok_count + 1
         tok.type == token:TokenType:EOF ?
             | true { { break  }}
-            | false {}
     }
     
     // Should have many tokens
