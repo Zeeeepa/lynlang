@@ -1,0 +1,33 @@
+// Debug pattern matching issue
+{ io } = @std
+
+main = () void {
+    x = 42
+    
+    // Test 1: Direct boolean
+    io.println("Test 1: Direct boolean")
+    true ?
+        | true { io.println("  Matched true") }
+        | false { io.println("  Matched false") }
+    
+    // Test 2: Boolean variable
+    io.println("Test 2: Boolean variable")
+    is_big = true
+    is_big ?
+        | true { io.println("  Variable is true") }
+        | false { io.println("  Variable is false") }
+    
+    // Test 3: Comparison expression
+    io.println("Test 3: Comparison (42 > 30)")
+    result = 42 > 30
+    io.println("  Comparison result stored in variable")
+    result ?
+        | true { io.println("  Result is true") }
+        | false { io.println("  Result is false") }
+    
+    // Test 4: Direct comparison in pattern
+    io.println("Test 4: Direct comparison in pattern")
+    42 > 30 ?
+        | true { io.println("  42 > 30 is true") }
+        | false { io.println("  42 > 30 is false") }
+}

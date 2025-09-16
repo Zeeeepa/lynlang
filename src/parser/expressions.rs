@@ -918,8 +918,18 @@ impl<'a> Parser<'a> {
                 }
                 self.next_token(); // consume '}'
                 
-                // For now, treat blocks as the final expression or a default value
-                final_expr.unwrap_or(Expression::Boolean(true))
+                // If we have statements, return a block expression
+                // Otherwise return the final expression or an empty block
+                if !statements.is_empty() || final_expr.is_some() {
+                    // If there's a final expression, add it to the statements
+                    if let Some(expr) = final_expr {
+                        statements.push(crate::ast::Statement::Expression(expr));
+                    }
+                    Expression::Block(statements)
+                } else {
+                    // Empty block
+                    Expression::Block(vec![])
+                }
             } else if self.current_token == Token::FatArrow {
                 // Legacy => syntax for compatibility
                 self.next_token(); // consume '=>'

@@ -1,0 +1,16 @@
+// Test string interpolation
+{ io } = @std
+
+main = () void {
+    name = "Zen"
+    version = 1
+    
+    // Test string interpolation
+    io.println("Language: ${name}")
+    io.println("Version: ${version}")
+    
+    // Test in expressions
+    x = 10
+    y = 20
+    io.println("${x} + ${y} = ${x + y}")
+}

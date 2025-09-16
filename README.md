@@ -2,6 +2,18 @@
 
 A modern systems programming language that emphasizes simplicity, consistency, and safety without sacrificing performance.
 
+## Current Status (2025-09-16)
+
+The Zen compiler is actively being developed with many core features working:
+- ✅ Pattern matching with `?` operator
+- ✅ Range-based loops: `(0..10).loop((i) { ... })`
+- ✅ String interpolation: `"Value: ${x}"`
+- ✅ No null - Option types (in progress)
+- ⚠️ Structs (partial - field access being fixed)
+- 🚧 Generic types and traits (in development)
+
+See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md) for detailed status.
+
 ## Key Design Principles
 
 ### No Traditional Keywords
