@@ -1,0 +1,10 @@
+main = () void {
+    x = 10
+    y = 20
+    sum = x + y
+    product = x * y
+    @std.io.println("Sum:")
+    @std.io.println(sum)
+    @std.io.println("Product:")
+    @std.io.println(product)
+}

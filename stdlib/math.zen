@@ -63,58 +63,58 @@ rad_to_deg = (radians: f64) f64   {
 // Absolute value for integers
 abs_i32 = (x: i32) i32   {
     x < 0 ?
-        | true { return -x }
+         { return -x }
         | false { return x }
 }
 
 abs_i64 = (x: i64) i64   {
     x < 0 ?
-        | true { return -x }
+         { return -x }
         | false { return x }
 }
 
 // Min/Max for integers
 min_i32 = (a: i32, b: i32) i32   {
     a < b ?
-        | true { return a }
+         { return a }
         | false { return b }
 }
 
 max_i32 = (a: i32, b: i32) i32   {
     a > b ?
-        | true { return a }
+         { return a }
         | false { return b }
 }
 
 min_i64 = (a: i64, b: i64) i64   {
     a < b ?
-        | true { return a }
+         { return a }
         | false { return b }
 }
 
 max_i64 = (a: i64, b: i64) i64   {
     a > b ?
-        | true { return a }
+         { return a }
         | false { return b }
 }
 
 // Clamp a value between min and max
 clamp_i32 = (value: i32, min: i32, max: i32) i32   {
     value < min ?
-        | true { return min }
+         { return min }
         | false {
             value > max ?
-                | true { return max }
+                 { return max }
                 | false { return value }
         }
 }
 
 clamp_f64 = (value: f64, min: f64, max: f64) f64   {
     value < min ?
-        | true { return min }
+         { return min }
         | false {
             value > max ?
-                | true { return max }
+                 { return max }
                 | false { return value }
         }
 }
@@ -122,20 +122,20 @@ clamp_f64 = (value: f64, min: f64, max: f64) f64   {
 // Sign function
 sign_i32 = (x: i32) i32   {
     x < 0 ?
-        | true { return -1 }
+         { return -1 }
         | false {
             x > 0 ?
-                | true { return 1 }
+                 { return 1 }
                 | false { return 0 }
         }
 }
 
 sign_f64 = (x: f64) f64   {
     x < 0.0 ?
-        | true { return -1.0 }
+         { return -1.0 }
         | false {
             x > 0.0 ?
-                | true { return 1.0 }
+                 { return 1.0 }
                 | false { return 0.0 }
         }
 }
@@ -144,8 +144,8 @@ sign_f64 = (x: f64) f64   {
 approx_eq_f32 = (a: f32, b: f32, epsilon: f32) bool   {
     diff := a - b
     diff < 0.0 ?
-        | true { { diff = -diff  }}
-        | false {}
+         { { diff = -diff  }}
+       
     
     return diff < epsilon
 }
@@ -153,8 +153,8 @@ approx_eq_f32 = (a: f32, b: f32, epsilon: f32) bool   {
 approx_eq_f64 = (a: f64, b: f64, epsilon: f64) bool   {
     diff := a - b
     diff < 0.0 ?
-        | true { { diff = -diff  }}
-        | false {}
+         { { diff = -diff  }}
+       
     
     return diff < epsilon
 }
@@ -199,12 +199,12 @@ fast_inv_sqrt = (x: f32) f32   {
 // Factorial (iterative)
 factorial = (n: i64) i64   {
     n < 0 ?
-        | true { return 0  // Undefined for negative numbers }
-        | false {}
+         { return 0  // Undefined for negative numbers }
+       
     
     n == 0 || n == 1 ?
-        | true { return 1 }
-        | false {}
+         { return 1 }
+       
     
     result := 1
     i := 2
@@ -220,8 +220,8 @@ factorial = (n: i64) i64   {
 // Greatest common divisor (Euclidean algorithm)
 gcd = (a: i64, b: i64) i64   {
     // Make positive
-    a < 0 ? | true { { a = -a  }} | false {}
-    b < 0 ? | true { { b = -b  }} | false {}
+    a < 0 ?  { { a = -a  }}        
+    b < 0 ?  { { b = -b  }}
     
     // TODO: Need proper loop implementation
     // loop b != 0 {
@@ -237,24 +237,16 @@ gcd = (a: i64, b: i64) i64   {
 lcm = (a: i64, b: i64) i64   {
     g := gcd(a, b)
     g == 0 ?
-        | true { return 0 }
+         { return 0 }
         | false { return (a / g) * b }
 }
 
 // Check if a number is prime (simple trial division)
 is_prime = (n: i64) bool   {
-    n <= 1 ?
-        | true { return false }
-        | false {}
-    
-    n <= 3 ?
-        | true { return true }
-        | false {}
-    
-    n % 2 == 0 || n % 3 == 0 ?
-        | true { return false }
-        | false {}
-    
+    n <= 1 ? { return false }
+    n <= 3 ?  { return true }
+    n % 2 == 0 || n % 3 == 0 ? { return false } 
+       
     // TODO: Complete implementation with proper loop
     return true
 }
@@ -262,16 +254,16 @@ is_prime = (n: i64) bool   {
 // Calculate n-th Fibonacci number (iterative)
 fibonacci = (n: i64) i64   {
     n < 0 ?
-        | true { return 0 }
-        | false {}
+         { return 0 }
+       
     
     n == 0 ?
-        | true { return 0 }
-        | false {}
+         { return 0 }
+       
     
     n == 1 ?
-        | true { return 1 }
-        | false {}
+         { return 1 }
+       
     
     prev := 0
     curr := 1
@@ -325,7 +317,7 @@ vec2_length = (v: Vec2) f64   {
 vec2_normalize = (v: Vec2) Vec2   {
     len := vec2_length(v)
     len > 0.0 ?
-        | true { return Vec2 { x: v.x / len, y: v.y / len  }}
+         { return Vec2 { x: v.x / len, y: v.y / len  }}
         | false { return v }
 }
 
@@ -361,7 +353,7 @@ vec3_length = (v: Vec3) f64   {
 vec3_normalize = (v: Vec3) Vec3   {
     len := vec3_length(v)
     len > 0.0 ?
-        | true { return Vec3 { x: v.x / len, y: v.y / len, z: v.z / len  }}
+         { return Vec3 { x: v.x / len, y: v.y / len, z: v.z / len  }}
         | false { return v }
 }
 

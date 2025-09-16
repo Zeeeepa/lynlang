@@ -80,16 +80,12 @@ sum_array = (arr: *i32, size: i32) i32   {
 
 // Find max element
 find_max = (arr: *i32, size: i32) i32   {
-    size <= 0 ?
-        | true { return 0 }
-        | false {}
+    size <= 0 ? { return 0 }
     
-    max := arr[0]
-    i := 1
+    max ::= arr[0]
+    i ::= 1
     loop i < size {
-        arr[i] > max ?
-            | true { { max = arr[i]  }}
-            | false {}
+        arr[i] > max ?  { max = arr[i]  }
         i = i + 1
     }
     return max

@@ -69,27 +69,17 @@ validate_user = (user: User) AppResult<User>  {
     errors ::= DynVec<String>()
     
     // Check name
-    user.name.len() < 2 ?
-        | true { errors.push("name too short") }
-        | false {}
+    user.name.len() < 2 ? { errors.push("name too short") }
     
-    user.name.len() > 100 ?
-        | true { errors.push("name too long") }
-        | false {}
+    user.name.len() > 100 ? { errors.push("name too long") }
     
     // Check email
-    user.email.contains("@") ?
-        | false { errors.push("invalid email format") }
-        | true {}
+    user.email.contains("@") ? { errors.push("invalid email format") }
     
     // Check age
-    user.age < 13 ?
-        | true { errors.push("user too young") }
-        | false {}
+    user.age < 13 ? { errors.push("user too young") }
     
-    user.age > 150 ?
-        | true { errors.push("invalid age") }
-        | false {}
+    user.age > 150 ? { errors.push("invalid age") }
     
     // Return error if validation failed
     errors.is_empty() ?

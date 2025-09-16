@@ -50,7 +50,7 @@ test_functional_loops = () bool   {
     passed := true
     
     // Test range with callback
-    sum := 0
+    sum = 0
     core.range(1, 6).loop((i: i64) void {
         sum = sum + i
     })
@@ -117,7 +117,7 @@ test_vec_functional = () bool   {
     passed = passed && assert_eq(v.len(), 10, "DynVec populated with squares")
     
     // Sum all elements using functional iteration
-    sum := 0
+    sum = 0
     i := 0
     loop i < v.len() {
         elem_result := v.get(i)
@@ -346,7 +346,7 @@ test_complex_structures = () bool   {
     passed = passed && assert_eq(vec.vec_len(&stack), 5, "Stack size after pushes")
     
     // Pop operations
-    sum := 0
+    sum = 0
     loop !vec.vec_is_empty(&stack) {
         popped := vec.vec_pop(&stack)
         popped ? | core.Option:Some(val) {

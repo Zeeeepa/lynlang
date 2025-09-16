@@ -113,8 +113,8 @@ is_ident_continue = (c: char) bool   {
 is_keyword = (s: string) bool   {
     i := 0
     loop i < KEYWORDS.len() {
-        KEYWORDS[i] == s ? | true { return true }
-                        | false {}
+        KEYWORDS[i] == s ? 
+         { return true }
         i = i + 1
     }
     return false
@@ -140,11 +140,10 @@ advance = (lexer: Ptr<Lexer>) char   {
             lexer.pos = lexer.pos + 1
             lexer.column = lexer.column + 1
             
-            c == '\n' ? | true {
+            c == '\n' ?  {
                     lexer.line = lexer.line + 1
                     lexer.column = 1
                 }
-                | false {}
             
             return c
         }
@@ -214,8 +213,7 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
             }
             
             // Check for float
-            peek(lexer) == '.' && is_digit(peek_next(lexer)) ?
-                | true {
+            peek(lexer) == '.' && is_digit(peek_next(lexer)) ? {
                     advance(lexer)  // .
                     
                     // Read fractional part
@@ -224,18 +222,14 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
                     }
                     
                     // Check for exponent
-                    (peek(lexer) == 'e' || peek(lexer) == 'E') ?
-                        | true {
+                    (peek(lexer) == 'e' || peek(lexer) == 'E') ? {
                             advance(lexer)
-                            (peek(lexer) == '+' || peek(lexer) == '-') ?
-                                | true { advance(lexer) }
-                                | false {}
+                            (peek(lexer) == '+' || peek(lexer) == '-') ? { advance(lexer) }
                             
                             loop is_digit(peek(lexer)) {
                                 advance(lexer)
                             }
                         }
-                        | false {}
                     
                     // Return float token
                     value_str := string_slice(lexer.source, start, lexer.pos)
@@ -246,7 +240,6 @@ lex_number = (lexer: Ptr<Lexer>) Token   {
                         column: start_column,
                     }
                 }
-                | false {}
         }
     
     // Return integer token
@@ -293,25 +286,25 @@ lex_string = (lexer: Ptr<Lexer>) Token   {
             
             // Character literal if single quote and single char
             quote == '\'' && result.len() == 1 ?
-                | true { return Token { }
+                | true { return Token {
                     kind: TokenKind { tag: "CharLiteral", value: result },
                     span: Span { start: start, end: lexer.pos },
                     line: start_line,
                     column: start_column,
-                }
-                | false { return Token { }
+                }}
+                | false { return Token {
                     kind: TokenKind { tag: "StringLiteral", value: result },
                     span: Span { start: start, end: lexer.pos },
                     line: start_line,
                     column: start_column,
-                }
+                }}
         }
-        | false { return Token { }
+        | false { return Token {
             kind: TokenKind { tag: "Invalid", value: "Unterminated string literal" },
             span: Span { start: start, end: lexer.pos },
             line: start_line,
             column: start_column,
-        }
+        }}
 }
 
 // Lex an identifier or keyword
@@ -328,38 +321,34 @@ lex_identifier = (lexer: Ptr<Lexer>) Token   {
     ident := string_slice(lexer.source, start, lexer.pos)
     
     // Check for boolean literals
-    ident == "true" ?
-        | true { return Token { }
+    ident == "true" ? { return Token {
             kind: TokenKind { tag: "BoolLiteral", value: "true" },
             span: Span { start: start, end: lexer.pos },
             line: start_line,
             column: start_column,
-        }
-        | false {}
+        }}
     
-    ident == "false" ?
-        | true { return Token { }
+    ident == "false" ? { return Token {
             kind: TokenKind { tag: "BoolLiteral", value: "false" },
             span: Span { start: start, end: lexer.pos },
             line: start_line,
             column: start_column,
-        }
-        | false {}
+        }}
     
     // Check if it's a keyword
     is_keyword(ident) ?
-        | true { return Token { }
+        | true { return Token {
             kind: TokenKind { tag: "Keyword", value: ident },
             span: Span { start: start, end: lexer.pos },
             line: start_line,
             column: start_column,
-        }
-        | false { return Token { }
+        }}
+        | false { return Token {
             kind: TokenKind { tag: "Identifier", value: ident },
             span: Span { start: start, end: lexer.pos },
             line: start_line,
             column: start_column,
-        }
+        }}
 }
 
 // Get next token
@@ -374,12 +363,12 @@ next_token = (lexer: Ptr<Lexer>) Token   {
                 peek(lexer) == '/' && peek_next(lexer) == '*' ?
                     | true {
                         skip_block_comment(lexer) ?
-                            | false { return Token { }
+                            | false { return Token {
                                 kind: TokenKind { tag: "Invalid", value: "Unterminated block comment" },
                                 span: Span { start: lexer.pos, end: lexer.pos },
                                 line: lexer.line,
                                 column: lexer.column,
-                            }
+                            }}
                             | true {}
                     }
                     | false { break }
@@ -393,29 +382,22 @@ next_token = (lexer: Ptr<Lexer>) Token   {
     c := peek(lexer)
     
     // End of file
-    c == '\0' ?
-        | true { return Token { }
+    c == '\0' ? { return Token {
             kind: TokenKind { tag: "Eof", value: "" },
             span: Span { start: start, end: start },
             line: start_line,
             column: start_column,
-        }
-        | false {}
+    }}
     
     // Numbers
-    is_digit(c) ?
-        | true { return lex_number(lexer) }
-        | false {}
+    is_digit(c) ? { return lex_number(lexer) }
+
     
     // Strings and chars
-    (c == '"' || c == '\'') ?
-        | true { return lex_string(lexer) }
-        | false {}
+    (c == '"' || c == '\'') ? { return lex_string(lexer) }
     
     // Identifiers and keywords
-    is_ident_start(c) ?
-        | true { return lex_identifier(lexer) }
-        | false {}
+    is_ident_start(c) ? { return lex_identifier(lexer) }
     
     // Operators and punctuation
     c := advance(lexer)
@@ -462,7 +444,7 @@ next_token = (lexer: Ptr<Lexer>) Token   {
                 }
                 | false { return make_token("Slash", start, lexer.pos, start_line, start_column) }
         }
-        | '=' => {
+        | '=' {
             next == '=' ?
                 | true {
                     advance(lexer)
@@ -483,11 +465,12 @@ next_token = (lexer: Ptr<Lexer>) Token   {
                     advance(lexer)
                     return make_token("NotEqual", start, lexer.pos, start_line, start_column)
                 }
-                | false { return Token { }
-                    kind: TokenKind { tag: "Invalid", value: "Unexpected character '!'" },
-                    span: Span { start: start, end: lexer.pos },
-                    line: start_line,
-                    column: start_column,
+                | false { return Token {
+                        kind: TokenKind { tag: "Invalid", value: "Unexpected character '!'" },
+                        span: Span { start: start, end: lexer.pos },
+                        line: start_line,
+                        column: start_column,
+                    }}
                 }
         }
         | '<' {
@@ -562,14 +545,32 @@ next_token = (lexer: Ptr<Lexer>) Token   {
         | ';' { return make_token("Semicolon", start, lexer.pos, start_line, start_column) }
         | ',' { return make_token("Comma", start, lexer.pos, start_line, start_column) }
         | '?' { return make_token("Question", start, lexer.pos, start_line, start_column) }
-        | '@' { return make_token("At", start, lexer.pos, start_line, start_column) }
+        | '@' {
+            // Check for @std or @this special symbols
+            is_ident_start(peek(lexer)) ? {
+                ident_start := lexer.pos
+                loop is_ident_continue(peek(lexer)) {
+                    advance(lexer)
+                }
+                ident := string_slice(lexer.source, ident_start, lexer.pos)
+                (ident == "std" || ident == "this") ?
+                    | true { return make_token("BuiltinSymbol", start, lexer.pos, start_line, start_column) }
+                    | false { 
+                        // Reset position and return just '@'
+                        lexer.pos = ident_start
+                        return make_token("At", start, ident_start, start_line, start_column)
+                    }
+            }
+            return make_token("At", start, lexer.pos, start_line, start_column)
+        }
         | '$' { return make_token("Dollar", start, lexer.pos, start_line, start_column) }
         | '#' { return make_token("Hash", start, lexer.pos, start_line, start_column) }
-        | _ { return Token { }
-            kind: TokenKind { tag: "Invalid", value: "Unexpected character" },
-            span: Span { start: start, end: lexer.pos },
-            line: start_line,
-            column: start_column,
+        | _ { return Token {
+                kind: TokenKind { tag: "Invalid", value: "Unexpected character" },
+                span: Span { start: start, end: lexer.pos },
+                line: start_line,
+                column: start_column,
+            }}
         }
 }
 

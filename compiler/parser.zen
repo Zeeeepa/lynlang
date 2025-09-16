@@ -43,7 +43,7 @@ AstNode:
     ArrayLit: {elements: DynVec<AstNode>},
     
     // Struct literal
-    StructLit: {name: string, fields: DynVec<: {string, AstNode)>},
+    StructLit: {name: string, fields: DynVec<{string, AstNode}>},
     
     // Block expression
     Block: {statements: DynVec<AstNode>},
@@ -236,15 +236,13 @@ check = (parser: Ptr<Parser>, kind: TokenKind) bool   {
 }
 
 // Match and consume token if it matches
-= (parser: Ptr<Parser>, kinds: DynVec<TokenKind>) bool ?
+match_any = (parser: Ptr<Parser>, kinds: DynVec<TokenKind>) bool {
     i := 0
     loop i < kinds.len() {
-        check(parser, kinds[i]) ?
-            | true {
+        check(parser, kinds[i]) ? {
                 advance(parser)
                 return true
             }
-            | false {}
         i = i + 1
     }
     return false
@@ -317,11 +315,9 @@ parse_function = (parser: Ptr<Parser>) AstNode   {
     
     // Parse generic parameters if present
     generics := vec_new<string>()
-    check(parser, TokenKind.Less) ?
-        | true {
+    check(parser, TokenKind.Less) ? {
             generics = parse_generic_params(parser)
         }
-        | false {}
     
     // Parse parameters
     expect(parser, TokenKind.LeftParen, "Expected '(' after function name")
@@ -330,12 +326,10 @@ parse_function = (parser: Ptr<Parser>) AstNode   {
     
     // Parse return type if present
     return_type := Option<Type>.None
-    check(parser, TokenKind.Arrow) ?
-        | true {
+    check(parser, TokenKind.Arrow) ? {
             advance(parser)
             return_type = Option<Type>.Some(parse_type(parser))
         }
-        | false {}
     
     // Parse body
     body := parse_block_expr(parser)
@@ -352,11 +346,9 @@ parse_struct = (parser: Ptr<Parser>) AstNode   {
     
     // Parse generic parameters if present
     generics := vec_new<string>()
-    check(parser, TokenKind.Less) ?
-        | true {
+    check(parser, TokenKind.Less) ? {
             generics = parse_generic_params(parser)
         }
-        | false {}
     
     expect(parser, TokenKind.LeftBrace, "Expected '{' after struct name")
     
@@ -365,12 +357,10 @@ parse_struct = (parser: Ptr<Parser>) AstNode   {
     loop !check(parser, TokenKind.RightBrace) {
         // Parse visibility
         is_public := false
-        check(parser, TokenKind.Keyword("pub")) ?
-            | true {
+        check(parser, TokenKind.Keyword("pub")) ? {
                 advance(parser)
                 is_public = true
             }
-            | false {}
         
         // Parse field name
         field_name_token := expect(parser, TokenKind.Identifier(""), "Expected field name")
@@ -435,14 +425,31 @@ parse_statement = (parser: Ptr<Parser>) AstNode   {
         | _ {
             expr := parse_expression(parser)
             
-            // Check for assignment
+            // Check for assignment operators
             check(parser, TokenKind.Assign) ?
                 | true {
                     advance(parser)
                     value := parse_expression(parser)
                     return AstNode.Assignment(ptr_new(expr), ptr_new(value))
                 }
-                | false { return expr }
+                | false {
+                    // Check for ::= mutable assignment
+                    check(parser, TokenKind.ColonColonAssign) ?
+                        | true {
+                            advance(parser)
+                            value := parse_expression(parser)
+                            // Create a mutable variable declaration
+                            expr.kind ?
+                                | Identifier(name) {
+                                    return AstNode.VarDecl(name, Option<Type>.None, Option<Ptr<AstNode>>.Some(ptr_new(value)), true)
+                                }
+                                | _ {
+                                    add_error(parser, "::= can only be used for variable declarations")
+                                    return expr
+                                }
+                        }
+                        | false { return expr }
+                }
         }
 }
 
@@ -455,21 +462,18 @@ parse_let_statement = (parser: Ptr<Parser>) AstNode   {
     
     // Parse type annotation if present
     type_annotation := Option<Type>.None
-    check(parser, TokenKind.Colon) ?
-        | true {
+    check(parser, TokenKind.Colon) ? {
             advance(parser)
             type_annotation = Option<Type>.Some(parse_type(parser))
         }
-        | false {}
+
     
     // Parse initializer
     value := Option<Ptr<AstNode>>.None
-    check(parser, TokenKind.Assign) ?
-        | true {
+    check(parser, TokenKind.Assign) ? {
             advance(parser)
             value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser)))
         }
-        | false {}
     
     return AstNode.VarDecl(name, type_annotation, value, false)
 }
@@ -693,17 +697,15 @@ parse_postfix_expression = (parser: Ptr<Parser>) AstNode   {
                 advance(parser)
                 args := vec_new<AstNode>()
                 
-                !check(parser, TokenKind.RightParen) ?
-                    | true {
-                        loop {
-                            args.push(parse_expression(parser))
-                            
-                            !check(parser, TokenKind.Comma) ?
-                                | true { break }
-                                | false { advance(parser) }
-                        }
+                !check(parser, TokenKind.RightParen) ? {
+                    loop {
+                        args.push(parse_expression(parser))
+                        
+                        !check(parser, TokenKind.Comma) ?
+                            | true { break }
+                            | false { advance(parser) }
                     }
-                    | false {}
+                }
                 
                 expect(parser, TokenKind.RightParen, "Expected ')' after arguments")
                 expr = AstNode.Call(ptr_new(expr), args)
@@ -806,9 +808,7 @@ parse_block_expr = (parser: Ptr<Parser>) AstNode   {
         statements.push(stmt)
         
         // Optional semicolon
-        check(parser, TokenKind.Semicolon) ?
-            | true { advance(parser) }
-            | false {}
+        check(parser, TokenKind.Semicolon) ? { advance(parser) }
     }
     
     expect(parser, TokenKind.RightBrace, "Expected '}'")
@@ -1114,21 +1114,17 @@ parse_var_statement = (parser: Ptr<Parser>) AstNode   {
     
     // Parse type annotation if present
     type_annotation := Option<Type>.None
-    check(parser, TokenKind.Colon) ?
-        | true {
+    check(parser, TokenKind.Colon) ? {
             advance(parser)
             type_annotation = Option<Type>.Some(parse_type(parser))
         }
-        | false {}
     
     // Parse initializer
     value := Option<Ptr<AstNode>>.None
-    check(parser, TokenKind.Assign) ?
-        | true {
+    check(parser, TokenKind.Assign) ? {
             advance(parser)
             value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser)))
         }
-        | false {}
     
     return AstNode.VarDecl(name, type_annotation, value, true)
 }
@@ -1138,9 +1134,7 @@ parse_return_statement = (parser: Ptr<Parser>) AstNode   {
     
     // Check if there's a value
     value := Option<Ptr<AstNode>>.None
-    !check(parser, TokenKind.Semicolon) && !check(parser, TokenKind.RightBrace) ?
-        | true { value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser))) }
-        | false {}
+    !check(parser, TokenKind.Semicolon) && !check(parser, TokenKind.RightBrace) ? { value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser))) }
     
     return AstNode.Return(value)
 }
@@ -1150,9 +1144,7 @@ parse_break_statement = (parser: Ptr<Parser>) AstNode   {
     
     // Check if there's a value
     value := Option<Ptr<AstNode>>.None
-    !check(parser, TokenKind.Semicolon) && !check(parser, TokenKind.RightBrace) ?
-        | true { value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser))) }
-        | false {}
+    !check(parser, TokenKind.Semicolon) && !check(parser, TokenKind.RightBrace) ? { value = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser))) }
     
     return AstNode.Break(value)
 }
@@ -1171,9 +1163,7 @@ parse_loop_expression = (parser: Ptr<Parser>) AstNode   {
     
     // Check for condition
     condition := Option<Ptr<AstNode>>.None
-    !check(parser, TokenKind.LeftBrace) ?
-        | true { condition = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser))) }
-        | false {}
+    !check(parser, TokenKind.LeftBrace) ? { condition = Option<Ptr<AstNode>>.Some(ptr_new(parse_expression(parser))) }
     
     body := parse_block_expr(parser)
     
@@ -1209,8 +1199,7 @@ parse_array_literal = (parser: Ptr<Parser>) AstNode   {
     
     elements := vec_new<AstNode>()
     
-    !check(parser, TokenKind.RightBracket) ?
-        | true {
+    !check(parser, TokenKind.RightBracket) ? {
             loop {
                 elements.push(parse_expression(parser))
                 
@@ -1219,7 +1208,6 @@ parse_array_literal = (parser: Ptr<Parser>) AstNode   {
                     | false { advance(parser) }
             }
         }
-        | false {}
     
     expect(parser, TokenKind.RightBracket, "Expected ']' after array elements")
     
@@ -1231,8 +1219,7 @@ parse_struct_literal = (parser: Ptr<Parser>, name: string) AstNode   {
     
     fields := vec_new<(string, AstNode)>()
     
-    !check(parser, TokenKind.RightBrace) ?
-        | true {
+    !check(parser, TokenKind.RightBrace) ? {
             loop {
                 field_name_token := expect(parser, TokenKind.Identifier(""), "Expected field name")
                 field_name := extract_identifier(field_name_token)
@@ -1248,7 +1235,6 @@ parse_struct_literal = (parser: Ptr<Parser>, name: string) AstNode   {
                     | false { advance(parser) }
             }
         }
-        | false {}
     
     expect(parser, TokenKind.RightBrace, "Expected '}' after struct fields")
     
@@ -1445,12 +1431,10 @@ parse_const = (parser: Ptr<Parser>) AstNode   {
     
     // Parse type annotation if present
     type_annotation := Option<Type>.None
-    check(parser, TokenKind.Colon) ?
-        | true {
+    check(parser, TokenKind.Colon) ? {
             advance(parser)
             type_annotation = Option<Type>.Some(parse_type(parser))
         }
-        | false {}
     
     expect(parser, TokenKind.Assign, "Expected '=' after constant name")
     
@@ -1461,8 +1445,7 @@ parse_const = (parser: Ptr<Parser>) AstNode   {
 
 parse_builtin_import = (parser: Ptr<Parser>) AstNode   {
     // Check if we're inside a comptime block
-    parser.in_comptime ?
-        | true {
+    parser.in_comptime ? {
             add_error(parser, "Import statements are not allowed inside comptime blocks. Comptime is for meta-programming only.")
             // Skip the rest of the import to recover
             loop {
@@ -1473,7 +1456,6 @@ parse_builtin_import = (parser: Ptr<Parser>) AstNode   {
             }
             return AstNode.IntLit(0)
         }
-        | false {}
     
     // Parse builtin module path like std.core or compiler.lexer
     path := vec_new<string>()

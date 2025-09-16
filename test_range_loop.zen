@@ -1,0 +1,23 @@
+// Test range loop syntax from LANGUAGE_SPEC.zen
+io = @std
+
+main = () i32 {
+    io.println("Testing range loop syntax...")
+    
+    // Range iteration - this is what we want to work
+    (0..5).loop((i) {
+        io.print("Index: ")
+        io.print_int(i)
+        io.println("")
+    })
+    
+    // Step ranges  
+    (0..10).step(2).loop((i) {
+        io.print("Step: ")
+        io.print_int(i)
+        io.println("")
+    })
+    
+    io.println("Range loop test complete!")
+    return 0
+}

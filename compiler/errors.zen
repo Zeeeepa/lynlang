@@ -207,14 +207,12 @@ format_diagnostic = (diag: Diagnostic) string {
         | None {}
     
     // Add notes
-    (diag.notes.len() > 0) ?
-        | true {
+    (diag.notes.len() > 0) ? {
             (0..diag.notes.len()).loop((i) {
                 result = concat(result, "\n  note: ")
                 result = concat(result, diag.notes[i])
             })
         }
-        | false {}
     
     // Add suggestion
     diag.suggestion ?

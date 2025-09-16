@@ -110,14 +110,13 @@ lexer_read_number = (l: *Lexer) string   {
     }
     
     // Check for decimal point
-    l.current_char == '.' && is_digit(lexer_peek_char(l)) ?
-        | true {
+    l.current_char == '.' && is_digit(lexer_peek_char(l)) ? {
             lexer_read_char(l) // consume '.'
             loop is_digit(l.current_char) {
                 lexer_read_char(l)
             }
         }
-        | false {}
+
     
     return string.substring(l.input, start, l.position)
 }
@@ -169,12 +168,10 @@ lexer_next_token = (l: *Lexer) Token   {
             (l.current_char == '!' && next == '=') ||
             (l.current_char == '<' && next == '=') ||
             (l.current_char == '>' && next == '=') ||
-            (l.current_char == ':' && next == '=') ?
-                | true {
+            (l.current_char == ':' && next == '=') ? {
                     lexer_read_char(l)
                     tok.value = tok.value + string.from_char(l.current_char)
                 }
-                | false {}
             
             lexer_read_char(l)
         }
@@ -257,9 +254,8 @@ parser_current = (p: *Parser) Token   {
 
 // Advance to next token
 parser_advance = (p: *Parser) void   {
-    p.current < p.tokens.len() ?
-        | true { { p.current = p.current + 1  }}
-        | false {}
+    p.current < p.tokens.len() ? { { p.current = p.current + 1  }}
+
 }
 
 // Check if current token matches
@@ -348,19 +344,16 @@ parser_parse_function = (p: *Parser, name: string) AstNode   {
                     }
             }
         }
-        | false {}
     
     parser_advance(p) // skip ')'
     
     // Parse return type
     return_type := "void"
-    !parser_check_value(p, "{") ?
-        | true {
+    !parser_check_value(p, "{") ?  {
             type_tok := parser_current(p)
             return_type = type_tok.value
             parser_advance(p)
-        }
-        | false {}
+    }
     
     // Parse body
     parser_advance(p) // skip '{'
@@ -436,18 +429,16 @@ parser_parse_primary = (p: *Parser) AstNode   {
                     parser_advance(p)
                     args := DynVec.new()
                     
-                    !parser_check_value(p, ")") ?
-                        | true {
+                    !parser_check_value(p, ")") ? {
                             loop {
                                 arg := parser_parse_expression(p)
                                 DynVec.push(&args, arg)
                                 
                                 parser_check_value(p, ",") ?
-                                    | true { { parser_advance(p)  }}
-                                    | false { { break  }}
+                                    | true { { parser_advance(p)  }} {
+                                    | false { { break  }} 
                             }
                         }
-                        | false {}
                     
                     parser_advance(p) // skip ')'
                     return AstNode { .FunctionCall { name = tok.value, args = args } }
@@ -483,9 +474,7 @@ codegen_generate = (ast: AstNode) string   {
             loop i < DynVec.len(params) {
                 param := params[i]
                 output = output + param.1 + " " + param.0
-                i < DynVec.len(params) - 1 ?
-                    | true { { output = output + ", "  }}
-                    | false {}
+                i < DynVec.len(params) - 1 ? { output = output + ", "  }
                 i = i + 1
             }
             
@@ -518,9 +507,7 @@ codegen_generate = (ast: AstNode) string   {
             i := 0
             loop i < DynVec.len(args) {
                 output = output + codegen_generate(args[i])
-                i < DynVec.len(args) - 1 ?
-                    | true { { output = output + ", "  }}
-                    | false {}
+                i < DynVec.len(args) - 1 ? { output = output + ", "  }
                 i = i + 1
             }
             
@@ -539,14 +526,12 @@ codegen_generate = (ast: AstNode) string   {
 compile_file = (input_path: string, output_path: string) i32   {
     // Read input file
     input := fs.read_file(input_path)
-    input.is_error() ?
-        | true {
+    input.is_error() ? {
             io.print("Error: Could not read file ")
             io.print(input_path)
             io.print("\n")
             return 1
         }
-        | false {}
     
     content := input.unwrap()
     
@@ -557,9 +542,7 @@ compile_file = (input_path: string, output_path: string) i32   {
     loop {
         tok := lexer_next_token(&lexer)
         DynVec.push(&tokens, tok)
-        tok.type == TokenType.Eof ?
-            | true { { break  }}
-            | false {}
+        tok.type == TokenType.Eof ? { break  }
     }
     
     // Parse the tokens
@@ -571,14 +554,12 @@ compile_file = (input_path: string, output_path: string) i32   {
     
     // Write output file
     result := fs.write_file(output_path, output)
-    result.is_error() ?
-        | true {
+    result.is_error() ? {
             io.print("Error: Could not write file ")
             io.print(output_path)
             io.print("\n")
             return 1
         }
-        | false {}
     
     io.print("Successfully compiled ")
     io.print(input_path)
