@@ -1,16 +1,16 @@
 // Zen Language Self-Hosted Compiler
 // Main entry point for the self-hosted compiler
 
-core = @std.core
-io = @std.io
-fs = @std.fs
-string = @std.string
-process = @std.process
-lexer = @std.lexer
-parser = @std.parser
-c_backend = @std.c_backend
-llvm_backend = @std.llvm_backend
-type_checker = @std.type_checker
+core = @std
+io = @std
+fs = @std
+string = @std
+process = @std
+lexer = @std
+parser = @std
+c_backend = @std
+llvm_backend = @std
+type_checker = @std
 
 // Compiler options
 CompilerOptions := {
@@ -37,7 +37,7 @@ parse_args = (args: [string]) CompilerOptions   {
     loop i < args.len() {
         arg := args[i]
         
-        if (arg == "-o") && ((i + 1) < args.len()) {
+        arg == "-o") && ((i + 1) < args.len() ? {
             opts.output_file = args[i + 1]
             i = i + 2
         } else if arg == "--backend" && i + 1 < args.len() {
@@ -58,7 +58,7 @@ parse_args = (args: [string]) CompilerOptions   {
         } else if !string.starts_with(arg, "-") {
             opts.input_file = arg
             i = i + 1
-        } else {
+        } | false {
             io.eprintln("Unknown option: " + arg)
             process.exit(1)
         }

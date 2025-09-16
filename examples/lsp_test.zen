@@ -1,8 +1,8 @@
 // LSP Test File - Demonstrates proper position tracking and features
 
 // Standard library imports
-io {  } = @std.io;
-math {  } = @std.math;
+io {  } = @std;
+math {  } = @std;
 
 // Type definitions
 Point: {

@@ -2,10 +2,10 @@
 // Tests io, string, core, and fs modules
 
 // Import all stdlib modules
-io = @std.io
-string = @std.string
-core = @std.core
-fs = @std.fs
+io = @std
+string = @std
+core = @std
+fs = @std
 
 // Test IO module
 test_io = () bool   {

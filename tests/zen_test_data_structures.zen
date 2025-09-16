@@ -1,11 +1,11 @@
 // Tests for data structure modules (array, queue, stack)
 
-core = @std.core
+core = @std
 { test } = @std
-array = @std.array
-queue = @std.queue
-stack = @std.stack
-io = @std.io
+array = @std
+queue = @std
+stack = @std
+io = @std
 
 // Array Tests
 test_array_basic = () void   {

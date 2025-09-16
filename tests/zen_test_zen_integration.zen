@@ -1,12 +1,12 @@
 // Comprehensive Integration Test for Zen
 // Tests all major language features working together
 
-core = @std.core
-io = @std.io
-math = @std.math
-string = @std.string
-vec = @std.vec
-test = @std.test
+core = @std
+io = @std
+math = @std
+string = @std
+vec = @std
+test = @std
 
 // Test data structures
 Point: {
@@ -101,7 +101,7 @@ impl<T> Stack<T> {
 
 // Test pattern matching
 process_color = (c: Color) string   {
-    match c {
+    c ?
         | Red { return "Pure red" }
         | Green { return "Pure green" }
         | Blue { return "Pure blue" }
@@ -223,7 +223,7 @@ main = () i32   {
     stack.push(20)
     stack.push(30)
     
-    match stack.pop() {
+    stack.pop() ?
         | Some(val) {
             val == 30 ?
                 | true {
@@ -281,11 +281,11 @@ main = () i32   {
     result_err := divide_safe(10.0, 0.0)
     
     test_passed := false
-    match result_ok {
+    result_ok ?
         | Ok(val) {
             val == 5.0 ?
                 | true {
-                    match result_err {
+                    result_err ?
                         | Err(msg) {
                             msg == "Division by zero" ?
                                 | true { test_passed = true }

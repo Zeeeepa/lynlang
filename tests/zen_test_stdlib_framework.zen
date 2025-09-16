@@ -107,7 +107,7 @@ test_option_type = () void   {
     
     suite.add_test("Option Some", () test.TestResult {
         opt := core.Option<i32>.Some(42)
-        match opt {
+        opt ?
             | Some(value) { return test.assert_eq(value, 42, "Some should contain 42") }
             | None { return test.TestResult.Fail("Expected Some, got None") }
         }
@@ -115,7 +115,7 @@ test_option_type = () void   {
     
     suite.add_test("Option None", () test.TestResult {
         opt := core.Option<i32>.None
-        match opt {
+        opt ?
             | Some(_) { return test.TestResult.Fail("Expected None, got Some") }
             | None { return test.TestResult.Pass }
         }
@@ -130,7 +130,7 @@ test_result_type = () void   {
     
     suite.add_test("Result Ok", () test.TestResult {
         res := core.Result<i32, string>.Ok(42)
-        match res {
+        res ?
             | Ok(value) { return test.assert_eq(value, 42, "Ok should contain 42") }
             | Err(_) { return test.TestResult.Fail("Expected Ok, got Err") }
         }
@@ -138,7 +138,7 @@ test_result_type = () void   {
     
     suite.add_test("Result Err", () test.TestResult {
         res := core.Result<i32, string>.Err("error message")
-        match res {
+        res ?
             | Ok(_) { return test.TestResult.Fail("Expected Err, got Ok") }
             | Err(msg) { return test.assert_eq(msg, "error message", "Err should contain error message") }
         }

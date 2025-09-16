@@ -4,19 +4,19 @@
 // ========================================
 // Module System & Imports
 // ========================================
-io       = @std.io
-string = @std.string
-Vec, DynVec = @std.collections
-HashMap = @std.collections
-math = @std.math
-GPA, AsyncPool, Allocator = @std.mem
-Result = @std.result
-Option = @std.option
-Thread = @std.concurrent
-FFI = @std.ffi
-mem = @std.mem
-requires, implements, reflect, meta, inline, simd = @std.meta
-{ Actor, Channel, Mutex, AtomicU32 } = @std.concurrent
+io = @std
+string = @std
+Vec, DynVec = @std
+HashMap = @std
+math = @std
+GPA, AsyncPool, Allocator = @std
+Result = @std
+Option = @std
+Thread = @std
+FFI = @std
+mem = @std
+requires, implements, reflect, meta, inline, simd = @std
+{ Actor, Channel, Mutex, AtomicU32 } = @std
 
 // ========================================
 // Type Definitions (New Syntax)
@@ -43,7 +43,7 @@ Address: {
 }
 
 // Enum without leading | (new syntax)
-Color: Red | Green | Blue | Custom: {value: u32}
+Color: Red, Green, Blue, Custom: {value: u32}
 
 // Complex enum with associated data
 Message: Text: {content: string} | Warning: {text: string} | Error: {code: i32} | Binary

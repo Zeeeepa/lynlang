@@ -1,6 +1,6 @@
 // structs_enums.zen - Data structures
-core {  } = @std.core
-io {  } = @std.io
+core {  } = @std
+io {  } = @std
 
 // Struct with default values and mutable fields
 Person: {

@@ -1,9 +1,9 @@
 // Tests for the path module
 
-core = @std.core
-test = @std.test
-path = @std.path
-string = @std.string
+core = @std
+test = @std
+path = @std
+string = @std
 
 test_is_absolute = () bool   {
     test.assert(path.is_absolute("/home/user"), "Should recognize absolute path")

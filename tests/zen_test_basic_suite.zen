@@ -1,7 +1,7 @@
 // Basic Test Suite for Zen Language
 // Simple tests that should actually compile and run
 
-io = @std.io
+io = @std
 
 // Test 1: Basic arithmetic
 test_arithmetic = () bool   {

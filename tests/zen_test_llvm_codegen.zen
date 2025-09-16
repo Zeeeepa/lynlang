@@ -1,8 +1,8 @@
 // Test for LLVM Code Generation Module
 
-core = @std.core
-io = @std.io
-string = @std.string
+core = @std
+io = @std
+string = @std
 
 // Import the codegen module
 { codegen } = @std

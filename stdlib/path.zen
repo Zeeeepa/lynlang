@@ -1,10 +1,10 @@
 // Path manipulation utilities for Zen
 // Provides cross-platform path handling and manipulation
 
-core := @std.core
-build := @std.build
+core := @std
+build := @std
 string := build.import("string")
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 result := build.import("result")
 fs := build.import("fs")
 

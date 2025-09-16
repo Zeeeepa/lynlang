@@ -1,7 +1,7 @@
 // Library module with reusable functions and types
 
-io = @std.io
-math = @std.math
+io = @std
+math = @std
 
 // Public API exports
 @export {
@@ -148,8 +148,8 @@ Matrix2x2.inverse = (self: Matrix2x2) Option<Matrix2x2> {
 
 // Rotation matrix
 Matrix2x2.rotation = (angle: f64) Matrix2x2 {
-    c = @std.math.cos(angle)
-    s = @std.math.sin(angle)
+    c = @stdh.cos(angle)
+    s = @stdh.sin(angle)
     Matrix2x2 {
         m00: c, m01: -s,
         m10: s, m11: c,

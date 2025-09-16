@@ -1,13 +1,13 @@
 // Zen Language Server Protocol Implementation
 // This LSP server provides IDE features for Zen language development
 
-build = @std.build
+build = @std
 io := build.import("io")
 json := build.import("json")
 net := build.import("net")
 fs := build.import("fs")
 string := build.import("string")
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 map := build.import("map")
 result := build.import("result")
 

@@ -1,13 +1,13 @@
 // Zen Check - Simple diagnostic tool for Zen files
 // Provides basic syntax checking and import validation
 
-build = @std.build
+build = @std
 io := build.import("io")
 fs := build.import("fs")
 string := build.import("string")
 
 // Diagnostic types
-DiagnosticSeverity: Error | Warning | Info | Hint
+DiagnosticSeverity: Error, Warning, Info, Hint
 
 // Diagnostic message
 Diagnostic: {
@@ -64,7 +64,7 @@ analyze_file = (filename: string) bool {
     io.print("\n");
     
     // For now, use placeholder content
-    content := "io = @std.io\nmain = () i32 { return 0 }";
+    content := "io = @std\nmain = () i32 { return 0 }";
     
     // Run checks
     io.print("  ✓ Checking import syntax\n");

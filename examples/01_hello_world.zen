@@ -2,7 +2,7 @@
 // The simplest possible Zen program
 
 // Bootstrap imports - no comptime needed
-io = @std.io
+io = @std
 
 // Entry point - every Zen program needs a main function
 main = () void {

@@ -1,7 +1,7 @@
 // Zen Standard Library: Dynamic Vector Implementation
 // A heap-allocated, growable array type
 
-core := @std.core
+core := @std
 
 // Dynamic vector structure - heap allocated, growable
 DynVec<T>: {

@@ -1,8 +1,8 @@
 // Simple test file for LLVM backend
 // Tests basic arithmetic and function calls
 
-core = @std.core
-io = @std.io
+core = @std
+io = @std
 
 // Simple addition function
 add = (a: i32, b: i32) i32   {

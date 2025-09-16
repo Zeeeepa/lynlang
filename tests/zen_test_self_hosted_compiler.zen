@@ -2,17 +2,17 @@
 // Tests the complete compilation pipeline
 
 // Module-level imports - correct syntax
-io = @std.io
-core = @std.core
-test = @std.test
-string = @std.string
+io = @std
+core = @std
+test = @std
+string = @std
 
 // Import compiler modules
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-symbol_table = @std.symbol_table
-codegen = @std.codegen
+lexer = @std
+parser = @std
+type_checker = @std
+symbol_table = @std
+codegen = @std
 
 // Test compilation of simple program
 test_compile_simple = () bool   {
@@ -61,7 +61,7 @@ test_compile_simple = () bool   {
 
 // Test compilation with imports
 test_compile_with_imports = () bool   {
-    source := "io = @std.io\n\nmain = () i32 {\n    io.print(\"Hello\")\n    return 0\n}"
+    source := "io = @std\n\nmain = () i32 {\n    io.print(\"Hello\")\n    return 0\n}"
     
     // Full pipeline
     tokens := lexer.tokenize(source)
@@ -178,31 +178,31 @@ main = () i32   {
     // Run all tests
     if test_compile_simple() {
         tests_passed += 1
-    } else {
+    } | false {
         tests_failed += 1
     }
     
     if test_compile_with_imports() {
         tests_passed += 1
-    } else {
+    } | false {
         tests_failed += 1
     }
     
     if test_type_checking() {
         tests_passed += 1
-    } else {
+    } | false {
         tests_failed += 1
     }
     
     if test_llvm_generation() {
         tests_passed += 1
-    } else {
+    } | false {
         tests_failed += 1
     }
     
     if test_symbol_resolution() {
         tests_passed += 1
-    } else {
+    } | false {
         tests_failed += 1
     }
     
@@ -217,7 +217,7 @@ main = () i32   {
     if tests_failed == 0 {
         io.print("\n✓ All self-hosted compiler tests passed!\n")
         return 0
-    } else {
+    } | false {
         io.print("\n✗ Some tests failed\n")
         return 1
     }

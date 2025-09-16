@@ -17,7 +17,7 @@
 // build.zen
 // ============================================================================
 
-Build := @std.build
+Build := @std
 
 builder = (b :: Build) void {
     builder = b.builder()
@@ -88,18 +88,18 @@ builder = (b :: Build) void {
 { io,
   maths
  } = @std
-{ String, StringBuilder } = @std.string
+{ String, StringBuilder } = @std
 
-{ requires, implements, reflect, meta, inline, simd } = @std.meta
+{ requires, implements, reflect, meta, inline, simd } = @std
 
-{ GPA, AsyncPool, Allocator}  = @std.mem
+{ GPA, AsyncPool, Allocator} = @std
 
-{ Vec, DynVec}  = @std.collections
+{ Vec, DynVec} = @std
 
-{ Actor, Channel, Mutex, AtomicU32 } = @std.concurrent
+{ Actor, Channel, Mutex, AtomicU32 } = @std
 
-sdl2 = @std.build.import("sdl2")
-ecs = @std.build.import("ecs")
+sdl2 = @stdd.import("sdl2")
+ecs = @stdd.import("ecs")
 
 
 // No null! Only Option types
@@ -159,7 +159,7 @@ Rectangle.implements(Geometric, {
 
 
 // Enum type (sum type)
-Shape: Circle | Rectangle
+Shape: Circle, Rectangle
 // Enforce all Shape variants must implement Geometric
 Shape.requires(Geometric)
 

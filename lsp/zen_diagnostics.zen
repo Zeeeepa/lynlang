@@ -1,9 +1,9 @@
 // zen_diagnostics.zen - LSP diagnostics for Zen language
 
-build = @std.build
+build = @std
 io := build.import("io")
 string := build.import("string")
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 
 // Import compiler modules for analysis
 lexer := build.import("compiler/lexer")
@@ -35,7 +35,7 @@ Position: {
     character: u32, // 0-based UTF-16 code unit
 }
 
-DiagnosticTag: Unnecessary | Deprecated
+DiagnosticTag: Unnecessary, Deprecated
 
 DiagnosticRelatedInformation: {
     location: Location,
@@ -427,11 +427,11 @@ main = () i32 {
     // Test with sample code
     test_code := "
 // Test file
-io = @std.io
+io = @std
 
 main = () i32 {
     // This would be an error:
-    // bad = @std.bad  // Import inside function
+    // bad = @std  // Import inside function
     
     x := 42
     y := x + 1

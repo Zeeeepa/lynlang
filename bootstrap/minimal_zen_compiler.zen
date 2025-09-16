@@ -2,11 +2,11 @@
 // A simple compiler written in Zen
 
 // Module imports
-io = @std.io
-fs = @std.fs
-string = @std.string
-{ Vec, DynVec } = @std.collections
-core = @std.core
+io = @std
+fs = @std
+string = @std
+{ Vec, DynVec } = @std
+core = @std
 
 // Compiler version
 VERSION := "0.1.0"

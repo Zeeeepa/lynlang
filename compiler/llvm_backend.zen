@@ -1,12 +1,12 @@
 // Zen Language LLVM Backend
 // Generates LLVM IR for high-performance compilation
 
-core = @std.core
-{ Vec, DynVec } = @std.collections
-string = @std.string
-io = @std.io
-mem = @std.mem
-ast = @std.ast
+core = @std
+{ Vec, DynVec } = @std
+string = @std
+io = @std
+mem = @std
+ast = @std
 
 // LLVM IR Builder context
 LLVMContext: {
@@ -323,10 +323,10 @@ generate_function = (ctx: Ptr<LLVMContext>, func: Ptr<ast.AstFunction>) void   {
     }
     
     // Add default return if needed
-    if (ctx.current_block) {
+    ctx.current_block ? {
         ctx.current_block ? {
             Option.Some(block) => {
-                if (!block.terminator) {
+                !block.terminator ? {
                     block.terminator = Option.Some(LLVMTerminator.Ret(Option.None, LLVMType.Void))
                 }
             }
@@ -439,7 +439,7 @@ emit_instruction = (inst: LLVMInstruction, out: Ptr<string>) void   {
 emit_terminator = (term: LLVMTerminator, out: Ptr<string>) void   {
     term ? {
         LLVMTerminator.Ret(val, type_) => {
-            if (val) {
+            val ? {
                 val ? {
                     Option.Some(v) => {
                         type_str := emit_type(type_)
@@ -448,7 +448,7 @@ emit_terminator = (term: LLVMTerminator, out: Ptr<string>) void   {
                     }
                     _ => string.append(out, "  ret void\n")
                 }
-            } else {
+            } | false {
                 string.append(out, "  ret void\n")
             }
         }
@@ -490,7 +490,7 @@ generate_module = (ctx: Ptr<LLVMContext>) string   {
                                            constant.global_name, len, constant.value))
     }
     
-    if (ctx.string_constants.len() > 0) {
+    ctx.string_constants.len() > 0 ? {
         string.append(output, "\n")
     }
     
@@ -507,13 +507,13 @@ generate_module = (ctx: Ptr<LLVMContext>) string   {
         
         global.is_constant ? {
             string.append(output, "constant ")
-        } else {
+        } | false {
             string.append(output, "global ")
         }
         
         string.append(output, type_str)
         
-        if (global.initializer) {
+        global.initializer ? {
             global.initializer ? {
                 Option.Some(init) => {
                     string.append(output, " ")
@@ -521,7 +521,7 @@ generate_module = (ctx: Ptr<LLVMContext>) string   {
                 }
                 _ => string.append(output, " zeroinitializer")
             }
-        } else {
+        } | false {
             string.append(output, " zeroinitializer")
         }
         
@@ -569,7 +569,7 @@ generate_module = (ctx: Ptr<LLVMContext>) string   {
         
         func.is_declaration ? {
             string.append(output, "\n")
-        } else {
+        } | false {
             string.append(output, " {\n")
             
             // Function body
@@ -590,7 +590,7 @@ generate_module = (ctx: Ptr<LLVMContext>) string   {
                 
                 // Terminator
                 block.terminator ? {
-                    match block.terminator {
+                    block.terminator ?
                         Option.Some(term) => emit_terminator(term, output)
                         _ => {}
                     }
@@ -614,7 +614,7 @@ generate_llvm_from_ast = (ast: Ptr<ast.AstProgram>, module_name: string) string 
     for (i := 0; i < ast.declarations.len(); i += 1) {
         decl := ast.declarations[i]
         
-        match decl {
+        decl ?
             ast.AstDecl.Function(func) => {
                 generate_function(ctx, func)
             }
@@ -641,7 +641,7 @@ generate_llvm_from_ast = (ast: Ptr<ast.AstProgram>, module_name: string) string 
 // Write LLVM IR to file
 write_llvm_ir = (ir: string, output_path: string) bool   {
     file := io.open(output_path, "w")
-    if (!file) {
+    !file ? {
         io.print("Error: Could not open output file\n")
         return false
     }
@@ -657,7 +657,7 @@ compile_to_native = (ir_path: string, output_path: string, opt_level: string) bo
     asm_path := string.replace(output_path, ".o", ".s")
     llc_cmd := string.format("llc -{} -filetype=asm {} -o {}", opt_level, ir_path, asm_path)
     
-    if (!io.system(llc_cmd)) {
+    !io.system(llc_cmd) ? {
         io.print("Error: Failed to compile LLVM IR to assembly\n")
         return false
     }
@@ -665,7 +665,7 @@ compile_to_native = (ir_path: string, output_path: string, opt_level: string) bo
     // Use system assembler to create object file
     as_cmd := string.format("as {} -o {}", asm_path, output_path)
     
-    if (!io.system(as_cmd)) {
+    !io.system(as_cmd) ? {
         io.print("Error: Failed to assemble object file\n")
         return false
     }

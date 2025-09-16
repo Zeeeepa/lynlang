@@ -3,8 +3,8 @@
 
 { lexer } = @std
 { token } = @std
-io = @std.io
-assert = @std.assert
+io = @std
+assert = @std
 
 // Test helper to verify token
 verify_token = (tok: token:Token, expected_type: token:TokenType, expected_value: String) bool   {

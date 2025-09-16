@@ -1,11 +1,11 @@
 // utils.zen - General utility functions and helpers
 // Pure Zen implementation without comptime imports
 
-core = @std.core
-string = @std.string
-io = @std.io
-{ Vec, DynVec } = @std.collections
-math = @std.math
+core = @std
+string = @std
+io = @std
+{ Vec, DynVec } = @std
+math = @std
 
 // Option type for nullable values
 Option<T> = 

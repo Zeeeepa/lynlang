@@ -1,7 +1,7 @@
 // Zen Standard Library: Memory Management
 // Safe memory management utilities and allocators
 
-core = @std.core
+core = @std
 
 // Memory alignment constants
 DEFAULT_ALIGN = 8

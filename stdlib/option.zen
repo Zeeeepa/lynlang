@@ -1,6 +1,6 @@
 // Option type for nullable values
 
-core = @std.core
+core = @std
 
 // Option type - represents a value that may or may not exist
 Option<T>: Some: {value: T} | None

@@ -3,9 +3,9 @@
 main = () i32   {
     x := 10
     
-    if (x > 5) {
+    x > 5 ? {
         // ERROR: Import inside if block
-        io = @std.io
+        io = @std
         io.print("This should not compile\n")
     }
     

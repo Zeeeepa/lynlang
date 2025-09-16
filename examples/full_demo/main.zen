@@ -2,7 +2,7 @@
 // Showcases all major language features and capabilities
 
 { io, result, fs, net, math, string } = @std
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 
 // ==========================================
 // 1. Pattern Matching - The Heart of Zen
@@ -228,7 +228,7 @@ demonstrate_comptime = () void {
     
     // Type generation at compile time
     @meta.comptime((){
-        WORD_SIZE = @std.target.pointer_size
+        WORD_SIZE = @stdt.pointer_size
         WORD_SIZE == 8 ?
             | true {
                 NativeInt = i64

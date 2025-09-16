@@ -8,7 +8,7 @@ Option<T>:
     | None
 
 // Import collections
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 
 Ptr<T> = {
     value: T,

@@ -1,14 +1,14 @@
 // Comprehensive self-hosted test suite for Zen
 // Demonstrates the language's ability to implement complex systems in itself
 
-core = @std.core
-{ Vec, DynVec } = @std.collections
-hashmap = @std.hashmap
-string = @std.string
-math = @std.math
-algorithms = @std.algorithms
-collections = @std.collections
-iterator = @std.iterator
+core = @std
+{ Vec, DynVec } = @std
+hashmap = @std
+string = @std
+math = @std
+algorithms = @std
+collections = @std
+iterator = @std
 
 // External functions for testing
 extern printf = (format: RawPtr<i8>, ...) i32

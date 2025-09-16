@@ -1,9 +1,9 @@
 // Comprehensive Pattern Matching Tests for Zen
 // Tests all pattern matching features per Language Spec v1.1.0
 
-test = @std.test
-assert = @std.assert
-assert_eq = @std.assert_eq
+test = @std
+assert = @std
+assert_eq = @std
 
 // Test basic value patterns
 test("Pattern Matching", () void => {

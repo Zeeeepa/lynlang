@@ -2,7 +2,7 @@
 // Shows Zenlang's colorless concurrency model using allocators
 
 { io, std, time } = @std
-{ Runtime, Timer, Mutex } = @std.runtime
+{ Runtime, Timer, Mutex } = @std
 
 
 // Allocator trait - memory + execution context
@@ -71,7 +71,7 @@ AsyncTask<T>: {
     status: TaskStatus,
 }
 
-TaskStatus: Pending | Running | Completed | Failed
+TaskStatus: Pending, Running, Completed, Failed
 
 // Colorless fetch operation - allocator determines sync/concurrent
 fetch_data = (url: string, alloc: Ptr<Allocator>) Result<string, string> {
@@ -255,7 +255,7 @@ Counter: {
     alloc: Ptr<Allocator>,
 }
 
-CounterMsg: Increment | Decrement | Get
+CounterMsg: Increment, Decrement, Get
 
 Counter.implements(Actor<CounterMsg>, {
     handle = (self: Self, msg: CounterMsg, alloc: Ptr<Allocator>) void {

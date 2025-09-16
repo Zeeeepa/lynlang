@@ -230,7 +230,7 @@ PoolChunk := <T> {
 // Create new pool
 pool_new = <T>(blocks_per_chunk: usize) Ptr<Pool<T>> {
     pool := allocate<Pool<T>>(1)
-    pool.block_size = @std.sizeof(T)
+    pool.block_size = @std(T)
     pool.blocks_per_chunk = blocks_per_chunk
     pool.free_list = Option.None
     pool.chunks = Option.None

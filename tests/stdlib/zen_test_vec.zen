@@ -1,10 +1,10 @@
 // Comprehensive tests for Zen stdlib Vec and DynVec modules
 
-{ Vec, DynVec } = @std.collections
-test = @std.test
-io = @std.io
-assert = @std.assert
-core = @std.core
+{ Vec, DynVec } = @std
+test = @std
+io = @std
+assert = @std
+core = @std
 
 // Test DynVec creation
 test_dynvec_creation = () void   {

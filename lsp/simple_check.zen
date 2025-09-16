@@ -1,6 +1,6 @@
 // Simple Zen Check - Basic diagnostic tool
 
-io = @std.io
+io = @std
 
 // Check a file for basic issues
 check_file = (filename: string) i32 {

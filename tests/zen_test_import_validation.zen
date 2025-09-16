@@ -1,12 +1,12 @@
 // Import validation test suite
 // Tests that imports work correctly at module level and are rejected in invalid contexts
 
-core = @std.core
-test = @std.test
-io = @std.io
-mem = @std.mem
-string = @std.string
-vec = @std.vec
+core = @std
+test = @std
+io = @std
+mem = @std
+string = @std
+vec = @std
 
 // Test 1: Module-level imports work correctly
 test_module_level_imports = () void   {
@@ -26,7 +26,7 @@ test_imports_in_functions = () void   {
 
 // Test 3: Imports are accessible in nested blocks
 test_imports_in_nested_blocks = () void   {
-    if (true) {
+    true ? {
         // Should still have access to imports
         io.println("Imports work in nested blocks")
         

@@ -1,7 +1,7 @@
 // Build system API for ZenLang
 // Provides build configuration and management
 
-build = @std.build
+build = @std
 std := build.import("std")
 fs := build.import("fs")
 process := build.import("process")

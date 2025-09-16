@@ -1,12 +1,12 @@
 // Zen Standard Library: Package Management Module
 // Provides utilities for managing Zen packages and dependencies
 
-core = @std.core
-fs = @std.fs
-json = @std.json
-net = @std.net
-string = @std.string
-hashmap = @std.hashmap
+core = @std
+fs = @std
+json = @std
+net = @std
+string = @std
+hashmap = @std
 
 // Package manifest structure
 Package: {

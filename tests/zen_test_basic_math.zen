@@ -1,5 +1,5 @@
 // Basic math operations test
-io = @std.io
+io = @std
 
 // Test basic arithmetic
 test_math = () void   {

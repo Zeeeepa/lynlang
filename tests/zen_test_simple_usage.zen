@@ -1,5 +1,5 @@
 // Test the simple test module
-io = @std.io
+io = @std
 { test } = @std
 
 // Example tests

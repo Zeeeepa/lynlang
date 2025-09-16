@@ -1,9 +1,9 @@
 // HashMap - Simple hash map implementation in Zen
 // A key-value store using chaining for collision resolution
 
-core = @std.core
-mem = @std.mem
-hash = @std.hash
+core = @std
+mem = @std
+hash = @std
 
 // HashMap entry (key-value pair)
 HashEntry: {

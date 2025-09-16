@@ -1,10 +1,10 @@
 // Self-hosted tests for Zen standard library
 // Tests core functionality written in Zen
 
-core = @std.core
-{ Vec, DynVec } = @std.collections
-hashmap = @std.hashmap
-io = @std.io
+core = @std
+{ Vec, DynVec } = @std
+hashmap = @std
+io = @std
 
 // External functions for testing
 extern printf = (format: RawPtr<i8>, ...) i32

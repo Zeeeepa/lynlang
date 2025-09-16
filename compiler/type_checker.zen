@@ -1,12 +1,12 @@
 // Zen Type Checker
 // This module performs type checking and inference on the AST
 
-core = @std.core
-{ Vec, DynVec } = @std.collections
-string = @std.string
-map = @std.map
-parser = @std.parser
-errors = @std.errors
+core = @std
+{ Vec, DynVec } = @std
+string = @std
+map = @std
+parser = @std
+errors = @std
 
 // Import AST types from parser
 AstNode := parser.AstNode
@@ -100,7 +100,7 @@ new_type_checker = () TypeChecker   {
 check_module = (checker: Ptr<TypeChecker>, module: DynVec<AstNode>) Result<(), DynVec<errors.Diagnostic>> {
     // First pass: collect type definitions
     for node in module {
-        match node {
+        node ?
             | AstNode.StructDecl(name, fields, generics) {
                 register_struct_type(checker, name, fields, generics)
             }
@@ -116,7 +116,7 @@ check_module = (checker: Ptr<TypeChecker>, module: DynVec<AstNode>) Result<(), D
     
     // Second pass: collect function signatures
     for node in module {
-        match node {
+        node ?
             | AstNode.FuncDecl(name, params, return_type, _, is_generic) {
                 register_function(checker, name, params, return_type, is_generic)
             }
@@ -137,7 +137,7 @@ check_module = (checker: Ptr<TypeChecker>, module: DynVec<AstNode>) Result<(), D
 
 // Check types for an AST node
 check_ast_node = (checker: Ptr<TypeChecker>, node: AstNode) Type   {
-    match node {
+    node ?
         // Literals
         | AstNode.IntLit(value) { infer_int_type(value) }
         | AstNode.FloatLit(_) { Type.F64 }
@@ -204,7 +204,7 @@ check_binary_op = (checker: Ptr<TypeChecker>, op: parser.BinaryOperator, left: P
     right_type := check_ast_node(checker, *right)
     
     // Type checking logic for different operators
-    match op {
+    op ?
         | parser.BinaryOperator.Add
         | parser.BinaryOperator.Sub
         | parser.BinaryOperator.Mul
@@ -245,7 +245,7 @@ check_binary_op = (checker: Ptr<TypeChecker>, op: parser.BinaryOperator, left: P
 
 // Unify two types
 unify_types = (checker: Ptr<TypeChecker>, t1: Type, t2: Type) Result<Type, string>   {
-    match (t1, t2) {
+    (t1, t2) ?
         | (Type.Unknown, t) | (t, Type.Unknown) { Result.Ok(t) }
         | (Type.TypeVar(id1), Type.TypeVar(id2)) if id1 == id2 => Result.Ok(t1)
         | (Type.TypeVar(id), t) | (t, Type.TypeVar(id)) {
@@ -263,7 +263,7 @@ unify_types = (checker: Ptr<TypeChecker>, t1: Type, t2: Type) Result<Type, strin
 
 // Convert type to string for error messages
 type_to_string = (t: Type) string   {
-    match t {
+    t ?
         | Type.I8 { "i8" }
         | Type.I16 { "i16" }
         | Type.I32 { "i32" }
@@ -293,7 +293,7 @@ type_to_string = (t: Type) string   {
 
 // Check if type is boolean
 is_bool = (t: Type) bool   {
-    match t {
+    t ?
         | Type.Bool { true }
         | _ { false }
     }

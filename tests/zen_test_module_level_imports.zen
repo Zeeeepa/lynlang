@@ -2,21 +2,21 @@
 // This demonstrates the correct import syntax for Zen
 
 // Standard library imports (module level, no comptime)
-core = @std.core
-io = @std.io
-math = @std.math
-string = @std.string
-vec = @std.vec
-fs = @std.fs
+core = @std
+io = @std
+math = @std
+string = @std
+vec = @std
+fs = @std
 
 // Build system imports
-json = @std.json
-network = @std.network
+json = @std
+network = @std
 
 // Compiler module imports
-lexer = @std.lexer
-parser = @std.parser
-codegen = @std.codegen
+lexer = @std
+parser = @std
+codegen = @std
 
 // Test that imports work correctly
 test_std_imports = () bool   {
@@ -124,7 +124,7 @@ main = () i32   {
     // Run std import tests
     if test_std_imports() {
         io.println("✓ Standard library imports working")
-    } else {
+    } | false {
         io.println("✗ Standard library imports failed")
         all_passed = false
     }
@@ -132,7 +132,7 @@ main = () i32   {
     // Run string tests
     if test_string_ops() {
         io.println("✓ String operations working")
-    } else {
+    } | false {
         io.println("✗ String operations failed")
         all_passed = false
     }
@@ -140,7 +140,7 @@ main = () i32   {
     // Run vector tests
     if test_vec_ops() {
         io.println("✓ Vector operations working")
-    } else {
+    } | false {
         io.println("✗ Vector operations failed")
         all_passed = false
     }
@@ -148,7 +148,7 @@ main = () i32   {
     // Run compiler module tests
     if test_compiler_modules() {
         io.println("✓ Compiler module imports working")
-    } else {
+    } | false {
         io.println("✗ Compiler module imports failed")
         all_passed = false
     }
@@ -156,7 +156,7 @@ main = () i32   {
     if all_passed {
         io.println("\nAll tests passed! ✓")
         return 0
-    } else {
+    } | false {
         io.println("\nSome tests failed ✗")
         return 1
     }

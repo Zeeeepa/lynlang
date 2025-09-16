@@ -1,7 +1,7 @@
 // Zen Standard Library: HashMap Implementation
 // A hash table implementation with linear probing
 
-core = @std.core
+core = @std
 
 // Hash map entry
 Entry<K, V> = {

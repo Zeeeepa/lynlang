@@ -1,12 +1,12 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides comprehensive IDE support for Zen development
 
-io = @std.io
-fs = @std.fs
-string = @std.string
-{ Vec, DynVec } = @std.collections
-json = @std.json
-net = @std.net
+io = @std
+fs = @std
+string = @std
+{ Vec, DynVec } = @std
+json = @std
+net = @std
 
 // LSP Message types
 LspMessage := {
@@ -133,7 +133,7 @@ ServerCapabilities := {
     semantic_tokens_provider: Option<SemanticTokensOptions>
 }
 
-TextDocumentSyncKind: None | Full | Incremental
+TextDocumentSyncKind: None, Full, Incremental
 
 CompletionOptions := {
     resolve_provider: bool
@@ -197,9 +197,9 @@ Diagnostic := {
     related_information: DynVec<DiagnosticRelatedInformation>
 }
 
-DiagnosticSeverity: Error | Warning | Information | Hint
+DiagnosticSeverity: Error, Warning, Information, Hint
 
-DiagnosticTag: Unnecessary | Deprecated
+DiagnosticTag: Unnecessary, Deprecated
 
 DiagnosticRelatedInformation := {
     location: Location
@@ -224,9 +224,9 @@ CompletionItem := {
     command: Option<Command>
 }
 
-CompletionItemKind: Text | Method | Function | Constructor | Field | Variable | Class | Interface | Module | Property | Unit | Value | Enum | Keyword | Snippet | Color | File | Reference | Folder | EnumMember | Constant | Struct | Event | Operator | TypeParameter
+CompletionItemKind: Text, Method, Function, Constructor, Field, Variable, Class, Interface, Module, Property, Unit, Value, Enum, Keyword, Snippet, Color, File, Reference, Folder, EnumMember, Constant, Struct, Event, Operator, TypeParameter
 
-InsertTextFormat: PlainText | Snippet
+InsertTextFormat: PlainText, Snippet
 
 TextEdit := {
     range: Range
@@ -250,7 +250,7 @@ MarkupContent := {
     value: string
 }
 
-MarkupKind: PlainText | Markdown
+MarkupKind: PlainText, Markdown
 
 // Signature Help
 SignatureHelp := {
@@ -281,7 +281,7 @@ DocumentSymbol := {
     children: DynVec<DocumentSymbol>
 }
 
-SymbolKind: File | Module | Namespace | Package | Class | Method | Property | Field | Constructor | Enum | Interface | Function | Variable | Constant | String | Number | Boolean | Array | Object | Key | Null | EnumMember | Struct | Event | Operator | TypeParameter
+SymbolKind: File, Module, Namespace, Package, Class, Method, Property, Field, Constructor, Enum, Interface, Function, Variable, Constant, String, Number, Boolean, Array, Object, Key, Null, EnumMember, Struct, Event, Operator, TypeParameter
 
 // Code Actions
 CodeAction := {
@@ -293,7 +293,7 @@ CodeAction := {
     command: Option<Command>
 }
 
-CodeActionKind: QuickFix | Refactor | RefactorExtract | RefactorInline | RefactorRewrite | Source | SourceOrganizeImports | SourceFixAll
+CodeActionKind: QuickFix, Refactor, RefactorExtract, RefactorInline, RefactorRewrite, Source, SourceOrganizeImports, SourceFixAll
 
 WorkspaceEdit := {
     changes: HashMap<string, DynVec<TextEdit>>

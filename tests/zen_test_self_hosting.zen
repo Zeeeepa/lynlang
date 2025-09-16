@@ -1,17 +1,17 @@
 // Zen Self-Hosting Test Suite
 // Tests to validate the self-hosted compiler
 
-io = @std.io
-fs = @std.fs
-test = @std.test
-string = @std.string
-vec = @std.vec
+io = @std
+fs = @std
+test = @std
+string = @std
+vec = @std
 
 // Import compiler components
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-codegen = @std.codegen
+lexer = @std
+parser = @std
+type_checker = @std
+codegen = @std
 
 // Test case structure
 TestCase: {
@@ -122,7 +122,7 @@ test_basic_features = () Vec<TestResult>   {
     // Test 3: Import statement
     test3 := TestCase {
         name: "Module import",
-        input: "io = @std.io",
+        input: "io = @std",
         expected_tokens: Option:None,
         expected_ast: Option:None,
         expected_output: Option:None,

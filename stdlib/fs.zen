@@ -1,8 +1,8 @@
 // Zen Standard Library: File System Module
 // High-level file system operations
 
-core = @std.core
-io = @std.io
+core = @std
+io = @std
 
 // File metadata
 FileMetadata: {

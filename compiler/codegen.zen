@@ -1,11 +1,11 @@
 // Zen Language - Code Generator Module
 // Generates C code from AST for bootstrapping
 
-core = @std.core
-io = @std.io
-string = @std.string
-fs = @std.fs
-parser = @std.parser
+core = @std
+io = @std
+string = @std
+fs = @std
+parser = @std
 
 // Code generation context (simplified)
 CodeGen: {

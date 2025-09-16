@@ -302,8 +302,8 @@ regex_match_node = (node: *RegexNode, text: RawPtr<i8>, pos: i32, length: i32) (
                 i = i + 1
             }
             
-            match := negated ? | true { !found | false => found }
-            match ? | true {
+            := negated ? | true ?
+            ? | true ?
                 return (true, pos + 1)
             } | false {
                 return (false, pos)

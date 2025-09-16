@@ -1,9 +1,9 @@
 // Colorless Concurrency in Zen - Functions take allocators as parameters
 // to control execution mode (synchronous vs concurrent)
 
-io {  } = @std.io
-net {  } = @std.net
-fs {  } = @std.fs
+io {  } = @std
+net {  } = @std
+fs {  } = @std
 
 // Allocator trait - memory + execution context
 // Explicit allocator parameters control execution mode
@@ -275,7 +275,7 @@ Runtime.wait = () void  {}
 Continuation: {}
 Heap: {}
 Heap.alloc: (size: usize) RawPtr<void> = @std.heap.alloc(size)
-Heap.free: (ptr: RawPtr<void>) void = @std.heap.free(ptr)
+Heap.free: (ptr: RawPtr<void>) void = @stdp.free(ptr)
 
 Error: { message: String }
 

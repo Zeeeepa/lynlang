@@ -1,13 +1,13 @@
 // Standard Library Integration Test
 // Tests that stdlib modules work correctly together
 
-core = @std.core
-io = @std.io
-string = @std.string
-{ Vec, DynVec } = @std.collections
-math = @std.math
-time = @std.time
-log = @std.log
+core = @std
+io = @std
+string = @std
+{ Vec, DynVec } = @std
+math = @std
+time = @std
+log = @std
 
 // Test string operations
 test_string_ops = () bool   {
@@ -181,7 +181,7 @@ main = () i32   {
     if test_string_ops() {
         io.print("✓\n")
         passed += 1
-    } else {
+    } | false {
         io.print("✗\n")
         failed += 1
     }
@@ -191,7 +191,7 @@ main = () i32   {
     if test_vector_ops() {
         io.print("✓\n")
         passed += 1
-    } else {
+    } | false {
         io.print("✗\n")
         failed += 1
     }
@@ -201,7 +201,7 @@ main = () i32   {
     if test_math_ops() {
         io.print("✓\n")
         passed += 1
-    } else {
+    } | false {
         io.print("✗\n")
         failed += 1
     }
@@ -211,7 +211,7 @@ main = () i32   {
     if test_time_ops() {
         io.print("✓\n")
         passed += 1
-    } else {
+    } | false {
         io.print("✗\n")
         failed += 1
     }
@@ -221,7 +221,7 @@ main = () i32   {
     if test_logging() {
         io.print("✓\n")
         passed += 1
-    } else {
+    } | false {
         io.print("✗\n")
         failed += 1
     }
@@ -231,7 +231,7 @@ main = () i32   {
     if test_combined() {
         io.print("✓\n")
         passed += 1
-    } else {
+    } | false {
         io.print("✗\n")
         failed += 1
     }
@@ -247,7 +247,7 @@ main = () i32   {
     if failed == 0 {
         io.print("\n✓ All integration tests passed!\n")
         return 0
-    } else {
+    } | false {
         io.print("\n✗ Some integration tests failed.\n")
         return 1
     }

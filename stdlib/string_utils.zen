@@ -1,10 +1,10 @@
 // Zen Standard Library - String Utilities
 // Comprehensive string manipulation and processing functions
 
-core = @std.core
-mem = @std.mem
-{ Vec, DynVec } = @std.collections
-io = @std.io
+core = @std
+mem = @std
+{ Vec, DynVec } = @std
+io = @std
 
 // String builder for efficient string concatenation
 StringBuilder: {
@@ -193,7 +193,7 @@ string_find = (haystack: string, needle: string) i32   {
             j = j + 1
         }
         
-        match ? | true { return i | false => { }}
+        ? | true ?
         i = i + 1
     }
     
@@ -223,7 +223,7 @@ string_rfind = (haystack: string, needle: string) i32   {
             j = j + 1
         }
         
-        match ? | true { return i | false => { }}
+        ? | true ?
         i = i - 1
     }
     
@@ -436,7 +436,7 @@ string_replace = (s: string, old: string, new: string) string   {
                     i = i + 1
                 }
                 
-                match && i == old_len ? | true {
+                && i == old_len ? | true ?
                     // Copy replacement
                     j := 0
                     loop j < new_len {

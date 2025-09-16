@@ -1,11 +1,11 @@
 // Zen Language Syntax Checker
 // Simple tool to validate Zen source files
 
-io = @std.io
-fs = @std.fs
-string = @std.string
-{ Vec, DynVec } = @std.collections
-process = @std.process
+io = @std
+fs = @std
+string = @std
+{ Vec, DynVec } = @std
+process = @std
 { lexer } = @std
 { parser } = @std
 
@@ -68,7 +68,7 @@ check_file = (path: string) CheckResult   {
     // Check for lexer errors (invalid tokens)
     i := 0
     loop i < tokens.len {
-        match tokens[i].type {
+        tokens[i].type ?
             | lexer.TokenType.Invalid => {
                 result.errors.push(Error{
                     line: tokens[i].line,
@@ -135,10 +135,10 @@ check_import_placement = (result: *CheckResult, ast: DynVec<*parser.AstNode>) vo
 
 // Recursively check for imports in wrong places
 check_import_in_node = (result: *CheckResult, node: *parser.AstNode, in_comptime: bool) void   {
-    match node.type {
+    node.type ?
         | parser.AstNodeType.ComptimeExpr => {
             // Mark that we're inside comptime
-            match node.data {
+            node.data ?
                 | parser.AstData.BlockStmt -> statements => {
                     j := 0
                     loop j < statements.len {
@@ -150,11 +150,11 @@ check_import_in_node = (result: *CheckResult, node: *parser.AstNode, in_comptime
             }
         }
         | parser.AstNodeType.VariableDecl => {
-            match node.data {
+            node.data ?
                 | parser.AstData.VariableDecl -> decl => {
                     // Check if it's an import
                     is_import := false
-                    match decl.value.data {
+                    decl.value.data ?
                         | parser.AstData.MemberExpr -> member => {
                             string.starts_with(member.member, "@std") ? {
                                 is_import = true
@@ -211,7 +211,7 @@ check_duplicates = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
 
 // Get declaration name from node
 get_declaration_name = (node: *parser.AstNode) string   {
-    match node.data {
+    node.data ?
         | parser.AstData.FunctionDecl -> decl => decl.name
         | parser.AstData.VariableDecl -> decl => decl.name
         | parser.AstData.StructDecl -> decl => decl.name
@@ -225,7 +225,7 @@ check_unused = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
     // This is a simplified check - real implementation would track usage
     i := 0
     loop i < ast.len {
-        match ast[i].data {
+        ast[i].data ?
             | parser.AstData.VariableDecl -> decl => {
                 // Check if variable name starts with underscore (convention for unused)
                 !string.starts_with(decl.name, "_") && string.starts_with(decl.name, "unused") ? {
@@ -253,7 +253,7 @@ check_unreachable = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   
 
 // Check for unreachable code in a node
 check_unreachable_in_node = (result: *CheckResult, node: *parser.AstNode) void   {
-    match node.data {
+    node.data ?
         | parser.AstData.BlockStmt -> statements => {
             j := 0
             found_return := false
@@ -266,7 +266,7 @@ check_unreachable_in_node = (result: *CheckResult, node: *parser.AstNode) void  
                     })
                 } : {}
                 
-                match statements[j].type {
+                statements[j].type ?
                     | parser.AstNodeType.ReturnStmt => found_return = true
                     | _ => {}
                 }

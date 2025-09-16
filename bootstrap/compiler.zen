@@ -4,7 +4,7 @@
 
 // Module-level imports (correct syntax - no comptime blocks)
 { io, fs, string, core, path, process, result } = @std
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 
 // Compiler pipeline stages
 CompilerStage:  

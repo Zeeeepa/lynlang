@@ -1,10 +1,10 @@
 // Zen Standard Library - Command Line Arguments Module
 // Provides argument parsing and handling utilities
 
-core = @std.core
-io = @std.io
-string = @std.string
-{ Vec, DynVec } = @std.collections
+core = @std
+io = @std
+string = @std
+{ Vec, DynVec } = @std
 
 // Argument parser configuration
 ArgParser: {
@@ -176,7 +176,7 @@ parse = (parser: &ArgParser, args: DynVec<string>) Result<ParsedArgs, string>   
                 value := string.substring(flag_name, eq_pos + 1, string.len(flag_name))
                 
                 flag := find_flag_by_long(parser, actual_flag)
-                match flag {
+                flag ?
                     | Option<Flag>.Some(f) {
                         f.takes_value ? {
                             hashmap_put(result.flags, f.long, FlagValue.Single(value))
@@ -191,7 +191,7 @@ parse = (parser: &ArgParser, args: DynVec<string>) Result<ParsedArgs, string>   
             } : {
                 // Regular long flag
                 flag := find_flag_by_long(parser, flag_name)
-                match flag {
+                flag ?
                     | Option<Flag>.Some(f) {
                         f.takes_value ? {
                             i = i + 1
@@ -218,7 +218,7 @@ parse = (parser: &ArgParser, args: DynVec<string>) Result<ParsedArgs, string>   
                 short_char := arg[j]
                 flag := find_flag_by_short(parser, short_char)
                 
-                match flag {
+                flag ?
                     | Option<Flag>.Some(f) {
                         f.takes_value ? {
                             // If it takes a value, rest of string or next arg is the value
@@ -251,12 +251,12 @@ parse = (parser: &ArgParser, args: DynVec<string>) Result<ParsedArgs, string>   
             // Check for subcommand
             vec_len(parser.subcommands) > 0 && positional_index == 0 ? {
                 sub := find_subcommand(parser, arg)
-                match sub {
+                sub ?
                     | Option<Subcommand>.Some(s) {
                         // Parse remaining args with subcommand parser
                         sub_args := vec_slice(args, i + 1, vec_len(args))
                         sub_result := parse(&s.parser, sub_args)
-                        match sub_result {
+                        sub_result ?
                             | Result<ParsedArgs, string>.Ok(parsed) {
                                 result.subcommand = Option<(string, ParsedArgs)>.Some((s.name, parsed))
                                 return Result<ParsedArgs, string>.Ok(result)
@@ -310,7 +310,7 @@ find_flag_by_short = (parser: &ArgParser, short: u8) Option<Flag>   {
     i := 0
     loop i < vec_len(parser.flags) {
         flag := vec_get(parser.flags, i)
-        match flag.short {
+        flag.short ?
             | Option<u8>.Some(s) {
                 s == short ? {
                     return Option<Flag>.Some(flag)
@@ -357,9 +357,9 @@ has_flag = (args: &ParsedArgs, name: string) bool   {
 // Get flag value
 get_flag = (args: &ParsedArgs, name: string) Option<string>   {
     value := hashmap_get(args.flags, name)
-    match value {
+    value ?
         | Option<FlagValue>.Some(v) {
-            match v {
+            v ?
                 | FlagValue.Present { return Option<string>.None }
                 | FlagValue.Single(s) { return Option<string>.Some(s) }
                 | FlagValue.Multiple(m) {
@@ -378,9 +378,9 @@ get_flag = (args: &ParsedArgs, name: string) Option<string>   {
 // Get all values for multi-value flag
 get_flag_multi = (args: &ParsedArgs, name: string) Vec<string>   {
     value := hashmap_get(args.flags, name)
-    match value {
+    value ?
         | Option<FlagValue>.Some(v) {
-            match v {
+            v ?
                 | FlagValue.Multiple(m) { return m }
                 | FlagValue.Single(s) { return vec_of([s]) }
                 | FlagValue.Present { return vec_new<string>() }
@@ -443,7 +443,7 @@ help_text = (parser: &ArgParser) string   {
             help = help + "    "
             
             // Short flag
-            match flag.short {
+            flag.short ?
                 | Option<u8>.Some(s) {
                     help = help + "-" + s + ", "
                 }
@@ -456,7 +456,7 @@ help_text = (parser: &ArgParser) string   {
             help = help + "--" + flag.long
             
             // Value name
-            match flag.value_name {
+            flag.value_name ?
                 | Option<string>.Some(v) {
                     help = help + " <" + v + ">"
                 }
@@ -484,7 +484,7 @@ help_text = (parser: &ArgParser) string   {
             } : {}
             
             // Show default value
-            match flag.default_value {
+            flag.default_value ?
                 | Option<string>.Some(d) {
                     help = help + " [default: " + d + "]"
                 }

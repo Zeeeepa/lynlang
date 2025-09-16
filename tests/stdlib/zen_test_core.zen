@@ -1,9 +1,9 @@
 // Comprehensive tests for Zen stdlib core module
 
-core = @std.core
-test = @std.test
-io = @std.io
-assert = @std.assert
+core = @std
+test = @std
+io = @std
+assert = @std
 
 // Test Option type
 test_option = () void   {
@@ -11,7 +11,7 @@ test_option = () void   {
     
     test.suite_add_test(&suite, "Option.Some construction", () void {
         opt := Option<i32>.Some(42)
-        match opt {
+        opt ?
             | Some(value) { assert.equal(value, 42) }
             | None { assert.fail("Expected Some, got None") }
         }
@@ -19,7 +19,7 @@ test_option = () void   {
     
     test.suite_add_test(&suite, "Option.None construction", () void {
         opt := Option<i32>.None
-        match opt {
+        opt ?
             | Some(_) { assert.fail("Expected None, got Some") }
             | None { assert.ok(true) }
         }
@@ -28,7 +28,7 @@ test_option = () void   {
     test.suite_add_test(&suite, "Option.map", () void {
         opt := Option<i32>.Some(10)
         mapped := opt.map((x) i32 { x * 2 })
-        match mapped {
+        mapped ?
             | Some(value) { assert.equal(value, 20) }
             | None { assert.fail("map failed") }
         }
@@ -61,7 +61,7 @@ test_result = () void   {
     
     test.suite_add_test(&suite, "Result.Ok construction", () void {
         res := Result<i32, string>.Ok(42)
-        match res {
+        res ?
             | Ok(value) { assert.equal(value, 42) }
             | Err(_) { assert.fail("Expected Ok, got Err") }
         }
@@ -69,7 +69,7 @@ test_result = () void   {
     
     test.suite_add_test(&suite, "Result.Err construction", () void {
         res := Result<i32, string>.Err("error message")
-        match res {
+        res ?
             | Ok(_) { assert.fail("Expected Err, got Ok") }
             | Err(msg) { assert.equal(msg, "error message") }
         }
@@ -78,7 +78,7 @@ test_result = () void   {
     test.suite_add_test(&suite, "Result.map", () void {
         ok_res := Result<i32, string>.Ok(10)
         mapped := ok_res.map((x) i32 { x * 2 })
-        match mapped {
+        mapped ?
             | Ok(value) { assert.equal(value, 20) }
             | Err(_) { assert.fail("map failed") }
         }
@@ -87,7 +87,7 @@ test_result = () void   {
     test.suite_add_test(&suite, "Result.map_err", () void {
         err_res := Result<i32, string>.Err("error")
         mapped := err_res.map_err((s) string { s + "!" })
-        match mapped {
+        mapped ?
             | Ok(_) { assert.fail("Expected Err") }
             | Err(msg) { assert.equal(msg, "error!") }
         }

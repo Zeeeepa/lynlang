@@ -1,11 +1,11 @@
 // File I/O operations for Zen
 // Provides file reading, writing, and manipulation utilities
 
-core = @std.core
-mem = @std.mem
-string = @std.string
-path = @std.path
-result = @std.result
+core = @std
+mem = @std
+string = @std
+path = @std
+result = @std
 
 // File handle
 File: {
@@ -211,7 +211,7 @@ seek = (file: &mut File, pos: SeekFrom) Result<u64, core.String>  {
     whence: i32
     offset: i64
     
-    match pos {
+    pos ?
         SeekFrom.Start(off) => {
             whence = SEEK_SET
             offset = off
@@ -483,7 +483,7 @@ walk_dir = (path: core.String, callback: fn(DirEntry) void) Result<void, core.St
 
 // Helper function to convert FileMode to system flags
 mode_to_flags = (mode: FileMode) i32   {
-    match mode {
+    mode ?
         FileMode.Read => O_RDONLY,
         FileMode.Write => O_WRONLY | O_CREAT | O_TRUNC,
         FileMode.Append => O_WRONLY | O_CREAT | O_APPEND,
@@ -493,7 +493,7 @@ mode_to_flags = (mode: FileMode) i32   {
 
 // Helper to get error string from errno
 get_error_string = (errno: i32) core.String {
-    match errno {
+    errno ?
         -1 => "Operation not permitted",
         -2 => "No such file or directory",
         -3 => "No such process",

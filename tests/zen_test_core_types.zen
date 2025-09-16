@@ -1,7 +1,7 @@
 // Tests for Core Types
 // Validates Option, Result, Vec, HashMap, Ptr, and Ref implementations
 
-build = @std.build
+build = @std
 core := build.import("../std/core")
 { Option, Result, Vec, HashMap, Ptr, Ref } := core
 test := build.import("test")

@@ -2,10 +2,10 @@
 // Fully compliant with Zenlang Language Specification v1.1.0
 
 // Import core modules
-build = @std.build
+build = @std
 core := build.import("../std/core")
 { Option, Result, HashMap, Ptr } := core
-{ Vec, DynVec } = @std.collections
+{ Vec, DynVec } = @std
 
 io := build.import("io")
 json := build.import("json")

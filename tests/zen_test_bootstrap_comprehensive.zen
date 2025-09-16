@@ -1,17 +1,17 @@
 // Comprehensive Bootstrap Compiler Test
 // Tests all aspects of the self-hosted Zen compiler
 
-core = @std.core
-io = @std.io
-test = @std.test
-string = @std.string
-{ Vec, DynVec } = @std.collections
+core = @std
+io = @std
+test = @std
+string = @std
+{ Vec, DynVec } = @std
 
 // Import compiler modules
-lexer = @std.lexer
-parser = @std.parser
-type_checker = @std.type_checker
-codegen = @std.codegen
+lexer = @std
+parser = @std
+type_checker = @std
+codegen = @std
 
 // Test suite for lexer
 test_lexer_comprehensive = () bool   {
@@ -398,7 +398,7 @@ main = () i32   {
     if test_lexer_comprehensive() {
         passed += 1
         io.print("✓ Lexer tests passed\n\n")
-    } else {
+    } | false {
         failed += 1
         io.print("✗ Lexer tests failed\n\n")
     }
@@ -407,7 +407,7 @@ main = () i32   {
     if test_parser_comprehensive() {
         passed += 1
         io.print("✓ Parser tests passed\n\n")
-    } else {
+    } | false {
         failed += 1
         io.print("✗ Parser tests failed\n\n")
     }
@@ -416,7 +416,7 @@ main = () i32   {
     if test_type_checker_comprehensive() {
         passed += 1
         io.print("✓ Type checker tests passed\n\n")
-    } else {
+    } | false {
         failed += 1
         io.print("✗ Type checker tests failed\n\n")
     }
@@ -425,7 +425,7 @@ main = () i32   {
     if test_codegen_comprehensive() {
         passed += 1
         io.print("✓ Code generation tests passed\n\n")
-    } else {
+    } | false {
         failed += 1
         io.print("✗ Code generation tests failed\n\n")
     }
@@ -434,7 +434,7 @@ main = () i32   {
     if test_end_to_end() {
         passed += 1
         io.print("✓ End-to-end test passed\n\n")
-    } else {
+    } | false {
         failed += 1
         io.print("✗ End-to-end test failed\n\n")
     }
@@ -443,7 +443,7 @@ main = () i32   {
     if test_performance() {
         passed += 1
         io.print("✓ Performance test passed\n\n")
-    } else {
+    } | false {
         failed += 1
         io.print("✗ Performance test failed\n\n")
     }
@@ -459,7 +459,7 @@ main = () i32   {
     if failed == 0 {
         io.print("\n✓ All tests passed!\n")
         return 0
-    } else {
+    } | false {
         io.print("\n✗ Some tests failed.\n")
         return 1
     }

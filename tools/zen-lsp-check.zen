@@ -1,12 +1,12 @@
 // Zen Language Server Protocol Checker
 // Provides syntax and semantic checking for Zen files
 
-io = @std.io
-fs = @std.fs
-string = @std.string
-path = @std.path
-args = @std.args
-{ Vec, DynVec } = @std.collections
+io = @std
+fs = @std
+string = @std
+path = @std
+args = @std
+{ Vec, DynVec } = @std
 
 // Diagnostic severity levels
 Severity: 
@@ -228,7 +228,7 @@ check_imports = (file_path: string) DynVec<Diagnostic>   {
         
         if is_import_line(line) {
             // Check if import is in valid context
-            match check_import_context(lines, i) {
+            check_import_context(lines, i) ?
                 | Option<Diagnostic>.Some(mut diag) => {
                     diag.file = file_path
                     DynVec.push(&mut diagnostics, diag)
@@ -259,7 +259,7 @@ format_diagnostic = (diag: Diagnostic) string   {
     
     result = string.concat(result, severity_str)
     
-    match diag.code {
+    diag.code ?
         | Option<string>.Some(code) => {
             result = string.concat(result, "[")
             result = string.concat(result, code)
@@ -296,7 +296,7 @@ check_file = (file_path: string, config: CheckConfig) CheckResult   {
     mut has_errors := false
     for i := 0; i < DynVec.len(all_diagnostics); i = i + 1 {
         diag := DynVec.get(all_diagnostics, i)
-        match diag.severity {
+        diag.severity ?
             | Severity.Error => has_errors = true
             | _ => {}
         }
@@ -324,7 +324,7 @@ main = () i32   {
     
     parsed := args.parse(&parser, args.get_args())
     
-    match parsed {
+    parsed ?
         | Result<args.ParsedArgs, string>.Err(msg) => {
             io.eprint("Error: ")
             io.eprint(msg)
@@ -379,7 +379,7 @@ main = () i32   {
                     io.print(format_diagnostic(diag))
                     io.print("\n")
                     
-                    match diag.severity {
+                    diag.severity ?
                         | Severity.Error => total_errors = total_errors + 1
                         | Severity.Warning => total_warnings = total_warnings + 1
                         | _ => {}

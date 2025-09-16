@@ -2,13 +2,13 @@
 // Validates that imports work correctly at module level only
 
 // Module-level imports (CORRECT)
-core = @std.core
-io = @std.io
-string = @std.string
-vec = @std.vec
-test = @std.test
-fs = @std.fs
-process = @std.process
+core = @std
+io = @std
+string = @std
+vec = @std
+test = @std
+fs = @std
+process = @std
 
 // Test basic module imports
 test_basic_imports = () bool   {
@@ -57,8 +57,8 @@ test_comptime_metaprogramming = () bool   {
 // Test nested module imports
 test_nested_imports = () bool   {
     // Import from nested module paths
-    result = @std.result
-    option = @std.option
+    result = @std
+    option = @std
     
     // Test Result type
     ok_result := result.Ok(42)
@@ -117,7 +117,7 @@ test_cross_module_deps = () bool   {
 // Test build.import pattern
 test_build_import = () bool   {
     // Test the build.import syntax
-    build = @std.build
+    build = @std
     custom := build.import("custom_module")
     
     // The import should work at module level
@@ -287,7 +287,7 @@ main = () i32   {
         if test_fn() {
             io.println("✓ PASSED")
             passed += 1
-        } else {
+        } | false {
             io.println("✗ FAILED")
             failed += 1
         }
