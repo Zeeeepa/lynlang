@@ -115,6 +115,10 @@ pub enum AstType {
         name: String,
         type_args: Vec<AstType>,
     },
+    // For enum type references (e.g., when MyOption is used as an identifier)
+    EnumType {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -198,6 +202,11 @@ pub enum Expression {
     },
     EnumVariant {
         enum_name: String,
+        variant: String,
+        payload: Option<Box<Expression>>,
+    },
+    // Enum literal syntax: .Some(value), .None (without enum name)
+    EnumLiteral {
         variant: String,
         payload: Option<Box<Expression>>,
     },

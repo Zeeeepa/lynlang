@@ -174,9 +174,8 @@ impl<'a> Parser<'a> {
                     None
                 };
                 
-                // Use empty string for enum_name - it will be inferred from context
-                return Ok(Expression::EnumVariant {
-                    enum_name: String::new(),
+                // Use EnumLiteral for shorthand syntax
+                return Ok(Expression::EnumLiteral {
                     variant,
                     payload,
                 });

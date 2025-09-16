@@ -1,0 +1,53 @@
+// Test features that are currently working
+{ io } = @std
+
+main = () void {
+    // 1. Variables and basic types
+    x = 42
+    y ::= 100  // mutable
+    
+    // 2. Booleans and pattern matching
+    flag = true
+    flag ? {
+        z = 10
+    }
+    
+    // 3. Full pattern matching with boolean
+    ready = false
+    ready ?
+        | true { io.println("Ready!") }
+        | false { io.println("Not ready") }
+    
+    // 4. String interpolation
+    name = "World"
+    greeting = "Hello ${name}!"
+    
+    // 5. Ranges with loop
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // 6. Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        greater_than_three = counter > 3
+        greater_than_three ?
+            | true { break }
+            | false { io.println("Looping") }
+    })
+    
+    // 7. Defer statements
+    @this.defer(io.println("Cleanup"))
+    
+    // 8. Basic arithmetic
+    sum = 10 + 20
+    diff = 50 - 30
+    product = 5 * 6
+    
+    // 9. Comparisons
+    is_greater = 10 > 5
+    is_equal = 42 == 42
+    
+    io.println("Program complete")
+}

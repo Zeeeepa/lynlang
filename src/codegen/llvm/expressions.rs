@@ -78,6 +78,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::EnumVariant { enum_name, variant, payload } => {
                 self.compile_enum_variant(enum_name, variant, payload)
             }
+            Expression::EnumLiteral { variant, payload } => {
+                // For enum literals, infer the enum type from context
+                // For now, handle Option and Result types specially
+                if variant == "Some" || variant == "None" {
+                    self.compile_enum_variant("Option", variant, payload)
+                } else if variant == "Ok" || variant == "Err" {
+                    self.compile_enum_variant("Result", variant, payload)
+                } else {
+                    // Try to infer from context or error
+                    return Err(CompileError::TypeMismatch {
+                        expected: "known enum type".to_string(),
+                        found: format!("enum literal .{}", variant),
+                        span: None,
+                    });
+                }
+            }
             Expression::MemberAccess { object, member } => {
                 self.compile_member_access(object, member)
             }

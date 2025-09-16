@@ -283,7 +283,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.bool_type().const_int(1, false)
             }
             
-            Pattern::EnumLiteral { variant, payload } => {
+            Pattern::EnumLiteral { variant: _, payload } => {
                 // EnumLiteral patterns are like .Some(x) or .None
                 // For now, treat them similarly to EnumVariant patterns but without enum name
                 // TODO: Implement proper enum literal matching

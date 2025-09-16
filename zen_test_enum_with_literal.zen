@@ -1,0 +1,6 @@
+// Test enum definition with literal usage
+Option<T>: .Some(T) | .None
+
+main = () void {
+    x = .Some(42)
+}

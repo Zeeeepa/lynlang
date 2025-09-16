@@ -1,4 +1,4 @@
-use crate::ast::{BehaviorDefinition, BehaviorMethod, TraitImplementation, TraitRequirement, Parameter, TypeParameter, Function};
+use crate::ast::{BehaviorDefinition, BehaviorMethod, TraitImplementation, TraitRequirement, Parameter, TypeParameter};
 use crate::lexer::Token;
 use crate::parser::core::Parser;
 use crate::error::{CompileError, Result};

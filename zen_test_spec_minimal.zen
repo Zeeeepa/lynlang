@@ -1,0 +1,10 @@
+// From LANGUAGE_SPEC.zen - simplified test
+{ io } = @std
+
+main = () void {
+    // Boolean pattern matching - no ternary
+    is_ready = true
+    is_ready ? { 
+        io.println("Starting game!") 
+    }
+}

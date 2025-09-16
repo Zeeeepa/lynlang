@@ -561,74 +561,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse_statement(&mut self) -> Result<Statement> {
         match &self.current_token {
-            Token::Identifier(_name) => {
-                // Check for variable declarations using peek tokens
-                match &self.peek_token {
-                    Token::Operator(op) if op == "::=" => {
-                        // Mutable declaration with ::=
-                        self.parse_variable_declaration()
-                    }
-                    Token::Symbol(':') => {
-                        self.parse_variable_declaration()
-                    }
-                    Token::Operator(op) if op == "::" => {
-                        self.parse_variable_declaration()
-                    }
-                    Token::Operator(op) if op == "=" => {
-                        // Parse as assignment - typechecker will determine if it's a declaration or reassignment
-                        self.parse_variable_assignment()
-                    }
-                    Token::Symbol('.') | Token::Symbol('[') => {
-                        // Could be member access or array indexing followed by assignment
-                        // Parse the left-hand side expression first
-                        let lhs = self.parse_expression()?;
-                        
-                        // Check if it's followed by an assignment
-                        if self.current_token == Token::Operator("=".to_string()) {
-                            self.next_token(); // consume '='
-                            let value = self.parse_expression()?;
-                            if self.current_token == Token::Symbol(';') {
-                                self.next_token();
-                            }
-                            // Use PointerAssignment for member field assignments and array element assignments
-                            Ok(Statement::PointerAssignment {
-                                pointer: lhs,
-                                value,
-                            })
-                        } else {
-                            // Just an expression statement
-                            if self.current_token == Token::Symbol(';') {
-                                self.next_token();
-                            }
-                            Ok(Statement::Expression(lhs))
-                        }
-                    }
-                    _ => {
-                        // Not a variable declaration, treat as expression
-                        let expr = self.parse_expression()?;
-                        if self.current_token == Token::Symbol(';') {
-                            self.next_token();
-                        }
-                        Ok(Statement::Expression(expr))
-                    }
-                }
-            }
-            Token::Symbol('?') => {
-                // Parse conditional expression
-                let expr = self.parse_expression()?;
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
-                Ok(Statement::Expression(expr))
-            }
-            Token::Symbol('(') => {
-                // Parse parenthesized expression as statement
-                let expr = self.parse_expression()?;
-                if self.current_token == Token::Symbol(';') {
-                    self.next_token();
-                }
-                Ok(Statement::Expression(expr))
-            }
+            // Check for specific keywords first before generic identifier
             Token::Identifier(id) if id == "return" => {
                 self.next_token();
                 let expr = self.parse_expression()?;
@@ -731,6 +664,75 @@ impl<'a> Parser<'a> {
                 }
                 self.next_token(); // consume '}'
                 Ok(Statement::ComptimeBlock(statements))
+            }
+            // Generic identifier case (after all specific keywords)
+            Token::Identifier(_name) => {
+                // Check for variable declarations using peek tokens
+                match &self.peek_token {
+                    Token::Operator(op) if op == "::=" => {
+                        // Mutable declaration with ::=
+                        self.parse_variable_declaration()
+                    }
+                    Token::Symbol(':') => {
+                        self.parse_variable_declaration()
+                    }
+                    Token::Operator(op) if op == "::" => {
+                        self.parse_variable_declaration()
+                    }
+                    Token::Operator(op) if op == "=" => {
+                        // Parse as assignment - typechecker will determine if it's a declaration or reassignment
+                        self.parse_variable_assignment()
+                    }
+                    Token::Symbol('.') | Token::Symbol('[') => {
+                        // Could be member access or array indexing followed by assignment
+                        // Parse the left-hand side expression first
+                        let lhs = self.parse_expression()?;
+                        
+                        // Check if it's followed by an assignment
+                        if self.current_token == Token::Operator("=".to_string()) {
+                            self.next_token(); // consume '='
+                            let value = self.parse_expression()?;
+                            if self.current_token == Token::Symbol(';') {
+                                self.next_token();
+                            }
+                            // Use PointerAssignment for member field assignments and array element assignments
+                            Ok(Statement::PointerAssignment {
+                                pointer: lhs,
+                                value,
+                            })
+                        } else {
+                            // Just an expression statement
+                            if self.current_token == Token::Symbol(';') {
+                                self.next_token();
+                            }
+                            Ok(Statement::Expression(lhs))
+                        }
+                    }
+                    _ => {
+                        // Not a variable declaration, treat as expression
+                        let expr = self.parse_expression()?;
+                        if self.current_token == Token::Symbol(';') {
+                            self.next_token();
+                        }
+                        Ok(Statement::Expression(expr))
+                    }
+                }
+            }
+            Token::Symbol('?') => {
+                // Parse conditional expression
+                let expr = self.parse_expression()?;
+                if self.current_token == Token::Symbol(';') {
+                    self.next_token();
+                }
+                Ok(Statement::Expression(expr))
+            }
+            Token::Symbol('(') => {
+                // Parse parenthesized expression as statement
+                let expr = self.parse_expression()?;
+                if self.current_token == Token::Symbol(';') {
+                    self.next_token();
+                }
+                Ok(Statement::Expression(expr))
             }
             // Handle literal expressions as valid statements
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {

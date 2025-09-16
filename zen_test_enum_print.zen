@@ -1,0 +1,6 @@
+// Test if enum is registered
+MyOption: .Some | .None
+
+main = () void {
+    x = 42
+}

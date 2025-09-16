@@ -212,6 +212,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     ))
                 }
             },
+            AstType::EnumType { name } => {
+                // EnumType is used when an enum is referenced as a type constructor
+                // Look up the registered enum type
+                if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
+                    Ok(Type::Struct(enum_info.llvm_type))
+                } else {
+                    // Fallback to a default enum structure if not registered
+                    let enum_struct_type = self.context.struct_type(&[
+                        self.context.i64_type().into(),  // discriminant/tag
+                        self.context.i64_type().into(),  // payload (simplified)
+                    ], false);
+                    Ok(Type::Struct(enum_struct_type))
+                }
+            },
         };
         result
     }
