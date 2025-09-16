@@ -99,8 +99,7 @@ Vec<T, N>.insert = (self: *Vec<T, N>, index: usize, value: T) core.Result<void, 
                     // Shift elements to the right
                     i ::= self.len
                     loop {
-                        i == index ? | true => break
-                                    | false => {}
+                        i == index ? { break }
                         self.data[i] = self.data[i - 1]
                         i = i - 1
                     }
@@ -122,8 +121,7 @@ Vec<T, N>.remove = (self: *Vec<T, N>, index: usize) core.Result<T, core.Error> {
             // Shift elements to the left
             i ::= index
             loop {
-                i >= self.len - 1 ? | true => break
-                                    | false => {}
+                i >= self.len - 1 ? { break }
                 self.data[i] = self.data[i + 1]
                 i = i + 1
             }
@@ -139,8 +137,7 @@ Vec<T, N>.to_dynamic = (self: *Vec<T, N>) DynVec<T> {
     
     i ::= 0
     loop {
-        i >= self.len ? | true => break
-                       | false => {}
+        i >= self.len ? { break }
         dyn_vec.push(self.data[i])
         i = i + 1
     }
@@ -177,8 +174,7 @@ Vec<T, N>.map<U> = (self: *Vec<T, N>, f: (T) U) Vec<U, N> {
     
     i ::= 0
     loop {
-        i >= self.len ? | true => break
-                       | false => {}
+        i >= self.len ? { break }
         result.push(f(self.data[i]))
         i = i + 1
     }
@@ -191,11 +187,9 @@ Vec<T, N>.filter = (self: *Vec<T, N>, predicate: (T) bool) DynVec<T> {
     
     i ::= 0
     loop {
-        i >= self.len ? | true => break
-                       | false => {}
+        i >= self.len ? { break }
         predicate(self.data[i]) ?
             | true => result.push(self.data[i])
-            | false => {}
         i = i + 1
     }
     
@@ -207,8 +201,7 @@ Vec<T, N>.fold<U> = (self: *Vec<T, N>, initial: U, f: (U, T) U) U {
     
     i ::= 0
     loop {
-        i >= self.len ? | true => break
-                       | false => {}
+        i >= self.len ? { break }
         acc = f(acc, self.data[i])
         i = i + 1
     }

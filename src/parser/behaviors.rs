@@ -1,9 +1,83 @@
-use crate::ast::{BehaviorDefinition, BehaviorMethod, ImplBlock, Parameter, TypeParameter};
-use crate::lexer::{Keyword, Token};
+use crate::ast::{BehaviorDefinition, BehaviorMethod, TraitImplementation, TraitRequirement, Parameter, TypeParameter, Function};
+use crate::lexer::Token;
 use crate::parser::core::Parser;
 use crate::error::{CompileError, Result};
 
 impl<'a> Parser<'a> {
+    pub fn parse_type_parameters(&mut self) -> Result<Vec<TypeParameter>> {
+        // Parse generic type parameters if present: <T, U, ...>
+        let mut type_params = Vec::new();
+        if self.current_token == Token::Operator("<".to_string()) {
+            self.next_token();
+            loop {
+                if let Token::Identifier(gen) = &self.current_token {
+                    type_params.push(TypeParameter {
+                        name: gen.clone(),
+                        constraints: Vec::new(),
+                    });
+                    self.next_token();
+                    
+                    if self.current_token == Token::Operator(">".to_string()) {
+                        self.next_token();
+                        break;
+                    } else if self.current_token == Token::Symbol(',') {
+                        self.next_token();
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ',' or '>' in generic parameters".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected generic parameter name".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+            }
+        }
+        Ok(type_params)
+    }
+    
+    fn parse_parameter(&mut self) -> Result<Parameter> {
+        // Check for mutability
+        let is_mutable = if self.current_token == Token::Identifier("mut".to_string()) {
+            self.next_token();
+            true
+        } else {
+            false
+        };
+        
+        // Parse parameter name
+        let name = if let Token::Identifier(n) = &self.current_token {
+            n.clone()
+        } else {
+            return Err(CompileError::SyntaxError(
+                format!("Expected parameter name, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        };
+        self.next_token();
+        
+        // Expect ':' for type annotation
+        if self.current_token != Token::Symbol(':') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected ':' after parameter name, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Parse parameter type
+        let type_ = self.parse_type()?;
+        
+        Ok(Parameter {
+            name,
+            type_,
+            is_mutable,
+        })
+    }
+    
     pub fn parse_behavior(&mut self) -> Result<BehaviorDefinition> {
         // Parse behavior name
         let name = if let Token::Identifier(n) = &self.current_token {
@@ -32,10 +106,10 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
         
-        // Expect 'behavior' keyword
-        if self.current_token != Token::Keyword(Keyword::Behavior) {
+        // Expect 'behavior' identifier
+        if !matches!(&self.current_token, Token::Identifier(name) if name == "behavior") {
             return Err(CompileError::SyntaxError(
-                format!("Expected 'behavior' keyword, got {:?}", self.current_token),
+                format!("Expected 'behavior' identifier, got {:?}", self.current_token),
                 Some(self.current_span.clone()),
             ));
         }
@@ -144,204 +218,130 @@ impl<'a> Parser<'a> {
         })
     }
     
-    pub fn parse_impl_block_from_type(&mut self, type_name: String) -> Result<ImplBlock> {
-        // 'impl' keyword already consumed, expect '=' for value assignment (impl is defining methods)
-        if self.current_token != Token::Operator("=".to_string()) {
+    
+    /// Parse a function within an impl block context with a pre-parsed name
+    pub fn parse_impl_function_with_name(&mut self, name: String) -> Result<crate::ast::Function> {
+        use crate::ast::{Function, TypeParameter};
+        
+        // Parse generic type parameters if present: <T, U, ...>
+        let mut type_params = Vec::new();
+        if self.current_token == Token::Operator("<".to_string()) {
+            self.next_token();
+            loop {
+                if let Token::Identifier(gen) = &self.current_token {
+                    type_params.push(TypeParameter {
+                        name: gen.clone(),
+                        constraints: Vec::new(),
+                    });
+                    self.next_token();
+                    
+                    if self.current_token == Token::Operator(">".to_string()) {
+                        self.next_token();
+                        break;
+                    } else if self.current_token == Token::Symbol(',') {
+                        self.next_token();
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            "Expected ',' or '>' in generic parameters".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected generic parameter name".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+            }
+        }
+        
+        // Parameters
+        if self.current_token != Token::Symbol('(') {
             return Err(CompileError::SyntaxError(
-                format!("Expected '=' after 'impl', got {:?}", self.current_token),
+                "Expected '(' for function parameters".to_string(),
                 Some(self.current_span.clone()),
             ));
         }
         self.next_token();
         
-        // Parse optional type parameters  
-        let type_params = Vec::new(); // TODO: support generics on impl blocks
+        let mut args = vec![];
+        if self.current_token != Token::Symbol(')') {
+            loop {
+                // Parameter name
+                let param_name = if let Token::Identifier(name) = &self.current_token {
+                    name.clone()
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected parameter name".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                };
+                self.next_token();
+                
+                // Parameter type
+                if self.current_token != Token::Symbol(':') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected ':' after parameter name".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token();
+                
+                let param_type = self.parse_type()?;
+                args.push((param_name, param_type));
+                
+                if self.current_token == Token::Symbol(')') {
+                    break;
+                }
+                if self.current_token != Token::Symbol(',') {
+                    return Err(CompileError::SyntaxError(
+                        "Expected ',' or ')' in parameter list".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                self.next_token();
+            }
+        }
+        self.next_token(); // consume ')'
         
-        // Expect '{'
+        // Check for return type (it should be present for impl functions)
+        let return_type = if self.current_token != Token::Symbol('{') {
+            // If it's not '{', then we have a return type
+            self.parse_type()?
+        } else {
+            // Default to void/unit type if no return type specified
+            crate::ast::AstType::Void
+        };
+        
+        // Function body
         if self.current_token != Token::Symbol('{') {
             return Err(CompileError::SyntaxError(
-                format!("Expected '{{' after '=', got {:?}", self.current_token),
+                "Expected '{' for function body".to_string(),
                 Some(self.current_span.clone()),
             ));
         }
         self.next_token();
         
-        let mut behavior_name = None;
-        let mut methods = Vec::new();
-        
-        // Check if this is a behavior implementation
-        if let Token::Identifier(name) = &self.current_token {
-            let saved_name = name.clone();
-            let saved_position = self.lexer.position;
-            let saved_read_position = self.lexer.read_position;
-            let saved_current_char = self.lexer.current_char;
-            let saved_current_token = self.current_token.clone();
-            let saved_peek_token = self.peek_token.clone();
-            
-            self.next_token();
-            
-            if self.current_token == Token::Symbol(':') {
-                // This is a behavior implementation
-                behavior_name = Some(saved_name);
-                self.next_token();
-                
-                // Expect '{'
-                if self.current_token != Token::Symbol('{') {
-                    return Err(CompileError::SyntaxError(
-                        format!("Expected '{{' after ':', got {:?}", self.current_token),
-                        Some(self.current_span.clone()),
-                    ));
-                }
-                self.next_token();
-                
-                // Parse methods for this behavior
-                while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-                    let method = self.parse_impl_function()?;
-                    methods.push(method);
-                    
-                    // Handle comma separator
-                    if self.current_token == Token::Symbol(',') {
-                        self.next_token();
-                    }
-                }
-                
-                // Expect '}'
-                if self.current_token != Token::Symbol('}') {
-                    return Err(CompileError::SyntaxError(
-                        "Expected '}' to close behavior implementation".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
-                }
-                self.next_token();
-            } else {
-                // This was actually a method, rewind
-                self.lexer.position = saved_position;
-                self.lexer.read_position = saved_read_position;
-                self.lexer.current_char = saved_current_char;
-                self.current_token = saved_current_token;
-                self.peek_token = saved_peek_token;
-                
-                // Parse inherent methods
-                while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-                    let method = self.parse_impl_function()?;
-                    methods.push(method);
-                    
-                    // Handle comma separator
-                    if self.current_token == Token::Symbol(',') {
-                        self.next_token();
-                    }
-                }
-            }
-        } else {
-            // Parse inherent methods
-            while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
-                let method = self.parse_impl_function()?;
-                methods.push(method);
-                
-                // Handle comma separator
-                if self.current_token == Token::Symbol(',') {
-                    self.next_token();
-                }
-            }
+        let mut body = vec![];
+        while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+            body.push(self.parse_statement()?);
         }
         
-        // Expect '}'
         if self.current_token != Token::Symbol('}') {
             return Err(CompileError::SyntaxError(
-                "Expected '}' to close impl block".to_string(),
+                "Expected '}' to close function body".to_string(),
                 Some(self.current_span.clone()),
             ));
         }
         self.next_token();
         
-        Ok(ImplBlock {
-            type_name,
-            behavior_name,
-            type_params,
-            methods,
-        })
-    }
-    
-    fn parse_parameter(&mut self) -> Result<Parameter> {
-        let name = if let Token::Identifier(n) = &self.current_token {
-            n.clone()
-        } else {
-            return Err(CompileError::SyntaxError(
-                format!("Expected parameter name, got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        };
-        self.next_token();
-        
-        // Special case for 'self' parameter - type annotation is optional
-        let type_ = if name == "self" && self.current_token != Token::Symbol(':') {
-            // Infer as pointer to the implementing type (will be resolved later)
-            crate::ast::AstType::Pointer(Box::new(crate::ast::AstType::Generic {
-                name: "Self".to_string(),
-                type_args: Vec::new(),
-            }))
-        } else {
-            if self.current_token != Token::Symbol(':') {
-                return Err(CompileError::SyntaxError(
-                    format!("Expected ':' after parameter name, got {:?}", self.current_token),
-                    Some(self.current_span.clone()),
-                ));
-            }
-            self.next_token();
-            
-            self.parse_type()?
-        };
-        
-        Ok(Parameter {
+        Ok(Function {
             name,
-            type_,
-            is_mutable: false, // For now, behaviors don't specify mutability
+            type_params,
+            args,
+            return_type,
+            body,
         })
-    }
-    
-    pub fn parse_type_parameters(&mut self) -> Result<Vec<TypeParameter>> {
-        // Expect '<'
-        if self.current_token != Token::Operator("<".to_string()) {
-            return Err(CompileError::SyntaxError(
-                format!("Expected '<', got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
-        
-        let mut type_params = Vec::new();
-        
-        while self.current_token != Token::Operator(">".to_string()) && self.current_token != Token::Eof {
-            let name = if let Token::Identifier(n) = &self.current_token {
-                n.clone()
-            } else {
-                return Err(CompileError::SyntaxError(
-                    format!("Expected type parameter name, got {:?}", self.current_token),
-                    Some(self.current_span.clone()),
-                ));
-            };
-            self.next_token();
-            
-            // TODO: Parse constraints (: BehaviorName)
-            let constraints = Vec::new();
-            
-            type_params.push(TypeParameter { name, constraints });
-            
-            if self.current_token == Token::Symbol(',') {
-                self.next_token();
-            }
-        }
-        
-        // Expect '>'
-        if self.current_token != Token::Operator(">".to_string()) {
-            return Err(CompileError::SyntaxError(
-                format!("Expected '>', got {:?}", self.current_token),
-                Some(self.current_span.clone()),
-            ));
-        }
-        self.next_token();
-        
-        Ok(type_params)
     }
     
     /// Parse a function within an impl block context
@@ -487,6 +487,142 @@ impl<'a> Parser<'a> {
             args,
             return_type,
             body,
+        })
+    }
+    
+    pub fn parse_trait_implementation(&mut self, type_name: String) -> Result<TraitImplementation> {
+        // Parse: Type.implements(Trait, { methods })
+        // Current token is '(' after 'implements'
+        if self.current_token != Token::Symbol('(') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected '(' after 'implements', got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '('
+        
+        // Parse trait name
+        let trait_name = if let Token::Identifier(name) = &self.current_token {
+            name.clone()
+        } else {
+            return Err(CompileError::SyntaxError(
+                format!("Expected trait name, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        };
+        self.next_token(); // consume trait name
+        
+        // Expect comma
+        if self.current_token != Token::Symbol(',') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected ',' after trait name, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume ','
+        
+        // Expect opening brace for methods
+        if self.current_token != Token::Symbol('{') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected '{{' for trait methods, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '{'
+        
+        // Parse methods
+        let mut methods = Vec::new();
+        while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
+            // Parse method: name = (params) return_type { body }
+            let method_name = if let Token::Identifier(name) = &self.current_token {
+                name.clone()
+            } else {
+                return Err(CompileError::SyntaxError(
+                    format!("Expected method name, got {:?}", self.current_token),
+                    Some(self.current_span.clone()),
+                ));
+            };
+            self.next_token(); // consume method name
+            
+            // Expect '='
+            if self.current_token != Token::Operator("=".to_string()) {
+                return Err(CompileError::SyntaxError(
+                    format!("Expected '=' after method name, got {:?}", self.current_token),
+                    Some(self.current_span.clone()),
+                ));
+            }
+            self.next_token(); // consume '='
+            
+            // Parse method as a function (name has already been parsed)
+            let method = self.parse_impl_function_with_name(method_name)?;
+            methods.push(method);
+            
+            // Check for comma between methods
+            if self.current_token == Token::Symbol(',') {
+                self.next_token();
+            }
+        }
+        
+        // Expect closing brace
+        if self.current_token != Token::Symbol('}') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected '}}' to close trait methods, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '}'
+        
+        // Expect closing parenthesis
+        if self.current_token != Token::Symbol(')') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected ')' to close implements call, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume ')'
+        
+        Ok(TraitImplementation {
+            type_name,
+            trait_name,
+            type_params: Vec::new(), // TODO: Add support for generic type parameters
+            methods,
+        })
+    }
+    
+    pub fn parse_trait_requirement(&mut self, type_name: String) -> Result<TraitRequirement> {
+        // Parse: Type.requires(Trait)
+        // Current token is '(' after 'requires'
+        if self.current_token != Token::Symbol('(') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected '(' after 'requires', got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume '('
+        
+        // Parse trait name
+        let trait_name = if let Token::Identifier(name) = &self.current_token {
+            name.clone()
+        } else {
+            return Err(CompileError::SyntaxError(
+                format!("Expected trait name, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        };
+        self.next_token(); // consume trait name
+        
+        // Expect closing parenthesis
+        if self.current_token != Token::Symbol(')') {
+            return Err(CompileError::SyntaxError(
+                format!("Expected ')' after trait name, got {:?}", self.current_token),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token(); // consume ')'
+        
+        Ok(TraitRequirement {
+            type_name,
+            trait_name,
         })
     }
 }

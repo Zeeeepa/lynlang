@@ -2,84 +2,92 @@
 // TCP/UDP networking support
 
 // External socket functions
-extern socket = (domain: i32, type_: i32, protocol: i32) i32
-extern bind = (sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32
-extern listen = (sockfd: i32, backlog: i32) i32
-extern accept = (sockfd: i32, addr: RawPtr<i8>, addrlen: *i32) i32
-extern connect = (sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32
-extern send = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i64
-extern recv = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i64
-extern sendto = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, dest_addr: RawPtr<i8>, addrlen: i32) i64
-extern recvfrom = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, src_addr: RawPtr<i8>, addrlen: *i32) i64
-extern close = (fd: i32) i32
-extern shutdown = (sockfd: i32, how: i32) i32
-extern setsockopt = (sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: i32) i32
-extern getsockopt = (sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: *i32) i32
-extern inet_addr = (cp: RawPtr<i8>) i32
-extern htons = (hostshort: i16) i16
-extern htonl = (hostlong: i32) i32
-extern ntohs = (netshort: i16) i16
-extern ntohl = (netlong: i32) i32
+socke = extern<(domain: i32, type_: i32, protocol: i32) i32>("socket")
+bin = extern<(sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32>("bind")
+liste = extern<(sockfd: i32, backlog: i32) i32>("listen")
+accep = extern<(sockfd: i32, addr: RawPtr<i8>, addrlen: *i32) i32>("accept")
+connec = extern<(sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32>("connect")
+sen = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i32>("send")
+rec = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i32>("recv")
+sendt = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, dest_addr: RawPtr<i8>, addrlen: i32) i32>("sendto")
+recvfro = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, src_addr: RawPtr<i8>, addrlen: *i32) i32>("recvfrom")
+clos = extern<(fd: i32) i32>("close")
+shutdow = extern<(sockfd: i32, how: i32) i32>("shutdown")
+setsockop = extern<(sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: i32) i32>("setsockopt")
+getsockop = extern<(sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: *i32) i32>("getsockopt")
+inet_add = extern<(cp: RawPtr<i8>) i32>("inet_addr")
+hton = extern<(hostshort: i16) i16>("htons")
+hton = extern<(hostlong: i32) i32>("htonl")
+ntoh = extern<(netshort: i16) i16>("ntohs")
+ntoh = extern<(netlong: i32) i32>("ntohl")
 
-// Socket domain constants
-AF_UNIX := 1     // Local socket
-AF_INET := 2     // IPv4
-AF_INET6 := 10   // IPv6
+// Socket domain constants 
+SocketDomain: 
+    AF_UNIX = 1     // Local socket
+    AF_INET = 2     // IPv4
+    AF_INET6 = 10   // IPv6
 
-// Socket type constants
-SOCK_STREAM := 1     // TCP
-SOCK_DGRAM := 2      // UDP
-SOCK_RAW := 3        // Raw socket
+SocketType: 
+    SOCK_STREAM = 1     // TCP
+    SOCK_DGRAM = 2      // UDP
+    SOCK_RAW = 3        // Raw socket
 
-// Protocol constants
-IPPROTO_TCP := 6
-IPPROTO_UDP := 17
-IPPROTO_ICMP := 1
+SocketProtocol: 
+    IPPROTO_TCP = 6
+    IPPROTO_UDP = 17
+    IPPROTO_ICMP = 1
 
-// Shutdown options
-SHUT_RD := 0    // Disable reading
-SHUT_WR := 1    // Disable writing
-SHUT_RDWR := 2  // Disable both
+
+SocketShutdown: 
+    SHUT_RD = 0    // Disable reading
+    SHUT_WR = 1    // Disable writing
+    SHUT_RDWR = 2  // Disable both
 
 // Socket option levels
-SOL_SOCKET := 1
-IPPROTO_TCP_LEVEL := 6
+SocketOptionLevel: 
+    SOL_SOCKET = 1
+    IPPROTO_TCP_LEVEL = 6
+
 
 // Socket options
-SO_REUSEADDR := 2
-SO_KEEPALIVE := 9
-SO_BROADCAST := 6
-SO_RCVBUF := 8
-SO_SNDBUF := 7
-TCP_NODELAY := 1
+SocketOption: 
+    SO_REUSEADDR = 2
+    SO_KEEPALIVE = 9
+    SO_BROADCAST = 6
+    SO_RCVBUF = 8
+    SO_SNDBUF = 7
+    TCP_NODELAY = 1
 
 // Default buffer size
-DEFAULT_BUFFER_SIZE := 4096
+DEFAULT_BUFFER_SIZE = 4096
 
 // Address family type
-AddressFamily: IPv4
-    | IPv6
-    | Unix
+AddressFamily: 
+    IPv4 = 1,
+    IPv6 = 2,
+    Unix = 3
 
 // Socket type
-SocketType: TCP
-    | UDP
-    | Raw
+SocketType: 
+    TCP = 1
+    UDP = 2
+    Raw = 3
 
 // Network errors
-NetError: ConnectionRefused
-    | ConnectionReset
-    | ConnectionAborted
-    | NotConnected
-    | AddrInUse
-    | AddrNotAvailable
-    | NetworkDown
-    | NetworkUnreachable
-    | HostUnreachable
-    | TimedOut
-    | PermissionDenied
-    | InvalidAddress
-    | Other
+NetError: 
+    ConnectionRefused
+    ConnectionReset,
+    ConnectionAborted,
+    NotConnected,
+    AddrInUse,
+    AddrNotAvailable,
+    NetworkDown,
+    NetworkUnreachable,
+    HostUnreachable,
+    TimedOut,
+    PermissionDenied,
+    InvalidAddress,
+    Other
 
 // Result type for network operations
 NetResult<T> = 
@@ -146,7 +154,7 @@ tcp_socket_new = () NetResult<TcpSocket>   {
 tcp_connect = (sock: TcpSocket, addr: SocketAddr) NetResult<TcpSocket>   {
     // Simplified - would need proper sockaddr_in structure
     // This is a placeholder implementation
-    result := 0  // connect(sock.fd, addr_struct, sizeof(addr_struct))
+    result ::= 0  // connect(sock.fd, addr_struct, sizeof(addr_struct))
     
     result < 0 ?
         | true {

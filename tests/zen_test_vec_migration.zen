@@ -1,6 +1,6 @@
 // Test file to verify Vec/DynVec migration is working correctly
 
-{ Vec, DynVec } = @std
+{ Vec, DynVec } = @std.collections
 { core } = @std
 { io } = @std
 
@@ -32,8 +32,7 @@ test_fixed_vec = () void {
     // Test is_full when at capacity
     i ::= 0
     loop {
-        i >= 8 ? | true => break
-               | false => {}
+        i >= 8 ? { break }
         v.push(i).unwrap()
         i = i + 1
     }
@@ -42,8 +41,8 @@ test_fixed_vec = () void {
     // Try to push when full should fail
     result := v.push(100)
     result ?
-        | core.Result:Ok(_) => assert(false, "Push should fail when full")
-        | core.Result:Err(_) => {} // Expected
+        | core.Result:Ok(_) { assert(false, "Push should fail when full") }
+        | core.Result:Err(_) { } // Expected
     
     io.println("Fixed-Size Vec tests passed!")
 }
@@ -57,8 +56,7 @@ test_dynamic_vec = () void {
     // Push many elements (will cause growth)
     i ::= 0
     loop {
-        i >= 100 ? | true => break
-                  | false => {}
+        i >= 100 ? { break }
         v.push(i).unwrap()
         i = i + 1
     }
@@ -80,7 +78,7 @@ test_dynamic_vec = () void {
     
     // Clear
     v.clear()
-    assert(v.is_empty(), "Vec should be empty after clear")
+    assert(v.is_empty(), "DynVec should be empty after clear")
     assert(v.capacity() >= 100, "Capacity should be maintained after clear")
     
     // Free memory
@@ -165,12 +163,10 @@ test_functional_operations = () void {
 }
 
 assert = (condition: bool, message: string) void {
-    condition ? 
-        | false => {
+    !condition ? {
             io.println("ASSERTION FAILED: ${message}")
             panic("Test failed")
         }
-        | true => {}
 }
 
 panic = (msg: string) void {

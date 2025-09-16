@@ -1,0 +1,31 @@
+// Test parsing of spec syntax
+
+{ io } = @std
+
+main = () void {
+    // Test 1: Basic assignments work
+    x = 42
+    y ::= 100
+    y = y + 1
+    
+    // Test 2: Boolean pattern matching
+    flag = true
+    flag ? {
+        io.print("Flag is true")
+    }
+    
+    // Test 3: Full boolean pattern
+    ready = false
+    ready ?
+        | true { io.print("Ready!") }
+        | false { io.print("Not ready") }
+    
+    // Test 4: Numeric patterns with wildcard
+    num = 3
+    num ?
+        | 1 { io.print("One") }
+        | 2 { io.print("Two") }
+        | _ { io.print("Other number") }
+    
+    io.print("Parsing test completed")
+}

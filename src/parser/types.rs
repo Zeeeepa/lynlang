@@ -24,7 +24,7 @@ impl<'a> Parser<'a> {
                     "bool" => Ok(AstType::Bool),
                     "String" | "string" => Ok(AstType::String),
                     "void" => Ok(AstType::Void),
-                    "ptr" => Ok(AstType::Pointer(Box::new(AstType::Void))),
+                    "ptr" => Ok(AstType::Ptr(Box::new(AstType::Void))),
                     _ => {
                         // Check for generic type instantiation (e.g., List<T>)
                         if self.current_token == Token::Operator("<".to_string()) {
@@ -146,7 +146,7 @@ impl<'a> Parser<'a> {
                 } else {
                     // Regular pointer
                     let pointee_type = self.parse_type()?;
-                    Ok(AstType::Pointer(Box::new(pointee_type)))
+                    Ok(AstType::Ptr(Box::new(pointee_type)))
                 }
             }
             Token::Operator(op) if op == "*" => {
@@ -186,7 +186,7 @@ impl<'a> Parser<'a> {
                 } else {
                     // Regular pointer
                     let pointee_type = self.parse_type()?;
-                    Ok(AstType::Pointer(Box::new(pointee_type)))
+                    Ok(AstType::Ptr(Box::new(pointee_type)))
                 }
             }
             Token::Symbol('(') => {

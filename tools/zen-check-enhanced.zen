@@ -111,13 +111,11 @@ print_diagnostic = (diag: Diagnostic, filepath: string, line_content: string) vo
     io.print("\x1b[0m\n")
     
     // Print suggestion if available
-    diag.suggestion != "" ?
-        | true => {
+    diag.suggestion != "" ? {
             io.print("   = help: ")
             io.print(diag.suggestion)
             io.print("\n")
         }
-        | false => {}
     
     io.print("\n")
 }
@@ -136,26 +134,21 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
         trimmed := string.trim(line)
         
         // Skip empty lines and comments
-        trimmed == "" || string.starts_with(trimmed, "//") ?
-            | true => {
+        trimmed == "" || string.starts_with(trimmed, "//") ? {
                 i = i + 1
                 continue
             }
-            | false => {}
         
         // Check for comptime blocks
-        string.contains(line, "comptime") && string.contains(line, "{") ?
-            | true => {
+        string.contains(line, "comptime") && string.contains(line, "{") ? {
                 in_comptime = true
                 brace_depth = brace_depth + 1
             }
-            | false => {}
         
         // Check for imports in comptime
-        in_comptime && (string.contains(line, "@std.") || string.contains(line, "@std.compiler.")) ?
-            | true => {
+        in_comptime && (string.contains(line, "@std.") || string.contains(line, "@std.compiler.")) ? {
                 diag := diagnostic_new(
-                    line_num, 
+                    line_num,   
                     string.index_of(line, "@") + 1,
                     Severity.Error,
                     "E001",
@@ -165,7 +158,6 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
                 result.diagnostics.push(diag)
                 result.error_count = result.error_count + 1
             }
-            | false => {}
         
         // Check brace matching
         j := 0
@@ -173,12 +165,10 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
             c := line[j]
             c == '{' ?
                 | true => { brace_depth = brace_depth + 1 }
-                | false => {}
             c == '}' ?
                 | true => { 
                     brace_depth = brace_depth - 1
-                    brace_depth < 0 ?
-                        | true => {
+                    brace_depth < 0 ? {
                             diag := diagnostic_new(
                                 line_num,
                                 j + 1,
@@ -190,17 +180,11 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
                             result.diagnostics.push(diag)
                             result.error_count = result.error_count + 1
                         }
-                        | false => {}
                 }
-                | false => {}
-            c == '(' ?
-                | true => { paren_depth = paren_depth + 1 }
-                | false => {}
-            c == ')' ?
-                | true => { 
+            c == '(' ? { paren_depth = paren_depth + 1 }
+            c == ')' ? { 
                     paren_depth = paren_depth - 1
-                    paren_depth < 0 ?
-                        | true => {
+                    paren_depth < 0 ? {
                             diag := diagnostic_new(
                                 line_num,
                                 j + 1,
@@ -212,20 +196,15 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
                             result.diagnostics.push(diag)
                             result.error_count = result.error_count + 1
                         }
-                        | false => {}
                 }
-                | false => {}
             j = j + 1
         }
         
         // Update comptime state
-        in_comptime && brace_depth == 0 ?
-            | true => { in_comptime = false }
-            | false => {}
+        in_comptime && brace_depth == 0 ? { in_comptime = false }
         
         // Check for deprecated syntax
-        string.contains(line, "build.import(") ?
-            | true => {
+        string.contains(line, "build.import(") ? {
                 diag := diagnostic_new(
                     line_num,
                     string.index_of(line, "build.import") + 1,
@@ -237,11 +216,9 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
                 result.diagnostics.push(diag)
                 result.warning_count = result.warning_count + 1
             }
-            | false => {}
         
         // Check for trailing whitespace
-        line.len() > 0 && (line[line.len() - 1] == ' ' || line[line.len() - 1] == '\t') ?
-            | true => {
+        line.len() > 0 && (line[line.len() - 1] == ' ' || line[line.len() - 1] == '\t') ? {
                 diag := diagnostic_new(
                     line_num,
                     line.len(),
@@ -253,14 +230,12 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
                 result.diagnostics.push(diag)
                 result.info_count = result.info_count + 1
             }
-            | false => {}
         
         i = i + 1
     }
     
     // Check for unclosed braces/parens at end of file
-    brace_depth > 0 ?
-        | true => {
+    brace_depth > 0 ? {
             diag := diagnostic_new(
                 lines.len(),
                 1,
@@ -272,10 +247,8 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
             result.diagnostics.push(diag)
             result.error_count = result.error_count + 1
         }
-        | false => {}
     
-    paren_depth > 0 ?
-        | true => {
+    paren_depth > 0 ? {
             diag := diagnostic_new(
                 lines.len(),
                 1,
@@ -287,7 +260,6 @@ check_syntax = (lines: Vec<string>, result: *CheckResult) void   {
             result.diagnostics.push(diag)
             result.error_count = result.error_count + 1
         }
-        | false => {}
 }
 
 // Check for style issues
@@ -301,24 +273,23 @@ check_style = (lines: Vec<string>, result: *CheckResult) void   {
         line_num := i + 1
         
         // Check indentation consistency
-        line.len() > 0 ?
-            | true => {
+        line.len() > 0 ? {
                 has_tab := false
                 has_space := false
                 j := 0
                 loop j < line.len() && (line[j] == ' ' || line[j] == '\t') {
                     line[j] == '\t' ?
                         | true => { has_tab = true }
-                        | false => { has_space = true }
+
                     j = j + 1
                 }
                 
                 has_tab ?
                     | true => { uses_tabs = true }
-                    | false => {}
+
                 has_space ?
                     | true => { uses_spaces = true }
-                    | false => {}
+
                 
                 has_tab && has_space ?
                     | true => {
@@ -333,13 +304,13 @@ check_style = (lines: Vec<string>, result: *CheckResult) void   {
                         result.diagnostics.push(diag)
                         result.warning_count = result.warning_count + 1
                     }
-                    | false => {}
+
             }
             | false => {}
         
         // Check line length
         line.len() > 120 ?
-            | true => {
+            {
                 diag := diagnostic_new(
                     line_num,
                     121,
@@ -351,14 +322,14 @@ check_style = (lines: Vec<string>, result: *CheckResult) void   {
                 result.diagnostics.push(diag)
                 result.info_count = result.info_count + 1
             }
-            | false => {}
+
         
         i = i + 1
     }
     
     // Check overall indentation consistency
     uses_tabs && uses_spaces ?
-        | true => {
+        {
             diag := diagnostic_new(
                 1,
                 1,
@@ -370,7 +341,7 @@ check_style = (lines: Vec<string>, result: *CheckResult) void   {
             result.diagnostics.push(diag)
             result.warning_count = result.warning_count + 1
         }
-        | false => {}
+
 }
 
 // Check a single file
@@ -386,7 +357,7 @@ check_file = (filepath: string) CheckResult   {
     // Read file
     content_result := fs.read_file(filepath)
     content_result.is_err() ?
-        | true => {
+        {
             diag := diagnostic_new(
                 0,
                 0,
@@ -399,7 +370,7 @@ check_file = (filepath: string) CheckResult   {
             result.error_count = 1
             return result
         }
-        | false => {}
+
     
     content := content_result.unwrap()
     lines := string.split(content, "\n")
@@ -430,31 +401,27 @@ print_summary = (results: Vec<CheckResult>) void   {
     io.print("=== Summary ===\n")
     
     total_errors == 0 ?
-        | true => {
+        | true {
             io.print("\x1b[32m✓ No errors found!\x1b[0m\n")
         }
-        | false => {
+        | false {
             io.print("\x1b[31m✗ ")
             io.print(string.from_int(total_errors))
             io.print(" error(s) found\x1b[0m\n")
         }
     
-    total_warnings > 0 ?
-        | true => {
+    total_warnings > 0 ? {
             io.print("\x1b[33m⚠ ")
             io.print(string.from_int(total_warnings))
             io.print(" warning(s) found\x1b[0m\n")
         }
-        | false => {}
     
-    total_infos > 0 ?
-        | true => {
+    total_infos > 0 ?  {
             io.print("\x1b[36mℹ ")
             io.print(string.from_int(total_infos))
             io.print(" info message(s)\x1b[0m\n")
         }
-        | false => {}
-}
+}   
 
 // Main entry point
 main = () i32   {

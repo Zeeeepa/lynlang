@@ -283,6 +283,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.context.bool_type().const_int(1, false)
             }
             
+            Pattern::EnumLiteral { variant, payload } => {
+                // EnumLiteral patterns are like .Some(x) or .None
+                // For now, treat them similarly to EnumVariant patterns but without enum name
+                // TODO: Implement proper enum literal matching
+                if let Some(payload_pattern) = payload {
+                    let (_payload_match, mut payload_bindings) = self.compile_pattern_test(scrutinee_val, payload_pattern)?;
+                    bindings.append(&mut payload_bindings);
+                }
+                // For now, just return true
+                self.context.bool_type().const_int(1, false)
+            }
+            
             Pattern::Guard { pattern, condition } => {
                 // First check if the pattern matches
                 let (pattern_match, mut pattern_bindings) = self.compile_pattern_test(scrutinee_val, pattern)?;

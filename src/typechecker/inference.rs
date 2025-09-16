@@ -97,7 +97,7 @@ pub fn infer_member_type(
             }
         }
         // Handle pointer to struct types
-        AstType::Pointer(inner) => {
+        AstType::Ptr(inner) => {
             // Dereference the pointer and check the inner type
             infer_member_type(inner, member, structs)
         }

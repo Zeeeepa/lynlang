@@ -40,7 +40,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
-                AstType::Pointer(inner) => {
+                AstType::Ptr(inner) => {
                     // For pointer types (including string interpolation results typed as *i8)
                     // We need to load the pointer value from the alloca
                     if matches!(**inner, AstType::I8) {

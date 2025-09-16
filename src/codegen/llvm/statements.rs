@@ -99,7 +99,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             } else {
                                 Err(CompileError::TypeError("Function pointer initializer must be a function name".to_string(), None))
                             }
-                        } else if let AstType::Pointer(_inner) = type_ {
+                        } else if let AstType::Ptr(_inner) = type_ {
                             // For pointers, if the initializer is AddressOf, use the pointer inside the alloca
                             let ptr_value = match init_expr {
                                 Expression::AddressOf(inner_expr) => {
@@ -189,7 +189,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                     BasicValueEnum::FloatValue(_) => AstType::F64,
                                     BasicValueEnum::PointerValue(_) => {
-                                        AstType::Pointer(Box::new(AstType::I8))
+                                        AstType::Ptr(Box::new(AstType::I8))
                                     }
                                     _ => AstType::I64,
                                 }
@@ -212,7 +212,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     if matches!(init_expr, Expression::String(_)) {
                                         AstType::String
                                     } else {
-                                        AstType::Pointer(Box::new(AstType::I8)) // Generic pointer type
+                                        AstType::Ptr(Box::new(AstType::I8)) // Generic pointer type
                                     }
                                 }
                                 _ => AstType::I64, // Default
@@ -271,7 +271,51 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     self.compile_struct_field_assignment(struct_alloca, field_name, value)?;
                     return Ok(());
                 }
-                // Regular variable assignment
+                
+                // Check if variable exists - if not, this is a new immutable declaration with =
+                if !self.variables.contains_key(name) {
+                    // This is a new immutable declaration: name = value
+                    // Compile the value first to infer its type
+                    let init_value = self.compile_expression(value)?;
+                    
+                    // Infer the type from the value
+                    let var_type = match init_value {
+                        BasicValueEnum::IntValue(int_val) => {
+                            if int_val.get_type().get_bit_width() <= 32 {
+                                AstType::I32
+                            } else {
+                                AstType::I64
+                            }
+                        }
+                        BasicValueEnum::FloatValue(float_val) => {
+                            if float_val.get_type() == self.context.f32_type() {
+                                AstType::F32
+                            } else {
+                                AstType::F64
+                            }
+                        }
+                        BasicValueEnum::PointerValue(_) => {
+                            // For now, treat as a generic pointer
+                            AstType::Ptr(Box::new(AstType::Void))
+                        }
+                        _ => AstType::Void, // Default fallback
+                    };
+                    
+                    // Create the alloca and store the value
+                    let llvm_type = self.to_llvm_type(&var_type)?;
+                    let basic_type = match llvm_type {
+                        Type::Basic(basic) => basic,
+                        Type::Struct(struct_type) => struct_type.as_basic_type_enum(),
+                        Type::Function(_) => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
+                        _ => return Err(CompileError::TypeError("Cannot allocate non-basic or struct type".to_string(), None)),
+                    };
+                    let alloca = self.builder.build_alloca(basic_type, name)?;
+                    self.builder.build_store(alloca, init_value)?;
+                    self.variables.insert(name.clone(), (alloca, var_type));
+                    return Ok(());
+                }
+                
+                // Regular variable assignment to existing variable
                 let (alloca, var_type) = self.get_variable(name)?;
                 let value = self.compile_expression(value)?;
                 let value = match (&value, &var_type) {
@@ -292,7 +336,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     _ => value.clone(),
                 };
                 match &var_type {
-                    AstType::Pointer(inner) if matches!(**inner, AstType::Function { .. }) => {
+                    AstType::Ptr(inner) if matches!(**inner, AstType::Function { .. }) => {
                         // Store function pointer directly
                         self.builder.build_store(alloca, value)?;
                     }
@@ -326,7 +370,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         
                         if let Some((alloca, var_type)) = var_info {
                             // Handle pointer to struct (p.x = value where p is *Point)
-                            if let AstType::Pointer(inner_type) = &var_type {
+                            if let AstType::Ptr(inner_type) = &var_type {
                                 // Check if inner type is a struct or a generic representing a struct
                                 let struct_name = match &**inner_type {
                                     AstType::Struct { name, .. } => Some(name.clone()),

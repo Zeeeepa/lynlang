@@ -109,7 +109,7 @@ impl ComptimeValue {
                 }
             }
             ComptimeValue::Void => AstType::Void,
-            ComptimeValue::Null => AstType::Pointer(Box::new(AstType::Void)),
+            ComptimeValue::Null => AstType::Ptr(Box::new(AstType::Void)),
             ComptimeValue::Function { .. } => {
                 // TODO: Function type
                 AstType::Generic {

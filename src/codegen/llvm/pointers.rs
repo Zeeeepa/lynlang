@@ -16,7 +16,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     .ok_or_else(|| CompileError::UndeclaredVariable(name.clone(), None))?;
                 
                 // If the variable is already a pointer type, return it directly
-                if matches!(ast_type, AstType::Pointer(_)) {
+                if matches!(ast_type, AstType::Ptr(_)) {
                     Ok(alloca.as_basic_value_enum())
                 } else {
                     // For non-pointer variables, return the address
@@ -34,7 +34,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // First, check if expr is an identifier for a pointer variable
         if let Expression::Identifier(name) = expr {
             if let Ok((alloca, ast_type)) = self.get_variable(name) {
-                if let AstType::Pointer(inner) = ast_type {
+                if let AstType::Ptr(inner) = ast_type {
                     // This is a pointer variable, so we need to:
                     // 1. Load the pointer value from the alloca
                     let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());

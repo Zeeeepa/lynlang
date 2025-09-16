@@ -50,8 +50,8 @@ impl TypeSubstitution {
                     type_args: type_args.iter().map(|t| self.apply(t)).collect(),
                 }
             }
-            AstType::Pointer(inner) => {
-                AstType::Pointer(Box::new(self.apply(inner)))
+            AstType::Ptr(inner) => {
+                AstType::Ptr(Box::new(self.apply(inner)))
             }
             AstType::Array(inner) => {
                 AstType::Array(Box::new(self.apply(inner)))
@@ -88,7 +88,7 @@ pub struct TypeConstraint {
 pub fn is_generic_type(ast_type: &AstType) -> bool {
     match ast_type {
         AstType::Generic { .. } => true,
-        AstType::Pointer(inner) | AstType::Array(inner) | 
+        AstType::Ptr(inner) | AstType::Array(inner) | 
         AstType::Option(inner) | AstType::Ref(inner) => is_generic_type(inner),
         AstType::Result { ok_type, err_type } => is_generic_type(ok_type) || is_generic_type(err_type),
         AstType::Function { args, return_type } => {
@@ -114,7 +114,7 @@ fn extract_type_params_recursive(ast_type: &AstType, params: &mut Vec<String>) {
                 extract_type_params_recursive(arg, params);
             }
         }
-        AstType::Pointer(inner) | AstType::Array(inner) | 
+        AstType::Ptr(inner) | AstType::Array(inner) | 
         AstType::Option(inner) | AstType::Ref(inner) => {
             extract_type_params_recursive(inner, params);
         }

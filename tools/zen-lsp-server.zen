@@ -285,8 +285,7 @@ handle_did_change = (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>
                             server.documents.get(u) ?
                                 | Some(document) => {
                                     // Update content (assuming full sync)
-                                    change_list.len() > 0 ?
-                                        | true => {
+                                    change_list.len() > 0 ? {
                                             first_change := change_list.at(0)
                                             new_text := json.get_string(first_change, "text")
                                             new_text ?
@@ -302,7 +301,6 @@ handle_did_change = (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>
                                                 }
                                                 | None => {}
                                         }
-                                        | false => {}
                                 }
                                 | None => {}
                         }
@@ -409,7 +407,7 @@ handle_completion = (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>
     completions := vec_new<json.Value>()
     
     // Add keywords
-    keywords := ["function", "struct", "enum", "if", "loop", "return", "true", "false", "null"]
+    keywords = Vec<string>.from_slice(["function", "struct", "enum", "if", "loop", "return", "true", "false", "null"])
     i := 0
     loop i < keywords.len() {
         item := json.object([
@@ -422,7 +420,7 @@ handle_completion = (server: Ptr<LspServer>, msg: LspMessage) Option<LspMessage>
     }
     
     // Add types
-    types := ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string", "void"]
+    types = Vec<string>.from_slice(["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string", "void"])
     i = 0
     loop i < types.len() {
         item := json.object([
@@ -501,7 +499,7 @@ analyze_document = (server: Ptr<LspServer>, doc: Ptr<Document>) void   {
             doc.diagnostics.push(diagnostic)
             i = i + 1
         }
-    } | false => {}
+    }
 }
 
 // Publish diagnostics
@@ -579,9 +577,7 @@ find_token_at = (server: Ptr<LspServer>, doc: Ptr<Document>, line: u32, characte
         
         token.line == line && 
         token.column <= character && 
-        token.column + string.string_len(token.lexeme) > character ?
-            | true => return Some(token)
-            | false => {}
+        token.column + string.string_len(token.lexeme) > character ? { return Some(token) }
         
         i = i + 1
     }
@@ -687,19 +683,19 @@ main = () i32   {
     loop {
         // Read Content-Length header
         header := io.read_line()
-        header .== .None || string.string_len(header) == 0 ? | true => break | false => {}
+        header .== .None || string.string_len(header) == 0 ? { break }
         
-        !string.string_starts_with(header, "Content-Length: ") ? | true => {
+        !string.string_starts_with(header, "Content-Length: ") ? {
             // Skip other headers
             continue
-        } | false => {}
+        }
         
         // Parse content length
         length_str := string.string_substring(header, 16, string.string_len(header) - 16)
         length := string.string_to_i32(length_str)
         
         length ?
-            | core.Result.Ok(len) => {
+            | Some(len) => {
                 // Read empty line after headers
                 io.read_line()
                 
@@ -710,7 +706,7 @@ main = () i32   {
                 msg_json := json.parse(content)
                 
                 msg_json ?
-                    | core.Result.Ok(json_value) => {
+                    | Some(json_value) => {
                         // Convert to LspMessage
                         msg := server.parse_message(json_value)
                         
@@ -721,11 +717,11 @@ main = () i32   {
                             | Some(resp) => server.send_message(resp)
                             | None => {}
                     }
-                    | core.Result.Err(err) => {
+                    | None => {
                         io.eprintln("[zen-lsp] JSON parse error: $(err)")
                     }
             }
-            | core.Result.Err(err) => {
+            | None => {
                 io.eprintln("[zen-lsp] Invalid Content-Length: $(err)")
             }
     }

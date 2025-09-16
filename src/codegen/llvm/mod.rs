@@ -125,7 +125,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         if let Some(function) = self.module.get_function(name) {
             let ptr = function.as_global_value().as_pointer_value();
-            let ty = AstType::Pointer(Box::new(AstType::Function {
+            let ty = AstType::Ptr(Box::new(AstType::Function {
                 args: vec![],
                 return_type: Box::new(AstType::Void),
             }));
@@ -160,8 +160,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::Enum(_) => {} // Already handled above
                 ast::Declaration::ModuleImport { .. } => {}
                 ast::Declaration::Behavior(_) => {} // Behaviors are interface definitions, no codegen needed
-                ast::Declaration::Impl(impl_block) => {
-                    self.compile_impl_block(impl_block)?;
+                ast::Declaration::TraitImplementation(trait_impl) => {
+                    self.compile_trait_implementation(trait_impl)?;
+                }
+                ast::Declaration::TraitRequirement(_) => {
+                    // Trait requirements are checked at compile time, no codegen needed
                 }
                 ast::Declaration::ComptimeBlock(statements) => {
                     // Evaluate comptime blocks and generate constants
@@ -226,7 +229,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 AstType::Bool => self.context.bool_type().as_basic_type_enum(),
                 AstType::String => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
                 AstType::Void => return Err(CompileError::TypeError("Void type not allowed in struct fields".to_string(), None)),
-                AstType::Pointer(_inner) => {
+                AstType::Ptr(_inner) => {
                     // For pointer types in struct fields, we'll use a generic pointer type
                     // This is a simplification - in a full implementation we'd need to handle nested types
                     self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()

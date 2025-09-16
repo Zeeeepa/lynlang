@@ -1,0 +1,10 @@
+// Minimal pattern test
+
+{ io } = @std
+
+main = () void {
+    flag = true
+    flag ? {
+        x = 1
+    }
+}

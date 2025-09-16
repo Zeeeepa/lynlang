@@ -29,7 +29,7 @@ Vec<T> = {
     // Create with initial capacity
     with_capacity: (cap: usize) Vec<T> {
         cap > 0 ?
-            | true => {
+            | true {
                 data := Ptr:alloc_slice(cap)
                 Vec<T>{
                     data: data,
@@ -37,19 +37,17 @@ Vec<T> = {
                     capacity: cap,
                 }
             }
-            | false => Vec<T>:new()
+            | false { Vec<T>:new() }
     },
     
     // Push element to vector
     push: (self: Ptr<Vec<T>>, value: T) void {
-        self.value.len >= self.value.capacity ?
-            | true => {
+        self.value.len >= self.value.capacity ? {
                 new_cap := self.value.capacity == 0 ? 
-                    | true => 4
-                    | false => self.value.capacity * 2
+                    | true { 4 }
+                    | false { self.value.capacity * 2 }
                 self.value.resize(new_cap)
             }
-            | false => {}
         
         self.value.data.value[self.value.len] = value
         self.value.len = self.value.len + 1
@@ -58,18 +56,18 @@ Vec<T> = {
     // Get element at index
     get: (self: Ptr<Vec<T>>, index: usize) Option<T> {
         index < self.value.len ?
-            | true => Option:Some(self.value.data.value[index])
-            | false => Option:None
+            | true { Option:Some(self.value.data.value[index]) }
+            | false { Option:None }
     },
     
     // Set element at index
     set: (self: Ptr<Vec<T>>, index: usize, value: T) Result<void, string> {
         index < self.value.len ?
-            | true => {
+            | true {
                 self.value.data.value[index] = value
                 Result:Ok(void)
             }
-            | false => Result:Err("Index out of bounds")
+            | false { Result:Err("Index out of bounds") }
     },
     
     // Get length
@@ -93,25 +91,21 @@ Vec<T> = {
         
         // Copy existing data
         min_len := self.value.len < new_cap ?
-            | true => self.value.len
-            | false => new_cap
+            | true { self.value.len }
+            | false { new_cap }
         
-        (0..min_len).loop((i) => {
+        (0..min_len).loop((i) {
             new_data.value[i] = self.value.data.value[i]
         })
         
         // Free old data if exists
-        self.value.data.is_null() ?
-            | false => self.value.data.free()
-            | true => {}
+        self.value.data.is_null() ? { self.value.data.free() }
         
         self.value.data = new_data
         self.value.capacity = new_cap
         
         // Adjust length if necessary
-        self.value.len > new_cap ?
-            | true => { self.value.len = new_cap }
-            | false => {}
+        self.value.len > new_cap ? { self.value.len = new_cap }
     },
 }
 
@@ -141,28 +135,28 @@ HashMap<K, V> = {
         bucket := self.value.buckets.value.get(index)
         
         bucket ?
-            | Some -> b => {
+            | Some (b) {
                 // Check if key exists and update
                 b ?
-                    | .Entry -> k -> v -> next => {
+                    | .Entry (k, v, next) {
                         k == key ?
-                            | true => {
+                            | true {
                                 old_value := v
                                 self.value.buckets.value.set(index, Bucket:Entry(key, value, next))
                                 Option:Some(old_value)
                             }
-                            | false => {
+                            | false {
                                 // Continue searching in chain
                                 self.insert_in_chain(next, key, value)
                             }
                     }
-                    | .Empty => {
+                    | .Empty {
                         self.value.buckets.value.set(index, Bucket:Entry(key, value, Option:None))
                         self.value.count = self.value.count + 1
                         Option:None
                     }
             }
-            | None => {
+            | None {
                 // Should not happen with proper initialization
                 Option:None
             }
@@ -176,10 +170,10 @@ HashMap<K, V> = {
         bucket := self.value.buckets.value.get(index)
         
         bucket ?
-            | Some -> b => {
+            | Some (b) {
                 self.find_in_bucket(b, key)
             }
-            | None => Option:None
+            | None { Option:None }
     },
     
     // Remove key-value pair
@@ -190,23 +184,23 @@ HashMap<K, V> = {
         bucket := self.value.buckets.value.get(index)
         
         bucket ?
-            | Some -> b => {
+            | Some (b) {
                 result := self.remove_from_bucket(b, key)
                 result ?
-                    | Some -> v => {
+                    | Some (v) {
                         self.value.count = self.value.count - 1
                         Option:Some(v)
                     }
-                    | None => Option:None
+                    | None { Option:None }
             }
-            | None => Option:None
+            | None { Option:None }
     },
     
     // Check if key exists
     contains_key: (self: Ptr<HashMap<K, V>>, key: K) bool {
         self.get(key) ?
-            | Some -> _ => true
-            | None => false
+            | Some (_) { true }
+            | None { false }
     },
     
     // Get number of entries
@@ -223,29 +217,6 @@ HashMap<K, V> = {
     clear: (self: Ptr<HashMap<K, V>>) void {
         self.value.buckets.value.clear()
         self.value.count = 0
-    },
-}
-
-// Slice type - view into an array or vector
-Slice<T> = {
-    ptr: Ptr<T>,
-    len: usize,
-    
-    // Get element at index
-    get: (self: Ptr<Slice<T>>, index: usize) Option<T> {
-        index < self.value.len ?
-            | true => Option:Some(self.value.ptr.offset(index).value)
-            | false => Option:None
-    },
-    
-    // Get subslice
-    slice: (self: Ptr<Slice<T>>, start: usize, end: usize) Option<Slice<T>> {
-        start <= end && end <= self.value.len ?
-            | true => Option:Some(Slice<T>{
-                ptr: self.value.ptr.offset(start),
-                len: end - start,
-            })
-            | false => Option:None
     },
 }
 
@@ -333,9 +304,7 @@ Ref<T> = {
     // Drop reference (decrease count)
     drop: (self: Ptr<Ref<T>>) void {
         self.value.ptr.value.count = self.value.ptr.value.count - 1
-        self.value.ptr.value.count == 0 ?
-            | true => self.value.ptr.free()
-            | false => {}
+        self.value.ptr.value.count == 0 ? { self.value.ptr.free() }
     },
 }
 
@@ -362,7 +331,6 @@ export {
     Result,
     Vec,
     HashMap,
-    Slice,
     Ptr,
     Ref,
 }

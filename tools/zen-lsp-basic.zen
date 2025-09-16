@@ -149,8 +149,7 @@ handle_did_change = (server: *LanguageServer, uri: string, version: i32, text: s
     // Find and update document
     i := 0
     loop i < server.documents.len() {
-        server.documents[i].uri == uri ?
-            | true => {
+        server.documents[i].uri == uri ? {
                 server.documents[i].version = version
                 server.documents[i].content = text
                 server.documents[i].diagnostics.clear()
@@ -162,7 +161,6 @@ handle_did_change = (server: *LanguageServer, uri: string, version: i32, text: s
                 publish_diagnostics(uri, server.documents[i].diagnostics)
                 return
             }
-            | false => {}
         i = i + 1
     }
 }
@@ -181,7 +179,7 @@ check_document = (doc: *Document) void   {
         
         // Check for old-style comptime imports
         string.contains(line, "comptime") && string.contains(line, "@std") ?
-            | true => {
+            {
                 diag := Diagnostic{
                     range: Range{
                         start: Position{line = line_num, character = 0},
@@ -194,18 +192,15 @@ check_document = (doc: *Document) void   {
                 }
                 diagnostics.push(diag)
             }
-            | false => {}
         
         // Check for missing semicolons (simplified)
         needs_semicolon := false
-        string.ends_with(line, "}") || string.ends_with(line, "{") ?
-            | true => {}  // No semicolon needed
-            | false => {
+        !(string.ends_with(line, "}") || string.ends_with(line, "{")) ?
+            {
                 // Check if line looks like a statement
                 string.contains(line, "=") && !string.contains(line, "=>") ?
-                    | true => {
-                        !string.ends_with(string.trim(line), ";") ?
-                            | true => {
+                    {
+                        !string.ends_with(string.trim(line), ";") ? {
                                 diag := Diagnostic{
                                     range: Range{
                                         start: Position{line = line_num, character = line.len()},
@@ -218,14 +213,12 @@ check_document = (doc: *Document) void   {
                                 }
                                 diagnostics.push(diag)
                             }
-                            | false => {}
                     }
-                    | false => {}
             }
         
         // Check for tabs vs spaces
         string.starts_with(line, "\t") ?
-            | true => {
+            {
                 diag := Diagnostic{
                     range: Range{
                         start: Position{line = line_num, character = 0},
@@ -238,7 +231,6 @@ check_document = (doc: *Document) void   {
                 }
                 diagnostics.push(diag)
             }
-            | false => {}
         
         line_num = line_num + 1
     }
@@ -286,17 +278,16 @@ diagnostics_to_json = (diagnostics: Vec<Diagnostic>) json.Value {
             "message": json.string(diag.message),
         })
         
-        // Add optional code
-        diag.code ?
-            | Some(code) => {
-                item.set("code", json.string(code))
-            }
-            | None => {}
+    // Add optional code
+    diag.code ?
+        | Some(code) => {
+            item.set("code", json.string(code))
         }
-        
-        items.push(item)
-        i = i + 1
+        | None => {}
     }
+    
+    items.push(item)
+    i = i + 1
     
     return json.array(items)
 }
@@ -305,9 +296,7 @@ diagnostics_to_json = (diagnostics: Vec<Diagnostic>) json.Value {
 read_message = () Option<JsonRpcMessage>   {
     // Read Content-Length header
     header := io.read_line()
-    !string.starts_with(header, "Content-Length:") ?
-        | true => return Option<JsonRpcMessage>.None
-        | false => {}
+    !string.starts_with(header, "Content-Length:") ? { return Option<JsonRpcMessage>.None }
     
     // Parse content length
     length_str := string.trim(string.substring(header, 15, header.len()))
@@ -346,9 +335,7 @@ run_server = () void   {
     
     loop true {
         // Read next message
-        msg := read_message()
-        
-        msg ?
+        msg =  read_message() ?
             | Some(message) => {
                 // Handle message based on method
                 message.method ?
@@ -359,22 +346,18 @@ run_server = () void   {
                         // Response to a request we made (shouldn't happen in basic server)
                         io.log("Unexpected response received")
                     }
-                }
             }
             | None => {
                 io.log("Failed to read message")
                 break
             }
-        }
-    }
     
     io.log("Zen Language Server shutting down...")
 }
 
 // Handle specific method
 handle_method = (server: *LanguageServer, method: string, msg: JsonRpcMessage) void   {
-    method == "initialize" ?
-        | true => {
+    method == "initialize" ? {
             // Parse params and handle initialize
             params := parse_initialize_params(msg.params)
             result := handle_initialize(server, params)
@@ -390,16 +373,13 @@ handle_method = (server: *LanguageServer, method: string, msg: JsonRpcMessage) v
             }
             send_message(response)
         }
-        | false => {}
+    }
     
-    method == "initialized" ?
-        | true => {
+    method == "initialized" ? {
             io.log("Server initialized successfully")
         }
-        | false => {}
     
-    method == "textDocument/didOpen" ?
-        | true => {
+    method == "textDocument/didOpen" ? {
             // Parse params
             params := msg.params
             params ?
@@ -410,13 +390,10 @@ handle_method = (server: *LanguageServer, method: string, msg: JsonRpcMessage) v
                     text := doc.get("text").as_string()
                     handle_did_open(server, uri, version, text)
                 }
-                | None => {}
             }
         }
-        | false => {}
     
-    method == "textDocument/didChange" ?
-        | true => {
+    method == "textDocument/didChange" ? {
             // Parse params
             params := msg.params
             params ?
@@ -431,11 +408,8 @@ handle_method = (server: *LanguageServer, method: string, msg: JsonRpcMessage) v
                 }
                 | None => {}
             }
-        }
-        | false => {}
     
-    method == "shutdown" ?
-        | true => {
+    method == "shutdown" ? {
             // Prepare for shutdown
             io.log("Shutdown requested")
             
@@ -450,15 +424,13 @@ handle_method = (server: *LanguageServer, method: string, msg: JsonRpcMessage) v
             }
             send_message(response)
         }
-        | false => {}
     
     method == "exit" ?
-        | true => {
+        {
             io.log("Exit requested")
             // Exit the server
             core.exit(0)
         }
-        | false => {}
 }
 
 // Entry point

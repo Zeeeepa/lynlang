@@ -52,35 +52,16 @@ impl StdNamespace {
     
     /// Resolve @std.module access
     pub fn resolve_std_access(module_name: &str) -> Option<Expression> {
+        // For now, just return StdReference for any valid module name
+        // The actual module resolution will happen at a different layer
         match module_name {
-            "core" => Some(Expression::StdModule("core".to_string())),
-            "build" => Some(Expression::StdModule("build".to_string())),
-            "io" => Some(Expression::StdModule("io".to_string())),
-            "math" => Some(Expression::StdModule("math".to_string())),
-            "string" => Some(Expression::StdModule("string".to_string())),
-            "vec" => Some(Expression::StdModule("vec".to_string())),
-            "fs" => Some(Expression::StdModule("fs".to_string())),
-            "net" => Some(Expression::StdModule("net".to_string())),
-            "result" => Some(Expression::StdModule("result".to_string())),
-            "mem" => Some(Expression::StdModule("mem".to_string())),
-            "process" => Some(Expression::StdModule("process".to_string())),
-            "thread" => Some(Expression::StdModule("thread".to_string())),
-            "collections" => Some(Expression::StdModule("collections".to_string())),
-            "hashmap" => Some(Expression::StdModule("hashmap".to_string())),
-            "set" => Some(Expression::StdModule("set".to_string())),
-            "json" => Some(Expression::StdModule("json".to_string())),
-            "regex" => Some(Expression::StdModule("regex".to_string())),
-            "random" => Some(Expression::StdModule("random".to_string())),
-            "datetime" => Some(Expression::StdModule("datetime".to_string())),
-            "crypto" => Some(Expression::StdModule("crypto".to_string())),
-            "encoding" => Some(Expression::StdModule("encoding".to_string())),
-            "http" => Some(Expression::StdModule("http".to_string())),
-            "concurrency" => Some(Expression::StdModule("concurrency".to_string())),
-            "concurrent_runtime" => Some(Expression::StdModule("concurrent_runtime".to_string())),
-            "iterator" => Some(Expression::StdModule("iterator".to_string())),
-            "algorithms" => Some(Expression::StdModule("algorithms".to_string())),
-            "assert" => Some(Expression::StdModule("assert".to_string())),
-            "test_framework" => Some(Expression::StdModule("test_framework".to_string())),
+            "core" | "build" | "io" | "math" | "string" | "vec" | "fs" | "net" |
+            "result" | "mem" | "process" | "thread" | "collections" | "hashmap" |
+            "set" | "json" | "regex" | "random" | "datetime" | "crypto" |
+            "encoding" | "http" | "concurrency" | "concurrent_runtime" |
+            "iterator" | "algorithms" | "assert" | "test_framework" => {
+                Some(Expression::StdReference)
+            }
             _ => None,
         }
     }

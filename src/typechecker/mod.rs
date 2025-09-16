@@ -9,9 +9,15 @@ use crate::stdlib::StdNamespace;
 use std::collections::HashMap;
 use behaviors::BehaviorResolver;
 
+#[derive(Clone, Debug)]
+pub struct VariableInfo {
+    pub type_: AstType,
+    pub is_mutable: bool,
+}
+
 pub struct TypeChecker {
-    // Symbol table for tracking variable types
-    scopes: Vec<HashMap<String, AstType>>,
+    // Symbol table for tracking variable types and mutability
+    scopes: Vec<HashMap<String, VariableInfo>>,
     // Function signatures
     functions: HashMap<String, FunctionSignature>,
     // Struct definitions
@@ -115,8 +121,11 @@ impl TypeChecker {
             Declaration::Behavior(behavior_def) => {
                 self.behavior_resolver.register_behavior(behavior_def)?;
             }
-            Declaration::Impl(impl_block) => {
-                self.behavior_resolver.register_impl(impl_block)?;
+            Declaration::TraitImplementation(trait_impl) => {
+                self.behavior_resolver.register_trait_implementation(trait_impl)?;
+            }
+            Declaration::TraitRequirement(trait_req) => {
+                self.behavior_resolver.register_trait_requirement(trait_req)?;
             }
             Declaration::Constant { name, value, type_ } => {
                 // Type check the constant value
@@ -135,8 +144,8 @@ impl TypeChecker {
                     }
                 }
                 
-                // Store the constant as a global variable
-                self.declare_variable(name, inferred_type)?;
+                // Store the constant as a global variable (constants are immutable)
+                self.declare_variable(name, inferred_type, false)?;
             }
             Declaration::ModuleImport { alias, module_path } => {
                 // Track module imports
@@ -176,13 +185,17 @@ impl TypeChecker {
                 }
                 self.exit_scope();
             }
-            Declaration::Impl(impl_block) => {
-                // Verify that the implementation satisfies the behavior
-                self.behavior_resolver.verify_impl(impl_block)?;
-                // Type check each method in the impl block
-                for method in &impl_block.methods {
+            Declaration::TraitImplementation(trait_impl) => {
+                // Verify that the implementation satisfies the trait
+                self.behavior_resolver.verify_trait_implementation(trait_impl)?;
+                // Type check each method in the implementation
+                for method in &trait_impl.methods {
                     self.check_function(method)?;
                 }
+            }
+            Declaration::TraitRequirement(trait_req) => {
+                // Verify that the requirement is valid
+                self.behavior_resolver.verify_trait_requirement(trait_req)?;
             }
             Declaration::Constant { .. } => {
                 // Constants are already type-checked in collect_declaration_types
@@ -196,8 +209,10 @@ impl TypeChecker {
         self.enter_scope();
 
         // Add function parameters to scope
+        // TODO: Parse and handle mutable parameters (:: syntax)
+        // For now, all parameters are immutable
         for (param_name, param_type) in &function.args {
-            self.declare_variable(param_name, param_type.clone())?;
+            self.declare_variable(param_name, param_type.clone(), false)?; // false = immutable
         }
 
         // Check function body
@@ -217,6 +232,7 @@ impl TypeChecker {
                 name,
                 type_,
                 initializer,
+                is_mutable,
                 ..
             } => {
                 if let Some(init_expr) = initializer {
@@ -233,13 +249,13 @@ impl TypeChecker {
                                 None
                             ));
                         }
-                        self.declare_variable(name, declared_type.clone())?;
+                        self.declare_variable(name, declared_type.clone(), *is_mutable)?;
                     } else {
                         // Inferred type from initializer
-                        self.declare_variable(name, inferred_type)?;
+                        self.declare_variable(name, inferred_type, *is_mutable)?;
                     }
                 } else if let Some(declared_type) = type_ {
-                    self.declare_variable(name, declared_type.clone())?;
+                    self.declare_variable(name, declared_type.clone(), *is_mutable)?;
                 } else {
                     return Err(CompileError::TypeError(
                         format!("Cannot infer type for variable '{}' without initializer", name),
@@ -248,17 +264,34 @@ impl TypeChecker {
                 }
             }
             Statement::VariableAssignment { name, value } => {
-                let var_type = self.get_variable_type(name)?;
-                let value_type = self.infer_expression_type(value)?;
-                
-                if !self.types_compatible(&var_type, &value_type) {
-                    return Err(CompileError::TypeError(
-                        format!(
-                            "Type mismatch: cannot assign {:?} to variable '{}' of type {:?}",
-                            value_type, name, var_type
-                        ),
-                        None
-                    ));
+                // Check if variable exists
+                if !self.variable_exists(name) {
+                    // This is a new immutable declaration using = operator
+                    let value_type = self.infer_expression_type(value)?;
+                    self.declare_variable(name, value_type, false)?; // false = immutable
+                } else {
+                    // This is a reassignment to existing variable
+                    let var_info = self.get_variable_info(name)?;
+                    
+                    // Check if variable is mutable
+                    if !var_info.is_mutable {
+                        return Err(CompileError::TypeError(
+                            format!("Cannot reassign to immutable variable '{}'", name),
+                            None
+                        ));
+                    }
+                    
+                    let value_type = self.infer_expression_type(value)?;
+                    
+                    if !self.types_compatible(&var_info.type_, &value_type) {
+                        return Err(CompileError::TypeError(
+                            format!(
+                                "Type mismatch: cannot assign {:?} to variable '{}' of type {:?}",
+                                value_type, name, var_info.type_
+                            ),
+                            None
+                        ));
+                    }
                 }
             }
             Statement::Return(expr) => {
@@ -359,7 +392,7 @@ impl TypeChecker {
                             ("math", "min" | "max") => return Ok(AstType::I32),
                             ("string", "len") => return Ok(AstType::I32),
                             ("string", "concat") => return Ok(AstType::String),
-                            ("mem", "alloc") => return Ok(AstType::Pointer(Box::new(AstType::U8))),
+                            ("mem", "alloc") => return Ok(AstType::Ptr(Box::new(AstType::U8))),
                             ("mem", "free") => return Ok(AstType::Void),
                             ("fs", "read_file") => return Ok(AstType::String),
                             ("fs", "write_file") => return Ok(AstType::Bool),
@@ -423,29 +456,29 @@ impl TypeChecker {
                     })
                 }
             }
-            Expression::StdModule(module) => {
-                // Return a type representing the std module
+            Expression::StdReference => {
+                // Return a type representing @std
                 Ok(AstType::Generic {
-                    name: format!("StdModule::{}", module),
+                    name: "Std".to_string(),
                     type_args: vec![],
                 })
             }
-            Expression::Module(module) => {
-                // Return a type representing a module
+            Expression::ThisReference => {
+                // Return a type representing @this
                 Ok(AstType::Generic {
-                    name: format!("Module::{}", module),
+                    name: "This".to_string(),
                     type_args: vec![],
                 })
             }
             Expression::StringInterpolation { .. } => {
                 // String interpolation always returns a string (pointer to char)
-                Ok(AstType::Pointer(Box::new(AstType::I8)))
+                Ok(AstType::Ptr(Box::new(AstType::I8)))
             }
             Expression::ArrayIndex { array, .. } => {
                 // Array indexing returns the element type
                 let array_type = self.infer_expression_type(array)?;
                 match array_type {
-                    AstType::Pointer(elem_type) => Ok(*elem_type),
+                    AstType::Ptr(elem_type) => Ok(*elem_type),
                     AstType::Array(elem_type) => Ok(*elem_type),
                     _ => Err(CompileError::TypeError(
                         format!("Cannot index type {:?}", array_type),
@@ -455,12 +488,12 @@ impl TypeChecker {
             }
             Expression::AddressOf(inner) => {
                 let inner_type = self.infer_expression_type(inner)?;
-                Ok(AstType::Pointer(Box::new(inner_type)))
+                Ok(AstType::Ptr(Box::new(inner_type)))
             }
             Expression::Dereference(inner) => {
                 let inner_type = self.infer_expression_type(inner)?;
                 match inner_type {
-                    AstType::Pointer(elem_type) => Ok(*elem_type),
+                    AstType::Ptr(elem_type) => Ok(*elem_type),
                     _ => Err(CompileError::TypeError(
                         format!("Cannot dereference non-pointer type {:?}", inner_type),
                         None
@@ -474,7 +507,7 @@ impl TypeChecker {
             Expression::StructField { struct_, field } => {
                 let struct_type = self.infer_expression_type(struct_)?;
                 match struct_type {
-                    AstType::Pointer(inner) => {
+                    AstType::Ptr(inner) => {
                         // Handle pointer to struct - automatically dereference
                         match *inner {
                             AstType::Struct { name, .. } => {
@@ -517,7 +550,7 @@ impl TypeChecker {
             Expression::TypeCast { target_type, .. } => {
                 Ok(target_type.clone())
             }
-            Expression::Conditional { arms, .. } => {
+            Expression::QuestionMatch { arms, .. } => {
                 // Return type of first arm's body
                 if arms.is_empty() {
                     Ok(AstType::Void)
@@ -554,6 +587,31 @@ impl TypeChecker {
             }
             Expression::StringLength(_) => {
                 Ok(AstType::I64)
+            }
+            Expression::MethodCall { object, method: _, args: _ } => {
+                // TODO: Implement proper UFC method call type inference
+                // For now, infer type from the object
+                self.infer_expression_type(object)
+            }
+            Expression::Loop { body: _ } => {
+                // Loop expressions return void for now
+                Ok(AstType::Void)
+            }
+            Expression::Closure { params: _, body: _ } => {
+                // TODO: Implement closure type inference
+                Ok(AstType::Void)
+            }
+            Expression::Raise(expr) => {
+                // .raise() unwraps a Result type and returns the Ok variant
+                // If it's an Err, it propagates the error
+                let result_type = self.infer_expression_type(expr)?;
+                match result_type {
+                    AstType::Result { ok_type, .. } => Ok(*ok_type),
+                    _ => {
+                        // If not a Result, just return the type as-is
+                        Ok(result_type)
+                    }
+                }
             }
         }
     }
@@ -657,7 +715,7 @@ impl TypeChecker {
         self.scopes.pop();
     }
 
-    fn declare_variable(&mut self, name: &str, type_: AstType) -> Result<()> {
+    fn declare_variable(&mut self, name: &str, type_: AstType, is_mutable: bool) -> Result<()> {
         if let Some(scope) = self.scopes.last_mut() {
             if scope.contains_key(name) {
                 return Err(CompileError::TypeError(
@@ -665,7 +723,10 @@ impl TypeChecker {
                     None
                 ));
             }
-            scope.insert(name.to_string(), type_);
+            scope.insert(name.to_string(), VariableInfo {
+                type_,
+                is_mutable,
+            });
             Ok(())
         } else {
             Err(CompileError::TypeError("No active scope".to_string(), None))
@@ -675,11 +736,31 @@ impl TypeChecker {
     fn get_variable_type(&self, name: &str) -> Result<AstType> {
         // Search from innermost to outermost scope
         for scope in self.scopes.iter().rev() {
-            if let Some(type_) = scope.get(name) {
-                return Ok(type_.clone());
+            if let Some(var_info) = scope.get(name) {
+                return Ok(var_info.type_.clone());
             }
         }
         Err(CompileError::TypeError(format!("Undefined variable: {}", name), None))
+    }
+    
+    fn get_variable_info(&self, name: &str) -> Result<VariableInfo> {
+        // Search from innermost to outermost scope
+        for scope in self.scopes.iter().rev() {
+            if let Some(var_info) = scope.get(name) {
+                return Ok(var_info.clone());
+            }
+        }
+        Err(CompileError::TypeError(format!("Undefined variable: {}", name), None))
+    }
+    
+    fn variable_exists(&self, name: &str) -> bool {
+        // Search from innermost to outermost scope
+        for scope in self.scopes.iter().rev() {
+            if scope.contains_key(name) {
+                return true;
+            }
+        }
+        false
     }
 }
 

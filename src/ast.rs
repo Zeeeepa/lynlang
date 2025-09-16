@@ -66,8 +66,18 @@ pub enum AstType {
     Bool,
     String,
     Void,
-    Pointer(Box<AstType>),
+    // New pointer types as per spec
+    Ptr(Box<AstType>),       // Immutable pointer
+    MutPtr(Box<AstType>),    // Mutable pointer  
+    RawPtr(Box<AstType>),    // Raw pointer for FFI/unsafe
     Array(Box<AstType>),
+    DynVec {                 // Dynamic vector with allocator
+        element_types: Vec<AstType>, // Multiple types for mixed vectors
+    },
+    Vec {                    // Static sized vector
+        element_type: Box<AstType>,
+        size: Option<usize>,  // None for dynamic
+    },
     FixedArray { 
         element_type: Box<AstType>,
         size: usize,
@@ -161,10 +171,10 @@ pub enum Expression {
         name: String,
         args: Vec<Expression>,
     },
-    // Enhanced conditional expression for pattern matching with unified ? syntax
-    Conditional {
+    // Pattern matching with ? operator (no match keyword!)
+    QuestionMatch {
         scrutinee: Box<Expression>,
-        arms: Vec<ConditionalArm>,
+        arms: Vec<MatchArm>,
     },
     AddressOf(Box<Expression>),
     Dereference(Box<Expression>),
@@ -213,10 +223,25 @@ pub enum Expression {
         scrutinee: Box<Expression>,
         arms: Vec<PatternArm>,
     },
-    // Standard library module reference
-    StdModule(String),
-    // Generic module reference
-    Module(String),
+    // @std reference
+    StdReference,
+    // @this reference (current scope)
+    ThisReference,
+    // Method call with UFC (Uniform Function Call)
+    MethodCall {
+        object: Box<Expression>,
+        method: String,
+        args: Vec<Expression>,
+    },
+    // Loop expression (returns value)
+    Loop {
+        body: Box<Expression>,
+    },
+    // Closure expression
+    Closure {
+        params: Vec<(String, Option<AstType>)>,
+        body: Box<Expression>,
+    },
     // Block expression - evaluates to the last expression or void
     Block(Vec<Statement>),
     // Return expression - for early returns in pattern match arms
@@ -226,6 +251,8 @@ pub enum Expression {
         expr: Box<Expression>,
         target_type: AstType,
     },
+    // Error propagation: expr.raise()
+    Raise(Box<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -235,7 +262,7 @@ pub enum StringPart {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConditionalArm {
+pub struct MatchArm {
     pub pattern: Pattern,
     pub guard: Option<Expression>, // Optional guard condition
     pub body: Expression,
@@ -262,6 +289,11 @@ pub enum Pattern {
         payload: Option<Box<Pattern>>,
     },
     Wildcard, // _ pattern
+    // For pattern matching like .Some(val) or .None
+    EnumLiteral {
+        variant: String,
+        payload: Option<Box<Pattern>>,
+    },
     Or(Vec<Pattern>), // | pattern1 | pattern2
     Range {
         start: Box<Expression>,
@@ -326,10 +358,10 @@ pub enum Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableDeclarationType {
-    InferredImmutable, // :=
+    InferredImmutable, // = (plain assignment creates immutable in Zen spec)
     InferredMutable,   // ::=
-    ExplicitImmutable, // : T =
-    ExplicitMutable,   // :: T =
+    ExplicitImmutable, // : T (with type annotation, immutable)
+    ExplicitMutable,   // :: T (with type annotation, mutable)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -413,11 +445,17 @@ pub struct BehaviorMethod {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ImplBlock {
+pub struct TraitImplementation {
     pub type_name: String,
-    pub behavior_name: Option<String>, // None for inherent impls
+    pub trait_name: String,
     pub type_params: Vec<TypeParameter>,
     pub methods: Vec<Function>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraitRequirement {
+    pub type_name: String,
+    pub trait_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -427,7 +465,8 @@ pub enum Declaration {
     Struct(StructDefinition),
     Enum(EnumDefinition),
     Behavior(BehaviorDefinition),
-    Impl(ImplBlock),
+    TraitImplementation(TraitImplementation),
+    TraitRequirement(TraitRequirement),
     ComptimeBlock(Vec<Statement>),
     Constant {
         name: String,

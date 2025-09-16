@@ -159,13 +159,10 @@ check_unused_imports = (checker: Ptr<SyntaxChecker>) void {
                                     | lexer.TokenKind.Identifier(name) => {
                                         imports.push(name)
                                     }
-                                    | _ => {}
                             }
-                            | _ => {}
                     }
-                    | false => {}
             }
-            | _ => {}
+
         i = i + 1
     }
     
@@ -175,8 +172,7 @@ check_unused_imports = (checker: Ptr<SyntaxChecker>) void {
         import_name := imports[i]
         is_used := check_import_usage(checker.source, import_name)
         
-        is_used ?
-            | false => {
+        is_used ? {
                 diagnostic := Diagnostic {
                     severity: DiagnosticSeverity.Warning,
                     range: Range {
@@ -188,8 +184,6 @@ check_unused_imports = (checker: Ptr<SyntaxChecker>) void {
                 }
                 checker.diagnostics.push(diagnostic)
             }
-            | true => {}
-        
         i = i + 1
     }
 }
@@ -210,25 +204,21 @@ check_unreachable_code = (checker: Ptr<SyntaxChecker>) void {
     loop i < lines.len() {
         line := string_trim(lines[i])
         
-        string_starts_with(line, "return") ?
-            | true => {
+        string_starts_with(line, "return") ? {
                 // Check if there's code after this in the same block
-                j := i + 1
+                j ::= i + 1
                 loop j < lines.len() {
                     next_line := string_trim(lines[j])
                     
                     // Stop at closing brace
-                    string_starts_with(next_line, "}") ?
-                        | true => break
-                        | false => {}
+                    string_starts_with(next_line, "}") ?{ break }
                     
                     // Skip empty lines
-                    next_line.len() == 0 ?
-                        | true => {
+                    next_line.len() == 0 ?{
                             j = j + 1
                             continue
                         }
-                        | false => {}
+
                     
                     // Found unreachable code
                     diagnostic := Diagnostic {
@@ -246,7 +236,6 @@ check_unreachable_code = (checker: Ptr<SyntaxChecker>) void {
                     j = j + 1
                 }
             }
-            | false => {}
         
         i = i + 1
     }
@@ -260,12 +249,10 @@ check_naming_conventions = (checker: Ptr<SyntaxChecker>) void {
     i := 0
     loop i < tokens.len() {
         token := tokens[i]
-        token.kind ?
-            | lexer.TokenKind.Identifier(name) => {
-                // Check for proper naming
+        token.kind ? lexer.TokenKind.Identifier(name) => {
                 check_identifier_naming(checker, name, token.line, token.column)
+                // Check for proper naming
             }
-            | _ => {}
         i = i + 1
     }
 }
@@ -286,17 +273,14 @@ check_identifier_naming = (checker: Ptr<SyntaxChecker>, name: string, line: u32,
                     | true => has_underscore = true
                     | false => is_all_caps = false
             }
-            | true => {}
         
         i = i + 1
     }
     
     // If it looks like a constant but isn't all caps
-    has_underscore & !is_all_caps & name.len() > 3 ?
-        | true => {
+    has_underscore & !is_all_caps & name.len() > 3 ? {
             first_char := name[0]
-            first_char >= 'A' & first_char <= 'Z' ?
-                | true => {
+            first_char >= 'A' & first_char <= 'Z' ? {
                     diagnostic := Diagnostic {
                         severity: DiagnosticSeverity.Information,
                         range: Range {
@@ -308,9 +292,7 @@ check_identifier_naming = (checker: Ptr<SyntaxChecker>, name: string, line: u32,
                     }
                     checker.diagnostics.push(diagnostic)
                 }
-                | false => {}
         }
-        | false => {}
 }
 
 // Format diagnostics as JSON
@@ -319,9 +301,7 @@ format_diagnostics_json = (diagnostics: DynVec<Diagnostic>) string {
     
     i := 0
     loop i < diagnostics.len() {
-        i > 0 ?
-            | true => result = result + ","
-            | false => {}
+        i > 0 ? { result = result + "," }
         
         diag := diagnostics[i]
         severity_str := ""

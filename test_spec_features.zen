@@ -1,0 +1,34 @@
+// Test basic Zen features from LANGUAGE_SPEC.zen
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Enum type (sum type) 
+Shape: Circle | Rectangle
+
+main = () void {
+    // Immutable declarations with =
+    x = 42
+    y = 10.5
+    
+    // Mutable declaration with ::=
+    counter ::= 0
+    counter = counter + 1
+    
+    // Struct creation
+    point = Point { x: 1.0, y: 2.0 }
+    
+    // Pattern matching with ?
+    is_ready = true
+    is_ready ? {
+        counter = counter + 1
+    }
+    
+    // Range iteration
+    (0..3).loop((i) {
+        counter = counter + 1
+    })
+}

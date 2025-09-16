@@ -131,7 +131,7 @@ impl BehaviorRegistry {
                     signature: FnSignature {
                         params: vec![
                             AstType::Struct { name: "T".to_string(), fields: vec![] },
-                            AstType::Pointer(Box::new(AstType::Struct { name: "Writer".to_string(), fields: vec![] })),
+                            AstType::Ptr(Box::new(AstType::Struct { name: "Writer".to_string(), fields: vec![] })),
                         ],
                         return_type: AstType::Struct { name: "Result".to_string(), fields: vec![] },
                     },
@@ -141,7 +141,7 @@ impl BehaviorRegistry {
                     name: "deserialize".to_string(),
                     signature: FnSignature {
                         params: vec![
-                            AstType::Pointer(Box::new(AstType::Struct { name: "Reader".to_string(), fields: vec![] })),
+                            AstType::Ptr(Box::new(AstType::Struct { name: "Reader".to_string(), fields: vec![] })),
                         ],
                         return_type: AstType::Struct { name: "Result".to_string(), fields: vec![] },
                     },
