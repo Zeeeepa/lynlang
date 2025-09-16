@@ -86,14 +86,19 @@ impl<'a> Parser<'a> {
                 };
                 self.next_token();
                 
-                // Parameter type
-                if self.current_token != Token::Symbol(':') {
+                // Parameter type - support both : and :: for now
+                let _is_double_colon = if self.current_token == Token::Symbol(':') {
+                    self.next_token();
+                    false
+                } else if self.current_token == Token::Operator("::".to_string()) {
+                    self.next_token();
+                    true
+                } else {
                     return Err(CompileError::SyntaxError(
-                        "Expected ':' after parameter name".to_string(),
+                        "Expected ':' or '::' after parameter name".to_string(),
                         Some(self.current_span.clone()),
                     ));
-                }
-                self.next_token();
+                };
                 
                 let param_type = self.parse_type()?;
                 args.push((param_name, param_type));

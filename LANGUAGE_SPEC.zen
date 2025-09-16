@@ -48,36 +48,40 @@ builder = (b :: Build) void {
         .add_test("game-tests", "src/test.zen")
 
     // SDL2 FFI bindings
-    sdl2_library :: FFI.Library = {
-        name: "SDL2",
-    }
+    // TODO: Support anonymous struct literals with type inference
+    // For now, comment out as FFI.Library type doesn't exist yet
+    // sdl2_library :: FFI.Library = {
+    //     name: "SDL2",
+    // }
 
     // Pattern matching for OS-specific paths
-    std.os ? 
-        | .Linux {
-            sdl2_library.path = "/usr/lib/x86_64-linux-gnu/libSDL2.so"
-        }
-        | .Macos {
-            sdl2_library.path = "/usr/local/lib/libSDL2.dylib"
-        }
-        | .Windows {
-            sdl2_library.path = "SDL2.dll"
-        }
-        | _ {
-            sdl2_library.path = "SDL2.dll"
-        }
+    // TODO: Uncomment when sdl2_library is defined
+    // std.os ? 
+    //     | .Linux {
+    //         sdl2_library.path = "/usr/lib/x86_64-linux-gnu/libSDL2.so"
+    //     }
+    //     | .Macos {
+    //         sdl2_library.path = "/usr/local/lib/libSDL2.dylib"
+    //     }
+    //     | .Windows {
+    //         sdl2_library.path = "SDL2.dll"
+    //     }
+    //     | _ {
+    //         sdl2_library.path = "SDL2.dll"
+    //     }
 
-    build.add_dependency("sdl2-game", sdl2_library)
+    // build.add_dependency("sdl2-game", sdl2_library)
 
     // External dependencies from GitHub
-    builder
-        .add_dependency({
-            name: "ecs",
-            source: .Git -> {
-                url: "github.com/zenlang/zen-ecs",
-                branch: "main"
-            }
-        })   
+    // TODO: Support anonymous struct literals
+    // builder
+    //     .add_dependency({
+    //         name: "ecs",
+    //         source: .Git -> {
+    //             url: "github.com/zenlang/zen-ecs",
+    //             branch: "main"
+    //         }
+    //     })   
 }
 
 // ============================================================================

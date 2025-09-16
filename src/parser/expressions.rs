@@ -579,10 +579,44 @@ impl<'a> Parser<'a> {
             }
         }
         self.next_token(); // consume ')'
-        Ok(Expression::FunctionCall {
+        
+        let mut expr = Expression::FunctionCall {
             name: function_name,
             args: arguments,
-        })
+        };
+        
+        // Continue parsing method chaining after function call
+        loop {
+            match &self.current_token {
+                Token::Symbol('.') => {
+                    self.next_token(); // consume '.'
+                    
+                    let member = match &self.current_token {
+                        Token::Identifier(name) => name.clone(),
+                        _ => {
+                            return Err(CompileError::SyntaxError(
+                                "Expected identifier after '.'".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    };
+                    self.next_token();
+                    
+                    // Check for method call
+                    if self.current_token == Token::Symbol('(') {
+                        return self.parse_call_expression_with_object(expr, member);
+                    } else {
+                        expr = Expression::MemberAccess {
+                            object: Box::new(expr),
+                            member,
+                        };
+                    }
+                }
+                _ => break,
+            }
+        }
+        
+        Ok(expr)
     }
 
     fn parse_call_expression_with_object(&mut self, object: Expression, method_name: String) -> Result<Expression> {
@@ -731,9 +765,9 @@ impl<'a> Parser<'a> {
         
         // UFCS implementation: Transform object.method(args) into method(object, args)
         // First, check if this is a stdlib method call (module function)
-        if is_module_call {
+        let mut expr = if is_module_call {
             // This is a stdlib call like io.print, keep the original format
-            Ok(Expression::FunctionCall {
+            Expression::FunctionCall {
                 name: format!("{}.{}", match &object {
                     Expression::Identifier(name) => name.clone(),
                     _ => return Err(CompileError::SyntaxError(
@@ -742,10 +776,10 @@ impl<'a> Parser<'a> {
                     )),
                 }, method_name),
                 args: arguments,
-            })
+            }
         } else if method_name.contains('.') {
             // This shouldn't happen anymore but keep for compatibility
-            Ok(Expression::FunctionCall {
+            Expression::FunctionCall {
                 name: format!("{}.{}", match &object {
                     Expression::Identifier(name) => name.clone(),
                     _ => return Err(CompileError::SyntaxError(
@@ -754,16 +788,16 @@ impl<'a> Parser<'a> {
                     )),
                 }, method_name),
                 args: arguments,
-            })
+            }
         } else {
             // Special handling for .loop() method on collections
             if method_name == "loop" {
                 // Create a MethodCall expression for .loop()
-                Ok(Expression::MethodCall {
+                Expression::MethodCall {
                     object: Box::new(object),
                     method: method_name,
                     args: arguments,
-                })
+                }
             } else {
                 // This is UFCS: transform object.method(args) into method(object, args)
                 // But preserve the full qualified name for debugging/display purposes
@@ -775,12 +809,45 @@ impl<'a> Parser<'a> {
                 let mut ufcs_args = vec![object];
                 ufcs_args.extend(arguments);
                 
-                Ok(Expression::FunctionCall {
+                Expression::FunctionCall {
                     name: full_name,
                     args: ufcs_args,
-                })
+                }
+            }
+        };
+        
+        // Continue parsing method chaining after function call
+        loop {
+            match &self.current_token {
+                Token::Symbol('.') => {
+                    self.next_token(); // consume '.'
+                    
+                    let member = match &self.current_token {
+                        Token::Identifier(name) => name.clone(),
+                        _ => {
+                            return Err(CompileError::SyntaxError(
+                                "Expected identifier after '.'".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    };
+                    self.next_token();
+                    
+                    // Check for method call
+                    if self.current_token == Token::Symbol('(') {
+                        return self.parse_call_expression_with_object(expr, member);
+                    } else {
+                        expr = Expression::MemberAccess {
+                            object: Box::new(expr),
+                            member,
+                        };
+                    }
+                }
+                _ => break,
             }
         }
+        
+        Ok(expr)
     }
     
     fn parse_struct_literal(&mut self, name: String) -> Result<Expression> {
@@ -920,13 +987,9 @@ impl<'a> Parser<'a> {
                             final_expr = Some(expr);
                         }
                     } else {
-                        // Parse as statement - for now just parse expressions
-                        // In a full implementation, we'd need to handle statements properly
-                        let expr = self.parse_expression()?;
-                        if self.current_token == Token::Symbol(';') {
-                            self.next_token();
-                        }
-                        statements.push(crate::ast::Statement::Expression(expr));
+                        // Parse as statement to handle variable declarations and assignments
+                        let stmt = self.parse_statement()?;
+                        statements.push(stmt);
                     }
                 }
                 

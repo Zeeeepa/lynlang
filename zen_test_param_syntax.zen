@@ -1,0 +1,10 @@
+// Test parameter syntax
+{ io } = @std
+
+test_func = (b :: i32) void {
+    io.println("Test")
+}
+
+main = () void {
+    test_func(42)
+}

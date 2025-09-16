@@ -1,0 +1,20 @@
+// Ultra minimal test
+{ io } = @std
+
+main = () void {
+    // Test mutable variables
+    counter ::= 0
+    counter = counter + 1
+    io.println("Counter: ${counter}")
+    
+    // Test pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Test range loop
+    (0..3).loop((i) {
+        io.println("Index: ${i}")
+    })
+}

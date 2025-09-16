@@ -1,0 +1,9 @@
+// Define struct type
+Library: {
+    name: string,
+}
+
+// Declare typed variable  
+sdl2_library :: Library = Library {
+    name: "SDL2",
+}

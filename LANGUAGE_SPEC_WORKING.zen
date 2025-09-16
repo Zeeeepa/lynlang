@@ -1,0 +1,61 @@
+// Simplified version of LANGUAGE_SPEC.zen that we can actually parse
+// This shows what currently works
+
+// Simple imports from @std
+io = @std
+
+// Enum definitions
+Option<T>: .Some(T) | .None
+Result<T, E>: .Ok(T) | .Err(E)
+
+// Struct definitions
+Point: {
+    x: f64,
+    y: f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+// Simple function
+area = (c: Circle) f64 {
+    return 3.14159 * c.radius * c.radius
+}
+
+// Main function
+main = () void {
+    // Create instances
+    p = Point { x: 0.0, y: 0.0 }
+    c = Circle { 
+        center: p,
+        radius: 5.0
+    }
+    
+    // Pattern matching with Option
+    maybe_radius: Option<f64> = .Some(5.5)
+    maybe_radius ?
+        | .Some(r) {
+            io.println("Radius: ${r}")
+        }
+        | .None {
+            io.println("No radius")
+        }
+    
+    // Range loop
+    (0..10).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Boolean pattern
+    is_ready = true
+    is_ready ? {
+        io.println("Starting!")
+    }
+}
