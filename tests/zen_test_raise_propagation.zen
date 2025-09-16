@@ -1,0 +1,23 @@
+// Test .raise() error propagation from LANGUAGE_SPEC.zen
+
+io = @std.io
+
+Result<T, E>: Ok(T) | Err(E)
+
+parse_number = (s: string) Result<i32, string> {
+    // In real implementation this would parse
+    return Result.Err("Not a number")
+}
+
+process_data = () Result<i32, string> {
+    // This should propagate the error and return early
+    value = parse_number("abc").raise()
+    return Result.Ok(value * 2)
+}
+
+main = () void {
+    result = process_data()
+    result ?
+        | Ok(v) { io.println("Success: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+}
