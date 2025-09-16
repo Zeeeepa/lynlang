@@ -59,22 +59,30 @@ The extension can be configured through VS Code settings:
 ### Syntax Highlighting
 
 The extension provides comprehensive syntax highlighting for:
-- Keywords (if, else, while, for, return, etc.)
-- Types (i32, u64, bool, String, custom types)
-- Functions and methods
+- **No traditional keywords** - Zen has no if/else/while/for/match/async/await/impl/trait/class/interface/null
+- Types (i32, u64, bool, String, Option, Result, custom types)
+- Functions and methods with Uniform Function Call syntax
 - Structs and enums
 - Comments (line and block)
 - Strings and numbers
-- Operators
-- Import statements (@std, @import)
+- Operators including the `?` pattern matching operator
+- Special symbols (@std for standard library, @this for current scope)
 
 ### Pattern Support
 
-- Variable declarations: `x := 42` (immutable), `y ::= 10` (mutable)
+- Variable declarations: `x = 42` (immutable), `y ::= 10` (mutable)
+- Type definitions: `Point: {x: f64, y: f64}`
 - Function definitions: `main = () i32 { ... }`
-- Struct definitions: `Point = { x: i32, y: i32 }`
-- Enum definitions: `Status = | Ok, Error`
-- Pattern matching: `x > 0 ? | true => ... | false => ...`
+- Enum definitions: `Status: .Ok | .Error`
+- Pattern matching with `?` operator:
+  ```zen
+  value ?
+      | true { process() }
+      | false { wait() }
+  ```
+- Option and Result types for null-safety and error handling
+- Method chaining with `.raise()` for error propagation
+- Loop constructs: `loop()`, `items.loop()`, `(0..10).loop()`
 
 ## Development
 
