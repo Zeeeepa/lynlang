@@ -1,12 +1,13 @@
 // Task Executor - Concurrent task execution system for Zen
 // Provides task execution with thread pool management (colorless - allocator controlled)
 
-{ thread } = @std.thread
-{ vec } = @std.vec
-{ result } = @std.result
-{ sync } = @std.sync
-{ io } = @std.io
-{ core } = @std.core
+core := @std.core
+build := @std.build
+thread := build.import("thread")
+vec := build.import("vec")
+result := build.import("result")
+sync := build.import("sync")
+io := build.import("io")
 
 // Task status enum
 TaskStatus := |
