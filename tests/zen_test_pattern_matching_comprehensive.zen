@@ -44,13 +44,13 @@ TestResult<T, E> =
 
 test("enum destructuring") {
     result := TestResult:Ok(42)
-    value := result ? | Ok -> val { val }
-                       | Err -> err { 0 }
+    value := result ? | Ok(val) { val }
+                       | Err(err) { 0 }
     assert_eq(value, 42)
     
     error_result := TestResult:Err("Not found")
-    error_msg := error_result ? | Ok -> _ { "" }
-                                 | Err -> msg { msg }
+    error_msg := error_result ? | Ok(_) { "" }
+                                 | Err(msg) { msg }
     assert_eq(error_msg, "Not found")
 }
 
@@ -62,24 +62,19 @@ Point: {
 
 test("struct destructuring") {
     point := Point{ x: 3.0, y: 4.0 }
-    description := point ? | { x -> x_val, y -> y_val } { "Point($(x_val), $(y_val))" }
+    description := point ? | { x: x_val, y: y_val } { "Point($(x_val), $(y_val))" }
     assert_eq(description, "Point(3.0, 4.0)")
 }
 
 // Test guards with binding
 test("guards with binding") {
     value := 150
-    category := value ? | v -> v > 100 { "Large" }
-                        | v -> v > 50 { "Medium" }
-                        | v -> v > 0 { "Small" }
-                        | _ { "Zero or negative" }
+    category := value ? | v { v > 100 ? { "Large" } | v > 50 ? { "Medium" } | v > 0 ? { "Small" } | { "Zero or negative" } }
     assert_eq(category, "Large")
     
     // Multiple conditions
     num := 42
-    result := num ? | n -> n % 2 == 0 && n > 40 => "Even and greater than 40"
-                    | n -> n % 2 == 0 => "Even"
-                    | _ { "Odd" }
+    result := num ? | n { n % 2 == 0 && n > 40 ? { "Even and greater than 40" } | n % 2 == 0 ? { "Even" } | { "Odd" } }
     assert_eq(result, "Even and greater than 40")
 }
 
@@ -127,9 +122,9 @@ Message: Text(content: string)
 test("nested pattern matching") {
     msg := Message:Image({ url: "pic.jpg", width: 800, height: 600 })
     
-    info := msg ? | Text -> content { "Text: $(content)" }
-                  | Image -> img { "Image: $(img.url) ($(img.width)x$(img.height))" }
-                  | Video -> url { "Video: $(url)" }
+    info := msg ? | Text(content) { "Text: $(content)" }
+                  | Image(img) { "Image: $(img.url) ($(img.width)x$(img.height))" }
+                  | Video(url) { "Video: $(url)" }
                   | Empty { "No content" }
     
     assert_eq(info, "Image: pic.jpg (800x600)")

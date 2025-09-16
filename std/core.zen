@@ -1,0 +1,150 @@
+// Zen Standard Library - Core Types
+// This module provides the fundamental types for the Zen language
+
+// Option type - no null in Zen!
+Option<T>: Some(T) | None
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Basic pointer types
+Ptr<T>: {
+    addr: usize,
+    val: T,
+}
+
+MutPtr<T>: {
+    addr: usize,
+    val: T,
+}
+
+RawPtr<T>: {
+    addr: usize,
+}
+
+// String type
+String: {
+    data: Ptr<u8>,
+    len: usize,
+    capacity: usize,
+}
+
+// StringBuilder for efficient string construction
+StringBuilder: {
+    buffer: DynVec<u8>,
+    
+    append: (self, s: string) StringBuilder,
+    append_line: (self, s: string) StringBuilder,
+    build: (self) string,
+}
+
+// Vector types
+Vec<T, N: usize>: {
+    data: [T; N],
+    len: usize,
+    
+    push: (self, item: T) void,
+    pop: (self) Option<T>,
+    get: (self, index: usize) Option<T>,
+}
+
+DynVec<T>: {
+    data: Ptr<T>,
+    len: usize,
+    capacity: usize,
+    allocator: Allocator,
+    
+    push: (self, item: T) void,
+    pop: (self) Option<T>,
+    get: (self, index: usize) Option<T>,
+    loop: (self, f: (T) void) void,
+    deinit: (self) void,
+}
+
+// Allocator interface
+Allocator: {
+    alloc: (size: usize) Ptr<u8>,
+    free: (ptr: Ptr<u8>) void,
+    realloc: (ptr: Ptr<u8>, new_size: usize) Ptr<u8>,
+}
+
+// General Purpose Allocator (sync)
+GPA: {
+    init: () Allocator,
+    deinit: (self) void,
+}
+
+// Async Pool Allocator
+AsyncPool: {
+    init: () Allocator,
+    deinit: (self) void,
+}
+
+// Concurrency primitives
+Actor: {
+    spawn: (f: () void) Actor,
+    join: (self) void,
+    send: (self, msg: any) void,
+    receive: (self) Option<any>,
+}
+
+Channel<T>: {
+    send: (self, msg: T) void,
+    receive: (self) Option<T>,
+    close: (self) void,
+}
+
+Mutex<T>: {
+    lock: (self) Result<T, string>,
+    unlock: (self) void,
+    deinit: (self) void,
+}
+
+AtomicU32: {
+    load: (self) u32,
+    store: (self, val: u32) void,
+    fetch_add: (self, val: u32) u32,
+    fetch_sub: (self, val: u32) u32,
+    compare_exchange: (self, expected: u32, desired: u32) bool,
+}
+
+// Range type for iteration
+Range: {
+    start: i32,
+    end: i32,
+    step: i32,
+    
+    loop: (self, f: (i32) void) void,
+}
+
+// Helper to create ranges
+range = (start: i32, end: i32) Range {
+    return Range { start: start, end: end, step: 1 }
+}
+
+range_step = (start: i32, end: i32, step: i32) Range {
+    return Range { start: start, end: end, step: step }
+}
+
+// Module exports
+module.exports = {
+    Option: Option,
+    Result: Result,
+    Ptr: Ptr,
+    MutPtr: MutPtr,
+    RawPtr: RawPtr,
+    String: String,
+    StringBuilder: StringBuilder,
+    Vec: Vec,
+    DynVec: DynVec,
+    Allocator: Allocator,
+    GPA: GPA,
+    AsyncPool: AsyncPool,
+    Actor: Actor,
+    Channel: Channel,
+    Mutex: Mutex,
+    AtomicU32: AtomicU32,
+    Range: Range,
+    range: range,
+    range_step: range_step,
+}

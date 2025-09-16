@@ -173,30 +173,26 @@ decode_base64 = (encoded: string) Result<Vec<u8>, string>   {
         idx1 ? | Some(i1) {
             idx2 ? | Some(i2) {
                 // First two characters are always valid
-                i1 == 255 || i2 == 255 ? | true { return Err("invalid base64 character") }
-                                        | false {}
-                
+                i1 == 255 || i2 == 255 ? { return Err("invalid base64 character") }
                 // Decode first byte
                 byte1 := (i1 << 2) | (i2 >> 4)
                 vec_push(&result, byte1)
                 
                 idx3 ? | Some(i3) {
-                    i3 != 255 ? | true {
+                    i3 != 255 ? {
                         // Decode second byte
                         byte2 := ((i2 & 0x0F) << 4) | (i3 >> 2)
                         vec_push(&result, byte2)
                         
                         idx4 ? | Some(i4) {
-                            i4 != 255 ? | true {
+                            i4 != 255 ? {
                                 // Decode third byte
                                 byte3 := ((i3 & 0x03) << 6) | i4
                                 vec_push(&result, byte3)
                             }
-                            | false {}  // Padding
                         }
                         | None { return Err("invalid base64 character") }
                     }
-                    | false {}  // Padding
                 }
                 | None { return Err("invalid base64 character") }
             }

@@ -1,0 +1,76 @@
+// Zen Standard Library - Math Module
+// Mathematical functions and constants
+
+// Constants
+pi: f64 = 3.141592653589793
+e: f64 = 2.718281828459045
+tau: f64 = 6.283185307179586
+
+// Basic math functions
+abs = (x: f64) f64 {
+    x < 0.0 ?
+        | true { return -x }
+        | false { return x }
+}
+
+min = (a: f64, b: f64) f64 {
+    a < b ?
+        | true { return a }
+        | false { return b }
+}
+
+max = (a: f64, b: f64) f64 {
+    a > b ?
+        | true { return a }
+        | false { return b }
+}
+
+floor = (x: f64) f64 {
+    return @compiler.floor(x)
+}
+
+ceil = (x: f64) f64 {
+    return @compiler.ceil(x)
+}
+
+round = (x: f64) f64 {
+    return @compiler.round(x)
+}
+
+sqrt = (x: f64) f64 {
+    return @compiler.sqrt(x)
+}
+
+pow = (base: f64, exp: f64) f64 {
+    return @compiler.pow(base, exp)
+}
+
+sin = (x: f64) f64 {
+    return @compiler.sin(x)
+}
+
+cos = (x: f64) f64 {
+    return @compiler.cos(x)
+}
+
+tan = (x: f64) f64 {
+    return @compiler.tan(x)
+}
+
+// Module exports
+module.exports = {
+    pi: pi,
+    e: e,
+    tau: tau,
+    abs: abs,
+    min: min,
+    max: max,
+    floor: floor,
+    ceil: ceil,
+    round: round,
+    sqrt: sqrt,
+    pow: pow,
+    sin: sin,
+    cos: cos,
+    tan: tan,
+}

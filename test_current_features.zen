@@ -1,0 +1,56 @@
+// Test file to evaluate current Zen language implementation features
+// Based on IMPLEMENTATION_STATUS.md, this tests working features
+
+// Import from stdlib
+{ io } = @std
+
+// Basic function definition
+main = () i32 {
+    // Immutable variable assignments (working)
+    x = 42
+    y = 100
+    
+    // Mutable variable assignments (working)
+    counter ::= 0
+    counter = counter + 1
+    
+    // Basic arithmetic
+    result = x + y + counter
+    
+    // Function calls
+    sum = add(10, 20)
+    
+    // Print output
+    io.print_int(result)
+    io.print_int(sum)
+    
+    return result
+}
+
+// Test function with parameters
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Test basic struct (working)
+Point: {
+    x: i32,
+    y: i32,
+}
+
+// Test struct literals and field access
+test_structs = () Point {
+    p = Point { x: 10, y: 20 }
+    return p
+}
+
+// Test simple enum (working)
+Color: Red | Green | Blue
+
+// Test pattern matching (working)
+test_pattern_matching = (c: Color) i32 {
+    c ?
+        | Red { return 1 }
+        | Green { return 2 }
+        | Blue { return 3 }
+}

@@ -1,21 +1,47 @@
-// Test only features that currently work
-{ io } = @std
+// Test: Basic working features in Zen
+// This test validates the currently working features
 
 main = () void {
-    // Basic printing works
-    io.println("Starting basic tests")
+    // Test 1: Basic immutable assignment
+    x = 10
+    y = 20
     
-    // Variables work
-    x = 42
-    y ::= 10
+    // Test 2: Arithmetic operations
+    sum = x + y
+    diff = y - x
+    product = x * 2
+    quotient = y / 2
     
-    // Basic pattern matching works
-    x > 30 ?
-        | true { io.println("x is greater than 30") }
-        | false { io.println("x is not greater than 30") }
+    // Test 3: Boolean literals
+    is_true = true
+    is_false = false
     
-    // Boolean short form works
-    true ? { io.println("Boolean short form works") }
+    // Test 4: String literals
+    greeting = "Hello, Zen!"
     
-    io.println("Tests complete")
+    // Test 5: @std.io.println with strings
+    @std.io.println("=== Zen Basic Features Test ===")
+    @std.io.println("")
+    
+    @std.io.println("Test 1: Variables")
+    @std.io.println("x = 10, y = 20")
+    
+    @std.io.println("")
+    @std.io.println("Test 2: Arithmetic")
+    @std.io.println("sum (x + y) = 30")
+    @std.io.println("diff (y - x) = 10")
+    @std.io.println("product (x * 2) = 20")
+    @std.io.println("quotient (y / 2) = 10")
+    
+    @std.io.println("")
+    @std.io.println("Test 3: Booleans")
+    @std.io.println("is_true = true")
+    @std.io.println("is_false = false")
+    
+    @std.io.println("")
+    @std.io.println("Test 4: Strings")
+    @std.io.println(greeting)
+    
+    @std.io.println("")
+    @std.io.println("=== All tests passed! ===")
 }

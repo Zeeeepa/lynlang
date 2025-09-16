@@ -52,7 +52,7 @@ test_aligned_alloc = () bool   {
         result := mem.alloc_aligned(256, align)
         
         result ? 
-            | Ok -> ptr {
+            | Ok(ptr) {
                 // Check alignment
                 addr := ptr as i64
                 addr % align != 0 ? | true {
@@ -64,7 +64,7 @@ test_aligned_alloc = () bool   {
                 // Clean up
                 mem.dealloc(ptr, 256)
             }
-            | Err -> e {
+            | Err(e) {
                 io.print("ERROR: alloc_aligned failed\n")
                 return false
             }
@@ -81,7 +81,7 @@ test_calloc = () bool   {
     result := mem.calloc(10, 8)
     
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as RawPtr<i8>
             
             // Check all bytes are zero
@@ -97,7 +97,7 @@ test_calloc = () bool   {
             
             mem.dealloc(ptr, 80)
         }
-        | Err -> e {
+        | Err(e) {
             io.print("ERROR: calloc failed\n")
             return false
         }
@@ -112,7 +112,7 @@ test_realloc = () bool   {
     result := mem.alloc(50)
     
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             // Write pattern
             bytes := ptr as RawPtr<i8>
             i := 0
@@ -125,7 +125,7 @@ test_realloc = () bool   {
             new_result := mem.realloc(ptr, 50, 100)
             
             new_result ?
-                | Ok -> new_ptr {
+                | Ok(new_ptr) {
                     new_bytes := new_ptr as RawPtr<i8>
                     
                     // Check original data preserved
@@ -141,13 +141,13 @@ test_realloc = () bool   {
                     
                     mem.dealloc(new_ptr, 100)
                 }
-                | Err -> e {
+                | Err(e) {
                     io.print("ERROR: realloc failed\n")
                     mem.dealloc(ptr, 50)
                     return false
                 }
         }
-        | Err -> e {
+        | Err(e) {
             io.print("ERROR: Initial alloc failed\n")
             return false
         }
@@ -180,7 +180,7 @@ test_memory_pool = () bool   {
                         block.data = i * 100
                         blocks[i] = block
                     }
-                    | Err -> e {
+                    | Err(e) {
                         io.print("ERROR: pool_alloc failed at index $(i)\n")
                         mem.pool_destroy<TestBlock>(&pool)
                         return false
@@ -206,7 +206,7 @@ test_memory_pool = () bool   {
             loop i < 5 {
                 free_result := mem.pool_free<TestBlock>(&pool, blocks[i])
                 free_result ?
-                    | Err -> e {
+                    | Err(e) {
                         io.print("ERROR: pool_free failed\n")
                         mem.pool_destroy<TestBlock>(&pool)
                         return false
@@ -230,7 +230,7 @@ test_memory_pool = () bool   {
             
             mem.pool_destroy<TestBlock>(&pool)
         }
-        | Err -> e {
+        | Err(e) {
             io.print("ERROR: pool_new failed\n")
             return false
         }

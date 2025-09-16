@@ -1,0 +1,4 @@
+main = () void {
+    x = 10
+    @std.io.println("Hello")
+}

@@ -1,0 +1,35 @@
+// Test basic features that should work
+io = @std
+
+main = () i32 {
+    io.println("Testing Zen basic features...")
+    
+    // Variable declarations
+    x = 42
+    y ::= 100
+    z: i32 = 30
+    
+    io.print("Immutable x = ")
+    io.print_int(x)
+    io.println("")
+    
+    io.print("Mutable y = ")
+    io.print_int(y)
+    io.println("")
+    
+    // Arithmetic
+    sum = x + z
+    io.print("x + z = ")
+    io.print_int(sum)
+    io.println("")
+    
+    // Mutation
+    y = y + 10
+    io.print("y after mutation = ")
+    io.print_int(y)
+    io.println("")
+    
+    io.println("All basic tests passed!")
+    
+    return 0
+}

@@ -2,10 +2,10 @@
 
 A revolutionary systems programming language that eliminates traditional keywords in favor of pattern-first design and allocator-based async/sync behavior.
 
-**Implementation Status**: ~50% of LANGUAGE_SPEC.zen implemented
-- ✅ Core features working: variables, functions, structs, arithmetic, range loops
-- ⚠️ Pattern matching partially working
-- ❌ Advanced features not yet implemented: traits, allocators, metaprogramming
+**Implementation Status**: Bootstrap C compiler (`zenc3.c`) implementing core features
+- ✅ Basic features working: variables, functions, arithmetic, @std.io.println
+- ⚠️ Parser recognizes advanced syntax but code generation incomplete
+- ❌ Advanced features not yet implemented: pattern matching, traits, allocators, loops
 
 ## 🎯 Core Philosophy
 
@@ -22,25 +22,25 @@ Zen follows the principles defined in `LANGUAGE_SPEC.zen`:
 ### Building the Compiler
 
 ```bash
-# Build the Rust-based compiler
-cargo build --release
+# Build the C bootstrap compiler
+gcc -std=c99 -o zenc3 zenc3.c
 
-# Run a Zen program directly
-./target/release/zen myprogram.zen
+# Compile a Zen program
+./zenc3 myprogram.zen
 
-# Or compile to executable (coming soon)
-./target/release/zen myprogram.zen -o myprogram
+# Run the generated executable
+./output.c.out
+
+# Or specify custom output
+./zenc3 myprogram.zen -o myprogram.c
 ```
 
 ### Hello World
 
 ```zen
 // hello.zen
-io = @std
-
-main = () i32 {
-    io.println("Hello from Zen!")
-    return 0
+main = () void {
+    @std.io.println("Hello from Zen!")
 }
 ```
 
@@ -54,9 +54,9 @@ Only two `@` symbols exist in Zen:
 ### Assignment Operators
 ```zen
 x = 10           // Immutable binding (working ✅)
-y ::= 20         // Mutable assignment (working ✅)
-z: i32 = 30      // Immutable with type annotation (working ✅)
-w :: i32 = 40    // Mutable with type annotation (working ✅)
+y ::= 20         // Mutable assignment (parsed, codegen incomplete ⚠️)
+z: i32 = 30      // Immutable with type annotation (parsed, codegen incomplete ⚠️)
+w :: i32 = 40    // Mutable with type annotation (parsed, codegen incomplete ⚠️)
 ```
 
 ### Pattern Matching
@@ -88,22 +88,20 @@ file_result ?
 No `while` or `for` keywords - only `loop`:
 
 ```zen
-// Infinite loop (partially working ⚠️)
+// Infinite loop (not yet implemented ❌)
 loop(() {
-    io.println("Forever...")
+    @std.io.println("Forever...")
     should_stop ? { break }
 })
 
-// Range iteration (working ✅)
+// Range iteration (not yet implemented ❌)
 (0..10).loop((i) {
-    io.print("Index: ")
-    io.print_int(i)
-    io.println("")
+    @std.io.println("Index:")
 })
 
-// Inclusive range (working ✅)
+// Inclusive range (not yet implemented ❌)
 (1..=5).loop((i) {
-    io.print_int(i)
+    @std.io.println(i)
 })
 
 // Collection iteration with UFC (not yet implemented ❌)
@@ -115,15 +113,15 @@ items.loop((item) {
 ### Types and Structs
 
 ```zen
-// Simple struct (working ✅)
+// Simple struct (not yet implemented ❌)
 Point: {
     x: i32,
     y: i32,
 }
 
-// Create struct instance
+// Create struct instance (not yet implemented ❌)
 p ::= Point { x: 10, y: 20 }
-io.print_int(p.x)  // Field access works!
+@std.io.println(p.x)  // Field access planned
 
 // Enum (sum type) - parsing works, codegen incomplete ⚠️
 Shape: Circle(radius: f64) | Rectangle(width: f64, height: f64)
@@ -213,79 +211,73 @@ meta.replace(my_function, original.with_body(new_body))
 ```
 zenlang/
 ├── LANGUAGE_SPEC.zen    # Complete language specification (source of truth)
-├── src/                 # Rust compiler implementation
-│   ├── lexer.rs        # Tokenization (working ✅)
-│   ├── parser/         # AST generation (mostly working ✅)
-│   ├── typechecker/    # Type checking (basic features ✅)
-│   └── codegen/llvm/   # LLVM code generation (partial ⚠️)
-├── compiler/            # Self-hosted Zen compiler (in progress)
+├── zenc3.c              # Current working bootstrap C compiler ✅
+├── zenc2.c              # Previous attempt (has parser bugs)
+├── zenc.c               # Original simple compiler
+├── compiler/            # Self-hosted Zen compiler (future)
 │   ├── lexer.zen       # Tokenization 
 │   ├── parser.zen      # AST generation
-│   └── type_checker.zen # Type checking
-├── stdlib/              # Standard library
-│   ├── option_result.zen # Option and Result types
-│   ├── io.zen         # I/O operations
-│   └── math.zen       # Mathematical functions
+│   └── errors.zen      # Error handling
+├── stdlib/              # Standard library (in progress)
+│   ├── io.zen          # I/O operations
+│   ├── math.zen        # Mathematical functions
+│   └── mem.zen         # Memory management
 ├── tests/               # Test suite
-│   └── zen_test_*.zen # Test files
-└── zenc.c              # Bootstrap C compiler (deprecated)
+│   └── zen_test_*.zen  # Test files
+└── .agent/              # Development tracking
+    └── context.md       # Current implementation status
 ```
 
 ## 🧪 Running Tests
 
 ```bash
-# Run a specific test
-./target/release/zen tests/zen_test_basic.zen
+# Compile the compiler
+gcc -std=c99 -o zenc3 zenc3.c
 
-# Test working features
-./target/release/zen tests/zen_test_language_spec_working.zen
+# Run a specific test
+./zenc3 tests/zen_test_basic_working.zen
+./output.c.out
+
+# Test simple program
+./zenc3 test_simple.zen && ./output.c.out
 ```
 
 ## 📊 Implementation Status
 
 ### Working Features (✅)
-Core features fully implemented and tested:
-- **Variables**: All declaration patterns (`=`, `:=`, `:: i32 =`, etc.)
-- **Functions**: Definition, calls, return values
-- **Structs**: Definition, instantiation, field access
-- **Arithmetic**: All basic operators (+, -, *, /, %)
-- **Comparisons**: All comparison operators (<, >, <=, >=, ==, !=)
-- **Range Loops**: `(0..10).loop()` and `(0..=10).loop()` 
-- **I/O**: Basic print functions
-- **@std Reference**: Standard library access
+Core features implemented in `zenc3.c`:
+- **Basic Variables**: Immutable assignment with `=`
+- **Functions**: Basic function declaration `main = () void { }`
+- **Arithmetic**: Basic operators (+, -, *, /)
+- **Number Literals**: Integer and floating-point
+- **String Literals**: Basic string support
+- **Boolean Literals**: `true` and `false`
+- **Comments**: Single-line `//` comments
+- **@std.io.println**: Output strings to console
 
-### Partially Working (⚠️)
-- **Pattern Matching**: Simple patterns work, complex patterns have issues
-- **Enums**: Parsing complete, codegen incomplete
-- **Infinite Loops**: Basic structure, needs break/continue support
+### Partially Implemented (⚠️)
+Features that are parsed but not fully working:
+- **Mutable Assignment**: `::=` operator recognized
+- **Type Annotations**: `:` for types parsed
+- **@std Module System**: Only `@std.io.println` works
 
 ### Not Yet Implemented (❌)
-- **Option/Result Types**: Defined but not integrated
-- **Pointer Types**: `Ptr<>`, `MutPtr<>`, `RawPtr<>`
-- **Container Types**: `Vec<>`, `DynVec<>`
-- **UFC**: Uniform Function Call for all functions
+Features defined in LANGUAGE_SPEC.zen but not implemented:
+- **Pattern Matching**: `?` operator
+- **Option/Result Types**: `Option<T>` with `Some/None`
+- **Struct Types**: Definition and instantiation
+- **String Interpolation**: `"Value: ${x}"`
+- **Loops**: `loop()` and `.loop()` syntax
+- **Ranges**: `(0..10)` syntax
+- **UFC**: Uniform Function Call
+- **Enums**: Variant syntax
+- **Destructuring**: `{ io, math } = @std`
 - **Traits**: `.implements()` and `.requires()`
-- **Error Propagation**: `.raise()`
-- **Defer Statements**: `@this.defer()`
-- **Allocator System**: Sync/async behavior control
-- **Metaprogramming**: Compile-time reflection and AST manipulation
+- **Pointer Types**: `Ptr<>`, `MutPtr<>`, `RawPtr<>`
+- **Defer**: `@this.defer()`
+- **Allocators**: Sync/async behavior control
+- **Metaprogramming**: `@meta.comptime()`
 - **Concurrency**: Actors, Channels, Mutex
-- **Module System**: Import/export
-
-Original core features from bootstrap compiler:
-- ✅ Lexer with all operators including `::=`
-- ✅ Parser with pattern matching support
-- ✅ @std and @this special symbols
-- ✅ Basic C code generation
-- ✅ Option and Result types
-- ✅ Standard library foundation
-
-In progress:
-- 🚧 Type system and semantic analysis
-- 🚧 Full pattern matching compilation
-- 🚧 UFC implementation
-- 🚧 Allocator framework
-- 🚧 Metaprogramming support
 
 ## 🤝 Contributing
 

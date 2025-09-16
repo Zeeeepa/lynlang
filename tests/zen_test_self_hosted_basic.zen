@@ -169,8 +169,8 @@ test_arrays = () i32   {
     }
     
     // Find maximum
-    max := arr[0]
-    j := 1
+    max = arr[0]
+    j = 1
     loop j < 5 {
         arr[j] > max ? | true {
             max = arr[j]
@@ -194,7 +194,7 @@ main = () i32   {
     puts("   Zen Self-Hosted Basic Tests")
     puts("===================================\n")
     
-    failures := 0
+    failures = 0
     
     // Run loop tests
     result := test_loops()
