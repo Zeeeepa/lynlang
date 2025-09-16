@@ -1,22 +1,22 @@
 // Test enum definitions from LANGUAGE_SPEC.zen - with explicit enum names
 
 // Game entity enum from spec
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // Simple enum without payloads
-FileMode: .ReadOnly | .WriteOnly | .ReadWrite | .Append | .CreateNew
+FileMode: .ReadOnly | WriteOnly | ReadWrite | Append | CreateNew
 
 // IO Error types from spec
 IOError: .FileNotFound
-    | .PermissionDenied
-    | .AlreadyExists
-    | .BrokenPipe
-    | .UnexpectedEof
-    | .InvalidInput
-    | .WriteZero
-    | .ReadError
-    | .WriteError
-    | .Other
+    | PermissionDenied
+    | AlreadyExists
+    | BrokenPipe
+    | UnexpectedEof
+    | InvalidInput
+    | WriteZero
+    | ReadError
+    | WriteError
+    | Other
 
 // Import io for testing
 { io } = @std

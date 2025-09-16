@@ -132,25 +132,25 @@ fibonacci = (n: u32) u32 {
 // Color processing
 describe_color = (c: Color) string {
     c ?
-        | .Red { return "Primary: Red" }
-        | .Green { return "Primary: Green" }
-        | .Blue { return "Primary: Blue" }
-        | .Custom(custom) { return "Custom color: ${custom.value}" }
+        | Red { return "Primary: Red" }
+        | Green { return "Primary: Green" }
+        | Blue { return "Primary: Blue" }
+        | Custom(custom) { return "Custom color: ${custom.value}" }
 }
 
 // Message handler with destructuring
 handle_message = (msg: Message) void {
     msg ?
-        | .Text(text) {
+        | Text(text) {
             io.println("Text: ${text.content}")
         }
-        | .Warning(warn) {
+        | Warning(warn) {
             io.println("[WARN] ${warn.text}")
         }
         | Error(err) {
             io.println("ERROR ${err.code}")
         }
-        | .Binary {
+        | Binary {
             io.println("Binary data received")
         }
 }

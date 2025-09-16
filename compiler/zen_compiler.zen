@@ -71,7 +71,7 @@ compile = (options: CompilerOptions) CompilationResult   {
         | Err -> err { return .ParserError -> msg: err }
     
     // Early exit if just dumping AST
-    options.emit_type ? | .AST {
+    options.emit_type ? | AST {
         dump_ast(ast, options.output_file);
         return .Success
     }
@@ -86,19 +86,19 @@ compile = (options: CompilerOptions) CompilationResult   {
     options.verbose ? | true { io.print("Generating code...\n") }
     
     result := options.emit_type ?
-        | .C_Code {
+        | C_Code {
             code := codegen.generate_c(typed_ast);
             fs.write_file(options.output_file, code) ?
                 | Ok { .Success }
                 | Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
         }
-        | .LLVM_IR {
+        | LLVM_IR {
             ir := llvm_backend.generate_ir(typed_ast);
             fs.write_file(options.output_file, ir) ?
                 | Ok { .Success }
                 | Err -> err { .IOError -> msg: "Failed to write output: $(err)" }
         }
-        | .Binary {
+        | Binary {
             // Generate LLVM IR then compile to binary
             ir := llvm_backend.generate_ir(typed_ast);
             llvm_backend.compile_to_binary(ir, options) ?
@@ -202,12 +202,12 @@ main = (args: []string) i32   {
     result := compile(options);
     
     result ?
-        | .Success { return 0 }
-        | .LexerError -> msg { io.error("Lexer error: $(msg)\n") }
-        | .ParserError -> msg { io.error("Parser error: $(msg)\n") }
-        | .TypeError -> msg { io.error("Type error: $(msg)\n") }
-        | .CodegenError -> msg { io.error("Codegen error: $(msg)\n") }
-        | .IOError -> msg { io.error("I/O error: $(msg)\n") }
+        | Success { return 0 }
+        | LexerError -> msg { io.error("Lexer error: $(msg)\n") }
+        | ParserError -> msg { io.error("Parser error: $(msg)\n") }
+        | TypeError -> msg { io.error("Type error: $(msg)\n") }
+        | CodegenError -> msg { io.error("Codegen error: $(msg)\n") }
+        | IOError -> msg { io.error("I/O error: $(msg)\n") }
     
     return 1
 }

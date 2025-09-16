@@ -13,8 +13,8 @@ Point: {
 }
 
 // Enum variants
-Shape: .Circle | .Rectangle
-GameEntity: .Player | .Enemy | .Powerup
+Shape: .Circle | Rectangle
+GameEntity: .Player | Enemy | Powerup
 
 main = () void {
     io.println("=== LANGUAGE_SPEC.zen Working Features ===")
@@ -74,9 +74,9 @@ main = () void {
     io.println("7. Enum matching:")
     entity = GameEntity.Player
     entity ?
-        | .Player { io.println("  ✓ Enum variant matching works") }
-        | .Enemy { io.println("  Enemy") }
-        | .Powerup { io.println("  Powerup") }
+        | Player { io.println("  ✓ Enum variant matching works") }
+        | Enemy { io.println("  Enemy") }
+        | Powerup { io.println("  Powerup") }
     
     io.println("=== Test Complete ===")
 }

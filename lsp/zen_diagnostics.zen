@@ -132,7 +132,7 @@ perform_syntax_analysis = (analyzer: Ptr<DiagnosticAnalyzer>) void {
 check_syntax_patterns = (analyzer: Ptr<DiagnosticAnalyzer>, program: parser.Program) void {
     program.declarations.loop((decl) => {
         decl ?
-            | .Function -> func => {
+            | Function -> func => {
                 // Check for missing return statements
                 (func.return_type && !has_return_statement(func.body)) ?
                     | true => add_diagnostic(analyzer,
@@ -144,7 +144,7 @@ check_syntax_patterns = (analyzer: Ptr<DiagnosticAnalyzer>, program: parser.Prog
                         )
                     )
             }
-            | .Variable -> var => {
+            | Variable -> var => {
                 // Check for unused variables (simple check)
                 string.starts_with(var.name, "_") ?
                     | true => {}

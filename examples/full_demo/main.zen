@@ -218,9 +218,9 @@ demonstrate_comptime = () void {
     // Platform-specific constants
     MAX_PATH = @meta.comptime((){
         @std.target.os ?
-            | .Windows { 260 }
-            | .Linux { 4096 }
-            | .Macos { 1024 }
+            | Windows { 260 }
+            | Linux { 4096 }
+            | Macos { 1024 }
             | _ { 256 }
     })
     

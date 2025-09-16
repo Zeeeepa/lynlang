@@ -35,7 +35,7 @@ test_dynvec_basic = () void {
 }
 
 // Test mixed variant DynVec as per LANGUAGE_SPEC.zen
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 test_dynvec_mixed_variants = () void {
     sync_alloc = GPA.init()

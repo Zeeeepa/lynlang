@@ -266,13 +266,13 @@ PingActor: {
     behavior: Behavior(PingActor, PingPongMsg) = {
         handle: (state, msg, ctx) {
             msg ? 
-                | .Ping -> count {
+                | Ping -> count {
                     std.io.print("Ping received: {}\n", count)
                     state.pong_ref ? {
                         ctx.send(state.pong_ref.?, .Pong(count + 1))
                     } : {}
                 }
-                | .Pong -> count {
+                | Pong -> count {
                     std.io.print("Ping actor got pong: {}\n", count)
                     count < 10 ? {
                         state.pong_ref ? {
@@ -285,7 +285,7 @@ PingActor: {
                         } : {}
                     }
                 }
-                | .Stop {
+                | Stop {
                     std.io.print("Ping actor stopping\n")
                 }
         }
@@ -296,14 +296,14 @@ PongActor: {
     behavior: Behavior(void, PingPongMsg) = {
         handle: (state, msg, ctx) {
             msg ?
-                | .Ping -> count {
+                | Ping -> count {
                     std.io.print("Pong actor got ping: {}\n", count)
                     ctx.reply(.Pong(count))
                 }
-                | .Pong -> count {
+                | Pong -> count {
                     std.io.print("Pong received: {}\n", count)
                 }
-                | .Stop {
+                | Stop {
                     std.io.print("Pong actor stopping\n")
                 }
         }

@@ -1,7 +1,7 @@
 // Test enum definitions with current :: syntax
 
 // Game entity enum from spec
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // Import io for testing
 { io } = @std

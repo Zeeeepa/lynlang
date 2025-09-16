@@ -7,25 +7,25 @@ Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
 // Simple enum without payloads
-FileMode: .ReadOnly | .WriteOnly | .ReadWrite | .Append | .CreateNew
+FileMode: .ReadOnly | WriteOnly | ReadWrite | Append | CreateNew
 
 // Simple Shape enum - without named fields for now
-Shape: .Circle(f64) | .Rectangle | .Point
+Shape: .Circle(f64) | Rectangle | Point
 
 // Game entity enum from spec
-GameEntity: .Player | .Enemy | .Powerup
+GameEntity: .Player | Enemy | Powerup
 
 // IO Error types from spec
 IOError: .FileNotFound
-    | .PermissionDenied
-    | .AlreadyExists
-    | .BrokenPipe
-    | .UnexpectedEof
-    | .InvalidInput
-    | .WriteZero
-    | .ReadError
-    | .WriteError
-    | .Other
+    | PermissionDenied
+    | AlreadyExists
+    | BrokenPipe
+    | UnexpectedEof
+    | InvalidInput
+    | WriteZero
+    | ReadError
+    | WriteError
+    | Other
 
 // Import io for testing
 { io } = @std

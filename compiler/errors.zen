@@ -74,7 +74,7 @@ add_diagnostic = (ctx: Ptr<ErrorContext>, diag: Diagnostic) void {
     
     diag.severity ?
         | Error { ctx.val.error_count = ctx.val.error_count + 1 }
-        | .Warning { ctx.val.warning_count = ctx.val.warning_count + 1 }
+        | Warning { ctx.val.warning_count = ctx.val.warning_count + 1 }
         | _ {}
 }
 
@@ -168,20 +168,20 @@ extract_snippet = (content: string, loc: SourceLocation) string {
 format_severity = (severity: ErrorSeverity) string {
     severity ?
         | Error { "error" }
-        | .Warning { "warning" }
-        | .Info { "info" }
-        | .Hint { "hint" }
+        | Warning { "warning" }
+        | Info { "info" }
+        | Hint { "hint" }
 }
 
 // Format category for display
 format_category = (category: ErrorCategory) string {
     category ?
-        | .Syntax { "syntax" }
-        | .Type { "type" }
-        | .Semantic { "semantic" }
-        | .Import { "import" }
-        | .Comptime { "comptime" }
-        | .Internal { "internal" }
+        | Syntax { "syntax" }
+        | Type { "type" }
+        | Semantic { "semantic" }
+        | Import { "import" }
+        | Comptime { "comptime" }
+        | Internal { "internal" }
 }
 
 // Format a diagnostic for display

@@ -4,7 +4,7 @@
 { io } = @std
 
 // 2. Simple enum
-GameEntity: .Player | .Enemy
+GameEntity: .Player | Enemy
 
 // 3. Main function
 main = () void {
@@ -13,8 +13,8 @@ main = () void {
     
     // Test pattern matching with ?
     player ?
-        | .Player { io.println("Player") }
-        | .Enemy { io.println("Enemy") }
+        | Player { io.println("Player") }
+        | Enemy { io.println("Enemy") }
     
     io.println("Done")
 }

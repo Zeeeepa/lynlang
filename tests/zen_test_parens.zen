@@ -1,0 +1,4 @@
+// Test parentheses
+main = () void {
+    x = ()
+}

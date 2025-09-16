@@ -26,22 +26,22 @@ LINE_BUFFER_SIZE := 1024
 
 // File modes
 FileMode: .ReadOnly
-    | .WriteOnly
-    | .ReadWrite
-    | .Append
-    | .CreateNew
+    | WriteOnly
+    | ReadWrite
+    | Append
+    | CreateNew
 
 // IO Error types
 IOError: .FileNotFound
-    | .PermissionDenied
-    | .AlreadyExists
-    | .BrokenPipe
-    | .UnexpectedEof
-    | .InvalidInput
-    | .WriteZero
-    | .ReadError
-    | .WriteError
-    | .Other
+    | PermissionDenied
+    | AlreadyExists
+    | BrokenPipe
+    | UnexpectedEof
+    | InvalidInput
+    | WriteZero
+    | ReadError
+    | WriteError
+    | Other
 
 // Result type for IO operations
 IOResult<T>: Ok(T) | Err(IOError)
@@ -86,11 +86,11 @@ file_open = (path: RawPtr<i8>, mode: FileMode) IOResult<File> {
     // Convert mode to C string
     mode_str ::= "r"  // Default to read
     mode ?
-        | .ReadOnly { mode_str = "r" }
-        | .WriteOnly { mode_str = "w" }
-        | .ReadWrite { mode_str = "r+" }
-        | .Append { mode_str = "a" }
-        | .CreateNew { mode_str = "w+" }
+        | ReadOnly { mode_str = "r" }
+        | WriteOnly { mode_str = "w" }
+        | ReadWrite { mode_str = "r+" }
+        | Append { mode_str = "a" }
+        | CreateNew { mode_str = "w+" }
     
     handle := fopen(path, mode_str)
     

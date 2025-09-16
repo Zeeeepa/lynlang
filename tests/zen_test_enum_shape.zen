@@ -2,13 +2,13 @@
 { io } = @std
 
 // Define Shape enum without payload
-Shape: .Circle | .Rectangle
+Shape: .Circle | Rectangle
 
 // Test function
 calculate_area = (shape: Shape, size: f64) f64 {
     shape ?
-        | .Circle { return 3.14159 * size * size }
-        | .Rectangle { return size * size }
+        | Circle { return 3.14159 * size * size }
+        | Rectangle { return size * size }
 }
 
 main = () void {

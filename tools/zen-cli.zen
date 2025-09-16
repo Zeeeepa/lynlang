@@ -219,31 +219,31 @@ parseAbi = (s: String) Build.Abi {
 
 formatTarget = (target: Build.Target) String   {
     arch_str := target.cpu_arch ?
-        | .x86_64 => "x86_64"
-        | .x86 => "x86"
-        | .aarch64 => "aarch64"
-        | .arm => "arm"
-        | .wasm32 => "wasm32"
-        | .wasm64 => "wasm64"
-        | .riscv64 => "riscv64"
-        | .native => "native"
+        | x86_64 => "x86_64"
+        | x86 => "x86"
+        | aarch64 => "aarch64"
+        | arm => "arm"
+        | wasm32 => "wasm32"
+        | wasm64 => "wasm64"
+        | riscv64 => "riscv64"
+        | native => "native"
     
     os_str := target.os_tag ?
-        | .linux => "linux"
-        | .macos => "macos"
-        | .windows => "windows"
-        | .freebsd => "freebsd"
-        | .openbsd => "openbsd"
-        | .wasm => "wasm"
-        | .native => "native"
+        | linux => "linux"
+        | macos => "macos"
+        | windows => "windows"
+        | freebsd => "freebsd"
+        | openbsd => "openbsd"
+        | wasm => "wasm"
+        | native => "native"
     
     target.abi ? {
         abi_str := target.abi.? ?
             | None => "none"
-            | .gnu => "gnu"
-            | .musl => "musl"
-            | .msvc => "msvc"
-            | .wasi => "wasi"
+            | gnu => "gnu"
+            | musl => "musl"
+            | msvc => "msvc"
+            | wasi => "wasi"
         
         return arch_str ++ "-" ++ os_str ++ "-" ++ abi_str
     } : {
@@ -535,15 +535,15 @@ main = () void   {
     }
     
     result := parsed.command ?
-        | .Build => handleBuild(parsed)
-        | .Run => handleRun(parsed)
-        | .Test => handleTest(parsed)
-        | .Check => handleCheck(parsed)
-        | .Fmt => handleFmt(parsed)
-        | .Clean => handleClean(parsed)
-        | .Init => handleInit(parsed)
-        | .Version => { handleVersion(); Ok({}) }
-        | .Help => { handleHelp(); Ok({}) }
+        | Build => handleBuild(parsed)
+        | Run => handleRun(parsed)
+        | Test => handleTest(parsed)
+        | Check => handleCheck(parsed)
+        | Fmt => handleFmt(parsed)
+        | Clean => handleClean(parsed)
+        | Init => handleInit(parsed)
+        | Version => { handleVersion(); Ok({}) }
+        | Help => { handleHelp(); Ok({}) }
     
     result catch |err| {
         io.print("Error: {}\n", err)

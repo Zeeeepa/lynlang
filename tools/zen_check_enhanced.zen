@@ -358,16 +358,16 @@ check_semantic_issues = (result: &CheckResult, ast: TypedAST, config: CheckerCon
 apply_lint_rules = (result: &CheckResult, ast: TypedAST, config: CheckerConfig) void => {
     loop rule in config.enabled_rules {
         rule ?
-            | .UnusedImport => check_unused_imports(result, ast)
-            | .UnusedFunction => check_unused_functions(result, ast)
-            | .DeadCode => check_dead_code(result, ast)
-            | .LongFunction => check_long_functions(result, ast, config)
-            | .DeepNesting => check_deep_nesting(result, ast, config)
-            | .MutableGlobal => check_mutable_globals(result, ast)
-            | .ShadowedVariable => check_shadowed_variables(result, ast)
-            | .EmptyBlock => check_empty_blocks(result, ast)
-            | .DuplicateCase => check_duplicate_cases(result, ast)
-            | .InconsistentNaming => check_naming_conventions(result, ast, config)
+            | UnusedImport => check_unused_imports(result, ast)
+            | UnusedFunction => check_unused_functions(result, ast)
+            | DeadCode => check_dead_code(result, ast)
+            | LongFunction => check_long_functions(result, ast, config)
+            | DeepNesting => check_deep_nesting(result, ast, config)
+            | MutableGlobal => check_mutable_globals(result, ast)
+            | ShadowedVariable => check_shadowed_variables(result, ast)
+            | EmptyBlock => check_empty_blocks(result, ast)
+            | DuplicateCase => check_duplicate_cases(result, ast)
+            | InconsistentNaming => check_naming_conventions(result, ast, config)
     }
 }
 

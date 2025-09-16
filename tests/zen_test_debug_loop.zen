@@ -1,0 +1,10 @@
+// Debug loop parsing
+{ io } = @std
+
+main = () void {
+    // Try without loop first
+    io.println("Before loop")
+    
+    // Try simpler syntax
+    x = 1
+}

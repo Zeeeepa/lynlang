@@ -1,0 +1,71 @@
+// Test file to validate LANGUAGE_SPEC.zen compliance
+// This follows the exact syntax from the spec
+
+// Imports - only @std and @this are special
+{ io } = @std
+
+// No null! Only Option types
+Option<T>: Some(T) | None
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Test function with pattern matching
+test_option = (opt: Option<i32>) void {
+    opt ?
+        | Some(val) { io.println("Has value") }
+        | None { io.println("No value") }
+}
+
+// Test boolean pattern matching
+test_bool = (flag: bool) void {
+    flag ?
+        | true { io.println("True") }
+        | false { io.println("False") }
+}
+
+main = () void {
+    // Test immutable assignment
+    point = Point { x: 10.0, y: 20.0 }
+    
+    // Test mutable assignment using ::=
+    counter ::= 0
+    counter = counter + 1
+    
+    // Test Option type
+    some_val = Option.Some(42)
+    none_val = Option.None
+    
+    test_option(some_val)
+    test_option(none_val)
+    
+    // Test boolean pattern matching - single branch
+    is_ready = true
+    is_ready ? { 
+        io.println("Ready!") 
+    }
+    
+    // Test boolean pattern matching - full
+    test_bool(true)
+    test_bool(false)
+    
+    // Test range iteration
+    (0..3).loop((i) {
+        io.println("Loop iteration")
+    })
+    
+    // Test infinite loop with break
+    count ::= 0
+    loop(() {
+        count = count + 1
+        count > 2 ?
+            | true { break }
+            | false { io.println("Counting") }
+    })
+}

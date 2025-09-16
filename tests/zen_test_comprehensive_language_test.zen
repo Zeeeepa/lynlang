@@ -320,9 +320,9 @@ test("enum_basic") {
     
     s := Status:Active
     desc := s ?
-        | .Active { "running" }
-        | .Inactive { "stopped" }
-        | .Pending { "waiting" }
+        | Active { "running" }
+        | Inactive { "stopped" }
+        | Pending { "waiting" }
     assert_eq(desc, "running")
 }
 
@@ -334,9 +334,9 @@ test("enum_with_data") {
     
     msg := Message:Text("Hello")
     result := msg ?
-        | .Text -> c { c }
-        | .Number -> n { "$(n)" }
-        | .Empty { "" }
+        | Text -> c { c }
+        | Number -> n { "$(n)" }
+        | Empty { "" }
     assert_eq(result, "Hello")
 }
 

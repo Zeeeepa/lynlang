@@ -5,7 +5,7 @@
 // Enum type definitions work!
 Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
-Shape: .Circle | .Rectangle
+Shape: .Circle | Rectangle
 
 // Struct definitions work
 Point: {

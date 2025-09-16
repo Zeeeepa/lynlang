@@ -260,9 +260,9 @@ CounterMsg: Increment, Decrement, Get
 Counter.implements(Actor<CounterMsg>, {
     handle = (self: Self, msg: CounterMsg, alloc: Ptr<Allocator>) void {
         msg ?
-            | .Increment { self.value ::= self.value + 1 }
-            | .Decrement { self.value ::= self.value - 1 }
-            | .Get(reply) { reply.send(self.value) }
+            | Increment { self.value ::= self.value + 1 }
+            | Decrement { self.value ::= self.value - 1 }
+            | Get(reply) { reply.send(self.value) }
     },
 })
 

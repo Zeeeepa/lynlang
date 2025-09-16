@@ -170,12 +170,12 @@ test("actor pattern") {
         state: i32 = 0,
         
         handle_message: (self: Ptr<CounterActor>, msg: Message) i32 {
-            msg ? | .Increment {
+            msg ? | Increment {
                      self.value.state = self.value.state + 1
                      self.value.state
                  }
-                 | .GetValue { self.value.state }
-                 | .Reset {
+                 | GetValue { self.value.state }
+                 | Reset {
                      self.value.state = 0
                      0
                  }

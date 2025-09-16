@@ -151,12 +151,12 @@ handle_with_recovery = (path: String, alloc: Ptr<Allocator>) DynVec<User>  {
         | Err (error) {
             // Handle specific error types
             error ?
-                | .FileError(message: msg) {
+                | FileError(message: msg) {
                     io.println("File error: $(msg)")
                     io.println("Using default configuration")
                     return load_default_users()
                 }
-                | .NetworkError(code: code, message: msg) {
+                | NetworkError(code: code, message: msg) {
                     io.println("Network error $(code): $(msg)")
                     io.println("Using cached data")
                     return load_cached_users()

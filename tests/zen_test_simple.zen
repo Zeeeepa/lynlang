@@ -1,6 +1,6 @@
 { io } = @std
 
-Shape: .Circle | .Rectangle
+Shape: .Circle | Rectangle
 
 main = () void {
     s = .Circle

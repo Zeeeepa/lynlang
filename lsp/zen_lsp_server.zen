@@ -1066,12 +1066,13 @@ is_numeric = (s: string) bool {
         return false
     }
     
-    for (i := 0; i < s.len(); i++) {
-        c := string.char_at(s, i)
-        !((c >= '0' && c <= '9') || c == '.' || c == '-') ? {
-            return false
+    (0..s.len()).loop ((i) {
+        c := s.char_at(i)
+        (c >= '0' && c <= '9') || c == '.' || c == '-' ? {
+            return true
         }
-    }
+        return false
+    })
     
     return true
 }
@@ -1107,7 +1108,7 @@ get_keyword_documentation = (keyword: string) string {
     docs := hashmap.new<string, string>()
     docs.insert("fn", "Declares a function")
     docs.insert("struct", "Declares a structure type (deprecated, use Name: {...} instead)")
-    docs.insert("enum", "Declares an enumeration type (deprecated, use Name: ... | ... instead)")
+    docs.insert("enum", "Declares an enumeration type (deprecated, use Name: ... | .. instead)")
     docs.insert("if", "Conditional statement (deprecated, use ? operator instead)")
     docs.insert("else", "Alternative branch (deprecated, use ? operator instead)")
     docs.insert("while", "While loop")

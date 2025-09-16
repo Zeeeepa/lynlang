@@ -7,7 +7,7 @@
 TestResult<T, E>: Ok(T) | Err(E)
 
 // Test error types
-TestError: .FileNotFound | .ParseError | .NetworkError
+TestError: .FileNotFound | ParseError | NetworkError
 
 // Helper functions that return Results
 read_file = (filename: string) TestResult<string, TestError> {

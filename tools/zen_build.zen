@@ -320,7 +320,7 @@ run_tests = (bs: &BuildSystem) Result<void, string>   {
     result := build_target(bs, "test");
     
     result ?
-        | .Success -> artifacts => {
+        | Success -> artifacts => {
             io.print("Running tests...\n");
             
             // Execute test runner
@@ -333,8 +333,8 @@ run_tests = (bs: &BuildSystem) Result<void, string>   {
                 }
                 | Err -> err => return Err -> "Failed to run tests: $(err)"
         }
-        | .Failed -> error => return Err -> error
-        | .Skipped => {
+        | Failed -> error => return Err -> error
+        | Skipped => {
             io.print("Tests are up to date\n");
             return Ok
         }
@@ -417,15 +417,15 @@ build = (args: []string) i32   {
             result := build_target(&bs, "main");
             
             result ?
-                | .Success -> artifacts => {
+                | Success -> artifacts => {
                     io.print("Running $(artifacts[0])...\n");
                     process.exec(artifacts[0], args[2..])
                 }
-                | .Failed -> error => {
+                | Failed -> error => {
                     io.error("Build failed: $(error)\n");
                     return 1
                 }
-                | .Skipped => {
+                | Skipped => {
                     executable := "$(bs.config.output_dir)/$(bs.config.name)";
                     io.print("Running $(executable)...\n");
                     process.exec(executable, args[2..])
@@ -436,12 +436,12 @@ build = (args: []string) i32   {
             result := build_target(&bs, target);
             
             result ?
-                | .Success => io.print("Build successful!\n")
-                | .Failed -> error => {
+                | Success => io.print("Build successful!\n")
+                | Failed -> error => {
                     io.error("Build failed: $(error)\n");
                     return 1
                 }
-                | .Skipped -> reason => io.print("Build skipped: $(reason)\n")
+                | Skipped -> reason => io.print("Build skipped: $(reason)\n")
         }
     
     return 0

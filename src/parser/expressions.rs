@@ -221,24 +221,27 @@ impl<'a> Parser<'a> {
                         self.next_token(); // consume '('
                         let mut params = vec![];
                         
-                        while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
-                            if let Token::Identifier(param_name) = &self.current_token {
-                                params.push((param_name.clone(), None));
-                                self.next_token();
-                                
-                                if self.current_token == Token::Symbol(',') {
+                        // Handle empty parameter list - check for immediate closing paren
+                        if self.current_token != Token::Symbol(')') {
+                            while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
+                                if let Token::Identifier(param_name) = &self.current_token {
+                                    params.push((param_name.clone(), None));
                                     self.next_token();
-                                } else if self.current_token != Token::Symbol(')') {
+                                    
+                                    if self.current_token == Token::Symbol(',') {
+                                        self.next_token();
+                                    } else if self.current_token != Token::Symbol(')') {
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected ',' or ')' in closure parameters".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    }
+                                } else {
                                     return Err(CompileError::SyntaxError(
-                                        "Expected ',' or ')' in closure parameters".to_string(),
+                                        "Expected parameter name in closure".to_string(),
                                         Some(self.current_span.clone()),
                                     ));
                                 }
-                            } else {
-                                return Err(CompileError::SyntaxError(
-                                    "Expected parameter name in closure".to_string(),
-                                    Some(self.current_span.clone()),
-                                ));
                             }
                         }
                         
@@ -521,7 +524,35 @@ impl<'a> Parser<'a> {
                 Ok(expr)
             }
             Token::Symbol('(') => {
-                self.next_token();
+                // Check if this might be a closure: () or (params)
+                // We need to lookahead to distinguish from parenthesized expressions
+                let is_empty_parens = self.peek_token == Token::Symbol(')');
+                
+                self.next_token(); // consume '('
+                
+                // Check for empty parens that might be a closure
+                if self.current_token == Token::Symbol(')') {
+                    self.next_token(); // consume ')'
+                    
+                    // Check if it's followed by '{' which would make it a closure
+                    if self.current_token == Token::Symbol('{') {
+                        // It's a closure with no parameters: () { ... }
+                        let body = self.parse_block_expression()?;
+                        return Ok(Expression::Closure {
+                            params: vec![],
+                            body: Box::new(body),
+                        });
+                    } else {
+                        // Empty parens are not valid as an expression
+                        return Err(CompileError::SyntaxError(
+                            "Empty parentheses are not a valid expression. Did you mean to write a closure? Use '() { ... }'".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                }
+                
+                // Not empty, parse as normal parenthesized expression or closure with params
+                // For now, just parse as expression
                 let mut expr = self.parse_expression()?;
                 if self.current_token != Token::Symbol(')') {
                     return Err(CompileError::SyntaxError(
@@ -529,7 +560,7 @@ impl<'a> Parser<'a> {
                         Some(self.current_span.clone()),
                     ));
                 }
-                self.next_token();
+                self.next_token(); // consume ')'
                 
                 // Handle member access, array indexing, and function calls after parenthesized expression
                 loop {
