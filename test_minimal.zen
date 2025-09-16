@@ -1,5 +1,0 @@
-// Minimal test
-
-main = () void {
-    x = 42
-}

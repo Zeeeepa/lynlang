@@ -35,7 +35,7 @@ fn test_pointer_operations() {
                 },
                 Statement::VariableDeclaration { 
                     name: "p".to_string(),
-                    type_: Some(AstType::Pointer(Box::new(AstType::I64))),
+                    type_: Some(AstType::Ptr(Box::new(AstType::I64))),
                     initializer: Some(Expression::AddressOf(Box::new(Expression::Identifier("x".to_string())))),
                     is_mutable: false,
                     declaration_type: VariableDeclarationType::ExplicitImmutable,
@@ -56,13 +56,13 @@ fn test_pointer_arithmetic() {
         let program = ast::Program::from_functions(vec![ast::Function { type_params: vec![],  
             name: "main".to_string(),
             args: vec![
-                ("arr".to_string(), AstType::Pointer(Box::new(AstType::I64))),
+                ("arr".to_string(), AstType::Ptr(Box::new(AstType::I64))),
             ],
             return_type: AstType::I64,
             body: vec![
                 Statement::VariableDeclaration { 
                     name: "ptr".to_string(),
-                    type_: Some(AstType::Pointer(Box::new(AstType::I64))),
+                    type_: Some(AstType::Ptr(Box::new(AstType::I64))),
                     initializer: Some(Expression::PointerOffset {
                         pointer: Box::new(Expression::Identifier("arr".to_string())),
                         offset: Box::new(Expression::Integer64(1)),
@@ -97,7 +97,7 @@ fn test_pointer_assignment() {
                 },
                 Statement::VariableDeclaration { 
                     name: "ptr".to_string(),
-                    type_: Some(AstType::Pointer(Box::new(AstType::I64))),
+                    type_: Some(AstType::Ptr(Box::new(AstType::I64))),
                     initializer: Some(Expression::AddressOf(Box::new(Expression::Identifier("x".to_string())))),
                     is_mutable: false,
                     declaration_type: VariableDeclarationType::ExplicitImmutable,
@@ -158,7 +158,7 @@ fn test_void_pointer_declaration() {
             body: vec![
                 Statement::VariableDeclaration { 
                     name: "ptr".to_string(),
-                    type_: Some(AstType::Pointer(Box::new(AstType::Void))),
+                    type_: Some(AstType::Ptr(Box::new(AstType::Void))),
                     initializer: None,
                     is_mutable: false,
                     declaration_type: VariableDeclarationType::ExplicitImmutable,

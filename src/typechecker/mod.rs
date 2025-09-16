@@ -654,10 +654,21 @@ impl TypeChecker {
                 // If it's an Err, it propagates the error
                 let result_type = self.infer_expression_type(expr)?;
                 match result_type {
-                    AstType::Result { ok_type, .. } => Ok(*ok_type),
+                    // Handle modern generic Result<T, E> type
+                    AstType::Generic { name, type_args } if name == "Result" && type_args.len() >= 1 => {
+                        // Return the Ok type (first type argument)
+                        Ok(type_args[0].clone())
+                    },
+                    // Handle legacy Result type (still used in some places)
+                    AstType::Result { ok_type, .. } => {
+                        Ok(*ok_type)
+                    },
+                    // Type error: .raise() can only be used on Result types
                     _ => {
-                        // If not a Result, just return the type as-is
-                        Ok(result_type)
+                        Err(CompileError::TypeError(
+                            format!(".raise() can only be used on Result<T, E> types, found: {:?}", result_type),
+                            None
+                        ))
                     }
                 }
             }
@@ -675,10 +686,16 @@ impl TypeChecker {
                     } else {
                         AstType::Void
                     };
-                    Ok(AstType::Option(Box::new(inner_type)))
+                    Ok(AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args: vec![inner_type],
+                    })
                 } else if variant == "None" {
                     // None can be any Option type - will need context to determine
-                    Ok(AstType::Option(Box::new(AstType::Void)))
+                    Ok(AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args: vec![AstType::Void], // Placeholder, will be refined by context
+                    })
                 } else if variant == "Ok" {
                     let ok_type = if let Some(p) = payload {
                         self.infer_expression_type(p)?
@@ -686,9 +703,9 @@ impl TypeChecker {
                         AstType::Void
                     };
                     // For Result, we don't know the error type yet
-                    Ok(AstType::Result {
-                        ok_type: Box::new(ok_type),
-                        err_type: Box::new(AstType::String), // Default to String for errors
+                    Ok(AstType::Generic {
+                        name: "Result".to_string(),
+                        type_args: vec![ok_type, AstType::String], // Default to String for errors
                     })
                 } else if variant == "Err" {
                     let err_type = if let Some(p) = payload {
@@ -697,9 +714,9 @@ impl TypeChecker {
                         AstType::Void
                     };
                     // For Result, we don't know the ok type yet
-                    Ok(AstType::Result {
-                        ok_type: Box::new(AstType::Void), // Unknown ok type
-                        err_type: Box::new(err_type),
+                    Ok(AstType::Generic {
+                        name: "Result".to_string(),
+                        type_args: vec![AstType::Void, err_type], // Unknown ok type
                     })
                 } else {
                     // Unknown enum literal - would need more context
@@ -714,6 +731,49 @@ impl TypeChecker {
                 } else {
                     self.infer_expression_type(&arms[0].body)
                 }
+            }
+            // Zen spec pointer operations
+            Expression::PointerDereference(expr) => {
+                // ptr.val -> T (if ptr is Ptr<T>, MutPtr<T>, or RawPtr<T>)
+                let ptr_type = self.infer_expression_type(expr)?;
+                match ptr_type {
+                    AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
+                        Ok(*inner)
+                    }
+                    _ => Err(CompileError::TypeError(
+                        format!("Cannot dereference non-pointer type: {:?}", ptr_type),
+                        None,
+                    )),
+                }
+            }
+            Expression::PointerAddress(expr) => {
+                // expr.addr -> RawPtr<T> (if expr is of type T)
+                let expr_type = self.infer_expression_type(expr)?;
+                Ok(AstType::RawPtr(Box::new(expr_type)))
+            }
+            Expression::CreateReference(expr) => {
+                // expr.ref() -> Ptr<T> (if expr is of type T)
+                let expr_type = self.infer_expression_type(expr)?;
+                Ok(AstType::Ptr(Box::new(expr_type)))
+            }
+            Expression::CreateMutableReference(expr) => {
+                // expr.mut_ref() -> MutPtr<T> (if expr is of type T)
+                let expr_type = self.infer_expression_type(expr)?;
+                Ok(AstType::MutPtr(Box::new(expr_type)))
+            }
+            Expression::VecConstructor { element_type, size, initial_values: _ } => {
+                // Vec<T, size>() -> Vec<T, size>
+                Ok(AstType::Vec {
+                    element_type: Box::new(element_type.clone()),
+                    size: *size,
+                })
+            }
+            Expression::DynVecConstructor { element_types, allocator: _, initial_capacity: _ } => {
+                // DynVec<T>() or DynVec<T1, T2, ...>() -> DynVec<T, ...>
+                Ok(AstType::DynVec {
+                    element_types: element_types.clone(),
+                    allocator_type: None, // Allocator type inferred from constructor arg
+                })
             }
         }
     }

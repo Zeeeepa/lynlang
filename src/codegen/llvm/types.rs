@@ -34,6 +34,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     _ => Err(CompileError::UnsupportedFeature("Unsupported pointer type".to_string(), None)),
                 }
             },
+            AstType::MutPtr(inner) => {
+                // MutPtr<T> is the same as Ptr<T> in LLVM - mutability is tracked at language level
+                let inner_type = self.to_llvm_type(inner)?;
+                match inner_type {
+                    Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Struct(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Void => {
+                        // For void pointers, use i8* as the LLVM representation
+                        Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
+                    },
+                    _ => Err(CompileError::UnsupportedFeature("Unsupported mutable pointer type".to_string(), None)),
+                }
+            },
+            AstType::RawPtr(inner) => {
+                // RawPtr<T> is also the same as regular pointers in LLVM - safety is tracked at language level
+                let inner_type = self.to_llvm_type(inner)?;
+                match inner_type {
+                    Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Struct(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
+                    Type::Void => {
+                        // For void pointers, use i8* as the LLVM representation
+                        Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
+                    },
+                    _ => Err(CompileError::UnsupportedFeature("Unsupported raw pointer type".to_string(), None)),
+                }
+            },
             AstType::Struct { name, fields: _ } => {
                 let struct_info = self.struct_types.get(name)
                     .ok_or_else(|| CompileError::TypeError(format!("Undefined struct type: {}", name), None))?;
@@ -159,44 +185,59 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ], false);
                 Ok(Type::Struct(range_struct))
             },
-            AstType::MutPtr(inner) => {
-                // MutPtr<T> is represented as a pointer to T (same as Ptr in LLVM)
-                let inner_type = self.to_llvm_type(inner)?;
-                match inner_type {
-                    Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
-                    Type::Struct(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
-                    Type::Void => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
-                    _ => Err(CompileError::UnsupportedFeature("Unsupported pointer type".to_string(), None)),
-                }
-            },
-            AstType::RawPtr(inner) => {
-                // RawPtr<T> is represented as a pointer to T (same as Ptr in LLVM)
-                let inner_type = self.to_llvm_type(inner)?;
-                match inner_type {
-                    Type::Basic(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
-                    Type::Struct(_) => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
-                    Type::Void => Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into())),
-                    _ => Err(CompileError::UnsupportedFeature("Unsupported pointer type".to_string(), None)),
-                }
-            },
-            AstType::DynVec { element_types: _ } => {
-                // DynVec is a dynamic vector - represented as pointer for now
-                Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
-            },
             AstType::Vec { element_type, size } => {
-                // Vec is either static or dynamic sized
-                if let Some(sz) = size {
-                    // Static sized vector - use array type
-                    let elem_type = self.to_llvm_type(element_type)?;
-                    match elem_type {
-                        Type::Basic(basic_type) => {
-                            Ok(Type::Basic(basic_type.array_type(*sz as u32).into()))
-                        },
-                        _ => Ok(Type::Basic(self.context.i8_type().array_type(*sz as u32).into())),
+                // Vec<T, size> - Fixed-size vector as struct containing array and length
+                let elem_llvm_type = self.to_llvm_type(element_type)?;
+                match elem_llvm_type {
+                    Type::Basic(basic_type) => {
+                        // Create struct: { [T; size], usize }
+                        let array_type = basic_type.array_type(*size as u32);
+                        let len_type = self.context.i64_type(); // Use i64 for length
+                        let vec_struct = self.context.struct_type(&[
+                            array_type.into(),  // data: [T; size]
+                            len_type.into(),    // len: usize (current length)
+                        ], false);
+                        Ok(Type::Struct(vec_struct))
+                    },
+                    _ => {
+                        // Fallback to array of bytes
+                        let array_type = self.context.i8_type().array_type(*size as u32);
+                        let len_type = self.context.i64_type();
+                        let vec_struct = self.context.struct_type(&[
+                            array_type.into(),
+                            len_type.into(),
+                        ], false);
+                        Ok(Type::Struct(vec_struct))
                     }
+                }
+            },
+            AstType::DynVec { element_types, allocator_type: _ } => {
+                // DynVec<T> - Dynamic vector as struct containing pointer, length, and capacity
+                // For mixed variant types, use a union or tagged union approach
+                if element_types.len() == 1 {
+                    // Single type DynVec: { ptr, len, capacity }
+                    let ptr_type = self.context.ptr_type(AddressSpace::default());
+                    let len_type = self.context.i64_type();
+                    let cap_type = self.context.i64_type();
+                    let dynvec_struct = self.context.struct_type(&[
+                        ptr_type.into(),    // data: Ptr<T>
+                        len_type.into(),    // len: usize
+                        cap_type.into(),    // capacity: usize
+                    ], false);
+                    Ok(Type::Struct(dynvec_struct))
                 } else {
-                    // Dynamic vector - use pointer
-                    Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
+                    // Mixed variant DynVec: { ptr, len, capacity, discriminants }
+                    let ptr_type = self.context.ptr_type(AddressSpace::default());
+                    let len_type = self.context.i64_type();
+                    let cap_type = self.context.i64_type();
+                    let discriminant_ptr = self.context.ptr_type(AddressSpace::default()); // Pointer to discriminant array
+                    let dynvec_struct = self.context.struct_type(&[
+                        ptr_type.into(),           // data: Ptr<union> 
+                        len_type.into(),           // len: usize
+                        cap_type.into(),           // capacity: usize
+                        discriminant_ptr.into(),   // discriminants: Ptr<u8> for variant tracking
+                    ], false);
+                    Ok(Type::Struct(dynvec_struct))
                 }
             },
             AstType::Generic { name, type_args: _ } => {

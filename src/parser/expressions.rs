@@ -291,6 +291,16 @@ impl<'a> Parser<'a> {
                     });
                 }
                 
+                // Check for Vec<T, size>() constructor
+                if name == "Vec" && self.current_token == Token::Operator("<".to_string()) {
+                    return self.parse_vec_constructor();
+                }
+                
+                // Check for DynVec<T>() or DynVec<T1, T2, ...>() constructor  
+                if name == "DynVec" && self.current_token == Token::Operator("<".to_string()) {
+                    return self.parse_dynvec_constructor();
+                }
+                
                 // Check for enum variant syntax: EnumName::VariantName
                 if self.current_token == Token::Operator("::".to_string()) {
                     self.next_token(); // consume '::'
@@ -392,8 +402,36 @@ impl<'a> Parser<'a> {
                             };
                             self.next_token();
                             
-                            // Check for .raise() with empty parens
-                            if member == "raise" && self.current_token == Token::Symbol('(') {
+                            // Check for pointer-specific operations first
+                            if member == "val" {
+                                // Pointer dereference: ptr.val
+                                expr = Expression::PointerDereference(Box::new(expr));
+                            } else if member == "addr" {
+                                // Pointer address: expr.addr
+                                expr = Expression::PointerAddress(Box::new(expr));
+                            } else if member == "ref" && self.current_token == Token::Symbol('(') {
+                                // Reference creation: expr.ref()
+                                self.next_token(); // consume '('
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after '.ref('".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                expr = Expression::CreateReference(Box::new(expr));
+                            } else if member == "mut_ref" && self.current_token == Token::Symbol('(') {
+                                // Mutable reference creation: expr.mut_ref()
+                                self.next_token(); // consume '('
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after '.mut_ref('".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                expr = Expression::CreateMutableReference(Box::new(expr));
+                            } else if member == "raise" && self.current_token == Token::Symbol('(') {
                                 self.next_token(); // consume '('
                                 if self.current_token != Token::Symbol(')') {
                                     return Err(CompileError::SyntaxError(
@@ -448,11 +486,27 @@ impl<'a> Parser<'a> {
                             };
                         }
                         Token::Symbol('(') => {
-                            // Function call
+                            // Function call or enum variant constructor with payload
                             if let Expression::MemberAccess { object, member } = expr {
                                 return self.parse_call_expression_with_object(*object, member);
                             } else if let Expression::Identifier(name) = expr {
                                 return self.parse_call_expression(name);
+                            } else if let Expression::EnumVariant { enum_name, variant, payload: None } = expr {
+                                // This is an enum variant constructor with payload
+                                self.next_token(); // consume '('
+                                let payload_expr = self.parse_expression()?;
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after enum variant payload".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                expr = Expression::EnumVariant {
+                                    enum_name,
+                                    variant,
+                                    payload: Some(Box::new(payload_expr)),
+                                };
                             } else {
                                 return Err(CompileError::SyntaxError(
                                     "Unexpected expression type for function call".to_string(),
@@ -494,8 +548,36 @@ impl<'a> Parser<'a> {
                             };
                             self.next_token();
                             
-                            // Check for .raise() with empty parens
-                            if member == "raise" && self.current_token == Token::Symbol('(') {
+                            // Check for pointer-specific operations first
+                            if member == "val" {
+                                // Pointer dereference: ptr.val
+                                expr = Expression::PointerDereference(Box::new(expr));
+                            } else if member == "addr" {
+                                // Pointer address: expr.addr
+                                expr = Expression::PointerAddress(Box::new(expr));
+                            } else if member == "ref" && self.current_token == Token::Symbol('(') {
+                                // Reference creation: expr.ref()
+                                self.next_token(); // consume '('
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after '.ref('".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                expr = Expression::CreateReference(Box::new(expr));
+                            } else if member == "mut_ref" && self.current_token == Token::Symbol('(') {
+                                // Mutable reference creation: expr.mut_ref()
+                                self.next_token(); // consume '('
+                                if self.current_token != Token::Symbol(')') {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ')' after '.mut_ref('".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                                self.next_token(); // consume ')'
+                                expr = Expression::CreateMutableReference(Box::new(expr));
+                            } else if member == "raise" && self.current_token == Token::Symbol('(') {
                                 self.next_token(); // consume '('
                                 if self.current_token != Token::Symbol(')') {
                                     return Err(CompileError::SyntaxError(
@@ -602,8 +684,36 @@ impl<'a> Parser<'a> {
                     };
                     self.next_token();
                     
-                    // Check for method call
-                    if self.current_token == Token::Symbol('(') {
+                    // Check for pointer-specific operations and method calls
+                    if member == "val" {
+                        // Pointer dereference: ptr.val
+                        expr = Expression::PointerDereference(Box::new(expr));
+                    } else if member == "addr" {
+                        // Pointer address: expr.addr
+                        expr = Expression::PointerAddress(Box::new(expr));
+                    } else if member == "ref" && self.current_token == Token::Symbol('(') {
+                        // Reference creation: expr.ref()
+                        self.next_token(); // consume '('
+                        if self.current_token != Token::Symbol(')') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ')' after '.ref('".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume ')'
+                        expr = Expression::CreateReference(Box::new(expr));
+                    } else if member == "mut_ref" && self.current_token == Token::Symbol('(') {
+                        // Mutable reference creation: expr.mut_ref()
+                        self.next_token(); // consume '('
+                        if self.current_token != Token::Symbol(')') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ')' after '.mut_ref('".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume ')'
+                        expr = Expression::CreateMutableReference(Box::new(expr));
+                    } else if self.current_token == Token::Symbol('(') {
                         return self.parse_call_expression_with_object(expr, member);
                     } else {
                         expr = Expression::MemberAccess {
@@ -833,8 +943,36 @@ impl<'a> Parser<'a> {
                     };
                     self.next_token();
                     
-                    // Check for method call
-                    if self.current_token == Token::Symbol('(') {
+                    // Check for pointer-specific operations and method calls
+                    if member == "val" {
+                        // Pointer dereference: ptr.val
+                        expr = Expression::PointerDereference(Box::new(expr));
+                    } else if member == "addr" {
+                        // Pointer address: expr.addr
+                        expr = Expression::PointerAddress(Box::new(expr));
+                    } else if member == "ref" && self.current_token == Token::Symbol('(') {
+                        // Reference creation: expr.ref()
+                        self.next_token(); // consume '('
+                        if self.current_token != Token::Symbol(')') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ')' after '.ref('".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume ')'
+                        expr = Expression::CreateReference(Box::new(expr));
+                    } else if member == "mut_ref" && self.current_token == Token::Symbol('(') {
+                        // Mutable reference creation: expr.mut_ref()
+                        self.next_token(); // consume '('
+                        if self.current_token != Token::Symbol(')') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ')' after '.mut_ref('".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token(); // consume ')'
+                        expr = Expression::CreateMutableReference(Box::new(expr));
+                    } else if self.current_token == Token::Symbol('(') {
                         return self.parse_call_expression_with_object(expr, member);
                     } else {
                         expr = Expression::MemberAccess {
@@ -1236,5 +1374,162 @@ impl<'a> Parser<'a> {
             // No interpolation found, return a simple string
             Ok(Expression::String(input))
         }
+    }
+    
+    /// Parse Vec<T, size>() constructor
+    fn parse_vec_constructor(&mut self) -> Result<Expression> {
+        // Consume '<'
+        self.next_token();
+        
+        // Parse element type
+        let element_type = self.parse_type()?;
+        
+        // Expect comma
+        if self.current_token != Token::Symbol(',') {
+            return Err(CompileError::SyntaxError(
+                "Expected ',' after element type in Vec<T, size>".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Parse size (must be integer literal)
+        let size = match &self.current_token {
+            Token::Integer(size_str) => {
+                size_str.parse::<usize>().map_err(|_| {
+                    CompileError::SyntaxError(
+                        format!("Invalid Vec size: {}", size_str),
+                        Some(self.current_span.clone()),
+                    )
+                })?
+            }
+            _ => {
+                return Err(CompileError::SyntaxError(
+                    "Expected integer literal for Vec size".to_string(),
+                    Some(self.current_span.clone()),
+                ));
+            }
+        };
+        self.next_token();
+        
+        // Expect '>'
+        if self.current_token != Token::Operator(">".to_string()) {
+            return Err(CompileError::SyntaxError(
+                "Expected '>' after Vec size".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Expect '()'
+        if self.current_token != Token::Symbol('(') {
+            return Err(CompileError::SyntaxError(
+                "Expected '(' after Vec<T, size>".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Parse optional initial values
+        let initial_values = if self.current_token == Token::Symbol(')') {
+            None
+        } else {
+            let mut values = vec![];
+            loop {
+                values.push(self.parse_expression()?);
+                
+                if self.current_token == Token::Symbol(')') {
+                    break;
+                } else if self.current_token == Token::Symbol(',') {
+                    self.next_token();
+                } else {
+                    return Err(CompileError::SyntaxError(
+                        "Expected ',' or ')' in Vec constructor arguments".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+            }
+            Some(values)
+        };
+        
+        if self.current_token != Token::Symbol(')') {
+            return Err(CompileError::SyntaxError(
+                "Expected ')' after Vec constructor arguments".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        Ok(Expression::VecConstructor {
+            element_type,
+            size,
+            initial_values,
+        })
+    }
+    
+    /// Parse DynVec<T>() or DynVec<T1, T2, ...>() constructor
+    fn parse_dynvec_constructor(&mut self) -> Result<Expression> {
+        // Consume '<'
+        self.next_token();
+        
+        // Parse element types (can be multiple for mixed variant vectors)
+        let mut element_types = vec![];
+        loop {
+            element_types.push(self.parse_type()?);
+            
+            if self.current_token == Token::Operator(">".to_string()) {
+                break;
+            } else if self.current_token == Token::Symbol(',') {
+                self.next_token();
+            } else {
+                return Err(CompileError::SyntaxError(
+                    "Expected ',' or '>' in DynVec type arguments".to_string(),
+                    Some(self.current_span.clone()),
+                ));
+            }
+        }
+        
+        // Expect '>'
+        if self.current_token != Token::Operator(">".to_string()) {
+            return Err(CompileError::SyntaxError(
+                "Expected '>' after DynVec type arguments".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Expect '('
+        if self.current_token != Token::Symbol('(') {
+            return Err(CompileError::SyntaxError(
+                "Expected '(' after DynVec<T>".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Parse allocator expression (required)
+        let allocator = self.parse_expression()?;
+        
+        // Parse optional initial capacity
+        let initial_capacity = if self.current_token == Token::Symbol(',') {
+            self.next_token();
+            Some(Box::new(self.parse_expression()?))
+        } else {
+            None
+        };
+        
+        if self.current_token != Token::Symbol(')') {
+            return Err(CompileError::SyntaxError(
+                "Expected ')' after DynVec constructor arguments".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        Ok(Expression::DynVecConstructor {
+            element_types,
+            allocator: Box::new(allocator),
+            initial_capacity,
+        })
     }
 }

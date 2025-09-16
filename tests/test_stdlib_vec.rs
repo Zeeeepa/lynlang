@@ -238,7 +238,7 @@ fn test_vec_compilation_basic() {
     
     let printf_decl = Declaration::ExternalFunction(ExternalFunction {
         name: "printf".to_string(),
-        args: vec![AstType::Pointer(Box::new(AstType::I8))],
+        args: vec![AstType::Ptr(Box::new(AstType::I8))],
         return_type: AstType::I32,
         is_varargs: true,
     });

@@ -212,12 +212,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // For non-void functions, treat trailing expressions as return values
                             if !matches!(function.return_type, AstType::Void) {
                                 let value = self.compile_expression(expr)?;
+                                // Execute deferred expressions before returning
+                                self.execute_deferred_expressions()?;
                                 // Cast to the correct return type if needed
                                 let return_type = self.to_llvm_type(&function.return_type)?;
                                 let return_basic_type = self.expect_basic_type(return_type)?;
                                 let casted_value = self.cast_value_to_type(value, return_basic_type)?;
                                 self.builder.build_return(Some(&casted_value))?;
                             } else {
+                                // Execute deferred expressions before returning
+                                self.execute_deferred_expressions()?;
                                 // For void functions, special case for main
                                 if function.name == "main" {
                                     let zero = self.context.i32_type().const_int(0, false);
@@ -234,6 +238,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 if let Some(ast::Statement::Expression(expr)) = statements.last() {
                                     // Evaluate the comptime expression and return it
                                     let value = self.compile_expression(&ast::Expression::Comptime(Box::new(expr.clone())))?;
+                                    // Execute deferred expressions before returning
+                                    self.execute_deferred_expressions()?;
                                     // Cast to the correct return type if needed
                                     let return_type = self.to_llvm_type(&function.return_type)?;
                                     let return_basic_type = self.expect_basic_type(return_type)?;
@@ -243,6 +249,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     return Err(CompileError::MissingReturnStatement(function.name.clone(), None));
                                 }
                             } else {
+                                // Execute deferred expressions before returning
+                                self.execute_deferred_expressions()?;
                                 // For void functions, special case for main
                                 if function.name == "main" {
                                     let zero = self.context.i32_type().const_int(0, false);
@@ -255,6 +263,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         _ => {
                             // Not a trailing expression, handle normally
                             if let AstType::Void = function.return_type {
+                                // Execute deferred expressions before returning
+                                self.execute_deferred_expressions()?;
                                 // Special case for main function - return 0
                                 if function.name == "main" {
                                     let zero = self.context.i32_type().const_int(0, false);
@@ -270,6 +280,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     // No statements in function body
                     if let AstType::Void = function.return_type {
+                        // Execute deferred expressions before returning
+                        self.execute_deferred_expressions()?;
                         // Special case for main function - return 0
                         if function.name == "main" {
                             let zero = self.context.i32_type().const_int(0, false);

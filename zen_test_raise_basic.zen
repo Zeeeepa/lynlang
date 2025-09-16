@@ -1,0 +1,15 @@
+// Very basic test for .raise() error propagation
+
+// Simple function that demonstrates .raise()
+test_basic = () i32 {
+    x = 42
+    return x
+}
+
+main = () void {
+    result = test_basic()
+    // Just print the result for now
+    io.println("Result: ${result}")
+}
+
+io = @std

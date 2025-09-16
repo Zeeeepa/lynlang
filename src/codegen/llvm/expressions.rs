@@ -2,6 +2,7 @@ use super::{LLVMCompiler, symbols};
 use crate::ast::Expression;
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, BasicValue, PointerValue};
+use inkwell::types::BasicType;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_expression(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
@@ -73,6 +74,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::PointerOffset { pointer, offset } => {
                 self.compile_pointer_offset(pointer, offset)
+            }
+            // Zen spec pointer operations
+            Expression::PointerDereference(expr) => {
+                // Same as regular dereference, but more explicit in intent
+                self.compile_dereference(expr)
+            }
+            Expression::PointerAddress(expr) => {
+                // Same as address-of, but for getting address from pointer
+                self.compile_address_of(expr)
+            }
+            Expression::CreateReference(expr) => {
+                // Create an immutable reference (Ptr<T>)
+                self.compile_address_of(expr)
+            }
+            Expression::CreateMutableReference(expr) => {
+                // Create a mutable reference (MutPtr<T>)
+                self.compile_address_of(expr)
             }
             Expression::StructLiteral { name, fields } => {
                 self.compile_struct_literal(name, fields)
@@ -225,9 +243,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(self.context.i32_type().const_int(0, false).into())
             }
             Expression::Raise(expr) => {
-                // .raise() propagates errors early - for now just compile the inner expression
-                // TODO: Implement proper error propagation semantics
-                self.compile_expression(expr)
+                // .raise() propagates errors early by transforming to pattern matching:
+                // expr.raise() becomes:
+                // expr ? 
+                //     | .Ok(val) { val }
+                //     | .Err(e) { return .Err(e) }
+                self.compile_raise_expression(expr)
             }
             Expression::Break { label: _ } => {
                 // Break out of the current loop
@@ -254,6 +275,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     Err(CompileError::InternalError("Continue outside of loop".to_string(), None))
                 }
+            }
+            Expression::VecConstructor { element_type, size, initial_values } => {
+                self.compile_vec_constructor(element_type, *size, initial_values.as_ref())
+            }
+            Expression::DynVecConstructor { element_types, allocator, initial_capacity } => {
+                self.compile_dynvec_constructor(element_types, allocator, initial_capacity.as_ref().map(|v| &**v))
             }
         }
     }
@@ -968,5 +995,245 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Return void value
         Ok(self.context.i32_type().const_int(0, false).into())
+    }
+    
+    /// Compile Vec<T, size>() constructor
+    fn compile_vec_constructor(
+        &mut self, 
+        element_type: &crate::ast::AstType, 
+        size: usize, 
+        initial_values: Option<&Vec<Expression>>
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Get element LLVM type
+        let elem_llvm_type = self.to_llvm_type(element_type)?;
+        let elem_basic_type = self.expect_basic_type(elem_llvm_type)?;
+        
+        // Create the Vec struct type: { [T; size], i64 }
+        let array_type = elem_basic_type.array_type(size as u32);
+        let len_type = self.context.i64_type();
+        let vec_struct_type = self.context.struct_type(&[
+            array_type.into(),
+            len_type.into(),
+        ], false);
+        
+        // Allocate the Vec on the stack
+        let vec_ptr = self.builder.build_alloca(vec_struct_type, "vec")?;
+        
+        // Initialize the length field
+        let initial_len = if let Some(values) = initial_values {
+            values.len() as u64
+        } else {
+            0
+        };
+        let len_field_ptr = self.builder.build_struct_gep(vec_struct_type, vec_ptr, 1, "len_field")?;
+        let len_value = len_type.const_int(initial_len, false);
+        self.builder.build_store(len_field_ptr, len_value)?;
+        
+        // Initialize the array data
+        let array_field_ptr = self.builder.build_struct_gep(vec_struct_type, vec_ptr, 0, "array_field")?;
+        
+        if let Some(values) = initial_values {
+            // Initialize with provided values
+            for (i, value_expr) in values.iter().enumerate() {
+                let value = self.compile_expression(value_expr)?;
+                let element_ptr = unsafe { 
+                    self.builder.build_gep(array_type, array_field_ptr, &[
+                        self.context.i32_type().const_int(i as u64, false)
+                    ], &format!("elem_{}", i))?
+                };
+                self.builder.build_store(element_ptr, value)?;
+            }
+        } else {
+            // Initialize with default values (zero)
+            let zero_value: BasicValueEnum = match elem_basic_type {
+                inkwell::types::BasicTypeEnum::IntType(int_type) => int_type.const_int(0, false).into(),
+                inkwell::types::BasicTypeEnum::FloatType(float_type) => float_type.const_float(0.0).into(),
+                inkwell::types::BasicTypeEnum::PointerType(ptr_type) => ptr_type.const_null().into(),
+                _ => return Err(CompileError::UnsupportedFeature("Unsupported element type for Vec initialization".to_string(), None)),
+            };
+            
+            for i in 0..size {
+                let element_ptr = unsafe { 
+                    self.builder.build_gep(array_type, array_field_ptr, &[
+                        self.context.i32_type().const_int(i as u64, false)
+                    ], &format!("elem_{}", i))?
+                };
+                self.builder.build_store(element_ptr, zero_value)?;
+            }
+        }
+        
+        // Load and return the Vec struct value
+        Ok(self.builder.build_load(vec_struct_type, vec_ptr, "vec_value")?)
+    }
+    
+    /// Compile DynVec<T>() or DynVec<T1, T2, ...>() constructor
+    fn compile_dynvec_constructor(
+        &mut self,
+        element_types: &[crate::ast::AstType],
+        allocator: &Expression,
+        initial_capacity: Option<&Expression>
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Compile allocator expression
+        let _allocator_value = self.compile_expression(allocator)?;
+        
+        // Get initial capacity (default to 8 if not specified)
+        let capacity_value = if let Some(cap_expr) = initial_capacity {
+            self.compile_expression(cap_expr)?
+        } else {
+            self.context.i64_type().const_int(8, false).into()
+        };
+        
+        let capacity_int = match capacity_value {
+            BasicValueEnum::IntValue(int_val) => int_val,
+            _ => return Err(CompileError::TypeError("DynVec capacity must be integer".to_string(), None)),
+        };
+        
+        // Create DynVec struct based on element types
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let len_type = self.context.i64_type();
+        let cap_type = self.context.i64_type();
+        
+        let dynvec_struct_type = if element_types.len() == 1 {
+            // Single type DynVec: { ptr, len, capacity }
+            self.context.struct_type(&[
+                ptr_type.into(),
+                len_type.into(), 
+                cap_type.into(),
+            ], false)
+        } else {
+            // Mixed variant DynVec: { ptr, len, capacity, discriminants }
+            let discriminant_ptr = self.context.ptr_type(inkwell::AddressSpace::default());
+            self.context.struct_type(&[
+                ptr_type.into(),
+                len_type.into(),
+                cap_type.into(),
+                discriminant_ptr.into(),
+            ], false)
+        };
+        
+        // Allocate the DynVec on the stack
+        let dynvec_ptr = self.builder.build_alloca(dynvec_struct_type, "dynvec")?;
+        
+        // Initialize data pointer to null initially
+        let data_field_ptr = self.builder.build_struct_gep(dynvec_struct_type, dynvec_ptr, 0, "data_field")?;
+        let null_ptr = ptr_type.const_null();
+        self.builder.build_store(data_field_ptr, null_ptr)?;
+        
+        // Initialize length to 0
+        let len_field_ptr = self.builder.build_struct_gep(dynvec_struct_type, dynvec_ptr, 1, "len_field")?;
+        let len_zero = len_type.const_int(0, false);
+        self.builder.build_store(len_field_ptr, len_zero)?;
+        
+        // Initialize capacity
+        let cap_field_ptr = self.builder.build_struct_gep(dynvec_struct_type, dynvec_ptr, 2, "cap_field")?;
+        self.builder.build_store(cap_field_ptr, capacity_int)?;
+        
+        // For mixed variant DynVec, initialize discriminants pointer to null
+        if element_types.len() > 1 {
+            let discriminant_field_ptr = self.builder.build_struct_gep(dynvec_struct_type, dynvec_ptr, 3, "discriminant_field")?;
+            self.builder.build_store(discriminant_field_ptr, null_ptr)?;
+        }
+        
+        // TODO: Actually allocate memory using the allocator
+        // For now, we'll just create the struct with null pointers
+        // In a complete implementation, we would:
+        // 1. Call the allocator to get memory
+        // 2. Store the pointer in the data field
+        // 3. For mixed variants, allocate discriminant array
+        
+        // Load and return the DynVec struct value
+        Ok(self.builder.build_load(dynvec_struct_type, dynvec_ptr, "dynvec_value")?)
+    }
+
+    /// Compile .raise() expression by transforming it into pattern matching
+    fn compile_raise_expression(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Generate a unique ID for this raise to avoid block name collisions
+        static mut RAISE_ID: u32 = 0;
+        let raise_id = unsafe {
+            RAISE_ID += 1;
+            RAISE_ID
+        };
+
+        let parent_function = self.current_function
+            .ok_or_else(|| CompileError::InternalError("No current function for .raise()".to_string(), None))?;
+
+        // Compile the expression that returns a Result
+        let result_value = self.compile_expression(expr)?;
+
+        // For simplicity, we'll assume Result is represented as a struct with:
+        // - tag: i8 (0 = Ok, 1 = Err)  
+        // - data: union of Ok and Err types
+        // In a complete implementation, this would be determined by the type system
+        
+        // Create blocks for pattern matching
+        let check_bb = self.context.append_basic_block(parent_function, &format!("raise_check_{}", raise_id));
+        let ok_bb = self.context.append_basic_block(parent_function, &format!("raise_ok_{}", raise_id));
+        let err_bb = self.context.append_basic_block(parent_function, &format!("raise_err_{}", raise_id));
+        let continue_bb = self.context.append_basic_block(parent_function, &format!("raise_continue_{}", raise_id));
+        
+        // Jump to check block
+        self.builder.build_unconditional_branch(check_bb)?;
+        self.builder.position_at_end(check_bb);
+        
+        // Extract the tag from the Result struct
+        // TODO: This is a simplified implementation. In practice, we'd need to:
+        // 1. Get the actual Result type from the type system
+        // 2. Handle the specific layout (enum discriminant + payload)
+        // 3. Support different Result<T,E> instantiations
+        
+        // For now, assume a simple tagged union representation
+        let result_struct_type = result_value.get_type();
+        if let inkwell::types::BasicTypeEnum::StructType(struct_type) = result_struct_type {
+            // Extract tag field (first field)
+            let tag_ptr = self.builder.build_struct_gep(struct_type, result_value.into_pointer_value(), 0, "tag_ptr")?;
+            let tag_value = self.builder.build_load(self.context.i8_type(), tag_ptr, "tag")?;
+            
+            // Compare tag with 0 (Ok)
+            let is_ok = self.builder.build_int_compare(
+                inkwell::IntPredicate::EQ,
+                tag_value.into_int_value(),
+                self.context.i8_type().const_int(0, false),
+                "is_ok"
+            )?;
+            
+            // Branch based on tag
+            self.builder.build_conditional_branch(is_ok, ok_bb, err_bb)?;
+            
+            // Handle Ok case
+            self.builder.position_at_end(ok_bb);
+            // Extract the Ok value from the union (second field)
+            let value_ptr = self.builder.build_struct_gep(struct_type, result_value.into_pointer_value(), 1, "value_ptr")?;
+            // TODO: Load the correct type based on the Result<T,E> instantiation
+            let ok_value = self.builder.build_load(self.context.i32_type(), value_ptr, "ok_value")?;
+            self.builder.build_unconditional_branch(continue_bb)?;
+            
+            // Handle Err case - generate early return
+            self.builder.position_at_end(err_bb);
+            // Extract the Err value
+            let err_value_ptr = self.builder.build_struct_gep(struct_type, result_value.into_pointer_value(), 1, "err_value_ptr")?;
+            let err_value = self.builder.build_load(self.context.i32_type(), err_value_ptr, "err_value")?;
+            
+            // Create a new Result with Err tag for early return
+            let return_result_ptr = self.builder.build_alloca(struct_type, "return_result")?;
+            let return_tag_ptr = self.builder.build_struct_gep(struct_type, return_result_ptr, 0, "return_tag_ptr")?;
+            let return_value_ptr = self.builder.build_struct_gep(struct_type, return_result_ptr, 1, "return_value_ptr")?;
+            
+            // Set tag to 1 (Err)
+            self.builder.build_store(return_tag_ptr, self.context.i8_type().const_int(1, false))?;
+            // Store the error value
+            self.builder.build_store(return_value_ptr, err_value)?;
+            
+            // Load the complete Result and return it
+            let return_result = self.builder.build_load(struct_type, return_result_ptr, "return_result")?;
+            self.builder.build_return(Some(&return_result))?;
+            
+            // Continue with Ok case
+            self.builder.position_at_end(continue_bb);
+            Ok(ok_value)
+        } else {
+            // Fallback: if we can't determine the Result structure, just return the value
+            // This should not happen with proper type checking
+            Ok(result_value)
+        }
     }
 } 

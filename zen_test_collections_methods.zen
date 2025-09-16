@@ -1,0 +1,186 @@
+// Test for collection methods: .push(), .loop(), .deinit()
+// Based on examples from LANGUAGE_SPEC.zen
+
+{ io, GPA } = @std
+
+// Test entities for method testing
+GameEntity: .Player | .Enemy | .Powerup
+
+// Define UFC overloads for GameEntity variants (from spec)
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+get_speed = (e: GameEntity.Player) f64 { return 5.0 }
+get_speed = (e: GameEntity.Enemy) f64 { return 3.0 }
+get_speed = (e: GameEntity.Powerup) f64 { return 0.0 }
+
+// Test shapes for collection methods
+Point: {
+    x: f64,
+    y: f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+Shape: Circle, Rectangle
+
+// Mock area calculation for shapes
+area = (c: Circle) f64 {
+    return 3.14159 * c.radius * c.radius
+}
+
+area = (r: Rectangle) f64 {
+    width = r.bottom_right.x - r.top_left.x
+    height = r.bottom_right.y - r.top_left.y
+    return width * height
+}
+
+test_vec_push_method = () void {
+    // Test .push() on Vec<T, size>
+    shapes = Vec<Shape, 100>()
+    
+    // Create test shapes
+    circle = Circle { 
+        center: Point { x: 0.0, y: 0.0 }, 
+        radius: 10.0 
+    }
+    
+    // TODO: This should work when .push() is implemented
+    // shapes.push(circle)
+    
+    io.println("Vec<Shape, 100> push test prepared")
+}
+
+test_dynvec_push_method = () void {
+    sync_alloc = GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    // Mixed type vector from LANGUAGE_SPEC.zen
+    entities = DynVec<GameEntity.Player, GameEntity.Enemy>(sync_alloc.allocator())
+    @this.defer(entities.deinit())
+    
+    // TODO: This should work when .push() is implemented
+    // entities.push(GameEntity.Player)
+    // entities.push(GameEntity.Enemy)
+    // entities.push(GameEntity.Player)
+    
+    io.println("Mixed variant DynVec push test prepared")
+}
+
+test_loop_method_entities = () void {
+    sync_alloc = GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    entities = DynVec<GameEntity.Player, GameEntity.Enemy>(sync_alloc.allocator())
+    @this.defer(entities.deinit())
+    
+    // TODO: This should work when .push() and .loop() are implemented
+    // From LANGUAGE_SPEC.zen example:
+    // entities.push(GameEntity.Player)
+    // entities.push(GameEntity.Enemy)
+    // entities.push(GameEntity.Player)
+    
+    // Loop over mixed types with pattern matching
+    // entities.loop((entity) {
+    //     entity ?
+    //         | .Player { 
+    //             io.println("Player health: ${entity.get_health()}")
+    //             io.println("Player speed: ${entity.get_speed()}")
+    //         }
+    //         | .Enemy { 
+    //             io.println("Enemy health: ${entity.get_health()}")
+    //             io.println("Enemy speed: ${entity.get_speed()}")
+    //         }
+    // })
+    
+    io.println("Entity loop test prepared")
+}
+
+test_loop_method_shapes = () void {
+    sync_alloc = GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    // Another example with inline types from LANGUAGE_SPEC.zen
+    mixed_items = DynVec<Circle, Rectangle>(sync_alloc.allocator())
+    @this.defer(mixed_items.deinit())
+    
+    // TODO: This should work when methods are implemented
+    // mixed_items.push(Circle { center: Point { x: 0, y: 0 }, radius: 5 })
+    // mixed_items.push(Rectangle { 
+    //     top_left: Point { x: 0, y: 0 }, 
+    //     bottom_right: Point { x: 10, y: 10 } 
+    // })
+    
+    // Pattern match directly on the type variants (from spec)
+    // mixed_items.loop((item) {
+    //     item ?
+    //         | Circle { io.println("Circle area: ${item.area()}") }
+    //         | Rectangle { io.println("Rectangle area: ${item.area()}") }
+    // })
+    
+    io.println("Shape pattern matching loop test prepared")
+}
+
+test_loop_with_index = () void {
+    sync_alloc = GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    dynamic_shapes = DynVec<Shape>(sync_alloc.allocator())
+    @this.defer(dynamic_shapes.deinit())
+    
+    // TODO: This should work when methods are implemented
+    // Loop with index from LANGUAGE_SPEC.zen
+    // dynamic_shapes.loop((shape, i) {
+    //     io.println("Shape ${i}: ${shape.area()}")
+    // })
+    
+    io.println("Index loop test prepared")
+}
+
+test_deinit_method = () void {
+    sync_alloc = GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    // Test manual .deinit() vs @this.defer()
+    entities = DynVec<GameEntity.Player, GameEntity.Enemy>(sync_alloc.allocator())
+    
+    // Manual cleanup instead of defer
+    entities.deinit()
+    
+    io.println("Manual deinit test completed")
+}
+
+main = () void {
+    io.println("=== Testing Collection Methods ===")
+    
+    io.println("\n1. Testing Vec .push() method...")
+    test_vec_push_method()
+    
+    io.println("\n2. Testing DynVec .push() method...")
+    test_dynvec_push_method()
+    
+    io.println("\n3. Testing .loop() with entities...")
+    test_loop_method_entities()
+    
+    io.println("\n4. Testing .loop() with shapes...")
+    test_loop_method_shapes()
+    
+    io.println("\n5. Testing .loop() with index...")
+    test_loop_with_index()
+    
+    io.println("\n6. Testing .deinit() method...")
+    test_deinit_method()
+    
+    io.println("\n=== Collection Method Tests Completed ===")
+    io.println("Note: Many tests are prepared but commented out")
+    io.println("They will work once .push(), .loop(), and .deinit() methods are implemented")
+}

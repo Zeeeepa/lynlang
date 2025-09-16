@@ -1,0 +1,6 @@
+// Simple pointer test
+fn main() {
+    value: i32 = 42
+    ptr: Ptr<i32> = value.ref()
+    io.println("Pointer test complete")
+}

@@ -1,6 +1,0 @@
-// Simple test file to see what compiles
-main = () void {
-    x = 42
-    y: i32 = 10
-    z ::= 5  // mutable
-}

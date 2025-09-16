@@ -1,0 +1,5 @@
+// Test just a struct to see if basic parsing works
+Point: {
+    x: f64,
+    y: f64,
+}

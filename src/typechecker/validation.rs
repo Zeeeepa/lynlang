@@ -59,6 +59,22 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
         ) => {
             types_compatible(expected_ok, actual_ok) && types_compatible(expected_err, actual_err)
         }
+        // Check Option<T> compatibility using generic syntax
+        (
+            AstType::Generic { name: expected_name, type_args: expected_args },
+            AstType::Generic { name: actual_name, type_args: actual_args }
+        ) if expected_name == "Option" && actual_name == "Option" => {
+            expected_args.len() == actual_args.len() && 
+            expected_args.iter().zip(actual_args.iter()).all(|(e, a)| types_compatible(e, a))
+        }
+        // Check Result<T,E> compatibility using generic syntax
+        (
+            AstType::Generic { name: expected_name, type_args: expected_args },
+            AstType::Generic { name: actual_name, type_args: actual_args }
+        ) if expected_name == "Result" && actual_name == "Result" => {
+            expected_args.len() == actual_args.len() && 
+            expected_args.iter().zip(actual_args.iter()).all(|(e, a)| types_compatible(e, a))
+        }
         // Check range compatibility
         (
             AstType::Range { start_type: expected_start, end_type: expected_end, .. },
@@ -135,6 +151,7 @@ pub fn is_valid_condition_type(type_: &AstType) -> bool {
     matches!(type_, AstType::Bool)
         || type_.is_numeric()
         || matches!(type_, AstType::Option(_))
+        || matches!(type_, AstType::Generic { name, .. } if name == "Option")
 }
 
 /// Check if a type can be indexed
