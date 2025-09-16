@@ -1,0 +1,93 @@
+// Option and Result types for Zen
+// Core types for error handling and nullable values
+
+// Option type - no null in Zen!
+Option<T>: Some(T) | None
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Helper functions for Option
+option_is_some<T>(opt: Option<T>) bool {
+    opt ?
+        | Some(_) { return true }
+        | None { return false }
+}
+
+option_is_none<T>(opt: Option<T>) bool {
+    opt ?
+        | Some(_) { return false }
+        | None { return true }
+}
+
+option_unwrap<T>(opt: Option<T>) T {
+    opt ?
+        | Some(val) { return val }
+        | None { panic("Called unwrap on a None value") }
+}
+
+option_unwrap_or<T>(opt: Option<T>, default: T) T {
+    opt ?
+        | Some(val) { return val }
+        | None { return default }
+}
+
+option_map<T, U>(opt: Option<T>, f: (T) U) Option<U> {
+    opt ?
+        | Some(val) { return Some(f(val)) }
+        | None { return None }
+}
+
+// Helper functions for Result
+result_is_ok<T, E>(res: Result<T, E>) bool {
+    res ?
+        | Ok(_) { return true }
+        | Err(_) { return false }
+}
+
+result_is_err<T, E>(res: Result<T, E>) bool {
+    res ?
+        | Ok(_) { return false }
+        | Err(_) { return true }
+}
+
+result_unwrap<T, E>(res: Result<T, E>) T {
+    res ?
+        | Ok(val) { return val }
+        | Err(_) { panic("Called unwrap on an Err value") }
+}
+
+result_unwrap_err<T, E>(res: Result<T, E>) E {
+    res ?
+        | Ok(_) { panic("Called unwrap_err on an Ok value") }
+        | Err(err) { return err }
+}
+
+result_map<T, E, U>(res: Result<T, E>, f: (T) U) Result<U, E> {
+    res ?
+        | Ok(val) { return Ok(f(val)) }
+        | Err(err) { return Err(err) }
+}
+
+result_map_err<T, E, F>(res: Result<T, E>, f: (E) F) Result<T, F> {
+    res ?
+        | Ok(val) { return Ok(val) }
+        | Err(err) { return Err(f(err)) }
+}
+
+// Export module
+module.exports = {
+    Option: Option,
+    Result: Result,
+    option_is_some: option_is_some,
+    option_is_none: option_is_none,
+    option_unwrap: option_unwrap,
+    option_unwrap_or: option_unwrap_or,
+    option_map: option_map,
+    result_is_ok: result_is_ok,
+    result_is_err: result_is_err,
+    result_unwrap: result_unwrap,
+    result_unwrap_err: result_unwrap_err,
+    result_map: result_map,
+    result_map_err: result_map_err,
+}
