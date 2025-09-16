@@ -63,8 +63,8 @@ fn test_range_pattern() {
 #[test]
 fn test_enum_destructuring_pattern() {
     let code = r#"
-        result := value ? | .Ok -> val => process(val)
-                          | .Err -> err => handle_error(err)
+        result = value ? | Ok -> val => process(val)
+                          | Err -> err => handle_error(err)
     "#;
     
     let lexer = Lexer::new(code);
@@ -75,7 +75,7 @@ fn test_enum_destructuring_pattern() {
     
     // Verify pattern matching with enum destructuring
     if let Some(Declaration::Constant { value: Expression::Conditional { arms, .. }, .. }) = program.declarations.get(0) {
-        assert_eq!(arms.len(), 2); // Two arms: .Ok and .Err
+        assert_eq!(arms.len(), 2); // Two arms:.Ok and Err
     } else {
         panic!("Expected conditional expression in first declaration");
     }
@@ -84,9 +84,9 @@ fn test_enum_destructuring_pattern() {
 #[test]
 fn test_guard_pattern() {
     let code = r#"
-        result := value ? | v -> v > 100 => "large"
-                          | v -> v > 50 => "medium"
-                          | _ => "small"
+        result = value ? | Ok(v) { "large"
+                          | Err(v) { "medium"
+                          | _ { "small"
     "#;
     
     let lexer = Lexer::new(code);
@@ -106,8 +106,8 @@ fn test_guard_pattern() {
 #[test]
 fn test_multiple_patterns() {
     let code = r#"
-        day_type := day ? | 1 | 2 | 3 | 4 | 5 => "weekday"
-                          | 6 | 7 => "weekend"
+        day_type := day ? | 1 | 2 | 3 | 4 | 5 { "weekday"
+                          | 6 | 7 { "weekend"
                           | _ => "invalid"
     "#;
     
@@ -144,11 +144,12 @@ fn test_bool_pattern_short_form() {
 fn test_nested_pattern_matching() {
     let code = r#"
         result := outer ? 
-            | .Some -> inner => inner ? 
-                | 0 => "zero"
-                | 1 => "one"
-                | _ => "other"
-            | .None => "nothing"
+            | Some(inner) { inner ? 
+                | 0 { "zero" } 
+                | 1 { "one" }
+                | _ { "other" }
+            }
+            | None { "nothing" }
     "#;
     
     let lexer = Lexer::new(code);
@@ -162,8 +163,8 @@ fn test_nested_pattern_matching() {
 #[ignore] // TODO: Parser needs updates for pattern matching syntax per Language Spec v1.1.0
 fn test_struct_destructuring_pattern() {
     let code = r#"
-        result := point ? | { x -> xval, y -> yval } => format_point(xval, yval)
-                          | _ => "invalid"
+        result := point ? | { x(xval), y(yval) } { format_point(xval, yval)
+                          | _ { "invalid" }
     "#;
     
     let lexer = Lexer::new(code);
@@ -177,9 +178,9 @@ fn test_struct_destructuring_pattern() {
 #[ignore] // TODO: Parser needs updates for pattern matching syntax per Language Spec v1.1.0
 fn test_type_pattern() {
     let code = r#"
-        result := value ? | i32 -> n => format_int(n)
-                          | string -> s => format_string(s)
-                          | Point -> p => format_point(p)
+        result := value ? | i32(n) { format_int(n)
+                          | string(s) { format_string(s)
+                          | Point(p) { format_point(p)
                           | _ => "unknown"
     "#;
     
@@ -196,7 +197,7 @@ fn test_pattern_in_function() {
     let code = r#"
         factorial = (n: u64) u64 {
             n <= 1 ? 
-                | true => return 1
+                | true { return 1
                 | false => return n * factorial(n - 1)
         }
     "#;
@@ -213,15 +214,15 @@ fn test_pattern_in_function() {
 fn test_pattern_with_blocks() {
     let code = r#"
         x := value ? 
-            | 1 => {
+            | 1 { 
                 print("one")
                 calculate_one()
             }
-            | 2 => {
+            | 2 { 
                 print("two")
                 calculate_two()
             }
-            | _ => {
+            | _  {
                 print("other")
                 default_value()
             }

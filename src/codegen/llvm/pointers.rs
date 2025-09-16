@@ -10,10 +10,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_address_of(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
         match expr {
             Expression::Identifier(name) => {
-                let (alloca, ast_type) = self
+                let var_info = self
                     .variables
                     .get(name)
                     .ok_or_else(|| CompileError::UndeclaredVariable(name.clone(), None))?;
+                
+                let alloca = var_info.pointer;
+                let ast_type = &var_info.ast_type;
                 
                 // If the variable is already a pointer type, return it directly
                 if matches!(ast_type, AstType::Ptr(_)) {

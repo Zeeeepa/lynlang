@@ -7,23 +7,23 @@ use zen::ast::{Declaration, Statement, Expression};
 fn test_colorless_concurrent_function_with_allocator() {
     let code = r#"
         read_file = (path: string, alloc: Ptr<Allocator>) Result<Slice<u8>, Error> {
-            fd := fs.open(path) ? | .Ok -> f => f
-                                  | .Err -> e => return .Err(e)
+            fd := fs.open(path) ? | Ok(f) { f }
+                                  | Err(e) { return Err(e) }
             defer fs.close(fd)
             
             buffer := alloc.value.alloc([4096, u8])
             defer alloc.value.free(buffer)
             
             bytes_read := alloc.value.is_concurrent ?
-                | true => {
+                | true {
                     cont := alloc.value.suspend()
                     io.read_concurrent(fd, buffer, cont)
                 }
-                | false => {
+                | false {
                     io.read_sync(fd, buffer)
                 }
             
-            .Ok(buffer.slice(0, bytes_read))
+            Ok(buffer.slice(0, bytes_read))
         }
     "#;
     
@@ -268,8 +268,8 @@ fn test_concurrent_patterns_no_coloring() {
             send_result := conn.send(request, alloc)
             
             send_result ? 
-                | .Ok -> _ => conn.receive(alloc)
-                | .Err -> e => .Err(e)
+                | Ok { conn.receive(alloc) }
+                | Err(e) { Err(e) }
         }
         
         // Can be called with either sync or concurrent allocator

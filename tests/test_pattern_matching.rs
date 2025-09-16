@@ -51,8 +51,8 @@ fn test_parse_enum_pattern_match() {
     Result<T, E> = | Ok(value: T) | Err(error: E)
     
     handle_result = (r: Result<i32, string>) i32 {
-        r ? | .Ok -> val => val
-            | .Err -> _ => -1
+        r ? | Ok(val) { val }
+            | Err(_) { -1 }
     }
     "#;
     
@@ -262,8 +262,8 @@ fn test_parse_binding_patterns() {
     Option<T> = | Some(value: T) | None
     
     unwrap_or = (opt: Option<i32>, default: i32) i32 {
-        opt ? | .Some -> x => x
-              | .None => default
+        opt ? | Some(x) { x }
+              | None { default }
     }
     "#;
     

@@ -90,7 +90,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             
             // Not an enum, check if it's a variable
-            if let Some((alloca, var_type)) = self.variables.get(name) {
+            if let Some(var_info) = self.variables.get(name) {
+                let alloca = var_info.pointer;
+                let var_type = &var_info.ast_type;
                 // Handle pointer to struct (p.x where p is *Point)
                 if let AstType::Ptr(inner_type) = var_type {
                     // Check if it's a struct or a generic type that represents a struct
@@ -130,7 +132,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         
                         // Load the pointer value
                         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                        let struct_ptr = self.builder.build_load(ptr_type, *alloca, &format!("load_{}_ptr", name))?;
+                        let struct_ptr = self.builder.build_load(ptr_type, alloca, &format!("load_{}_ptr", name))?;
                         let struct_ptr = struct_ptr.into_pointer_value();
                         
                         // Build GEP to get field pointer
@@ -208,7 +210,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let field_ptr = unsafe {
                         self.builder.build_gep(
                             struct_info.llvm_type,
-                            *alloca,
+                            alloca,
                             &indices,
                             &format!("{}.{}", name, field)
                         )?
@@ -245,7 +247,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Now we need to find the struct type from the pointer
                 // This is a bit tricky - we need to look up the variable type
                 if let Expression::Identifier(ptr_name) = &**inner {
-                    if let Some((_, ptr_type)) = self.variables.get(ptr_name) {
+                    if let Some(var_info) = self.variables.get(ptr_name) {
+                        let ptr_type = &var_info.ast_type;
                         if let AstType::Ptr(inner_type) = ptr_type {
                             if let AstType::Struct { name: struct_name, .. } = &**inner_type {
                                 // Get struct type info
@@ -397,7 +400,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         match expr {
             Expression::Identifier(name) => {
                 // Look up the variable type
-                if let Some((_, var_type)) = self.variables.get(name) {
+                if let Some(var_info) = self.variables.get(name) {
+                    let var_type = &var_info.ast_type;
                     match var_type {
                         AstType::Struct { name: struct_name, .. } => Ok(struct_name.clone()),
                         AstType::Generic { name: type_name, .. } => {

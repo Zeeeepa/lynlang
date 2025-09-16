@@ -73,7 +73,7 @@ The extension provides comprehensive syntax highlighting for:
 - Variable declarations: `x = 42` (immutable), `y ::= 10` (mutable)
 - Type definitions: `Point: {x: f64, y: f64}`
 - Function definitions: `main = () i32 { ... }`
-- Enum definitions: `Status: .Ok | .Error`
+- Enum definitions: `Status: Ok | Error`
 - Pattern matching with `?` operator:
   ```zen
   value ?

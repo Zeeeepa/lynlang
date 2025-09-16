@@ -1,7 +1,7 @@
 use zen::lexer::Lexer;
 
 fn main() {
-    let code = "return .Err(42)";
+    let code = "return Err(42)";
     
     let mut lexer = Lexer::new(code);
     

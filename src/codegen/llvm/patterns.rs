@@ -510,7 +510,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     pub fn apply_pattern_bindings(
         &mut self,
         bindings: &[(String, BasicValueEnum<'ctx>)]
-    ) -> HashMap<String, (PointerValue<'ctx>, crate::ast::AstType)> {
+    ) -> HashMap<String, super::VariableInfo<'ctx>> {
         let mut saved = HashMap::new();
         
         for (name, value) in bindings {
@@ -541,7 +541,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 _ => crate::ast::AstType::I64,
             };
             
-            self.variables.insert(name.clone(), (alloca, ast_type));
+            self.variables.insert(name.clone(), super::VariableInfo {
+                pointer: alloca,
+                ast_type,
+                is_mutable: false,  // Pattern bindings are immutable
+            });
         }
         
         saved
@@ -549,7 +553,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     
     pub fn restore_variables(
         &mut self,
-        saved: HashMap<String, (PointerValue<'ctx>, crate::ast::AstType)>
+        saved: HashMap<String, super::VariableInfo<'ctx>>
     ) {
         for (name, value) in saved {
             self.variables.insert(name, value);

@@ -1,0 +1,185 @@
+// Zen Language Working Features Demo
+// Based on LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+// ============================================================================
+// 1. VARIABLE DECLARATIONS
+// ============================================================================
+
+test_variables = () void {
+    io.println("=== Variable Declarations ===")
+    
+    // Immutable variables
+    x = 10           // Immutable with inferred type
+    y: i32 = 20      // Immutable with explicit type
+    
+    // Mutable variables  
+    counter ::= 0    // Mutable with inferred type
+    value :: i32 = 100  // Mutable with explicit type
+    
+    io.print("x = ")
+    io.print_int(x)
+    io.println("")
+    
+    // Mutable variables can be changed
+    counter = counter + 1
+    io.print("counter after increment = ")
+    io.print_int(counter)
+    io.println("")
+}
+
+// ============================================================================
+// 2. ENUMS AND PATTERN MATCHING
+// ============================================================================
+
+// Simple enum
+Color: Red | Green | Blue
+
+// Generic enum (like Option)
+Option<T>: Some(T) | None
+
+test_enums = () void {
+    io.println("=== Enums and Pattern Matching ===")
+    
+    // Simple enum usage
+    c = Color.Red
+    c ?
+        | Red { io.println("Color is red") }
+        | Green { io.println("Color is green") }
+        | Blue { io.println("Color is blue") }
+    
+    // Generic enum with value
+    maybe = Option.Some(42)
+    maybe ?
+        | Some(val) {
+            io.print("Got value: ")
+            io.print_int(val)
+            io.println("")
+        }
+        | None { io.println("Got nothing") }
+}
+
+// ============================================================================
+// 3. STRUCTS
+// ============================================================================
+
+Point: {
+    x: i32,
+    y: i32
+}
+
+test_structs = () void {
+    io.println("=== Structs ===")
+    
+    p = Point { x: 10, y: 20 }
+    io.print("Point x = ")
+    io.print_int(p.x)
+    io.print(", y = ")
+    io.print_int(p.y)
+    io.println("")
+}
+
+// ============================================================================
+// 4. FUNCTIONS AND UFC
+// ============================================================================
+
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+double = (n: i32) i32 {
+    return n * 2
+}
+
+test_functions = () void {
+    io.println("=== Functions ===")
+    
+    result = add(5, 3)
+    io.print("5 + 3 = ")
+    io.print_int(result)
+    io.println("")
+    
+    doubled = double(7)
+    io.print("double(7) = ")
+    io.print_int(doubled)
+    io.println("")
+}
+
+// ============================================================================
+// 5. LOOPS
+// ============================================================================
+
+test_loops = () void {
+    io.println("=== Loops ===")
+    
+    // Range loop
+    io.println("Counting 0 to 4:")
+    (0..5).loop((i) {
+        io.print("  ")
+        io.print_int(i)
+        io.println("")
+    })
+    
+    // Infinite loop with break
+    io.println("Loop with break:")
+    counter ::= 0
+    loop(() {
+        io.print("  counter = ")
+        io.print_int(counter)
+        io.println("")
+        counter = counter + 1
+        (counter > 2) ? { break }
+    })
+}
+
+// ============================================================================
+// 6. BOOLEAN PATTERN MATCHING
+// ============================================================================
+
+test_conditionals = () void {
+    io.println("=== Boolean Pattern Matching ===")
+    
+    x = 10
+    is_positive = x > 0
+    
+    is_positive ?
+        | true { io.println("x is positive") }
+        | false { io.println("x is not positive") }
+    
+    // Single branch pattern
+    (x > 5) ? { io.println("x is greater than 5") }
+}
+
+// ============================================================================
+// MAIN - Run all tests
+// ============================================================================
+
+main = () void {
+    io.println("========================================")
+    io.println("    Zen Language Working Features Demo")
+    io.println("========================================")
+    io.println("")
+    
+    test_variables()
+    io.println("")
+    
+    test_enums()
+    io.println("")
+    
+    test_structs()
+    io.println("")
+    
+    test_functions()
+    io.println("")
+    
+    test_loops()
+    io.println("")
+    
+    test_conditionals()
+    io.println("")
+    
+    io.println("========================================")
+    io.println("    All tests completed successfully!")
+    io.println("========================================")
+}

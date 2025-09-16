@@ -1,0 +1,14 @@
+// Test immutable variable assignment error
+{ io } = @std
+
+main = () void {
+    // Create immutable variable with = 
+    counter = 42
+    io.print_int(counter)
+    io.println("")
+    
+    // This should fail - trying to modify immutable variable
+    counter = 100
+    io.print_int(counter)
+    io.println("")
+}

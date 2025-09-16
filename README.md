@@ -47,6 +47,13 @@ option ?
 ```zen
 Option<T>: Some(T) | None
 
+something :: Option<bool>
+
+something = true // is the same as explicitly saying some
+something = Some(true)
+
+something ? { io.print("true") }
+
 find_user = (id: i32) Option<User> {
     // Returns Option, never null
 }

@@ -195,7 +195,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let alloca = self.builder.build_alloca(basic_type, name)?;
             self.builder.build_store(alloca, param)?;
             // Register the parameter in the variables map
-            self.variables.insert(name.clone(), (alloca, type_.clone()));
+            self.variables.insert(name.clone(), super::VariableInfo {
+                pointer: alloca,
+                ast_type: type_.clone(),
+                is_mutable: false,  // Function parameters are immutable by default in Zen
+            });
         }
 
         for statement in &function.body {

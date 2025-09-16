@@ -30,7 +30,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_return(Some(&value))?;
                 Ok(())
             }
-            Statement::VariableDeclaration { name, type_, initializer, is_mutable: _, declaration_type: _ } => {
+            Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type: _ } => {
                 // Handle type inference or explicit type
                 // We may need to compile the expression for type inference, so save the value
                 let mut compiled_value: Option<BasicValueEnum> = None;
@@ -104,7 +104,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // Store the function pointer
                                     let func_ptr = function.as_global_value().as_pointer_value();
                                     self.builder.build_store(alloca, func_ptr).map_err(|e| CompileError::from(e))?;
-                                    self.variables.insert(name.clone(), (alloca, type_.clone()));
+                                    self.variables.insert(name.clone(), super::VariableInfo {
+                                        pointer: alloca,
+                                        ast_type: type_.clone(),
+                                        is_mutable: *is_mutable,
+                is_initialized: true,
+                                    });
                                     Ok(())
                                 } else {
                                     Err(CompileError::UndeclaredFunction(func_name.clone(), None))
@@ -119,7 +124,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // Compile the inner expression to get the alloca pointer
                                     match **inner_expr {
                                         Expression::Identifier(ref id) => {
-                                            let (inner_alloca, _) = self.variables.get(id).ok_or_else(|| CompileError::UndeclaredVariable(id.clone(), None))?;
+                                            let var_info = self.variables.get(id).ok_or_else(|| CompileError::UndeclaredVariable(id.clone(), None))?;
+                                let inner_alloca = var_info.pointer;
                                             inner_alloca.as_basic_value_enum()
                                         }
                                         _ => value.clone(),
@@ -128,7 +134,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 _ => value.clone(),
                             };
                             self.builder.build_store(alloca, ptr_value).map_err(|e| CompileError::from(e))?;
-                            self.variables.insert(name.clone(), (alloca, type_.clone()));
+                            self.variables.insert(name.clone(), super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: type_.clone(),
+                            is_mutable: *is_mutable,
+                is_initialized: true,
+                        });
                             Ok(())
                         } else {
                             // Regular value assignment
@@ -156,7 +167,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 _ => value,
                             };
                             self.builder.build_store(alloca, value).map_err(|e| CompileError::from(e))?;
-                            self.variables.insert(name.clone(), (alloca, type_.clone()));
+                            self.variables.insert(name.clone(), super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: type_.clone(),
+                            is_mutable: *is_mutable,
+                is_initialized: true,
+                        });
                             Ok(())
                         }
                     } else {
@@ -269,7 +285,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 _ => AstType::I64, // Default
                             }
                         };
-                        self.variables.insert(name.clone(), (alloca, inferred_type));
+                        self.variables.insert(name.clone(), super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: inferred_type,
+                            is_mutable: *is_mutable,
+                is_initialized: true,
+                        });
                         Ok(())
                     }
                 } else {
@@ -289,11 +310,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     self.builder.build_store(alloca, zero).map_err(|e| CompileError::from(e))?;
                     
                     if let Some(type_) = type_ {
-                        self.variables.insert(name.clone(), (alloca, type_.clone()));
+                        self.variables.insert(name.clone(), super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: type_.clone(),
+                            is_mutable: *is_mutable,
+                is_initialized: true,
+                        });
                         Ok(())
                     } else {
                         // For inferred types without initializer, default to i64
-                        self.variables.insert(name.clone(), (alloca, AstType::I64));
+                        self.variables.insert(name.clone(), super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: AstType::I64,
+                            is_mutable: *is_mutable,
+                is_initialized: true,
+                        });
                         Ok(())
                     }
                 }
@@ -391,7 +422,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 name: String::new(),
                             }
                         };
-                        self.variables.insert(name.clone(), (alloca, inferred_type));
+                        self.variables.insert(name.clone(), super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: inferred_type,
+                            is_mutable: false,  // Assignment with = creates immutable variables
+                        });
                     } else {
                         let llvm_type = self.to_llvm_type(&var_type)?;
                         let basic_type = match llvm_type {
@@ -402,12 +437,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         };
                         let alloca = self.builder.build_alloca(basic_type, name)?;
                         self.builder.build_store(alloca, init_value)?;
-                        self.variables.insert(name.clone(), (alloca, var_type));
+                        self.variables.insert(name.clone(), super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: var_type,
+                            is_mutable: false,  // Assignment with = creates immutable variables
+                        });
                     }
                     return Ok(());
                 }
                 
                 // Regular variable assignment to existing variable
+                // First check if the variable is mutable
+                if let Some(var_info) = self.variables.get(name) {
+                    if !var_info.is_mutable {
+                        return Err(CompileError::TypeError(
+                            format!("Cannot assign to immutable variable '{}'. Use '::=' to declare mutable variables.", name), 
+                            None
+                        ));
+                    }
+                }
+                
                 let (alloca, var_type) = self.get_variable(name)?;
                 let value = self.compile_expression(value)?;
                 let value = match (&value, &var_type) {
@@ -458,9 +507,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Handle struct field assignment (p.x = value where p might be a pointer)
                     if let Expression::Identifier(name) = &**object {
                         // Get the variable info (clone to avoid borrow issues)
-                        let var_info = self.variables.get(name).map(|(a, t)| (*a, t.clone()));
+                        let var_info = self.variables.get(name).cloned();
                         
-                        if let Some((alloca, var_type)) = var_info {
+                        if let Some(var_info) = var_info {
+                            let alloca = var_info.pointer;
+                            let var_type = var_info.ast_type;
                             // Handle pointer to struct (p.x = value where p is *Point)
                             if let AstType::Ptr(inner_type) = &var_type {
                                 // Check if inner type is a struct or a generic representing a struct
@@ -712,7 +763,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     ).map_err(|e| CompileError::from(e))?;
                     
                     // Register the variable
-                    self.variables.insert(name.clone(), (alloca, AstType::I64));
+                    self.variables.insert(name.clone(), super::VariableInfo {
+                        pointer: alloca,
+                        ast_type: AstType::I64,
+                        is_mutable: true,  // Loop variables are mutable
+                    });
                 }
                 
                 Ok(())

@@ -74,8 +74,8 @@ impl ZenServer {
                             help.push_str("\n\n🚫 Language Spec Violation: 'match' keyword\n");
                             help.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
                             help.push_str("Use '?' operator for pattern matching:\n\n");
-                            help.push_str("  value ? | .Ok -> x => process(x)\n");
-                            help.push_str("          | .Err -> e => handle_error(e)\n");
+                            help.push_str("  value ? | Ok(x) { process(x) }\n");
+                            help.push_str("          | Err(e) { handle_error(e) }\n");
                         } else if trimmed.starts_with("fn ") || trimmed.starts_with("func ") || trimmed.starts_with("function ") {
                             help.push_str("\n\n🚫 Language Spec Violation: function keywords\n");
                             help.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
