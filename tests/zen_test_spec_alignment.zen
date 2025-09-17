@@ -1,0 +1,27 @@
+// Test file to verify LANGUAGE_SPEC.zen features
+// This tests the core features according to the spec
+
+// Test 1: Basic imports (only @std and @this)
+{ io } = @std
+
+// Test 2: Basic function definition
+main = () void {
+    // Test 3: Variable declarations
+    x = 10            // immutable assignment
+    y = 20            // immutable without type
+    z :: i32          // mutable forward declaration
+    z = 30            // assignment
+    w ::= 40          // mutable assignment with inference
+    v :: i32 = 50     // mutable with type
+    
+    // Test 4: String literals and io output
+    io.println("Testing Zen language features")
+    
+    // Test 5: Basic arithmetic
+    sum = x + y
+    io.println("Sum: ${sum}")
+    
+    // Test 6: Mutable variable update
+    w = w + 10
+    io.println("Updated w: ${w}")
+}
