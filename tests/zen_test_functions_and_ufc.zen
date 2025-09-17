@@ -1,0 +1,76 @@
+// Function and UFC tests from LANGUAGE_SPEC.zen
+// Tests function definitions and Uniform Function Call
+
+{ io } = @std
+
+// Simple function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Function with mutable parameters
+increment = (x :: i32) void {
+    x = x + 1
+}
+
+// Generic function (line 184-187)
+print_value<T>(value: T) void {
+    io.println("Value: ${value}")
+}
+
+// UFC - can be called as method on first parameter
+double = (x: f64) f64 {
+    return x * 2.0
+}
+
+// Multiple overloads based on type (lines 174-181)
+get_name = (x: i32) string { return "integer" }
+get_name = (x: f64) string { return "float" }
+get_name = (x: string) string { return "string" }
+
+// Struct for UFC demonstration
+Vector: {
+    x: f64,
+    y: f64
+}
+
+// Functions that can be called as methods via UFC
+magnitude = (v: Vector) f64 {
+    return (v.x * v.x + v.y * v.y).sqrt()
+}
+
+normalize = (v :: Vector) void {
+    mag = v.magnitude()  // UFC call
+    v.x = v.x / mag
+    v.y = v.y / mag
+}
+
+main = () void {
+    // Regular function calls
+    sum = add(5, 3)
+    
+    // UFC - function called as method
+    value = 10.0
+    doubled = value.double()  // Same as double(value)
+    
+    // Generic function
+    print_value(42)
+    print_value("Hello")
+    print_value(3.14)
+    
+    // Overloaded functions
+    name1 = get_name(10)      // "integer"
+    name2 = get_name(3.14)     // "float"  
+    name3 = get_name("test")   // "string"
+    
+    // UFC with structs
+    v ::= Vector { x: 3.0, y: 4.0 }
+    mag = v.magnitude()        // UFC: magnitude(v)
+    v.normalize()              // UFC: normalize(v)
+    
+    // Chaining via UFC
+    result = 5.0
+        .double()              // 10.0
+        .double()              // 20.0
+        .double()              // 40.0
+}

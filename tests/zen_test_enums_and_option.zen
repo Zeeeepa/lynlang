@@ -1,0 +1,64 @@
+// Enum and Option type tests from LANGUAGE_SPEC.zen lines 109-110, 165
+// Tests enum definitions and Option<T> type
+
+// Option type - fundamental to Zen (no null!)
+Option<T>: Some(T) | None
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple enum
+Shape: Circle | Rectangle
+
+// Enum with different variant types
+GameEntity: Player | Enemy | Powerup
+
+main = () void {
+    // Option handling - no null!
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            // Use the value
+            radius = r
+        }
+        | None {
+            // Handle None case
+        }
+    
+    // Create None variant
+    nothing: Option<i32> = None
+    
+    // Result type usage
+    result: Result<i32, string> = Ok(42)
+    result ?
+        | Ok(val) {
+            // Use successful value
+            value = val
+        }
+        | Err(e) {
+            // Handle error
+        }
+    
+    // Simple enum usage
+    shape: Shape = Circle
+    shape ?
+        | Circle {
+            // Handle Circle variant
+        }
+        | Rectangle {
+            // Handle Rectangle variant
+        }
+    
+    // Game entity enum
+    entity: GameEntity = Player
+    entity ?
+        | Player {
+            // Player logic
+        }
+        | Enemy {
+            // Enemy logic
+        }
+        | Powerup {
+            // Powerup logic
+        }
+}

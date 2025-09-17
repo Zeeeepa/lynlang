@@ -1,0 +1,22 @@
+// Complete variable declaration test from LANGUAGE_SPEC.zen lines 298-306
+// Tests all variable declaration forms
+
+main = () void {
+    // Forward declaration (immutable)
+    x: i32
+    x = 10
+    
+    // Immutable assignments
+    y = 10                // Inferred type
+    z: i32 = 20          // With explicit type
+    
+    // Mutable forward declaration
+    w :: i32
+    w = 20
+    w = 25               // Reassignment allowed
+    
+    // Mutable assignments
+    v ::= 30             // Inferred type
+    u :: i32 = 40        // With explicit type
+    u = 45               // Reassignment allowed
+}

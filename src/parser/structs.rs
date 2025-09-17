@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{StructDefinition, StructField, AstType, Function, TypeParameter};
+use crate::ast::{StructDefinition, StructField, AstType, Function};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 

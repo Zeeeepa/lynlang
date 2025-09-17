@@ -1,0 +1,80 @@
+// Complete pattern matching tests from LANGUAGE_SPEC.zen
+// Tests the ? operator for all control flow
+
+main = () void {
+    // Boolean pattern matching (lines 352-361)
+    is_ready = true
+    is_ready ? {
+        // Single branch for true
+    }
+    
+    // Full boolean pattern match (if-else equivalent)
+    has_data = false
+    has_data ?
+        | true {
+            // Process data
+        }
+        | false {
+            // Wait for data
+        }
+    
+    // Pattern match on numbers
+    x = 42
+    x ?
+        | 0 {
+            // Zero case
+        }
+        | 42 {
+            // Specific value
+        }
+        | _ {
+            // Default case
+        }
+    
+    // Option pattern matching
+    maybe_value: Option<i32> = Some(10)
+    maybe_value ?
+        | Some(val) {
+            // Use val
+            result = val * 2
+        }
+        | None {
+            // Handle None
+            result = 0
+        }
+    
+    // Nested pattern matching
+    result: Result<Option<i32>, string> = Ok(Some(5))
+    result ?
+        | Ok(opt) {
+            opt ?
+                | Some(n) {
+                    // Have a value
+                    value = n
+                }
+                | None {
+                    // Ok but no value
+                    value = 0
+                }
+        }
+        | Err(msg) {
+            // Handle error
+            value = -1
+        }
+    
+    // Range pattern (conceptual - may need special handling)
+    score = 85
+    score ?
+        | 90..100 {
+            grade = "A"
+        }
+        | 80..90 {
+            grade = "B"  
+        }
+        | 70..80 {
+            grade = "C"
+        }
+        | _ {
+            grade = "F"
+        }
+}

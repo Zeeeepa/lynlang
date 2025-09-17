@@ -1,0 +1,41 @@
+// Struct tests from LANGUAGE_SPEC.zen lines 115-121
+// Tests struct definition and usage
+
+// Simple struct
+Point: {
+    x :: f64,      // Mutable field
+    y :: f64 = 0   // With default value
+}
+
+// Struct with immutable and mutable fields
+Circle: {
+    center: Point,  // Immutable field
+    radius: f64    // Immutable field  
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point
+}
+
+main = () void {
+    // Create struct instances
+    p1 = Point { x: 10.0, y: 20.0 }
+    p2 = Point { x: 5.0 }  // y uses default value
+    
+    // Mutable struct
+    p3 ::= Point { x: 0.0, y: 0.0 }
+    p3.x = 15.0  // Mutation allowed on mutable field
+    p3.y = 25.0
+    
+    // Nested structs
+    circle = Circle {
+        center: Point { x: 100.0, y: 100.0 },
+        radius: 50.0
+    }
+    
+    rect = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        bottom_right: Point { x: 50.0, y: 50.0 }
+    }
+}

@@ -278,7 +278,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // This is a simplification - in a full implementation we'd need to handle nested types
                     self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
                 },
-                AstType::Generic { name, .. } => {
+                AstType::Generic {  .. } => {
                     // For now, treat generic types as pointers
                     // In a full implementation, we'd need generic instantiation
                     self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()

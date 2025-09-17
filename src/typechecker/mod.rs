@@ -655,7 +655,7 @@ impl TypeChecker {
             Expression::StringLength(_) => {
                 Ok(AstType::I64)
             }
-            Expression::MethodCall { object, method, args } => {
+            Expression::MethodCall { object, method, args: _ } => {
                 // Implement UFC (Uniform Function Call)
                 // Any function can be called as a method: object.function(args) -> function(object, args)
                 

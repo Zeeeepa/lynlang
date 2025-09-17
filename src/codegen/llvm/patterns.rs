@@ -1,7 +1,7 @@
 use super::{LLVMCompiler, symbols};
 use crate::ast::Pattern;
 use crate::error::CompileError;
-use inkwell::values::{BasicValueEnum, IntValue, PointerValue};
+use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::IntPredicate;
 use std::collections::HashMap;
 
@@ -326,13 +326,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Search through all known enum types to find one with this variant
                     // This is a temporary solution - ideally we'd have type information
                     let mut variant_tag = None;
-                    let mut enum_info = None;
+                    let mut _enum_info = None;
                     
-                    for (name, symbol) in self.symbols.iter() {
+                    for (_name, symbol) in self.symbols.iter() {
                         if let symbols::Symbol::EnumType(info) = symbol {
                             if let Some(tag) = info.variant_indices.get(variant) {
                                 variant_tag = Some(*tag);
-                                enum_info = Some(info.clone());
+                                _enum_info = Some(info.clone());
                                 break;
                             }
                         }
