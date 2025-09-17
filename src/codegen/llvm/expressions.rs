@@ -2,7 +2,6 @@ use super::{LLVMCompiler, symbols};
 use crate::ast::Expression;
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, BasicValue, PointerValue};
-use inkwell::types::BasicType;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_expression(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {

@@ -1,0 +1,63 @@
+// Pointer tests from LANGUAGE_SPEC.zen lines 363-372
+// Tests explicit pointer types: Ptr<>, MutPtr<>, RawPtr<>
+
+{ io } = @std
+
+Point: {
+    x :: f64,
+    y :: f64
+}
+
+Circle: {
+    center: Point,
+    radius :: f64
+}
+
+main = () void {
+    // Create a circle (lines 364-372)
+    circle ::= Circle { 
+        center: Point { x: 100, y: 100 }, 
+        radius: 50 
+    }
+    
+    // Explicit pointer types - no * or &
+    circle_ptr: Ptr<Circle> = circle.ref()        // Immutable reference
+    circle_mut: MutPtr<Circle> = circle.mut_ref() // Mutable reference
+    
+    // Access via .val to dereference
+    io.println("Circle area: ${circle_ptr.val.area()}")
+    
+    // Mutation through mutable pointer
+    circle_mut.val.radius = 75
+    io.println("New area: ${circle_mut.val.area()}")
+    
+    // Get address
+    io.println("Address: ${circle_ptr.addr}")
+    
+    // Raw pointer for FFI/unsafe operations
+    raw_ptr: RawPtr<Circle> = circle.raw_ptr()
+    
+    // Pointer to struct field
+    center_ptr: Ptr<Point> = circle.center.ref()
+    io.println("Center X: ${center_ptr.val.x}")
+    
+    // Mutable pointer to field
+    radius_ptr: MutPtr<f64> = circle.radius.mut_ref()
+    radius_ptr.val = 100
+    
+    // Pointer arithmetic (for arrays/buffers)
+    buffer = [1, 2, 3, 4, 5]
+    buffer_ptr: RawPtr<i32> = buffer.raw_ptr()
+    
+    // Offset pointer
+    second_elem_ptr = buffer_ptr.offset(1)
+    third_elem_ptr = buffer_ptr.offset(2)
+    
+    // Function taking pointers
+    modify_circle = (c: MutPtr<Circle>) void {
+        c.val.radius = c.val.radius * 2
+    }
+    
+    modify_circle(circle.mut_ref())
+    io.println("Doubled radius: ${circle.radius}")
+}

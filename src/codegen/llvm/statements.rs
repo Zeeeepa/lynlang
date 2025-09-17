@@ -257,7 +257,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     _ => AstType::I64,
                                 }
                             }
-                        } else if let Expression::MemberAccess { object, member } = init_expr {
+                        } else if let Expression::MemberAccess { object, member: _ } = init_expr {
                             // Check if this is an enum variant access (e.g., GameEntity.Player)
                             if let Expression::Identifier(enum_name) = &**object {
                                 // Check if this identifier is an enum type
@@ -439,7 +439,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     fields: vec![], // Will be populated from struct_types if needed
                                 }
                             }
-                            Expression::MemberAccess { object, member } => {
+                            Expression::MemberAccess { object, member: _ } => {
                                 if let Expression::Identifier(enum_name) = &**object {
                                     // Check if this is an enum type
                                     if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {

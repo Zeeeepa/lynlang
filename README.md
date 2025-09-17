@@ -4,59 +4,48 @@ A revolutionary systems programming language that eliminates traditional keyword
 
 **LANGUAGE_SPEC.zen is the authoritative source** - All language features and syntax are defined in `LANGUAGE_SPEC.zen`
 
-**Current Status**: Rust-based Zen compiler with LLVM backend
-- ✅ **WORKING**: Core language features from LANGUAGE_SPEC.zen
-  - Variable declarations (immutable `=`, mutable `::=`, typed `: Type`)
-  - Structs with mutable (`::`) and immutable (`:`) fields
-  - Enums and Option types (`Option<T>: Some(T) | None`)
-  - Pattern matching with `?` operator
-  - Loops and ranges (`(0..10).loop()`, infinite `loop()`)
-  - Module imports (`@std`, destructuring `{ io } = @std`)
-  - Functions with UFC support
-- 🚧 **IN PROGRESS**: Advanced features
-  - Traits via `.implements()` and `.requires()`
-  - Generics and type parameters
-  - Compile-time metaprogramming
-  - Allocator-based async/sync
-  - String interpolation
-  - `.raise()` error propagation
+## 🎯 Core Philosophy
 
-## 🎯 Core Philosophy (from LANGUAGE_SPEC.zen)
+Zen's revolutionary design eliminates complexity through simplicity:
 
-Zen's revolutionary design principles:
-- **No keywords**: `if/else/while/for/match/async/await/impl/trait/class/interface/null` - none exist
+- **No keywords**: No `if/else/while/for/match/async/await/impl/trait/class/interface/null` 
 - **Only two @ symbols**: `@std` (standard library) and `@this` (current scope)
-- **Pattern matching with `?` operator**: All control flow through pattern matching
+- **Pattern matching with `?`**: All control flow through pattern matching
 - **UFC (Uniform Function Call)**: Any function callable as method
-- **Allocators determine sync/async**: No function coloring - behavior from allocator
+- **Allocator-based concurrency**: No function coloring - sync/async from allocator
 - **Explicit pointer types**: `Ptr<>`, `MutPtr<>`, `RawPtr<>` - no `*` or `&`
-- **No null/nil**: Only `Option<T>` with `.Some(T)` and `.None`
+- **No null/nil**: Only `Option<T>` with `Some(T)` and `None`
 - **No unions, no tuples**: Only structs and enums
-- **Assignment operators**: `=` (immutable), `::=` (mutable), `:` (type definition)
-- **Error propagation**: `.raise()` not exceptions
-- **Loops**: `loop()` for infinite, `.loop()` for collections, ranges like `(0..10)`
-- **Traits**: Via `.implements()` and `.requires()` from `@std.meta`
-- **Compile-time metaprogramming**: Full AST access
+- **Three assignment forms**: `=` (immutable), `::=` (mutable), `:` (type)
+- **Error propagation**: `.raise()` for automatic error propagation
+- **Modern loops**: `loop()` infinite, `.loop()` collections, `(0..10)` ranges
+- **Trait system**: `.implements()` and `.requires()` from `@std.meta`
+- **Metaprogramming**: Full compile-time AST access and modification
 
 ## 🚀 Quick Start
 
-### Building the Compiler
+### Installation
 
 ```bash
-# Build the Rust-based Zen compiler
+# Clone the repository
+git clone https://github.com/zenlang/zen
+cd zen
+
+# Build the compiler
 cargo build --release
 
-# Compile a Zen program
-cargo run --bin zen -- myprogram.zen -o output
+# Run a Zen program
+cargo run --bin zen -- examples/hello.zen
 
-# Run the generated executable
-./output
+# Compile to executable
+cargo run --bin zen -- examples/hello.zen -o hello
+./hello
 ```
 
-### Hello World (from LANGUAGE_SPEC.zen)
+### Hello World
 
 ```zen
-// Imports - only @std and @this are special
+// Only @std and @this are special
 { io } = @std
 
 main = () void {
@@ -64,200 +53,373 @@ main = () void {
 }
 ```
 
-## 📝 Language Examples (from LANGUAGE_SPEC.zen)
+## 📚 Language Features
 
-### Variable Declarations
+### Variables
 
 ```zen
-main = () void {
-    x: i32          // Forward declaration
-    x = 10          // Immutable assignment
-    y = 10          // Immutable (inferred type)
-    z: i32 = 20     // Immutable with type
-    
-    w :: i32        // Mutable forward declaration
-    w = 20          // Initial assignment
-    v ::= 30        // Mutable (inferred type)
-    u :: i32 = 40   // Mutable with type
-}
+// Immutable (default)
+x = 42              // Type inferred
+y: i32 = 42         // Type explicit
+
+// Mutable  
+count ::= 0         // Type inferred
+total :: i32 = 100  // Type explicit
+
+// Forward declaration
+z: i32              // Declare type
+z = 10              // Assign later
 ```
 
 ### Structs and Enums
 
 ```zen
-// Simple struct
+// Struct with mutable and immutable fields
 Point: {
     x :: f64,       // Mutable field
-    y :: f64 = 0    // With default value
+    y :: f64 = 0    // Default value
 }
 
-// Enum type (sum type)
+// Enum (sum type)
 Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
 
-// Using enums
+// Simple enum
 Shape: Circle | Rectangle
-
-main = () void {
-    // Create struct instances
-    circle = Circle { 
-        center: Point { x: 0, y: 0 }, 
-        radius: 5 
-    }
-    
-    // Option handling - no null!
-    maybe_radius: Option<f64> = Option.Some(5.5)
-    maybe_radius ?
-        | Some(r) {
-            // Use radius value r
-        }
-        | None {
-            // No radius provided
-        }
-}
 ```
 
-### Pattern Matching
+### Pattern Matching - The Only Control Flow
 
 ```zen
-// Boolean pattern matching
-is_ready = true
-is_ready ? { 
-    io.println("Starting!") 
-}
+// Boolean patterns (if-else replacement)
+is_ready ?
+    | true { start_game() }
+    | false { show_loading() }
 
-// Full pattern match
-has_data = false
-has_data ?
-    | true { process_data() }
-    | false { io.println("Waiting...") }
+// Option handling
+maybe_value: Option<i32> = Some(42)
+maybe_value ?
+    | Some(n) { io.println("Value: ${n}") }
+    | None { io.println("No value") }
 
-// Enum pattern matching
+// Enum matching
 shape ?
-    | Circle { io.println("It's a circle") }
-    | Rectangle { io.println("It's a rectangle") }
+    | Circle { draw_circle() }
+    | Rectangle { draw_rectangle() }
+
+// Number patterns
+score ?
+    | 90..100 { grade = "A" }
+    | 80..90 { grade = "B" }
+    | _ { grade = "F" }
 ```
 
 ### Loops and Ranges
 
 ```zen
-// Range iterations
+// Range iteration
 (0..10).loop((i) {
-    io.println("Count: ${i}")
+    io.println("Index: ${i}")
 })
 
 // Step ranges
-(0..100).step(10).loop((i) {
-    io.println("Step: ${i}")  // 0, 10, 20, ...
+(0..100).step(5).loop((n) {
+    io.println(n)  // 0, 5, 10, 15...
 })
 
-// Collection loops with UFC
-shapes.loop((shape) {
-    io.println("Area: ${shape.area()}")
+// Collection iteration with UFC
+numbers = [1, 2, 3, 4, 5]
+numbers.loop((n) {
+    io.println(n)
+})
+
+// With index
+items.loop((item, i) {
+    io.println("${i}: ${item}")
 })
 
 // Infinite loop
 counter ::= 0
 loop(() {
     counter = counter + 1
-    counter > 10 ?
-        | true { break }
-        | false { continue }
+    counter > 10 ? { break }
 })
 ```
 
-### Error Handling with Result
+### Functions and UFC
 
 ```zen
-Result<T, E>: Ok(T) | Err(E)
+// Simple function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
 
-// Error propagation with .raise()
-load_config = (path: string) Result<Config, Error> {
-    file = File.open(path).raise()     // Returns early if Err
-    contents = file.read_all().raise()  // Propagates errors
-    config = json.parse(contents).raise()
-    return Ok(config)
+// UFC - call as method
+double = (x: f64) f64 {
+    return x * 2
+}
+
+value = 10.0
+result = value.double()  // Same as double(value)
+
+// Generic function
+print_item<T>(item: T) void {
+    io.println("Item: ${item}")
 }
 ```
 
-### Traits and UFC
+### Traits
 
 ```zen
 // Define trait
-Geometric: {
-    area: (self) f64,
-    perimeter: (self) f64,
+Drawable: {
+    draw: (self) void,
+    bounds: (self) Rectangle,
 }
 
-// Implement trait for type
-Circle.implements(Geometric, {
-    area = (self) f64 {
-        return math.pi * self.radius * self.radius
+// Implement for type
+Circle.implements(Drawable, {
+    draw = (self) void {
+        // Drawing logic
     },
-    perimeter = (self) f64 {
-        return 2.0 * math.pi * self.radius
-    },
+    bounds = (self) Rectangle {
+        // Return bounding box
+    }
 })
 
-// UFC - any function can be called as method
-shapes.loop((shape) {
-    io.println("Area: ${shape.area()}")  // UFC method call
-})
+// Require trait on enum
+Shape: Circle | Rectangle
+Shape.requires(Drawable)
+
+// Generic with constraint
+render<T: Drawable>(item: T) void {
+    item.draw()
+}
 ```
 
-### Pointers (No * or &)
+### Error Handling
 
 ```zen
-circle = Circle { center: Point { x: 100, y: 100 }, radius: 50 }
-circle_ptr: Ptr<Circle> = circle.ref()
-circle_mut: MutPtr<Circle> = circle.mut_ref()
+// Result type for errors
+parse_int = (s: string) Result<i32, string> {
+    s.to_i32() ?
+        | Some(n) { return Ok(n) }
+        | None { return Err("Invalid integer") }
+}
 
-io.println("Area: ${circle_ptr.val.area()}")  // .val to dereference
-circle_mut.val.radius = 75                     // Modify through pointer
-io.println("Address: ${circle_ptr.addr}")      // Get address
+// Error propagation with .raise()
+process_file = (path: string) Result<Data, Error> {
+    file = File.open(path).raise()      // Returns early if Err
+    contents = file.read_all().raise()  // Returns early if Err
+    data = parse(contents).raise()      // Returns early if Err
+    return Ok(data)
+}
 ```
 
-## 🏗️ Project Structure
+### Pointers (No `*` or `&`)
 
+```zen
+// Explicit pointer types
+value = 42
+ptr: Ptr<i32> = value.ref()        // Immutable reference
+mut_ptr: MutPtr<i32> = value.mut_ref()  // Mutable reference
+
+// Dereference with .val
+io.println("Value: ${ptr.val}")
+mut_ptr.val = 100
+
+// Get address
+io.println("Address: ${ptr.addr}")
 ```
-zenlang/
-├── LANGUAGE_SPEC.zen     # ⭐ THE authoritative language specification
-├── src/                  # Rust compiler implementation
-│   ├── main.rs          # Compiler entry point
-│   ├── lexer.rs         # Lexical analysis
-│   ├── parser/          # Parsing modules
-│   ├── ast/             # Abstract syntax tree
-│   ├── typechecker/     # Type checking
-│   ├── codegen/         # LLVM code generation
-│   └── stdlib/          # Standard library
-├── tests/               # Test suite
-│   └── zen_test_*.zen   # Language feature tests
-├── examples/            # Example programs
-└── stdlib/              # Standard library (Zen)
+
+### Collections
+
+```zen
+// Static sized vector
+vec = Vec<i32, 100>()
+vec.push(42)
+
+// Dynamic vector with allocator
+alloc = GPA.init()
+@this.defer(alloc.deinit())
+
+dyn_vec = DynVec<i32>(alloc)
+dyn_vec.push(1)
+dyn_vec.push(2)
+
+// Mixed type vectors!
+entities = DynVec<Player, Enemy>(alloc)
+entities.push(Player { health: 100 })
+entities.push(Enemy { damage: 50 })
+
+// Pattern match mixed types
+entities.loop((entity) {
+    entity ?
+        | Player { heal(entity) }
+        | Enemy { attack(entity) }
+})
 ```
+
+### Concurrency
+
+```zen
+// Allocator determines sync/async behavior
+sync_alloc = GPA.init()      // Synchronous
+async_alloc = AsyncPool.init()  // Asynchronous
+
+// Same function, different behavior!
+data1 = fetch_data(url, sync_alloc)   // Blocks
+data2 = fetch_data(url, async_alloc)  // Non-blocking
+
+// Channels
+chan = Channel<string>(10)
+chan.send("Hello")
+msg = chan.receive()
+
+// Actors
+fib = Actor((receiver) {
+    a ::= 0
+    b ::= 1
+    loop(() {
+        receiver.send(a)
+        temp = a + b
+        a = b
+        b = temp
+    })
+}).spawn()
+```
+
+### Metaprogramming
+
+```zen
+// Compile-time reflection
+inspect_type = (T: type) void {
+    ast = reflect.ast(T)
+    ast.kind ?
+        | Struct(s) {
+            s.fields.loop((f) {
+                io.println("Field: ${f.name}: ${f.type}")
+            })
+        }
+        | Enum(e) {
+            e.variants.loop((v) {
+                io.println("Variant: ${v.name}")
+            })
+        }
+}
+
+// AST modification at compile time
+@meta.comptime(() {
+    original = reflect.ast(my_function)
+    new_body = original.body.prepend(
+        AST.Call("io.println", ["Entering function"])
+    )
+    meta.replace(my_function, original.with_body(new_body))
+})
+```
+
+## 📦 Standard Library
+
+The standard library (`@std`) provides:
+
+- **Core Types**: `Option<T>`, `Result<T,E>`, `Vec<T>`, `DynVec<T>`
+- **IO**: File operations, console I/O, networking
+- **Concurrency**: `Actor`, `Channel`, `Mutex`, atomics
+- **Memory**: `GPA`, `AsyncPool`, custom allocators
+- **Collections**: HashMap, Set, Queue, Stack
+- **Math**: Common math functions and constants
+- **String**: String manipulation and formatting
+- **Meta**: Reflection, traits, compile-time programming
+- **FFI**: C interop and external libraries
+
+## 🔧 Build System
+
+Zen includes a built-in build system:
+
+```zen
+// build.zen
+Build := @std
+
+builder = (b :: Build) void {
+    // Conditional compilation
+    is_release = b.args.contains("--release")
+    is_release ?
+        | true {
+            b.optimization(.O3)
+            b.strip_symbols(true)
+        }
+        | false {
+            b.optimization(.O0)
+            b.debug_info(true)
+        }
+    
+    // Add executable
+    b.add_executable("my-app", "src/main.zen")
+        .add_library("my-lib", "src/lib.zen")
+        .add_test("my-tests", "tests/test.zen")
+}
+```
+
+## 🎓 Examples
+
+See the `examples/` directory for complete examples:
+
+- `01_hello_world.zen` - Basic hello world
+- `02_variables_and_types.zen` - Variable declarations
+- `03_pattern_matching.zen` - Pattern matching examples
+- `04_loops.zen` - All loop forms
+- `05_structs_and_methods.zen` - Structs and UFC
+- `error_handling.zen` - Result types and .raise()
+- `concurrent_web_server.zen` - Async web server
+- `full_demo/` - Complete application example
 
 ## 🧪 Testing
 
+Run the test suite:
+
 ```bash
-# Run all tests
-cargo test
-
-# Run specific test file
-cargo run --bin zen -- tests/zen_test_spec_vars.zen -o test_output
-./test_output
-
-# Test files demonstrate all LANGUAGE_SPEC.zen features
+./test_all.sh
 ```
 
-## 📚 Documentation
+Create a test file:
 
-- `LANGUAGE_SPEC.zen` - Complete language specification with examples
-- `examples/` - Working examples demonstrating language features
-- `tests/zen_test_spec_*.zen` - Tests validating spec compliance
+```zen
+// tests/zen_test_myfeature.zen
+{ test } = @std
+
+test.describe("My Feature", () {
+    test.it("should work", () {
+        result = my_function(42)
+        test.expect(result).to_equal(84)
+    })
+})
+```
+
+## 📖 Documentation
+
+- `LANGUAGE_SPEC.zen` - Complete language specification
+- `docs/` - Additional documentation
+- `stdlib/` - Standard library source
 
 ## 🤝 Contributing
 
-Contributions must align with `LANGUAGE_SPEC.zen`. The specification is the single source of truth for language features and behavior.
+Zen is an open-source project. Contributions are welcome!
+
+1. Read `LANGUAGE_SPEC.zen` to understand the language
+2. Check existing issues and discussions
+3. Submit PRs with tests
+4. Follow the no-keywords philosophy
 
 ## 📄 License
 
 MIT License - See LICENSE file for details
+
+## 🌟 Philosophy
+
+Zen believes that programming languages have accumulated too much complexity. By removing keywords and using patterns for everything, we create a simpler, more consistent language that's easier to learn and reason about.
+
+No keywords. No complexity. Just patterns.
+
+---
+
+**Remember**: `LANGUAGE_SPEC.zen` is the source of truth. When in doubt, consult the spec!

@@ -1,0 +1,84 @@
+// Error handling tests from LANGUAGE_SPEC.zen lines 198-211
+// Tests Result type and .raise() error propagation
+
+{ io } = @std
+
+// Result type
+Result<T, E>: Ok(T) | Err(E)
+
+// Parse function that returns Result (lines 198-203)
+parse_radius = (s: string) Result<f64, string> {
+    s.to_f64() ?
+        | Some(val) { return Ok(val) }
+        | None { return Err("Invalid radius") }
+}
+
+// Error propagation with .raise() (lines 205-211)
+load_config = (path: string) Result<Config, string> {
+    file = File.open(path).raise()      // If Err, returns early
+    contents = file.read_all().raise()  // If Err, returns early
+    config = json.parse(contents).raise() // If Err, returns early
+    return Ok(config)
+}
+
+// Helper function that may fail
+divide = (a: f64, b: f64) Result<f64, string> {
+    b == 0 ?
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
+}
+
+// Chain of operations with error handling
+calculate = (x: f64, y: f64) Result<f64, string> {
+    // Each .raise() will return early if error
+    step1 = divide(x, y).raise()
+    step2 = divide(step1, 2.0).raise()
+    step3 = divide(100.0, step2).raise()
+    return Ok(step3)
+}
+
+// Manual error handling without .raise()
+safe_calculate = (x: f64, y: f64) f64 {
+    result = divide(x, y)
+    result ?
+        | Ok(val) {
+            // Continue with value
+            next = divide(val, 2.0)
+            next ?
+                | Ok(v) { return v }
+                | Err(_) { return 0.0 }
+        }
+        | Err(msg) {
+            io.println("Error: ${msg}")
+            return 0.0
+        }
+}
+
+main = () void {
+    // Test parse_radius
+    result1 = parse_radius("3.14")
+    result1 ?
+        | Ok(r) { io.println("Parsed radius: ${r}") }
+        | Err(e) { io.println("Parse error: ${e}") }
+    
+    result2 = parse_radius("invalid")
+    result2 ?
+        | Ok(r) { io.println("Parsed radius: ${r}") }
+        | Err(e) { io.println("Parse error: ${e}") }
+    
+    // Test error propagation
+    calc_result = calculate(100.0, 5.0)
+    calc_result ?
+        | Ok(v) { io.println("Result: ${v}") }
+        | Err(e) { io.println("Calculation error: ${e}") }
+    
+    // Test with division by zero
+    error_result = calculate(100.0, 0.0)
+    error_result ?
+        | Ok(v) { io.println("Result: ${v}") }
+        | Err(e) { io.println("Calculation error: ${e}") }
+    
+    // Manual handling
+    safe_val = safe_calculate(50.0, 10.0)
+    io.println("Safe result: ${safe_val}")
+}

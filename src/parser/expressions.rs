@@ -526,7 +526,7 @@ impl<'a> Parser<'a> {
             Token::Symbol('(') => {
                 // Check if this might be a closure: () or (params)
                 // We need to lookahead to distinguish from parenthesized expressions
-                let is_empty_parens = self.peek_token == Token::Symbol(')');
+                let _is_empty_parens = self.peek_token == Token::Symbol(')');
                 
                 self.next_token(); // consume '('
                 
@@ -773,7 +773,7 @@ impl<'a> Parser<'a> {
                 obj_name == "json" || obj_name == "http" || obj_name == "time"
             }
             // Handle @std.module.function syntax
-            Expression::MemberAccess { object: base, member } => {
+            Expression::MemberAccess { object: base, member: _ } => {
                 // Check if this is @std.module accessing a function
                 if let Expression::StdReference = base.as_ref() {
                     // This is @std.module, so it's a module call
