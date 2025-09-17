@@ -1,0 +1,66 @@
+// Test advanced LANGUAGE_SPEC.zen features
+
+{ io } = @std
+
+// Test Option type (no null!)
+Option<T>: Some(T) | None
+
+// Test Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Test simple struct
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+// Test pattern matching with ? operator
+test_pattern_match = (value: i32) void {
+    value > 10 ?
+        | true { io.println("Greater than 10") }
+        | false { io.println("10 or less") }
+}
+
+// Test Option handling
+test_option = () void {
+    maybe_value: Option<i32> = Some(42)
+    
+    maybe_value ?
+        | Some(v) { io.println("Got value: ${v}") }
+        | None { io.println("No value") }
+}
+
+// Test loops with ranges
+test_loops = () void {
+    // Range loop
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("Loop: ${counter}") }
+    })
+}
+
+main = () void {
+    io.println("=== Testing Advanced Features ===")
+    
+    // Test pattern matching
+    test_pattern_match(15)
+    test_pattern_match(5)
+    
+    // Test Option type
+    test_option()
+    
+    // Test loops
+    test_loops()
+    
+    // Test struct
+    p = Point { x: 10.5, y: 20.3 }
+    io.println("Point x: ${p.x}, y: ${p.y}")
+}

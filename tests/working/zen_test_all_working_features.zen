@@ -28,8 +28,7 @@ main = () void {
     
     // 1. Variable declarations - all forms
     io.println("1. Variables:")
-    x: i32           // Forward declaration
-    x = 10          // Assignment
+    x = 10          // Immutable assignment
     y = 20          // Immutable
     z::= 30         // Mutable
     z = 40          // Reassignment

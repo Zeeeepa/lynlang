@@ -1,0 +1,44 @@
+// Test core working features one by one
+
+{ io } = @std
+
+main = () void {
+    // Test 1: Basic string output
+    io.println("=== Testing Core Features ===")
+    
+    // Test 2: Variable assignment (immutable)
+    x = 10
+    y = 20
+    
+    // Test 3: Mutable variables
+    counter ::= 0
+    counter = counter + 1
+    counter = counter + 1
+    
+    // Test 4: Boolean and simple pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("System ready")
+    }
+    
+    // Test 5: Pattern matching with branches
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // Test 6: Simple arithmetic
+    sum = x + y
+    
+    // Test 7: Infinite loop with break
+    i ::= 0
+    loop(() {
+        i = i + 1
+        should_break = i > 2
+        should_break ?
+            | true { break }
+            | false { }
+    })
+    
+    io.println("All core tests completed")
+}
