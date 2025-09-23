@@ -1,6 +1,301 @@
-// HashMap module - re-exports from collections/
-// Provides hash map data structure
+// HashMap implementation using chaining collision resolution
+// Provides key-value storage with O(1) average operations
 
-// Re-export HashMap functionality
-hashmap_module = import("collections/hashmap")
-module.exports = hashmap_module
+{ Allocator, Option, Result, Error } = @std
+
+// Hash bucket for collision resolution via chaining  
+HashBucket<K, V>: {
+    key: K
+    value: V
+    next: Option<Ptr<HashBucket<K, V>>>
+}
+
+// HashMap structure
+HashMap<K, V>: {
+    buckets: Array<Option<Ptr<HashBucket<K, V>>>>
+    size: usize
+    capacity: usize
+    allocator: Allocator
+}
+
+// Create new empty HashMap with default capacity
+HashMap<K, V>.new = () HashMap<K, V> {
+    default_capacity := 16
+    return HashMap<K, V> {
+        buckets: Array.new(default_capacity, Option.None),
+        size: 0,
+        capacity: default_capacity,
+        allocator: Allocator.default()
+    }
+}
+
+// Create HashMap with specific capacity
+HashMap<K, V>.with_capacity = (capacity: usize, alloc: Allocator) HashMap<K, V> {
+    return HashMap<K, V> {
+        buckets: Array.new(capacity, Option.None),
+        size: 0,
+        capacity: capacity,
+        allocator: alloc
+    }
+}
+
+// Hash function requirement - user must provide
+// Returns bucket index for given key
+_get_bucket_index<K> = (key: K, capacity: usize, hash_func: (K) u64) usize {
+    hash := hash_func(key)
+    return hash % capacity
+}
+
+// Insert key-value pair
+HashMap<K, V>.insert = (self: Ptr<HashMap<K, V>>, key: K, value: V, hash_func: (K) u64, eq_func: (K, K) bool) Result<Option<V>, Error> {
+    index := _get_bucket_index(key, self.capacity, hash_func)
+    
+    // Check if key already exists
+    current := self.buckets[index]
+    current ?
+        | .Some(bucket) {
+            // Search through chain
+            prev_value := _find_and_update(bucket, key, value, eq_func)
+            prev_value ?
+                | .Some(v) { return Result.Ok(Option.Some(v)) }
+                | .None {
+                    // Add to front of chain
+                    new_bucket := self.allocator.alloc<HashBucket<K, V>>()
+                    new_bucket.key = key
+                    new_bucket.value = value
+                    new_bucket.next = Option.Some(bucket)
+                    self.buckets[index] = Option.Some(new_bucket)
+                    self.size = self.size + 1
+                    _maybe_resize(self, hash_func, eq_func)
+                    return Result.Ok(Option.None)
+                }
+        }
+        | .None {
+            // Create first bucket at this index
+            new_bucket := self.allocator.alloc<HashBucket<K, V>>()
+            new_bucket.key = key
+            new_bucket.value = value
+            new_bucket.next = Option.None
+            self.buckets[index] = Option.Some(new_bucket)
+            self.size = self.size + 1
+            _maybe_resize(self, hash_func, eq_func)
+            return Result.Ok(Option.None)
+        }
+}
+
+// Get value by key
+HashMap<K, V>.get = (self: Ptr<HashMap<K, V>>, key: K, hash_func: (K) u64, eq_func: (K, K) bool) Option<V> {
+    index := _get_bucket_index(key, self.capacity, hash_func)
+    
+    self.buckets[index] ?
+        | .Some(bucket) { return _find_in_chain(bucket, key, eq_func) }
+        | .None { return Option.None }
+}
+
+// Remove key-value pair
+HashMap<K, V>.remove = (self: Ptr<HashMap<K, V>>, key: K, hash_func: (K) u64, eq_func: (K, K) bool) Option<V> {
+    index := _get_bucket_index(key, self.capacity, hash_func)
+    
+    self.buckets[index] ?
+        | .Some(bucket) {
+            result := _remove_from_chain(self, index, bucket, key, eq_func)
+            result ?
+                | .Some(v) {
+                    self.size = self.size - 1
+                    return Option.Some(v)
+                }
+                | .None { return Option.None }
+        }
+        | .None { return Option.None }
+}
+
+// Check if key exists
+HashMap<K, V>.contains = (self: Ptr<HashMap<K, V>>, key: K, hash_func: (K) u64, eq_func: (K, K) bool) bool {
+    get_result := self.get(key, hash_func, eq_func)
+    return get_result ? | .Some(_) { true } | .None { false }
+}
+
+// Get number of entries
+HashMap<K, V>.len = (self: Ptr<HashMap<K, V>>) usize {
+    return self.size
+}
+
+// Check if empty
+HashMap<K, V>.is_empty = (self: Ptr<HashMap<K, V>>) bool {
+    return self.size == 0
+}
+
+// Clear all entries
+HashMap<K, V>.clear = (self: Ptr<HashMap<K, V>>) void {
+    i := 0
+    loop {
+        i >= self.capacity ? { break }
+        self.buckets[i] ?
+            | .Some(bucket) {
+                _free_chain(self.allocator, bucket)
+                self.buckets[i] = Option.None
+            }
+            | .None {}
+        i = i + 1
+    }
+    self.size = 0
+}
+
+// Helper: Find and update value in chain
+_find_and_update<K, V> = (bucket: Ptr<HashBucket<K, V>>, key: K, value: V, eq_func: (K, K) bool) Option<V> {
+    current := bucket
+    loop {
+        eq_func(current.key, key) ? {
+            old_value := current.value
+            current.value = value
+            return Option.Some(old_value)
+        }
+        current.next ?
+            | .Some(next) { current = next }
+            | .None { return Option.None }
+    }
+}
+
+// Helper: Find value in chain
+_find_in_chain<K, V> = (bucket: Ptr<HashBucket<K, V>>, key: K, eq_func: (K, K) bool) Option<V> {
+    current := bucket
+    loop {
+        eq_func(current.key, key) ? {
+            return Option.Some(current.value)
+        }
+        current.next ?
+            | .Some(next) { current = next }
+            | .None { return Option.None }
+    }
+}
+
+// Helper: Remove from chain
+_remove_from_chain<K, V> = (map: Ptr<HashMap<K, V>>, index: usize, bucket: Ptr<HashBucket<K, V>>, key: K, eq_func: (K, K) bool) Option<V> {
+    // Check first bucket
+    eq_func(bucket.key, key) ? {
+        value := bucket.value
+        map.buckets[index] = bucket.next
+        map.allocator.free(bucket)
+        return Option.Some(value)
+    }
+    
+    // Search rest of chain
+    prev := bucket
+    current := bucket.next
+    loop {
+        current ?
+            | .Some(curr) {
+                eq_func(curr.key, key) ? {
+                    value := curr.value
+                    prev.next = curr.next
+                    map.allocator.free(curr)
+                    return Option.Some(value)
+                }
+                prev = curr
+                current = curr.next
+            }
+            | .None { return Option.None }
+    }
+}
+
+// Helper: Free entire chain
+_free_chain<K, V> = (alloc: Allocator, bucket: Ptr<HashBucket<K, V>>) void {
+    current := Option.Some(bucket)
+    loop {
+        current ?
+            | .Some(curr) {
+                next := curr.next
+                alloc.free(curr)
+                current = next
+            }
+            | .None { break }
+    }
+}
+
+// Helper: Resize if load factor > 0.75
+_maybe_resize<K, V> = (map: Ptr<HashMap<K, V>>, hash_func: (K) u64, eq_func: (K, K) bool) void {
+    load_factor := map.size * 100 / map.capacity
+    load_factor > 75 ? {
+        new_capacity := map.capacity * 2
+        new_buckets := Array.new(new_capacity, Option.None)
+        
+        // Rehash all entries
+        old_buckets := map.buckets
+        old_capacity := map.capacity
+        map.buckets = new_buckets
+        map.capacity = new_capacity
+        map.size = 0
+        
+        i := 0
+        loop {
+            i >= old_capacity ? { break }
+            current := old_buckets[i]
+            current ?
+                | .Some(bucket) {
+                    _rehash_chain(map, bucket, hash_func, eq_func)
+                }
+                | .None {}
+            i = i + 1
+        }
+    }
+}
+
+// Helper: Rehash chain during resize
+_rehash_chain<K, V> = (map: Ptr<HashMap<K, V>>, bucket: Ptr<HashBucket<K, V>>, hash_func: (K) u64, eq_func: (K, K) bool) void {
+    current := Option.Some(bucket)
+    loop {
+        current ?
+            | .Some(curr) {
+                next := curr.next
+                // Re-insert with new bucket index
+                curr.next = Option.None
+                index := _get_bucket_index(curr.key, map.capacity, hash_func)
+                old_head := map.buckets[index]
+                curr.next = old_head
+                map.buckets[index] = Option.Some(curr)
+                map.size = map.size + 1
+                current = next
+            }
+            | .None { break }
+    }
+}
+
+// Iterator support
+HashMap<K, V>.keys = (self: Ptr<HashMap<K, V>>) DynVec<K> {
+    keys := DynVec<K>.init(self.allocator)
+    i := 0
+    loop {
+        i >= self.capacity ? { break }
+        current := self.buckets[i]
+        current ?
+            | .Some(bucket) {
+                _collect_keys(keys, bucket)
+            }
+            | .None {}
+        i = i + 1
+    }
+    return keys
+}
+
+// Helper: Collect keys from chain
+_collect_keys<K, V> = (keys: Ptr<DynVec<K>>, bucket: Ptr<HashBucket<K, V>>) void {
+    current := Option.Some(bucket)
+    loop {
+        current ?
+            | .Some(curr) {
+                keys.push(curr.key)
+                current = curr.next
+            }
+            | .None { break }
+    }
+}
+
+// Export functions for easy access
+hashmap_new<K, V> = HashMap<K, V>.new
+hashmap_insert<K, V> = HashMap<K, V>.insert
+hashmap_get<K, V> = HashMap<K, V>.get
+hashmap_remove<K, V> = HashMap<K, V>.remove
+hashmap_contains<K, V> = HashMap<K, V>.contains
+hashmap_len<K, V> = HashMap<K, V>.len
+hashmap_is_empty<K, V> = HashMap<K, V>.is_empty
+hashmap_clear<K, V> = HashMap<K, V>.clear

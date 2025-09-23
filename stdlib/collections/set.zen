@@ -1,60 +1,235 @@
-// Set module - re-exports from collections and provides HashSet
-// Provides set data structure using HashMap
-
-// Import hashmap functionality
-hashmap_module = import("collections/hashmap")
-
-// Re-export HashMap types and functions
-module.exports = hashmap_module
-
 // HashSet implementation using HashMap
+// Provides unique element storage with O(1) average operations
+
+{ HashMap, Allocator, Option, Result, Error, DynVec } = @std
+
+// HashSet structure - uses HashMap internally
 HashSet<T>: {
-    map: hashmap_module.HashMap<T, bool>
+    map: HashMap<T, bool>
+    hash_func: (T) u64
+    eq_func: (T, T) bool
 }
 
-// Create new set
-HashSet<T>.new = () HashSet<T> {
-    return HashSet<T>{
-        map: hashmap_module.hashmap_new<T, bool>()
+// Create new empty HashSet
+HashSet<T>.new = (hash_func: (T) u64, eq_func: (T, T) bool) HashSet<T> {
+    return HashSet<T> {
+        map: HashMap<T, bool>.new(),
+        hash_func: hash_func,
+        eq_func: eq_func
+    }
+}
+
+// Create HashSet with capacity
+HashSet<T>.with_capacity = (capacity: usize, hash_func: (T) u64, eq_func: (T, T) bool, alloc: Allocator) HashSet<T> {
+    return HashSet<T> {
+        map: HashMap<T, bool>.with_capacity(capacity, alloc),
+        hash_func: hash_func,
+        eq_func: eq_func
     }
 }
 
 // Add element to set
-HashSet<T>.add = (self: Ptr<HashSet<T>>, value: T, hash_func: (T) i64) core.Result<bool, core.Error> {
-    contains := hashmap_module.hashmap_contains(&self.map, value, hash_func)
-    contains ? | true {
-        return core.Result:Ok(false)  // Already exists
-    } | false {
-        result := hashmap_module.hashmap_insert(&self.map, value, true, hash_func)
-        return result ? | Ok(_) => core.Result:Ok(true) | Err(e) => core.Result:Err(e)
-    }
+// Returns true if element was added, false if already existed
+HashSet<T>.add = (self: Ptr<HashSet<T>>, value: T) bool {
+    result := self.map.insert(value, true, self.hash_func, self.eq_func)
+    return result ? 
+        | .Ok(prev) { 
+            prev ? 
+                | .Some(_) { false }  // Element already existed
+                | .None { true }      // New element added
+        }
+        | .Err(_) { false }          // Error occurred
 }
 
 // Remove element from set
-HashSet<T>.remove = (self: Ptr<HashSet<T>>, value: T, hash_func: (T) i64) bool {
-    result := hashmap_module.hashmap_remove(&self.map, value, hash_func)
-    return result ? | Some(_) => true | None => false
+// Returns true if element was removed, false if not found
+HashSet<T>.remove = (self: Ptr<HashSet<T>>, value: T) bool {
+    result := self.map.remove(value, self.hash_func, self.eq_func)
+    return result ? 
+        | .Some(_) { true }   // Element was removed
+        | .None { false }      // Element not found
 }
 
 // Check if element exists in set
-HashSet<T>.contains = (self: Ptr<HashSet<T>>, value: T, hash_func: (T) i64) bool {
-    return hashmap_module.hashmap_contains(&self.map, value, hash_func)
+HashSet<T>.contains = (self: Ptr<HashSet<T>>, value: T) bool {
+    return self.map.contains(value, self.hash_func, self.eq_func)
 }
 
 // Get set size
-HashSet<T>.size = (self: Ptr<HashSet<T>>) i64 {
-    return hashmap_module.hashmap_len(&self.map)
+HashSet<T>.len = (self: Ptr<HashSet<T>>) usize {
+    return self.map.len()
 }
 
 // Check if set is empty
 HashSet<T>.is_empty = (self: Ptr<HashSet<T>>) bool {
-    return hashmap_module.hashmap_is_empty(&self.map)
+    return self.map.is_empty()
 }
 
-// Clear set
+// Clear all elements
 HashSet<T>.clear = (self: Ptr<HashSet<T>>) void {
-    hashmap_module.hashmap_clear(&self.map)
+    self.map.clear()
 }
 
-// Export HashSet along with hashmap functionality
-module.exports = { ...hashmap_module, HashSet }
+// Set operations
+
+// Union - returns new set containing all elements from both sets
+HashSet<T>.union = (self: Ptr<HashSet<T>>, other: Ptr<HashSet<T>>) HashSet<T> {
+    result := HashSet<T>.new(self.hash_func, self.eq_func)
+    
+    // Add all elements from self
+    self_keys := self.map.keys()
+    i := 0
+    loop {
+        i >= self_keys.len() ? { break }
+        result.add(self_keys.get(i).unwrap())
+        i = i + 1
+    }
+    
+    // Add all elements from other
+    other_keys := other.map.keys()
+    j := 0
+    loop {
+        j >= other_keys.len() ? { break }
+        result.add(other_keys.get(j).unwrap())
+        j = j + 1
+    }
+    
+    return result
+}
+
+// Intersection - returns new set containing only elements in both sets
+HashSet<T>.intersection = (self: Ptr<HashSet<T>>, other: Ptr<HashSet<T>>) HashSet<T> {
+    result := HashSet<T>.new(self.hash_func, self.eq_func)
+    
+    // Use smaller set for iteration (optimization)
+    smaller := self.len() <= other.len() ? self : other
+    larger := self.len() <= other.len() ? other : self
+    
+    smaller_keys := smaller.map.keys()
+    i := 0
+    loop {
+        i >= smaller_keys.len() ? { break }
+        elem := smaller_keys.get(i).unwrap()
+        larger.contains(elem) ? {
+            result.add(elem)
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Difference - returns new set with elements in self but not in other
+HashSet<T>.difference = (self: Ptr<HashSet<T>>, other: Ptr<HashSet<T>>) HashSet<T> {
+    result := HashSet<T>.new(self.hash_func, self.eq_func)
+    
+    self_keys := self.map.keys()
+    i := 0
+    loop {
+        i >= self_keys.len() ? { break }
+        elem := self_keys.get(i).unwrap()
+        !other.contains(elem) ? {
+            result.add(elem)
+        }
+        i = i + 1
+    }
+    
+    return result
+}
+
+// Symmetric difference - returns elements in either set but not both
+HashSet<T>.symmetric_difference = (self: Ptr<HashSet<T>>, other: Ptr<HashSet<T>>) HashSet<T> {
+    result := HashSet<T>.new(self.hash_func, self.eq_func)
+    
+    // Add elements from self not in other
+    self_keys := self.map.keys()
+    i := 0
+    loop {
+        i >= self_keys.len() ? { break }
+        elem := self_keys.get(i).unwrap()
+        !other.contains(elem) ? {
+            result.add(elem)
+        }
+        i = i + 1
+    }
+    
+    // Add elements from other not in self
+    other_keys := other.map.keys()
+    j := 0
+    loop {
+        j >= other_keys.len() ? { break }
+        elem := other_keys.get(j).unwrap()
+        !self.contains(elem) ? {
+            result.add(elem)
+        }
+        j = j + 1
+    }
+    
+    return result
+}
+
+// Check if self is subset of other
+HashSet<T>.is_subset = (self: Ptr<HashSet<T>>, other: Ptr<HashSet<T>>) bool {
+    self.len() > other.len() ? { return false }
+    
+    self_keys := self.map.keys()
+    i := 0
+    loop {
+        i >= self_keys.len() ? { return true }
+        elem := self_keys.get(i).unwrap()
+        !other.contains(elem) ? { return false }
+        i = i + 1
+    }
+    return true
+}
+
+// Check if self is superset of other
+HashSet<T>.is_superset = (self: Ptr<HashSet<T>>, other: Ptr<HashSet<T>>) bool {
+    return other.is_subset(self)
+}
+
+// Check if sets are disjoint (no common elements)
+HashSet<T>.is_disjoint = (self: Ptr<HashSet<T>>, other: Ptr<HashSet<T>>) bool {
+    // Check smaller set for efficiency
+    smaller := self.len() <= other.len() ? self : other
+    larger := self.len() <= other.len() ? other : self
+    
+    smaller_keys := smaller.map.keys()
+    i := 0
+    loop {
+        i >= smaller_keys.len() ? { return true }
+        elem := smaller_keys.get(i).unwrap()
+        larger.contains(elem) ? { return false }
+        i = i + 1
+    }
+    return true
+}
+
+// Convert to dynamic vector
+HashSet<T>.to_vec = (self: Ptr<HashSet<T>>) DynVec<T> {
+    return self.map.keys()
+}
+
+// Create from dynamic vector
+HashSet<T>.from_vec = (vec: DynVec<T>, hash_func: (T) u64, eq_func: (T, T) bool) HashSet<T> {
+    set := HashSet<T>.new(hash_func, eq_func)
+    i := 0
+    loop {
+        i >= vec.len() ? { break }
+        set.add(vec.get(i).unwrap())
+        i = i + 1
+    }
+    return set
+}
+
+// Export functions for easy access
+hashset_new<T> = HashSet<T>.new
+hashset_add<T> = HashSet<T>.add
+hashset_remove<T> = HashSet<T>.remove
+hashset_contains<T> = HashSet<T>.contains
+hashset_len<T> = HashSet<T>.len
+hashset_is_empty<T> = HashSet<T>.is_empty
+hashset_clear<T> = HashSet<T>.clear
+hashset_union<T> = HashSet<T>.union
+hashset_intersection<T> = HashSet<T>.intersection
+hashset_difference<T> = HashSet<T>.difference
