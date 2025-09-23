@@ -1,0 +1,94 @@
+// Test aligned with LANGUAGE_SPEC.zen
+// Tests all features defined in the spec to verify implementation
+
+{ io } = @std
+
+// From line 117-120: Simple struct with mutable fields
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+// From line 109-110: Option type
+Option<T>: Some(T) | None
+
+// From line 113: Result type
+Result<T, E>: Ok(T) | Err(E)
+
+main = () void {
+    io.println("=== Testing LANGUAGE_SPEC.zen Features ===")
+    
+    // Lines 298-306: All variable declaration forms
+    io.println("1. Variable Declarations:")
+    x: i32              // forward declaration
+    x = 10              // assignment
+    y = 10              // immutable assignment
+    z: i32 = 20         // immutable with type
+    w:: i32             // mutable forward declaration
+    w = 20              // assignment to mutable
+    v ::= 30            // mutable assignment
+    u:: i32 = 40        // mutable with type
+    
+    io.println("  x=${x}, y=${y}, z=${z}")
+    io.println("  w=${w}, v=${v}, u=${u}")
+    
+    // Lines 352-361: Boolean pattern matching
+    io.println("2. Pattern Matching:")
+    is_ready = true
+    is_ready ? {
+        io.println("  Ready check passed")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("  Has data") }
+        | false { io.println("  No data yet") }
+    
+    // Lines 432-435: Range iteration
+    io.println("3. Ranges:")
+    (0..3).loop((i) {
+        io.println("  Count: ${i}")
+    })
+    
+    // Lines 453-459: Infinite loop with break
+    io.println("4. Infinite Loop:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("  Loop: ${counter}")
+        counter > 2 ?
+            | true { break }
+            | false { }
+    })
+    
+    // Lines 117-120: Struct usage
+    io.println("5. Structs:")
+    p = Point { x: 100.0, y: 200.0 }
+    io.println("  Point: x=${p.x}, y=${p.y}")
+    
+    // Lines 462-473: Option handling
+    io.println("6. Option Type:")
+    maybe = Option.Some(42)
+    maybe ?
+        | Some(val) { io.println("  Got value: ${val}") }
+        | None { io.println("  No value") }
+    
+    none_val = Option.None
+    none_val ?
+        | Some(val) { io.println("  Value: ${val}") }
+        | None { io.println("  Empty option") }
+    
+    // Test Result type
+    io.println("7. Result Type:")
+    success = Result.Ok(100)
+    success ?
+        | Ok(val) { io.println("  Success: ${val}") }
+        | Err(e) { io.println("  Error: ${e}") }
+    
+    failure = Result.Err("Error message")
+    failure ?
+        | Ok(val) { io.println("  Value: ${val}") }
+        | Err(msg) { io.println("  Failed: ${msg}") }
+    
+    io.println("=== All tests completed ===")
+}
