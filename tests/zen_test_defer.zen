@@ -1,0 +1,21 @@
+// Test @this.defer for RAII cleanup
+{ io } = @std
+
+main = () void {
+    io.println("Testing @this.defer")
+    
+    // Test defer statement
+    io.println("Before defer setup")
+    @this.defer(io.println("Deferred: This should print at end"))
+    
+    io.println("Middle of function")
+    
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("Loop ${counter}")
+        (counter >= 2) ? { break }
+    })
+    
+    io.println("End of main (defer should run after this)")
+}

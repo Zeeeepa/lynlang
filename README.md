@@ -4,7 +4,7 @@
 
 A revolutionary programming language with **ZERO KEYWORDS**. All control flow through pattern matching, UFC (Uniform Function Call), and no function coloring.
 
-> **Current Status:** ~40% of LANGUAGE_SPEC.zen implemented. Core features working: structs, traits, pattern matching, ranges. Major gaps: Option/Result types, error propagation, pointers, collections, concurrency.
+> **Current Status:** ~45% of LANGUAGE_SPEC.zen implemented. Core features working: structs, traits, pattern matching, ranges, loops, defer. Major gaps: Option/Result payload extraction, error propagation, pointers, collections, concurrency.
 
 ## Core Philosophy (from LANGUAGE_SPEC.zen)
 
@@ -50,7 +50,7 @@ main = () void {
 
 ## Implementation Status
 
-### ✅ Core Features Working (40% Complete)
+### ✅ Core Features Working (45% Complete)
 
 #### No Keywords Philosophy
 - **Zero keywords** - All control flow via pattern matching
@@ -65,23 +65,25 @@ main = () void {
 - **Result<T, E>** - Parsed but not fully working ⚠️
 
 #### Variables & Assignment
-Partial support for LANGUAGE_SPEC.zen forms:
+All 6 forms from LANGUAGE_SPEC.zen:
 ```zen
+x: i32          // Forward declaration ✅
 x = 10          // Immutable assignment ✅
-y ::= 20        // Inferred mutable ✅
-x: i32 = 30     // Typed immutable ✅
-u:: i32 = 40    // Typed mutable ✅
-// Forward declarations not fully working:
-x: i32          // Forward declaration ⚠️
-w:: i32         // Mutable forward declaration ⚠️
+y = 20          // Inferred immutable ✅
+z: i32 = 30     // Typed immutable ✅
+w:: i32         // Mutable forward declaration ✅
+w = 40          // Mutable assignment ✅
+v ::= 50        // Inferred mutable ✅
+u:: i32 = 60    // Typed mutable ✅
 ```
 
 #### Control Flow & Iteration
 - **Pattern matching** - Boolean patterns with `?` ✅
 - **Range loops** - `(0..10).loop()` ✅
+- **Infinite loops** - `loop(() { ... })` ✅
+- **Break statement** - Works in loops ✅
 - **String interpolation** - `"Value: ${expr}"` ✅
-- **Infinite loops** - `loop(() { ... })` ⚠️
-- **Break/continue** - Not implemented ❌
+- **Continue statement** - Not tested ⚠️
 - **Range step** - `(0..10).step(2)` ❌
 
 #### Imports & Modules
@@ -89,12 +91,14 @@ w:: i32         // Mutable forward declaration ⚠️
 - **Module paths** - `@std.math.pi` ✅
 - **@this scope** - Parsed but not fully functional ⚠️
 
+#### Memory Management
+- **@this.defer()** - RAII cleanup ✅
+
 ### 🚧 Not Yet Implemented
 
 #### Critical Missing Features from LANGUAGE_SPEC.zen
 
 ##### Memory Management
-- **@this.defer()** - RAII cleanup ❌
 - **Pointer types** - `Ptr<T>`, `MutPtr<T>`, `RawPtr<T>` ❌
 - **Allocators** - GPA, AsyncPool ❌
 
@@ -121,15 +125,15 @@ w:: i32         // Mutable forward declaration ⚠️
 ### 📋 Priority Roadmap (To Match LANGUAGE_SPEC.zen)
 
 #### Phase 1: Fix Core Language (Priority)
-- [ ] Fix Option<T> value extraction
+- [ ] Fix Option<T> value extraction (payload stored as i64 loses type)
 - [ ] Fix Result<T, E> pattern matching
 - [ ] Implement .raise() error propagation
-- [ ] Add forward declarations (all 6 variable forms)
+- [x] ✅ Add forward declarations (all 6 variable forms) - DONE!
 - [ ] Implement pointer types (Ptr, MutPtr, RawPtr)
 
 #### Phase 2: Essential Features
 - [ ] Implement Vec<T, N> and DynVec<T>
-- [ ] Add @this.defer() for RAII
+- [x] ✅ Add @this.defer() for RAII - DONE!
 - [ ] UFC overloading for enum variants
 - [ ] Generic functions `<T: Trait>`
 - [ ] Shape.requires() trait enforcement
