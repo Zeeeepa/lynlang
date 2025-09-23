@@ -1,0 +1,23 @@
+// Test range iteration - LANGUAGE_SPEC.zen requirement
+
+{ io } = @std
+
+main = () void {
+    io.println("Testing Range Iteration")
+    io.println("")
+    
+    // Test 1: Basic range with .loop()
+    io.println("Range (0..3):")
+    (0..3).loop((i) {
+        io.println(i)
+    })
+    
+    io.println("")
+    io.println("Range (1..5):")
+    (1..5).loop((i) {
+        io.println(i)
+    })
+    
+    io.println("")
+    io.println("Range Test Complete!")
+}

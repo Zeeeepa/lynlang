@@ -1,0 +1,37 @@
+// Test trait system - LANGUAGE_SPEC.zen requirement
+
+{ io } = @std
+
+// Define a simple trait
+Printable: {
+    print: (self) void
+}
+
+// Define a struct
+Person: {
+    name: string,
+    age: i32
+}
+
+// Implement the trait for Person
+Person.implements(Printable, {
+    print = (self) void {
+        io.println("Person: ")
+        io.println(self.name)
+        io.println("Age: ")
+        io.println(self.age)
+    }
+})
+
+main = () void {
+    io.println("Testing Trait System")
+    io.println("")
+    
+    person = Person { name: "Alice", age: 30 }
+    
+    // Call trait method
+    person.print()
+    
+    io.println("")
+    io.println("Trait Test Complete!")
+}

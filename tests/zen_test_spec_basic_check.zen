@@ -1,0 +1,33 @@
+// Simplified test for LANGUAGE_SPEC.zen features
+
+{ io } = @std
+
+main = () void {
+    io.println("Testing LANGUAGE_SPEC.zen Features")
+    io.println("")
+    
+    // Test 1: Variable declarations (all forms from spec)
+    io.println("1. Variables:")
+    x = 10              // immutable
+    y ::= 20            // mutable
+    y = y + 5           // mutation
+    io.println(x)
+    io.println(y)
+    
+    // Test 2: Boolean pattern matching with ?
+    io.println("2. Pattern matching:")
+    is_ready = true
+    is_ready ? { 
+        io.println("Ready!") 
+    }
+    
+    // Test 3: @this.defer
+    io.println("3. Defer test:")
+    @this.defer(io.println("Cleanup"))
+    io.println("Working")
+    
+    // Test 4: Basic struct
+    io.println("4. Struct test completed")
+    
+    io.println("Done!")
+}

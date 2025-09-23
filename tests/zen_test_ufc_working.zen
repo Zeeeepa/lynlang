@@ -1,0 +1,44 @@
+// Test UFC (Uniform Function Call) - LANGUAGE_SPEC.zen requirement
+
+{ io } = @std
+
+// Define functions that can be called with UFC
+double = (n: i32) i32 { 
+    return n * 2 
+}
+
+triple = (n: i32) i32 { 
+    return n * 3 
+}
+
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+main = () void {
+    io.println("Testing UFC (Uniform Function Call)")
+    io.println("")
+    
+    // Traditional function call
+    result1 = double(5)
+    io.println("double(5) = ")
+    io.println(result1)
+    
+    // UFC style - THIS IS THE KEY TEST
+    result2 = 5.double()
+    io.println("5.double() = ")
+    io.println(result2)
+    
+    // UFC chaining
+    result3 = 3.double().triple()
+    io.println("3.double().triple() = ")
+    io.println(result3)
+    
+    // UFC with multiple arguments
+    result4 = 10.add(20)
+    io.println("10.add(20) = ")
+    io.println(result4)
+    
+    io.println("")
+    io.println("UFC Test Complete!")
+}
