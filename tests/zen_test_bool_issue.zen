@@ -1,0 +1,16 @@
+// Test boolean issue
+{ io } = @std
+
+main = () void {
+    // Direct literals work
+    io.println(true)
+    io.println(false)
+    
+    // Explicit type works
+    x: bool = true
+    io.println(x)
+    
+    // Inferred type issue
+    y = false  
+    io.println(y)  // This might print garbage
+}
