@@ -1,0 +1,173 @@
+// Test suite aligned with LANGUAGE_SPEC.zen - Working Features Only
+// This validates all currently implemented features from the spec
+
+{ io } = @std
+
+// ============================================================================
+// Test 1: Variable Declarations (lines 298-306)
+// ============================================================================
+test_variables = () void {
+    io.println("=== Variable Declarations (LANGUAGE_SPEC.zen:298-306) ===")
+    
+    // Forward declaration (line 299-300)
+    // Note: Current implementation requires assignment in same statement
+    x: i32 = 10
+    io.println("Declared with type x = ${x}")
+    
+    // Immutable assignments (lines 301-302)
+    y = 20              // Inferred immutable
+    z: i32 = 30         // Explicit immutable with type
+    io.println("Immutable: y = ${y}, z = ${z}")
+    
+    // Mutable declaration (lines 303-304)
+    w ::= 40
+    w = 45  // Mutation
+    io.println("Mutable w after mutation = ${w}")
+    
+    // Mutable assignments (lines 305-306)
+    v ::= 50            // Inferred mutable
+    u ::= 60            // Mutable assignment
+    v = 55              // Mutation
+    u = 65              // Mutation
+    io.println("Mutable: v = ${v}, u = ${u}")
+}
+
+// ============================================================================
+// Test 2: Pattern Matching with ? (lines 352-361)
+// ============================================================================
+test_pattern_matching = () void {
+    io.println("=== Pattern Matching (LANGUAGE_SPEC.zen:352-361) ===")
+    
+    // Simple boolean pattern (line 352-354)
+    is_ready = true
+    is_ready ? {
+        io.println("Simple pattern: System ready!")
+    }
+    
+    // Full if-else pattern (lines 357-361)
+    has_data = false
+    has_data ?
+        | true { io.println("Has data - processing...") }
+        | false { io.println("No data - waiting...") }
+    
+    // Nested patterns
+    value = 42
+    value > 0 ?
+        | true {
+            value > 50 ?
+                | true { io.println("Value > 50") }
+                | false { io.println("Value is ${value} (0 < value <= 50)") }
+        }
+        | false { io.println("Value is non-positive") }
+}
+
+// ============================================================================
+// Test 3: Loops and Ranges (lines 432-460)
+// ============================================================================
+test_loops = () void {
+    io.println("=== Loops and Ranges (LANGUAGE_SPEC.zen:432-460) ===")
+    
+    // Range loop (lines 432-434)
+    io.print("Range (0..5): ")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Infinite loop with break (lines 453-460)
+    io.print("Loop with break: ")
+    counter ::= 0
+    loop {
+        counter = counter + 1
+        io.print("${counter} ")
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    }
+    io.println("")
+}
+
+// ============================================================================
+// Test 4: @this.defer (line 217, 309, 314, etc)
+// ============================================================================
+test_defer = () void {
+    io.println("=== Defer Mechanism (LANGUAGE_SPEC.zen:217+) ===")
+    
+    io.println("Before defer setup")
+    @this.defer(io.println("Deferred: Cleanup executed at scope end"))
+    io.println("After defer setup, before scope end")
+    // Defer will execute here at function end
+}
+
+// ============================================================================
+// Test 5: String Interpolation (used throughout spec)
+// ============================================================================
+test_string_interpolation = () void {
+    io.println("=== String Interpolation ===")
+    
+    name = "Zen"
+    version = 1
+    year = 2024
+    
+    io.println("Language: ${name} v${version}")
+    io.println("Year ${year}, next year: ${year + 1}")
+    
+    // Expressions in interpolation
+    a = 10
+    b = 20
+    io.println("Math: ${a} + ${b} = ${a + b}")
+}
+
+// ============================================================================
+// Test 6: Functions with Parameters and Returns
+// ============================================================================
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+multiply = (x: f64, y: f64) f64 {
+    return x * y
+}
+
+test_functions = () void {
+    io.println("=== Functions ===")
+    
+    sum = add(15, 25)
+    io.println("add(15, 25) = ${sum}")
+    
+    product = multiply(3.5, 2.0)
+    io.println("multiply(3.5, 2.0) = ${product}")
+}
+
+// ============================================================================
+// Main Test Runner
+// ============================================================================
+main = () void {
+    io.println("================================================")
+    io.println("  Zen Language Spec Alignment Test")
+    io.println("  Testing LANGUAGE_SPEC.zen Implementation")
+    io.println("================================================")
+    io.println("")
+    
+    test_variables()
+    io.println("")
+    
+    test_pattern_matching()
+    io.println("")
+    
+    test_loops()
+    io.println("")
+    
+    test_defer()
+    io.println("")
+    
+    test_string_interpolation()
+    io.println("")
+    
+    test_functions()
+    io.println("")
+    
+    io.println("================================================")
+    io.println("  All Tests Completed Successfully")
+    io.println("================================================")
+}

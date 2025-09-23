@@ -1,0 +1,54 @@
+// Simple test for Result type and error handling
+// From LANGUAGE_SPEC.zen lines 112-113 and 198-211
+
+{ io } = @std
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Safe division function that returns Result
+safe_divide = (a: i32, b: i32) Result<i32, String> {
+    b == 0 ?
+        | true { return Err("Cannot divide by zero") }
+        | false { return Ok(a / b) }
+}
+
+// Calculate average with error handling
+calculate_average = (sum: i32, count: i32) Result<i32, String> {
+    count <= 0 ?
+        | true { return Err("Count must be positive") }
+        | false { return Ok(sum / count) }
+}
+
+main = () void {
+    io.println("=== Result Type Error Handling Demo ===")
+    io.println("")
+    
+    // Successful division
+    result1 = safe_divide(20, 4)
+    result1 ?
+        | Ok(value) { io.println("20 ÷ 4 = ${value}") }
+        | Err(msg) { io.println("Error: ${msg}") }
+    
+    // Division by zero
+    result2 = safe_divide(10, 0)
+    result2 ?
+        | Ok(value) { io.println("10 ÷ 0 = ${value}") }
+        | Err(msg) { io.println("Error: ${msg}") }
+    
+    io.println("")
+    
+    // Calculate averages
+    avg1 = calculate_average(100, 5)
+    avg1 ?
+        | Ok(val) { io.println("Average of 100 over 5 items: ${val}") }
+        | Err(msg) { io.println("Error: ${msg}") }
+    
+    avg2 = calculate_average(50, 0)
+    avg2 ?
+        | Ok(val) { io.println("Average: ${val}") }
+        | Err(msg) { io.println("Error calculating average: ${msg}") }
+    
+    io.println("")
+    io.println("✓ Error handling without exceptions!")
+}

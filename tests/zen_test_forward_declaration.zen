@@ -1,0 +1,17 @@
+// Test forward declaration from LANGUAGE_SPEC.zen line 299-300
+{ io } = @std
+
+main = () void {
+    // Forward declaration (line 299-300)
+    x: i32
+    x = 10
+    
+    io.println("Forward declared x = ${x}")
+    
+    // Mutable forward declaration (line 303-304)
+    w:: i32
+    w = 20
+    w = 25
+    
+    io.println("Mutable forward declared w = ${w}")
+}

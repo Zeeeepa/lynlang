@@ -1,0 +1,241 @@
+// Test suite aligned with LANGUAGE_SPEC.zen
+// This test validates all core features from the specification
+
+{ io } = @std
+
+// Test 1: Variable declarations (LANGUAGE_SPEC.zen lines 298-306)
+test_variable_declarations = () void {
+    io.println("Testing variable declarations...")
+    
+    // Forward declarations
+    x: i32
+    x = 10
+    
+    // Immutable assignments
+    y = 20
+    z: i32 = 30
+    
+    // Mutable declarations and assignments
+    w:: i32
+    w = 40
+    v ::= 50
+    u:: i32 = 60
+    
+    // Modify mutable variables
+    w = 45
+    v = 55
+    u = 65
+    
+    io.println("  Variables: x=${x}, y=${y}, z=${z}")
+    io.println("  Mutable: w=${w}, v=${v}, u=${u}")
+}
+
+// Test 2: Pattern matching with ? (LANGUAGE_SPEC.zen lines 352-361)
+test_pattern_matching = () void {
+    io.println("Testing pattern matching...")
+    
+    // Boolean pattern - simple form
+    is_ready = true
+    is_ready ? {
+        io.println("  Simple pattern: Ready!")
+    }
+    
+    // Boolean pattern - full form
+    has_data = false
+    has_data ?
+        | true { io.println("  Has data") }
+        | false { io.println("  No data") }
+    
+    // Nested patterns
+    value = 42
+    is_valid = value > 0
+    is_valid ?
+        | true {
+            value > 50 ?
+                | true { io.println("  Value > 50") }
+                | false { io.println("  Value <= 50") }
+        }
+        | false { io.println("  Invalid value") }
+}
+
+// Test 3: Option type (LANGUAGE_SPEC.zen lines 109-110, 462-473)
+test_option_type = () void {
+    io.println("Testing Option type...")
+    
+    // Option with Some
+    maybe_value: Option<i32> = Some(100)
+    maybe_value ?
+        | Some(v) { io.println("  Got value: ${v}") }
+        | None { io.println("  Got None") }
+    
+    // Option with None
+    empty: Option<i32> = None
+    empty ?
+        | Some(v) { io.println("  Unexpected: ${v}") }
+        | None { io.println("  Correctly got None") }
+}
+
+// Test 4: Result type (LANGUAGE_SPEC.zen lines 113-114)
+test_result_type = () void {
+    io.println("Testing Result type...")
+    
+    // Result with Ok
+    success: Result<i32, String> = Ok(200)
+    success ?
+        | Ok(v) { io.println("  Success: ${v}") }
+        | Err(e) { io.println("  Error: ${e}") }
+    
+    // Result with Err
+    failure: Result<i32, String> = Err("Something went wrong")
+    failure ?
+        | Ok(v) { io.println("  Unexpected success: ${v}") }
+        | Err(e) { io.println("  Expected error: ${e}") }
+}
+
+// Test 5: Structs (LANGUAGE_SPEC.zen lines 117-120)
+Point: {
+    x:: f64,  // mutable
+    y:: f64
+}
+
+test_structs = () void {
+    io.println("Testing structs...")
+    
+    // Create struct instance
+    p = Point { x: 10.0, y: 20.0 }
+    io.println("  Point: (${p.x}, ${p.y})")
+    
+    // Mutate fields
+    p.x = 15.0
+    p.y = 25.0
+    io.println("  Modified: (${p.x}, ${p.y})")
+}
+
+// Test 6: Enums (LANGUAGE_SPEC.zen lines 165-170)
+Shape: Circle | Rectangle | Triangle
+
+test_enums = () void {
+    io.println("Testing enums...")
+    
+    shape1 = Shape.Circle
+    shape1 ?
+        | Circle { io.println("  It's a Circle") }
+        | Rectangle { io.println("  It's a Rectangle") }
+        | Triangle { io.println("  It's a Triangle") }
+    
+    shape2 = Shape.Rectangle
+    shape2 ?
+        | Circle { io.println("  Circle") }
+        | Rectangle { io.println("  It's a Rectangle!") }
+        | Triangle { io.println("  Triangle") }
+}
+
+// Test 7: Loops and ranges (LANGUAGE_SPEC.zen lines 432-440)
+test_loops = () void {
+    io.println("Testing loops and ranges...")
+    
+    // Range loop
+    io.println("  Range 0..5:")
+    (0..5).loop((i) {
+        io.println("    Count: ${i}")
+    })
+    
+    // Step range - not yet implemented
+    // io.println("  Range 0..10 step 2:")
+    // (0..10).step(2).loop((i) {
+    //     io.println("    Step: ${i}")
+    // })
+    
+    // Infinite loop with break
+    io.println("  Infinite loop with break:")
+    counter ::= 0
+    loop(() {
+        io.println("    Loop iteration: ${counter}")
+        counter = counter + 1
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    })
+}
+
+// Test 8: @this.defer (LANGUAGE_SPEC.zen line 217, etc)
+test_defer = () void {
+    io.println("Testing @this.defer...")
+    
+    // This will execute at end of scope
+    @this.defer(io.println("  Deferred: Cleanup executed"))
+    
+    io.println("  Before defer executes")
+    io.println("  Still before defer")
+}
+
+// Test 9: Functions with parameters and returns
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+multiply = (x: f64, y: f64) f64 {
+    return x * y
+}
+
+test_functions = () void {
+    io.println("Testing functions...")
+    
+    sum = add(10, 20)
+    io.println("  add(10, 20) = ${sum}")
+    
+    product = multiply(3.5, 2.0)
+    io.println("  multiply(3.5, 2.0) = ${product}")
+}
+
+// Test 10: String interpolation
+test_string_interpolation = () void {
+    io.println("Testing string interpolation...")
+    
+    name = "Zen"
+    version = 1.0
+    count = 42
+    
+    io.println("  Language: ${name}")
+    io.println("  Version: ${version}")
+    io.println("  Count: ${count}")
+    io.println("  Expression: ${count * 2}")
+}
+
+// Main test runner
+main = () void {
+    io.println("=== Zen Language Spec Test Suite ===")
+    io.println("")
+    
+    test_variable_declarations()
+    io.println("")
+    
+    test_pattern_matching()
+    io.println("")
+    
+    test_option_type()
+    io.println("")
+    
+    test_result_type()
+    io.println("")
+    
+    test_structs()
+    io.println("")
+    
+    test_enums()
+    io.println("")
+    
+    test_loops()
+    io.println("")
+    
+    test_defer()
+    io.println("")
+    
+    test_functions()
+    io.println("")
+    
+    test_string_interpolation()
+    io.println("")
+    
+    io.println("=== All tests completed ===")
+}

@@ -1,0 +1,366 @@
+// Comprehensive test suite for LANGUAGE_SPEC.zen features
+// Tests all working and documented features
+
+{ io } = @std
+
+// ============================================================================
+// Core Types from LANGUAGE_SPEC.zen
+// ============================================================================
+
+// Option type - no null (lines 109-110)
+Option<T>: Some(T) | None
+
+// Result type for error handling (lines 113-114)
+Result<T, E>: Ok(T) | Err(E)
+
+// ============================================================================
+// Structs and Enums (lines 117-182)
+// ============================================================================
+
+// Simple struct with mutable fields
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+// More complex struct
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point
+}
+
+// Enum type
+Shape: Circle | Rectangle
+
+// Game entity enum for variant-based overloading
+GameEntity: Player | Enemy | Powerup
+
+// ============================================================================
+// Functions demonstrating various features
+// ============================================================================
+
+// Basic arithmetic function
+calculate = (a: i32, b: i32, op: String) i32 {
+    op ?
+        | "add" { return a + b }
+        | "sub" { return a - b }
+        | "mul" { return a * b }
+        | "div" { 
+            b != 0 ?
+                | true { return a / b }
+                | false { return 0 }
+        }
+        | _ { return 0 }
+}
+
+// Function returning Option
+safe_divide = (a: f64, b: f64) Option<f64> {
+    b != 0.0 ?
+        | true { return Some(a / b) }
+        | false { return None }
+}
+
+// Function returning Result
+parse_number = (s: String) Result<i32, String> {
+    // Simplified - in real implementation would parse string
+    s ?
+        | "42" { return Ok(42) }
+        | "100" { return Ok(100) }
+        | _ { return Err("Invalid number format") }
+}
+
+// Error propagation simulation (lines 206-211)
+process_data = () Result<i32, String> {
+    // Simulating .raise() pattern
+    result1 = parse_number("42")
+    result1 ?
+        | Ok(v) {
+            result2 = parse_number("100")
+            result2 ?
+                | Ok(v2) { return Ok(v + v2) }
+                | Err(e) { return Err(e) }
+        }
+        | Err(e) { return Err(e) }
+}
+
+// Variant-specific functions (lines 174-181)
+get_health = (e: GameEntity) i32 {
+    e ?
+        | Player { return 100 }
+        | Enemy { return 50 }
+        | Powerup { return 0 }
+}
+
+get_speed = (e: GameEntity) f64 {
+    e ?
+        | Player { return 5.0 }
+        | Enemy { return 3.0 }
+        | Powerup { return 0.0 }
+}
+
+// ============================================================================
+// Test functions
+// ============================================================================
+
+test_variables_and_mutability = () void {
+    io.println("=== Variables and Mutability ===")
+    
+    // All forms from lines 298-306
+    x: i32
+    x = 10
+    y = 20  // immutable
+    z: i32 = 30
+    w:: i32
+    w = 40
+    v ::= 50  // mutable
+    u:: i32 = 60
+    
+    io.println("Immutable: x=${x}, y=${y}, z=${z}")
+    
+    // Mutate mutable variables
+    w = 45
+    v = 55  
+    u = 65
+    io.println("Mutable after change: w=${w}, v=${v}, u=${u}")
+}
+
+test_pattern_matching = () void {
+    io.println("=== Pattern Matching ===")
+    
+    // Boolean patterns (lines 352-361)
+    ready = true
+    ready ? { io.println("System ready!") }
+    
+    status = false
+    status ?
+        | true { io.println("Active") }
+        | false { io.println("Inactive") }
+    
+    // Nested patterns
+    value = 42
+    value > 0 ?
+        | true {
+            value > 50 ?
+                | true { io.println("High value: ${value}") }
+                | false { io.println("Medium value: ${value}") }
+        }
+        | false { io.println("Non-positive value") }
+}
+
+test_option_and_result = () void {
+    io.println("=== Option and Result Types ===")
+    
+    // Option handling (lines 462-473)
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("Option has value: ${v}") }
+        | None { io.println("Option is None") }
+    
+    empty: Option<String> = None
+    empty ?
+        | Some(s) { io.println("Unexpected: ${s}") }
+        | None { io.println("Option is correctly None") }
+    
+    // Result handling
+    success: Result<i32, String> = Ok(100)
+    success ?
+        | Ok(v) { io.println("Result success: ${v}") }
+        | Err(e) { io.println("Result error: ${e}") }
+    
+    failure: Result<i32, String> = Err("Failed operation")
+    failure ?
+        | Ok(v) { io.println("Unexpected Ok: ${v}") }
+        | Err(e) { io.println("Result error: ${e}") }
+    
+    // Test safe_divide
+    result1 = safe_divide(10.0, 2.0)
+    result1 ?
+        | Some(v) { io.println("10/2 = ${v}") }
+        | None { io.println("Division failed") }
+    
+    result2 = safe_divide(10.0, 0.0)
+    result2 ?
+        | Some(v) { io.println("Unexpected: ${v}") }
+        | None { io.println("Division by zero handled correctly") }
+}
+
+test_structs_and_enums = () void {
+    io.println("=== Structs and Enums ===")
+    
+    // Struct creation and field access
+    point = Point { x: 10.0, y: 20.0 }
+    io.println("Point: (${point.x}, ${point.y})")
+    
+    // Mutate struct fields
+    point.x = 15.0
+    point.y = 25.0
+    io.println("Modified point: (${point.x}, ${point.y})")
+    
+    // Nested structs
+    circle = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    io.println("Circle center: (${circle.center.x}, ${circle.center.y}), radius: ${circle.radius}")
+    
+    // Enum pattern matching
+    shape: Shape = Shape.Circle
+    shape ?
+        | Circle { io.println("Shape is a Circle") }
+        | Rectangle { io.println("Shape is a Rectangle") }
+    
+    // Game entity enum
+    entity = GameEntity.Player
+    health = get_health(entity)
+    speed = get_speed(entity)
+    io.println("Player - Health: ${health}, Speed: ${speed}")
+    
+    entity = GameEntity.Enemy
+    health = get_health(entity)
+    speed = get_speed(entity)
+    io.println("Enemy - Health: ${health}, Speed: ${speed}")
+}
+
+test_loops_and_ranges = () void {
+    io.println("=== Loops and Ranges ===")
+    
+    // Basic range (lines 432-434)
+    io.println("Range 0..5:")
+    (0..5).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Step range (lines 436-439)
+    io.println("Range 0..10 step 3:")
+    (0..10).step(3).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Infinite loop with break (lines 452-460)
+    io.println("Infinite loop with conditional break:")
+    counter ::= 0
+    loop(() {
+        io.println("  Iteration ${counter}")
+        counter = counter + 1
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    })
+    
+    // Loop with accumulator pattern
+    sum ::= 0
+    (1..6).loop((i) {
+        sum = sum + i
+    })
+    io.println("Sum of 1..5: ${sum}")
+}
+
+test_defer_mechanism = () void {
+    io.println("=== Defer Mechanism ===")
+    
+    io.println("Setting up defer...")
+    @this.defer(io.println("  -> Deferred cleanup 1"))
+    @this.defer(io.println("  -> Deferred cleanup 2"))
+    
+    io.println("Main work...")
+    
+    // Defer in nested scope
+    {
+        @this.defer(io.println("  -> Inner scope cleanup"))
+        io.println("Inner scope work...")
+    }
+    
+    io.println("Back to outer scope...")
+}
+
+test_functions_and_control_flow = () void {
+    io.println("=== Functions and Control Flow ===")
+    
+    // Test calculate function
+    result1 = calculate(10, 5, "add")
+    io.println("10 + 5 = ${result1}")
+    
+    result2 = calculate(10, 5, "sub")
+    io.println("10 - 5 = ${result2}")
+    
+    result3 = calculate(10, 5, "mul")
+    io.println("10 * 5 = ${result3}")
+    
+    result4 = calculate(10, 5, "div")
+    io.println("10 / 5 = ${result4}")
+    
+    result5 = calculate(10, 0, "div")
+    io.println("10 / 0 = ${result5} (safe division)")
+    
+    // Test error propagation pattern
+    process_result = process_data()
+    process_result ?
+        | Ok(v) { io.println("Processing succeeded: ${v}") }
+        | Err(e) { io.println("Processing failed: ${e}") }
+}
+
+test_string_interpolation = () void {
+    io.println("=== String Interpolation ===")
+    
+    name = "Zen"
+    version = 1.0
+    year = 2024
+    
+    io.println("Language: ${name} v${version}")
+    io.println("Year: ${year}, Next: ${year + 1}")
+    
+    // Expressions in interpolation
+    x = 10
+    y = 20
+    io.println("${x} + ${y} = ${x + y}")
+    io.println("${x} * ${y} = ${x * y}")
+    
+    // Nested field access
+    p = Point { x: 3.14, y: 2.71 }
+    io.println("Point coordinates: (${p.x}, ${p.y})")
+}
+
+// ============================================================================
+// Main entry point
+// ============================================================================
+
+main = () void {
+    io.println("================================================")
+    io.println("    Zen Language Comprehensive Test Suite")
+    io.println("    Testing LANGUAGE_SPEC.zen Features")
+    io.println("================================================")
+    io.println("")
+    
+    test_variables_and_mutability()
+    io.println("")
+    
+    test_pattern_matching()
+    io.println("")
+    
+    test_option_and_result()
+    io.println("")
+    
+    test_structs_and_enums()
+    io.println("")
+    
+    test_loops_and_ranges()
+    io.println("")
+    
+    test_defer_mechanism()
+    io.println("")
+    
+    test_functions_and_control_flow()
+    io.println("")
+    
+    test_string_interpolation()
+    io.println("")
+    
+    io.println("================================================")
+    io.println("          All Tests Completed")
+    io.println("================================================")
+}
