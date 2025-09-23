@@ -124,7 +124,7 @@ parse_args = (args: Vec<string>) Result<CompilerOptions, string>   {
     
     options := CompilerOptions {
         input_file: args[1],
-        output_file: "a.out",
+        output_file: "target/a.out",
         emit_type: Binary,
         optimize: false,
         debug: false,

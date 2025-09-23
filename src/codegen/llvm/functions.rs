@@ -70,6 +70,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let func = self.module.add_function(name, fn_type, Some(Linkage::External));
                 Ok(func)
             }
+            "realloc" => {
+                // realloc(ptr: *void, size: i64) -> *void
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let size_type = self.context.i64_type();
+                let fn_type = ptr_type.fn_type(&[ptr_type.into(), size_type.into()], false);
+                let func = self.module.add_function(name, fn_type, Some(Linkage::External));
+                Ok(func)
+            }
+            "malloc" => {
+                // malloc(size: i64) -> *void
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let size_type = self.context.i64_type();
+                let fn_type = ptr_type.fn_type(&[size_type.into()], false);
+                let func = self.module.add_function(name, fn_type, Some(Linkage::External));
+                Ok(func)
+            }
+            "free" => {
+                // free(ptr: *void) -> void
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = self.context.void_type().fn_type(&[ptr_type.into()], false);
+                let func = self.module.add_function(name, fn_type, Some(Linkage::External));
+                Ok(func)
+            }
             _ => Err(CompileError::InternalError(
                 format!("Unknown runtime function: {}", name),
                 None,

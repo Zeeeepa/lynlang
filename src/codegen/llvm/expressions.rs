@@ -349,6 +349,519 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(ok_value);
                 }
                 
+                // Special handling for DynVec methods
+                if let Expression::Identifier(obj_name) = object.as_ref() {
+                    // Check if this is a DynVec type by looking at the object's type
+                    // For now, we'll handle common DynVec methods
+                    match method.as_str() {
+                        "push" => {
+                            // DynVec.push(value) implementation
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError("push expects exactly 1 argument".to_string(), None));
+                            }
+                            
+                            // Get the value to push
+                            let value = self.compile_expression(&args[0])?;
+                            
+                            // object_value should be a DynVec struct {ptr, len, capacity}
+                            // We need to:
+                            // 1. Check if len >= capacity (grow if needed)
+                            // 2. Store value at data[len]
+                            // 3. Increment len
+                            
+                            let dynvec_ptr = if object_value.is_pointer_value() {
+                                object_value.into_pointer_value()
+                            } else {
+                                // If it's not a pointer, we need to store it first
+                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
+                                self.builder.build_store(alloca, object_value)?;
+                                alloca
+                            };
+                            
+                            // Load len and capacity
+                            let len_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                1,
+                                "len_ptr"
+                            )?;
+                            let capacity_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                2,
+                                "capacity_ptr"
+                            )?;
+                            
+                            let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?
+                                .into_int_value();
+                            let capacity = self.builder.build_load(self.context.i64_type(), capacity_ptr, "capacity")?
+                                .into_int_value();
+                            
+                            // Check if we need to grow
+                            let need_grow = self.builder.build_int_compare(
+                                inkwell::IntPredicate::UGE,
+                                len,
+                                capacity,
+                                "need_grow"
+                            )?;
+                            
+                            let grow_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "dynvec_grow"
+                            );
+                            let store_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "dynvec_store"
+                            );
+                            
+                            self.builder.build_conditional_branch(need_grow, grow_block, store_block)?;
+                            
+                            // Grow block - double capacity and reallocate
+                            self.builder.position_at_end(grow_block);
+                            let new_capacity = self.builder.build_int_mul(
+                                capacity,
+                                self.context.i64_type().const_int(2, false),
+                                "new_capacity"
+                            )?;
+                            
+                            // Calculate new size in bytes
+                            let element_size = self.context.i64_type().const_int(8, false); // Assuming i64 elements for now
+                            let new_size = self.builder.build_int_mul(new_capacity, element_size, "new_size")?;
+                            
+                            // Get data pointer
+                            let data_ptr_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                0,
+                                "data_ptr_ptr"
+                            )?;
+                            let old_data = self.builder.build_load(
+                                self.context.ptr_type(inkwell::AddressSpace::default()),
+                                data_ptr_ptr,
+                                "old_data"
+                            )?;
+                            
+                            // Reallocate using realloc
+                            let realloc_fn = self.get_or_create_runtime_function("realloc")?;
+                            let new_data = self.builder.build_call(
+                                realloc_fn,
+                                &[old_data.into(), new_size.into()],
+                                "new_data"
+                            )?.try_as_basic_value().left().unwrap();
+                            
+                            // Update data pointer and capacity
+                            self.builder.build_store(data_ptr_ptr, new_data)?;
+                            self.builder.build_store(capacity_ptr, new_capacity)?;
+                            
+                            self.builder.build_unconditional_branch(store_block)?;
+                            
+                            // Store block - store value at data[len]
+                            self.builder.position_at_end(store_block);
+                            
+                            // Re-load data pointer (might have changed)
+                            let data_ptr_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                0,
+                                "data_ptr_ptr"
+                            )?;
+                            let data_ptr = self.builder.build_load(
+                                self.context.ptr_type(inkwell::AddressSpace::default()),
+                                data_ptr_ptr,
+                                "data_ptr"
+                            )?.into_pointer_value();
+                            
+                            // Re-load len (for correct index)
+                            let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?
+                                .into_int_value();
+                            
+                            // Calculate element address
+                            let element_ptr = unsafe {
+                                self.builder.build_gep(
+                                    value.get_type(),
+                                    data_ptr,
+                                    &[len],
+                                    "element_ptr"
+                                )
+                            }?;
+                            
+                            // Store the value
+                            self.builder.build_store(element_ptr, value)?;
+                            
+                            // Increment length
+                            let new_len = self.builder.build_int_add(
+                                len,
+                                self.context.i64_type().const_int(1, false),
+                                "new_len"
+                            )?;
+                            self.builder.build_store(len_ptr, new_len)?;
+                            
+                            // Return void (unit type)
+                            return Ok(self.context.struct_type(&[], false).const_zero().into());
+                        }
+                        "pop" => {
+                            // DynVec.pop() -> Option<T>
+                            // Returns Some(value) if vector is not empty, None otherwise
+                            
+                            let dynvec_ptr = if object_value.is_pointer_value() {
+                                object_value.into_pointer_value()
+                            } else {
+                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
+                                self.builder.build_store(alloca, object_value)?;
+                                alloca
+                            };
+                            
+                            // Load len
+                            let len_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                1,
+                                "len_ptr"
+                            )?;
+                            let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?
+                                .into_int_value();
+                            
+                            // Check if empty
+                            let is_empty = self.builder.build_int_compare(
+                                inkwell::IntPredicate::EQ,
+                                len,
+                                self.context.i64_type().const_int(0, false),
+                                "is_empty"
+                            )?;
+                            
+                            let none_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "pop_none"
+                            );
+                            let some_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "pop_some"
+                            );
+                            let merge_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "pop_merge"
+                            );
+                            
+                            self.builder.build_conditional_branch(is_empty, none_block, some_block)?;
+                            
+                            // None block - return None
+                            self.builder.position_at_end(none_block);
+                            let option_type = self.context.struct_type(&[
+                                self.context.i64_type().into(), // discriminant
+                                self.context.i64_type().into(), // payload
+                            ], false);
+                            let none_value = option_type.const_named_struct(&[
+                                self.context.i64_type().const_int(1, false).into(), // None = 1
+                                self.context.i64_type().const_int(0, false).into(), // dummy payload
+                            ]);
+                            self.builder.build_unconditional_branch(merge_block)?;
+                            
+                            // Some block - decrement len and return value
+                            self.builder.position_at_end(some_block);
+                            
+                            // Decrement len
+                            let new_len = self.builder.build_int_sub(
+                                len,
+                                self.context.i64_type().const_int(1, false),
+                                "new_len"
+                            )?;
+                            self.builder.build_store(len_ptr, new_len)?;
+                            
+                            // Load data pointer
+                            let data_ptr_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                0,
+                                "data_ptr_ptr"
+                            )?;
+                            let data_ptr = self.builder.build_load(
+                                self.context.ptr_type(inkwell::AddressSpace::default()),
+                                data_ptr_ptr,
+                                "data_ptr"
+                            )?.into_pointer_value();
+                            
+                            // Get element at new_len (the last element)
+                            let element_ptr = unsafe {
+                                self.builder.build_gep(
+                                    self.context.i64_type(),
+                                    data_ptr,
+                                    &[new_len],
+                                    "element_ptr"
+                                )
+                            }?;
+                            
+                            let value = self.builder.build_load(self.context.i64_type(), element_ptr, "popped_value")?;
+                            
+                            // Create Some(value)
+                            let some_value = option_type.const_named_struct(&[
+                                self.context.i64_type().const_int(0, false).into(), // Some = 0
+                                value.into(),
+                            ]);
+                            
+                            self.builder.build_unconditional_branch(merge_block)?;
+                            
+                            // Merge block - PHI node for result
+                            self.builder.position_at_end(merge_block);
+                            let phi = self.builder.build_phi(option_type, "pop_result")?;
+                            phi.add_incoming(&[(&none_value, none_block), (&some_value, some_block)]);
+                            
+                            return Ok(phi.as_basic_value());
+                        }
+                        "get" => {
+                            // DynVec.get(index) -> Option<T>
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError("get expects exactly 1 argument".to_string(), None));
+                            }
+                            
+                            let index = self.compile_expression(&args[0])?;
+                            let index = if index.is_int_value() {
+                                index.into_int_value()
+                            } else {
+                                return Err(CompileError::TypeError("Index must be an integer".to_string(), None));
+                            };
+                            
+                            let dynvec_ptr = if object_value.is_pointer_value() {
+                                object_value.into_pointer_value()
+                            } else {
+                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
+                                self.builder.build_store(alloca, object_value)?;
+                                alloca
+                            };
+                            
+                            // Load len
+                            let len_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                1,
+                                "len_ptr"
+                            )?;
+                            let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?
+                                .into_int_value();
+                            
+                            // Check if index is valid
+                            let is_valid = self.builder.build_int_compare(
+                                inkwell::IntPredicate::ULT,
+                                index,
+                                len,
+                                "is_valid_index"
+                            )?;
+                            
+                            let none_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "get_none"
+                            );
+                            let some_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "get_some"
+                            );
+                            let merge_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "get_merge"
+                            );
+                            
+                            self.builder.build_conditional_branch(is_valid, some_block, none_block)?;
+                            
+                            // None block - return None
+                            self.builder.position_at_end(none_block);
+                            let option_type = self.context.struct_type(&[
+                                self.context.i64_type().into(), // discriminant
+                                self.context.i64_type().into(), // payload
+                            ], false);
+                            let none_value = option_type.const_named_struct(&[
+                                self.context.i64_type().const_int(1, false).into(), // None = 1
+                                self.context.i64_type().const_int(0, false).into(), // dummy payload
+                            ]);
+                            self.builder.build_unconditional_branch(merge_block)?;
+                            
+                            // Some block - return value at index
+                            self.builder.position_at_end(some_block);
+                            
+                            // Load data pointer
+                            let data_ptr_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                0,
+                                "data_ptr_ptr"
+                            )?;
+                            let data_ptr = self.builder.build_load(
+                                self.context.ptr_type(inkwell::AddressSpace::default()),
+                                data_ptr_ptr,
+                                "data_ptr"
+                            )?.into_pointer_value();
+                            
+                            // Get element at index
+                            let element_ptr = unsafe {
+                                self.builder.build_gep(
+                                    self.context.i64_type(),
+                                    data_ptr,
+                                    &[index],
+                                    "element_ptr"
+                                )
+                            }?;
+                            
+                            let value = self.builder.build_load(self.context.i64_type(), element_ptr, "element_value")?;
+                            
+                            // Create Some(value)
+                            let some_value = option_type.const_named_struct(&[
+                                self.context.i64_type().const_int(0, false).into(), // Some = 0
+                                value.into(),
+                            ]);
+                            
+                            self.builder.build_unconditional_branch(merge_block)?;
+                            
+                            // Merge block - PHI node for result
+                            self.builder.position_at_end(merge_block);
+                            let phi = self.builder.build_phi(option_type, "get_result")?;
+                            phi.add_incoming(&[(&none_value, none_block), (&some_value, some_block)]);
+                            
+                            return Ok(phi.as_basic_value());
+                        }
+                        "set" => {
+                            // DynVec.set(index, value) -> bool
+                            if args.len() != 2 {
+                                return Err(CompileError::TypeError("set expects exactly 2 arguments".to_string(), None));
+                            }
+                            
+                            let index = self.compile_expression(&args[0])?;
+                            let index = if index.is_int_value() {
+                                index.into_int_value()
+                            } else {
+                                return Err(CompileError::TypeError("Index must be an integer".to_string(), None));
+                            };
+                            
+                            let value = self.compile_expression(&args[1])?;
+                            
+                            let dynvec_ptr = if object_value.is_pointer_value() {
+                                object_value.into_pointer_value()
+                            } else {
+                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
+                                self.builder.build_store(alloca, object_value)?;
+                                alloca
+                            };
+                            
+                            // Load len
+                            let len_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                1,
+                                "len_ptr"
+                            )?;
+                            let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?
+                                .into_int_value();
+                            
+                            // Check if index is valid
+                            let is_valid = self.builder.build_int_compare(
+                                inkwell::IntPredicate::ULT,
+                                index,
+                                len,
+                                "is_valid_index"
+                            )?;
+                            
+                            let fail_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "set_fail"
+                            );
+                            let success_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "set_success"
+                            );
+                            let merge_block = self.context.append_basic_block(
+                                self.current_function.unwrap(),
+                                "set_merge"
+                            );
+                            
+                            self.builder.build_conditional_branch(is_valid, success_block, fail_block)?;
+                            
+                            // Fail block - return false
+                            self.builder.position_at_end(fail_block);
+                            let false_val = self.context.bool_type().const_int(0, false);
+                            self.builder.build_unconditional_branch(merge_block)?;
+                            
+                            // Success block - set value and return true
+                            self.builder.position_at_end(success_block);
+                            
+                            // Load data pointer
+                            let data_ptr_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                0,
+                                "data_ptr_ptr"
+                            )?;
+                            let data_ptr = self.builder.build_load(
+                                self.context.ptr_type(inkwell::AddressSpace::default()),
+                                data_ptr_ptr,
+                                "data_ptr"
+                            )?.into_pointer_value();
+                            
+                            // Get element at index
+                            let element_ptr = unsafe {
+                                self.builder.build_gep(
+                                    value.get_type(),
+                                    data_ptr,
+                                    &[index],
+                                    "element_ptr"
+                                )
+                            }?;
+                            
+                            // Store the new value
+                            self.builder.build_store(element_ptr, value)?;
+                            
+                            let true_val = self.context.bool_type().const_int(1, false);
+                            self.builder.build_unconditional_branch(merge_block)?;
+                            
+                            // Merge block - PHI node for result
+                            self.builder.position_at_end(merge_block);
+                            let phi = self.builder.build_phi(self.context.bool_type(), "set_result")?;
+                            phi.add_incoming(&[(&false_val, fail_block), (&true_val, success_block)]);
+                            
+                            return Ok(phi.as_basic_value());
+                        }
+                        "len" => {
+                            // DynVec.len() -> usize
+                            let dynvec_ptr = if object_value.is_pointer_value() {
+                                object_value.into_pointer_value()
+                            } else {
+                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
+                                self.builder.build_store(alloca, object_value)?;
+                                alloca
+                            };
+                            
+                            // Load and return len
+                            let len_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                1,
+                                "len_ptr"
+                            )?;
+                            let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?;
+                            return Ok(len);
+                        }
+                        "clear" => {
+                            // DynVec.clear() - sets len to 0
+                            let dynvec_ptr = if object_value.is_pointer_value() {
+                                object_value.into_pointer_value()
+                            } else {
+                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
+                                self.builder.build_store(alloca, object_value)?;
+                                alloca
+                            };
+                            
+                            // Set len to 0
+                            let len_ptr = self.builder.build_struct_gep(
+                                object_value.get_type(),
+                                dynvec_ptr,
+                                1,
+                                "len_ptr"
+                            )?;
+                            self.builder.build_store(len_ptr, self.context.i64_type().const_int(0, false))?;
+                            
+                            // Return void (unit type)
+                            return Ok(self.context.struct_type(&[], false).const_zero().into());
+                        }
+                        _ => {}
+                    }
+                }
+                
                 // Try trait method resolution first
                 if let Ok(result) = self.compile_method_call(object, method, args) {
                     return Ok(result);

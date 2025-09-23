@@ -88,7 +88,7 @@ compile_file = (path: string, config: BuildConfig) BuildResult   {
         | Err(e) { return BuildResult.Failure([string.format("Codegen error in { }}: {}", path, e)])
     
     // Write output
-    output_path := string.format("{}/{}.o", config.output_dir, fs.basename(path))
+    output_path := string.format("target/{}/{}.o", config.output_dir, fs.basename(path))
     fs.write_file(output_path, output) ?
         | Ok(_) { BuildResult.Success(output_path, []) }
         | Err(e) { BuildResult.Failure([string.format("Failed to write output: { }}", e)])
@@ -124,7 +124,7 @@ build_project = (config: BuildConfig) BuildResult   {
 
 // Link object files into executable
 link_objects = (objects: Vec<string>, config: BuildConfig) Result<string, string>   {
-    output_path := string.format("{}/output", config.output_dir)
+    output_path := string.format("target/{}/output", config.output_dir)
     
     // Build linker command
     cmd := Vec<string>.new()

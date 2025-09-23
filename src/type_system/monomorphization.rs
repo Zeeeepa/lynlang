@@ -253,6 +253,15 @@ impl Monomorphizer {
                 }
                 self.collect_instantiations_from_type(return_type)
             }
+            AstType::Vec { element_type, .. } => {
+                self.collect_instantiations_from_type(element_type)
+            }
+            AstType::DynVec { element_types, .. } => {
+                for elem_type in element_types {
+                    self.collect_instantiations_from_type(elem_type)?;
+                }
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -297,6 +306,12 @@ impl Monomorphizer {
             }
             AstType::Result { ok_type, err_type } => {
                 self.type_uses_parameter(ok_type, param_name) || self.type_uses_parameter(err_type, param_name)
+            }
+            AstType::Vec { element_type, .. } => {
+                self.type_uses_parameter(element_type, param_name)
+            }
+            AstType::DynVec { element_types, .. } => {
+                element_types.iter().any(|t| self.type_uses_parameter(t, param_name))
             }
             _ => false,
         }

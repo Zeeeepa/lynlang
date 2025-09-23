@@ -8,6 +8,13 @@ use inkwell::{
 
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn to_llvm_type(&mut self, type_: &AstType) -> Result<Type<'ctx>, CompileError> {
+        // Debug empty Generic types
+        if let AstType::Generic { name, .. } = type_ {
+            if name.is_empty() {
+                eprintln!("DEBUG: Empty generic type encountered: {:?}", type_);
+            }
+        }
+        
         let result = match type_ {
             AstType::I8 => Ok(Type::Basic(self.context.i8_type().into())),
             AstType::I16 => Ok(Type::Basic(self.context.i16_type().into())),
@@ -249,7 +256,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(Type::Struct(dynvec_struct))
                 }
             },
-            AstType::Generic { name, type_args: _ } => {
+            AstType::Generic { name, type_args } => {
                 // Check if this is actually a user-defined struct type
                 if let Some(struct_info) = self.struct_types.get(name) {
                     Ok(Type::Struct(struct_info.llvm_type))
@@ -259,6 +266,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     // After monomorphization, we should not encounter generic types
                     // If we do, it means monomorphization failed to resolve this type
+                    eprintln!("DEBUG: Unresolved generic type: name='{}', type_args={:?}", name, type_args);
                     Err(CompileError::InternalError(
                         format!("Unresolved generic type '{}' found after monomorphization. This is a compiler bug.", name),
                         None
