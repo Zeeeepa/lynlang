@@ -1,17 +1,7 @@
 // Regular Expression Module for Zen
 // Provides basic regex pattern matching capabilities
 
-malloc = (size: i64) RawPtr<void> {
-    inline.c("""
-        return malloc(${size});
-    """)
-}
-
-free = (ptr: RawPtr<void>) void {
-    inline.c("""
-        free(${ptr.addr});
-    """)
-}
+{ allocate_raw, deallocate_raw } = import("memory.zen")
 
 strlen = (str: RawPtr<i8>) i64 {
     inline.c("""
@@ -85,26 +75,26 @@ regex_parse_char = (parser: Ptr<RegexParser>) Ptr<RegexNode> {
             // Common escape sequences
             escaped == 110 ? | true { { // \n }
                 node := RegexNode:Literal(10)
-                result := malloc(@sizeof(RegexNode)) as *RegexNode
+                result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
                 *result = node
                 return result
             } | false {}
             
             escaped == 116 ? | true { { // \t }
                 node := RegexNode:Literal(9)
-                result := malloc(@sizeof(RegexNode)) as *RegexNode
+                result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
                 *result = node
                 return result
             } | false {}
             
             // Default: treat as literal
             node := RegexNode:Literal(escaped)
-            result := malloc(@sizeof(RegexNode)) as *RegexNode
+            result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
             *result = node
             return result
         } | false {
             node := RegexNode:Literal(ch)
-            result := malloc(@sizeof(RegexNode)) as *RegexNode
+            result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
             *result = node
             return result
         }
@@ -113,7 +103,7 @@ regex_parse_char = (parser: Ptr<RegexParser>) Ptr<RegexNode> {
     // Dot metacharacter
     ch == 46 ? | true { { // . }
         node := RegexNode:Dot
-        result := malloc(@sizeof(RegexNode)) as *RegexNode
+        result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
     } | false {}
@@ -121,7 +111,7 @@ regex_parse_char = (parser: Ptr<RegexParser>) Ptr<RegexNode> {
     // Start anchor
     ch == 94 ? | true { { // ^ }
         node := RegexNode:Anchor(true)
-        result := malloc(@sizeof(RegexNode)) as *RegexNode
+        result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
     } | false {}
@@ -129,7 +119,7 @@ regex_parse_char = (parser: Ptr<RegexParser>) Ptr<RegexNode> {
     // End anchor
     ch == 36 ? | true { { // $ }
         node := RegexNode:Anchor(false)
-        result := malloc(@sizeof(RegexNode)) as *RegexNode
+        result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
     } | false {}
@@ -146,21 +136,21 @@ regex_parse_char = (parser: Ptr<RegexParser>) Ptr<RegexNode> {
         parser.position = parser.position + 1 // Skip )
         
         node := RegexNode:Group(child, true)
-        result := malloc(@sizeof(RegexNode)) as *RegexNode
+        result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
     } | false {}
     
     // Literal character
     node := RegexNode:Literal(ch)
-    result := malloc(@sizeof(RegexNode)) as Ptr<RegexNode>
+    result := allocate_raw(@sizeof(RegexNode)) as Ptr<RegexNode>
     result.write(node)
     return result
 }
 
 // Parse character class [abc] or [^abc]
 regex_parse_char_class = (parser: *RegexParser) *RegexNode {
-    chars := malloc(256 as i64) as RawPtr<i8>
+    chars := allocate_raw(256 as i64) as RawPtr<i8>
     char_count := 0
     negated := false
     
@@ -202,14 +192,14 @@ regex_parse_char_class = (parser: *RegexParser) *RegexNode {
     chars[char_count] = 0
     
     node := RegexNode:CharClass(chars, negated)
-    result := malloc(@sizeof(RegexNode)) as Ptr<RegexNode>
+    result := allocate_raw(@sizeof(RegexNode)) as Ptr<RegexNode>
     result.write(node)
     return result
 }
 
 // Parse sequence of nodes
 regex_parse_sequence = (parser: *RegexParser) *RegexNode {
-    nodes := malloc(256 * @sizeof(RegexNode)) as *RegexNode
+    nodes := allocate_raw(256 * @sizeof(RegexNode)) as *RegexNode
     node_count := 0
     
     loop {
@@ -231,21 +221,21 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
             
             quant == 42 ? | true { { // * }
                 node := RegexNode:Star(atom)
-                atom = malloc(@sizeof(RegexNode)) as *RegexNode
+                atom = allocate_raw(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
             } | false {}
             
             quant == 43 ? | true { { // + }
                 node := RegexNode:Plus(atom)
-                atom = malloc(@sizeof(RegexNode)) as *RegexNode
+                atom = allocate_raw(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
             } | false {}
             
             quant == 63 ? | true { { // ? }
                 node := RegexNode:Question(atom)
-                atom = malloc(@sizeof(RegexNode)) as *RegexNode
+                atom = allocate_raw(@sizeof(RegexNode)) as *RegexNode
                 *atom = node
                 parser.position = parser.position + 1
             } | false {}
@@ -259,7 +249,7 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
         return &nodes[0]
     } | false {
         node := RegexNode:Sequence(nodes, node_count)
-        result := malloc(@sizeof(RegexNode)) as *RegexNode
+        result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
         *result = node
         return result
     }
@@ -453,7 +443,7 @@ regex_replace = (pattern: RawPtr<i8>, text: RawPtr<i8>, replacement: RawPtr<i8>)
     repl_len := strlen(replacement) as i32
     new_len := text_len - (match.end - match.start) + repl_len
     
-    result := malloc((new_len + 1) as i64) as RawPtr<i8>
+    result := allocate_raw((new_len + 1) as i64) as RawPtr<i8>
     
     // Copy before match
     range(0, match.start).loop((i) {

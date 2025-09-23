@@ -25,6 +25,12 @@ vec_module = import("vec")
 collections = import("collections")
 { HashMap, HashEntry, List, ListNode } = collections
 
+// Import Stack and Queue (they have their own modules)
+stack_module = import("stack")
+{ Stack } = stack_module
+queue_module = import("queue")
+{ Queue } = queue_module
+
 // For backward compatibility, re-export collection functions
 // with original names from stdlib.zen
 vec_new = Vec.new

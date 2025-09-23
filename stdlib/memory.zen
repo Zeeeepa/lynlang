@@ -473,3 +473,26 @@ reset_stats = () void {
         deallocation_count: 0
     }
 }
+
+// Simple aliases for stdlib compatibility
+malloc = allocate_raw
+free = deallocate_raw  
+memcpy = copy_memory_raw
+memset = set_memory_raw
+
+// Allocator interface for backward compatibility  
+Allocator = Arena
+
+system_allocator = arena_new
+
+// Export the memory management interface
+module.exports = { 
+    malloc, free, memcpy, memset, Allocator, system_allocator,
+    allocate_raw, deallocate_raw, reallocate_raw, allocate_zeroed_raw,
+    copy_memory_raw, move_memory_raw, set_memory_raw, compare_memory_raw,
+    Arena, Pool, MemoryStats, AllocationInfo, MemoryTracker,
+    allocate, allocate_zeroed, reallocate, deallocate, copy, move, set, compare,
+    alloc_aligned, arena_new, arena_allocate, arena_reset, arena_destroy,
+    pool_new, pool_allocate, pool_deallocate, pool_destroy,
+    get_memory_stats, print_memory_stats, print_allocations, reset_stats
+}
