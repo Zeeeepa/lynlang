@@ -1,0 +1,17 @@
+// Simple DynVec test without allocator dependency
+{ io } = @std
+
+main = () i32 {
+    // For now, create a DynVec with a simple integer as allocator placeholder
+    // This is a simplified test to verify basic DynVec compilation
+    vec = DynVec<i32>(0)
+    
+    // Test basic operations
+    vec.push(42)
+    vec.push(100)
+    
+    len = vec.len()
+    io.println("Length: ${len}")
+    
+    return 0
+}
