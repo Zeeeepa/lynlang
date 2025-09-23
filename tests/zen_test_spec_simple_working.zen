@@ -1,0 +1,57 @@
+// Simple test of all working features from LANGUAGE_SPEC.zen
+{ io, math } = @std
+
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+main = () void {
+    io.println("=== ZEN SPEC WORKING FEATURES ===")
+    
+    // 1. Variables (all 6 forms)
+    x: i32
+    x = 10
+    y = 20
+    z: i32 = 30
+    w:: i32  
+    w = 40
+    v ::= 50
+    u:: i32 = 60
+    io.println("Variables: x=${x}, y=${y}, z=${z}, w=${w}, v=${v}, u=${u}")
+    
+    // 2. Pattern matching
+    ready = true
+    ready ? { io.println("Ready!") }
+    
+    value = false
+    value ?
+        | true { io.println("True") }
+        | false { io.println("False") }
+    
+    // 3. Ranges
+    io.print("Range: ")
+    (0..3).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // 4. Option
+    opt: Option<i32> = Some(42)
+    opt ?
+        | Some(v) { io.println("Option: Some(${v})") }
+        | None { io.println("Option: None") }
+    
+    // 5. Result
+    res: Result<i32, string> = Ok(100)
+    res ?
+        | Ok(v) { io.println("Result: Ok(${v})") }
+        | Err(e) { io.println("Result: Err(${e})") }
+    
+    // 6. Math
+    io.println("Math.pi: ${math.pi}")
+    
+    // 7. String interpolation
+    name = "Zen"
+    io.println("Hello, ${name}!")
+    
+    io.println("=== ALL TESTS PASS ===")
+}

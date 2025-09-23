@@ -28,7 +28,7 @@ main = () void {
     
     // Variables
     io.println("1. Variables:")
-    x: i32
+    x :: i32
     x = 10
     io.println("  Forward decl: x = ${x}")
     
@@ -39,13 +39,13 @@ main = () void {
     
     // Pattern matching
     io.println("2. Pattern Matching:")
-    is_ready = true
+    is_ready: bool = true
     is_ready ? {
         io.println("  Ready!")
     }
     
-    value = 5
-    is_positive = value > 0
+    value: i32 = 5
+    is_positive: bool = value > 0
     is_positive ?
         | true { io.println("  ${value} is positive") }
         | false { io.println("  ${value} is not positive") }
@@ -69,7 +69,7 @@ main = () void {
     
     // Structs
     io.println("5. Structs:")
-    p = Point { x: 10.5, y: 20.5 }
+    p ::= Point { x: 10.5, y: 20.5 }
     io.println("  Point: (${p.x}, ${p.y})")
     p.x = 15.5
     io.println("  After mutation: (${p.x}, ${p.y})")
@@ -94,15 +94,15 @@ main = () void {
     
     // UFC - Uniform Function Call
     io.println("7. UFC (Uniform Function Call):")
-    num = 10
-    doubled = num.double()  // UFC: same as double(num)
+    num: i32 = 10
+    doubled: i32 = num.double()  // UFC: same as double(num)
     io.println("  10.double() = ${doubled}")
     
-    sum = num.add(5)  // UFC: same as add(num, 5)
+    sum: i32 = num.add(5)  // UFC: same as add(num, 5)
     io.println("  10.add(5) = ${sum}")
     
     // UFC chaining
-    chained = num.double().add(3)
+    chained: i32 = num.double().add(3)
     io.println("  10.double().add(3) = ${chained}")
     io.println("")
     

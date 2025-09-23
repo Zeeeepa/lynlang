@@ -2,6 +2,7 @@ pub mod types;
 pub mod inference;
 pub mod validation;
 pub mod behaviors;
+pub mod self_resolution;
 
 use crate::ast::{Program, Declaration, Statement, Expression, AstType, Function};
 use crate::error::{CompileError, Result};
@@ -31,6 +32,8 @@ pub struct TypeChecker {
     std_namespace: StdNamespace,
     // Module imports (alias -> module_path)
     module_imports: HashMap<String, String>,
+    // Current trait implementation type (for resolving Self)
+    current_impl_type: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -78,6 +81,7 @@ impl TypeChecker {
             behavior_resolver: BehaviorResolver::new(),
             std_namespace: StdNamespace::new(),
             module_imports: HashMap::new(),
+            current_impl_type: None,
         }
     }
 
@@ -139,6 +143,9 @@ impl TypeChecker {
             }
             Declaration::Behavior(behavior_def) => {
                 self.behavior_resolver.register_behavior(behavior_def)?;
+            }
+            Declaration::Trait(trait_def) => {
+                self.behavior_resolver.register_trait(trait_def)?;
             }
             Declaration::TraitImplementation(trait_impl) => {
                 self.behavior_resolver.register_trait_implementation(trait_impl)?;
@@ -204,13 +211,21 @@ impl TypeChecker {
                 }
                 self.exit_scope();
             }
+            Declaration::Trait(_) => {
+                // Trait definitions don't need additional checking beyond registration
+            }
             Declaration::TraitImplementation(trait_impl) => {
                 // Verify that the implementation satisfies the trait
                 self.behavior_resolver.verify_trait_implementation(trait_impl)?;
                 // Type check each method in the implementation
+                // We need to set context for resolving Self types
+                self.current_impl_type = Some(trait_impl.type_name.clone());
+                eprintln!("DEBUG: Checking trait implementation for type: {}", trait_impl.type_name);
                 for method in &trait_impl.methods {
+                    eprintln!("DEBUG: Checking method: {}", method.name);
                     self.check_function(method)?;
                 }
+                self.current_impl_type = None;
             }
             Declaration::TraitRequirement(trait_req) => {
                 // Verify that the requirement is valid
@@ -237,7 +252,29 @@ impl TypeChecker {
         // TODO: Parse and handle mutable parameters (:: syntax)
         // For now, all parameters are immutable
         for (param_name, param_type) in &function.args {
-            self.declare_variable(param_name, param_type.clone(), false)?; // false = immutable
+            // Special handling for 'self' parameter in trait implementations
+            let actual_type = if param_name == "self" {
+                match param_type {
+                    AstType::Generic { name, .. } if name == "Self" => {
+                        // Replace Self with the concrete implementing type
+                        if let Some(impl_type) = &self.current_impl_type {
+                            eprintln!("DEBUG: Replacing Self type for 'self' parameter with type: {}", impl_type);
+                            AstType::Struct {
+                                name: impl_type.clone(),
+                                fields: vec![],  // Empty fields for type reference
+                            }
+                        } else {
+                            param_type.clone()
+                        }
+                    }
+                    _ => param_type.clone()
+                }
+            } else {
+                param_type.clone()
+            };
+            
+            eprintln!("DEBUG: Declaring parameter '{}' with type: {:?}", param_name, actual_type);
+            self.declare_variable(param_name, actual_type, false)?; // false = immutable
         }
 
         // Check function body

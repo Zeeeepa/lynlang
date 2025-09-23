@@ -1,0 +1,85 @@
+// Test traits according to LANGUAGE_SPEC.zen
+// Lines 123-163: Trait definition and implementation
+
+{ io, math } = @std
+
+// Trait definition (spec lines 123-127)
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+// Simple struct (spec line 117-120)
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+// Circle struct (spec lines 130-133)
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// Implement trait for Circle (spec lines 135-143)
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+// Rectangle struct (spec lines 146-149)
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+// Implement trait for Rectangle (spec lines 151-162)
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    },
+})
+
+// Enum type with trait requirement (spec lines 165-168)
+Shape: Circle | Rectangle
+Shape.requires(Geometric)
+
+// Test the trait implementations
+main = () void {
+    io.println("=== Testing Traits from LANGUAGE_SPEC.zen ===")
+    
+    // Create a circle
+    circle = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    
+    io.println("Circle:")
+    io.println("  Radius: ${circle.radius}")
+    io.println("  Area: ${circle.area()}")
+    io.println("  Perimeter: ${circle.perimeter()}")
+    
+    // Create a rectangle
+    rect = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        bottom_right: Point { x: 10.0, y: 5.0 }
+    }
+    
+    io.println("Rectangle:")
+    io.println("  Width: 10.0, Height: 5.0")
+    io.println("  Area: ${rect.area()}")
+    io.println("  Perimeter: ${rect.perimeter()}")
+    
+    io.println("=== Traits Test Complete ===")
+}

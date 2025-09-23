@@ -1,4 +1,4 @@
-use crate::ast::{BehaviorDefinition, TraitImplementation, TraitRequirement, AstType};
+use crate::ast::{BehaviorDefinition, TraitDefinition, TraitImplementation, TraitRequirement, AstType};
 use crate::error::{CompileError, Result};
 use std::collections::HashMap;
 
@@ -83,6 +83,86 @@ impl BehaviorResolver {
         Ok(())
     }
 
+    /// Register a trait definition (using same storage as behaviors)
+    pub fn register_trait(&mut self, trait_def: &TraitDefinition) -> Result<()> {
+        if self.behaviors.contains_key(&trait_def.name) {
+            return Err(CompileError::TypeError(
+                format!("Trait '{}' already defined", trait_def.name),
+                None,
+            ));
+        }
+
+        let methods = trait_def.methods.iter().map(|m| {
+            let has_self = m.params.first()
+                .map(|p| p.name == "self")
+                .unwrap_or(false);
+            
+            BehaviorMethodInfo {
+                name: m.name.clone(),
+                param_types: m.params.iter().map(|p| p.type_.clone()).collect(),
+                return_type: m.return_type.clone(),
+                has_self,
+            }
+        }).collect();
+
+        let info = BehaviorInfo {
+            name: trait_def.name.clone(),
+            type_params: trait_def.type_params.iter().map(|tp| tp.name.clone()).collect(),
+            methods,
+        };
+
+        self.behaviors.insert(trait_def.name.clone(), info);
+        Ok(())
+    }
+
+    /// Replace Self type with concrete type in AST type
+    fn replace_self_type(&self, ast_type: &AstType, concrete_type: &str) -> AstType {
+        match ast_type {
+            AstType::Generic { name, type_args: _ } if name == "Self" => {
+                // Replace Self with the concrete type - use Struct with just name
+                AstType::Struct { 
+                    name: concrete_type.to_string(),
+                    fields: vec![]  // Empty fields - this is just a type reference
+                }
+            }
+            AstType::Ptr(inner) => {
+                AstType::Ptr(Box::new(self.replace_self_type(inner, concrete_type)))
+            }
+            AstType::MutPtr(inner) => {
+                AstType::MutPtr(Box::new(self.replace_self_type(inner, concrete_type)))
+            }
+            AstType::RawPtr(inner) => {
+                AstType::RawPtr(Box::new(self.replace_self_type(inner, concrete_type)))
+            }
+            AstType::Option(inner) => {
+                AstType::Option(Box::new(self.replace_self_type(inner, concrete_type)))
+            }
+            AstType::Result { ok_type, err_type } => {
+                AstType::Result {
+                    ok_type: Box::new(self.replace_self_type(ok_type, concrete_type)),
+                    err_type: Box::new(self.replace_self_type(err_type, concrete_type)),
+                }
+            }
+            AstType::Array(element) => {
+                AstType::Array(Box::new(self.replace_self_type(element, concrete_type)))
+            }
+            AstType::FixedArray { element_type, size } => {
+                AstType::FixedArray {
+                    element_type: Box::new(self.replace_self_type(element_type, concrete_type)),
+                    size: *size,
+                }
+            }
+            AstType::Function { args, return_type } => {
+                AstType::Function {
+                    args: args.iter().map(|p| self.replace_self_type(p, concrete_type)).collect(),
+                    return_type: Box::new(self.replace_self_type(return_type, concrete_type)),
+                }
+            }
+            // For other types, return as is
+            _ => ast_type.clone(),
+        }
+    }
+
     /// Register an implementation block
     pub fn register_trait_implementation(&mut self, trait_impl: &TraitImplementation) -> Result<()> {
         // Register a trait implementation for a type
@@ -108,10 +188,16 @@ impl BehaviorResolver {
         
         let mut methods = HashMap::new();
         for method in &trait_impl.methods {
+            // Replace Self types in parameters and return type with the concrete type
+            let param_types: Vec<AstType> = method.args.iter()
+                .map(|(_, t)| self.replace_self_type(t, &trait_impl.type_name))
+                .collect();
+            let return_type = self.replace_self_type(&method.return_type, &trait_impl.type_name);
+            
             let method_info = MethodInfo {
                 name: method.name.clone(),
-                param_types: method.args.iter().map(|(_, t)| t.clone()).collect(),
-                return_type: method.return_type.clone(),
+                param_types,
+                return_type,
             };
             methods.insert(method.name.clone(), method_info);
         }

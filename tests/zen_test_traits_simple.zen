@@ -1,0 +1,13 @@
+// Simple trait test without self parameter
+{ io } = @std
+
+// Simple trait without self
+Printable: {
+    to_string: () string,
+}
+
+// Test basic parsing
+main = () void {
+    io.println("Trait parsing test")
+    io.println("If you see this, traits are being parsed!")
+}

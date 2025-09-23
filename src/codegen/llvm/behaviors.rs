@@ -90,6 +90,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let type_name = &trait_impl.type_name;
         let trait_name = &trait_impl.trait_name;
         
+        // Set the current implementing type for proper 'self' resolution
+        self.current_impl_type = Some(type_name.clone());
+        
         // Process each method in the trait implementation
         for method in &trait_impl.methods {
             // Generate a mangled name for the method
@@ -99,10 +102,55 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let llvm_return_type = self.to_llvm_type(&method.return_type)?;
             
             let mut param_types = Vec::new();
-            for (_, param_type) in &method.args {
-                let llvm_param_type = self.to_llvm_type(param_type)?;
-                if let Ok(basic_type) = llvm_param_type.into_basic_type() {
-                    param_types.push(BasicMetadataTypeEnum::from(basic_type));
+            for (param_name, param_type) in &method.args {
+                eprintln!("DEBUG: Converting param '{}' type {:?} to LLVM", param_name, param_type);
+                
+                // For 'self' parameter, use the implementing type
+                let actual_type = if param_name == "self" {
+                    // If param_type is Generic { name: "Self", ... }, replace with the concrete type
+                    match param_type {
+                        crate::ast::AstType::Generic { name, .. } if name == "Self" => {
+                            crate::ast::AstType::Struct {
+                                name: type_name.clone(),
+                                fields: vec![], // Empty fields for type reference
+                            }
+                        }
+                        _ => param_type.clone()
+                    }
+                } else {
+                    param_type.clone()
+                };
+                
+                // For struct types (including 'self'), pass by pointer
+                let llvm_param_type = if param_name == "self" || matches!(actual_type, crate::ast::AstType::Struct { .. }) {
+                    // Pass structs by pointer
+                    let struct_type = self.to_llvm_type(&actual_type)?;
+                    if let super::Type::Struct(st) = struct_type {
+                        super::Type::Basic(inkwell::types::BasicTypeEnum::PointerType(
+                            st.ptr_type(inkwell::AddressSpace::default())
+                        ))
+                    } else {
+                        struct_type
+                    }
+                } else {
+                    self.to_llvm_type(&actual_type)?
+                };
+                
+                eprintln!("DEBUG: LLVM param type: {:?}", llvm_param_type);
+                match llvm_param_type {
+                    super::Type::Basic(basic_type) => {
+                        param_types.push(BasicMetadataTypeEnum::from(basic_type));
+                        eprintln!("DEBUG: Added param type to function signature");
+                    }
+                    super::Type::Struct(struct_type) => {
+                        // Pass struct by pointer
+                        let ptr_type = struct_type.ptr_type(inkwell::AddressSpace::default());
+                        param_types.push(BasicMetadataTypeEnum::from(ptr_type));
+                        eprintln!("DEBUG: Added struct pointer type to function signature");
+                    }
+                    _ => {
+                        eprintln!("DEBUG: Failed to convert type to function parameter");
+                    }
                 }
             }
 
@@ -138,18 +186,44 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let prev_function = self.current_function;
             self.current_function = Some(function);
             
-            // Add parameters to symbol table
+            // Add parameters to symbol table and variables map
             self.symbols.enter_scope();
-            for (i, (param_name, _)) in method.args.iter().enumerate() {
+            eprintln!("DEBUG: Function has {} params, method has {} args", function.count_params(), method.args.len());
+            for (i, (param_name, param_type)) in method.args.iter().enumerate() {
+                eprintln!("DEBUG: Processing param {} - '{}'", i, param_name);
                 if i < function.count_params() as usize {
                     let param_value = function.get_nth_param(i as u32).unwrap();
                     let alloca = self.builder.build_alloca(param_value.get_type(), param_name)?;
                     self.builder.build_store(alloca, param_value)?;
+                    eprintln!("DEBUG: Inserting parameter '{}' into symbols and variables", param_name);
                     self.symbols.insert(param_name.clone(), super::symbols::Symbol::Variable(alloca));
+                    
+                    // Also add to variables map for struct field access
+                    // For 'self' parameter, use the implementing type
+                    let actual_type = if param_name == "self" {
+                        crate::ast::AstType::Struct {
+                            name: type_name.clone(),
+                            fields: vec![], // Empty fields for type reference
+                        }
+                    } else {
+                        param_type.clone()
+                    };
+                    
+                    self.variables.insert(param_name.clone(), super::VariableInfo {
+                        pointer: alloca,
+                        ast_type: actual_type.clone(),
+                        is_mutable: false,  // Function parameters are immutable by default
+                        is_initialized: true,
+                    });
+                    eprintln!("DEBUG: After inserting '{}', variables map has {} entries", param_name, self.variables.len());
                 }
             }
             
             // Compile method body
+            eprintln!("DEBUG: Before compiling method body, variables map has {} entries", self.variables.len());
+            for (k, _) in &self.variables {
+                eprintln!("DEBUG:   - Variable: {}", k);
+            }
             for stmt in &method.body {
                 self.compile_statement(stmt)?;
             }
@@ -186,6 +260,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Some(ref mut behavior_codegen) = self.behavior_codegen {
             behavior_codegen.generate_vtable(self.context, &self.module, type_name, trait_name, &methods)?;
         }
+        
+        // Clear the current implementing type
+        self.current_impl_type = None;
         
         Ok(())
     }

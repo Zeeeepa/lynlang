@@ -1,0 +1,164 @@
+// Comprehensive test aligned with LANGUAGE_SPEC.zen - September 2025
+// This test demonstrates all working features from the spec
+
+{ io, math } = @std  // Lines 92-94: Destructuring import
+
+// Lines 109-110: Option type (no null!)
+Option<T>: Some(T) | None
+
+// Lines 112-113: Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Lines 117-120: Simple struct with mutable field
+Point: {
+    x:: f64,  // mutable field (:: for mutable)
+    y:: f64 = 0  // with default value
+}
+
+// Lines 165-170: Enum type (sum type) 
+Shape: Circle | Rectangle
+
+// Lines 174-181: UFC overloading for enum variants - not yet implemented
+// This feature requires function overloading support
+
+// Lines 298-306: All 6 variable declaration forms
+demo_variables = () void {
+    // Forward declaration
+    x: i32
+    x = 10
+    io.println("Forward decl: ${x}")
+    
+    // Immutable assignment
+    y = 20
+    io.println("Immutable: ${y}")
+    
+    // Mutable assignment  
+    z ::= 30
+    z = 35
+    io.println("Mutable: ${z}")
+    
+    // Immutable with type
+    a: i32 = 40
+    io.println("Immutable typed: ${a}")
+    
+    // Mutable forward declaration
+    b:: i32
+    b = 50
+    b = 55
+    io.println("Mutable forward: ${b}")
+    
+    // Mutable with type
+    c:: i32 = 60
+    c = 65
+    io.println("Mutable typed: ${c}")
+}
+
+// Lines 352-361: Boolean pattern matching
+check_ready = (ready: bool) void {
+    ready ?
+        | true { io.println("Starting!") }
+        | false { io.println("Waiting...") }
+}
+
+// Lines 431-439: Range iterations
+demo_ranges = () void {
+    io.println("Range 0..3:")
+    (0..3).loop((i) {
+        io.println("  ${i}")
+    })
+}
+
+// Lines 452-459: Infinite loop with counter
+demo_loop = () void {
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("Loop ${counter}") }
+    })
+}
+
+// Lines 462-473: Option handling - no null!
+demo_option = () void {
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { io.println("Got value: ${val}") }
+        | None { io.println("No value") }
+}
+
+// Lines 199-203: Result type usage
+parse_number = (s: String) Result<i32, String> {
+    // Simplified - just return Ok for demo
+    return Ok(42)
+}
+
+// UFC demonstration (line 5 of spec)
+double = (x: i32) i32 { return x * 2 }
+add = (x: i32, y: i32) i32 { return x + y }
+
+demo_ufc = () void {
+    value = 10
+    // These are equivalent due to UFC:
+    result1 = double(value)     // Regular call
+    result2 = value.double()     // UFC method call
+    result3 = value.add(5)       // UFC with args
+    
+    io.println("UFC: ${result1}, ${result2}, ${result3}")
+}
+
+// Main function demonstrating all features
+main = () void {
+    io.println("=== ZEN LANGUAGE SPEC DEMONSTRATION ===")
+    io.println("")
+    
+    io.println("1. VARIABLE DECLARATIONS (Lines 298-306):")
+    demo_variables()
+    io.println("")
+    
+    io.println("2. PATTERN MATCHING (Lines 352-361):")
+    check_ready(true)
+    check_ready(false)
+    io.println("")
+    
+    io.println("3. OPTION TYPES - NO NULL (Lines 462-473):")
+    demo_option()
+    io.println("")
+    
+    io.println("4. RESULT TYPES (Lines 199-203):")
+    result = parse_number("42")
+    result ?
+        | Ok(n) { io.println("Parsed: ${n}") }
+        | Err(e) { io.println("Error: ${e}") }
+    io.println("")
+    
+    io.println("5. STRUCT WITH MUTATION (Lines 364-370):")
+    p ::= Point { x: 1.5, y: 2.5 }
+    io.println("Point: (${p.x}, ${p.y})")
+    p.x = 3.5
+    io.println("After mutation: (${p.x}, ${p.y})")
+    io.println("")
+    
+    io.println("6. RANGES (Lines 431-439):")
+    demo_ranges()
+    io.println("")
+    
+    io.println("7. LOOPS (Lines 452-459):")
+    demo_loop()
+    io.println("")
+    
+    io.println("8. UFC - UNIFORM FUNCTION CALL (Line 5):")
+    demo_ufc()
+    io.println("")
+    
+    io.println("9. MATH CONSTANTS (Lines 138-139):")
+    io.println("Pi value: ${math.pi}")
+    io.println("")
+    
+    io.println("10. STRING INTERPOLATION (Throughout):")
+    name = "Zen"
+    version = 2025
+    io.println("Language: ${name} v${version}")
+    io.println("")
+    
+    io.println("=== ALL TESTS PASSED ===")}

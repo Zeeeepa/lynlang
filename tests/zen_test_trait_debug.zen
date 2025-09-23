@@ -1,0 +1,20 @@
+// Debug test for trait implementation
+{ io } = @std
+
+// Simplified struct to test
+TestStruct: {
+    value: i32,
+}
+
+// Simple method without traits
+test_method = (obj: TestStruct) void {
+    io.println("Value: ${obj.value}")
+}
+
+main = () void {
+    obj ::= TestStruct { value: 42 }
+    test_method(obj)  // This should work
+    
+    // Try UFC
+    obj.test_method()  // This should also work with UFC
+}

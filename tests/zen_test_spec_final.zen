@@ -1,0 +1,79 @@
+// Final test demonstrating LANGUAGE_SPEC.zen implementation
+// All features tested here are currently working
+
+{ io } = @std
+
+// From LANGUAGE_SPEC.zen lines 109-113
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+// From LANGUAGE_SPEC.zen lines 117-120
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+// Simple enum for testing
+Shape: Circle | Rectangle
+
+main = () void {
+    io.println("LANGUAGE_SPEC.zen Implementation Status")
+    io.println("=======================================")
+    io.println("")
+    
+    // Variable declarations (spec lines 298-306)
+    io.println("Variables (lines 298-306):")
+    x :: i32
+    x = 10
+    v ::= 20
+    v = 25
+    io.println("  x=${x}, v=${v}")
+    io.println("")
+    
+    // Pattern matching (spec lines 352-361)
+    io.println("Pattern Matching (lines 352-361):")
+    is_ready: bool = true
+    is_ready ? {
+        io.println("  Ready!")
+    }
+    has_data: bool = false
+    has_data ?
+        | true { io.println("  Has data") }
+        | false { io.println("  No data") }
+    io.println("")
+    
+    // Option type (spec lines 462-473)
+    io.println("Option Type (lines 462-473):")
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { io.println("  Value: ${val}") }
+        | None { io.println("  None") }
+    io.println("")
+    
+    // Structs (spec lines 364-372)
+    io.println("Structs (lines 364-372):")
+    p ::= Point { x: 1.0, y: 2.0 }
+    io.println("  Point: (${p.x}, ${p.y})")
+    p.x = 3.0
+    io.println("  After: (${p.x}, ${p.y})")
+    io.println("")
+    
+    // Loops (spec lines 431-459)
+    io.println("Loops (lines 431-459):")
+    io.print("  Range: ")
+    (0..3).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    io.print("  Loop: ")
+    c ::= 0
+    loop(() {
+        io.print("${c} ")
+        c = c + 1
+        c >= 3 ? { break }
+    })
+    io.println("")
+    io.println("")
+    
+    io.println("Core features from LANGUAGE_SPEC.zen working!")
+}

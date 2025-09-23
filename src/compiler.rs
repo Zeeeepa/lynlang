@@ -29,6 +29,9 @@ impl<'ctx> Compiler<'ctx> {
         // Execute comptime blocks and expressions
         let processed_program = self.execute_comptime(processed_program)?;
         
+        // Resolve Self types in trait implementations
+        let processed_program = self.resolve_self_types(processed_program)?;
+        
         // Monomorphize the program to resolve all generic types
         let mut monomorphizer = Monomorphizer::new();
         let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
@@ -53,6 +56,9 @@ impl<'ctx> Compiler<'ctx> {
         
         // Execute comptime blocks and expressions
         let processed_program = self.execute_comptime(processed_program)?;
+        
+        // Resolve Self types in trait implementations
+        let processed_program = self.resolve_self_types(processed_program)?;
         
         // Monomorphize the program to resolve all generic types
         let mut monomorphizer = Monomorphizer::new();
@@ -282,5 +288,28 @@ impl<'ctx> Compiler<'ctx> {
             }
             other => Ok(other),
         }
+    }
+    
+    /// Resolve Self types in trait implementations
+    fn resolve_self_types(&self, program: Program) -> Result<Program> {
+        use crate::typechecker::self_resolution::transform_trait_impl_self_types;
+        
+        let mut new_declarations = Vec::new();
+        
+        for decl in program.declarations {
+            match decl {
+                Declaration::TraitImplementation(trait_impl) => {
+                    // Transform Self types to concrete types
+                    let transformed = transform_trait_impl_self_types(&trait_impl)?;
+                    new_declarations.push(Declaration::TraitImplementation(transformed));
+                }
+                other => new_declarations.push(other),
+            }
+        }
+        
+        Ok(Program {
+            declarations: new_declarations,
+            statements: program.statements,
+        })
     }
 } 

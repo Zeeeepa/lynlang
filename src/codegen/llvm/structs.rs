@@ -87,9 +87,57 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             
             // Not an enum, check if it's a variable
-            if let Some(var_info) = self.variables.get(name) {
-                let alloca = var_info.pointer;
-                let var_type = &var_info.ast_type;
+            eprintln!("DEBUG compile_struct_field: Looking for variable '{}', field '{}'", name, field);
+            // First check self.variables (main storage)
+            let (alloca, var_type) = if let Some(var_info) = self.variables.get(name) {
+                eprintln!("DEBUG: Found '{}' in self.variables", name);
+                (var_info.pointer, var_info.ast_type.clone())
+            } else if let Some(symbol) = self.symbols.lookup(name) {
+                eprintln!("DEBUG: Found '{}' in self.symbols: {:?}", name, symbol);
+                // Then check self.symbols (used in trait methods)
+                if let symbols::Symbol::Variable(ptr) = symbol {
+                    // For 'self' in trait methods, we need to infer the type
+                    let inferred_type = if name == "self" {
+                        // Use the current implementing type if available
+                        eprintln!("DEBUG: Inferring type for 'self', current_impl_type = {:?}", self.current_impl_type);
+                        if let Some(impl_type) = &self.current_impl_type {
+                            AstType::Struct { 
+                                name: impl_type.clone(),
+                                fields: vec![]
+                            }
+                        } else {
+                            // Fallback: try to determine from registered struct types
+                            if let Some((struct_name, _)) = self.struct_types.iter().next() {
+                                AstType::Struct { 
+                                    name: struct_name.clone(),
+                                    fields: vec![]
+                                }
+                            } else {
+                                return Err(CompileError::TypeError(
+                                    format!("Cannot determine type of 'self' in trait method"),
+                                    None
+                                ));
+                            }
+                        }
+                    } else {
+                        // For other variables in symbols, use a generic type
+                        AstType::Void
+                    };
+                    (*ptr, inferred_type)
+                } else {
+                    return Err(CompileError::TypeError(
+                        format!("'{}' is not a variable", name),
+                        None
+                    ));
+                }
+            } else {
+                // Variable not found in either storage
+                return Err(CompileError::UndeclaredVariable(name.to_string(), None));
+            };
+            
+            {
+                let alloca = alloca;  // Shadow to keep same name as before
+                let var_type = &var_type;  // Take reference to match original code
                 // Handle pointer to struct (p.x where p is *Point)
                 if let AstType::Ptr(inner_type) = var_type {
                     // Check if it's a struct or a generic type that represents a struct
@@ -227,7 +275,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let value = self.builder.build_load(basic_type, field_ptr, &format!("load_{}", field))?;
                     return Ok(value);
                 }
-            }
+            }  // End of inner scope
         }
         
         // Handle dereference case - when accessing field of a dereferenced pointer

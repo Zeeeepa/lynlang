@@ -1,0 +1,13 @@
+// Test math.pi constant from LANGUAGE_SPEC.zen line 138
+{ io, math } = @std
+
+main = () void {
+    // Using math.pi as specified in LANGUAGE_SPEC.zen
+    pi_value: f64 = math.pi
+    io.println("Pi value: ${pi_value}")
+    
+    // Calculate circle area using math.pi
+    radius: f64 = 5.0
+    area: f64 = math.pi * radius * radius
+    io.println("Circle area with radius ${radius}: ${area}")
+}

@@ -76,6 +76,7 @@ pub struct LLVMCompiler<'ctx> {
     pub defer_stack: Vec<ast::Expression>, // Stack of deferred expressions (LIFO order)
     pub comptime_evaluator: comptime::ComptimeInterpreter,
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
+    pub current_impl_type: Option<String>,  // Track implementing type for trait methods
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -109,6 +110,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             defer_stack: Vec::new(),
             comptime_evaluator,
             behavior_codegen: Some(behaviors::BehaviorCodegen::new()),
+            current_impl_type: None,
         };
         
         // Declare standard library functions
@@ -220,9 +222,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn get_variable(&self, name: &str) -> Result<(PointerValue<'ctx>, AstType), CompileError> {
+        // First check the HashMap-based variables (main storage)
         if let Some(var_info) = self.variables.get(name) {
             return Ok((var_info.pointer, var_info.ast_type.clone()));
         }
+        
+        // Then check the SymbolTable (used in trait methods and other contexts)
+        if let Some(symbol) = self.symbols.lookup(name) {
+            if let symbols::Symbol::Variable(ptr) = symbol {
+                // We don't have type info in symbols, so use a generic type
+                // This is primarily for 'self' in trait methods
+                let ty = if name == "self" {
+                    // For 'self', we should have the struct type
+                    // This is a workaround - ideally we'd store the type in symbols
+                    AstType::Struct { 
+                        name: String::new(),  // Will be resolved in context
+                        fields: vec![] 
+                    }
+                } else {
+                    AstType::Void  // Generic fallback
+                };
+                return Ok((*ptr, ty));
+            }
+        }
+        
+        // Check if it's a function
         if let Some(function) = self.module.get_function(name) {
             let ptr = function.as_global_value().as_pointer_value();
             let ty = AstType::Ptr(Box::new(AstType::Function {
@@ -231,6 +255,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }));
             return Ok((ptr, ty));
         }
+        
         Err(CompileError::UndeclaredVariable(name.to_string(), None))
     }
 

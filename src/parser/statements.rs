@@ -436,7 +436,46 @@ impl<'a> Parser<'a> {
                             || matches!(&self.current_token, Token::Symbol('.')); // Support .Variant syntax
                         let is_function = matches!(&self.current_token, Token::Symbol('('));
                         let is_behavior = matches!(&self.current_token, Token::Identifier(name) if name == "behavior");
-                        let is_struct = matches!(&self.current_token, Token::Symbol('{'));
+                        
+                        // Check if it's a trait or struct (both start with '{')
+                        let (is_struct, is_trait) = if matches!(&self.current_token, Token::Symbol('{')) {
+                            // Look ahead to see if it contains method signatures (trait) or fields (struct)
+                            let saved = (
+                                self.lexer.position,
+                                self.lexer.read_position,
+                                self.lexer.current_char,
+                                self.current_token.clone(),
+                                self.peek_token.clone()
+                            );
+                            
+                            self.next_token(); // consume '{'
+                            
+                            // Look for the pattern: identifier ':' '(' which indicates a trait method
+                            let looks_like_trait = if let Token::Identifier(_) = &self.current_token {
+                                self.next_token();
+                                self.current_token == Token::Symbol(':') && {
+                                    self.next_token();
+                                    self.current_token == Token::Symbol('(')
+                                }
+                            } else {
+                                false
+                            };
+                            
+                            // Restore state
+                            self.lexer.position = saved.0;
+                            self.lexer.read_position = saved.1;
+                            self.lexer.current_char = saved.2;
+                            self.current_token = saved.3;
+                            self.peek_token = saved.4;
+                            
+                            if looks_like_trait {
+                                (false, true)
+                            } else {
+                                (true, false)
+                            }
+                        } else {
+                            (false, false)
+                        };
 
                         // Restore lexer state
                         self.lexer.position = saved_position;
@@ -447,6 +486,8 @@ impl<'a> Parser<'a> {
 
                         if is_behavior {
                             declarations.push(Declaration::Behavior(self.parse_behavior()?));
+                        } else if is_trait {
+                            declarations.push(Declaration::Trait(self.parse_trait()?));
                         } else if is_enum {
                             declarations.push(Declaration::Enum(self.parse_enum()?));
                         } else if is_function {
