@@ -77,6 +77,7 @@ pub struct LLVMCompiler<'ctx> {
     pub comptime_evaluator: comptime::ComptimeInterpreter,
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
     pub current_impl_type: Option<String>,  // Track implementing type for trait methods
+    pub inline_counter: usize,  // Counter for unique inline function names
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -111,6 +112,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             comptime_evaluator,
             behavior_codegen: Some(behaviors::BehaviorCodegen::new()),
             current_impl_type: None,
+            inline_counter: 0,
         };
         
         // Declare standard library functions

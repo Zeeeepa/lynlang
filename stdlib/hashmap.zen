@@ -2,5 +2,5 @@
 // Provides hash map data structure
 
 // Re-export HashMap functionality
-hashmap_module = import("collections/hashmap.zen")
+hashmap_module = import("collections/hashmap")
 module.exports = hashmap_module

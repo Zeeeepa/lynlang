@@ -1,7 +1,9 @@
-use super::{LLVMCompiler, symbols, VariableInfo};
+use super::{LLVMCompiler, symbols, VariableInfo, Type};
 use crate::ast::{Expression, AstType};
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, BasicValue, PointerValue};
+use inkwell::types::BasicMetadataTypeEnum;
+use inkwell::module::Linkage;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     pub fn compile_expression(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
@@ -410,9 +412,84 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Return void value
                 Ok(self.context.i32_type().const_int(0, false).into())
             }
-            Expression::Closure { params: _, body: _ } => {
-                // TODO: Implement closures
-                Ok(self.context.i32_type().const_int(0, false).into())
+            Expression::Closure { params, body } => {
+                // Generate inline function
+                let current_func = self.current_function.ok_or_else(|| 
+                    CompileError::InternalError("Closure outside of function context".to_string(), None))?;
+                
+                // Create a unique name for the inline function
+                let inline_func_name = format!("__inline_{}_{}", 
+                    current_func.get_name().to_str().unwrap_or("anon"),
+                    self.inline_counter);
+                self.inline_counter += 1;
+                
+                // Determine parameter types (default to i32 if not specified)
+                let mut param_types = Vec::new();
+                for (_, opt_type) in params {
+                    let ast_type = opt_type.as_ref().unwrap_or(&AstType::I32);
+                    match self.to_llvm_type(ast_type)? {
+                        Type::Basic(ty) => param_types.push(ty.into()),
+                        _ => return Err(CompileError::InternalError(
+                            "Closure parameter must be basic type".to_string(), None))
+                    }
+                }
+                
+                // For now, assume i32 return type if body is not analyzed
+                // TODO: Infer return type from body
+                let return_type = self.context.i32_type();
+                let fn_type = return_type.fn_type(&param_types, false);
+                
+                // Create the inline function
+                let inline_func = self.module.add_function(&inline_func_name, fn_type, Some(Linkage::Internal));
+                
+                // Save current state
+                let prev_func = self.current_function;
+                let prev_block = self.builder.get_insert_block();
+                let prev_vars = self.variables.clone();
+                
+                // Create entry block for inline function
+                let entry_block = self.context.append_basic_block(inline_func, "entry");
+                self.builder.position_at_end(entry_block);
+                self.current_function = Some(inline_func);
+                
+                // Bind parameters to local variables
+                for (i, (param_name, opt_type)) in params.iter().enumerate() {
+                    let param_value = inline_func.get_nth_param(i as u32).unwrap();
+                    let ast_type = opt_type.as_ref().unwrap_or(&AstType::I32);
+                    
+                    // Create an alloca for the parameter and store its value
+                    let alloca = self.builder.build_alloca(
+                        param_value.get_type(),
+                        &format!("param_{}", param_name)
+                    ).map_err(|e| CompileError::from(e))?;
+                    
+                    self.builder.build_store(alloca, param_value).map_err(|e| CompileError::from(e))?;
+                    
+                    self.variables.insert(param_name.clone(), VariableInfo {
+                        pointer: alloca,
+                        ast_type: ast_type.clone(),
+                        is_mutable: false,
+                        is_initialized: true,
+                    });
+                }
+                
+                // Compile the body
+                let result = self.compile_expression(body)?;
+                
+                // Add return if not already present
+                if self.builder.get_insert_block().unwrap().get_terminator().is_none() {
+                    self.builder.build_return(Some(&result)).map_err(|e| CompileError::from(e))?;
+                }
+                
+                // Restore previous state
+                self.current_function = prev_func;
+                if let Some(block) = prev_block {
+                    self.builder.position_at_end(block);
+                }
+                self.variables = prev_vars;
+                
+                // Return the function pointer
+                Ok(inline_func.as_global_value().as_basic_value_enum())
             }
             Expression::Raise(expr) => {
                 // .raise() propagates errors early by transforming to pattern matching:

@@ -1,8 +1,0 @@
-// Vector module - collection of vector types
-// Provides dynamic arrays, fixed arrays, and specialized vectors
-
-// Re-export all vector implementations
-dyn_vec_module = import("vector/dyn_vec.zen")
-fixed_vec_module = import("vector/fixed_vec.zen")
-array_module = import("vector/array.zen")
-module.exports = { ...dyn_vec_module, ...fixed_vec_module, ...array_module }

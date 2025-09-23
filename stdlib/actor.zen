@@ -236,16 +236,20 @@ ActorSystem: {
             self.event_loop.?.run()
         } : {
             // Sync mode - process all messages immediately
-            loop i := 0; i < self.actors.len; i += 1 {
+            i := 0
+            loop (i < self.actors.len) {
                 self.actors[i].run()
+                i += 1
             }
         }
     }
     
     shutdown: () void {
         // Stop all actors
-        loop i := 0; i < self.actors.len; i += 1 {
+        i := 0
+        loop (i < self.actors.len) {
             self.actors[i].stop()
+            i += 1
         }
         
         // Wait for completion if concurrent

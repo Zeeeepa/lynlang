@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 /// Infer the type of a binary operation
 pub fn infer_binary_op_type(
-    checker: &TypeChecker,
+    checker: &mut TypeChecker,
     left: &Expression,
     op: &BinaryOperator,
     right: &Expression,

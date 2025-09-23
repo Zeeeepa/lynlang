@@ -2,357 +2,146 @@
 // Advanced data structures and collections
 
 core := @std
-build := @std
-memory := build.import("memory")
 
-// Re-export additional collections from subdirectory
-hashmap_module = import("collections/hashmap.zen")
-list_module = import("collections/list.zen")
-collections_exports = { ...hashmap_module, ...list_module }
+// Import vector types from vec module
+vec_module = import("vec")
+Vec := vec_module.Vec       // Fixed-size vector Vec<T, N>
+DynVec := vec_module.DynVec // Dynamic vector DynVec<T>
 
-// Import the new Vec and DynVec types
-fixed_vec := build.import("fixed_vec")
-dyn_vec := build.import("dyn_vec")
+// Import collections from subdirectory
+collections_module = import("collections/mod")
 
-// Export the proper types
-Vec := fixed_vec.Vec       // Fixed-size vector
-DynVec := dyn_vec.DynVec   // Dynamic vector
+// Vector is an alias for DynVec for backwards compatibility  
+Vector<T> = DynVec<T>
 
-// Vector is now an alias for DynVec for backwards compatibility
-Vector<T>: DynVec<T>
-
-// Create new vector - delegates to DynVec
-Vector<T>.new = () Vector<T> {
-    return DynVec<T>.new()
-}
-
-// Create vector with initial capacity - delegates to DynVec
-Vector<T>.with_capacity = (cap: usize) Vector<T> {
-    return DynVec<T>.with_capacity(cap).unwrap_or(DynVec<T>.new())
-}
-
-// Vector methods are inherited from Vec since Vector<T> is an alias
-
-// Linked list node
-ListNode<T>: {
-    value: T
-    next: Option<Ref<ListNode<T>>>
-}
-
-// Linked list implementation
-LinkedList<T>: {
-    head: Option<Ref<ListNode<T>>>
-    tail: Option<Ref<ListNode<T>>>
-    len: usize
-}
-
-// Create new linked list
-LinkedList<T>.new = () LinkedList<T> {
-    return LinkedList<T>{
-        head: None,
-        tail: None,
-        len: 0
-    }
-}
-
-// Push element to front
-LinkedList<T>.push_front = (self: Ref<LinkedList<T>>, value: T) void {
-    node ::= memory.alloc(ListNode<T>)
-    node.val.value = value
-    node.val.next = self.val.head
-    
-    self.val.head = Some(node)
-    self.val.tail ?
-        | None {
-            self.val.tail = Some(node)
-        }
-        | Some(_) {}
-    
-    self.val.len = self.val.len + 1
-}
-
-// Push element to back
-LinkedList<T>.push_back = (self: Ref<LinkedList<T>>, value: T) void {
-    node ::= memory.alloc(ListNode<T>)
-    node.val.value = value
-    node.val.next = None
-    
-    self.val.tail ?
-        | Some(tail_node) {
-            tail_node.val.next = Some(node)
-        }
-        | None {
-            self.val.head = Some(node)
-        }
-    
-    self.val.tail = Some(node)
-    self.val.len = self.val.len + 1
-}
-
-// Pop element from front
-LinkedList<T>.pop_front = (self: Ref<LinkedList<T>>) Option<T> {
-    self.val.head ?
-        | None {
-            return None
-        }
-        | Some(node) {
-            value ::= node.val.value
-            
-            self.val.head = node.val.next
-            self.val.head ?
-                | None {
-                    self.val.tail = None
-                }
-                | Some(_) {}
-            
-            memory.free(node)
-            self.val.len = self.val.len - 1
-            
-            return Some(value)
-        }
-}
-
-// Stack implementation using Vec
+// Stack implementation using DynVec
 Stack<T>: {
-    data: Vec<T>
+    data: DynVec<T>
 }
 
 // Create new stack
 Stack<T>.new = () Stack<T> {
     return Stack<T>{
-        data: Vec<T>.new()
+        data: DynVec<T>.init(@std.default_allocator())
     }
 }
 
 // Push element onto stack
-Stack<T>.push = (self: Ref<Stack<T>>, value: T) void {
-    vec_module.vec_push(self.data, value)
+Stack<T>.push = (self: *Stack<T>, value: T) void {
+    DynVec<T>.push(&self.data, value)
 }
 
-// Pop element from stack  
-Stack<T>.pop = (self: Ref<Stack<T>>) Option<T> {
-    return vec_module.vec_pop(self.data)
+// Pop element from stack
+Stack<T>.pop = (self: *Stack<T>) core.Option<T> {
+    return DynVec<T>.pop(&self.data)
 }
 
 // Peek at top element
-Stack<T>.peek = (self: Ref<Stack<T>>) Option<T> {
-    return vec_module.vec_last(self.data)
+Stack<T>.peek = (self: *Stack<T>) core.Option<T> {
+    self.data.len > 0 ?
+        | true => DynVec<T>.get(&self.data, self.data.len - 1)
+        | false => core.Option:None
 }
 
 // Check if stack is empty
-Stack<T>.is_empty = (self: Ref<Stack<T>>) bool {
-    return vec_module.vec_is_empty(self.data)
+Stack<T>.is_empty = (self: *Stack<T>) bool {
+    return DynVec<T>.is_empty(&self.data)
 }
 
-// Queue implementation using linked list
+// Get stack size
+Stack<T>.size = (self: *Stack<T>) usize {
+    return DynVec<T>.len(&self.data)
+}
+
+// Queue implementation using linked list from collections/list.zen
 Queue<T>: {
-    list: LinkedList<T>
+    list: collections_module.List<T>
 }
 
 // Create new queue
 Queue<T>.new = () Queue<T> {
     return Queue<T>{
-        list: LinkedList<T>.new()
+        list: collections_module.new<T>()
     }
 }
 
 // Enqueue element
-Queue<T>.enqueue = (self: Ref<Queue<T>>, value: T) void {
-    self.val.list.push_back(value)
+Queue<T>.enqueue = (self: *Queue<T>, value: T) void {
+    collections_module.push_back(&self.list, value)
 }
 
 // Dequeue element
-Queue<T>.dequeue = (self: Ref<Queue<T>>) Option<T> {
-    return self.val.list.pop_front()
+Queue<T>.dequeue = (self: *Queue<T>) core.Option<T> {
+    return collections_module.pop_front(&self.list)
 }
 
 // Peek at front element
-Queue<T>.peek = (self: Ref<Queue<T>>) Option<T> {
-    self.list.head ?
-        | Some(node) => Some(node.value)
-        | None => None
+Queue<T>.peek = (self: *Queue<T>) core.Option<T> {
+    return collections_module.peek_front(&self.list)
 }
 
 // Check if queue is empty
-Queue<T>.is_empty = (self: Ref<Queue<T>>) bool {
-    return self.list.len == 0
+Queue<T>.is_empty = (self: *Queue<T>) bool {
+    return collections_module.is_empty(&self.list)
 }
 
-// Hash map bucket
-HashBucket<K, V>: {
-    key: K
-    value: V
-    next: Option<Ref<HashBucket<K, V>>>
+// Get queue size
+Queue<T>.size = (self: *Queue<T>) usize {
+    return collections_module.len(&self.list)
 }
 
-// Hash map implementation
-HashMap<K, V>: {
-    buckets: Vec<Option<Ref<HashBucket<K, V>>>>
-    len: usize
-    capacity: usize
-}
-
-// Create new hash map
-HashMap<K, V>.new = () HashMap<K, V> {
-    buckets := Vec<Option<Ref<HashBucket<K, V>>>>.with_capacity(16).unwrap_or_default()
-    return HashMap<K, V>{
-        buckets: buckets,
-        len: 0,
-        capacity: 16
-    }
-}
-
-// Hash function (simple for now)
-hash<K> = (key: K, capacity: usize) usize {
-    // Simple hash for numeric types - needs proper implementation
-    return 0  // Placeholder - needs proper hash implementation
-}
-
-// Put key-value pair
-HashMap<K, V>.put = (self: Ref<HashMap<K, V>>, key: K, value: V) void {
-    index := hash(key, self.capacity)
-    
-    // Check if key exists
-    current := self.buckets[index]
-    loop {
-        current ? | false { break } | true {
-            current.key == key ? {
-                current.value = value
-                return
-            }
-            current = current.next
-        }
-    }
-    
-    // Add new bucket
-    bucket := memory.alloc(HashBucket)
-    bucket.key = key
-    bucket.value = value
-    bucket.next = self.buckets[index]
-    
-    self.buckets[index] = bucket
-    self.len = self.len + 1
-    
-    // Resize if needed
-    self.len > self.capacity * 3 / 4 ? {
-        self.resize()
-    }
-}
-
-// Get value by key
-HashMap<K, V>.get = (self: Ref<HashMap<K, V>>, key: K) Option<V> {
-    index := hash(key, self.capacity)
-    
-    current := self.buckets[index]
-    loop {
-        current ? | false { break } | true {
-            current.key == key ? {
-                return current.value
-            }
-            current = current.next
-        }
-    }
-    
-    return null
-}
-
-// Remove key-value pair
-HashMap<K, V>.remove = (self: Ref<HashMap<K, V>>, key: K) bool {
-    index := hash(key, self.capacity)
-    
-    prev := null
-    current := self.buckets[index]
-    
-    loop {
-        current ? | false { break } | true {
-            current.key == key ? {
-                prev ? {
-                    prev.next = current.next
-                } | false {
-                    self.buckets[index] = current.next
-                }
-                
-                memory.free(current)
-                self.len = self.len - 1
-                return true
-            }
-            
-            prev = current
-            current = current.next
-        }
-    }
-    
-    return false
-}
-
-// Check if key exists
-HashMap<K, V>.contains = (self: Ref<HashMap<K, V>>, key: K) bool {
-    return self.get(key) ?
-        | Some(_) => true
-        | None => false
-}
-
-// Resize hash map
-HashMap<K, V>.resize = (self: Ref<HashMap<K, V>>) void {
-    new_capacity := self.capacity * 2
-    new_buckets := make(Array<Option<Ptr<HashBucket>>>, new_capacity)
-    
-    // Rehash all entries
-    i := 0
-    loop {
-        i < self.capacity ? | false { break } | true {
-            current := self.buckets[i]
-            loop {
-                current ? | false { break } | true {
-                    next := current.next
-                    
-                    // Rehash and insert
-                    new_index := hash(current.key, new_capacity)
-                    current.next = new_buckets[new_index]
-                    new_buckets[new_index] = current
-                    
-                    current = next
-                }
-            }
-            i = i + 1
-        }
-    }
-    
-    self.buckets = new_buckets
-    self.capacity = new_capacity
-}
-
-// Set implementation using hash map
-HashSet<T>: {
-    map: HashMap<T, bool>
+// Hash set implementation using HashMap from collections/hashmap.zen
+Set<T>: {
+    map: collections_module.HashMap<T, bool>
 }
 
 // Create new set
-HashSet<T>.new = () HashSet<T> {
-    return HashSet<T>{
-        map: HashMap<T, bool>.new()
+Set<T>.new = () Set<T> {
+    return Set<T>{
+        map: collections_module.hashmap_new<T, bool>()
     }
 }
 
 // Add element to set
-HashSet<T>.add = (self: Ref<HashSet<T>>, value: T) void {
-    self.map.put(value, true)
+Set<T>.add = (self: *Set<T>, value: T, hash_func: (T) i64) core.Result<bool, core.Error> {
+    contains := collections_module.hashmap_contains(&self.map, value, hash_func)
+    contains ? | true {
+        return core.Result:Ok(false)  // Already exists
+    } | false {
+        result := collections_module.hashmap_insert(&self.map, value, true, hash_func)
+        return result ? | Ok(_) => core.Result:Ok(true) | Err(e) => core.Result:Err(e)
+    }
 }
 
 // Remove element from set
-HashSet<T>.remove = (self: Ref<HashSet<T>>, value: T) bool {
-    return self.map.remove(value)
+Set<T>.remove = (self: *Set<T>, value: T, hash_func: (T) i64) bool {
+    result := collections_module.hashmap_remove(&self.map, value, hash_func)
+    return result ? | Some(_) => true | None => false
 }
 
-// Check if element exists
-HashSet<T>.contains = (self: Ref<HashSet<T>>, value: T) bool {
-    return self.map.contains(value)
+// Check if element exists in set
+Set<T>.contains = (self: *Set<T>, value: T, hash_func: (T) i64) bool {
+    return collections_module.hashmap_contains(&self.map, value, hash_func)
 }
 
 // Get set size
-HashSet<T>.size = (self: Ref<HashSet<T>>) usize {
-    return self.map.len
+Set<T>.size = (self: *Set<T>) i64 {
+    return collections_module.hashmap_len(&self.map)
 }
 
-// Export all collections
-module.exports = { ...collections_exports, Vec, DynVec, Vector, LinkedList, Stack, Queue, HashMap, HashSet }
+// Check if set is empty
+Set<T>.is_empty = (self: *Set<T>) bool {
+    return collections_module.hashmap_is_empty(&self.map)
+}
+
+// Clear set
+Set<T>.clear = (self: *Set<T>) void {
+    collections_module.hashmap_clear(&self.map)
+}
+
+// Export all collections types and re-export the collections from subdirectory
+module.exports = { 
+    ...collections_module,
+    Vec, DynVec, Vector,
+    Stack, Queue, Set
+}

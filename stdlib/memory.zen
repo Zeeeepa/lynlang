@@ -1,205 +1,211 @@
-// Zen Memory Management Module
-// Provides memory allocation, deallocation, and management utilities
+// Zen Memory Management Module - Unified Implementation
+// Consolidates memory allocation, deallocation, and management utilities
 
-{ core, io, inline, ptrcast } := @std.core
+{ core, io, inline } := @std
 
-
-// External C function declarations
-allocate_raw = (size: usize) Ptr<void> {
+// External C function declarations for low-level operations
+allocate_raw = (size: usize) RawPtr<void> {
     inline.c("""
         return malloc(${size});
     """)
 }
 
-deallocate_raw = (ptr: Ptr<void>) void {
+deallocate_raw = (ptr: RawPtr<void>) void {
     inline.c("""
         free(${ptr.addr});
     """)
 }
 
-reallocate_raw = (ptr: Ptr<void>, new_size: usize) Ptr<void> {
+reallocate_raw = (ptr: RawPtr<void>, new_size: usize) RawPtr<void> {
     inline.c("""
         return realloc(${ptr.addr}, ${new_size});
     """)
 }
 
-allocate_zeroed_raw = (count: usize, size: usize) Ptr<void> {
+allocate_zeroed_raw = (count: usize, size: usize) RawPtr<void> {
     inline.c("""
         return calloc(${count}, ${size});
     """)
 }
 
-copy_memory_raw = (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void> {
+copy_memory_raw = (dest: RawPtr<void>, src: RawPtr<void>, size: usize) RawPtr<void> {
     inline.c("""
         return memcpy(${dest.addr}, ${src.addr}, ${size});
     """)
 }
 
-move_memory_raw = (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void> {
+move_memory_raw = (dest: RawPtr<void>, src: RawPtr<void>, size: usize) RawPtr<void> {
     inline.c("""
         return memmove(${dest.addr}, ${src.addr}, ${size});
     """)
 }
 
-set_memory_raw = (ptr: Ptr<void>, value: i32, size: usize) Ptr<void> {
+set_memory_raw = (ptr: RawPtr<void>, value: i32, size: usize) RawPtr<void> {
     inline.c("""
         return memset(${ptr.addr}, ${value}, ${size});
     """)
 }
 
-compare_memory_raw = (ptr1: Ptr<void>, ptr2: Ptr<void>, size: usize) i32 {
+compare_memory_raw = (ptr1: RawPtr<void>, ptr2: RawPtr<void>, size: usize) i32 {
     inline.c("""
         return memcmp(${ptr1.addr}, ${ptr2.addr}, ${size});
     """)
 }
 
+// Memory constants
+DEFAULT_ALIGN := 8
+CACHE_LINE_SIZE := 64
+
 // Memory allocation tracking
-AllocationInfo: {
-    ptr: Ptr<void>
+AllocationInfo := {
+    ptr: RawPtr<void>
     size: usize
     line: u32
     file: string
     next: Option<Ptr<AllocationInfo>>
 }
 
-// Global allocation tracker (for debug mode)
-MemoryTracker: {
-    head: Option<Ptr<AllocationInfo>>
+// Memory statistics
+MemoryStats := {
     total_allocated: usize
     total_freed: usize
+    current_usage: usize
     peak_usage: usize
     allocation_count: u32
     deallocation_count: u32
 }
 
-// Global memory tracker instance
-memory_tracker: MemoryTracker = MemoryTracker (
-    head: Option.None,
-    total_allocated: 0,
-    total_freed: 0,
-    peak_usage: 0,
-    allocation_count: 0,
-    deallocation_count: 0
-)
+// Global memory tracker
+MemoryTracker := {
+    head: Option<Ptr<AllocationInfo>>
+    stats: MemoryStats
+}
 
-// Allocate memory of given size
-allocate = <T>(count: usize) Ptr<T> {
-    size := count * @std.sizeof(T)
+// Global tracker instance
+memory_tracker: MemoryTracker = MemoryTracker{
+    head: Option.None,
+    stats: MemoryStats{
+        total_allocated: 0,
+        total_freed: 0,
+        current_usage: 0,
+        peak_usage: 0,
+        allocation_count: 0,
+        deallocation_count: 0
+    }
+}
+
+// High-level allocation functions
+allocate = <T>(count: usize) Result<Ptr<T>, core.Error> {
+    size := count * @sizeof(T)
     ptr := allocate_raw(size)
     
-    (ptr .== None) ? { panic("Memory allocation failed") }
+    (ptr == null) ? {
+        return Err(.OutOfMemory)
+    }
     
     // Track allocation in debug mode
-    @std.debug ? { track_allocation(ptr, size, @std.line, @std.file) }
+    @debug ? {
+        track_allocation(ptr, size, @line, @file)
+    }
     
-    return ptrcast(Ptr<T>, ptr)
+    return Ok(@ptrcast(Ptr<T>, ptr))
 }
 
 // Allocate zeroed memory
-allocate_zeroed = <T>(count: usize) Ptr<T> {
-    ptr := allocate_zeroed_raw(count, @std.sizeof(T))
+allocate_zeroed = <T>(count: usize) Result<Ptr<T>, core.Error> {
+    ptr := allocate_zeroed_raw(count, @sizeof(T))
     
-    (ptr .== None) ? { panic("Memory allocation failed") }
+    (ptr == null) ? {
+        return Err(.OutOfMemory)
+    }
     
     // Track allocation in debug mode
-    @std.debug ? { track_allocation(ptr, count * @std.sizeof(T), @std.line, @std.file) }
+    @debug ? {
+        track_allocation(ptr, count * @sizeof(T), @line, @file)
+    }
     
-    return ptrcast(Ptr<T>, ptr)
+    return Ok(@ptrcast(Ptr<T>, ptr))
 }
 
 // Reallocate memory
-reallocate = <T>(ptr: Ptr<T>, new_count: usize) Ptr<T> {
-    new_size := new_count * @std.sizeof(T)
-    new_ptr := reallocate_raw(ptrcast(Ptr<void>, ptr), new_size)
+reallocate = <T>(ptr: Ptr<T>, new_count: usize) Result<Ptr<T>, core.Error> {
+    new_size := new_count * @sizeof(T)
+    new_ptr := reallocate_raw(@ptrcast(RawPtr<void>, ptr), new_size)
     
-    (new_ptr .== None) ? { panic("Memory reallocation failed") }
-    
-    // Update tracking in debug mode
-    @std.debug ? {
-        untrack_allocation(ptrcast(Ptr<void>, ptr))
-        track_allocation(new_ptr, new_size, @std.line, @std.file)
+    (new_ptr == null) ? {
+        return Err(.OutOfMemory)
     }
     
-    return ptrcast(Ptr<T>, new_ptr)
+    // Update tracking in debug mode
+    @debug ? {
+        untrack_allocation(@ptrcast(RawPtr<void>, ptr))
+        track_allocation(new_ptr, new_size, @line, @file)
+    }
+    
+    return Ok(@ptrcast(Ptr<T>, new_ptr))
 }
 
 // Deallocate memory
 deallocate = <T>(ptr: Ptr<T>) void {
-    (ptr .== None) ? { return }
+    (ptr == null) ? { return }
     
     // Untrack allocation in debug mode
-    @std.debug ? { untrack_allocation(ptrcast(Ptr<void>, ptr)) }
+    @debug ? {
+        untrack_allocation(@ptrcast(RawPtr<void>, ptr))
+    }
     
-    deallocate_raw(ptrcast(Ptr<void>, ptr))
+    deallocate_raw(@ptrcast(RawPtr<void>, ptr))
 }
 
-// Copy memory from source to destination
+// Memory utility functions
 copy = <T>(dest: Ptr<T>, src: Ptr<T>, count: usize) void {
-    size := count * @std.sizeof(T)
-    copy_memory_raw(ptrcast(Ptr<void>, dest), ptrcast(Ptr<void>, src), size)
+    size := count * @sizeof(T)
+    copy_memory_raw(@ptrcast(RawPtr<void>, dest), @ptrcast(RawPtr<void>, src), size)
 }
 
-// Move memory (handles overlapping regions)
 move = <T>(dest: Ptr<T>, src: Ptr<T>, count: usize) void {
-    size := count * @std.sizeof(T)
-    move_memory_raw(ptrcast(Ptr<void>, dest), ptrcast(Ptr<void>, src), size)
+    size := count * @sizeof(T)
+    move_memory_raw(@ptrcast(RawPtr<void>, dest), @ptrcast(RawPtr<void>, src), size)
 }
 
-// Set memory to a value
 set = <T>(ptr: Ptr<T>, value: u8, count: usize) void {
-    size := count * @std.sizeof(T)
-    set_memory_raw(ptrcast(Ptr<void>, ptr), intcast(i32, value), size)
+    size := count * @sizeof(T)
+    set_memory_raw(@ptrcast(RawPtr<void>, ptr), @intcast(i32, value), size)
 }
 
-// Compare memory regions
 compare = <T>(ptr1: Ptr<T>, ptr2: Ptr<T>, count: usize) i32 {
-    size := count * @std.sizeof(T)
-    return compare_memory_raw(ptrcast(Ptr<void>, ptr1), ptrcast(Ptr<void>, ptr2), size)
+    size := count * @sizeof(T)
+    return compare_memory_raw(@ptrcast(RawPtr<void>, ptr1), @ptrcast(RawPtr<void>, ptr2), size)
 }
 
-// Track allocation (debug mode only)
-track_allocation = (ptr: Ptr<void>, size: usize, line: u32, file: string) void   {
-    info := allocate<AllocationInfo>(1)
-    info.ptr = ptr
-    info.size = size
-    info.line = line
-    info.file = file
-    info.next = memory_tracker.head
-    
-    memory_tracker.head = Option.Some(info)
-    memory_tracker.total_allocated += size
-    memory_tracker.allocation_count += 1
-    
-    current_usage := memory_tracker.total_allocated - memory_tracker.total_freed
-    (current_usage > memory_tracker.peak_usage) ? {
-        memory_tracker.peak_usage = current_usage
+// Aligned allocation
+alloc_aligned = (size: usize, alignment: usize) Result<RawPtr<void>, core.Error> {
+    (size == 0) ? {
+        return Err(.InvalidArgument("Size must be positive"))
     }
-}
-
-// Untrack allocation (debug mode only)
-untrack_allocation = (ptr: Ptr<void>) void   {
-    prev: Option<Ptr<AllocationInfo>> = Option.None
-    current := memory_tracker.head
     
-    loop (current) {
-        current ? 
-            | Option.Some(info) {
-                (info.ptr == ptr) ? {
-                    // Remove from list
-                    prev ? 
-                        | Option.Some(p) { p.next = info.next }
-                        | Option.None { memory_tracker.head = info.next }
-                    
-                    memory_tracker.total_freed += info.size
-                    memory_tracker.deallocation_count += 1
-                    deallocate_raw(@std.ptrcast(Ptr<void>, info))
-                    return
-                }
-                prev = current
-                current = info.next
-            }
-            | Option.None { break }
+    (alignment == 0 || (alignment & (alignment - 1)) != 0) ? {
+        return Err(.InvalidArgument("Alignment must be power of 2"))
     }
+    
+    // Allocate extra space for alignment
+    total_size := size + alignment - 1
+    ptr := allocate_raw(total_size)
+    
+    (ptr == null) ? {
+        return Err(.OutOfMemory)
+    }
+    
+    // Align the pointer
+    aligned_addr := ((@intcast(usize, ptr) + alignment - 1) / alignment) * alignment
+    aligned_ptr := @ptrcast(RawPtr<void>, aligned_addr)
+    
+    // Track allocation in debug mode
+    @debug ? {
+        track_allocation(aligned_ptr, size, @line, @file)
+    }
+    
+    return Ok(aligned_ptr)
 }
 
 // Arena allocator for temporary allocations
@@ -210,112 +216,134 @@ Arena := {
     previous: Option<Ptr<Arena>>
 }
 
-// Create new arena
-arena_new = (capacity: usize) Ptr<Arena>   {
-    arena := allocate<Arena>(1)
-    arena.buffer = allocate<u8>(capacity)
-    arena.capacity = capacity
-    arena.offset = 0
-    arena.previous = Option.None
-    return arena
+arena_new = (capacity: usize) Result<Ptr<Arena>, core.Error> {
+    arena_result := allocate<Arena>(1)
+    arena_result ? 
+        | Err(e) { return Err(e) }
+        | Ok(arena) {
+            buffer_result := allocate<u8>(capacity)
+            buffer_result ?
+                | Err(e) {
+                    deallocate(arena)
+                    return Err(e)
+                }
+                | Ok(buffer) {
+                    arena.buffer = buffer
+                    arena.capacity = capacity
+                    arena.offset = 0
+                    arena.previous = Option.None
+                    return Ok(arena)
+                }
+        }
 }
 
-// Allocate from arena
-arena_allocate = <T>(arena: Ptr<Arena>, count: usize) Ptr<T> {
-    size := count * @std.sizeof(T)
-    { alignment } = @std(T)
+arena_allocate = <T>(arena: Ptr<Arena>, count: usize) Result<Ptr<T>, core.Error> {
+    size := count * @sizeof(T)
+    alignment := @alignof(T)
     
     // Align offset
     aligned_offset := (arena.offset + alignment - 1) & ~(alignment - 1)
     
     (aligned_offset + size > arena.capacity) ? {
-        panic("Arena out of memory")
+        return Err(.OutOfMemory)
     }
     
-    { ptr } = @std(Ptr<T>, arena.buffer + aligned_offset)
+    ptr := @ptrcast(Ptr<T>, arena.buffer.addr + aligned_offset)
     arena.offset = aligned_offset + size
     
-    return ptr
+    return Ok(ptr)
 }
 
-// Reset arena (free all allocations)
-arena_reset = (arena: Ptr<Arena>) void   {
+arena_reset = (arena: Ptr<Arena>) void {
     arena.offset = 0
 }
 
-// Destroy arena
-arena_destroy = (arena: Ptr<Arena>) void   {
+arena_destroy = (arena: Ptr<Arena>) void {
     deallocate(arena.buffer)
     deallocate(arena)
 }
 
 // Pool allocator for fixed-size objects
-Pool := <T> {
+Pool<T> := {
     block_size: usize
     blocks_per_chunk: usize
     free_list: Option<Ptr<PoolNode<T>>>
     chunks: Option<Ptr<PoolChunk<T>>>
 }
 
-PoolNode := <T> {
+PoolNode<T> := {
     next: Option<Ptr<PoolNode<T>>>
 }
 
-PoolChunk := <T> {
+PoolChunk<T> := {
     memory: Ptr<u8>
     next: Option<Ptr<PoolChunk<T>>>
 }
 
-// Create new pool
-pool_new = <T>(blocks_per_chunk: usize) Ptr<Pool<T>> {
-    pool := allocate<Pool<T>>(1)
-    pool.block_size = @std(T)
-    pool.blocks_per_chunk = blocks_per_chunk
-    pool.free_list = Option.None
-    pool.chunks = Option.None
-    return pool
+pool_new = <T>(blocks_per_chunk: usize) Result<Ptr<Pool<T>>, core.Error> {
+    pool_result := allocate<Pool<T>>(1)
+    pool_result ?
+        | Err(e) { return Err(e) }
+        | Ok(pool) {
+            pool.block_size = @sizeof(T)
+            pool.blocks_per_chunk = blocks_per_chunk
+            pool.free_list = Option.None
+            pool.chunks = Option.None
+            return Ok(pool)
+        }
 }
 
-// Allocate from pool
-pool_allocate = <T>(pool: Ptr<Pool<T>>) Ptr<T> {
+pool_allocate = <T>(pool: Ptr<Pool<T>>) Result<Ptr<T>, core.Error> {
     // Check free list first
     pool.free_list ? 
         | Option.Some(node) {
             pool.free_list = node.next
-            return ptrcast(Ptr<T>, node)
+            return Ok(@ptrcast(Ptr<T>, node))
         }
         | Option.None {
             // Allocate new chunk
-            allocate_pool_chunk(pool)
-            return pool_allocate(pool)
+            allocate_pool_chunk<T>(pool) ?
+                | Err(e) { return Err(e) }
+                | Ok(_) { return pool_allocate<T>(pool) }
         }
 }
 
-// Allocate new chunk for pool
-allocate_pool_chunk = <T>(pool: Ptr<Pool<T>>) void {
-    chunk := allocate<PoolChunk<T>>(1)
-    chunk.memory = allocate<u8>(pool.block_size * pool.blocks_per_chunk)
-    chunk.next = pool.chunks
-    pool.chunks = Option.Some(chunk)
-    
-    // Add all blocks to free list
-    i := 0
-    loop (i < pool.blocks_per_chunk) {
-        node := ptrcast(Ptr<PoolNode<T>>, chunk.memory + i * pool.block_size)
-        node.next = pool.free_list
-        pool.free_list = Option.Some(node)
-        i += 1
-    }
+allocate_pool_chunk = <T>(pool: Ptr<Pool<T>>) Result<void, core.Error> {
+    chunk_result := allocate<PoolChunk<T>>(1)
+    chunk_result ?
+        | Err(e) { return Err(e) }
+        | Ok(chunk) {
+            memory_result := allocate<u8>(pool.block_size * pool.blocks_per_chunk)
+            memory_result ?
+                | Err(e) {
+                    deallocate(chunk)
+                    return Err(e)
+                }
+                | Ok(memory) {
+                    chunk.memory = memory
+                    chunk.next = pool.chunks
+                    pool.chunks = Option.Some(chunk)
+                    
+                    // Add all blocks to free list
+                    i := 0
+                    loop (i < pool.blocks_per_chunk) {
+                        node := @ptrcast(Ptr<PoolNode<T>>, chunk.memory.addr + i * pool.block_size)
+                        node.next = pool.free_list
+                        pool.free_list = Option.Some(node)
+                        i += 1
+                    }
+                    
+                    return Ok()
+                }
+        }
 }
 
-// Return object to pool
 pool_deallocate = <T>(pool: Ptr<Pool<T>>, ptr: Ptr<T>) void {
-    node := ptrcast(Ptr<PoolNode<T>>, ptr)
+    node := @ptrcast(Ptr<PoolNode<T>>, ptr)
     node.next = pool.free_list
     pool.free_list = Option.Some(node)
 }
 
-// Destroy pool
 pool_destroy = <T>(pool: Ptr<Pool<T>>) void {
     current := pool.chunks
     loop (current) {
@@ -331,106 +359,70 @@ pool_destroy = <T>(pool: Ptr<Pool<T>>) void {
     deallocate(pool)
 }
 
-// Smart pointer with reference counting
-Rc := <T> {
-    ptr: Ptr<T>
-    count: Ptr<u32>
+// Allocation tracking functions (debug mode)
+track_allocation = (ptr: RawPtr<void>, size: usize, line: u32, file: string) void {
+    info_result := allocate<AllocationInfo>(1)
+    info_result ? 
+        | Ok(info) {
+            info.ptr = ptr
+            info.size = size
+            info.line = line
+            info.file = file
+            info.next = memory_tracker.head
+            
+            memory_tracker.head = Option.Some(info)
+            memory_tracker.stats.total_allocated += size
+            memory_tracker.stats.allocation_count += 1
+            
+            current_usage := memory_tracker.stats.total_allocated - memory_tracker.stats.total_freed
+            (current_usage > memory_tracker.stats.peak_usage) ? {
+                memory_tracker.stats.peak_usage = current_usage
+            }
+        }
+        | Err(_) {
+            // Tracking allocation failed, but continue
+        }
 }
 
-// Create new reference-counted pointer
-rc_new = <T>(value: T) Rc<T> {
-    ptr := allocate<T>(1)
-    *ptr = value
+untrack_allocation = (ptr: RawPtr<void>) void {
+    prev: Option<Ptr<AllocationInfo>> = Option.None
+    current := memory_tracker.head
     
-    count := allocate<u32>(1)
-    *count = 1
-    
-    return Rc<T>{
-        ptr: ptr,
-        count: count
+    loop (current) {
+        current ? 
+            | Option.Some(info) {
+                (info.ptr == ptr) ? {
+                    // Remove from list
+                    prev ? 
+                        | Option.Some(p) { p.next = info.next }
+                        | Option.None { memory_tracker.head = info.next }
+                    
+                    memory_tracker.stats.total_freed += info.size
+                    memory_tracker.stats.deallocation_count += 1
+                    deallocate_raw(@ptrcast(RawPtr<void>, info))
+                    return
+                }
+                prev = current
+                current = info.next
+            }
+            | Option.None { break }
     }
 }
 
-// Clone reference-counted pointer
-rc_clone = <T>(rc: Ptr<Rc<T>>) Rc<T> {
-    *rc.count += 1
-    return Rc<T>{
-        ptr: rc.ptr,
-        count: rc.count
-    }
-}
-
-// Drop reference-counted pointer
-rc_drop = <T>(rc: Ptr<Rc<T>>) void {
-    *rc.count -= 1
-    (*rc.count == 0) ? {
-        deallocate(rc.ptr)
-        deallocate(rc.count)
-    }
-}
-
-// Get reference count
-rc_count = <T>(rc: Ptr<Rc<T>>) u32 {
-    return *rc.count
-}
-
-// Unique pointer (move-only)
-Unique := <T> {
-    ptr: Ptr<T>
-}
-
-// Create unique pointer
-unique_new = <T>(value: T) Unique<T> {
-    ptr := allocate<T>(1)
-    *ptr = value
-    return Unique<T>{ptr: ptr}
-}
-
-// Move unique pointer
-unique_move = <T>(from: Ptr<Unique<T>>) Unique<T> {
-    result := Unique<T>{ptr: from.ptr}
-    from.ptr = null
-    return result
-}
-
-// Release unique pointer
-unique_release = <T>(unique: Ptr<Unique<T>>) Ptr<T> {
-    ptr := unique.ptr
-    unique.ptr = null
-    return ptr
-}
-
-// Destroy unique pointer
-unique_destroy = <T>(unique: Ptr<Unique<T>>) void {
-    (unique.ptr != null) ? {
-        deallocate(unique.ptr)
-        unique.ptr = null
-    }
-}
-
-// Memory statistics (debug mode)
-get_memory_stats = () MemoryStats   {
+// Memory statistics functions
+get_memory_stats = () MemoryStats {
+    current_usage := memory_tracker.stats.total_allocated - memory_tracker.stats.total_freed
     return MemoryStats{
-        total_allocated: memory_tracker.total_allocated,
-        total_freed: memory_tracker.total_freed,
-        current_usage: memory_tracker.total_allocated - memory_tracker.total_freed,
-        peak_usage: memory_tracker.peak_usage,
-        allocation_count: memory_tracker.allocation_count,
-        deallocation_count: memory_tracker.deallocation_count
+        total_allocated: memory_tracker.stats.total_allocated,
+        total_freed: memory_tracker.stats.total_freed,
+        current_usage: current_usage,
+        peak_usage: memory_tracker.stats.peak_usage,
+        allocation_count: memory_tracker.stats.allocation_count,
+        deallocation_count: memory_tracker.stats.deallocation_count
     }
 }
 
-MemoryStats := {
-    total_allocated: usize
-    total_freed: usize
-    current_usage: usize
-    peak_usage: usize
-    allocation_count: u32
-    deallocation_count: u32
-}
-
-// Print memory statistics
-print_memory_stats = () void   {
+print_memory_stats = () void {
     stats := get_memory_stats()
     
     io.println("=== Memory Statistics ===")
@@ -448,8 +440,7 @@ print_memory_stats = () void   {
     }
 }
 
-// Print all active allocations (debug mode)
-print_allocations = () void   {
+print_allocations = () void {
     io.println("=== Active Allocations ===")
     
     current := memory_tracker.head
@@ -471,14 +462,14 @@ print_allocations = () void   {
     }
 }
 
-// Panic function for allocation failures
-panic = (message: string) void   {
-    io.eprintln("PANIC: " + message)
-    
-    // Print memory stats in debug mode
-    @std.debug ? {
-        print_memory_stats()
+// Reset memory statistics
+reset_stats = () void {
+    memory_tracker.stats = MemoryStats{
+        total_allocated: 0,
+        total_freed: 0,
+        current_usage: 0,
+        peak_usage: 0,
+        allocation_count: 0,
+        deallocation_count: 0
     }
-    
-    @std.exit(1)
 }

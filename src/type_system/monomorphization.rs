@@ -26,9 +26,7 @@ impl Monomorphizer {
         let mut declarations = Vec::new();
         
         // First, type check the program to get type information
-        // TEMPORARILY DISABLED: Type checking blocks with local variables is broken
-        // TODO: Fix type checker to properly handle block-scoped variables
-        // self.type_checker.check_program(program).map_err(|e| e.to_string())?;
+        self.type_checker.check_program(program).map_err(|e| e.to_string())?;
         
         for decl in &program.declarations {
             match decl {

@@ -1,0 +1,8 @@
+// Collections module - re-exports all collection types
+// Provides a unified interface to all data structures
+
+// Re-export from separate files
+hashmap_module = import("hashmap")
+list_module = import("list")
+
+module.exports = { ...hashmap_module, ...list_module }

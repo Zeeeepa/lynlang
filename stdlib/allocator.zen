@@ -1,223 +1,120 @@
-// Core allocator trait for colorless concurrent/sync execution
-// Based on the design in agent/zen-allocator-concurrent.md
+// Core allocator interface for Zen
+// Provides standardized memory allocation interface
 
-build = @std
-std := build.import("std")
+{ memory } := @std
 
-// Continuation type for concurrent execution
-Continuation: {
-    state: RawPtr<void>
-    resume_fn: (RawPtr<void>) void
-}
-
-// Base allocator trait - memory + execution context
-Allocator: {
+// Basic allocator interface
+Allocator := {
     // Memory operations
-    alloc: (size: usize) RawPtr<void>
+    alloc: (size: usize) Result<RawPtr<void>, core.Error>
     free: (ptr: RawPtr<void>) void
-    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize) RawPtr<void>
-    
-    // Execution mode
-    is_concurrent: bool
-    
-    // Control flow operations (only for concurrent execution)
-    suspend: () Option<Continuation>
-    resume: (cont: Continuation) void
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize) Result<RawPtr<void>, core.Error>
     
     // Utility functions
-    create: (comptime T: type) Ptr<T> {
-        ptr := self.alloc(@std.sizeOf(T))
-        return @std.ptrCast(Ptr<T>, ptr)
+    create: <T>() Result<Ptr<T>, core.Error> {
+        result := self.alloc(@sizeof(T))
+        result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) { return Ok(@ptrcast(Ptr<T>, ptr)) }
     }
     
-    destroy: (ptr: anytype) void {
-        self.free(@std.ptrCast(RawPtr<void>, ptr))
+    destroy: <T>(ptr: Ptr<T>) void {
+        self.free(@ptrcast(RawPtr<void>, ptr))
     }
     
-    alloc_slice: (comptime T: type, n: usize) Vec<T> {
-        bytes := self.alloc(@std.sizeOf(T) * n)
-        return @std.ptrCast([*]T, bytes)[0..n]
+    alloc_slice: <T>(n: usize) Result<Vec<T>, core.Error> {
+        result := self.alloc(@sizeof(T) * n)
+        result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) {
+                return Ok(Vec<T>{
+                    data: @ptrcast(Ptr<T>, ptr),
+                    len: n,
+                    capacity: n
+                })
+            }
     }
     
-    free_slice: (slice: anytype) void {
-        self.free(@std.ptrCast(RawPtr<void>, slice.ptr))
+    free_slice: <T>(slice: Vec<T>) void {
+        self.free(@ptrcast(RawPtr<void>, slice.data))
     }
 }
 
-// Sync allocator - traditional blocking execution
-SyncAllocator: {
-    heap: std.heap.GeneralPurposeAllocator
-    
-    init: () SyncAllocator {
-        return SyncAllocator{
-            heap: std.heap.GeneralPurposeAllocator.init()
+// Default allocator using system malloc/free
+DefaultAllocator := {
+    alloc: (size: usize) Result<RawPtr<void>, core.Error> {
+        ptr := memory.allocate_raw(size)
+        (ptr == null) ? {
+            return Err(.OutOfMemory)
         }
+        return Ok(ptr)
     }
     
-    deinit: (self: Ptr<SyncAllocator>) void {
-        self.heap.deinit()
+    free: (ptr: RawPtr<void>) void {
+        memory.deallocate_raw(ptr)
     }
     
-    allocator: () Allocator {
-        return Allocator{
-            alloc: (size) { self.heap.alloc(size) },
-            free: (ptr) { self.heap.free(ptr) },
-            realloc: (ptr, old_size, new_size) { self.heap.realloc(ptr, old_size, new_size) },
-            is_concurrent: false,
-            suspend: () { None },
-            resume: (cont) { @panic("Cannot resume in sync context") }
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize) Result<RawPtr<void>, core.Error> {
+        new_ptr := memory.reallocate_raw(ptr, new_size)
+        (new_ptr == null) ? {
+            return Err(.OutOfMemory)
         }
+        return Ok(new_ptr)
     }
 }
 
-// Runtime for concurrent execution
-Runtime: {
-    ready_queue: DynVec<Continuation>
-    current_continuation: Option<Continuation>
-    heap: std.heap.GeneralPurposeAllocator
-    
-    init: () Runtime {
-        return Runtime{
-            ready_queue: DynVec<Continuation>{},
-            current_continuation: null,
-            heap: std.heap.GeneralPurposeAllocator.init()
-        }
-    }
-    
-    save_continuation: () Option<Continuation> {
-        // Save current execution state
-        // This would be implemented with platform-specific assembly
-        return self.current_continuation
-    }
-    
-    schedule: (cont: Continuation) void {
-        self.ready_queue.append(cont)
-    }
-    
-    run: () void {
-        loop(() {
-            (self.ready_queue.len == 0) ?
-                | true { break }
-                | false { }
-            
-            cont := self.ready_queue[0]
-            self.ready_queue = self.ready_queue[1..]
-            self.current_continuation = cont
-            cont.resume_fn(cont.state)
-        })
-    }
-    
-    wait: () void {
-        // Wait for I/O or timer events
-        // Platform-specific implementation
-    }
-}
-
-// Concurrent allocator - non-blocking with continuations
-ConcurrentAllocator: {
-    runtime: Ptr<Runtime>
-    
-    init: (runtime: Ptr<Runtime>) ConcurrentAllocator {
-        return ConcurrentAllocator{
-            runtime: runtime
-        }
-    }
-    
-    allocator: () Allocator {
-        return Allocator{
-            alloc: (size) { self.runtime.heap.alloc(size) },
-            free: (ptr) { self.runtime.heap.free(ptr) },
-            realloc: (ptr, old_size, new_size) { self.runtime.heap.realloc(ptr, old_size, new_size) },
-            is_concurrent: true,
-            suspend: () { self.runtime.save_continuation() },
-            resume: (cont) { self.runtime.schedule(cont) }
-        }
-    }
-}
-
-// Auto allocator - chooses based on context
-AutoAllocator: {
-    sync_alloc: SyncAllocator
-    concurrent_alloc: Option<ConcurrentAllocator>
-    runtime: Option<Runtime>
-    
-    init: () AutoAllocator {
-        return AutoAllocator{
-            sync_alloc: SyncAllocator.init(),
-            concurrent_alloc: null,
-            runtime: null
-        }
-    }
-    
-    init_with_runtime: (runtime: Ptr<Runtime>) AutoAllocator {
-        return AutoAllocator{
-            sync_alloc: SyncAllocator.init(),
-            concurrent_alloc: ConcurrentAllocator.init(runtime),
-            runtime: runtime
-        }
-    }
-    
-    allocator: () Allocator {
-        // Choose based on whether we have a runtime
-        self.runtime ? 
-            | null { self.sync_alloc.allocator() }
-            | runtime { self.concurrent_alloc.?.allocator() }
-    }
-}
-
-// Test allocator for debugging
-TestAllocator: {
-    underlying: SyncAllocator
-    allocations: DynVec<AllocationInfo>
+// Tracking allocator for debugging
+TrackingAllocator := {
+    underlying: DefaultAllocator
+    allocations: Vec<AllocationInfo>
     total_allocated: usize
     total_freed: usize
     
-    AllocationInfo: {
+    AllocationInfo := {
         ptr: RawPtr<void>
         size: usize
         freed: bool
     }
     
-    init: () TestAllocator {
-        return TestAllocator{
-            underlying: SyncAllocator.init(),
-            allocations: DynVec<AllocationInfo>{},
+    init: () TrackingAllocator {
+        return TrackingAllocator{
+            underlying: DefaultAllocator{},
+            allocations: Vec<AllocationInfo>{},
             total_allocated: 0,
             total_freed: 0
         }
     }
     
-    deinit: (self: Ptr<TestAllocator>) void {
-        self.underlying.deinit()
-    }
-    
-    allocator: () Allocator {
-        return Allocator{
-            alloc: (size) => {
-                ptr := self.underlying.heap.alloc(size)
-                self.allocations.append(AllocationInfo{
+    alloc: (size: usize) Result<RawPtr<void>, core.Error> {
+        result := self.underlying.alloc(size)
+        result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) {
+                self.allocations.push(AllocationInfo{
                     ptr: ptr,
                     size: size,
                     freed: false
                 })
                 self.total_allocated += size
-                return ptr
-            },
-            free: (ptr) => {
-                loop i := 0; i < self.allocations.len; i += 1 {
-                    self.allocations[i].ptr == ptr ? {
-                        self.allocations[i].freed = true
-                        self.total_freed += self.allocations[i].size
-                        break
-                    } : {}
-                }
-                self.underlying.heap.free(ptr)
-            },
-            realloc: (ptr, old_size, new_size) => self.underlying.heap.realloc(ptr, old_size, new_size),
-            is_concurrent: false,
-            suspend: () => null,
-            resume: (cont) => @panic("Cannot resume in test allocator")
+                return Ok(ptr)
+            }
+    }
+    
+    free: (ptr: RawPtr<void>) void {
+        i := 0
+        loop (i < self.allocations.len) {
+            (self.allocations[i].ptr == ptr) ? {
+                self.allocations[i].freed = true
+                self.total_freed += self.allocations[i].size
+                break
+            }
+            i += 1
         }
+        self.underlying.free(ptr)
+    }
+    
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize) Result<RawPtr<void>, core.Error> {
+        return self.underlying.realloc(ptr, old_size, new_size)
     }
     
     bytes_leaked: () usize {
@@ -225,11 +122,21 @@ TestAllocator: {
     }
     
     check_leaks: () bool {
-        loop i := 0; i < self.allocations.len; i += 1 {
-            !self.allocations[i].freed ? {
+        i := 0
+        loop (i < self.allocations.len) {
+            (!self.allocations[i].freed) ? {
                 return true
-            } : {}
+            }
+            i += 1
         }
         return false
     }
+}
+
+// Global default allocator instance
+default_allocator: DefaultAllocator = DefaultAllocator{}
+
+// Get the default allocator
+get_default_allocator = () Ptr<Allocator> {
+    return Ptr<Allocator>.from(default_allocator)
 }

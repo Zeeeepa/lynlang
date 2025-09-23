@@ -2,11 +2,12 @@
 // Provides a type-safe way to handle operations that can fail
 
 core = @std
-{ Option } = @std.import("core/option")
 
 // Result type - represents success (Ok) or failure (Err)
-// As per LANGUAGE_SPEC.zen: Result<T, E>: Ok(T) | Err(E)
-Result<T, E>: Ok(T) | Err(E)
+Result<T, E>: {
+    Ok: T,
+    Err: E
+}
 
 // Result methods implementation
 Result<T, E>.impl = {
@@ -95,82 +96,7 @@ Result<T, E>.impl = {
     }
 }
 
-// Option methods implementation
-Option<T>.impl = {
-    // Check if Option has a value
-    is_some = (self: Option<T>) bool   {
-        self ?
-            | Some(_) { true }
-            | None { false }
-    }
-    
-    // Check if Option is None
-    is_none = (self: Option<T>) bool   {
-        self ?
-            | Some(_) { false }
-            | None { true }
-    }
-    
-    // Extract value or panic
-    unwrap = (self: Option<T>) T   {
-        self ?
-            | Some(value) { value }
-            | None { core.panic("called Option.unwrap() on a None value") }
-    }
-    
-    // Extract value or return default
-    unwrap_or = (self: Option<T>, default: T) T   {
-        self ?
-            | Some(value) { value }
-            | None { default }
-    }
-    
-    // Extract value or compute default
-    unwrap_or_else = (self: Option<T>, f: () { T }) T {
-        self ?
-            | Some(value) { value }
-            | None { f() }
-    }
-    
-    // Map value through function
-    map = (self: Option<T>, f: (T) { U }) Option<U> {
-        self ?
-            | Some(some_val) { Some(f(some_val.value)) }
-            | None { None }
-    }
-    
-    // Chain Option operations
-    and_then = (self: Option<T>, f: (T) { Option<U> }) Option<U> {
-        self ?
-            | Some(some_val) { f(some_val.value) }
-            | None { None }
-    }
-    
-    // Filter value based on predicate
-    filter = (self: Option<T>, predicate: (T) { bool }) Option<T> {
-        self ?
-            | Some(value) {
-                predicate(value) ?
-                    | true { Some(value) }
-                    | false { None }
-            }
-            | None { None }
-    }
-    
-    // Convert to Result
-    ok_or = (self: Option<T>, err: E) Result<T, E>   {
-        self ?
-            | Some(value) { Ok(value) }
-            | None { Err(err) }
-    }
-    
-    // Convert to Result with error from closure
-    ok_or_else = (self: Option<T>, f: () { E }) Result<T, E> {
-        self ?
-            | Some(value) { Ok(value) }
-            | None { Err(f()) }
-    }
-}
+
 
 // Utility functions for Result creation
 ok = (value: T) Result<T, E>   {
@@ -181,14 +107,7 @@ err = (error: E) Result<T, E>   {
     return Err(error)
 }
 
-// Utility functions for Option creation
-some = (value: T) Option<T>   {
-    return Some(value)
-}
 
-none = () Option<T>   {
-    return None
-}
 
 // Error propagation using ? operator and pattern matching
 // Example: value := some_result?;  // Propagates error up
@@ -209,9 +128,3 @@ collect_results = (results: Vec<Result<T, E>>) Result<DynVec<T>, E>   {
     return Ok(values)
 }
 
-// Convert Option to Result with custom error message
-option_to_result = (opt: Option<T>, error_msg: string) Result<T, string>   {
-    opt ?
-        | Some(value) { Ok(value) }
-        | None { Err(error_msg) }
-}

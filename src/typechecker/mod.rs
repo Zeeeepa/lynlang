@@ -501,7 +501,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    fn infer_expression_type(&self, expr: &Expression) -> Result<AstType> {
+    fn infer_expression_type(&mut self, expr: &Expression) -> Result<AstType> {
         match expr {
             Expression::Integer32(_) => Ok(AstType::I32),
             Expression::Integer64(_) => Ok(AstType::I64),
@@ -720,19 +720,34 @@ impl TypeChecker {
                 }
             }
             Expression::Block(statements) => {
-                // For now, just return the type of the last expression
-                // Block scoping will be handled properly in codegen
-                // Type checking blocks properly would require refactoring infer_expression_type
-                // to take &mut self instead of &self
-                for stmt in statements {
-                    if let Statement::Expression(expr) = stmt {
-                        // This is just a simple approximation - last expression in block
-                        if statements.last() == Some(stmt) {
-                            return self.infer_expression_type(expr);
+                // Enter a new scope for the block
+                self.enter_scope();
+                
+                let mut block_type = AstType::Void;
+                
+                // Process all statements in the block
+                for (i, stmt) in statements.iter().enumerate() {
+                    match stmt {
+                        Statement::Expression(expr) => {
+                            // The last expression determines the block's type
+                            if i == statements.len() - 1 {
+                                block_type = self.infer_expression_type(expr)?;
+                            } else {
+                                // Still type-check intermediate expressions
+                                self.infer_expression_type(expr)?;
+                            }
+                        }
+                        _ => {
+                            // Process other statements (declarations, assignments, etc.)
+                            self.check_statement(stmt)?;
                         }
                     }
                 }
-                Ok(AstType::Void)
+                
+                // Exit the block's scope
+                self.exit_scope();
+                
+                Ok(block_type)
             }
             Expression::Return(expr) => {
                 self.infer_expression_type(expr)

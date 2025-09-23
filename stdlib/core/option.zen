@@ -4,8 +4,10 @@
 core = @std
 
 // Option type - represents a value that may or may not exist  
-// Using the spec syntax: Option<T>: Some(T) | None
-Option<T>: Some(T) | None
+Option<T>: {
+    Some: T,
+    None
+}
 
 // Create Some variant
 some = (value: T) Option<T> {
@@ -178,24 +180,3 @@ flatten = <T>(opt: Option<Option<T>>) Option<T> {
         | None { Option.None }
 }
 
-// Convert to Result
-ok_or = <T, E>(opt: Option<T>, err: E) Result<T, E> {
-    opt ?
-        | Some(v) { Result.Ok(v) }
-        | None { Result.Err(err) }
-}
-
-// Convert to Result with error function
-ok_or_else = <T, E>(opt: Option<T>, err_fn: () E) Result<T, E> {
-    opt ?
-        | Some(v) { Result.Ok(v) }
-        | None { Result.Err(err_fn()) }
-}
-
-// Transpose Option of Result
-transpose = <T, E>(opt: Option<Result<T, E>>) Result<Option<T>, E> {
-    opt ?
-        | Some(Ok(v)) { Result.Ok(Option.Some(v)) }
-        | Some(Err(e)) { Result.Err(e) }
-        | None { Result.Ok(Option.None) }
-}

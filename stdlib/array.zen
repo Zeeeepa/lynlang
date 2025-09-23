@@ -1,390 +1,210 @@
-// Array/Slice operations for Zen
-// Provides dynamic array functionality with automatic resizing
+// Array utilities for Zen - complements Vec<T,N> and DynVec<T>
+// Provides additional array processing functions for fixed arrays
 
-build = @std
-core := build.import("core")
-mem := build.import("mem")
-math := build.import("math")
+core := @std
+vec_module = import("vec")
 
-// Dynamic array structure
-Array<T: type>: {
-    data: Ptr<T>,
-    len: usize,
-    capacity: usize,
+// Re-export the main vector types for convenience
+Vec := vec_module.Vec
+DynVec := vec_module.DynVec
+
+// Array processing utilities for fixed arrays [T; N]
+// These complement the vector types with additional array-specific functions
+
+// Convert fixed array to Vec
+array_to_vec<T, N> = (arr: [T; N]) Vec<T, N> {
+    return Vec<T, N>.from_array(arr)
 }
 
-// Create a new array with initial capacity
-new = (T: type, initial_capacity: usize) Array<T> {
-    data := initial_capacity > 0 ? 
-        | true { mem.alloc(T, initial_capacity) }
-        | false { null }
-    
-    return Array<T>{
-        data: data,
-        len: 0,
-        capacity: initial_capacity,
-    }
+// Convert fixed array to DynVec
+array_to_dyn_vec<T, N> = (arr: [T; N]) DynVec<T> {
+    vec := Vec<T, N>.from_array(arr)
+    return vec.to_dynamic()
 }
 
-// Create array from slice
-from_slice = (T: type, slice: Vec<T>) Array<T> {
-    arr := new(T, slice.len)
-    arr.len = slice.len
-    mem.copy(arr.data, slice.ptr, slice.len * core.sizeof(T))
-    return arr
-}
+// Array utilities for working with fixed arrays [T; N]
+// These work directly on the language's built-in array type
 
-// Push element to array
-push = (T: type, arr: Ptr<Array<T>>, value: T) void {
-    arr.len >= arr.capacity ? {
-        grow(T, arr)
+// Find element in fixed array
+array_find<T, N> = (arr: [T; N], value: T) core.Option<usize> {
+    i ::= 0
+    loop {
+        i >= N ? { return core.Option:None }
+        arr[i] == value ? { return core.Option:Some(i) }
+        i = i + 1
     }
-    arr.data[arr.len] = value
-    arr.len += 1
-}
-
-// Pop element from array
-pop = (T: type, arr: Ptr<Array<T>>) Option<T> {
-    arr.len == 0 ? {
-        return null
-    }
-    arr.len -= 1
-    return arr.data[arr.len]
-}
-
-// Get element at index
-get = (T: type, arr: Ptr<Array<T>>, index: usize) Option<T> {
-    index >= arr.len ? {
-        return null
-    }
-    return arr.data[index]
-}
-
-// Set element at index
-set = (T: type, arr: Ptr<Array<T>>, index: usize, value: T) bool {
-    index >= arr.len ? {
-        return false
-    }
-    arr.data[index] = value
-    return true
-}
-
-// Insert element at index
-insert = (T: type, arr: Ptr<Array<T>>, index: usize, value: T) bool {
-    index > arr.len ? {
-        return false
-    }
-    
-    arr.len >= arr.capacity ? {
-        grow(T, arr)
-    }
-    
-    // Shift elements right
-    index < arr.len ? {
-        mem.move(
-            arr.data + index + 1,
-            arr.data + index,
-            (arr.len - index) * core.sizeof(T))
-        )
-    }
-    
-    arr.data[index] = value
-    arr.len += 1
-    return true
-}
-
-// Remove element at index
-remove = (T: type, arr: Ptr<Array<T>>, index: usize) Option<T> {
-    index >= arr.len ? {
-        return null
-    }
-    
-    value := arr.data[index]
-    
-    // Shift elements left
-    index < arr.len - 1 ? {
-        mem.move(
-            arr.data + index,
-            arr.data + index + 1,
-            (arr.len - index - 1) * @sizeof(T)
-        )
-    }
-    
-    arr.len -= 1
-    return value
-}
-
-// Clear array (keep capacity)
-clear = (T: type, arr: Ptr<Array<T>>) void {
-    arr.len = 0
-}
-
-// Resize array to exact size
-resize = (T: type, arr: Ptr<Array<T>>, new_size: usize) void {
-    new_size > arr.capacity ? {
-        reserve(T, arr, new_size)
-    }
-    arr.len = new_size
-}
-
-// Reserve capacity
-reserve = (T: type, arr: Ptr<Array<T>>, new_capacity: usize) void {
-    new_capacity <= arr.capacity ? {
-        return
-    }
-    
-    new_data := mem.alloc(T, new_capacity)
-    (arr.data != null and arr.len > 0) ? {
-        mem.copy(new_data, arr.data, arr.len * @sizeof(T))
-        mem.free(arr.data)
-    }
-    
-    arr.data = new_data
-    arr.capacity = new_capacity
-}
-
-// Grow array capacity (internal)
-grow = (T: type, arr: Ptr<Array<T>>) void {
-    new_capacity := arr.capacity == 0 ? {
-        8
-    } : {
-        arr.capacity * 2
-    }
-    reserve(T, arr, new_capacity)
-}
-
-// Shrink to fit
-shrink_to_fit = (T: type, arr: Ptr<Array<T>>) void {
-    arr.len == arr.capacity ? {
-        return
-    }
-    
-    arr.len == 0 ? {
-        arr.data != null ? {
-            mem.free(arr.data)
-        }
-        arr.data = null
-        arr.capacity = 0
-        return
-    }
-    
-    new_data := mem.alloc(T, arr.len)
-    mem.copy(new_data, arr.data, arr.len * @sizeof(T))
-    mem.free(arr.data)
-    arr.data = new_data
-    arr.capacity = arr.len
-}
-
-// Get slice of array
-slice = (T: type, arr: Ptr<Array<T>>, start: usize, end: usize) Vec<T> {
-    (start > end or end > arr.len) ? {
-        return Vec<T>{}
-    }
-    return arr.data[start..end]
-}
-
-// Reverse array in place
-reverse = (T: type, arr: Ptr<Array<T>>) void {
-    arr.len <= 1 ? {
-        return
-    }
-    
-    left := 0
-    right := arr.len - 1
-    
-    loop (left < right) {
-        temp := arr.data[left]
-        arr.data[left] = arr.data[right]
-        arr.data[right] = temp
-        left += 1
-        right -= 1
-    }
-}
-
-// Find element in array
-find = (T: type, arr: Ptr<Array<T>>, value: T) Option<usize> {
-    i := 0
-    loop (i < arr.len) {
-        arr.data[i] == value ? {
-            return i
-        }
-        i += 1
-    }
-    return null
+    return core.Option:None
 }
 
 // Check if array contains element
-contains = (T: type, arr: Ptr<Array<T>>, value: T) bool {
-    return find(T, arr, value) != null
+array_contains<T, N> = (arr: [T; N], value: T) bool {
+    result := array_find(arr, value)
+    return result ? | Some(_) => true | None => false
 }
 
-// Map function over array
-map = (T: type, U: type, arr: Ptr<Array<T>>, f: fn(T) U) Array<U> {
-    result := new(U, arr.len)
-    result.len = arr.len
-    
-    i := 0
-    loop (i < arr.len) {
-        result.data[i] = f(arr.data[i])
-        i += 1
+// Apply function to each element in array
+array_for_each<T, N> = (arr: [T; N], f: (T) void) void {
+    i ::= 0
+    loop {
+        i >= N ? { break }
+        f(arr[i])
+        i = i + 1
     }
-    
+}
+
+// Map function over array - returns new array
+array_map<T, U, N> = (arr: [T; N], f: (T) U) [U; N] {
+    result := [core.default<U>(); N]
+    i ::= 0
+    loop {
+        i >= N ? { break }
+        result[i] = f(arr[i])
+        i = i + 1
+    }
     return result
 }
 
-// Filter array
-filter = (T: type, arr: Ptr<Array<T>>, predicate: fn(T) bool) Array<T> {
-    result := new(T, arr.len)
-    
-    i := 0
-    loop (i < arr.len) {
-        predicate(arr.data[i]) ? {
-            push(T, &result, arr.data[i])
+// Filter array to Vec (since filtered result may be smaller)
+array_filter<T, N> = (arr: [T; N], predicate: (T) bool) DynVec<T> {
+    result := DynVec<T>.new()
+    i ::= 0
+    loop {
+        i >= N ? { break }
+        predicate(arr[i]) ? {
+            result.push(arr[i])
         }
-        i += 1
-    }
-    
-    return result
-}
-
-// Reduce array
-reduce = (T: type, U: type, arr: Ptr<Array<T>>, initial: U, f: fn(U, T) U) U {
-    result := initial
-    i := 0
-    loop (i < arr.len) {
-        result = f(result, arr.data[i])
-        i += 1
+        i = i + 1
     }
     return result
 }
 
-// Sort array (quicksort)
-sort = (T: type, arr: Ptr<Array<T>>, compare: fn(T, T) i32) void {
-    arr.len <= 1 ? {
-        return
+// Reduce array to single value
+array_reduce<T, U, N> = (arr: [T; N], initial: U, f: (U, T) U) U {
+    acc ::= initial
+    i ::= 0
+    loop {
+        i >= N ? { break }
+        acc = f(acc, arr[i])
+        i = i + 1
     }
-    quicksort(T, arr.data, 0, arr.len - 1, compare)
+    return acc
 }
 
-// Quicksort implementation
-quicksort = (T: type, data: Ptr<T>, low: usize, high: usize, compare: fn(T, T) i32) void {
-    low >= high ? {
-        return
-    }
+// Reverse array in place
+array_reverse<T, N> = (arr: *[T; N]) void {
+    N <= 1 ? { return }
     
-    pivot_index := partition(T, data, low, high, compare)
+    left ::= 0
+    right ::= N - 1
+    
+    loop {
+        left >= right ? { break }
+        temp := arr[left]
+        arr[left] = arr[right] 
+        arr[right] = temp
+        left = left + 1
+        right = right - 1
+    }
+}
+
+// Sort array using quicksort
+array_sort<T, N> = (arr: *[T; N], compare: (T, T) i32) void {
+    N <= 1 ? { return }
+    array_quicksort(arr, 0, N - 1, compare)
+}
+
+// Quicksort implementation (internal)
+array_quicksort<T, N> = (arr: *[T; N], low: usize, high: usize, compare: (T, T) i32) void {
+    low >= high ? { return }
+    
+    pivot_index := array_partition(arr, low, high, compare)
     pivot_index > 0 ? {
-        quicksort(T, data, low, pivot_index - 1, compare)
+        array_quicksort(arr, low, pivot_index - 1, compare)
     }
-    quicksort(T, data, pivot_index + 1, high, compare)
+    array_quicksort(arr, pivot_index + 1, high, compare)
 }
 
-// Partition for quicksort
-partition = (T: type, data: Ptr<T>, low: usize, high: usize, compare: fn(T, T) i32) usize {
-    pivot := data[high]
-    i := low
+// Partition for quicksort (internal)
+array_partition<T, N> = (arr: *[T; N], low: usize, high: usize, compare: (T, T) i32) usize {
+    pivot := arr[high]
+    i ::= low
     
-    j := low
-    loop (j < high) {
-        compare(data[j], pivot) <= 0 ? {
-            temp := data[i]
-            data[i] = data[j]
-            data[j] = temp
-            i += 1
+    j ::= low
+    loop {
+        j >= high ? { break }
+        compare(arr[j], pivot) <= 0 ? {
+            temp := arr[i]
+            arr[i] = arr[j]
+            arr[j] = temp
+            i = i + 1
         }
-        j += 1
+        j = j + 1
     }
     
-    temp := data[i]
-    data[i] = data[high]
-    data[high] = temp
+    temp := arr[i]
+    arr[i] = arr[high]
+    arr[high] = temp
     
     return i
 }
 
 // Binary search (array must be sorted)
-binary_search = (T: type, arr: Ptr<Array<T>>, value: T, compare: fn(T, T) i32) Option<usize> {
-    arr.len == 0 ? {
-        return null
-    }
+array_binary_search<T, N> = (arr: [T; N], value: T, compare: (T, T) i32) core.Option<usize> {
+    N == 0 ? { return core.Option:None }
     
-    left := 0
-    right := arr.len - 1
+    left ::= 0
+    right ::= N - 1
     
-    loop (left <= right) {
+    loop {
+        left > right ? { break }
         mid := left + (right - left) / 2
-        cmp := compare(arr.data[mid], value)
+        cmp := compare(arr[mid], value)
         
-        cmp == 0 ? {
-            return mid
-        } : cmp < 0 ? {
-            left = mid + 1
-        } : {
-            mid == 0 ? break
-            right = mid - 1
-        }
+        cmp == 0 ? { return core.Option:Some(mid) }
+        cmp < 0 ? { left = mid + 1 }
+        : { right = mid - 1 }
     }
     
-    return null
+    return core.Option:None
 }
 
-// Clone array
-clone = (T: type, arr: Ptr<Array<T>>) Array<T> {
-    result := new(T, arr.capacity)
-    result.len = arr.len
-    
-    arr.len > 0 ? {
-        mem.copy(result.data, arr.data, arr.len * @sizeof(T))
-    }
-    
-    return result
-}
-
-// Extend array with another array
-extend = (T: type, arr: Ptr<Array<T>>, other: Ptr<Array<T>>) void {
-    other.len == 0 ? {
-        return
-    }
-    
-    required_capacity := arr.len + other.len
-    required_capacity > arr.capacity ? {
-        reserve(T, arr, required_capacity)
-    }
-    
-    mem.copy(arr.data + arr.len, other.data, other.len * @sizeof(T))
-    arr.len += other.len
-}
-
-// Free array memory
-free = (T: type, arr: Ptr<Array<T>>) void {
-    arr.data != null ? {
-        mem.free(arr.data)
-    }
-    arr.data = null
-    arr.len = 0
-    arr.capacity = 0
-}
-
-// Iterator support
-iter = (T: type, arr: Ptr<Array<T>>) ArrayIterator<T> {
-    return ArrayIterator<T>{
-        data: arr.data,
-        len: arr.len,
-        index: 0,
+// Copy array to another array
+array_copy<T, N> = (src: [T; N], dest: *[T; N]) void {
+    i ::= 0
+    loop {
+        i >= N ? { break }
+        dest[i] = src[i]
+        i = i + 1
     }
 }
 
-ArrayIterator<T: type>: {
-    data: Ptr<T>,
-    len: usize,
-    index: usize,
+// Fill array with value
+array_fill<T, N> = (arr: *[T; N], value: T) void {
+    i ::= 0
+    loop {
+        i >= N ? { break }
+        arr[i] = value
+        i = i + 1
+    }
 }
 
-next = (T: type, it: Ptr<ArrayIterator<T>>) Option<T> {
-    it.index >= it.len ? {
-        return null
+// Check if two arrays are equal
+array_equal<T, N> = (a: [T; N], b: [T; N]) bool {
+    i ::= 0
+    loop {
+        i >= N ? { break }
+        a[i] != b[i] ? { return false }
+        i = i + 1
     }
-    value := it.data[it.index]
-    it.index += 1
-    return value
+    return true
+}
+
+// Export utility functions and vector types
+module.exports = { 
+    Vec, DynVec,
+    array_to_vec, array_to_dyn_vec,
+    array_find, array_contains, array_for_each,
+    array_map, array_filter, array_reduce,
+    array_reverse, array_sort, array_binary_search,
+    array_copy, array_fill, array_equal
 }
