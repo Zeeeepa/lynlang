@@ -1,0 +1,11 @@
+// Very basic DynVec test without method calls
+{ io } = @std
+
+main = () i32 {
+    // Just create a DynVec and return
+    vec = DynVec<i32>(0)
+    
+    io.println("DynVec created")
+    
+    return 0
+}

@@ -325,6 +325,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 AstType::I32
                             };
                             AstType::MutPtr(Box::new(inner_type))
+                        } else if let Expression::DynVecConstructor { element_types, .. } = init_expr {
+                            // For DynVec constructors, create the proper DynVec type
+                            AstType::DynVec { 
+                                element_types: element_types.clone(), 
+                                allocator_type: None 
+                            }
+                        } else if let Expression::VecConstructor { element_type, size, .. } = init_expr {
+                            // For Vec constructors, create the proper Vec type
+                            AstType::Vec { 
+                                element_type: Box::new(element_type.clone()), 
+                                size: *size 
+                            }
                         } else if let Expression::TypeCast { target_type, .. } = init_expr {
                             // For type casts, use the target type
                             target_type.clone()

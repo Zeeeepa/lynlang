@@ -29,7 +29,7 @@
 { build } = import("build.zen")
 
 // Math
-{ min, max, abs } = import("math.zen")
+{ min, max, abs } = import("math/math.zen")
 
 // Testing
 { test, assert } = import("testing/testing.zen")
