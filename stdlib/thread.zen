@@ -272,7 +272,7 @@ thread_local_set = <T>(tls: Ref<ThreadLocal<T>>, value: T) void {
 // Parallel iteration helper
 parallel_for = <T>(items: [T], f: (T) void) void {
     // Simple mock - in real implementation would use thread pool
-    range(0, items.len()).loop(i -> {
+    range(0, items.len()).loop((i) {
         f(items[i])
     })
 }
@@ -281,7 +281,7 @@ parallel_for = <T>(items: [T], f: (T) void) void {
 parallel_map = <T, U>(items: [T], f: (T) U) [U] {
     // Simple mock - in real implementation would use thread pool
     results := []
-    range(0, items.len()).loop(i -> {
+    range(0, items.len()).loop((i) {
         results.push(f(items[i]))
     })
     results

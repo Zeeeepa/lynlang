@@ -69,7 +69,7 @@ add_arg = (cmd: Command, arg: string) Command   {
 // Add multiple arguments
 add_args = (cmd: Command, args: [string]) Command   {
     new_args := cmd.args.copy()
-    range(0, args.len()).loop(i -> {
+    range(0, args.len()).loop((i) {
         new_args.push(args[i])
     })
     Command {

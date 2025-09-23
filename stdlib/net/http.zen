@@ -247,7 +247,7 @@ http_build_request = (req: HttpRequest) RawPtr<i8> {
     position = position + version_len
     
     // Add headers
-    range(0, req.header_count).loop(i -> {
+    range(0, req.header_count).loop((i) {
         header := req.headers[i]
         
         name_len := strlen(header.name) as i32
@@ -298,7 +298,7 @@ http_build_query_string = (params: *HttpHeader, count: i32) RawPtr<i8> {
     buffer := malloc(1024 as i64) as RawPtr<i8>
     position := 0
     
-    range(0, count).loop(i -> {
+    range(0, count).loop((i) {
         i > 0 ? | true {
             buffer[position] = 38 // '&'
             position = position + 1

@@ -1,16 +1,33 @@
-// Foreign Function Interface - C integration with inline.c
+// Foreign Function Interface - Complete C Integration Guide
 
-{ io } = @std
-{ inline } = @std
+{ io, inline } = @std
 
-// Inline C for performance-critical operations
+// Comprehensive FFI examples with inline.c
 inline.c("""
     #include <math.h>
+    #include <string.h>
+    #include <stdlib.h>
     
-    double fast_sqrt(double n) {
-        return sqrt(n);
+    // Mathematical functions
+    double golden_ratio() {
+        return (1.0 + sqrt(5.0)) / 2.0;
     }
     
+    double fast_inverse_sqrt(double number) {
+        // Famous Quake algorithm (simplified)
+        long i;
+        double x2, y;
+        const double threehalfs = 1.5;
+        x2 = number * 0.5;
+        y = number;
+        i = * ( long * ) &y;
+        i = 0x5f3759df - ( i >> 1 );
+        y = * ( double * ) &i;
+        y = y * ( threehalfs - ( x2 * y * y ) );
+        return y;
+    }
+    
+    // Number theory
     int gcd(int a, int b) {
         while (b != 0) {
             int t = b;
@@ -20,6 +37,21 @@ inline.c("""
         return a;
     }
     
+    int lcm(int a, int b) {
+        return (a * b) / gcd(a, b);
+    }
+    
+    int is_prime(int n) {
+        if (n <= 1) return 0;
+        if (n <= 3) return 1;
+        if (n % 2 == 0 || n % 3 == 0) return 0;
+        for (int i = 5; i * i <= n; i += 6) {
+            if (n % i == 0 || n % (i + 2) == 0) return 0;
+        }
+        return 1;
+    }
+    
+    // Array operations
     void reverse_array(int* arr, int n) {
         for (int i = 0; i < n/2; i++) {
             int temp = arr[i];
@@ -27,26 +59,101 @@ inline.c("""
             arr[n-1-i] = temp;
         }
     }
+    
+    double array_mean(double* arr, int n) {
+        double sum = 0.0;
+        for (int i = 0; i < n; i++) {
+            sum += arr[i];
+        }
+        return sum / n;
+    }
+    
+    // String operations
+    int count_chars(const char* str, char c) {
+        int count = 0;
+        while (*str) {
+            if (*str == c) count++;
+            str++;
+        }
+        return count;
+    }
+    
+    void to_uppercase(char* str) {
+        while (*str) {
+            if (*str >= 'a' && *str <= 'z') {
+                *str -= 32;
+            }
+            str++;
+        }
+    }
+    
+    // Bit manipulation
+    int count_set_bits(unsigned int n) {
+        int count = 0;
+        while (n) {
+            count += n & 1;
+            n >>= 1;
+        }
+        return count;
+    }
+    
+    unsigned int rotate_left(unsigned int n, int d) {
+        return (n << d) | (n >> (32 - d));
+    }
 """)
 
+// Zen wrapper functions for better ergonomics
+prime_range = (start: i32, end: i32) [i32] {
+    primes ::= []
+    (start..=end).loop((n) {
+        is_prime(n) == 1 ?
+            | true { primes.push(n) }
+            | false {}
+    })
+    primes
+}
+
 main = () void {
-    io.println("=== FFI with inline.c ===\n")
+    io.println("╔═══════════════════════════════════════╗")
+    io.println("║        FFI - C Integration Demo       ║")
+    io.println("╚═══════════════════════════════════════╝\n")
     
-    // Call C functions directly
-    io.println("√144 = ${fast_sqrt(144)}")
-    io.println("GCD(48, 18) = ${gcd(48, 18)}")
+    // Mathematical operations
+    io.println("▸ Mathematical Functions")
+    io.println("  Golden ratio: ${golden_ratio():.6f}")
+    io.println("  Fast inverse √2: ${fast_inverse_sqrt(2.0):.6f}")
+    io.println("  Regular 1/√2: ${1.0 / @std.maths.sqrt(2.0):.6f}")
     
-    // Modify arrays in-place via C
+    // Number theory
+    io.println("\n▸ Number Theory")
+    io.println("  GCD(48, 18) = ${gcd(48, 18)}")
+    io.println("  LCM(12, 18) = ${lcm(12, 18)}")
+    io.println("  Primes 10-30: ${prime_range(10, 30)}")
+    
+    // Array operations
+    io.println("\n▸ Array Operations")
     numbers ::= [1, 2, 3, 4, 5]
-    io.println("\nOriginal: ${numbers}")
+    io.println("  Original: ${numbers}")
     reverse_array(numbers.ptr(), numbers.len())
-    io.println("Reversed: ${numbers}")
+    io.println("  Reversed: ${numbers}")
     
-    // Performance comparison
-    n = 1000000
+    floats = [1.5, 2.5, 3.5, 4.5]
+    io.println("  Mean of ${floats}: ${array_mean(floats.ptr(), floats.len())}")
     
-    // Zen version
-    sum ::= 0.0
-    (1..n).loop((i) { sum += 1.0 / i })
-    io.println("\nHarmonic sum (${n} terms): ${sum:.6f}")
+    // String operations
+    io.println("\n▸ String Operations")
+    text = "hello world"
+    io.println("  Count 'l' in '${text}': ${count_chars(text.c_str(), 'l')}")
+    
+    message ::= "zen language"
+    to_uppercase(message.ptr())
+    io.println("  Uppercase: ${message}")
+    
+    // Bit manipulation
+    io.println("\n▸ Bit Operations")
+    n: u32 = 0b10110101
+    io.println("  Set bits in ${n:08b}: ${count_set_bits(n)}")
+    io.println("  Rotate left by 3: ${rotate_left(n, 3):08b}")
+    
+    io.println("\n════════════════════════════════════════")
 }

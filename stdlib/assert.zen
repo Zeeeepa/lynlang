@@ -156,7 +156,7 @@ run_suite = (suite_name: string, tests: [(string, () void)]) void {
     passed := 0
     failed := 0
     
-    range(0, tests.len()).loop(i -> {
+    range(0, tests.len()).loop((i) {
         test := tests[i]
         run_test(test.0, test.1)
         passed = passed + 1

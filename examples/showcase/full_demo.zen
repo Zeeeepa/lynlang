@@ -1,0 +1,228 @@
+// Zen Language - Complete Feature Showcase
+// A clean, practical demonstration of Zen's core capabilities
+
+{ io, maths, Result, Option, Channel, spawn, inline } = @std
+
+// ═════════════════════════════════════════════════════════════
+// Core Language Features
+// ═════════════════════════════════════════════════════════════
+
+demo_basics = () void {
+    io.println("▸ Variables & Types")
+    
+    // Immutable by default
+    language = "Zen"
+    version = 1.0
+    
+    // Mutable with ::=
+    counter ::= 0
+    counter += 1
+    
+    // Type annotations when needed
+    precise: f64 = 3.14159265359
+    
+    io.println("  ${language} v${version}, counter: ${counter}")
+}
+
+demo_ufc = () void {
+    io.println("\n▸ Uniform Function Call (UFC)")
+    
+    // Any function becomes a method
+    double = (x: i32) i32 { x * 2 }
+    triple = (x: i32) i32 { x * 3 }
+    
+    result = 5.double().triple()  // Chaining!
+    io.println("  5.double().triple() = ${result}")
+}
+
+// ═════════════════════════════════════════════════════════════
+// Advanced Type System
+// ═════════════════════════════════════════════════════════════
+
+demo_algebraic_types = () void {
+    io.println("\n▸ Algebraic Data Types")
+    
+    // Sum types with data
+    Message: |
+        Text(string)
+        | Number(i32)
+        | Binary([u8])
+        | Empty
+    
+    process = (msg: Message) void {
+        msg ?
+            | Text(s) { io.println("  Text: '${s}'") }
+            | Number(n) { io.println("  Number: ${n}") }
+            | Binary(data) { io.println("  Binary: ${data.len()} bytes") }
+            | Empty { io.println("  Empty message") }
+    }
+    
+    process(Message.Text("Hello"))
+    process(Message.Number(42))
+}
+
+// ═════════════════════════════════════════════════════════════
+// Error Handling & Safety
+// ═════════════════════════════════════════════════════════════
+
+demo_error_handling = () void {
+    io.println("\n▸ Error Handling Without Exceptions")
+    
+    divide = (a: f64, b: f64) Result<f64, string> {
+        b == 0 ?
+            | true { Result.Err("division by zero") }
+            | false { Result.Ok(a / b) }
+    }
+    
+    // Chaining with Result
+    calculate = () Result<f64, string> {
+        divide(10, 2)?.bind((x) => 
+            divide(x, 2.5)?.bind((y) =>
+                Result.Ok(y * 100)
+            )
+        )
+    }
+    
+    calculate() ?
+        | Ok(v) { io.println("  Chain result: ${v}") }
+        | Err(e) { io.println("  Error: ${e}") }
+}
+
+// ═════════════════════════════════════════════════════════════
+// Concurrency & Parallelism
+// ═════════════════════════════════════════════════════════════
+
+demo_concurrency = () void {
+    io.println("\n▸ Concurrent Programming")
+    
+    // Producer-consumer pattern
+    producer = (ch: Channel<i32>) void {
+        (1..=3).loop((i) {
+            ch.send(i * i)
+            io.println("  Produced: ${i * i}")
+        })
+    }
+    
+    consumer = (ch: Channel<i32>) void {
+        loop {
+            ch.receive() ?
+                | Some(n) { io.println("  Consumed: ${n}") }
+                | None { break }
+        }
+    }
+    
+    ch = Channel<i32>.new(5)
+    spawn(() => producer(ch))
+    spawn(() => consumer(ch))
+}
+
+// ═════════════════════════════════════════════════════════════
+// Foreign Function Interface
+// ═════════════════════════════════════════════════════════════
+
+inline.c("""
+    #include <math.h>
+    
+    static double golden_ratio() {
+        return (1.0 + sqrt(5.0)) / 2.0;
+    }
+    
+    static int fibonacci(int n) {
+        if (n <= 1) return n;
+        int a = 0, b = 1, c;
+        for (int i = 2; i <= n; i++) {
+            c = a + b;
+            a = b;
+            b = c;
+        }
+        return b;
+    }
+""")
+
+demo_ffi = () void {
+    io.println("\n▸ FFI Integration")
+    io.println("  Golden ratio: ${golden_ratio():.6f}")
+    io.println("  Fibonacci(10): ${fibonacci(10)}")
+}
+
+// ═════════════════════════════════════════════════════════════
+// Collections & Functional Programming
+// ═════════════════════════════════════════════════════════════
+
+demo_functional = () void {
+    io.println("\n▸ Functional Programming")
+    
+    // Pipeline operations
+    numbers = [1, 2, 3, 4, 5]
+    result = numbers
+        .filter((x) => x % 2 == 1)
+        .map((x) => x * x)
+        .fold(0, (sum, x) => sum + x)
+    
+    io.println("  Sum of squares of odds: ${result}")
+    
+    // Lazy evaluation with generators
+    fibonacci_gen = () Generator<i32> {
+        a ::= 0
+        b ::= 1
+        loop {
+            yield a
+            temp = a + b
+            a = b
+            b = temp
+        }
+    }
+    
+    io.print("  First 5 Fibonacci: ")
+    fibonacci_gen().take(5).loop((n) {
+        io.print("${n} ")
+    })
+    io.println("")
+}
+
+// ═════════════════════════════════════════════════════════════
+// Metaprogramming
+// ═════════════════════════════════════════════════════════════
+
+demo_comptime = () void {
+    io.println("\n▸ Compile-Time Computation")
+    
+    // Compile-time evaluated
+    PI_SQUARED :: maths.PI * maths.PI
+    SIZES :: [1, 2, 4, 8, 16]
+    
+    // Generic with compile-time constraints
+    swap = <T>(a: &mut T, b: &mut T) void {
+        temp = *a
+        *a = *b
+        *b = temp
+    }
+    
+    x ::= 10
+    y ::= 20
+    swap(&mut x, &mut y)
+    io.println("  Swapped: x=${x}, y=${y}")
+}
+
+// ═════════════════════════════════════════════════════════════
+// Main Entry Point
+// ═════════════════════════════════════════════════════════════
+
+main = () void {
+    io.println("\n╔═══════════════════════════════════════╗")
+    io.println("║     ZEN LANGUAGE SHOWCASE v1.0        ║")
+    io.println("╚═══════════════════════════════════════╝\n")
+    
+    demo_basics()
+    demo_ufc()
+    demo_algebraic_types()
+    demo_error_handling()
+    demo_concurrency()
+    demo_ffi()
+    demo_functional()
+    demo_comptime()
+    
+    io.println("\n╔═══════════════════════════════════════╗")
+    io.println("║           DEMO COMPLETE               ║")
+    io.println("╚═══════════════════════════════════════╝\n")
+}

@@ -197,7 +197,7 @@ load_manifest = (path: string) Result<Package, string>   {
 parse_dependencies = (data: JsonValue) HashMap<string, Dependency>   {
     deps := HashMap<string, Dependency>.new()
     
-    data.as_object().entries().loop(entry -> {
+    data.as_object().entries().loop((entry) {
         name := entry.key
         spec := entry.value.as_string()
         
@@ -237,7 +237,7 @@ install_dependencies = (manifest: Package) Result<void, string>   {
         | Conflict(msg) { return Result.Err(msg) }
     
     // Download and install each package
-    resolved.entries().loop(entry -> {
+    resolved.entries().loop((entry) {
         package := entry.value
         install_package(package, packages_dir) ?
             | Err(e) { return Result.Err(e) }
@@ -253,7 +253,7 @@ resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult   {
     queue := Vec<(string, Dependency)>.new()
     
     // Add initial dependencies to queue
-    deps.entries().loop(entry -> queue.push((entry.key, entry.value)))
+    deps.entries().loop((entry) { queue.push((entry.key, entry.value)) })
     
     // Process queue
     loop queue.len() > 0 {
@@ -275,7 +275,7 @@ resolve_dependencies = (deps: HashMap<string, Dependency>) ResolutionResult   {
         resolved.insert(name, package)
         
         // Add transitive dependencies to queue
-        package.dependencies.loop(dep_name -> {
+        package.dependencies.loop((dep_name) {
             resolved.contains(dep_name) ?
                 | false {
                     // Fetch dependency info and add to queue
@@ -343,7 +343,7 @@ resolve_single_dependency = (name: string, dep: Dependency) Result<ResolvedPacka
 find_matching_version = (versions: Vec<SemVer>, constraint: string) Option<SemVer>   {
     best := Option.None
     
-    versions.loop(version -> {
+    versions.loop((version) {
         satisfies(version, constraint) ?
             | true {
                 best ?

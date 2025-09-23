@@ -297,13 +297,13 @@ json_free = (value: *JsonValue) void   {
     value ? 
         | String(s) { { free(s as RawPtr<void>)  }}
         | Array(elements, count) {
-            range(0, count).loop(i -> {
+            range(0, count).loop((i) {
                 json_free(&elements[i])
             })
             free(elements as RawPtr<void>)
         }
         | Object(pairs, count) {
-            range(0, count).loop(i -> {
+            range(0, count).loop((i) {
                 free(pairs[i].key as RawPtr<void>)
                 json_free(pairs[i].value)
             })

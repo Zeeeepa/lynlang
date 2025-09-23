@@ -186,7 +186,7 @@ regex_parse_char_class = (parser: *RegexParser) *RegexNode {
             start := ch
             end := parser.pattern[parser.position + 2]
             
-            range(start as i32, (end + 1) as i32).loop(i -> {
+            range(start as i32, (end + 1) as i32).loop((i) {
                 chars[char_count] = i as i8
                 char_count = char_count + 1
             })
@@ -366,7 +366,7 @@ regex_match_node = (node: *RegexNode, text: RawPtr<i8>, pos: i32, length: i32) (
         }
         | Sequence(nodes, count) {
             new_pos := pos
-            range(0, count).loop(i -> {
+            range(0, count).loop((i) {
                 result := regex_match_node(&nodes[i], text, new_pos, length)
                 result.0 ? | true {
                     new_pos = result.1
@@ -411,7 +411,7 @@ regex_match = (regex: Regex, text: RawPtr<i8>) RegexMatch   {
     length := strlen(text) as i32
     
     // Try matching at each position
-    range(0, length + 1).loop(start -> {
+    range(0, length + 1).loop((start) {
         result := regex_match_node(regex.root, text, start, length)
         result.0 ? | true {
             return RegexMatch {
@@ -456,17 +456,17 @@ regex_replace = (pattern: RawPtr<i8>, text: RawPtr<i8>, replacement: RawPtr<i8>)
     result := malloc((new_len + 1) as i64) as RawPtr<i8>
     
     // Copy before match
-    range(0, match.start).loop(i -> {
+    range(0, match.start).loop((i) {
         result[i] = text[i]
     })
     
     // Copy replacement
-    range(0, repl_len).loop(i -> {
+    range(0, repl_len).loop((i) {
         result[match.start + i] = replacement[i]
     })
     
     // Copy after match
-    range(match.end, text_len).loop(i -> {
+    range(match.end, text_len).loop((i) {
         result[match.start + repl_len + (i - match.end)] = text[i]
     })
     

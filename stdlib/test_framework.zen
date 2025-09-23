@@ -135,7 +135,7 @@ run_suite = (suite: Ptr<TestSuite>) void   {
         | None {}
     
     // Run each test
-    range(0, suite.tests.len()).loop(i -> {
+    range(0, suite.tests.len()).loop((i) {
         test := suite.tests.at(i)
         io.print("  Testing $(test.name)... ")
         
@@ -199,12 +199,12 @@ runner_run = (runner: Ptr<TestRunner>) bool   {
     io.println(string_repeat("=", 60))
     
     // Run each suite
-    range(0, runner.suites.len()).loop(i -> {
+    range(0, runner.suites.len()).loop((i) {
         suite := runner.suites.at(i)
         run_suite(ptr_of(suite))
         
         // Count results
-        range(0, suite.results.len()).loop(j -> {
+        range(0, suite.results.len()).loop((j) {
             result_pair := suite.results.at(j)
             result := result_pair.1
             
@@ -355,7 +355,7 @@ benchmark_run = (bench: Ptr<Benchmark>) void   {
     
     // Warmup
     io.print("  Warming up... ")
-    range(0, bench.warmup).loop(i -> {
+    range(0, bench.warmup).loop((i) {
         bench.fn()
     })
     io.println("done")
@@ -363,7 +363,7 @@ benchmark_run = (bench: Ptr<Benchmark>) void   {
     // Actual benchmark
     io.print("  Running $(bench.iterations) iterations... ")
     
-    range(0, bench.iterations).loop(i -> {
+    range(0, bench.iterations).loop((i) {
         start := time_now()
         bench.fn()
         end := time_now()
@@ -379,7 +379,7 @@ benchmark_run = (bench: Ptr<Benchmark>) void   {
     min := bench.times.at(0)
     max := bench.times.at(0)
     
-    range(0, bench.times.len()).loop(i -> {
+    range(0, bench.times.len()).loop((i) {
         time := bench.times.at(i)
         total = total + time
         
@@ -425,7 +425,7 @@ time_now = () u64   {
 // Helper to repeat a string
 string_repeat = (s: string, n: u32) string   {
     result := ""
-    range(0, n).loop(i -> {
+    range(0, n).loop((i) {
         result = result + s
     })
     return result

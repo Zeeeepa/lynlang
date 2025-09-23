@@ -117,7 +117,7 @@ future_all = <T>(futures: Vec<Future<T>>) Future<Vec<T>> {
     new_task := task_new(() Vec<T> {
         results := vec_new<T>()
         
-        range(0, futures.len()).loop(i -> {
+        range(0, futures.len()).loop((i) {
             future := futures.at(i)
             result := await(deref(future.task))
             results.push(result)
@@ -140,7 +140,7 @@ future_race = <T>(futures: Vec<Future<T>>) Future<T> {
     new_task := task_new(() T {
         // Poll all futures until one completes
         loop {
-            range(0, futures.len()).loop(i -> {
+            range(0, futures.len()).loop((i) {
                 future := futures.at(i)
                 task := deref(future.task)
                 
@@ -233,7 +233,7 @@ sleep_task = (ms: u64, alloc: *Allocator) Task<void>   {
 parallel = <T>(tasks: Vec<() T>, alloc: *Allocator) Vec<T> {
     futures := vec_new<Future<T>>()
     
-    range(0, tasks.len()).loop(i -> {
+    range(0, tasks.len()).loop((i) {
         task_fn := tasks.at(i)
         task := create_task(task_fn, alloc)
         future := future_from(task)
@@ -306,7 +306,7 @@ channel_recv = <T>(ch: Ptr<Channel<T>>, alloc: *Allocator) Task<T> {
 select = <T>(channels: Vec<Ptr<Channel<T>>>, alloc: *Allocator) Task<(usize, T)> {
     create_task(() (usize, T) {
         loop {
-            range(0, channels.len()).loop(i -> {
+            range(0, channels.len()).loop((i) {
                 ch := channels.at(i)
                 mutex_lock(ch.mutex)
                 

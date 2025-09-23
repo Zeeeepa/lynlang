@@ -105,7 +105,7 @@ build_project = (config: BuildConfig) BuildResult   {
     objects := Vec<string>.new()
     warnings := Vec<string>.new()
     
-    files.loop(file -> {
+    files.loop((file) {
         compile_file(file, config) ?
             | Success(obj, warn) {
                 objects.push(obj)
@@ -131,7 +131,7 @@ link_objects = (objects: Vec<string>, config: BuildConfig) Result<string, string
     cmd.push("ld")
     cmd.push("-o")
     cmd.push(output_path)
-    objects.loop(obj -> cmd.push(obj))
+    objects.loop((obj) { cmd.push(obj) })
     
     // Run linker
     result := process.run(cmd) ?
@@ -163,7 +163,7 @@ test = (config: BuildConfig) Result<TestResults, string>   {
         failures: Vec<TestFailure>.new(),
     }
     
-    test_files.loop(file -> {
+    test_files.loop((file) {
         run_test_file(file, config) ?
             | Ok(r) {
                 results.passed = results.passed + r.passed

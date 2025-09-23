@@ -32,7 +32,10 @@ Idiomatic Zen patterns:
 - **pattern_matching** - Sum types and destructuring
 
 ### `showcase/`
-**comprehensive_demo.zen** - Real-world features in action
+**full_demo.zen** - Complete feature demonstration with all major Zen capabilities
+
+### `common.zen`
+Shared utilities and types (Point, Shape, helpers) to maintain DRY principles
 
 ## Key Features
 

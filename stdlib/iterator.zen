@@ -110,7 +110,7 @@ Iterator<T>.reduce<U> = (self: Iterator<T>, initial: U, accumulator: (U, T) U) U
 // Sum numeric iterator (for i32)
 sum_i32 = (iter: *Iterator<i32>) i32   {
     sum := 0
-    iter.loop(value -> {
+    iter.loop((value) {
         sum = sum + value
     })
     return sum
@@ -119,7 +119,7 @@ sum_i32 = (iter: *Iterator<i32>) i32   {
 // Find first element matching predicate
 Iterator<T>.find = (self: *Iterator<T>, predicate: (T) bool) Option<T> {
     result := Option<T>:None
-    self.loop(value -> {
+    self.loop((value) {
         predicate(value) ?
             | true { result = Option<T>:Some(value) }
             | false {}
@@ -130,7 +130,7 @@ Iterator<T>.find = (self: *Iterator<T>, predicate: (T) bool) Option<T> {
 // Check if any element matches predicate
 Iterator<T>.any = (self: *Iterator<T>, predicate: (T) bool) bool {
     found := false
-    self.loop(value -> {
+    self.loop((value) {
         predicate(value) ?
             | true { found = true }
             | false {}
@@ -141,7 +141,7 @@ Iterator<T>.any = (self: *Iterator<T>, predicate: (T) bool) bool {
 // Check if all elements match predicate
 Iterator<T>.all = (self: *Iterator<T>, predicate: (T) bool) bool {
     all_match := true
-    self.loop(value -> {
+    self.loop((value) {
         predicate(value) ?
             | false { all_match = false }
             | true {}
@@ -152,7 +152,7 @@ Iterator<T>.all = (self: *Iterator<T>, predicate: (T) bool) bool {
 // Count elements matching predicate
 Iterator<T>.count = (self: *Iterator<T>, predicate: (T) bool) i64 {
     count := 0
-    self.loop(value -> {
+    self.loop((value) {
         predicate(value) ?
             | true { count = count + 1 }
             | false {}
@@ -247,7 +247,7 @@ Iterator<T>.partition = (self: *Iterator<T>, predicate: (T) bool) (Iterator<T>, 
 // Collect iterator into a Vec
 Iterator<T>.collect = (self: *Iterator<T>) Vec<T> {
     result := Vec<T>:new()
-    self.loop(item -> {
+    self.loop((item) {
         result.push(item)
     })
     return result
@@ -259,7 +259,7 @@ Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
                      | false {}
     
     max_val := Option<T>:None
-    self.loop(value -> {
+    self.loop((value) {
         max_val ? | None { max_val = Option<T>:Some(value) }
                  | Some(current) {
                      compare(value, current) > 0 ?
@@ -276,7 +276,7 @@ Iterator<T>.min = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
                      | false {}
     
     min_val := Option<T>:None
-    self.loop(value -> {
+    self.loop((value) {
         min_val ? | None { min_val = Option<T>:Some(value) }
                  | Some(current) {
                      compare(value, current) < 0 ?
