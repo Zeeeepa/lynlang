@@ -1,0 +1,15 @@
+// Simple boolean test
+{ io } = @std
+
+main = () void {
+    io.println("Testing booleans:")
+    
+    // Direct literals should work
+    io.println(true)
+    io.println(false)
+    
+    // Variables
+    io.println("Variables:")
+    yes = true
+    io.println(yes)
+}

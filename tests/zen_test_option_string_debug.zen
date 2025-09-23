@@ -1,0 +1,21 @@
+// Debug test for Option<string> payload extraction
+
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    // Test with string literal
+    maybe_string: Option<string> = Some("Hello, Zen!")
+    
+    maybe_string ?
+        | Some(s) {
+            // Try both direct print and interpolation
+            io.print("Direct print: ")
+            io.println(s)
+            io.println("Interpolated: ${s}")
+        }
+        | None {
+            io.println("Was None")
+        }
+}

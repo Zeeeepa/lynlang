@@ -244,7 +244,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Fallback to type inference from value
                                 match value {
                                     BasicValueEnum::IntValue(int_val) => {
-                                        if int_val.get_type().get_bit_width() <= 32 {
+                                        let bit_width = int_val.get_type().get_bit_width();
+                                        if bit_width == 1 {
+                                            AstType::Bool
+                                        } else if bit_width <= 32 {
                                             AstType::I32
                                         } else {
                                             AstType::I64
@@ -292,7 +295,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else {
                             match value {
                                 BasicValueEnum::IntValue(int_val) => {
-                                    if int_val.get_type().get_bit_width() <= 32 {
+                                    let bit_width = int_val.get_type().get_bit_width();
+                                    if bit_width == 1 {
+                                        AstType::Bool
+                                    } else if bit_width <= 32 {
                                         AstType::I32
                                     } else {
                                         AstType::I64

@@ -1,0 +1,18 @@
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    // Test Option<i32> with value extraction
+    maybe: Option<i32> = Some(42)
+    
+    // This should work but value extraction is broken
+    maybe ?
+        | Some(val) { 
+            io.println("Found value!")
+            // This val should be i32 but gets stored as i64 and loses type info
+        }
+        | None { 
+            io.println("No value") 
+        }
+}

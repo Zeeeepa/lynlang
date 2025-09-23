@@ -1,0 +1,46 @@
+// Test of LANGUAGE_SPEC.zen features that are currently working
+// Based on current implementation status
+
+{ io } = @std
+
+main = () void {
+    io.println("=== Testing LANGUAGE_SPEC.zen Features ===")
+    
+    // 1. Immutable assignment with = (spec line 10)
+    io.println("1. Immutable assignment:")
+    x = 42
+    io.println(x)
+    
+    // 2. Basic types and literals
+    io.println("2. Basic types:")
+    num = 100
+    decimal = 3.14
+    text = "Hello, Zen!"
+    io.println(num)
+    io.println(decimal)
+    io.println(text)
+    
+    // 3. Arithmetic operations
+    io.println("3. Arithmetic:")
+    a = 10
+    b = 20
+    sum = a + b
+    diff = b - a
+    product = a * b
+    io.println(sum)
+    io.println(diff)
+    io.println(product)
+    
+    // 4. Direct boolean literals (variables have issues)
+    io.println("4. Boolean literals:")
+    io.println(true)
+    io.println(false)
+    
+    // 5. Function calls with @std.io
+    io.println("5. Standard library access (@std.io) works!")
+    
+    // 6. Comments work (single-line with //)
+    // This is a comment as per spec
+    
+    io.println("=== End of Test ===")
+}

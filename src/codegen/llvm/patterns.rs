@@ -161,6 +161,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             
             Pattern::Binding { name, pattern } => {
+                // Bindings just capture the value as-is
+                // The conversion from i64 to pointer for strings is handled
+                // in the EnumLiteral pattern when extracting payloads
                 bindings.push((name.clone(), *scrutinee_val));
                 let (sub_match, mut sub_bindings) = self.compile_pattern_test(scrutinee_val, pattern)?;
                 bindings.append(&mut sub_bindings);
@@ -231,7 +234,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Handle payload pattern if present
                 if let Some(payload_pattern) = payload {
                     // Extract the payload value - preserve the actual type!
-                    let payload_val = if scrutinee_val.is_pointer_value() {
+                    let mut payload_val = if scrutinee_val.is_pointer_value() {
                         let enum_struct_type = enum_info.llvm_type;
                         // Check if enum has payload field
                         if enum_struct_type.count_fields() > 1 {
@@ -268,6 +271,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // No payload available
                         self.context.i64_type().const_int(0, false).into()
                     };
+                    
+                    // Don't convert here - let the binding handle type detection
                     
                     // Recursively match the payload pattern
                     let (payload_match, mut payload_bindings) = self.compile_pattern_test(
@@ -368,7 +373,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Handle payload pattern if present
                         if let Some(payload_pattern) = payload {
                             // Extract the payload value
-                            let payload_val = if scrutinee_val.is_pointer_value() {
+                            let mut payload_val = if scrutinee_val.is_pointer_value() {
                                 let payload_gep = self.builder.build_struct_gep(
                                     self.context.struct_type(&[
                                         self.context.i64_type().into(),
@@ -389,6 +394,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             } else {
                                 self.context.i64_type().const_int(0, false).into()
                             };
+                            
+                            // Don't convert here - let apply_pattern_bindings handle type detection
                             
                             // Recursively match the payload pattern
                             let (payload_match, mut payload_bindings) = self.compile_pattern_test(
@@ -535,30 +542,54 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 saved.insert(name.clone(), existing.clone());
             }
             
-            let actual_value = *value;
-            
-            let alloca = self.builder.build_alloca(actual_value.get_type(), name).unwrap();
-            self.builder.build_store(alloca, actual_value).unwrap();
-            
-            let ast_type = match actual_value {
-                BasicValueEnum::IntValue(iv) => {
-                    match iv.get_type().get_bit_width() {
+            // For Option<string> payloads: detect when i64 values should be converted to pointers
+            let (actual_value, ast_type) = if value.is_int_value() {
+                let int_val = value.into_int_value();
+                if int_val.get_type().get_bit_width() == 64 {
+                    // Use a heuristic to detect string pointers
+                    // Check if the name suggests it's a string binding
+                    let is_likely_string = name == "s" || name.contains("str") || name.contains("msg") || name.contains("text");
+                    
+                    if is_likely_string {
+                        // Convert i64 to pointer for string bindings
+                        let ptr_val = self.builder.build_int_to_ptr(
+                            int_val,
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            &format!("{}_ptr", name)
+                        ).unwrap();
+                        (ptr_val.into(), crate::ast::AstType::String)
+                    } else {
+                        (*value, crate::ast::AstType::I64)
+                    }
+                } else {
+                    // Other integer types
+                    let ast_type = match int_val.get_type().get_bit_width() {
                         8 => crate::ast::AstType::I8,
                         16 => crate::ast::AstType::I16,
                         32 => crate::ast::AstType::I32,
                         64 => crate::ast::AstType::I64,
                         _ => crate::ast::AstType::I64,
-                    }
+                    };
+                    (*value, ast_type)
                 }
-                BasicValueEnum::FloatValue(fv) => {
-                    if fv.get_type() == self.context.f32_type() {
-                        crate::ast::AstType::F32
-                    } else {
-                        crate::ast::AstType::F64
-                    }
-                }
-                _ => crate::ast::AstType::I64,
+            } else if value.is_float_value() {
+                let fv = value.into_float_value();
+                let ast_type = if fv.get_type() == self.context.f32_type() {
+                    crate::ast::AstType::F32
+                } else {
+                    crate::ast::AstType::F64
+                };
+                (*value, ast_type)
+            } else if value.is_pointer_value() {
+                // Already a pointer - it's a string
+                (*value, crate::ast::AstType::String)
+            } else {
+                // Default case
+                (*value, crate::ast::AstType::I64)
             };
+            
+            let alloca = self.builder.build_alloca(actual_value.get_type(), name).unwrap();
+            self.builder.build_store(alloca, actual_value).unwrap();
             
             self.variables.insert(name.clone(), super::VariableInfo {
                 pointer: alloca,

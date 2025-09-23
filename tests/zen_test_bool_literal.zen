@@ -1,0 +1,8 @@
+// Test direct boolean literals
+{ io } = @std
+
+main = () void {
+    io.println("Direct literals:")
+    io.println(true)
+    io.println(false)
+}

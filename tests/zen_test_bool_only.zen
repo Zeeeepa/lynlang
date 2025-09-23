@@ -1,0 +1,7 @@
+// Minimal boolean test
+{ io } = @std
+
+main = () void {
+    x = true
+    io.println(x)
+}

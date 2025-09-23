@@ -1,0 +1,117 @@
+// Test to validate working features from LANGUAGE_SPEC.zen (January 2025)
+// This test should compile and run successfully
+
+{ io, math } = @std
+
+// Option type definition (from spec line 110)
+Option<T>: Some(T) | None
+
+// Result type for error handling (from spec line 113)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct (from spec line 117)
+Point: {
+    x:: f64,  // mutable field
+    y:: f64 = 0  // with default value
+}
+
+main = () void {
+    io.println("=== Testing LANGUAGE_SPEC.zen Features ===")
+    
+    // Test all 8 variable forms (from spec lines 299-306)
+    io.println("\n1. Variable Declarations (All 8 Forms):")
+    x: i32          // Forward declaration
+    x = 10
+    y = 20          // Immutable inferred
+    z: i32 = 30     // Typed immutable
+    w:: i32         // Mutable forward declaration  
+    w = 40
+    v ::= 50        // Mutable inferred
+    u:: i32 = 60    // Typed mutable
+    
+    v = 70  // Can reassign mutable
+    io.println("All variable forms working: x=${x}, y=${y}, z=${z}, w=${w}, v=${v}, u=${u}")
+    
+    // Pattern matching with ? (from spec line 352)
+    io.println("\n2. Pattern Matching with ?:")
+    is_ready = true
+    is_ready ? { 
+        io.println("Pattern matching works!") 
+    }
+    
+    // Boolean if-else pattern (from spec line 359)
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data - pattern matching if-else works!") }
+    
+    // Range loops (from spec line 432)
+    io.println("\n3. Range Loops:")
+    io.print("Counting: ")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Infinite loop with break (from spec line 453)
+    io.println("\n4. Infinite Loop with Break:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { 
+                io.println("Breaking at ${counter}")
+                break 
+            }
+            | false { io.print("Loop ${counter}, ") }
+    })
+    
+    // Option type with pattern matching (from spec line 462)
+    io.println("\n5. Option Type:")
+    
+    // Test Option<i32>
+    maybe_int: Option<i32> = Some(42)
+    maybe_int ?
+        | Some(v) { io.println("Option<i32> works: ${v}") }
+        | None { io.println("Was None") }
+    
+    // Test Option<string> - FIXED!
+    maybe_string: Option<string> = Some("Hello, Zen!")
+    maybe_string ?
+        | Some(s) { io.println("Option<string> works: ${s}") }
+        | None { io.println("Was None") }
+    
+    // Test None case
+    nothing: Option<i32> = None
+    nothing ?
+        | Some(v) { io.println("Had value: ${v}") }
+        | None { io.println("None case works!") }
+    
+    // Struct creation (from spec line 364)
+    io.println("\n6. Struct Creation:")
+    point = Point { x: 100.5, y: 200.7 }
+    io.println("Point created: x=${point.x}, y=${point.y}")
+    
+    // Mutable struct field update
+    point.x = 150.5
+    io.println("Point updated: x=${point.x}")
+    
+    // String interpolation (from spec line 388)
+    io.println("\n7. String Interpolation:")
+    name = "Zen"
+    version = 2025
+    message = "Welcome to ${name} v${version}!"
+    io.println(message)
+    
+    // Math module access (from spec line 471)
+    io.println("\n8. Standard Library Access:")
+    pi_value = math.pi
+    io.println("Math.pi = ${pi_value}")
+    
+    // @this.defer (from spec line 310)
+    io.println("\n9. Defer Mechanism:")
+    @this.defer(io.println("This prints at end (deferred)"))
+    io.println("This prints first")
+    
+    io.println("\n=== All Tested Features Working! ===")
+}

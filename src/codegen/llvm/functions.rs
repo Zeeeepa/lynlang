@@ -566,7 +566,117 @@ impl<'ctx> LLVMCompiler<'ctx> {
             ));
         }
         
-        // Get or declare puts (which adds a newline automatically)
+        // Check if the expression is a boolean identifier
+        let is_bool_identifier = if let ast::Expression::Identifier(name) = &args[0] {
+            if let Ok((_, ast_type)) = self.get_variable(name) {
+                matches!(ast_type, crate::ast::AstType::Bool)
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        
+        // Compile the argument
+        let arg_value = self.compile_expression(&args[0])?;
+        
+        // Convert to string based on type
+        let string_ptr = match arg_value {
+            BasicValueEnum::IntValue(int_val) => {
+                // Check if it's a boolean by checking the bit width OR if we know it's a bool identifier
+                let bit_width = int_val.get_type().get_bit_width();
+                if bit_width == 1 || is_bool_identifier {
+                    // Boolean value
+                    let true_str = self.builder.build_global_string_ptr("true", "true_str")?;
+                    let false_str = self.builder.build_global_string_ptr("false", "false_str")?;
+                    
+                    // If it's not already i1, truncate it
+                    let bool_val = if bit_width != 1 {
+                        self.builder.build_int_truncate(int_val, self.context.bool_type(), "bool_trunc")?
+                    } else {
+                        int_val
+                    };
+                    
+                    // Create a select instruction to choose between "true" and "false"
+                    let str_ptr = self.builder.build_select(
+                        bool_val,
+                        true_str.as_pointer_value(),
+                        false_str.as_pointer_value(),
+                        "bool_str"
+                    )?;
+                    
+                    // Use puts to print the boolean string
+                    let puts_fn = self.module.get_function("puts").unwrap_or_else(|| {
+                        let i32_type = self.context.i32_type();
+                        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], false);
+                        self.module.add_function("puts", fn_type, None)
+                    });
+                    
+                    self.builder.build_call(
+                        puts_fn,
+                        &[str_ptr.into()],
+                        "puts_bool"
+                    )?;
+                    
+                    return Ok(self.context.i32_type().const_zero().into());
+                } else {
+                    // Regular integer
+                    let printf_fn = self.module.get_function("printf").unwrap_or_else(|| {
+                        let i32_type = self.context.i32_type();
+                        let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
+                        self.module.add_function("printf", fn_type, None)
+                    });
+                    
+                    // Use appropriate format specifier based on bit width
+                    let format_str = match int_val.get_type().get_bit_width() {
+                        64 => self.builder.build_global_string_ptr("%lld\n", "int64_format")?,
+                        _ => self.builder.build_global_string_ptr("%d\n", "int_format")?,
+                    };
+                    
+                    self.builder.build_call(
+                        printf_fn,
+                        &[format_str.as_pointer_value().into(), int_val.into()],
+                        "printf_int"
+                    )?;
+                    
+                    // Return early since printf handles the newline
+                    return Ok(self.context.i32_type().const_zero().into());
+                }
+            }
+            BasicValueEnum::FloatValue(float_val) => {
+                // For floats, use printf to format
+                let printf_fn = self.module.get_function("printf").unwrap_or_else(|| {
+                    let i32_type = self.context.i32_type();
+                    let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
+                    self.module.add_function("printf", fn_type, None)
+                });
+                
+                let format_str = self.builder.build_global_string_ptr("%f\n", "float_format")?;
+                self.builder.build_call(
+                    printf_fn,
+                    &[format_str.as_pointer_value().into(), float_val.into()],
+                    "printf_float"
+                )?;
+                
+                // Return early since printf handles the newline
+                return Ok(self.context.i32_type().const_zero().into());
+            }
+            BasicValueEnum::PointerValue(ptr_val) => {
+                // Assume it's a string pointer
+                ptr_val
+            }
+            _ => {
+                return Err(CompileError::TypeError(
+                    format!("io.println cannot print this type"),
+                    None,
+                ));
+            }
+        };
+        
+        // For strings, use puts
         let puts_fn = self.module.get_function("puts").unwrap_or_else(|| {
             let i32_type = self.context.i32_type();
             let i8_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -574,13 +684,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.module.add_function("puts", fn_type, None)
         });
         
-        // Compile the string argument
-        let arg_value = self.compile_expression(&args[0])?;
-        
-        // Call puts
-        let _call = self.builder.build_call(
+        self.builder.build_call(
             puts_fn,
-            &[arg_value.into()],
+            &[string_ptr.into()],
             "puts_call"
         )?;
         

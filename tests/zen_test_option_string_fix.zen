@@ -1,0 +1,30 @@
+// Test for fixing Option<string> payload extraction
+// The string value should be preserved, not converted to an address
+
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    // Test with string literal
+    maybe_string: Option<string> = Some("Hello, Zen!")
+    maybe_string ?
+        | Some(s) {
+            io.println("String literal: ${s}")
+            // Expected: "String literal: Hello, Zen!"
+            // Current bug: Shows memory address instead
+        }
+        | None {
+            io.println("Was None")
+        }
+    
+    // Test with None
+    nothing: Option<string> = None
+    nothing ?
+        | Some(s) { 
+            io.println("Had value: ${s}")
+        }
+        | None { 
+            io.println("None case works")
+        }
+}

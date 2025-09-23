@@ -40,6 +40,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             // Load the value from the alloca based on type
             let loaded: BasicValueEnum = match &ast_type {
+                AstType::Bool => {
+                    // Booleans need special handling - load as i1
+                    match self.builder.build_load(self.context.bool_type(), ptr, name) {
+                        Ok(val) => {
+                            // The loaded value should be i1
+                            val
+                        },
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                    }
+                }
                 AstType::String => {
                     // Strings are stored as pointers
                     match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {
@@ -162,36 +172,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 ("%s", result.into())
                             }
                             32 => ("%d", val.into()),
-                            64 => {
-                                // For i64, we need to be smarter about detecting strings
-                                // Strings are stored as pointer values in i64 fields
-                                // Check if this looks like a valid pointer (non-zero, aligned)
-                                if int_val.is_const() {
-                                    if let Some(const_val) = int_val.get_zero_extended_constant() {
-                                        // Check if this might be a string pointer:
-                                        // - Non-zero
-                                        // - In reasonable memory range
-                                        // - 8-byte aligned (typical for string literals)
-                                        if const_val > 0x1000 && const_val < 0x7fffffffffff && (const_val & 0x7) == 0 {
-                                            // Convert to pointer and try to use as string
-                                            let as_ptr = self.builder.build_int_to_ptr(
-                                                int_val,
-                                                self.context.ptr_type(inkwell::AddressSpace::default()),
-                                                "string_ptr"
-                                            )?;
-                                            ("%s", as_ptr.into())
-                                        } else {
-                                            // Regular integer
-                                            ("%lld", val.into())
-                                        }
-                                    } else {
-                                        ("%lld", val.into())
-                                    }
-                                } else {
-                                    // Runtime value - use integer format by default
-                                    ("%lld", val.into())
-                                }
-                            },
+                            64 => ("%lld", val.into()),
                             _ => ("%d", val.into()),
                         }
                     } else if val.is_float_value() {
