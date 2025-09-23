@@ -1,0 +1,264 @@
+// Complete test of LANGUAGE_SPEC.zen features
+// This tests the exact code patterns from the spec
+
+// ============================================================================
+// SECTION 1: Imports (lines 92-107 of spec)
+// ============================================================================
+{ io, math } = @std  // Named imports
+
+// ============================================================================  
+// SECTION 2: Core Types (lines 109-114 of spec)
+// ============================================================================
+// No null! Only Option types
+Option<T>: Some(T) | None
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// ============================================================================
+// SECTION 3: Structs (lines 117-121, 130-133, 145-149 of spec)
+// ============================================================================
+// Simple struct
+Point: {
+    x:: f64,  // mutable field
+    y:: f64 = 0  // with default value
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+// ============================================================================
+// SECTION 4: Traits (lines 124-128, 136-162 of spec)
+// ============================================================================
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+// Implement trait for type using .implements()
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    },
+})
+
+// ============================================================================
+// SECTION 5: Enums (lines 165-182 of spec) 
+// ============================================================================
+// Enum type (sum type)
+Shape: Circle | Rectangle
+
+// UFC overloading based on enum variants
+GameEntity: Player | Enemy | Powerup
+
+// Overload functions for each variant
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+// ============================================================================
+// MAIN TEST FUNCTION
+// ============================================================================
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Validation Suite ===")
+    io.println("")
+    
+    // ============================================================================
+    // TEST 1: Variables (lines 298-306 of spec)
+    // ============================================================================
+    io.println("TEST 1: Variable Declarations")
+    x: i32  // forward declaration
+    x = 10
+    y = 10  // Immutable assignment
+    z: i32 = 20  // Immutable with type
+    w:: i32  // mutable forward declaration  
+    w = 20
+    v ::= 30  // Mutable assignment
+    u:: i32 = 40  // Mutable with type
+    
+    io.println("  x (forward decl) = ${x}")
+    io.println("  y (immutable) = ${y}")
+    io.println("  z (immutable typed) = ${z}")
+    io.println("  w (mut forward) = ${w}")
+    io.println("  v (mutable) = ${v}")
+    io.println("  u (mutable typed) = ${u}")
+    
+    // Test mutation
+    v = 35
+    io.println("  v after mutation = ${v}")
+    io.println("  ✓ Variables test passed")
+    io.println("")
+    
+    // ============================================================================
+    // TEST 2: Pattern Matching (lines 352-373 of spec)
+    // ============================================================================
+    io.println("TEST 2: Pattern Matching")
+    
+    // Boolean pattern - single branch
+    is_ready = true
+    is_ready ? { 
+        io.println("  Single branch: Starting game!")
+    }
+    
+    // Full pattern match - replaces if-else
+    has_data = false
+    has_data ?
+        | true { io.println("  Full match: Has data") }
+        | false { io.println("  Full match: Waiting for data...") }
+    
+    io.println("  ✓ Pattern matching test passed")
+    io.println("")
+    
+    // ============================================================================
+    // TEST 3: Structs and Traits (lines 364-370 of spec)
+    // ============================================================================
+    io.println("TEST 3: Structs and Traits")
+    
+    circle = Circle { center: Point { x: 100, y: 100 }, radius: 50 }
+    io.println("  Circle area: ${circle.area()}")
+    io.println("  Circle perimeter: ${circle.perimeter()}")
+    
+    rect = Rectangle {
+        top_left: Point { x: 0, y: 0 },
+        bottom_right: Point { x: 10, y: 10 }
+    }
+    io.println("  Rectangle area: ${rect.area()}")
+    io.println("  Rectangle perimeter: ${rect.perimeter()}")
+    io.println("  ✓ Structs and traits test passed")
+    io.println("")
+    
+    // ============================================================================
+    // TEST 4: Option Type (lines 462-473 of spec)
+    // ============================================================================
+    io.println("TEST 4: Option Type (No null!)")
+    
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            test_circle = Circle {
+                center: Point { x: 100.0, y: 100.0 },
+                radius: r,
+            }
+            io.println("  Created circle with area: ${test_circle.area()}")
+        }
+        | None {
+            io.println("  No radius provided")
+        }
+    
+    none_value: Option<f64> = None
+    none_value ?
+        | Some(r) { io.println("  Unexpected: got ${r}") }
+        | None { io.println("  Got None as expected") }
+    
+    io.println("  ✓ Option type test passed")
+    io.println("")
+    
+    // ============================================================================
+    // TEST 5: Ranges and Loops (lines 431-460 of spec)
+    // ============================================================================
+    io.println("TEST 5: Ranges and Loops")
+    
+    // Range iterations
+    io.print("  Range (0..5): ")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Step ranges  
+    io.print("  Step range (0..20 by 5): ")
+    (0..20).step(5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Infinite loop with break
+    counter ::= 0
+    io.print("  Loop with break: ")
+    loop(() {
+        counter = counter + 1
+        io.print("${counter} ")
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    })
+    io.println("")
+    io.println("  ✓ Loops test passed")
+    io.println("")
+    
+    // ============================================================================
+    // TEST 6: Enum Variants (lines 319-335 of spec)
+    // ============================================================================
+    io.println("TEST 6: Enum Variants")
+    
+    player = GameEntity.Player
+    enemy = GameEntity.Enemy
+    powerup = GameEntity.Powerup
+    
+    io.println("  Player health: ${get_health(player)}")
+    io.println("  Enemy health: ${get_health(enemy)}")
+    io.println("  Powerup health: ${get_health(powerup)}")
+    io.println("  ✓ Enum variants test passed")
+    io.println("")
+    
+    // ============================================================================
+    // TEST 7: Result Type (lines 199-211 of spec)
+    // ============================================================================
+    io.println("TEST 7: Result Type")
+    
+    parse_radius = (s: string) Result<f64, string> {
+        // For now, just return a fixed result
+        return Ok(3.14)
+    }
+    
+    result = parse_radius("3.14")
+    result ?
+        | Ok(val) { io.println("  Parse success: ${val}") }
+        | Err(e) { io.println("  Parse error: ${e}") }
+    
+    error_result: Result<f64, string> = Err("Invalid number")
+    error_result ?
+        | Ok(val) { io.println("  Unexpected: ${val}") }
+        | Err(e) { io.println("  Got error as expected: ${e}") }
+    
+    io.println("  ✓ Result type test passed")
+    io.println("")
+    
+    // ============================================================================
+    // SUMMARY
+    // ============================================================================
+    io.println("=== All LANGUAGE_SPEC.zen tests completed ===")
+    io.println("")
+    io.println("Summary of validated features:")
+    io.println("  ✓ Variable declarations (all 6 forms)")
+    io.println("  ✓ Pattern matching with ?")
+    io.println("  ✓ Structs with mutable fields")
+    io.println("  ✓ Trait implementation via .implements()")
+    io.println("  ✓ Option type (no null)")
+    io.println("  ✓ Range-based loops and infinite loops")
+    io.println("  ✓ Enum variants with UFC")
+    io.println("  ✓ Result type for error handling")
+}

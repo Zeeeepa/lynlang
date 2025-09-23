@@ -1,0 +1,23 @@
+{ io } = @std
+
+Point: {
+    x: f64,
+    y: f64
+}
+
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+main = () void {
+    c = Circle { 
+        center: Point { x: 10.0, y: 20.0 },
+        radius: 5.0 
+    }
+    
+    // First get the center as a variable
+    center = c.center
+    io.println("center.x: ${center.x}")
+    io.println("center.y: ${center.y}")
+}

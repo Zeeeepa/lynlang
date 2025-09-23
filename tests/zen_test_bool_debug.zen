@@ -1,0 +1,19 @@
+// Test boolean type debugging
+{ io } = @std
+
+main = () void {
+    b1 = true
+    b2 = false
+    
+    // Force use as boolean in condition
+    b1 ? { io.println("b1 is true") }
+    b2 ? 
+        | true { io.println("b2 is true") }
+        | false { io.println("b2 is false") }
+    
+    // Test direct interpolation
+    io.println("Direct true: ${true}")
+    io.println("Direct false: ${false}")
+    io.println("Variable b1: ${b1}")
+    io.println("Variable b2: ${b2}")
+}

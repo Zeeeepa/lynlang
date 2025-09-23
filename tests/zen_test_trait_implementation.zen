@@ -1,0 +1,32 @@
+// Test trait implementation
+{ io, math } = @std
+
+// Trait definition
+Geometric: {
+    area: (self) f64,
+}
+
+// Simple struct
+Circle: {
+    radius: f64,
+}
+
+// Implement trait for Circle
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        io.println("In area method, radius = ${self.radius}")
+        result = math.pi * self.radius * self.radius
+        io.println("Calculated area = ${result}")
+        return result
+    },
+})
+
+main = () void {
+    io.println("Testing trait implementation:")
+    
+    circle = Circle { radius: 5.0 }
+    io.println("Created circle with radius: ${circle.radius}")
+    
+    area = circle.area()
+    io.println("Circle area: ${area}")
+}

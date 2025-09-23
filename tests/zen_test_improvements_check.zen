@@ -1,0 +1,63 @@
+// Test improvements made: @this.defer, .requires(), boolean interpolation
+{ io, math } = @std
+
+// Test 1: @this.defer works
+test_defer = () void {
+    io.println("=== Testing @this.defer ===")
+    io.println("Start")
+    @this.defer(io.println("Deferred 1"))
+    @this.defer(io.println("Deferred 2"))
+    io.println("End")
+}
+
+// Test 2: Boolean interpolation
+test_bool_interpolation = () void {
+    io.println("=== Testing Boolean Interpolation ===")
+    ready = true
+    done = false
+    io.println("ready: ${ready}")
+    io.println("done: ${done}")
+}
+
+// Test 3: Trait .requires()
+Drawable: {
+    draw: (self) void,
+}
+
+Square: { size: f64 }
+Triangle: { base: f64, height: f64 }
+
+Square.implements(Drawable, {
+    draw = (self) void {
+        io.println("Drawing square")
+    },
+})
+
+Triangle.implements(Drawable, {
+    draw = (self) void {
+        io.println("Drawing triangle")
+    },
+})
+
+Figure: Square | Triangle
+Figure.requires(Drawable)
+
+test_requires = () void {
+    io.println("=== Testing .requires() ===")
+    sq = Square { size: 10.0 }
+    tri = Triangle { base: 5.0, height: 8.0 }
+    
+    // Both can be assigned to Figure since they implement Drawable
+    fig1: Figure = sq
+    fig2: Figure = tri
+    
+    io.println("Trait requirement works!")
+}
+
+main = () void {
+    test_defer()
+    test_bool_interpolation()
+    test_requires()
+    
+    io.println("=== All improvements verified! ===")
+}

@@ -273,7 +273,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     _ => AstType::I64,
                                 }
                             }
-                        } else if let Expression::MemberAccess { object, member: _ } = init_expr {
+                        } else if let Expression::MemberAccess { object, member } = init_expr {
                             // Check if this is an enum variant access (e.g., GameEntity.Player)
                             if let Expression::Identifier(enum_name) = &**object {
                                 // Check if this identifier is an enum type
@@ -283,25 +283,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         name: enum_name.clone(),
                                     }
                                 } else {
-                                    // Regular member access, infer from value
-                                    match value {
-                                        BasicValueEnum::StructValue(_) => {
-                                            // For struct values (including enums), use a generic enum type
-                                            AstType::EnumType {
-                                                name: String::new(),
+                                    // Regular member access - it's a struct field
+                                    // Try to infer the type from the parent struct
+                                    if let Some(var_info) = self.variables.get(enum_name) {
+                                        // Get the type of the parent struct
+                                        match &var_info.ast_type {
+                                            AstType::Struct { name: struct_name, .. } => {
+                                                // Look up the field type in the struct
+                                                if let Some(struct_info) = self.struct_types.get(struct_name) {
+                                                    if let Some((_, field_type)) = struct_info.fields.get(member) {
+                                                        // Return the actual field type
+                                                        field_type.clone()
+                                                    } else {
+                                                        // Field not found, fallback to value inference
+                                                        match value {
+                                                            BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                                            _ => AstType::I64,
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Struct not found, fallback to value inference
+                                                    match value {
+                                                        BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                                        _ => AstType::I64,
+                                                    }
+                                                }
+                                            }
+                                            _ => {
+                                                // Not a struct, fallback to value inference
+                                                match value {
+                                                    BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                                    _ => AstType::I64,
+                                                }
                                             }
                                         }
-                                        _ => AstType::I64,
+                                    } else {
+                                        // Variable not found, fallback to value inference
+                                        match value {
+                                            BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                            _ => AstType::I64,
+                                        }
                                     }
                                 }
                             } else {
+                                // Complex member access (e.g., nested)
+                                // For now fallback to value inference
                                 match value {
-                                    BasicValueEnum::StructValue(_) => {
-                                        // For struct values (including enums), use a generic enum type
-                                        AstType::EnumType {
-                                            name: String::new(),
-                                        }
-                                    }
+                                    BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
                                     _ => AstType::I64,
                                 }
                             }
@@ -416,7 +444,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Infer the type from the value
                     let var_type = match init_value {
                         BasicValueEnum::IntValue(int_val) => {
-                            if int_val.get_type().get_bit_width() <= 32 {
+                            let bit_width = int_val.get_type().get_bit_width();
+                            if bit_width == 1 {
+                                AstType::Bool
+                            } else if bit_width <= 32 {
                                 AstType::I32
                             } else {
                                 AstType::I64

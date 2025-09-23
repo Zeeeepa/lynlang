@@ -1,0 +1,17 @@
+// Test string interpolation with boolean values
+{ io } = @std
+
+main = () void {
+    // Test boolean interpolation
+    is_ready = true
+    is_done = false
+    
+    io.println("is_ready: ${is_ready}")
+    io.println("is_done: ${is_done}")
+    
+    // Test in conditionals
+    result = true
+    result ?
+        | true { io.println("Result is ${result}") }
+        | false { io.println("Result is ${result}") }
+}

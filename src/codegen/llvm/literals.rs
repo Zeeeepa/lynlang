@@ -143,10 +143,57 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 StringPart::Interpolation(expr) => {
                     let val = self.compile_expression(expr)?;
                     
-                    // Handle boolean values specially
-                    let (format_spec, actual_val) = if val.is_int_value() {
+                    // Handle different value types for interpolation
+                    let (format_spec, actual_val) = if val.is_struct_value() {
+                        // This could be an enum (Option, Result, etc)
+                        let struct_val = val.into_struct_value();
+                        
+                        // For enums, we check if it has a discriminant field
+                        if struct_val.get_type().count_fields() >= 1 {
+                            // Extract the discriminant (tag)
+                            let tag = self.builder.build_extract_value(struct_val, 0, "enum_tag")?;
+                            
+                            // Check if this is Option type (Some=0, None=1)
+                            let tag_int = tag.into_int_value();
+                            let zero = tag_int.get_type().const_zero();
+                            let is_some = self.builder.build_int_compare(
+                                inkwell::IntPredicate::EQ,
+                                tag_int,
+                                zero,
+                                "is_some"
+                            )?;
+                            
+                            // Get the string representations
+                            let some_str = if struct_val.get_type().count_fields() > 1 {
+                                // Has payload - extract and format it
+                                let payload = self.builder.build_extract_value(struct_val, 1, "payload")?;
+                                // For now, format the payload as an integer
+                                // In a full implementation, we'd recursively format the payload
+                                let formatted = self.builder.build_global_string_ptr("Some(...)", "some_str")?;
+                                formatted.as_pointer_value()
+                            } else {
+                                let formatted = self.builder.build_global_string_ptr("Some", "some_str")?;
+                                formatted.as_pointer_value()
+                            };
+                            
+                            let none_str = self.builder.build_global_string_ptr("None", "none_str")?;
+                            
+                            let result = self.builder.build_select(
+                                is_some,
+                                some_str,
+                                none_str.as_pointer_value(),
+                                "option_str"
+                            )?;
+                            
+                            ("%s", result.into())
+                        } else {
+                            // Unknown struct - use a default representation
+                            ("%s", self.builder.build_global_string_ptr("<struct>", "struct_str")?.as_pointer_value().into())
+                        }
+                    } else if val.is_int_value() {
                         let int_val = val.into_int_value();
-                        match int_val.get_type().get_bit_width() {
+                        let bit_width = int_val.get_type().get_bit_width();
+                        match bit_width {
                             1 => {
                                 // This is a boolean - convert to "true"/"false"
                                 let true_str = self.builder.build_global_string_ptr("true", "true_str")?;

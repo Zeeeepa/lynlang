@@ -2,7 +2,7 @@
 
 **[`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) IS THE SOURCE OF TRUTH**
 
-A revolutionary programming language with **ZERO KEYWORDS**. All control flow through pattern matching (`?`), UFC (Uniform Function Call), and structural typing via traits.
+A revolutionary programming language with **ZERO KEYWORDS**. All control flow through pattern matching (`?`), UFC (Uniform Function Call), and compile-time metaprogramming.
 
 > "No keywords: `if/else/while/for/match/async/await/impl/trait/class/interface/null`"  
 > — LANGUAGE_SPEC.zen, line 2
@@ -25,6 +25,43 @@ From [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen):
 12. **Traits** - Via `.implements()` and `.requires()` from `@std.meta`
 13. **Compile-time metaprogramming** - Full AST access
 
+## Current Implementation Status (September 2025)
+
+The Zen compiler is approximately **65% complete**. See [`IMPLEMENTATION_STATUS_2025.md`](./IMPLEMENTATION_STATUS_2025.md) for detailed feature status.
+
+### ✅ Working Features
+
+- Core language (no keywords, pattern matching with `?`)
+- All 6 variable forms from spec (lines 298-306)
+- Structs with fields, default values, and nested structs
+- Enums (Option, Result, custom enums)
+- Pattern matching (boolean, Option, Result, enums)
+- Traits with `.implements()` 
+- Function overloading based on enum variants
+- Range loops `(0..10).loop()`
+- String interpolation with proper boolean/Option formatting
+- Basic @std modules (io, math)
+- @this.defer() for cleanup
+
+### 🚧 In Progress
+
+- Nested struct field access (partially working)
+- Mutable field updates
+- Generic types `<T: Trait>`
+- .requires() for enum constraints
+
+### ❌ Not Yet Implemented
+
+- Pointer types (Ptr, MutPtr, RawPtr)
+- Collections (Vec, DynVec)
+- .raise() error propagation
+- .step() for ranges
+- Allocators (GPA, AsyncPool)
+- Actors and channels
+- Metaprogramming (@meta.comptime)
+- FFI (inline.c, SIMD)
+- Module system (exports/imports)
+
 ## Quick Start
 
 ```bash
@@ -32,81 +69,78 @@ From [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen):
 cargo build --release
 
 # Run a Zen program
-cargo run --bin zen examples/hello.zen
+./target/release/zen examples/01_hello_world.zen
 
-# Compile to executable
-cargo run --bin zen hello.zen -o hello
+# Run the main test suite
+./target/release/zen tests/zen_test_spec_core_validation.zen
 
-# Start the REPL
-cargo run --bin zen
+# Run all tests
+for test in tests/zen_test_*.zen; do 
+    echo "Running $test"
+    ./target/release/zen "$test" 2>&1 | grep -v DEBUG
+done
 ```
 
-## Language Features
+## Language Examples (from LANGUAGE_SPEC.zen)
 
-### Variables and Assignment
+### Variables and Assignment (Lines 298-306)
 
 ```zen
-// Three forms of variable declaration
-x = 10           // Immutable
-y ::= 20         // Mutable with ::=
-z: i32 = 30      // Immutable with type annotation
-w :: i32 = 40    // Mutable with type annotation
-
-// Forward declarations
-a: i32           // Forward declaration (immutable)
-a = 100          // Assignment must be in same scope
-
-b :: i32         // Mutable forward declaration
-b = 200
+// Six forms of variable declaration from spec
+x: i32           // Forward declaration (immutable)
+x = 10           // Must assign in same scope
+y = 10           // Immutable assignment
+z: i32 = 20      // Immutable with type
+w:: i32          // Mutable forward declaration  
+w = 20           // Can reassign
+v ::= 30         // Mutable assignment
+u:: i32 = 40     // Mutable with type
 ```
 
-### Structs and Enums
+### Structs and Enums (Lines 117-170)
 
 ```zen
-// Simple struct
+// Simple struct with mutable fields
 Point: {
-    x:: f64,     // Mutable field (note :: for mutable)
+    x:: f64,     // Mutable field (note ::)
     y:: f64 = 0  // With default value
 }
 
-// Enum type (sum type)
-Shape: Circle | Rectangle
-
-// Enum with values  
-Option<T>: Some(T) | None
-Result<T, E>: Ok(T) | Err(E)
+// Enums - the only sum types
+Option<T>: Some(T) | None        // No null!
+Result<T, E>: Ok(T) | Err(E)     // Error handling
+Shape: Circle | Rectangle        // Simple enum
+GameEntity: Player | Enemy | Powerup  // For overloading
 ```
 
-### Pattern Matching (No if/else!)
+### Pattern Matching - No if/else! (Lines 352-361, 462-473)
 
 ```zen
-// Boolean pattern matching
+// Boolean pattern - single branch
 is_ready = true
 is_ready ? { 
-    io.println("Starting!") 
+    io.println("Starting game!") 
 }
 
-// Full pattern match (replaces if-else)
+// Full pattern match - replaces if-else
 has_data = false
 has_data ?
     | true { process_data() }
-    | false { io.println("Waiting...") }
+    | false { io.println("Waiting for data...") }
 
-// Enum pattern matching
-maybe_value: Option<i32> = Some(42)
-maybe_value ?
-    | Some(val) { io.println("Value: ${val}") }
-    | None { io.println("No value") }
-
-// Pattern matching with different types
-entity: GameEntity = Player
-entity ?
-    | Player { io.println("Health: 100") }
-    | Enemy { io.println("Health: 50") }
-    | Powerup { io.println("Health: 0") }
+// Option pattern matching - no null!
+maybe_radius: Option<f64> = Some(5.5)
+maybe_radius ?
+    | Some(r) {
+        circle = Circle { radius: r }
+        io.println("Area: ${circle.area()}")
+    }
+    | None {
+        io.println("No radius provided")
+    }
 ```
 
-### Traits and Implementation
+### Traits (Lines 124-162)
 
 ```zen
 // Trait definition
@@ -115,13 +149,7 @@ Geometric: {
     perimeter: (self) f64,
 }
 
-// Struct that will implement trait
-Circle: {
-    center: Point,
-    radius: f64,
-}
-
-// Implement trait using .implements()
+// Implementation using .implements()
 Circle.implements(Geometric, {
     area = (self) f64 {
         return math.pi * self.radius * self.radius
@@ -131,12 +159,12 @@ Circle.implements(Geometric, {
     },
 })
 
-// Enforce all variants implement trait
+// Enforce trait on enum
 Shape: Circle | Rectangle
-Shape.requires(Geometric)
+Shape.requires(Geometric)  // All variants must implement
 ```
 
-### Loops and Ranges
+### Loops - No for/while! (Lines 432-459)
 
 ```zen
 // Range iteration
@@ -144,236 +172,132 @@ Shape.requires(Geometric)
     io.println("Count: ${i}")
 })
 
-// Step ranges
+// Step ranges (not yet implemented)
 (0..100).step(10).loop((i) {
-    io.println("Step: ${i}")  // 0, 10, 20, ...
+    io.println("Step: ${i}")  // 0, 10, 20...
 })
 
-// Collection iteration with UFC
-items.loop((item) {
-    io.println("Item: ${item}")
-})
-
-// With index
-items.loop((item, index) {
-    io.println("${index}: ${item}")
-})
-
-// Infinite loop
+// Infinite loop with break
 counter ::= 0
 loop(() {
     counter = counter + 1
     counter > 10 ?
         | true { break }
-        | false { continue }
+        | false { io.println("Count: ${counter}") }
+})
+
+// Collection loops (when DynVec implemented)
+shapes.loop((shape) {
+    io.println("Area: ${shape.area()}")
 })
 ```
 
-### Pointers (No * or &)
+### Memory Management (Lines 309-314, 217, 379)
 
 ```zen
-// Explicit pointer types
-value = 42
-ptr: Ptr<i32> = value.ref()          // Immutable reference
-mut_ptr: MutPtr<i32> = value.mut_ref() // Mutable reference
-raw: RawPtr<i32> = value.raw_ptr()   // Raw pointer
+// Allocators determine sync/async behavior
+sync_alloc = GPA.init()
+@this.defer(sync_alloc.deinit())  // Cleanup on scope exit
 
-// Dereferencing with .val
-io.println("Value: ${ptr.val}")
-mut_ptr.val = 100
+async_alloc = AsyncPool.init()
+@this.defer(async_alloc.deinit())
 
-// Get address with .addr
-io.println("Address: ${ptr.addr}")
+// Same function works sync or async based on allocator!
+data = fetch_game_data(url, sync_alloc)   // Blocks
+data = fetch_game_data(url, async_alloc)  // Non-blocking
 ```
 
-### Error Handling
+### Future: Metaprogramming (Lines 244-281)
 
 ```zen
-// Result type for errors
-Result<T, E>: Ok(T) | Err(E)
-
-// Error propagation with .raise()
-load_config = (path: string) Result<Config, Error> {
-    file = File.open(path).raise()     // Returns early if Err
-    contents = file.read_all().raise() // Propagates errors up
-    config = json.parse(contents).raise()
-    return Ok(config)
-}
-
-// Handle Result with pattern matching
-parse_number("123") ?
-    | Ok(num) { io.println("Parsed: ${num}") }
-    | Err(e) { io.println("Error: ${e}") }
-```
-
-### UFC (Uniform Function Call)
-
-```zen
-// Any function can be called as method
-add = (a: i32, b: i32) i32 { a + b }
-
-// Both work:
-result1 = add(5, 3)      // Traditional
-result2 = 5.add(3)       // UFC style
-
-// Great for chaining
-text = "hello"
-    .to_upper()
-    .trim()
-    .append("!")
-```
-
-### Imports and Modules
-
-```zen
-// Importing from @std
-{ io, math } = @std
-{ Vec, DynVec } = @std
-{ Actor, Channel, Mutex } = @std
-
-// Module exports
-module.exports = {
-    Shape: Shape,
-    Circle: Circle,
-    area: area,
-}
-
-// Importing from modules
-shapes = module.import("shapes")
-my_circle = shapes.Circle { radius: 5 }
-```
-
-### Metaprogramming
-
-```zen
-// Compile-time reflection
+// AST reflection at runtime
 inspect_type = (T: type) void {
     ast = reflect.ast(T)
     ast.kind ?
         | Struct(s) {
+            io.println("Struct: ${s.name}")
             s.fields.loop((f) {
-                io.println("Field: ${f.name}: ${f.type}")
+                io.println("  Field: ${f.name}: ${f.type}")
             })
         }
         | Enum(e) {
-            e.variants.loop((v) {
-                io.println("Variant: ${v.name}")
-            })
+            io.println("Enum with ${e.variants.len()} variants")
         }
 }
 
-// Compile-time code modification
-@meta.comptime(() {
-    original = reflect.ast(my_function)
-    // Modify AST...
-    meta.replace(my_function, modified)
+// Compile-time AST modification
+@meta.comptime((){
+    original = reflect.ast(parse_radius)
+    new_body = original.body.prepend(
+        AST.Call("io.println", ["Parsing radius"])
+    )
+    meta.replace(parse_radius, original.with_body(new_body))
 })
 ```
 
-### Concurrency
+## Project Structure
 
-```zen
-// Allocators determine sync/async behavior
-sync_alloc = GPA.init()        // Synchronous allocator
-async_alloc = AsyncPool.init() // Asynchronous allocator
-
-// Same function, different behavior based on allocator!
-data1 = fetch_data(url, sync_alloc)  // Blocks
-data2 = fetch_data(url, async_alloc) // Non-blocking
-
-// Channels for communication
-chan = Channel<string>(10)
-chan.send("Hello")
-chan.receive() ?
-    | Some(msg) { io.println(msg) }
-    | None { io.println("Empty") }
-
-// Actors for concurrent tasks
-fib = Actor((receiver) {
-    a ::= 0
-    b ::= 1
-    loop(() {
-        receiver.send(a)
-        temp = a + b
-        a = b
-        b = temp
-    })
-}).spawn()
 ```
-
-## Build System
-
-Zen includes its own build system written in Zen:
-
-```zen
-// build.zen
-Build := @std
-
-builder = (b :: Build) void {
-    is_release = b.args.contains("--release")
-    
-    // Conditional compilation
-    is_release ?
-        | true {
-            b.optimization(.O3)
-            b.strip_symbols(true)
-        }
-        | false {
-            b.optimization(.O0)
-            b.debug_info(true)
-        }
-    
-    // Add executable
-    b.add_executable("my-app", "src/main.zen")
-        .add_library("utils", "src/utils.zen")
-        .add_test("tests", "tests/test.zen")
-}
+zenlang/
+├── LANGUAGE_SPEC.zen         # THE SOURCE OF TRUTH - Complete language specification
+├── IMPLEMENTATION_STATUS_2025.md  # Current implementation progress
+├── src/                      # Rust compiler implementation
+│   ├── main.rs              # Entry point
+│   ├── lexer.rs             # Tokenizer
+│   ├── parser/              # AST generation
+│   ├── typechecker/         # Type system
+│   ├── codegen/llvm/        # LLVM code generation
+│   └── stdlib/              # Built-in functions
+├── tests/                    # Test suite (zen_test_*.zen)
+│   └── zen_test_spec_core_validation.zen  # Main spec validation
+├── examples/                 # Example programs
+└── stdlib/                   # Standard library (Zen code)
 ```
-
-## Examples Directory
-
-The `examples/` directory contains working demonstrations:
-
-- `01_hello_world.zen` - Basic hello world
-- `02_variables_and_types.zen` - Variable declarations
-- `03_pattern_matching.zen` - Pattern matching examples
-- `04_loops.zen` - Loop constructs
-- `05_structs_and_methods.zen` - Structs and methods
-- `error_handling.zen` - Error handling patterns
-- `concurrent_web_server.zen` - Async web server example
 
 ## Testing
 
-All tests should be prefixed with `zen_` and placed in the `tests/` folder:
+The primary test is `tests/zen_test_spec_core_validation.zen` which validates features from LANGUAGE_SPEC.zen:
 
 ```bash
-# Run all tests
-./scripts/test_all.sh
-
-# Run specific test
-cargo run --bin zen tests/zen_test_simple.zen
+./target/release/zen tests/zen_test_spec_core_validation.zen
 ```
 
-## Implementation Status
-
-The compiler is implemented in Rust using LLVM for code generation. Current features include:
-
-✅ Basic types and variables  
-✅ Functions and UFC  
-✅ Structs and enums  
-✅ Pattern matching with `?`  
-✅ String interpolation  
-✅ Range iteration  
-✅ Module system  
-✅ Traits via .implements()  
-✅ Error propagation with .raise()  
-✅ Pointer types  
-✅ Standard library basics  
+This tests:
+- All 6 variable forms (lines 298-306)
+- Pattern matching (lines 352-361)
+- Structs and traits (lines 117-162) 
+- Option types (lines 462-473)
+- Ranges and loops (lines 432-439)
+- Enum variants (lines 165-170)
 
 ## Contributing
 
-All contributions must align with [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen). The spec is the authoritative source for language behavior.
+The language specification in [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) is the authoritative source. Any implementation must match this spec exactly.
+
+Key areas needing implementation:
+1. Pointer types (Ptr, MutPtr, RawPtr) - lines 364-372
+2. Collections (Vec, DynVec) - lines 374-384, 317-350
+3. Error propagation (.raise()) - lines 207-210
+4. Allocators and async - lines 309-314, 213-224
+5. Metaprogramming - lines 244-281
+6. Module system - lines 491-510
+
+## VSCode Extension
+
+Install the Zen language extension for syntax highlighting:
+
+```bash
+cd vscode-zenlang
+npm install
+npm run compile
+```
+
+Then load the extension in VSCode.
 
 ## License
 
 MIT
+
+## Acknowledgments
+
+Zen is inspired by Zig's comptime, Rust's safety, Go's simplicity, and seeks to eliminate all keywords through uniform design principles.

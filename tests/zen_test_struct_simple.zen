@@ -1,13 +1,12 @@
-// Test simple struct
 { io } = @std
 
 Point: {
     x: f64,
-    y: f64,
+    y: f64
 }
 
 main = () void {
-    p = Point { x: 1.0, y: 2.0 }
-    io.println("x: ${p.x}")
-    io.println("y: ${p.y}")
+    p = Point { x: 10.0, y: 20.0 }
+    io.println("p.x: ${p.x}")
+    io.println("p.y: ${p.y}")
 }
