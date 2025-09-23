@@ -154,7 +154,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
         parser.position = parser.position + 4 // Skip "true"
         value := JsonValue:Boolean(true)
         result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
-        *result = value
+        result.write(value)
         return result
     } | false {}
     
@@ -163,7 +163,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
         parser.position = parser.position + 5 // Skip "false"
         value := JsonValue:Boolean(false)
         result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
-        *result = value
+        result.write(value)
         return result
     } | false {}
     
@@ -172,7 +172,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
         str := json_parse_string(parser)
         value := JsonValue:String(str)
         result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
-        *result = value
+        result.write(value)
         return result
     } | false {}
     
@@ -181,7 +181,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
         num := json_parse_number(parser)
         value := JsonValue:Number(num)
         result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
-        *result = value
+        result.write(value)
         return result
     } | false {}
     
@@ -221,13 +221,13 @@ json_parse_array = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
         } | false {}
         
         element := json_parse_value(parser)
-        elements[count] = *element
+        elements[count] = element.read()
         count = count + 1
     }
     
     value := JsonValue:Array(elements, count)
     result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
-    *result = value
+    result.write(value)
     return result
 }
 
@@ -271,7 +271,7 @@ json_parse_object = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     
     value := JsonValue:Object(pairs, count)
     result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
-    *result = value
+    result.write(value)
     return result
 }
 

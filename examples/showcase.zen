@@ -59,6 +59,16 @@ main = () i32 {
     }
     io.println("  Computed value: ${computed}")
     
+    // Inline Functions & Closures
+    io.println("")
+    io.println("▸ Inline Functions & Closures")
+    multiply = (a: i32, b: i32) i32 {
+        return a * b
+    }
+    get_magic = () { return 42 }
+    result3 = multiply(3, get_magic())
+    io.println("  3 * 42 = ${result3}")
+    
     // String Interpolation
     io.println("")
     io.println("▸ String Interpolation")

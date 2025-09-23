@@ -11,14 +11,14 @@ Message = (comptime T: type) T
 
 // Actor behavior trait
 Behavior = (comptime State: type, comptime Msg: type) {
-    handle: (state: *State, msg: Msg, ctx: *ActorContext) void
+    handle: (state: Ptr<State>, msg: Msg, ctx: Ptr<ActorContext>) void
 }
 
 // Actor context for handling messages
 ActorContext: {
     self_ref: ActorRef
-    alloc: *allocator.Allocator
-    system: *ActorSystem
+    alloc: Ptr<allocator.Allocator>
+    system: Ptr<ActorSystem>
     
     spawn: (behavior: anytype, initial_state: anytype) ActorRef {
         return self.system.spawn(behavior, initial_state, self.alloc)
@@ -36,7 +36,7 @@ ActorContext: {
 // Actor reference for sending messages
 ActorRef: {
     id: u64
-    mailbox: *Mailbox
+    mailbox: Ptr<Mailbox>
 }
 
 // Mailbox for actor messages
@@ -45,9 +45,9 @@ Mailbox: {
     message_types: DynVec<u64>  // Type IDs for deserialization
     lock: std.sync.Mutex
     waiting: Option<allocator.Continuation>
-    alloc: *allocator.Allocator
+    alloc: Ptr<allocator.Allocator>
     
-    init: (alloc: *allocator.Allocator) Mailbox {
+    init: (alloc: Ptr<allocator.Allocator>) Mailbox {
         return Mailbox{
             messages: DynVec<u8>{},
             message_types: DynVec<u64>{},
@@ -134,7 +134,7 @@ Actor: {
     mailbox: Mailbox
     behavior: RawPtr<void>  // Type-erased behavior
     state: RawPtr<void>     // Type-erased state
-    alloc: *allocator.Allocator
+    alloc: Ptr<allocator.Allocator>
     context: ActorContext
     running: bool
     
@@ -177,9 +177,9 @@ ActorSystem: {
     actors: DynVec<Actor>
     next_actor_id: u64
     event_loop: Option<runtime.EventLoop>
-    alloc: *allocator.Allocator
+    alloc: Ptr<allocator.Allocator>
     
-    init: (alloc: *allocator.Allocator) ActorSystem {
+    init: (alloc: Ptr<allocator.Allocator>) ActorSystem {
         return ActorSystem{
             actors: DynVec<Actor>{},
             next_actor_id: 1,
@@ -189,7 +189,7 @@ ActorSystem: {
         }
     }
     
-    spawn: (behavior: anytype, initial_state: anytype, alloc: ?*allocator.Allocator) ActorRef {
+    spawn: (behavior: anytype, initial_state: anytype, alloc: ?Ptr<allocator.Allocator>) ActorRef {
         actor_alloc := alloc orelse self.alloc
         
         actor := Actor{
@@ -319,14 +319,14 @@ WorkerPool<Job: type, Result: type>: {
     workers: DynVec<ActorRef>
     next_worker: usize
     result_handler: (Result) void
-    alloc: *allocator.Allocator
+    alloc: Ptr<allocator.Allocator>
     
     init: (
         num_workers: usize, 
         worker_behavior: Behavior(void, Job),
         result_handler: (Result) void,
-        system: *ActorSystem,
-        alloc: *allocator.Allocator
+        system: Ptr<ActorSystem>,
+        alloc: Ptr<allocator.Allocator>
     ) WorkerPool<Job, Result> {
         workers := alloc.alloc_slice(ActorRef, num_workers)
         

@@ -549,7 +549,7 @@ StatBuf: {
 }
 
 // System call declarations
-__sys_open = (path: *u8, flags: i32, mode: u32) i32 {
+__sys_open = (path: RawPtr<u8>, flags: i32, mode: u32) i32 {
     inline.c("""
         return open(${path.addr}, ${flags}, ${mode});
     """)
@@ -561,13 +561,13 @@ __sys_close = (fd: i32) i32 {
     """)
 }
 
-__sys_read = (fd: i32, buf: *u8, count: usize) i64 {
+__sys_read = (fd: i32, buf: RawPtr<u8>, count: usize) i64 {
     inline.c("""
         return read(${fd}, ${buf.addr}, ${count});
     """)
 }
 
-__sys_write = (fd: i32, buf: *u8, count: usize) i64 {
+__sys_write = (fd: i32, buf: RawPtr<u8>, count: usize) i64 {
     inline.c("""
         return write(${fd}, ${buf.addr}, ${count});
     """)
@@ -585,55 +585,55 @@ __sys_fsync = (fd: i32) i32 {
     """)
 }
 
-__sys_fstat = (fd: i32, buf: *StatBuf) i32 {
+__sys_fstat = (fd: i32, buf: Ptr<StatBuf>) i32 {
     inline.c("""
         return fstat(${fd}, ${buf.addr});
     """)
 }
 
-__sys_stat = (path: *u8, buf: *StatBuf) i32 {
+__sys_stat = (path: RawPtr<u8>, buf: Ptr<StatBuf>) i32 {
     inline.c("""
         return stat(${path.addr}, ${buf.addr});
     """)
 }
 
-__sys_access = (path: *u8, mode: i32) i32 {
+__sys_access = (path: RawPtr<u8>, mode: i32) i32 {
     inline.c("""
         return access(${path.addr}, ${mode});
     """)
 }
 
-__sys_unlink = (path: *u8) i32 {
+__sys_unlink = (path: RawPtr<u8>) i32 {
     inline.c("""
         return unlink(${path.addr});
     """)
 }
 
-__sys_rename = (old: *u8, new: *u8) i32 {
+__sys_rename = (old: RawPtr<u8>, new: RawPtr<u8>) i32 {
     inline.c("""
         return rename(${old.addr}, ${new.addr});
     """)
 }
 
-__sys_mkdir = (path: *u8, mode: u32) i32 {
+__sys_mkdir = (path: RawPtr<u8>, mode: u32) i32 {
     inline.c("""
         return mkdir(${path.addr}, ${mode});
     """)
 }
 
-__sys_rmdir = (path: *u8) i32 {
+__sys_rmdir = (path: RawPtr<u8>) i32 {
     inline.c("""
         return rmdir(${path.addr});
     """)
 }
 
-__sys_opendir = (path: *u8) RawPtr<void> {
+__sys_opendir = (path: RawPtr<u8>) RawPtr<void> {
     inline.c("""
         return opendir(${path.addr});
     """)
 }
 
-__sys_readdir = (dir: RawPtr<void>) *DirEnt {
+__sys_readdir = (dir: RawPtr<void>) Ptr<DirEnt> {
     inline.c("""
         return readdir(${dir.addr});
     """)

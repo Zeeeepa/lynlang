@@ -222,7 +222,7 @@ sum_f64 = (values: RawPtr<f64>, count: i64) f64   {
 }
 
 // Compute product of array
-product_f64 = (values: *f64, count: i64) f64   {
+product_f64 = (values: RawPtr<f64>, count: i64) f64   {
     count <= 0 ? | true { return 1.0 }
                 | false {}
     
@@ -238,7 +238,7 @@ product_f64 = (values: *f64, count: i64) f64   {
 }
 
 // Find minimum in array
-min_array_f64 = (values: *f64, count: i64) f64   {
+min_array_f64 = (values: RawPtr<f64>, count: i64) f64   {
     count <= 0 ? | true { return 0.0 / 0.0  // NaN for empty array }
                 | false {}
     
@@ -255,7 +255,7 @@ min_array_f64 = (values: *f64, count: i64) f64   {
 }
 
 // Find maximum in array
-max_array_f64 = (values: *f64, count: i64) f64   {
+max_array_f64 = (values: RawPtr<f64>, count: i64) f64   {
     count <= 0 ? | true { return 0.0 / 0.0  // NaN for empty array }
                 | false {}
     
@@ -387,7 +387,7 @@ lcg_new = (seed: i64) LCG   {
     return LCG { seed: seed }
 }
 
-lcg_next = (lcg: *LCG) i64   {
+lcg_next = (lcg: Ptr<LCG>) i64   {
     // Parameters from Numerical Recipes
     a := 1664525i64
     c := 1013904223i64
@@ -397,11 +397,11 @@ lcg_next = (lcg: *LCG) i64   {
     return lcg.seed
 }
 
-lcg_next_float = (lcg: *LCG) f64   {
+lcg_next_float = (lcg: Ptr<LCG>) f64   {
     return (lcg_next(lcg) as f64) / 2147483648.0
 }
 
-lcg_next_range = (lcg: *LCG, min: i64, max: i64) i64   {
+lcg_next_range = (lcg: Ptr<LCG>, min: i64, max: i64) i64   {
     min >= max ? | true { return min }
                 | false {}
     

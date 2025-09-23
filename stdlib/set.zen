@@ -20,7 +20,7 @@ HashSet<T>.new = () HashSet<T> {
 }
 
 // Add element to set
-HashSet<T>.add = (self: *HashSet<T>, value: T, hash_func: (T) i64) core.Result<bool, core.Error> {
+HashSet<T>.add = (self: Ptr<HashSet<T>>, value: T, hash_func: (T) i64) core.Result<bool, core.Error> {
     contains := hashmap_module.hashmap_contains(&self.map, value, hash_func)
     contains ? | true {
         return core.Result:Ok(false)  // Already exists
@@ -31,28 +31,28 @@ HashSet<T>.add = (self: *HashSet<T>, value: T, hash_func: (T) i64) core.Result<b
 }
 
 // Remove element from set
-HashSet<T>.remove = (self: *HashSet<T>, value: T, hash_func: (T) i64) bool {
+HashSet<T>.remove = (self: Ptr<HashSet<T>>, value: T, hash_func: (T) i64) bool {
     result := hashmap_module.hashmap_remove(&self.map, value, hash_func)
     return result ? | Some(_) => true | None => false
 }
 
 // Check if element exists in set
-HashSet<T>.contains = (self: *HashSet<T>, value: T, hash_func: (T) i64) bool {
+HashSet<T>.contains = (self: Ptr<HashSet<T>>, value: T, hash_func: (T) i64) bool {
     return hashmap_module.hashmap_contains(&self.map, value, hash_func)
 }
 
 // Get set size
-HashSet<T>.size = (self: *HashSet<T>) i64 {
+HashSet<T>.size = (self: Ptr<HashSet<T>>) i64 {
     return hashmap_module.hashmap_len(&self.map)
 }
 
 // Check if set is empty
-HashSet<T>.is_empty = (self: *HashSet<T>) bool {
+HashSet<T>.is_empty = (self: Ptr<HashSet<T>>) bool {
     return hashmap_module.hashmap_is_empty(&self.map)
 }
 
 // Clear set
-HashSet<T>.clear = (self: *HashSet<T>) void {
+HashSet<T>.clear = (self: Ptr<HashSet<T>>) void {
     hashmap_module.hashmap_clear(&self.map)
 }
 

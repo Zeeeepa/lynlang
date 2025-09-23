@@ -23,18 +23,18 @@ strlen = (str: RawPtr<i8>) i64 {
 RegexNode: Literal(ch: i8)
     | Dot                           // . matches any character
     | CharClass(chars: RawPtr<i8>, negated: bool)  // [abc] or [^abc]
-    | Star(child: *RegexNode)       // * zero or more
-    | Plus(child: *RegexNode)       // + one or more
-    | Question(child: *RegexNode)   // ? zero or one
-    | Sequence(nodes: *RegexNode, count: i32)
-    | Alternation(left: *RegexNode, right: *RegexNode)  // |
-    | Group(child: *RegexNode, capturing: bool)
+    | Star(child: Ptr<RegexNode>)       // * zero or more
+| Plus(child: Ptr<RegexNode>)       // + one or more
+| Question(child: Ptr<RegexNode>)   // ? zero or one
+| Sequence(nodes: Ptr<RegexNode>, count: i32)
+| Alternation(left: Ptr<RegexNode>, right: Ptr<RegexNode>)  // |
+| Group(child: Ptr<RegexNode>, capturing: bool)
     | Anchor(start: bool)           // ^ or $
 
 // Compiled regex pattern
 Regex: {
     pattern: RawPtr<i8>,
-    root: *RegexNode,
+    root: Ptr<RegexNode>,
     group_count: i32,
 }
 
@@ -43,7 +43,7 @@ RegexMatch: {
     matched: bool,
     start: i32,
     end: i32,
-    groups: *RegexGroup,
+    groups: Ptr<RegexGroup>,
     group_count: i32,
 }
 
@@ -72,7 +72,7 @@ regex_parser_new = (pattern: RawPtr<i8>) RegexParser   {
 }
 
 // Parse a single character
-regex_parse_char = (parser: *RegexParser) *RegexNode {
+regex_parse_char = (parser: Ptr<RegexParser>) Ptr<RegexNode> {
     ch := parser.pattern[parser.position]
     parser.position = parser.position + 1
     

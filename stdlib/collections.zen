@@ -27,29 +27,29 @@ Stack<T>.new = () Stack<T> {
 }
 
 // Push element onto stack
-Stack<T>.push = (self: *Stack<T>, value: T) void {
+Stack<T>.push = (self: Ptr<Stack<T>>, value: T) void {
     DynVec<T>.push(&self.data, value)
 }
 
 // Pop element from stack
-Stack<T>.pop = (self: *Stack<T>) core.Option<T> {
+Stack<T>.pop = (self: Ptr<Stack<T>>) core.Option<T> {
     return DynVec<T>.pop(&self.data)
 }
 
 // Peek at top element
-Stack<T>.peek = (self: *Stack<T>) core.Option<T> {
+Stack<T>.peek = (self: Ptr<Stack<T>>) core.Option<T> {
     self.data.len > 0 ?
         | true => DynVec<T>.get(&self.data, self.data.len - 1)
         | false => core.Option:None
 }
 
 // Check if stack is empty
-Stack<T>.is_empty = (self: *Stack<T>) bool {
+Stack<T>.is_empty = (self: Ptr<Stack<T>>) bool {
     return DynVec<T>.is_empty(&self.data)
 }
 
 // Get stack size
-Stack<T>.size = (self: *Stack<T>) usize {
+Stack<T>.size = (self: Ptr<Stack<T>>) usize {
     return DynVec<T>.len(&self.data)
 }
 
@@ -66,27 +66,27 @@ Queue<T>.new = () Queue<T> {
 }
 
 // Enqueue element
-Queue<T>.enqueue = (self: *Queue<T>, value: T) void {
+Queue<T>.enqueue = (self: Ptr<Queue<T>>, value: T) void {
     collections_module.push_back(&self.list, value)
 }
 
 // Dequeue element
-Queue<T>.dequeue = (self: *Queue<T>) core.Option<T> {
+Queue<T>.dequeue = (self: Ptr<Queue<T>>) core.Option<T> {
     return collections_module.pop_front(&self.list)
 }
 
 // Peek at front element
-Queue<T>.peek = (self: *Queue<T>) core.Option<T> {
+Queue<T>.peek = (self: Ptr<Queue<T>>) core.Option<T> {
     return collections_module.peek_front(&self.list)
 }
 
 // Check if queue is empty
-Queue<T>.is_empty = (self: *Queue<T>) bool {
+Queue<T>.is_empty = (self: Ptr<Queue<T>>) bool {
     return collections_module.is_empty(&self.list)
 }
 
 // Get queue size
-Queue<T>.size = (self: *Queue<T>) usize {
+Queue<T>.size = (self: Ptr<Queue<T>>) usize {
     return collections_module.len(&self.list)
 }
 
@@ -103,7 +103,7 @@ Set<T>.new = () Set<T> {
 }
 
 // Add element to set
-Set<T>.add = (self: *Set<T>, value: T, hash_func: (T) i64) core.Result<bool, core.Error> {
+Set<T>.add = (self: Ptr<Set<T>>, value: T, hash_func: (T) i64) core.Result<bool, core.Error> {
     contains := collections_module.hashmap_contains(&self.map, value, hash_func)
     contains ? | true {
         return core.Result:Ok(false)  // Already exists
@@ -114,23 +114,23 @@ Set<T>.add = (self: *Set<T>, value: T, hash_func: (T) i64) core.Result<bool, cor
 }
 
 // Remove element from set
-Set<T>.remove = (self: *Set<T>, value: T, hash_func: (T) i64) bool {
+Set<T>.remove = (self: Ptr<Set<T>>, value: T, hash_func: (T) i64) bool {
     result := collections_module.hashmap_remove(&self.map, value, hash_func)
     return result ? | Some(_) => true | None => false
 }
 
 // Check if element exists in set
-Set<T>.contains = (self: *Set<T>, value: T, hash_func: (T) i64) bool {
+Set<T>.contains = (self: Ptr<Set<T>>, value: T, hash_func: (T) i64) bool {
     return collections_module.hashmap_contains(&self.map, value, hash_func)
 }
 
 // Get set size
-Set<T>.size = (self: *Set<T>) i64 {
+Set<T>.size = (self: Ptr<Set<T>>) i64 {
     return collections_module.hashmap_len(&self.map)
 }
 
 // Check if set is empty
-Set<T>.is_empty = (self: *Set<T>) bool {
+Set<T>.is_empty = (self: Ptr<Set<T>>) bool {
     return collections_module.hashmap_is_empty(&self.map)
 }
 

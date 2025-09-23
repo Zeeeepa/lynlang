@@ -896,9 +896,52 @@ impl TypeChecker {
                 // Loop expressions return void for now
                 Ok(AstType::Void)
             }
-            Expression::Closure { params: _, body: _ } => {
-                // TODO: Implement closure type inference
-                Ok(AstType::Void)
+            Expression::Closure { params, body } => {
+                // Infer closure type - create a FunctionPointer type
+                let param_types: Vec<AstType> = params.iter().map(|(_, opt_type)| {
+                    opt_type.clone().unwrap_or(AstType::I32)
+                }).collect();
+                
+                // TODO: Properly infer return type from body
+                // For now, try to infer from the body if it's a simple return
+                let return_type = match body.as_ref() {
+                    Expression::Block(stmts) => {
+                        // Look for return statements in the block
+                        for stmt in stmts {
+                            if let crate::ast::Statement::Return(ret_expr) = stmt {
+                                if let Ok(ret_type) = self.infer_expression_type(ret_expr) {
+                                    return Ok(AstType::FunctionPointer {
+                                        param_types,
+                                        return_type: Box::new(ret_type),
+                                    });
+                                }
+                            }
+                        }
+                        // If no explicit return, check last expression
+                        if let Some(crate::ast::Statement::Expression(last_expr)) = stmts.last() {
+                            if let Ok(ret_type) = self.infer_expression_type(last_expr) {
+                                Box::new(ret_type)
+                            } else {
+                                Box::new(AstType::Void)
+                            }
+                        } else {
+                            Box::new(AstType::Void)
+                        }
+                    }
+                    _ => {
+                        // Try to infer the return type from the body expression
+                        if let Ok(ret_type) = self.infer_expression_type(body) {
+                            Box::new(ret_type)
+                        } else {
+                            Box::new(AstType::I32) // Default to i32
+                        }
+                    }
+                };
+                
+                Ok(AstType::FunctionPointer {
+                    param_types,
+                    return_type,
+                })
             }
             Expression::Raise(expr) => {
                 // .raise() unwraps a Result type and returns the Ok variant

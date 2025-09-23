@@ -61,9 +61,9 @@ Step: {
     name: String
     description: String
     kind: StepKind
-    dependencies: []* Step
+    dependencies: []Ptr<Step>
     
-    dependOn: (other: *Step) void {
+    dependOn: (other: Ptr<Step>) void {
         self.dependencies.append(other)
     }
     
@@ -159,7 +159,7 @@ Executable: {
                 name: "run",
                 description: "Run " ++ self.options.name,
                 kind: .Run,
-                dependencies: []*Step{ &self.step }
+                dependencies: []Ptr<Step>{ &self.step }
             }
         }
     }
@@ -209,7 +209,7 @@ Test: {
 
 // Run step for executing built artifacts
 RunStep: {
-    executable: *Executable
+    executable: Ptr<Executable>
     step: Step
     args: DynVec<String>
     
@@ -268,10 +268,10 @@ Build: {
     cache_dir: String
     
     // Build artifacts
-    executables: []*Executable
-    libraries: []*Library
-    tests: []*Test
-    steps: []*Step
+    executables: []Ptr<Executable>
+    libraries: []Ptr<Library>  
+    tests: []Ptr<Test>
+    steps: []Ptr<Step>
     
     // Options
     options_map: std.HashMap(String, anytype)
@@ -295,14 +295,14 @@ Build: {
         }
     }
     
-    addExecutable: (options: ExecutableOptions) *Executable {
+    addExecutable: (options: ExecutableOptions) Ptr<Executable> {
         exe := Executable{
             options: options,
             step: Step{
                 name: options.name,
                 description: "Build executable " ++ options.name,
                 kind: .Exe,
-                dependencies: []*Step{}
+                dependencies: []Ptr<Step>{}
             },
             symbols: DynVec<Executable.Symbol>{},
             packages: DynVec<Package>{},
@@ -319,14 +319,14 @@ Build: {
         return &exe
     }
     
-    addStaticLibrary: (options: LibraryOptions) *Library {
+    addStaticLibrary: (options: LibraryOptions) Ptr<Library> {
         lib := Library{
             options: options,
             step: Step{
                 name: options.name,
                 description: "Build static library " ++ options.name,
                 kind: .Lib,
-                dependencies: []*Step{}
+                dependencies: []Ptr<Step>{}
             },
             is_static: true,
             export_headers: []String{}
@@ -336,14 +336,14 @@ Build: {
         return &lib
     }
     
-    addSharedLibrary: (options: LibraryOptions) *Library {
+    addSharedLibrary: (options: LibraryOptions) Ptr<Library> {
         lib := Library{
             options: options,
             step: Step{
                 name: options.name,
                 description: "Build shared library " ++ options.name,
                 kind: .Lib,
-                dependencies: []*Step{}
+                dependencies: []Ptr<Step>{}
             },
             is_static: false,
             export_headers: []String{}
@@ -353,14 +353,14 @@ Build: {
         return &lib
     }
     
-    addTest: (root_source: String) *Test {
+    addTest: (root_source: String) Ptr<Test> {
         test := Test{
             root_source: root_source,
             step: Step{
                 name: "test",
                 description: "Run tests from " ++ root_source,
                 kind: .Test,
-                dependencies: []*Step{}
+                dependencies: []Ptr<Step>{}
             },
             target: null,
             symbols: []Executable.Symbol{}
@@ -382,7 +382,7 @@ Build: {
             name: "install",
             description: "Install " ++ artifact.options.name,
             kind: .Install,
-            dependencies: []*Step{ &artifact.step }
+            dependencies: []Ptr<Step>{ &artifact.step }
         }
         
         self.steps.append(&install_step)
@@ -393,7 +393,7 @@ Build: {
             name: "install-file",
             description: "Install " ++ source ++ " to " ++ dest,
             kind: .Install,
-            dependencies: []*Step{}
+            dependencies: []Ptr<Step>{}
         }
         
         self.steps.append(&install_step)
@@ -404,7 +404,7 @@ Build: {
             name: name,
             description: description,
             kind: .Custom,
-            dependencies: []*Step{}
+            dependencies: []Ptr<Step>{}
         }
         
         self.steps.append(&new_step)
@@ -459,7 +459,7 @@ Build: {
                 name: "system",
                 description: argv[0],
                 kind: .System,
-                dependencies: []*Step{}
+                dependencies: []Ptr<Step>{}
             }
         }
         

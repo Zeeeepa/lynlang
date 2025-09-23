@@ -888,6 +888,24 @@ impl<'a> Parser<'a> {
                             params: vec![],
                             body: Box::new(body),
                         });
+                    }
+                    // Check for return type: () ReturnType { ... }
+                    else if matches!(&self.current_token, Token::Identifier(_)) {
+                        // This could be a return type
+                        let _return_type = self.parse_type()?;
+                        if self.current_token == Token::Symbol('{') {
+                            // It's a closure with return type: () ReturnType { ... }
+                            let body = self.parse_block_expression()?;
+                            return Ok(Expression::Closure {
+                                params: vec![],
+                                body: Box::new(body),
+                            });
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "Expected '{' after closure return type".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
                     } else {
                         // Empty parens are not valid as an expression
                         return Err(CompileError::SyntaxError(
@@ -961,10 +979,9 @@ impl<'a> Parser<'a> {
                         // Check for the body
                         else if self.current_token == Token::Symbol('{') {
                             is_closure = true;
-                        } else if self.current_token == Token::Identifier("void".to_string()) || 
-                                  self.current_token == Token::Identifier("i32".to_string()) || 
-                                  self.current_token == Token::Identifier("f64".to_string()) ||
-                                  self.current_token == Token::Identifier("String".to_string()) {
+                        } 
+                        // Check for return type: (params) ReturnType { ... }
+                        else if matches!(&self.current_token, Token::Identifier(_)) {
                             // Return type specified, check for body after
                             let _return_type = self.parse_type()?;
                             if self.current_token == Token::Symbol('{') {
