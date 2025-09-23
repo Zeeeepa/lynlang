@@ -1,66 +1,100 @@
-# Zen Examples
+# Zen Language Examples
 
-Clean, elegant demonstrations of Zen's design principles.
+Clean, focused examples demonstrating Zen's elegant design.
 
 ## Quick Start
 
 ```bash
-zen run hello_world.zen          # Minimal example
-zen run quickstart.zen           # Core features tour  
-zen run showcase/full_demo.zen   # Complete showcase
+# Hello world
+zen run hello_world.zen
+
+# Language tour (3 minutes)
+zen run quickstart.zen  
+
+# Feature showcase
+zen run showcase/full_demo.zen
+
+# Complete application
+cd full_example && zen run main.zen
 ```
-
-## Core Principles
-
-- **No keywords** - Pattern matching with `?`, no `if/else/match/async/await`
-- **UFC** - Any function becomes a method: `5.double().square()`
-- **Explicit pointers** - `Ptr<T>`, `MutPtr<T>`, `RawPtr<T>`
-- **No nulls** - Only `Option<T>` with `.Some(T)` and `.None`
-- **Two imports** - `@std` (stdlib) and `@this` (current scope)
 
 ## Structure
 
 ```
-├── hello_world.zen      # Minimal program
-├── quickstart.zen       # Essential syntax  
+examples/
+├── hello_world.zen      # Minimal first program
+├── quickstart.zen       # Core language tour
 ├── common.zen          # Shared utilities
-├── tutorials/          # Step-by-step learning (01-05)
+│
+├── tutorials/          # Step-by-step learning
+│   ├── 01_variables_and_types.zen
+│   ├── 02_functions_and_control.zen
+│   ├── 03_structs_and_methods.zen
+│   ├── 04_collections_and_iteration.zen
+│   └── 05_strings_and_io.zen
+│
 ├── patterns/           # Idiomatic code patterns
-│   ├── algorithms.zen  # Sort, search, dynamic programming
-│   ├── concurrency.zen # Channels and spawn
-│   ├── error_handling.zen  # Result<T,E> patterns
-│   ├── ffi.zen        # C integration
-│   ├── modules.zen    # Code organization  
-│   └── pattern_matching.zen # Algebraic types
-└── showcase/
-    └── full_demo.zen  # Complete feature tour
+│   ├── algorithms.zen
+│   ├── concurrency.zen
+│   ├── error_handling.zen
+│   ├── ffi.zen
+│   ├── modules.zen
+│   └── pattern_matching.zen
+│
+├── showcase/           # Feature demonstrations
+│   └── full_demo.zen   # All features integrated
+│
+└── full_example/       # Complete application
+    ├── main.zen        # Application entry
+    └── math_utils.zen  # Utility module
+```
+
+## Core Features
+
+### UFC (Universal Function Call)
+```zen
+// Any function becomes a method
+double = (x: i32) i32 { x * 2 }
+result = 5.double().double()  // 20
+```
+
+### Pattern Matching Only
+```zen
+// No if/else - just patterns
+x > 0 ? 
+    | true { "positive" } 
+    | false { "negative" }
+```
+
+### Explicit Error Handling
+```zen
+// Results, not exceptions
+divide(10, 2) ? 
+    | Ok(v) { io.println("${v}") } 
+    | Err(e) { io.println("Error: ${e}") }
+```
+
+### Zero-Cost FFI
+```zen
+// Inline C for performance
+inline.c("
+    int add(int a, int b) { 
+        return a + b; 
+    }
+")
 ```
 
 ## Learning Path
 
-1. **Start**: `hello_world.zen` → `quickstart.zen`
-2. **Learn**: Work through `tutorials/` (01-05)
-3. **Practice**: Study `patterns/` for idiomatic code
-4. **Master**: See `showcase/full_demo.zen` for everything
+**Beginner** → `hello_world.zen` → `quickstart.zen` → `tutorials/`  
+**Intermediate** → `patterns/` → `common.zen` → `showcase/`  
+**Advanced** → `full_example/` → Build your own
 
-## Quick Syntax
+## Philosophy
 
-```zen
-// Variables
-name = "immutable"          // Immutable by default
-count ::= 0                  // Mutable with ::=
+✓ **Simplicity** - Minimal, consistent syntax  
+✓ **Elegance** - Beautiful, expressive code  
+✓ **Performance** - Zero-cost abstractions  
+✓ **Safety** - No null, explicit errors  
 
-// UFC - Any function as method
-5.double().square()          // Method chaining
-
-// Pattern matching
-x > 0 ? | true { "pos" } | false { "neg" }
-
-// Explicit errors
-result ? | Ok(v) { use(v) } | Err(e) { handle(e) }
-
-// FFI
-inline.c(""" int add(int a, int b) { return a + b; } """)
-```
-
-→ See `../LANGUAGE_SPEC.zen` for complete specification
+→ Full specification: `../LANGUAGE_SPEC.zen`

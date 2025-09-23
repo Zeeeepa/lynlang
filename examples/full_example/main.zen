@@ -1,0 +1,74 @@
+// Complete Application Example - Math Utilities
+{ io, Result } = @std
+math = "./math_utils.zen"
+
+// User type for demonstration
+User: {
+    name: string,
+    scores: []i32,
+}
+
+User.average_score = (self) f64 {
+    self.scores.len() > 0 ?
+        | true { 
+            sum = self.scores.reduce(0, (a, b) => a + b)
+            (sum as f64) / (self.scores.len() as f64)
+        }
+        | false { 0.0 }
+}
+
+// Main application
+main = () void {
+    io.println("═══ Math Utilities Demo ═══\n")
+    
+    // 1. Fibonacci sequence
+    io.println("▸ Fibonacci Sequence:")
+    fib_nums = range(0, 10).map((n) => math.fibonacci(n))
+    io.println("  First 10: ${fib_nums}")
+    
+    // 2. Prime numbers
+    io.println("\n▸ Prime Numbers:")
+    primes = range(2, 30)
+        .filter((n) => math.is_prime(n))
+    io.println("  Primes < 30: ${primes}")
+    
+    // 3. Factorials with error handling
+    io.println("\n▸ Factorials:")
+    [5, 10, 25].each((n) => {
+        math.factorial(n) ?
+            | Ok(value) { io.println("  ${n}! = ${value}") }
+            | Err(msg) { io.println("  ${n}!: ${msg}") }
+    })
+    
+    // 4. GCD/LCM calculations
+    io.println("\n▸ GCD/LCM:")
+    pairs = [(48, 18), (35, 15), (100, 75)]
+    pairs.each((pair) => {
+        g = math.gcd(pair.0, pair.1)
+        l = math.lcm(pair.0, pair.1)
+        io.println("  GCD(${pair.0}, ${pair.1}) = ${g}, LCM = ${l}")
+    })
+    
+    // 5. User scores processing
+    io.println("\n▸ Score Analysis:")
+    users = [
+        User { name: "Alice", scores: [85, 92, 88, 95, 90] },
+        User { name: "Bob", scores: [78, 85, 82, 88, 84] },
+        User { name: "Carol", scores: [92, 95, 96, 94, 98] },
+    ]
+    
+    users.each((user) => {
+        avg = user.average_score()
+        io.println("  ${user.name}: avg = ${avg:.1f}")
+    })
+    
+    // 6. Functional pipeline
+    io.println("\n▸ Pipeline Magic:")
+    result = range(1, 20)
+        .filter((n) => math.is_prime(n))     // Get primes
+        .map((n) => n * n)                   // Square them
+        .reduce(0, (a, b) => a + b)          // Sum
+    io.println("  Sum of squared primes < 20: ${result}")
+    
+    io.println("\n✓ Demo complete!")
+}

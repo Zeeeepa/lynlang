@@ -1,50 +1,69 @@
-// Zen - Quick Start Guide
-// Essential syntax in 5 minutes
-
-{ io, Result } = @std
+// Zen Quick Start - Core Language in 3 Minutes
+{ io, Result, maths } = @std
 
 main = () void {
-    // === Variables ===
-    name = "Zen"              // Immutable by default
-    count ::= 0               // Mutable with ::=
-    typed: u32 = 42          // Explicit type
+    io.println("╔═══════════════════════════════╗")
+    io.println("║    ZEN LANGUAGE QUICKSTART    ║")
+    io.println("╚═══════════════════════════════╝\n")
     
-    // === UFC (Uniform Function Call) ===
+    // ─── Variables ───────────────────────────────
+    // Immutable by default, mutable with ::=
+    name = "Zen"              // Can't change
+    counter ::= 0             // Can change
+    counter += 1
+    
+    // ─── UFC (Universal Function Call) ──────────
+    // Any function becomes a method
     double = (x: i32) i32 { x * 2 }
-    io.println(5.double())    // Any function becomes a method
+    result = 5.double().double()  // 5 → 10 → 20
+    io.println("▸ UFC: 5.double().double() = ${result}")
     
-    // === Pattern Matching (no if/else) ===
-    count > 0 ?
-        | true { io.println("Positive") }
-        | false { io.println("Zero or negative") }
+    // ─── Pattern Matching (No if/else) ──────────
+    score = 85
+    grade = score >= 90 ? 
+        | true { "A" } 
+        | false { 
+            score >= 80 ? 
+                | true { "B" } 
+                | false { "C" }
+        }
+    io.println("▸ Grade for ${score}: ${grade}")
     
-    // === Structs & Methods ===
-    Point: { x: f64, y: f64 }
-    Point.len = (self) f64 {
-        @std.maths.sqrt(self.x * self.x + self.y * self.y)
+    // ─── Structs with Methods ───────────────────
+    Vec2: { x: f64, y: f64 }
+    Vec2.length = (self) f64 { 
+        maths.sqrt(self.x * self.x + self.y * self.y) 
     }
     
-    p = Point { x: 3, y: 4 }
-    io.println("Length: ${p.len()}")
+    v = Vec2 { x: 3.0, y: 4.0 }
+    io.println("▸ Vector (3,4) length: ${v.length()}")
     
-    // === Error Handling ===
-    parse = (s: string) Result<i32, string> {
-        s == "42" ?
-            | true { Result.Ok(42) }
-            | false { Result.Err("not 42") }
+    // ─── Error Handling as Values ───────────────
+    safe_sqrt = (n: f64) Result<f64, string> {
+        n >= 0.0 ?
+            | true { Result.Ok(maths.sqrt(n)) }
+            | false { Result.Err("Negative input") }
     }
     
-    parse("42") ?
-        | Ok(n) { io.println("Parsed: ${n}") }
-        | Err(e) { io.println("Error: ${e}") }
+    value = safe_sqrt(16.0).unwrap_or(0.0)
+    io.println("▸ Safe sqrt(16): ${value}")
     
-    // === Loops & Ranges ===
-    (1..=3).loop((i) {
-        count += i
-    })
+    // ─── Functional Pipelines ───────────────────
+    sum = [1, 2, 3, 4, 5]
+        .filter((n) => n % 2 == 0)    // [2, 4]
+        .map((n) => n * n)             // [4, 16]
+        .reduce(0, (a, b) => a + b)    // 20
+    io.println("▸ Even squares sum: ${sum}")
     
-    // === Collections ===
-    [1, 2, 3].map((n) => n * n).loop((n) {
-        io.println("Square: ${n}")
-    })
+    // ─── Algebraic Data Types ───────────────────
+    Status: | Ready | Working(i32) | Done(string)
+    
+    current = Status.Working(75)
+    msg = current ?
+        | Ready { "System ready" }
+        | Working(pct) { "Progress: ${pct}%" }
+        | Done(msg) { "Complete: ${msg}" }
+    io.println("▸ Status: ${msg}")
+    
+    io.println("\n✓ Ready to build with Zen!")
 }
