@@ -117,6 +117,12 @@ impl<'a> Parser<'a> {
             ));
         }
         
-        Ok(EnumDefinition { name, type_params, variants, methods: Vec::new() })
+        Ok(EnumDefinition { 
+            name, 
+            type_params, 
+            variants, 
+            methods: Vec::new(),
+            required_traits: Vec::new(), // Will be populated by .requires() statements
+        })
     }
 }

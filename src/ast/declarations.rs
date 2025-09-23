@@ -51,6 +51,7 @@ pub struct EnumDefinition {
     pub type_params: Vec<TypeParameter>,
     pub variants: Vec<EnumVariant>,
     pub methods: Vec<Function>,
+    pub required_traits: Vec<String>, // Traits that all variants must implement (.requires())
 }
 
 #[derive(Debug, Clone, PartialEq)]

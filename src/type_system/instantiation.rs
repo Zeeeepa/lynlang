@@ -111,6 +111,7 @@ impl<'a> TypeInstantiator<'a> {
             type_params: Vec::new(),
             variants: instantiated_variants,
             methods: instantiated_methods,
+            required_traits: enum_def.required_traits.clone(),
         })
     }
 

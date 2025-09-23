@@ -7,6 +7,8 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 > "No keywords: `if/else/while/for/match/async/await/impl/trait/class/interface/null`"  
 > — LANGUAGE_SPEC.zen, line 2
 
+**Current Implementation: ~65% Complete** (See [`IMPLEMENTATION_STATUS_2025.md`](./IMPLEMENTATION_STATUS_2025.md) for details)
+
 ## Core Design Principles
 
 From [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen):
