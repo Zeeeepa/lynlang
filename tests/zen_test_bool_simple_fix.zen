@@ -1,0 +1,25 @@
+// Simple test for boolean pattern fix
+{ io } = @std
+
+main = () void {
+    // This should print
+    true ? {
+        io.println("Direct true works")
+    }
+    
+    // This should print
+    x = true
+    x ? {
+        io.println("Variable true works")
+    }
+    
+    // This should not print
+    false ? {
+        io.println("Should not print")
+    }
+    
+    // Test full pattern match for comparison
+    x ?
+        | true { io.println("Full pattern works") }
+        | false { io.println("False case") }
+}

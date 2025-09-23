@@ -87,23 +87,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             
             // Not an enum, check if it's a variable
-            eprintln!("DEBUG compile_struct_field: Looking for variable '{}', field '{}'", name, field);
             // First check self.variables (main storage)
+            eprintln!("DEBUG: Looking for variable '{}' in compile_struct_field", name);
             let (alloca, var_type) = if let Some(var_info) = self.variables.get(name) {
-                eprintln!("DEBUG: Found '{}' in self.variables", name);
+                // eprintln!("DEBUG: Found '{}' in variables with type: {:?}", name, var_info.ast_type);
                 (var_info.pointer, var_info.ast_type.clone())
             } else if let Some(symbol) = self.symbols.lookup(name) {
-                eprintln!("DEBUG: Found '{}' in self.symbols: {:?}", name, symbol);
                 // Then check self.symbols (used in trait methods)
                 if let symbols::Symbol::Variable(ptr) = symbol {
                     // For 'self' in trait methods, we need to infer the type
+                    eprintln!("DEBUG: Looking up type for '{}' in symbols", name);
                     let inferred_type = if name == "self" {
                         // Use the current implementing type if available
-                        eprintln!("DEBUG: Inferring type for 'self', current_impl_type = {:?}", self.current_impl_type);
                         if let Some(impl_type) = &self.current_impl_type {
-                            AstType::Struct { 
-                                name: impl_type.clone(),
-                                fields: vec![]
+                            // Look up the actual struct fields
+                            if let Some(struct_info) = self.struct_types.get(impl_type) {
+                                let mut fields = Vec::new();
+                                for (field_name, (_index, field_type)) in &struct_info.fields {
+                                    fields.push((field_name.clone(), field_type.clone()));
+                                }
+                                AstType::Ptr(Box::new(AstType::Struct {
+                                    name: impl_type.clone(),
+                                    fields,
+                                }))
+                            } else {
+                                AstType::Struct { 
+                                    name: impl_type.clone(),
+                                    fields: vec![]
+                                }
                             }
                         } else {
                             // Fallback: try to determine from registered struct types
@@ -351,6 +362,133 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
         
+        // For MemberAccess, don't handle it specially - let the normal flow process it
+        // The issue is when we have rect.top_left.x - the outer MemberAccess has
+        // object = MemberAccess { object: "rect", member: "top_left" } and member = "x"
+        // We need to compile the inner MemberAccess to get the Point value
+        
+        /* Comment out for now to prevent infinite recursion
+        if let Expression::MemberAccess { object, member } = struct_ {
+            // This is nested field access like rect.top_left.x
+            // First get the inner struct value (rect.top_left)
+            let inner_val = self.compile_struct_field(object, member)?;
+            
+            // Now we need to determine what type inner_val is
+            // Look up the type of the parent struct and its field
+            let parent_struct_name = if let Expression::Identifier(name) = &**object {
+                // Get the type of the variable
+                if let Some(var_info) = self.variables.get(name) {
+                    match &var_info.ast_type {
+                        AstType::Struct { name: struct_name, .. } => struct_name.clone(),
+                        _ => {
+                            return Err(CompileError::TypeError(
+                                format!("'{}' is not a struct type", name),
+                                None
+                            ))
+                        }
+                    }
+                } else {
+                    return Err(CompileError::UndeclaredVariable(name.clone(), None))
+                }
+            } else {
+                // For deeper nesting, would need more complex type inference
+                return Err(CompileError::TypeError(
+                    format!("Complex nested struct access not yet supported"),
+                    None
+                ))
+            };
+            
+            // Get the type of the field
+            let field_struct_name = if let Some(parent_info) = self.struct_types.get(&parent_struct_name) {
+                if let Some((_, field_type)) = parent_info.fields.get(member) {
+                    match field_type {
+                        AstType::Struct { name, .. } => name.clone(),
+                        AstType::Generic { name, .. } if self.struct_types.contains_key(name) => {
+                            // Generic type that's actually a struct
+                            name.clone()
+                        },
+                        _ => {
+                            return Err(CompileError::TypeError(
+                                format!("Field '{}' is not a struct type, it's type is {:?}", member, field_type),
+                                None
+                            ))
+                        }
+                    }
+                } else {
+                    return Err(CompileError::TypeError(
+                        format!("Field '{}' not found in struct '{}'", member, parent_struct_name),
+                        None
+                    ))
+                }
+            } else {
+                return Err(CompileError::TypeError(
+                    format!("Struct type '{}' not found", parent_struct_name),
+                    None
+                ))
+            };
+            
+            // Now access the field of the nested struct
+            let struct_info = self.struct_types.get(&field_struct_name)
+                .ok_or_else(|| CompileError::TypeError(
+                    format!("Struct type '{}' not found", field_struct_name),
+                    None
+                ))?;
+            
+            let field_index = struct_info.fields.get(field)
+                .map(|(idx, _)| *idx)
+                .ok_or_else(|| CompileError::TypeError(
+                    format!("Field '{}' not found in struct '{}'", field, field_struct_name),
+                    None
+                ))?;
+            
+            let field_type = struct_info.fields.get(field)
+                .map(|(_, ty)| ty.clone())
+                .unwrap();
+            
+            // inner_val is the struct value, we need to access its field
+            let struct_ptr = if inner_val.is_pointer_value() {
+                inner_val.into_pointer_value()
+            } else {
+                // Store the struct value in a temporary alloca
+                let temp_alloca = self.builder.build_alloca(
+                    struct_info.llvm_type,
+                    &format!("temp_{}", field_struct_name)
+                )?;
+                self.builder.build_store(temp_alloca, inner_val)?;
+                temp_alloca
+            };
+            
+            // Build GEP to get field pointer
+            let indices = vec![
+                self.context.i32_type().const_zero(),
+                self.context.i32_type().const_int(field_index as u64, false),
+            ];
+            
+            let field_ptr = unsafe {
+                self.builder.build_gep(
+                    struct_info.llvm_type,
+                    struct_ptr,
+                    &indices,
+                    &format!("{}_{}_ptr", field_struct_name, field)
+                )?
+            };
+            
+            // Load the field value
+            let field_llvm_type = self.to_llvm_type(&field_type)?;
+            let basic_type = match field_llvm_type {
+                Type::Basic(ty) => ty,
+                Type::Struct(st) => st.as_basic_type_enum(),
+                _ => return Err(CompileError::TypeError(
+                    "Field type must be basic type".to_string(),
+                    None
+                )),
+            };
+            
+            let value = self.builder.build_load(basic_type, field_ptr, &format!("load_{}_{}", field_struct_name, field))?;
+            return Ok(value);
+        }
+        */
+        
         // For any other expression type, we need to:
         // 1. Compile the expression to get a struct value or pointer
         // 2. If it's a value, store it in a temporary alloca  
@@ -512,31 +650,52 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     ))
                 }
             }
-            Expression::StructField { struct_, field } => {
-                // For nested field access, recursively get the field type
-                let parent_struct_name = self.infer_struct_type_from_value(_val, struct_)?;
-                if let Some(struct_info) = self.struct_types.get(&parent_struct_name) {
-                    if let Some((_, field_type)) = struct_info.fields.get(field) {
-                        if let AstType::Struct { name: field_struct_name, .. } = field_type {
-                            Ok(field_struct_name.clone())
-                        } else {
-                            Err(CompileError::TypeError(
-                                format!("Field '{}' is not a struct type", field),
+            Expression::MemberAccess { object, member } => {
+                // For self.field, we need to infer the type of the field
+                // First get the struct type of the object
+                let object_struct = self.infer_struct_type_from_value(_val, object)?;
+                
+                // Then look up the field type in that struct
+                if let Some(struct_info) = self.struct_types.get(&object_struct) {
+                    if let Some((_index, field_type)) = struct_info.fields.get(member) {
+                        // Check if the field is itself a struct
+                        match field_type {
+                            AstType::Struct { name, .. } => Ok(name.clone()),
+                            AstType::Generic { name, .. } => {
+                                // Check if this generic is actually a registered struct type
+                                if self.struct_types.contains_key(name) {
+                                    Ok(name.clone())
+                                } else {
+                                    Err(CompileError::TypeError(
+                                        format!("Field '{}' is not a struct type", member),
+                                        None
+                                    ))
+                                }
+                            }
+                            _ => Err(CompileError::TypeError(
+                                format!("Field '{}' is not a struct type, got {:?}", member, field_type),
                                 None
                             ))
                         }
                     } else {
                         Err(CompileError::TypeError(
-                            format!("Field '{}' not found in struct '{}'", field, parent_struct_name),
+                            format!("Field '{}' not found in struct '{}'", member, object_struct),
                             None
                         ))
                     }
                 } else {
                     Err(CompileError::TypeError(
-                        format!("Struct type '{}' not found", parent_struct_name),
+                        format!("Struct type '{}' not found", object_struct),
                         None
                     ))
                 }
+            }
+            Expression::StructField { .. } => {
+                // This shouldn't be called for struct field access 
+                Err(CompileError::TypeError(
+                    format!("Cannot infer struct type from StructField expression"),
+                    None
+                ))
             }
             Expression::PointerDereference(ptr_expr) => {
                 // For ptr.val where ptr is Ptr<Struct> or MutPtr<Struct> or RawPtr<Struct>

@@ -1,0 +1,226 @@
+// Comprehensive test suite based on LANGUAGE_SPEC.zen
+// Tests all currently working features
+
+{ io, math } = @std
+
+// Test 1: Variable declarations (all 6 forms)
+test_variables = () void {
+    io.println("\n=== Testing Variable Declarations ===")
+    
+    // Forward declarations
+    x: i32
+    x = 10
+    io.println("Forward immutable: ${x}")
+    
+    // Direct immutable
+    y = 20
+    z: i32 = 30
+    io.println("Immutable inferred: ${y}")
+    io.println("Immutable typed: ${z}")
+    
+    // Mutable declarations
+    w:: i32
+    w = 40
+    v ::= 50
+    u:: i32 = 60
+    io.println("Mutable forward: ${w}")
+    io.println("Mutable inferred: ${v}")
+    io.println("Mutable typed: ${u}")
+    
+    // Test mutation
+    v = v + 1
+    io.println("After mutation: ${v}")
+}
+
+// Test 2: UFC (Uniform Function Call)
+double = (n: i32) i32 { return n * 2 }
+triple = (n: i32) i32 { return n * 3 }
+add = (a: i32, b: i32) i32 { return a + b }
+
+test_ufc = () void {
+    io.println("\n=== Testing UFC ===")
+    
+    // Basic UFC
+    result = 5.double()
+    io.println("5.double() = ${result}")
+    
+    // UFC chaining
+    chained = 5.double().triple()
+    io.println("5.double().triple() = ${chained}")
+}
+
+// Test 3: Pattern matching with ?
+test_pattern_matching = () void {
+    io.println("\n=== Testing Pattern Matching ===")
+    
+    // Boolean patterns
+    is_ready = true
+    is_ready ? {
+        io.println("Ready check passed")
+    }
+    
+    // Full boolean pattern
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // Nested patterns
+    count = 5
+    is_valid = count > 3
+    is_valid ?
+        | true {
+            count < 10 ?
+                | true { io.println("Count in range: ${count}") }
+                | false { io.println("Count too high") }
+        }
+        | false { io.println("Count too low") }
+}
+
+// Test 4: Option types
+Option<T>: Some(T) | None
+
+test_options = () void {
+    io.println("\n=== Testing Option Types ===")
+    
+    // Create options
+    maybe_value: Option<i32> = Some(42)
+    nothing: Option<i32> = None
+    
+    // Pattern match on Some
+    maybe_value ?
+        | Some(val) { io.println("Found value: ${val}") }
+        | None { io.println("No value") }
+    
+    // Pattern match on None
+    nothing ?
+        | Some(val) { io.println("Should not print: ${val}") }
+        | None { io.println("Correctly found None") }
+}
+
+// Test 5: Result types
+Result<T, E>: Ok(T) | Err(E)
+
+test_results = () void {
+    io.println("\n=== Testing Result Types ===")
+    
+    success: Result<i32, string> = Ok(100)
+    failure: Result<i32, string> = Err("error message")
+    
+    success ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    failure ?
+        | Ok(val) { io.println("Should not print: ${val}") }
+        | Err(e) { io.println("Error handled: ${e}") }
+}
+
+// Test 6: Structs
+Point: {
+    x: f64,
+    y: f64,
+}
+
+test_structs = () void {
+    io.println("\n=== Testing Structs ===")
+    
+    p = Point { x: 3.14, y: 2.71 }
+    io.println("Point x: ${p.x}")
+    io.println("Point y: ${p.y}")
+    
+    // Math with struct fields
+    distance = p.x + p.y
+    io.println("Sum of coordinates: ${distance}")
+}
+
+// Test 7: Enums
+Color: Red | Green | Blue
+
+test_enums = () void {
+    io.println("\n=== Testing Enums ===")
+    
+    c = Color.Red
+    c ?
+        | Red { io.println("Color is red") }
+        | Green { io.println("Color is green") }
+        | Blue { io.println("Color is blue") }
+    
+    c2 = Color.Blue
+    c2 ?
+        | Red { io.println("Should not print") }
+        | Green { io.println("Should not print") }
+        | Blue { io.println("Color is blue") }
+}
+
+// Test 8: Ranges and loops
+test_ranges_loops = () void {
+    io.println("\n=== Testing Ranges and Loops ===")
+    
+    // Range loop
+    io.println("Counting 0 to 3:")
+    (0..4).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    io.println("Loop with break:")
+    loop(() {
+        io.println("  Counter: ${counter}")
+        counter = counter + 1
+        counter >= 3 ? { break }
+    })
+}
+
+// Test 9: String interpolation
+test_string_interpolation = () void {
+    io.println("\n=== Testing String Interpolation ===")
+    
+    name = "Zen"
+    version = 1
+    io.println("Language: ${name}")
+    io.println("Version: ${version}")
+    
+    // Complex expressions in interpolation
+    sum = 10 + 20
+    io.println("10 + 20 = ${sum}")
+    
+    // Nested interpolation
+    pi_value = math.pi
+    io.println("Pi is approximately ${pi_value}")
+}
+
+// Test 10: Arrays
+test_arrays = () void {
+    io.println("\n=== Testing Arrays ===")
+    
+    numbers = [1, 2, 3, 4, 5]
+    io.println("Array created: [1, 2, 3, 4, 5]")
+    
+    // Note: array.loop() may not be fully implemented
+    // but array literals work
+}
+
+// Main test runner
+main = () void {
+    io.println("==================================")
+    io.println("  Zen Language Test Suite")
+    io.println("  Based on LANGUAGE_SPEC.zen")
+    io.println("==================================")
+    
+    test_variables()
+    test_ufc()
+    test_pattern_matching()
+    test_options()
+    test_results()
+    test_structs()
+    test_enums()
+    test_ranges_loops()
+    test_string_interpolation()
+    test_arrays()
+    
+    io.println("\n==================================")
+    io.println("  All Tests Completed!")
+    io.println("==================================")
+}

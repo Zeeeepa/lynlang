@@ -1,0 +1,162 @@
+// Working features from LANGUAGE_SPEC.zen
+// This showcases what's currently implemented
+
+{ io, math } = @std
+
+// Option type - core feature from spec (lines 109-110)
+Option<T>: Some(T) | None
+
+// Result type for error handling (lines 112-113)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct definition (lines 116-120)
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+// Basic function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Main function demonstrating working features
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Working Features ===")
+    
+    // ========================================================================
+    // 1. Variable Declarations (spec lines 298-306)
+    // ========================================================================
+    io.println("\n1. Variable Declarations:")
+    
+    // Immutable variables
+    x = 10
+    y = 20
+    
+    // Mutable variables 
+    z ::= 30
+    w ::= 40
+    
+    io.println("Immutable: x = ${x}, y = ${y}")
+    io.println("Mutable: z = ${z}, w = ${w}")
+    
+    // Mutation
+    z = 50
+    io.println("After mutation: z = ${z}")
+    
+    // ========================================================================
+    // 2. Functions and UFC
+    // ========================================================================
+    io.println("\n2. Functions:")
+    
+    sum = add(100, 200)
+    io.println("add(100, 200) = ${sum}")
+    
+    // ========================================================================
+    // 3. Pattern Matching (spec lines 352-361)
+    // ========================================================================
+    io.println("\n3. Pattern Matching:")
+    
+    // Boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("Boolean pattern: Ready!")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data - working!") }
+    
+    // ========================================================================
+    // 4. Option Types (spec lines 462-473)
+    // ========================================================================
+    io.println("\n4. Option Types (No null!):")
+    
+    some_value: Option<i32> = Some(42)
+    some_value ?
+        | Some(v) { io.println("Option has value: ${v}") }
+        | None { io.println("Option is None") }
+    
+    none_value: Option<i32> = None
+    none_value ?
+        | Some(v) { io.println("Should not print: ${v}") }
+        | None { io.println("None case handled correctly") }
+    
+    // ========================================================================
+    // 5. Result Types
+    // ========================================================================
+    io.println("\n5. Result Types:")
+    
+    ok_result: Result<i32, String> = Ok(100)
+    ok_result ?
+        | Ok(v) { io.println("Result Ok: ${v}") }
+        | Err(e) { io.println("Result Err: ${e}") }
+    
+    err_result: Result<i32, String> = Err("Test error")
+    err_result ?
+        | Ok(v) { io.println("Should not print: ${v}") }
+        | Err(e) { io.println("Error handled: ${e}") }
+    
+    // ========================================================================
+    // 6. Range Iterations (spec lines 432-439)
+    // ========================================================================
+    io.println("\n6. Range Loops:")
+    
+    io.println("Basic range (0..3):")
+    (0..3).loop((i) {
+        io.println("  Iteration: ${i}")
+    })
+    
+    // Step ranges not yet implemented
+    // io.println("Step range (0..10).step(3):")
+    // (0..10).step(3).loop((i) {
+    //     io.println("  Step: ${i}")
+    // })
+    
+    // ========================================================================
+    // 7. Loop Control (spec lines 452-459)
+    // ========================================================================
+    io.println("\n7. Loop Control:")
+    
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("Loop count: ${counter}")
+        
+        counter >= 3 ?
+            | true { 
+                io.println("Breaking loop")
+                break 
+            }
+            | false { }
+    })
+    
+    // ========================================================================
+    // 8. Math Module Access
+    // ========================================================================
+    io.println("\n8. Standard Library:")
+    
+    pi_value = math.pi
+    io.println("Math.pi = ${pi_value}")
+    
+    // ========================================================================
+    // 9. String Interpolation
+    // ========================================================================
+    io.println("\n9. String Interpolation:")
+    
+    name = "Zen"
+    version = 1
+    io.println("Language: ${name}, Version: ${version}")
+    
+    // ========================================================================
+    // 10. Struct Creation
+    // ========================================================================
+    io.println("\n10. Structs:")
+    
+    point = Point { x: 3.14, y: 2.71 }
+    io.println("Created Point struct successfully")
+    
+    // ========================================================================
+    io.println("\n=== All Working Features Demonstrated Successfully! ===")
+}

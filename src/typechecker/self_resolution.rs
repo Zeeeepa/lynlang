@@ -36,10 +36,11 @@ pub fn transform_function_self_types(func: &Function, concrete_type: &str) -> Re
 pub fn replace_self_in_ast_type(ast_type: &AstType, concrete_type: &str) -> AstType {
     match ast_type {
         AstType::Generic { name, type_args: _ } if name == "Self" => {
-            // Replace Self with the concrete type
-            AstType::Struct { 
-                name: concrete_type.to_string(),
-                fields: vec![]  // Empty fields for type reference
+            // Keep Self as Generic but tag it with the concrete type name
+            // This allows the typechecker and codegen to resolve it properly with full struct info
+            AstType::Generic { 
+                name: format!("Self_{}", concrete_type),  // Tagged with concrete type
+                type_args: vec![]
             }
         }
         AstType::Ptr(inner) => {

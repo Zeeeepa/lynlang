@@ -4,7 +4,9 @@
 
 A revolutionary programming language with **ZERO KEYWORDS**. All control flow through pattern matching (`?`), UFC (Uniform Function Call), and allocator-based async without function coloring.
 
-## Key Design Principles (from LANGUAGE_SPEC.zen)
+**Implementation Status: ~50% Complete** - See [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) for details.
+
+## Core Philosophy (from LANGUAGE_SPEC.zen)
 
 ```zen
 // - No keywords: if/else/while/for/match/async/await/impl/trait/class/interface/null
@@ -22,308 +24,325 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 // - Compile-time metaprogramming with full AST access
 ```
 
-## Current Implementation Status
+## Quick Start
 
-### ✅ WORKING FEATURES (~40% Complete)
+```bash
+# Build the compiler
+cargo build --release
 
-#### 1. Variable Declarations (ALL 6 Forms) ✅
-```zen
-x: i32              // forward declaration
-x = 10              // immutable assignment
-y = 20              // immutable inference
-z: i32 = 30         // immutable with type
-w:: i32             // mutable forward declaration
-w = 40              // mutable assignment
-v ::= 50            // mutable inference  
-u:: i32 = 60        // mutable with type
+# Run a Zen program
+./target/release/zen examples/01_hello_world.zen
+
+# Start the REPL
+./target/release/zen
 ```
 
-#### 2. UFC (Uniform Function Call) ✅
+## Language Features
+
+### ✅ Fully Implemented
+
+#### 1. **Zero Keywords** - Pattern Matching Controls Everything
 ```zen
-double = (n: i32) i32 { return n * 2 }
-result = 5.double()        // UFC: transforms to double(5)
-chained = 5.double().triple() // Chaining!
-```
+// No if/else keywords - use pattern matching
+is_ready ?
+    | true { start_game() }
+    | false { show_loading() }
 
-#### 3. Pattern Matching with `?` (No keywords!) ✅
-```zen
-// Boolean short form
-is_ready ? { io.println("Go!") }
-
-// Full pattern matching  
-has_data ?
-    | true { process_data() }
-    | false { wait_for_data() }
-
-// Option matching
-maybe: Option<i32> = Some(42)
-maybe ?
-    | Some(n) { io.println("Value: ${n}") }
-    | None { io.println("Empty") }
-```
-
-#### 4. @this.defer for Cleanup ✅
-```zen
-main = () void {
-    io.println("Starting")
-    @this.defer(io.println("Cleaning up!"))
-    io.println("Working...")
-    // Output: Starting, Working..., Cleaning up!
-}
-```
-
-#### 5. Option & Result Types (No null!) ✅
-```zen
-Option<T>: Some(T) | None
-Result<T, E>: Ok(T) | Err(E)
-
-maybe: Option<i32> = Some(42)
-nothing: Option<i32> = None
-success: Result<i32, string> = Ok(100)
-failure: Result<i32, string> = Err("error")
-```
-
-### ⚠️ PARTIALLY WORKING
-
-#### 1. Traits via .implements() and .requires()
-```zen
-// Trait definition
-Geometric: {
-    area: (self) f64,
-    perimeter: (self) f64,
-}
-
-// Implementation
-Circle.implements(Geometric, {
-    area = (self) f64 {
-        return 3.14159 * self.radius * self.radius
-    },
-    perimeter = (self) f64 {
-        return 2.0 * 3.14159 * self.radius
-    },
-})
-
-// Require all Shape variants to implement Geometric
-Shape.requires(Geometric)
-```
-
-#### 2. Error Propagation with .raise()
-```zen
-load_config = (path: string) Result<Config, Error> {
-    file = File.open(path).raise()  // Returns early if Err
-    contents = file.read_all().raise()
-    config = json.parse(contents).raise()
-    return Ok(config)
-}
-```
-
-#### 6. Range Iteration ✅
-```zen
-// Range with .loop() - WORKS!
-(0..10).loop((i) {
-    io.println(i)
-})
-
-// Inclusive ranges  
-(1..=5).loop((n) {
-    process(n)
-})
-```
-
-#### 7. Loops ✅
-```zen
-// Range iteration
+// No while/for keywords - use ranges and loop
 (0..10).loop((i) {
     io.println("Count: ${i}")
 })
 
-// Step ranges
-(0..100).step(10).loop((i) {
-    io.println("Step: ${i}")  // 0, 10, 20, ...
-})
-
-// Infinite loop
+// Infinite loop with pattern-based break
+counter ::= 0
 loop(() {
     counter = counter + 1
     counter > 10 ? { break }
 })
 ```
 
-#### 8. Structs & Enums ✅
+#### 2. **Variable Declarations** - Six Forms from LANGUAGE_SPEC
 ```zen
-{ io } = @std              // Import syntax
-io.println("Hello")         // Basic I/O
-io.println(42)              // Multiple types
+// Forward declarations
+x: i32                  // Immutable forward declaration
+x = 10                  // Assignment later
+w:: i32                 // Mutable forward declaration  
+w = 20                  // Can reassign: w = 30
+
+// Direct assignments
+y = 42                  // Immutable with inference
+z: i32 = 100           // Immutable with type
+v ::= 50               // Mutable with inference
+u:: i32 = 60           // Mutable with type
 ```
 
-#### 9. Standard Library Basics ✅
+#### 3. **UFC (Uniform Function Call)** - Any Function as Method
 ```zen
-Point: {
-    x: f64,
-    y: f64
+// Define a function
+double = (n: i32) i32 { return n * 2 }
+
+// Call as method via UFC
+result = 5.double()           // Returns 10
+
+// Chain method calls
+value = 5.double().triple().add(1)
+
+// Works with any function
+numbers = [1, 2, 3]
+doubled = numbers.map(double)  // UFC on collection methods
+```
+
+#### 4. **Option Type** - No Null/Nil
+```zen
+Option<T>: Some(T) | None
+
+// Creating options
+maybe_value: Option<i32> = Some(42)
+empty: Option<i32> = None
+
+// Pattern matching on options
+maybe_value ?
+    | Some(val) { io.println("Got: ${val}") }
+    | None { io.println("Empty!") }
+
+// Safe unwrapping
+value = maybe_value ? 
+    | Some(v) { v }
+    | None { 0 }  // Default value
+```
+
+#### 5. **Result Type** - Error Handling
+```zen
+Result<T, E>: Ok(T) | Err(E)
+
+parse_int = (s: string) Result<i32, string> {
+    // Parsing logic...
+    valid ? 
+        | true { return Ok(parsed_value) }
+        | false { return Err("Invalid number") }
 }
 
+// Handle results
+result = parse_int("123")
+result ?
+    | Ok(n) { io.println("Parsed: ${n}") }
+    | Err(e) { io.println("Error: ${e}") }
+```
+
+#### 6. **Structs and Enums**
+```zen
+// Struct definition
+Point: {
+    x:: f64,    // Mutable field
+    y:: f64 = 0 // With default
+}
+
+// Enum (sum type) 
 Shape: Circle | Rectangle | Triangle
 
+// Create instances
 p = Point { x: 10.0, y: 20.0 }
-io.println(p.x)  // Field access works
+shape = Shape.Circle
+
+// Pattern match on enums
+shape ?
+    | Circle { draw_circle() }
+    | Rectangle { draw_rect() }
+    | Triangle { draw_tri() }
 ```
 
-#### 3. String Interpolation
+#### 7. **String Interpolation**
 ```zen
-// Not yet fully implemented
 name = "Zen"
-io.println("Hello ${name}")  // Planned feature
+version = 1.0
+io.println("Welcome to ${name} v${version}")
+
+// Works in any string
+message = "Result: ${compute_value()}"
 ```
 
-### ❌ NOT YET IMPLEMENTED
-
-From LANGUAGE_SPEC.zen (Priority items):
-
-#### 1. Advanced Collections
+#### 8. **Imports from @std**
 ```zen
-Vec<T, SIZE>        // Static vector
-DynVec<T>           // Dynamic vector
-HashMap<K, V>       // Hash map
+// Import specific items
+{ io, math } = @std
+
+// Use imported items
+io.println("Pi is ${math.pi}")
+
+// Import collections
+{ Vec, DynVec } = @std
 ```
 
-#### 2. Allocator System
+### ✅ Recently Implemented
+
+#### **Traits** with `.implements()` and `.requires()`
 ```zen
-// Determines sync/async behavior
-sync_alloc = GPA.init()
-async_alloc = AsyncPool.init()
+// Define a trait (behavior contract)
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+// Implement trait for type
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+// Enforce enum variants implement trait
+Shape: Circle | Rectangle
+Shape.requires(Geometric)  // All variants must implement
 ```
 
-#### 3. Pointer Types
+#### **Error Propagation** with `.raise()`
 ```zen
-ptr: Ptr<Circle> = circle.ref()
-mut_ptr: MutPtr<Circle> = circle.mut_ref()
-```
-
-#### 4. Actor Model & Concurrency
-```zen
-actor = Actor(() { ... })
-channel = Channel<T>(10)
-mutex = Mutex<T>(initial)
-```
-
-#### 5. Compile-time Metaprogramming
-```zen
-@meta.comptime(() { ... })
-ast = reflect.ast(Type)
-```
-
-#### 6. Module System
-```zen
-module.exports = { ... }
-imported = module.import("name")
-```
-
-## Quick Start
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/your-org/zen
-cd zen
-
-# Build the compiler
-cargo build --release
-
-# Run a Zen program
-cargo run --bin zen -- examples/hello_world.zen
-```
-
-### Hello World
-
-```zen
-{ io } = @std
-
-main = () void {
-    io.println("Hello, World!")
+load_config = (path: string) Result<Config, Error> {
+    file = File.open(path).raise()      // Returns early if Err
+    contents = file.read_all().raise()  // Propagates errors
+    config = parse_json(contents).raise()
+    return Ok(config)
 }
 ```
 
-### Key Features Example
+### 🚧 Partially Implemented
 
+- **Pointer Types**: `Ptr<>`, `MutPtr<>`, `RawPtr<>` - Basic parsing done
+- **Error Propagation**: `.raise()` - Parsed but needs full codegen
+
+### ❌ Not Yet Implemented
+
+- **Generic Functions**: `func<T: Trait>(param: T)`
+- **DynVec and Vec**: Dynamic and static vectors
+- **Allocators**: Sync/async behavior control
+- **Actor System**: Concurrency primitives
+- **Channels, Mutex, Atomics**: Threading support
+- **AST Reflection**: `reflect.ast()` for metaprogramming
+- **@meta.comptime**: Compile-time code generation
+- **Module System**: `module.exports` and `module.import`
+- **Inline C/LLVM**: FFI support
+- **SIMD Operations**: Vector math
+
+## Example Programs
+
+### Hello World
 ```zen
 { io } = @std
 
-// No keywords! Only pattern matching
 main = () void {
-    is_ready = true
-    is_ready ? { io.println("Starting!") }
+    io.println("Hello, Zen!")
+}
+```
+
+### Working with Options
+```zen
+{ io } = @std
+
+find_user = (id: i32) Option<string> {
+    id == 42 ?
+        | true { return Some("Alice") }
+        | false { return None }
+}
+
+main = () void {
+    user = find_user(42)
+    user ?
+        | Some(name) { io.println("Found: ${name}") }
+        | None { io.println("User not found") }
+}
+```
+
+### Pattern Matching and UFC
+```zen
+{ io, math } = @std
+
+// Define operations
+double = (n: i32) i32 { return n * 2 }
+is_even = (n: i32) bool { return n % 2 == 0 }
+
+main = () void {
+    // UFC chaining
+    result = 21.double()
     
-    // UFC - any function as method
-    double = (n: i32) i32 { return n * 2 }
-    result = 5.double()
-    io.println(result)
+    // Pattern matching
+    result.is_even() ?
+        | true { io.println("${result} is even") }
+        | false { io.println("${result} is odd") }
     
-    // No null - only Option types
-    maybe: Option<i32> = Some(42)
-    maybe ?
-        | Some(value) { io.println(value) }
-        | None { io.println("Empty") }
-    
-    // Range iteration
-    (0..3).loop((i) {
-        io.println(i)
+    // Range loop
+    (1..5).loop((i) {
+        i.is_even() ? {
+            io.println("${i} is even")
+        }
     })
 }
 ```
 
-## Examples
-
-See the [`examples/`](./examples) directory for working code samples.
-
-## Testing
+## Building from Source
 
 ```bash
-# Run all tests
-./test_all.sh
+# Clone the repository
+git clone https://github.com/yourusername/zen
+cd zen
 
-# Run specific test
-cargo run --bin zen -- tests/zen_test_ufc_working.zen
+# Build with Rust/Cargo
+cargo build --release
 
-# Working feature tests
-- tests/zen_test_ufc_working.zen         # UFC demonstration
-- tests/zen_test_range_iteration.zen     # Range iteration
-- tests/zen_test_spec_basic_check.zen    # Core features
+# Run tests
+cargo test
+
+# Run Zen test suite
+./target/release/zen tests/zen_test_spec_minimal.zen
 ```
 
 ## Project Structure
 
 ```
 zenlang/
-├── LANGUAGE_SPEC.zen     # THE source of truth
-├── src/                  # Rust compiler implementation
-│   ├── parser/           # Zen parser
-│   ├── codegen/          # LLVM code generation
-│   ├── typechecker/      # Type system
-│   └── stdlib/           # Standard library
-├── tests/                # Test suite (prefix with zen_)
-├── examples/             # Example programs
-└── stdlib/               # Zen standard library
+├── LANGUAGE_SPEC.zen          # The source of truth
+├── IMPLEMENTATION_STATUS.md    # Detailed implementation status
+├── src/
+│   ├── main.rs                # Entry point and REPL
+│   ├── compiler.rs            # Compilation orchestration
+│   ├── lexer.rs              # Tokenization
+│   ├── parser/                # AST construction
+│   ├── ast/                   # AST definitions
+│   ├── codegen/llvm/         # LLVM code generation
+│   ├── typechecker/          # Type system
+│   ├── stdlib/               # Built-in modules
+│   └── behaviors/            # Trait system
+├── tests/                     # Test suite (zen_ prefix)
+└── examples/                  # Example programs
 ```
 
 ## Contributing
 
-All contributions must align with [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen).
+Zen is actively being developed. The [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) is the authoritative specification. Current priorities:
 
-## Implementation Progress
+1. Complete trait system (`.implements()` and `.requires()`)
+2. Implement generic functions and type constraints
+3. Add collection types (DynVec, Vec)
+4. Implement allocator system for sync/async
+5. Add Actor system and concurrency primitives
 
-- **Core Language**: ~60% complete
-- **Type System**: ~40% complete
-- **Standard Library**: ~20% complete
-- **Advanced Features**: ~5% complete
+## Philosophy
 
-**Overall**: ~40% of LANGUAGE_SPEC.zen implemented
+Zen eliminates keywords in favor of:
+- **Pattern matching** (`?`) for all control flow
+- **UFC** for method syntax on any function
+- **Allocators** for sync/async without coloring
+- **Explicit types** for pointers and optionals
+- **Structural simplicity** with only structs and enums
+
+No magic. No implicit behavior. No keywords. Just patterns, functions, and types.
 
 ## License
 
-MIT
+MIT License - See LICENSE file for details
 
-## Contact
+---
 
-For issues or questions, see the [GitHub issues](https://github.com/your-org/zen/issues) page.
+**Remember: [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) is the source of truth!**

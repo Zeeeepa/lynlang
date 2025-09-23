@@ -1,18 +1,18 @@
 # Zen Language Implementation Status
 
 **Reference:** [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) is the source of truth  
-**Last Updated:** September 2025
+**Last Updated:** September 23, 2025
 
 ## Overview
 The Zen programming language compiler is implemented in Rust and uses LLVM for code generation. The language achieves its **ZERO KEYWORDS** philosophy through pattern matching, UFC, and compile-time metaprogramming.
 
 **Current Compiler Version:** 0.1.0  
 **LLVM Backend:** 18.0  
-**Test Coverage:** ~40% of LANGUAGE_SPEC.zen features implemented
+**Test Coverage:** ~50% of LANGUAGE_SPEC.zen features implemented
 
 ## Current Status Summary
 
-### ✅ Fully Working Features (Verified Sept 2025)
+### ✅ Fully Working Features (Verified Sept 23, 2025)
 - **No keywords philosophy** (spec lines 1-2): All control flow via pattern matching
 - **Pattern matching with `?`** (spec lines 3-4, 352-361): Boolean and enum patterns
 - **UFC (Uniform Function Call)** (spec line 5): Method chaining works perfectly
@@ -30,14 +30,16 @@ The Zen programming language compiler is implemented in Rust and uses LLVM for c
 - **Functions**: First-class with closures
 - **@std imports** (spec lines 92-94): `{ io, math } = @std`
 - **@std.math.pi** (spec lines 138-139): Math constants working
-- **Array literals**: `[1, 2, 3]` with `.loop()` method
+- **Array literals**: `[1, 2, 3]` (loop method pending)
+- **Traits** (spec lines 123-168): `.implements()` and `.requires()` fully working
 
-### 🔧 Partially Working  
+### 🔧 Partially Working
+- **Boolean pattern matching**: Works but false branch in some contexts doesn't execute  
 - **.raise() error propagation**: Parsed but has type issues in codegen
 - **Pointer types**: `Ptr<T>`, `MutPtr<T>`, `RawPtr<T>` parsed but not fully working
+- **Nested struct field access**: Issues with multi-level field access (e.g., `self.field.subfield`)
 
 ### ❌ Not Yet Implemented
-- **Traits**: `.implements()` and `.requires()`
 - **Generic functions and types**: `<T: Trait>`
 - **DynVec and Vec types**: Dynamic and static vectors
 - **Allocators**: For sync/async determination
@@ -64,10 +66,10 @@ All tests are in `tests/` with `zen_` prefix. Key working tests:
 cargo build --release
 
 # Run showcase of all working features
-./target/release/zen tests/zen_test_working_showcase.zen
+./target/release/zen tests/zen_test_language_spec_final_demo.zen
 
-# Validate against LANGUAGE_SPEC.zen
-./target/release/zen tests/zen_test_spec_final.zen
+# Run minimal spec test
+./target/release/zen tests/zen_test_spec_minimal.zen
 
 # Start REPL
 ./target/release/zen

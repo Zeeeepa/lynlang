@@ -107,12 +107,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // For 'self' parameter, use the implementing type
                 let actual_type = if param_name == "self" {
-                    // If param_type is Generic { name: "Self", ... }, replace with the concrete type
+                    // If param_type is Generic { name: "Self" or "Self_Type", ... }, replace with the concrete type
                     match param_type {
-                        crate::ast::AstType::Generic { name, .. } if name == "Self" => {
-                            crate::ast::AstType::Struct {
-                                name: type_name.clone(),
-                                fields: vec![], // Empty fields for type reference
+                        crate::ast::AstType::Generic { name, .. } if name == "Self" || name.starts_with("Self_") => {
+                            // Look up the actual struct fields from struct_types
+                            if let Some(struct_info) = self.struct_types.get(type_name) {
+                                // Build the proper struct type with fields
+                                let mut fields = Vec::new();
+                                for (field_name, (_index, field_type)) in &struct_info.fields {
+                                    fields.push((field_name.clone(), field_type.clone()));
+                                }
+                                crate::ast::AstType::Struct {
+                                    name: type_name.clone(),
+                                    fields,
+                                }
+                            } else {
+                                // Fallback if struct not found - shouldn't happen
+                                crate::ast::AstType::Struct {
+                                    name: type_name.clone(),
+                                    fields: vec![],
+                                }
                             }
                         }
                         _ => param_type.clone()
@@ -201,10 +215,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Also add to variables map for struct field access
                     // For 'self' parameter, it's a pointer to the implementing type
                     let actual_type = if param_name == "self" {
-                        crate::ast::AstType::Ptr(Box::new(crate::ast::AstType::Struct {
-                            name: type_name.clone(),
-                            fields: vec![], // Empty fields for type reference
-                        }))
+                        // Check if it's a Self type that needs resolution
+                        let needs_resolution = match param_type {
+                            crate::ast::AstType::Generic { name, .. } => name == "Self" || name.starts_with("Self_"),
+                            _ => false
+                        };
+                        
+                        if needs_resolution {
+                            // Look up the actual struct fields from struct_types
+                            let struct_type = if let Some(struct_info) = self.struct_types.get(type_name) {
+                                // Build the proper struct type with fields
+                                let mut fields = Vec::new();
+                                for (field_name, (_index, field_type)) in &struct_info.fields {
+                                    fields.push((field_name.clone(), field_type.clone()));
+                                }
+                                crate::ast::AstType::Struct {
+                                    name: type_name.clone(),
+                                    fields,
+                                }
+                            } else {
+                                // Fallback if struct not found - shouldn't happen
+                                crate::ast::AstType::Struct {
+                                    name: type_name.clone(),
+                                    fields: vec![],
+                                }
+                            };
+                            crate::ast::AstType::Ptr(Box::new(struct_type))
+                        } else {
+                            // Not a Self type, use the parameter type as-is
+                            param_type.clone()
+                        }
                     } else {
                         param_type.clone()
                     };
@@ -235,6 +275,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             // Clean up
             self.symbols.exit_scope();
+            self.variables.clear();  // Clear variables from this method before moving to next one
             self.current_function = prev_function;
             
             // Register the method in our behavior codegen

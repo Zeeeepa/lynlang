@@ -1,0 +1,86 @@
+// Test Geometric trait from LANGUAGE_SPEC.zen (lines 123-163)
+
+{ io, math } = @std
+
+// Trait definition - exactly as in spec line 123-127
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+// Simple Point struct - spec line 117-120
+Point: {
+    x:: f64,
+    y:: f64,
+}
+
+// Circle struct - spec line 130-133
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// Implement trait for Circle - spec lines 136-143
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+// Rectangle struct - spec lines 146-149
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+// Implement trait for Rectangle - spec lines 151-162
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    },
+})
+
+// Enum type - spec line 166
+Shape: Circle | Rectangle
+
+// Enforce all Shape variants must implement Geometric - spec line 168
+Shape.requires(Geometric)
+
+// Generic function with constraints - spec lines 185-187
+print_area<T: Geometric>(shape: T) void {
+    io.println("Area: ${shape.area()}")
+}
+
+main = () void {
+    // Create a circle
+    c = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 10.0,
+    }
+    
+    // Create a rectangle  
+    r = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        bottom_right: Point { x: 10.0, y: 5.0 },
+    }
+    
+    // Use trait methods
+    io.println("Circle area: ${c.area()}")
+    io.println("Circle perimeter: ${c.perimeter()}")
+    io.println("Rectangle area: ${r.area()}")
+    io.println("Rectangle perimeter: ${r.perimeter()}")
+    
+    // Use generic function (when implemented)
+    // print_area(c)
+    // print_area(r)
+}

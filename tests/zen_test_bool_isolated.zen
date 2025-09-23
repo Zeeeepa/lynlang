@@ -1,0 +1,18 @@
+// Test boolean patterns in isolation
+{ io } = @std
+
+main = () void {
+    io.println("Test 1:")
+    ready = true
+    ready ?
+        | true { io.println("Ready!") }
+        | false { io.println("Not ready") }
+    
+    io.println("Test 2:")
+    active = false
+    active ?
+        | true { io.println("Active") }
+        | false { io.println("Inactive") }
+        
+    io.println("Done")
+}

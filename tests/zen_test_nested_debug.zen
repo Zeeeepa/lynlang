@@ -1,0 +1,33 @@
+// Debug nested struct issue
+{ io } = @std
+
+Point: {
+    x: f64,
+    y: f64
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+main = () void {
+    // Create rectangle with explicit values
+    rect = Rectangle {
+        top_left: Point { x: 5.0, y: 3.0 },
+        bottom_right: Point { x: 20.0, y: 10.0 }
+    }
+    
+    // Test calculations without nested access
+    x1 = 5.0
+    y1 = 3.0  
+    x2 = 20.0
+    y2 = 10.0
+    
+    width = x2 - x1
+    height = y2 - y1
+    area = width * height
+    
+    io.println("Manual calc: width=${width}, height=${height}, area=${area}")
+    io.println("Expected: width=15, height=7, area=105")
+}

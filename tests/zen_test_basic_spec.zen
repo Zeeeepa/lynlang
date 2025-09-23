@@ -1,0 +1,39 @@
+// Basic test of core LANGUAGE_SPEC.zen features
+{ io } = @std
+
+// Type definitions
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+main = () void {
+    io.println("=== BASIC SPEC TEST ===")
+    
+    // Variable declarations
+    x = 10
+    y ::= 20
+    
+    io.println(x)
+    io.println(y)
+    
+    // Option
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { io.println(val) }
+        | None { io.println("None") }
+    
+    // Result  
+    res: Result<i32, string> = Ok(100)
+    res ?
+        | Ok(val) { io.println(val) }
+        | Err(msg) { io.println(msg) }
+    
+    // Range
+    (0..3).loop((i) {
+        io.println(i)
+    })
+    
+    // Defer
+    @this.defer(io.println("Cleanup"))
+    
+    io.println("Done")
+}
