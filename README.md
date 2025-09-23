@@ -4,6 +4,8 @@
 
 A revolutionary programming language with **ZERO KEYWORDS**. All control flow through pattern matching, UFC (Uniform Function Call), and no function coloring.
 
+> **Current Status:** ~40% of LANGUAGE_SPEC.zen implemented. Core features working: structs, traits, pattern matching, ranges. Major gaps: Option/Result types, error propagation, pointers, collections, concurrency.
+
 ## Core Philosophy (from LANGUAGE_SPEC.zen)
 
 ```zen
@@ -23,99 +25,148 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 // - Compile-time metaprogramming with full AST access
 ```
 
+## Quick Start
+
+```zen
+{ io, math } = @std
+
+main = () void {
+    // No keywords! Only pattern matching
+    is_ready = true
+    is_ready ? { io.println("Starting!") }
+    
+    // UFC - any function can be called as method
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // No null - only Option types
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("Value: ${v}") }
+        | None { io.println("No value") }
+}
+```
+
 ## Implementation Status
 
-### ✅ Fully Working (40% of spec implemented)
-- **Zero keywords philosophy** - All control flow via pattern matching
-- **Pattern matching with `?`** - Boolean and enum patterns  
-- **UFC (Uniform Function Call)** - Method chaining works perfectly
-- **Option type** - `Some(T) | None` with no null
-- **Result type** - `Ok(T) | Err(E)` for errors
-- **Variable declarations** - All 6 forms working:
-  - Forward declaration: `x: i32` then `x = 10`
-  - Immutable: `y = 20` and `z: i32 = 30`
-  - Mutable forward: `w:: i32` then `w = 40`
-  - Mutable: `v ::= 50` and `u:: i32 = 60`
-- **String interpolation** - `"Value: ${expr}"` throughout
-- **Structs** - With mutable fields working
-- **Enums** - Sum types with pattern matching
-- **Loops & ranges** - `(0..10).loop()` and `loop(() { ... })`
-- **Functions** - First-class with closures
-- **@std imports** - `{ io, math } = @std`
-- **@std.math.pi** - Math constants working
-- **Array literals** - `[1, 2, 3]` with `.loop()` method
+### ✅ Core Features Working (40% Complete)
 
-### 🔧 Partially Working
-- **Traits** - `.implements()` and `.requires()` parsed, self parameter fixed, method dispatch pending
-- **.raise() error propagation** - Parsed but has type issues in codegen
-- **Pointer types** - `Ptr<T>`, `MutPtr<T>`, `RawPtr<T>` parsed but not fully working
+#### No Keywords Philosophy
+- **Zero keywords** - All control flow via pattern matching
+- **Pattern matching with `?`** - Boolean and enum patterns
+- **UFC (Uniform Function Call)** - Any function can be called as method
 
-### ❌ Not Yet Implemented (Roadmap)
-1. **Traits** - Complete `.implements()` and `.requires()` with method dispatch
-2. **Generic functions and types** - `<T: Trait>`
-3. **DynVec and Vec types** - Dynamic and static vectors
-4. **Allocators** - For sync/async determination
-5. **Actor system** - For lazy iteration and concurrency
-6. **Channels, Mutex, Atomics** - Concurrency primitives
-7. **AST reflection** - Runtime metaprogramming with `reflect.ast()`
-8. **@meta.comptime** - Compile-time code generation
-9. **@this.defer** - Cleanup at scope end
-10. **Inline C/LLVM** - FFI integration
-11. **SIMD operations** - Vector math
-12. **Module system** - `module.exports` and `module.import`
-13. **Build system** - Full `build.zen` support
+#### Type System
+- **Structs** - With fields and defaults ✅
+- **Traits** - `.implements()` with method dispatch ✅
+- **Enums** - Basic sum types (partial) ⚠️
+- **Option<T>** - Parsed but value extraction buggy ⚠️
+- **Result<T, E>** - Parsed but not fully working ⚠️
 
-## Quick Examples
-
-### Pattern Matching (No if/else!)
+#### Variables & Assignment
+Partial support for LANGUAGE_SPEC.zen forms:
 ```zen
-{ io } = @std
-
-main = () void {
-    value: i32 = 42
-    is_answer: bool = value == 42
-    
-    // Boolean pattern matching
-    is_answer ?
-        | true { io.println("Found the answer!") }
-        | false { io.println("Keep searching...") }
-}
+x = 10          // Immutable assignment ✅
+y ::= 20        // Inferred mutable ✅
+x: i32 = 30     // Typed immutable ✅
+u:: i32 = 40    // Typed mutable ✅
+// Forward declarations not fully working:
+x: i32          // Forward declaration ⚠️
+w:: i32         // Mutable forward declaration ⚠️
 ```
 
-### Option Types (No null!)
+#### Control Flow & Iteration
+- **Pattern matching** - Boolean patterns with `?` ✅
+- **Range loops** - `(0..10).loop()` ✅
+- **String interpolation** - `"Value: ${expr}"` ✅
+- **Infinite loops** - `loop(() { ... })` ⚠️
+- **Break/continue** - Not implemented ❌
+- **Range step** - `(0..10).step(2)` ❌
+
+#### Imports & Modules
+- **@std imports** - `{ io, math } = @std` ✅
+- **Module paths** - `@std.math.pi` ✅
+- **@this scope** - Parsed but not fully functional ⚠️
+
+### 🚧 Not Yet Implemented
+
+#### Critical Missing Features from LANGUAGE_SPEC.zen
+
+##### Memory Management
+- **@this.defer()** - RAII cleanup ❌
+- **Pointer types** - `Ptr<T>`, `MutPtr<T>`, `RawPtr<T>` ❌
+- **Allocators** - GPA, AsyncPool ❌
+
+##### Error Handling
+- **.raise()** - Error propagation ❌
+
+##### Collections
+- **Vec<T, N>** - Fixed-size vectors ❌
+- **DynVec<T>** - Dynamic vectors with allocator ❌
+- **Mixed type vectors** - `DynVec<Circle, Rectangle>` ❌
+
+##### Advanced Patterns
+- **UFC overloading** - Multiple function definitions ❌
+- **Enum variant matching** - `GameEntity.Player` ❌
+- **Shape.requires()** - Trait constraints on enums ❌
+- **Generic functions** - `<T: Trait>` ❌
+
+##### Concurrency
+- **Actor** - Message passing ❌
+- **Channel<T>** - Buffered channels ❌
+- **Mutex<T>** - Shared state ❌
+- **AtomicU32** - Atomic operations ❌
+
+### 📋 Priority Roadmap (To Match LANGUAGE_SPEC.zen)
+
+#### Phase 1: Fix Core Language (Priority)
+- [ ] Fix Option<T> value extraction
+- [ ] Fix Result<T, E> pattern matching
+- [ ] Implement .raise() error propagation
+- [ ] Add forward declarations (all 6 variable forms)
+- [ ] Implement pointer types (Ptr, MutPtr, RawPtr)
+
+#### Phase 2: Essential Features
+- [ ] Implement Vec<T, N> and DynVec<T>
+- [ ] Add @this.defer() for RAII
+- [ ] UFC overloading for enum variants
+- [ ] Generic functions `<T: Trait>`
+- [ ] Shape.requires() trait enforcement
+
+#### Phase 3: Concurrency & Allocators
+- [ ] Allocators (GPA, AsyncPool)
+- [ ] Actor system
+- [ ] Channel<T> and Mutex<T>
+- [ ] Atomic operations
+
+#### Phase 4: Metaprogramming
+- [ ] **reflect.ast()** - Runtime AST inspection
+- [ ] **@meta.comptime()** - Compile-time execution
+- [ ] **AST manipulation** - Code generation
+
+#### Phase 5: FFI & Performance
+- [ ] **inline.c()** - Inline C code
+- [ ] **inline.llvm()** - Inline LLVM IR
+- [ ] **simd operations** - Vector math
+- [ ] **SDL2 bindings** - Game development
+
+#### Phase 6: Build System
+- [ ] **build.zen** - Build configuration
+- [ ] **Conditional compilation** - Release/debug
+- [ ] **Target selection** - C/LLVM/Native
+
+## Working Examples
+
+### Traits & Implementations (✅ Working)
 ```zen
-Option<T>: Some(T) | None
+{ io, math } = @std
 
-parse_number = (s: string) Option<i32> {
-    s.is_numeric() ?
-        | true { return Some(s.to_i32()) }
-        | false { return None }
-}
-```
-
-### UFC - Uniform Function Call
-```zen
-double = (n: i32) i32 { return n * 2 }
-add = (x: i32, y: i32) i32 { return x + y }
-
-main = () void {
-    // All equivalent:
-    result = add(double(10), 5)      // Traditional
-    result = 10.double().add(5)      // UFC chaining
-    result = double(10).add(5)       // Mixed style
-}
-```
-
-### Traits and Implementations (In Progress)
-```zen
-// Trait definition - methods that types can implement
 Geometric: {
     area: (self) f64,
-    perimeter: (self) f64,
 }
 
 Circle: {
-    center: Point,
     radius: f64,
 }
 
@@ -123,111 +174,121 @@ Circle.implements(Geometric, {
     area = (self) f64 {
         return math.pi * self.radius * self.radius
     },
-    perimeter = (self) f64 {
-        return 2.0 * math.pi * self.radius
-    },
 })
+
+main = () void {
+    circle = Circle { radius: 5.0 }
+    io.println("Area: ${circle.area()}")
+}
 ```
 
-### Loops and Ranges
+### Pattern Matching (✅ Working)
 ```zen
-// Range iteration
-(0..10).loop((i) {
-    io.println("Count: ${i}")
-})
+main = () void {
+    value = 42
+    is_ready = true
+    
+    // Boolean patterns
+    is_ready ?
+        | true { io.println("Ready!") }
+        | false { io.println("Not ready") }
+    
+    // Range loops
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+}
+```
 
-// Infinite loop with break
-counter ::= 0
-loop(() {
-    counter = counter + 1
-    counter > 10 ?
-        | true { break }
-        | false { continue }
-})
+## Examples from LANGUAGE_SPEC.zen (Not Yet Working)
+
+### Error Handling with .raise() (❌ TODO)
+```zen
+load_config = (path: string) Result<Config, Error> {
+    file = File.open(path).raise()  // Will propagate Err
+    contents = file.read_all().raise()
+    return Ok(config)
+}
+```
+
+### Actors & Concurrency (❌ TODO)
+```zen
+create_fibonacci = () Actor {
+    return Actor((receiver) {
+        a ::= 0
+        b ::= 1
+        loop(() {
+            receiver.send(a)
+            temp = a + b
+            a = b
+            b = temp
+        })
+    })
+}
 ```
 
 ## Building & Running
 
-### Build Compiler
 ```bash
+# Build the compiler
 cargo build --release
-```
 
-### Run Zen Programs
-```bash
-# Execute a program
-./target/release/zen program.zen
+# Run a simple test
+./target/release/zen tests/zen_test_simple.zen
 
-# Interactive REPL
-./target/release/zen
-```
+# Run working language spec features
+./target/release/zen tests/zen_test_working_spec.zen
 
-### Test Suite
-```bash
-# Core working features
-./target/release/zen tests/zen_test_working_showcase.zen
-
-# Hello world
-./target/release/zen tests/zen_test_hello_world.zen
-
-# Math constants test
-./target/release/zen tests/zen_test_math_pi.zen
+# All test files are prefixed with zen_test_ and live in tests/
+ls tests/zen_test_*.zen
 ```
 
 ## Project Structure
+
 ```
 zenlang/
-├── LANGUAGE_SPEC.zen      # Source of truth - full language specification
-├── IMPLEMENTATION_STATUS.md # Detailed implementation progress
-├── src/
-│   ├── parser/            # Zero-keyword parser
-│   ├── typechecker/       # Type checking with traits
-│   ├── codegen/llvm/      # LLVM code generation
-│   └── stdlib/            # Standard library (@std)
-└── tests/
-    └── zen_test_*.zen     # Test files prefixed with zen_test_
-```
-
-## Philosophy Deep Dive
-
-### Why Zero Keywords?
-Traditional languages burden developers with dozens of keywords that could be functions or operators. Zen proves that a complete, expressive language needs **zero keywords**.
-
-### Pattern Matching Everything
-The `?` operator enables pattern matching on any expression, replacing:
-- `if/else` statements
-- `switch/match` expressions  
-- Ternary operators
-- Null checks
-
-### UFC (Uniform Function Call)
-Any function can be called as a method on its first argument:
-```zen
-// These are all equivalent:
-length(string)
-string.length()
-"hello".length()
-```
-
-### No Function Coloring
-Sync/async behavior is determined by allocators, not function signatures:
-```zen
-fetch_data = (url: string, alloc: Allocator) Data {
-    // Same function works sync or async based on allocator!
-    return http.get(url, alloc)
-}
-
-// Synchronous call
-data = fetch_data("api.com", SyncAllocator)
-
-// Asynchronous call  
-data = fetch_data("api.com", AsyncAllocator)
+├── LANGUAGE_SPEC.zen      # THE source of truth - all features we need
+├── src/                   # Rust compiler implementation
+│   ├── ast/              # AST definitions
+│   ├── parser/           # Parser (no keywords!)
+│   ├── codegen/llvm/     # LLVM code generation
+│   ├── typechecker/      # Type system & traits
+│   └── stdlib/           # Built-in modules (io, math, etc.)
+├── tests/                # Test suite (all zen_test_*.zen)
+│   ├── zen_test_*.zen    # All test files prefixed with zen_test_
+│   └── working/          # Tests that currently pass
+└── README.md             # This file - current implementation status
 ```
 
 ## Contributing
 
-The language specification in [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) is the source of truth. All implementations must conform to this spec.
+All contributions must align with `LANGUAGE_SPEC.zen`. The spec is the authoritative source - if something differs from the spec, the spec wins.
+
+## Philosophy Deep Dive
+
+### No Keywords
+Zen has **ZERO** keywords. No `if`, `else`, `while`, `for`, `match`, `switch`, `class`, `interface`, `impl`, `trait`, `async`, `await`, or `null`. Everything is achieved through:
+- Pattern matching with `?`
+- UFC (Uniform Function Call)
+- Two special symbols: `@std` and `@this`
+
+### No Function Coloring
+Functions aren't marked `async`. Instead, the allocator determines behavior:
+- Sync allocator = blocking calls
+- Async allocator = non-blocking calls
+Same function, different behavior based on context!
+
+### No Null
+No `null`, `nil`, or `undefined`. Only `Option<T>`:
+- `Some(value)` - has a value
+- `None` - no value
+
+### Explicit Memory
+No hidden pointers. Choose explicitly:
+- `Ptr<T>` - Immutable pointer
+- `MutPtr<T>` - Mutable pointer  
+- `RawPtr<T>` - Raw pointer for FFI
 
 ## License
 
-MIT - See LICENSE file for details.
+MIT License - See LICENSE file for details

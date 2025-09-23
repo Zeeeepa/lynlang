@@ -199,12 +199,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     self.symbols.insert(param_name.clone(), super::symbols::Symbol::Variable(alloca));
                     
                     // Also add to variables map for struct field access
-                    // For 'self' parameter, use the implementing type
+                    // For 'self' parameter, it's a pointer to the implementing type
                     let actual_type = if param_name == "self" {
-                        crate::ast::AstType::Struct {
+                        crate::ast::AstType::Ptr(Box::new(crate::ast::AstType::Struct {
                             name: type_name.clone(),
                             fields: vec![], // Empty fields for type reference
-                        }
+                        }))
                     } else {
                         param_type.clone()
                     };
@@ -288,7 +288,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let mut compiled_args = Vec::new();
                 
                 // First argument is 'self' - the object
-                let self_value = self.compile_expression(object)?;
+                // We need to pass a pointer to the struct for self parameter
+                let self_value = match object {
+                    Expression::Identifier(name) => {
+                        // If it's an identifier, get the pointer from variables map
+                        if let Some(var_info) = self.variables.get(name) {
+                            var_info.pointer.into()
+                        } else {
+                            self.compile_expression(object)?
+                        }
+                    }
+                    _ => {
+                        // For other expressions, compile and store to get a pointer
+                        let value = self.compile_expression(object)?;
+                        let alloca = self.builder.build_alloca(value.get_type(), "self_temp")?;
+                        self.builder.build_store(alloca, value)?;
+                        alloca.into()
+                    }
+                };
                 compiled_args.push(self_value);
                 
                 // Compile remaining arguments
@@ -322,10 +339,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
     /// Helper to infer type name from an expression (simplified)
     fn infer_type_name(&self, expr: &Expression) -> Result<String, CompileError> {
         match expr {
-            Expression::Identifier(_name) => {
+            Expression::Identifier(name) => {
                 // Look up the variable's type in our type tracking
-                // This is simplified - real implementation would track types properly
-                Ok("UnknownType".to_string())
+                if let Some(var_info) = self.variables.get(name) {
+                    match &var_info.ast_type {
+                        crate::ast::AstType::Struct { name, .. } => Ok(name.clone()),
+                        _ => Ok("UnknownType".to_string()),
+                    }
+                } else {
+                    Ok("UnknownType".to_string())
+                }
             }
             Expression::StructLiteral { name, .. } => Ok(name.clone()),
             _ => Ok("UnknownType".to_string()),

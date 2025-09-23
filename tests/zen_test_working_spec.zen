@@ -1,0 +1,66 @@
+// Test what currently works from LANGUAGE_SPEC.zen
+{ io, math } = @std
+
+// Structs
+Point: {
+    x: f64,
+    y: f64
+}
+
+// Traits  
+Geometric: {
+    area: (self) f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+})
+
+main = () void {
+    io.println("=== Working LANGUAGE_SPEC Features ===")
+    
+    // Variable declarations (partial support)
+    x = 10
+    y ::= 20
+    io.println("Variables: x=${x}, y=${y}")
+    
+    // Mutable updates
+    y = 30
+    io.println("Updated y: ${y}")
+    
+    // Structs
+    point = Point { x: 1.0, y: 2.0 }
+    io.println("Point: (${point.x}, ${point.y})")
+    
+    // Traits
+    circle = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    area = circle.area()
+    io.println("Circle area: ${area}")
+    
+    // Pattern matching
+    flag = true
+    flag ?
+        | true { io.println("Pattern match: true") }
+        | false { io.println("Pattern match: false") }
+    
+    // Ranges and loops
+    io.println("Range loop:")
+    (0..3).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Math constants
+    io.println("Math.pi = ${math.pi}")
+    
+    io.println("=== Complete ===")
+}

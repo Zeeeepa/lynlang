@@ -1,0 +1,65 @@
+// Simple comprehensive test of LANGUAGE_SPEC.zen features
+
+{ io, math } = @std
+
+// Test traits
+Point: {
+    x: f64,
+    y: f64,
+}
+
+Geometric: {
+    area: (self) f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+})
+
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Feature Test ===")
+    
+    // 1. Variables - all 6 forms
+    x: i32
+    x = 10
+    y = 20
+    z: i32 = 30
+    w:: i32
+    w = 40
+    v ::= 50
+    u:: i32 = 60
+    io.println("Variables: x=${x}, y=${y}, z=${z}, w=${w}, v=${v}, u=${u}")
+    
+    // 2. Pattern matching (no if/else)
+    is_ready = true
+    is_ready ?
+        | true { io.println("Pattern match: Ready!") }
+        | false { io.println("Pattern match: Not ready") }
+    
+    // 3. Traits
+    circle = Circle { 
+        center: Point { x: 0.0, y: 0.0 }, 
+        radius: 5.0 
+    }
+    io.println("Trait method: Circle area = ${circle.area()}")
+    
+    // 4. Loops and ranges
+    io.println("Range loop:")
+    (0..3).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // 5. String interpolation
+    lang = "Zen"
+    version = 1.0
+    io.println("String interpolation: ${lang} v${version}")
+    
+    io.println("=== All Tests Complete ===")
+}

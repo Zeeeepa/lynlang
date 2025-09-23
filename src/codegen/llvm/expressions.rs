@@ -215,6 +215,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(object_value);
                 }
                 
+                // Try trait method resolution first
+                if let Ok(result) = self.compile_method_call(object, method, args) {
+                    return Ok(result);
+                }
+                
                 // For regular UFC calls, prepend object to arguments
                 let mut ufc_args = vec![*object.clone()];
                 ufc_args.extend(args.clone());

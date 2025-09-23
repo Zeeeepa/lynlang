@@ -1,0 +1,307 @@
+// Comprehensive test of LANGUAGE_SPEC.zen features
+// This test demonstrates all implemented features from the spec
+
+{ io, math } = @std
+
+// ============================================================================
+// 1. NO KEYWORDS - All control flow via pattern matching
+// ============================================================================
+
+test_no_keywords = () void {
+    io.println("\n1. NO KEYWORDS TEST:")
+    
+    // No if/else - use pattern matching
+    value = 42
+    is_answer = value == 42
+    
+    is_answer ?
+        | true { io.println("  Found the answer to life!") }
+        | false { io.println("  Keep searching...") }
+}
+
+// ============================================================================
+// 2. ONLY TWO @ SYMBOLS - @std and @this
+// ============================================================================
+
+test_at_symbols = () void {
+    io.println("\n2. @ SYMBOLS TEST:")
+    io.println("  Using @std for imports: math.pi = ${math.pi}")
+    // @this would be used for defer, but not yet implemented
+}
+
+// ============================================================================
+// 3. OPTION TYPES - No null/nil
+// ============================================================================
+
+Option<T>: Some(T) | None
+
+test_option_types = () void {
+    io.println("\n3. OPTION TYPES TEST:")
+    
+    maybe_value: Option<i32> = Some(100)
+    maybe_value ?
+        | Some(v) { io.println("  Found value: ${v}") }
+        | None { io.println("  No value present") }
+    
+    empty: Option<f64> = None
+    empty ?
+        | Some(v) { io.println("  Unexpected: ${v}") }
+        | None { io.println("  Empty as expected") }
+}
+
+// ============================================================================
+// 4. RESULT TYPES - Error handling without exceptions
+// ============================================================================
+
+Result<T, E>: Ok(T) | Err(E)
+
+divide = (a: f64, b: f64) Result<f64, string> {
+    b == 0.0 ?
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
+}
+
+test_result_types = () void {
+    io.println("\n4. RESULT TYPES TEST:")
+    
+    result1 = divide(10.0, 2.0)
+    result1 ?
+        | Ok(v) { io.println("  10 / 2 = ${v}") }
+        | Err(e) { io.println("  Error: ${e}") }
+    
+    result2 = divide(10.0, 0.0)
+    result2 ?
+        | Ok(v) { io.println("  Unexpected: ${v}") }
+        | Err(e) { io.println("  Error caught: ${e}") }
+}
+
+// ============================================================================
+// 5. VARIABLE DECLARATIONS - All 6 forms
+// ============================================================================
+
+test_variables = () void {
+    io.println("\n5. VARIABLE DECLARATIONS TEST:")
+    
+    // Forward declaration then assignment
+    x: i32
+    x = 10
+    io.println("  Forward declared x = ${x}")
+    
+    // Immutable assignment
+    y = 20
+    io.println("  Immutable y = ${y}")
+    
+    // Immutable with type
+    z: i32 = 30
+    io.println("  Typed immutable z = ${z}")
+    
+    // Mutable forward declaration
+    w:: i32
+    w = 40
+    w = w + 5
+    io.println("  Mutable forward w = ${w}")
+    
+    // Mutable assignment
+    v ::= 50
+    v = v + 10
+    io.println("  Mutable v = ${v}")
+    
+    // Mutable with type
+    u:: i32 = 60
+    u = u + 15
+    io.println("  Typed mutable u = ${u}")
+}
+
+// ============================================================================
+// 6. STRUCTS AND ENUMS
+// ============================================================================
+
+Point: {
+    x: f64,
+    y: f64,
+}
+
+Shape: Circle | Rectangle
+
+test_structs_enums = () void {
+    io.println("\n6. STRUCTS AND ENUMS TEST:")
+    
+    p = Point { x: 3.0, y: 4.0 }
+    io.println("  Point: (${p.x}, ${p.y})")
+    
+    shape: Shape = Circle
+    shape ?
+        | Circle { io.println("  Shape is a Circle") }
+        | Rectangle { io.println("  Shape is a Rectangle") }
+}
+
+// ============================================================================
+// 7. TRAITS WITH .implements()
+// ============================================================================
+
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    },
+})
+
+test_traits = () void {
+    io.println("\n7. TRAITS TEST:")
+    
+    circle = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    io.println("  Circle area: ${circle.area()}")
+    io.println("  Circle perimeter: ${circle.perimeter()}")
+    
+    rect = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        bottom_right: Point { x: 10.0, y: 5.0 }
+    }
+    io.println("  Rectangle area: ${rect.area()}")
+    io.println("  Rectangle perimeter: ${rect.perimeter()}")
+}
+
+// ============================================================================
+// 8. UFC (Uniform Function Call)
+// ============================================================================
+
+double = (n: i32) i32 {
+    return n * 2
+}
+
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+test_ufc = () void {
+    io.println("\n8. UFC TEST:")
+    
+    // All these are equivalent
+    result1 = add(double(5), 3)
+    io.println("  Traditional: add(double(5), 3) = ${result1}")
+    
+    result2 = 5.double().add(3)
+    io.println("  UFC chaining: 5.double().add(3) = ${result2}")
+}
+
+// ============================================================================
+// 9. LOOPS AND RANGES
+// ============================================================================
+
+test_loops = () void {
+    io.println("\n9. LOOPS AND RANGES TEST:")
+    
+    io.println("  Range (0..5):")
+    (0..5).loop((i) {
+        io.println("    ${i}")
+    })
+    
+    io.println("  Loop with break:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("    ${counter}")
+        counter >= 3 ? { break }
+    })
+}
+
+// ============================================================================
+// 10. STRING INTERPOLATION
+// ============================================================================
+
+test_string_interpolation = () void {
+    io.println("\n10. STRING INTERPOLATION TEST:")
+    
+    name = "Zen"
+    version = 1.0
+    io.println("  Language: ${name} v${version}")
+    
+    x = 10
+    y = 20
+    io.println("  ${x} + ${y} = ${x + y}")
+}
+
+// ============================================================================
+// 11. PATTERN MATCHING WITH ?
+// ============================================================================
+
+test_pattern_matching = () void {
+    io.println("\n11. PATTERN MATCHING TEST:")
+    
+    // Simple boolean pattern
+    is_ready = true
+    is_ready ? {
+        io.println("  System is ready!")
+    }
+    
+    // Full boolean pattern
+    has_data = false
+    has_data ?
+        | true { io.println("  Processing data...") }
+        | false { io.println("  Waiting for data...") }
+    
+    // Enum pattern matching
+    result: Result<i32, string> = Ok(42)
+    result ?
+        | Ok(v) { io.println("  Success with value: ${v}") }
+        | Err(e) { io.println("  Failed with: ${e}") }
+}
+
+// ============================================================================
+// MAIN - Run all tests
+// ============================================================================
+
+main = () void {
+    io.println("========================================")
+    io.println("LANGUAGE_SPEC.zen Comprehensive Test")
+    io.println("========================================")
+    
+    test_no_keywords()
+    test_at_symbols()
+    test_option_types()
+    test_result_types()
+    test_variables()
+    test_structs_enums()
+    test_traits()
+    test_ufc()
+    test_loops()
+    test_string_interpolation()
+    test_pattern_matching()
+    
+    io.println("\n========================================")
+    io.println("All Tests Complete!")
+    io.println("========================================")
+}

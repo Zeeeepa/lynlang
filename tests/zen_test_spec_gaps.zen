@@ -1,0 +1,80 @@
+// Test to identify gaps between LANGUAGE_SPEC.zen and current implementation
+{ io, math } = @std
+
+// Features that SHOULD work according to spec:
+
+// 1. Structs with mutable fields
+Point: {
+    x:: f64,  // mutable field
+    y:: f64   // mutable field  
+}
+
+// 2. Simple trait definition
+Geometric: {
+    area: (self) f64,
+}
+
+// 3. Struct with trait implementation
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+})
+
+main = () void {
+    io.println("=== Testing LANGUAGE_SPEC.zen Features ===")
+    
+    // Test 1: All variable forms from spec
+    x: i32          // forward declaration
+    x = 10          // immutable assignment
+    y = 20          // immutable with inference
+    z: i32 = 30     // immutable with type
+    w:: i32         // mutable forward declaration
+    w = 40          // assignment
+    v ::= 50        // mutable with inference
+    u:: i32 = 60    // mutable with type
+    
+    io.println("Variables work: x=${x}, y=${y}, z=${z}")
+    io.println("Mutable vars: w=${w}, v=${v}, u=${u}")
+    
+    // Test 2: Mutable field updates
+    point ::= Point { x: 1.0, y: 2.0 }
+    io.println("Initial point: (${point.x}, ${point.y})")
+    point.x = 3.0  // Should work with :: fields
+    point.y = 4.0
+    io.println("Updated point: (${point.x}, ${point.y})")
+    
+    // Test 3: Trait methods
+    circle = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    area = circle.area()
+    io.println("Circle area via trait: ${area}")
+    
+    // Test 4: Pattern matching without default
+    value = 42
+    is_even = (value % 2) == 0
+    is_even ?
+        | true { io.println("${value} is even") }
+        | false { io.println("${value} is odd") }
+    
+    // Test 5: Range (step not implemented yet)
+    io.println("Range loop:")
+    (0..5).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Test 6: Mutating variables
+    counter ::= 0
+    counter = counter + 1
+    counter = counter + 1  
+    io.println("Mutable counter: ${counter}")
+    
+    io.println("=== Tests Complete ===")
+}

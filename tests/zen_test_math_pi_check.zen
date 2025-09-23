@@ -1,0 +1,10 @@
+// Test math.pi value
+{ io, math } = @std
+
+main = () void {
+    io.println("math.pi = ${math.pi}")
+    
+    radius = 5.0
+    area = math.pi * radius * radius
+    io.println("Area with radius 5.0 = ${area}")
+}
