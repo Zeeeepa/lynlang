@@ -1,0 +1,213 @@
+// Test HashMap and HashSet collections
+{ io, HashMap, HashSet } = @std
+
+// Simple hash function for strings
+string_hash = (s: string) u64 {
+    hash := 5381u64
+    i := 0
+    loop {
+        i >= s.len() ? { break }
+        hash = ((hash << 5) + hash) + s.char_at(i) as u64
+        i = i + 1
+    }
+    return hash
+}
+
+// Simple hash function for i32
+i32_hash = (n: i32) u64 {
+    return n as u64 * 2654435761u64
+}
+
+// Equality function for strings
+string_eq = (a: string, b: string) bool {
+    return a == b
+}
+
+// Equality function for i32
+i32_eq = (a: i32, b: i32) bool {
+    return a == b
+}
+
+test_hashmap = () void {
+    io.println("═══════════════════════════════════════")
+    io.println("         Testing HashMap<K, V>         ")
+    io.println("═══════════════════════════════════════")
+    
+    // Create HashMap<string, i32>
+    map := HashMap<string, i32>.new()
+    
+    // Insert key-value pairs
+    io.println("\n▸ Inserting key-value pairs:")
+    map.insert("Alice", 25, string_hash, string_eq)
+    map.insert("Bob", 30, string_hash, string_eq)
+    map.insert("Charlie", 35, string_hash, string_eq)
+    io.println("  Added: Alice->25, Bob->30, Charlie->35")
+    
+    // Get values
+    io.println("\n▸ Retrieving values:")
+    alice_age := map.get("Alice", string_hash, string_eq)
+    alice_age ?
+        | .Some(age) { io.println("  Alice's age: ${age}") }
+        | .None { io.println("  Alice not found") }
+    
+    bob_age := map.get("Bob", string_hash, string_eq)
+    bob_age ?
+        | .Some(age) { io.println("  Bob's age: ${age}") }
+        | .None { io.println("  Bob not found") }
+    
+    // Check existence
+    io.println("\n▸ Checking existence:")
+    has_charlie := map.contains("Charlie", string_hash, string_eq)
+    io.println("  Has Charlie: ${has_charlie}")
+    
+    has_david := map.contains("David", string_hash, string_eq)
+    io.println("  Has David: ${has_david}")
+    
+    // Map size
+    io.println("\n▸ Map statistics:")
+    io.println("  Size: ${map.len()}")
+    io.println("  Is empty: ${map.is_empty()}")
+    
+    // Update value
+    io.println("\n▸ Updating values:")
+    old_value := map.insert("Alice", 26, string_hash, string_eq)
+    io.println("  Updated Alice's age from 25 to 26")
+    
+    // Remove entry
+    io.println("\n▸ Removing entries:")
+    removed := map.remove("Bob", string_hash, string_eq)
+    removed ?
+        | .Some(age) { io.println("  Removed Bob (age was ${age})") }
+        | .None { io.println("  Bob not found for removal") }
+    
+    io.println("  New size: ${map.len()}")
+}
+
+test_hashset = () void {
+    io.println("\n═══════════════════════════════════════")
+    io.println("          Testing HashSet<T>           ")
+    io.println("═══════════════════════════════════════")
+    
+    // Create HashSet<i32>
+    set1 := HashSet<i32>.new(i32_hash, i32_eq)
+    set2 := HashSet<i32>.new(i32_hash, i32_eq)
+    
+    // Add elements
+    io.println("\n▸ Building sets:")
+    set1.add(1)
+    set1.add(2)
+    set1.add(3)
+    set1.add(4)
+    io.println("  Set1: {1, 2, 3, 4}")
+    
+    set2.add(3)
+    set2.add(4)
+    set2.add(5)
+    set2.add(6)
+    io.println("  Set2: {3, 4, 5, 6}")
+    
+    // Check containment
+    io.println("\n▸ Element checking:")
+    io.println("  Set1 contains 2: ${set1.contains(2)}")
+    io.println("  Set1 contains 5: ${set1.contains(5)}")
+    io.println("  Set2 contains 5: ${set2.contains(5)}")
+    
+    // Set operations
+    io.println("\n▸ Set operations:")
+    
+    // Union
+    union := set1.union(set2)
+    io.println("  Union size: ${union.len()}")  // Should be 6
+    
+    // Intersection
+    intersection := set1.intersection(set2)
+    io.println("  Intersection size: ${intersection.len()}")  // Should be 2
+    
+    // Difference
+    diff := set1.difference(set2)
+    io.println("  Set1 - Set2 size: ${diff.len()}")  // Should be 2
+    
+    // Symmetric difference
+    sym_diff := set1.symmetric_difference(set2)
+    io.println("  Symmetric diff size: ${sym_diff.len()}")  // Should be 4
+    
+    // Subset/superset checks
+    io.println("\n▸ Subset/Superset checks:")
+    set3 := HashSet<i32>.new(i32_hash, i32_eq)
+    set3.add(1)
+    set3.add(2)
+    
+    is_subset := set3.is_subset(set1)
+    io.println("  {1, 2} subset of Set1: ${is_subset}")
+    
+    is_superset := set1.is_superset(set3)
+    io.println("  Set1 superset of {1, 2}: ${is_superset}")
+    
+    // Disjoint check
+    set4 := HashSet<i32>.new(i32_hash, i32_eq)
+    set4.add(7)
+    set4.add(8)
+    
+    is_disjoint := set1.is_disjoint(set4)
+    io.println("  Set1 disjoint with {7, 8}: ${is_disjoint}")
+    
+    // Remove element
+    io.println("\n▸ Removing elements:")
+    removed := set1.remove(2)
+    io.println("  Removed 2 from Set1: ${removed}")
+    io.println("  Set1 new size: ${set1.len()}")
+}
+
+test_string_set = () void {
+    io.println("\n═══════════════════════════════════════")
+    io.println("      Testing HashSet<string>          ")
+    io.println("═══════════════════════════════════════")
+    
+    // Create HashSet for strings
+    languages := HashSet<string>.new(string_hash, string_eq)
+    
+    io.println("\n▸ Adding programming languages:")
+    languages.add("Zen")
+    languages.add("Rust")
+    languages.add("Python")
+    languages.add("JavaScript")
+    
+    // Try adding duplicate
+    added := languages.add("Zen")
+    io.println("  Added 'Zen' again: ${added}")  // Should be false
+    
+    io.println("  Total languages: ${languages.len()}")
+    
+    // Check membership
+    io.println("\n▸ Language checks:")
+    io.println("  Has 'Zen': ${languages.contains("Zen")}")
+    io.println("  Has 'Java': ${languages.contains("Java")}")
+    io.println("  Has 'Rust': ${languages.contains("Rust")}")
+    
+    // Create another set
+    functional := HashSet<string>.new(string_hash, string_eq)
+    functional.add("Haskell")
+    functional.add("OCaml")
+    functional.add("Zen")
+    functional.add("Rust")
+    
+    // Find common languages
+    common := languages.intersection(functional)
+    io.println("\n▸ Common functional languages: ${common.len()} found")
+}
+
+main = () i32 {
+    io.println("╔═══════════════════════════════════════╗")
+    io.println("║   ZEN COLLECTIONS TEST SUITE          ║")
+    io.println("╚═══════════════════════════════════════╝")
+    
+    test_hashmap()
+    test_hashset()
+    test_string_set()
+    
+    io.println("\n╔═══════════════════════════════════════╗")
+    io.println("║   ALL TESTS COMPLETED                 ║")
+    io.println("╚═══════════════════════════════════════╝")
+    
+    return 0
+}

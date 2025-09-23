@@ -1,0 +1,198 @@
+// Test error propagation patterns in Zen
+{ io, Result, Error } = @std
+
+// Example file operations that can fail
+FileError:
+    NotFound
+    | PermissionDenied  
+    | IOError
+
+// Mock file read that returns Result
+read_file = (path: string) Result<string, FileError> {
+    // Simulate different file scenarios
+    path == "valid.txt" ? {
+        return Result.Ok("File contents here")
+    }
+    path == "missing.txt" ? {
+        return Result.Err(FileError.NotFound)
+    }
+    path == "protected.txt" ? {
+        return Result.Err(FileError.PermissionDenied)
+    }
+    return Result.Err(FileError.IOError)
+}
+
+// Parse configuration from string
+parse_config = (content: string) Result<i32, string> {
+    content == "File contents here" ? {
+        return Result.Ok(42)
+    }
+    return Result.Err("Invalid config format")
+}
+
+// Manual error propagation (current approach)
+load_config_manual = (path: string) Result<i32, string> {
+    io.println("Loading config manually from: ${path}")
+    
+    // Read file with explicit error handling
+    file_result := read_file(path)
+    file_result ?
+        | .Ok(content) {
+            io.println("  File read successfully")
+            // Parse the content
+            parse_result := parse_config(content)
+            parse_result ?
+                | .Ok(value) {
+                    io.println("  Config parsed: ${value}")
+                    return Result.Ok(value)
+                }
+                | .Err(error) {
+                    io.println("  Parse error: ${error}")
+                    return Result.Err(error)
+                }
+        }
+        | .Err(error) {
+            error_msg := error ?
+                | .NotFound { "File not found" }
+                | .PermissionDenied { "Permission denied" }
+                | .IOError { "IO error occurred" }
+            io.println("  File error: ${error_msg}")
+            return Result.Err(error_msg)
+        }
+}
+
+// Simulated .raise() approach (what it would look like with compiler support)
+// This demonstrates the intended usage pattern
+load_config_with_raise_simulation = (path: string) Result<i32, string> {
+    io.println("Loading config with raise simulation from: ${path}")
+    
+    // This simulates what .raise() would do:
+    // file_content := read_file(path).raise()  // Would return early on error
+    // config := parse_config(file_content).raise()  // Would return early on error
+    // return Result.Ok(config)
+    
+    // For now, we use the propagate helper
+    file_result := read_file(path)
+    file_result ?
+        | .Ok(content) {
+            io.println("  File read successfully")
+            return parse_config(content)
+        }
+        | .Err(error) {
+            error_msg := error ?
+                | .NotFound { "File not found" }
+                | .PermissionDenied { "Permission denied" }
+                | .IOError { "IO error occurred" }
+            io.println("  File error: ${error_msg}")
+            return Result.Err(error_msg)
+        }
+}
+
+// Chain multiple operations using combinators
+process_files = (paths: Array<string>) Result<i32, string> {
+    io.println("Processing multiple files")
+    
+    total := 0
+    i := 0
+    loop {
+        i >= paths.len() ? { break }
+        
+        config_result := load_config_manual(paths[i])
+        config_result ?
+            | .Ok(value) {
+                total = total + value
+                i = i + 1
+            }
+            | .Err(error) {
+                return Result.Err("Failed processing file ${i}: ${error}")
+            }
+    }
+    
+    return Result.Ok(total)
+}
+
+// Test the Result methods
+test_result_methods = () void {
+    io.println("\n▶ Testing Result methods:")
+    
+    ok_result := Result<i32, string>.Ok(10)
+    err_result := Result<i32, string>.Err("Something went wrong")
+    
+    // Test is_ok and is_err
+    io.println("  OK result is_ok: ${ok_result.is_ok()}")
+    io.println("  OK result is_err: ${ok_result.is_err()}")
+    io.println("  Err result is_ok: ${err_result.is_ok()}")
+    io.println("  Err result is_err: ${err_result.is_err()}")
+    
+    // Test unwrap_or
+    io.println("  OK unwrap_or(0): ${ok_result.unwrap_or(0)}")
+    io.println("  Err unwrap_or(0): ${err_result.unwrap_or(0)}")
+    
+    // Test map
+    doubled := ok_result.map((x) => x * 2)
+    doubled ?
+        | .Ok(val) { io.println("  Mapped OK value: ${val}") }
+        | .Err(_) { io.println("  Unexpected error") }
+    
+    // Test and_then (flatMap)
+    chained := ok_result.and_then((x) => Result<i32, string>.Ok(x + 5))
+    chained ?
+        | .Ok(val) { io.println("  Chained OK value: ${val}") }
+        | .Err(_) { io.println("  Unexpected error") }
+}
+
+main = () i32 {
+    io.println("╔════════════════════════════════════════╗")
+    io.println("║   ERROR PROPAGATION TEST SUITE        ║")
+    io.println("╚════════════════════════════════════════╝")
+    
+    // Test manual error handling
+    io.println("\n▶ Testing manual error propagation:")
+    
+    result1 := load_config_manual("valid.txt")
+    result1 ?
+        | .Ok(value) { io.println("✓ Success: got value ${value}") }
+        | .Err(error) { io.println("✗ Error: ${error}") }
+    
+    result2 := load_config_manual("missing.txt")
+    result2 ?
+        | .Ok(value) { io.println("✓ Success: got value ${value}") }
+        | .Err(error) { io.println("✗ Error: ${error}") }
+    
+    // Test simulated raise approach
+    io.println("\n▶ Testing raise simulation:")
+    
+    result3 := load_config_with_raise_simulation("valid.txt")
+    result3 ?
+        | .Ok(value) { io.println("✓ Success: got value ${value}") }
+        | .Err(error) { io.println("✗ Error: ${error}") }
+    
+    result4 := load_config_with_raise_simulation("protected.txt")
+    result4 ?
+        | .Ok(value) { io.println("✓ Success: got value ${value}") }
+        | .Err(error) { io.println("✗ Error: ${error}") }
+    
+    // Test processing multiple files
+    io.println("\n▶ Testing batch processing:")
+    
+    files := ["valid.txt", "valid.txt", "valid.txt"]
+    batch_result := process_files(files)
+    batch_result ?
+        | .Ok(total) { io.println("✓ Batch success: total = ${total}") }
+        | .Err(error) { io.println("✗ Batch error: ${error}") }
+    
+    files_with_error := ["valid.txt", "missing.txt", "valid.txt"]
+    batch_error := process_files(files_with_error)
+    batch_error ?
+        | .Ok(total) { io.println("✓ Batch success: total = ${total}") }
+        | .Err(error) { io.println("✗ Batch error: ${error}") }
+    
+    // Test Result methods
+    test_result_methods()
+    
+    io.println("\n╔════════════════════════════════════════╗")
+    io.println("║   ALL TESTS COMPLETED                 ║")
+    io.println("╚════════════════════════════════════════╝")
+    
+    return 0
+}

@@ -1,0 +1,33 @@
+// Very simple Result type test  
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing basic Result patterns")
+    
+    // Test Ok variant
+    ok_value = 42
+    io.println("Ok value: ${ok_value}")
+    
+    // Test conditional result
+    x = 10
+    is_positive = x > 0
+    is_positive ?
+        | true { io.println("${x} is positive") }
+        | false { io.println("${x} is not positive") }
+    
+    // Test nested conditions  
+    y = 5
+    z = 3
+    
+    y > z ?
+        | true {
+            diff = y - z
+            io.println("${y} > ${z}, difference is ${diff}")
+        }
+        | false {
+            io.println("${y} <= ${z}")
+        }
+    
+    io.println("Test complete!")
+    return 0
+}

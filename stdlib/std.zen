@@ -4,6 +4,8 @@
 // Core types
 { Option, Some, None } = import("core/option.zen")
 { Result, Ok, Err } = import("core/result.zen")
+{ propagate, chain_results, validate_and_transform } = import("core/propagate.zen")
+{ Error, new_error, new_error_with_source, format_error, print_error } = import("error.zen")
 
 // Collections - all from collections/ directory  
 { Vec, DynVec } = import("vec.zen")
@@ -39,6 +41,8 @@ module.exports = {
     // Core
     Option, Some, None,
     Result, Ok, Err,
+    propagate, chain_results, validate_and_transform,
+    Error, new_error, new_error_with_source, format_error, print_error,
     
     // Collections
     Vec, DynVec,

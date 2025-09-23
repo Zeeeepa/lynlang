@@ -1,0 +1,76 @@
+// Error propagation extension for Result type
+// Provides .raise() method for early return on errors
+
+{ Result, Error } = @std
+
+// Extension methods for Result to support error propagation
+Result<T, E>.raise = (self: Result<T, E>) T {
+    // When called, this method should:
+    // 1. If self is Ok, return the unwrapped value
+    // 2. If self is Err, propagate the error up (early return)
+    //
+    // NOTE: This requires compiler support for the actual propagation
+    // Currently this is a placeholder that will work with explicit handling
+    
+    self ?
+        | .Ok(value) { return value }
+        | .Err(error) { 
+            // This should trigger early return with Err(error) 
+            // in the calling function. Requires compiler magic.
+            // For now, we'll panic to indicate the error
+            @std.io.eprint("[ERROR] .raise() called on Err value: ")
+            @std.io.eprintln(error)
+            @std.core.exit(1)
+        }
+}
+
+// Alternative propagation helper that returns Result
+// This can be used until compiler support is added
+Result<T, E>.propagate = (self: Result<T, E>, handler: (T) Result<U, E>) Result<U, E> {
+    self ?
+        | .Ok(value) { return handler(value) }
+        | .Err(error) { return Result<U, E>.Err(error) }
+}
+
+// Try block emulation - run function and convert panic to error
+try_catch<T> = (f: () T) Result<T, Error> {
+    // This would need runtime support to catch panics
+    // For now, just execute and assume success
+    value := f()
+    return Result<T, Error>.Ok(value)
+}
+
+// Chain multiple operations that can fail
+chain_results<T, E> = (operations: Array<() Result<T, E>>) Result<Array<T>, E> {
+    results := Array<T>.new(operations.len())
+    i := 0
+    loop {
+        i >= operations.len() ? { break }
+        op_result := operations[i]()
+        op_result ?
+            | .Ok(value) { 
+                results[i] = value
+                i = i + 1
+            }
+            | .Err(error) { return Result<Array<T>, E>.Err(error) }
+    }
+    return Result<Array<T>, E>.Ok(results)
+}
+
+// Validate and transform a value
+validate_and_transform<T, U, E> = (
+    value: T, 
+    validator: (T) Result<bool, E>,
+    transformer: (T) U
+) Result<U, E> {
+    validation := validator(value)
+    validation ?
+        | .Ok(is_valid) {
+            is_valid ? {
+                return Result<U, E>.Ok(transformer(value))
+            }
+            // Create a generic validation error
+            return Result<U, E>.Err(@std.error.new_error("Validation failed", 100))
+        }
+        | .Err(error) { return Result<U, E>.Err(error) }
+}
