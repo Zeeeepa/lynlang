@@ -136,8 +136,8 @@ impl<'a> Parser<'a> {
                 let value = value.clone();
                 self.next_token();
                 
-                // Check if the string contains interpolation syntax
-                if value.contains("${") {
+                // Check if the string contains interpolation markers
+                if value.contains('\x01') {
                     self.parse_interpolated_string(value)
                 } else {
                     Ok(Expression::String(value))
@@ -384,6 +384,13 @@ impl<'a> Parser<'a> {
                     Expression::StdReference
                 } else if name == "@this" {
                     Expression::ThisReference
+                } else if name == "None" {
+                    // Handle None without parentheses
+                    Expression::EnumVariant {
+                        enum_name: "Option".to_string(),
+                        variant: "None".to_string(),
+                        payload: None,
+                    }
                 } else {
                     Expression::Identifier(name)
                 };
@@ -693,9 +700,64 @@ impl<'a> Parser<'a> {
         }
         self.next_token(); // consume ')'
         
-        let mut expr = Expression::FunctionCall {
-            name: function_name,
-            args: arguments,
+        // Check if this is an enum constructor (Some, None, Ok, Err)
+        let mut expr = match function_name.as_str() {
+            "Some" => {
+                if arguments.len() != 1 {
+                    return Err(CompileError::SyntaxError(
+                        "Some constructor expects exactly one argument".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                Expression::EnumVariant {
+                    enum_name: "Option".to_string(),
+                    variant: "Some".to_string(),
+                    payload: Some(Box::new(arguments.into_iter().next().unwrap())),
+                }
+            }
+            "None" => {
+                if !arguments.is_empty() {
+                    return Err(CompileError::SyntaxError(
+                        "None constructor expects no arguments".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                Expression::EnumVariant {
+                    enum_name: "Option".to_string(),
+                    variant: "None".to_string(),
+                    payload: None,
+                }
+            }
+            "Ok" => {
+                if arguments.len() != 1 {
+                    return Err(CompileError::SyntaxError(
+                        "Ok constructor expects exactly one argument".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                Expression::EnumVariant {
+                    enum_name: "Result".to_string(),
+                    variant: "Ok".to_string(),
+                    payload: Some(Box::new(arguments.into_iter().next().unwrap())),
+                }
+            }
+            "Err" => {
+                if arguments.len() != 1 {
+                    return Err(CompileError::SyntaxError(
+                        "Err constructor expects exactly one argument".to_string(),
+                        Some(self.current_span.clone()),
+                    ));
+                }
+                Expression::EnumVariant {
+                    enum_name: "Result".to_string(),
+                    variant: "Err".to_string(),
+                    payload: Some(Box::new(arguments.into_iter().next().unwrap())),
+                }
+            }
+            _ => Expression::FunctionCall {
+                name: function_name,
+                args: arguments,
+            }
         };
         
         // Continue parsing method chaining after function call
@@ -1361,9 +1423,8 @@ impl<'a> Parser<'a> {
         let mut chars = input.chars().peekable();
         
         while let Some(ch) = chars.next() {
-            if ch == '$' && chars.peek() == Some(&'{') {
-                // Found interpolation start
-                chars.next(); // consume '{'
+            if ch == '\x01' {
+                // Found interpolation start marker
                 
                 // Save any literal part before this interpolation
                 if !current.is_empty() {
@@ -1373,28 +1434,14 @@ impl<'a> Parser<'a> {
                 
                 // Parse the interpolated expression
                 let mut expr_str = String::new();
-                let mut brace_count = 1;
                 
                 while let Some(ch) = chars.next() {
-                    if ch == '{' {
-                        brace_count += 1;
-                        expr_str.push(ch);
-                    } else if ch == '}' {
-                        brace_count -= 1;
-                        if brace_count == 0 {
-                            break;
-                        }
-                        expr_str.push(ch);
+                    if ch == '\x02' {
+                        // Found interpolation end marker
+                        break;
                     } else {
                         expr_str.push(ch);
                     }
-                }
-                
-                if brace_count != 0 {
-                    return Err(CompileError::SyntaxError(
-                        "Unmatched braces in string interpolation".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
                 }
                 
                 // Parse the expression string

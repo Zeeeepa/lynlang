@@ -1,0 +1,53 @@
+// Test core features from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+main = () void {
+    // Variable declarations - all forms
+    x: i32
+    x = 10
+    y = 20                  // Immutable
+    z: i32 = 30            // Immutable with type
+    w :: i32               // Mutable declaration
+    w = 40
+    v ::= 50               // Mutable assignment
+    u :: i32 = 60          // Mutable with type
+    
+    io.println("Variables test passed")
+    
+    // Boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Full boolean pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // Arithmetic
+    sum = x + y
+    diff = z - w
+    product = v * 2
+    quotient = u / 3
+    
+    io.println("Arithmetic: ${sum}, ${diff}, ${product}, ${quotient}")
+    
+    // Range loops
+    (0..5).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("Loop: ${counter}") }
+    })
+    
+    io.println("Core features test complete!")
+}

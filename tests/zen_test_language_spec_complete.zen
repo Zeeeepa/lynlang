@@ -1,0 +1,443 @@
+// Complete test suite for LANGUAGE_SPEC.zen
+// Tests all features defined in the language specification
+
+// ============================================================================
+// Core Imports - Only @std and @this
+// ============================================================================
+{ io, maths } = @std
+{ String, StringBuilder } = @std
+{ requires, implements, reflect, meta, inline, simd } = @std
+{ GPA, AsyncPool, Allocator } = @std
+{ Vec, DynVec } = @std
+{ Actor, Channel, Mutex, AtomicU32 } = @std
+
+// ============================================================================
+// Option and Result types (No null!)
+// ============================================================================
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+// ============================================================================
+// Basic Structs
+// ============================================================================
+Point: {
+    x:: f64,  // mutable field
+    y:: f64 = 0  // with default value
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+// ============================================================================
+// Traits and Implementation
+// ============================================================================
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return maths.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * maths.pi * self.radius
+    },
+})
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    },
+})
+
+// ============================================================================
+// Enum Types with .requires()
+// ============================================================================
+Shape: Circle | Rectangle
+Shape.requires(Geometric)
+
+// ============================================================================
+// UFC Overloading
+// ============================================================================
+GameEntity: Player | Enemy | Powerup
+
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+get_speed = (e: GameEntity.Player) f64 { return 5.0 }
+get_speed = (e: GameEntity.Enemy) f64 { return 3.0 }
+get_speed = (e: GameEntity.Powerup) f64 { return 0.0 }
+
+// ============================================================================
+// Generic Functions with Constraints
+// ============================================================================
+print_area<T: Geometric>(shape: T) void {
+    io.println("Area: ${shape.area()}")
+}
+
+// ============================================================================
+// Error Handling with Result and .raise()
+// ============================================================================
+parse_radius = (s: string) Result<f64, string> {
+    s.to_f64() ?
+        | Some(val) { return Ok(val) }
+        | None { return Err("Invalid radius") }
+}
+
+load_config = (path: string) Result<Config, Error> {
+    file = File.open(path).raise()  // Early return on error
+    contents = file.read_all().raise()
+    config = json.parse(contents).raise()
+    return Ok(config)
+}
+
+// ============================================================================
+// Actors and Concurrency
+// ============================================================================
+create_fibonacci = () Actor {
+    outer = 100  // Will be captured
+    return Actor((receiver) {
+        a ::= 0  // mutable
+        b ::= 1
+        loop(() {
+            receiver.send(a + outer)
+            temp = a + b
+            a = b
+            b = temp
+        })
+    })
+}
+
+// ============================================================================
+// AST Reflection and Metaprogramming
+// ============================================================================
+inspect_type = (T: type) void {
+    ast = reflect.ast(T)
+    ast.kind ?
+        | Struct(s) {
+            io.println("Struct: ${s.name}")
+            s.fields.loop((f) {
+                io.println("  Field: ${f.name}: ${f.type}")
+            })
+        }
+        | Enum(e) {
+            io.println("Enum: ${e.name}")
+            e.variants.loop((v) {
+                io.println("  Variant: ${v.name}")
+            })
+        }
+        | Function(f) {
+            io.println("Function: ${f.name}")
+            f.params.loop((p) {
+                io.println("  Param ${p.name}: ${p.type}, mut: ${p.is_mut}")
+            })
+            io.println("  Returns: ${f.return_type}")
+        }
+}
+
+// ============================================================================
+// Compile-time AST modification
+// ============================================================================
+@meta.comptime((){
+    original = reflect.ast(parse_radius)
+    new_body = original.body.prepend(
+        AST.Call("io.println", ["Parsing radius from: ${s}"])
+    )
+    meta.replace(parse_radius, original.with_body(new_body))
+})
+
+// ============================================================================
+// Inline C/LLVM for low-level control
+// ============================================================================
+fast_memcpy = (dst: RawPtr<u8>, src: RawPtr<u8>, len: usize) void {
+    inline.c("""
+        memcpy(${dst.addr}, ${src.addr}, ${len});
+    """)
+}
+
+// ============================================================================
+// SIMD operations
+// ============================================================================
+vector_add = (a: Vec<f32, 8>, b: Vec<f32, 8>) Vec<f32, 8> {
+    return simd.add(a, b)
+}
+
+// ============================================================================
+// Main test function
+// ============================================================================
+test_all_features = () void {
+    io.println("Testing Zen Language Spec Features...")
+    
+    // ========================================================================
+    // Variable Declarations (all forms)
+    // ========================================================================
+    io.println("\n=== Variable Declarations ===")
+    
+    x: i32  // forward declaration
+    x = 10
+    y = 10  // Immutable assignment
+    z: i32 = 20  // Immutable with type
+    w:: i32  // mutable forward declaration
+    w = 20
+    v ::= 30  // Mutable assignment
+    u:: i32 = 40  // mutable with type
+    
+    io.println("x = ${x}, y = ${y}, z = ${z}")
+    io.println("w = ${w}, v = ${v}, u = ${u}")
+    
+    // ========================================================================
+    // Allocators
+    // ========================================================================
+    io.println("\n=== Allocators ===")
+    
+    sync_alloc = GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    async_alloc = AsyncPool.init()
+    @this.defer(async_alloc.deinit())
+    
+    io.println("Sync and async allocators initialized")
+    
+    // ========================================================================
+    // Mixed Type Vectors (DynVec with multiple variants)
+    // ========================================================================
+    io.println("\n=== Mixed Type Vectors ===")
+    
+    entities = DynVec<GameEntity.Player, GameEntity.Enemy>(sync_alloc)
+    @this.defer(entities.deinit())
+    
+    entities.push(GameEntity.Player)
+    entities.push(GameEntity.Enemy)
+    entities.push(GameEntity.Player)
+    
+    entities.loop((entity) {
+        entity ?
+            | Player { 
+                io.println("Player: health=${entity.get_health()}, speed=${entity.get_speed()}")
+            }
+            | Enemy { 
+                io.println("Enemy: health=${entity.get_health()}, speed=${entity.get_speed()}")
+            }
+    })
+    
+    // ========================================================================
+    // Shapes and Traits
+    // ========================================================================
+    io.println("\n=== Shapes and Traits ===")
+    
+    mixed_items = DynVec<Circle, Rectangle>(sync_alloc)
+    @this.defer(mixed_items.deinit())
+    
+    mixed_items.push(Circle { center: Point { x: 0, y: 0 }, radius: 5 })
+    mixed_items.push(Rectangle { 
+        top_left: Point { x: 0, y: 0 }, 
+        bottom_right: Point { x: 10, y: 10 } 
+    })
+    
+    mixed_items.loop((item) {
+        item ?
+            | Circle { io.println("Circle area: ${item.area()}") }
+            | Rectangle { io.println("Rectangle area: ${item.area()}") }
+    })
+    
+    // ========================================================================
+    // Boolean Pattern Matching (no if/else!)
+    // ========================================================================
+    io.println("\n=== Boolean Pattern Matching ===")
+    
+    is_ready = true
+    is_ready ? { 
+        io.println("System is ready!") 
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data...") }
+        | false { io.println("Waiting for data...") }
+    
+    // ========================================================================
+    // Explicit Pointer Types (no * or &)
+    // ========================================================================
+    io.println("\n=== Pointer Types ===")
+    
+    circle = Circle { center: Point { x: 100, y: 100 }, radius: 50 }
+    circle_ptr: Ptr<Circle> = circle.ref()
+    circle_mut: MutPtr<Circle> = circle.mut_ref()
+    
+    io.println("Circle area via pointer: ${circle_ptr.val.area()}")
+    circle_mut.val.radius = 75
+    io.println("New area after mutation: ${circle_mut.val.area()}")
+    io.println("Pointer address: ${circle_ptr.addr}")
+    
+    // ========================================================================
+    // Static and Dynamic Vectors
+    // ========================================================================
+    io.println("\n=== Vectors ===")
+    
+    shapes = Vec<Shape, 100>()
+    shapes.push(Circle { center: Point { x: 0, y: 0 }, radius: 10 })
+    
+    dynamic_shapes = DynVec<Shape>(sync_alloc.allocator())
+    @this.defer(dynamic_shapes.deinit())
+    
+    dynamic_shapes.push(Rectangle { 
+        top_left: Point { x: 0, y: 0 },
+        bottom_right: Point { x: 50, y: 50 }
+    })
+    
+    // ========================================================================
+    // String Building
+    // ========================================================================
+    io.println("\n=== String Building ===")
+    
+    sb = StringBuilder(sync_alloc)
+    @this.defer(sb.deinit())
+    sb.append("Hello")
+      .append(" ")
+      .append("Zen")
+      .append_line("!")
+    built_string = sb.build()
+    io.println("Built string: ${built_string}")
+    
+    // ========================================================================
+    // Concurrency Primitives
+    // ========================================================================
+    io.println("\n=== Concurrency ===")
+    
+    message_chan = Channel<string>(10)
+    @this.defer(message_chan.close())
+    
+    sender = Actor(() {
+        (0..3).loop((i) {
+            message_chan.send("Message ${i}")
+        })
+    }).spawn()
+    
+    loop(() {
+        message_chan.receive() ?
+            | Some(msg) { io.println("Received: ${msg}") }
+            | None { break }
+    })
+    
+    // ========================================================================
+    // Mutex and Atomics
+    // ========================================================================
+    io.println("\n=== Mutex and Atomics ===")
+    
+    counter_mutex = Mutex<u32>(0)
+    @this.defer(counter_mutex.deinit())
+    
+    counter_mutex.lock() ?
+        | Ok(val) {
+            val = val + 1
+            counter_mutex.unlock()
+            io.println("Mutex counter incremented")
+        }
+        | Err(e) { io.println("Lock failed: ${e}") }
+    
+    atomic_counter = AtomicU32(0)
+    atomic_counter.fetch_add(1)
+    current = atomic_counter.load()
+    io.println("Atomic counter: ${current}")
+    
+    // ========================================================================
+    // Range Iterations
+    // ========================================================================
+    io.println("\n=== Ranges ===")
+    
+    io.println("Simple range:")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    io.println("Step range:")
+    (0..20).step(5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // ========================================================================
+    // UFC - collection.loop()
+    // ========================================================================
+    io.println("\n=== UFC Collection Methods ===")
+    
+    total_area ::= 0.0
+    dynamic_shapes.loop((shape) {
+        total_area = total_area + shape.area()
+    })
+    
+    dynamic_shapes.loop((shape, i) {
+        io.println("Shape ${i}: area=${shape.area()}")
+    })
+    
+    // ========================================================================
+    // Infinite Loop with break
+    // ========================================================================
+    io.println("\n=== Infinite Loop ===")
+    
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("Count: ${counter}") }
+    })
+    
+    // ========================================================================
+    // Option Handling (no null!)
+    // ========================================================================
+    io.println("\n=== Option Handling ===")
+    
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            circle = Circle {
+                center: Point { x: 100.0, y: 100.0 },
+                radius: r,
+            }
+            io.println("Created circle with area: ${circle.area()}")
+        }
+        | None {
+            io.println("No radius provided")
+        }
+    
+    // ========================================================================
+    // Reflection
+    // ========================================================================
+    io.println("\n=== Reflection ===")
+    
+    inspect_type(Circle)
+    inspect_type(Shape)
+    
+    io.println("\nTotal area of all shapes: ${total_area}")
+}
+
+// ============================================================================
+// Entry Point
+// ============================================================================
+main = () void {
+    io.println("Zen Language Specification Test Suite")
+    io.println("======================================")
+    
+    test_all_features()
+    
+    io.println("\n======================================")
+    io.println("All tests completed successfully!")
+}

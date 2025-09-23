@@ -1,0 +1,43 @@
+// Simplified demo of LANGUAGE_SPEC.zen features
+
+{ io } = @std
+
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+main = () void {
+    io.println("Zen Language Demo")
+    
+    // Variables
+    x = 10
+    y ::= 20
+    y = 25
+    
+    // Pattern matching
+    is_ok = true
+    is_ok ?
+        | true { io.println("OK") }
+        | false { io.println("Not OK") }
+    
+    // Option
+    val: Option<i32> = Some(42)
+    val ?
+        | Some(n) { io.println("Value found") }
+        | None { io.println("No value") }
+    
+    // Result
+    res: Result<i32, String> = Ok(100)
+    res ?
+        | Ok(v) { io.println("Success") }
+        | Err(e) { io.println("Error") }
+    
+    // Loops
+    (0..3).loop((i) {
+        io.println("Loop")
+    })
+    
+    // Defer
+    @this.defer(io.println("Cleanup"))
+    
+    io.println("Done")
+}

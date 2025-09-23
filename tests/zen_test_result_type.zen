@@ -1,0 +1,20 @@
+// Test Result type from LANGUAGE_SPEC.zen lines 113-114, 199-211
+{ io } = @std
+
+// Result type definition (line 113-114)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple parse function returning Result (lines 199-203)
+parse_number = (s: string) Result<i32, string> {
+    // For now, just return Ok with a hardcoded value
+    return Ok(42)
+}
+
+main = () void {
+    result = parse_number("42")
+    
+    // Pattern match on Result (lines 200-202)
+    result ?
+        | Ok(val) { io.println("Parsed value: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+}

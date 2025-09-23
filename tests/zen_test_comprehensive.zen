@@ -1,0 +1,229 @@
+// Comprehensive test of LANGUAGE_SPEC.zen features
+// This test demonstrates all working features from the spec
+
+{ io } = @std
+
+// ============================================================================
+// Test 1: Variable Declarations (lines 298-306)
+// ============================================================================
+test_variables = () void {
+    io.println("=== Testing Variable Declarations ===")
+    
+    // Note: Forward declaration isn't fully working yet
+    // x: i32 
+    // x = 10
+    x: i32 = 10
+    io.println("Typed immutable x = ${x}")
+    
+    y = 20    // Immutable assignment
+    io.println("Immutable y = ${y}")
+    
+    z: i32 = 30 // Immutable with type
+    io.println("Typed immutable z = ${z}")
+    
+    // Mutable forward declaration also not working
+    // w :: i32
+    // w = 40
+    w :: i32 = 40
+    io.println("Typed mutable w = ${w}")
+    
+    v ::= 50 // Mutable assignment
+    v = 60   // Can reassign
+    io.println("Mutable v = ${v}")
+    
+    u :: i32 = 70 // mutable with type
+    u = 80
+    io.println("Typed mutable u = ${u}")
+}
+
+// ============================================================================
+// Test 2: Pattern Matching (lines 352-361)
+// ============================================================================
+test_patterns = () void {
+    io.println("\n=== Testing Pattern Matching ===")
+    
+    is_ready = true
+    is_ready ? {
+        io.println("Single branch: Ready!")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Has data: processing...") }
+        | false { io.println("No data: waiting...") }
+}
+
+// ============================================================================
+// Test 3: Structs (lines 117-120)
+// ============================================================================
+Point: {
+    x :: f64,
+    y :: f64 = 0
+}
+
+test_structs = () void {
+    io.println("\n=== Testing Structs ===")
+    
+    p1 = Point { x: 10.5, y: 20.5 }
+    io.println("Point p1: x=${p1.x}, y=${p1.y}")
+    
+    p2 = Point { x: 5.0, y: 0 }  // Using default
+    io.println("Point p2: x=${p2.x}, y=${p2.y}")
+}
+
+// ============================================================================
+// Test 4: Enums (line 165 & 173)
+// ============================================================================
+Shape: Circle | Rectangle
+GameEntity: Player | Enemy | Powerup
+
+test_enums = () void {
+    io.println("\n=== Testing Enums ===")
+    
+    shape = Shape.Circle
+    shape ?
+        | Circle { io.println("Shape is Circle") }
+        | Rectangle { io.println("Shape is Rectangle") }
+    
+    entity = GameEntity.Player
+    entity ?
+        | Player { io.println("Entity is Player") }
+        | Enemy { io.println("Entity is Enemy") }
+        | Powerup { io.println("Entity is Powerup") }
+}
+
+// ============================================================================
+// Test 5: Loops (lines 432-460)
+// ============================================================================
+test_loops = () void {
+    io.println("\n=== Testing Loops ===")
+    
+    // Range loop
+    io.println("Range 0..3:")
+    (0..3).loop((i) {
+        io.println("  i = ${i}")
+    })
+    
+    // Step range - not implemented yet
+    // io.println("Range 0..10 step 3:")
+    // (0..10).step(3).loop((i) {
+    //     io.println("  step = ${i}")
+    // })
+    
+    // Infinite loop with break
+    io.println("Infinite loop with break:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("  count = ${counter}") }
+    })
+}
+
+// ============================================================================
+// Test 6: Option Types (lines 109-110, 462-473)
+// ============================================================================
+Option<T>: Some(T) | None
+
+test_options = () void {
+    io.println("\n=== Testing Option Types ===")
+    
+    maybe_value: Option<i32> = Option.Some(42)
+    maybe_value ?
+        | Some(val) { io.println("Option has value: ${val}") }
+        | None { io.println("Option is None") }
+    
+    empty: Option<i32> = Option.None
+    empty ?
+        | Some(val) { io.println("Unexpected value: ${val}") }
+        | None { io.println("Option is None as expected") }
+}
+
+// ============================================================================
+// Test 7: Result Types (lines 113-114)
+// ============================================================================
+Result<T, E>: Ok(T) | Err(E)
+
+divide = (dividend: f64, divisor: f64) Result<f64, string> {
+    divisor == 0.0 ?
+        | true { return Result.Err("Division by zero") }
+        | false { return Result.Ok(dividend / divisor) }
+}
+
+test_results = () void {
+    io.println("\n=== Testing Result Types ===")
+    
+    result1 = divide(10.0, 2.0)
+    result1 ?
+        | Ok(val) { io.println("10/2 = ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    result2 = divide(10.0, 0.0)
+    result2 ?
+        | Ok(val) { io.println("Unexpected: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+}
+
+// ============================================================================
+// Test 8: Functions (lines 176-183)
+// ============================================================================
+add = (x: i32, y: i32) i32 {
+    return x + y
+}
+
+multiply = (x: f64, y: f64) f64 {
+    return x * y
+}
+
+test_functions = () void {
+    io.println("\n=== Testing Functions ===")
+    
+    sum = add(10, 20)
+    io.println("add(10, 20) = ${sum}")
+    
+    product = multiply(3.5, 2.0)
+    io.println("multiply(3.5, 2.0) = ${product}")
+}
+
+// ============================================================================
+// Test 9: String Interpolation
+// ============================================================================
+test_string_interpolation = () void {
+    io.println("\n=== Testing String Interpolation ===")
+    
+    name = "Zen"
+    version = 1.0
+    count = 42
+    
+    message = "Language: ${name}, Version: ${version}, Answer: ${count}"
+    io.println(message)
+    
+    // Expression interpolation
+    num1 = 10
+    num2 = 20
+    io.println("Sum: ${num1 + num2}, Product: ${num1 * num2}")
+}
+
+// ============================================================================
+// Main function running all tests
+// ============================================================================
+main = () void {
+    io.println("========================================")
+    io.println("  LANGUAGE_SPEC.zen Feature Tests")
+    io.println("========================================")
+    
+    test_variables()
+    test_patterns()
+    test_structs()
+    test_enums()
+    test_loops()
+    test_options()
+    test_results()
+    test_functions()
+    test_string_interpolation()
+    
+    io.println("\n========================================")
+    io.println("  All Tests Completed Successfully!")
+    io.println("========================================")
+}

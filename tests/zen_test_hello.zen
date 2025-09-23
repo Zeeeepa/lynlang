@@ -1,0 +1,6 @@
+// Simple hello world test
+{ io } = @std
+
+main = () void {
+    io.println("Hello from Zen!")
+}

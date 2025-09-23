@@ -1,0 +1,10 @@
+// Test forward declarations
+
+{ io } = @std
+
+main = () void {
+    // Test forward declaration - should work according to LANGUAGE_SPEC line 299
+    x: i32
+    x = 10
+    io.println("x = ${x}")
+}

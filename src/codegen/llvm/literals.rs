@@ -128,26 +128,47 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 StringPart::Interpolation(expr) => {
                     let val = self.compile_expression(expr)?;
                     
-                    // Determine the format specifier based on the value type
-                    let format_spec = if val.is_int_value() {
+                    // Handle boolean values specially
+                    let (format_spec, actual_val) = if val.is_int_value() {
                         let int_val = val.into_int_value();
                         match int_val.get_type().get_bit_width() {
-                            32 => "%d",
-                            64 => "%lld",
-                            _ => "%d",
+                            1 => {
+                                // This is a boolean - convert to "true"/"false"
+                                let true_str = self.builder.build_global_string_ptr("true", "true_str")?;
+                                let false_str = self.builder.build_global_string_ptr("false", "false_str")?;
+                                
+                                let is_true = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::NE,
+                                    int_val,
+                                    int_val.get_type().const_zero(),
+                                    "is_true"
+                                )?;
+                                
+                                let result = self.builder.build_select(
+                                    is_true,
+                                    true_str.as_pointer_value(),
+                                    false_str.as_pointer_value(),
+                                    "bool_str"
+                                )?;
+                                
+                                ("%s", result.into())
+                            }
+                            32 => ("%d", val.into()),
+                            64 => ("%lld", val.into()),
+                            _ => ("%d", val.into()),
                         }
                     } else if val.is_float_value() {
-                        "%.6f"
+                        ("%.6f", val.into())
                     } else if val.is_pointer_value() {
                         // Pointer values are strings - use %s
-                        "%s"
+                        ("%s", val.into())
                     } else {
                         // Default to string format
-                        "%s"
+                        ("%s", val.into())
                     };
                     
                     format_string.push_str(format_spec);
-                    values.push(val.into());
+                    values.push(actual_val);
                 }
             }
         }

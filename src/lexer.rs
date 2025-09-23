@@ -419,6 +419,28 @@ impl<'a> Lexer<'a> {
                 self.read_char();
             } else if c == '"' {
                 break;
+            } else if c == '$' && self.peek_char() == Some('{') {
+                // Mark string interpolation point
+                result.push('\x01'); // Special marker for interpolation
+                self.read_char(); // consume $
+                self.read_char(); // consume {
+                
+                // Read the interpolated expression until we find '}'
+                let mut depth = 1;
+                while let Some(ch) = self.current_char {
+                    if ch == '{' {
+                        depth += 1;
+                    } else if ch == '}' {
+                        depth -= 1;
+                        if depth == 0 {
+                            self.read_char(); // consume final }
+                            break;
+                        }
+                    }
+                    result.push(ch);
+                    self.read_char();
+                }
+                result.push('\x02'); // End marker for interpolation
             } else {
                 result.push(c);
                 self.read_char();

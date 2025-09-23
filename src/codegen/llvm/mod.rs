@@ -114,9 +114,66 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Declare standard library functions
         compiler.declare_stdlib_functions();
         
+        // Register built-in Option and Result enums
+        compiler.register_builtin_enums();
+        
         compiler
     }
 
+    fn register_builtin_enums(&mut self) {
+        // Register Option<T> enum
+        let enum_struct_type = self.context.struct_type(&[
+            self.context.i64_type().into(), // discriminant
+            self.context.i64_type().into(), // payload (generic placeholder)
+        ], false);
+        
+        let mut variant_indices = HashMap::new();
+        variant_indices.insert("Some".to_string(), 0);
+        variant_indices.insert("None".to_string(), 1);
+        
+        let option_info = symbols::EnumInfo {
+            llvm_type: enum_struct_type,
+            variant_indices: variant_indices.clone(),
+            variants: vec![
+                ast::EnumVariant {
+                    name: "Some".to_string(),
+                    payload: Some(AstType::Generic { name: "T".to_string(), type_args: vec![] }),
+                },
+                ast::EnumVariant {
+                    name: "None".to_string(),
+                    payload: None,
+                },
+            ],
+        };
+        self.symbols.insert("Option", symbols::Symbol::EnumType(option_info));
+        
+        // Register Result<T, E> enum
+        let result_struct_type = self.context.struct_type(&[
+            self.context.i64_type().into(), // discriminant
+            self.context.i64_type().into(), // payload (generic placeholder)
+        ], false);
+        
+        let mut result_variant_indices = HashMap::new();
+        result_variant_indices.insert("Ok".to_string(), 0);
+        result_variant_indices.insert("Err".to_string(), 1);
+        
+        let result_info = symbols::EnumInfo {
+            llvm_type: result_struct_type,
+            variant_indices: result_variant_indices,
+            variants: vec![
+                ast::EnumVariant {
+                    name: "Ok".to_string(),
+                    payload: Some(AstType::Generic { name: "T".to_string(), type_args: vec![] }),
+                },
+                ast::EnumVariant {
+                    name: "Err".to_string(),
+                    payload: Some(AstType::Generic { name: "E".to_string(), type_args: vec![] }),
+                },
+            ],
+        };
+        self.symbols.insert("Result", symbols::Symbol::EnumType(result_info));
+    }
+    
     fn declare_stdlib_functions(&mut self) {
         // Declare malloc: i8* @malloc(i64)
         if self.module.get_function("malloc").is_none() {

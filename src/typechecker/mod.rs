@@ -52,11 +52,29 @@ pub struct EnumInfo {
 
 impl TypeChecker {
     pub fn new() -> Self {
+        let mut enums = HashMap::new();
+        
+        // Register built-in Option<T> type
+        enums.insert("Option".to_string(), EnumInfo {
+            variants: vec![
+                ("Some".to_string(), Some(AstType::Generic { name: "T".to_string(), type_args: vec![] })),
+                ("None".to_string(), None),
+            ],
+        });
+        
+        // Register built-in Result<T, E> type
+        enums.insert("Result".to_string(), EnumInfo {
+            variants: vec![
+                ("Ok".to_string(), Some(AstType::Generic { name: "T".to_string(), type_args: vec![] })),
+                ("Err".to_string(), Some(AstType::Generic { name: "E".to_string(), type_args: vec![] })),
+            ],
+        });
+        
         Self {
             scopes: vec![HashMap::new()],
             functions: HashMap::new(),
             structs: HashMap::new(),
-            enums: HashMap::new(),
+            enums,
             behavior_resolver: BehaviorResolver::new(),
             std_namespace: StdNamespace::new(),
             module_imports: HashMap::new(),

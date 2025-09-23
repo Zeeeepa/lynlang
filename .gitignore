@@ -6,6 +6,18 @@ agent/
 .agent/claude_output.jsonl
 test_output/
 
+# Build directories
+/build/
+/target/
+
+# C build artifacts
+*.c
+!tests/zen_test_*.c
+zenc
+zenc2
+zenc3
+zenc4
+
 # Build artifacts
 build/stage*/
 build/**/*.o

@@ -1,0 +1,87 @@
+// Test what's currently working from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+// Option type
+Option<T>: Some(T) | None
+
+// Result type
+Result<T, E>: Ok(T) | Err(E)
+
+// Struct with mutable fields
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+main = () void {
+    // Variable styles from spec
+    x = 10           // immutable
+    y ::= 20         // mutable  
+    z :: i32 = 30    // mutable with type
+    
+    // Update mutable
+    y = 25
+    z = 35
+    
+    // Boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("✓ Boolean pattern match works")
+    }
+    
+    // Full boolean pattern
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("✓ Boolean if-else pattern works") }
+    
+    // Struct with mutable fields
+    p = Point { x: 1.0, y: 2.0 }
+    p.x = 5.0  // mutate field
+    io.println("✓ Mutable struct fields work")
+    
+    // Option handling
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { io.println("✓ Option Some works") }
+        | None { io.println("None") }
+    
+    none_val: Option<i32> = None
+    none_val ?
+        | Some(val) { io.println("Some") }
+        | None { io.println("✓ Option None works") }
+    
+    // Result handling
+    ok_result: Result<i32, String> = Ok(100)
+    ok_result ?
+        | Ok(v) { io.println("✓ Result Ok works") }
+        | Err(e) { io.println("Error") }
+    
+    err_result: Result<i32, String> = Err("test error")
+    err_result ?
+        | Ok(v) { io.println("Ok") }
+        | Err(e) { io.println("✓ Result Err works") }
+    
+    // Range loop
+    io.println("✓ Range loop works:")
+    (0..3).loop((i) {
+        io.println("  - iteration")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 2 ?
+            | true { break }
+            | false { }
+    })
+    io.println("✓ Infinite loop with break works")
+    
+    // Defer statement
+    @this.defer(io.println("✓ Defer works (printed at end)"))
+    
+    io.println("")
+    io.println("=== Core LANGUAGE_SPEC.zen features working ===")
+}

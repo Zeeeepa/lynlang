@@ -1,0 +1,13 @@
+// Simple test for enum variants
+{ io } = @std
+
+// Simple enum without generics
+Status: Success | Failure
+
+main = () void {
+    s = Status.Success
+    
+    s ?
+        | Success { io.println("Status is Success") }
+        | Failure { io.println("Status is Failure") }
+}

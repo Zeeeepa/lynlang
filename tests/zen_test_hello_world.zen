@@ -1,8 +1,8 @@
-// Basic Hello World test from LANGUAGE_SPEC.zen
-// Tests basic imports and function calls
+// Classic Hello World in Zen
+// Demonstrates the simplest possible Zen program
 
 { io } = @std
 
 main = () void {
-    io.println("Hello, Zen World!")
+    io.println("Hello, World!")
 }

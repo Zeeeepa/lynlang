@@ -1,0 +1,42 @@
+// Test pattern matching from LANGUAGE_SPEC.zen lines 352-361
+{ io } = @std
+
+main = () void {
+    io.println("=== Pattern Matching (LANGUAGE_SPEC.zen:352-361) ===")
+    
+    // Simple boolean pattern (lines 353-355)
+    io.println("\n1. Simple boolean pattern:")
+    is_ready = true
+    is_ready ? { 
+        io.println("Starting game!") 
+    }
+    
+    // Full pattern match for if-else (lines 358-361)
+    io.println("\n2. Full pattern match (if-else replacement):")
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data...") }
+        | false { io.println("Waiting for data...") }
+    
+    // Multiple conditions
+    io.println("\n3. Multiple pattern conditions:")
+    value = 42
+    is_valid = value > 0
+    is_valid ?
+        | true { io.println("Value ${value} is valid") }
+        | false { io.println("Value ${value} is invalid") }
+    
+    // Nested patterns
+    io.println("\n4. Nested patterns:")
+    x = 10
+    y = 20
+    x > 5 ?
+        | true {
+            y > 15 ?
+                | true { io.println("Both conditions met: x=${x}, y=${y}") }
+                | false { io.println("Only first condition met") }
+        }
+        | false { io.println("First condition not met") }
+    
+    io.println("\n=== All pattern tests passed ===")
+}

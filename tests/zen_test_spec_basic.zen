@@ -1,0 +1,41 @@
+// Test basic LANGUAGE_SPEC.zen features
+
+// Import
+{ io } = @std
+
+// Option type
+Option<T>: Some(T) | None
+
+// Simple struct
+Point: {
+    x: f64,
+    y: f64
+}
+
+main = () void {
+    // Variable declarations  
+    x = 10           // Immutable
+    y ::= 20         // Mutable
+    
+    // Boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Option handling
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { io.println("Got value") }
+        | None { io.println("No value") }
+    
+    // Struct creation
+    p = Point { x: 1.0, y: 2.0 }
+    
+    // Range loop
+    (0..3).loop((i) {
+        io.println("Loop iteration")
+    })
+    
+    io.println("Done")
+}

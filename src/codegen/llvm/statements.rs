@@ -348,7 +348,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             pointer: alloca,
                             ast_type: type_.clone(),
                             is_mutable: *is_mutable,
-                is_initialized: true,
+                is_initialized: false,  // Forward declaration without initializer
                         });
                         Ok(())
                     } else {
@@ -357,7 +357,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             pointer: alloca,
                             ast_type: AstType::I64,
                             is_mutable: *is_mutable,
-                is_initialized: true,
+                is_initialized: false,  // Forward declaration without initializer
                         });
                         Ok(())
                     }
@@ -493,9 +493,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 
                 // Regular variable assignment to existing variable
-                // First check if the variable is mutable
+                // First check if the variable is mutable or if this is the first assignment to a forward-declared variable
                 if let Some(var_info) = self.variables.get(name) {
-                    if !var_info.is_mutable {
+                    // Allow assignment if:
+                    // 1. Variable is mutable, OR
+                    // 2. Variable is immutable but not yet initialized (forward declaration)
+                    if !var_info.is_mutable && var_info.is_initialized {
                         return Err(CompileError::TypeError(
                             format!("Cannot assign to immutable variable '{}'. Use '::=' to declare mutable variables.", name), 
                             None
@@ -537,6 +540,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.builder.build_store(alloca, value)?;
                     }
                 }
+                
+                // Mark the variable as initialized after first assignment
+                if let Some(var_info) = self.variables.get_mut(name) {
+                    var_info.is_initialized = true;
+                }
+                
                 Ok(())
             }
             Statement::PointerAssignment { pointer, value } => {

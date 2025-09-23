@@ -1,0 +1,32 @@
+// Test string interpolation feature
+
+{ io } = @std
+
+main = () void {
+    name = "Zen"
+    version = 1.0
+    count = 42
+    
+    // Basic interpolation
+    message1 = "Hello from ${name} language!"
+    io.println(message1)
+    
+    // Multiple interpolations
+    message2 = "Language: ${name}, Version: ${version}"
+    io.println(message2)
+    
+    // Expression interpolation
+    message3 = "The answer is ${count * 2}"
+    io.println(message3)
+    
+    // Nested expressions
+    x = 10
+    y = 20
+    message4 = "Sum: ${x + y}, Product: ${x * y}"
+    io.println(message4)
+    
+    // Boolean interpolation
+    is_ready = true
+    message5 = "Status: ${is_ready}"
+    io.println(message5)
+}

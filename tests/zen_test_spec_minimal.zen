@@ -1,0 +1,30 @@
+// Test core features from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+main = () void {
+    // Variable declarations (lines 298-306)
+    x: i32
+    x = 10
+    y = 20
+    z ::= 30
+    
+    // Pattern matching (lines 352-361)
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Option type (lines 109-110)
+    Option<T>: Some(T) | None
+    
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("Got value") }
+        | None { io.println("No value") }
+    
+    // Range loop (lines 432-434)
+    (0..3).loop((i) {
+        io.println("Loop iteration")
+    })
+}

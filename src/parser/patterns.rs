@@ -85,6 +85,14 @@ impl<'a> Parser<'a> {
                     return Ok(Pattern::Literal(Expression::Boolean(name == "true")));
                 }
                 
+                // Check if it's None without parentheses
+                if name == "None" {
+                    return Ok(Pattern::EnumLiteral {
+                        variant: "None".to_string(),
+                        payload: None,
+                    });
+                }
+                
                 // Check if it's an enum variant without prefix (Some, None, Ok, Err)
                 // followed by payload in parentheses
                 if self.current_token == Token::Symbol('(') {

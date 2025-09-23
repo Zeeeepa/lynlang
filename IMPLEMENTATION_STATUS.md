@@ -4,10 +4,10 @@
 This document tracks the implementation progress of the Zen programming language as defined in `LANGUAGE_SPEC.zen`.
 
 ## Compiler Status
-- **Current Version**: zenc4.c (Zen Compiler v4)
-- **Architecture**: Transpiles Zen → C → Native executable
-- **Build**: `gcc zenc4.c -o zenc4`
-- **Usage**: `./zenc4 program.zen && ./test_out`
+- **Current Version**: Rust-based compiler with LLVM backend
+- **Architecture**: Zen → AST → Type Check → LLVM IR → Native
+- **Build**: `cargo build --release`
+- **Usage**: `./target/release/zen program.zen`
 
 ## Feature Implementation Status
 

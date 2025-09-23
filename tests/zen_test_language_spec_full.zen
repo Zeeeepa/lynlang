@@ -1,0 +1,382 @@
+// zen_test_language_spec_full.zen
+// Comprehensive test suite for all features defined in LANGUAGE_SPEC.zen
+
+{ io, math } = @std
+{ String, StringBuilder } = @std
+{ Vec, DynVec } = @std
+{ Option, Result } = @std
+
+// Test 1: Variable declarations (all forms)
+test_variables = () void {
+    // Forward declarations
+    x: i32
+    x = 10
+    
+    // Immutable with inference
+    y = 20
+    
+    // Immutable with type
+    z: i32 = 30
+    
+    // Mutable forward declaration
+    w:: i32
+    w = 40
+    
+    // Mutable with inference
+    v ::= 50
+    
+    // Mutable with type
+    u:: i32 = 60
+    
+    io.println("Variables test passed")
+}
+
+// Test 2: Structs and default values
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+test_structs = () void {
+    p1 = Point { x: 10.0, y: 20.0 }
+    p2 = Point { x: 5.0 }  // y defaults to 0
+    
+    io.println("Point 1: x=${p1.x}, y=${p1.y}")
+    io.println("Point 2: x=${p2.x}, y=${p2.y}")
+    io.println("Structs test passed")
+}
+
+// Test 3: Option type (no null!)
+test_option = () void {
+    maybe_value: Option<i32> = Some(42)
+    
+    maybe_value ?
+        | Some(val) { io.println("Value is: ${val}") }
+        | None { io.println("No value") }
+    
+    empty: Option<i32> = None
+    empty ?
+        | Some(val) { io.println("Should not print: ${val}") }
+        | None { io.println("Empty as expected") }
+    
+    io.println("Option test passed")
+}
+
+// Test 4: Result type for error handling
+divide = (a: f64, b: f64) Result<f64, String> {
+    b == 0 ?
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
+}
+
+test_result = () void {
+    result1 = divide(10.0, 2.0)
+    result1 ?
+        | Ok(val) { io.println("10/2 = ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    result2 = divide(10.0, 0.0)
+    result2 ?
+        | Ok(val) { io.println("Should not print: ${val}") }
+        | Err(e) { io.println("Expected error: ${e}") }
+    
+    io.println("Result test passed")
+}
+
+// Test 5: Enums (sum types)
+Shape: Circle | Rectangle | Triangle
+
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point
+}
+
+Triangle: {
+    p1: Point,
+    p2: Point, 
+    p3: Point
+}
+
+test_enums = () void {
+    shape1: Shape = Circle { 
+        center: Point { x: 0, y: 0 }, 
+        radius: 5.0 
+    }
+    
+    shape1 ?
+        | Circle { io.println("It's a circle!") }
+        | Rectangle { io.println("It's a rectangle!") }
+        | Triangle { io.println("It's a triangle!") }
+    
+    io.println("Enums test passed")
+}
+
+// Test 6: Pattern matching on booleans
+test_boolean_patterns = () void {
+    is_ready = true
+    
+    // Simple boolean check
+    is_ready ? {
+        io.println("System is ready")
+    }
+    
+    // Full pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data") }
+        | false { io.println("No data to process") }
+    
+    io.println("Boolean patterns test passed")
+}
+
+// Test 7: Ranges and loops
+test_ranges_and_loops = () void {
+    // Simple range
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Step range
+    (0..20).step(5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.print("Loop ${counter} ") }
+    })
+    io.println("")
+    
+    io.println("Ranges and loops test passed")
+}
+
+// Test 8: UFC (Uniform Function Call)
+double = (x: i32) i32 { return x * 2 }
+triple = (x: i32) i32 { return x * 3 }
+
+test_ufc = () void {
+    value = 5
+    
+    // Traditional call
+    result1 = double(value)
+    io.println("double(5) = ${result1}")
+    
+    // UFC style
+    result2 = value.double()
+    io.println("5.double() = ${result2}")
+    
+    // Chain UFC calls
+    result3 = value.double().triple()
+    io.println("5.double().triple() = ${result3}")
+    
+    io.println("UFC test passed")
+}
+
+// Test 9: Traits
+Drawable: {
+    draw: (self) void
+}
+
+Circle.implements(Drawable, {
+    draw = (self) void {
+        io.println("Drawing circle at (${self.center.x}, ${self.center.y}) with radius ${self.radius}")
+    }
+})
+
+Rectangle.implements(Drawable, {
+    draw = (self) void {
+        io.println("Drawing rectangle from (${self.top_left.x}, ${self.top_left.y}) to (${self.bottom_right.x}, ${self.bottom_right.y})")
+    }
+})
+
+test_traits = () void {
+    c = Circle { 
+        center: Point { x: 10, y: 10 }, 
+        radius: 5 
+    }
+    c.draw()
+    
+    r = Rectangle {
+        top_left: Point { x: 0, y: 0 },
+        bottom_right: Point { x: 20, y: 10 }
+    }
+    r.draw()
+    
+    io.println("Traits test passed")
+}
+
+// Test 10: Pointer types (no * or &)
+test_pointers = () void {
+    value = 42
+    
+    // Immutable pointer
+    ptr: Ptr<i32> = value.ref()
+    io.println("Value through Ptr: ${ptr.val}")
+    io.println("Address: ${ptr.addr}")
+    
+    // Mutable pointer
+    mut_value ::= 100
+    mut_ptr: MutPtr<i32> = mut_value.mut_ref()
+    io.println("Original value: ${mut_ptr.val}")
+    mut_ptr.val = 200
+    io.println("Modified value: ${mut_value}")
+    
+    io.println("Pointers test passed")
+}
+
+// Test 11: String interpolation
+test_string_interpolation = () void {
+    name = "Zen"
+    version = 1.0
+    count = 42
+    
+    message = "Welcome to ${name} version ${version} with ${count} features!"
+    io.println(message)
+    
+    io.println("String interpolation test passed")
+}
+
+// Test 12: Collections with loop
+test_collections = () void {
+    // Static vector
+    numbers = Vec<i32, 5>()
+    numbers.push(10)
+    numbers.push(20)
+    numbers.push(30)
+    
+    total ::= 0
+    numbers.loop((n) {
+        total = total + n
+    })
+    io.println("Sum of numbers: ${total}")
+    
+    // With index
+    numbers.loop((n, i) {
+        io.println("  [${i}] = ${n}")
+    })
+    
+    io.println("Collections test passed")
+}
+
+// Test 13: Error propagation with .raise()
+parse_number = (s: String) Result<i32, String> {
+    s.to_i32() ?
+        | Some(n) { return Ok(n) }
+        | None { return Err("Invalid number: ${s}") }
+}
+
+process_numbers = (a: String, b: String) Result<i32, String> {
+    x = parse_number(a).raise()  // Early return on error
+    y = parse_number(b).raise()  // Early return on error
+    return Ok(x + y)
+}
+
+test_error_propagation = () void {
+    result1 = process_numbers("10", "20")
+    result1 ?
+        | Ok(val) { io.println("10 + 20 = ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    result2 = process_numbers("10", "abc")
+    result2 ?
+        | Ok(val) { io.println("Should not see: ${val}") }
+        | Err(e) { io.println("Expected error: ${e}") }
+    
+    io.println("Error propagation test passed")
+}
+
+// Test 14: Generic functions
+identity<T>(value: T) T {
+    return value
+}
+
+swap<T>(a:: MutPtr<T>, b:: MutPtr<T>) void {
+    temp = a.val
+    a.val = b.val
+    b.val = temp
+}
+
+test_generics = () void {
+    // Identity function
+    int_result = identity<i32>(42)
+    io.println("identity(42) = ${int_result}")
+    
+    str_result = identity<String>("Hello")
+    io.println("identity(\"Hello\") = ${str_result}")
+    
+    // Swap function
+    x ::= 10
+    y ::= 20
+    io.println("Before swap: x=${x}, y=${y}")
+    swap<i32>(x.mut_ref(), y.mut_ref())
+    io.println("After swap: x=${x}, y=${y}")
+    
+    io.println("Generics test passed")
+}
+
+// Test 15: defer statement
+test_defer = () void {
+    io.println("Start of function")
+    
+    @this.defer(io.println("This runs at end"))
+    @this.defer(io.println("This runs before the previous defer"))
+    
+    io.println("Middle of function")
+    
+    true ? {
+        @this.defer(io.println("Defer in nested scope"))
+        io.println("In nested scope")
+    }
+    
+    io.println("End of function")
+    io.println("Defer test passed")
+}
+
+// Main test runner
+main = () void {
+    io.println("=== Zen Language Spec Test Suite ===")
+    io.println("")
+    
+    test_variables()
+    test_structs()
+    test_option()
+    test_result()
+    test_enums()
+    test_boolean_patterns()
+    test_ranges_and_loops()
+    test_ufc()
+    test_traits()
+    test_pointers()
+    test_string_interpolation()
+    test_collections()
+    test_error_propagation()
+    test_generics()
+    test_defer()
+    
+    io.println("")
+    io.println("=== All tests passed! ===")
+}
+
+// Module exports
+module.exports = {
+    Point: Point,
+    Shape: Shape,
+    Circle: Circle,
+    Rectangle: Rectangle,
+    Triangle: Triangle,
+    Drawable: Drawable,
+    divide: divide,
+    identity: identity,
+    swap: swap
+}

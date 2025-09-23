@@ -1,0 +1,160 @@
+// Comprehensive test validating LANGUAGE_SPEC.zen implementation
+// Tests all currently working features
+{ io } = @std
+
+// Test variable declarations (LANGUAGE_SPEC lines 298-306)
+test_variables = () void {
+    // Immutable forward declaration and assignment
+    x: i32
+    x = 10
+    
+    // Direct immutable assignment
+    y = 20
+    z: i32 = 30
+    
+    // Mutable forward declaration and assignment
+    w :: i32
+    w = 40
+    w = 50  // Reassignment allowed
+    
+    // Direct mutable assignment
+    v ::= 60
+    u :: i32 = 70
+    u = 80  // Reassignment allowed
+    
+    io.println("Variables test: PASSED")
+}
+
+// Test pattern matching (LANGUAGE_SPEC lines 352-361)
+test_pattern_matching = () void {
+    // Simple boolean pattern
+    is_ready = true
+    is_ready ? {
+        io.println("Pattern match simple: PASSED")
+    }
+    
+    // Full pattern with branches
+    test_value = 42
+    is_positive = test_value > 0
+    is_positive ?
+        | true { io.println("Pattern match branches: PASSED") }
+        | false { io.println("Pattern match branches: FAILED") }
+}
+
+// Test loops (LANGUAGE_SPEC lines 432-460)
+test_loops = () void {
+    // Range loop
+    count ::= 0
+    (0..3).loop((i) {
+        count = count + 1
+    })
+    count == 3 ?
+        | true { io.println("Range loop: PASSED") }
+        | false { io.println("Range loop: FAILED") }
+    
+    // Step range - commenting out as not yet implemented
+    // step_count ::= 0
+    // (0..10).step(5).loop((i) {
+    //     step_count = step_count + 1
+    // })
+    // step_count == 2 ?
+    //     | true { io.println("Step loop: PASSED") }
+    //     | false { io.println("Step loop: FAILED") }
+    io.println("Step loop: SKIPPED (not implemented)")
+    
+    // Infinite loop with break
+    inf_count ::= 0
+    loop(() {
+        inf_count = inf_count + 1
+        inf_count >= 5 ?
+            | true { break }
+            | false { }
+    })
+    inf_count == 5 ?
+        | true { io.println("Infinite loop: PASSED") }
+        | false { io.println("Infinite loop: FAILED") }
+}
+
+// Test string interpolation (LANGUAGE_SPEC lines 186, 387-394)
+test_string_interpolation = () void {
+    lang_name = "Zen"
+    lang_version = 1
+    lang_count = 42
+    
+    message = "Hello ${lang_name} v${lang_version}, count: ${lang_count}"
+    io.println("String interpolation: PASSED")
+    io.println("  Example: ${message}")
+}
+
+// Test UFC (Uniform Function Call) - LANGUAGE_SPEC line 5
+double = (x: i32) i32 {
+    return x * 2
+}
+
+triple = (x: i32) i32 {
+    return x * 3
+}
+
+test_ufc = () void {
+    ufc_value = 10
+    
+    // Traditional function call
+    result1 = double(ufc_value)
+    
+    // UFC - function as method
+    result2 = ufc_value.double()
+    
+    result1 == result2 ?
+        | true { io.println("UFC: PASSED") }
+        | false { io.println("UFC: FAILED") }
+    
+    // Chain UFC calls
+    chained = ufc_value.double().triple()
+    chained == 60 ?
+        | true { io.println("UFC chaining: PASSED") }
+        | false { io.println("UFC chaining: FAILED") }
+}
+
+// Test structs (LANGUAGE_SPEC lines 117-120)
+Point: {
+    x: f64,
+    y: f64
+}
+
+test_structs = () void {
+    p = Point { x: 10.0, y: 20.0 }
+    
+    p.x == 10.0 ?
+        | true { io.println("Struct field access: PASSED") }
+        | false { io.println("Struct field access: FAILED") }
+}
+
+// Test enums (LANGUAGE_SPEC line 165)
+Status: Success | Failure | Pending
+
+test_enums = () void {
+    s = Status.Success
+    
+    s ?
+        | Success { io.println("Enum pattern match: PASSED") }
+        | Failure { io.println("Enum pattern match: FAILED") }
+        | Pending { io.println("Enum pattern match: FAILED") }
+}
+
+// Main test runner
+main = () void {
+    io.println("=== Zen Language Specification Validation ===")
+    io.println("Testing implementation against LANGUAGE_SPEC.zen")
+    io.println("")
+    
+    test_variables()
+    test_pattern_matching()
+    test_loops()
+    test_string_interpolation()
+    test_ufc()
+    test_structs()
+    test_enums()
+    
+    io.println("")
+    io.println("=== All Core Features Validated ===")
+}

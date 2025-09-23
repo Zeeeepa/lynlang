@@ -1,0 +1,21 @@
+// Test Option type from LANGUAGE_SPEC.zen lines 109-110, 462-473
+{ io } = @std
+
+// Option type definition (lines 109-110)
+Option<T>: Some(T) | None
+
+main = () void {
+    // Test with Some value (lines 462-463)
+    maybe_value: Option<i32> = Option.Some(42)
+    
+    maybe_value ?
+        | Some(v) { io.println("Got value: ${v}") }
+        | None { io.println("No value") }
+    
+    // Test with None
+    empty: Option<i32> = Option.None
+    
+    empty ?
+        | Some(v) { io.println("Should not print: ${v}") }
+        | None { io.println("Got None as expected") }
+}

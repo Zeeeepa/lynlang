@@ -1,0 +1,21 @@
+// Test forward declaration issue
+
+{ io } = @std
+
+main = () void {
+    // Test 1: Direct assignment (works)
+    a = 10
+    io.println("a = ${a}")
+    
+    // Test 2: Forward declaration (may not work)
+    // b: i32
+    // b = 20
+    // io.println("b = ${b}")
+    
+    // Test 3: Mutable forward declaration
+    c:: i32
+    c = 30
+    io.println("c = ${c}")
+    c = 35
+    io.println("c reassigned = ${c}")
+}

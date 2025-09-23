@@ -1,0 +1,247 @@
+// Comprehensive test suite for LANGUAGE_SPEC.zen features
+// This test validates all implemented features according to the spec
+
+{ io, maths } = @std
+
+// Test Option type (Line 109-110)
+test_option_type = () void {
+    io.println("=== Testing Option Types ===")
+    
+    // Create Some value
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(val) { io.println("Option has value: ${val}") }
+        | None { io.println("Option is None") }
+    
+    // Create None value  
+    empty_value: Option<i32> = None
+    empty_value ?
+        | Some(val) { io.println("Should not reach here: ${val}") }
+        | None { io.println("Option is None as expected") }
+}
+
+// Test Result type (Line 113-114)
+test_result_type = () void {
+    io.println("=== Testing Result Types ===")
+    
+    // Create Ok result
+    good_result: Result<i32, string> = Ok(100)
+    good_result ?
+        | Ok(val) { io.println("Result Ok with value: ${val}") }
+        | Err(e) { io.println("Result Err: ${e}") }
+    
+    // Create Err result
+    bad_result: Result<i32, string> = Err("Something went wrong")
+    bad_result ?
+        | Ok(val) { io.println("Should not reach: ${val}") }
+        | Err(e) { io.println("Result Err as expected: ${e}") }
+}
+
+// Test struct definition (Line 117-120)
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+test_structs = () void {
+    io.println("=== Testing Structs ===")
+    
+    // Create struct instance
+    p1 = Point { x: 10.5, y: 20.3 }
+    io.println("Point x: ${p1.x}, y: ${p1.y}")
+    
+    // Modify mutable field
+    p1.x = 15.7
+    io.println("Modified x: ${p1.x}")
+}
+
+// Test enums (Line 165)
+Shape: Circle | Rectangle
+
+test_enums = () void {
+    io.println("=== Testing Enums ===")
+    
+    // Create enum variants
+    shape1 = Shape.Circle
+    shape2 = Shape.Rectangle
+    
+    // Pattern match on enum
+    shape1 ?
+        | Circle { io.println("Shape is Circle") }
+        | Rectangle { io.println("Shape is Rectangle") }
+}
+
+// Test variable declarations (Line 298-306)
+test_variables = () void {
+    io.println("=== Testing Variable Declarations ===")
+    
+    // Forward declaration (must be mutable to assign later)
+    x:: i32
+    x = 10
+    io.println("Forward declared x: ${x}")
+    
+    // Immutable assignment
+    y = 20
+    io.println("Immutable y: ${y}")
+    
+    // Typed immutable
+    z: i32 = 30
+    io.println("Typed immutable z: ${z}")
+    
+    // Mutable forward declaration
+    w:: i32
+    w = 40
+    w = 50
+    io.println("Mutable w modified: ${w}")
+    
+    // Mutable assignment
+    v::= 60
+    v = 70
+    io.println("Mutable v modified: ${v}")
+    
+    // Typed mutable
+    u:: i32 = 80
+    u = 90
+    io.println("Typed mutable u modified: ${u}")
+}
+
+// Test pattern matching (Line 352-361)
+test_pattern_matching = () void {
+    io.println("=== Testing Pattern Matching ===")
+    
+    // Boolean pattern - single branch
+    is_ready = true
+    is_ready ? {
+        io.println("Single branch pattern: ready!")
+    }
+    
+    // Boolean pattern - two branches
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data (expected)") }
+    
+    // Integer pattern matching - not yet fully implemented
+    // count = 42
+    // count ?
+    //     | 0 { io.println("Zero") }
+    //     | 42 { io.println("The answer!") }
+    //     | _ { io.println("Other number") }
+}
+
+// Test loops (Line 432-460)
+test_loops = () void {
+    io.println("=== Testing Loops ===")
+    
+    // Range loop
+    io.println("Range 0..5:")
+    (0..5).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Step range - not yet implemented
+    // io.println("Range 0..10 step 2:")
+    // (0..10).step(2).loop((i) {
+    //     io.println("  ${i}")
+    // })
+    
+    // Infinite loop with break
+    io.println("Infinite loop with break:")
+    counter::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("  Counter: ${counter}") }
+    })
+}
+
+// Test string interpolation (Line 186, 387-394)
+test_string_interpolation = () void {
+    io.println("=== Testing String Interpolation ===")
+    
+    name = "Zen"
+    version = 1.0
+    count = 42
+    
+    // Basic interpolation
+    msg1 = "Hello from ${name} language!"
+    io.println(msg1)
+    
+    // Multiple interpolations
+    msg2 = "Language: ${name}, Version: ${version}"
+    io.println(msg2)
+    
+    // Expression interpolation
+    msg3 = "The answer times 2 is ${count * 2}"
+    io.println(msg3)
+    
+    // Boolean interpolation
+    ready = true
+    msg4 = "Ready status: ${ready}"
+    io.println(msg4)
+    
+    // Nested expressions
+    a = 10
+    b = 20
+    msg5 = "Sum: ${a + b}, Product: ${a * b}"
+    io.println(msg5)
+}
+
+// Test UFC (Uniform Function Call) - Line 5
+double = (x: i32) i32 {
+    return x * 2
+}
+
+test_ufc = () void {
+    io.println("=== Testing UFC ===")
+    
+    value = 21
+    // UFC: method style call
+    result = value.double()
+    io.println("21.double() = ${result}")
+    
+    // Traditional call
+    result2 = double(21)
+    io.println("double(21) = ${result2}")
+}
+
+// Main test runner
+main = () void {
+    io.println("==================================================")
+    io.println("Zen Language Specification Validation Test Suite")
+    io.println("Testing features from LANGUAGE_SPEC.zen")
+    io.println("==================================================")
+    io.println("")
+    
+    test_variables()
+    io.println("")
+    
+    test_pattern_matching()
+    io.println("")
+    
+    test_structs()
+    io.println("")
+    
+    test_loops()
+    io.println("")
+    
+    test_string_interpolation()
+    io.println("")
+    
+    test_option_type()
+    io.println("")
+    
+    test_result_type()
+    io.println("")
+    
+    test_enums()
+    io.println("")
+    
+    test_ufc()
+    io.println("")
+    
+    io.println("==================================================")
+    io.println("All tests completed!")
+    io.println("==================================================")
+}
