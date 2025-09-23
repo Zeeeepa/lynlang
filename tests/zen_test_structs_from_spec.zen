@@ -1,0 +1,27 @@
+// Test structs and basic types from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+// Simple struct from spec (line 117)
+Point: {
+    x:: f64,  // mutable field
+    y:: f64 = 0  // with default value
+}
+
+main = () void {
+    io.println("=== Testing Structs from LANGUAGE_SPEC ===")
+    
+    // Create a Point instance
+    p1 = Point { x: 10.0, y: 20.0 }
+    io.println("Point created: x=${p1.x}, y=${p1.y}")
+    
+    // Test mutable field
+    p1.x = 30.0
+    io.println("After mutation: x=${p1.x}, y=${p1.y}")
+    
+    // Test default value
+    p2 = Point { x: 5.0 }  // y should be 0
+    io.println("Point with default: x=${p2.x}, y=${p2.y}")
+    
+    io.println("\n=== Struct Test Complete ===")
+}

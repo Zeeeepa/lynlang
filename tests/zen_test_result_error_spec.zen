@@ -1,0 +1,46 @@
+// Test Result type and error handling from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+// Result type for error handling (line 113)
+Result<T, E>: Ok(T) | Err(E)
+
+// Parse function from spec (lines 199-203)
+parse_radius = (s: string) Result<f64, string> {
+    // Simplified - just check if it's "5.5"
+    s == "5.5" ?
+        | true { return Ok(5.5) }
+        | false { return Err("Invalid radius") }
+}
+
+main = () void {
+    io.println("=== Testing Result Type from LANGUAGE_SPEC ===")
+    
+    // Test Ok case
+    io.println("\n1. Testing Ok result:")
+    result1 = parse_radius("5.5")
+    result1 ?
+        | Ok(val) { io.println("Successfully parsed: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test Err case
+    io.println("\n2. Testing Err result:")
+    result2 = parse_radius("invalid")
+    result2 ?
+        | Ok(val) { io.println("Parsed: ${val}") }
+        | Err(e) { io.println("Expected error: ${e}") }
+    
+    // Direct Result creation
+    io.println("\n3. Direct Result creation:")
+    success: Result<i32, string> = Ok(100)
+    success ?
+        | Ok(v) { io.println("Success value: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    failure: Result<i32, string> = Err("Something went wrong")
+    failure ?
+        | Ok(v) { io.println("Value: ${v}") }
+        | Err(e) { io.println("Error occurred: ${e}") }
+    
+    io.println("\n=== Result Test Complete ===")
+}

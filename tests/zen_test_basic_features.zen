@@ -1,0 +1,75 @@
+// Basic test for core language features
+// Tests fundamental syntax from LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+main = () void {
+    io.println("=== Testing Basic Zen Features ===")
+    
+    // 1. Variable declarations (from spec lines 298-306)
+    io.println("\n1. Variable Declarations:")
+    x: i32  // forward declaration
+    x = 10
+    y = 15  // immutable assignment
+    z: i32 = 20  // immutable with type
+    
+    io.println("x = ${x}")
+    io.println("y = ${y}") 
+    io.println("z = ${z}")
+    
+    // 2. Mutable variables
+    io.println("\n2. Mutable Variables:")
+    w :: i32  // mutable forward declaration
+    w = 25
+    v ::= 30  // mutable assignment
+    u :: i32 = 35  // mutable with type
+    
+    io.println("w = ${w}")
+    io.println("v = ${v}")
+    io.println("u = ${u}")
+    
+    // Modify mutable variables
+    v = 40
+    io.println("v after modification = ${v}")
+    
+    // 3. Basic arithmetic
+    io.println("\n3. Basic Arithmetic:")
+    sum = x + y
+    diff = z - x  
+    product = 5 * 6
+    
+    io.println("${x} + ${y} = ${sum}")
+    io.println("${z} - ${x} = ${diff}")
+    io.println("5 * 6 = ${product}")
+    
+    // 4. Boolean pattern matching (spec lines 352-361)
+    io.println("\n4. Boolean Pattern Matching:")
+    is_ready = true
+    is_ready ? {
+        io.println("System is ready!")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data yet") }
+    
+    // 5. Simple function
+    io.println("\n5. Function Definition:")
+    add = (a: i32, b: i32) i32 {
+        return a + b
+    }
+    
+    result = add(10, 20)
+    io.println("add(10, 20) = ${result}")
+    
+    // 6. Basic range loop (spec lines 431-434)
+    io.println("\n6. Range Loop:")
+    io.print("Range (0..5): ")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    io.println("\n=== All Tests Passed ===")
+}

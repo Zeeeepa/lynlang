@@ -132,9 +132,6 @@ main = () void {
         io.println("  ${i}")
     })
     
-    // Step ranges (lines 437-439) - not implemented yet
-    // (0..20).step(5).loop((i) { ... })
-    
     // Infinite loop with break (lines 452-459)
     counter ::= 0
     io.println("Infinite loop with break at 3:")
@@ -155,7 +152,7 @@ main = () void {
                 center: Point { x: 100.0, y: 100.0 },
                 radius: r,
             }
-            io.println("✓ Created circle with radius: ${r}, area: ${circle_area(circle)}")
+            io.println("✓ Created circle with radius: ${r}, area: ${circle.area()}")
         }
         | None {
             io.println("No radius provided")
