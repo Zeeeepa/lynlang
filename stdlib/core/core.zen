@@ -18,17 +18,7 @@ Error: OutOfMemory
     SystemError: { code: i32 }
 
 // Memory operations (will be implemented with comptime/intrinsics)
-malloc = (size: i64) RawPtr<void> {
-    inline.c("""
-        return malloc(${size});
-    """)
-}
-
-free = (ptr: RawPtr<void>) void {
-    inline.c("""
-        free(${ptr.addr});
-    """)
-}
+{ allocate_raw, deallocate_raw } = import("memory.zen")
 
 memcpy = (dest: RawPtr<void>, src: RawPtr<void>, n: i64) RawPtr<void> {
     inline.c("""

@@ -1,432 +1,92 @@
-// Zen Standard Library - Core implementations
-// This demonstrates how the standard library could be written in Zen itself
+// Zen Standard Library - Main entry point
+// Clean aggregator that imports from specialized modules
 
 // ==========================================
-// Memory Management
+// Core Types & Memory Management  
 // ==========================================
 
-malloc = (size: i64) RawPtr<void> {
+// Import core types
+{ Option } = import("core/option")
+{ Result } = import("core/result")
+
+// Memory management functions
+memory = import("memory")
+{ malloc, free, memcpy, memset, Allocator, system_allocator } = memory
+
+// ==========================================
+// Collections
+// ==========================================
+
+// Import vector types from vec module
+vec_module = import("vec")
+{ Vec, DynVec, VecIterator } = vec_module
+
+// Import other collections from collections/
+collections = import("collections")
+{ HashMap, HashEntry, List, ListNode } = collections
+
+// For backward compatibility, re-export collection functions
+// with original names from stdlib.zen
+vec_new = Vec.new
+vec_push = Vec.push
+vec_pop = Vec.pop
+vec_get = Vec.get
+vec_set = Vec.set
+vec_clear = Vec.clear
+
+hashmap_new = HashMap.new
+hashmap_insert = HashMap.insert
+hashmap_get = HashMap.get
+hashmap_remove = HashMap.remove
+
+// ==========================================
+// String Operations & Other Utilities
+// ==========================================
+
+// Import string functionality
+string_module = import("string/string")
+{ String, strlen, strcmp, strcpy, strcat, string_new, string_from_cstr, 
+  string_append, string_equals, string_free } = string_module
+
+// ==========================================
+// Math & Other Modules
+// ==========================================
+
+// Import math functions
+math = import("math")
+
+// Import additional utilities as needed
+// testing = import("testing")
+// concurrent = import("concurrent")
+// json = import("json")
+// http = import("http")
+
+// ==========================================
+// Helper Functions & Utilities
+// ==========================================
+
+// Core utility functions
+panic = (msg: RawPtr<i8>) void {
     inline.c("""
-        return malloc(${size});
+        panic(${msg.addr});
     """)
 }
 
-free = (ptr: RawPtr<void>) void {
+sizeof<T> = () i64 {
     inline.c("""
-        free(${ptr.addr});
+        return sizeof(T);
     """)
 }
 
-memcpy = (dest: RawPtr<void>, src: RawPtr<void>, size: i64) void {
+printf = (format: RawPtr<i8>, ...) i32 {
     inline.c("""
-        memcpy(${dest.addr}, ${src.addr}, ${size});
+        return printf(${format.addr}, ...);
     """)
 }
 
-memset = (ptr: RawPtr<void>, value: i32, size: i64) void {
-    inline.c("""
-        memset(${ptr.addr}, ${value}, ${size});
-    """)
-}
-
-// Memory allocator interface
-Allocator: {
-    alloc: (RawPtr<void>, i64) RawPtr<void>,
-    free: (RawPtr<void>, RawPtr<void>) void,
-    realloc: (RawPtr<void>, RawPtr<void>, i64) RawPtr<void>,
-    context: RawPtr<void>,
-}
-
-// Default system allocator
-system_allocator = () Allocator   {
-    return Allocator {
-        alloc: system_alloc,
-        free: system_free,
-        realloc: system_realloc,
-        context: 0,
-    }
-}
-
-system_alloc = (ctx: RawPtr<void>, size: i64) RawPtr<void> {
-    return malloc(size)
-}
-
-system_free = (ctx: RawPtr<void>, ptr: RawPtr<void>) void   {
-    free(ptr)
-}
-
-system_realloc = (ctx: RawPtr<void>, ptr: RawPtr<void>, new_size: i64) RawPtr<void> {
-    // Simple realloc implementation
-    new_ptr := malloc(new_size)
-    (new_ptr != 0 && ptr != 0) ?
-        | true {
-            memcpy(new_ptr, ptr, new_size)
-            free(ptr)
-        }
-        | false {}
-    return new_ptr
-}
-
 // ==========================================
-// Dynamic Array (Vec)
+// Option & Result Helper Functions
 // ==========================================
-
-Vec<T>: {
-    data: MutPtr<T>,
-    len: i64,
-    capacity: i64,
-    allocator: Allocator,
-}
-
-vec_new<T>: () Vec<T>  = {
-    return Vec<T> {
-        data: 0,
-        len: 0,
-        capacity: 0,
-        allocator: system_allocator(),
-    }
-}
-
-vec_with_capacity<T>: (capacity: i64) Vec<T>  = {
-    allocator := system_allocator()
-    data := allocator.alloc(allocator.context, capacity * sizeof<T>())
-    
-    return Vec<T> {
-        data: data,
-        len: 0,
-        capacity: capacity,
-        allocator: allocator,
-    }
-}
-
-vec_push<T>: (vec: MutPtr<Vec<T>>, value: T) void = {
-    // Check if we need to grow
-    vec.val.len >= vec.val.capacity ?
-        | true {
-            new_capacity := vec.val.capacity == 0 ? 
-                | true { 8 }
-                | false { vec.val.capacity * 2 }
-            vec_grow(vec, new_capacity)
-        }
-        | false {}
-    
-    // Add element - would need proper array indexing
-    (vec.val.data.addr + vec.val.len * sizeof<T>()).val = value
-    vec.val.len = vec.val.len + 1
-}
-
-vec_pop<T>: (vec: Ptr<Vec<T>>) Option<T>  = {
-    vec.len > 0 ?
-        | true {
-            vec.len = vec.len - 1
-            return Option:Some(vec.data[vec.len])
-        }
-        | false {
-            return Option:None
-        }
-}
-
-vec_get<T>: (vec: Ptr<Vec<T>>, index: i64) Option<T>  = {
-    index >= 0 && index < vec.len ?
-        | true { return Option:Some(vec.data[index]) }
-        | false { return Option:None }
-}
-
-vec_set<T>: (vec: Ptr<Vec<T>>, index: i64, value: T) bool  = {
-    index >= 0 && index < vec.len ?
-        | true {
-            vec.data[index] = value
-            return true
-        }
-        | false {
-            return false
-        }
-}
-
-vec_grow<T>: (vec: Ptr<Vec<T>>, new_capacity: i64) void  = {
-    new_capacity <= vec.capacity ?
-        | true { return }
-        | false {}
-    
-    new_data := vec.allocator.realloc(
-        vec.allocator.context,
-        vec.data,
-        new_capacity * sizeof<T>()
-    )
-    
-    vec.data = new_data
-    vec.capacity = new_capacity
-}
-
-vec_clear<T>: (vec: Ptr<Vec<T>>) void  = {
-    vec.len = 0
-}
-
-vec_free<T>: (vec: Ptr<Vec<T>>) void  = {
-    vec.data != 0 ?
-        | true {
-            vec.allocator.free(vec.allocator.context, vec.data)
-            vec.data = 0
-            vec.len = 0
-            vec.capacity = 0
-        }
-        | false {}
-}
-
-// Iterator support for Vec
-vec_iter<T> = (vec: Ptr<Vec<T>>, func: (T) void) void {
-    i ::= 0
-    loop(() {
-        i >= vec.val.len ?
-            | true { break }
-            | false {
-                func((vec.val.data.addr + i * sizeof<T>()).val)
-                i = i + 1
-            }
-    })
-}
-
-// ==========================================
-// HashMap
-// ==========================================
-
-HashEntry<K, V> = {
-    key: K,
-    value: V,
-    hash: i64,
-    occupied: bool,
-}
-
-HashMap<K, V> = {
-    buckets: Ptr<HashEntry<K, V>>,
-    size: i64,
-    capacity: i64,
-    allocator: Allocator,
-}
-
-hashmap_new<K, V>: () HashMap<K, V>  = {
-    initial_capacity := 16
-    allocator := system_allocator()
-    buckets := allocator.alloc(allocator.context, initial_capacity * sizeof<HashEntry<K, V>>())
-    
-    // Initialize buckets
-    memset(buckets, 0, initial_capacity * sizeof<HashEntry<K, V>>())
-    
-    return HashMap<K, V> {
-        buckets: buckets,
-        size: 0,
-        capacity: initial_capacity,
-        allocator: allocator,
-    }
-}
-
-hashmap_hash<K>: (key: K) i64  = {
-    // Simple hash function - would be specialized per type
-    // This is a placeholder
-    return 0
-}
-
-hashmap_insert<K, V>: (map: Ptr<HashMap<K, V>>, key: K, value: V) void  = {
-    // Check load factor
-    map.size * 4 >= map.capacity * 3 ?
-        | true { hashmap_resize(map, map.capacity * 2) }
-        | false {}
-    
-    hash := hashmap_hash(key)
-    index := hash % map.capacity
-    
-    // Linear probing for collision resolution
-    loop map.buckets[index].occupied {
-        map.buckets[index].key == key ?
-            | true {
-                // Update existing key
-                map.buckets[index].value = value
-                return
-            }
-            | false {}
-        
-        index = (index + 1) % map.capacity
-    }
-    
-    // Insert new entry
-    map.buckets[index] = HashEntry<K, V> {
-        key: key,
-        value: value,
-        hash: hash,
-        occupied: true,
-    }
-    map.size = map.size + 1
-}
-
-hashmap_get<K, V>: (map: Ptr<HashMap<K, V>>, key: K) Option<V>  = {
-    hash := hashmap_hash(key)
-    index := hash % map.capacity
-    
-    loop map.buckets[index].occupied {
-        map.buckets[index].key == key ?
-            | true { return Option:Some(map.buckets[index].value) }
-            | false {}
-        
-        index = (index + 1) % map.capacity
-        
-        // Check if we've wrapped around
-        index == hash % map.capacity ?
-            | true { break }
-            | false {}
-    }
-    
-    return Option:None
-}
-
-hashmap_remove<K, V>: (map: Ptr<HashMap<K, V>>, key: K) Option<V>  = {
-    hash := hashmap_hash(key)
-    index := hash % map.capacity
-    
-    loop map.buckets[index].occupied {
-        map.buckets[index].key == key ?
-            | true {
-                value := map.buckets[index].value
-                map.buckets[index].occupied = false
-                map.size = map.size - 1
-                
-                // Reinsert subsequent entries to maintain probing chain
-                hashmap_reinsert_chain(map, index)
-                
-                return Option:Some(value)
-            }
-            | false {}
-        
-        index = (index + 1) % map.capacity
-    }
-    
-    return Option:None
-}
-
-hashmap_resize<K, V>: (map: Ptr<HashMap<K, V>>, new_capacity: i64) void  = {
-    old_buckets := map.buckets
-    old_capacity := map.capacity
-    
-    // Allocate new buckets
-    map.buckets = map.allocator.alloc(map.allocator.context, new_capacity * sizeof<HashEntry<K, V>>())
-    memset(map.buckets, 0, new_capacity * sizeof<HashEntry<K, V>>())
-    map.capacity = new_capacity
-    map.size = 0
-    
-    // Reinsert all entries
-    i := 0
-    loop i < old_capacity {
-        old_buckets[i].occupied ?
-            | true { hashmap_insert(map, old_buckets[i].key, old_buckets[i].value) }
-            | false {}
-        i = i + 1
-    }
-    
-    // Free old buckets
-    map.allocator.free(map.allocator.context, old_buckets)
-}
-
-// ==========================================
-// String Operations
-// ==========================================
-
-strlen = (str: RawPtr<i8>) i64 {
-    inline.c("""
-        return strlen(${str.addr});
-    """)
-}
-
-strcmp = (s1: RawPtr<i8>, s2: RawPtr<i8>) i32 {
-    inline.c("""
-        return strcmp(${s1.addr}, ${s2.addr});
-    """)
-}
-
-strcpy = (dest: RawPtr<i8>, src: RawPtr<i8>) RawPtr<i8> {
-    inline.c("""
-        return strcpy(${dest.addr}, ${src.addr});
-    """)
-}
-
-strcat = (dest: RawPtr<i8>, src: RawPtr<i8>) RawPtr<i8> {
-    inline.c("""
-        return strcat(${dest.addr}, ${src.addr});
-    """)
-}
-
-String: {
-    data: RawPtr<i8>,
-    len: i64,
-    capacity: i64,
-    allocator: Allocator,
-}
-
-string_new = () String   {
-    return String {
-        data: 0,
-        len: 0,
-        capacity: 0,
-        allocator: system_allocator(),
-    }
-}
-
-string_from_cstr = (cstr: RawPtr<i8>) String   {
-    len := strlen(cstr)
-    capacity := len + 1
-    allocator := system_allocator()
-    data := allocator.alloc(allocator.context, capacity)
-    strcpy(data, cstr)
-    
-    return String {
-        data: data,
-        len: len,
-        capacity: capacity,
-        allocator: allocator,
-    }
-}
-
-string_append = (s: Ptr<String>, other: RawPtr<i8>) void   {
-    other_len := strlen(other)
-    new_len := s.len + other_len
-    
-    new_len >= s.capacity ?
-        | true {
-            new_capacity := new_len * 2
-            new_data := s.allocator.realloc(s.allocator.context, s.data, new_capacity)
-            s.data = new_data
-            s.capacity = new_capacity
-        }
-        | false {}
-    
-    strcpy(s.data + s.len, other)
-    s.len = new_len
-}
-
-string_equals = (s1: String, s2: String) bool   {
-    s1.len != s2.len ?
-        | true { return false }
-        | false {}
-    
-    return strcmp(s1.data, s2.data) == 0
-}
-
-string_free = (s: Ptr<String>) void   {
-    s.data != 0 ?
-        | true {
-            s.allocator.free(s.allocator.context, s.data)
-            s.data = 0
-            s.len = 0
-            s.capacity = 0
-        }
-        | false {}
-}
-
-// ==========================================
-// Result and Option Types
-// ==========================================
-
-// Import the core types
-{ Option } = @std.import("core/option")
-{ Result } = @std.import("core/result")
 
 option_is_some<T>: (opt: Option<T>) bool = {
     opt ?
@@ -470,65 +130,4 @@ result_unwrap_err<T, E>: (res: Result<T, E>) E = {
     res ?
         | Ok(_) { panic("Attempted to unwrap_err on Ok") }
         | Err(error) { return error }
-}
-
-// ==========================================
-// Helper Functions
-// ==========================================
-
-panic = (msg: RawPtr<i8>) void {
-    inline.c("""
-        panic(${msg.addr});
-    """)
-}
-
-sizeof<T> = () i64 {
-    inline.c("""
-        return sizeof(T);
-    """)
-}
-
-// Test the standard library
-printf = (format: RawPtr<i8>, ...) i32 {
-    inline.c("""
-        return printf(${format.addr}, ...);
-    """)
-}
-
-test_stdlib = () void   {
-    printf("Testing Zen standard library...\n")
-    
-    // Test Vec
-    v := vec_new<i32>()
-    vec_push(&v, 10)
-    vec_push(&v, 20)
-    vec_push(&v, 30)
-    
-    printf("Vec length: %ld\n", v.len)
-    
-    // Test Option
-    opt := vec_pop(&v)
-    opt ?
-        | Some(val) { printf("Popped: %d\n", val) }
-        | None { printf("Vec was empty\n") }
-    
-    // Test HashMap
-    map := hashmap_new<i32, i32>()
-    hashmap_insert(&map, 1, 100)
-    hashmap_insert(&map, 2, 200)
-    
-    result := hashmap_get(&map, 1)
-    result ?
-        | Some(val) { printf("Found value: %d\n", val) }
-        | None { printf("Key not found\n") }
-    
-    // Cleanup
-    vec_free(&v)
-    
-    printf("Standard library tests complete!\n")
-}
-
-main = () i32   {
-    test_stdlib()
-    return 0
 }

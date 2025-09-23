@@ -1,6 +1,43 @@
-// Stack module - re-exports from collections
-// Provides stack data structure
+// Stack module - Stack implementation using List
+// Provides stack data structure (LIFO - Last In, First Out)
 
-// Re-export Stack functionality
-collections_module = import("collections")
-module.exports = { Stack: collections_module.Stack }
+// Import list functionality to build stack on top of it
+list_module = import("collections/list")
+{ List, ListNode } = list_module
+
+// Stack implementation using linked list
+Stack<T> = List<T>
+
+// Stack operations
+stack_new<T> = () Stack<T> {
+    return list_module.new<T>()
+}
+
+stack_push<T> = (stack: &mut Stack<T>, value: T) void {
+    list_module.push_front<T>(stack, value)
+}
+
+stack_pop<T> = (stack: &mut Stack<T>) Option<T> {
+    return list_module.pop_front<T>(stack)
+}
+
+stack_peek<T> = (stack: &Stack<T>) Option<T> {
+    return list_module.peek_front<T>(stack)
+}
+
+stack_size<T> = (stack: &Stack<T>) usize {
+    return list_module.len<T>(stack)
+}
+
+stack_is_empty<T> = (stack: &Stack<T>) bool {
+    return list_module.is_empty<T>(stack)
+}
+
+stack_clear<T> = (stack: &mut Stack<T>) void {
+    list_module.clear<T>(stack)
+}
+
+module.exports = { 
+    Stack, stack_new, stack_push, stack_pop, stack_peek, 
+    stack_size, stack_is_empty, stack_clear 
+}

@@ -3,8 +3,7 @@
 { io } = @std
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err } = import("../stdlib/core/result.zen")
-{ Option, Some, None } = import("../stdlib/core/option.zen")
+{ Result, Ok, Err, Option, Some, None } = @std
 
 test_result = () Result<i32, string> {
     return Ok(42)

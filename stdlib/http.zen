@@ -163,7 +163,7 @@ http_parse_response = (data: RawPtr<i8>) HttpResponse   {
     response := HttpResponse {
         status: HttpStatus:OK,
         status_code: 200,
-        headers: malloc(32 * @sizeof(HttpHeader)) as Ptr<HttpHeader>,
+        headers: allocate_raw((32 * @sizeof(HttpHeader)) as usize) as Ptr<HttpHeader>,
         header_count: 0,
         body: 0 as RawPtr<i8>,
         body_length: 0,
@@ -214,7 +214,7 @@ http_parse_response = (data: RawPtr<i8>) HttpResponse   {
 // Build HTTP request string
 http_build_request = (req: HttpRequest) RawPtr<i8> {
     // Allocate buffer for request
-    buffer := malloc(4096 as i64) as RawPtr<i8>
+    buffer := allocate_raw(4096 as usize) as RawPtr<i8>
     position := 0
     
     // Add request line
@@ -285,7 +285,7 @@ http_url_encode = (str: RawPtr<i8>) RawPtr<i8> {
 
 // Query string builder
 http_build_query_string = (params: Ptr<HttpHeader>, count: i32) RawPtr<i8> {
-    buffer := malloc(1024 as i64) as RawPtr<i8>
+    buffer := allocate_raw(1024 as usize) as RawPtr<i8>
     position := 0
     
     range(0, count).loop((i) {
@@ -312,12 +312,12 @@ http_build_query_string = (params: Ptr<HttpHeader>, count: i32) RawPtr<i8> {
 
 // Free request
 http_request_free = (req: Ptr<HttpRequest>) void   {
-    free(req.headers as RawPtr<void>)
-    req.body ? | 0 as RawPtr<i8> {} | _ { { free(req.body as RawPtr<void>)  }}
+    deallocate_raw(req.headers as RawPtr<void>)
+    req.body ? | 0 as RawPtr<i8> {} | _ { { deallocate_raw(req.body as RawPtr<void>)  }}
 }
 
 // Free response
 http_response_free = (res: Ptr<HttpResponse>) void   {
-    free(res.headers as RawPtr<void>)
-    res.body ? | 0 as RawPtr<i8> {} | _ { { free(res.body as RawPtr<void>)  }}
+    deallocate_raw(res.headers as RawPtr<void>)
+    res.body ? | 0 as RawPtr<i8> {} | _ { { deallocate_raw(res.body as RawPtr<void>)  }}
 }

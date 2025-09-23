@@ -5,4 +5,6 @@
 hashmap_module = import("hashmap")
 list_module = import("list")
 
+// Re-export Stack and Queue as separate modules (they use list internally)
+// But they are defined in their own files at stdlib level
 module.exports = { ...hashmap_module, ...list_module }

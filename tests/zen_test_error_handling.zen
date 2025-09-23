@@ -4,8 +4,7 @@
 { io } = @std
 
 // Import Result and Option from stdlib  
-{ Result, Ok, Err } = import("../stdlib/core/result.zen")
-{ Option, Some, None } = import("../stdlib/core/option.zen")
+{ Result, Ok, Err, Option, Some, None } = @std
 
 // Parse function that returns Result (lines 198-203)
 parse_radius = (s: string) Result<f64, string> {

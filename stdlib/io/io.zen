@@ -62,17 +62,7 @@ fflush = (file: RawPtr<i8>) i32 {
     """)
 }
 
-malloc = (size: i64) RawPtr<i8> {
-    inline.c("""
-        return malloc(${size});
-    """)
-}
-
-free = (ptr: RawPtr<i8>) void {
-    inline.c("""
-        free(${ptr.addr});
-    """)
-}
+{ allocate_raw, deallocate_raw } = import("memory.zen")
 
 // File descriptor constants
 STDIN := 0
@@ -272,7 +262,7 @@ BufferedReader: {
 
 // Create new buffered reader
 buffered_reader_new = (file: File) BufferedReader   {
-    buffer := malloc(BUFFER_SIZE)
+    buffer := allocate_raw(BUFFER_SIZE as usize) as RawPtr<i8>
     return BufferedReader {
         file: file,
         buffer: buffer,
@@ -292,7 +282,7 @@ BufferedWriter: {
 
 // Create new buffered writer
 buffered_writer_new = (file: File) BufferedWriter   {
-    buffer := malloc(BUFFER_SIZE)
+    buffer := allocate_raw(BUFFER_SIZE as usize) as RawPtr<i8>
     return BufferedWriter {
         file: file,
         buffer: buffer,
@@ -322,12 +312,12 @@ buffered_writer_flush = (writer: BufferedWriter) IOResult<bool> {
 
 // Free buffered reader resources
 buffered_reader_free = (reader: BufferedReader) void   {
-    free(reader.buffer)
+    deallocate_raw(reader.buffer as RawPtr<void>)
 }
 
 // Free buffered writer resources  
 buffered_writer_free = (writer: BufferedWriter) void   {
-    free(writer.buffer)
+    deallocate_raw(writer.buffer as RawPtr<void>)
 }
 
 // Standard streams (simplified)
