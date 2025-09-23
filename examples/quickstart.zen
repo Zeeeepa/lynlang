@@ -19,13 +19,13 @@ main = () void {
         | false { io.println("Zero or negative") }
     
     // === Structs & Methods ===
-    Vec2: { x: f64, y: f64 }
-    Vec2.len = (self) f64 {
+    Point: { x: f64, y: f64 }
+    Point.len = (self) f64 {
         @std.maths.sqrt(self.x * self.x + self.y * self.y)
     }
     
-    v = Vec2 { x: 3, y: 4 }
-    io.println("Length: ${v.len()}")
+    p = Point { x: 3, y: 4 }
+    io.println("Length: ${p.len()}")
     
     // === Error Handling ===
     parse = (s: string) Result<i32, string> {

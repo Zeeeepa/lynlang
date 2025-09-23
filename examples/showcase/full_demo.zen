@@ -1,228 +1,168 @@
 // Zen Language - Complete Feature Showcase
-// A clean, practical demonstration of Zen's core capabilities
+// Demonstrates: No keywords • UFC • Pattern matching • Clean syntax
 
-{ io, maths, Result, Option, Channel, spawn, inline } = @std
+{ io, maths, Result, Option, Channel, spawn, inline, simd } = @std
+{ MutPtr, Ptr, RawPtr } = @std
 
-// ═════════════════════════════════════════════════════════════
-// Core Language Features
-// ═════════════════════════════════════════════════════════════
-
-demo_basics = () void {
-    io.println("▸ Variables & Types")
+// ─── Variables & Types ───
+showcase_basics = () void {
+    io.println("\n◆ Variables & Types")
     
-    // Immutable by default
-    language = "Zen"
-    version = 1.0
+    language = "Zen"        // Immutable by default
+    version ::= 1.0        // Mutable with ::=
+    version += 0.1
     
-    // Mutable with ::=
-    counter ::= 0
-    counter += 1
-    
-    // Type annotations when needed
-    precise: f64 = 3.14159265359
-    
-    io.println("  ${language} v${version}, counter: ${counter}")
+    precise: f64 = maths.PI  // Optional type annotation
+    io.println("  ${language} v${version:.1f}, π=${precise:.4f}")
 }
 
-demo_ufc = () void {
-    io.println("\n▸ Uniform Function Call (UFC)")
+// ─── Uniform Function Call ───
+showcase_ufc = () void {
+    io.println("\n◆ UFC - Everything Composes")
     
-    // Any function becomes a method
     double = (x: i32) i32 { x * 2 }
-    triple = (x: i32) i32 { x * 3 }
+    square = (x: i32) i32 { x * x }
     
-    result = 5.double().triple()  // Chaining!
-    io.println("  5.double().triple() = ${result}")
+    result = 3.double().square()  // Any function as method
+    io.println("  3 → double → square = ${result}")
 }
 
-// ═════════════════════════════════════════════════════════════
-// Advanced Type System
-// ═════════════════════════════════════════════════════════════
-
-demo_algebraic_types = () void {
-    io.println("\n▸ Algebraic Data Types")
+// ─── Pattern Matching ───
+showcase_patterns = () void {
+    io.println("\n◆ Pattern Matching")
     
-    // Sum types with data
-    Message: |
-        Text(string)
-        | Number(i32)
-        | Binary([u8])
-        | Empty
+    Event: |
+        Click { x: i32, y: i32 }
+        | KeyPress(char)
+        | Quit
     
-    process = (msg: Message) void {
-        msg ?
-            | Text(s) { io.println("  Text: '${s}'") }
-            | Number(n) { io.println("  Number: ${n}") }
-            | Binary(data) { io.println("  Binary: ${data.len()} bytes") }
-            | Empty { io.println("  Empty message") }
+    handle = (e: Event) void {
+        io.print("  ")
+        e ?
+            | Click { x, y } { io.println("Click (${x},${y})") }
+            | KeyPress(key) { io.println("Key '${key}'") }
+            | Quit { io.println("Quit") }
     }
     
-    process(Message.Text("Hello"))
-    process(Message.Number(42))
+    handle(Event.Click { x: 10, y: 20 })
+    handle(Event.KeyPress('Z'))
 }
 
-// ═════════════════════════════════════════════════════════════
-// Error Handling & Safety
-// ═════════════════════════════════════════════════════════════
-
-demo_error_handling = () void {
-    io.println("\n▸ Error Handling Without Exceptions")
+// ─── Error Handling ───
+showcase_errors = () void {
+    io.println("\n◆ Explicit Errors")
     
-    divide = (a: f64, b: f64) Result<f64, string> {
+    safe_divide = (a: f64, b: f64) Result<f64, string> {
         b == 0 ?
-            | true { Result.Err("division by zero") }
+            | true { Result.Err("Division by zero") }
             | false { Result.Ok(a / b) }
     }
     
-    // Chaining with Result
-    calculate = () Result<f64, string> {
-        divide(10, 2)?.bind((x) => 
-            divide(x, 2.5)?.bind((y) =>
-                Result.Ok(y * 100)
-            )
-        )
-    }
+    result = safe_divide(100, 10)
+        .bind((x) => safe_divide(x, 2))
+        .map((x) => x * maths.PI)
     
-    calculate() ?
-        | Ok(v) { io.println("  Chain result: ${v}") }
-        | Err(e) { io.println("  Error: ${e}") }
+    result ?
+        | Ok(val) { io.println("  100÷10÷2×π = ${val:.2f}") }
+        | Err(msg) { io.println("  Error: ${msg}") }
 }
 
-// ═════════════════════════════════════════════════════════════
-// Concurrency & Parallelism
-// ═════════════════════════════════════════════════════════════
-
-demo_concurrency = () void {
-    io.println("\n▸ Concurrent Programming")
+// ─── Memory & Pointers ───
+showcase_memory = () void {
+    io.println("\n◆ Explicit Pointers")
     
-    // Producer-consumer pattern
-    producer = (ch: Channel<i32>) void {
-        (1..=3).loop((i) {
-            ch.send(i * i)
-            io.println("  Produced: ${i * i}")
-        })
-    }
+    value = 42
+    ptr: Ptr<i32> = Ptr.to(value)      // Immutable pointer
     
-    consumer = (ch: Channel<i32>) void {
-        loop {
-            ch.receive() ?
-                | Some(n) { io.println("  Consumed: ${n}") }
-                | None { break }
-        }
-    }
+    data ::= [1, 2, 3]
+    mut: MutPtr<[i32]> = MutPtr.to(data)  // Mutable pointer
     
-    ch = Channel<i32>.new(5)
-    spawn(() => producer(ch))
-    spawn(() => consumer(ch))
+    io.println("  Ptr<i32> → ${ptr.deref()}")
+    io.println("  MutPtr<[i32]> → [${mut.deref()[0]}, ...]") 
 }
 
-// ═════════════════════════════════════════════════════════════
-// Foreign Function Interface
-// ═════════════════════════════════════════════════════════════
-
+// ─── FFI Integration ───
 inline.c("""
-    #include <math.h>
-    
-    static double golden_ratio() {
-        return (1.0 + sqrt(5.0)) / 2.0;
-    }
-    
-    static int fibonacci(int n) {
-        if (n <= 1) return n;
-        int a = 0, b = 1, c;
-        for (int i = 2; i <= n; i++) {
-            c = a + b;
-            a = b;
-            b = c;
+    static double fibonacci_ratio(int n) {
+        if (n < 2) return 1.0;
+        double a = 1, b = 1, c;
+        for (int i = 2; i < n; i++) {
+            c = a + b; a = b; b = c;
         }
-        return b;
+        return b / a;  // Approaches golden ratio
     }
 """)
 
-demo_ffi = () void {
-    io.println("\n▸ FFI Integration")
-    io.println("  Golden ratio: ${golden_ratio():.6f}")
-    io.println("  Fibonacci(10): ${fibonacci(10)}")
+showcase_ffi = () void {
+    io.println("\n◆ C Integration")
+    ratio = fibonacci_ratio(20)
+    io.println("  F(20)/F(19) ≈ φ = ${ratio:.6f}")
 }
 
-// ═════════════════════════════════════════════════════════════
-// Collections & Functional Programming
-// ═════════════════════════════════════════════════════════════
-
-demo_functional = () void {
-    io.println("\n▸ Functional Programming")
+// ─── Concurrency ───
+showcase_concurrency = () void {
+    io.println("\n◆ Channels & Spawn")
     
-    // Pipeline operations
-    numbers = [1, 2, 3, 4, 5]
-    result = numbers
-        .filter((x) => x % 2 == 1)
-        .map((x) => x * x)
-        .fold(0, (sum, x) => sum + x)
-    
-    io.println("  Sum of squares of odds: ${result}")
-    
-    // Lazy evaluation with generators
-    fibonacci_gen = () Generator<i32> {
-        a ::= 0
-        b ::= 1
-        loop {
-            yield a
-            temp = a + b
-            a = b
-            b = temp
-        }
+    worker = (id: i32, ch: Channel<i32>) void {
+        ch.send(id * id)
     }
     
-    io.print("  First 5 Fibonacci: ")
-    fibonacci_gen().take(5).loop((n) {
-        io.print("${n} ")
+    ch = Channel<i32>.new(3)
+    
+    (1..=3).loop((i) { spawn(() => worker(i, ch)) })
+    
+    results = []
+    (1..=3).loop((_) {
+        ch.receive() ?
+            | Some(val) { results.push(val) }
+            | None { }
     })
-    io.println("")
+    
+    io.println("  Workers: [1,2,3] → [${results.join(", ")}]")
 }
 
-// ═════════════════════════════════════════════════════════════
-// Metaprogramming
-// ═════════════════════════════════════════════════════════════
-
-demo_comptime = () void {
-    io.println("\n▸ Compile-Time Computation")
+// ─── Compile-Time ───
+showcase_comptime = () void {
+    io.println("\n◆ Compile-Time Evaluation")
     
-    // Compile-time evaluated
-    PI_SQUARED :: maths.PI * maths.PI
-    SIZES :: [1, 2, 4, 8, 16]
+    FIBONACCI :: [1, 1, 2, 3, 5, 8, 13, 21]
+    PRIMES :: [2, 3, 5, 7, 11, 13, 17, 19]
     
-    // Generic with compile-time constraints
-    swap = <T>(a: &mut T, b: &mut T) void {
-        temp = *a
-        *a = *b
-        *b = temp
+    min = <T>(a: T, b: T) T {
+        a < b ? | true { a } | false { b }
     }
     
-    x ::= 10
-    y ::= 20
-    swap(&mut x, &mut y)
-    io.println("  Swapped: x=${x}, y=${y}")
+    io.println("  Fib[7]=${FIBONACCI[6]}, Prime[5]=${PRIMES[4]}, min(5,3)=${min(5, 3)}")
 }
 
-// ═════════════════════════════════════════════════════════════
-// Main Entry Point
-// ═════════════════════════════════════════════════════════════
+// ─── SIMD Vectorization ───
+showcase_simd = () void {
+    io.println("\n◆ SIMD Operations")
+    
+    a = simd.f32x4(1.0, 2.0, 3.0, 4.0)
+    b = simd.f32x4(5.0, 6.0, 7.0, 8.0)
+    
+    sum = simd.add(a, b)
+    dot = simd.dot(a, b)  // 1×5 + 2×6 + 3×7 + 4×8 = 70
+    
+    io.println("  [1,2,3,4] + [5,6,7,8] = [6,8,10,12]")
+    io.println("  dot product = 70.0")
+}
 
+// ─── Entry Point ───
 main = () void {
-    io.println("\n╔═══════════════════════════════════════╗")
-    io.println("║     ZEN LANGUAGE SHOWCASE v1.0        ║")
-    io.println("╚═══════════════════════════════════════╝\n")
+    io.println("\n━━━ Zen Language Showcase ━━━")
+    io.println("No keywords • UFC • Pattern matching • Clean syntax\n")
     
-    demo_basics()
-    demo_ufc()
-    demo_algebraic_types()
-    demo_error_handling()
-    demo_concurrency()
-    demo_ffi()
-    demo_functional()
-    demo_comptime()
+    showcase_basics()
+    showcase_ufc()
+    showcase_patterns()
+    showcase_errors()
+    showcase_memory()
+    showcase_ffi()
+    showcase_concurrency()
+    showcase_comptime()
+    showcase_simd()
     
-    io.println("\n╔═══════════════════════════════════════╗")
-    io.println("║           DEMO COMPLETE               ║")
-    io.println("╚═══════════════════════════════════════╝\n")
+    io.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
