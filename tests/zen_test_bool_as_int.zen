@@ -1,8 +1,0 @@
-// Test printing boolean variable as integer
-{ io } = @std
-
-main = () void {
-    x = true
-    // For now, let's just see what happens without trying to convert
-    io.println(x)
-}

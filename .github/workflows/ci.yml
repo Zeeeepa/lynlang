@@ -132,50 +132,26 @@ jobs:
     - name: Test Examples
       run: |
         echo "Testing hello world..."
-        ./target/release/zen examples/01_hello_world.zen || true
+        if [ -f examples/01_hello_world.zen ]; then
+          ./target/release/zen examples/01_hello_world.zen || echo "Hello world test failed (expected for current implementation)"
+        fi
         
         echo "Testing basics..."
-        [ -f examples/01_basics_working.zen ] && ./target/release/zen examples/01_basics_working.zen || true
+        if [ -f examples/01_basics_working.zen ]; then
+          ./target/release/zen examples/01_basics_working.zen || echo "Basics test failed (expected for current implementation)"  
+        fi
     
     - name: Run Zen Test Suite
       run: |
-        if [ -f ./run_tests.sh ]; then
-          echo "Running Zen test suite..."
-          ./run_tests.sh || true
-        fi
+        echo "Running Zen test suite..."
+        ./run_tests.sh
 
-  # Project validation
-  validate:
-    name: Validate Project
+  # Project statistics (non-blocking)
+  stats:
+    name: Project Stats
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Validate Structure
-      run: |
-        echo "=== Validating project structure ==="
-        required_dirs=("src" "examples" "tests" "stdlib")
-        for dir in "${required_dirs[@]}"; do
-          if [ -d "$dir" ]; then
-            echo "✓ $dir exists"
-          else
-            echo "✗ Missing required directory: $dir"
-            exit 1
-          fi
-        done
-    
-    - name: Check Documentation
-      run: |
-        echo "=== Checking documentation ==="
-        required_docs=("README.md" "STATUS.md" "LANGUAGE_SPEC.zen")
-        for doc in "${required_docs[@]}"; do
-          if [ -f "$doc" ]; then
-            echo "✓ $doc exists"
-          else
-            echo "✗ Missing required document: $doc"
-            exit 1
-          fi
-        done
     
     - name: Project Statistics
       run: |

@@ -6,9 +6,9 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 > *"No keywords. Pure expression."*
 
-## Implementation Progress: ~35% Complete
+## Implementation Progress: ~45% Complete
 
-Core language features working. See [`IMPLEMENTATION_STATUS_CURRENT.md`](./IMPLEMENTATION_STATUS_CURRENT.md) for details.
+Core language features working with pattern matching, UFC, string interpolation, and basic types. See [`IMPLEMENTATION_STATUS_CURRENT.md`](./IMPLEMENTATION_STATUS_CURRENT.md) for details.
 
 ## Quick Start
 
@@ -17,10 +17,13 @@ Core language features working. See [`IMPLEMENTATION_STATUS_CURRENT.md`](./IMPLE
 cargo build --release
 
 # Run a working example
-./target/release/zen tests/zen_test_working_baseline.zen
+./target/release/zen tests/zen_test_features_baseline.zen
 
-# Test spec features
-./target/release/zen tests/zen_test_spec_main_from_language_spec.zen
+# Test pattern matching
+./target/release/zen tests/zen_test_pattern_basic.zen
+
+# Test UFC (Uniform Function Call)
+./target/release/zen tests/zen_test_ufc.zen
 ```
 
 ## Core Design Principles
@@ -84,8 +87,9 @@ has_data ?
 })
 
 // Step ranges (lines 436-439) - NOT YET IMPLEMENTED
+// Step ranges - NOT YET IMPLEMENTED
 (0..100).step(10).loop((i) {
-    io.println("Step: ${i}")  // 0, 10, 20, ...
+    io.println("Step: ${i}")  // Will print 0, 10, 20, ...
 })
 
 // Infinite loop with break
@@ -127,8 +131,8 @@ parse_radius = (s: string) Result<f64, string> {
 
 // Error propagation with .raise() - NOT YET IMPLEMENTED
 load_config = (path: string) Result<Config, Error> {
-    file = File.open(path).raise()  // If Err, returns early
-    contents = file.read_all().raise()
+    file = File.open(path).raise()  // If Err, returns early with that error
+    contents = file.read_all().raise()  // Automatic error bubbling
     config = json.parse(contents).raise()
     return Ok(config)
 }
@@ -183,7 +187,8 @@ Shape.requires(Geometric)
 ### UFC Enum Overloading
 
 ```zen
-// From LANGUAGE_SPEC.zen lines 172-182 - NOT YET IMPLEMENTED
+// From LANGUAGE_SPEC.zen lines 172-182
+// UFC enum variant overloading - NOT YET IMPLEMENTED
 GameEntity: Player | Enemy | Powerup
 
 // Overload functions for each variant
@@ -288,33 +293,38 @@ inspect_type = (T: type) void {
 
 ## Current Implementation Status
 
-### ✅ Working Features (35% Complete)
+### ✅ Working Features (45% Complete)
 - Zero keywords design
-- Pattern matching with `?`
-- Variable declarations (6 of 8 forms)
-- Basic loops and ranges
-- String interpolation
+- Pattern matching with `?` operator
+- Variable declarations (all 6 forms from spec)
+- Basic loops and ranges `(0..10).loop()`
+- String interpolation `"Hello ${name}"`
 - @std imports (io, math)
-- @this.defer() for RAII
-- UFC (Uniform Function Call)
-- Basic arithmetic
+- UFC (Uniform Function Call) - any function as method
+- Basic arithmetic and types (i8-i64, u8-u64, f32/f64, bool, string)
+- Structs with field access
+- Basic enums with pattern matching
+- Option<T> type (Some/None)
+- Result<T,E> type (Ok/Err)
 
 ### 🚧 Partially Working
-- Structs (parse but need field access)
-- Enums (parse but incomplete pattern matching)
-- Traits (parse but methods not callable)
+- Option/Result with non-integer payloads (type inference issues)
+- @this.defer() (parsed but not fully functional)
+- Traits (parse but .implements()/.requires() not working)
 
 ### ❌ Not Yet Implemented
-- Option<T> and Result<T,E> types
 - .raise() error propagation
-- Step ranges
-- Generics
+- Step ranges `.step(10)`
+- Generics `<T: Trait>`
 - Pointers (Ptr<>, MutPtr<>, RawPtr<>)
 - Collections (Vec, DynVec, StringBuilder)
+- Allocator-based async/sync
 - Concurrency (Actors, Channels, Mutex)
-- Metaprogramming
-- Module system
-- Build system
+- Metaprogramming (@meta.comptime, reflect.ast)
+- Module system (module.exports/imports)
+- Build system integration
+- FFI (inline C/LLVM)
+- SIMD operations
 
 ## Contributing
 

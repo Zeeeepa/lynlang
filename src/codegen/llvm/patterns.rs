@@ -375,33 +375,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Extract the payload value
                             let mut payload_val = if scrutinee_val.is_pointer_value() {
                                 // We need to extract the payload without knowing its exact type
-                                // The safest approach is to extract it as-is from the struct
-                                // First, we need to determine what kind of struct this is
-                                
-                                // For now, we'll try both common payload types
-                                // This is a temporary solution until we have better type tracking
+                                // The safest approach is to try loading with the actual payload type if we can infer it
                                 let ptr_val = scrutinee_val.into_pointer_value();
                                 
-                                // Try loading as a struct with f64 payload first (most flexible)
-                                let f64_enum_type = self.context.struct_type(&[
-                                    self.context.i64_type().into(),
-                                    self.context.f64_type().into(),
+                                // Try to determine the payload type from the pattern
+                                // For now, we'll make a conservative assumption about the struct layout
+                                // TODO: Better type tracking to know the exact payload type
+                                
+                                // Create a generic enum struct type - we know it has tag + payload
+                                let generic_enum_type = self.context.struct_type(&[
+                                    self.context.i64_type().into(),  // tag
+                                    self.context.i64_type().into(),  // payload (generic)
                                 ], false);
                                 
-                                // Build GEP to access the payload field directly
-                                let payload_gep = self.builder.build_struct_gep(
-                                    f64_enum_type,
+                                // Build GEP to access the payload field
+                                let payload_ptr = self.builder.build_struct_gep(
+                                    generic_enum_type,
                                     ptr_val,
                                     1,
                                     "payload_ptr"
                                 )?;
                                 
-                                // Load the payload - we'll load as f64 since it can represent both int and float
-                                self.builder.build_load(
-                                    self.context.f64_type(),
-                                    payload_gep,
+                                // For better handling, we need to check what kind of value is expected
+                                // For now, always load as i64 which can represent both ints and bitcast floats
+                                let payload_type = self.context.i64_type();
+                                
+                                // Load the payload
+                                let loaded = self.builder.build_load(
+                                    payload_type,
+                                    payload_ptr,
                                     "payload"
-                                )?
+                                )?;
+                                
+                                // If we loaded an i64 but need a float, bitcast it
+                                // This will be handled by the binding application
+                                loaded
                             } else if scrutinee_val.is_struct_value() {
                                 let struct_val = scrutinee_val.into_struct_value();
                                 self.builder.build_extract_value(struct_val, 1, "payload")?

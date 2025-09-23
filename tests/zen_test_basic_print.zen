@@ -1,8 +1,0 @@
-{ io } = @std
-
-main = () void {
-    io.println("Hello World!")
-    
-    name = "Zen"
-    io.println("Hello from ${name}!")
-}

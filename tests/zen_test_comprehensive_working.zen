@@ -1,0 +1,111 @@
+// Comprehensive test of working features in Zen
+// Based on LANGUAGE_SPEC.zen
+
+{ io, math } = @std
+
+// Test Option type
+Option<T>: Some(T) | None
+
+// Test Result type  
+Result<T, E>: Ok(T) | Err(E)
+
+// Test struct
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+// Test function for UFC
+double = (x: i32) i32 {
+    return x * 2
+}
+
+main = () void {
+    io.println("=== Zen Language Feature Test ===")
+    
+    // Test 1: Variable declarations (all forms)
+    io.println("1. Variable declarations:")
+    x: i32
+    x = 10
+    y = 20           // Immutable inferred
+    z: i32 = 30      // Immutable typed
+    w:: i32          // Mutable forward decl
+    w = 40
+    v ::= 50         // Mutable inferred
+    u:: i32 = 60     // Mutable typed
+    io.println(x)
+    io.println(y)
+    io.println(z)
+    io.println(w)
+    io.println(v)
+    io.println(u)
+    
+    // Test 2: Pattern matching
+    io.println("2. Pattern matching:")
+    is_ready = true
+    is_ready ?
+        | true { io.println("Ready!") }
+        | false { io.println("Not ready") }
+    
+    // Test 3: Loops and ranges
+    io.println("3. Loops and ranges:")
+    count ::= 0
+    (0..3).loop((i) {
+        io.println(i)
+        count = count + 1
+    })
+    io.println("Loop count:")
+    io.println(count)
+    
+    // Test 4: String interpolation
+    io.println("4. String interpolation:")
+    name = "Zen"
+    version = 1
+    msg = "Language: ${name}, Version: ${version}"
+    io.println(msg)
+    
+    // Test 5: UFC (Uniform Function Call)
+    io.println("5. UFC:")
+    val = 7
+    result1 = double(val)     // Traditional
+    result2 = val.double()    // UFC
+    io.println(result1)
+    io.println(result2)
+    
+    // Test 6: Structs
+    io.println("6. Structs:")
+    point = Point { x: 3.14, y: 2.71 }
+    io.println(point.x)
+    io.println(point.y)
+    
+    // Test 7: Option type (integers work)
+    io.println("7. Option type:")
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { 
+            io.println("Some:")
+            io.println(val) 
+        }
+        | None { io.println("None") }
+    
+    none_val: Option<i32> = None
+    none_val ?
+        | Some(val) { io.println(val) }
+        | None { io.println("Is None") }
+    
+    // Test 8: Result type (integers work)
+    io.println("8. Result type:")
+    success: Result<i32, i32> = Ok(100)
+    success ?
+        | Ok(val) { 
+            io.println("Ok:")
+            io.println(val)
+        }
+        | Err(e) { io.println("Error") }
+    
+    // Test 9: Math module
+    io.println("9. Math module:")
+    io.println(math.pi)
+    
+    io.println("=== All tests complete ===")
+}
