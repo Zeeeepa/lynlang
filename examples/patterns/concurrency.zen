@@ -1,0 +1,135 @@
+// Concurrency Patterns
+// Advanced concurrent programming patterns in Zen
+
+{ io, Result } = @std
+{ Channel, spawn, AtomicU32, Mutex } = @std.concurrent
+{ Vec } = @std.collections
+
+// === Producer-Consumer Pattern ===
+
+Producer<T>: {
+    output: Channel<T>,
+    rate_limit: u32  // items per second
+}
+
+Producer.run = async (self, generator: () T) void {
+    loop {
+        item := generator()
+        await self.output.send(item)
+        await io.delay(1000 / self.rate_limit)
+    }
+}
+
+Consumer<T>: {
+    input: Channel<T>,
+    processor: (T) void
+}
+
+Consumer.run = async (self) void {
+    loop {
+        self.input.receive() ?
+            | Some -> item { self.processor(item) }
+            | None { break }
+    }
+}
+
+// === Actor Model Pattern ===
+
+ActorMessage<T>: |
+    Process -> T
+    | Query -> { reply: Channel<string> }
+    | Shutdown
+
+Actor<T>: {
+    mailbox: Channel<ActorMessage<T>>,
+    state: Mutex<T>
+}
+
+Actor.spawn = (initial: T, handler: (T, ActorMessage<T>) T) Actor<T> {
+    actor := Actor {
+        mailbox: Channel<ActorMessage<T>>.new(100),
+        state: Mutex<T>.new(initial)
+    }
+    
+    spawn(async () => {
+        mut current := initial
+        loop {
+            actor.mailbox.receive() ?
+                | Some -> msg {
+                    msg ?
+                        | Process -> data {
+                            current = handler(current, msg)
+                        }
+                        | Query -> { reply } {
+                            reply.send(current.to_string())
+                        }
+                        | Shutdown { break }
+                }
+                | None { break }
+        }
+    })
+    
+    return actor
+}
+
+// === Pipeline Pattern ===
+
+Pipeline<T, R>: {
+    stages: Vec<(T) T>
+}
+
+Pipeline.add_stage = (mut self, stage: (T) T) void {
+    self.stages.push(stage)
+}
+
+Pipeline.process = async (self, input: T) R {
+    mut result := input
+    for stage in self.stages {
+        result = await spawn(async () => stage(result))
+    }
+    return result
+}
+
+// === Demonstration ===
+
+main = async () void {
+    io.println("🔄 Concurrency Patterns\n")
+    
+    // Producer-Consumer
+    io.println("📤📥 Producer-Consumer:")
+    channel := Channel<i32>.new(10)
+    
+    mut counter := AtomicU32.new(0)
+    producer := Producer { output: channel, rate_limit: 10 }
+    consumer := Consumer { 
+        input: channel,
+        processor: (n) => io.println("  Consumed: ${n}")
+    }
+    
+    spawn(async () => await producer.run(() => counter.fetch_add(1, .SeqCst)))
+    spawn(async () => await consumer.run())
+    
+    await io.delay(500)
+    channel.close()
+    
+    // Actor Model
+    io.println("\n🎭 Actor Model:")
+    counter_actor := Actor.spawn(0, (state, msg) => {
+        msg ?
+            | Process -> n { state + n }
+            | _ { state }
+    })
+    
+    counter_actor.mailbox.send(ActorMessage.Process(5))
+    counter_actor.mailbox.send(ActorMessage.Process(3))
+    
+    reply := Channel<string>.new(1)
+    counter_actor.mailbox.send(ActorMessage.Query { reply: reply })
+    reply.receive() ?
+        | Some -> val { io.println("  Actor state: ${val}") }
+        | None {}
+    
+    counter_actor.mailbox.send(ActorMessage.Shutdown)
+    
+    io.println("\n✅ Concurrency patterns demonstrated")
+}

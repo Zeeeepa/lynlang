@@ -49,20 +49,10 @@ Stack.is_empty = (self) bool {
     return self.items.len() == 0
 }
 
-// === Module exports ===
-// In a real module file, this would be at the end
-
-math_utils.exports = {
-    PI: PI,
-    E: E,
-    square: square,
-    distance: distance,
-    clamp: clamp,
-}
-
-data_structures.exports = {
-    Stack: Stack,
-}
+// === Module organization ===
+// In Zen, modules are organized through file structure
+// Each file is implicitly a module, no explicit exports needed
+// Public items (capitalized types, non-underscore functions) are accessible
 
 // === Usage example ===
 
