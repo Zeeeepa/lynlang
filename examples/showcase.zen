@@ -94,6 +94,17 @@ main = () i32 {
     current_status = Status.Active
     io.println("  Status: ${status_message(current_status)}")
     
+    // Demonstrate both qualified and shorthand patterns
+    io.println("")
+    io.println("▸ Flexible Pattern Matching") 
+    test_status = Status.Pending
+    qualified_check = test_status ?
+        | Status.Active { "Active (qualified)" }
+        | Status.Inactive { "Inactive (qualified)" }
+        | Status.Pending { "Pending (qualified)" }
+        | _ { "Unknown" }
+    io.println("  Qualified syntax: ${qualified_check}")
+    
     // Option type
     io.println("")
     io.println("▸ Built-in Option Type")

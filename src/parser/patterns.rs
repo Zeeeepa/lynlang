@@ -124,6 +124,49 @@ impl<'a> Parser<'a> {
                     });
                 }
                 
+                // IMPORTANT: Check for qualified enum pattern FIRST (EnumName.Variant)
+                // This must happen before checking for standalone enum variant names
+                if self.current_token == Token::Symbol('.') || self.current_token == Token::Operator("::".to_string()) {
+                    let separator = self.current_token.clone();
+                    self.next_token();
+                    
+                    let variant_name = if let Token::Identifier(variant) = &self.current_token {
+                        variant.clone()
+                    } else {
+                        return Err(CompileError::SyntaxError(
+                            format!("Expected variant name after {}", 
+                                if separator == Token::Symbol('.') { "." } else { "::" }
+                            ),
+                            Some(self.current_span.clone()),
+                        ));
+                    };
+                    self.next_token();
+                    
+                    // Check for payload pattern
+                    let payload = if self.current_token == Token::Symbol('(') {
+                        self.next_token();
+                        let payload_pattern = self.parse_pattern()?;
+                        
+                        if self.current_token != Token::Symbol(')') {
+                            return Err(CompileError::SyntaxError(
+                                "Expected ')' after variant payload".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                        self.next_token();
+                        
+                        Some(Box::new(payload_pattern))
+                    } else {
+                        None
+                    };
+                    
+                    return Ok(Pattern::EnumVariant {
+                        enum_name: name,
+                        variant: variant_name,
+                        payload,
+                    });
+                }
+                
                 // Check if we're parsing an enum variant without payload
                 // Common enum variant names should be treated as enum literals
                 let is_common_enum_variant = matches!(name.as_str(), "Some" | "None" | "Ok" | "Err");
@@ -132,6 +175,7 @@ impl<'a> Parser<'a> {
                 let is_capitalized = name.chars().next().map_or(false, |c| c.is_uppercase());
                 
                 // If it's a known enum variant or capitalized, treat as enum pattern
+                // BUT ONLY if not followed by '.' (which would make it a qualified pattern)
                 if is_common_enum_variant || is_capitalized {
                     // It's an enum variant without payload
                     return Ok(Pattern::EnumLiteral {
@@ -229,48 +273,6 @@ impl<'a> Parser<'a> {
                             }),
                         });
                     }
-                }
-                
-                // Check if it's an enum variant pattern: EnumName.Variant or EnumName::Variant(pattern)
-                if self.current_token == Token::Symbol('.') || self.current_token == Token::Operator("::".to_string()) {
-                    let separator = self.current_token.clone();
-                    self.next_token();
-                    
-                    let variant_name = if let Token::Identifier(variant) = &self.current_token {
-                        variant.clone()
-                    } else {
-                        return Err(CompileError::SyntaxError(
-                            format!("Expected variant name after {}", 
-                                if separator == Token::Symbol('.') { "." } else { "::" }
-                            ),
-                            Some(self.current_span.clone()),
-                        ));
-                    };
-                    self.next_token();
-                    
-                    // Check for payload pattern
-                    let payload = if self.current_token == Token::Symbol('(') {
-                        self.next_token();
-                        let payload_pattern = self.parse_pattern()?;
-                        
-                        if self.current_token != Token::Symbol(')') {
-                            return Err(CompileError::SyntaxError(
-                                "Expected ')' after variant payload".to_string(),
-                                Some(self.current_span.clone()),
-                            ));
-                        }
-                        self.next_token();
-                        
-                        Some(Box::new(payload_pattern))
-                    } else {
-                        None
-                    };
-                    
-                    return Ok(Pattern::EnumVariant {
-                        enum_name: name,
-                        variant: variant_name,
-                        payload,
-                    });
                 }
                 
                 // Simple identifier pattern
