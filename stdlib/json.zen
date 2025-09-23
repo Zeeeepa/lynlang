@@ -30,12 +30,12 @@ JsonValue: Null
     Boolean: {value: bool},
     Number: {value: f64},
     String: {value: RawPtr<i8>},
-    Array: {elements: *JsonValue, count: i32},
-    Object: {pairs: *JsonPair, count: i32},
+    Array: {elements: Ptr<JsonValue>, count: i32},
+    Object: {pairs: Ptr<JsonPair>, count: i32},
 
 JsonPair: {
     key: RawPtr<i8>,
-    value: *JsonValue,
+    value: Ptr<JsonValue>,
 }
 
 // JSON Parser state
@@ -55,7 +55,7 @@ json_parser_new = (input: RawPtr<i8>) JsonParser   {
 }
 
 // Skip whitespace in parser
-json_skip_whitespace = (parser: *JsonParser) void   {
+json_skip_whitespace = (parser: Ptr<JsonParser>) void   {
     loop {
         parser.position >= parser.length ? | true { { break  }} | false {}
         
@@ -68,7 +68,7 @@ json_skip_whitespace = (parser: *JsonParser) void   {
 }
 
 // Parse a JSON string
-json_parse_string = (parser: *JsonParser) RawPtr<i8> {
+json_parse_string = (parser: Ptr<JsonParser>) RawPtr<i8> {
     // Skip opening quote
     parser.position = parser.position + 1
     
@@ -102,7 +102,7 @@ json_parse_string = (parser: *JsonParser) RawPtr<i8> {
 }
 
 // Parse a JSON number
-json_parse_number = (parser: *JsonParser) f64   {
+json_parse_number = (parser: Ptr<JsonParser>) f64   {
     start := parser.position
     has_decimal := false
     
@@ -134,7 +134,7 @@ json_parse_number = (parser: *JsonParser) f64   {
 }
 
 // Parse a JSON value
-json_parse_value = (parser: *JsonParser) *JsonValue {
+json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     json_skip_whitespace(parser)
     
     parser.position >= parser.length ? | true {
@@ -153,7 +153,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     ch == 116 ? | true { { // 't' }
         parser.position = parser.position + 4 // Skip "true"
         value := JsonValue:Boolean(true)
-        result := malloc(@sizeof(JsonValue)) as *JsonValue
+        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
         *result = value
         return result
     } | false {}
@@ -162,7 +162,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     ch == 102 ? | true { { // 'f' }
         parser.position = parser.position + 5 // Skip "false"
         value := JsonValue:Boolean(false)
-        result := malloc(@sizeof(JsonValue)) as *JsonValue
+        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
         *result = value
         return result
     } | false {}
@@ -171,7 +171,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     ch == 34 ? | true { { // '"' }
         str := json_parse_string(parser)
         value := JsonValue:String(str)
-        result := malloc(@sizeof(JsonValue)) as *JsonValue
+        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
         *result = value
         return result
     } | false {}
@@ -180,7 +180,7 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
     ch == 45 || (ch >= 48 && ch <= 57) ? | true { { // '-' or digit }
         num := json_parse_number(parser)
         value := JsonValue:Number(num)
-        result := malloc(@sizeof(JsonValue)) as *JsonValue
+        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
         *result = value
         return result
     } | false {}
@@ -201,8 +201,8 @@ json_parse_value = (parser: *JsonParser) *JsonValue {
 }
 
 // Parse JSON array
-json_parse_array = (parser: *JsonParser) *JsonValue {
-    elements := malloc(1024 as i64) as *JsonValue
+json_parse_array = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
+    elements := malloc(1024 as i64) as Ptr<JsonValue>
     count := 0
     
     loop {
@@ -226,14 +226,14 @@ json_parse_array = (parser: *JsonParser) *JsonValue {
     }
     
     value := JsonValue:Array(elements, count)
-    result := malloc(@sizeof(JsonValue)) as *JsonValue
+    result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
     *result = value
     return result
 }
 
 // Parse JSON object
-json_parse_object = (parser: *JsonParser) *JsonValue {
-    pairs := malloc(1024 as i64) as *JsonPair
+json_parse_object = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
+    pairs := malloc(1024 as i64) as Ptr<JsonPair>
     count := 0
     
     loop {
@@ -270,19 +270,19 @@ json_parse_object = (parser: *JsonParser) *JsonValue {
     }
     
     value := JsonValue:Object(pairs, count)
-    result := malloc(@sizeof(JsonValue)) as *JsonValue
+    result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
     *result = value
     return result
 }
 
 // Main parse function
-json_parse = (input: RawPtr<i8>) *JsonValue {
+json_parse = (input: RawPtr<i8>) Ptr<JsonValue> {
     parser := json_parser_new(input)
     return json_parse_value(&parser)
 }
 
 // Stringify a JSON value (simplified)
-json_stringify = (value: *JsonValue) RawPtr<i8> {
+json_stringify = (value: Ptr<JsonValue>) RawPtr<i8> {
     value ? 
         | Null { { return "null" as RawPtr<i8>  }}
         | Boolean(b) { { return b ? | true => "true" as RawPtr<i8> | false => "false" as RawPtr<i8>  }}
@@ -293,7 +293,7 @@ json_stringify = (value: *JsonValue) RawPtr<i8> {
 }
 
 // Free JSON value memory
-json_free = (value: *JsonValue) void   {
+json_free = (value: Ptr<JsonValue>) void   {
     value ? 
         | String(s) { { free(s as RawPtr<void>)  }}
         | Array(elements, count) {

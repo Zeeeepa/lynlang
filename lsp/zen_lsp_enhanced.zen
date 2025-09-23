@@ -458,7 +458,7 @@ check_import_syntax = (content: string) DynVec<Diagnostic>   {
 }
 
 // Provide completion items
-provide_completions = (server: *LanguageServer, uri: string, position: Position) DynVec<CompletionItem>   {
+provide_completions = (server: Ptr<LanguageServer>, uri: string, position: Position) DynVec<CompletionItem>   {
     items := DynVec.new<CompletionItem>()
     
     // Get document
@@ -551,7 +551,7 @@ provide_completions = (server: *LanguageServer, uri: string, position: Position)
 }
 
 // Handle text document changes
-handle_did_change = (server: *LanguageServer, uri: string, content: string, version: i32) void   {
+handle_did_change = (server: Ptr<LanguageServer>, uri: string, content: string, version: i32) void   {
     // Update document
     doc := HashMap.get_mut(server.documents, uri)
     if doc != Option.None {

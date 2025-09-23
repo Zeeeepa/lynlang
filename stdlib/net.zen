@@ -257,11 +257,9 @@ tcp_connect = (sock: TcpSocket, addr: SocketAddr) NetResult<TcpSocket>   {
 
 // Send data over TCP socket
 tcp_send = (sock: TcpSocket, data: RawPtr<i8>, len: i64) NetResult<i64>   {
-    sock.is_connected ?
-        | false {
+    !sock.is_connected ? {
             return NetResult:Err(NetError:NotConnected)
-        }
-        | true {}
+    }
     
     sent := send(sock.fd, data, len, 0)
     sent < 0 ?

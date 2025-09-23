@@ -61,7 +61,7 @@ suite = (name: string) TestSuite   {
 }
 
 // Add a test to a suite
-TestSuite.add_test = (self: *TestSuite, name: string, test_fn: () TestResult) void {
+TestSuite.add_test = (self: Ptr<TestSuite>, name: string, test_fn: () TestResult) void {
     test := TestCase{
         name: name,
         test_fn: test_fn,
@@ -72,12 +72,12 @@ TestSuite.add_test = (self: *TestSuite, name: string, test_fn: () TestResult) vo
 }
 
 // Set setup function for suite
-TestSuite.set_setup = (self: *TestSuite, setup_fn: () void) void {
+TestSuite.set_setup = (self: Ptr<TestSuite>, setup_fn: () void) void {
     self.setup = Option<() void>.Some(setup_fn)
 }
 
 // Set teardown function for suite
-TestSuite.set_teardown = (self: *TestSuite, teardown_fn: () void) void {
+TestSuite.set_teardown = (self: Ptr<TestSuite>, teardown_fn: () void) void {
     self.teardown = Option<() void>.Some(teardown_fn)
 }
 
@@ -180,7 +180,7 @@ run_test = (test: TestCase, verbose: bool) TestResult   {
 }
 
 // Run a test suite
-run_suite = (suite: TestSuite, runner: *TestRunner) void   {
+run_suite = (suite: TestSuite, runner: Ptr<TestRunner>) void   {
     io.println("\n=== Test Suite: " + suite.name + " ===")
     
     // Run setup if present

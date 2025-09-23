@@ -40,7 +40,7 @@ new_suite = (name: string) TestSuite   {
 }
 
 // Add a test case to the suite
-add_test = (suite: *TestSuite, name: string, test_fn: fn() bool) void {
+add_test = (suite: Ptr<TestSuite>, name: string, test_fn: fn() bool) void {
     test := TestCase {
         name: name,
         test_fn: test_fn,
@@ -51,7 +51,7 @@ add_test = (suite: *TestSuite, name: string, test_fn: fn() bool) void {
 }
 
 // Run all tests in the suite
-run = (suite: *TestSuite) bool   {
+run = (suite: Ptr<TestSuite>) bool   {
     io.print("Running test suite: ")
     io.print(suite.name)
     io.print("\n")
@@ -72,7 +72,7 @@ run = (suite: *TestSuite) bool   {
 }
 
 // Run a single test
-run_test = (suite: *TestSuite, test: *TestCase) void   {
+run_test = (suite: Ptr<TestSuite>, test: Ptr<TestCase>) void   {
     io.print("  Running: ")
     io.print(test.name)
     io.print(" ... ")
@@ -97,7 +97,7 @@ run_test = (suite: *TestSuite, test: *TestCase) void   {
 }
 
 // Print test suite summary
-print_summary = (suite: *TestSuite) void   {
+print_summary = (suite: Ptr<TestSuite>) void   {
     io.print("\n")
     io.print("=" * 50)
     io.print("\n")

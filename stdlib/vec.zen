@@ -1,7 +1,9 @@
-// Zen Standard Library: Fixed-Size Vector Implementation
-// A stack-allocated, fixed-size vector type
+// Zen Standard Library: Vector Types
+// - Vec<T, N>: Fixed-size stack-allocated vector
+// - DynVec<T>: Dynamic heap-allocated vector with allocator
 
 core := @std
+{ Allocator } = @std
 
 // Fixed-size vector structure - stack allocated
 Vec<T, N>: {
@@ -209,5 +211,151 @@ Vec<T, N>.fold<U> = (self: *Vec<T, N>, initial: U, f: (U, T) U) U {
     return acc
 }
 
-// Export the type
-module.exports = Vec
+// Dynamic vector structure - heap allocated with allocator support
+DynVec<T>: {
+    data: MutPtr<T>
+    len: usize
+    capacity: usize
+    allocator: Allocator
+}
+
+// Initialize with allocator
+DynVec<T>.init = (alloc: Allocator) DynVec<T> {
+    return DynVec<T> {
+        data: alloc.null_ptr(),
+        len: 0,
+        capacity: 0,
+        allocator: alloc,
+    }
+}
+
+// Initialize with capacity
+DynVec<T>.with_capacity = (alloc: Allocator, cap: usize) DynVec<T> {
+    data = alloc.allocate<T>(cap)
+    return DynVec<T> {
+        data: data,
+        len: 0,
+        capacity: cap,
+        allocator: alloc,
+    }
+}
+
+// Push element
+DynVec<T>.push = (vec: MutPtr<DynVec<T>>, value: T) void {
+    vec.val.len >= vec.val.capacity ?
+        | true { DynVec<T>.grow(vec) }
+        | false {}
+    
+    vec.val.data[vec.val.len] = value
+    vec.val.len = vec.val.len + 1
+}
+
+// Pop element
+DynVec<T>.pop = (vec: MutPtr<DynVec<T>>) core.Option<T> {
+    vec.val.len > 0 ?
+        | true {
+            vec.val.len = vec.val.len - 1
+            return core.Option:Some(vec.val.data[vec.val.len])
+        }
+        | false { return core.Option:None }
+}
+
+// Get element at index
+DynVec<T>.get = (vec: Ptr<DynVec<T>>, index: usize) core.Option<T> {
+    index < vec.val.len ?
+        | true { return core.Option:Some(vec.val.data[index]) }
+        | false { return core.Option:None }
+}
+
+// Set element at index
+DynVec<T>.set = (vec: MutPtr<DynVec<T>>, index: usize, value: T) bool {
+    index < vec.val.len ?
+        | true { 
+            vec.val.data[index] = value
+            return true
+        }
+        | false { return false }
+}
+
+// Loop over elements
+DynVec<T>.loop = (vec: Ptr<DynVec<T>>, f: (T) void) void {
+    i ::= 0
+    loop {
+        i >= vec.val.len ?
+            | true { break }
+            | false {
+                f(vec.val.data[i])
+                i = i + 1
+            }
+    }
+}
+
+// Loop with index
+DynVec<T>.loop_with_index = (vec: Ptr<DynVec<T>>, f: (T, usize) void) void {
+    i ::= 0
+    loop {
+        i >= vec.val.len ?
+            | true { break }
+            | false {
+                f(vec.val.data[i], i)
+                i = i + 1
+            }
+    }
+}
+
+// Grow capacity
+DynVec<T>.grow = (vec: MutPtr<DynVec<T>>) void {
+    new_cap = vec.val.capacity == 0 ?
+        | true { 4 }
+        | false { vec.val.capacity * 2 }
+    
+    new_data = vec.val.allocator.allocate<T>(new_cap)
+    
+    // Copy old data
+    i ::= 0
+    loop {
+        i >= vec.val.len ?
+            | true { break }
+            | false {
+                new_data[i] = vec.val.data[i]
+                i = i + 1
+            }
+    }
+    
+    // Free old data if it exists
+    vec.val.capacity > 0 ?
+        | true { vec.val.allocator.free(vec.val.data) }
+        | false {}
+    
+    vec.val.data = new_data
+    vec.val.capacity = new_cap
+}
+
+// Clean up
+DynVec<T>.deinit = (vec: MutPtr<DynVec<T>>) void {
+    vec.val.capacity > 0 ?
+        | true { vec.val.allocator.free(vec.val.data) }
+        | false {}
+    
+    vec.val.data = vec.val.allocator.null_ptr()
+    vec.val.len = 0
+    vec.val.capacity = 0
+}
+
+// Length
+DynVec<T>.len = (vec: Ptr<DynVec<T>>) usize {
+    return vec.val.len
+}
+
+// Is empty
+DynVec<T>.is_empty = (vec: Ptr<DynVec<T>>) bool {
+    return vec.val.len == 0
+}
+
+// Clear all elements
+DynVec<T>.clear = (vec: MutPtr<DynVec<T>>) void {
+    vec.val.len = 0
+}
+
+// Export both types
+module.exports = { Vec, DynVec, VecIterator }

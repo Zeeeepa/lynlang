@@ -8,7 +8,7 @@ math := build.import("math")
 
 // Dynamic array structure
 Array(T: type): {
-    data: *T,
+    data: Ptr<T>,
     len: usize,
     capacity: usize,
 }
@@ -35,7 +35,7 @@ from_slice = (T: type, slice: []T) Array(T) {
 }
 
 // Push element to array
-push = (T: type, arr: *Array(T), value: T) void {
+push = (T: type, arr: Ptr<Array(T)>, value: T) void {
     arr.len >= arr.capacity ? {
         grow(T, arr)
     }
@@ -44,7 +44,7 @@ push = (T: type, arr: *Array(T), value: T) void {
 }
 
 // Pop element from array
-pop = (T: type, arr: *Array(T)) Option<T> {
+pop = (T: type, arr: Ptr<Array(T)>) Option<T> {
     arr.len == 0 ? {
         return null
     }
@@ -53,7 +53,7 @@ pop = (T: type, arr: *Array(T)) Option<T> {
 }
 
 // Get element at index
-get = (T: type, arr: *Array(T), index: usize) Option<T> {
+get = (T: type, arr: Ptr<Array(T)>, index: usize) Option<T> {
     index >= arr.len ? {
         return null
     }
@@ -61,7 +61,7 @@ get = (T: type, arr: *Array(T), index: usize) Option<T> {
 }
 
 // Set element at index
-set = (T: type, arr: *Array(T), index: usize, value: T) bool {
+set = (T: type, arr: Ptr<Array(T)>, index: usize, value: T) bool {
     index >= arr.len ? {
         return false
     }
@@ -70,7 +70,7 @@ set = (T: type, arr: *Array(T), index: usize, value: T) bool {
 }
 
 // Insert element at index
-insert = (T: type, arr: *Array(T), index: usize, value: T) bool {
+insert = (T: type, arr: Ptr<Array(T)>, index: usize, value: T) bool {
     index > arr.len ? {
         return false
     }
@@ -94,7 +94,7 @@ insert = (T: type, arr: *Array(T), index: usize, value: T) bool {
 }
 
 // Remove element at index
-remove = (T: type, arr: *Array(T), index: usize) Option<T> {
+remove = (T: type, arr: Ptr<Array(T)>, index: usize) Option<T> {
     index >= arr.len ? {
         return null
     }
@@ -115,12 +115,12 @@ remove = (T: type, arr: *Array(T), index: usize) Option<T> {
 }
 
 // Clear array (keep capacity)
-clear = (T: type, arr: *Array(T)) void {
+clear = (T: type, arr: Ptr<Array(T)>) void {
     arr.len = 0
 }
 
 // Resize array to exact size
-resize = (T: type, arr: *Array(T), new_size: usize) void {
+resize = (T: type, arr: Ptr<Array(T)>, new_size: usize) void {
     new_size > arr.capacity ? {
         reserve(T, arr, new_size)
     }
@@ -128,7 +128,7 @@ resize = (T: type, arr: *Array(T), new_size: usize) void {
 }
 
 // Reserve capacity
-reserve = (T: type, arr: *Array(T), new_capacity: usize) void {
+reserve = (T: type, arr: Ptr<Array(T)>, new_capacity: usize) void {
     new_capacity <= arr.capacity ? {
         return
     }
@@ -144,7 +144,7 @@ reserve = (T: type, arr: *Array(T), new_capacity: usize) void {
 }
 
 // Grow array capacity (internal)
-grow = (T: type, arr: *Array(T)) void {
+grow = (T: type, arr: Ptr<Array(T)>) void {
     new_capacity := arr.capacity == 0 ? {
         8
     } : {
@@ -154,7 +154,7 @@ grow = (T: type, arr: *Array(T)) void {
 }
 
 // Shrink to fit
-shrink_to_fit = (T: type, arr: *Array(T)) void {
+shrink_to_fit = (T: type, arr: Ptr<Array(T)>) void {
     arr.len == arr.capacity ? {
         return
     }
@@ -176,7 +176,7 @@ shrink_to_fit = (T: type, arr: *Array(T)) void {
 }
 
 // Get slice of array
-slice = (T: type, arr: *Array(T), start: usize, end: usize) []T {
+slice = (T: type, arr: Ptr<Array(T)>, start: usize, end: usize) []T {
     (start > end or end > arr.len) ? {
         return []T{}
     }
@@ -184,7 +184,7 @@ slice = (T: type, arr: *Array(T), start: usize, end: usize) []T {
 }
 
 // Reverse array in place
-reverse = (T: type, arr: *Array(T)) void {
+reverse = (T: type, arr: Ptr<Array(T)>) void {
     arr.len <= 1 ? {
         return
     }
@@ -202,7 +202,7 @@ reverse = (T: type, arr: *Array(T)) void {
 }
 
 // Find element in array
-find = (T: type, arr: *Array(T), value: T) Option<usize> {
+find = (T: type, arr: Ptr<Array(T)>, value: T) Option<usize> {
     i := 0
     loop (i < arr.len) {
         arr.data[i] == value ? {
@@ -214,12 +214,12 @@ find = (T: type, arr: *Array(T), value: T) Option<usize> {
 }
 
 // Check if array contains element
-contains = (T: type, arr: *Array(T), value: T) bool {
+contains = (T: type, arr: Ptr<Array(T)>, value: T) bool {
     return find(T, arr, value) != null
 }
 
 // Map function over array
-map = (T: type, U: type, arr: *Array(T), f: fn(T) U) Array(U) {
+map = (T: type, U: type, arr: Ptr<Array(T)>, f: fn(T) U) Array(U) {
     result := new(U, arr.len)
     result.len = arr.len
     
@@ -233,7 +233,7 @@ map = (T: type, U: type, arr: *Array(T), f: fn(T) U) Array(U) {
 }
 
 // Filter array
-filter = (T: type, arr: *Array(T), predicate: fn(T) bool) Array(T) {
+filter = (T: type, arr: Ptr<Array(T)>, predicate: fn(T) bool) Array(T) {
     result := new(T, arr.len)
     
     i := 0
@@ -248,7 +248,7 @@ filter = (T: type, arr: *Array(T), predicate: fn(T) bool) Array(T) {
 }
 
 // Reduce array
-reduce = (T: type, U: type, arr: *Array(T), initial: U, f: fn(U, T) U) U {
+reduce = (T: type, U: type, arr: Ptr<Array(T)>, initial: U, f: fn(U, T) U) U {
     result := initial
     i := 0
     loop (i < arr.len) {
@@ -259,7 +259,7 @@ reduce = (T: type, U: type, arr: *Array(T), initial: U, f: fn(U, T) U) U {
 }
 
 // Sort array (quicksort)
-sort = (T: type, arr: *Array(T), compare: fn(T, T) i32) void {
+sort = (T: type, arr: Ptr<Array(T)>, compare: fn(T, T) i32) void {
     arr.len <= 1 ? {
         return
     }
@@ -267,7 +267,7 @@ sort = (T: type, arr: *Array(T), compare: fn(T, T) i32) void {
 }
 
 // Quicksort implementation
-quicksort = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) void {
+quicksort = (T: type, data: Ptr<T>, low: usize, high: usize, compare: fn(T, T) i32) void {
     low >= high ? {
         return
     }
@@ -280,7 +280,7 @@ quicksort = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) 
 }
 
 // Partition for quicksort
-partition = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) usize {
+partition = (T: type, data: Ptr<T>, low: usize, high: usize, compare: fn(T, T) i32) usize {
     pivot := data[high]
     i := low
     
@@ -303,7 +303,7 @@ partition = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) 
 }
 
 // Binary search (array must be sorted)
-binary_search = (T: type, arr: *Array(T), value: T, compare: fn(T, T) i32) Option<usize> {
+binary_search = (T: type, arr: Ptr<Array(T)>, value: T, compare: fn(T, T) i32) Option<usize> {
     arr.len == 0 ? {
         return null
     }
@@ -329,7 +329,7 @@ binary_search = (T: type, arr: *Array(T), value: T, compare: fn(T, T) i32) Optio
 }
 
 // Clone array
-clone = (T: type, arr: *Array(T)) Array(T) {
+clone = (T: type, arr: Ptr<Array(T)>) Array(T) {
     result := new(T, arr.capacity)
     result.len = arr.len
     
@@ -341,7 +341,7 @@ clone = (T: type, arr: *Array(T)) Array(T) {
 }
 
 // Extend array with another array
-extend = (T: type, arr: *Array(T), other: *Array(T)) void {
+extend = (T: type, arr: Ptr<Array(T)>, other: Ptr<Array(T)>) void {
     other.len == 0 ? {
         return
     }
@@ -356,7 +356,7 @@ extend = (T: type, arr: *Array(T), other: *Array(T)) void {
 }
 
 // Free array memory
-free = (T: type, arr: *Array(T)) void {
+free = (T: type, arr: Ptr<Array(T)>) void {
     arr.data != null ? {
         mem.free(arr.data)
     }
@@ -366,7 +366,7 @@ free = (T: type, arr: *Array(T)) void {
 }
 
 // Iterator support
-iter = (T: type, arr: *Array(T)) ArrayIterator(T) {
+iter = (T: type, arr: Ptr<Array(T)>) ArrayIterator(T) {
     return ArrayIterator(T){
         data: arr.data,
         len: arr.len,
@@ -375,12 +375,12 @@ iter = (T: type, arr: *Array(T)) ArrayIterator(T) {
 }
 
 ArrayIterator(T: type): {
-    data: *T,
+    data: Ptr<T>,
     len: usize,
     index: usize,
 }
 
-next = (T: type, it: *ArrayIterator(T)) Option<T> {
+next = (T: type, it: Ptr<ArrayIterator(T)>) Option<T> {
     it.index >= it.len ? {
         return null
     }

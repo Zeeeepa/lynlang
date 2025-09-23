@@ -519,7 +519,7 @@ to_sockaddr_in = (addr: SocketAddr) SockAddrIn   {
 }
 
 // Convert sockaddr_in to SocketAddr
-from_sockaddr_in = (addr: *SockAddrIn) SocketAddr   {
+from_sockaddr_in = (addr: RawPtr<SockAddrIn>) SocketAddr   {
     ip_addr := addr.sin_addr
     octets: [4]u8 = [
         (ip_addr >> 24) & 0xFF,
@@ -791,7 +791,7 @@ __sys_socket = (domain: i32, type: i32, protocol: i32) i32 {
     """)
 }
 
-__sys_bind = (fd: i32, addr: *SockAddrIn, len: u32) i32 {
+__sys_bind = (fd: i32, addr: RawPtr<SockAddrIn>, len: u32) i32 {
     inline.c("""
         return bind(${fd}, ${addr.addr}, ${len});
     """)
@@ -803,37 +803,37 @@ __sys_listen = (fd: i32, backlog: i32) i32 {
     """)
 }
 
-__sys_accept = (fd: i32, addr: *SockAddrIn, len: *u32) i32 {
+__sys_accept = (fd: i32, addr: RawPtr<SockAddrIn>, len: RawPtr<u32>) i32 {
     inline.c("""
         return accept(${fd}, ${addr.addr}, ${len.addr});
     """)
 }
 
-__sys_connect = (fd: i32, addr: *SockAddrIn, len: u32) i32 {
+__sys_connect = (fd: i32, addr: RawPtr<SockAddrIn>, len: u32) i32 {
     inline.c("""
         return connect(${fd}, ${addr.addr}, ${len});
     """)
 }
 
-__sys_send = (fd: i32, buf: *u8, len: usize, flags: i32) i64 {
+__sys_send = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32) i64 {
     inline.c("""
         return send(${fd}, ${buf.addr}, ${len}, ${flags});
     """)
 }
 
-__sys_recv = (fd: i32, buf: *u8, len: usize, flags: i32) i64 {
+__sys_recv = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32) i64 {
     inline.c("""
         return recv(${fd}, ${buf.addr}, ${len}, ${flags});
     """)
 }
 
-__sys_sendto = (fd: i32, buf: *u8, len: usize, flags: i32, addr: *SockAddrIn, addr_len: u32) i64 {
+__sys_sendto = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32, addr: RawPtr<SockAddrIn>, addr_len: u32) i64 {
     inline.c("""
         return sendto(${fd}, ${buf.addr}, ${len}, ${flags}, ${addr.addr}, ${addr_len});
     """)
 }
 
-__sys_recvfrom = (fd: i32, buf: *u8, len: usize, flags: i32, addr: *SockAddrIn, addr_len: *u32) i64 {
+__sys_recvfrom = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32, addr: RawPtr<SockAddrIn>, addr_len: RawPtr<u32>) i64 {
     inline.c("""
         return recvfrom(${fd}, ${buf.addr}, ${len}, ${flags}, ${addr.addr}, ${addr_len.addr});
     """)

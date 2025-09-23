@@ -20,7 +20,7 @@ range = (start: i64, end: i64) Range   {
 }
 
 // Loop method for Range - executes callback for each value
-Range.loop = (self: *Range, callback: (i64) void) void {
+Range.loop = (self: Ptr<Range>, callback: (i64) void) void {
     loop self.current < self.end {
         callback(self.current)
         self.current = self.current + 1
@@ -29,13 +29,13 @@ Range.loop = (self: *Range, callback: (i64) void) void {
 
 // Generic iterator interface
 Iterator<T> = {
-    data: *T,
+    data: Ptr<T>,
     size: i64,
     current: i64,
 }
 
 // Create iterator from array
-array_iter<T>: (arr: *T, size: i64) Iterator<T>  = {
+array_iter<T>: (arr: Ptr<T>, size: i64) Iterator<T>  = {
     return Iterator<T> {
         data: arr,
         size: size,
@@ -49,7 +49,7 @@ Iterator<T>.has_next = (self: Iterator<T>) bool {
 }
 
 // Get next element
-Iterator<T>.next = (self: *Iterator<T>) Option<T> {
+Iterator<T>.next = (self: Ptr<Iterator<T>>) Option<T> {
     self.current >= self.size ? 
         | true { return Option<T>:None }
         | false {

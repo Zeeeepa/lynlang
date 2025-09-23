@@ -151,6 +151,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(self.context.i32_type().const_int(0, false).into())
             }
             Expression::Block(statements) => {
+                // Don't create a new scope here - blocks in Zen share the same scope
+                // This allows variables declared in blocks to be accessible
+                
                 // Compile block expression - evaluates to last expression or void
                 if statements.is_empty() {
                     // Empty block returns void

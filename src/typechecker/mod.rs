@@ -720,7 +720,10 @@ impl TypeChecker {
                 }
             }
             Expression::Block(statements) => {
-                // Return type of last statement if it's an expression
+                // For now, just return the type of the last expression
+                // Block scoping will be handled properly in codegen
+                // Type checking blocks properly would require refactoring infer_expression_type
+                // to take &mut self instead of &self
                 for stmt in statements {
                     if let Statement::Expression(expr) = stmt {
                         // This is just a simple approximation - last expression in block

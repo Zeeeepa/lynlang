@@ -226,7 +226,7 @@ LanguageServer : {
 }
 
 // Create a new language server
-new_server = () RawPtr<LanguageServer>   {
+new_server = () Ptr<LanguageServer>   {
     server := LanguageServer{
         initialized: false,
         root_uri: null,
@@ -254,7 +254,7 @@ new_server = () RawPtr<LanguageServer>   {
 }
 
 // Handle initialize request
-handle_initialize = (server: *LanguageServer, params: json.Value) json.Value {
+handle_initialize = (server: Ptr<LanguageServer>, params: json.Value) json.Value {
     // Extract root URI
     params.has("rootUri") ? {
         server.root_uri = params.get("rootUri").as_string()
@@ -289,7 +289,7 @@ handle_initialize = (server: *LanguageServer, params: json.Value) json.Value {
 }
 
 // Handle text document did open
-handle_did_open = (server: *LanguageServer, params: json.Value) void   {
+handle_did_open = (server: Ptr<LanguageServer>, params: json.Value) void   {
     doc := extract_text_document(params)
     server.documents.insert(doc.uri, doc)
     
@@ -298,7 +298,7 @@ handle_did_open = (server: *LanguageServer, params: json.Value) void   {
 }
 
 // Handle text document did change
-handle_did_change = (server: *LanguageServer, params: json.Value) void   {
+handle_did_change = (server: Ptr<LanguageServer>, params: json.Value) void   {
     uri := params.get("textDocument").get("uri").as_string()
     version := params.get("textDocument").get("version").as_i32()
     
@@ -321,7 +321,7 @@ handle_did_change = (server: *LanguageServer, params: json.Value) void   {
 }
 
 // Analyze a document and generate diagnostics
-analyze_document = (server: *LanguageServer, uri: string) void   {
+analyze_document = (server: Ptr<LanguageServer>, uri: string) void   {
     !server.documents.contains(uri) ? {
         return
     }
@@ -402,7 +402,7 @@ analyze_document = (server: *LanguageServer, uri: string) void   {
 }
 
 // Check style issues
-check_style = (text: string, diagnostics: *DynVec<Diagnostic>) void   {
+check_style = (text: string, diagnostics: Ptr<DynVec<Diagnostic>>) void   {
     lines := string.split(text, "\n")
     
     lines.loop((line_num, line) {
@@ -880,7 +880,7 @@ extract_enum_members = (node: ASTNode) DynVec<DocumentSymbol> {
 }
 
 // Find definition in imported modules
-find_definition_in_imports = (server: *LanguageServer, doc: Document, word: string) Option<json.Value> {
+find_definition_in_imports = (server: Ptr<LanguageServer>, doc: Document, word: string) Option<json.Value> {
     // Parse imports from document
     imports := extract_imports(doc.text)
     
@@ -975,7 +975,7 @@ resolve_import_uri = (import_path: string) string {
 }
 
 // Infer type of a symbol
-infer_symbol_type = (server: *LanguageServer, doc: Document, symbol: DocumentSymbol) string {
+infer_symbol_type = (server: Ptr<LanguageServer>, doc: Document, symbol: DocumentSymbol) string {
     // Basic type inference based on symbol kind and context
     (symbol.kind) ?
         SymbolKind.Function => {
@@ -1078,7 +1078,7 @@ is_numeric = (s: string) bool {
 }
 
 // Find symbol in imports
-find_symbol_in_imports = (server: *LanguageServer, doc: Document, word: string) Option<string> {
+find_symbol_in_imports = (server: Ptr<LanguageServer>, doc: Document, word: string) Option<string> {
     imports := extract_imports(doc.text)
     
     imports.loop((import_path) {
