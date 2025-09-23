@@ -1,7 +1,7 @@
 // Zen Language - Elegance, Efficiency, Expressiveness
 { io } = @std
 
-main = () void {
+main = () i32 {
     header("ZEN LANGUAGE")
     
     section("Universal Function Call")

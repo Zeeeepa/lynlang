@@ -1,6 +1,0 @@
-// Minimal test
-{ io } = @std
-
-main = () i32 {
-    0
-}
