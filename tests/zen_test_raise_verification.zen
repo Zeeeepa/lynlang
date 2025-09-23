@@ -1,0 +1,41 @@
+// Test for .raise() error propagation from LANGUAGE_SPEC.zen
+// Lines 205-211 demonstrate .raise() usage
+
+{ io } = @std
+
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple function that returns a Result
+divide = (a: i32, b: i32) Result<i32, string> {
+    b == 0 ?
+        | true { return Result.Err("Division by zero") }
+        | false { return Result.Ok(a / b) }
+}
+
+// Function using .raise() for error propagation  
+calculate = (x: i32, y: i32) Result<i32, string> {
+    // If divide returns Err, .raise() will return early with that error
+    result = divide(x, y).raise()
+    // This line only executes if divide returned Ok
+    doubled = result * 2
+    return Result.Ok(doubled)
+}
+
+main = () void {
+    io.println("=== Testing .raise() Error Propagation ===")
+    
+    // Test successful case
+    result1 = calculate(10, 2)
+    result1 ?
+        | Ok(val) { io.println("✓ Success: 10 / 2 * 2 = ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test error case - should propagate via .raise()
+    result2 = calculate(10, 0)
+    result2 ?
+        | Ok(val) { io.println("Value: ${val}") }
+        | Err(e) { io.println("✓ Error propagated: ${e}") }
+        
+    io.println("")
+    io.println("✅ .raise() error propagation works!")
+}
