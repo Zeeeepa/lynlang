@@ -83,7 +83,7 @@ u:: i32 = 60    // Typed mutable ✅
 - **Infinite loops** - `loop(() { ... })` ✅
 - **Break statement** - Works in loops ✅
 - **String interpolation** - `"Value: ${expr}"` ✅
-- **Continue statement** - Not tested ⚠️
+- **Continue statement** - Parsed but may have issues ⚠️
 - **Range step** - `(0..10).step(2)` ❌
 
 #### Imports & Modules

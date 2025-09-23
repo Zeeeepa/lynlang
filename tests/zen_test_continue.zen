@@ -1,0 +1,16 @@
+// Test continue statement
+{ io } = @std
+
+main = () void {
+    io.println("Testing continue statement")
+    
+    // Test continue in range loop
+    (0..5).loop((i) {
+        // Skip specific values
+        (i == 1) ? { continue }
+        (i == 3) ? { continue }
+        io.println("Number: ${i}")
+    })
+    
+    io.println("Test complete")
+}
