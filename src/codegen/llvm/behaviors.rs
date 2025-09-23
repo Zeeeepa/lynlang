@@ -156,9 +156,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         param_types.push(BasicMetadataTypeEnum::from(basic_type));
                         eprintln!("DEBUG: Added param type to function signature");
                     }
-                    super::Type::Struct(struct_type) => {
-                        // Pass struct by pointer
-                        let ptr_type = struct_type.ptr_type(inkwell::AddressSpace::default());
+                    super::Type::Struct(_struct_type) => {
+                        // Pass struct by pointer - use context's pointer type
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                         param_types.push(BasicMetadataTypeEnum::from(ptr_type));
                         eprintln!("DEBUG: Added struct pointer type to function signature");
                     }

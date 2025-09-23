@@ -374,21 +374,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         if let Some(payload_pattern) = payload {
                             // Extract the payload value
                             let mut payload_val = if scrutinee_val.is_pointer_value() {
-                                // For now, we'll assume the standard enum structure with i64 payload
-                                // TODO: Track actual payload types for proper type-safe extraction
-                                let enum_struct_type = self.context.struct_type(&[
+                                // We need to extract the payload without knowing its exact type
+                                // The safest approach is to extract it as-is from the struct
+                                // First, we need to determine what kind of struct this is
+                                
+                                // For now, we'll try both common payload types
+                                // This is a temporary solution until we have better type tracking
+                                let ptr_val = scrutinee_val.into_pointer_value();
+                                
+                                // Try loading as a struct with f64 payload first (most flexible)
+                                let f64_enum_type = self.context.struct_type(&[
                                     self.context.i64_type().into(),
-                                    self.context.f64_type().into(), // Use f64 as it can hold both int and float
+                                    self.context.f64_type().into(),
                                 ], false);
                                 
+                                // Build GEP to access the payload field directly
                                 let payload_gep = self.builder.build_struct_gep(
-                                    enum_struct_type,
-                                    scrutinee_val.into_pointer_value(),
+                                    f64_enum_type,
+                                    ptr_val,
                                     1,
                                     "payload_ptr"
                                 )?;
                                 
-                                // Load as f64 - this will work for both int and float payloads
+                                // Load the payload - we'll load as f64 since it can represent both int and float
                                 self.builder.build_load(
                                     self.context.f64_type(),
                                     payload_gep,
