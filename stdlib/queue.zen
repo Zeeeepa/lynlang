@@ -84,10 +84,12 @@ peek = (T: type, q: Ptr<Queue<T>>) Option<T> {
 
 // Clear queue
 clear = (T: type, q: Ptr<Queue<T>>) void {
-    while (q.head != null) {
-        node := q.head
-        q.head = node.next
-        mem.free(node)
+    loop {
+        q.head != null ? | false { break } | true {
+            node := q.head
+            q.head = node.next
+            mem.free(node)
+        }
     }
     q.tail = null
     q.size = 0
@@ -98,9 +100,11 @@ to_array = (T: type, q: Ptr<Queue<T>>) Array<T> {
     result := array.new(T, q.size)
     
     current := q.head
-    while (current != null) {
-        array.push(T, result.mut_ref(), current.value)
-        current = current.next
+    loop {
+        current != null ? | false { break } | true {
+            array.push(T, result.mut_ref(), current.value)
+            current = current.next
+        }
     }
     
     return result
@@ -120,9 +124,11 @@ clone = (T: type, q: Ptr<Queue<T>>) Queue<T> {
     result := new(T)
     current := q.head
     
-    while (current != null) {
-        enqueue(T, &result, current.value)
-        current = current.next
+    loop {
+        current != null ? | false { break } | true {
+            enqueue(T, result.mut_ref(), current.value)
+            current = current.next
+        }
     }
     
     return result

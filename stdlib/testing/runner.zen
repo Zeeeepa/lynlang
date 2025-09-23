@@ -59,10 +59,12 @@ run = (suite: Ptr<TestSuite>) bool   {
     io.print("\n")
     
     i := 0
-    while i < vec.len(suite.tests) {
-        test := vec.get(suite.tests, i)
-        run_test(suite, test)
-        i = i + 1
+    loop {
+        i < vec.len(suite.tests) ? | false { break } | true {
+            test := vec.get(suite.tests, i)
+            run_test(suite, test)
+            i = i + 1
+        }
     }
     
     // Print summary

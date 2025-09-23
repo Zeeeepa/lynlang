@@ -27,7 +27,7 @@ new = (T: type, initial_capacity: usize) Array<T> {
 }
 
 // Create array from slice
-from_slice = (T: type, slice: []T) Array<T> {
+from_slice = (T: type, slice: Array<T>) Array<T> {
     arr := new(T, slice.len)
     arr.len = slice.len
     mem.copy(arr.data, slice.ptr, slice.len * core.sizeof(T))
@@ -106,7 +106,7 @@ remove = (T: type, arr: Ptr<Array<T>>, index: usize) Option<T> {
         mem.move(
             arr.data + index,
             arr.data + index + 1,
-            (arr.len - index - 1) * @sizeof(T)
+            (arr.len - index - 1) * core.sizeof(T)
         )
     }
     
@@ -135,7 +135,7 @@ reserve = (T: type, arr: Ptr<Array<T>>, new_capacity: usize) void {
     
     new_data := mem.alloc(T, new_capacity)
     (arr.data != null and arr.len > 0) ? {
-        mem.copy(new_data, arr.data, arr.len * @sizeof(T))
+        mem.copy(new_data, arr.data, arr.len * core.sizeof(T))
         mem.free(arr.data)
     }
     
@@ -176,9 +176,9 @@ shrink_to_fit = (T: type, arr: Ptr<Array<T>>) void {
 }
 
 // Get slice of array
-slice = (T: type, arr: Ptr<Array<T>>, start: usize, end: usize) []T {
+slice = (T: type, arr: Ptr<Array<T>>, start: usize, end: usize) Array<T> {
     (start > end or end > arr.len) ? {
-        return []T{}
+        return Array<T>{}
     }
     return arr.data[start..end]
 }
@@ -239,7 +239,7 @@ filter = (T: type, arr: Ptr<Array<T>>, predicate: fn(T) bool) Array<T> {
     i := 0
     loop (i < arr.len) {
         predicate(arr.data[i]) ? {
-            push(T, &result, arr.data[i])
+            push(T, result.mut_ref(), arr.data[i])
         }
         i += 1
     }
@@ -351,7 +351,7 @@ extend = (T: type, arr: Ptr<Array<T>>, other: Ptr<Array<T>>) void {
         reserve(T, arr, required_capacity)
     }
     
-    mem.copy(arr.data + arr.len, other.data, other.len * @sizeof(T))
+    mem.copy(arr.data + arr.len, other.data, other.len * core.sizeof(T))
     arr.len += other.len
 }
 
@@ -366,21 +366,21 @@ free = (T: type, arr: Ptr<Array<T>>) void {
 }
 
 // Iterator support
-iter = (T: type, arr: Ptr<Array<T>>) ArrayIterator(T) {
-    return ArrayIterator(T){
+iter = (T: type, arr: Ptr<Array<T>>) ArrayIterator<T> {
+    return ArrayIterator<T>{
         data: arr.data,
         len: arr.len,
         index: 0,
     }
 }
 
-ArrayIterator(T: type): {
+ArrayIterator<T: type>: {
     data: Ptr<T>,
     len: usize,
     index: usize,
 }
 
-next = (T: type, it: Ptr<ArrayIterator(T)>) Option<T> {
+next = (T: type, it: Ptr<ArrayIterator<T>>) Option<T> {
     it.index >= it.len ? {
         return null
     }

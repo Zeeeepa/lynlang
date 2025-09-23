@@ -311,7 +311,7 @@ PongActor: {
 }
 
 // Worker pool pattern
-WorkerPool = (comptime Job: type, comptime Result: type) {
+WorkerPool<Job: type, Result: type>: {
     workers: DynVec<ActorRef>
     next_worker: usize
     result_handler: (Result) void
@@ -323,14 +323,14 @@ WorkerPool = (comptime Job: type, comptime Result: type) {
         result_handler: (Result) void,
         system: *ActorSystem,
         alloc: *allocator.Allocator
-    ) WorkerPool(Job, Result) {
+    ) WorkerPool<Job, Result> {
         workers := alloc.alloc_slice(ActorRef, num_workers)
         
         loop i := 0; i < num_workers; i += 1 {
             workers[i] = system.spawn(worker_behavior, {}, alloc)
         }
         
-        return WorkerPool(Job, Result){
+        return WorkerPool<Job, Result>{
             workers: workers,
             next_worker: 0,
             result_handler: result_handler,

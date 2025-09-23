@@ -149,13 +149,15 @@ add_breakpoint = (dbg: Ptr<Debugger>, file: string, line: u32) u32   {
 // Remove breakpoint
 remove_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
-    while (i < dbg.breakpoints.len()) {
-        dbg.breakpoints[i].id == id ? {
-            DynVec.remove(dbg.breakpoints, i)
-            io.println(colors.yellow("Breakpoint ") + string.format("#{} removed", id))
-            return true
+    loop {
+        i < dbg.breakpoints.len() ? | false { break } | true {
+            dbg.breakpoints[i].id == id ? {
+                DynVec.remove(dbg.breakpoints, i)
+                io.println(colors.yellow("Breakpoint ") + string.format("#{} removed", id))
+                return true
+            }
+            i += 1
         }
-        i += 1
     }
     return false
 }
@@ -163,15 +165,17 @@ remove_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
 // Toggle breakpoint
 toggle_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
-    while (i < dbg.breakpoints.len()) {
-        dbg.breakpoints[i].id == id ? {
-            dbg.breakpoints[i].enabled = !dbg.breakpoints[i].enabled
-            status := if (dbg.breakpoints[i].enabled) "enabled" else "disabled"
-            io.println(colors.yellow("Breakpoint ") + 
-                      string.format("#{} {}", id, status))
-            return true
+    loop {
+        i < dbg.breakpoints.len() ? | false { break } | true {
+            dbg.breakpoints[i].id == id ? {
+                dbg.breakpoints[i].enabled = !dbg.breakpoints[i].enabled
+                status := if (dbg.breakpoints[i].enabled) "enabled" else "disabled"
+                io.println(colors.yellow("Breakpoint ") + 
+                          string.format("#{} {}", id, status))
+                return true
+            }
+            i += 1
         }
-        i += 1
     }
     return false
 }
@@ -185,12 +189,14 @@ list_breakpoints = (dbg: Ptr<Debugger>) void   {
     
     io.println(colors.bold("Breakpoints:"))
     i := 0
-    while (i < dbg.breakpoints.len()) {
-        bp := dbg.breakpoints[i]
-        status := if (bp.enabled) colors.green("[enabled]") else colors.red("[disabled]")
-        io.println(string.format("  #{} {} {}:{} (hits: {})",
-                                 bp.id, status, bp.file, bp.line, bp.hit_count))
-        i += 1
+    loop {
+        i < dbg.breakpoints.len() ? | false { break } | true {
+            bp := dbg.breakpoints[i]
+            status := if (bp.enabled) colors.green("[enabled]") else colors.red("[disabled]")
+            io.println(string.format("  #{} {} {}:{} (hits: {})",
+                                     bp.id, status, bp.file, bp.line, bp.hit_count))
+            i += 1
+        }
     }
 }
 
@@ -213,13 +219,15 @@ add_watch = (dbg: Ptr<Debugger>, expression: string) u32   {
 // Remove watch
 remove_watch = (dbg: Ptr<Debugger>, id: u32) bool   {
     i := 0
-    while (i < dbg.watches.len()) {
-        dbg.watches[i].id == id ? {
-            DynVec.remove(dbg.watches, i)
-            io.println(colors.yellow("Watch ") + string.format("#{} removed", id))
-            return true
+    loop {
+        i < dbg.watches.len() ? | false { break } | true {
+            dbg.watches[i].id == id ? {
+                DynVec.remove(dbg.watches, i)
+                io.println(colors.yellow("Watch ") + string.format("#{} removed", id))
+                return true
+            }
+            i += 1
         }
-        i += 1
     }
     return false
 }
@@ -233,15 +241,17 @@ list_watches = (dbg: Ptr<Debugger>) void   {
     
     io.println(colors.bold("Watches:"))
     i := 0
-    while (i < dbg.watches.len()) {
-        watch := dbg.watches[i]
-        value_str := match watch.value {
-            Option.Some(v) => value_to_string(v)
-            Option.None => "<not evaluated>"
+    loop {
+        i < dbg.watches.len() ? | false { break } | true {
+            watch := dbg.watches[i]
+            value_str := match watch.value {
+                Option.Some(v) => value_to_string(v)
+                Option.None => "<not evaluated>"
+            }
+            io.println(string.format("  #{} {}: {}", 
+                                     watch.id, watch.expression, value_str))
+            i += 1
         }
-        io.println(string.format("  #{} {}: {}", 
-                                 watch.id, watch.expression, value_str))
-        i += 1
     }
 }
 
@@ -272,10 +282,12 @@ value_to_string = (val: Value) string   {
         Value.Array(elements) => {
             result := "["
             i := 0
-            while (i < elements.len()) {
-                if (i > 0) string.append(result, ", ")
-                string.append(result, value_to_string(elements[i]))
-                i += 1
+            loop {
+                i < elements.len() ? | false { break } | true {
+                    if (i > 0) string.append(result, ", ")
+                    string.append(result, value_to_string(elements[i]))
+                    i += 1
+                }
             }
             string.append(result, "]")
             return result
@@ -293,13 +305,15 @@ print_call_stack = (dbg: Ptr<Debugger>) void   {
     
     io.println(colors.bold("Call Stack:"))
     i := 0
-    while (i < dbg.call_stack.len()) {
-        frame := dbg.call_stack[i]
-        marker := if (i == dbg.current_frame) colors.cyan("→ ") else "  "
-        io.println(string.format("{}#{} {} at {}:{}:{}", 
-                                 marker, i, frame.function, 
-                                 frame.file, frame.line, frame.column))
-        i += 1
+    loop {
+        i < dbg.call_stack.len() ? | false { break } | true {
+            frame := dbg.call_stack[i]
+            marker := if (i == dbg.current_frame) colors.cyan("→ ") else "  "
+            io.println(string.format("{}#{} {} at {}:{}:{}", 
+                                     marker, i, frame.function, 
+                                     frame.file, frame.line, frame.column))
+            i += 1
+        }
     }
 }
 
@@ -342,21 +356,24 @@ show_source_context = (dbg: Ptr<Debugger>, file: string, line: u32, context: u32
             io.println(colors.bold(string.format("{}:", file)))
             
             i := start
-            while (i <= end) {
-                line_str := if (i < lines.len()) lines[i - 1] else ""
-                
-                // Check for breakpoint
-                has_breakpoint := false
-                j := 0
-                while (j < dbg.breakpoints.len()) {
-                    if (dbg.breakpoints[j].file == file && 
-                        dbg.breakpoints[j].line == i &&
-                        dbg.breakpoints[j].enabled) {
-                        has_breakpoint = true
-                        break
+            loop {
+                i <= end ? | false { break } | true {
+                    line_str := if (i < lines.len()) lines[i - 1] else ""
+                    
+                    // Check for breakpoint
+                    has_breakpoint := false
+                    j := 0
+                    loop {
+                        j < dbg.breakpoints.len() ? | false { break } | true {
+                            if (dbg.breakpoints[j].file == file && 
+                                dbg.breakpoints[j].line == i &&
+                                dbg.breakpoints[j].enabled) {
+                                has_breakpoint = true
+                                break
+                            }
+                            j += 1
+                        }
                     }
-                    j += 1
-                }
                 
                 // Format line
                 i == line ? {

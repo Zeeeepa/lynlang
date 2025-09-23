@@ -5,10 +5,10 @@ core = @std
 build = @std
 
 // Swap two values
-swap = (a: &T, b: &T) void   {
-    temp = *a
-    *a = *b
-    *b = temp
+swap = (a: MutPtr<T>, b: MutPtr<T>) void   {
+    temp = a.val
+    a.val = b.val
+    b.val = temp
 }
 
 // Find minimum of two values
@@ -73,7 +73,7 @@ reverse = (arr: DynVec<T>) void   {
     
     loop {
         left < right ? | false { break } | true {
-            swap(&arr[left], &arr[right])
+            swap(arr[left].mut_ref(), arr[right].mut_ref())
             left = left + 1
             right = right - 1
         }
@@ -105,7 +105,7 @@ rotate_right = (arr: DynVec<T>, n: usize) void   {
 reverse_range = (arr: DynVec<T>, start: usize, end: usize) void   {
     loop {
         start < end ? | false { break } | true {
-            swap(&arr[start], &arr[end])
+            swap(arr[start].mut_ref(), arr[end].mut_ref())
             start = start + 1
             end = end - 1
         }
@@ -147,12 +147,14 @@ unique = (arr: DynVec<T>) usize   {
     write_pos = 1
     i = 1
     
-    while (i < arr.len) {
-        arr[i] != arr[write_pos - 1] ? {
-            arr[write_pos] = arr[i]
-            write_pos = write_pos + 1
+    loop {
+        i < arr.len ? | false { break } | true {
+            arr[i] != arr[write_pos - 1] ? {
+                arr[write_pos] = arr[i]
+                write_pos = write_pos + 1
+            }
+            i = i + 1
         }
-        i = i + 1
     }
     
     return write_pos
@@ -164,15 +166,17 @@ partition = (arr: DynVec<T>, low: usize, high: usize) usize   {
     i = low - 1
     
     j = low
-    while (j < high) {
-        arr[j] <= pivot ? {
-            i = i + 1
-            swap(&arr[i], &arr[j])
+    loop {
+        j < high ? | false { break } | true {
+            arr[j] <= pivot ? {
+                i = i + 1
+                swap(arr[i].mut_ref(), arr[j].mut_ref())
+            }
+            j = j + 1
         }
-        j = j + 1
     }
     
-    swap(&arr[i + 1], &arr[high])
+    swap(arr[i + 1].mut_ref(), arr[high].mut_ref())
     return i + 1
 }
 
@@ -196,11 +200,11 @@ sort = (arr: DynVec<T>) void   {
 }
 
 // Merge two sorted arrays
-merge = (arr1:: DynVec<T>, arr2: DynVec<T>) DynVec<T>   {
+merge = (arr1: DynVec<T>, arr2: DynVec<T>) DynVec<T>   {
     result = DynVec<T>.new()
-    i ::= 0
-    j ::= 0
-    k ::= 0
+    i = 0
+    j = 0
+    k = 0
     
     loop (i < arr1.len && j < arr2.len) {
         arr1[i] <= arr2[j] ? {
@@ -273,7 +277,7 @@ reduce = (alloc: Ptr<Allocator>, arr: DynVec<T>, initial: U, f: fn(U, T) U) U {
 
 // Check if all elements satisfy predicate
 all = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) bool {
-    array.loop ((item) {
+    arr.loop ((item) {
         !pred(item) ? {
             return false
         }

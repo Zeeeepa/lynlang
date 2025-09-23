@@ -98,10 +98,12 @@ reverse = (T: type, s: Ptr<Stack<T>>) void {
 
 // Transfer all elements from one stack to another
 transfer = (T: type, from: Ptr<Stack<T>>, to: Ptr<Stack<T>>) void {
-    while (!is_empty(T, from)) {
-        value := pop(T, from)
-        value != null ? {
-            push(T, to, value)
+    loop {
+        !is_empty(T, from) ? | false { break } | true {
+            value := pop(T, from)
+            value != null ? {
+                push(T, to, value)
+            }
         }
     }
 }

@@ -214,12 +214,14 @@ HashMap<K, V>.put = (self: Ref<HashMap<K, V>>, key: K, value: V) void {
     
     // Check if key exists
     current := self.buckets[index]
-    while (current) {
-        current.key == key ? {
-            current.value = value
-            return
+    loop {
+        current ? | false { break } | true {
+            current.key == key ? {
+                current.value = value
+                return
+            }
+            current = current.next
         }
-        current = current.next
     }
     
     // Add new bucket
@@ -242,11 +244,13 @@ HashMap<K, V>.get = (self: Ref<HashMap<K, V>>, key: K) Option<V> {
     index := hash(key, self.capacity)
     
     current := self.buckets[index]
-    while (current) {
-        current.key == key ? {
-            return current.value
+    loop {
+        current ? | false { break } | true {
+            current.key == key ? {
+                return current.value
+            }
+            current = current.next
         }
-        current = current.next
     }
     
     return null
@@ -259,21 +263,23 @@ HashMap<K, V>.remove = (self: Ref<HashMap<K, V>>, key: K) bool {
     prev := null
     current := self.buckets[index]
     
-    while (current) {
-        current.key == key ? {
-            prev ? {
-                prev.next = current.next
-            } | false {
-                self.buckets[index] = current.next
+    loop {
+        current ? | false { break } | true {
+            current.key == key ? {
+                prev ? {
+                    prev.next = current.next
+                } | false {
+                    self.buckets[index] = current.next
+                }
+                
+                memory.free(current)
+                self.len = self.len - 1
+                return true
             }
             
-            memory.free(current)
-            self.len = self.len - 1
-            return true
+            prev = current
+            current = current.next
         }
-        
-        prev = current
-        current = current.next
     }
     
     return false
@@ -289,23 +295,27 @@ HashMap<K, V>.contains = (self: Ref<HashMap<K, V>>, key: K) bool {
 // Resize hash map
 HashMap<K, V>.resize = (self: Ref<HashMap<K, V>>) void {
     new_capacity := self.capacity * 2
-    new_buckets := make([]?&HashBucket, new_capacity)
+    new_buckets := make(Array<Option<Ptr<HashBucket>>>, new_capacity)
     
     // Rehash all entries
     i := 0
-    while (i < self.capacity) {
-        current := self.buckets[i]
-        while (current) {
-            next := current.next
-            
-            // Rehash and insert
-            new_index := hash(current.key, new_capacity)
-            current.next = new_buckets[new_index]
-            new_buckets[new_index] = current
-            
-            current = next
+    loop {
+        i < self.capacity ? | false { break } | true {
+            current := self.buckets[i]
+            loop {
+                current ? | false { break } | true {
+                    next := current.next
+                    
+                    // Rehash and insert
+                    new_index := hash(current.key, new_capacity)
+                    current.next = new_buckets[new_index]
+                    new_buckets[new_index] = current
+                    
+                    current = next
+                }
+            }
+            i = i + 1
         }
-        i = i + 1
     }
     
     self.buckets = new_buckets

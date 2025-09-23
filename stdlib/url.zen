@@ -360,23 +360,25 @@ url_decode = (s: string) string   {
     result := ""
     i := 0
     
-    while (i < s.len()) {
-        s[i] == '%' && i + 2 < s.len() ? {
-            hex_str := string.slice(s, i + 1, i + 3)
-            char_result := from_hex(hex_str)
-            char_result.is_ok() ? {
-                result += char_result.unwrap()
-                i += 3
+    loop {
+        i < s.len() ? | false { break } | true {
+            s[i] == '%' && i + 2 < s.len() ? {
+                hex_str := string.slice(s, i + 1, i + 3)
+                char_result := from_hex(hex_str)
+                char_result.is_ok() ? {
+                    result += char_result.unwrap()
+                    i += 3
+                } | false {
+                    result += s[i]
+                    i += 1
+                }
+            } else if (s[i] == '+') {
+                result += " "
+                i += 1
             } | false {
                 result += s[i]
                 i += 1
             }
-        } else if (s[i] == '+') {
-            result += " "
-            i += 1
-        } | false {
-            result += s[i]
-            i += 1
         }
     }
     

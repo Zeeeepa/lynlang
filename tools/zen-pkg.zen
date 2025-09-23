@@ -57,24 +57,26 @@ parse_args = (args: []string) (Command, Map<string, string>) {
     
     // Parse options
     i := 2
-    while (i < args.len) {
-        arg := args[i]
-        string.starts_with(arg, "--") ? {
-            key := string.substring(arg, 2, arg.len)
-            value := if (i + 1 < args.len && !string.starts_with(args[i + 1], "-")) {
-                i += 1
-                args[i]
+    loop {
+        i < args.len ? | false { break } | true {
+            arg := args[i]
+            string.starts_with(arg, "--") ? {
+                key := string.substring(arg, 2, arg.len)
+                value := if (i + 1 < args.len && !string.starts_with(args[i + 1], "-")) {
+                    i += 1
+                    args[i]
+                } | false {
+                    "true"
+                }
+                options.set(key, value)
+            } else if (string.starts_with(arg, "-")) {
+                key := string.substring(arg, 1, arg.len)
+                options.set(key, "true")
             } | false {
-                "true"
+                options.set("package", arg)
             }
-            options.set(key, value)
-        } else if (string.starts_with(arg, "-")) {
-            key := string.substring(arg, 1, arg.len)
-            options.set(key, "true")
-        } | false {
-            options.set("package", arg)
+            i += 1
         }
-        i += 1
     }
     
     // Map command string to enum
