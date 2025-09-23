@@ -115,7 +115,7 @@ vec_push<T>: (vec: MutPtr<Vec<T>>, value: T) void = {
     vec.val.len = vec.val.len + 1
 }
 
-vec_pop<T>: (vec: *Vec<T>) Option<T>  = {
+vec_pop<T>: (vec: Ptr<Vec<T>>) Option<T>  = {
     vec.len > 0 ?
         | true {
             vec.len = vec.len - 1
@@ -126,13 +126,13 @@ vec_pop<T>: (vec: *Vec<T>) Option<T>  = {
         }
 }
 
-vec_get<T>: (vec: *Vec<T>, index: i64) Option<T>  = {
+vec_get<T>: (vec: Ptr<Vec<T>>, index: i64) Option<T>  = {
     index >= 0 && index < vec.len ?
         | true { return Option:Some(vec.data[index]) }
         | false { return Option:None }
 }
 
-vec_set<T>: (vec: *Vec<T>, index: i64, value: T) bool  = {
+vec_set<T>: (vec: Ptr<Vec<T>>, index: i64, value: T) bool  = {
     index >= 0 && index < vec.len ?
         | true {
             vec.data[index] = value
@@ -143,7 +143,7 @@ vec_set<T>: (vec: *Vec<T>, index: i64, value: T) bool  = {
         }
 }
 
-vec_grow<T>: (vec: *Vec<T>, new_capacity: i64) void  = {
+vec_grow<T>: (vec: Ptr<Vec<T>>, new_capacity: i64) void  = {
     new_capacity <= vec.capacity ?
         | true { return }
         | false {}
@@ -158,11 +158,11 @@ vec_grow<T>: (vec: *Vec<T>, new_capacity: i64) void  = {
     vec.capacity = new_capacity
 }
 
-vec_clear<T>: (vec: *Vec<T>) void  = {
+vec_clear<T>: (vec: Ptr<Vec<T>>) void  = {
     vec.len = 0
 }
 
-vec_free<T>: (vec: *Vec<T>) void  = {
+vec_free<T>: (vec: Ptr<Vec<T>>) void  = {
     vec.data != 0 ?
         | true {
             vec.allocator.free(vec.allocator.context, vec.data)
@@ -198,7 +198,7 @@ HashEntry<K, V> = {
 }
 
 HashMap<K, V> = {
-    buckets: *HashEntry<K, V>,
+    buckets: Ptr<HashEntry<K, V>>,
     size: i64,
     capacity: i64,
     allocator: Allocator,
@@ -226,7 +226,7 @@ hashmap_hash<K>: (key: K) i64  = {
     return 0
 }
 
-hashmap_insert<K, V>: (map: *HashMap<K, V>, key: K, value: V) void  = {
+hashmap_insert<K, V>: (map: Ptr<HashMap<K, V>>, key: K, value: V) void  = {
     // Check load factor
     map.size * 4 >= map.capacity * 3 ?
         | true { hashmap_resize(map, map.capacity * 2) }
@@ -258,7 +258,7 @@ hashmap_insert<K, V>: (map: *HashMap<K, V>, key: K, value: V) void  = {
     map.size = map.size + 1
 }
 
-hashmap_get<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
+hashmap_get<K, V>: (map: Ptr<HashMap<K, V>>, key: K) Option<V>  = {
     hash := hashmap_hash(key)
     index := hash % map.capacity
     
@@ -278,7 +278,7 @@ hashmap_get<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
     return Option:None
 }
 
-hashmap_remove<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
+hashmap_remove<K, V>: (map: Ptr<HashMap<K, V>>, key: K) Option<V>  = {
     hash := hashmap_hash(key)
     index := hash % map.capacity
     
@@ -302,7 +302,7 @@ hashmap_remove<K, V>: (map: *HashMap<K, V>, key: K) Option<V>  = {
     return Option:None
 }
 
-hashmap_resize<K, V>: (map: *HashMap<K, V>, new_capacity: i64) void  = {
+hashmap_resize<K, V>: (map: Ptr<HashMap<K, V>>, new_capacity: i64) void  = {
     old_buckets := map.buckets
     old_capacity := map.capacity
     
@@ -384,7 +384,7 @@ string_from_cstr = (cstr: RawPtr<i8>) String   {
     }
 }
 
-string_append = (s: *String, other: RawPtr<i8>) void   {
+string_append = (s: Ptr<String>, other: RawPtr<i8>) void   {
     other_len := strlen(other)
     new_len := s.len + other_len
     
@@ -409,7 +409,7 @@ string_equals = (s1: String, s2: String) bool   {
     return strcmp(s1.data, s2.data) == 0
 }
 
-string_free = (s: *String) void   {
+string_free = (s: Ptr<String>) void   {
     s.data != 0 ?
         | true {
             s.allocator.free(s.allocator.context, s.data)

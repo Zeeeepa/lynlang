@@ -168,7 +168,7 @@ atanh = (x: f64) f64   {
 }
 
 // Statistical functions
-mean_f64 = (values: *f64, count: i64) f64   {
+mean_f64 = (values: RawPtr<f64>, count: i64) f64   {
     count <= 0 ? | true { return 0.0 / 0.0  // NaN for empty array }
                 | false {}
     
@@ -184,7 +184,7 @@ mean_f64 = (values: *f64, count: i64) f64   {
     return sum / (count as f64)
 }
 
-variance_f64 = (values: *f64, count: i64) f64   {
+variance_f64 = (values: RawPtr<f64>, count: i64) f64   {
     count <= 1 ? | true { return 0.0 / 0.0  // NaN for insufficient data }
                 | false {}
     
@@ -204,12 +204,12 @@ variance_f64 = (values: *f64, count: i64) f64   {
     return sum_sq_diff / ((count - 1) as f64)
 }
 
-std_dev_f64 = (values: *f64, count: i64) f64   {
+std_dev_f64 = (values: RawPtr<f64>, count: i64) f64   {
     return sqrt(variance_f64(values, count))
 }
 
 // Compute sum of array
-sum_f64 = (values: *f64, count: i64) f64   {
+sum_f64 = (values: RawPtr<f64>, count: i64) f64   {
     sum := 0.0
     i := 0i64
     loop {

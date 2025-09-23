@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{Expression, BinaryOperator, Pattern, MatchArm};
+use crate::ast::{Expression, BinaryOperator, Pattern, MatchArm, Statement};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -866,11 +866,22 @@ impl<'a> Parser<'a> {
                 
                 self.next_token(); // consume '('
                 
-                // Check for empty closure: () { ... }
+                // Check for empty closure: () { ... } or () => expr
                 if self.current_token == Token::Symbol(')') {
                     self.next_token(); // consume ')'
                     
-                    if self.current_token == Token::Symbol('{') {
+                    // Check for arrow function syntax: () => expr
+                    if self.current_token == Token::Operator("=>".to_string()) {
+                        self.next_token(); // consume '=>'
+                        let body_expr = self.parse_expression()?;
+                        // Convert expression to block that returns the value
+                        let body = Expression::Block(vec![Statement::Expression(body_expr)]);
+                        return Ok(Expression::Closure {
+                            params: vec![],
+                            body: Box::new(body),
+                        });
+                    }
+                    else if self.current_token == Token::Symbol('{') {
                         // It's a closure with no parameters: () { ... }
                         let body = self.parse_block_expression()?;
                         return Ok(Expression::Closure {
@@ -880,7 +891,7 @@ impl<'a> Parser<'a> {
                     } else {
                         // Empty parens are not valid as an expression
                         return Err(CompileError::SyntaxError(
-                            "Empty parentheses are not a valid expression. Did you mean to write a closure? Use '() { ... }'".to_string(),
+                            "Empty parentheses are not a valid expression. Did you mean to write a closure? Use '() { ... }' or '() => expr'".to_string(),
                             Some(self.current_span.clone()),
                         ));
                     }
@@ -934,8 +945,21 @@ impl<'a> Parser<'a> {
                     if self.current_token == Token::Symbol(')') {
                         self.next_token(); // consume ')'
                         
+                        // Check for arrow function syntax: () => expr
+                        if self.current_token == Token::Operator("=>".to_string()) {
+                            is_closure = true;
+                            self.next_token(); // consume '=>'
+                            // Parse the expression body
+                            let body_expr = self.parse_expression()?;
+                            // Convert expression to block that returns the value
+                            let body = Expression::Block(vec![Statement::Expression(body_expr)]);
+                            return Ok(Expression::Closure {
+                                params,
+                                body: Box::new(body),
+                            });
+                        }
                         // Check for the body
-                        if self.current_token == Token::Symbol('{') {
+                        else if self.current_token == Token::Symbol('{') {
                             is_closure = true;
                         } else if self.current_token == Token::Identifier("void".to_string()) || 
                                   self.current_token == Token::Identifier("i32".to_string()) || 

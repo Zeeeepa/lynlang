@@ -79,7 +79,7 @@ Iterator<T>.map<U> = (self: Iterator<T>, transform: (T) U) Iterator<U> {
     // Implementation would require dynamic allocation
     // Placeholder for concept
     return Iterator<U> { 
-        data: 0 as *U,
+        data: 0 as RawPtr<U>,
         size: 0,
         current: 0,
     }
@@ -108,7 +108,7 @@ Iterator<T>.reduce<U> = (self: Iterator<T>, initial: U, accumulator: (U, T) U) U
 }
 
 // Sum numeric iterator (for i32)
-sum_i32 = (iter: *Iterator<i32>) i32   {
+sum_i32 = (iter: Ptr<Iterator<i32>>) i32   {
     sum := 0
     iter.loop((value) {
         sum = sum + value

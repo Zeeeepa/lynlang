@@ -20,7 +20,7 @@ liste = (sockfd: i32, backlog: i32) i32 {
     """)
 }
 
-accep = (sockfd: i32, addr: RawPtr<i8>, addrlen: *i32) i32 {
+accep = (sockfd: i32, addr: RawPtr<i8>, addrlen: RawPtr<i32>) i32 {
     inline.c("""
         return accept(${sockfd}, ${addr.addr}, ${addrlen.addr});
     """)
@@ -50,7 +50,7 @@ sendt = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, dest_addr: RawPtr<i
     """)
 }
 
-recvfro = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, src_addr: RawPtr<i8>, addrlen: *i32) i32 {
+recvfro = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, src_addr: RawPtr<i8>, addrlen: RawPtr<i32>) i32 {
     inline.c("""
         return recvfrom(${sockfd}, ${buf.addr}, ${len}, ${flags}, ${src_addr.addr}, ${addrlen.addr});
     """)
@@ -73,7 +73,7 @@ setsockop = (sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: 
     """)
 }
 
-getsockop = (sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: *i32) i32 {
+getsockop = (sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: RawPtr<i32>) i32 {
     inline.c("""
         return getsockopt(${sockfd}, ${level}, ${optname}, ${optval.addr}, ${optlen.addr});
     """)
