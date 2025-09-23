@@ -282,7 +282,7 @@ repl_loop = () void   {
     state := new_repl_state()
     print_banner()
     
-    while (true) {
+    loop {
         // Print prompt
         io.print(get_prompt(&state))
         

@@ -85,47 +85,49 @@ parse_args = (args: [string]) CompileOptions   {
     }
     
     i := 1  // Skip program name
-    while i < args.len {
-        arg := args[i]
-        
-        arg ?
-            "-o" | "--output" => {
-                if i + 1 < args.len {
-                    options.output_file = args[i + 1]
-                    i += 2
-                } | false {
-                    io.eprintln("Error: -o requires an argument")
-                    core.exit(1)
-                }
-            },
-            "-t" | "--target" => {
-                if i + 1 < args.len {
-                    options.target = args[i + 1]
-                    i += 2
-                } | false {
-                    io.eprintln("Error: -t requires an argument")
-                    core.exit(1)
-                }
-            },
-            "-O" | "--optimize" => {
-                options.optimize = true
-                i += 1
-            },
-            "-v" | "--verbose" => {
-                options.verbose = true
-                i += 1
-            },
-            "-h" | "--help" => {
-                print_help()
-                core.exit(0)
-            },
-            _ => {
-                if arg.starts_with("-") {
-                    io.eprintf("Unknown option: {}\n", arg)
-                    core.exit(1)
-                } | false {
-                    options.input_file = arg
+    loop {
+        i < args.len ? | false { break } | true {
+            arg := args[i]
+            
+            arg ?
+                "-o" | "--output" => {
+                    if i + 1 < args.len {
+                        options.output_file = args[i + 1]
+                        i += 2
+                    } | false {
+                        io.eprintln("Error: -o requires an argument")
+                        core.exit(1)
+                    }
+                },
+                "-t" | "--target" => {
+                    if i + 1 < args.len {
+                        options.target = args[i + 1]
+                        i += 2
+                    } | false {
+                        io.eprintln("Error: -t requires an argument")
+                        core.exit(1)
+                    }
+                },
+                "-O" | "--optimize" => {
+                    options.optimize = true
                     i += 1
+                },
+                "-v" | "--verbose" => {
+                    options.verbose = true
+                    i += 1
+                },
+                "-h" | "--help" => {
+                    print_help()
+                    core.exit(0)
+                },
+                _ => {
+                    if arg.starts_with("-") {
+                        io.eprintf("Unknown option: {}\n", arg)
+                        core.exit(1)
+                    } | false {
+                        options.input_file = arg
+                        i += 1
+                    }
                 }
             }
         }

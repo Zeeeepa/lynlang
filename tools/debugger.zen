@@ -9,6 +9,7 @@ hashmap = @std
 fs = @std
 process = @std
 colors = @std
+mem = @std
 
 // Debugger state
 DebuggerState : 
@@ -148,35 +149,27 @@ add_breakpoint = (dbg: Ptr<Debugger>, file: string, line: u32) u32   {
 
 // Remove breakpoint
 remove_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
-    i := 0
-    loop {
-        i < dbg.breakpoints.len() ? | false { break } | true {
-            dbg.breakpoints[i].id == id ? {
-                DynVec.remove(dbg.breakpoints, i)
-                io.println(colors.yellow("Breakpoint ") + string.format("#{} removed", id))
-                return true
-            }
-            i += 1
+    (0..dbg.breakpoints.len()).loop((i) {
+        dbg.breakpoints[i].id == id ? {
+            DynVec.remove(dbg.breakpoints, i)
+            io.println(colors.yellow("Breakpoint ") + string.format("#{} removed", id))
+            return true
         }
-    }
+    })
     return false
 }
 
 // Toggle breakpoint
 toggle_breakpoint = (dbg: Ptr<Debugger>, id: u32) bool   {
-    i := 0
-    loop {
-        i < dbg.breakpoints.len() ? | false { break } | true {
-            dbg.breakpoints[i].id == id ? {
-                dbg.breakpoints[i].enabled = !dbg.breakpoints[i].enabled
-                status := if (dbg.breakpoints[i].enabled) "enabled" else "disabled"
-                io.println(colors.yellow("Breakpoint ") + 
-                          string.format("#{} {}", id, status))
-                return true
-            }
-            i += 1
+    (0..dbg.breakpoints.len()).loop((i) {
+        dbg.breakpoints[i].id == id ? {
+            dbg.breakpoints[i].enabled = !dbg.breakpoints[i].enabled
+            status := if (dbg.breakpoints[i].enabled) "enabled" else "disabled"
+            io.println(colors.yellow("Breakpoint ") + 
+                      string.format("#{} {}", id, status))
+            return true
         }
-    }
+    })
     return false
 }
 
@@ -188,16 +181,12 @@ list_breakpoints = (dbg: Ptr<Debugger>) void   {
     }
     
     io.println(colors.bold("Breakpoints:"))
-    i := 0
-    loop {
-        i < dbg.breakpoints.len() ? | false { break } | true {
-            bp := dbg.breakpoints[i]
-            status := if (bp.enabled) colors.green("[enabled]") else colors.red("[disabled]")
-            io.println(string.format("  #{} {} {}:{} (hits: {})",
-                                     bp.id, status, bp.file, bp.line, bp.hit_count))
-            i += 1
-        }
-    }
+    (0..dbg.breakpoints.len()).loop((i) {
+        bp := dbg.breakpoints[i]
+        status := if (bp.enabled) colors.green("[enabled]") else colors.red("[disabled]")
+        io.println(string.format("  #{} {} {}:{} (hits: {})",
+                                 bp.id, status, bp.file, bp.line, bp.hit_count))
+    })
 }
 
 // Add watch expression
@@ -218,17 +207,13 @@ add_watch = (dbg: Ptr<Debugger>, expression: string) u32   {
 
 // Remove watch
 remove_watch = (dbg: Ptr<Debugger>, id: u32) bool   {
-    i := 0
-    loop {
-        i < dbg.watches.len() ? | false { break } | true {
-            dbg.watches[i].id == id ? {
-                DynVec.remove(dbg.watches, i)
-                io.println(colors.yellow("Watch ") + string.format("#{} removed", id))
-                return true
-            }
-            i += 1
+    (0..dbg.watches.len()).loop((i) {
+        dbg.watches[i].id == id ? {
+            DynVec.remove(dbg.watches, i)
+            io.println(colors.yellow("Watch ") + string.format("#{} removed", id))
+            return true
         }
-    }
+    })
     return false
 }
 
@@ -240,19 +225,15 @@ list_watches = (dbg: Ptr<Debugger>) void   {
     }
     
     io.println(colors.bold("Watches:"))
-    i := 0
-    loop {
-        i < dbg.watches.len() ? | false { break } | true {
-            watch := dbg.watches[i]
-            value_str := match watch.value {
-                Option.Some(v) => value_to_string(v)
-                Option.None => "<not evaluated>"
-            }
-            io.println(string.format("  #{} {}: {}", 
-                                     watch.id, watch.expression, value_str))
-            i += 1
+    (0..dbg.watches.len()).loop((i) {
+        watch := dbg.watches[i]
+        value_str := match watch.value {
+            Option.Some(v) => value_to_string(v)
+            Option.None => "<not evaluated>"
         }
-    }
+        io.println(string.format("  #{} {}: {}", 
+                                 watch.id, watch.expression, value_str))
+    })
 }
 
 // Convert value to string
@@ -281,14 +262,10 @@ value_to_string = (val: Value) string   {
         }
         Value.Array(elements) => {
             result := "["
-            i := 0
-            loop {
-                i < elements.len() ? | false { break } | true {
-                    if (i > 0) string.append(result, ", ")
-                    string.append(result, value_to_string(elements[i]))
-                    i += 1
-                }
-            }
+            (0..elements.len()).loop((i) {
+                if (i > 0) string.append(result, ", ")
+                string.append(result, value_to_string(elements[i]))
+            })
             string.append(result, "]")
             return result
         }
@@ -304,17 +281,13 @@ print_call_stack = (dbg: Ptr<Debugger>) void   {
     }
     
     io.println(colors.bold("Call Stack:"))
-    i := 0
-    loop {
-        i < dbg.call_stack.len() ? | false { break } | true {
-            frame := dbg.call_stack[i]
-            marker := if (i == dbg.current_frame) colors.cyan("→ ") else "  "
-            io.println(string.format("{}#{} {} at {}:{}:{}", 
-                                     marker, i, frame.function, 
-                                     frame.file, frame.line, frame.column))
-            i += 1
-        }
-    }
+    (0..dbg.call_stack.len()).loop((i) {
+        frame := dbg.call_stack[i]
+        marker := if (i == dbg.current_frame) colors.cyan("→ ") else "  "
+        io.println(string.format("{}#{} {} at {}:{}:{}", 
+                                 marker, i, frame.function, 
+                                 frame.file, frame.line, frame.column))
+    })
 }
 
 // Print local variables
@@ -355,42 +328,35 @@ show_source_context = (dbg: Ptr<Debugger>, file: string, line: u32, context: u32
             
             io.println(colors.bold(string.format("{}:", file)))
             
-            i := start
-            loop {
-                i <= end ? | false { break } | true {
-                    line_str := if (i < lines.len()) lines[i - 1] else ""
-                    
-                    // Check for breakpoint
-                    has_breakpoint := false
-                    j := 0
-                    loop {
-                        j < dbg.breakpoints.len() ? | false { break } | true {
-                            if (dbg.breakpoints[j].file == file && 
-                                dbg.breakpoints[j].line == i &&
-                                dbg.breakpoints[j].enabled) {
-                                has_breakpoint = true
-                                break
-                            }
-                            j += 1
-                        }
+            (start..end+1).loop((i) {
+                line_str := if (i < lines.len()) lines[i - 1] else ""
+                
+                // Check for breakpoint
+                has_breakpoint := false
+                (0..dbg.breakpoints.len()).loop((j) {
+                    if (dbg.breakpoints[j].file == file && 
+                        dbg.breakpoints[j].line == i &&
+                        dbg.breakpoints[j].enabled) {
+                        has_breakpoint = true
                     }
+                })
                 
                 // Format line
                 i == line ? {
                     // Current line
                     io.print(colors.cyan("→ "))
-                } else if (has_breakpoint) {
+                }
+                has_breakpoint && i != line ? {
                     // Breakpoint line
                     io.print(colors.red("● "))
-                } | false {
+                }
+                !has_breakpoint && i != line ? {
                     io.print("  ")
                 }
                 
                 io.print(colors.dim(string.format("{:4} ", i)))
                 io.println(line_str)
-                
-                i += 1
-            }
+            })
         }
         Option.None => {}
     }
@@ -527,47 +493,55 @@ debugger_repl = (dbg: Ptr<Debugger>) void   {
     io.println("")
     
     running := true
-    while (running) {
-        // Show prompt based on state
-        prompt := match dbg.state {
-            DebuggerState.Idle => colors.green("(zen-dbg) ")
-            DebuggerState.Paused => colors.yellow("(paused) ")
-            DebuggerState.Running => colors.blue("(running) ")
-            _ => "(zen-dbg) "
-        }
-        
-        io.print(prompt)
-        io.flush()
-        
-        // Read command
-        input := io.readline()
-        !input ? {
-            break
-        }
-        
-        // Parse and execute command
-        parts := string.split(string.trim(input), " ")
-        parts.len() == 0 ? {
-            continue
-        }
-        
-        cmd := parts[0]
-        
-        cmd == "help" || cmd == "h" ? {
-            print_help()
-        } else if (cmd == "quit" || cmd == "q") {
-            running = false
-        } else if (cmd == "run" || cmd == "r") {
-            run_program(dbg)
-        } else if (cmd == "continue" || cmd == "c") {
-            continue_execution(dbg)
-        } else if (cmd == "step" || cmd == "s") {
-            step_into(dbg)
-        } else if (cmd == "next" || cmd == "n") {
-            step_over(dbg)
-        } else if (cmd == "finish" || cmd == "f") {
-            step_out(dbg)
-        } else if (cmd == "break" || cmd == "b") {
+    loop(() {
+        !running ? { break }
+            // Show prompt based on state
+            prompt := match dbg.state {
+                DebuggerState.Idle => colors.green("(zen-dbg) ")
+                DebuggerState.Paused => colors.yellow("(paused) ")
+                DebuggerState.Running => colors.blue("(running) ")
+                _ => "(zen-dbg) "
+            }
+            
+            io.print(prompt)
+            io.flush()
+            
+            // Read command
+            input := io.readline()
+            !input ? {
+                break
+            }
+            
+            // Parse and execute command
+            parts := string.split(string.trim(input), " ")
+            parts.len() == 0 ? {
+                continue
+            }
+            
+            cmd := parts[0]
+            
+            cmd == "help" || cmd == "h" ? {
+                print_help()
+            }
+            cmd == "quit" || cmd == "q" ? {
+                running = false
+            }
+            cmd == "run" || cmd == "r" ? {
+                run_program(dbg)
+            }
+            cmd == "continue" || cmd == "c" ? {
+                continue_execution(dbg)
+            }
+            cmd == "step" || cmd == "s" ? {
+                step_into(dbg)
+            }
+            cmd == "next" || cmd == "n" ? {
+                step_over(dbg)
+            }
+            cmd == "finish" || cmd == "f" ? {
+                step_out(dbg)
+            }
+            cmd == "break" || cmd == "b" ? {
             parts.len() >= 2 ? {
                 // Parse file:line or just line
                 location := parts[1]
@@ -587,28 +561,34 @@ debugger_repl = (dbg: Ptr<Debugger>) void   {
             } | false {
                 list_breakpoints(dbg)
             }
-        } else if (cmd == "delete" || cmd == "d") {
+        }
+        cmd == "delete" || cmd == "d" ? {
             parts.len() >= 2 ? {
                 id := string.parse_u32(parts[1])
                 remove_breakpoint(dbg, id)
             }
-        } else if (cmd == "watch" || cmd == "w") {
+        }
+        cmd == "watch" || cmd == "w" ? {
             parts.len() >= 2 ? {
                 expr := string.join(parts[1:], " ")
                 add_watch(dbg, expr)
             } | false {
                 list_watches(dbg)
             }
-        } else if (cmd == "backtrace" || cmd == "bt") {
+        }
+        cmd == "backtrace" || cmd == "bt" ? {
             print_call_stack(dbg)
-        } else if (cmd == "locals" || cmd == "l") {
+        }
+        cmd == "locals" || cmd == "l" ? {
             print_locals(dbg)
-        } else if (cmd == "list") {
+        }
+        cmd == "list" ? {
             dbg.current_frame < dbg.call_stack.len() ? {
                 frame := dbg.call_stack[dbg.current_frame]
                 show_source_context(dbg, frame.file, frame.line, 5)
             }
-        } else if (cmd == "frame") {
+        }
+        cmd == "frame" ? {
             parts.len() >= 2 ? {
                 frame_num := string.parse_u32(parts[1])
                 frame_num < dbg.call_stack.len() ? {
@@ -618,11 +598,12 @@ debugger_repl = (dbg: Ptr<Debugger>) void   {
                     show_source_context(dbg, frame.file, frame.line, 3)
                 }
             }
-        } | false {
+        }
+        true ? {
             io.println(colors.red("Unknown command: ") + cmd)
             io.println("Type 'help' for available commands")
         }
-    }
+    })
     
     io.println("\nGoodbye!")
 }

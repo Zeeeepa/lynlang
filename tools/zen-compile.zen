@@ -36,40 +36,42 @@ parse_args = (args: []string) CompilerOptions   {
     }
     
     i := 1  // Skip program name
-    while (i < args.len) {
-        arg := args[i]
-        
-        arg == "-o" || arg == "--output" ? {
-            i = i + 1
-            i < args.len ? {
-                options.output_file = args[i]
+    loop {
+        i < args.len ? | false { break } | true {
+            arg := args[i]
+            
+            arg == "-o" || arg == "--output" ? {
+                i = i + 1
+                i < args.len ? {
+                    options.output_file = args[i]
+                }
+            } else if (arg == "--emit-c") {
+                options.emit_c = true
+                options.emit_llvm = false
+            } else if (arg == "--emit-llvm") {
+                options.emit_llvm = true
+                options.emit_c = false
+            } else if (arg == "-O" || arg == "--optimize") {
+                options.optimize = true
+            } else if (arg == "-g" || arg == "--debug") {
+                options.debug = true
+            } else if (arg == "-v" || arg == "--verbose") {
+                options.verbose = true
+            } else if (arg == "-h" || arg == "--help") {
+                print_usage()
+                os.exit(0)
+            } else if (!string.starts_with(arg, "-")) {
+                options.input_file = arg
+            } | false {
+                io.print("Unknown option: ")
+                io.print(arg)
+                io.print("\n")
+                print_usage()
+                os.exit(1)
             }
-        } else if (arg == "--emit-c") {
-            options.emit_c = true
-            options.emit_llvm = false
-        } else if (arg == "--emit-llvm") {
-            options.emit_llvm = true
-            options.emit_c = false
-        } else if (arg == "-O" || arg == "--optimize") {
-            options.optimize = true
-        } else if (arg == "-g" || arg == "--debug") {
-            options.debug = true
-        } else if (arg == "-v" || arg == "--verbose") {
-            options.verbose = true
-        } else if (arg == "-h" || arg == "--help") {
-            print_usage()
-            os.exit(0)
-        } else if (!string.starts_with(arg, "-")) {
-            options.input_file = arg
-        } | false {
-            io.print("Unknown option: ")
-            io.print(arg)
-            io.print("\n")
-            print_usage()
-            os.exit(1)
+            
+            i = i + 1
         }
-        
-        i = i + 1
     }
     
     // Validate input file
