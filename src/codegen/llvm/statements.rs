@@ -141,7 +141,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     BasicValueEnum::StructValue(struct_val) => {
                                         // For structs (including enums), use the struct type directly
                                         // The struct type is already a BasicTypeEnum
-                                        Type::Basic(struct_val.get_type().as_basic_type_enum())
+                                        let struct_type = struct_val.get_type();
+                                        Type::Basic(struct_type.as_basic_type_enum())
                                     }
                                     _ => Type::Basic(self.context.i64_type().into()), // Default to i64
                                 }
@@ -351,14 +352,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     _ => AstType::I64,
                                 }
                             }
+                        } else if let Expression::EnumVariant { enum_name, variant: _, payload: _ } = init_expr {
+                            // Direct enum variant: Status.Active parsed as EnumVariant
+                            AstType::Generic {
+                                name: enum_name.clone(),
+                                type_args: vec![],
+                            }
                         } else if let Expression::MemberAccess { object, member } = init_expr {
                             // Check if this is an enum variant access (e.g., GameEntity.Player)
                             if let Expression::Identifier(enum_name) = &**object {
                                 // Check if this identifier is an enum type
                                 if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
-                                    // This is an enum variant, use the enum type
-                                    AstType::EnumType {
+                                    // This is an enum variant, use the Generic type which is how enums are represented in AST
+                                    AstType::Generic {
                                         name: enum_name.clone(),
+                                        type_args: vec![],
                                     }
                                 } else {
                                     // Regular member access - it's a struct field
@@ -375,14 +383,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     } else {
                                                         // Field not found, fallback to value inference
                                                         match value {
-                                                            BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                                            BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
                                                             _ => AstType::I64,
                                                         }
                                                     }
                                                 } else {
                                                     // Struct not found, fallback to value inference
                                                     match value {
-                                                        BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                                        BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
                                                         _ => AstType::I64,
                                                     }
                                                 }
@@ -390,7 +398,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             _ => {
                                                 // Not a struct, fallback to value inference
                                                 match value {
-                                                    BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                                    BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
                                                     _ => AstType::I64,
                                                 }
                                             }
@@ -398,7 +406,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     } else {
                                         // Variable not found, fallback to value inference
                                         match value {
-                                            BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                            BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
                                             _ => AstType::I64,
                                         }
                                     }
@@ -407,7 +415,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Complex member access (e.g., nested)
                                 // For now fallback to value inference
                                 match value {
-                                    BasicValueEnum::StructValue(_) => AstType::EnumType { name: String::new() },
+                                    BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
                                     _ => AstType::I64,
                                 }
                             }
@@ -437,8 +445,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                                 BasicValueEnum::StructValue(_) => {
                                     // For struct values (including enums), use a generic enum type
-                                    AstType::EnumType {
+                                    AstType::Generic {
                                         name: String::new(),
+                                        type_args: vec![],
                                     }
                                 }
                                 _ => AstType::I64, // Default
@@ -619,26 +628,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 if let Expression::Identifier(enum_name) = &**object {
                                     // Check if this is an enum type
                                     if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
-                                        AstType::EnumType {
+                                        AstType::Generic {
                                             name: enum_name.clone(),
+                                            type_args: vec![],
                                         }
                                     } else {
                                         // Generic enum type
-                                        AstType::EnumType {
+                                        AstType::Generic {
                                             name: String::new(),
+                                            type_args: vec![],
                                         }
                                     }
                                 } else {
                                     // Generic enum type
-                                    AstType::EnumType {
+                                    AstType::Generic {
                                         name: String::new(),
+                                        type_args: vec![],
                                     }
                                 }
                             }
                             _ => {
                                 // Default to enum type for other cases
-                                AstType::EnumType {
+                                AstType::Generic {
                                     name: String::new(),
+                                    type_args: vec![],
                                 }
                             }
                         };

@@ -1,17 +1,7 @@
 // JSON Parser and Serializer for Zen
 // Provides JSON parsing and serialization capabilities
 
-malloc = (size: i64) RawPtr<void> {
-    inline.c("""
-        return malloc(${size});
-    """)
-}
-
-free = (ptr: RawPtr<void>) void {
-    inline.c("""
-        free(${ptr.addr});
-    """)
-}
+{ allocate_raw, deallocate_raw } = import("memory.zen")
 
 memcpy = (dest: RawPtr<void>, src: RawPtr<void>, size: i64) RawPtr<void> {
     inline.c("""
@@ -91,7 +81,7 @@ json_parse_string = (parser: Ptr<JsonParser>) RawPtr<i8> {
     }
     
     // Allocate and copy string
-    result := malloc((length + 1) as i64) as RawPtr<i8>
+    result := allocate_raw((length + 1) as usize) as RawPtr<i8>
     memcpy(result as RawPtr<void>, (parser.input + start) as RawPtr<void>, length as i64)
     result[length] = 0
     
@@ -153,7 +143,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     ch == 116 ? | true { { // 't' }
         parser.position = parser.position + 4 // Skip "true"
         value := JsonValue:Boolean(true)
-        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
+        result := allocate_raw(@sizeof(JsonValue) as usize) as Ptr<JsonValue>
         result.write(value)
         return result
     } | false {}
@@ -162,7 +152,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     ch == 102 ? | true { { // 'f' }
         parser.position = parser.position + 5 // Skip "false"
         value := JsonValue:Boolean(false)
-        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
+        result := allocate_raw(@sizeof(JsonValue) as usize) as Ptr<JsonValue>
         result.write(value)
         return result
     } | false {}
@@ -171,7 +161,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     ch == 34 ? | true { { // '"' }
         str := json_parse_string(parser)
         value := JsonValue:String(str)
-        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
+        result := allocate_raw(@sizeof(JsonValue) as usize) as Ptr<JsonValue>
         result.write(value)
         return result
     } | false {}
@@ -180,7 +170,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     ch == 45 || (ch >= 48 && ch <= 57) ? | true { { // '-' or digit }
         num := json_parse_number(parser)
         value := JsonValue:Number(num)
-        result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
+        result := allocate_raw(@sizeof(JsonValue) as usize) as Ptr<JsonValue>
         result.write(value)
         return result
     } | false {}
@@ -202,7 +192,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
 
 // Parse JSON array
 json_parse_array = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
-    elements := malloc(1024 as i64) as Ptr<JsonValue>
+    elements := allocate_raw(1024 as usize) as Ptr<JsonValue>
     count := 0
     
     loop {
@@ -226,14 +216,14 @@ json_parse_array = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     }
     
     value := JsonValue:Array(elements, count)
-    result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
+    result := allocate_raw(@sizeof(JsonValue) as usize) as Ptr<JsonValue>
     result.write(value)
     return result
 }
 
 // Parse JSON object
 json_parse_object = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
-    pairs := malloc(1024 as i64) as Ptr<JsonPair>
+    pairs := allocate_raw(1024 as usize) as Ptr<JsonPair>
     count := 0
     
     loop {
@@ -270,7 +260,7 @@ json_parse_object = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     }
     
     value := JsonValue:Object(pairs, count)
-    result := malloc(@sizeof(JsonValue)) as Ptr<JsonValue>
+    result := allocate_raw(@sizeof(JsonValue) as usize) as Ptr<JsonValue>
     result.write(value)
     return result
 }
@@ -295,20 +285,20 @@ json_stringify = (value: Ptr<JsonValue>) RawPtr<i8> {
 // Free JSON value memory
 json_free = (value: Ptr<JsonValue>) void   {
     value ? 
-        | String(s) { { free(s as RawPtr<void>)  }}
+        | String(s) { { deallocate_raw(s as RawPtr<void>)  }}
         | Array(elements, count) {
             range(0, count).loop((i) {
                 json_free(&elements[i])
             })
-            free(elements as RawPtr<void>)
+            deallocate_raw(elements as RawPtr<void>)
         }
         | Object(pairs, count) {
             range(0, count).loop((i) {
-                free(pairs[i].key as RawPtr<void>)
+                deallocate_raw(pairs[i].key as RawPtr<void>)
                 json_free(pairs[i].value)
             })
-            free(pairs as RawPtr<void>)
+            deallocate_raw(pairs as RawPtr<void>)
         }
         | _ {}
-    free(value as RawPtr<void>)
+    deallocate_raw(value as RawPtr<void>)
 }

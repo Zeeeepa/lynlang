@@ -1499,18 +1499,63 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let cap_field_ptr = self.builder.build_struct_gep(dynvec_struct_type, dynvec_ptr, 2, "cap_field")?;
         self.builder.build_store(cap_field_ptr, capacity_int)?;
         
-        // For mixed variant DynVec, initialize discriminants pointer to null
-        if element_types.len() > 1 {
+        // Allocate memory for the data array if capacity > 0
+        if capacity_int.get_zero_extended_constant().is_some() {
+            let cap_value = capacity_int.get_zero_extended_constant().unwrap();
+            if cap_value > 0 {
+                // Calculate size needed for elements
+                // For now, assume i32 elements (4 bytes each) - will need proper type size calculation
+                let element_size = self.context.i64_type().const_int(8, false); // Default to 8 bytes per element
+                // Ensure capacity_int is i64 for multiplication
+                let capacity_i64 = if capacity_int.get_type().get_bit_width() == 64 {
+                    capacity_int
+                } else {
+                    self.builder.build_int_z_extend(capacity_int, self.context.i64_type(), "cap_i64")?
+                };
+                let total_size = self.builder.build_int_mul(capacity_i64, element_size, "total_size")?;
+                
+                // Call malloc to allocate memory
+                let malloc_fn = self.module.get_function("malloc").ok_or_else(|| 
+                    CompileError::InternalError("No malloc function declared".to_string(), None))?;
+                
+                let allocated_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "dynvec_data_malloc")?
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| CompileError::InternalError("malloc did not return a value".to_string(), None))?
+                    .into_pointer_value();
+                
+                // Store the allocated pointer in the data field
+                self.builder.build_store(data_field_ptr, allocated_ptr)?;
+                
+                // For mixed variant DynVec, also allocate discriminant array
+                if element_types.len() > 1 {
+                    let discriminant_size = self.builder.build_int_mul(
+                        capacity_i64, 
+                        self.context.i64_type().const_int(1, false), 
+                        "discriminant_size"
+                    )?;
+                    
+                    let discriminant_ptr = self.builder.build_call(
+                        malloc_fn, 
+                        &[discriminant_size.into()], 
+                        "discriminant_malloc"
+                    )?
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| CompileError::InternalError("malloc did not return a value".to_string(), None))?
+                    .into_pointer_value();
+                    
+                    let discriminant_field_ptr = self.builder.build_struct_gep(dynvec_struct_type, dynvec_ptr, 3, "discriminant_field")?;
+                    self.builder.build_store(discriminant_field_ptr, discriminant_ptr)?;
+                }
+            }
+        }
+        
+        // For mixed variant DynVec with no initial capacity, initialize discriminants pointer to null
+        if element_types.len() > 1 && capacity_int.get_zero_extended_constant().map_or(true, |v| v == 0) {
             let discriminant_field_ptr = self.builder.build_struct_gep(dynvec_struct_type, dynvec_ptr, 3, "discriminant_field")?;
             self.builder.build_store(discriminant_field_ptr, null_ptr)?;
         }
-        
-        // TODO: Actually allocate memory using the allocator
-        // For now, we'll just create the struct with null pointers
-        // In a complete implementation, we would:
-        // 1. Call the allocator to get memory
-        // 2. Store the pointer in the data field
-        // 3. For mixed variants, allocate discriminant array
         
         // Load and return the DynVec struct value
         Ok(self.builder.build_load(dynvec_struct_type, dynvec_ptr, "dynvec_value")?)

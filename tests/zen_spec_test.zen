@@ -3,11 +3,9 @@
 // Import syntax from spec (line 92-94)
 { io, math } = @std
 
-// Option type from spec (line 109-110)
-Option<T>: Some(T) | None
-
-// Result type from spec (line 112-113)
-Result<T, E>: Ok(T) | Err(E)
+// Import Result and Option from stdlib
+{ Result, Ok, Err } = import("../stdlib/core/result.zen")
+{ Option, Some, None } = import("../stdlib/core/option.zen")
 
 // Simple struct from spec (line 116-120)
 Point: {

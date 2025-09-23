@@ -4,15 +4,15 @@
 io {  } = @std;
 math {  } = @std;
 
+// Import Result and Option from stdlib
+{ Result, Ok, Err } = import("../stdlib/core/result.zen")
+{ Option, Some, None } = import("../stdlib/core/option.zen")
+
 // Type definitions
 Point: {
     x: f64,
     y: f64,
 }
-
-Result<T, E>:
-    Ok: T,
-    Err: E
 
 // Function definitions
 distance = (p1: Point, p2: Point) f64   {

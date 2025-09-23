@@ -1,15 +1,9 @@
 // Enum and Option type tests from LANGUAGE_SPEC.zen lines 109-110, 165
 // Tests enum definitions and Option<T> type
 
-// Option type - fundamental to Zen (no null!)
-Option<T>:
-    Some: T,
-    None
-
-// Result type for error handling
-Result<T, E>:
-    Ok: T,
-    Err: E
+// Import Result and Option from stdlib
+{ Result, Ok, Err } = import("../stdlib/core/result.zen")
+{ Option, Some, None } = import("../stdlib/core/option.zen")
 
 // Simple enum
 Shape:

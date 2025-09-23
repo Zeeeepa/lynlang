@@ -1,0 +1,12 @@
+// Simple DynVec test
+{ io } = @std
+
+main = () void {
+    // Test creating a DynVec with a mock allocator (0 for now)
+    vec = DynVec<i32>(0)
+    io.println("Created DynVec")
+    
+    // Test with initial capacity  
+    vec2 = DynVec<i32>(0, 16)
+    io.println("Created DynVec with capacity")
+}

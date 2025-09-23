@@ -1,17 +1,7 @@
 // HTTP Client and Server utilities for Zen
 // Provides basic HTTP functionality
 
-malloc = (size: i64) RawPtr<void> {
-    inline.c("""
-        return malloc(${size});
-    """)
-}
-
-free = (ptr: RawPtr<void>) void {
-    inline.c("""
-        free(${ptr.addr});
-    """)
-}
+{ allocate_raw, deallocate_raw } = import("memory.zen")
 
 memcpy = (dest: RawPtr<void>, src: RawPtr<void>, size: i64) RawPtr<void> {
     inline.c("""
@@ -89,7 +79,7 @@ http_request_new = (method: HttpMethod, url: RawPtr<i8>) HttpRequest   {
     return HttpRequest {
         method: method,
         url: url,
-        headers: malloc(32 * @sizeof(HttpHeader)) as Ptr<HttpHeader>,
+        headers: allocate_raw((32 * @sizeof(HttpHeader)) as usize) as Ptr<HttpHeader>,
         header_count: 0,
         body: 0 as RawPtr<i8>,
         body_length: 0,

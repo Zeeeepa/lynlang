@@ -1,8 +1,9 @@
 // Test Result pattern matching in expression context
 { io } = @std
 
-Option<T>: Some(T) | None
-Result<T, E>: Ok(T) | Err(E)
+// Import Result and Option from stdlib
+{ Result, Ok, Err } = import("../stdlib/core/result.zen")
+{ Option, Some, None } = import("../stdlib/core/option.zen")
 
 // Function with pattern matching as expression
 test_pattern = () Result<i32, string> {

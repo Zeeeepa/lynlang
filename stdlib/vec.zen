@@ -28,7 +28,7 @@ Vec<T, N>.from_array = (arr: [T; N]) Vec<T, N> {
 }
 
 // Push element to the vector
-Vec<T, N>.push = (self: *Vec<T, N>, value: T) core.Result<void, core.Error> {
+Vec<T, N>.push = (self: Ptr<Vec<T, N>>, value: T) core.Result<void, core.Error> {
     self.len >= N ? 
         | true => core.Result:Err(core.Error:CapacityExceeded(self.len, N))
         | false => {
@@ -39,7 +39,7 @@ Vec<T, N>.push = (self: *Vec<T, N>, value: T) core.Result<void, core.Error> {
 }
 
 // Pop element from the vector
-Vec<T, N>.pop = (self: *Vec<T, N>) core.Option<T> {
+Vec<T, N>.pop = (self: Ptr<Vec<T, N>>) core.Option<T> {
     self.len == 0 ? 
         | true => core.Option:None
         | false => {
@@ -49,14 +49,14 @@ Vec<T, N>.pop = (self: *Vec<T, N>) core.Option<T> {
 }
 
 // Get element at index
-Vec<T, N>.get = (self: *Vec<T, N>, index: usize) core.Result<T, core.Error> {
+Vec<T, N>.get = (self: Ptr<Vec<T, N>>, index: usize) core.Result<T, core.Error> {
     index >= self.len ? 
         | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
         | false => core.Result:Ok(self.data[index])
 }
 
 // Set element at index
-Vec<T, N>.set = (self: *Vec<T, N>, index: usize, value: T) core.Result<void, core.Error> {
+Vec<T, N>.set = (self: Ptr<Vec<T, N>>, index: usize, value: T) core.Result<void, core.Error> {
     index >= self.len ? 
         | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
         | false => {
@@ -66,32 +66,32 @@ Vec<T, N>.set = (self: *Vec<T, N>, index: usize, value: T) core.Result<void, cor
 }
 
 // Get vector length
-Vec<T, N>.len = (self: *Vec<T, N>) usize {
+Vec<T, N>.len = (self: Ptr<Vec<T, N>>) usize {
     return self.len
 }
 
 // Get vector capacity (always N)
-Vec<T, N>.capacity = (self: *Vec<T, N>) usize {
+Vec<T, N>.capacity = (self: Ptr<Vec<T, N>>) usize {
     return N
 }
 
 // Check if vector is empty
-Vec<T, N>.is_empty = (self: *Vec<T, N>) bool {
+Vec<T, N>.is_empty = (self: Ptr<Vec<T, N>>) bool {
     return self.len == 0
 }
 
 // Check if vector is full
-Vec<T, N>.is_full = (self: *Vec<T, N>) bool {
+Vec<T, N>.is_full = (self: Ptr<Vec<T, N>>) bool {
     return self.len == N
 }
 
 // Clear the vector (remove all elements)
-Vec<T, N>.clear = (self: *Vec<T, N>) void {
+Vec<T, N>.clear = (self: Ptr<Vec<T, N>>) void {
     self.len = 0
 }
 
 // Insert element at position
-Vec<T, N>.insert = (self: *Vec<T, N>, index: usize, value: T) core.Result<void, core.Error> {
+Vec<T, N>.insert = (self: Ptr<Vec<T, N>>, index: usize, value: T) core.Result<void, core.Error> {
     index > self.len ?
         | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
         | false => {
@@ -114,7 +114,7 @@ Vec<T, N>.insert = (self: *Vec<T, N>, index: usize, value: T) core.Result<void, 
 }
 
 // Remove element at position
-Vec<T, N>.remove = (self: *Vec<T, N>, index: usize) core.Result<T, core.Error> {
+Vec<T, N>.remove = (self: Ptr<Vec<T, N>>, index: usize) core.Result<T, core.Error> {
     index >= self.len ?
         | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
         | false => {
@@ -134,7 +134,7 @@ Vec<T, N>.remove = (self: *Vec<T, N>, index: usize) core.Result<T, core.Error> {
 }
 
 // Convert to dynamic vector
-Vec<T, N>.to_dynamic = (self: *Vec<T, N>) DynVec<T> {
+Vec<T, N>.to_dynamic = (self: Ptr<Vec<T, N>>) DynVec<T> {
     dyn_vec := DynVec<T>.with_capacity(self.len).unwrap_or(DynVec<T>.new())
     
     i ::= 0
@@ -148,7 +148,7 @@ Vec<T, N>.to_dynamic = (self: *Vec<T, N>) DynVec<T> {
 }
 
 // Iterator support
-Vec<T, N>.iter = (self: *Vec<T, N>) VecIterator<T, N> {
+Vec<T, N>.iter = (self: Ptr<Vec<T, N>>) VecIterator<T, N> {
     return VecIterator<T, N>{
         vec: self,
         index: 0
@@ -156,11 +156,11 @@ Vec<T, N>.iter = (self: *Vec<T, N>) VecIterator<T, N> {
 }
 
 VecIterator<T, N>: {
-    vec: *Vec<T, N>
+    vec: Ptr<Vec<T, N>>
     index: usize
 }
 
-VecIterator<T, N>.next = (self: *VecIterator<T, N>) core.Option<T> {
+VecIterator<T, N>.next = (self: Ptr<VecIterator<T, N>>) core.Option<T> {
     self.index >= self.vec.len ?
         | true => core.Option:None
         | false => {
@@ -171,7 +171,7 @@ VecIterator<T, N>.next = (self: *VecIterator<T, N>) core.Option<T> {
 }
 
 // Functional operations
-Vec<T, N>.map<U> = (self: *Vec<T, N>, f: (T) U) Vec<U, N> {
+Vec<T, N>.map<U> = (self: Ptr<Vec<T, N>>, f: (T) U) Vec<U, N> {
     result := Vec<U, N>.new()
     
     i ::= 0
@@ -184,7 +184,7 @@ Vec<T, N>.map<U> = (self: *Vec<T, N>, f: (T) U) Vec<U, N> {
     return result
 }
 
-Vec<T, N>.filter = (self: *Vec<T, N>, predicate: (T) bool) DynVec<T> {
+Vec<T, N>.filter = (self: Ptr<Vec<T, N>>, predicate: (T) bool) DynVec<T> {
     result := DynVec<T>.new()
     
     i ::= 0
@@ -198,7 +198,7 @@ Vec<T, N>.filter = (self: *Vec<T, N>, predicate: (T) bool) DynVec<T> {
     return result
 }
 
-Vec<T, N>.fold<U> = (self: *Vec<T, N>, initial: U, f: (U, T) U) U {
+Vec<T, N>.fold<U> = (self: Ptr<Vec<T, N>>, initial: U, f: (U, T) U) U {
     acc ::= initial
     
     i ::= 0

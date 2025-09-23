@@ -1,114 +1,39 @@
-// Zen Standard Library Main Module
-// This module re-exports the most commonly used standard library modules
+// Zen Standard Library - Main Aggregator
+// Clean re-exports from canonical modules
 
-// Core modules - essential functionality
-core = @std
-io = @std
-mem = @std
-math = @std
-string = @std
+// Core types
+{ Option, Some, None } = import("core/option.zen")
+{ Result, Ok, Err } = import("core/result.zen") 
 
 // Collections
-vec = @std
-hashmap = @std
-list = @std
-set = @std
-queue = @std
-stack = @std
+{ Vec, DynVec } = import("vec.zen")
+{ List } = import("collections/list.zen")
+{ HashMap } = import("collections/hashmap.zen")
 
-// File system and OS interaction
-fs = @std
-path = @std
-env = @std
-process = @std
-args = @std
+// Memory
+{ Allocator, malloc, free } = import("memory.zen")
 
-// Error handling and testing
-result = @std
-option = @std
-error = @std
-testing = @std
-assert = @std
+// Concurrency
+{ Actor, Channel } = import("concurrent/actor.zen")
 
-// Algorithms and utilities
-algorithm = @std
-iterator = @std
-random = @std
-utils = @std
+// I/O
+{ print, println } = import("io.zen")
 
-// Time and date
-time = @std
-datetime = @std
+// Math
+{ min, max, abs } = import("math.zen")
 
-// Networking and concurrency (via allocators)
-net = @std
-http = @std
-concurrency = @std  // Concurrency module (allocator-based)
-thread = @std
+// Utilities
+{ panic, assert } = import("assert.zen")
 
-// Encoding and serialization
-json = @std
-encoding = @std
-url = @std
-
-// Advanced features
-regex = @std
-crypto = @std
-log = @std
-
-// Compiler modules (for self-hosting)
-compiler := {
-    lexer: @std.compiler.lexer,
-    parser: @std.compiler.parser,
-    type_checker: @std.compiler.type_checker,
-    codegen: @std.compiler.codegen,
-    symbol_table: @std.compiler.symbol_table,
-    token: @std.compiler.token,
-}
-
-// Version information
-VERSION := "0.1.0"
-ZEN_VERSION := "1.0.0-alpha"
-
-// Initialize the standard library
-init = () void   {
-    // Perform any necessary initialization
-    // This could set up global state, configure the runtime, etc.
-}
-
-// Panic function for unrecoverable errors
-panic = (message: RawPtr<i8>) void   {
-    io.print("PANIC: ")
-    io.println(message)
-    process.exit(1)
-}
-
-// Debug print function (only in debug builds)
-debug_print = (message: RawPtr<i8>) void {
-    @comptime {
-        DEBUG ?
-            | true {
-                io.print("[DEBUG] ")
-                io.println(message)
-            }
-            | false {}
-    }
-}
-
-// Standard prelude - commonly used items
-prelude := {
-    // Re-export commonly used types
-    Result: result.Result,
-    Option: option.Option,
-    Vec: vec.Vec,
-    HashMap: hashmap.HashMap,
-    String: string.String,
-    
-    // Re-export commonly used functions
-    print: io.print,
-    println: io.println,
-    assert: assert.assert,
-    panic: panic,
-    unwrap: result.unwrap,
-    expect: result.expect,
+// Re-export everything
+module.exports = {
+    Option, Some, None,
+    Result, Ok, Err,
+    Vec, DynVec,
+    List, HashMap,
+    Allocator, malloc, free,
+    Actor, Channel,
+    print, println,
+    min, max, abs,
+    panic, assert,
 }

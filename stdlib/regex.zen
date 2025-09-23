@@ -153,8 +153,8 @@ regex_parse_char = (parser: Ptr<RegexParser>) Ptr<RegexNode> {
     
     // Literal character
     node := RegexNode:Literal(ch)
-    result := malloc(@sizeof(RegexNode)) as *RegexNode
-    *result = node
+    result := malloc(@sizeof(RegexNode)) as Ptr<RegexNode>
+    result.write(node)
     return result
 }
 
@@ -202,8 +202,8 @@ regex_parse_char_class = (parser: *RegexParser) *RegexNode {
     chars[char_count] = 0
     
     node := RegexNode:CharClass(chars, negated)
-    result := malloc(@sizeof(RegexNode)) as *RegexNode
-    *result = node
+    result := malloc(@sizeof(RegexNode)) as Ptr<RegexNode>
+    result.write(node)
     return result
 }
 

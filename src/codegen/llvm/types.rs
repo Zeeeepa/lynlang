@@ -144,10 +144,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
                     Ok(Type::Struct(enum_info.llvm_type))
                 } else {
-                    // Fallback to a default enum structure if not registered
+                    // Fallback to a simple tag-only enum if not registered
+                    // This should rarely happen as enums should be registered during declaration phase
                     let enum_struct_type = self.context.struct_type(&[
-                        self.context.i64_type().into(),  // discriminant/tag
-                        self.context.i64_type().into(),  // payload (simplified)
+                        self.context.i64_type().into(),  // discriminant/tag only
                     ], false);
                     Ok(Type::Struct(enum_struct_type))
                 }

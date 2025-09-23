@@ -257,22 +257,18 @@ impl TypeChecker {
         // For now, all parameters are immutable
         for (param_name, param_type) in &function.args {
             // Special handling for 'self' parameter in trait implementations
-            eprintln!("DEBUG: Function param '{}' has type: {:?}", param_name, param_type);
             let actual_type = if param_name == "self" {
                 match param_type {
                     AstType::Generic { name, .. } if name == "Self" || name.starts_with("Self_") => {
                         // Replace Self with the concrete implementing type
                         if let Some(impl_type) = &self.current_impl_type {
-                            eprintln!("DEBUG: Replacing Self type for 'self' parameter with type: {}", impl_type);
                             // Look up the actual struct fields from the registry
                             if let Some(struct_info) = self.structs.get(impl_type) {
-                                eprintln!("DEBUG: Found struct '{}' with {} fields", impl_type, struct_info.fields.len());
                                 AstType::Struct {
                                     name: impl_type.clone(),
                                     fields: struct_info.fields.clone(),
                                 }
                             } else {
-                                eprintln!("DEBUG: Struct '{}' not found in registry!", impl_type);
                                 // Fallback if struct not found
                                 AstType::Struct {
                                     name: impl_type.clone(),
@@ -289,7 +285,6 @@ impl TypeChecker {
                 param_type.clone()
             };
             
-            eprintln!("DEBUG: Declaring parameter '{}' with type: {:?}", param_name, actual_type);
             self.declare_variable(param_name, actual_type, false)?; // false = immutable
         }
 

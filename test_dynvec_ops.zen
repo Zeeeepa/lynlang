@@ -1,0 +1,17 @@
+// Test DynVec operations: push and pop
+{ io } = @std
+
+main = () void {
+    // Create a DynVec with initial capacity
+    vec = DynVec<i32>(0, 4)
+    io.println("Created DynVec with capacity 4")
+    
+    // Try to push elements (this will test if push is implemented)
+    // vec.push(42)
+    // vec.push(100)
+    // io.println("Pushed 2 elements")
+    
+    // Try to pop elements (this will test if pop is implemented)  
+    // val = vec.pop()
+    // io.println("Popped element")
+}
