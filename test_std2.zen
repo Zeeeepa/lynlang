@@ -1,0 +1,7 @@
+{ io, math } = @std
+
+main = () i32 {
+    io.println("Testing multiple imports")
+    io.println("PI value test")
+    return 0
+}

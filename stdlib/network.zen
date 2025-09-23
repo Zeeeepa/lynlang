@@ -30,8 +30,8 @@ Socket: {
     fd: i32,
     socket_type: SocketType,
     is_connected: bool,
-    local_addr: ?SocketAddr,
-    remote_addr: ?SocketAddr,
+    local_addr: Option<SocketAddr>,
+    remote_addr: Option<SocketAddr>,
 }
 
 // TCP Listener

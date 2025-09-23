@@ -44,7 +44,7 @@ Mailbox: {
     messages: []u8  // Serialized messages
     message_types: []u64  // Type IDs for deserialization
     lock: std.sync.Mutex
-    waiting: ?allocator.Continuation
+    waiting: Option<allocator.Continuation>
     alloc: *allocator.Allocator
     
     init: (alloc: *allocator.Allocator) Mailbox {
@@ -176,7 +176,7 @@ Actor: {
 ActorSystem: {
     actors: []Actor
     next_actor_id: u64
-    event_loop: ?runtime.EventLoop
+    event_loop: Option<runtime.EventLoop>
     alloc: *allocator.Allocator
     
     init: (alloc: *allocator.Allocator) ActorSystem {
@@ -261,7 +261,7 @@ PingPongMsg: Ping(count: u32)
     | Stop
 
 PingActor: {
-    pong_ref: ?ActorRef
+    pong_ref: Option<ActorRef>
     
     behavior: Behavior(PingActor, PingPongMsg) = {
         handle: (state, msg, ctx) {

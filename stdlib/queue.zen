@@ -141,7 +141,7 @@ iter = (T: type, q: Ptr<Queue(T)>) QueueIterator(T) {
 }
 
 QueueIterator(T: type): {
-    current: ?*QueueNode(T),
+    current: Option<*QueueNode(T)>,
 }
 
 next = (T: type, it: *QueueIterator(T)) Option<T> {

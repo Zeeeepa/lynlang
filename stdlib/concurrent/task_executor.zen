@@ -40,7 +40,7 @@ Task<T>: {
     result: Option<TaskResult<T>>,
     created_at: u64,
     started_at: Option<u64>,
-    completed_at: ?u64
+    completed_at: Option<u64>
 }
 
 // Task executor configuration
@@ -214,7 +214,7 @@ worker_loop = (executor: TaskExecutor) void   {
 }
 
 // Wait for a specific task to complete
-wait_for = (executor: *TaskExecutor, task_id: u64) ?TaskResult<any>   {
+wait_for = (executor: *TaskExecutor, task_id: u64) Option<TaskResult<any>>   {
     // Check if already completed
     executor.completed_tasks.loop((task) {
         task.id == task_id ? {
@@ -261,7 +261,7 @@ cancel = (executor: *TaskExecutor, task_id: u64) bool   {
 }
 
 // Get task status
-get_status = (executor: *TaskExecutor, task_id: u64) ?TaskStatus   {
+get_status = (executor: *TaskExecutor, task_id: u64) Option<TaskStatus>   {
     // Check active tasks
     executor.active_tasks.contains(task_id) ? {
         task := executor.active_tasks.get(task_id)
@@ -305,7 +305,7 @@ shutdown = (executor: *TaskExecutor, wait_for_completion: bool) void   {
 }
 
 // Get executor metrics
-get_metrics = (executor: *TaskExecutor) ?ExecutorMetrics   {
+get_metrics = (executor: *TaskExecutor) Option<ExecutorMetrics>   {
     return executor.metrics
 }
 

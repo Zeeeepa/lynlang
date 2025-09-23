@@ -21,7 +21,7 @@ Allocator: {
     is_concurrent: bool
     
     // Control flow operations (only for concurrent execution)
-    suspend: () ?Continuation
+    suspend: () Option<Continuation>
     resume: (cont: Continuation) void
     
     // Utility functions
@@ -73,7 +73,7 @@ SyncAllocator: {
 // Runtime for concurrent execution
 Runtime: {
     ready_queue: DynVec<Continuation>
-    current_continuation: ?Continuation
+    current_continuation: Option<Continuation>
     heap: std.heap.GeneralPurposeAllocator
     
     init: () Runtime {
@@ -84,7 +84,7 @@ Runtime: {
         }
     }
     
-    save_continuation: () ?Continuation {
+    save_continuation: () Option<Continuation> {
         // Save current execution state
         // This would be implemented with platform-specific assembly
         return self.current_continuation
@@ -138,8 +138,8 @@ ConcurrentAllocator: {
 // Auto allocator - chooses based on context
 AutoAllocator: {
     sync_alloc: SyncAllocator
-    concurrent_alloc: ?ConcurrentAllocator
-    runtime: ?Runtime
+    concurrent_alloc: Option<ConcurrentAllocator>
+    runtime: Option<Runtime>
     
     init: () AutoAllocator {
         return AutoAllocator{

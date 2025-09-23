@@ -35,7 +35,7 @@ pop = (T: type, s: *Stack(T)) Option<T> {
 }
 
 // Peek at top element without removing
-peek = (T: type, s: *Stack(T)) ?T {
+peek = (T: type, s: *Stack(T)) Option<T> {
     s.data.len == 0 ? {
         return null
     }
@@ -158,7 +158,7 @@ StackIterator(T: type): {
     index: usize,
 }
 
-next = (T: type, it: *StackIterator(T)) ?T {
+next = (T: type, it: *StackIterator(T)) Option<T> {
     it.index == 0 ? {
         return null
     }
@@ -206,7 +206,7 @@ push_minmax = (T: type, s: *MinMaxStack(T), value: T) void {
 }
 
 // Pop from min/max stack
-pop_minmax = (T: type, s: *MinMaxStack(T)) ?T {
+pop_minmax = (T: type, s: *MinMaxStack(T)) Option<T> {
     is_empty(T, &s.main) ? {
         return null
     }
@@ -217,17 +217,17 @@ pop_minmax = (T: type, s: *MinMaxStack(T)) ?T {
 }
 
 // Get minimum element
-get_min = (T: type, s: *MinMaxStack(T)) ?T {
+get_min = (T: type, s: *MinMaxStack(T)) Option<T> {
     return peek(T, &s.mins)
 }
 
 // Get maximum element
-get_max = (T: type, s: *MinMaxStack(T)) ?T {
+get_max = (T: type, s: *MinMaxStack(T)) Option<T> {
     return peek(T, &s.maxs)
 }
 
 // Peek at top of min/max stack
-peek_minmax = (T: type, s: *MinMaxStack(T)) ?T {
+peek_minmax = (T: type, s: *MinMaxStack(T)) Option<T> {
     return peek(T, &s.main)
 }
 
