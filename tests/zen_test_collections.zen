@@ -5,8 +5,13 @@
 { Vec, DynVec, GPA } = @std
 
 // Test types for mixed collections
-GameEntity: Player | Enemy | Powerup
-Shape: Circle | Rectangle
+GameEntity:
+    Player,
+    Enemy,
+    Powerup
+Shape:
+    Circle,
+    Rectangle
 
 Circle: {
     center: Point,

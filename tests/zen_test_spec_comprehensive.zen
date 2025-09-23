@@ -4,8 +4,12 @@
 { io, math } = @std
 
 // Type definitions (lines 109-113)
-Option<T>: Some(T) | None
-Result<T, E>: Ok(T) | Err(E)
+Option<T>:
+    Some: T,
+    None
+Result<T, E>:
+    Ok: T,
+    Err: E
 
 // Struct with mutable fields (lines 116-120)
 Point: {
@@ -14,7 +18,9 @@ Point: {
 }
 
 // Enum type (line 165)
-Shape: Circle | Rectangle
+Shape:
+    Circle,
+    Rectangle
 
 // Function definition (line 198-203)
 parse_radius = (s: string) Result<f64, string> {

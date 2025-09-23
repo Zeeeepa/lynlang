@@ -51,7 +51,9 @@ Rectangle.implements(Geometric, {
 })
 
 // Enum type that requires all variants implement Geometric (line 165-168)
-Shape: Circle | Rectangle
+Shape:
+    Circle,
+    Rectangle
 Shape.requires(Geometric)
 
 // Generic function with trait constraint (line 184)

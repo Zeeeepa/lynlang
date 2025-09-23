@@ -2,16 +2,25 @@
 // Tests enum definitions and Option<T> type
 
 // Option type - fundamental to Zen (no null!)
-Option<T>: Some(T) | None
+Option<T>:
+    Some: T,
+    None
 
 // Result type for error handling
-Result<T, E>: Ok(T) | Err(E)
+Result<T, E>:
+    Ok: T,
+    Err: E
 
 // Simple enum
-Shape: Circle | Rectangle
+Shape:
+    Circle,
+    Rectangle
 
 // Enum with different variant types
-GameEntity: Player | Enemy | Powerup
+GameEntity:
+    Player,
+    Enemy,
+    Powerup
 
 main = () void {
     // Option handling - no null!

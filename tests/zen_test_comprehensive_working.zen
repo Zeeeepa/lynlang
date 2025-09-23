@@ -4,8 +4,12 @@
 { io, math } = @std
 
 // Option and Result types from spec
-Option<T>: Some(T) | None
-Result<T, E>: Ok(T) | Err(E)
+Option<T>:
+    Some: T,
+    None
+Result<T, E>:
+    Ok: T,
+    Err: E
 
 // Structs from spec
 Point: {
@@ -24,8 +28,13 @@ Rectangle: {
 }
 
 // Enum types from spec
-Shape: Circle | Rectangle
-GameEntity: Player | Enemy | Powerup
+Shape:
+    Circle,
+    Rectangle
+GameEntity:
+    Player,
+    Enemy,
+    Powerup
 
 // UFC overloading from spec
 get_health = (e: GameEntity.Player) u32 { return 100 }

@@ -1,0 +1,111 @@
+// Simple Todo App - Complete Application Example
+{ io, Result, time } = @std
+
+// ═══ Core Types ═══════════════════════════════════════════════════════
+Priority: High | Medium | Low
+
+Todo: {
+    id: i32,
+    text: string,
+    priority: Priority,
+    done: bool,
+    created: i64
+}
+
+TodoList: {
+    items: []Todo,
+    next_id: i32
+}
+
+// ═══ Methods ══════════════════════════════════════════════════════════
+Priority.icon = (self) string {
+    self ? | High { "🔴" } | Medium { "🟡" } | Low { "🟢" }
+}
+
+Todo.display = (self) string {
+    check = self.done ? | true { "✅" } | false { "⬜" }
+    "${check} [${self.id}] ${self.priority.icon()} ${self.text}"
+}
+
+TodoList.new = () TodoList {
+    TodoList { items: [], next_id: 1 }
+}
+
+TodoList.add = (self, text: string, priority: Priority) void {
+    todo = Todo {
+        id: self.next_id,
+        text: text,
+        priority: priority,
+        done: false,
+        created: time.now()
+    }
+    self.items.push(todo)
+    self.next_id += 1
+}
+
+TodoList.complete = (self, id: i32) Result<void, string> {
+    self.items.find_index((t) => t.id == id) ?
+        | Some(idx) {
+            self.items[idx].done = true
+            Result.Ok(void)
+        }
+        | None { Result.Err("Todo #${id} not found") }
+}
+
+TodoList.list_active = (self) void {
+    active = self.items.filter((t) => !t.done)
+    active.len() == 0 ?
+        | true { io.println("  No active todos!") }
+        | false {
+            active
+                .sort((a, b) => b.priority == a.priority ? 
+                    | true { 0 }
+                    | false { 
+                        (b.priority == Priority.High ? | true { 1 } | false { 
+                            a.priority == Priority.High ? | true { -1 } | false { 0 }
+                        })
+                    })
+                .loop((t) => io.println("  ${t.display()}"))
+        }
+}
+
+TodoList.stats = (self) string {
+    total = self.items.len()
+    done = self.items.filter((t) => t.done).len()
+    active = total - done
+    
+    "📊 Total: ${total} | Done: ${done} | Active: ${active}"
+}
+
+// ═══ Main Application ═════════════════════════════════════════════════
+main = () void {
+    io.println("╔════════════════╗")
+    io.println("║   TODO APP     ║")
+    io.println("╚════════════════╝\n")
+    
+    // Create todo list
+    todos = TodoList.new()
+    
+    // Add some tasks
+    todos.add("Write documentation", Priority.High)
+    todos.add("Fix bug in parser", Priority.High)
+    todos.add("Refactor lexer", Priority.Medium)
+    todos.add("Update README", Priority.Low)
+    todos.add("Add more tests", Priority.Medium)
+    
+    // Show active todos
+    io.println("▸ Active Todos:")
+    todos.list_active()
+    
+    // Complete some tasks
+    io.println("\n▸ Completing tasks...")
+    todos.complete(2)?
+    todos.complete(4)?
+    
+    // Show updated list
+    io.println("\n▸ Updated List:")
+    todos.list_active()
+    
+    // Show stats
+    io.println("\n${todos.stats()}")
+}

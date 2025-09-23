@@ -10,9 +10,9 @@ Point: {
     y: f64,
 }
 
-Result<T, E>: |
-    Ok: {T}
-    | Err: {E}
+Result<T, E>:
+    Ok: T,
+    Err: E
 
 // Function definitions
 distance = (p1: Point, p2: Point) f64   {
