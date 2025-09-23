@@ -1,111 +1,175 @@
-// Comprehensive test of working features in Zen
-// Based on LANGUAGE_SPEC.zen
+// Comprehensive test from LANGUAGE_SPEC.zen main function
+// Testing currently working features
 
 { io, math } = @std
 
-// Test Option type
+// Option and Result types from spec
 Option<T>: Some(T) | None
-
-// Test Result type  
 Result<T, E>: Ok(T) | Err(E)
 
-// Test struct
+// Structs from spec
 Point: {
     x:: f64,
     y:: f64
 }
 
-// Test function for UFC
-double = (x: i32) i32 {
-    return x * 2
+Circle: {
+    center: Point,
+    radius: f64
 }
 
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point
+}
+
+// Enum types from spec
+Shape: Circle | Rectangle
+GameEntity: Player | Enemy | Powerup
+
+// UFC overloading from spec
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+get_speed = (e: GameEntity.Player) f64 { return 5.0 }
+get_speed = (e: GameEntity.Enemy) f64 { return 3.0 }
+get_speed = (e: GameEntity.Powerup) f64 { return 0.0 }
+
 main = () void {
-    io.println("=== Zen Language Feature Test ===")
+    io.println("=== Zen Language Spec Test (Working Features) ===")
     
-    // Test 1: Variable declarations (all forms)
-    io.println("1. Variable declarations:")
+    // Test variable declarations from spec lines 299-306
+    io.println("\n1. Variable Declarations (6 forms):")
     x: i32
     x = 10
-    y = 20           // Immutable inferred
-    z: i32 = 30      // Immutable typed
-    w:: i32          // Mutable forward decl
-    w = 40
-    v ::= 50         // Mutable inferred
-    u:: i32 = 60     // Mutable typed
-    io.println(x)
-    io.println(y)
-    io.println(z)
-    io.println(w)
-    io.println(v)
-    io.println(u)
+    io.println("  x (forward decl) = ${x}")
     
-    // Test 2: Pattern matching
-    io.println("2. Pattern matching:")
+    y = 10
+    io.println("  y (immutable inferred) = ${y}")
+    
+    z: i32 = 20
+    io.println("  z (immutable typed) = ${z}")
+    
+    w:: i32
+    w = 20
+    io.println("  w (mutable forward) = ${w}")
+    w = 25
+    io.println("  w (reassigned) = ${w}")
+    
+    v ::= 30
+    io.println("  v (mutable inferred) = ${v}")
+    v = 35
+    io.println("  v (reassigned) = ${v}")
+    
+    u:: i32 = 40
+    io.println("  u (mutable typed) = ${u}")
+    u = 45
+    io.println("  u (reassigned) = ${u}")
+    
+    // Test pattern matching from spec lines 352-361
+    io.println("\n2. Pattern Matching:")
     is_ready = true
-    is_ready ?
-        | true { io.println("Ready!") }
-        | false { io.println("Not ready") }
+    is_ready ? {
+        io.println("  Starting game! (single arm pattern)")
+    }
     
-    // Test 3: Loops and ranges
-    io.println("3. Loops and ranges:")
-    count ::= 0
-    (0..3).loop((i) {
-        io.println(i)
-        count = count + 1
+    has_data = false
+    has_data ?
+        | true { io.println("  Processing data...") }
+        | false { io.println("  Waiting for data... (two arm pattern)") }
+    
+    // Test structs from spec lines 364-371
+    io.println("\n3. Structs and Field Access:")
+    circle = Circle { 
+        center: Point { x: 100.0, y: 100.0 }, 
+        radius: 50.0 
+    }
+    io.println("  Circle center: (${circle.center.x}, ${circle.center.y})")
+    io.println("  Circle radius: ${circle.radius}")
+    
+    // Modify mutable fields
+    circle.center.x = 150.0
+    circle.center.y = 150.0
+    io.println("  Modified center: (${circle.center.x}, ${circle.center.y})")
+    
+    // Test UFC with enum variants from spec
+    io.println("\n4. UFC with Enum Variants:")
+    player = GameEntity.Player
+    enemy = GameEntity.Enemy
+    powerup = GameEntity.Powerup
+    
+    io.println("  Player health: ${player.get_health()}, speed: ${player.get_speed()}")
+    io.println("  Enemy health: ${enemy.get_health()}, speed: ${enemy.get_speed()}")
+    io.println("  Powerup health: ${powerup.get_health()}, speed: ${powerup.get_speed()}")
+    
+    // Test ranges from spec lines 432-439
+    io.println("\n5. Range Iteration:")
+    io.println("  Counting 0 to 4:")
+    (0..5).loop((i) {
+        io.println("    Count: ${i}")
     })
-    io.println("Loop count:")
-    io.println(count)
     
-    // Test 4: String interpolation
-    io.println("4. String interpolation:")
-    name = "Zen"
+    // Test infinite loop with break from spec lines 453-459
+    io.println("\n6. Infinite Loop with Break:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("    Counter: ${counter}")
+        counter > 3 ?
+            | true { 
+                io.println("    Breaking at ${counter}")
+                break 
+            }
+            | false { }
+    })
+    
+    // Test Option handling from spec lines 462-473
+    io.println("\n7. Option Type (No Null!):")
+    maybe_radius: Option<f64> = Option.Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            io.println("  Created circle with radius: ${r}")
+            // Note: Can't compute area without trait implementation
+        }
+        | None {
+            io.println("  No radius provided")
+        }
+    
+    empty_option: Option<f64> = Option.None
+    empty_option ?
+        | Some(r) { io.println("  Unexpected: ${r}") }
+        | None { io.println("  Got None as expected") }
+    
+    // Test Result type
+    io.println("\n8. Result Type:")
+    parse_result: Result<i32, i32> = Result.Ok(42)
+    parse_result ?
+        | Ok(val) { io.println("  Parsed successfully: ${val}") }
+        | Err(e) { io.println("  Parse error: ${e}") }
+    
+    error_result: Result<i32, i32> = Result.Err(404)
+    error_result ?
+        | Ok(val) { io.println("  Unexpected success: ${val}") }
+        | Err(code) { io.println("  Got error code: ${code}") }
+    
+    // Test string interpolation
+    io.println("\n9. String Interpolation:")
+    lang = "Zen"
     version = 1
-    msg = "Language: ${name}, Version: ${version}"
-    io.println(msg)
+    pi_val = math.pi
+    io.println("  Language: ${lang} v${version}")
+    io.println("  Math.pi = ${pi_val}")
     
-    // Test 5: UFC (Uniform Function Call)
-    io.println("5. UFC:")
-    val = 7
-    result1 = double(val)     // Traditional
-    result2 = val.double()    // UFC
-    io.println(result1)
-    io.println(result2)
+    // Test basic arithmetic
+    io.println("\n10. Arithmetic:")
+    a = 10
+    b = 3
+    io.println("  ${a} + ${b} = ${a + b}")
+    io.println("  ${a} - ${b} = ${a - b}")
+    io.println("  ${a} * ${b} = ${a * b}")
+    io.println("  ${a} / ${b} = ${a / b}")
+    io.println("  ${a} % ${b} = ${a % b}")
     
-    // Test 6: Structs
-    io.println("6. Structs:")
-    point = Point { x: 3.14, y: 2.71 }
-    io.println(point.x)
-    io.println(point.y)
-    
-    // Test 7: Option type (integers work)
-    io.println("7. Option type:")
-    maybe: Option<i32> = Some(42)
-    maybe ?
-        | Some(val) { 
-            io.println("Some:")
-            io.println(val) 
-        }
-        | None { io.println("None") }
-    
-    none_val: Option<i32> = None
-    none_val ?
-        | Some(val) { io.println(val) }
-        | None { io.println("Is None") }
-    
-    // Test 8: Result type (integers work)
-    io.println("8. Result type:")
-    success: Result<i32, i32> = Ok(100)
-    success ?
-        | Ok(val) { 
-            io.println("Ok:")
-            io.println(val)
-        }
-        | Err(e) { io.println("Error") }
-    
-    // Test 9: Math module
-    io.println("9. Math module:")
-    io.println(math.pi)
-    
-    io.println("=== All tests complete ===")
+    io.println("\n=== Test Complete ===")
 }
