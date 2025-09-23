@@ -30,7 +30,7 @@ push = (T: type, s: *Stack(T), value: T) void {
 }
 
 // Pop element from stack
-pop = (T: type, s: *Stack(T)) ?T {
+pop = (T: type, s: *Stack(T)) Option<T> {
     return array.pop(T, &s.data)
 }
 
