@@ -1,64 +1,53 @@
-# Zen Language Examples
+# Zen Examples
 
-Learn Zen through practical, well-organized examples.
+Practical examples showcasing Zen's elegance, expressiveness, and power.
 
 ## Quick Start
 
 ```bash
-# Minimal example
-zen run hello_world.zen
-
-# 5-minute introduction  
-zen run quickstart.zen
+zen run hello_world.zen      # Minimal example
+zen run quickstart.zen        # Essential features in 5 minutes
 ```
 
-## Directory Structure
+## Structure
 
-### `/tutorials`
-Step-by-step learning path for Zen fundamentals:
-1. **01_variables_and_types.zen** - Type system basics
-2. **02_functions_and_control.zen** - Functions and control flow
-3. **03_structs_and_methods.zen** - Data structures
-4. **04_collections_and_iteration.zen** - Collections and loops
-5. **05_strings_and_io.zen** - String manipulation and I/O
+### `quickstart.zen`
+Essential Zen syntax - variables, UFC, pattern matching, error handling
 
-### `/patterns`
-Advanced patterns and idioms:
-- **algorithms.zen** - Algorithm implementations
-- **concurrency.zen** - Async, channels, atomics
-- **error_handling.zen** - Result types and error propagation
-- **ffi.zen** - Foreign Function Interface
-- **modules.zen** - Module system
-- **pattern_matching.zen** - Advanced pattern matching
+### `tutorials/`
+Progressive learning path:
+1. **Variables & Types** - Type system, assignments (=, ::=, :)
+2. **Functions & Control** - UFC, pattern matching with ?
+3. **Structs & Methods** - Data structures and behaviors
+4. **Collections** - Arrays, maps, iterators
+5. **Strings & I/O** - Text processing and file operations
 
-### `/showcase`
-- **comprehensive_demo.zen** - Complete feature demonstration
+### `patterns/`
+Idiomatic Zen patterns:
+- **algorithms** - Sorting, searching, graph algorithms
+- **concurrency** - Channels, spawning, worker pools
+- **error_handling** - Result<T,E>, error propagation
+- **ffi** - C integration with inline.c()
+- **modules** - Code organization and namespaces
+- **pattern_matching** - Sum types and destructuring
 
-## Running Examples
+### `showcase/`
+**comprehensive_demo.zen** - Real-world features in action
 
-```bash
-# Run any example
-zen run <file>.zen
+## Key Features
 
-# Build to executable
-zen build <file>.zen -o output
-```
+- **No keywords** - No if/else/match/async/null
+- **Pattern matching** - Single ? operator
+- **UFC** - Any function as method
+- **Error handling** - Result<T,E> and Option<T>
+- **FFI** - Inline C with inline.c()
 
 ## Learning Path
 
-1. Start with `hello_world.zen`
-2. Review `quickstart.zen` for overview
-3. Work through `/tutorials` in order
-4. Explore `/patterns` based on interest
-5. Study `/showcase` for real-world usage
+1. `hello_world.zen` - First program
+2. `quickstart.zen` - Core concepts
+3. `tutorials/` - Systematic learning
+4. `patterns/` - Advanced techniques
+5. `showcase/` - Full applications
 
-## Key Language Features
-
-- **Type Safety**: Strong static typing with inference
-- **Pattern Matching**: Expressive `?` operator
-- **Memory Safety**: No manual memory management
-- **Async/Await**: First-class concurrency
-- **Compile-Time Execution**: `comptime` blocks
-- **FFI**: Seamless C integration with `inline.c()`
-
-See `LANGUAGE_SPEC.zen` for complete language reference.
+See `LANGUAGE_SPEC.zen` for complete reference.

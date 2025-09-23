@@ -226,7 +226,7 @@ Document: {
 server_new = () LanguageServer   {
     LanguageServer{
         initialized: false,
-        root_uri: Option<string>.None,
+        root_uri: None,
         capabilities: ServerCapabilities{
             textDocumentSync: 1,  // Full sync
             completionProvider: true,
@@ -248,7 +248,7 @@ server_new = () LanguageServer   {
 // Handle LSP request
 handle_request = (server: Ptr<LanguageServer>, msg: Message) Message   {
     msg.method ?
-        | Option.Some(method) => {
+        | Some(method) => {
             method ?
                 | "initialize" => return handle_initialize(server, msg)
                 | "initialized" => return handle_initialized(server, msg)
@@ -267,7 +267,7 @@ handle_request = (server: Ptr<LanguageServer>, msg: Message) Message   {
                 | "textDocument/formatting" => return handle_formatting(server, msg)
                 | _ => return error_response(msg, ErrorCode.METHOD_NOT_FOUND, "Method not found")
         }
-        | Option.None => return error_response(msg, ErrorCode.INVALID_REQUEST, "No method specified")
+        | None => return error_response(msg, ErrorCode.INVALID_REQUEST, "No method specified")
 }
 
 // Handle initialize request

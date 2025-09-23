@@ -11,8 +11,8 @@ Point: {
 }
 
 Result<T, E>: |
-    Ok -> T
-    | Err -> E
+    Ok: {T}
+    | Err: {E}
 
 // Function definitions
 distance = (p1: Point, p2: Point) f64   {
@@ -43,8 +43,8 @@ main = () void   {
     // Pattern matching
     result := compute_something();
     result ? 
-        | Ok -> value { io.println("Success: " + value.to_string()) }
-        | Err -> error { io.println("Error: " + error); }
+        | Ok(value) { io.println("Success: " + value.to_string()) }
+        | Err(error) { io.println("Error: " + error); }
     
     // Loop constructs
     count := 0;
@@ -72,9 +72,9 @@ main = () void   {
 compute_something = () Result<i32, string>   {
     condition := true;
     condition ? {
-        return Result.Ok(42);
+        return Ok(42);
     };
-    return Result.Err("Something went wrong");
+    return Err("Something went wrong");
 }
 
 // Behavior definition
@@ -110,7 +110,7 @@ Rectangle: {
 fetch_data = (url: string, alloc: *Allocator) Result<string, string> {
     // Delay using allocator-based approach
     delay(1000, alloc);
-    return Result.Ok("Data from " + url);
+    return Ok("Data from " + url);
 }
 
 delay = (ms: i32, alloc: *Allocator) void {

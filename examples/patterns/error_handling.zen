@@ -1,78 +1,125 @@
-// Error Handling Patterns
-// Result/Option types and error propagation
+// Error Handling - Result<T, E> and .raise()
+// Elegant error propagation without exceptions
 
-{ io, fs, Result, Option } = @std
+{ io, Result, Option } = @std
 
-// Custom error type
-ParseError: {
-    message: string,
-    position: usize,
+// === Custom Error Types ===
+AppError: |
+    NotFound(string)
+    | ValidationFailed(string)
+    | Unauthorized
+    | Internal(string)
+
+AppError.display = (self) string {
+    self ?
+        | NotFound(resource) { "Not found: ${resource}" }
+        | ValidationFailed(msg) { "Validation error: ${msg}" }
+        | Unauthorized { "Unauthorized access" }
+        | Internal(details) { "Internal error: ${details}" }
 }
 
-// Function that returns Result
-parse_number = (s: string) Result<i32, ParseError> {
-    s.is_empty() ?
-        | true { 
-            return Result.Err(ParseError { 
-                message: "empty string", 
-                position: 0 
-            })
-        }
-        | false {
-            // Try parsing (simplified)
-            return Result.Ok(42)  // Placeholder
-        }
+// === Error Propagation with .raise() ===
+Config: {
+    host: string,
+    port: u16,
+    timeout: u32
 }
 
-// Error propagation with .raise()
-calculate = (input: string) Result<i32, ParseError> {
-    // .raise() propagates error if present
-    num := parse_number(input).raise()
-    return Result.Ok(num * 2)
+parse_port = (s: string) Result<u16, AppError> {
+    s.parse_u16() ?
+        | Ok(p) when p > 0 && p < 65536 { Result.Ok(p) }
+        | Ok(_) { Result.Err(AppError.ValidationFailed("Port out of range")) }
+        | Err(_) { Result.Err(AppError.ValidationFailed("Invalid port number")) }
 }
 
-// Option for nullable values
-find_config = (key: string) Option<string> {
-    key == "debug" ?
-        | true { Option.Some("enabled") }
-        | false { Option.None }
+parse_timeout = (s: string) Result<u32, AppError> {
+    s.parse_u32() ?
+        | Ok(t) when t > 0 { Result.Ok(t) }
+        | Ok(_) { Result.Err(AppError.ValidationFailed("Timeout must be positive")) }
+        | Err(_) { Result.Err(AppError.ValidationFailed("Invalid timeout")) }
 }
 
-// Combining Result and Option
-safe_divide = (a: f64, b: f64) Result<f64, string> {
-    b == 0.0 ?
-        | true { Result.Err("division by zero") }
-        | false { Result.Ok(a / b) }
+Config.from_env = () Result<Config, AppError> {
+    // .raise() propagates errors automatically
+    port = parse_port(@std.env.get("PORT") ?? "8080").raise()
+    timeout = parse_timeout(@std.env.get("TIMEOUT") ?? "30").raise()
+    
+    Result.Ok(Config {
+        host: @std.env.get("HOST") ?? "localhost",
+        port: port,
+        timeout: timeout
+    })
 }
 
-// Error recovery
-with_default = (opt: Option<i32>, default: i32) i32 {
-    opt ?
-        | Some -> val { return val }
-        | None { return default }
+// === Error Recovery ===
+with_retry = <T>(f: () => Result<T, AppError>, max_attempts: u32) Result<T, AppError> {
+    attempt ::= 1
+    loop {
+        f() ?
+            | Ok(val) { return Result.Ok(val) }
+            | Err(e) {
+                attempt >= max_attempts ?
+                    | true { return Result.Err(e) }
+                    | false {
+                        io.println("Attempt ${attempt} failed: ${e.display()}")
+                        @std.time.sleep(1000 * attempt)
+                        attempt += 1
+                    }
+            }
+    }
+}
+
+// === Fallback Values ===
+get_or_default = <T>(result: Result<T, AppError>, default: T) T {
+    result ?
+        | Ok(val) { val }
+        | Err(_) { default }
 }
 
 main = () void {
-    io.println("=== Error Handling ===")
+    io.println("=== Error Handling Demo ===\n")
     
-    // Result pattern matching
-    safe_divide(10.0, 2.0) ?
-        | Ok -> val { io.println("Result: ${val}") }
-        | Err -> e { io.println("Error: ${e}") }
+    // Custom errors
+    errors = [
+        AppError.NotFound("user.txt"),
+        AppError.ValidationFailed("email missing @"),
+        AppError.Unauthorized,
+        AppError.Internal("database connection lost")
+    ]
     
-    // Option handling
-    find_config("debug") ?
-        | Some -> val { io.println("Config: ${val}") }
-        | None { io.println("Not found") }
+    errors.loop((e) {
+        io.println("Error: ${e.display()}")
+    })
     
-    // Default values
-    opt := Option.None
-    value := with_default(opt, 100)
-    io.println("Value with default: ${value}")
+    // Error propagation
+    io.println("\n=== Configuration ===")
+    Config.from_env() ?
+        | Ok(cfg) {
+            io.println("Host: ${cfg.host}")
+            io.println("Port: ${cfg.port}")
+            io.println("Timeout: ${cfg.timeout}s")
+        }
+        | Err(e) {
+            io.println("Config error: ${e.display()}")
+            io.println("Using defaults...")
+        }
     
-    // Chaining with map
-    Option.Some(5)
-        .map((x) => x * 2)
-        .unwrap_or(0)
-        |> (result) => io.println("Mapped: ${result}")
+    // Retry logic
+    io.println("\n=== Retry Example ===")
+    counter ::= 0
+    flaky_operation = () Result<string, AppError> {
+        counter += 1
+        counter < 3 ?
+            | true { Result.Err(AppError.Internal("temporary failure")) }
+            | false { Result.Ok("Success!") }
+    }
+    
+    with_retry(flaky_operation, 5) ?
+        | Ok(msg) { io.println("Result: ${msg}") }
+        | Err(e) { io.println("Failed after retries: ${e.display()}") }
+    
+    // Fallback values
+    risky_value = Result.Err<i32, AppError>(AppError.NotFound("value"))
+    safe_value = get_or_default(risky_value, 42)
+    io.println("\nFallback value: ${safe_value}")
 }

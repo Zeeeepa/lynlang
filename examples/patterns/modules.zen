@@ -1,93 +1,66 @@
-// Module System
-// Organizing code with module.exports
+// Module organization patterns
 
-{ io } = @std
-{ Vec, HashMap } = @std.collections
+{ io, maths } = @std
 
-// === Module: math_utils ===
-
-// Constants
-PI := 3.14159265359
-E := 2.718281828
-
-// Public functions
-square = (x: f64) f64 {
-    return x * x
+// Simple module exports
+module.exports = {
+    Point: Point,
+    distance: distance,
+    Color: Color,
+    mix: mix
 }
 
-distance = (x1: f64, y1: f64, x2: f64, y2: f64) f64 {
-    dx := x2 - x1
-    dy := y2 - y1
-    return (dx * dx + dy * dy).sqrt()
+// Types
+Point: {
+    x: f64,
+    y: f64
 }
 
-clamp = (value: f64, min: f64, max: f64) f64 {
-    value < min ? | true { return min } | false {}
-    value > max ? | true { return max } | false {}
-    return value
+Color: {
+    r: u8,
+    g: u8,
+    b: u8
 }
 
-// === Module: data_structures ===
-
-Stack<T>: {
-    items: Vec<T>,
+// Functions to export
+distance = (p1: Point, p2: Point) f64 {
+    dx = p2.x - p1.x
+    dy = p2.y - p1.y
+    maths.sqrt(dx * dx + dy * dy)
 }
 
-Stack.new = () Stack<T> {
-    return Stack { items: Vec<T>.new() }
-}
-
-Stack.push = (mut self, item: T) void {
-    self.items.push(item)
-}
-
-Stack.pop = (mut self) Option<T> {
-    return self.items.pop()
-}
-
-Stack.is_empty = (self) bool {
-    return self.items.len() == 0
-}
-
-// === Module organization ===
-// In Zen, modules are organized through file structure
-// Each file is implicitly a module, no explicit exports needed
-// Public items (capitalized types, non-underscore functions) are accessible
-
-// === Usage example ===
-
-main = () void {
-    io.println("=== Module System Demo ===")
-    
-    // Using math utilities
-    io.println("\nMath utilities:")
-    io.println("PI = ${PI}")
-    io.println("5 squared = ${square(5.0)}")
-    
-    dist := distance(0.0, 0.0, 3.0, 4.0)
-    io.println("Distance from origin to (3,4) = ${dist}")
-    
-    clamped := clamp(150.0, 0.0, 100.0)
-    io.println("150 clamped to [0,100] = ${clamped}")
-    
-    // Using data structures
-    io.println("\nStack operations:")
-    mut stack := Stack<string>.new()
-    
-    stack.push("first")
-    stack.push("second")
-    stack.push("third")
-    
-    while !stack.is_empty() {
-        stack.pop() ?
-            | Some -> val { io.println("Popped: ${val}") }
-            | None { break }
+mix = (c1: Color, c2: Color, t: f64) Color {
+    lerp = (a: u8, b: u8, t: f64) u8 {
+        (a + (b - a) * t) as u8
     }
     
-    // In a real scenario, you'd import like:
-    // math = module.import("math_utils")
-    // result := math.square(10.0)
-    // 
-    // Or selective import:
-    // { square, distance } = module.import("math_utils")
+    Color {
+        r: lerp(c1.r, c2.r, t),
+        g: lerp(c1.g, c2.g, t),
+        b: lerp(c1.b, c2.b, t)
+    }
+}
+
+// Private helpers (not exported)
+_validate_color = (c: Color) bool {
+    c.r <= 255 && c.g <= 255 && c.b <= 255
+}
+
+main = () void {
+    io.println("=== Module Patterns ===\n")
+    
+    // Using exported types
+    p1 = Point { x: 0, y: 0 }
+    p2 = Point { x: 3, y: 4 }
+    io.println("Distance: ${distance(p1, p2)}")
+    
+    // Color mixing
+    red = Color { r: 255, g: 0, b: 0 }
+    blue = Color { r: 0, g: 0, b: 255 }
+    purple = mix(red, blue, 0.5)
+    io.println("Mixed color: rgb(${purple.r}, ${purple.g}, ${purple.b})")
+    
+    // Import from another module (example syntax)
+    // math_utils = module.import("utils/math")
+    // result = math_utils.calculate(42)
 }

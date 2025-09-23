@@ -356,13 +356,13 @@ u32_to_string = (n: u32) string {
 }
 
 // Export main functions
-export {
-    SyntaxChecker,
-    syntax_checker_new,
-    check_syntax,
-    format_diagnostics_json,
-    Diagnostic,
-    DiagnosticSeverity,
-    Position,
-    Range,
+module.exports = {
+    SyntaxChecker: SyntaxChecker,
+    syntax_checker_new: syntax_checker_new,
+    check_syntax: check_syntax,
+    format_diagnostics_json: format_diagnostics_json,
+    Diagnostic: Diagnostic,
+    DiagnosticSeverity: DiagnosticSeverity,
+    Position: Position,
+    Range: Range
 }

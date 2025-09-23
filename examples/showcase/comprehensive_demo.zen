@@ -1,141 +1,90 @@
-// Zen Language Showcase
-// Elegant • Efficient • Expressive
+// Zen Language Showcase - Clean, Expressive, Powerful
 
-{ io, Result, Option } = @std
-{ Vec, HashMap } = @std.collections  
-{ Channel, spawn, AtomicU32 } = @std.concurrent
+{ io, maths, Result, Option, Channel, spawn } = @std
+{ inline } = @std
 
-// === Clean Domain Modeling ===
+// Pattern matching with algebraic data types
+Shape: |
+    Circle(f64)
+    | Rectangle(f64, f64)  
+    | Point
 
-Status: | Online | Away | Offline
-
-User: {
-    name: string,
-    status: Status
+Shape.area = (self) f64 {
+    self ?
+        | Circle(r) { maths.PI * r * r }
+        | Rectangle(w, h) { w * h }
+        | Point { 0.0 }
 }
 
-Message: |
-    Text -> { from: string, content: string }
-    | Image -> { from: string, url: string }
-    | System -> string
-
-// === Pattern Matching ===
-
-format_message = (msg: Message) string {
-    msg ?
-        | Text -> { from, content } { "[${from}]: ${content}" }
-        | Image -> { from, url } { "[${from}] shared: ${url}" }
-        | System -> event { "System: ${event}" }
+// Error handling without exceptions
+safe_sqrt = (n: f64) Result<f64, String> {
+    n < 0 ?
+        | true { Result.Err("negative input") }
+        | false { Result.Ok(maths.sqrt(n)) }
 }
 
-status_icon = (s: Status) string {
-    s ? | Online { "●" } | Away { "○" } | Offline { "◌" }
+// Concurrent message passing
+counter_server = () void {
+    ch = Channel<i32>.new(10)
+    
+    spawn(() => {
+        count ::= 0
+        loop {
+            ch.receive() ?
+                | Some(1) { count = count + 1 }
+                | Some(-1) { count = count - 1 }
+                | Some(0) { 
+                    io.println("Final count: ${count}")
+                    break
+                }
+                | None { break }
+        }
+    })
+    
+    ch.send(1)
+    ch.send(1)
+    ch.send(-1)
+    ch.send(0)
 }
 
-// === Generics with Bounds ===
-
-Queue<T>: {
-    items: Vec<T>,
-    max_size: usize
-}
-
-Queue.push<T> = (mut self, item: T) Result<(), string> {
-    if self.items.len() >= self.max_size {
-        Result.Err("Queue full")
-    } else {
-        self.items.push(item)
-        Result.Ok(())
-    }
-}
-
-// === Async Operations ===
-
-MessageHub: {
-    channel: Channel<Message>,
-    active_users: AtomicU32
-}
-
-MessageHub.process = async (self) void {
-    loop {
-        self.channel.recv() ?
-            | Some -> msg {
-                io.println(format_message(msg))
-            }
-            | None { break }
-    }
-}
-
-// === Compile-Time Evaluation ===
-
-FIBONACCI_10 = comptime {
-    mut a, mut b := 0, 1
-    for _ in 0..10 {
-        a, b = b, a + b
-    }
-    return a
-}
-
-// === FFI Integration ===
-
+// FFI integration  
 inline.c("""
-    #include <time.h>
-    long get_timestamp() { return time(NULL); }
+    static double fast_inverse_sqrt(double number) {
+        long i;
+        float x2, y;
+        const float threehalfs = 1.5F;
+        x2 = number * 0.5F;
+        y = number;
+        i = * ( long * ) &y;
+        i = 0x5f3759df - ( i >> 1 );
+        y = * ( float * ) &i;
+        y = y * ( threehalfs - ( x2 * y * y ) );
+        return y;
+    }
 """)
 
-// === Error Propagation ===
-
-load_config = (path: string) Result<Config, string> {
-    io.read_file(path) ?>
-        .parse_json() ?>
-}
-
-Config: {
-    port: u16,
-    max_connections: usize
-}
-
-// === Main Demo ===
-
-main = async () void {
-    io.println("=== Zen Language Demo ===\n")
+main = () void {
+    io.println("\n═══ Zen Language Features ═══\n")
     
-    // Type system & pattern matching
-    users := [
-        User { name: "Alice", status: .Online },
-        User { name: "Bob", status: .Away }
-    ]
-    
-    for user in users {
-        io.println("${status_icon(user.status)} ${user.name}")
-    }
-    
-    // Message handling
-    messages := [
-        Message.System("Server started"),
-        Message.Text { from: "Alice", content: "Hello!" },
-        Message.Image { from: "Bob", url: "photo.jpg" }
-    ]
-    
-    io.println("\nMessages:")
-    for msg in messages {
-        io.println("  ${format_message(msg)}")
-    }
-    
-    // Async & channels
-    hub := MessageHub {
-        channel: Channel<Message>.new(10),
-        active_users: AtomicU32.new(2)
-    }
-    
-    spawn(async () => await hub.process())
-    
-    // Compile-time computation
-    io.println("\nCompile-time Fibonacci(10): ${FIBONACCI_10}")
+    // Pattern matching
+    shapes = [Circle(3.0), Rectangle(4.0, 5.0), Point]
+    total = shapes.fold(0.0, (sum, shape) => sum + shape.area())
+    io.println("Total area: ${total:.1f}")
     
     // Error handling
-    load_config("config.json") ?
-        | Ok -> cfg { io.println("Server port: ${cfg.port}") }
-        | Err -> e { io.println("Config error: ${e}") }
+    [4.0, -1.0, 9.0].loop((n) {
+        safe_sqrt(n) ?
+            | Ok(v) { io.println("√${n} = ${v:.2f}") }
+            | Err(e) { io.println("√${n} failed: ${e}") }
+    })
     
-    io.println("\n✓ Demo complete")
+    // Concurrency
+    io.println("\nRunning counter server...")
+    counter_server()
+    
+    // FFI call
+    n = 2.0
+    io.println("\nFast inverse √${n} ≈ ${fast_inverse_sqrt(n):.4f}")
+    
+    io.println("\n══════════════════════════════\n")
 }

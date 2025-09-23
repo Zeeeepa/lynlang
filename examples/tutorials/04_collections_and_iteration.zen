@@ -12,33 +12,33 @@ main = () void {
     io.println("Primes: ${primes}")
     
     // Array slicing
-    first_three := primes[0..3]
+    first_three = primes[0..3]
     io.println("First three: ${first_three}")
     
     // Dynamic vectors
-    mut vec := Vec<i32>.new()
-    for i in 0..5 {
+    vec ::= Vec<i32>.new()
+    (0..5).loop((i) {
         vec.push(i * 2)
-    }
+    })
     io.println("Vector: ${vec}")
     
     // Functional iteration
-    doubled := vec.map((x) => x * 2)
-    filtered := vec.filter((x) => x > 4)
-    sum := vec.reduce(0, (acc, x) => acc + x)
+    doubled = vec.map((x) => x * 2)
+    filtered = vec.filter((x) => x > 4)
+    sum = vec.reduce(0, (acc, x) => acc + x)
     
     io.println("Doubled: ${doubled}")
     io.println("Filtered (>4): ${filtered}")
     io.println("Sum: ${sum}")
     
     // HashMaps
-    mut scores := HashMap<string, i32>.new()
+    scores ::= HashMap<string, i32>.new()
     scores.insert("Alice", 100)
     scores.insert("Bob", 85)
     scores.insert("Charlie", 92)
     
     scores.get("Alice") ?
-        | Some -> score { io.println("Alice's score: ${score}") }
+        | Some(score) { io.println("Alice's score: ${score}") }
         | None { io.println("Alice not found") }
     
     // Range operations
@@ -48,10 +48,10 @@ main = () void {
         .for_each((n) => io.println("Square: ${n}"))
     
     // Nested iteration
-    for i in 0..3 {
-        for j in 0..3 {
+    (0..3).loop((i) {
+        (0..3).loop((j) {
             io.print("(${i},${j}) ")
-        }
+        })
         io.println("")
-    }
+    })
 }

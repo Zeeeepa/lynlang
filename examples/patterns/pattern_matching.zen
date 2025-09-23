@@ -1,108 +1,97 @@
-// Pattern Matching
-// Core pattern matching with ? operator
+// Pattern Matching - The ? Operator
+// Zen's unified approach to conditionals and destructuring
 
-{ io } = @std
+{ io, Result, Option } = @std
 
-// Enum for demonstration
-Status: |
-    Success
-    | Warning -> { message: string }
-    | Error -> { code: i32 }
+// === Sum Types (Algebraic Data Types) ===
+Json: |
+    Null
+    | Bool(bool)
+    | Number(f64)
+    | String(string)
+    | Array(Vec<Json>)
+    | Object(Map<string, Json>)
 
-// Basic pattern matching
-handle_status = (status: Status) string {
-    status ?
-        | Success { return "All good!" }
-        | Warning -> {message} { return "Warning: ${message}" }
-        | Error -> {code} { return "Error code: ${code}" }
-}
-
-// Value matching with ranges
-get_grade = (score: i32) string {
-    score ?
-        | 90..100 { return "A" }
-        | 80..89 { return "B" }
-        | 70..79 { return "C" }
-        | 60..69 { return "D" }
-        | _ { return "F" }
-}
-
-// Guards in patterns
-describe_number = (n: i32) string {
-    n < 0 ?
-        | true { return "negative" }
-        | false {
-            n == 0 ?
-                | true { return "zero" }
-                | false {
-                    n % 2 == 0 ?
-                        | true { return "even" }
-                        | false { return "odd" }
-                }
+Json.stringify = (self) string {
+    self ?
+        | Null { "null" }
+        | Bool(b) { b ? | true { "true" } | false { "false" } }
+        | Number(n) { "${n}" }
+        | String(s) { "\"${s}\"" }
+        | Array(items) { 
+            "[${items.map((j) => j.stringify()).join(", ")}]"
+        }
+        | Object(pairs) {
+            fields = pairs.entries().map((kv) => 
+                "\"${kv.key}\": ${kv.value.stringify()}"
+            )
+            "{${fields.join(", ")}}"
         }
 }
 
-// Struct pattern matching
-Point: { x: i32, y: i32 }
+// === Nested Patterns ===
+BinaryTree<T>: |
+    Empty
+    | Node(T, BinaryTree<T>, BinaryTree<T>)
 
-quadrant = (p: Point) string {
-    p ?
-        | {x: 0, y: 0} { return "origin" }
-        | {x: 0, _} { return "y-axis" }
-        | {_, y: 0} { return "x-axis" }
-        | {x, y} {
-            x > 0 && y > 0 ? | true { return "Q1" } | false {}
-            x < 0 && y > 0 ? | true { return "Q2" } | false {}
-            x < 0 && y < 0 ? | true { return "Q3" } | false {}
-            return "Q4"
+BinaryTree.height = <T>(self) u32 {
+    self ?
+        | Empty { 0 }
+        | Node(_, left, right) {
+            1 + @std.maths.max(left.height(), right.height())
         }
 }
 
-// List pattern matching
-first_two_sum = (list: []i32) i32 {
-    list.len() ?
-        | 0 { return 0 }
-        | 1 { return list[0] }
-        | _ { return list[0] + list[1] }
+// === Guards and Ranges ===
+describe = (n: i32) string {
+    n ?
+        | _ when n < 0 { "negative" }
+        | 0 { "zero" }
+        | 1..=10 { "small positive" }
+        | _ { "large positive" }
+}
+
+// === Option Handling ===
+safe_divide = (a: f64, b: f64) Option<f64> {
+    b == 0 ?
+        | true { Option.None }
+        | false { Option.Some(a / b) }
+}
+
+// === Result Chaining ===
+parse_and_double = (s: string) Result<i32, string> {
+    s.parse_i32() ?
+        | Ok(n) { Result.Ok(n * 2) }
+        | Err(e) { Result.Err("Parse error: ${e}") }
 }
 
 main = () void {
-    io.println("=== Pattern Matching ===")
+    // Sum type usage
+    data = Json.Object(Map.from_pairs([
+        ("name", Json.String("Zen")),
+        ("version", Json.Number(1.0)),
+        ("features", Json.Array([
+            Json.String("pattern matching"),
+            Json.String("UFC"),
+            Json.Bool(true)
+        ]))
+    ]))
+    io.println("JSON: ${data.stringify()}")
     
-    // Enum patterns
-    statuses := [
-        Status.Success,
-        Status.Warning { message: "Low memory" },
-        Status.Error { code: 404 },
-    ]
+    // Binary tree
+    tree = BinaryTree.Node(1,
+        BinaryTree.Node(2, BinaryTree.Empty, BinaryTree.Empty),
+        BinaryTree.Node(3, BinaryTree.Empty, BinaryTree.Empty)
+    )
+    io.println("Tree height: ${tree.height()}")
     
-    for s in statuses {
-        io.println(handle_status(s))
-    }
+    // Guards
+    [-5, 0, 3, 50].loop((n) {
+        io.println("${n} is ${describe(n)}")
+    })
     
-    // Range patterns
-    io.println("\nGrades:")
-    scores := [95, 82, 73, 65, 50]
-    for score in scores {
-        io.println("${score} -> ${get_grade(score)}")
-    }
-    
-    // Conditional patterns
-    io.println("\nNumbers:")
-    for n in [-5, 0, 2, 3, 10] {
-        io.println("${n} is ${describe_number(n)}")
-    }
-    
-    // Struct patterns
-    io.println("\nPoints:")
-    points := [
-        Point { x: 0, y: 0 },
-        Point { x: 1, y: 1 },
-        Point { x: -1, y: 1 },
-        Point { x: 0, y: 5 },
-    ]
-    
-    for p in points {
-        io.println("(${p.x}, ${p.y}) is in ${quadrant(p)}")
-    }
+    // Option chaining
+    safe_divide(10, 2) ?
+        | Some(v) { io.println("10/2 = ${v}") }
+        | None { io.println("Division failed") }
 }

@@ -677,12 +677,12 @@ link_executable = (obj_files: DynVec<string>, output_path: string) bool   {
     ld_cmd := string.format("cc -o {} ", output_path)
     
     obj_files.loop ((obj_file) {
-        string.append(ld_cmd, obj_files[i])
-        string.append(ld_cmd, " ")
+        ld_cmd.append(obj_files[i])
+        ld_cmd.append(" ")
     })  
     
     // Add standard libraries
-    string.append(ld_cmd, "-lm -lc")
+    ld_cmd.append("-lm -lc")
     
     return io.system(ld_cmd)
 }

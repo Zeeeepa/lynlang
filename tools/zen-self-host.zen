@@ -169,7 +169,7 @@ main = (args: [string]) i32   {
     result := compile(options)
     result ?
         Result.Ok => return 0,
-        Result.Err -> err => {
+        Result.Err(err) => {
             io.eprintf("Compilation error: {}\n", err)
             return 1
         }

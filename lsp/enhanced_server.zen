@@ -116,7 +116,7 @@ DiagnosticRelatedInformation := {
 create_enhanced_server = () EnhancedLanguageServer {
     return EnhancedLanguageServer{
         initialized: false,
-        root_uri: Option.None,
+        root_uri: None,
         capabilities: create_server_capabilities(),
         documents: hashmap.new<string, EnhancedDocument>(),
         global_symbols: hashmap.new<string, Symbol>(),
@@ -170,7 +170,7 @@ analyze_document = (server: Ptr<EnhancedLanguageServer>, doc: Ptr<EnhancedDocume
     
     // Parse
     program := parser.parse(tokens)?
-    doc.ast = Option.Some(program)
+    doc.ast = Some(program)
     
     // Extract symbols and build symbol table
     extract_symbols(doc, program)?

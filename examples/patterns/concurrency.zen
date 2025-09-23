@@ -1,135 +1,184 @@
-// Concurrency Patterns
-// Advanced concurrent programming patterns in Zen
+// Concurrency - Channels, spawning, and parallel patterns
+// Zen's approach to concurrent programming
 
-{ io, Result } = @std
-{ Channel, spawn, AtomicU32, Mutex } = @std.concurrent
-{ Vec } = @std.collections
+{ io } = @std
+{ spawn, Channel, Mutex, AtomicU32 } = @std
 
-// === Producer-Consumer Pattern ===
-
-Producer<T>: {
-    output: Channel<T>,
-    rate_limit: u32  // items per second
+// === Worker Pool ===
+WorkerPool<T>: {
+    jobs: Channel<T>,
+    results: Channel<Result<void, string>>
 }
 
-Producer.run = async (self, generator: () T) void {
-    loop {
-        item := generator()
-        await self.output.send(item)
-        await io.delay(1000 / self.rate_limit)
-    }
-}
-
-Consumer<T>: {
-    input: Channel<T>,
-    processor: (T) void
-}
-
-Consumer.run = async (self) void {
-    loop {
-        self.input.receive() ?
-            | Some -> item { self.processor(item) }
-            | None { break }
-    }
-}
-
-// === Actor Model Pattern ===
-
-ActorMessage<T>: |
-    Process -> T
-    | Query -> { reply: Channel<string> }
-    | Shutdown
-
-Actor<T>: {
-    mailbox: Channel<ActorMessage<T>>,
-    state: Mutex<T>
-}
-
-Actor.spawn = (initial: T, handler: (T, ActorMessage<T>) T) Actor<T> {
-    actor := Actor {
-        mailbox: Channel<ActorMessage<T>>.new(100),
-        state: Mutex<T>.new(initial)
+WorkerPool.new = <T>(workers: u32) WorkerPool<T> {
+    pool = WorkerPool {
+        jobs: Channel<T>.new(workers * 2),
+        results: Channel<Result<void, string>>.new(workers * 2)
     }
     
-    spawn(async () => {
-        mut current := initial
-        loop {
-            actor.mailbox.receive() ?
-                | Some -> msg {
-                    msg ?
-                        | Process -> data {
-                            current = handler(current, msg)
-                        }
-                        | Query -> { reply } {
-                            reply.send(current.to_string())
-                        }
-                        | Shutdown { break }
-                }
-                | None { break }
-        }
+    (0..workers).loop((id) {
+        spawn(() => {
+            loop {
+                pool.jobs.receive() ?
+                    | Some(job) {
+                        // Process job (would be customized per use case)
+                        pool.results.send(Result.Ok(void))
+                    }
+                    | None { break }
+            }
+        })
     })
     
-    return actor
+    pool
 }
 
 // === Pipeline Pattern ===
-
-Pipeline<T, R>: {
-    stages: Vec<(T) T>
-}
-
-Pipeline.add_stage = (mut self, stage: (T) T) void {
-    self.stages.push(stage)
-}
-
-Pipeline.process = async (self, input: T) R {
-    mut result := input
-    for stage in self.stages {
-        result = await spawn(async () => stage(result))
-    }
-    return result
-}
-
-// === Demonstration ===
-
-main = async () void {
-    io.println("🔄 Concurrency Patterns\n")
+pipeline = <T, U>(
+    input: Channel<T>,
+    stages: Vec<(T) => U>
+) Channel<U> {
+    current = input
     
-    // Producer-Consumer
-    io.println("📤📥 Producer-Consumer:")
-    channel := Channel<i32>.new(10)
-    
-    mut counter := AtomicU32.new(0)
-    producer := Producer { output: channel, rate_limit: 10 }
-    consumer := Consumer { 
-        input: channel,
-        processor: (n) => io.println("  Consumed: ${n}")
-    }
-    
-    spawn(async () => await producer.run(() => counter.fetch_add(1, .SeqCst)))
-    spawn(async () => await consumer.run())
-    
-    await io.delay(500)
-    channel.close()
-    
-    // Actor Model
-    io.println("\n🎭 Actor Model:")
-    counter_actor := Actor.spawn(0, (state, msg) => {
-        msg ?
-            | Process -> n { state + n }
-            | _ { state }
+    stages.loop((stage) {
+        next = Channel<U>.new(10)
+        spawn(() => {
+            loop {
+                current.receive() ?
+                    | Some(val) { next.send(stage(val)) }
+                    | None { 
+                        next.close()
+                        break 
+                    }
+            }
+        })
+        current = next
     })
     
-    counter_actor.mailbox.send(ActorMessage.Process(5))
-    counter_actor.mailbox.send(ActorMessage.Process(3))
+    current
+}
+
+// === Fan-Out/Fan-In ===
+fanout = <T: Clone>(input: Channel<T>, n: u32) Vec<Channel<T>> {
+    outputs = (0..n).map((_) => Channel<T>.new(10))
     
-    reply := Channel<string>.new(1)
-    counter_actor.mailbox.send(ActorMessage.Query { reply: reply })
-    reply.receive() ?
-        | Some -> val { io.println("  Actor state: ${val}") }
-        | None {}
+    spawn(() => {
+        loop {
+            input.receive() ?
+                | Some(val) {
+                    outputs.loop((ch) { ch.send(val.clone()) })
+                }
+                | None {
+                    outputs.loop((ch) { ch.close() })
+                    break
+                }
+        }
+    })
     
-    counter_actor.mailbox.send(ActorMessage.Shutdown)
+    outputs
+}
+
+fanin = <T>(inputs: Vec<Channel<T>>) Channel<T> {
+    output = Channel<T>.new(inputs.len() * 10)
+    pending = AtomicU32.new(inputs.len())
     
-    io.println("\n✅ Concurrency patterns demonstrated")
+    inputs.loop((ch) {
+        spawn(() => {
+            loop {
+                ch.receive() ?
+                    | Some(val) { output.send(val) }
+                    | None {
+                        pending.fetch_sub(1) == 1 ?
+                            | true { output.close() }
+                            | false {}
+                        break
+                    }
+            }
+        })
+    })
+    
+    output
+}
+
+// === Rate Limiter ===
+RateLimiter: {
+    permits: Channel<void>,
+    rate: u32
+}
+
+RateLimiter.new = (rate: u32) RateLimiter {
+    permits = Channel<void>.new(rate)
+    
+    // Fill initial permits
+    (0..rate).loop((_) { permits.send(void) })
+    
+    // Refill periodically
+    spawn(() => {
+        loop {
+            @std.time.sleep(1000 / rate)
+            permits.try_send(void)
+        }
+    })
+    
+    RateLimiter { permits: permits, rate: rate }
+}
+
+RateLimiter.acquire = (self) void {
+    self.permits.receive()
+}
+
+// === Main Demo ===
+main = () void {
+    io.println("=== Concurrency Patterns ===\n")
+    
+    // Worker Pool
+    pool = WorkerPool<i32>.new(4)
+    (1..=10).loop((i) {
+        pool.jobs.send(i)
+    })
+    pool.jobs.close()
+    
+    // Pipeline
+    source = Channel<i32>.new(10)
+    spawn(() => {
+        (1..=5).loop((i) { source.send(i) })
+        source.close()
+    })
+    
+    result = pipeline(source, [
+        (x: i32) => x * 2,
+        (x: i32) => x + 10,
+        (x: i32) => x / 3
+    ])
+    
+    io.println("Pipeline results:")
+    loop {
+        result.receive() ?
+            | Some(val) { io.println("  ${val}") }
+            | None { break }
+    }
+    
+    // Fan-out/Fan-in
+    input = Channel<i32>.new(10)
+    spawn(() => {
+        (1..=3).loop((i) { input.send(i) })
+        input.close()
+    })
+    
+    workers = fanout(input, 3)
+    merged = fanin(workers)
+    
+    io.println("\nFan-out/Fan-in:")
+    loop {
+        merged.receive() ?
+            | Some(val) { io.println("  Received: ${val}") }
+            | None { break }
+    }
+    
+    // Rate Limiting
+    limiter = RateLimiter.new(5)  // 5 ops per second
+    io.println("\nRate limited operations:")
+    (1..=3).loop((i) {
+        limiter.acquire()
+        io.println("  Operation ${i} executed")
+    })
 }

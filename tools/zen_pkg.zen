@@ -67,10 +67,10 @@ init_package = (name: string, path: string) Result<void, string>   {
     // Check if directory exists
     fs.exists(path) ? | true => {
         fs.is_empty(path) ? | false =>
-            return Err -> "Directory is not empty"
+            return Err("Directory is not empty")
     } | false => {
         fs.create_dir_all(path) ?
-            | Err -> err => return Err -> "Failed to create directory: $(err)"
+            | Err(err) => return Err("Failed to create directory: $(err)")
     }
     
     // Create default package manifest
@@ -91,14 +91,14 @@ init_package = (name: string, path: string) Result<void, string>   {
     // Write zen.toml
     manifest_path := "$(path)/zen.toml";
     write_manifest(manifest_path, manifest) ?
-        | Err -> err => return Err -> err
+        | Err(err) => return Err(err)
     
     // Create project structure
     fs.create_dir("$(path)/src") ?
-        | Err -> err => return Err -> "Failed to create src directory: $(err)"
+        | Err(err) => return Err("Failed to create src directory: $(err)")
     
     fs.create_dir("$(path)/tests") ?
-        | Err -> err => return Err -> "Failed to create tests directory: $(err)"
+        | Err(err) => return Err("Failed to create tests directory: $(err)")
     
     // Create main.zen
     main_content := """// $(name) - Main entry point
@@ -111,7 +111,7 @@ main = () i32 {
 """
     
     fs.write_file("$(path)/src/main.zen", main_content) ?
-        | Err -> err => return Err -> "Failed to create main.zen: $(err)"
+        | Err(err) => return Err("Failed to create main.zen: $(err)")
     
     // Create .gitignore
     gitignore = """build/
@@ -123,7 +123,7 @@ node_modules/
 """
     
     fs.write_file("$(path)/.gitignore", gitignore) ?
-        | Err -> err => return Err -> "Failed to create .gitignore: $(err)"
+        | Err(err) => return Err("Failed to create .gitignore: $(err)")
     
     io.print("Package initialized successfully!\n");
     io.print("  cd $(path)\n");
@@ -139,57 +139,42 @@ install_packages = (manifest_path: string) Result<void, string>   {
     
     // Load manifest
     manifest := load_manifest(manifest_path) ?
-        | Ok -> m => m
-        | Err -> err => return Err -> err
+        | Ok(m) => m
+        | Err(err) => return Err(err)
     
     // Resolve dependencies
     resolved := resolve_dependencies(manifest.dependencies) ?
-        | Ok -> deps => deps
-        | Err -> err => return Err -> "Failed to resolve dependencies: $(err)"
+        | Ok(deps) => deps
+        | Err(err) => return Err("Failed to resolve dependencies: $(err)")
     
     // Download and install each package
 resolved.loop((entry ) => {
         install_package(entry) ?
-            | Err -> err => return Err -> err
+            | Err(err) => return Err(err)
     })
     
     // Write lock file
     write_lock_file("zen.lock", resolved) ?
-        | Err -> err => return Err -> "Failed to write lock file: $(err)"
+        | Err(err) => return Err("Failed to write lock file: $(err)")
     
     io.print("Installed $(resolved.len) packages\n");
     return Ok
 }
-    io.print("  cd $(path)\n");
-    io.print("  zen-pkg install\n");
-    io.print("  zen-build run\n");
-    
-    return Ok
-}
-
-// Install dependencies
-install_packages = (manifest_path: string) Result<void, string>   {
-    io.print("Installing packages...\n");
-    
-    // Load manifest
-    manifest := load_manifest(manifest_path) ?
-        | Ok -> m => m
-        | Err -> err => return Err -> err
     
     // Resolve dependencies
     resolved := resolve_dependencies(manifest.dependencies) ?
-        | Ok -> deps => deps
-        | Err -> err => return Err -> "Failed to resolve dependencies: $(err)"
+        | Ok(deps) => deps
+        | Err(err) => return Err("Failed to resolve dependencies: $(err)")
     
     // Download and install each package
 resolved.loop((entry ) => {
         install_package(entry) ?
-            | Err -> err => return Err -> err
+            | Err(err) => return Err(err)
     })
     
     // Write lock file
     write_lock_file("zen.lock", resolved) ?
-        | Err -> err => return Err -> "Failed to write lock file: $(err)"
+        | Err(err) => return Err("Failed to write lock file: $(err)")
     
     io.print("Installed $(resolved.len) packages\n");
     return Ok
@@ -217,8 +202,8 @@ queue.len() > 0 ? {
         
         // Fetch package info
         info := fetch_package_info(name, req) ?
-            | Ok -> pkg => pkg
-            | Err -> err => return Err -> err
+            | Ok(pkg) => pkg
+            | Err(err) => return Err(err)
         
         // Mark as seen
         seen.set(name, info.version);
@@ -239,34 +224,34 @@ queue.len() > 0 ? {
         })
     })
     
-    return Ok -> resolved
+    return Ok(resolved)
 }
 
 // Fetch package information from registry
 fetch_package_info = (name: string, req: VersionReq) Result<PackageInfo, string>   {
     // Determine version to fetch
     version := req ?
-        | Exact -> v => v
+        | Exact(v) => v
         | Latest => "latest"
-        | Range -> min, max => resolve_version_range(name, min, max)?
-        | _ => return Err -> "Unsupported version requirement"
+        | Range(min, max) => resolve_version_range(name, min, max)?
+        | _ => return Err("Unsupported version requirement")
     
     // Fetch from registry
     url := "$(REGISTRY_URL)/packages/$(name)/$(version)";
     
     response := http.get(url) ?
-        | Ok -> resp => resp
-        | Err -> err => return Err -> "Failed to fetch package: $(err)"
+        | Ok(resp) => resp
+        | Err(err) => return Err("Failed to fetch package: $(err)")
     
     response.status != 200 ? | true =>
-        return Err -> "Package not found: $(name)@$(version)"
+        return Err("Package not found: $(name)@$(version)")
     
     // Parse response
     info := json.parse<PackageInfo>(response.body) ?
-        | Ok -> data => data
-        | Err -> err => return Err -> "Failed to parse package info: $(err)"
+        | Ok(data) => data
+        | Err(err) => return Err("Failed to parse package info: $(err)")
     
-    return Ok -> info
+    return Ok(info)
 }
 
 // Install a single package
@@ -287,23 +272,23 @@ install_package = (entry: LockEntry) Result<void, string>   {
     
     // Download package
     archive_path := download_package(entry.name, entry.version) ?
-        | Ok -> path => path
-        | Err -> err => return Err -> err
+        | Ok(path) => path
+        | Err(err) => return Err(err)
     
     // Verify checksum
     checksum := crypto.sha256_file(archive_path) ?
-        | Ok -> hash => hash
-        | Err -> err => return Err -> "Failed to calculate checksum: $(err)"
+        | Ok(hash) => hash
+        | Err(err) => return Err("Failed to calculate checksum: $(err)")
     
     checksum != entry.checksum ? | true =>
-        return Err -> "Checksum mismatch for $(entry.name)"
+        return Err("Checksum mismatch for $(entry.name)")
     
     // Extract package
     fs.create_dir_all(package_dir) ?
-        | Err -> err => return Err -> "Failed to create package dir: $(err)"
+        | Err(err) => return Err("Failed to create package dir: $(err)")
     
     extract_archive(archive_path, package_dir) ?
-        | Err -> err => return Err -> "Failed to extract package: $(err)"
+        | Err(err) => return Err("Failed to extract package: $(err)")
     
     // Clean up archive
     fs.remove(archive_path)?;
@@ -319,13 +304,13 @@ download_package = (name: string, version: string) Result<string, string>   {
     
     // Ensure cache directory exists
     fs.create_dir_all(CACHE_DIR) ?
-        | Err -> err => return Err -> "Failed to create cache dir: $(err)"
+        | Err(err) => return Err("Failed to create cache dir: $(err)")
     
     // Download file
     http.download(url, cache_path) ?
-        | Err -> err => return Err -> "Failed to download: $(err)"
+        | Err(err) => return Err("Failed to download: $(err)")
     
-    return Ok -> cache_path
+    return Ok(cache_path)
 }
 
 // Search for packages
@@ -335,12 +320,12 @@ search_packages = (query: string) Result<void, string>   {
     url := "$(REGISTRY_URL)/search?q=$(url_encode(query))";
     
     response := http.get(url) ?
-        | Ok -> resp => resp
-        | Err -> err => return Err -> "Search failed: $(err)"
+        | Ok(resp) => resp
+        | Err(err) => return Err("Search failed: $(err)")
     
     results := json.parse<[]SearchResult>(response.body) ?
-        | Ok -> data => data
-        | Err -> err => return Err -> "Failed to parse results: $(err)"
+        | Ok(data) => data
+        | Err(err) => return Err("Failed to parse results: $(err)")
     
     results.is_empty() ? | true => {
         io.print("No packages found\n");
@@ -364,22 +349,22 @@ publish_package = (manifest_path: string) Result<void, string>   {
     
     // Load manifest
     manifest := load_manifest(manifest_path) ?
-        | Ok -> m => m
-        | Err -> err => return Err -> err
+        | Ok(m) => m
+        | Err(err) => return Err(err)
     
     // Validate package
     validate_package(manifest) ?
-        | Err -> err => return Err -> "Validation failed: $(err)"
+        | Err(err) => return Err("Validation failed: $(err)")
     
     // Create archive
     archive_path := create_package_archive(manifest) ?
-        | Ok -> path => path
-        | Err -> err => return Err -> err
+        | Ok(path) => path
+        | Err(err) => return Err(err)
     
     // Get authentication token
     token := get_auth_token() ?
-        | Ok -> t => t
-        | Err -> err => return Err -> "Not authenticated. Run 'zen-pkg login'"
+        | Ok(t) => t
+        | Err(err) => return Err("Not authenticated. Run 'zen-pkg login'")
     
     // Upload to registry
     url := "$(REGISTRY_URL)/packages/$(manifest.name)/$(manifest.version)";
@@ -388,11 +373,11 @@ publish_package = (manifest_path: string) Result<void, string>   {
         ("Authorization", "Bearer $(token)"),
         ("Content-Type", "application/gzip"),
     ]) ?
-        | Ok -> resp => resp
-        | Err -> err => return Err -> "Upload failed: $(err)"
+        | Ok(resp) => resp
+        | Err(err) => return Err("Upload failed: $(err)")
     
     response.status != 201 ? | true =>
-        return Err -> "Publish failed: $(response.body)"
+        return Err("Publish failed: $(response.body)")
     
     // Clean up
     fs.remove(archive_path)?;
@@ -413,18 +398,18 @@ list_packages = (global: bool) Result<void, string>   {
     }
     
     packages := fs.list_dirs(dir) ?
-        | Ok -> dirs => dirs
-        | Err -> err => return Err -> "Failed to list packages: $(err)"
+        | Ok(dirs) => dirs
+        | Err(err) => return Err("Failed to list packages: $(err)")
     
     loop package in packages {
         versions := fs.list_dirs("$(dir)/$(package)") ?
-            | Ok -> vers => vers
+            | Ok(vers) => vers
             | Err => continue
         
         loop version in versions {
             manifest_path := "$(dir)/$(package)/$(version)/zen.toml";
             manifest := load_manifest(manifest_path) ?
-                | Ok -> m => m
+                | Ok(m) => m
                 | Err => continue
             
             io.print("  $(manifest.name)@$(manifest.version) - $(manifest.description)\n")
@@ -446,7 +431,7 @@ clean_cache = () Result<void, string>   {
     size := calculate_dir_size(CACHE_DIR);
     
     fs.remove_dir_all(CACHE_DIR) ?
-        | Err -> err => return Err -> "Failed to clean cache: $(err)"
+        | Err(err) => return Err("Failed to clean cache: $(err)")
     
     io.print("Freed $(format_size(size))\n");
     return Ok
@@ -462,7 +447,7 @@ doctor = () Result<void, string>   {
     // Check Zen compiler
     io.print("Checking Zen compiler... ");
     process.run(["zenc", "--version"]) ?
-        | Ok -> output => {
+        | Ok(output) => {
             io.print("OK ($(string.trim(output.stdout)))\n")
         }
         | Err => {
@@ -473,7 +458,7 @@ doctor = () Result<void, string>   {
     // Check network connectivity
     io.print("Checking registry connectivity... ");
     http.get("$(REGISTRY_URL)/health") ?
-        | Ok -> resp => {
+        | Ok(resp) => {
             resp.status == 200 ? | true => {
                 io.print("OK\n")
             } | false => {
@@ -510,7 +495,7 @@ doctor = () Result<void, string>   {
     
     errors > 0 ? | true => {
         io.print("Found $(errors) errors and $(warnings) warnings\n");
-        return Err -> "System check failed"
+        return Err("System check failed")
     }
     
     warnings > 0 ? | true => {
@@ -544,7 +529,7 @@ main = (args: []string) i32   {
         }
         | "search" => {
             args.len > 2 ? | true => search_packages(args[2])
-                         | false => Err -> "Search query required"
+                         | false => Err("Search query required")
         }
         | "publish" => {
             manifest := args.len > 2 ? | true => args[2] | false => "zen.toml";
@@ -564,11 +549,11 @@ main = (args: []string) i32   {
             io.print("zen-pkg version 1.0.0\n");
             return 0
         }
-        | _ => Err -> "Unknown command: $(command)"
+        | _ => Err("Unknown command: $(command)")
     
     result ?
         | Ok => return 0
-        | Err -> err => {
+        | Err(err) => {
             io.error("Error: $(err)\n");
             return 1
         }

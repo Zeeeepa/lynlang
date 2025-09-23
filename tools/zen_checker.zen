@@ -48,8 +48,8 @@ check_file = (path: string) CheckResult   {
     
     // Read file contents
     content := match io.read_to_string(path) {
-        | IoResult.Ok -> value => value
-        | IoResult.Err -> error => {
+        | IoResult.Ok(value) => value
+        | IoResult.Err(error) => {
             result.errors.push(Error{
                 line: 0,
                 column: 0,
@@ -86,8 +86,8 @@ check_file = (path: string) CheckResult   {
     // Parse
     p := parser.parser_new(tokens)
     ast := match parser.parse(&p) {
-        | Result.Ok -> nodes => nodes
-        | Result.Err -> errors => {
+        | Result.Ok(nodes) => nodes
+        | Result.Err(errors) => {
             j := 0
             loop j < errors.len {
                 result.errors.push(Error{
@@ -139,7 +139,7 @@ check_import_in_node = (result: *CheckResult, node: *parser.AstNode, in_comptime
         | parser.AstNodeType.ComptimeExpr => {
             // Mark that we're inside comptime
             node.data ?
-                | parser.AstData.BlockStmt -> statements => {
+                | parser.AstData.BlockStmt(statements) => {
                     j := 0
                     loop j < statements.len {
                         check_import_in_node(result, statements[j], true)
@@ -151,11 +151,11 @@ check_import_in_node = (result: *CheckResult, node: *parser.AstNode, in_comptime
         }
         | parser.AstNodeType.VariableDecl => {
             node.data ?
-                | parser.AstData.VariableDecl -> decl => {
+                | parser.AstData.VariableDecl(decl) => {
                     // Check if it's an import
                     is_import := false
                     decl.value.data ?
-                        | parser.AstData.MemberExpr -> member => {
+                        | parser.AstData.MemberExpr(member) => {
                             string.starts_with(member.member, "@std") ? {
                                 is_import = true
                             } : {}
@@ -212,10 +212,10 @@ check_duplicates = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
 // Get declaration name from node
 get_declaration_name = (node: *parser.AstNode) string   {
     node.data ?
-        | parser.AstData.FunctionDecl -> decl => decl.name
-        | parser.AstData.VariableDecl -> decl => decl.name
-        | parser.AstData.StructDecl -> decl => decl.name
-        | parser.AstData.EnumDecl -> decl => decl.name
+        | parser.AstData.FunctionDecl(decl) => decl.name
+        | parser.AstData.VariableDecl(decl) => decl.name
+        | parser.AstData.StructDecl(decl) => decl.name
+        | parser.AstData.EnumDecl(decl) => decl.name
         | _ => ""
     }
 }
@@ -226,7 +226,7 @@ check_unused = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   {
     i := 0
     loop i < ast.len {
         ast[i].data ?
-            | parser.AstData.VariableDecl -> decl => {
+            | parser.AstData.VariableDecl(decl) => {
                 // Check if variable name starts with underscore (convention for unused)
                 !string.starts_with(decl.name, "_") && string.starts_with(decl.name, "unused") ? {
                     result.warnings.push(Warning{
@@ -254,7 +254,7 @@ check_unreachable = (result: *CheckResult, ast: DynVec<*parser.AstNode>) void   
 // Check for unreachable code in a node
 check_unreachable_in_node = (result: *CheckResult, node: *parser.AstNode) void   {
     node.data ?
-        | parser.AstData.BlockStmt -> statements => {
+        | parser.AstData.BlockStmt(statements) => {
             j := 0
             found_return := false
             loop j < statements.len {

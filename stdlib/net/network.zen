@@ -16,8 +16,8 @@ SocketType:
 
 // IP Address representation
 IpAddr: 
-    V4 -> addr: [4]u8,
-    V6 -> addr: [16]u8,
+    V4: {addr: [4]u8},
+    V6: {addr: [16]u8},
 
 // Socket address
 SocketAddr: {

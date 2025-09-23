@@ -209,7 +209,7 @@ LSPServer: {
 new_server = () LSPServer   {
     LSPServer {
         documents: HashMap:new(),
-        root_uri: Option:None,
+        root_uri: None,
         initialized: false,
         shutdown_requested: false,
         parsers: HashMap:new(),
@@ -236,16 +236,16 @@ handle_message = (server: Ptr<LSPServer>, msg: Message) Result<Message, string> 
             method == "workspace/symbol" ? { handle_workspace_symbol(server, msg) }
             method == "textDocument/codeAction" ? { handle_code_action(server, msg) }
             
-            Result:Err("Method not found: $(method)")
+            Err("Method not found: $(method)")
         }
-        | None { Result:Err("No method specified") }
+        | None { Err("No method specified") }
 }
 
 // Initialize request handler
 handle_initialize = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_initialize_params(msg.params) ?
         | Ok(p) { p }
-        | Err(e) { return Result:Err(e) }
+        | Err(e) { return Err(e) }
     
     server.value.root_uri = params.rootUri
     server.value.initialized = true
@@ -258,7 +258,7 @@ handle_initialize = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
     
     capabilities := ServerCapabilities {
         textDocumentSync: 1,
-        completionProvider: Option:Some(CompletionOptions {
+        completionProvider: Some(CompletionOptions {
             resolveProvider: false,
             triggerCharacters: trigger_chars_ptr.value,
         }),
@@ -275,31 +275,31 @@ handle_initialize = (server: Ptr<LSPServer>, msg: Message) Result<Message, strin
     response := Message {
         jsonrpc: "2.0",
         id: msg.id,
-        method: Option:None,
-        params: Option:None,
-        result: Option:Some(json.object({
+        method: None,
+        params: None,
+        result: Some(json.object({
             "capabilities": capabilities,
             "serverInfo": {
                 "name": "Zen Language Server",
                 "version": "1.0.0",
             },
         })),
-        error: Option:None,
+        error: None,
     }
     
-    Result:Ok(response)
+    Ok(response)
 }
 
 // Initialized notification handler
 handle_initialized = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     // No response needed for notification
-    Result:Ok(Message {
+    Ok(Message {
         jsonrpc: "2.0",
-        id: Option:None,
-        method: Option:None,
-        params: Option:None,
-        result: Option:None,
-        error: Option:None,
+        id: None,
+        method: None,
+        params: None,
+        result: None,
+        error: None,
     })
 }
 
@@ -307,13 +307,13 @@ handle_initialized = (server: Ptr<LSPServer>, msg: Message) Result<Message, stri
 handle_shutdown = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     server.value.shutdown_requested = true
     
-    Result:Ok(Message {
+    Ok(Message {
         jsonrpc: "2.0",
         id: msg.id,
-        method: Option:None,
-        params: Option:None,
-        result: Option:Some(json.null()),
-        error: Option:None,
+        method: None,
+        params: None,
+        result: Some(json.null()),
+        error: None,
     })
 }
 
@@ -321,7 +321,7 @@ handle_shutdown = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>
 handle_did_open = (server: Ptr<LSPServer>, msg: Message) Result<Message, string>   {
     params := parse_did_open_params(msg.params) ?
         | Ok(p) { p }
-        | Err(e) { return Result:Err(e) }
+        | Err(e) { return Err(e) }
     
     // Store the document
     server.value.documents.insert(params.textDocument.uri, params.textDocument)
@@ -984,9 +984,9 @@ Command: {
 }
 
 // Export public API
-export {
-    LSPServer,
-    new_server,
-    handle_message,
-    main,
+module.exports = {
+    LSPServer: LSPServer,
+    new_server: new_server,
+    handle_message: handle_message,
+    main: main
 }

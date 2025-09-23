@@ -277,17 +277,17 @@ run_suite = (suite: &TestSuite) TestStats   {
                 io.printf("{}PASS{} ({}ms)\n", COLOR_GREEN, COLOR_RESET, test_duration)
                 stats.passed += 1
             },
-            TestResult.Fail -> msg => {
+            TestResult.Fail(msg) => {
                 io.printf("{}FAIL{}\n", COLOR_RED, COLOR_RESET)
                 io.printf("    {}: {}\n", test.file, test.line)
                 io.printf("    {}\n", msg)
                 stats.failed += 1
             },
-            TestResult.Skip -> reason => {
+            TestResult.Skip(reason) => {
                 io.printf("{}SKIP{} - {}\n", COLOR_YELLOW, COLOR_RESET, reason)
                 stats.skipped += 1
             },
-            TestResult.Error -> msg => {
+            TestResult.Error(msg) => {
                 io.printf("{}ERROR{}\n", COLOR_RED, COLOR_RESET)
                 io.printf("    {}\n", msg)
                 stats.errors += 1

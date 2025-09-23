@@ -5,12 +5,12 @@
 
 main = () void {
     // Immutable bindings (default)
-    x := 42                  // Type inference
+    x = 42                   // Type inference
     name: string = "Alice"   // Explicit type
-    pi := 3.14159           // f64 inferred
+    pi = 3.14159            // f64 inferred
     
     // Mutable bindings
-    mut count := 0
+    count ::= 0
     count = count + 1
     count += 1
     

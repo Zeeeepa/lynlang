@@ -77,7 +77,7 @@ builder = (b :: Build) void {
     builder
         .add_dependency({
             name: "ecs",
-            source: .Git -> {
+            source: Git {
                 url: "github.com/zenlang/zen-ecs",
                 branch: "main"
             }

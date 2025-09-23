@@ -8,20 +8,20 @@ main = () void {
     io.println("=== Strings & I/O ===")
     
     // String basics
-    greeting := "Hello"
-    name := "Zen"
+    greeting = "Hello"
+    name = "Zen"
     
     // String concatenation
-    message := greeting + ", " + name + "!"
+    message = greeting + ", " + name + "!"
     io.println(message)
     
     // String interpolation
-    age := 5
-    info := "The ${name} language is ${age} years old"
+    age = 5
+    info = "The ${name} language is ${age} years old"
     io.println(info)
     
     // Multi-line strings
-    poem := """
+    poem = """
         Roses are red,
         Violets are blue,
         Zen is elegant,
@@ -30,31 +30,31 @@ main = () void {
     io.println(poem)
     
     // String methods
-    text := "  hello world  "
-    trimmed := text.trim()
-    upper := trimmed.to_uppercase()
-    words := upper.split(" ")
+    text = "  hello world  "
+    trimmed = text.trim()
+    upper = trimmed.to_uppercase()
+    words = upper.split(" ")
     
     io.println("Trimmed: '${trimmed}'")
     io.println("Upper: '${upper}'")
     io.println("Words: ${words}")
     
     // String builder for efficiency
-    mut sb := StringBuilder.new()
-    for i in 0..5 {
+    sb ::= StringBuilder.new()
+    (0..5).loop((i) {
         sb.append("Line ${i}\n")
-    }
-    result := sb.to_string()
+    })
+    result = sb.to_string()
     io.print(result)
     
     // Character operations
-    ch := 'A'
+    ch = 'A'
     io.println("Char: ${ch}, Code: ${ch as u32}")
     
     // String slicing and indexing
-    sample := "Hello, World!"
-    first_five := sample[0..5]
-    last_word := sample[7..]
+    sample = "Hello, World!"
+    first_five = sample[0..5]
+    last_word = sample[7..]
     
     io.println("First five: ${first_five}")
     io.println("Last word: ${last_word}")

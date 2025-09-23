@@ -1,98 +1,52 @@
-// Foreign Function Interface (FFI)
-// Seamless C integration with inline.c
+// Foreign Function Interface - C integration with inline.c
 
-{ io, Result } = @std
+{ io } = @std
+{ inline } = @std
 
-// Inline C code for system operations
+// Inline C for performance-critical operations
 inline.c("""
-    #include <time.h>
-    #include <stdlib.h>
-    #include <string.h>
     #include <math.h>
     
-    // High-precision timing
-    double get_time_seconds() {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        return ts.tv_sec + ts.tv_nsec / 1000000000.0;
+    double fast_sqrt(double n) {
+        return sqrt(n);
     }
     
-    // Fast math operations
-    double fast_distance_3d(double x, double y, double z) {
-        return sqrt(x*x + y*y + z*z);
-    }
-    
-    // Random number generation
-    int get_random(int min, int max) {
-        static int seeded = 0;
-        if (!seeded) {
-            srand(time(NULL));
-            seeded = 1;
+    int gcd(int a, int b) {
+        while (b != 0) {
+            int t = b;
+            b = a % b;
+            a = t;
         }
-        return min + rand() % (max - min + 1);
+        return a;
     }
     
-    // String manipulation
-    void reverse_in_place(char* str) {
-        int len = strlen(str);
-        for (int i = 0; i < len/2; i++) {
-            char tmp = str[i];
-            str[i] = str[len - 1 - i];
-            str[len - 1 - i] = tmp;
+    void reverse_array(int* arr, int n) {
+        for (int i = 0; i < n/2; i++) {
+            int temp = arr[i];
+            arr[i] = arr[n-1-i];
+            arr[n-1-i] = temp;
         }
     }
 """)
 
-// Zen wrapper for timing
-Timer: {
-    start_time: f64
-}
-
-Timer.start = () Timer {
-    Timer { start_time: get_time_seconds() }
-}
-
-Timer.elapsed = (self) f64 {
-    get_time_seconds() - self.start_time
-}
-
-// Benchmark helper
-benchmark = (name: string, f: () void) void {
-    timer := Timer.start()
-    f()
-    elapsed := timer.elapsed()
-    io.println("${name}: ${elapsed * 1000.0:.3f}ms")
-}
-
 main = () void {
-    io.println("=== FFI Examples ===\n")
+    io.println("=== FFI with inline.c ===\n")
     
-    // High-precision timing
-    io.println("Benchmarking operations:")
-    benchmark("1M iterations", () => {
-        mut sum := 0
-        for i in 0..1000000 {
-            sum += i
-        }
-    })
+    // Call C functions directly
+    io.println("√144 = ${fast_sqrt(144)}")
+    io.println("GCD(48, 18) = ${gcd(48, 18)}")
     
-    // Fast math operations
-    dist := fast_distance_3d(3.0, 4.0, 12.0)
-    io.println("\n3D Distance (3,4,12): ${dist}")
+    // Modify arrays in-place via C
+    numbers ::= [1, 2, 3, 4, 5]
+    io.println("\nOriginal: ${numbers}")
+    reverse_array(numbers.ptr(), numbers.len())
+    io.println("Reversed: ${numbers}")
     
-    // Random numbers
-    io.println("\nRandom numbers (1-100):")
-    for _ in 0..5 {
-        io.print("${get_random(1, 100)} ")
-    }
-    io.println("")
+    // Performance comparison
+    n = 1000000
     
-    // String operations
-    mut text := "Hello, Zen!"
-    io.println("\nString reversal:")
-    io.println("  Original: ${text}")
-    reverse_in_place(text.data())
-    io.println("  Reversed: ${text}")
-    
-    io.println("\nFFI integration complete!")
+    // Zen version
+    sum ::= 0.0
+    (1..n).loop((i) { sum += 1.0 / i })
+    io.println("\nHarmonic sum (${n} terms): ${sum:.6f}")
 }
