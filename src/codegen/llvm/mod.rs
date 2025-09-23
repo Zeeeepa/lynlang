@@ -124,9 +124,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
     fn register_builtin_enums(&mut self) {
         // Register Option<T> enum
+        // Option has Some(T) with payload and None without, so we need space for payload
         let enum_struct_type = self.context.struct_type(&[
             self.context.i64_type().into(), // discriminant
-            self.context.i64_type().into(), // payload (generic placeholder)
+            self.context.i64_type().into(), // payload (will be properly typed at instantiation)
         ], false);
         
         let mut variant_indices = HashMap::new();
@@ -150,9 +151,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.symbols.insert("Option", symbols::Symbol::EnumType(option_info));
         
         // Register Result<T, E> enum
+        // Result always has payloads (Ok(T) or Err(E))
         let result_struct_type = self.context.struct_type(&[
             self.context.i64_type().into(), // discriminant
-            self.context.i64_type().into(), // payload (generic placeholder)
+            self.context.i64_type().into(), // payload (will be properly typed at instantiation)
         ], false);
         
         let mut result_variant_indices = HashMap::new();
@@ -402,23 +404,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
     
     pub fn register_enum_type(&mut self, enum_def: &ast::EnumDefinition) -> Result<(), CompileError> {
-        // For now, skip generic enums and register them as non-generic
-        // This is a simplification - proper generic handling will come later
-        
         // Create variant index mapping
         let mut variant_indices = HashMap::new();
+        let mut max_payload_size = 0u32;
+        let mut has_payloads = false;
+        
+        // Find the largest payload type to create a union-like structure
         for (index, variant) in enum_def.variants.iter().enumerate() {
             variant_indices.insert(variant.name.clone(), index as u64);
+            
+            if let Some(payload_type) = &variant.payload {
+                has_payloads = true;
+                // Calculate the size needed for this payload type
+                let payload_size = match payload_type {
+                    AstType::I8 | AstType::U8 | AstType::Bool => 8,
+                    AstType::I16 | AstType::U16 => 16,
+                    AstType::I32 | AstType::U32 | AstType::F32 => 32,
+                    AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
+                    AstType::String | AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => 64, // pointer size
+                    AstType::Struct { .. } | AstType::Generic { .. } => 64, // for now, use pointer size
+                    _ => 64, // default to 64 bits
+                };
+                max_payload_size = max_payload_size.max(payload_size);
+            }
         }
         
-        // For now, represent enums as a struct { tag: i64, payload: i64 }
-        // In the future, this can be optimized based on the actual payload types
-        let enum_struct_type = self.context.struct_type(&[
-            self.context.i64_type().into(),  // tag
-            self.context.i64_type().into(),  // payload (simplified for now)
-        ], false);
+        // Create enum struct type based on actual payload needs
+        let enum_struct_type = if has_payloads {
+            // Create a struct with tag and appropriately sized payload field
+            let payload_type = match max_payload_size {
+                8 => self.context.i8_type().into(),
+                16 => self.context.i16_type().into(),
+                32 => self.context.i32_type().into(),
+                _ => self.context.i64_type().into(), // default to i64 for larger or pointer types
+            };
+            
+            self.context.struct_type(&[
+                self.context.i64_type().into(),  // tag (discriminant)
+                payload_type,                    // payload (sized appropriately)
+            ], false)
+        } else {
+            // For enums with no payloads (like unit enums), just use the tag
+            self.context.struct_type(&[
+                self.context.i64_type().into(),  // tag only
+            ], false)
+        };
         
-        // Create enum info
+        // Create enum info with proper type information preserved
         let enum_info = symbols::EnumInfo {
             llvm_type: enum_struct_type,
             variant_indices,

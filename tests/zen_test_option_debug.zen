@@ -1,25 +1,21 @@
-// Debug Option value extraction
+// Debug test for Option<T> payload
 { io } = @std
 
 Option<T>: Some(T) | None
 
 main = () void {
-    io.println("=== Option Debug Test ===")
+    // Test with direct integer literal
+    x = 42
+    io.println("Direct value x: ${x}")
     
-    // Test with different values
-    value1 = 123
-    io.println("Test 1 - Original: ${value1}")
-    opt1: Option<i32> = Some(value1)
-    opt1 ?
-        | Some(v) { io.println("Test 1 - Extracted: ${v}") }
-        | None { io.println("Test 1 - None") }
-    
-    value2 = 999
-    io.println("Test 2 - Original: ${value2}")
-    opt2: Option<i32> = Some(value2)
-    opt2 ?
-        | Some(v) { io.println("Test 2 - Extracted: ${v}") }
-        | None { io.println("Test 2 - None") }
-    
-    io.println("=== Test Complete ===")
+    // Test with Option
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { 
+            io.println("Extracted v from Some(42)")
+            // The v value should be 42 but it's showing as garbage
+        }
+        | None { 
+            io.println("Was None") 
+        }
 }

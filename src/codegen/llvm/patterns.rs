@@ -230,25 +230,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Handle payload pattern if present
                 if let Some(payload_pattern) = payload {
-                    // Extract the payload value
+                    // Extract the payload value - preserve the actual type!
                     let payload_val = if scrutinee_val.is_pointer_value() {
                         let enum_struct_type = enum_info.llvm_type;
-                        let payload_gep = self.builder.build_struct_gep(
-                            enum_struct_type,
-                            scrutinee_val.into_pointer_value(),
-                            1,
-                            "payload_ptr"
-                        )?;
-                        let raw_payload = self.builder.build_load(
-                            self.context.i64_type(),
-                            payload_gep,
-                            "payload"
-                        )?;
-                        
-                        raw_payload
+                        // Check if enum has payload field
+                        if enum_struct_type.count_fields() > 1 {
+                            let payload_gep = self.builder.build_struct_gep(
+                                enum_struct_type,
+                                scrutinee_val.into_pointer_value(),
+                                1,
+                                "payload_ptr"
+                            )?;
+                            
+                            // Get the actual payload type from the enum struct
+                            let payload_type = enum_struct_type.get_field_type_at_index(1)
+                                .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
+                            
+                            // Load with the correct type
+                            self.builder.build_load(
+                                payload_type,
+                                payload_gep,
+                                "payload"
+                            )?
+                        } else {
+                            // No payload field in enum
+                            self.context.i64_type().const_int(0, false).into()
+                        }
                     } else if scrutinee_val.is_struct_value() {
                         let struct_val = scrutinee_val.into_struct_value();
-                        self.builder.build_extract_value(struct_val, 1, "payload")?
+                        // Check if struct has payload field
+                        if struct_val.get_type().count_fields() > 1 {
+                            self.builder.build_extract_value(struct_val, 1, "payload")?
+                        } else {
+                            self.context.i64_type().const_int(0, false).into()
+                        }
                     } else {
                         // No payload available
                         self.context.i64_type().const_int(0, false).into()

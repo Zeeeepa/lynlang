@@ -1,0 +1,19 @@
+// Test string pointer detection
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    // Test direct string
+    s = "Direct string"
+    io.println("Direct: ${s}")
+    
+    // Test Option<string>
+    maybe: Option<string> = Some("Hello")
+    maybe ?
+        | Some(str) { 
+            // First check what we get
+            io.println("In pattern") 
+        }
+        | None { }
+}

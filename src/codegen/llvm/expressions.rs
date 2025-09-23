@@ -587,23 +587,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // This maintains backward compatibility
                     let tag = 0;
                     let tag_val = self.context.i64_type().const_int(tag, false);
-                    let payload_val = if let Some(expr) = payload {
-                        let compiled = self.compile_expression(expr)?;
-                        // TODO: This is broken - storing everything as i64 loses type information
-                        // Need to redesign enum storage to preserve types
-                        compiled
+                    
+                    // Create proper enum struct type based on payload
+                    let enum_struct_type = if payload.is_some() {
+                        self.context.struct_type(&[
+                            self.context.i64_type().into(),
+                            self.context.i64_type().into(),
+                        ], false)
                     } else {
-                        self.context.i64_type().const_int(0, false).into()
+                        self.context.struct_type(&[
+                            self.context.i64_type().into(),
+                        ], false)
                     };
-                    let enum_struct_type = self.context.struct_type(&[
-                        self.context.i64_type().into(),
-                        self.context.i64_type().into(),
-                    ], false);
+                    
                     let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
                     let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
                     self.builder.build_store(tag_ptr, tag_val)?;
-                    let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-                    self.builder.build_store(payload_ptr, payload_val)?;
+                    
+                    // Handle payload if present
+                    if let Some(expr) = payload {
+                        let compiled = self.compile_expression(expr)?;
+                        if enum_struct_type.count_fields() > 1 {
+                            let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+                            
+                            // Get the expected payload type from the enum struct
+                            let payload_field_type = enum_struct_type.get_field_type_at_index(1)
+                                .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
+                            
+                            // Cast the compiled value to match the payload field type if needed
+                            let payload_value = self.cast_value_to_type(compiled, payload_field_type)?;
+                            
+                            self.builder.build_store(payload_ptr, payload_value)?;
+                        }
+                    }
+                    
                     let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
                     return Ok(loaded);
                 }
@@ -616,23 +633,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // This maintains backward compatibility
                     let tag = 0;
                     let tag_val = self.context.i64_type().const_int(tag, false);
-                    let payload_val = if let Some(expr) = payload {
-                        let compiled = self.compile_expression(expr)?;
-                        // TODO: This is broken - storing everything as i64 loses type information
-                        // Need to redesign enum storage to preserve types
-                        compiled
+                    
+                    // Create proper enum struct type based on payload
+                    let enum_struct_type = if payload.is_some() {
+                        self.context.struct_type(&[
+                            self.context.i64_type().into(),
+                            self.context.i64_type().into(),
+                        ], false)
                     } else {
-                        self.context.i64_type().const_int(0, false).into()
+                        self.context.struct_type(&[
+                            self.context.i64_type().into(),
+                        ], false)
                     };
-                    let enum_struct_type = self.context.struct_type(&[
-                        self.context.i64_type().into(),
-                        self.context.i64_type().into(),
-                    ], false);
+                    
                     let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
                     let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
                     self.builder.build_store(tag_ptr, tag_val)?;
-                    let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-                    self.builder.build_store(payload_ptr, payload_val)?;
+                    
+                    // Handle payload if present
+                    if let Some(expr) = payload {
+                        let compiled = self.compile_expression(expr)?;
+                        if enum_struct_type.count_fields() > 1 {
+                            let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+                            
+                            // Get the expected payload type from the enum struct
+                            let payload_field_type = enum_struct_type.get_field_type_at_index(1)
+                                .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
+                            
+                            // Cast the compiled value to match the payload field type if needed
+                            let payload_value = self.cast_value_to_type(compiled, payload_field_type)?;
+                            
+                            self.builder.build_store(payload_ptr, payload_value)?;
+                        }
+                    }
+                    
                     let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
                     return Ok(loaded);
                 }
@@ -648,23 +682,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
             ))?;
         
         let tag_val = self.context.i64_type().const_int(tag, false);
-        let payload_val = if let Some(expr) = payload {
-            let compiled = self.compile_expression(expr)?;
-            // TODO: This is broken - storing everything as i64 loses type information
-            // For i32 values, this usually works by coincidence
-            // Need to redesign enum storage to preserve types properly
-            compiled
-        } else {
-            self.context.i64_type().const_int(0, false).into()
-        };
         
         // Use the enum's LLVM type
         let enum_struct_type = enum_info.llvm_type;
         let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
         let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
         self.builder.build_store(tag_ptr, tag_val)?;
-        let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-        self.builder.build_store(payload_ptr, payload_val)?;
+        
+        // Handle payload if present - preserve the actual type!
+        if let Some(expr) = payload {
+            let compiled = self.compile_expression(expr)?;
+            // Check if enum has payload field (index 1)
+            if enum_struct_type.count_fields() > 1 {
+                let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+                
+                // Get the expected payload type from the enum struct
+                let payload_field_type = enum_struct_type.get_field_type_at_index(1)
+                    .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
+                
+                // Cast the compiled value to match the payload field type if needed
+                let payload_value = self.cast_value_to_type(compiled, payload_field_type)?;
+                
+                // Store the properly typed value
+                self.builder.build_store(payload_ptr, payload_value)?;
+            }
+        } else if enum_struct_type.count_fields() > 1 {
+            // If no payload but enum expects one, store zero value
+            let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+            let zero_val = self.context.i64_type().const_int(0, false);
+            self.builder.build_store(payload_ptr, zero_val)?;
+        }
         let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
         Ok(loaded)
     }

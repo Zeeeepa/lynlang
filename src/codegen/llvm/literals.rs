@@ -163,45 +163,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                             32 => ("%d", val.into()),
                             64 => {
-                                // Check if this might be a pointer stored as i64
-                                // Values > 0x100000 (1MB) are likely pointers
-                                let mb_threshold = self.context.i64_type().const_int(0x100000, false);
-                                let is_large = self.builder.build_int_compare(
-                                    inkwell::IntPredicate::UGT,
-                                    int_val,
-                                    mb_threshold,
-                                    "might_be_ptr"
-                                )?;
-                                
-                                // If it might be a pointer, convert and use %s
-                                // Otherwise use %lld for regular integers
-                                let as_ptr = self.builder.build_int_to_ptr(
-                                    int_val,
-                                    self.context.ptr_type(inkwell::AddressSpace::default()),
-                                    "potential_str_ptr"
-                                )?;
-                                
-                                let format_for_ptr = "%s";
-                                let format_for_int = "%lld";
-                                
-                                // Choose format based on whether it looks like a pointer
-                                // For now, just check if > 1MB and use pointer format
-                                // This is a heuristic that works for string literals
+                                // For i64, we need to be smarter about detecting strings
+                                // Strings are stored as pointer values in i64 fields
+                                // Check if this looks like a valid pointer (non-zero, aligned)
                                 if int_val.is_const() {
                                     if let Some(const_val) = int_val.get_zero_extended_constant() {
-                                        if const_val > 0x100000 {
-                                            // Likely a pointer - use %s and the converted pointer
+                                        // Check if this might be a string pointer:
+                                        // - Non-zero
+                                        // - In reasonable memory range
+                                        // - 8-byte aligned (typical for string literals)
+                                        if const_val > 0x1000 && const_val < 0x7fffffffffff && (const_val & 0x7) == 0 {
+                                            // Convert to pointer and try to use as string
+                                            let as_ptr = self.builder.build_int_to_ptr(
+                                                int_val,
+                                                self.context.ptr_type(inkwell::AddressSpace::default()),
+                                                "string_ptr"
+                                            )?;
                                             ("%s", as_ptr.into())
                                         } else {
-                                            // Regular integer - use %lld
+                                            // Regular integer
                                             ("%lld", val.into())
                                         }
                                     } else {
                                         ("%lld", val.into())
                                     }
                                 } else {
-                                    // Runtime value - can't determine at compile time
-                                    // For safety, treat as integer
+                                    // Runtime value - use integer format by default
                                     ("%lld", val.into())
                                 }
                             },

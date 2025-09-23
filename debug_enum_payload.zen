@@ -1,0 +1,17 @@
+// Debug enum payload issue
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    // Create Some(42)
+    opt = Some(42)
+    
+    // Pattern match and show the extracted value
+    opt ?
+        | Some(v) { 
+            io.println("Extracted value: ${v}")
+            io.println("This should be 42, not a memory address")
+        }
+        | None { io.println("Was None") }
+}

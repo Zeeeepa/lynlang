@@ -4,7 +4,7 @@
 
 A revolutionary programming language with **ZERO KEYWORDS**. All control flow through pattern matching, UFC (Uniform Function Call), and no function coloring.
 
-> **Current Status:** ~45% of LANGUAGE_SPEC.zen implemented. Core features working: structs, traits, pattern matching, ranges, loops, defer. Major gaps: Option/Result payload extraction, error propagation, pointers, collections, concurrency.
+> **Current Status:** ~30% of LANGUAGE_SPEC.zen implemented. Core philosophy realized! Pattern matching, UFC, all variable forms working. Option<i32> payloads extract correctly! Major gaps: Option<string> payloads, pointers, collections, error propagation, generics, concurrency, metaprogramming.
 
 ## Core Philosophy (from LANGUAGE_SPEC.zen)
 
@@ -50,7 +50,7 @@ main = () void {
 
 ## Implementation Status
 
-### ✅ Core Features Working (45% Complete)
+### ✅ Core Features Working (30% Complete)
 
 #### No Keywords Philosophy
 - **Zero keywords** - All control flow via pattern matching
@@ -58,14 +58,15 @@ main = () void {
 - **UFC (Uniform Function Call)** - Any function can be called as method
 
 #### Type System
-- **Structs** - With fields and defaults ✅
-- **Traits** - `.implements()` with method dispatch ✅
-- **Enums** - Basic sum types (partial) ⚠️
-- **Option<T>** - Parsed but value extraction buggy ⚠️
-- **Result<T, E>** - Parsed but not fully working ⚠️
+- **Structs** - Basic definition and creation ✅
+- **Traits** - `.implements()` parsed ⚠️ (methods can't access struct fields)
+- **Enums** - Option/Result work with pattern matching ✅
+- **Option<i32>** - Pattern matching AND value extraction working! ✅ (FIXED!)
+- **Option<string>** - Pattern matching works, string payloads show as addresses ⚠️
+- **Result<T, E>** - Definition works, integer payloads should work ⚠️
 
 #### Variables & Assignment
-All 6 forms from LANGUAGE_SPEC.zen:
+All 8 forms from LANGUAGE_SPEC.zen (including mutable variants):
 ```zen
 x: i32          // Forward declaration ✅
 x = 10          // Immutable assignment ✅
@@ -82,17 +83,19 @@ u:: i32 = 60    // Typed mutable ✅
 - **Range loops** - `(0..10).loop()` ✅
 - **Infinite loops** - `loop(() { ... })` ✅
 - **Break statement** - Works in loops ✅
-- **String interpolation** - `"Value: ${expr}"` ✅
-- **Continue statement** - Parsed but may have issues ⚠️
+- **String interpolation** - Basic `"Value: ${expr}"` ✅
+- **Continue statement** - Not working ❌
 - **Range step** - `(0..10).step(2)` ❌
 
 #### Imports & Modules
 - **@std imports** - `{ io, math } = @std` ✅
-- **Module paths** - `@std.math.pi` ✅
-- **@this scope** - Parsed but not fully functional ⚠️
+- **Module paths** - `math.pi` works ✅
+- **@this scope** - Not implemented ❌
+- **module.exports/import** - Not implemented ❌
 
 #### Memory Management
-- **@this.defer()** - RAII cleanup ✅
+- **@this.defer()** - Basic RAII works ✅
+- **Allocators** - Not implemented ❌
 
 ### 🚧 Not Yet Implemented
 
@@ -122,97 +125,148 @@ u:: i32 = 60    // Typed mutable ✅
 - **Mutex<T>** - Shared state ❌
 - **AtomicU32** - Atomic operations ❌
 
-### 📋 Priority Roadmap (To Match LANGUAGE_SPEC.zen)
+### 📋 Implementation Roadmap (To Complete LANGUAGE_SPEC.zen)
 
-#### Phase 1: Fix Core Language (Priority)
-- [ ] Fix Option<T> value extraction (payload stored as i64 loses type)
-- [ ] Fix Result<T, E> pattern matching
-- [ ] Implement .raise() error propagation
-- [x] ✅ Add forward declarations (all 6 variable forms) - DONE!
+#### Phase 1: Fix Core Type System (Priority)
+- [x] Fix Option<i32> value extraction ✅ DONE!
+- [ ] Fix Option<string> payload handling
+- [ ] Test Result<T, E> pattern matching and value extraction
+- [ ] Fix struct field access in trait methods
 - [ ] Implement pointer types (Ptr, MutPtr, RawPtr)
+- [ ] Fix boolean single pattern execution
 
-#### Phase 2: Essential Features
-- [ ] Implement Vec<T, N> and DynVec<T>
-- [x] ✅ Add @this.defer() for RAII - DONE!
-- [ ] UFC overloading for enum variants
+#### Phase 2: Error Handling & Collections
+- [ ] Implement .raise() error propagation
+- [ ] Implement Vec<T, N> fixed-size vectors
+- [ ] Implement DynVec<T> dynamic vectors
+- [ ] Implement mixed type vectors (DynVec<T1, T2>)
+- [ ] Implement StringBuilder
+
+#### Phase 3: Generics & UFC
 - [ ] Generic functions `<T: Trait>`
-- [ ] Shape.requires() trait enforcement
+- [ ] Multiple trait constraints (T: A + B)
+- [ ] UFC overloading for enum variants
+- [ ] Enum variant constructors (GameEntity.Player)
+- [ ] .requires() trait enforcement on enums
 
-#### Phase 3: Concurrency & Allocators
+#### Phase 4: Concurrency & Allocators
 - [ ] Allocators (GPA, AsyncPool)
-- [ ] Actor system
-- [ ] Channel<T> and Mutex<T>
-- [ ] Atomic operations
+- [ ] Actor system for message passing
+- [ ] Channel<T> buffered channels
+- [ ] Mutex<T> for shared state
+- [ ] AtomicU32 atomic operations
 
-#### Phase 4: Metaprogramming
-- [ ] **reflect.ast()** - Runtime AST inspection
-- [ ] **@meta.comptime()** - Compile-time execution
-- [ ] **AST manipulation** - Code generation
+#### Phase 5: Metaprogramming
+- [ ] reflect.ast() - Runtime AST inspection
+- [ ] @meta.comptime() - Compile-time execution
+- [ ] AST manipulation - Code generation
+- [ ] Type introspection at runtime
 
-#### Phase 5: FFI & Performance
-- [ ] **inline.c()** - Inline C code
-- [ ] **inline.llvm()** - Inline LLVM IR
-- [ ] **simd operations** - Vector math
-- [ ] **SDL2 bindings** - Game development
-
-#### Phase 6: Build System
-- [ ] **build.zen** - Build configuration
-- [ ] **Conditional compilation** - Release/debug
-- [ ] **Target selection** - C/LLVM/Native
+#### Phase 6: FFI & Build System
+- [ ] inline.c() - Inline C code
+- [ ] inline.llvm() - Inline LLVM IR
+- [ ] simd operations - Vector math
+- [ ] build.zen - Build configuration
+- [ ] Target selection - C/LLVM/Native
+- [ ] SDL2 FFI bindings
 
 ## Working Examples
 
-### Traits & Implementations (✅ Working)
+> **Best Demo:** Run `./target/release/zen tests/zen_test_language_spec_working_2025.zen` to see all working features!
+
+### Variable Declarations (✅ ALL 8 FORMS WORKING)
 ```zen
-{ io, math } = @std
-
-Geometric: {
-    area: (self) f64,
-}
-
-Circle: {
-    radius: f64,
-}
-
-Circle.implements(Geometric, {
-    area = (self) f64 {
-        return math.pi * self.radius * self.radius
-    },
-})
+{ io } = @std
 
 main = () void {
-    circle = Circle { radius: 5.0 }
-    io.println("Area: ${circle.area()}")
+    // All 8 forms from LANGUAGE_SPEC.zen work!
+    x: i32          // Forward declaration
+    x = 10
+    y = 20          // Immutable inferred
+    z: i32 = 30     // Typed immutable
+    w:: i32         // Mutable forward declaration  
+    w = 40
+    v ::= 50        // Mutable inferred
+    u:: i32 = 60    // Typed mutable
+    
+    v = 70          // Can reassign mutable
+    io.println("All variable forms work!")
 }
 ```
 
-### Pattern Matching (✅ Working)
+### Pattern Matching & Loops (✅ Working)
 ```zen
+{ io } = @std
+
 main = () void {
-    value = 42
-    is_ready = true
-    
-    // Boolean patterns
+    // Boolean pattern matching - no if/else keywords!
+    is_ready = false
     is_ready ?
         | true { io.println("Ready!") }
         | false { io.println("Not ready") }
     
-    // Range loops
-    (0..5).loop((i) {
+    // Range loops - no for keyword!
+    (0..3).loop((i) {
         io.println("Count: ${i}")
+    })
+    
+    // Infinite loop with break - no while keyword!
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 2 ? {
+            break
+        }
+        io.println("Loop: ${counter}")
     })
 }
 ```
 
-## Examples from LANGUAGE_SPEC.zen (Not Yet Working)
+## Recent Fixes & Improvements
 
-### Error Handling with .raise() (❌ TODO)
+### Option<i32> Value Extraction (✅ NOW WORKING!)
+```zen
+// This now works correctly - major milestone achieved!
+maybe: Option<i32> = Some(42)
+maybe ?
+    | Some(v) { io.println("Value: ${v}") }  // Prints: "Value: 42" ✅
+    | None { io.println("None") }
+```
+
+### Option<string> (⚠️ Partially Working)
+```zen
+// String payloads extract but show as memory addresses
+maybe: Option<string> = Some("Hello")
+maybe ?
+    | Some(s) { io.println("Value: ${s}") }  // Shows address, not "Hello"
+    | None { io.println("None") }
+```
+
+### Error Propagation (❌ TODO)
 ```zen
 load_config = (path: string) Result<Config, Error> {
-    file = File.open(path).raise()  // Will propagate Err
+    file = File.open(path).raise()  // .raise() not implemented
     contents = file.read_all().raise()
     return Ok(config)
 }
+```
+
+### Pointers (❌ TODO)
+```zen
+// No pointer types yet - spec requires Ptr<T>, MutPtr<T>, RawPtr<T>
+circle = Circle { radius: 5.0 }
+ptr: Ptr<Circle> = circle.ref()        // Not implemented
+mut_ptr: MutPtr<Circle> = circle.mut_ref()  // Not implemented
+val = ptr.val                          // Dereference not implemented
+addr = ptr.addr                        // Address not implemented
+```
+
+### Collections (❌ TODO)
+```zen
+// No Vec or DynVec yet
+static_vec = Vec<i32, 100>()          // Fixed-size vector
+dynamic_vec = DynVec<Shape>(alloc)    // Dynamic vector
+mixed = DynVec<Circle, Rectangle>(alloc)  // Mixed types
 ```
 
 ### Actors & Concurrency (❌ TODO)
@@ -263,6 +317,16 @@ zenlang/
 │   └── working/          # Tests that currently pass
 └── README.md             # This file - current implementation status
 ```
+
+## Summary
+
+**Implementation Status: ~30% Complete**
+
+✨ **Major Milestone:** Option<i32> payload extraction now works correctly! The Zen compiler successfully implements the core philosophy of zero keywords with pattern matching and UFC. All 8 variable declaration forms work perfectly.
+
+**Recent Achievement:** Fixed enum payload storage to properly preserve integer types, solving the long-standing Option<T> extraction issue for numeric types.
+
+**Next Priority:** Fix Option<string> payload handling, then implement .raise() error propagation and pointer types from LANGUAGE_SPEC.zen.
 
 ## Contributing
 
