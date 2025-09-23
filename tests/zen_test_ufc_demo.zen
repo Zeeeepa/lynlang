@@ -1,0 +1,33 @@
+// Test UFC (Uniform Function Call) from LANGUAGE_SPEC.zen
+// Any function can be called as a method
+
+{ io } = @std
+
+// Define a regular function
+double = (x: i32) i32 {
+    return x * 2
+}
+
+// Define another function
+add_ten = (x: i32) i32 {
+    return x + 10
+}
+
+main = () void {
+    io.println("=== Testing UFC ===")
+    
+    // Traditional function call
+    value = 5
+    result1 = double(value)
+    io.println("double(5) = ${result1}")
+    
+    // UFC: call function as method (should work per spec)
+    // result2 = value.double()
+    // io.println("5.double() = ${result2}")
+    
+    // Chaining with UFC
+    // result3 = value.double().add_ten()
+    // io.println("5.double().add_ten() = ${result3}")
+    
+    io.println("Note: UFC method syntax not yet working")
+}
