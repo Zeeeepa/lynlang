@@ -169,11 +169,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             },
             AstType::Result { ok_type, err_type } => {
-                // Result<T, E> is represented as a struct with a tag and union
-                // For now, just use a pointer to represent it
-                let _ok_type = self.to_llvm_type(ok_type)?;
-                let _err_type = self.to_llvm_type(err_type)?;
-                Ok(Type::Basic(self.context.ptr_type(AddressSpace::default()).into()))
+                // Result<T, E> is represented as a tagged union struct
+                // Struct layout: { tag: i64, payload: max(sizeof(T), sizeof(E)) }
+                let ok_llvm = self.to_llvm_type(ok_type)?;
+                let err_llvm = self.to_llvm_type(err_type)?;
+                
+                // For now, create a struct that can hold either type
+                // We'll use i64 for both to ensure consistent size
+                let result_struct = self.context.struct_type(&[
+                    self.context.i64_type().into(),  // tag (0 = Ok, 1 = Err)
+                    self.context.i64_type().into(),  // payload (simplified for now)
+                ], false);
+                
+                Ok(Type::Struct(result_struct))
             },
             AstType::Range { start_type, end_type, inclusive: _ } => {
                 // Range is represented as a struct with start and end values

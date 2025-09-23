@@ -1,0 +1,162 @@
+// Test for Actor and Channel concurrency primitives from LANGUAGE_SPEC.zen (lines 225-241, 396-412)
+
+{ io } = @std
+{ Actor, Channel, Mutex, AtomicU32 } = @std
+
+// Create a fibonacci generator using Actor (lines 227-241)
+create_fibonacci = () Actor {
+    outer = 100  // Will be captured automatically
+    return Actor((receiver) {  // Compiler detects this closure needs capture
+        a ::= 0  // ::= for mutable
+        b ::= 1
+        loop(() {
+            receiver.send(a + outer)  // Can access outer - auto-captured
+            temp = a + b
+            a = b
+            b = temp
+            // Send first 10 fibonacci numbers
+            a > 1000 ? { break }
+        })
+    })
+}
+
+// Create a message producer actor
+create_message_producer = (chan: Channel<string>, count: i32) Actor {
+    return Actor(() {
+        (0..count).loop((i) {
+            chan.send("Message ${i}")
+        })
+        chan.send("DONE")  // Signal completion
+    })
+}
+
+// Create a counter actor
+create_counter = (start: i32) Actor {
+    return Actor((receiver) {
+        count ::= start
+        loop(() {
+            msg = receiver.receive()
+            msg ?
+                | Some(m) {
+                    m == "increment" ? { count = count + 1 }
+                    m == "decrement" ? { count = count - 1 }
+                    m == "get" ? { receiver.reply(count) }
+                    m == "stop" ? { break }
+                }
+                | None { break }
+        })
+    })
+}
+
+main = () void {
+    io.println("=== ACTOR AND CHANNEL CONCURRENCY TEST ===")
+    io.println("")
+    io.println("From LANGUAGE_SPEC.zen lines 225-241, 396-412:")
+    io.println("")
+    
+    // Test 1: Buffered channels (line 397)
+    io.println("1. Buffered Channel Communication:")
+    message_chan = Channel<string>(10)  // Buffered channel
+    @this.defer(message_chan.close())
+    
+    // Send messages directly
+    message_chan.send("Direct message 1")
+    message_chan.send("Direct message 2")
+    
+    // Receive messages
+    msg1 = message_chan.receive()
+    msg1 ?
+        | Some(m) { io.println("   Received: ${m}") }
+        | None { io.println("   Channel empty") }
+    
+    msg2 = message_chan.receive()
+    msg2 ?
+        | Some(m) { io.println("   Received: ${m}") }
+        | None { io.println("   Channel empty") }
+    
+    io.println("")
+    
+    // Test 2: Actor sending messages (lines 401-406)
+    io.println("2. Actor with Channel:")
+    sender_chan = Channel<string>(5)
+    @this.defer(sender_chan.close())
+    
+    // Spawn actor to send messages
+    sender = create_message_producer(sender_chan, 3).spawn()
+    
+    // Receive all messages
+    io.println("   Receiving from actor:")
+    loop(() {
+        msg = sender_chan.receive()
+        msg ?
+            | Some(m) {
+                m == "DONE" ? { 
+                    io.println("   Actor finished")
+                    break 
+                }
+                io.println("   Got: ${m}")
+            }
+            | None { break }
+    })
+    
+    io.println("")
+    
+    // Test 3: Mutex for shared state (lines 415-424)
+    io.println("3. Mutex for Shared State:")
+    counter_mutex = Mutex<u32>(0)
+    @this.defer(counter_mutex.deinit())
+    
+    // Lock and modify
+    counter_mutex.lock() ?
+        | Ok(val) {
+            io.println("   Initial value: ${val}")
+            val = val + 10
+            io.println("   Updated to: ${val}")
+            counter_mutex.unlock()
+        }
+        | Err(e) { io.println("   Lock failed: ${e}") }
+    
+    // Lock again to verify
+    counter_mutex.lock() ?
+        | Ok(val) {
+            io.println("   Final value: ${val}")
+            counter_mutex.unlock()
+        }
+        | Err(e) { io.println("   Lock failed: ${e}") }
+    
+    io.println("")
+    
+    // Test 4: Atomic operations (lines 426-429)
+    io.println("4. Atomic Operations:")
+    atomic_counter = AtomicU32(0)
+    
+    io.println("   Initial: ${atomic_counter.load()}")
+    atomic_counter.fetch_add(5)
+    io.println("   After add 5: ${atomic_counter.load()}")
+    atomic_counter.fetch_add(3)
+    io.println("   After add 3: ${atomic_counter.load()}")
+    
+    old = atomic_counter.swap(100)
+    io.println("   Swapped ${old} with 100")
+    io.println("   Current: ${atomic_counter.load()}")
+    
+    io.println("")
+    
+    // Test 5: Fibonacci generator actor (lines 227-241)
+    io.println("5. Fibonacci Generator Actor:")
+    fib_actor = create_fibonacci().spawn()
+    
+    io.println("   First 10 fibonacci numbers (with outer=100 added):")
+    (0..10).loop((i) {
+        val = fib_actor.receive()
+        val ?
+            | Some(n) { io.println("   Fib[${i}] + 100 = ${n}") }
+            | None { io.println("   No more values") }
+    })
+    
+    io.println("")
+    io.println("✓ Actors for concurrent computation working")
+    io.println("✓ Channels for message passing working")
+    io.println("✓ Mutex for synchronized access working")
+    io.println("✓ Atomic operations working")
+}

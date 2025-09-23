@@ -1,0 +1,28 @@
+// Test mutable reassignment inside loops
+{ io } = @std
+
+main = () void {
+    // Test reassignment in loop body
+    counter ::= 0
+    
+    loop(() {
+        counter = counter + 1
+        counter > 3 ? { break }
+        io.println("Counter: ${counter}")
+    })
+    
+    // Test fibonacci pattern
+    a ::= 0
+    b ::= 1
+    count ::= 0
+    
+    loop(() {
+        count = count + 1
+        count > 5 ? { break }
+        
+        io.println("Fib: ${a}")
+        temp ::= a + b
+        a = b
+        b = temp
+    })
+}

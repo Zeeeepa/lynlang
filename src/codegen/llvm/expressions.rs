@@ -664,7 +664,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 None => {
                     // Fallback to basic representation if enum not found in symbol table
                     // This maintains backward compatibility
-                    let tag = 0;
+                    // Special handling for Result type variants
+                    let tag = if variant == "Ok" {
+                        0
+                    } else if variant == "Err" {
+                        1
+                    } else if variant == "Some" {
+                        0
+                    } else if variant == "None" {
+                        1
+                    } else {
+                        0
+                    };
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     
                     // Create proper enum struct type based on payload
@@ -714,7 +725,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 _ => {
                     // Fallback to basic representation if enum not found in symbol table
                     // This maintains backward compatibility
-                    let tag = 0;
+                    // Special handling for Result type variants
+                    let tag = if variant == "Ok" {
+                        0
+                    } else if variant == "Err" {
+                        1
+                    } else if variant == "Some" {
+                        0
+                    } else if variant == "None" {
+                        1
+                    } else {
+                        0
+                    };
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     
                     // Create proper enum struct type based on payload

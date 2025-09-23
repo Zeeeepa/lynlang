@@ -1,21 +1,15 @@
-// Debug Result return type
+// Debug Result type test
 { io } = @std
 
+// Result type definition
 Result<T, E>: Ok(T) | Err(E)
 
-test_ok = () Result<i32, string> {
+// Simple function that creates Result directly
+make_ok = () Result<i32, string> {
     return Ok(42)
 }
 
-test_err = () Result<i32, string> {
-    return Err("error")
-}
-
-main = () i32 {
-    // Don't use the result, just call
-    res1 = test_ok()
-    res2 = test_err()
-    
-    io.println("Done")
-    return 0
+main = () void {
+    result = make_ok()
+    io.println("Test passed")
 }

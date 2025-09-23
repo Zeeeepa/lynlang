@@ -1,0 +1,22 @@
+// Test mutable reassignment inside closures
+{ io } = @std
+
+test_closure = () void {
+    outer = 100
+    
+    // Closure with mutable variables
+    closure = () {
+        a ::= 0
+        b ::= 1
+        temp ::= a + b
+        a = b
+        b = temp
+        io.println("In closure - a: ${a}, b: ${b}")
+    }
+    
+    closure()
+}
+
+main = () void {
+    test_closure()
+}
