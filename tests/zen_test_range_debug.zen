@@ -1,0 +1,26 @@
+// Debug range loop issue
+
+{ io } = @std
+
+main = () void {
+    io.println("Starting range test")
+    
+    // Test 1: Simple range
+    io.println("Test 1: 0..3")
+    (0..3).loop((i) {
+        io.println("i = ${i}")
+    })
+    
+    io.println("Test 1 complete")
+    
+    // Test 2: Inclusive range
+    io.println("Test 2: 0..=2")
+    (0..=2).loop((j) {
+        io.println("j = ${j}")
+    })
+    
+    io.println("Test 2 complete")
+    
+    // Test 3: Range with step (if supported)
+    io.println("Test 3: Done")
+}

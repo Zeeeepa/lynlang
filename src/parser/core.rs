@@ -41,10 +41,8 @@ impl<'a> Parser<'a> {
     /// Check if the current position looks like an import statement
     pub fn is_import_statement(&self) -> bool {
         // Check for @std imports
-        if let Token::Symbol('@') = self.current_token {
-            if let Token::Identifier(ref s) = self.peek_token {
-                return s == "std";
-            }
+        if self.current_token == Token::AtStd {
+            return true;
         }
         
         // Check for identifiers that might be followed by := @std or .import()
@@ -85,7 +83,7 @@ impl<'a> Parser<'a> {
                     return true;
                 }
                 if let Expression::Identifier(name) = &**object {
-                    name.starts_with("@std")
+                    name == "@std" || name.starts_with("@std")
                 } else {
                     false
                 }
@@ -96,7 +94,7 @@ impl<'a> Parser<'a> {
             }
             Expression::Identifier(name) => {
                 // Check for direct @std references
-                name.starts_with("@std")
+                name == "@std" || name.starts_with("@std")
             }
             _ => false
         }

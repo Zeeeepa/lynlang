@@ -1,0 +1,23 @@
+// Test variable declarations from LANGUAGE_SPEC.zen
+main = () void {
+    // Immutable assignment
+    x = 10
+    y = 20
+    
+    // Immutable with type
+    z: i32 = 30
+    
+    // Mutable assignment
+    v ::= 50
+    
+    // Mutable with type
+    u :: i32 = 60
+    
+    // Forward declarations
+    a: i32      // immutable forward declaration
+    a = 100
+    
+    b :: i32    // mutable forward declaration
+    b = 200
+    b = 250     // Can reassign mutable
+}

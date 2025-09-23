@@ -1,56 +1,59 @@
-// Zen Language Quickstart
-// A concise introduction to core language features
+// Zen Quick Start - Learn in 5 minutes
 
-core {  } = @std
-io {  } = @std
+{ io, Result } = @std
 
-// Simple struct
-Point: { x: f64, y: f64 }
-
-// Enum with variants
-Shape:
-    | Circle: { radius: f64 } = { radius: 0.0 } // with default value of .circle
-    | Rectangle: { width: f64, height: f64 }
-    | Triangle: { base: f64, height: f64 }
-    = Circle (radius: 0.0 ) // default shape enum 
-
-// Function calculating area using pattern matching
-calculate_area = (shape: Shape) f64  {
-    // No if/else - only pattern matching with ?
-    area := shape ? | Circle(r) { 3.14159 * r * r }
-                   | Rectangle(w, h) { w * h }
-                   | Triangle(b, h) { 0.5 * b * h }
-    return area
-}
-
-// Main function
-main = () void  {
-    // Immutable binding with :=
-    pi : f64 = 3.14159
-
-    pi = 3.14159 // type can be ommited
-    // Mutable binding with :=
-    total_area := 0.0
+main = () void {
+    io.println("Welcome to Zen! 🎯\n")
     
-    // Create shapes
-    shapes: Array<Shape> = [
-        Shape.Circle(5.0),
-        Shape.Rectangle(10.0, 20.0),
-        Shape.Triangle(8.0, 6.0)
-    ]
+    // Variables - immutable by default
+    name := "Alice"
+    mut count := 0
+    age: u32 = 25
     
-    // Loop through shapes
-    shapes.iter().loop((shape){
-        area := calculate_area(shape)
-        total_area = total_area + area
-        
-        // Pattern match for description
-        desc := shape ? | Circle(r) { "Circle with radius $(r)" }
-                       | Rectangle(w, h) { "Rectangle $(w)x$(h)" }
-                       | Triangle(b, h) { "Triangle base=$(b) height=$(h)" }
-        
-        io.print("$(desc): area = $(area)\n")
-    })
+    // Functions
+    greet = (who: string) string {
+        return "Hello, ${who}!"
+    }
+    io.println(greet(name))
     
-    io.print("Total area: $(total_area)\n")
+    // Structs with methods
+    Point: { x: i32, y: i32 }
+    Point.magnitude = (self) f64 {
+        return (self.x * self.x + self.y * self.y).sqrt()
+    }
+    
+    p := Point { x: 3, y: 4 }
+    io.println("Magnitude: ${p.magnitude()}")
+    
+    // Pattern matching with ?
+    age >= 18 ?
+        | true { io.println("Adult") }
+        | false { io.println("Minor") }
+    
+    // Error handling
+    divide = (a: f64, b: f64) Result<f64, string> {
+        b == 0 ?
+            | true { Result.Err("divide by zero") }
+            | false { Result.Ok(a / b) }
+    }
+    
+    divide(10, 2) ?
+        | Ok -> v { io.println("Result: ${v}") }
+        | Err -> e { io.println("Error: ${e}") }
+    
+    // Loops and ranges
+    for i in 0..3 {
+        count += i
+    }
+    io.println("Sum: ${count}")
+    
+    // Arrays
+    nums := [1, 2, 3, 4, 5]
+    doubled := nums.map((n) => n * 2)
+    io.println("Doubled: ${doubled}")
+    
+    io.println("\n✨ Ready to code! Try:")
+    io.println("  • basics/     - fundamentals")
+    io.println("  • patterns/   - idioms")
+    io.println("  • showcase/   - advanced")
 }

@@ -1,0 +1,84 @@
+// Comprehensive test of LANGUAGE_SPEC.zen features
+
+// Import syntax (lines 92-94)
+{ io, math } = @std
+
+// Type definitions (lines 109-113)
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+// Struct with mutable fields (lines 116-120)
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+// Enum type (line 165)
+Shape: Circle | Rectangle
+
+// Function definition (line 198-203)
+parse_radius = (s: string) Result<f64, string> {
+    s.to_f64() ?
+        | Some(val) { return Ok(val) }
+        | None { return Err("Invalid radius") }
+}
+
+// Main function demonstrating various features
+main = () void {
+    io.println("Testing LANGUAGE_SPEC.zen compliance")
+    
+    // Variable declarations (lines 299-306)
+    x: i32
+    x = 10
+    y = 20
+    z: i32 = 30
+    w :: i32
+    w = 40
+    v ::= 50
+    u :: i32 = 60
+    
+    // Pattern matching (lines 352-361)
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // Option handling (lines 462-473)
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            io.println("Radius: ${r}")
+        }
+        | None {
+            io.println("No radius")
+        }
+    
+    // Struct usage (lines 364-370)
+    point = Point { x: 100, y: 100 }
+    io.println("Point x: ${point.x}")
+    
+    // Mutable struct field modification
+    point.x = 150
+    io.println("Updated x: ${point.x}")
+    
+    // Range iteration (lines 431-434)
+    (0..3).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Loop with break (lines 453-459)
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 2 ?
+            | true { break }
+            | false { }
+    })
+    
+    io.println("All tests complete!")
+}

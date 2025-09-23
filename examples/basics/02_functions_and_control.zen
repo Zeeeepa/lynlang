@@ -1,0 +1,74 @@
+// Functions and Control Flow
+// Function definitions and control structures
+
+{ io } = @std
+
+// Simple function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Multiple return values
+divide = (a: f64, b: f64) (f64, bool) {
+    b == 0.0 ?
+        | true { return (0.0, false) }
+        | false { return (a / b, true) }
+}
+
+// Pattern matching
+classify = (x: i32) string {
+    x < 0 ?
+        | true { return "negative" }
+        | false {
+            x == 0 ?
+                | true { return "zero" }
+                | false { return "positive" }
+        }
+}
+
+// Loops
+sum_range = (start: i32, end: i32) i32 {
+    mut sum := 0
+    
+    // For loop with range
+    for i in start..end {
+        sum += i
+    }
+    
+    return sum
+}
+
+// While loop
+count_down = (n: i32) void {
+    mut current := n
+    while current > 0 {
+        io.println("${current}")
+        current -= 1
+    }
+}
+
+main = () void {
+    io.println("=== Functions & Control ===")
+    
+    // Function calls
+    result := add(10, 20)
+    io.println("10 + 20 = ${result}")
+    
+    // Multiple returns
+    (quotient, ok) := divide(10.0, 3.0)
+    ok ?
+        | true { io.println("10 / 3 = ${quotient}") }
+        | false { io.println("Division failed") }
+    
+    // Pattern matching
+    io.println("-5 is ${classify(-5)}")
+    io.println("0 is ${classify(0)}")
+    io.println("10 is ${classify(10)}")
+    
+    // Loops
+    total := sum_range(1, 11)
+    io.println("Sum 1..10 = ${total}")
+    
+    io.println("Countdown:")
+    count_down(3)
+}

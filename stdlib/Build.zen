@@ -373,7 +373,7 @@ Build: {
     option: (comptime T: type, name: String, description: String) ?T {
         // Check if option was provided
         self.options_map.get(name) ?
-            | Some -> value { return @as(T, value) }
+            | Some(value) { return @as(T, value) }
             | None { return null }
     }
     

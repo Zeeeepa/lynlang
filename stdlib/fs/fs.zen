@@ -116,14 +116,53 @@ path_is_absolute = (path: PathBuf) bool   {
 }
 
 // External functions for file system operations
-extern stat(path: *u8, buf: RawPtr<void>) i32
-extern mkdir(path: *u8, mode: i32) i32
-extern rmdir(path: *u8) i32
-extern unlink(path: *u8) i32
-extern rename(old_path: *u8, new_path: *u8) i32
-extern getcwd(buf: *u8, size: i64) *u8
-extern chdir(path: *u8) i32
-extern access(path: *u8, mode: i32) i32
+stat = (path: *u8, buf: RawPtr<void>) i32 {
+    inline.c("""
+        return stat(${path.addr}, ${buf.addr});
+    """)
+}
+
+mkdir = (path: *u8, mode: i32) i32 {
+    inline.c("""
+        return mkdir(${path.addr}, ${mode});
+    """)
+}
+
+rmdir = (path: *u8) i32 {
+    inline.c("""
+        return rmdir(${path.addr});
+    """)
+}
+
+unlink = (path: *u8) i32 {
+    inline.c("""
+        return unlink(${path.addr});
+    """)
+}
+
+rename = (old_path: *u8, new_path: *u8) i32 {
+    inline.c("""
+        return rename(${old_path.addr}, ${new_path.addr});
+    """)
+}
+
+getcwd = (buf: *u8, size: i64) *u8 {
+    inline.c("""
+        return getcwd(${buf.addr}, ${size});
+    """)
+}
+
+chdir = (path: *u8) i32 {
+    inline.c("""
+        return chdir(${path.addr});
+    """)
+}
+
+access = (path: *u8, mode: i32) i32 {
+    inline.c("""
+        return access(${path.addr}, ${mode});
+    """)
+}
 
 // File access modes for access()
 F_OK : 0  // Check existence

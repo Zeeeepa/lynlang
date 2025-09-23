@@ -1,0 +1,15 @@
+// Test range explicitly
+
+{ io } = @std
+
+main = () void {
+    // Create range first, then call loop
+    my_range = (0..3)
+    
+    // Call loop on the range
+    my_range.loop((idx) {
+        io.println("Index: ${idx}")
+    })
+    
+    io.println("Done")
+}

@@ -1,0 +1,103 @@
+// Module System
+// Organizing code with module.exports
+
+{ io } = @std
+{ Vec, HashMap } = @std.collections
+
+// === Module: math_utils ===
+
+// Constants
+PI := 3.14159265359
+E := 2.718281828
+
+// Public functions
+square = (x: f64) f64 {
+    return x * x
+}
+
+distance = (x1: f64, y1: f64, x2: f64, y2: f64) f64 {
+    dx := x2 - x1
+    dy := y2 - y1
+    return (dx * dx + dy * dy).sqrt()
+}
+
+clamp = (value: f64, min: f64, max: f64) f64 {
+    value < min ? | true { return min } | false {}
+    value > max ? | true { return max } | false {}
+    return value
+}
+
+// === Module: data_structures ===
+
+Stack<T>: {
+    items: Vec<T>,
+}
+
+Stack.new = () Stack<T> {
+    return Stack { items: Vec<T>.new() }
+}
+
+Stack.push = (mut self, item: T) void {
+    self.items.push(item)
+}
+
+Stack.pop = (mut self) Option<T> {
+    return self.items.pop()
+}
+
+Stack.is_empty = (self) bool {
+    return self.items.len() == 0
+}
+
+// === Module exports ===
+// In a real module file, this would be at the end
+
+math_utils.exports = {
+    PI: PI,
+    E: E,
+    square: square,
+    distance: distance,
+    clamp: clamp,
+}
+
+data_structures.exports = {
+    Stack: Stack,
+}
+
+// === Usage example ===
+
+main = () void {
+    io.println("=== Module System Demo ===")
+    
+    // Using math utilities
+    io.println("\nMath utilities:")
+    io.println("PI = ${PI}")
+    io.println("5 squared = ${square(5.0)}")
+    
+    dist := distance(0.0, 0.0, 3.0, 4.0)
+    io.println("Distance from origin to (3,4) = ${dist}")
+    
+    clamped := clamp(150.0, 0.0, 100.0)
+    io.println("150 clamped to [0,100] = ${clamped}")
+    
+    // Using data structures
+    io.println("\nStack operations:")
+    mut stack := Stack<string>.new()
+    
+    stack.push("first")
+    stack.push("second")
+    stack.push("third")
+    
+    while !stack.is_empty() {
+        stack.pop() ?
+            | Some -> val { io.println("Popped: ${val}") }
+            | None { break }
+    }
+    
+    // In a real scenario, you'd import like:
+    // math = module.import("math_utils")
+    // result := math.square(10.0)
+    // 
+    // Or selective import:
+    // { square, distance } = module.import("math_utils")
+}

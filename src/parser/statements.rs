@@ -54,7 +54,33 @@ impl<'a> Parser<'a> {
                 self.next_token(); // consume '='
                 
                 // Expect @std or @std.module reference
-                if let Token::Identifier(module) = &self.current_token {
+                if self.current_token == Token::AtStd {
+                    let mut module_path = "@std".to_string();
+                    self.next_token();
+                    
+                    // Handle @std.module syntax
+                    while self.current_token == Token::Symbol('.') {
+                        self.next_token(); // consume '.'
+                        if let Token::Identifier(member) = &self.current_token {
+                            module_path.push('.');
+                            module_path.push_str(member);
+                            self.next_token();
+                        } else {
+                            return Err(CompileError::SyntaxError(
+                                "Expected identifier after '.'".to_string(),
+                                Some(self.current_span.clone()),
+                            ));
+                        }
+                    }
+                    
+                    // Create imports from the specified module
+                    for name in imported_names {
+                        declarations.push(Declaration::ModuleImport {
+                            alias: name.clone(),
+                            module_path: format!("{}.{}", module_path, name),
+                        });
+                    }
+                } else if let Token::Identifier(module) = &self.current_token {
                     if module.starts_with("@std") {
                         let mut module_path = module.clone();
                         self.next_token();
@@ -111,7 +137,9 @@ impl<'a> Parser<'a> {
                     self.next_token(); // Move past :=
                     
                     // Check if the right side starts with @std or is a build.import call
-                    let is_module_import = if let Token::Identifier(id) = &self.current_token {
+                    let is_module_import = if self.current_token == Token::AtStd {
+                        true
+                    } else if let Token::Identifier(id) = &self.current_token {
                         if id.starts_with("@std") {
                             true
                         } else if id == "build" {
@@ -773,10 +801,6 @@ impl<'a> Parser<'a> {
                     
                     // Add comptime block to declarations
                     declarations.push(Declaration::ComptimeBlock(statements));
-                } else if id == "extern" {
-                    // Parse external function declaration
-                    self.next_token(); // consume 'extern'
-                    declarations.push(Declaration::ExternalFunction(self.parse_external_function()?));
                 } else {
                     return Err(CompileError::SyntaxError(
                         format!("Unexpected identifier at top level: {:?}", id),
@@ -911,7 +935,7 @@ impl<'a> Parser<'a> {
                 self.next_token(); // consume '}'
                 Ok(Statement::ComptimeBlock(statements))
             }
-            Token::Identifier(id) if id == "@this" => {
+            Token::AtThis => {
                 // Parse @this.defer() statement
                 self.next_token(); // consume '@this'
                 
@@ -923,8 +947,8 @@ impl<'a> Parser<'a> {
                 }
                 self.next_token(); // consume '.'
                 
-                if let Token::Identifier(method) = &self.current_token {
-                    if method == "defer" {
+                if let Token::Identifier(id) = &self.current_token {
+                    if id == "defer" {
                         self.next_token(); // consume 'defer'
                         
                         if self.current_token != Token::Symbol('(') {
@@ -954,13 +978,13 @@ impl<'a> Parser<'a> {
                         Ok(Statement::ThisDefer(expr))
                     } else {
                         return Err(CompileError::SyntaxError(
-                            format!("Unexpected method '{}' after '@this.' - only 'defer' is supported", method),
+                            "Expected 'defer' after '@this.' - only 'defer' is supported".to_string(),
                             Some(self.current_span.clone()),
                         ));
                     }
                 } else {
                     return Err(CompileError::SyntaxError(
-                        "Expected method name after '@this.'".to_string(),
+                        "Expected 'defer' after '@this.' - only 'defer' is supported".to_string(),
                         Some(self.current_span.clone()),
                     ));
                 }
@@ -969,23 +993,21 @@ impl<'a> Parser<'a> {
             Token::Identifier(_name) => {
                 // Check for variable declarations using peek tokens
                 match &self.peek_token {
-                    Token::Operator(op) if op == ":=" => {
-                        // Immutable declaration with := (inferred type)
+                    Token::Operator(op) if op == "=" => {
+                        // Immutable assignment with = (per LANGUAGE_SPEC.zen)
                         self.parse_variable_declaration()
                     }
                     Token::Operator(op) if op == "::=" => {
-                        // Mutable declaration with ::=
+                        // Mutable assignment with ::=
                         self.parse_variable_declaration()
                     }
                     Token::Symbol(':') => {
+                        // Type declaration: name : T or name : T = value
                         self.parse_variable_declaration()
                     }
                     Token::Operator(op) if op == "::" => {
+                        // Mutable type declaration: name :: T or name :: T = value
                         self.parse_variable_declaration()
-                    }
-                    Token::Operator(op) if op == "=" => {
-                        // Parse as assignment - typechecker will determine if it's a declaration or reassignment
-                        self.parse_variable_assignment()
                     }
                     Token::Symbol('.') | Token::Symbol('[') => {
                         // Could be member access or array indexing followed by assignment
@@ -1068,13 +1090,8 @@ impl<'a> Parser<'a> {
         self.next_token();
         
         let (is_mutable, declaration_type, type_) = match &self.current_token {
-            Token::Operator(op) if op == ":=" => {
-                // Inferred immutable: name := value (as per LANGUAGE_SPEC.zen)
-                self.next_token();
-                (false, VariableDeclarationType::InferredImmutable, None)
-            }
             Token::Operator(op) if op == "=" => {
-                // Inferred immutable: name = value (also accepted)
+                // Immutable assignment: name = value (per LANGUAGE_SPEC.zen)
                 self.next_token();
                 (false, VariableDeclarationType::InferredImmutable, None)
             }

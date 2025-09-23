@@ -1,0 +1,12 @@
+main = () void {
+    // Simple loop() test
+    loop(() {
+        break
+    })
+    
+    // Simple range with loop test
+    nums = Vec<i32, 5>()
+    nums.loop((n) {
+        io.println("hi")
+    })
+}

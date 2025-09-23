@@ -5,10 +5,29 @@
 // Memory Management
 // ==========================================
 
-extern malloc = (size: i64) RawPtr<void>
-extern free = (ptr: RawPtr<void>) void
-extern memcpy = (dest: RawPtr<void>, src: RawPtr<void>, size: i64) void
-extern memset = (ptr: RawPtr<void>, value: i32, size: i64) void
+malloc = (size: i64) RawPtr<void> {
+    inline.c("""
+        return malloc(${size});
+    """)
+}
+
+free = (ptr: RawPtr<void>) void {
+    inline.c("""
+        free(${ptr.addr});
+    """)
+}
+
+memcpy = (dest: RawPtr<void>, src: RawPtr<void>, size: i64) void {
+    inline.c("""
+        memcpy(${dest.addr}, ${src.addr}, ${size});
+    """)
+}
+
+memset = (ptr: RawPtr<void>, value: i32, size: i64) void {
+    inline.c("""
+        memset(${ptr.addr}, ${value}, ${size});
+    """)
+}
 
 // Memory allocator interface
 Allocator: {
@@ -310,10 +329,29 @@ hashmap_resize<K, V>: (map: *HashMap<K, V>, new_capacity: i64) void  = {
 // String Operations
 // ==========================================
 
-extern strlen = (str: RawPtr<i8>) i64
-extern strcmp = (s1: RawPtr<i8>, s2: RawPtr<i8>) i32
-extern strcpy = (dest: RawPtr<i8>, src: RawPtr<i8>) RawPtr<i8>
-extern strcat = (dest: RawPtr<i8>, src: RawPtr<i8>) RawPtr<i8>
+strlen = (str: RawPtr<i8>) i64 {
+    inline.c("""
+        return strlen(${str.addr});
+    """)
+}
+
+strcmp = (s1: RawPtr<i8>, s2: RawPtr<i8>) i32 {
+    inline.c("""
+        return strcmp(${s1.addr}, ${s2.addr});
+    """)
+}
+
+strcpy = (dest: RawPtr<i8>, src: RawPtr<i8>) RawPtr<i8> {
+    inline.c("""
+        return strcpy(${dest.addr}, ${src.addr});
+    """)
+}
+
+strcat = (dest: RawPtr<i8>, src: RawPtr<i8>) RawPtr<i8> {
+    inline.c("""
+        return strcat(${dest.addr}, ${src.addr});
+    """)
+}
 
 String: {
     data: RawPtr<i8>,
@@ -438,11 +476,24 @@ result_unwrap_err<T, E>: (res: Result<T, E>) E = {
 // Helper Functions
 // ==========================================
 
-extern panic = (msg: RawPtr<i8>) void
-extern sizeof<T> = () i64
+panic = (msg: RawPtr<i8>) void {
+    inline.c("""
+        panic(${msg.addr});
+    """)
+}
+
+sizeof<T> = () i64 {
+    inline.c("""
+        return sizeof(T);
+    """)
+}
 
 // Test the standard library
-extern printf = (RawPtr<i8>, ...) i32
+printf = (format: RawPtr<i8>, ...) i32 {
+    inline.c("""
+        return printf(${format.addr}, ...);
+    """)
+}
 
 test_stdlib = () void   {
     printf("Testing Zen standard library...\n")

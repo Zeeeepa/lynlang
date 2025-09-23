@@ -1,0 +1,366 @@
+// Zen Language - Comprehensive Showcase
+// Demonstrating the language's elegance, efficiency, and expressiveness
+
+{ io, fs, Result, Option } = @std
+{ Vec, HashMap, Set } = @std.collections
+{ Channel, spawn, AtomicU32, Mutex } = @std.concurrent
+{ requires, implements, reflect, meta } = @std
+
+// ===== Core Data Structures =====
+
+// Complex geometric system with behaviors
+Vector3: {
+    x: f64, y: f64, z: f64
+}
+
+Vector3.zero = () Vector3 { Vector3 { x: 0.0, y: 0.0, z: 0.0 } }
+Vector3.add = (self, other: Vector3) Vector3 {
+    Vector3 { x: self.x + other.x, y: self.y + other.y, z: self.z + other.z }
+}
+Vector3.dot = (self, other: Vector3) f64 {
+    self.x * other.x + self.y * other.y + self.z * other.z
+}
+Vector3.magnitude = (self) f64 {
+    (self.dot(self)).sqrt()
+}
+Vector3.normalize = (self) Vector3 {
+    mag := self.magnitude()
+    Vector3 { x: self.x / mag, y: self.y / mag, z: self.z / mag }
+}
+
+// Algebraic data type for game entities
+Entity: |
+    Player -> { 
+        id: u64,
+        position: Vector3,
+        health: i32,
+        inventory: Vec<Item>
+    }
+    | Enemy -> {
+        id: u64,
+        position: Vector3,
+        health: i32,
+        damage: i32,
+        ai_state: AIState
+    }
+    | Projectile -> {
+        id: u64,
+        position: Vector3,
+        velocity: Vector3,
+        damage: i32
+    }
+
+AIState: |
+    Idle
+    | Patrolling -> { path: Vec<Vector3> }
+    | Chasing -> { target_id: u64 }
+    | Attacking
+
+Item: |
+    Weapon -> { damage: i32, durability: i32 }
+    | Potion -> { heal_amount: i32 }
+    | Key -> { door_id: u64 }
+
+// ===== Advanced Pattern Matching =====
+
+Entity.update = (mut self, dt: f64, world: World) Result<void, string> {
+    self ?
+        | Player -> { id, position, health, inventory } {
+            health <= 0 ?
+                | true { Result.Err("Player died") }
+                | false { 
+                    // Update player logic
+                    Result.Ok(())
+                }
+        }
+        | Enemy -> { id, position, health, ai_state } {
+            ai_state ?
+                | Idle {
+                    // Look for players
+                    world.find_nearest_player(position) ?
+                        | Some -> p {
+                            self = Entity.Enemy {
+                                id: id,
+                                position: position,
+                                health: health,
+                                damage: self.damage,
+                                ai_state: AIState.Chasing { target_id: p.id }
+                            }
+                        }
+                        | None {}
+                }
+                | Patrolling -> { path } {
+                    // Follow path
+                    path.is_empty() ?
+                        | false {
+                            target := path[0]
+                            // Move towards target
+                        }
+                        | true {}
+                }
+                | Chasing -> { target_id } {
+                    // Chase target
+                }
+                | Attacking {
+                    // Attack logic
+                }
+            Result.Ok(())
+        }
+        | Projectile -> { position, velocity } {
+            // Update position based on velocity
+            self.position = position.add(velocity.scale(dt))
+            Result.Ok(())
+        }
+}
+
+// ===== Async Event System =====
+
+Event: |
+    EntitySpawned -> { entity: Entity }
+    | EntityDamaged -> { id: u64, damage: i32 }
+    | EntityDied -> { id: u64 }
+    | ItemPickedUp -> { entity_id: u64, item: Item }
+
+EventSystem: {
+    handlers: HashMap<string, Vec<Channel<Event>>>,
+    running: AtomicBool
+}
+
+EventSystem.subscribe = (mut self, event_type: string) Channel<Event> {
+    ch := Channel<Event>.new(100)
+    self.handlers.get(event_type) ?
+        | Some -> handlers {
+            handlers.push(ch.clone())
+        }
+        | None {
+            self.handlers.insert(event_type, Vec.from([ch.clone()]))
+        }
+    return ch
+}
+
+EventSystem.emit = async (self, event: Event) void {
+    event_type := event ?
+        | EntitySpawned { "spawn" }
+        | EntityDamaged { "damage" }
+        | EntityDied { "death" }
+        | ItemPickedUp { "pickup" }
+    
+    self.handlers.get(event_type) ?
+        | Some -> handlers {
+            for handler in handlers {
+                async { handler.send(event.clone()) }
+            }
+        }
+        | None {}
+}
+
+// ===== Generic Systems with Behaviors =====
+
+behavior Serializable<T> {
+    serialize = (self: T) Vec<u8>
+    deserialize = (bytes: Vec<u8>) Result<T, string>
+}
+
+behavior Cacheable {
+    cache_key = (self: Self) string
+    ttl = (self: Self) u64 { 3600 }  // Default 1 hour
+}
+
+Cache<K, V>: {
+    store: HashMap<K, (V, u64)>,  // Value and expiry time
+    mutex: Mutex<void>
+}
+
+Cache.get = async (self, key: K) Option<V> {
+    self.mutex.lock()
+    defer self.mutex.unlock()
+    
+    self.store.get(key) ?
+        | Some -> (value, expiry) {
+            current_time() < expiry ?
+                | true { Option.Some(value.clone()) }
+                | false {
+                    self.store.remove(key)
+                    Option.None
+                }
+        }
+        | None { Option.None }
+}
+
+Cache.set = async (mut self, key: K, value: V, ttl: u64) void {
+    self.mutex.lock()
+    defer self.mutex.unlock()
+    
+    expiry := current_time() + ttl
+    self.store.insert(key, (value, expiry))
+}
+
+// ===== Memory Management with Custom Allocators =====
+
+GameWorld: {
+    entities: Vec<Entity>,
+    event_system: EventSystem,
+    physics_allocator: ArenaAllocator,
+    entity_allocator: PoolAllocator<Entity>
+}
+
+GameWorld.tick = async (mut self, dt: f64) Result<void, string> {
+    // Process physics in arena allocator context
+    self.physics_allocator.with(() => {
+        for mut entity in self.entities {
+            entity.update(dt, self)?
+        }
+    })
+    
+    // Check collisions
+    for i in 0..self.entities.len() {
+        for j in (i+1)..self.entities.len() {
+            self.check_collision(self.entities[i], self.entities[j]) ?
+                | true {
+                    await self.event_system.emit(
+                        Event.EntityDamaged { id: self.entities[i].id, damage: 10 }
+                    )
+                }
+                | false {}
+        }
+    }
+    
+    Result.Ok(())
+}
+
+// ===== Compile-time Metaprogramming =====
+
+// Generate optimized collision detection at compile time
+COLLISION_MATRIX = comptime {
+    entity_types := ["Player", "Enemy", "Projectile"]
+    mut matrix := HashMap<(string, string), bool>.new()
+    
+    for t1 in entity_types {
+        for t2 in entity_types {
+            // Define collision rules
+            should_collide := (t1, t2) ?
+                | ("Player", "Enemy") { true }
+                | ("Enemy", "Player") { true }
+                | ("Projectile", "Player") { true }
+                | ("Projectile", "Enemy") { true }
+                | _ { false }
+            
+            matrix.insert((t1, t2), should_collide)
+        }
+    }
+    return matrix
+}
+
+// ===== FFI Integration =====
+
+inline.c("""
+    #include <SDL2/SDL.h>
+    
+    typedef struct {
+        SDL_Window* window;
+        SDL_Renderer* renderer;
+    } RenderContext;
+    
+    RenderContext* create_window(const char* title, int width, int height) {
+        SDL_Init(SDL_INIT_VIDEO);
+        RenderContext* ctx = malloc(sizeof(RenderContext));
+        ctx->window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, 
+                                       SDL_WINDOWPOS_CENTERED, width, height, 0);
+        ctx->renderer = SDL_CreateRenderer(ctx->window, -1, 
+                                          SDL_RENDERER_ACCELERATED);
+        return ctx;
+    }
+    
+    void render_frame(RenderContext* ctx) {
+        SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, 255);
+        SDL_RenderClear(ctx->renderer);
+        SDL_RenderPresent(ctx->renderer);
+    }
+    
+    void destroy_window(RenderContext* ctx) {
+        SDL_DestroyRenderer(ctx->renderer);
+        SDL_DestroyWindow(ctx->window);
+        SDL_Quit();
+        free(ctx);
+    }
+""")
+
+// ===== Main Application =====
+
+main = async () void {
+    io.println("🎮 Zen Game Engine Demo")
+    io.println("━".repeat(50))
+    
+    // Initialize game world
+    mut world := GameWorld {
+        entities: Vec<Entity>.new(),
+        event_system: EventSystem {
+            handlers: HashMap.new(),
+            running: AtomicBool.new(true)
+        },
+        physics_allocator: ArenaAllocator.new(1024 * 1024),  // 1MB arena
+        entity_allocator: PoolAllocator<Entity>.new(1000)     // Pool for 1000 entities
+    }
+    
+    // Set up event handlers
+    damage_handler := world.event_system.subscribe("damage")
+    spawn(async () => {
+        loop {
+            damage_handler.receive() ?
+                | Some -> event {
+                    event ?
+                        | EntityDamaged -> { id, damage } {
+                            io.println("Entity ${id} took ${damage} damage")
+                        }
+                        | _ {}
+                }
+                | None { break }
+        }
+    })
+    
+    // Create entities
+    player := Entity.Player {
+        id: 1,
+        position: Vector3.zero(),
+        health: 100,
+        inventory: Vec<Item>.new()
+    }
+    
+    enemy := Entity.Enemy {
+        id: 2,
+        position: Vector3 { x: 10.0, y: 0.0, z: 10.0 },
+        health: 50,
+        damage: 15,
+        ai_state: AIState.Idle
+    }
+    
+    world.entities.push(player)
+    world.entities.push(enemy)
+    
+    // Simulate game loop
+    io.println("\n📊 Simulating game ticks...")
+    for tick in 0..5 {
+        io.println("Tick ${tick}")
+        await world.tick(0.016)?  // 60 FPS
+    }
+    
+    // Demonstrate cache system
+    io.println("\n💾 Cache System Demo")
+    cache := Cache<string, i32> {
+        store: HashMap.new(),
+        mutex: Mutex.new()
+    }
+    
+    await cache.set("score", 1000, 60)
+    await cache.get("score") ?
+        | Some -> val { io.println("Cached score: ${val}") }
+        | None { io.println("Score not found") }
+    
+    // Show compile-time matrix
+    io.println("\n⚡ Collision Rules (compile-time generated):")
+    COLLISION_MATRIX.get(("Player", "Enemy")) ?
+        | Some -> collides { io.println("Player vs Enemy: ${collides}") }
+        | None {}
+    
+    io.println("\n✨ Demo complete!")
+}

@@ -1,0 +1,6 @@
+main = () void {
+    // Direct range.loop() without assignment
+    (0..10).loop((i) {
+        io.println("test")
+    })
+}

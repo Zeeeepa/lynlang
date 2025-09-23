@@ -1,0 +1,5 @@
+// Simplest possible range loop test
+
+main = () void {
+    (0..3).loop((i) {})
+}

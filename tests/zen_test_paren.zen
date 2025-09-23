@@ -1,0 +1,7 @@
+main = () void {
+    x = (10 + 5)
+    io.print(x)
+    
+    y = (true)
+    y ? { io.println("yes") }
+}

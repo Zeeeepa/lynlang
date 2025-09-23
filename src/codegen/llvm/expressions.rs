@@ -1,5 +1,5 @@
-use super::{LLVMCompiler, symbols};
-use crate::ast::Expression;
+use super::{LLVMCompiler, symbols, VariableInfo};
+use crate::ast::{Expression, AstType};
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, BasicValue, PointerValue};
 
@@ -188,6 +188,48 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // First compile the object
                 let object_value = self.compile_expression(object)?;
                 
+                // Special handling for string methods
+                if let Expression::Identifier(_) = object.as_ref() {
+                    // Check if this is a string method
+                    match method.as_str() {
+                        "to_f64" => {
+                            // Call the string_to_f64 runtime function
+                            // This returns an Option<f64>
+                            let func = self.get_or_create_runtime_function("string_to_f64")?;
+                            let result = self.builder.build_call(func, &[object_value.into()], "to_f64_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| CompileError::InternalError("string_to_f64 should return a value".to_string(), None))?;
+                            return Ok(result);
+                        }
+                        "to_i32" => {
+                            let func = self.get_or_create_runtime_function("string_to_i32")?;
+                            let result = self.builder.build_call(func, &[object_value.into()], "to_i32_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| CompileError::InternalError("string_to_i32 should return a value".to_string(), None))?;
+                            return Ok(result);
+                        }
+                        "to_i64" => {
+                            let func = self.get_or_create_runtime_function("string_to_i64")?;
+                            let result = self.builder.build_call(func, &[object_value.into()], "to_i64_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| CompileError::InternalError("string_to_i64 should return a value".to_string(), None))?;
+                            return Ok(result);
+                        }
+                        "to_f32" => {
+                            let func = self.get_or_create_runtime_function("string_to_f32")?;
+                            let result = self.builder.build_call(func, &[object_value.into()], "to_f32_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| CompileError::InternalError("string_to_f32 should return a value".to_string(), None))?;
+                            return Ok(result);
+                        }
+                        _ => {}
+                    }
+                }
+                
                 // Special handling for pointer methods
                 if method == "val" {
                     // Dereference pointer
@@ -361,7 +403,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 //     | Err(e) { return Err(e) }
                 self.compile_raise_expression(expr)
             }
-            Expression::Break { label: _ } => {
+            Expression::Break { label: _, value: _ } => {
                 // Break out of the current loop
                 if let Some((_, after_loop)) = self.loop_stack.last() {
                     self.builder.build_unconditional_branch(*after_loop).map_err(|e| CompileError::from(e))?;
@@ -392,6 +434,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::DynVecConstructor { element_types, allocator, initial_capacity } => {
                 self.compile_dynvec_constructor(element_types, allocator, initial_capacity.as_ref().map(|v| &**v))
+            }
+            Expression::Some(value) => {
+                // Compile Option::Some variant
+                self.compile_option_variant("Some", Some(value))
+            }
+            Expression::None => {
+                // Compile Option::None variant
+                self.compile_option_variant("None", None)
+            }
+            Expression::CollectionLoop { collection, param, index_param, body } => {
+                // Compile collection.loop() expression
+                self.compile_collection_loop(collection, param, index_param.as_deref(), body)
+            }
+            Expression::Defer(expr) => {
+                // Register deferred expression to be executed at scope exit
+                self.register_deferred_expression(expr)?;
+                // Return unit/void value
+                Ok(self.context.i32_type().const_int(0, false).into())
             }
         }
     }
@@ -997,7 +1057,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.builder.position_at_end(merge_bb);
         
         if phi_values.is_empty() {
-            return Err(CompileError::InternalError("No arms in pattern match expression".to_string(), None));
+            // If all arms returned/broke/continued, the pattern match doesn't produce a value
+            // We still need to return something for the expression, but it won't be used
+            // Return a dummy value - this is safe because the merge block is unreachable
+            return Ok(self.context.i32_type().const_int(0, false).into());
         }
         
         // All values should have the same type
@@ -1109,6 +1172,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
     
     fn compile_range_loop(&mut self, start: &Expression, end: &Expression, inclusive: bool, args: &[Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        
         // Extract the loop variable and body from args
         // args[0] should be a closure with one parameter
         let closure = args.get(0).ok_or_else(|| 
@@ -1173,12 +1237,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Push loop context for break/continue
         self.loop_stack.push((loop_header, after_loop));
         
-        // Store the loop variable in symbols table
-        use crate::codegen::llvm::symbols::Symbol;
-        self.symbols.insert(&param_name, Symbol::Variable(loop_var));
-        
         // Enter a new scope for the loop body
         self.symbols.enter_scope();
+        
+        // Store the loop variable in symbols table (AFTER entering scope)
+        use crate::codegen::llvm::symbols::Symbol;
+        self.symbols.insert(&param_name, Symbol::Variable(loop_var));
         
         // Also store in the variables map for compatibility
         self.variables.insert(param_name.clone(), super::VariableInfo {
@@ -1200,11 +1264,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
         
-        // Exit the scope and remove from variables map
+        // Exit the scope but DON'T remove from variables map yet
         self.symbols.exit_scope();
-        self.variables.remove(&param_name);
         
-        // Increment the loop variable
+        // Increment the loop variable (still needs to access loop_var)
         let current = self.builder.build_load(start_int.get_type(), loop_var, &param_name)?;
         let one = start_int.get_type().const_int(1, false);
         let next = self.builder.build_int_add(current.into_int_value(), one, "next")?;
@@ -1218,6 +1281,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         self.loop_stack.pop();
         self.builder.position_at_end(after_loop);
+        
+        // NOW remove the loop variable from variables map
+        self.variables.remove(&param_name);
         
         // Return void value
         Ok(self.context.i32_type().const_int(0, false).into())
@@ -1510,5 +1576,118 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 None
             ));
         }
+    }
+
+    fn compile_option_variant(&mut self, variant: &str, payload: Option<&Expression>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // For Option type, use a simple tag-based representation
+        // Tag 0 = None, Tag 1 = Some
+        let tag = if variant == "None" { 0 } else { 1 };
+        
+        // Create a struct to represent the enum variant
+        let tag_type = self.context.i32_type();
+        let payload_type = if payload.is_some() {
+            self.context.i64_type() // Simplified: assume i64 payload
+        } else {
+            self.context.i64_type() // Use i64 as placeholder even for None
+        };
+        
+        let struct_type = self.context.struct_type(&[
+            tag_type.into(),
+            payload_type.into(),
+        ], false);
+        
+        // Compile the payload if present
+        let payload_value = if let Some(expr) = payload {
+            self.compile_expression(expr)?
+        } else {
+            self.context.i64_type().const_int(0, false).into()
+        };
+        
+        // Create the struct value
+        let struct_val = struct_type.get_undef();
+        let struct_val = self.builder.build_insert_value(struct_val, tag_type.const_int(tag as u64, false), 0, "tag")?;
+        let struct_val = self.builder.build_insert_value(struct_val, payload_value, 1, "payload")?;
+        
+        // Convert AggregateValueEnum to BasicValueEnum
+        // Since we're creating a struct, we need to handle it properly
+        match struct_val {
+            inkwell::values::AggregateValueEnum::StructValue(sv) => Ok(sv.into()),
+            _ => Err(CompileError::InternalError("Expected struct value".to_string(), None))
+        }
+    }
+    
+    fn compile_collection_loop(&mut self, collection: &Expression, param: &str, index_param: Option<&str>, body: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // This is a simplified implementation
+        // In a full implementation, we'd need to handle different collection types
+        
+        // Compile the collection expression
+        let _collection_val = self.compile_expression(collection)?;
+        
+        // For now, create a simple counted loop as a placeholder
+        let parent_function = self.current_function
+            .ok_or_else(|| CompileError::InternalError("No current function for loop".to_string(), None))?;
+            
+        let loop_bb = self.context.append_basic_block(parent_function, "collection_loop");
+        let body_bb = self.context.append_basic_block(parent_function, "collection_body");
+        let after_loop_bb = self.context.append_basic_block(parent_function, "after_collection_loop");
+        
+        // Jump to loop header
+        self.builder.build_unconditional_branch(loop_bb)?;
+        self.builder.position_at_end(loop_bb);
+        
+        // For now, just execute the body once and exit
+        // A full implementation would iterate over the collection
+        self.builder.build_unconditional_branch(body_bb)?;
+        self.builder.position_at_end(body_bb);
+        
+        // Push loop onto stack for break/continue
+        self.loop_stack.push((loop_bb, after_loop_bb));
+        
+        // Create a dummy variable for the loop parameter
+        let param_type = self.context.i64_type();
+        let param_ptr = self.builder.build_alloca(param_type, param)?;
+        self.builder.build_store(param_ptr, param_type.const_int(0, false))?;
+        
+        self.variables.insert(param.to_string(), VariableInfo {
+            pointer: param_ptr,
+            ast_type: AstType::I64,
+            is_mutable: false,
+            is_initialized: true,
+        });
+        
+        // Handle index parameter if present
+        if let Some(idx_param) = index_param {
+            let idx_ptr = self.builder.build_alloca(param_type, idx_param)?;
+            self.builder.build_store(idx_ptr, param_type.const_int(0, false))?;
+            
+            self.variables.insert(idx_param.to_string(), VariableInfo {
+                pointer: idx_ptr,
+                ast_type: AstType::I64,
+                is_mutable: false,
+                is_initialized: true,
+            });
+        }
+        
+        // Compile loop body
+        let _body_val = self.compile_expression(body)?;
+        
+        // For now, just exit after one iteration
+        self.builder.build_unconditional_branch(after_loop_bb)?;
+        
+        // Position after loop
+        self.builder.position_at_end(after_loop_bb);
+        
+        // Pop loop stack
+        self.loop_stack.pop();
+        
+        // Return unit value
+        Ok(self.context.i32_type().const_int(0, false).into())
+    }
+    
+    fn register_deferred_expression(&mut self, expr: &Expression) -> Result<(), CompileError> {
+        // Add the expression to the defer stack
+        // These will be executed in LIFO order at scope exit
+        self.defer_stack.push(expr.clone());
+        Ok(())
     }
 } 

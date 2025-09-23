@@ -5,25 +5,119 @@ core = @std
 math = @std
 
 // External math functions from libc
-extern sin = (x: f64) f64
-extern cos = (x: f64) f64
-extern tan = (x: f64) f64
-extern asin = (x: f64) f64
-extern acos = (x: f64) f64
-extern atan = (x: f64) f64
-extern atan2 = (y: f64, x: f64) f64
-extern sinh = (x: f64) f64
-extern cosh = (x: f64) f64
-extern tanh = (x: f64) f64
-extern exp = (x: f64) f64
-extern log = (x: f64) f64
-extern log10 = (x: f64) f64
-extern log2 = (x: f64) f64
-extern pow = (base: f64, exp: f64) f64
-extern sqrt = (x: f64) f64
-extern cbrt = (x: f64) f64
-extern hypot = (x: f64, y: f64) f64
-extern fma = (x: f64, y: f64, z: f64) f64
+sin = (x: f64) f64 {
+    inline.c("""
+        return sin(${x});
+    """)
+}
+
+cos = (x: f64) f64 {
+    inline.c("""
+        return cos(${x});
+    """)
+}
+
+tan = (x: f64) f64 {
+    inline.c("""
+        return tan(${x});
+    """)
+}
+
+asin = (x: f64) f64 {
+    inline.c("""
+        return asin(${x});
+    """)
+}
+
+acos = (x: f64) f64 {
+    inline.c("""
+        return acos(${x});
+    """)
+}
+
+atan = (x: f64) f64 {
+    inline.c("""
+        return atan(${x});
+    """)
+}
+
+atan2 = (y: f64, x: f64) f64 {
+    inline.c("""
+        return atan2(${y}, ${x});
+    """)
+}
+
+sinh = (x: f64) f64 {
+    inline.c("""
+        return sinh(${x});
+    """)
+}
+
+cosh = (x: f64) f64 {
+    inline.c("""
+        return cosh(${x});
+    """)
+}
+
+tanh = (x: f64) f64 {
+    inline.c("""
+        return tanh(${x});
+    """)
+}
+
+exp = (x: f64) f64 {
+    inline.c("""
+        return exp(${x});
+    """)
+}
+
+log = (x: f64) f64 {
+    inline.c("""
+        return log(${x});
+    """)
+}
+
+log10 = (x: f64) f64 {
+    inline.c("""
+        return log10(${x});
+    """)
+}
+
+log2 = (x: f64) f64 {
+    inline.c("""
+        return log2(${x});
+    """)
+}
+
+pow = (base: f64, exp: f64) f64 {
+    inline.c("""
+        return pow(${base}, ${exp});
+    """)
+}
+
+sqrt = (x: f64) f64 {
+    inline.c("""
+        return sqrt(${x});
+    """)
+}
+
+cbrt = (x: f64) f64 {
+    inline.c("""
+        return cbrt(${x});
+    """)
+}
+
+hypot = (x: f64, y: f64) f64 {
+    inline.c("""
+        return hypot(${x}, ${y});
+    """)
+}
+
+fma = (x: f64, y: f64, z: f64) f64 {
+    inline.c("""
+        return fma(${x}, ${y}, ${z});
+    """)
+}
 
 // Trigonometric functions with degree versions
 sin_deg = (degrees: f64) f64   {

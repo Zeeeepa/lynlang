@@ -1,0 +1,77 @@
+// Test file based on LANGUAGE_SPEC.zen
+// Testing new Zen syntax features
+
+{ io, maths } = @std
+{ String, StringBuilder } = @std
+
+main = () void {
+    // Test assignment types
+    x: i32 // forward declaration
+    x = 10
+    y = 10    // Immutable assignment 
+    z : i32 = 20 // Immutable assignment with type
+    w :: i32 // mutable forward declaration
+    w = 20
+    v ::= 30 // Mutable assignment
+    u :: i32 = 40 // mutable assignment with type
+    
+    // Test loop() syntax
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 10 ?
+            | true { break }
+            | false { continue }
+    })
+    
+    // Test .loop() on ranges
+    (0..10).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Test .loop() with index
+    (0..5).loop((val, idx) {
+        io.println("Value ${val} at index ${idx}")
+    })
+    
+    // Test Option types
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            io.println("Radius: ${r}")
+        }
+        | None {
+            io.println("No radius provided")
+        }
+    
+    // Test None
+    empty: Option<i32> = None
+    
+    // Test error propagation with .raise()
+    file_result = open_file("test.txt")
+    content = file_result.raise()  // Returns early if Err
+    
+    // Test defer
+    @this.defer(cleanup())
+    @this.defer(io.println("Exiting scope"))
+    
+    // Test break with value (not implemented but in spec)
+    result = loop(() {
+        value = compute_value()
+        value > 100 ? { break value }
+    })
+    
+    // Test return
+    result < 0 ? { return }
+    
+    // Test pattern matching on booleans
+    is_ready = true
+    is_ready ? { 
+        io.println("Starting!") 
+    }
+    
+    has_data = false
+    has_data ?
+        | true { process_data() }
+        | false { io.println("Waiting...") }
+}

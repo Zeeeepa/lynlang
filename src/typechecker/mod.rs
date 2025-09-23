@@ -311,9 +311,59 @@ impl TypeChecker {
                 type_,
                 initializer,
                 is_mutable,
+                declaration_type,
                 ..
             } => {
+                // Check if this is an assignment to a forward-declared variable
+                // This happens when we have: x: i32 (forward decl) then x = 10 (initialization)
                 if let Some(init_expr) = initializer {
+                    // Check if variable already exists (forward declaration case)
+                    if self.variable_exists(name) {
+                        // This might be initialization of a forward-declared variable
+                        let var_info = self.get_variable_info(name)?;
+                        
+                        // Allow initialization of forward-declared variables with = operator
+                        // This works for both immutable (x: i32 then x = 10) and mutable (w:: i32 then w = 20)
+                        if !var_info.is_initialized {
+                            // This is initialization of a forward-declared variable
+                            // The = operator can be used to initialize both immutable and mutable forward declarations
+                            let inferred_type = self.infer_expression_type(init_expr)?;
+                            if !self.types_compatible(&var_info.type_, &inferred_type) {
+                                return Err(CompileError::TypeError(
+                                    format!(
+                                        "Type mismatch: variable '{}' declared as {:?} but initialized with {:?}",
+                                        name, var_info.type_, inferred_type
+                                    ),
+                                    None
+                                ));
+                            }
+                            self.mark_variable_initialized(name)?;
+                            return Ok(());
+                        } else if var_info.is_initialized && var_info.is_mutable {
+                            // This is a reassignment to an existing mutable variable
+                            // (e.g., w = 25 after w:: i32 and w = 20)
+                            let inferred_type = self.infer_expression_type(init_expr)?;
+                            if !self.types_compatible(&var_info.type_, &inferred_type) {
+                                return Err(CompileError::TypeError(
+                                    format!(
+                                        "Type mismatch: cannot assign {:?} to variable '{}' of type {:?}",
+                                        inferred_type, name, var_info.type_
+                                    ),
+                                    None
+                                ));
+                            }
+                            // Reassignment is allowed for mutable variables
+                            return Ok(());
+                        } else {
+                            // Immutable variable already initialized - cannot reassign
+                            return Err(CompileError::TypeError(
+                                format!("Cannot reassign immutable variable '{}'", name),
+                                None
+                            ));
+                        }
+                    }
+                    
+                    // New variable declaration with initializer
                     let inferred_type = self.infer_expression_type(init_expr)?;
                     
                     if let Some(declared_type) = type_ {
@@ -756,6 +806,31 @@ impl TypeChecker {
                     }
                 }
                 
+                // Special handling for string methods
+                if object_type == AstType::String {
+                    // Common string methods with hardcoded return types for now
+                    match method.as_str() {
+                        "len" => return Ok(AstType::I64),
+                        "to_i32" => return Ok(AstType::Generic { 
+                            name: "Option".to_string(), 
+                            type_args: vec![AstType::I32] 
+                        }),
+                        "to_i64" => return Ok(AstType::Generic { 
+                            name: "Option".to_string(), 
+                            type_args: vec![AstType::I64] 
+                        }),
+                        "to_f32" => return Ok(AstType::Generic { 
+                            name: "Option".to_string(), 
+                            type_args: vec![AstType::F32] 
+                        }),
+                        "to_f64" => return Ok(AstType::Generic { 
+                            name: "Option".to_string(), 
+                            type_args: vec![AstType::F64] 
+                        }),
+                        _ => {}
+                    }
+                }
+                
                 // Special handling for built-in methods like .loop()
                 if method == "loop" {
                     // .loop() on ranges and collections returns void
@@ -932,6 +1007,28 @@ impl TypeChecker {
                     element_types: element_types.clone(),
                     allocator_type: None, // Allocator type inferred from constructor arg
                 })
+            }
+            Expression::Some(_) => {
+                // Option::Some(T) -> Option<T>
+                Ok(AstType::Generic {
+                    name: "Option".to_string(),
+                    type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                })
+            }
+            Expression::None => {
+                // Option::None -> Option<T>
+                Ok(AstType::Generic {
+                    name: "Option".to_string(),
+                    type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                })
+            }
+            Expression::CollectionLoop { .. } => {
+                // collection.loop() returns unit/void
+                Ok(AstType::Void)
+            }
+            Expression::Defer(_) => {
+                // @this.defer() returns unit/void
+                Ok(AstType::Void)
             }
         }
     }

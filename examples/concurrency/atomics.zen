@@ -1,0 +1,151 @@
+// Atomic Operations and Synchronization
+// Lock-free concurrent programming
+
+{ io } = @std
+{ AtomicU32, AtomicBool, Mutex, spawn, sleep_ms } = @std.concurrent
+
+// Atomic counter
+Counter: {
+    count: AtomicU32,
+}
+
+Counter.new = () Counter {
+    return Counter { count: AtomicU32.new(0) }
+}
+
+Counter.increment = (self) u32 {
+    return self.count.fetch_add(1, .SeqCst)
+}
+
+Counter.get = (self) u32 {
+    return self.count.load(.Acquire)
+}
+
+// Thread-safe queue using mutex
+SafeQueue<T>: {
+    items: Vec<T>,
+    mutex: Mutex,
+}
+
+SafeQueue.new = () SafeQueue<T> {
+    return SafeQueue {
+        items: Vec<T>.new(),
+        mutex: Mutex.new(),
+    }
+}
+
+SafeQueue.push = (self, item: T) void {
+    lock := self.mutex.lock()
+    defer lock.unlock()
+    
+    self.items.push(item)
+}
+
+SafeQueue.pop = (self) Option<T> {
+    lock := self.mutex.lock()
+    defer lock.unlock()
+    
+    return self.items.pop()
+}
+
+// Spinlock using atomics
+SpinLock: {
+    locked: AtomicBool,
+}
+
+SpinLock.new = () SpinLock {
+    return SpinLock { locked: AtomicBool.new(false) }
+}
+
+SpinLock.lock = (self) void {
+    while self.locked.compare_exchange(false, true, .Acquire, .Relaxed).is_err() {
+        // Spin
+    }
+}
+
+SpinLock.unlock = (self) void {
+    self.locked.store(false, .Release)
+}
+
+// Example: Concurrent increment
+concurrent_increment = () void {
+    counter := Counter.new()
+    mut handles := []
+    
+    // Spawn 10 threads, each incrementing 1000 times
+    for tid in 0..10 {
+        handle := spawn(() => {
+            for _ in 0..1000 {
+                counter.increment()
+            }
+        })
+        handles.append(handle)
+    }
+    
+    // Wait for all threads
+    for h in handles {
+        h.join()
+    }
+    
+    io.println("Final count: ${counter.get()}")
+}
+
+// Example: Producer-consumer with safe queue
+producer_consumer = () void {
+    queue := SafeQueue<i32>.new()
+    done := AtomicBool.new(false)
+    
+    // Producer
+    spawn(() => {
+        for i in 0..20 {
+            queue.push(i)
+            sleep_ms(50)
+        }
+        done.store(true, .Release)
+    })
+    
+    // Consumer
+    spawn(() => {
+        while !done.load(.Acquire) || queue.items.len() > 0 {
+            queue.pop() ?
+                | Some -> val { io.println("Consumed: ${val}") }
+                | None { sleep_ms(10) }
+        }
+    })
+    
+    sleep_ms(2000)
+}
+
+main = () void {
+    io.println("=== Atomic Operations ===")
+    
+    // Test atomic counter
+    concurrent_increment()
+    
+    // Test safe queue
+    io.println("\n=== Safe Queue ===")
+    producer_consumer()
+    
+    // Test spinlock
+    io.println("\n=== SpinLock ===")
+    lock := SpinLock.new()
+    mut shared := 0
+    
+    mut handles := []
+    for _ in 0..5 {
+        handle := spawn(() => {
+            for _ in 0..100 {
+                lock.lock()
+                shared += 1
+                lock.unlock()
+            }
+        })
+        handles.append(handle)
+    }
+    
+    for h in handles {
+        h.join()
+    }
+    
+    io.println("Shared value: ${shared}")
+}

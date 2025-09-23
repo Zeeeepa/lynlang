@@ -6,8 +6,9 @@ build := @std
 memory := build.import("memory")
 
 // Re-export additional collections from subdirectory
-export * from "collections/hashmap.zen"
-export * from "collections/list.zen"
+hashmap_module = import("collections/hashmap.zen")
+list_module = import("collections/list.zen")
+collections_exports = { ...hashmap_module, ...list_module }
 
 // Import the new Vec and DynVec types
 fixed_vec := build.import("fixed_vec")
@@ -342,3 +343,6 @@ HashSet<T>.contains = (self: Ref<HashSet<T>>, value: T) bool {
 HashSet<T>.size = (self: Ref<HashSet<T>>) usize {
     return self.map.len
 }
+
+// Export all collections
+module.exports = { ...collections_exports, Vec, DynVec, Vector, LinkedList, Stack, Queue, HashMap, HashSet }

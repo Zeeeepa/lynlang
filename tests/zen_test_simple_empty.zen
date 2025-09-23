@@ -1,0 +1,4 @@
+// Simplest possible test
+main = () void {
+    // Empty main
+}

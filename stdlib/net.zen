@@ -2,24 +2,112 @@
 // TCP/UDP networking support
 
 // External socket functions
-socke = extern<(domain: i32, type_: i32, protocol: i32) i32>("socket")
-bin = extern<(sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32>("bind")
-liste = extern<(sockfd: i32, backlog: i32) i32>("listen")
-accep = extern<(sockfd: i32, addr: RawPtr<i8>, addrlen: *i32) i32>("accept")
-connec = extern<(sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32>("connect")
-sen = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i32>("send")
-rec = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i32>("recv")
-sendt = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, dest_addr: RawPtr<i8>, addrlen: i32) i32>("sendto")
-recvfro = extern<(sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, src_addr: RawPtr<i8>, addrlen: *i32) i32>("recvfrom")
-clos = extern<(fd: i32) i32>("close")
-shutdow = extern<(sockfd: i32, how: i32) i32>("shutdown")
-setsockop = extern<(sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: i32) i32>("setsockopt")
-getsockop = extern<(sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: *i32) i32>("getsockopt")
-inet_add = extern<(cp: RawPtr<i8>) i32>("inet_addr")
-hton = extern<(hostshort: i16) i16>("htons")
-hton = extern<(hostlong: i32) i32>("htonl")
-ntoh = extern<(netshort: i16) i16>("ntohs")
-ntoh = extern<(netlong: i32) i32>("ntohl")
+socke = (domain: i32, type_: i32, protocol: i32) i32 {
+    inline.c("""
+        return socket(${domain}, ${type_}, ${protocol});
+    """)
+}
+
+bin = (sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32 {
+    inline.c("""
+        return bind(${sockfd}, ${addr.addr}, ${addrlen});
+    """)
+}
+
+liste = (sockfd: i32, backlog: i32) i32 {
+    inline.c("""
+        return listen(${sockfd}, ${backlog});
+    """)
+}
+
+accep = (sockfd: i32, addr: RawPtr<i8>, addrlen: *i32) i32 {
+    inline.c("""
+        return accept(${sockfd}, ${addr.addr}, ${addrlen.addr});
+    """)
+}
+
+connec = (sockfd: i32, addr: RawPtr<i8>, addrlen: i32) i32 {
+    inline.c("""
+        return connect(${sockfd}, ${addr.addr}, ${addrlen});
+    """)
+}
+
+sen = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i32 {
+    inline.c("""
+        return send(${sockfd}, ${buf.addr}, ${len}, ${flags});
+    """)
+}
+
+rec = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32) i32 {
+    inline.c("""
+        return recv(${sockfd}, ${buf.addr}, ${len}, ${flags});
+    """)
+}
+
+sendt = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, dest_addr: RawPtr<i8>, addrlen: i32) i32 {
+    inline.c("""
+        return sendto(${sockfd}, ${buf.addr}, ${len}, ${flags}, ${dest_addr.addr}, ${addrlen});
+    """)
+}
+
+recvfro = (sockfd: i32, buf: RawPtr<i8>, len: i64, flags: i32, src_addr: RawPtr<i8>, addrlen: *i32) i32 {
+    inline.c("""
+        return recvfrom(${sockfd}, ${buf.addr}, ${len}, ${flags}, ${src_addr.addr}, ${addrlen.addr});
+    """)
+}
+
+clos = (fd: i32) i32 {
+    inline.c("""
+        return close(${fd});
+    """)
+}
+
+shutdow = (sockfd: i32, how: i32) i32 {
+    inline.c("""
+        return shutdown(${sockfd}, ${how});
+    """)
+}
+setsockop = (sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: i32) i32 {
+    inline.c("""
+        return setsockopt(${sockfd}, ${level}, ${optname}, ${optval.addr}, ${optlen});
+    """)
+}
+
+getsockop = (sockfd: i32, level: i32, optname: i32, optval: RawPtr<i8>, optlen: *i32) i32 {
+    inline.c("""
+        return getsockopt(${sockfd}, ${level}, ${optname}, ${optval.addr}, ${optlen.addr});
+    """)
+}
+
+inet_add = (cp: RawPtr<i8>) i32 {
+    inline.c("""
+        return inet_addr(${cp.addr});
+    """)
+}
+
+htons_func = (hostshort: i16) i16 {
+    inline.c("""
+        return htons(${hostshort});
+    """)
+}
+
+htonl_func = (hostlong: i32) i32 {
+    inline.c("""
+        return htonl(${hostlong});
+    """)
+}
+
+ntohs_func = (netshort: i16) i16 {
+    inline.c("""
+        return ntohs(${netshort});
+    """)
+}
+
+ntohl_func = (netlong: i32) i32 {
+    inline.c("""
+        return ntohl(${netlong});
+    """)
+}
 
 // Socket domain constants 
 SocketDomain: 
@@ -376,7 +464,7 @@ socket_addr = (ip: IpAddr, port: i16) SocketAddr   {
 }
 
 // Export main types and functions
-export {
+module.exports = {
     // Types
     AddressFamily,
     SocketType,

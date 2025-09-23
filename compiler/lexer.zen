@@ -47,19 +47,9 @@ make_token = (tag: string, start: u32, end: u32, line: u32, column: u32) Token  
     }
 }
 
-// Keywords in Zen (if/else/match removed per language spec)
-KEYWORDS := [
-    "loop", "return", "break", "continue",
-    "fn", "struct", "enum", "trait", "impl", "type", "const", "let", "var",
-    "pub", "priv", "mut", "ref", "defer", "yield",
-    "import", "export", "module", "package", "use", "as",
-    "true", "false", "null", "void", "self", "Self",
-    "i8", "i16", "i32", "i64", "i128",
-    "u8", "u16", "u32", "u64", "u128",
-    "f32", "f64", "bool", "char", "string", "usize", "isize",
-    "comptime", "inline", "noinline", "packed", "align",
-    "typeof", "sizeof", "alignof", "offsetof",
-]
+// No keywords in Zen per language spec - everything is an identifier
+// Built-in types are just identifiers that have special meaning in context
+KEYWORDS := []
 
 // Create a new lexer
 lexer_new = (source: string) Lexer   {

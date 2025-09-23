@@ -76,7 +76,7 @@ string_builder_to_string = (sb: Ptr<StringBuilder>) string   {
     // Create string from buffer
     result := mem.alloc(sb.length + 1)
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i <= sb.length {
@@ -85,7 +85,7 @@ string_builder_to_string = (sb: Ptr<StringBuilder>) string   {
             }
             return bytes as string
         }
-        | Err -> _ {
+        | Err(_) {
             return ""
         }
 }
@@ -263,7 +263,7 @@ string_substring = (s: string, start: u32, length: u32) string   {
     
     result := mem.alloc(actual_len + 1)
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < actual_len {
@@ -273,7 +273,7 @@ string_substring = (s: string, start: u32, length: u32) string   {
             bytes[actual_len] = 0
             return bytes as string
         }
-        | Err -> _ {
+        | Err(_) {
             return ""
         }
 }
@@ -285,7 +285,7 @@ string_to_upper = (s: string) string   {
     len := string_len(s)
     result := mem.alloc(len + 1)
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < len {
@@ -298,7 +298,7 @@ string_to_upper = (s: string) string   {
             bytes[len] = 0
             return bytes as string
         }
-        | Err -> _ {
+        | Err(_) {
             return s
         }
 }
@@ -310,7 +310,7 @@ string_to_lower = (s: string) string   {
     len := string_len(s)
     result := mem.alloc(len + 1)
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as Ptr<i8>
             i := 0
             loop i < len {
@@ -323,7 +323,7 @@ string_to_lower = (s: string) string   {
             bytes[len] = 0
             return bytes as string
         }
-        | Err -> _ {
+        | Err(_) {
             return s
         }
 }
@@ -419,7 +419,7 @@ string_replace = (s: string, old: string, new: string) string   {
     // Allocate result
     result := mem.alloc(result_len + 1)
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as Ptr<i8>
             src_pos := 0
             dst_pos := 0
@@ -456,7 +456,7 @@ string_replace = (s: string, old: string, new: string) string   {
             bytes[dst_pos] = 0
             return bytes as string
         }
-        | Err -> _ {
+        | Err(_) {
             return s
         }
 }
@@ -517,7 +517,7 @@ string_join = (strings: DynVec<string>, separator: string) string   {
     // Build result
     result := mem.alloc(total_len + 1)
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as Ptr<i8>
             pos := 0
             
@@ -550,7 +550,7 @@ string_join = (strings: DynVec<string>, separator: string) string   {
             bytes[pos] = 0
             return bytes as string
         }
-        | Err -> _ {
+        | Err(_) {
             return ""
         }
 }
@@ -633,7 +633,7 @@ i32_to_string = (n: i32) string   {
     len := digits + (negative ? 1 : 0)
     result := mem.alloc(len + 1)
     result ?
-        | Ok -> ptr {
+        | Ok(ptr) {
             bytes := ptr as Ptr<i8>
             
             // Fill from right to left
@@ -649,7 +649,7 @@ i32_to_string = (n: i32) string   {
             
             return bytes as string
         }
-        | Err -> _ {
+        | Err(_) {
             return ""
         }
 }

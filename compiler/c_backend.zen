@@ -425,5 +425,8 @@ generate_c_from_ast = (ast: &parser.AST) string   {
     return backend.output.to_string()
 }
 
-// Export the main function
-export { generate_c_from_ast, map_zen_type_to_c }
+// Module exports
+module.exports = { 
+    generate_c_from_ast: generate_c_from_ast,
+    map_zen_type_to_c: map_zen_type_to_c
+}

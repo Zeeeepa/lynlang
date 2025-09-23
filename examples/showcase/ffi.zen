@@ -1,0 +1,98 @@
+// Foreign Function Interface (FFI)
+// Seamless C integration with inline.c
+
+{ io, Result } = @std
+
+// Inline C code for system operations
+inline.c("""
+    #include <time.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <math.h>
+    
+    // High-precision timing
+    double get_time_seconds() {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        return ts.tv_sec + ts.tv_nsec / 1000000000.0;
+    }
+    
+    // Fast math operations
+    double fast_distance_3d(double x, double y, double z) {
+        return sqrt(x*x + y*y + z*z);
+    }
+    
+    // Random number generation
+    int get_random(int min, int max) {
+        static int seeded = 0;
+        if (!seeded) {
+            srand(time(NULL));
+            seeded = 1;
+        }
+        return min + rand() % (max - min + 1);
+    }
+    
+    // String manipulation
+    void reverse_in_place(char* str) {
+        int len = strlen(str);
+        for (int i = 0; i < len/2; i++) {
+            char tmp = str[i];
+            str[i] = str[len - 1 - i];
+            str[len - 1 - i] = tmp;
+        }
+    }
+""")
+
+// Zen wrapper for timing
+Timer: {
+    start_time: f64
+}
+
+Timer.start = () Timer {
+    Timer { start_time: get_time_seconds() }
+}
+
+Timer.elapsed = (self) f64 {
+    get_time_seconds() - self.start_time
+}
+
+// Benchmark helper
+benchmark = (name: string, f: () void) void {
+    timer := Timer.start()
+    f()
+    elapsed := timer.elapsed()
+    io.println("${name}: ${elapsed * 1000.0:.3f}ms")
+}
+
+main = () void {
+    io.println("=== FFI Examples ===\n")
+    
+    // High-precision timing
+    io.println("Benchmarking operations:")
+    benchmark("1M iterations", () => {
+        mut sum := 0
+        for i in 0..1000000 {
+            sum += i
+        }
+    })
+    
+    // Fast math operations
+    dist := fast_distance_3d(3.0, 4.0, 12.0)
+    io.println("\n3D Distance (3,4,12): ${dist}")
+    
+    // Random numbers
+    io.println("\nRandom numbers (1-100):")
+    for _ in 0..5 {
+        io.print("${get_random(1, 100)} ")
+    }
+    io.println("")
+    
+    // String operations
+    mut text := "Hello, Zen!"
+    io.println("\nString reversal:")
+    io.println("  Original: ${text}")
+    reverse_in_place(text.data())
+    io.println("  Reversed: ${text}")
+    
+    io.println("\nFFI integration complete!")
+}

@@ -549,22 +549,101 @@ StatBuf: {
 }
 
 // System call declarations
-extern __sys_open(path: *u8, flags: i32, mode: u32) i32
-extern __sys_close(fd: i32) i32
-extern __sys_read(fd: i32, buf: *u8, count: usize) i64
-extern __sys_write(fd: i32, buf: *u8, count: usize) i64
-extern __sys_lseek(fd: i32, offset: i64, whence: i32) i64
-extern __sys_fsync(fd: i32) i32
-extern __sys_fstat(fd: i32, buf: *StatBuf) i32
-extern __sys_stat(path: *u8, buf: *StatBuf) i32
-extern __sys_access(path: *u8, mode: i32) i32
-extern __sys_unlink(path: *u8) i32
-extern __sys_rename(old: *u8, new: *u8) i32
-extern __sys_mkdir(path: *u8, mode: u32) i32
-extern __sys_rmdir(path: *u8) i32
-extern __sys_opendir(path: *u8) RawPtr<void>
-extern __sys_readdir(dir: RawPtr<void>) *DirEnt
-extern __sys_closedir(dir: RawPtr<void>) i32
+__sys_open = (path: *u8, flags: i32, mode: u32) i32 {
+    inline.c("""
+        return open(${path.addr}, ${flags}, ${mode});
+    """)
+}
+
+__sys_close = (fd: i32) i32 {
+    inline.c("""
+        return close(${fd});
+    """)
+}
+
+__sys_read = (fd: i32, buf: *u8, count: usize) i64 {
+    inline.c("""
+        return read(${fd}, ${buf.addr}, ${count});
+    """)
+}
+
+__sys_write = (fd: i32, buf: *u8, count: usize) i64 {
+    inline.c("""
+        return write(${fd}, ${buf.addr}, ${count});
+    """)
+}
+
+__sys_lseek = (fd: i32, offset: i64, whence: i32) i64 {
+    inline.c("""
+        return lseek(${fd}, ${offset}, ${whence});
+    """)
+}
+
+__sys_fsync = (fd: i32) i32 {
+    inline.c("""
+        return fsync(${fd});
+    """)
+}
+
+__sys_fstat = (fd: i32, buf: *StatBuf) i32 {
+    inline.c("""
+        return fstat(${fd}, ${buf.addr});
+    """)
+}
+
+__sys_stat = (path: *u8, buf: *StatBuf) i32 {
+    inline.c("""
+        return stat(${path.addr}, ${buf.addr});
+    """)
+}
+
+__sys_access = (path: *u8, mode: i32) i32 {
+    inline.c("""
+        return access(${path.addr}, ${mode});
+    """)
+}
+
+__sys_unlink = (path: *u8) i32 {
+    inline.c("""
+        return unlink(${path.addr});
+    """)
+}
+
+__sys_rename = (old: *u8, new: *u8) i32 {
+    inline.c("""
+        return rename(${old.addr}, ${new.addr});
+    """)
+}
+
+__sys_mkdir = (path: *u8, mode: u32) i32 {
+    inline.c("""
+        return mkdir(${path.addr}, ${mode});
+    """)
+}
+
+__sys_rmdir = (path: *u8) i32 {
+    inline.c("""
+        return rmdir(${path.addr});
+    """)
+}
+
+__sys_opendir = (path: *u8) RawPtr<void> {
+    inline.c("""
+        return opendir(${path.addr});
+    """)
+}
+
+__sys_readdir = (dir: RawPtr<void>) *DirEnt {
+    inline.c("""
+        return readdir(${dir.addr});
+    """)
+}
+
+__sys_closedir = (dir: RawPtr<void>) i32 {
+    inline.c("""
+        return closedir(${dir.addr});
+    """)
+}
 
 // Directory entry structure for readdir
 DirEnt: {

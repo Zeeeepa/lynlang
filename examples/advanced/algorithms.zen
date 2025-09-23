@@ -1,0 +1,120 @@
+// Advanced Algorithms
+// Recursive and iterative implementations
+
+{ io } = @std
+
+// Fibonacci - multiple implementations
+fibonacci_recursive = (n: u32) u64 {
+    n <= 1 ?
+        | true { return n as u64 }
+        | false { return fibonacci_recursive(n - 1) + fibonacci_recursive(n - 2) }
+}
+
+fibonacci_iterative = (n: u32) u64 {
+    n <= 1 ? | true { return n as u64 } | false {}
+    
+    mut prev := 0u64
+    mut curr := 1u64
+    
+    for _ in 2..=n {
+        next := prev + curr
+        prev = curr
+        curr = next
+    }
+    
+    return curr
+}
+
+// Memoized version using HashMap
+fibonacci_memoized = (n: u32) u64 {
+    mut cache := HashMap<u32, u64>.new()
+    return fib_helper(n, &mut cache)
+}
+
+fib_helper = (n: u32, cache: &mut HashMap<u32, u64>) u64 {
+    cache.get(n) ?
+        | Some -> val { return val }
+        | None {}
+    
+    result := n <= 1 ?
+        | true { n as u64 }
+        | false { fib_helper(n - 1, cache) + fib_helper(n - 2, cache) }
+    
+    cache.insert(n, result)
+    return result
+}
+
+// QuickSort
+quicksort = (mut arr: []i32) void {
+    quicksort_range(&mut arr, 0, arr.len() - 1)
+}
+
+quicksort_range = (arr: &mut []i32, low: usize, high: usize) void {
+    low < high ?
+        | true {
+            pi := partition(arr, low, high)
+            pi > 0 ? | true { quicksort_range(arr, low, pi - 1) } | false {}
+            quicksort_range(arr, pi + 1, high)
+        }
+        | false {}
+}
+
+partition = (arr: &mut []i32, low: usize, high: usize) usize {
+    pivot := arr[high]
+    mut i := low
+    
+    for j in low..high {
+        arr[j] <= pivot ?
+            | true {
+                arr.swap(i, j)
+                i += 1
+            }
+            | false {}
+    }
+    
+    arr.swap(i, high)
+    return i
+}
+
+// Binary search
+binary_search = (arr: []i32, target: i32) Option<usize> {
+    mut left := 0
+    mut right := arr.len() - 1
+    
+    while left <= right {
+        mid := left + (right - left) / 2
+        
+        arr[mid] == target ?
+            | true { return Option.Some(mid) }
+            | false {
+                arr[mid] < target ?
+                    | true { left = mid + 1 }
+                    | false { right = mid - 1 }
+            }
+    }
+    
+    return Option.None
+}
+
+main = () void {
+    io.println("=== Advanced Algorithms ===")
+    
+    // Fibonacci comparison
+    n := 10u32
+    io.println("\nFibonacci(${n}):")
+    io.println("  Recursive: ${fibonacci_recursive(n)}")
+    io.println("  Iterative: ${fibonacci_iterative(n)}")
+    io.println("  Memoized: ${fibonacci_memoized(n)}")
+    
+    // Sorting
+    mut numbers := [64, 34, 25, 12, 22, 11, 90]
+    io.println("\nBefore sort: ${numbers}")
+    quicksort(&mut numbers)
+    io.println("After sort: ${numbers}")
+    
+    // Binary search
+    target := 22
+    binary_search(numbers, target) ?
+        | Some -> idx { io.println("\nFound ${target} at index ${idx}") }
+        | None { io.println("\n${target} not found") }
+}

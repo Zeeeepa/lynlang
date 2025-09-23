@@ -261,7 +261,7 @@ Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
     max_val := Option<T>:None
     self.loop(value -> {
         max_val ? | None { max_val = Option<T>:Some(value) }
-                 | Some -> current {
+                 | Some(current) {
                      compare(value, current) > 0 ?
                          | true { max_val = Option<T>:Some(value) }
                          | false {}
@@ -278,7 +278,7 @@ Iterator<T>.min = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
     min_val := Option<T>:None
     self.loop(value -> {
         min_val ? | None { min_val = Option<T>:Some(value) }
-                 | Some -> current {
+                 | Some(current) {
                      compare(value, current) < 0 ?
                          | true { min_val = Option<T>:Some(value) }
                          | false {}

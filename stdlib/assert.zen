@@ -176,7 +176,7 @@ test_suite = (name: string) TestContext   {
 }
 
 // Export public API
-export {
+module.exports = {
     assert,
     assert_eq,
     assert_ne,

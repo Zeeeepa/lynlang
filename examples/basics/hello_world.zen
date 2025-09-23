@@ -1,0 +1,8 @@
+// Hello World
+// The simplest Zen program
+
+{ io } = @std
+
+main = () void {
+    io.println("Hello, World!")
+}

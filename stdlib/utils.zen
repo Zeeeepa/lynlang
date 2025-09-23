@@ -50,19 +50,19 @@ is_none = <T>(opt: Option<T>) bool {
 
 // Unwrap Option or panic
 unwrap = <T>(opt: Option<T>) T {
-    opt ? | Some -> value { value }
+    opt ? | Some(value) { value }
           | None { core.panic("Called unwrap on None value") }
 }
 
 // Unwrap Option or return default
 unwrap_or = <T>(opt: Option<T>, default: T) T {
-    opt ? | Some -> value { value }
+    opt ? | Some(value) { value }
           | None { default }
 }
 
 // Map function over Option
 map_option = <T, U>(opt: Option<T>, f: (T) U) Option<U> {
-    opt ? | Some -> value { some(f(value)) }
+    opt ? | Some(value) { some(f(value)) }
           | None { none<U>() }
 }
 
@@ -79,14 +79,14 @@ is_err = <T, E>(result: Result<T, E>) bool {
 
 // Unwrap Result or panic
 unwrap_result = <T, E>(result: Result<T, E>) T {
-    result ? | Ok -> value { value }
-             | Err -> e { core.panic("Called unwrap on Err result") }
+    result ? | Ok(value) { value }
+             | Err(e) { core.panic("Called unwrap on Err result") }
 }
 
 // Map function over Result
 map_result = <T, U, E>(result: Result<T, E>, f: (T) U) Result<U, E> {
-    result ? | Ok -> value { ok(f(value)) }
-             | Err -> e { err<U, E>(e) }
+    result ? | Ok(value) { ok(f(value)) }
+             | Err(e) { err<U, E>(e) }
 }
 
 // Defer mechanism for cleanup
@@ -192,7 +192,7 @@ memoize = <K, V>(compute: (K) V) Memo<K, V> {
 // Get memoized value
 memo_get = <K, V>(m: *Memo<K, V>, key: K) V {
     existing := m.cache.get(key)
-    existing ? | Some -> value { value }
+    existing ? | Some(value) { value }
               | None {
                   value := m.compute(key)
                   m.cache.insert(key, value)
@@ -403,7 +403,7 @@ finish_timing = (guard: TimingGuard) void   {
 }
 
 // Export all utilities
-export {
+module.exports = {
     Option, Result,
     some, none, ok, err,
     is_some, is_none, is_ok, is_err,

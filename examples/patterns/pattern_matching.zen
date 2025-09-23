@@ -1,0 +1,108 @@
+// Pattern Matching
+// Core pattern matching with ? operator
+
+{ io } = @std
+
+// Enum for demonstration
+Status: |
+    Success
+    | Warning -> { message: string }
+    | Error -> { code: i32 }
+
+// Basic pattern matching
+handle_status = (status: Status) string {
+    status ?
+        | Success { return "All good!" }
+        | Warning -> {message} { return "Warning: ${message}" }
+        | Error -> {code} { return "Error code: ${code}" }
+}
+
+// Value matching with ranges
+get_grade = (score: i32) string {
+    score ?
+        | 90..100 { return "A" }
+        | 80..89 { return "B" }
+        | 70..79 { return "C" }
+        | 60..69 { return "D" }
+        | _ { return "F" }
+}
+
+// Guards in patterns
+describe_number = (n: i32) string {
+    n < 0 ?
+        | true { return "negative" }
+        | false {
+            n == 0 ?
+                | true { return "zero" }
+                | false {
+                    n % 2 == 0 ?
+                        | true { return "even" }
+                        | false { return "odd" }
+                }
+        }
+}
+
+// Struct pattern matching
+Point: { x: i32, y: i32 }
+
+quadrant = (p: Point) string {
+    p ?
+        | {x: 0, y: 0} { return "origin" }
+        | {x: 0, _} { return "y-axis" }
+        | {_, y: 0} { return "x-axis" }
+        | {x, y} {
+            x > 0 && y > 0 ? | true { return "Q1" } | false {}
+            x < 0 && y > 0 ? | true { return "Q2" } | false {}
+            x < 0 && y < 0 ? | true { return "Q3" } | false {}
+            return "Q4"
+        }
+}
+
+// List pattern matching
+first_two_sum = (list: []i32) i32 {
+    list.len() ?
+        | 0 { return 0 }
+        | 1 { return list[0] }
+        | _ { return list[0] + list[1] }
+}
+
+main = () void {
+    io.println("=== Pattern Matching ===")
+    
+    // Enum patterns
+    statuses := [
+        Status.Success,
+        Status.Warning { message: "Low memory" },
+        Status.Error { code: 404 },
+    ]
+    
+    for s in statuses {
+        io.println(handle_status(s))
+    }
+    
+    // Range patterns
+    io.println("\nGrades:")
+    scores := [95, 82, 73, 65, 50]
+    for score in scores {
+        io.println("${score} -> ${get_grade(score)}")
+    }
+    
+    // Conditional patterns
+    io.println("\nNumbers:")
+    for n in [-5, 0, 2, 3, 10] {
+        io.println("${n} is ${describe_number(n)}")
+    }
+    
+    // Struct patterns
+    io.println("\nPoints:")
+    points := [
+        Point { x: 0, y: 0 },
+        Point { x: 1, y: 1 },
+        Point { x: -1, y: 1 },
+        Point { x: 0, y: 5 },
+    ]
+    
+    for p in points {
+        io.println("(${p.x}, ${p.y}) is in ${quadrant(p)}")
+    }
+}

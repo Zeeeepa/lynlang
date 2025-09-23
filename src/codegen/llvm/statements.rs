@@ -30,7 +30,48 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_return(Some(&value))?;
                 Ok(())
             }
-            Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type: _ } => {
+            Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } => {
+                use crate::ast::VariableDeclarationType;
+                
+                // Check if this is an assignment to a forward-declared variable
+                // This happens when we have: x: i32 (forward decl) then x = 10 (initialization)
+                if let Some(init_expr) = initializer {
+                    // Check if variable already exists (forward declaration case)
+                    let existing_var = self.variables.get(name).cloned();
+                    if let Some(var_info) = existing_var {
+                        // Allow initialization of forward-declared variables with = operator
+                        // This works for both immutable (x: i32 then x = 10) and mutable (w:: i32 then w = 40)
+                        if !var_info.is_initialized && 
+                           matches!(declaration_type, VariableDeclarationType::InferredImmutable) {
+                            // This is initialization of a forward-declared variable
+                            let value = self.compile_expression(init_expr)?;
+                            let alloca = var_info.pointer;
+                            self.builder.build_store(alloca, value)?;
+                            
+                            // Mark the variable as initialized
+                            if let Some(var_info) = self.variables.get_mut(name) {
+                                var_info.is_initialized = true;
+                            }
+                            return Ok(());
+                        } else if var_info.is_initialized && var_info.is_mutable &&
+                                  matches!(declaration_type, VariableDeclarationType::InferredImmutable) {
+                            // This is a reassignment to an existing mutable variable
+                            // (e.g., w = 45 after w:: i32 and w = 40)
+                            let value = self.compile_expression(init_expr)?;
+                            let alloca = var_info.pointer;
+                            self.builder.build_store(alloca, value)?;
+                            // No need to update initialized flag - it's already true
+                            return Ok(());
+                        } else {
+                            // Variable already exists and is initialized or wrong declaration type
+                            return Err(CompileError::InternalError(
+                                format!("Type error: Variable '{}' already declared in this scope", name),
+                                None
+                            ));
+                        }
+                    }
+                }
+                
                 // Handle type inference or explicit type
                 // We may need to compile the expression for type inference, so save the value
                 let mut compiled_value: Option<BasicValueEnum> = None;

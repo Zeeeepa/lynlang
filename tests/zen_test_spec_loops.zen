@@ -1,0 +1,23 @@
+// Test loop and range syntax from LANGUAGE_SPEC.zen
+
+main = () void {
+    // Test range iteration (line 431-434)
+    (0..3).loop((i) {
+        print(i)
+    })
+    
+    // Test step ranges (line 437-439)
+    (0..10).step(2).loop((i) {
+        print(i)  // 0, 2, 4, 6, 8
+    })
+    
+    // Test infinite loop with break (line 453-459)
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        print(counter)
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    })
+}

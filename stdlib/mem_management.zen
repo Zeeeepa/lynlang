@@ -2,14 +2,53 @@
 // Low-level memory management utilities
 
 // External C functions for memory management
-extern malloc = (size: i64) RawPtr<i8>
-extern calloc = (num: i64, size: i64) RawPtr<i8>
-extern realloc = (ptr: RawPtr<i8>, size: i64) RawPtr<i8>
-extern free = (ptr: RawPtr<i8>) void
-extern memcpy = (dest: RawPtr<i8>, src: RawPtr<i8>, n: i64) RawPtr<i8>
-extern memmove = (dest: RawPtr<i8>, src: RawPtr<i8>, n: i64) RawPtr<i8>
-extern memset = (ptr: RawPtr<i8>, value: i32, n: i64) RawPtr<i8>
-extern memcmp = (ptr1: RawPtr<i8>, ptr2: RawPtr<i8>, n: i64) i32
+malloc = (size: i64) RawPtr<i8> {
+    inline.c("""
+        return malloc(${size});
+    """)
+}
+
+calloc = (num: i64, size: i64) RawPtr<i8> {
+    inline.c("""
+        return calloc(${num}, ${size});
+    """)
+}
+
+realloc = (ptr: RawPtr<i8>, size: i64) RawPtr<i8> {
+    inline.c("""
+        return realloc(${ptr.addr}, ${size});
+    """)
+}
+
+free = (ptr: RawPtr<i8>) void {
+    inline.c("""
+        free(${ptr.addr});
+    """)
+}
+
+memcpy = (dest: RawPtr<i8>, src: RawPtr<i8>, n: i64) RawPtr<i8> {
+    inline.c("""
+        return memcpy(${dest.addr}, ${src.addr}, ${n});
+    """)
+}
+
+memmove = (dest: RawPtr<i8>, src: RawPtr<i8>, n: i64) RawPtr<i8> {
+    inline.c("""
+        return memmove(${dest.addr}, ${src.addr}, ${n});
+    """)
+}
+
+memset = (ptr: RawPtr<i8>, value: i32, n: i64) RawPtr<i8> {
+    inline.c("""
+        return memset(${ptr.addr}, ${value}, ${n});
+    """)
+}
+
+memcmp = (ptr1: RawPtr<i8>, ptr2: RawPtr<i8>, n: i64) i32 {
+    inline.c("""
+        return memcmp(${ptr1.addr}, ${ptr2.addr}, ${n});
+    """)
+}
 
 // Memory alignment
 ALIGNMENT := 8

@@ -8,12 +8,14 @@ pub enum Token {
     StringLiteral(String),
     Symbol(char),
     Operator(String),
-    Arrow,        // ->
-    FatArrow,     // =>
     Question,     // ?
     Pipe,         // |
     Underscore,   // _ (for wildcard patterns)
-    At,           // @ (for @std and @this)
+    AtStd,        // @std
+    AtThis,       // @this
+    AtMeta,       // @meta (for compile-time metaprogramming)
+    InterpolationStart,  // Start of ${...}
+    InterpolationEnd,    // End of ${...}
     Eof,
 }
 
@@ -84,9 +86,33 @@ impl<'a> Lexer<'a> {
         
         let token = match self.current_char {
             Some('@') => {
-                // Handle @std and @this special symbols
-                let ident = self.read_identifier();
-                Token::Identifier(ident)
+                // Handle @std, @this, and @meta special symbols
+                let start = self.position;
+                self.read_char(); // consume '@'
+                
+                // Read the identifier part after @
+                let ident_start = self.position;
+                while let Some(c) = self.current_char {
+                    if c.is_ascii_alphanumeric() || c == '_' {
+                        self.read_char();
+                    } else {
+                        break;
+                    }
+                }
+                let ident = self.input[ident_start..self.position].to_string();
+                
+                // Check for special @ tokens
+                // Support @std, @this, and @meta with optional dot-notation
+                if ident == "std" {
+                    Token::AtStd
+                } else if ident == "this" {
+                    Token::AtThis
+                } else if ident == "meta" {
+                    Token::AtMeta
+                } else {
+                    // For other @ identifiers, return as regular identifier with @
+                    Token::Identifier(self.input[start..self.position].to_string())
+                }
             }
             Some('_') => {
                 // Check if it's just underscore (wildcard) or part of identifier
@@ -113,6 +139,7 @@ impl<'a> Lexer<'a> {
             }
             Some(c) if c.is_ascii_alphabetic() => {
                 let ident = self.read_identifier();
+                // No keywords in Zen - all are identifiers
                 Token::Identifier(ident)
             }
             Some(c) if c.is_ascii_digit() => {
@@ -261,7 +288,7 @@ impl<'a> Lexer<'a> {
                 self.read_char();
                 if self.current_char == Some('>') {
                     self.read_char();
-                    Token::Arrow
+                    Token::Operator("->".to_string())
                 } else {
                     Token::Operator("-".to_string())
                 }
@@ -273,7 +300,7 @@ impl<'a> Lexer<'a> {
                     Token::Operator("==".to_string())
                 } else if self.current_char == Some('>') {
                     self.read_char();
-                    Token::FatArrow
+                    Token::Operator("=>".to_string())
                 } else {
                     Token::Operator("=".to_string())
                 }
@@ -385,7 +412,7 @@ impl<'a> Lexer<'a> {
 
 
     fn is_symbol(&self, c: char) -> bool {
-        matches!(c, '{' | '}' | '(' | ')' | '[' | ']' | ';' | ',' | '|' | '&' | '.' | '?')
+        matches!(c, '{' | '}' | '(' | ')' | '[' | ']' | ';' | ',')
     }
 
     fn is_operator_start(&self, c: char) -> bool {

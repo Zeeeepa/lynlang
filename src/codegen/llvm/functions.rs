@@ -8,6 +8,75 @@ use inkwell::{
 use inkwell::module::Linkage;
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Gets or creates a runtime function
+    pub fn get_or_create_runtime_function(&mut self, name: &str) -> Result<FunctionValue<'ctx>, CompileError> {
+        // Check if function already exists
+        if let Some(func) = self.module.get_function(name) {
+            return Ok(func);
+        }
+        
+        // Create runtime functions as needed
+        match name {
+            "string_to_f64" => {
+                // string_to_f64(str: *const i8) -> Option<f64> (as struct)
+                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let option_f64_type = self.context.struct_type(
+                    &[
+                        self.context.i64_type().into(), // discriminant (0=Some, 1=None)
+                        self.context.f64_type().into(), // payload
+                    ],
+                    false,
+                );
+                let fn_type = option_f64_type.fn_type(&[string_type.into()], false);
+                let func = self.module.add_function(name, fn_type, Some(Linkage::External));
+                Ok(func)
+            }
+            "string_to_f32" => {
+                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let option_f32_type = self.context.struct_type(
+                    &[
+                        self.context.i64_type().into(), // discriminant
+                        self.context.f32_type().into(), // payload
+                    ],
+                    false,
+                );
+                let fn_type = option_f32_type.fn_type(&[string_type.into()], false);
+                let func = self.module.add_function(name, fn_type, Some(Linkage::External));
+                Ok(func)
+            }
+            "string_to_i32" => {
+                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let option_i32_type = self.context.struct_type(
+                    &[
+                        self.context.i64_type().into(), // discriminant
+                        self.context.i32_type().into(), // payload
+                    ],
+                    false,
+                );
+                let fn_type = option_i32_type.fn_type(&[string_type.into()], false);
+                let func = self.module.add_function(name, fn_type, Some(Linkage::External));
+                Ok(func)
+            }
+            "string_to_i64" => {
+                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let option_i64_type = self.context.struct_type(
+                    &[
+                        self.context.i64_type().into(), // discriminant
+                        self.context.i64_type().into(), // payload
+                    ],
+                    false,
+                );
+                let fn_type = option_i64_type.fn_type(&[string_type.into()], false);
+                let func = self.module.add_function(name, fn_type, Some(Linkage::External));
+                Ok(func)
+            }
+            _ => Err(CompileError::InternalError(
+                format!("Unknown runtime function: {}", name),
+                None,
+            )),
+        }
+    }
+    
     /// Declares an external function (C FFI)
     pub fn declare_external_function(&mut self, ext_func: &ast::ExternalFunction) -> Result<(), CompileError> {
         let ret_type = self.to_llvm_type(&ext_func.return_type)?;
@@ -203,20 +272,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
             });
         }
 
-        for statement in &function.body {
-            self.compile_statement(statement)?;
-        }
-
-        // Check if we need to add a return statement
-        if let Some(block) = self.builder.get_insert_block() {
-            if block.get_terminator().is_none() {
-                // Check if the last statement was an expression that should be returned
-                if let Some(last_stmt) = function.body.last() {
-                    match last_stmt {
-                        ast::Statement::Expression(expr) => {
-                            // For non-void functions, treat trailing expressions as return values
-                            if !matches!(function.return_type, AstType::Void) {
-                                let value = self.compile_expression(expr)?;
+        // Compile all statements except possibly the last one
+        let stmt_count = function.body.len();
+        for (i, statement) in function.body.iter().enumerate() {
+            // Check if this is the last statement
+            if i == stmt_count - 1 {
+                // Check if it's an expression that should be treated as a return value
+                if let ast::Statement::Expression(expr) = statement {
+                    if !matches!(function.return_type, AstType::Void) {
+                        // Compile the expression and use as return value
+                        let value = self.compile_expression(expr)?;
+                        
+                        // Check if the expression added its own terminators in all branches
+                        if let Some(block) = self.builder.get_insert_block() {
+                            if block.get_terminator().is_none() {
+                                // No terminator, so use the expression value as return
                                 // Execute deferred expressions before returning
                                 self.execute_deferred_expressions()?;
                                 // Cast to the correct return type if needed
@@ -224,6 +294,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let return_basic_type = self.expect_basic_type(return_type)?;
                                 let casted_value = self.cast_value_to_type(value, return_basic_type)?;
                                 self.builder.build_return(Some(&casted_value))?;
+                            }
+                        }
+                        continue; // Don't compile as regular statement
+                    }
+                }
+            }
+            
+            // Compile as regular statement
+            self.compile_statement(statement)?;
+        }
+
+        // Check if we need to add a return statement
+        if let Some(block) = self.builder.get_insert_block() {
+            if block.get_terminator().is_none() {
+                // Check if the last statement needs special handling
+                if let Some(last_stmt) = function.body.last() {
+                    match last_stmt {
+                        ast::Statement::Expression(_expr) => {
+                            // Expression was already handled above
+                            if matches!(function.return_type, AstType::Void) {
                             } else {
                                 // Execute deferred expressions before returning
                                 self.execute_deferred_expressions()?;

@@ -1,0 +1,7 @@
+main = () void {
+    // Test direct member access
+    x = (0..3)
+    x.loop((i) {
+        io.println("Works: ${i}")
+    })
+}

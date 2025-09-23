@@ -1,5 +1,8 @@
 // IO module - re-exports from io/  
 // Provides input/output functionality
 
-// Re-export IO functionality
-export * from "io/io.zen"
+// Import and re-export IO functionality
+io = import("io/io.zen")
+
+// Module exports
+module.exports = io

@@ -1,0 +1,8 @@
+// Test if range exists
+
+{ io } = @std
+
+main = () void {
+    my_range = (0..3)
+    io.println("Range created")
+}

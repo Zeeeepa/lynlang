@@ -2,4 +2,5 @@
 // Provides optional value type
 
 // Re-export Option functionality
-export * from "core/option.zen"
+option_module = import("core/option.zen")
+module.exports = option_module

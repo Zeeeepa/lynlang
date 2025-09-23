@@ -1,0 +1,15 @@
+// Test AST generation
+
+{ io } = @std
+
+main = () void {
+    // Test 1: direct call (not working)
+    (0..2).loop((i) {
+        io.println("Direct: ${i}")
+    })
+    
+    // Test 2: assigned (works once)
+    result = (0..2).loop((j) {
+        io.println("Assigned: ${j}")
+    })
+}

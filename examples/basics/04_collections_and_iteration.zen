@@ -1,0 +1,57 @@
+// Collections and Iteration
+// Arrays, vectors, and functional iteration
+
+{ io } = @std
+{ Vec, HashMap } = @std.collections
+
+main = () void {
+    io.println("=== Collections & Iteration ===")
+    
+    // Static arrays
+    primes: [5]i32 = [2, 3, 5, 7, 11]
+    io.println("Primes: ${primes}")
+    
+    // Array slicing
+    first_three := primes[0..3]
+    io.println("First three: ${first_three}")
+    
+    // Dynamic vectors
+    mut vec := Vec<i32>.new()
+    for i in 0..5 {
+        vec.push(i * 2)
+    }
+    io.println("Vector: ${vec}")
+    
+    // Functional iteration
+    doubled := vec.map((x) => x * 2)
+    filtered := vec.filter((x) => x > 4)
+    sum := vec.reduce(0, (acc, x) => acc + x)
+    
+    io.println("Doubled: ${doubled}")
+    io.println("Filtered (>4): ${filtered}")
+    io.println("Sum: ${sum}")
+    
+    // HashMaps
+    mut scores := HashMap<string, i32>.new()
+    scores.insert("Alice", 100)
+    scores.insert("Bob", 85)
+    scores.insert("Charlie", 92)
+    
+    scores.get("Alice") ?
+        | Some -> score { io.println("Alice's score: ${score}") }
+        | None { io.println("Alice not found") }
+    
+    // Range operations
+    (1..10)
+        .filter((n) => n % 2 == 0)
+        .map((n) => n * n)
+        .for_each((n) => io.println("Square: ${n}"))
+    
+    // Nested iteration
+    for i in 0..3 {
+        for j in 0..3 {
+            io.print("(${i},${j}) ")
+        }
+        io.println("")
+    }
+}

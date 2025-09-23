@@ -1,5 +1,8 @@
 // String module - re-exports from string/
 // Provides string manipulation functionality
 
-// Re-export string functionality
-export * from "string/string.zen"
+// Import and re-export string functionality
+string = import("string/string.zen")
+
+// Module exports
+module.exports = string

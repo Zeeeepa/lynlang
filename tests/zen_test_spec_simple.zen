@@ -1,0 +1,28 @@
+// Test basic Zen spec syntax
+
+// Option type definition
+Option<T>: Some(T) | None
+
+// Simple assignment operators
+main = () void {
+    x = 10          // Immutable assignment  
+    y ::= 20        // Mutable assignment
+    z :: i32 = 30   // Mutable with type
+    
+    // Pattern matching with ?
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(val) { io.println("Value: ${val}") }
+        | None { io.println("No value") }
+    
+    // Range loop
+    (0..10).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Boolean pattern
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+}

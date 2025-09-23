@@ -2,4 +2,5 @@
 // Provides linked list data structure
 
 // Re-export List functionality
-export * from "collections/list.zen"
+list_module = import("collections/list.zen")
+module.exports = list_module

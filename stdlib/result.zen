@@ -2,4 +2,5 @@
 // Provides error handling type
 
 // Re-export Result functionality
-export * from "core/result.zen"
+result_module = import("core/result.zen")
+module.exports = result_module

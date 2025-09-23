@@ -1,0 +1,10 @@
+// Test capturing loop result
+
+{ io } = @std
+
+main = () void {
+    result = (0..3).loop((i) {
+        io.println("i = ${i}")
+    })
+    io.println("Loop complete")
+}

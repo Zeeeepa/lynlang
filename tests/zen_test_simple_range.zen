@@ -1,0 +1,13 @@
+main = () void {
+    // Test different ways to call .loop on ranges
+    
+    // Direct range without parens - might not work
+    0..3.loop((i) {
+        io.println("No parens: ${i}")
+    })
+    
+    // Range with parens - should work
+    (0..3).loop((i) {
+        io.println("With parens: ${i}")
+    })
+}

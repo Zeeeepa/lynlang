@@ -2,18 +2,77 @@
 // Input/Output operations with proper syntax
 
 // External C functions for IO
-extern printf = (format: RawPtr<i8>, ...) i32
-extern puts = (str: RawPtr<i8>) i32
-extern getchar = () i32
-extern fopen = (filename: RawPtr<i8>, mode: RawPtr<i8>) RawPtr<i8>
-extern fclose = (file: RawPtr<i8>) i32
-extern fread = (buffer: RawPtr<i8>, size: i64, count: i64, file: RawPtr<i8>) i64
-extern fwrite = (buffer: RawPtr<i8>, size: i64, count: i64, file: RawPtr<i8>) i64
-extern feof = (file: RawPtr<i8>) i32
-extern ferror = (file: RawPtr<i8>) i32
-extern fflush = (file: RawPtr<i8>) i32
-extern malloc = (size: i64) RawPtr<i8>
-extern free = (ptr: RawPtr<i8>) void
+printf = (format: RawPtr<i8>, ...) i32 {
+    inline.c("""
+        return printf(${format.addr}, ...);
+    """)
+}
+
+puts = (str: RawPtr<i8>) i32 {
+    inline.c("""
+        return puts(${str.addr});
+    """)
+}
+
+getchar = () i32 {
+    inline.c("""
+        return getchar();
+    """)
+}
+
+fopen = (filename: RawPtr<i8>, mode: RawPtr<i8>) RawPtr<i8> {
+    inline.c("""
+        return fopen(${filename.addr}, ${mode.addr});
+    """)
+}
+
+fclose = (file: RawPtr<i8>) i32 {
+    inline.c("""
+        return fclose(${file.addr});
+    """)
+}
+
+fread = (buffer: RawPtr<i8>, size: i64, count: i64, file: RawPtr<i8>) i64 {
+    inline.c("""
+        return fread(${buffer.addr}, ${size}, ${count}, ${file.addr});
+    """)
+}
+
+fwrite = (buffer: RawPtr<i8>, size: i64, count: i64, file: RawPtr<i8>) i64 {
+    inline.c("""
+        return fwrite(${buffer.addr}, ${size}, ${count}, ${file.addr});
+    """)
+}
+
+feof = (file: RawPtr<i8>) i32 {
+    inline.c("""
+        return feof(${file.addr});
+    """)
+}
+
+ferror = (file: RawPtr<i8>) i32 {
+    inline.c("""
+        return ferror(${file.addr});
+    """)
+}
+
+fflush = (file: RawPtr<i8>) i32 {
+    inline.c("""
+        return fflush(${file.addr});
+    """)
+}
+
+malloc = (size: i64) RawPtr<i8> {
+    inline.c("""
+        return malloc(${size});
+    """)
+}
+
+free = (ptr: RawPtr<i8>) void {
+    inline.c("""
+        free(${ptr.addr});
+    """)
+}
 
 // File descriptor constants
 STDIN := 0
@@ -300,7 +359,7 @@ stdin = () File {
 }
 
 // Export main functions
-export {
+module.exports = {
     print,
     println,
     print_int,

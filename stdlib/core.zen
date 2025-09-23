@@ -2,6 +2,7 @@
 // Provides essential types and utilities
 
 // Re-export core functionality
-export * from "core/core.zen"
-export * from "core/option.zen"  
-export * from "core/result.zen"
+core_module = import("core/core.zen")
+option_module = import("core/option.zen")
+result_module = import("core/result.zen")
+module.exports = { ...core_module, ...option_module, ...result_module }

@@ -1,0 +1,24 @@
+// Test mutable assignment operators per LANGUAGE_SPEC.zen
+
+{ io } = @std
+
+main = () void {
+    // Test ::= mutable inferred type assignment
+    a ::= 10
+    io.println("a = ${a}")
+    a = 15
+    io.println("a after reassign = ${a}")
+    
+    // Test :: mutable forward declaration
+    b:: i32
+    b = 20
+    io.println("b = ${b}")
+    b = 25
+    io.println("b after reassign = ${b}")
+    
+    // Test :: with type and immediate value
+    c:: i32 = 30
+    io.println("c = ${c}")
+    c = 35
+    io.println("c after reassign = ${c}")
+}

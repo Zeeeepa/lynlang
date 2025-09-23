@@ -127,6 +127,47 @@ impl StringModule {
             is_builtin: true,
         });
         
+        // String conversion functions
+        functions.insert("to_i32".to_string(), StdFunction {
+            name: "to_i32".to_string(),
+            params: vec![("str".to_string(), AstType::String)],
+            return_type: AstType::Generic {
+                name: "Option".to_string(),
+                type_args: vec![AstType::I32],
+            },
+            is_builtin: true,
+        });
+        
+        functions.insert("to_i64".to_string(), StdFunction {
+            name: "to_i64".to_string(),
+            params: vec![("str".to_string(), AstType::String)],
+            return_type: AstType::Generic {
+                name: "Option".to_string(),
+                type_args: vec![AstType::I64],
+            },
+            is_builtin: true,
+        });
+        
+        functions.insert("to_f32".to_string(), StdFunction {
+            name: "to_f32".to_string(),
+            params: vec![("str".to_string(), AstType::String)],
+            return_type: AstType::Generic {
+                name: "Option".to_string(),
+                type_args: vec![AstType::F32],
+            },
+            is_builtin: true,
+        });
+        
+        functions.insert("to_f64".to_string(), StdFunction {
+            name: "to_f64".to_string(),
+            params: vec![("str".to_string(), AstType::String)],
+            return_type: AstType::Generic {
+                name: "Option".to_string(),
+                type_args: vec![AstType::F64],
+            },
+            is_builtin: true,
+        });
+        
         StringModule { functions, types }
     }
 }

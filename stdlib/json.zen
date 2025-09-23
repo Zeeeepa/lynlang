@@ -1,10 +1,29 @@
 // JSON Parser and Serializer for Zen
 // Provides JSON parsing and serialization capabilities
 
-extern malloc = (size: i64) RawPtr<void>
-extern free = (ptr: RawPtr<void>) void
-extern memcpy = (dest: RawPtr<void>, src: RawPtr<void>, size: i64) RawPtr<void>
-extern strlen = (str: RawPtr<i8>) i64
+malloc = (size: i64) RawPtr<void> {
+    inline.c("""
+        return malloc(${size});
+    """)
+}
+
+free = (ptr: RawPtr<void>) void {
+    inline.c("""
+        free(${ptr.addr});
+    """)
+}
+
+memcpy = (dest: RawPtr<void>, src: RawPtr<void>, size: i64) RawPtr<void> {
+    inline.c("""
+        return memcpy(${dest.addr}, ${src.addr}, ${size});
+    """)
+}
+
+strlen = (str: RawPtr<i8>) i64 {
+    inline.c("""
+        return strlen(${str.addr});
+    """)
+}
 
 // JSON Value types
 JsonValue: Null

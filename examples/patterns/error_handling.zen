@@ -1,0 +1,78 @@
+// Error Handling Patterns
+// Result/Option types and error propagation
+
+{ io, fs, Result, Option } = @std
+
+// Custom error type
+ParseError: {
+    message: string,
+    position: usize,
+}
+
+// Function that returns Result
+parse_number = (s: string) Result<i32, ParseError> {
+    s.is_empty() ?
+        | true { 
+            return Result.Err(ParseError { 
+                message: "empty string", 
+                position: 0 
+            })
+        }
+        | false {
+            // Try parsing (simplified)
+            return Result.Ok(42)  // Placeholder
+        }
+}
+
+// Error propagation with .raise()
+calculate = (input: string) Result<i32, ParseError> {
+    // .raise() propagates error if present
+    num := parse_number(input).raise()
+    return Result.Ok(num * 2)
+}
+
+// Option for nullable values
+find_config = (key: string) Option<string> {
+    key == "debug" ?
+        | true { Option.Some("enabled") }
+        | false { Option.None }
+}
+
+// Combining Result and Option
+safe_divide = (a: f64, b: f64) Result<f64, string> {
+    b == 0.0 ?
+        | true { Result.Err("division by zero") }
+        | false { Result.Ok(a / b) }
+}
+
+// Error recovery
+with_default = (opt: Option<i32>, default: i32) i32 {
+    opt ?
+        | Some -> val { return val }
+        | None { return default }
+}
+
+main = () void {
+    io.println("=== Error Handling ===")
+    
+    // Result pattern matching
+    safe_divide(10.0, 2.0) ?
+        | Ok -> val { io.println("Result: ${val}") }
+        | Err -> e { io.println("Error: ${e}") }
+    
+    // Option handling
+    find_config("debug") ?
+        | Some -> val { io.println("Config: ${val}") }
+        | None { io.println("Not found") }
+    
+    // Default values
+    opt := Option.None
+    value := with_default(opt, 100)
+    io.println("Value with default: ${value}")
+    
+    // Chaining with map
+    Option.Some(5)
+        .map((x) => x * 2)
+        .unwrap_or(0)
+        |> (result) => io.println("Mapped: ${result}")
+}

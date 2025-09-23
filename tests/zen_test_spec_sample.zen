@@ -1,0 +1,79 @@
+// Sample from LANGUAGE_SPEC.zen to test parsing
+
+// Imports - only @std and @this are special
+{ io, maths } = @std
+{ String, StringBuilder } = @std
+
+// No null! Only Option types
+Option<T>: Some(T) | None
+
+// Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+// Trait definition - methods that types can implement
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// UFC overloading based on enum variants
+GameEntity: Player | Enemy | Powerup
+
+// Overload functions for each variant
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+main = () void {
+    // Different assignment forms
+    x: i32
+    x = 10
+    y = 10              // Immutable assignment 
+    z : i32 = 20        // Immutable assignment with type
+    w :: i32            // mutable forward declaration
+    w = 20
+    v ::= 30            // Mutable assignment
+    u :: i32 = 40       // mutable assignment with type
+    
+    // Boolean pattern matching - no ternary
+    is_ready = true
+    is_ready ? { 
+        io.println("Starting game!") 
+    }
+    
+    // For if-else, use full pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Processing...") }
+        | false { io.println("Waiting for data...") }
+    
+    // Range iterations
+    (0..10).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Option handling - no null!
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            circle = Circle {
+                center: Point { x: 0.0, y: 0.0 },
+                radius: r,
+            }
+            io.println("Created circle")
+        }
+        | None {
+            io.println("No radius provided")
+        }
+}

@@ -271,7 +271,7 @@ kill = (pid: ProcessId) core.Result<void, core.Error> {
 }
 
 // Export public API
-export {
+module.exports = {
     // Constants
     EXIT_SUCCESS,
     EXIT_FAILURE,

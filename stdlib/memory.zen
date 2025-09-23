@@ -1,18 +1,57 @@
 // Zen Memory Management Module
 // Provides memory allocation, deallocation, and management utilities
 
-{ core, io, extern, ptrcast } := @std.core
+{ core, io, inline, ptrcast } := @std.core
 
 
 // External C function declarations
-allocate_raw: (size: usize) Ptr<void> = extern("malloc")
-deallocate_raw: (ptr: Ptr<void>) void = extern("free")
-reallocate_raw: (ptr: Ptr<void>, new_size: usize) Ptr<void> = extern("realloc")
-allocate_zeroed_raw: (count: usize, size: usize) Ptr<void> = extern("calloc")
-copy_memory_raw: (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void> = extern("memcpy")
-move_memory_raw: (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void> = extern("memmove")
-set_memory_raw: (ptr: Ptr<void>, value: i32, size: usize) Ptr<void> = extern("memset")
-compare_memory_raw: (ptr1: Ptr<void>, ptr2: Ptr<void>, size: usize) i32 = extern("memcmp")
+allocate_raw = (size: usize) Ptr<void> {
+    inline.c("""
+        return malloc(${size});
+    """)
+}
+
+deallocate_raw = (ptr: Ptr<void>) void {
+    inline.c("""
+        free(${ptr.addr});
+    """)
+}
+
+reallocate_raw = (ptr: Ptr<void>, new_size: usize) Ptr<void> {
+    inline.c("""
+        return realloc(${ptr.addr}, ${new_size});
+    """)
+}
+
+allocate_zeroed_raw = (count: usize, size: usize) Ptr<void> {
+    inline.c("""
+        return calloc(${count}, ${size});
+    """)
+}
+
+copy_memory_raw = (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void> {
+    inline.c("""
+        return memcpy(${dest.addr}, ${src.addr}, ${size});
+    """)
+}
+
+move_memory_raw = (dest: Ptr<void>, src: Ptr<void>, size: usize) Ptr<void> {
+    inline.c("""
+        return memmove(${dest.addr}, ${src.addr}, ${size});
+    """)
+}
+
+set_memory_raw = (ptr: Ptr<void>, value: i32, size: usize) Ptr<void> {
+    inline.c("""
+        return memset(${ptr.addr}, ${value}, ${size});
+    """)
+}
+
+compare_memory_raw = (ptr1: Ptr<void>, ptr2: Ptr<void>, size: usize) i32 {
+    inline.c("""
+        return memcmp(${ptr1.addr}, ${ptr2.addr}, ${size});
+    """)
+}
 
 // Memory allocation tracking
 AllocationInfo: {

@@ -1,0 +1,13 @@
+// Simple Result type test
+Result<T, E>: Ok(T) | Err(E)
+
+test_result = () Result<i32, string> {
+    return Ok(42)
+}
+
+main = () void {
+    result = test_result()
+    result ?
+        | Ok(val) { io.println("Got value") }
+        | Err(e) { io.println("Got error") }
+}

@@ -1,0 +1,12 @@
+// Minimal range loop test
+
+{ io } = @std
+
+main = () void {
+    // Simplest possible range loop
+    counter ::= 0
+    (0..3).loop((i) {
+        counter = counter + 1
+    })
+    io.println("Counter: ${counter}")
+}

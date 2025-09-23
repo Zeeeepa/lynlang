@@ -1,0 +1,7 @@
+main = () void {
+    // Test range.loop()
+    range = (0..10)
+    range.loop((i) {
+        io.println("number")
+    })
+}

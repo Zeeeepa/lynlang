@@ -1,0 +1,22 @@
+// Test type definitions from LANGUAGE_SPEC.zen
+
+// Option type (line 109-110)
+Option<T>: Some(T) | None
+
+// Result type (line 112-113)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct (line 116-120)
+Point: {
+    x:: f64,     // mutable field
+    y:: f64 = 0  // with default value
+}
+
+// Main function
+main = () void {
+    // Test Option handling
+    maybe_radius: Option<f64> = Some(5.5)
+    
+    // Test struct creation
+    point = Point { x: 1.0, y: 2.0 }
+}

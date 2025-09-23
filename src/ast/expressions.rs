@@ -95,6 +95,9 @@ pub enum Expression {
     CreateReference(Box<Expression>),     // .ref() method
     CreateMutableReference(Box<Expression>), // .mut_ref() method
     StringLength(Box<Expression>),
+    // Option<T> constructors
+    Some(Box<Expression>),  // Some(value)
+    None,                    // None
     // String interpolation: "Hello ${name}!"
     StringInterpolation {
         parts: Vec<StringPart>,
@@ -126,6 +129,13 @@ pub enum Expression {
     Loop {
         body: Box<Expression>,
     },
+    // Collection loop: collection.loop((item) { ... })
+    CollectionLoop {
+        collection: Box<Expression>,
+        param: String, // The loop parameter name
+        index_param: Option<String>, // Optional index parameter
+        body: Box<Expression>,
+    },
     // Closure expression
     Closure {
         params: Vec<(String, Option<AstType>)>,
@@ -142,8 +152,13 @@ pub enum Expression {
     },
     // Error propagation: expr.raise()
     Raise(Box<Expression>),
+    // Defer expression: @this.defer(expr)
+    Defer(Box<Expression>),
     // Break expression for loops (can be used in expression contexts like pattern arms)
-    Break { label: Option<String> },
+    Break { 
+        label: Option<String>,
+        value: Option<Box<Expression>>, // Break can optionally return a value
+    },
     // Continue expression for loops
     Continue { label: Option<String> },
     // Collection constructors

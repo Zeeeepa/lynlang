@@ -1,0 +1,82 @@
+// Structs and Methods
+// User-defined types with UFCS
+
+{ io } = @std
+{ Result } = @std
+
+// Basic struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+// Methods via UFCS (Uniform Function Call Syntax)
+Point.new = (x: f64, y: f64) Point {
+    return Point { x, y }
+}
+
+Point.distance = (self, other: Point) f64 {
+    dx := self.x - other.x
+    dy := self.y - other.y
+    return (dx * dx + dy * dy).sqrt()
+}
+
+Point.translate = (mut self, dx: f64, dy: f64) void {
+    self.x += dx
+    self.y += dy
+}
+
+// Generic struct
+Pair<T>: {
+    first: T,
+    second: T,
+}
+
+Pair.swap = (self) Pair<T> {
+    return Pair { first: self.second, second: self.first }
+}
+
+// Enum (sum type)
+Shape: |
+    Circle -> { radius: f64 }
+    | Rectangle -> { width: f64, height: f64 }
+    | Triangle -> { base: f64, height: f64 }
+
+Shape.area = (self) f64 {
+    self ?
+        | Circle -> {radius} { return 3.14159 * radius * radius }
+        | Rectangle -> {width, height} { return width * height }
+        | Triangle -> {base, height} { return 0.5 * base * height }
+}
+
+main = () void {
+    io.println("=== Structs & Methods ===")
+    
+    // Create and use structs
+    p1 := Point.new(0.0, 0.0)
+    p2 := Point { x: 3.0, y: 4.0 }
+    
+    dist := p1.distance(p2)
+    io.println("Distance: ${dist}")
+    
+    // Mutable methods
+    mut p3 := Point { x: 1.0, y: 2.0 }
+    p3.translate(5.0, 3.0)
+    io.println("Translated point: (${p3.x}, ${p3.y})")
+    
+    // Generic types
+    pair := Pair { first: 10, second: 20 }
+    swapped := pair.swap()
+    io.println("Swapped: ${swapped.first}, ${swapped.second}")
+    
+    // Enum pattern matching
+    shapes := [
+        Shape.Circle { radius: 5.0 },
+        Shape.Rectangle { width: 4.0, height: 6.0 },
+        Shape.Triangle { base: 10.0, height: 8.0 },
+    ]
+    
+    for shape in shapes {
+        io.println("Area: ${shape.area()}")
+    }
+}

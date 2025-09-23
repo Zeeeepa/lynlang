@@ -1,0 +1,9 @@
+// Concurrent module - concurrency and parallelism
+// Provides actors, threads, and parallel execution
+
+// Re-export concurrency functionality
+actor_module = import("concurrent/actor.zen")
+concurrency_module = import("concurrent/concurrency.zen")
+thread_module = import("concurrent/thread.zen")
+task_executor_module = import("concurrent/task_executor.zen")
+module.exports = { ...actor_module, ...concurrency_module, ...thread_module, ...task_executor_module }

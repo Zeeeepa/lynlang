@@ -294,7 +294,11 @@ Benchmark: {
 
 // Run a benchmark
 benchmark = (name: string, iterations: i64, bench_fn: () void) Benchmark {
-    extern clock = () f64  // Assuming we have a clock function
+    clock = () f64 {  // Assuming we have a clock function
+        inline.c("""
+            return clock();
+        """)
+    }
     
     io.println("Benchmarking: " + name)
     

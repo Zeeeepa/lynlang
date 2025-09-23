@@ -1,0 +1,44 @@
+// Test Zen spec features based on LANGUAGE_SPEC.zen
+
+// No keywords - everything is just identifiers and operators
+main = () void {
+    // Assignment operators as per spec
+    x = 10           // Immutable assignment
+    y : i32 = 20     // Immutable with type
+    z ::= 30         // Mutable assignment
+    w :: i32 = 40    // Mutable with type and initialization
+    
+    // Pattern matching with ? operator (no match keyword!)
+    value = 42
+    value ?
+        | 42 { io.println("The answer") }
+        | _ { io.println("Not the answer") }
+    
+    // Boolean pattern matching
+    is_ready = true
+    is_ready ?
+        | true { io.println("Ready!") }
+        | false { io.println("Not ready") }
+    
+    // Simple conditional
+    has_data = false
+    has_data ? {
+        io.println("Processing data")
+    }
+    
+    // Range iteration with UFC
+    (0..3).loop((i) {
+        io.println("Index: ${i}")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 2 ?
+            | true { break }
+            | false { io.println("Counting: ${counter}") }
+    })
+    
+    io.println("Done!")
+}
