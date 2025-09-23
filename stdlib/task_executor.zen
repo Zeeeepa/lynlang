@@ -100,10 +100,12 @@ new = (config: ExecutorConfig) TaskExecutor {
     // Start worker threads
     executor.thread_pool = DynVec.new()
     i := 0
-    while (i < config.num_threads) {
-        worker := thread.spawn(worker_loop, executor)
-        executor.thread_pool.push(worker)
-        i += 1
+    loop {
+        i < config.num_threads ? | false { break } | true {
+            worker := thread.spawn(worker_loop, executor)
+            executor.thread_pool.push(worker)
+            i += 1
+        }
     }
     
     return executor
@@ -154,7 +156,8 @@ submit<T> = (executor: TaskExecutor, name: string, priority: Priority, func: () 
 
 // Worker thread loop
 worker_loop = (executor: TaskExecutor) void   {
-    while (!executor.shutdown.load()) {
+    loop {
+        !executor.shutdown.load() ? | false { break } | true {
         // Try to get a task from the queue
         task_opt := executor.task_queue.pop_timeout(100)
         
@@ -209,6 +212,7 @@ worker_loop = (executor: TaskExecutor) void   {
             // Move to completed tasks
             executor.active_tasks.remove(task.id)
             executor.completed_tasks.push(task)
+        }
         }
     }
 }
@@ -290,8 +294,10 @@ get_status = (executor: Ptr<TaskExecutor>, task_id: u64) Option<TaskStatus>   {
 shutdown = (executor: Ptr<TaskExecutor>, wait_for_completion: bool) void   {
     wait_for_completion ? {
         // Wait for all tasks to complete
-        while (executor.task_queue.size() > 0 || executor.active_tasks.size() > 0) {
-            thread.sleep(100)
+        loop {
+            executor.task_queue.size() > 0 || executor.active_tasks.size() > 0 ? | false { break } | true {
+                thread.sleep(100)
+            }
         }
     }
     

@@ -118,7 +118,7 @@ set_contains<T>: (set: Ptr<Set<T>>, value: T) bool  = {
 }
 
 // Remove an element from the set
-set_remove<T>: (set: *Set<T>, value: T) bool  = {
+set_remove<T>: (set: Ptr<Set<T>>, value: T) bool  = {
     hash := set.hash_fn(value)
     index := (hash & 0x7FFFFFFFFFFFFFFF) % set.capacity
     bucket := &set.buckets[index]
@@ -147,7 +147,7 @@ set_remove<T>: (set: *Set<T>, value: T) bool  = {
 }
 
 // Clear all elements from the set
-set_clear<T>: (set: *Set<T>) void  = {
+set_clear<T>: (set: Ptr<Set<T>>) void  = {
     i := 0i64
     loop {
 
@@ -159,22 +159,22 @@ set_clear<T>: (set: *Set<T>) void  = {
 }
 
 // Get the size of the set
-set_size<T>: (set: *Set<T>) i64  = {
+set_size<T>: (set: Ptr<Set<T>>) i64  = {
     return set.size
 }
 
 // Check if the set is empty
-set_is_empty<T>: (set: *Set<T>) bool  = {
+set_is_empty<T>: (set: Ptr<Set<T>>) bool  = {
     return set.size == 0
 }
 
 // Resize the set's internal hash table
-set_resize<T>: (set: *Set<T>, new_capacity: i64) void  = {
+set_resize<T>: (set: Ptr<Set<T>>, new_capacity: i64) void  = {
     old_buckets := set.buckets
     old_capacity := set.capacity
     
     // Create new buckets
-    set.buckets = mem.alloc(@sizeof(Bucket<T>) * new_capacity) as *Bucket<T>
+    set.buckets = mem.alloc(@sizeof(Bucket<T>) * new_capacity) as Ptr<Bucket<T>>
     set.capacity = new_capacity
     set.size = 0
     
@@ -214,12 +214,12 @@ set_resize<T>: (set: *Set<T>, new_capacity: i64) void  = {
 }
 
 // Convert set to array
-set_to_array<T> = (set: *Set<T>) *T {
+set_to_array<T> = (set: Ptr<Set<T>>) Ptr<T> {
     set.size == 0 ? | true {
         return @std.null
     } | false {}
     
-    array := mem.alloc(@sizeof(T) * set.size) as *T
+    array := mem.alloc(@sizeof(T) * set.size) as Ptr<T>
     index := 0i64
     
     i := 0i64
@@ -242,7 +242,7 @@ set_to_array<T> = (set: *Set<T>) *T {
 }
 
 // Union of two sets (creates a new set)
-set_union<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
+set_union<T> = (set1: Ptr<Set<T>>, set2: Ptr<Set<T>>) Ptr<Set<T>> {
     result := set_new<T>(set1.hash_fn, set1.eq_fn)
     
     // Add all elements from set1
@@ -281,7 +281,7 @@ set_union<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 }
 
 // Intersection of two sets (creates a new set)
-set_intersection<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
+set_intersection<T> = (set1: Ptr<Set<T>>, set2: Ptr<Set<T>>) Ptr<Set<T>> {
     result := set_new<T>(set1.hash_fn, set1.eq_fn)
     
     // Use the smaller set for iteration
@@ -311,7 +311,7 @@ set_intersection<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 }
 
 // Difference of two sets (elements in set1 but not in set2)
-set_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
+set_difference<T> = (set1: Ptr<Set<T>>, set2: Ptr<Set<T>>) Ptr<Set<T>> {
     result := set_new<T>(set1.hash_fn, set1.eq_fn)
     
     i := 0i64
@@ -335,7 +335,7 @@ set_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 }
 
 // Symmetric difference (elements in either set but not both)
-set_symmetric_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
+set_symmetric_difference<T> = (set1: Ptr<Set<T>>, set2: Ptr<Set<T>>) Ptr<Set<T>> {
     result := set_new<T>(set1.hash_fn, set1.eq_fn)
     
     // Add elements from set1 not in set2
@@ -378,7 +378,7 @@ set_symmetric_difference<T> = (set1: *Set<T>, set2: *Set<T>) *Set<T> {
 }
 
 // Check if set1 is a subset of set2
-set_is_subset<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
+set_is_subset<T>: (set1: Ptr<Set<T>>, set2: Ptr<Set<T>>) bool  = {
     set1.size > set2.size ? | true {
         return false
     } | false {}
@@ -404,12 +404,12 @@ set_is_subset<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
 }
 
 // Check if set1 is a superset of set2
-set_is_superset<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
+set_is_superset<T>: (set1: Ptr<Set<T>>, set2: Ptr<Set<T>>) bool  = {
     return set_is_subset(set2, set1)
 }
 
 // Check if two sets are equal
-set_equal<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
+set_equal<T>: (set1: Ptr<Set<T>>, set2: Ptr<Set<T>>) bool  = {
     set1.size != set2.size ? | true {
         return false
     } | false {}
@@ -418,7 +418,7 @@ set_equal<T>: (set1: *Set<T>, set2: *Set<T>) bool  = {
 }
 
 // Free the set and its memory
-set_free<T>: (set: *Set<T>) void  = {
+set_free<T>: (set: Ptr<Set<T>>) void  = {
     i := 0i64
     loop {
 

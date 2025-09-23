@@ -6,36 +6,36 @@ mem = @std
 array = @std
 
 // Stack structure using array backing
-Stack(T: type): {
-    data: Array(T),
+Stack<T: type>: {
+    data: Array<T>,
 }
 
 // Create new stack
-new = (T: type) Stack(T) {
-    return Stack(T){
+new = (T: type) Stack<T> {
+    return Stack<T>{
         data: array.new(T, 16),
     }
 }
 
 // Create stack with initial capacity
-with_capacity = (T: type, capacity: usize) Stack(T) {
-    return Stack(T){
+with_capacity = (T: type, capacity: usize) Stack<T> {
+    return Stack<T>{
         data: array.new(T, capacity),
     }
 }
 
 // Push element onto stack
-push = (T: type, s: *Stack(T), value: T) void {
+push = (T: type, s: Ptr<Stack<T>>, value: T) void {
     array.push(T, &s.data, value)
 }
 
 // Pop element from stack
-pop = (T: type, s: *Stack(T)) Option<T> {
+pop = (T: type, s: Ptr<Stack<T>>) Option<T> {
     return array.pop(T, &s.data)
 }
 
 // Peek at top element without removing
-peek = (T: type, s: *Stack(T)) Option<T> {
+peek = (T: type, s: Ptr<Stack<T>>) Option<T> {
     s.data.len == 0 ? {
         return null
     }
@@ -43,61 +43,61 @@ peek = (T: type, s: *Stack(T)) Option<T> {
 }
 
 // Check if stack is empty
-is_empty = (T: type, s: *Stack(T)) bool {
+is_empty = (T: type, s: Ptr<Stack<T>>) bool {
     return s.data.len == 0
 }
 
 // Get stack size
-len = (T: type, s: *Stack(T)) usize {
+len = (T: type, s: Ptr<Stack<T>>) usize {
     return s.data.len
 }
 
 // Clear stack
-clear = (T: type, s: *Stack(T)) void {
+clear = (T: type, s: Ptr<Stack<T>>) void {
     array.clear(T, &s.data)
 }
 
 // Reserve capacity
-reserve = (T: type, s: *Stack(T), capacity: usize) void {
+reserve = (T: type, s: Ptr<Stack<T>>, capacity: usize) void {
     array.reserve(T, &s.data, capacity)
 }
 
 // Shrink to fit
-shrink_to_fit = (T: type, s: *Stack(T)) void {
+shrink_to_fit = (T: type, s: Ptr<Stack<T>>) void {
     array.shrink_to_fit(T, &s.data)
 }
 
 // Convert to array (bottom to top)
-to_array = (T: type, s: *Stack(T)) Array(T) {
+to_array = (T: type, s: Ptr<Stack<T>>) Array<T> {
     return array.clone(T, &s.data)
 }
 
 // Create stack from array (first element becomes bottom)
-from_array = (T: type, arr: *Array(T)) Stack(T) {
+from_array = (T: type, arr: Ptr<Array<T>>) Stack<T> {
     s := new(T)
     array.extend(T, &s.data, arr)
     return s
 }
 
 // Clone stack
-clone = (T: type, s: *Stack(T)) Stack(T) {
-    return Stack(T){
+clone = (T: type, s: Ptr<Stack<T>>) Stack<T> {
+    return Stack<T>{
         data: array.clone(T, &s.data),
     }
 }
 
 // Free stack memory
-free = (T: type, s: *Stack(T)) void {
+free = (T: type, s: Ptr<Stack<T>>) void {
     array.free(T, &s.data)
 }
 
 // Reverse stack in place
-reverse = (T: type, s: *Stack(T)) void {
+reverse = (T: type, s: Ptr<Stack<T>>) void {
     array.reverse(T, &s.data)
 }
 
 // Transfer all elements from one stack to another
-transfer = (T: type, from: *Stack(T), to: *Stack(T)) void {
+transfer = (T: type, from: Ptr<Stack<T>>, to: Ptr<Stack<T>>) void {
     while (!is_empty(T, from)) {
         value := pop(T, from)
         value != null ? {
@@ -107,7 +107,7 @@ transfer = (T: type, from: *Stack(T), to: *Stack(T)) void {
 }
 
 // Duplicate top element
-dup = (T: type, s: *Stack(T)) bool {
+dup = (T: type, s: Ptr<Stack<T>>) bool {
     top := peek(T, s)
     top .== None ? {
         return false
@@ -117,7 +117,7 @@ dup = (T: type, s: *Stack(T)) bool {
 }
 
 // Swap top two elements
-swap = (T: type, s: *Stack(T)) bool {
+swap = (T: type, s: Ptr<Stack<T>>) bool {
     s.data.len < 2 ? {
         return false
     }
@@ -129,7 +129,7 @@ swap = (T: type, s: *Stack(T)) bool {
 }
 
 // Rotate top n elements (move top to position n)
-rotate = (T: type, s: *Stack(T), n: usize) bool {
+rotate = (T: type, s: Ptr<Stack<T>>, n: usize) bool {
     n == 0 or n > s.data.len ? {
         return false
     }
@@ -146,19 +146,19 @@ rotate = (T: type, s: *Stack(T), n: usize) bool {
 }
 
 // Iterator support (top to bottom)
-iter = (T: type, s: *Stack(T)) StackIterator(T) {
-    return StackIterator(T){
+iter = (T: type, s: Ptr<Stack<T>>) StackIterator<T> {
+    return StackIterator<T>{
         data: s.data.data,
         index: s.data.len,
     }
 }
 
-StackIterator(T: type): {
-    data: *T,
+StackIterator<T: type>: {
+    data: Ptr<T>,
     index: usize,
 }
 
-next = (T: type, it: *StackIterator(T)) Option<T> {
+next = (T: type, it: Ptr<StackIterator<T>>) Option<T> {
     it.index == 0 ? {
         return null
     }
@@ -167,16 +167,16 @@ next = (T: type, it: *StackIterator(T)) Option<T> {
 }
 
 // Min/Max stack implementation (tracks minimum/maximum efficiently)
-MinMaxStack(T: type): {
-    main: Stack(T),
-    mins: Stack(T),
-    maxs: Stack(T),
+MinMaxStack<T: type>: {
+    main: Stack<T>,
+    mins: Stack<T>,
+    maxs: Stack<T>,
     compare: fn(T, T) i32,
 }
 
 // Create new min/max stack
-new_minmax = (T: type, compare: fn(T, T) i32) MinMaxStack(T) {
-    return MinMaxStack(T){
+new_minmax = (T: type, compare: fn(T, T) i32) MinMaxStack<T> {
+    return MinMaxStack<T>{
         main: new(T),
         mins: new(T),
         maxs: new(T),
@@ -185,7 +185,7 @@ new_minmax = (T: type, compare: fn(T, T) i32) MinMaxStack(T) {
 }
 
 // Push to min/max stack
-push_minmax = (T: type, s: *MinMaxStack(T), value: T) void {
+push_minmax = (T: type, s: Ptr<MinMaxStack<T>>, value: T) void {
     push(T, &s.main, value)
     
     // Update min stack
@@ -206,7 +206,7 @@ push_minmax = (T: type, s: *MinMaxStack(T), value: T) void {
 }
 
 // Pop from min/max stack
-pop_minmax = (T: type, s: *MinMaxStack(T)) Option<T> {
+pop_minmax = (T: type, s: Ptr<MinMaxStack<T>>) Option<T> {
     is_empty(T, &s.main) ? {
         return null
     }
@@ -217,39 +217,39 @@ pop_minmax = (T: type, s: *MinMaxStack(T)) Option<T> {
 }
 
 // Get minimum element
-get_min = (T: type, s: *MinMaxStack(T)) Option<T> {
+get_min = (T: type, s: Ptr<MinMaxStack<T>>) Option<T> {
     return peek(T, &s.mins)
 }
 
 // Get maximum element
-get_max = (T: type, s: *MinMaxStack(T)) Option<T> {
+get_max = (T: type, s: Ptr<MinMaxStack<T>>) Option<T> {
     return peek(T, &s.maxs)
 }
 
 // Peek at top of min/max stack
-peek_minmax = (T: type, s: *MinMaxStack(T)) Option<T> {
+peek_minmax = (T: type, s: Ptr<MinMaxStack<T>>) Option<T> {
     return peek(T, &s.main)
 }
 
 // Check if min/max stack is empty
-is_empty_minmax = (T: type, s: *MinMaxStack(T)) bool {
+is_empty_minmax = (T: type, s: Ptr<MinMaxStack<T>>) bool {
     return is_empty(T, &s.main)
 }
 
 // Get min/max stack size
-len_minmax = (T: type, s: *MinMaxStack(T)) usize {
+len_minmax = (T: type, s: Ptr<MinMaxStack<T>>) usize {
     return len(T, &s.main)
 }
 
 // Clear min/max stack
-clear_minmax = (T: type, s: *MinMaxStack(T)) void {
+clear_minmax = (T: type, s: Ptr<MinMaxStack<T>>) void {
     clear(T, &s.main)
     clear(T, &s.mins)
     clear(T, &s.maxs)
 }
 
 // Free min/max stack
-free_minmax = (T: type, s: *MinMaxStack(T)) void {
+free_minmax = (T: type, s: Ptr<MinMaxStack<T>>) void {
     free(T, &s.main)
     free(T, &s.mins)
     free(T, &s.maxs)

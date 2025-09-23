@@ -66,7 +66,7 @@ init_checker = () CheckerState   {
 }
 
 // Add error to checker state
-add_error = (state: *CheckerState, error: SyntaxError) void   {
+add_error = (state: Ptr<CheckerState>, error: SyntaxError) void   {
     state.error_count < 100 ? {
             state.errors.push(error)
             state.error_count = state.error_count + 1
@@ -74,7 +74,7 @@ add_error = (state: *CheckerState, error: SyntaxError) void   {
 }
 
 // Check character for syntax issues
-check_character = (state: *CheckerState, ch: i8) void   {
+check_character = (state: Ptr<CheckerState>, ch: i8) void   {
     ch ?
         | '{'  {
             state.brace_count = state.brace_count + 1
@@ -121,7 +121,7 @@ check_operators = (content: string) bool   {
 }
 
 // Validate bracket balance at end of file
-validate_final_state = (state: *CheckerState) void   {
+validate_final_state = (state: Ptr<CheckerState>) void   {
     state.brace_count != 0 ? {
             add_error(state, SyntaxError:UnmatchedBrace({state.current_line, state.current_column}))
         }
@@ -259,7 +259,7 @@ check_file = (filename: string) bool   {
 }
 
 // Main entry point
-main = (args: [string]) i32   {
+main = (args: Array<string>) i32   {
     io.print("Zen Syntax Checker v0.1.0\n")
     io.print("==========================\n\n")
     

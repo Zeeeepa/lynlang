@@ -7,7 +7,7 @@ mem := build.import("mem")
 math := build.import("math")
 
 // Dynamic array structure
-Array(T: type): {
+Array<T: type>: {
     data: Ptr<T>,
     len: usize,
     capacity: usize,
@@ -219,7 +219,7 @@ contains = (T: type, arr: Ptr<Array<T>>, value: T) bool {
 }
 
 // Map function over array
-map = (T: type, U: type, arr: Ptr<Array<T>>, f: fn(T) U) Array(U) {
+map = (T: type, U: type, arr: Ptr<Array<T>>, f: fn(T) U) Array<U> {
     result := new(U, arr.len)
     result.len = arr.len
     
@@ -366,21 +366,21 @@ free = (T: type, arr: Ptr<Array<T>>) void {
 }
 
 // Iterator support
-iter = (T: type, arr: Ptr<Array<T>>) ArrayIterator(T) {
-    return ArrayIterator(T){
+iter = (T: type, arr: Ptr<Array<T>>) ArrayIterator<T> {
+    return ArrayIterator<T>{
         data: arr.data,
         len: arr.len,
         index: 0,
     }
 }
 
-ArrayIterator(T: type): {
+ArrayIterator<T: type>: {
     data: Ptr<T>,
     len: usize,
     index: usize,
 }
 
-next = (T: type, it: Ptr<ArrayIterator(T)>) Option<T> {
+next = (T: type, it: Ptr<ArrayIterator<T>>) Option<T> {
     it.index >= it.len ? {
         return null
     }

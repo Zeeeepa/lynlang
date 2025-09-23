@@ -33,11 +33,13 @@ clamp = (value: T, min_val: T, max_val: T) T   {
 // Linear search in array
 find = (arr: DynVec<T>, value: T) Option<usize>   {
     i = 0
-    while (i < arr.len) {
-        arr[i] == value ? {
-            return i
+    loop {
+        i < arr.len ? | false { break } | true {
+            arr[i] == value ? {
+                return i
+            }
+            i = i + 1
         }
-        i = i + 1
     }
     return null
 }
@@ -47,15 +49,17 @@ binary_search = (arr: DynVec<T>, value: T) Option<usize>   {
     left = 0
     right = arr.len - 1
     
-    while (left <= right) {
-        mid = (left + right) / 2
-        
-        arr[mid] == value ? {
-            return mid
-        } else if (arr[mid] < value) {
-            left = mid + 1
-        } | false {
-            right = mid - 1
+    loop {
+        left <= right ? | false { break } | true {
+            mid = (left + right) / 2
+            
+            arr[mid] == value ? {
+                return mid
+            } else if (arr[mid] < value) {
+                left = mid + 1
+            } | false {
+                right = mid - 1
+            }
         }
     }
     
@@ -67,10 +71,12 @@ reverse = (arr: DynVec<T>) void   {
     left = 0
     right = arr.len - 1
     
-    while (left < right) {
-        swap(&arr[left], &arr[right])
-        left = left + 1
-        right = right - 1
+    loop {
+        left < right ? | false { break } | true {
+            swap(&arr[left], &arr[right])
+            left = left + 1
+            right = right - 1
+        }
     }
 }
 
@@ -97,10 +103,12 @@ rotate_right = (arr: DynVec<T>, n: usize) void   {
 
 // Reverse a range within an array
 reverse_range = (arr: DynVec<T>, start: usize, end: usize) void   {
-    while (start < end) {
-        swap(&arr[start], &arr[end])
-        start = start + 1
-        end = end - 1
+    loop {
+        start < end ? | false { break } | true {
+            swap(&arr[start], &arr[end])
+            start = start + 1
+            end = end - 1
+        }
     }
 }
 
@@ -109,11 +117,13 @@ is_sorted = (arr: DynVec<T>) bool   {
     if (arr.len <= 1) return true
     
     i = 1
-    while (i < arr.len) {
-        arr[i-1] > arr[i] ? {
-            return false
+    loop {
+        i < arr.len ? | false { break } | true {
+            arr[i-1] > arr[i] ? {
+                return false
+            }
+            i = i + 1
         }
-        i = i + 1
     }
     
     return true

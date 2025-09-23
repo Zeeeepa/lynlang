@@ -62,7 +62,7 @@ Iterator<T>.next = (self: Ptr<Iterator<T>>) Option<T> {
 }
 
 // Loop method for Iterator - executes callback for each element
-Iterator<T>.loop = (self: *Iterator<T>, callback: (T) void) void {
+Iterator<T>.loop = (self: Ptr<Iterator<T>>, callback: (T) void) void {
     loop self.current < self.size {
         // callback(self.data[self.current])
         self.current = self.current + 1
@@ -70,7 +70,7 @@ Iterator<T>.loop = (self: *Iterator<T>, callback: (T) void) void {
 }
 
 // Functional iteration methods (alias for compatibility)
-Iterator<T>.for_each = (self: *Iterator<T>, callback: (T) void) void {
+Iterator<T>.for_each = (self: Ptr<Iterator<T>>, callback: (T) void) void {
     self.loop(callback)
 }
 
@@ -117,7 +117,7 @@ sum_i32 = (iter: *Iterator<i32>) i32   {
 }
 
 // Find first element matching predicate
-Iterator<T>.find = (self: *Iterator<T>, predicate: (T) bool) Option<T> {
+Iterator<T>.find = (self: Ptr<Iterator<T>>, predicate: (T) bool) Option<T> {
     result := Option<T>:None
     self.loop((value) {
         predicate(value) ?
@@ -128,7 +128,7 @@ Iterator<T>.find = (self: *Iterator<T>, predicate: (T) bool) Option<T> {
 }
 
 // Check if any element matches predicate
-Iterator<T>.any = (self: *Iterator<T>, predicate: (T) bool) bool {
+Iterator<T>.any = (self: Ptr<Iterator<T>>, predicate: (T) bool) bool {
     found := false
     self.loop((value) {
         predicate(value) ?
@@ -139,7 +139,7 @@ Iterator<T>.any = (self: *Iterator<T>, predicate: (T) bool) bool {
 }
 
 // Check if all elements match predicate
-Iterator<T>.all = (self: *Iterator<T>, predicate: (T) bool) bool {
+Iterator<T>.all = (self: Ptr<Iterator<T>>, predicate: (T) bool) bool {
     all_match := true
     self.loop((value) {
         predicate(value) ?
@@ -150,7 +150,7 @@ Iterator<T>.all = (self: *Iterator<T>, predicate: (T) bool) bool {
 }
 
 // Count elements matching predicate
-Iterator<T>.count = (self: *Iterator<T>, predicate: (T) bool) i64 {
+Iterator<T>.count = (self: Ptr<Iterator<T>>, predicate: (T) bool) i64 {
     count := 0
     self.loop((value) {
         predicate(value) ?
@@ -202,7 +202,7 @@ zip<T, U>: (iter1: Iterator<T>, iter2: Iterator<U>) Iterator<Pair<T, U>>  = {
         | false { iter2.size }
     
     return Iterator<Pair<T, U>> {
-        data: 0 as *Pair<T, U>,
+        data: 0 as Ptr<Pair<T, U>>,
         size: min_size,
         current: 0,
     }
@@ -218,7 +218,7 @@ Pair<T, U> = {
 Iterator<T>.enumerate = (self: Iterator<T>) Iterator<Pair<i64, T>> {
     // Would return pairs of (index, value)
     return Iterator<Pair<i64, T>> {
-        data: 0 as *Pair<i64, T>,
+        data: 0 as Ptr<Pair<i64, T>>,
         size: self.size,
         current: 0,
     }
@@ -230,22 +230,22 @@ Iterator<T>.enumerate = (self: Iterator<T>) Iterator<Pair<i64, T>> {
 Iterator<T>.flat_map<U> = (self: Iterator<T>, f: (T) Iterator<U>) Iterator<U> {
     // Conceptual implementation - would need dynamic allocation
     return Iterator<U> {
-        data: 0 as *U,
+        data: 0 as Ptr<U>,
         size: 0,
         current: 0,
     }
 }
 
 // Partition iterator into two based on predicate
-Iterator<T>.partition = (self: *Iterator<T>, predicate: (T) bool) (Iterator<T>, Iterator<T>) {
+Iterator<T>.partition = (self: Ptr<Iterator<T>>, predicate: (T) bool) (Iterator<T>, Iterator<T>) {
     // Would split into (matching, non-matching)
-    matching := Iterator<T> { data: 0 as *T, size: 0, current: 0 }
-    non_matching := Iterator<T> { data: 0 as *T, size: 0, current: 0 }
+    matching := Iterator<T> { data: 0 as Ptr<T>, size: 0, current: 0 }
+    non_matching := Iterator<T> { data: 0 as Ptr<T>, size: 0, current: 0 }
     return (matching, non_matching)
 }
 
 // Collect iterator into a Vec
-Iterator<T>.collect = (self: *Iterator<T>) Vec<T> {
+Iterator<T>.collect = (self: Ptr<Iterator<T>>) Vec<T> {
     result := Vec<T>:new()
     self.loop((item) {
         result.push(item)
@@ -254,7 +254,7 @@ Iterator<T>.collect = (self: *Iterator<T>) Vec<T> {
 }
 
 // Find the maximum element (for comparable types)
-Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
+Iterator<T>.max = (self: Ptr<Iterator<T>>, compare: (T, T) i32) Option<T> {
     self.size == 0 ? | true { return Option<T>:None }
                      | false {}
     
@@ -271,7 +271,7 @@ Iterator<T>.max = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
 }
 
 // Find the minimum element (for comparable types)
-Iterator<T>.min = (self: *Iterator<T>, compare: (T, T) i32) Option<T> {
+Iterator<T>.min = (self: Ptr<Iterator<T>>, compare: (T, T) i32) Option<T> {
     self.size == 0 ? | true { return Option<T>:None }
                      | false {}
     
@@ -331,9 +331,9 @@ Iterator<T>.step_by = (self: Iterator<T>, n: i64) Iterator<T> {
 Iterator<T>.windows = (self: Iterator<T>, window_size: i64) Iterator<Vec<T>> {
     // Would yield overlapping windows of size window_size
     return Iterator<Vec<T>> {
-        data: 0 as *Vec<T>,
+        data: 0 as Ptr<Vec<T>>,
         size: self.size > window_size ? | true { self.size - window_size + 1 }
-                                        | false { 0, }
+                                        | false { 0 }
         current: 0,
     }
 }
@@ -342,7 +342,7 @@ Iterator<T>.windows = (self: Iterator<T>, window_size: i64) Iterator<Vec<T>> {
 Iterator<T>.chunks = (self: Iterator<T>, chunk_size: i64) Iterator<Vec<T>> {
     // Would yield non-overlapping chunks
     return Iterator<Vec<T>> {
-        data: 0 as *Vec<T>,
+        data: 0 as Ptr<Vec<T>>,
         size: (self.size + chunk_size - 1) / chunk_size,
         current: 0,
     }
@@ -364,7 +364,7 @@ Iterator<T>.intersperse = (self: Iterator<T>, separator: T) Iterator<T> {
 Iterator<T>.group_by<K> = (self: Iterator<T>, key_fn: (T) K) Iterator<(K, Vec<T>)> {
     // Would group consecutive elements with same key
     return Iterator<(K, Vec<T>)> {
-        data: 0 as *(K, Vec<T>),
+        data: 0 as Ptr<(K, Vec<T>)>,
         size: 0,
         current: 0,
     }
@@ -374,7 +374,7 @@ Iterator<T>.group_by<K> = (self: Iterator<T>, key_fn: (T) K) Iterator<(K, Vec<T>
 Iterator<T>.scan<S> = (self: Iterator<T>, initial: S, f: (S, T) S) Iterator<S> {
     // Would yield accumulated values at each step
     return Iterator<S> {
-        data: 0 as *S,
+        data: 0 as Ptr<S>,
         size: self.size,
         current: 0,
     }
