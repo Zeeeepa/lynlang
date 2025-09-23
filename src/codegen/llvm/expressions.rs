@@ -152,13 +152,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::Block(statements) => {
                 // Compile block expression - evaluates to last expression or void
-                for stmt in statements {
-                    // Note: compile_statement returns (), we need to handle this differently
-                    self.compile_statement(stmt)?;
-                    // For now, blocks evaluate to void (i32 0)
+                if statements.is_empty() {
+                    // Empty block returns void
+                    Ok(self.context.i32_type().const_int(0, false).into())
+                } else {
+                    // Compile all statements except the last one
+                    for stmt in &statements[..statements.len() - 1] {
+                        self.compile_statement(stmt)?;
+                    }
+                    
+                    // Check if the last statement is an expression statement
+                    // If so, return its value
+                    match &statements[statements.len() - 1] {
+                        crate::ast::Statement::Expression(expr) => {
+                            // The last expression is the block's value
+                            self.compile_expression(expr)
+                        }
+                        _ => {
+                            // Last statement is not an expression, return void
+                            self.compile_statement(&statements[statements.len() - 1])?;
+                            Ok(self.context.i32_type().const_int(0, false).into())
+                        }
+                    }
                 }
-                // For now, blocks always return void
-                Ok(self.context.i32_type().const_int(0, false).into())
             }
             Expression::Return(expr) => {
                 // Compile return expression 
@@ -594,8 +610,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     inkwell::types::BasicTypeEnum::FloatType(float_type) => {
                         float_type.const_float(0.0).into()
                     }
+                    inkwell::types::BasicTypeEnum::PointerType(ptr_type) => {
+                        // For pointer types (like strings), use a null pointer
+                        ptr_type.const_null().into()
+                    }
                     _ => {
-                        // For other types, use a null pointer or similar default
+                        // For other types, use a default value
                         self.context.i32_type().const_int(0, false).into()
                     }
                 }
@@ -1037,8 +1057,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     inkwell::types::BasicTypeEnum::FloatType(float_type) => {
                         float_type.const_float(0.0).into()
                     }
+                    inkwell::types::BasicTypeEnum::PointerType(ptr_type) => {
+                        // For pointer types (like strings), use a null pointer
+                        ptr_type.const_null().into()
+                    }
                     _ => {
-                        // For other types, use a null pointer or similar default
+                        // For other types, use a default value
                         self.context.i32_type().const_int(0, false).into()
                     }
                 }

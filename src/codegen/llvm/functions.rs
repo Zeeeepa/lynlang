@@ -314,7 +314,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ast::Statement::Expression(_expr) => {
                             // Expression was already handled above
                             if matches!(function.return_type, AstType::Void) {
-                            } else {
                                 // Execute deferred expressions before returning
                                 self.execute_deferred_expressions()?;
                                 // For void functions, special case for main
@@ -324,6 +323,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 } else {
                                     self.builder.build_return(None)?;
                                 }
+                            } else {
+                                // Non-void function - this shouldn't happen if expression was handled
+                                // But add a return just in case
+                                return Err(CompileError::MissingReturnStatement(function.name.clone(), None));
                             }
                         }
                         ast::Statement::ComptimeBlock(statements) => {

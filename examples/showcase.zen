@@ -1,78 +1,75 @@
 // Zen Language - Elegance, Efficiency, Expressiveness
 { io } = @std
 
-main = () i32 {
-    header("ZEN LANGUAGE")
-    
-    section("Universal Function Call")
-    double = (n: i32) i32 { n * 2 }
-    demo("5.double().double()", 5.double().double())
-    
-    section("Pattern Matching - No if/else")
-    sign = (n: i32) string {
-        n == 0 ? | true { "zero" } | false {
-            n > 0 ? | true { "positive" } | false { "negative" }
+// Helper functions
+double = (n: i32) i32 { 
+    return n * 2 
+}
+
+sign = (n: i32) string {
+    n == 0 ? 
+        | true { "zero" } 
+        | false {
+            n > 0 ? 
+                | true { "positive" } 
+                | false { "negative" }
         }
-    }
-    demo("sign(42)", sign(42))
-    demo("sign(-7)", sign(-7))
-    demo("sign(0)", sign(0))
+}
+
+main = () i32 {
+    io.println("═══════════════════════════════════════════")
+    io.println("           ZEN LANGUAGE SHOWCASE           ")
+    io.println("═══════════════════════════════════════════")
     
-    section("Algebraic Data Types")
-    Shape:
-        Circle: { radius: f32 },
-        Rectangle: { width: f32, height: f32 },
-        Point
+    // Universal Function Call
+    io.println("")
+    io.println("▸ Universal Function Call")
+    result1 = 5.double().double()
+    io.println("  5.double().double() = ${result1}")
     
-    area = (s: Shape) f32 {
-        s ?
-            | Circle { radius } { 3.14159 * radius * radius }
-            | Rectangle { width, height } { width * height }
-            | Point { 0.0 }
-    }
+    // Pattern Matching
+    io.println("")
+    io.println("▸ Pattern Matching - No if/else")
+    io.println("  sign(42) = ${sign(42)}")
+    io.println("  sign(-7) = ${sign(-7)}")
+    io.println("  sign(0) = ${sign(0)}")
     
-    shapes = [
-        Shape.Circle { radius: 5.0 },
-        Shape.Rectangle { width: 3.0, height: 4.0 },
-        Shape.Point
-    ]
-    
-    shapes.loop((s, i) => demo("shape[${i}] area", area(s)))
-    
-    section("Functional Pipelines")
-    result = (1..10)
-        .filter((n) => n % 2 == 0)
-        .map((n) => n * n)
-        .reduce(0, (sum, n) => sum + n)
-    demo("sum of even squares (1-10)", result)
-    
-    section("Everything is an Expression")
+    // Everything is an Expression
+    io.println("")
+    io.println("▸ Everything is an Expression")
     greeting = {
         hour = 14
-        hour < 12 ? | true { "Morning" } | false {
-            hour < 18 ? | true { "Afternoon" } | false { "Evening" }
-        }
+        hour < 12 ?
+            | true { "Good morning" }
+            | false { 
+                hour < 18 ?
+                    | true { "Good afternoon" }
+                    | false { "Good evening" }
+            }
     }
-    demo("greeting at 14:00", greeting)
+    io.println("  Time-based greeting: ${greeting}")
     
-    footer()
-}
-
-// Helper functions for clean output
-header = (title: string) void {
-    io.println("╔═══════════════════════╗")
-    io.println("║   ${title:^19}   ║")
-    io.println("╚═══════════════════════╝\n")
-}
-
-section = (name: string) void {
-    io.println("\n▸ ${name}:")
-}
-
-demo = (label: string, value: any) void {
-    io.println("  ${label} = ${value}")
-}
-
-footer = () void {
-    io.println("\n✨ Zen: Where simplicity meets power!")
+    // Computation in blocks
+    io.println("")
+    io.println("▸ Blocks Return Values")
+    computed = {
+        x = 10
+        y = 20
+        x + y
+    }
+    io.println("  Computed value: ${computed}")
+    
+    // String Interpolation
+    io.println("")
+    io.println("▸ String Interpolation")
+    name = "Zen"
+    version = 1
+    io.println("  Welcome to ${name} v${version}!")
+    
+    io.println("")
+    io.println("═══════════════════════════════════════════")
+    io.println("  Zen: Where elegance meets efficiency     ")
+    io.println("═══════════════════════════════════════════")
+    
+    return 0
 }
