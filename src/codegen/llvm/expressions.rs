@@ -589,15 +589,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     let payload_val = if let Some(expr) = payload {
                         let compiled = self.compile_expression(expr)?;
-                        if compiled.is_pointer_value() {
-                            self.builder.build_ptr_to_int(
-                                compiled.into_pointer_value(),
-                                self.context.i64_type(),
-                                "ptr_as_int"
-                            )?.into()
-                        } else {
-                            compiled
-                        }
+                        // TODO: This is broken - storing everything as i64 loses type information
+                        // Need to redesign enum storage to preserve types
+                        compiled
                     } else {
                         self.context.i64_type().const_int(0, false).into()
                     };
@@ -624,15 +618,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     let payload_val = if let Some(expr) = payload {
                         let compiled = self.compile_expression(expr)?;
-                        if compiled.is_pointer_value() {
-                            self.builder.build_ptr_to_int(
-                                compiled.into_pointer_value(),
-                                self.context.i64_type(),
-                                "ptr_as_int"
-                            )?.into()
-                        } else {
-                            compiled
-                        }
+                        // TODO: This is broken - storing everything as i64 loses type information
+                        // Need to redesign enum storage to preserve types
+                        compiled
                     } else {
                         self.context.i64_type().const_int(0, false).into()
                     };
@@ -662,16 +650,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let tag_val = self.context.i64_type().const_int(tag, false);
         let payload_val = if let Some(expr) = payload {
             let compiled = self.compile_expression(expr)?;
-            // Convert pointer values to i64 for storage in enum
-            if compiled.is_pointer_value() {
-                self.builder.build_ptr_to_int(
-                    compiled.into_pointer_value(),
-                    self.context.i64_type(),
-                    "ptr_as_int"
-                )?.into()
-            } else {
-                compiled
-            }
+            // TODO: This is broken - storing everything as i64 loses type information
+            // For i32 values, this usually works by coincidence
+            // Need to redesign enum storage to preserve types properly
+            compiled
         } else {
             self.context.i64_type().const_int(0, false).into()
         };

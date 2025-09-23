@@ -1,0 +1,25 @@
+// Debug Option value extraction
+{ io } = @std
+
+Option<T>: Some(T) | None
+
+main = () void {
+    io.println("=== Option Debug Test ===")
+    
+    // Test with different values
+    value1 = 123
+    io.println("Test 1 - Original: ${value1}")
+    opt1: Option<i32> = Some(value1)
+    opt1 ?
+        | Some(v) { io.println("Test 1 - Extracted: ${v}") }
+        | None { io.println("Test 1 - None") }
+    
+    value2 = 999
+    io.println("Test 2 - Original: ${value2}")
+    opt2: Option<i32> = Some(value2)
+    opt2 ?
+        | Some(v) { io.println("Test 2 - Extracted: ${v}") }
+        | None { io.println("Test 2 - None") }
+    
+    io.println("=== Test Complete ===")
+}
