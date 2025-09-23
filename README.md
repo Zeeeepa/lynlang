@@ -353,7 +353,7 @@ builder = (b :: Build) void {
 
 ## Implementation Status
 
-Current implementation progress: ~45% Complete
+Current implementation progress: ~70% Complete
 
 See [`docs/status/IMPLEMENTATION_STATUS_CURRENT.md`](./docs/status/IMPLEMENTATION_STATUS_CURRENT.md) for detailed status.
 
@@ -367,6 +367,13 @@ See [`docs/status/IMPLEMENTATION_STATUS_CURRENT.md`](./docs/status/IMPLEMENTATIO
 - ✅ String interpolation
 - ✅ Range iteration
 - ✅ Basic @std imports
+- ✅ Block expressions returning values
+- ✅ Arrow functions `() => expr`
+- ✅ Inline functions/closures with return types
+- ✅ Custom enum definitions with pattern matching
+- ✅ Qualified enum patterns (Enum.Variant)
+- ✅ Shorthand enum patterns (.Variant)
+- ✅ Mixed pattern matching styles
 
 ### In Progress
 - 🚧 Option and Result types
