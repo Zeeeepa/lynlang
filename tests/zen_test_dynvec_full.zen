@@ -1,0 +1,38 @@
+// Complete DynVec test with all operations
+{ io } = @std
+
+main = () i32 {
+    // Create a DynVec with initial capacity
+    vec = DynVec<i32>(0)
+    io.println("DynVec created")
+    
+    // Test push operations
+    vec.push(42)
+    vec.push(100)
+    vec.push(200)
+    io.println("Pushed 3 values")
+    
+    // Test length
+    len = vec.len()
+    io.println("Length: ${len}")
+    
+    // Test clear
+    vec.clear()
+    io.println("Cleared vector")
+    
+    after_clear_len = vec.len()
+    io.println("Length after clear: ${after_clear_len}")
+    
+    // Test growing capacity by pushing many items
+    i ::= 0
+    loop {
+        i >= 5 ? { break }
+        vec.push(i * 10)
+        i = i + 1
+    }
+    
+    final_len = vec.len()
+    io.println("Final length after loop: ${final_len}")
+    
+    return 0
+}

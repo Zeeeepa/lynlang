@@ -363,20 +363,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Get the value to push
                             let value = self.compile_expression(&args[0])?;
                             
-                            // object_value should be a DynVec struct {ptr, len, capacity}
-                            // We need to:
-                            // 1. Check if len >= capacity (grow if needed)
-                            // 2. Store value at data[len]
-                            // 3. Increment len
-                            
-                            let dynvec_ptr = if object_value.is_pointer_value() {
-                                object_value.into_pointer_value()
-                            } else {
-                                // If it's not a pointer, we need to store it first
-                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
-                                self.builder.build_store(alloca, object_value)?;
-                                alloca
-                            };
+                            // For DynVec methods that mutate, we need the pointer to the original variable
+                            // not a copy of the value
+                            let (dynvec_ptr, _) = self.get_variable(obj_name)?;
                             
                             // Load len and capacity
                             let len_ptr = self.builder.build_struct_gep(
@@ -503,13 +492,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // DynVec.pop() -> Option<T>
                             // Returns Some(value) if vector is not empty, None otherwise
                             
-                            let dynvec_ptr = if object_value.is_pointer_value() {
-                                object_value.into_pointer_value()
-                            } else {
-                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
-                                self.builder.build_store(alloca, object_value)?;
-                                alloca
-                            };
+                            // For DynVec methods that mutate, we need the pointer to the original variable
+                            let (dynvec_ptr, _) = self.get_variable(obj_name)?;
                             
                             // Load len
                             let len_ptr = self.builder.build_struct_gep(
@@ -731,13 +715,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             
                             let value = self.compile_expression(&args[1])?;
                             
-                            let dynvec_ptr = if object_value.is_pointer_value() {
-                                object_value.into_pointer_value()
-                            } else {
-                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
-                                self.builder.build_store(alloca, object_value)?;
-                                alloca
-                            };
+                            // For DynVec methods that mutate, we need the pointer to the original variable
+                            let (dynvec_ptr, _) = self.get_variable(obj_name)?;
                             
                             // Load len
                             let len_ptr = self.builder.build_struct_gep(
@@ -838,13 +817,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         "clear" => {
                             // DynVec.clear() - sets len to 0
-                            let dynvec_ptr = if object_value.is_pointer_value() {
-                                object_value.into_pointer_value()
-                            } else {
-                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
-                                self.builder.build_store(alloca, object_value)?;
-                                alloca
-                            };
+                            // For DynVec methods that mutate, we need the pointer to the original variable
+                            let (dynvec_ptr, _) = self.get_variable(obj_name)?;
                             
                             // Set len to 0
                             let len_ptr = self.builder.build_struct_gep(
