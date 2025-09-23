@@ -231,15 +231,18 @@ impl<'a> Parser<'a> {
                     }
                 }
                 
-                // Check if it's an enum variant pattern: EnumName::Variant(pattern)
-                if self.current_token == Token::Operator("::".to_string()) {
+                // Check if it's an enum variant pattern: EnumName.Variant or EnumName::Variant(pattern)
+                if self.current_token == Token::Symbol('.') || self.current_token == Token::Operator("::".to_string()) {
+                    let separator = self.current_token.clone();
                     self.next_token();
                     
                     let variant_name = if let Token::Identifier(variant) = &self.current_token {
                         variant.clone()
                     } else {
                         return Err(CompileError::SyntaxError(
-                            "Expected variant name after ::".to_string(),
+                            format!("Expected variant name after {}", 
+                                if separator == Token::Symbol('.') { "." } else { "::" }
+                            ),
                             Some(self.current_span.clone()),
                         ));
                     };

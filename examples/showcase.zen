@@ -1,6 +1,9 @@
 // Zen Language - Elegance, Efficiency, Expressiveness
 { io } = @std
 
+// Custom enum definition
+Status : .Active | .Inactive | .Pending
+
 // Helper functions
 double = (n: i32) i32 { 
     return n * 2 
@@ -14,6 +17,15 @@ sign = (n: i32) string {
                 | true { "positive" } 
                 | false { "negative" }
         }
+}
+
+// Enum helper function
+status_message = (s: Status) string {
+    s ?
+        | .Active { "System is running" }
+        | .Inactive { "System is stopped" }
+        | .Pending { "System is starting up" }
+        | _ { "Unknown status" }
 }
 
 main = () i32 {
@@ -75,6 +87,21 @@ main = () i32 {
     name = "Zen"
     version = 1
     io.println("  Welcome to ${name} v${version}!")
+    
+    // Enums and Pattern Matching
+    io.println("")
+    io.println("▸ Custom Enums")
+    current_status = Status.Active
+    io.println("  Status: ${status_message(current_status)}")
+    
+    // Option type
+    io.println("")
+    io.println("▸ Built-in Option Type")
+    value = Option.Some(100)
+    result_opt = value ?
+        | .Some { "Has value" }
+        | .None { "No value" }
+    io.println("  Option check: ${result_opt}")
     
     io.println("")
     io.println("═══════════════════════════════════════════")
