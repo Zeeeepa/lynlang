@@ -1,0 +1,178 @@
+// Test coverage for LANGUAGE_SPEC.zen features
+// Tests each major feature category from the spec
+
+{ io } = @std
+
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Feature Coverage Test ===")
+    io.println("")
+    
+    // 1. Basic variable declarations (all forms)
+    io.println("1. Variable declarations:")
+    x: i32              // forward declaration  
+    x = 10              // immutable assignment
+    y = 20              // immutable inference
+    z : i32 = 30        // immutable with type
+    w :: i32            // mutable forward declaration
+    w = 40              // mutable assignment
+    v ::= 50            // mutable inference
+    u :: i32 = 60       // mutable with type
+    io.println(x)
+    io.println(y)
+    io.println(z)
+    io.println(w)
+    io.println(v)
+    io.println(u)
+    
+    // 2. Option type (no null!)
+    io.println("")
+    io.println("2. Option types:")
+    maybe_num: Option<i32> = Some(42)
+    maybe_num ? {
+        | Some(n) { io.println(n) }
+        | None { io.println("None") }
+    }
+    
+    nothing: Option<i32> = None
+    nothing ? {
+        | Some(n) { io.println(n) }
+        | None { io.println("Got None as expected") }
+    }
+    
+    // 3. Result type for error handling
+    io.println("")
+    io.println("3. Result types:")
+    success: Result<i32, string> = Ok(100)
+    success ? {
+        | Ok(val) { io.println(val) }
+        | Err(e) { io.println("Error: ${e}") }
+    }
+    
+    failure: Result<i32, string> = Err("Something went wrong")
+    failure ? {
+        | Ok(val) { io.println(val) }
+        | Err(e) { io.println(e) }
+    }
+    
+    // 4. Pattern matching with ? operator
+    io.println("")
+    io.println("4. Pattern matching:")
+    is_ready = true
+    is_ready ? { 
+        io.println("Ready!") 
+    }
+    
+    has_data = false
+    has_data ? {
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    }
+    
+    // 5. Loops - infinite and collection
+    io.println("")
+    io.println("5. Loops:")
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ? {
+            | true { break }
+            | false { io.println("Loop: ${counter}") }
+        }
+    })
+    
+    // Range loop
+    io.println("Range 0..5:")
+    (0..5).loop((i) {
+        io.println(i)
+    })
+    
+    // 6. Structs
+    io.println("")
+    io.println("6. Structs:")
+    
+    Point: {
+        x:: f64,
+        y:: f64 = 0.0
+    }
+    
+    p = Point { x: 10.0, y: 20.0 }
+    io.println(p.x)
+    io.println(p.y)
+    
+    // 7. Enums
+    io.println("")
+    io.println("7. Enums:")
+    
+    Color: Red | Green | Blue
+    
+    c = Color.Red
+    c ? {
+        | Red { io.println("It's red") }
+        | Green { io.println("It's green") }
+        | Blue { io.println("It's blue") }
+    }
+    
+    // 8. Traits (basic)
+    io.println("")
+    io.println("8. Traits:")
+    
+    Printable: {
+        print: (self) void
+    }
+    
+    Point.implements(Printable, {
+        print = (self) void {
+            io.println("Point(${self.x}, ${self.y})")
+        }
+    })
+    
+    p2 = Point { x: 5.0, y: 10.0 }
+    p2.print()
+    
+    // 9. UFC (Uniform Function Call)
+    io.println("")
+    io.println("9. UFC:")
+    
+    double = (x: i32) i32 {
+        return x * 2
+    }
+    
+    // Method-style call on value
+    result = 5.double()
+    io.println(result)
+    
+    // 10. String interpolation
+    io.println("")
+    io.println("10. String interpolation:")
+    name = "Zen"
+    version = 1
+    io.println("Language: ${name}, Version: ${version}")
+    
+    // 11. Defer statements
+    io.println("")
+    io.println("11. Defer:")
+    test_defer = () void {
+        io.println("Start of function")
+        @this.defer(io.println("Deferred!"))
+        io.println("End of function")
+    }
+    test_defer()
+    
+    // 12. Pointers (explicit types)
+    io.println("")
+    io.println("12. Pointers:")
+    val = 100
+    ptr: Ptr<i32> = val.ref()
+    io.println(ptr.val)
+    io.println(ptr.addr)
+    
+    mut_val ::= 200
+    mut_ptr: MutPtr<i32> = mut_val.mut_ref()
+    mut_ptr.val = 300
+    io.println(mut_val)
+    
+    io.println("")
+    io.println("=== Test Complete ===")
+}

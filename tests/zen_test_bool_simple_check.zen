@@ -1,0 +1,9 @@
+// Very simple boolean test
+{ io } = @std
+
+main = () void {
+    b = true
+    io.println(b)
+    io.println(false)
+    io.println(true)
+}

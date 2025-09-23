@@ -41,12 +41,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Load the value from the alloca based on type
             let loaded: BasicValueEnum = match &ast_type {
                 AstType::Bool => {
-                    // Booleans need special handling - load as i1
+                    // Booleans - load as bool_type (i1)
                     match self.builder.build_load(self.context.bool_type(), ptr, name) {
-                        Ok(val) => {
-                            // The loaded value should be i1
-                            val
-                        },
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }

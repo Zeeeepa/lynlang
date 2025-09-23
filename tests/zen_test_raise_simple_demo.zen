@@ -1,0 +1,29 @@
+// Test .raise() for error propagation - simplified version
+{ io } = @std
+
+// Result type
+Result<T, E>: Ok(T) | Err(E)
+
+// Function that might fail
+get_value = () Result<i32, string> {
+    return Ok(42)
+}
+
+// Function that uses .raise()
+process = () Result<i32, string> {
+    // Use .raise() to unwrap or propagate error
+    val = get_value().raise()
+    
+    // If we get here, val contains the unwrapped Ok value  
+    io.println("Got value: ${val}")
+    return Ok(val)
+}
+
+main = () void {
+    io.println("Testing .raise() for error propagation...")
+    
+    result = process()
+    result ?
+        | Ok(v) { io.println("Success: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+}

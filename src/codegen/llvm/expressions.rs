@@ -1232,6 +1232,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     /// Compile .raise() expression by transforming it into pattern matching
+    /// 
+    /// .raise() is syntactic sugar for early error propagation:
+    /// `expr.raise()` becomes:
+    /// ```
+    /// expr ? 
+    ///     | Ok(val) => val
+    ///     | Err(e) => return Err(e)
+    /// ```
     fn compile_raise_expression(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Generate a unique ID for this raise to avoid block name collisions
         static mut RAISE_ID: u32 = 0;
@@ -1243,15 +1251,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let parent_function = self.current_function
             .ok_or_else(|| CompileError::InternalError("No current function for .raise()".to_string(), None))?;
 
-        // Compile the expression that returns a Result
+        // Compile the expression that should return a Result<T, E>
         let result_value = self.compile_expression(expr)?;
 
-        // For simplicity, we'll assume Result is represented as a struct with:
-        // - tag: i8 (0 = Ok, 1 = Err)  
-        // - data: union of Ok and Err types
-        // In a complete implementation, this would be determined by the type system
-        
-        // Create blocks for pattern matching
+        // Create blocks for pattern matching on Result
         let check_bb = self.context.append_basic_block(parent_function, &format!("raise_check_{}", raise_id));
         let ok_bb = self.context.append_basic_block(parent_function, &format!("raise_ok_{}", raise_id));
         let err_bb = self.context.append_basic_block(parent_function, &format!("raise_err_{}", raise_id));
@@ -1261,65 +1264,140 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.builder.build_unconditional_branch(check_bb)?;
         self.builder.position_at_end(check_bb);
         
-        // Extract the tag from the Result struct
-        // TODO: This is a simplified implementation. In practice, we'd need to:
-        // 1. Get the actual Result type from the type system
-        // 2. Handle the specific layout (enum discriminant + payload)
-        // 3. Support different Result<T,E> instantiations
+        // Handle the Result enum based on its actual representation
+        // Result<T, E> is an enum with variants Ok(T) and Err(E)
+        // This should work with the existing enum compilation system
         
-        // For now, assume a simple tagged union representation
-        let result_struct_type = result_value.get_type();
-        if let inkwell::types::BasicTypeEnum::StructType(struct_type) = result_struct_type {
-            // Extract tag field (first field)
-            let tag_ptr = self.builder.build_struct_gep(struct_type, result_value.into_pointer_value(), 0, "tag_ptr")?;
-            let tag_value = self.builder.build_load(self.context.i8_type(), tag_ptr, "tag")?;
+        if result_value.is_struct_value() {
+            // Result is represented as a struct with tag + payload
+            let struct_val = result_value.into_struct_value();
+            let struct_type = struct_val.get_type();
             
-            // Compare tag with 0 (Ok)
+            // Create a temporary alloca to work with the struct
+            let temp_alloca = self.builder.build_alloca(struct_type, "result_temp")?;
+            self.builder.build_store(temp_alloca, struct_val)?;
+            
+            // Extract the tag (discriminant) from the first field
+            let tag_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 0, "tag_ptr")?;
+            let tag_value = self.builder.build_load(self.context.i64_type(), tag_ptr, "tag")?;
+            
+            // Check if tag == 0 (Ok variant)
             let is_ok = self.builder.build_int_compare(
                 inkwell::IntPredicate::EQ,
                 tag_value.into_int_value(),
-                self.context.i8_type().const_int(0, false),
+                self.context.i64_type().const_int(0, false),
                 "is_ok"
             )?;
             
-            // Branch based on tag
+            // Branch based on the tag
+            self.builder.build_conditional_branch(is_ok, ok_bb, err_bb)?;
+            
+            // Handle Ok case - extract the Ok value
+            self.builder.position_at_end(ok_bb);
+            if struct_type.count_fields() > 1 {
+                let payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
+                // For now, assume the payload is i64. In a complete implementation, 
+                // this would be determined by the actual Result<T,E> type parameters
+                let ok_value = self.builder.build_load(self.context.i64_type(), payload_ptr, "ok_value")?;
+                self.builder.build_unconditional_branch(continue_bb)?;
+                
+                // Handle Err case - propagate the error by returning early
+                self.builder.position_at_end(err_bb);
+                let err_payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "err_payload_ptr")?;
+                let err_value = self.builder.build_load(self.context.i64_type(), err_payload_ptr, "err_value")?;
+                
+                // Create a new Result<T,E> with Err variant for early return
+                let return_result_alloca = self.builder.build_alloca(struct_type, "return_result")?;
+                
+                // Set tag to 1 (Err)
+                let return_tag_ptr = self.builder.build_struct_gep(struct_type, return_result_alloca, 0, "return_tag_ptr")?;
+                self.builder.build_store(return_tag_ptr, self.context.i64_type().const_int(1, false))?;
+                
+                // Store the error value
+                let return_payload_ptr = self.builder.build_struct_gep(struct_type, return_result_alloca, 1, "return_payload_ptr")?;
+                self.builder.build_store(return_payload_ptr, err_value)?;
+                
+                // Load and return the complete Result
+                let return_result = self.builder.build_load(struct_type, return_result_alloca, "return_result")?;
+                self.builder.build_return(Some(&return_result))?;
+                
+                // Continue with Ok value
+                self.builder.position_at_end(continue_bb);
+                Ok(ok_value)
+            } else {
+                // Unit Result (no payload)
+                self.builder.build_unconditional_branch(continue_bb)?;
+                
+                self.builder.position_at_end(err_bb);
+                // For unit Results, just return the original struct
+                self.builder.build_return(Some(&struct_val))?;
+                
+                self.builder.position_at_end(continue_bb);
+                Ok(self.context.i64_type().const_int(0, false).into())
+            }
+        } else if result_value.is_pointer_value() {
+            // Result is stored as a pointer to a struct
+            let result_ptr = result_value.into_pointer_value();
+            
+            // For opaque pointers in LLVM 15+, we need to determine the struct type differently
+            // For now, we'll assume it's a Result struct type and try to work with it
+            // In a complete implementation, this would be tracked by the type system
+            
+            // Create a basic Result struct type for demonstration
+            let struct_type = self.context.struct_type(&[
+                self.context.i64_type().into(), // tag
+                self.context.i64_type().into(), // payload
+            ], false);
+            
+            // Extract the tag from the first field
+            let tag_ptr = self.builder.build_struct_gep(struct_type, result_ptr, 0, "tag_ptr")?;
+            let tag_value = self.builder.build_load(self.context.i64_type(), tag_ptr, "tag")?;
+            
+            // Check if tag == 0 (Ok variant)
+            let is_ok = self.builder.build_int_compare(
+                inkwell::IntPredicate::EQ,
+                tag_value.into_int_value(),
+                self.context.i64_type().const_int(0, false),
+                "is_ok"
+            )?;
+            
+            // Branch based on the tag
             self.builder.build_conditional_branch(is_ok, ok_bb, err_bb)?;
             
             // Handle Ok case
             self.builder.position_at_end(ok_bb);
-            // Extract the Ok value from the union (second field)
-            let value_ptr = self.builder.build_struct_gep(struct_type, result_value.into_pointer_value(), 1, "value_ptr")?;
-            // TODO: Load the correct type based on the Result<T,E> instantiation
-            let ok_value = self.builder.build_load(self.context.i32_type(), value_ptr, "ok_value")?;
-            self.builder.build_unconditional_branch(continue_bb)?;
-            
-            // Handle Err case - generate early return
-            self.builder.position_at_end(err_bb);
-            // Extract the Err value
-            let err_value_ptr = self.builder.build_struct_gep(struct_type, result_value.into_pointer_value(), 1, "err_value_ptr")?;
-            let err_value = self.builder.build_load(self.context.i32_type(), err_value_ptr, "err_value")?;
-            
-            // Create a new Result with Err tag for early return
-            let return_result_ptr = self.builder.build_alloca(struct_type, "return_result")?;
-            let return_tag_ptr = self.builder.build_struct_gep(struct_type, return_result_ptr, 0, "return_tag_ptr")?;
-            let return_value_ptr = self.builder.build_struct_gep(struct_type, return_result_ptr, 1, "return_value_ptr")?;
-            
-            // Set tag to 1 (Err)
-            self.builder.build_store(return_tag_ptr, self.context.i8_type().const_int(1, false))?;
-            // Store the error value
-            self.builder.build_store(return_value_ptr, err_value)?;
-            
-            // Load the complete Result and return it
-            let return_result = self.builder.build_load(struct_type, return_result_ptr, "return_result")?;
-            self.builder.build_return(Some(&return_result))?;
-            
-            // Continue with Ok case
-            self.builder.position_at_end(continue_bb);
-            Ok(ok_value)
+            if struct_type.count_fields() > 1 {
+                let payload_ptr = self.builder.build_struct_gep(struct_type, result_ptr, 1, "payload_ptr")?;
+                let ok_value = self.builder.build_load(self.context.i64_type(), payload_ptr, "ok_value")?;
+                self.builder.build_unconditional_branch(continue_bb)?;
+                
+                // Handle Err case
+                self.builder.position_at_end(err_bb);
+                // Return the original Result (already contains Err)
+                let err_result = self.builder.build_load(struct_type, result_ptr, "err_result")?;
+                self.builder.build_return(Some(&err_result))?;
+                
+                // Continue with Ok value
+                self.builder.position_at_end(continue_bb);
+                Ok(ok_value)
+            } else {
+                // Unit Result
+                self.builder.build_unconditional_branch(continue_bb)?;
+                
+                self.builder.position_at_end(err_bb);
+                let err_result = self.builder.build_load(struct_type, result_ptr, "err_result")?;
+                self.builder.build_return(Some(&err_result))?;
+                
+                self.builder.position_at_end(continue_bb);
+                Ok(self.context.i64_type().const_int(0, false).into())
+            }
         } else {
-            // Fallback: if we can't determine the Result structure, just return the value
-            // This should not happen with proper type checking
-            Ok(result_value)
+            // Fallback: if we can't determine the Result structure, 
+            // treat it as an immediate value and try pattern matching
+            return Err(CompileError::TypeError(
+                format!("Unsupported Result type for .raise(): {:?}", result_value.get_type()),
+                None
+            ));
         }
     }
 } 

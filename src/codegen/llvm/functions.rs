@@ -566,15 +566,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
             ));
         }
         
-        // Check if the expression is a boolean identifier
-        let is_bool_identifier = if let ast::Expression::Identifier(name) = &args[0] {
-            if let Ok((_, ast_type)) = self.get_variable(name) {
-                matches!(ast_type, crate::ast::AstType::Bool)
-            } else {
-                false
+        // Check if the expression is a boolean identifier or literal
+        let is_bool_expr = match &args[0] {
+            ast::Expression::Boolean(_) => true,
+            ast::Expression::Identifier(name) => {
+                if let Ok((_, ast_type)) = self.get_variable(name) {
+                    matches!(ast_type, crate::ast::AstType::Bool)
+                } else {
+                    false
+                }
             }
-        } else {
-            false
+            _ => false
         };
         
         // Compile the argument
@@ -583,9 +585,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Convert to string based on type
         let string_ptr = match arg_value {
             BasicValueEnum::IntValue(int_val) => {
-                // Check if it's a boolean by checking the bit width OR if we know it's a bool identifier
+                // Check if it's a boolean by checking the bit width OR if we know it's a bool expression
                 let bit_width = int_val.get_type().get_bit_width();
-                if bit_width == 1 || is_bool_identifier {
+                // Check for i1 values (booleans) or known boolean expressions  
+                if bit_width == 1 || is_bool_expr {
                     // Boolean value
                     let true_str = self.builder.build_global_string_ptr("true", "true_str")?;
                     let false_str = self.builder.build_global_string_ptr("false", "false_str")?;

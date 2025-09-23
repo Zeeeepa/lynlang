@@ -1,0 +1,97 @@
+// Test: Structs and Enums from LANGUAGE_SPEC.zen
+// This test covers:
+// - Struct definitions with mutable fields
+// - Enum types (sum types)
+// - Option<T> and Result<T, E>
+// - Pattern matching on enums
+
+{ io } = @std
+
+// Option type as per spec
+Option<T>: Some(T) | None
+
+// Simple struct
+Point: {
+    x:: f64,  // mutable field
+    y:: f64 = 0  // with default value
+}
+
+// More complex struct
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point
+}
+
+// Enum type (sum type)
+Shape: Circle | Rectangle
+
+// Game entity enum for UFC overloading demo
+GameEntity: Player | Enemy | Powerup
+
+// UFC overloading functions
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+main = () void {
+    io.println("=== Testing Structs ===")
+    
+    // Create point with defaults
+    p1 = Point { x: 10.0 }  // y defaults to 0
+    io.println("Point p1 created")
+    
+    // Create point with all fields
+    p2 = Point { x: 5.0, y: 3.0 }
+    io.println("Point p2 created")
+    
+    // Mutate mutable fields
+    p1.x = 20.0
+    p1.y = 15.0
+    io.println("Point p1 mutated")
+    
+    // Create nested structs
+    circle = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    io.println("Circle created")
+    
+    rect = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        bottom_right: Point { x: 10.0, y: 10.0 }
+    }
+    io.println("Rectangle created")
+    
+    io.println("\n=== Testing Option<T> ===")
+    
+    // Some variant
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(val) { io.println("Got value: ${val}") }
+        | None { io.println("No value") }
+    
+    // None variant
+    empty: Option<i32> = None
+    empty ?
+        | Some(val) { io.println("Got value: ${val}") }
+        | None { io.println("Empty option") }
+    
+    io.println("\n=== Testing Enum Variants ===")
+    
+    // Create enum variants
+    player = GameEntity.Player
+    enemy = GameEntity.Enemy
+    powerup = GameEntity.Powerup
+    
+    // Test UFC overloading
+    io.println("Player health: ${get_health(player)}")
+    io.println("Enemy health: ${get_health(enemy)}")
+    io.println("Powerup health: ${get_health(powerup)}")
+    
+    io.println("\n=== Test Complete ===")
+}

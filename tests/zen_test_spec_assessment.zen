@@ -1,0 +1,31 @@
+// Assessment test for LANGUAGE_SPEC.zen implementation status
+// Tests each key feature to identify what needs implementing
+
+{ io } = @std
+
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Assessment ===")
+    io.println("")
+    
+    // 1. Variable assignments - ALL forms from spec
+    io.println("1. Variables:")
+    
+    // Immutable
+    x = 10              // immutable inference - WORKS
+    y: i32 = 20         // immutable with type - WORKS
+    io.println(x)
+    io.println(y)
+    
+    // Forward declaration - TEST
+    z: i32              // forward declaration
+    z = 30              // delayed assignment
+    io.println(z)
+    
+    // Mutable forms - TEST  
+    w ::= 40            // mutable inference
+    io.println(w)
+    w = 50              // mutation
+    io.println(w)
+    
+    io.println("=== Assessment Complete ===")
+}

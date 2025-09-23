@@ -1,0 +1,7 @@
+// Test with explicit boolean type
+{ io } = @std
+
+main = () void {
+    x: bool = true
+    io.println(x)
+}

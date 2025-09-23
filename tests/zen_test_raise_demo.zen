@@ -1,0 +1,38 @@
+// Test .raise() for error propagation from LANGUAGE_SPEC.zen
+{ io } = @std
+
+// Result type (lines 113-114 from spec)
+Result<T, E>: Ok(T) | Err(E)
+
+// Function that might fail
+parse_number = (s: string) Result<i32, string> {
+    // For now, always return Ok(42) to test .raise()
+    return Ok(42)
+}
+
+// Function that uses .raise() for error propagation (lines 206-211 from spec)
+process_input = (input: string) Result<i32, string> {
+    // Parse the input - if it fails, .raise() will return early with the error
+    num = parse_number(input).raise()
+    
+    // If we get here, num contains the unwrapped Ok value
+    two: i32 = 2
+    doubled = num * two
+    return Ok(doubled)
+}
+
+main = () void {
+    io.println("Testing .raise() for error propagation...")
+    
+    // Test with valid input
+    result1 = process_input("42")
+    result1 ?
+        | Ok(val) { io.println("Success: 42 doubled = ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test with invalid input
+    result2 = process_input("invalid")
+    result2 ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+}

@@ -1,0 +1,7 @@
+// Test printing integer
+{ io } = @std
+
+main = () void {
+    x = 42
+    io.println(x)
+}

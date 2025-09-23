@@ -1,0 +1,60 @@
+// Comprehensive test of all working features as of 2025-01-23
+// Based on LANGUAGE_SPEC.zen implementation progress
+
+{ io } = @std
+
+main = () void {
+    io.println("=== Zen Language Comprehensive Test ===")
+    
+    // 1. Immutable Variables ✅
+    io.println("1. Immutable Variables:")
+    x = 42
+    y = 3.14
+    message = "Hello, Zen!"
+    io.println(x)
+    io.println(y)
+    io.println(message)
+    
+    // 2. Typed Variables ✅
+    io.println("2. Typed Variables:")
+    count: i32 = 100
+    ratio: f64 = 2.718
+    ready: bool = true  // Booleans need explicit type
+    io.println(count)
+    io.println(ratio)
+    io.println(ready)
+    
+    // 3. Arithmetic Operations ✅
+    io.println("3. Arithmetic:")
+    sum = x + 10
+    diff = count - 50
+    product = 5 * 6
+    quotient = 100 / 4
+    io.println(sum)
+    io.println(diff)
+    io.println(product)
+    io.println(quotient)
+    
+    // 4. Boolean Literals ✅
+    io.println("4. Boolean Literals:")
+    io.println(true)
+    io.println(false)
+    
+    // 5. String Literals ✅
+    io.println("5. String Literals:")
+    greeting = "Welcome to Zen!"
+    io.println(greeting)
+    
+    // 6. Multiple Types with io.println ✅
+    io.println("6. Multiple Types:")
+    int_val = 999
+    float_val = 99.99
+    bool_val: bool = false
+    str_val = "Testing"
+    io.println(int_val)
+    io.println(float_val)
+    io.println(bool_val)
+    io.println(str_val)
+    
+    io.println("=== Test Complete ===")
+}

@@ -4,29 +4,24 @@
 
 main = () void {
     name = "Zen"
-    version = 1.0
-    count = 42
+    version = 42
+    pi = 3.14159
+    is_ready = true
     
-    // Basic interpolation
-    message1 = "Hello from ${name} language!"
-    io.println(message1)
+    // Simple interpolation
+    io.println("Hello, ${name}!")
     
     // Multiple interpolations
-    message2 = "Language: ${name}, Version: ${version}"
-    io.println(message2)
+    io.println("Language: ${name}, Version: ${version}")
     
-    // Expression interpolation
-    message3 = "The answer is ${count * 2}"
-    io.println(message3)
-    
-    // Nested expressions
-    x = 10
-    y = 20
-    message4 = "Sum: ${x + y}, Product: ${x * y}"
-    io.println(message4)
+    // Numeric interpolation
+    io.println("Pi is approximately ${pi}")
     
     // Boolean interpolation
-    is_ready = true
-    message5 = "Status: ${is_ready}"
-    io.println(message5)
+    io.println("System ready: ${is_ready}")
+    
+    // Expression interpolation
+    x = 10
+    y = 20
+    io.println("Sum of ${x} and ${y} is ${x + y}")
 }

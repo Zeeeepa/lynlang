@@ -116,11 +116,45 @@ impl<'a> Parser<'a> {
                 })?;
                 self.next_token();
                 // Default to Integer32 unless out of range
-                if value <= i32::MAX as i64 && value >= i32::MIN as i64 {
-                    Ok(Expression::Integer32(value as i32))
+                let mut expr = if value <= i32::MAX as i64 && value >= i32::MIN as i64 {
+                    Expression::Integer32(value as i32)
                 } else {
-                    Ok(Expression::Integer64(value))
+                    Expression::Integer64(value)
+                };
+                
+                // Handle UFC on integer literals: 5.double()
+                loop {
+                    match &self.current_token {
+                        Token::Symbol('.') => {
+                            self.next_token(); // consume '.'
+                            
+                            let member = match &self.current_token {
+                                Token::Identifier(name) => name.clone(),
+                                _ => {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected identifier after '.'".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            };
+                            self.next_token();
+                            
+                            // Check if it's a method call
+                            if self.current_token == Token::Symbol('(') {
+                                return self.parse_call_expression_with_object(expr, member);
+                            } else {
+                                // For now, just member access (though unlikely on literals)
+                                expr = Expression::MemberAccess {
+                                    object: Box::new(expr),
+                                    member,
+                                };
+                            }
+                        }
+                        _ => break,
+                    }
                 }
+                
+                Ok(expr)
             }
             Token::Float(value_str) => {
                 let value = value_str.parse::<f64>().map_err(|_| {
@@ -130,18 +164,84 @@ impl<'a> Parser<'a> {
                     )
                 })?;
                 self.next_token();
-                Ok(Expression::Float64(value))
+                let mut expr = Expression::Float64(value);
+                
+                // Handle UFC on float literals
+                loop {
+                    match &self.current_token {
+                        Token::Symbol('.') => {
+                            self.next_token(); // consume '.'
+                            
+                            let member = match &self.current_token {
+                                Token::Identifier(name) => name.clone(),
+                                _ => {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected identifier after '.'".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            };
+                            self.next_token();
+                            
+                            // Check if it's a method call
+                            if self.current_token == Token::Symbol('(') {
+                                return self.parse_call_expression_with_object(expr, member);
+                            } else {
+                                expr = Expression::MemberAccess {
+                                    object: Box::new(expr),
+                                    member,
+                                };
+                            }
+                        }
+                        _ => break,
+                    }
+                }
+                
+                Ok(expr)
             }
             Token::StringLiteral(value) => {
                 let value = value.clone();
                 self.next_token();
                 
                 // Check if the string contains interpolation markers
-                if value.contains('\x01') {
-                    self.parse_interpolated_string(value)
+                let mut expr = if value.contains('\x01') {
+                    self.parse_interpolated_string(value)?
                 } else {
-                    Ok(Expression::String(value))
+                    Expression::String(value)
+                };
+                
+                // Handle UFC on string literals
+                loop {
+                    match &self.current_token {
+                        Token::Symbol('.') => {
+                            self.next_token(); // consume '.'
+                            
+                            let member = match &self.current_token {
+                                Token::Identifier(name) => name.clone(),
+                                _ => {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected identifier after '.'".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            };
+                            self.next_token();
+                            
+                            // Check if it's a method call
+                            if self.current_token == Token::Symbol('(') {
+                                return self.parse_call_expression_with_object(expr, member);
+                            } else {
+                                expr = Expression::MemberAccess {
+                                    object: Box::new(expr),
+                                    member,
+                                };
+                            }
+                        }
+                        _ => break,
+                    }
                 }
+                
+                Ok(expr)
             }
             Token::Symbol('.') => {
                 // Shorthand enum variant syntax: .VariantName or .VariantName(payload)

@@ -1,0 +1,21 @@
+// Check current feature status
+{ io } = @std
+
+main = () void {
+    io.println("=== Feature Check ===")
+    
+    // Mutable with type
+    a :: i32 = 100
+    io.println(a)
+    a = 200  
+    io.println(a)
+    
+    // Function call
+    double = (n: i32) i32 {
+        return n * 2
+    }
+    result = double(5)
+    io.println(result)
+    
+    io.println("=== End ===")
+}

@@ -1,0 +1,215 @@
+// Comprehensive test demonstrating LANGUAGE_SPEC.zen features
+// This represents what is ACTUALLY WORKING as of 2025-01-23
+
+{ io } = @std
+
+// Option type definition (lines 109-110)
+Option<T>: Some(T) | None
+
+// Result type for error handling (lines 112-113)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct (lines 116-120)
+Point: {
+    x:: f64,     // mutable field
+    y:: f64 = 0  // with default value
+}
+
+// Circle struct (lines 130-133)
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+// Rectangle struct (lines 146-149)
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+// Enum type (line 166)
+Shape: Circle | Rectangle
+
+// Generic function that can be called UFC style
+double = (x: i32) i32 {
+    return x * 2
+}
+
+// Function to calculate circle area
+circle_area = (c: Circle) f64 {
+    return 3.14159 * c.radius * c.radius
+}
+
+// Function to demonstrate Result type
+safe_divide = (a: i32, b: i32) Result<i32, string> {
+    b == 0 ?
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
+}
+
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Working Features Demo ===")
+    io.println("")
+    
+    // ========================================
+    // 1. Variable Declarations (lines 299-306)
+    // ========================================
+    io.println("1. Variable Declarations:")
+    
+    x: i32          // Forward declaration (partial - declaration works)
+    x = 10          // Immutable assignment
+    y = 20          // Inferred immutable
+    z: i32 = 30     // Typed immutable
+    
+    io.println(x)
+    io.println(y)
+    io.println(z)
+    
+    // Mutable variables
+    w ::= 40        // Inferred mutable
+    io.println(w)
+    w = 50          // Reassignment
+    io.println(w)
+    
+    v:: i32 = 60    // Typed mutable
+    io.println(v)
+    v = 70
+    io.println(v)
+    io.println("")
+    
+    // ========================================
+    // 2. Structs (lines 116-149)
+    // ========================================
+    io.println("2. Structs:")
+    
+    // Create Point
+    origin = Point { x: 0.0, y: 0.0 }
+    io.println(origin.x)
+    io.println(origin.y)
+    
+    // Mutable fields can be modified
+    origin.x = 10.0
+    origin.y = 20.0
+    io.println(origin.x)
+    io.println(origin.y)
+    
+    // Create Circle
+    circ = Circle {
+        center: Point { x: 5.0, y: 5.0 },
+        radius: 10.0
+    }
+    area = circle_area(circ)
+    io.println(area)
+    io.println("")
+    
+    // ========================================
+    // 3. Option Type (lines 109-110, 462-474)
+    // ========================================
+    io.println("3. Option Type:")
+    
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(v) { io.println(v) }
+        | None { io.println("No value") }
+    
+    empty: Option<i32> = None
+    empty ?
+        | Some(v) { io.println(v) }
+        | None { io.println("Empty option") }
+    io.println("")
+    
+    // ========================================
+    // 4. Result Type (lines 112-113, 199-203)
+    // ========================================
+    io.println("4. Result Type:")
+    
+    result1 = safe_divide(10, 2)
+    result1 ?
+        | Ok(v) { io.println(v) }
+        | Err(e) { io.println(e) }
+    
+    result2 = safe_divide(10, 0)
+    result2 ?
+        | Ok(v) { io.println(v) }
+        | Err(e) { io.println(e) }
+    io.println("")
+    
+    // ========================================
+    // 5. Pattern Matching (lines 352-361)
+    // ========================================
+    io.println("5. Pattern Matching:")
+    
+    // Simple boolean pattern
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    // Full pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Processing...") }
+        | false { io.println("Waiting...") }
+    io.println("")
+    
+    // ========================================
+    // 6. Loops and Ranges (lines 432-459)
+    // ========================================
+    io.println("6. Loops and Ranges:")
+    
+    // Range loop
+    io.println("Range 0..3:")
+    (0..3).loop((i) {
+        io.println(i)
+    })
+    
+    // Infinite loop with break
+    io.println("Loop with break:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 2 ?
+            | true { break }
+            | false { io.println(counter) }
+    })
+    io.println("")
+    
+    // ========================================
+    // 7. UFC (Uniform Function Call)
+    // ========================================
+    io.println("7. UFC:")
+    
+    num = 21
+    doubled = num.double()  // UFC: call double(num) as method
+    io.println(doubled)
+    io.println("")
+    
+    // ========================================
+    // 8. Enum Types (line 166)
+    // ========================================
+    io.println("8. Enum Types:")
+    io.println("(Enum variant creation needs more work)")
+    io.println("")
+    
+    io.println("=== All Tests Complete ===")
+    io.println("Working features: ~50% of LANGUAGE_SPEC.zen")
+    io.println("")
+    io.println("Key Working Features:")
+    io.println("- Variables (immutable and mutable with = and ::=)")
+    io.println("- Structs with mutable fields")
+    io.println("- Option<T> and Result<T,E> types")
+    io.println("- Pattern matching with ?")
+    io.println("- Loops (infinite and range-based)")
+    io.println("- UFC (Uniform Function Call)")
+    io.println("- @std imports")
+    io.println("")
+    io.println("Still TODO:")
+    io.println("- String interpolation")
+    io.println("- Traits (.implements, .requires)")
+    io.println("- Error propagation (.raise)")
+    io.println("- Pointers (Ptr<>, MutPtr<>, RawPtr<>)")
+    io.println("- Generics constraints")
+    io.println("- Metaprogramming")
+    io.println("- Async/allocators")
+    io.println("- Actor/Channel concurrency")
+}

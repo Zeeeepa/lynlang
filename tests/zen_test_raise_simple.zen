@@ -1,0 +1,38 @@
+// Simple test for .raise() error propagation
+{ io } = @std
+
+// Define Result type as per spec (simplified)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple function that might return an error
+divide_by_zero_check = (x: i32) Result<i32, string> {
+    x == 0 ?
+        | true { return Err("Cannot divide by zero") }
+        | false { return Ok(x) }
+}
+
+// Function using .raise() for error propagation  
+test_raise = (value: i32) Result<i32, string> {
+    // This should work: if divide_by_zero_check returns Err, 
+    // this function returns early with that error
+    checked_value = divide_by_zero_check(value).raise()
+    
+    // If we get here, divide_by_zero_check returned Ok
+    return Ok(checked_value * 2)
+}
+
+main = () void {
+    io.println("Testing .raise() with simple case...")
+    
+    // Test with valid input
+    result1 = test_raise(5)
+    result1 ?
+        | Ok(v) { io.println("Success: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test with error case
+    result2 = test_raise(0)
+    result2 ?
+        | Ok(v) { io.println("Success: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+}

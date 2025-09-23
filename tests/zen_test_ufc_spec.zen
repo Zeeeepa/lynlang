@@ -1,0 +1,32 @@
+// Test UFC (Uniform Function Call) from LANGUAGE_SPEC.zen
+{ io } = @std
+
+// Define a simple function that can be called as method
+double = (x: i32) i32 {
+    return x * 2
+}
+
+// Define a function for collections
+sum = (arr: Vec<i32, 5>) i32 {
+    total ::= 0
+    // Traditional way would be arr.loop((item) { ... })
+    // but we'll test if functions can be called as methods
+    return total
+}
+
+main = () void {
+    io.println("=== Testing UFC ===")
+    
+    // Test basic UFC - call function as method
+    num = 21
+    result = num.double()  // UFC: same as double(num)
+    io.println(result)     // Should print 42
+    
+    // Test with range
+    io.println("Range with loop method:")
+    (0..3).loop((i) {
+        io.println(i)
+    })
+    
+    io.println("=== Test Complete ===")
+}

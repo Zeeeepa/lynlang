@@ -117,6 +117,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             } else {
                                 Err(CompileError::TypeError("Function pointer initializer must be a function name".to_string(), None))
                             }
+                        } else if let AstType::Bool = type_ {
+                            // For booleans, store directly as i1
+                            self.builder.build_store(alloca, value).map_err(|e| CompileError::from(e))?;
+                            self.variables.insert(name.clone(), super::VariableInfo {
+                                pointer: alloca,
+                                ast_type: type_.clone(),
+                                is_mutable: *is_mutable,
+                                is_initialized: true,
+                            });
+                            Ok(())
                         } else if let AstType::Ptr(_inner) = type_ {
                             // For pointers, if the initializer is AddressOf, use the pointer inside the alloca
                             let ptr_value = match init_expr {
@@ -179,7 +189,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Type inference case
                         self.builder.build_store(alloca, value).map_err(|e| CompileError::from(e))?;
                         // For inferred types, we need to determine the type from the value and the expression
-                        let inferred_type = if let Expression::StructLiteral { name: struct_name, .. } = init_expr {
+                        let inferred_type = if let Expression::Boolean(_) = init_expr {
+                            // Boolean literal - always infer as bool
+                            AstType::Bool
+                        } else if let Expression::StructLiteral { name: struct_name, .. } = init_expr {
                             // If initializer is a struct literal, use the struct type
                             // We need to get the field types from the registered struct
                             if let Some(struct_info) = self.struct_types.get(struct_name) {

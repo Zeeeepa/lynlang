@@ -1,0 +1,26 @@
+// Test to identify gaps in LANGUAGE_SPEC.zen implementation
+{ io } = @std
+
+main = () void {
+    io.println("=== Testing LANGUAGE_SPEC.zen Gaps ===")
+    io.println("")
+    
+    // Test 1: Mutable with type annotation
+    io.println("1. Mutable with type:")
+    a :: i32 = 100  // mutable with type
+    io.println(a)
+    a = 200
+    io.println(a)
+    
+    // Test 2: UFC on literals
+    io.println("")
+    io.println("2. UFC on literals:")
+    double = (n: i32) i32 {
+        return n * 2
+    }
+    result = 5.double()  // UFC
+    io.println(result)
+    
+    io.println("")
+    io.println("=== End Test ===")
+}
