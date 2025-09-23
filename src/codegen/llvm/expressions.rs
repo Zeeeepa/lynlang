@@ -599,18 +599,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             
                             let index = self.compile_expression(&args[0])?;
                             let index = if index.is_int_value() {
-                                index.into_int_value()
+                                let idx = index.into_int_value();
+                                // Extend to i64 if needed
+                                if idx.get_type().get_bit_width() < 64 {
+                                    self.builder.build_int_z_extend(idx, self.context.i64_type(), "index_i64")?
+                                } else {
+                                    idx
+                                }
                             } else {
                                 return Err(CompileError::TypeError("Index must be an integer".to_string(), None));
                             };
                             
-                            let dynvec_ptr = if object_value.is_pointer_value() {
-                                object_value.into_pointer_value()
-                            } else {
-                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
-                                self.builder.build_store(alloca, object_value)?;
-                                alloca
-                            };
+                            // Get the pointer to the original variable for consistency
+                            let (dynvec_ptr, _) = self.get_variable(obj_name)?;
                             
                             // Load len
                             let len_ptr = self.builder.build_struct_gep(
@@ -708,7 +709,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             
                             let index = self.compile_expression(&args[0])?;
                             let index = if index.is_int_value() {
-                                index.into_int_value()
+                                let idx = index.into_int_value();
+                                // Extend to i64 if needed
+                                if idx.get_type().get_bit_width() < 64 {
+                                    self.builder.build_int_z_extend(idx, self.context.i64_type(), "index_i64")?
+                                } else {
+                                    idx
+                                }
                             } else {
                                 return Err(CompileError::TypeError("Index must be an integer".to_string(), None));
                             };
@@ -797,13 +804,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         "len" => {
                             // DynVec.len() -> usize
-                            let dynvec_ptr = if object_value.is_pointer_value() {
-                                object_value.into_pointer_value()
-                            } else {
-                                let alloca = self.builder.build_alloca(object_value.get_type(), "dynvec_ref")?;
-                                self.builder.build_store(alloca, object_value)?;
-                                alloca
-                            };
+                            // Get the pointer to the original variable for consistency
+                            let (dynvec_ptr, _) = self.get_variable(obj_name)?;
                             
                             // Load and return len
                             let len_ptr = self.builder.build_struct_gep(

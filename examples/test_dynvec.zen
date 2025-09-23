@@ -1,0 +1,41 @@
+// Test DynVec operations
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing DynVec operations...")
+    
+    // Create a new DynVec<i32>
+    vec = DynVec<i32>()
+    io.println("Created empty DynVec")
+    
+    // Test len on empty vector
+    initial_len = vec.len()
+    io.println("Initial length: ${initial_len}")
+    
+    // Test push
+    vec.push(10)
+    io.println("Pushed 10")
+    vec.push(20)
+    io.println("Pushed 20")
+    vec.push(30)
+    io.println("Pushed 30")
+    
+    // Test len after pushes
+    new_len = vec.len()
+    io.println("Length after pushes: ${new_len}")
+    
+    // Test set
+    vec.set(1, 25)
+    io.println("Set index 1 to 25")
+    
+    // Test clear
+    vec.clear()
+    io.println("Cleared vector")
+    
+    final_len = vec.len()
+    io.println("Length after clear: ${final_len}")
+    
+    io.println("DynVec operations test complete!")
+    
+    return 0
+}

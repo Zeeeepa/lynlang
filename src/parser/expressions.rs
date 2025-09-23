@@ -1944,23 +1944,32 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
         
-        // Parse allocator expression (required)
-        let allocator = self.parse_expression()?;
-        
-        // Parse optional initial capacity
-        let initial_capacity = if self.current_token == Token::Symbol(',') {
-            self.next_token();
-            Some(Box::new(self.parse_expression()?))
+        // Check if allocator is provided (optional for now, defaults to malloc)
+        let (allocator, initial_capacity) = if self.current_token == Token::Symbol(')') {
+            // Empty constructor - use default allocator (0 as placeholder, malloc in codegen)
+            (Expression::Integer64(0), None)
         } else {
-            None
+            // Parse allocator expression
+            let alloc = self.parse_expression()?;
+            
+            // Parse optional initial capacity
+            let capacity = if self.current_token == Token::Symbol(',') {
+                self.next_token();
+                Some(Box::new(self.parse_expression()?))
+            } else {
+                None
+            };
+            
+            if self.current_token != Token::Symbol(')') {
+                return Err(CompileError::SyntaxError(
+                    "Expected ')' after DynVec constructor arguments".to_string(),
+                    Some(self.current_span.clone()),
+                ));
+            }
+            
+            (alloc, capacity)
         };
         
-        if self.current_token != Token::Symbol(')') {
-            return Err(CompileError::SyntaxError(
-                "Expected ')' after DynVec constructor arguments".to_string(),
-                Some(self.current_span.clone()),
-            ));
-        }
         self.next_token();
         
         Ok(Expression::DynVecConstructor {
