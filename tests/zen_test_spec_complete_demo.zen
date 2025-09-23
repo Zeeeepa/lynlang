@@ -1,0 +1,225 @@
+// Comprehensive test demonstrating all working features from LANGUAGE_SPEC.zen
+// This file tests features that are currently WORKING in the compiler
+
+{ io } = @std
+
+// Option type - no null (Lines 109-110)
+Option<T>: Some(T) | None
+
+// Result type for error handling (Lines 112-113)
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct (Lines 117-120)
+Point: {
+    x:: f64,    // mutable field
+    y:: f64     // mutable field (default values with :: not yet working)
+}
+
+// Note: Simple enums without payloads are parsed but not yet fully working
+// Shape: Circle | Square | Triangle
+
+// UFC demonstration functions
+double = (n: i32) i32 { return n * 2 }
+triple = (n: i32) i32 { return n * 3 }
+add = (x: i32, y: i32) i32 { return x + y }
+
+// Function returning Result
+safe_divide = (a: i32, b: i32) i32 {
+    // Simple version without Result for now
+    b == 0 ?
+        | true { return 0 }  // Return 0 on division by zero
+        | false { return a / b }
+}
+
+// Additional test functions
+multiply = (a: i32, b: i32) i32 { return a * b }
+
+// Closure-like function
+add_with_base = (base: i32, n: i32) i32 { return base + n }
+
+main = () void {
+    io.println("=== ZEN LANGUAGE SPEC DEMO ===")
+    io.println("Testing features from LANGUAGE_SPEC.zen")
+    io.println("")
+    
+    // ========================================
+    // 1. Variable Declarations (Lines 298-306)
+    // ========================================
+    io.println("1. Variable Declarations:")
+    
+    // Forward declaration (Line 299)
+    x: i32
+    x = 10
+    io.println("  Forward decl: x = ${x}")
+    
+    // Immutable assignment (Line 300)
+    yval = 20
+    io.println("  Immutable: yval = ${yval}")
+    
+    // Immutable with type (Line 302)
+    z: i32 = 30
+    io.println("  Typed immutable: z = ${z}")
+    
+    // Mutable forward declaration (Line 303)
+    w:: i32
+    w = 40
+    w = w + 5
+    io.println("  Mutable forward: w = ${w}")
+    
+    // Mutable assignment (Line 305)
+    v ::= 50
+    v = v + 10
+    io.println("  Mutable: v = ${v}")
+    
+    // Mutable with type (Line 306)
+    u:: i32 = 70
+    u = u + 5
+    io.println("  Typed mutable: u = ${u}")
+    io.println("")
+    
+    // ========================================
+    // 2. Pattern Matching with ? (Lines 29-71, 352-361)
+    // ========================================
+    io.println("2. Pattern Matching:")
+    
+    // Boolean single-branch pattern (Line 352-355)
+    is_ready = true
+    is_ready ? {
+        io.println("  Single branch: Ready!")
+    }
+    
+    // Boolean if-else pattern (Lines 358-361)
+    has_data = false
+    has_data ?
+        | true { io.println("  Has data") }
+        | false { io.println("  If-else: No data") }
+    
+    // Note: Simple enum pattern matching not yet working
+    // Would be: shape ? | Circle {} | Square {} | Triangle {}
+    io.println("")
+    
+    // ========================================
+    // 3. Option Type (Lines 109-110, 462-473)
+    // ========================================
+    io.println("3. Option Type (No null!):")
+    
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { io.println("  Some(${val})") }
+        | None { io.println("  None") }
+    
+    none_val: Option<i32> = None
+    none_val ?
+        | Some(val) { io.println("  Some(${val})") }
+        | None { io.println("  Found None") }
+    io.println("")
+    
+    // ========================================
+    // 4. Result Type (Lines 112-113, 199-211)
+    // ========================================
+    io.println("4. Result Type:")
+    
+    // Test with standalone Result values
+    result1: Result<i32, string> = Ok(100)
+    result1 ?
+        | Ok(val) { io.println("  Ok(100) = ${val}") }
+        | Err(e) { io.println("  Error: ${e}") }
+    
+    result2: Result<i32, string> = Err("test error")
+    result2 ?
+        | Ok(val) { io.println("  Ok = ${val}") }
+        | Err(e) { io.println("  Err: ${e}") }
+    io.println("")
+    
+    // ========================================
+    // 5. Structs (Lines 117-120, 364-372)
+    // ========================================
+    io.println("5. Structs:")
+    
+    p = Point { x: 10.5, y: 20.5 }
+    io.println("  Initial: (${p.x}, ${p.y})")
+    
+    // Mutable field modification
+    p.x = 15.5
+    p.y = 25.5
+    io.println("  Modified: (${p.x}, ${p.y})")
+    io.println("")
+    
+    // ========================================
+    // 6. Loops and Ranges (Lines 432-460)
+    // ========================================
+    io.println("6. Loops and Ranges:")
+    
+    // Range loop (Lines 432-434)
+    io.println("  Range (0..4):")
+    (0..4).loop((i) {
+        io.println("    ${i}")
+    })
+    
+    // Infinite loop with break (Lines 453-459)
+    io.println("  Infinite with break:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("    Loop ${counter}") }
+    })
+    io.println("")
+    
+    // ========================================
+    // 7. UFC - Uniform Function Call (Lines 172-182)
+    // ========================================
+    io.println("7. UFC (Uniform Function Call):")
+    
+    num = 5
+    
+    // Single UFC call
+    doubled = num.double()
+    io.println("  5.double() = ${doubled}")
+    
+    tripled = num.triple()
+    io.println("  5.triple() = ${tripled}")
+    
+    // UFC with multiple parameters
+    sum = num.add(10)
+    io.println("  5.add(10) = ${sum}")
+    
+    // UFC chaining
+    chained = num.double().triple().add(4)
+    io.println("  5.double().triple().add(4) = ${chained}")
+    io.println("")
+    
+    // ========================================
+    // 8. String Interpolation
+    // ========================================
+    io.println("8. String Interpolation:")
+    
+    name = "Zen"
+    version = 1
+    io.println("  Language: ${name} v${version}")
+    
+    // Complex expressions in interpolation
+    calc = 2 + 3
+    io.println("  2 + 3 = ${calc}")
+    calc2 = 10 * 2
+    io.println("  10 * 2 = ${calc2}")
+    io.println("")
+    
+    // ========================================
+    // 9. Functions and Closures
+    // ========================================
+    io.println("9. Functions:")
+    
+    // Function calls
+    result_mult = multiply(3, 4)
+    io.println("  multiply(3, 4) = ${result_mult}")
+    
+    // Function with multiple params
+    base_val = 100
+    result_add = add_with_base(base_val, 50)
+    io.println("  add_with_base(100, 50) = ${result_add}")
+    io.println("")
+    
+    io.println("=== ALL TESTS PASSED ===")
+}

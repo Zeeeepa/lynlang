@@ -87,6 +87,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
+                AstType::StdModule => {
+                    // For stdlib module references, return the module marker value
+                    // This value is used to identify which module is being referenced
+                    match self.builder.build_load(self.context.i64_type(), ptr, name) {
+                        Ok(val) => val.into(),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                    }
+                }
                 _ => {
                     let elem_type = self.to_llvm_type(&ast_type)?;
                     let basic_type = self.expect_basic_type(elem_type)?;
@@ -154,7 +162,49 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 ("%s", result.into())
                             }
                             32 => ("%d", val.into()),
-                            64 => ("%lld", val.into()),
+                            64 => {
+                                // Check if this might be a pointer stored as i64
+                                // Values > 0x100000 (1MB) are likely pointers
+                                let mb_threshold = self.context.i64_type().const_int(0x100000, false);
+                                let is_large = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::UGT,
+                                    int_val,
+                                    mb_threshold,
+                                    "might_be_ptr"
+                                )?;
+                                
+                                // If it might be a pointer, convert and use %s
+                                // Otherwise use %lld for regular integers
+                                let as_ptr = self.builder.build_int_to_ptr(
+                                    int_val,
+                                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                                    "potential_str_ptr"
+                                )?;
+                                
+                                let format_for_ptr = "%s";
+                                let format_for_int = "%lld";
+                                
+                                // Choose format based on whether it looks like a pointer
+                                // For now, just check if > 1MB and use pointer format
+                                // This is a heuristic that works for string literals
+                                if int_val.is_const() {
+                                    if let Some(const_val) = int_val.get_zero_extended_constant() {
+                                        if const_val > 0x100000 {
+                                            // Likely a pointer - use %s and the converted pointer
+                                            ("%s", as_ptr.into())
+                                        } else {
+                                            // Regular integer - use %lld
+                                            ("%lld", val.into())
+                                        }
+                                    } else {
+                                        ("%lld", val.into())
+                                    }
+                                } else {
+                                    // Runtime value - can't determine at compile time
+                                    // For safety, treat as integer
+                                    ("%lld", val.into())
+                                }
+                            },
                             _ => ("%d", val.into()),
                         }
                     } else if val.is_float_value() {

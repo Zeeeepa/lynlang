@@ -1,0 +1,15 @@
+// Test accessing math.pi
+{ io } = @std
+
+main = () void {
+    io.println("Starting test...")
+    
+    // Do destructuring import in the function
+    { math } = @std
+    
+    io.println("After destructuring import")
+    
+    // Try to use math.pi
+    pi_val = math.pi
+    io.println("Pi value: ${pi_val}")
+}

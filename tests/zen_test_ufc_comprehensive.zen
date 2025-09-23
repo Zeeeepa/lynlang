@@ -1,0 +1,34 @@
+// Comprehensive UFC test
+{ io } = @std
+
+// Functions that can be called with UFC
+add = (x: i32, y: i32) i32 {
+    return x + y
+}
+
+double = (x: i32) i32 {
+    return x * 2
+}
+
+print_with_prefix = (s: string, prefix: string) void {
+    io.println("${prefix}: ${s}")
+}
+
+main = () void {
+    // Test UFC with single argument function
+    num = 10
+    doubled = num.double()
+    io.println("10.double() = ${doubled}")
+    
+    // Test UFC with multiple arguments
+    result = num.add(5)
+    io.println("10.add(5) = ${result}")
+    
+    // Test UFC with void function
+    message = "Hello UFC"
+    message.print_with_prefix("Message")
+    
+    // Test chaining
+    chained = num.double().add(3)
+    io.println("10.double().add(3) = ${chained}")
+}

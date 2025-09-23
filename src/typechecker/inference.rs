@@ -152,6 +152,19 @@ pub fn infer_member_type(
                 ), None))
             }
         }
+        AstType::StdModule => {
+            // Handle stdlib module member access (e.g., math.pi)
+            // For now, we'll just return F64 for math.pi
+            // TODO: Implement a proper registry of stdlib module members
+            if member == "pi" {
+                Ok(AstType::F64)
+            } else {
+                Err(CompileError::TypeError(format!(
+                    "Unknown stdlib module member: {}",
+                    member
+                ), None))
+            }
+        }
         _ => Err(CompileError::TypeError(format!(
             "Cannot access member '{}' on type {:?}",
             member, object_type

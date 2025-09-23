@@ -219,6 +219,12 @@ impl TypeChecker {
             Declaration::Constant { .. } => {
                 // Constants are already type-checked in collect_declaration_types
             }
+            Declaration::ModuleImport { alias, module_path: _ } => {
+                // Handle module imports like { io, math } = @std which become
+                // ModuleImport declarations at the top level
+                // Register the imported module as a variable with StdModule type
+                self.declare_variable_with_init(alias, AstType::StdModule, false, true)?;
+            }
             _ => {}
         }
         Ok(())
@@ -379,6 +385,13 @@ impl TypeChecker {
                 let _pointer_type = self.infer_expression_type(pointer)?;
                 let _value_type = self.infer_expression_type(value)?;
                 // TODO: Type check that value is compatible with the pointed-to type
+            }
+            Statement::DestructuringImport { names, source: _ } => {
+                // Handle destructuring imports: { io, math } = @std
+                // Register each imported module as a variable with StdModule type
+                for name in names {
+                    self.declare_variable_with_init(name, AstType::StdModule, false, true)?;
+                }
             }
             _ => {}
         }

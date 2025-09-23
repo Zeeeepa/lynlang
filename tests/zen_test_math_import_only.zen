@@ -1,0 +1,6 @@
+// Test just importing math module
+{ io, math } = @std
+
+main = () void {
+    io.println("Math module imported successfully")
+}

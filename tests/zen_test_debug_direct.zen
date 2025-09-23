@@ -1,0 +1,7 @@
+// Test direct string interpolation
+{ io } = @std
+
+main = () void {
+    s = "hello world"
+    io.println("Direct string: ${s}")
+}

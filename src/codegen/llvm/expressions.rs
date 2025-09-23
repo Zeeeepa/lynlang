@@ -583,7 +583,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let tag = 0;
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     let payload_val = if let Some(expr) = payload {
-                        self.compile_expression(expr)?
+                        let compiled = self.compile_expression(expr)?;
+                        if compiled.is_pointer_value() {
+                            self.builder.build_ptr_to_int(
+                                compiled.into_pointer_value(),
+                                self.context.i64_type(),
+                                "ptr_as_int"
+                            )?.into()
+                        } else {
+                            compiled
+                        }
                     } else {
                         self.context.i64_type().const_int(0, false).into()
                     };
@@ -609,7 +618,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let tag = 0;
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     let payload_val = if let Some(expr) = payload {
-                        self.compile_expression(expr)?
+                        let compiled = self.compile_expression(expr)?;
+                        if compiled.is_pointer_value() {
+                            self.builder.build_ptr_to_int(
+                                compiled.into_pointer_value(),
+                                self.context.i64_type(),
+                                "ptr_as_int"
+                            )?.into()
+                        } else {
+                            compiled
+                        }
                     } else {
                         self.context.i64_type().const_int(0, false).into()
                     };
@@ -638,7 +656,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         let tag_val = self.context.i64_type().const_int(tag, false);
         let payload_val = if let Some(expr) = payload {
-            self.compile_expression(expr)?
+            let compiled = self.compile_expression(expr)?;
+            // Convert pointer values to i64 for storage in enum
+            if compiled.is_pointer_value() {
+                self.builder.build_ptr_to_int(
+                    compiled.into_pointer_value(),
+                    self.context.i64_type(),
+                    "ptr_as_int"
+                )?.into()
+            } else {
+                compiled
+            }
         } else {
             self.context.i64_type().const_int(0, false).into()
         };
@@ -655,6 +683,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     fn compile_member_access(&mut self, object: &Expression, member: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Check if this is a stdlib module constant access (e.g., math.pi)
+        if let Expression::Identifier(module_name) = object {
+            // Check if this is a known stdlib module with constants
+            if module_name == "math" && member == "pi" {
+                // Return the value of pi as a float constant
+                return Ok(self.context.f64_type().const_float(std::f64::consts::PI).into());
+            }
+        }
+        
         // Check if this is an enum variant access (GameEntity.Player syntax)
         if let Expression::Identifier(enum_name) = object {
             // Check if this identifier is an enum type
@@ -668,7 +705,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
         
-        // Not an enum, delegate to the struct field access logic
+        // Not an enum or stdlib constant, delegate to the struct field access logic
         self.compile_struct_field(object, member)
     }
 

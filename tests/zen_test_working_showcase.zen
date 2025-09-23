@@ -1,0 +1,110 @@
+// Working features showcase from LANGUAGE_SPEC.zen
+{ io } = @std
+
+// Option type - no null
+Option<T>: Some(T) | None
+
+// Result type  
+Result<T, E>: Ok(T) | Err(E)
+
+// Simple struct
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+// Functions for UFC demonstration
+add = (x: i32, y: i32) i32 {
+    return x + y
+}
+
+double = (n: i32) i32 {
+    return n * 2
+}
+
+main = () void {
+    io.println("=== WORKING ZEN FEATURES ===")
+    io.println("")
+    
+    // Variables
+    io.println("1. Variables:")
+    x: i32
+    x = 10
+    io.println("  Forward decl: x = ${x}")
+    
+    y ::= 20
+    y = y + 5
+    io.println("  Mutable: y = ${y}")
+    io.println("")
+    
+    // Pattern matching
+    io.println("2. Pattern Matching:")
+    is_ready = true
+    is_ready ? {
+        io.println("  Ready!")
+    }
+    
+    value = 5
+    is_positive = value > 0
+    is_positive ?
+        | true { io.println("  ${value} is positive") }
+        | false { io.println("  ${value} is not positive") }
+    io.println("")
+    
+    // Option type
+    io.println("3. Option Type:")
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("  Some(${v})") }
+        | None { io.println("  None") }
+    io.println("")
+    
+    // Result type
+    io.println("4. Result Type:")
+    result: Result<i32, string> = Ok(100)
+    result ?
+        | Ok(v) { io.println("  Ok(${v})") }
+        | Err(e) { io.println("  Err: ${e}") }
+    io.println("")
+    
+    // Structs
+    io.println("5. Structs:")
+    p = Point { x: 10.5, y: 20.5 }
+    io.println("  Point: (${p.x}, ${p.y})")
+    p.x = 15.5
+    io.println("  After mutation: (${p.x}, ${p.y})")
+    io.println("")
+    
+    // Loops and ranges
+    io.println("6. Loops:")
+    io.println("  Range (0..3):")
+    (0..3).loop((i) {
+        io.println("    ${i}")
+    })
+    
+    io.println("  Counter loop:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("    Count ${counter}") }
+    })
+    io.println("")
+    
+    // UFC - Uniform Function Call
+    io.println("7. UFC (Uniform Function Call):")
+    num = 10
+    doubled = num.double()  // UFC: same as double(num)
+    io.println("  10.double() = ${doubled}")
+    
+    sum = num.add(5)  // UFC: same as add(num, 5)
+    io.println("  10.add(5) = ${sum}")
+    
+    // UFC chaining
+    chained = num.double().add(3)
+    io.println("  10.double().add(3) = ${chained}")
+    io.println("")
+    
+    io.println("=== END ===")
+}

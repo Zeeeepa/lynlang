@@ -1,0 +1,80 @@
+// Critical features test from LANGUAGE_SPEC.zen
+// Testing the core language requirements
+
+{ io } = @std
+
+// 1. Test Option type - no null/nil allowed!
+Option<T>: Some(T) | None
+
+// 2. Test Result type for error handling
+Result<T, E>: Ok(T) | Err(E)
+
+// 3. Simple struct with mutable and default values
+Point: {
+    x:: f64,      // mutable field
+    y:: f64 = 0   // with default value
+}
+
+// 4. Enum types (sum types)
+Shape: Circle | Rectangle
+
+// 5. Test UFC (Uniform Function Call)
+area = (radius: f64) f64 {
+    return 3.14159 * radius * radius
+}
+
+// 6. Test error propagation with .raise()
+divide = (a: f64, b: f64) Result<f64, string> {
+    b == 0 ?
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
+}
+
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Critical Features Test ===")
+    
+    // Test 1: Variables (immutable, mutable, forward declaration)
+    x: i32       // forward declaration
+    x = 10       // immutable assignment
+    y ::= 20     // mutable assignment
+    y = y + 5
+    io.println("Variables: x=${x}, y=${y}")
+    
+    // Test 2: Option handling - no null!
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(v) { io.println("Option: Some(${v})") }
+        | None { io.println("Option: None") }
+    
+    // Test 3: Result type and error handling
+    result = divide(10, 2)
+    result ?
+        | Ok(v) { io.println("Result: Ok(${v})") }
+        | Err(e) { io.println("Result: Err(${e})") }
+    
+    // Test 4: Pattern matching with booleans
+    is_ready = true
+    is_ready ?
+        | true { io.println("Pattern match: Ready!") }
+        | false { io.println("Pattern match: Not ready") }
+    
+    // Test 5: UFC - call function as method
+    radius = 5.0
+    // area_val = radius.area()  // UFC syntax - TODO: fix this
+    area_val = area(radius)      // Regular call for now
+    io.println("Area: ${area_val}")
+    
+    // Test 6: Ranges and loops
+    io.println("Range loop:")
+    (0..3).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Test 7: Explicit pointers (no * or &)
+    point = Point { x: 1.0, y: 2.0 }
+    point_ptr: Ptr<Point> = point.ref()
+    io.println("Pointer address: ${point_ptr.addr}")
+    io.println("Pointer value: x=${point_ptr.val.x}")
+    
+    io.println("=== Test Complete ===")
+}

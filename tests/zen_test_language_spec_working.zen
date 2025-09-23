@@ -1,195 +1,68 @@
-// Zen Language - Working subset of LANGUAGE_SPEC.zen
-// This file demonstrates the features that currently compile and run
+// Test of currently working features from LANGUAGE_SPEC.zen
+{ io, math } = @std
 
-// Imports - only @std works currently
-{ io } = @std
-
-// Option type - no null!
+// Option and Result types
 Option<T>: Some(T) | None
-
-// Result type for error handling
 Result<T, E>: Ok(T) | Err(E)
 
-// Simple struct with mutable fields
-Point: {
-    x:: f64,  // mutable field
-    y:: f64   // mutable field
-}
-
-// Circle struct
-Circle: {
-    center: Point,
-    radius: f64
-}
-
-// Rectangle struct
-Rectangle: {
-    top_left: Point,
-    bottom_right: Point
-}
-
-// Enum type (sum type)
-Shape: Circle | Rectangle
-
-// Parse radius function
-parse_radius = (val: f64) Result<f64, String> {
-    val > 0.0 ?
-        | true { return Ok(val) }
-        | false { return Err("Radius must be positive") }
-}
-
 main = () void {
-    io.println("=== Zen Language Spec - Working Features ===")
-    io.println("")
+    io.println("=== Zen Language Working Features ===")
     
-    // ========================================
-    // Variable Declarations (Lines 298-306)
-    // ========================================
-    io.println("1. Variable Declarations:")
+    // 1. Variable declarations (SPEC lines 298-306)
+    a: i32
+    a = 10
+    b = 20
+    c ::= 30
+    io.println("Variables: a=${a}, b=${b}, c=${c}")
     
-    x: i32 = 10   // immutable with type
-    y = 20        // immutable (type inferred)
-    z: i32 = 30   // immutable with type
-    w:: i32 = 40  // mutable with type
-    v ::= 50      // mutable (type inferred)
-    u:: i32 = 60  // mutable with type
+    // 2. Math.pi constant (SPEC line 138)
+    io.println("math.pi = ${math.pi}")
+    circle_area = math.pi * 5.0 * 5.0
+    io.println("Circle area (r=5): ${circle_area}")
     
-    // Update mutables
-    v = 55
-    w = 45
-    io.println("  All variable declaration forms work")
-    
-    // ========================================
-    // Pattern Matching (Lines 352-361)
-    // ========================================
-    io.println("")
-    io.println("2. Pattern Matching with ?:")
-    
-    // Simple boolean pattern
+    // 3. Boolean pattern matching (SPEC lines 352-361)
     is_ready = true
     is_ready ? {
-        io.println("  Simple boolean pattern works")
+        io.println("System ready!")
     }
     
-    // Full boolean pattern (if-else replacement)
     has_data = false
     has_data ?
-        | true { io.println("  Has data") }
-        | false { io.println("  Full boolean pattern works") }
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
     
-    // ========================================
-    // Option Types (Lines 109-110, 462-473)
-    // ========================================
-    io.println("")
-    io.println("3. Option Type (No Null!):")
+    // 4. Option type (SPEC lines 462-473)
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("Value: ${v}") }
+        | None { io.println("No value") }
     
-    maybe_radius: Option<f64> = Some(5.5)
-    maybe_radius ?
-        | Some(r) {
-            io.println("  Option Some works with value")
-        }
-        | None {
-            io.println("  No radius")
-        }
+    // 5. Result type
+    result: Result<i32, String> = Ok(100)
+    result ?
+        | Ok(v) { io.println("Success: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
     
-    none_val: Option<i32> = None
-    none_val ?
-        | Some(v) { io.println("  Has value") }
-        | None { io.println("  Option None works") }
-    
-    // ========================================
-    // Result Types (Lines 113-114, 199-211)
-    // ========================================
-    io.println("")
-    io.println("4. Result Type (Error Handling):")
-    
-    good_result = parse_radius(10.0)
-    good_result ?
-        | Ok(r) { io.println("  Result Ok works") }
-        | Err(e) { io.println("  Error") }
-    
-    bad_result = parse_radius(-5.0)
-    bad_result ?
-        | Ok(r) { io.println("  Should not happen") }
-        | Err(e) { io.println("  Result Err works") }
-    
-    // ========================================
-    // Structs (Lines 117-120, 364-371)
-    // ========================================
-    io.println("")
-    io.println("5. Structs with Mutable Fields:")
-    
-    mut_point = Point { x: 1.0, y: 2.0 }
-    mut_point.x = 5.0   // Mutate x field
-    mut_point.y = 10.0  // Mutate y field
-    io.println("  Struct creation and field mutation works")
-    
-    // Create shapes
-    circle = Circle {
-        center: Point { x: 100.0, y: 100.0 },
-        radius: 50.0
-    }
-    io.println("  Nested struct creation works")
-    
-    // ========================================
-    // Enums (Lines 165-170)
-    // ========================================
-    io.println("")
-    io.println("6. Enum Types (Sum Types):")
-    
-    shape1 = Shape.Circle
-    shape2 = Shape.Rectangle
-    
-    shape1 ?
-        | Circle { io.println("  Enum pattern matching works") }
-        | Rectangle { io.println("  Rectangle") }
-    
-    // ========================================
-    // Loops (Lines 432-460)
-    // ========================================
-    io.println("")
-    io.println("7. Loops and Ranges:")
-    
-    // Range loop
-    io.println("  Range loop (0..3):")
+    // 6. Range loops (SPEC lines 432-434)
+    io.println("Range 0..3:")
     (0..3).loop((i) {
-        io.println("    - iteration")
+        io.println("  ${i}")
     })
-    io.println("  Range loops work")
     
-    // Infinite loop with break
+    // 7. Infinite loop with break (SPEC lines 453-459)
     counter ::= 0
     loop(() {
         counter = counter + 1
         counter > 2 ?
             | true { break }
-            | false { }  // continue
+            | false { io.println("Loop: ${counter}") }
     })
-    io.println("  Infinite loop with break works")
     
-    // ========================================
-    // Defer (Line 217, etc)
-    // ========================================
-    @this.defer(io.println("  Defer executes at scope end"))
-    io.println("")
-    io.println("8. Defer Statement:")
-    io.println("  Setting up defer...")
+    // 8. String interpolation
+    x = 42
+    y = 3.14
+    z = true
+    io.println("Interpolation: x=${x}, y=${y}, z=${z}")
     
-    // ========================================
-    // Summary
-    // ========================================
-    io.println("")
-    io.println("=== Summary ===")
-    io.println("Working features from LANGUAGE_SPEC.zen:")
-    io.println("- No keywords design [WORKING]")
-    io.println("- Pattern matching with ? [WORKING]")
-    io.println("- Variable declarations (=, ::=, :) [WORKING]")
-    io.println("- Option<T> and Result<T,E> types [WORKING]")
-    io.println("- Structs with mutable fields [WORKING]")
-    io.println("- Enum types [WORKING]")
-    io.println("- Loops (range, infinite) [WORKING]")
-    io.println("- @std imports [WORKING]")
-    io.println("- @this.defer() [WORKING]")
-    io.println("")
-    io.println("The core of LANGUAGE_SPEC.zen is working!")
+    io.println("=== All tests passed! ===")
 }

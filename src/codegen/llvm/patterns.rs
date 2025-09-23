@@ -239,11 +239,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             1,
                             "payload_ptr"
                         )?;
-                        self.builder.build_load(
+                        let raw_payload = self.builder.build_load(
                             self.context.i64_type(),
                             payload_gep,
                             "payload"
-                        )?
+                        )?;
+                        
+                        raw_payload
                     } else if scrutinee_val.is_struct_value() {
                         let struct_val = scrutinee_val.into_struct_value();
                         self.builder.build_extract_value(struct_val, 1, "payload")?
@@ -518,10 +520,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 saved.insert(name.clone(), existing.clone());
             }
             
-            let alloca = self.builder.build_alloca(value.get_type(), name).unwrap();
-            self.builder.build_store(alloca, *value).unwrap();
+            let actual_value = *value;
             
-            let ast_type = match value {
+            let alloca = self.builder.build_alloca(actual_value.get_type(), name).unwrap();
+            self.builder.build_store(alloca, actual_value).unwrap();
+            
+            let ast_type = match actual_value {
                 BasicValueEnum::IntValue(iv) => {
                     match iv.get_type().get_bit_width() {
                         8 => crate::ast::AstType::I8,

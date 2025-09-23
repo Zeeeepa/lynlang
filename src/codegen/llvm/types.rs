@@ -271,6 +271,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(Type::Struct(enum_struct_type))
                 }
             },
+            AstType::StdModule => {
+                // StdModule is a marker type for imported stdlib modules (like math, io)
+                // It's represented as an i64 in LLVM (storing module identifier)
+                Ok(Type::Basic(self.context.i64_type().into()))
+            },
         };
         result
     }

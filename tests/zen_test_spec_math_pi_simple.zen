@@ -1,0 +1,10 @@
+// Test math.pi constant simple version
+{ io } = @std
+
+main = () void {
+    io.println("Testing math.pi constant...")
+    
+    // Try using pi directly (since we added it to identifier check)
+    circle_area = pi * 5.0 * 5.0
+    io.println("Area of circle (r=5): ${circle_area}")
+}

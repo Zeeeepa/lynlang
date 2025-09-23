@@ -73,6 +73,8 @@ pub enum AstType {
     EnumType {
         name: String,
     },
+    // For stdlib module references (e.g., math, io when imported)
+    StdModule,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

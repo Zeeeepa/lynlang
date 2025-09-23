@@ -794,34 +794,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(())
             }
             Statement::DestructuringImport { names, source } => {
-                // Handle destructuring imports: { io, maths } = @std
-                // For now, we'll treat this as a series of variable declarations
-                // In the future, this would interact with the module system
+                // Handle destructuring imports: { io, math } = @std
+                // These imports make stdlib modules available in the current scope
                 
                 // Compile the source expression (e.g., @std)
                 let _source_val = self.compile_expression(source)?;
                 
-                // For each name, create a variable binding
-                // TODO: Actually extract the members from the module
+                // For each name, create a module reference
                 for name in names {
-                    // For now, create a placeholder variable
-                    // In a real implementation, we'd look up the member from the module
+                    // Special handling for known stdlib modules
+                    // Create a marker variable to indicate this is a module reference
                     let alloca = self.builder.build_alloca(
                         self.context.i64_type(),
                         name
                     ).map_err(|e| CompileError::from(e))?;
                     
-                    // Store a placeholder value
+                    // Store a special marker value for stdlib modules
+                    // We use different values to distinguish different modules
+                    let module_marker = match name.as_str() {
+                        "io" => 1,
+                        "math" => 2,
+                        "core" => 3,
+                        _ => 0,
+                    };
+                    
                     self.builder.build_store(
                         alloca,
-                        self.context.i64_type().const_zero()
+                        self.context.i64_type().const_int(module_marker, false)
                     ).map_err(|e| CompileError::from(e))?;
                     
-                    // Register the variable
+                    // Register the variable as a module reference
                     self.variables.insert(name.clone(), super::VariableInfo {
                         pointer: alloca,
-                        ast_type: AstType::I64,
-                        is_mutable: true,  // Loop variables are mutable
+                        ast_type: AstType::StdModule,  // Mark as stdlib module reference
+                        is_mutable: false,  // Module references are immutable
                         is_initialized: true,
                     });
                 }

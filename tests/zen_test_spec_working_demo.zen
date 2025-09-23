@@ -1,0 +1,113 @@
+// Working features from LANGUAGE_SPEC.zen
+// This demonstrates what's currently functional in the compiler
+
+{ io } = @std
+
+// Core types from spec (Lines 109-113)
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+// Struct definition (Lines 117-120)
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+// UFC functions
+double = (n: i32) i32 { return n * 2 }
+add = (x: i32, y: i32) i32 { return x + y }
+
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen WORKING FEATURES ===")
+    io.println("")
+    
+    // 1. Variable Declarations (Lines 298-306)
+    io.println("1. Variable Declarations:")
+    x: i32
+    x = 10
+    io.println("  Forward: x = ${x}")
+    
+    immut = 20
+    io.println("  Immutable: ${immut}")
+    
+    mut ::= 30
+    mut = mut + 5
+    io.println("  Mutable: ${mut}")
+    io.println("")
+    
+    // 2. Pattern Matching (Lines 352-361)
+    io.println("2. Pattern Matching:")
+    ready = true
+    ready ? {
+        io.println("  Single branch works!")
+    }
+    
+    value = false
+    value ?
+        | true { io.println("  True branch") }
+        | false { io.println("  False branch works!") }
+    io.println("")
+    
+    // 3. Option Type (Lines 462-473)
+    io.println("3. Option Type:")
+    opt: Option<i32> = Some(42)
+    opt ?
+        | Some(v) { io.println("  Some(${v})") }
+        | None { io.println("  None") }
+    io.println("")
+    
+    // 4. Result Type
+    io.println("4. Result Type:")
+    res: Result<i32, string> = Ok(100)
+    res ?
+        | Ok(v) { io.println("  Ok(${v})") }
+        | Err(e) { io.println("  Err: ${e}") }
+    io.println("")
+    
+    // 5. Structs (Lines 364-372)
+    io.println("5. Structs:")
+    pt = Point { x: 1.5, y: 2.5 }
+    io.println("  Point: (${pt.x}, ${pt.y})")
+    pt.x = 3.5
+    io.println("  After: (${pt.x}, ${pt.y})")
+    io.println("")
+    
+    // 6. Loops (Lines 432-460)
+    io.println("6. Loops:")
+    io.println("  Range:")
+    (0..3).loop((i) {
+        io.println("    ${i}")
+    })
+    
+    io.println("  Infinite:")
+    cnt ::= 0
+    loop(() {
+        cnt = cnt + 1
+        cnt > 2 ?
+            | true { break }
+            | false { io.println("    Loop ${cnt}") }
+    })
+    io.println("")
+    
+    // 7. UFC (Line 5, 172-182)
+    io.println("7. UFC:")
+    num = 10
+    d = num.double()
+    io.println("  10.double() = ${d}")
+    
+    s = num.add(5)
+    io.println("  10.add(5) = ${s}")
+    
+    chain = num.double().add(3)
+    io.println("  10.double().add(3) = ${chain}")
+    io.println("")
+    
+    // 8. String Interpolation
+    io.println("8. String Interpolation:")
+    lang = "Zen"
+    ver = 1
+    io.println("  ${lang} version ${ver}")
+    io.println("")
+    
+    io.println("=== END ===")
+}
