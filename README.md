@@ -1,26 +1,26 @@
 # Zen Programming Language
 
-A modern systems programming language with a unique design philosophy based on minimalism and expressiveness. The language specification in [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) is the source of truth.
+A modern systems programming language with unique design philosophy based on minimalism and expressiveness. The language specification in [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen) is the **source of truth**.
 
-## 🎯 Core Design Principles
+## Core Design Principles
 
 From [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen):
 
-- **No keywords**: No `if/else/while/for/match/async/await/impl/trait/class/interface/null`
-- **Only two @ symbols**: `@std` (standard library) and `@this` (current scope)  
-- **Pattern matching with `?` operator**: No `match` or `switch` keywords
-- **UFC (Uniform Function Call)**: Any function can be called as a method
-- **Allocators determine sync/async**: No function coloring problem
+- **No keywords**: `if/else/while/for/match/async/await/impl/trait/class/interface/null`
+- **Only two @ symbols**: `@std` (standard library) and `@this` (current scope)
+- **Pattern matching with `?` operator**, no `match` or `switch`
+- **UFC (Uniform Function Call)** - any function can be called as method
+- **Allocators determine sync/async behavior** (no function coloring)
 - **Explicit pointer types**: `Ptr<>`, `MutPtr<>`, `RawPtr<>` (no `*` or `&`)
-- **No null/nil**: Only `Option<T>` with `.Some(T)` and `.None`
-- **No unions, no tuples**: Only structs and enums
+- **No null/nil** - only `Option<T>` with `.Some(T)` and `.None`
+- **No unions, no tuples** - only structs and enums
 - **Assignment operators**: `=` (immutable), `::=` (mutable), `:` (type definition)
-- **Error propagation**: `.raise()` for early returns, not exceptions
+- **Error propagation with `.raise()`** not exceptions
 - **Loops**: `loop()` for infinite, `.loop()` for collections, ranges like `(0..10)`
-- **Traits**: Via `.implements()` and `.requires()` from `@std.meta`
-- **Compile-time metaprogramming**: Full AST access
+- **Traits via `.implements()` and `.requires()`** from `@std.meta`
+- **Compile-time metaprogramming** with full AST access
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Building the Compiler
 ```bash
@@ -30,53 +30,97 @@ cargo build --release
 ### Running Zen Programs
 ```bash
 # Run directly
-./target/release/zen hello.zen
+./target/release/zen program.zen
 
 # Compile to executable
-./target/release/zen hello.zen -o hello
-./hello
+./target/release/zen program.zen -o program
+./program
 
 # Start REPL
 ./target/release/zen
 ```
 
-## ✨ Language Features (from LANGUAGE_SPEC.zen)
+### Run Test Suite
+```bash
+# Run all tests
+./run_tests.sh
 
-### Variables (lines 298-306)
-All variable declaration forms from the spec:
-```zen
-x: i32              // Forward declaration  
-x = 10              // Immutable assignment
-y = 10              // Immutable assignment with inference
-z: i32 = 20         // Immutable assignment with type
-w:: i32             // Mutable forward declaration
-w = 20              // Assignment to mutable
-v ::= 30            // Mutable assignment with inference
-u:: i32 = 40        // Mutable assignment with type
+# Test specific feature demo
+./target/release/zen tests/zen_test_spec_working_comprehensive.zen
 ```
 
-### Pattern Matching (lines 352-361)
-Boolean pattern matching without keywords:
+## Language Features
+
+All examples below are from [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen).
+
+### Variable Declarations (lines 298-306)
+
 ```zen
-// Short form for single branch
-is_ready ? {
-    io.println("Starting game!")
+// All variable declaration forms
+x: i32              // forward declaration (must be in same scope)
+x = 10              
+y = 10              // Immutable assignment
+z: i32 = 20         // Immutable assignment with type
+w:: i32             // mutable forward declaration (must be in same scope)
+w = 20              
+v ::= 30            // Mutable assignment
+u:: i32 = 40        // mutable assignment with type
+```
+
+### Imports (lines 92-107)
+
+```zen
+// Only @std and @this are special
+{ io, maths } = @std
+{ String, StringBuilder } = @std
+{ Vec, DynVec } = @std
+
+// Module imports
+sdl2 = @std.import("sdl2")
+ecs = @std.import("ecs")
+```
+
+### Pattern Matching with ? (lines 29-43, 352-361)
+
+```zen
+// Boolean pattern matching - no ternary
+is_ready = true
+is_ready ? { 
+    io.println("Starting game!") 
 }
 
-// Full pattern match for if-else
+// For if-else, use full pattern match
+has_data = false
 has_data ?
     | true { process_data() }
     | false { io.println("Waiting for data...") }
+
+// Conditional compilation style
+is_release ?
+    | true {
+        b.optimization(.O3)
+        b.strip_symbols(true)
+    }
+    | false {
+        b.optimization(.O0)
+        b.debug_info(true)
+    }
 ```
 
 ### No Null - Option Types (lines 109-110, 462-473)
+
 ```zen
+// Option type definition
 Option<T>: Some(T) | None
 
+// Usage
 maybe_radius: Option<f64> = Some(5.5)
 maybe_radius ?
     | Some(r) {
-        circle = Circle { radius: r }
+        circle = Circle {
+            center: Point { x: 100.0, y: 100.0 },
+            radius: r,
+        }
         io.println("Created circle with area: ${circle.area()}")
     }
     | None {
@@ -84,69 +128,102 @@ maybe_radius ?
     }
 ```
 
-### Result Type (lines 113-114)
-Error handling without exceptions:
+### Result Type for Error Handling (lines 113-114, 199-211)
+
 ```zen
+// Result type definition
 Result<T, E>: Ok(T) | Err(E)
 
+// Parse function returning Result
 parse_radius = (s: string) Result<f64, string> {
     s.to_f64() ?
         | Some(val) { return Ok(val) }
         | None { return Err("Invalid radius") }
 }
+
+// Error propagation with .raise()
+load_config = (path: string) Result<Config, Error> {
+    file = File.open(path).raise()  // If Err, returns early
+    contents = file.read_all().raise()
+    config = json.parse(contents).raise()
+    return Ok(config)
+}
 ```
 
-### Structs (lines 117-120)
-With mutable fields and defaults:
+### Structs (lines 117-120, 129-163)
+
 ```zen
+// Simple struct
 Point: {
-    x:: f64,        // Mutable field
-    y:: f64 = 0     // With default value
+    x:: f64,  // mutable field
+    y:: f64 = 0  // with default value
 }
 
+// Complex struct
 Circle: {
     center: Point,
     radius: f64,
 }
+
+// Trait definition
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+// Implement trait for type using .implements()
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
 ```
 
-### Enums (line 165)
-Sum types without union:
+### Enums (lines 165-182)
+
 ```zen
+// Enum type (sum type)
 Shape: Circle | Rectangle
 
-// Overloaded functions per variant (lines 173-180)
+// Enforce all Shape variants must implement Geometric
+Shape.requires(Geometric)
+
+// Enum with different variants
 GameEntity: Player | Enemy | Powerup
 
+// UFC overloading based on enum variants
 get_health = (e: GameEntity.Player) u32 { return 100 }
 get_health = (e: GameEntity.Enemy) u32 { return 50 }
 get_health = (e: GameEntity.Powerup) u32 { return 0 }
 ```
 
-### Loops and Ranges (lines 432-460)
-Collection and range iteration:
+### Loops and Ranges (lines 432-459)
+
 ```zen
-// Range iteration
+// Range iterations
 (0..10).loop((i) {
     io.println("Count: ${i}")
 })
 
-// Step ranges  
+// Step ranges
 (0..100).step(10).loop((i) {
     io.println("Step: ${i}")  // 0, 10, 20, ...
 })
 
-// Collection iteration
+// Collection loops with UFC
 dynamic_shapes.loop((shape) {
     total_area = total_area + shape.area()
 })
 
-// With index
+// Loop with index
 dynamic_shapes.loop((shape, i) {
     io.println("Shape ${i}: ${shape.area()}")
 })
 
-// Infinite loop
+// Infinite loop with break
 counter ::= 0
 loop(() {
     counter = counter + 1
@@ -156,31 +233,10 @@ loop(() {
 })
 ```
 
-### Error Propagation (lines 206-211)
-Early returns with `.raise()`:
-```zen
-load_config = (path: string) Result<Config, Error> {
-    file = File.open(path).raise()  // If Err, returns early
-    contents = file.read_all().raise()
-    config = json.parse(contents).raise()
-    return Ok(config)
-}
-```
+### Pointers (lines 363-372)
 
-### Defer Statements (lines 217, 309, 314, etc.)
-Resource cleanup:
 ```zen
-sync_alloc = GPA.init()
-@this.defer(sync_alloc.deinit())
-
-file = File.open("data.txt")  
-@this.defer(file.close())
-// file.close() automatically called at scope end
-```
-
-### Pointer Types (lines 364-372)
-Explicit pointer management:
-```zen
+// Explicit pointer types - no * or &
 circle = Circle { center: Point { x: 100, y: 100 }, radius: 50 }
 circle_ptr: Ptr<Circle> = circle.ref()
 circle_mut: MutPtr<Circle> = circle.mut_ref()
@@ -191,77 +247,18 @@ io.println("New area: ${circle_mut.val.area()}")
 io.println("Address: ${circle_ptr.addr}")
 ```
 
-### Dynamic Vectors (lines 317-335, 376-385)
-With allocators and mixed types:
+### Allocators and Async (lines 213-224, 308-314)
+
 ```zen
-// Dynamic vector with allocator
-dynamic_shapes = DynVec<Shape>(sync_alloc.allocator())
-@this.defer(dynamic_shapes.deinit())
+// Sync allocator - everything blocks
+sync_alloc = GPA.init()
+@this.defer(sync_alloc.deinit())
 
-// Mixed type vector - can hold multiple variant types!
-entities = DynVec<GameEntity.Player, GameEntity.Enemy>(sync_alloc)
-@this.defer(entities.deinit())
+// Async allocator - everything is non-blocking
+async_alloc = AsyncPool.init()
+@this.defer(async_alloc.deinit())
 
-entities.push(GameEntity.Player)
-entities.push(GameEntity.Enemy)
-
-// Pattern match on mixed types
-entities.loop((entity) {
-    entity ?
-        | Player { io.println("Player health: ${entity.get_health()}") }
-        | Enemy { io.println("Enemy health: ${entity.get_health()}") }
-})
-```
-
-### UFC (Uniform Function Call)
-Any function becomes a method:
-```zen
-// Traditional vs UFC
-result1 = double(5)       // Traditional call
-result2 = 5.double()      // UFC: becomes double(5)
-
-// UFC with collections
-shapes.map(calculate_area)      // Traditional
-calculate_area.map(shapes)      // UFC style
-```
-
-### String Building (lines 386-394)
-```zen
-sb = StringBuilder(sync_alloc)
-@this.defer(sb.deinit())
-sb.append("Hello")
-  .append(" ")
-  .append("World")
-  .append_line("!")
-built_string = sb.build()
-```
-
-### Traits (lines 124-163)
-With `.implements()` and `.requires()`:
-```zen
-// Trait definition
-Geometric: {
-    area: (self) f64,
-    perimeter: (self) f64,
-}
-
-// Implementation
-Circle.implements(Geometric, {
-    area = (self) f64 {
-        return math.pi * self.radius * self.radius
-    },
-    perimeter = (self) f64 {
-        return 2.0 * math.pi * self.radius
-    },
-})
-
-// Enforce trait requirements
-Shape.requires(Geometric)
-```
-
-### Multisync Functions (lines 213-224)
-Sync/async based on allocator:
-```zen
+// Multisync function - sync or async based on allocator!
 fetch_game_data = (url: string, alloc: Allocator) Result<Data, Error> {
     client = HttpClient(alloc)
     @this.defer(client.deinit())
@@ -274,12 +271,12 @@ fetch_game_data = (url: string, alloc: Allocator) Result<Data, Error> {
 }
 ```
 
-### Actors and Channels (lines 226-240, 399-412)
-Concurrency primitives:
+### Actors and Concurrency (lines 227-241, 398-412)
+
 ```zen
 // Actor for lazy/streaming iteration
 create_fibonacci = () Actor {
-    outer = 100  // Auto-captured
+    outer = 100  // Will be captured automatically
     return Actor((receiver) {
         a ::= 0
         b ::= 1
@@ -292,11 +289,11 @@ create_fibonacci = () Actor {
     })
 }
 
-// Channels
-message_chan = Channel<string>(10)  // Buffered
+// Channel communication
+message_chan = Channel<string>(10)  // Buffered channel
 @this.defer(message_chan.close())
 
-// Spawn actor to send messages
+// Spawn actor
 sender = Actor(() {
     (0..5).loop((i) {
         message_chan.send("Message ${i}")
@@ -311,30 +308,10 @@ loop(() {
 })
 ```
 
-### Mutex and Atomics (lines 415-429)
-Thread-safe primitives:
+### Metaprogramming (lines 244-282)
+
 ```zen
-// Mutex
-counter_mutex = Mutex<u32>(0)
-@this.defer(counter_mutex.deinit())
-
-counter_mutex.lock() ?
-    | Ok(val) {
-        val = val + 1
-        counter_mutex.unlock()
-    }
-    | Err(e) { io.println("Lock failed: ${e}") }
-
-// Atomic operations
-atomic_counter = AtomicU32(0)
-atomic_counter.fetch_add(1)
-current = atomic_counter.load()
-```
-
-### Compile-time Metaprogramming (lines 243-282)
-AST manipulation:
-```zen
-// AST reflection
+// AST reflection at runtime
 inspect_type = (T: type) void {
     ast = reflect.ast(T)
     ast.kind ?
@@ -362,117 +339,99 @@ inspect_type = (T: type) void {
 })
 ```
 
-### Inline C/LLVM (lines 285-289)
-Low-level control:
+### Inline C/LLVM and SIMD (lines 285-294)
+
 ```zen
+// Inline C for low-level control
 fast_memcpy = (dst: RawPtr<u8>, src: RawPtr<u8>, len: usize) void {
     inline.c("""
         memcpy(${dst.addr}, ${src.addr}, ${len});
     """)
 }
-```
 
-### SIMD Operations (lines 291-294)
-Vector operations:
-```zen
+// SIMD operations
 vector_add = (a: Vec<f32, 8>, b: Vec<f32, 8>) Vec<f32, 8> {
     return simd.add(a, b)
 }
 ```
 
-## 📚 Standard Library
+### Module System (lines 491-510)
 
-Access via `@std`:
 ```zen
-{ io, maths } = @std                          // Modules
-{ String, StringBuilder } = @std              // Types
-{ requires, implements, reflect, meta } = @std // Metaprogramming
-{ GPA, AsyncPool, Allocator} = @std          // Memory management
-{ Vec, DynVec} = @std                         // Collections
-{ Actor, Channel, Mutex, AtomicU32 } = @std  // Concurrency
+// Module exports - simple record syntax
+module.exports = {
+    Shape: Shape,
+    Circle: Circle,
+    Rectangle: Rectangle,
+    Geometric: Geometric,
+}
+
+// Imports in other files
+Circle2D = module.import("shapes2d").Circle
+Rectangle2D = module.import("shapes2d").Rectangle
+
+// Or grab the whole module
+shapes = module.import("shapes2d")
+my_circle = shapes.Circle { ... }
 ```
 
-## 🏗️ Project Structure
+## Current Implementation Status
 
+### Working Features
+- All variable declaration forms (immutable, mutable, forward declarations)
+- Pattern matching with `?` operator for booleans
+- Structs with mutable fields and default values
+- UFC (Uniform Function Call) - functions callable as methods
+- Range syntax `(start..end)` with `.loop()` iteration
+- String interpolation with `${expr}`
+- Basic arithmetic and comparison operators
+- Loop control flow with `break`
+- Standard library imports with `@std`
+- LLVM backend code generation
+
+### In Progress
+- Option and Result types with full pattern matching
+- Error propagation with `.raise()`
+- Traits via `.implements()` and `.requires()`
+- Enum types with variant-based UFC overloading
+- Allocator-based async/sync behavior
+- Actor model and channels
+- Compile-time metaprogramming
+- Module system with exports/imports
+
+### Testing
+
+The test suite in `/tests` validates compliance with `LANGUAGE_SPEC.zen`:
+
+- `zen_test_spec_working_comprehensive.zen` - Tests all working features
+- `zen_test_spec_core_demo.zen` - Core language features
+- `zen_test_spec_ranges_demo.zen` - Range and loop features  
+- `zen_test_spec_structs_demo.zen` - Struct features
+
+## Development
+
+### Project Structure
 ```
 zenlang/
-├── LANGUAGE_SPEC.zen  # Language specification (source of truth)
-├── src/               # Rust compiler implementation
-│   ├── ast/           # Abstract syntax tree
-│   ├── codegen/       # LLVM code generation
-│   ├── lexer.rs       # Tokenization
-│   ├── parser/        # Parsing
-│   └── typechecker/   # Type checking
-├── stdlib/            # Standard library (Zen)
-├── tests/             # Test suite (prefix: zen_)
-└── examples/          # Example programs
+├── LANGUAGE_SPEC.zen      # Source of truth specification
+├── src/                   # Rust implementation
+│   ├── ast/              # Abstract syntax tree
+│   ├── parser/           # Parser implementation
+│   ├── typechecker/      # Type system
+│   ├── codegen/          # LLVM code generation
+│   └── stdlib/           # Standard library
+├── tests/                # Test suite (zen_test_* prefix)
+└── examples/             # Example programs
 ```
 
-## 🧪 Testing
+### Contributing
 
-All tests follow the `zen_` prefix convention and are in the `tests/` folder:
+All contributions must align with `LANGUAGE_SPEC.zen`. The specification is the authoritative source for language behavior.
 
-```bash
-# Run compiler tests
-cargo test
+## License
 
-# Run Zen test files
-./target/release/zen tests/zen_test_spec_aligned.zen
-./target/release/zen tests/zen_test_comprehensive.zen
-```
+MIT
 
-## 📈 Implementation Status
+## Contact
 
-### ✅ Working Features
-Based on actual testing against LANGUAGE_SPEC.zen:
-
-- **Variable declarations** - All 8 forms from spec (lines 298-306)
-- **Pattern matching** - Boolean with `?` operator (lines 352-361) 
-- **Structs** - With mutable fields and defaults (lines 117-120)
-- **Enums** - Basic sum types (line 165)
-- **Functions** - With parameters and return types
-- **Loops** - Infinite `loop()` and range `(0..10).loop()` (lines 432-460)
-- **String interpolation** - `${expr}` syntax
-- **Basic arithmetic** - All operators
-- **Comparisons** - All comparison operators
-- **@std imports** - Basic module imports
-
-### 🚧 Partially Working
-- **Option/Result types** - Defined but pattern matching needs work
-- **Error propagation** - `.raise()` syntax parsed
-- **Defer statements** - `@this.defer()` parsed
-- **UFC** - Basic implementation
-
-### 📋 Not Yet Implemented
-From LANGUAGE_SPEC.zen:
-
-- **Step ranges** - `(0..100).step(10)` (line 437)
-- **Traits** - `.implements()` and `.requires()` (lines 136-162)
-- **Pointer types** - `Ptr<>`, `MutPtr<>`, `RawPtr<>` (lines 364-372)
-- **DynVec with allocators** - Mixed type vectors (lines 317-335)
-- **StringBuilder** - String building API (lines 386-394)
-- **Actors/Channels** - Concurrency primitives (lines 226-240, 399-412)
-- **Mutex/Atomics** - Thread safety (lines 415-429)
-- **Compile-time metaprogramming** - AST manipulation (lines 243-282)
-- **Inline C/LLVM** - Low-level code (lines 285-289)
-- **SIMD operations** - Vector operations (lines 291-294)
-- **Module exports** - `module.exports` (lines 492-502)
-
-## 🎯 Design Philosophy
-
-Zen eliminates traditional programming keywords in favor of operators and patterns:
-
-| Traditional | Zen Equivalent |
-|------------|----------------|
-| `if/else` | Pattern matching with `?` |
-| `while/for` | `loop()` and `.loop()` |
-| `null` | `Option.None` |
-| `throw/catch` | `Result` and `.raise()` |
-| `async/await` | Allocator-based |
-| `class/interface` | Structs and traits |
-| `*ptr` | `Ptr<T>` |
-| `&ref` | `.ref()` |
-
-## 📄 License
-
-This project implements the Zen language specification from LANGUAGE_SPEC.zen.
+For questions or feedback, open an issue on GitHub.

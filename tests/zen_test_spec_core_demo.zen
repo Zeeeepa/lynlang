@@ -1,0 +1,84 @@
+// Test core features from LANGUAGE_SPEC.zen
+// This test focuses on features that should be working
+
+{ io } = @std
+
+main = () void {
+    io.println("=== Testing Core Features from LANGUAGE_SPEC.zen ===")
+    
+    // Test 1: Variable declarations (lines 298-306 from spec)
+    io.println("\n1. Variable Declarations:")
+    
+    // Forward declaration and assignment
+    x: i32
+    x = 10
+    io.println("x (forward decl) = ${x}")
+    
+    // Immutable assignment
+    y = 20
+    io.println("y (immutable) = ${y}")
+    
+    // Immutable with type
+    z: i32 = 30
+    io.println("z (immutable typed) = ${z}")
+    
+    // Mutable forward declaration
+    w:: i32
+    w = 40
+    io.println("w (mut forward) = ${w}")
+    
+    // Mutable assignment
+    v ::= 50
+    io.println("v (mutable) = ${v}")
+    v = 60
+    io.println("v (after change) = ${v}")
+    
+    // Mutable with type
+    u:: i32 = 70
+    io.println("u (mut typed) = ${u}")
+    u = 80
+    io.println("u (after change) = ${u}")
+    
+    // Test 2: Pattern matching (lines 352-361 from spec)
+    io.println("\n2. Pattern Matching:")
+    
+    is_ready = true
+    is_ready ? {
+        io.println("Pattern match: is_ready is true")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("has_data: true branch") }
+        | false { io.println("has_data: false branch") }
+    
+    // Test 3: Arithmetic
+    io.println("\n3. Arithmetic Operations:")
+    a = 100
+    b = 25
+    io.println("a + b = ${a + b}")
+    io.println("a - b = ${a - b}")
+    io.println("a * b = ${a * b}")
+    io.println("a / b = ${a / b}")
+    
+    // Test 4: Comparisons
+    io.println("\n4. Comparisons:")
+    result = a > b
+    result ? {
+        io.println("100 > 25: true")
+    }
+    
+    // Test 5: Simple loop
+    io.println("\n5. Simple Loop:")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.println("Loop iteration: ${counter}")
+        
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    })
+    
+    io.println("\n=== All Core Tests Completed ===")
+}
