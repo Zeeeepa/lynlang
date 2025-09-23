@@ -1,0 +1,184 @@
+// Comprehensive test suite for LANGUAGE_SPEC.zen features
+// Tests all implemented features from the spec
+
+{ io } = @std
+
+// Test struct definitions
+Point: {
+    x:: f64,  // mutable
+    y:: f64   // mutable
+}
+
+// Test enum definition
+Shape: Circle | Rectangle
+
+// Test function for UFC
+double = (x: i32) i32 {
+    return x * 2
+}
+
+main = () void {
+    io.println("=== Zen Language Comprehensive Test Suite ===")
+    
+    // Test 1: Variable Declarations (all forms from spec)
+    io.println("\n1. Variable Declarations:")
+    x: i32  // forward declaration
+    x = 10  // immutable assignment
+    y = 20  // immutable with inference
+    z: i32 = 30  // immutable with type
+    w:: i32  // mutable forward declaration
+    w = 40  // assignment
+    v ::= 50  // mutable with inference
+    u:: i32 = 60  // mutable with type
+    
+    io.print_int(x)
+    io.print(" ")
+    io.print_int(y)
+    io.print(" ")
+    io.print_int(z)
+    io.print(" ")
+    io.print_int(w)
+    io.print(" ")
+    io.print_int(v)
+    io.print(" ")
+    io.print_int(u)
+    io.println("")
+    
+    // Test 2: Pattern Matching with ?
+    io.println("\n2. Pattern Matching:")
+    
+    // Boolean short form
+    is_ready = true
+    is_ready ? {
+        io.println("  Ready (short form)")
+    }
+    
+    // Full boolean pattern
+    has_data = false
+    has_data ?
+        | true { io.println("  Has data") }
+        | false { io.println("  No data") }
+    
+    // Test 3: Option Type (no null!)
+    io.println("\n3. Option Type:")
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(val) { 
+            io.print("  Option value: ")
+            io.print_int(val)
+            io.println("")
+        }
+        | None { io.println("  No value") }
+    
+    empty: Option<i32> = None
+    empty ?
+        | Some(val) { io.print_int(val) }
+        | None { io.println("  Empty option") }
+    
+    // Test 4: Result Type
+    io.println("\n4. Result Type:")
+    success: Result<i32, i32> = Ok(100)
+    success ?
+        | Ok(val) { 
+            io.print("  Success: ")
+            io.print_int(val)
+            io.println("")
+        }
+        | Err(e) { io.println("  Error") }
+    
+    failure: Result<i32, i32> = Err(404)
+    failure ?
+        | Ok(val) { io.print_int(val) }
+        | Err(e) { 
+            io.print("  Error code: ")
+            io.print_int(e)
+            io.println("")
+        }
+    
+    // Test 5: Structs with mutable fields
+    io.println("\n5. Structs:")
+    
+    p = Point { x: 1.0, y: 2.0 }
+    io.print("  Point: ")
+    io.print_float(p.x)
+    io.print(", ")
+    io.print_float(p.y)
+    io.println("")
+    
+    p.x = 5.0  // mutate field
+    p.y = 6.0
+    io.print("  Modified: ")
+    io.print_float(p.x)
+    io.print(", ")
+    io.print_float(p.y)
+    io.println("")
+    
+    // Test 6: Enums
+    io.println("\n6. Enums:")
+    
+    shape1 = Shape.Circle
+    shape1 ?
+        | Circle { io.println("  It's a circle") }
+        | Rectangle { io.println("  It's a rectangle") }
+    
+    shape2 = Shape.Rectangle
+    shape2 ?
+        | Circle { io.println("  Circle") }
+        | Rectangle { io.println("  It's a rectangle") }
+    
+    // Test 7: Loops
+    io.println("\n7. Loops:")
+    
+    // Range loop
+    io.print("  Range: ")
+    (0..5).loop((i) {
+        io.print_int(i)
+        io.print(" ")
+    })
+    io.println("")
+    
+    // Infinite loop with break
+    io.print("  Infinite with break: ")
+    counter ::= 0
+    loop(() {
+        io.print_int(counter)
+        io.print(" ")
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { }
+    })
+    io.println("")
+    
+    // Test 8: UFC (Uniform Function Call) 
+    io.println("\n8. UFC (Uniform Function Call):")
+    
+    // Call as regular function
+    result1 = double(5)
+    io.print("  double(5) = ")
+    io.print_int(result1)
+    io.println("")
+    
+    // Call as method using UFC
+    value = 7
+    result2 = value.double()  // UFC: becomes double(value)
+    io.print("  7.double() = ")
+    io.print_int(result2)
+    io.println("")
+    
+    // Test 9: String Interpolation
+    io.println("\n9. String Interpolation:")
+    name = "Zen"
+    version = 1
+    message = "Language: ${name}, Version: ${version}"
+    io.print("  ")
+    io.println(message)
+    
+    // Test 10: @this.defer
+    io.println("\n10. Defer statements:")
+    io.println("  Start of scope")
+    @this.defer(io.println("  Deferred: runs at end"))
+    io.println("  Middle of scope")
+    
+    io.println("\n=== All tests completed ===")
+}
