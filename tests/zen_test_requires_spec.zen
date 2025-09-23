@@ -1,0 +1,49 @@
+// Testing .requires() from LANGUAGE_SPEC.zen line 168
+{ io, math } = @std
+
+// Structs
+Circle: {
+    radius: f64,
+}
+
+Rectangle: {
+    width: f64,
+    height: f64,
+}
+
+// Trait
+Geometric: {
+    area: (self) f64,
+}
+
+// Implement trait for Circle
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+})
+
+// Implement trait for Rectangle
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        return self.width * self.height
+    },
+})
+
+// Enum that requires all variants implement Geometric
+Shape: Circle | Rectangle
+Shape.requires(Geometric)
+
+main = () void {
+    io.println("=== Testing .requires() ===")
+    
+    // Create shapes
+    c = Circle { radius: 3.0 }
+    r = Rectangle { width: 4.0, height: 5.0 }
+    
+    // Test that both implement the trait
+    io.println("Circle area: ${c.area()}")
+    io.println("Rectangle area: ${r.area()}")
+    
+    io.println("✓ .requires() enforcement works")
+}

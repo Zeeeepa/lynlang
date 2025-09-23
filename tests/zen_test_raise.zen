@@ -1,29 +1,32 @@
-// Test .raise() error propagation from LANGUAGE_SPEC.zen lines 205-211
+// Test .raise() error propagation
+
 { io } = @std
 
-// Result type
 Result<T, E>: Ok(T) | Err(E)
 
-// Function that might fail
-might_fail = (should_fail: bool) Result<i32, string> {
-    should_fail ?
-        | true { return Err("Operation failed") }
-        | false { return Ok(42) }
+divide = (a: f64, b: f64) Result<f64, string> {
+    b == 0.0 ?
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
 }
 
-// Function using .raise() for error propagation
-process_data = () Result<i32, string> {
-    // This should propagate the error if might_fail returns Err
-    value = might_fail(false).raise()
-    
-    // If we get here, might_fail returned Ok
-    return Ok(value)
+calculate = (x: f64, y: f64) Result<f64, string> {
+    // Use .raise() to propagate errors
+    result1 = divide(x, y).raise()  // If error, returns early
+    result2 = divide(result1, 2.0).raise()  // If error, returns early
+    return Ok(result2)
 }
 
 main = () void {
-    result = process_data()
+    io.println("Testing .raise() error propagation:")
     
-    result ?
+    // Test successful calculation
+    calculate(10.0, 2.0) ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test with division by zero
+    calculate(10.0, 0.0) ?
         | Ok(val) { io.println("Success: ${val}") }
         | Err(e) { io.println("Error: ${e}") }
 }

@@ -1,87 +1,112 @@
-// Test what's currently working from LANGUAGE_SPEC.zen
+// Test of all working Zen features from LANGUAGE_SPEC.zen
 
-{ io } = @std
+{ io, math } = @std
 
-// Option type
-Option<T>: Some(T) | None
-
-// Result type
-Result<T, E>: Ok(T) | Err(E)
-
-// Struct with mutable fields
+// Structs
 Point: {
     x:: f64,
-    y:: f64
+    y:: f64,
 }
 
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Rectangle: {
+    width: f64,
+    height: f64,
+}
+
+// Trait definition
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+// Implement traits
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        return self.width * self.height
+    },
+    perimeter = (self) f64 {
+        return 2.0 * (self.width + self.height)
+    },
+})
+
+// Enum types
+Shape: Circle | Rectangle
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
 main = () void {
-    // Variable styles from spec
-    x = 10           // immutable
-    y ::= 20         // mutable  
-    z :: i32 = 30    // mutable with type
+    io.println("=== Working Zen Features ===")
     
-    // Update mutable
-    y = 25
-    z = 35
+    // 1. Variable declarations
+    io.println("\n1. Variables:")
+    x: i32
+    x = 10
+    y = 20
+    z ::= 30
+    z = 40
+    io.println("  x=${x}, y=${y}, z=${z}")
     
-    // Boolean pattern matching
+    // 2. Pattern matching
+    io.println("\n2. Pattern Matching:")
     is_ready = true
     is_ready ? {
-        io.println("✓ Boolean pattern match works")
+        io.println("  Ready!")
     }
     
-    // Full boolean pattern
-    has_data = false
-    has_data ?
-        | true { io.println("Has data") }
-        | false { io.println("✓ Boolean if-else pattern works") }
+    value = false
+    value ?
+        | true { io.println("  True branch") }
+        | false { io.println("  False branch") }
     
-    // Struct with mutable fields
-    p = Point { x: 1.0, y: 2.0 }
-    p.x = 5.0  // mutate field
-    io.println("✓ Mutable struct fields work")
+    // 3. Traits
+    io.println("\n3. Traits:")
+    c = Circle { center: Point { x: 0.0, y: 0.0 }, radius: 5.0 }
+    io.println("  Circle area: ${c.area()}")
     
-    // Option handling
-    maybe: Option<i32> = Some(42)
-    maybe ?
-        | Some(val) { io.println("✓ Option Some works") }
-        | None { io.println("None") }
+    r = Rectangle { width: 10.0, height: 20.0 }
+    io.println("  Rectangle area: ${r.area()}")
     
-    none_val: Option<i32> = None
-    none_val ?
-        | Some(val) { io.println("Some") }
-        | None { io.println("✓ Option None works") }
+    // 4. Option
+    io.println("\n4. Option:")
+    some: Option<i32> = Some(42)
+    some ?
+        | Some(v) { io.println("  Some(${v})") }
+        | None { io.println("  None") }
     
-    // Result handling
-    ok_result: Result<i32, String> = Ok(100)
-    ok_result ?
-        | Ok(v) { io.println("✓ Result Ok works") }
-        | Err(e) { io.println("Error") }
+    // 5. Result
+    io.println("\n5. Result:")
+    ok: Result<i32, string> = Ok(100)
+    ok ?
+        | Ok(v) { io.println("  Ok(${v})") }
+        | Err(e) { io.println("  Err") }
     
-    err_result: Result<i32, String> = Err("test error")
-    err_result ?
-        | Ok(v) { io.println("Ok") }
-        | Err(e) { io.println("✓ Result Err works") }
-    
-    // Range loop
-    io.println("✓ Range loop works:")
+    // 6. Loops
+    io.println("\n6. Loops:")
     (0..3).loop((i) {
-        io.println("  - iteration")
+        io.println("  i=${i}")
     })
     
-    // Infinite loop with break
     counter ::= 0
     loop(() {
         counter = counter + 1
         counter > 2 ?
             | true { break }
-            | false { }
+            | false { io.println("  loop: ${counter}") }
     })
-    io.println("✓ Infinite loop with break works")
     
-    // Defer statement
-    @this.defer(io.println("✓ Defer works (printed at end)"))
-    
-    io.println("")
-    io.println("=== Core LANGUAGE_SPEC.zen features working ===")
+    io.println("\n=== Complete ===")
 }

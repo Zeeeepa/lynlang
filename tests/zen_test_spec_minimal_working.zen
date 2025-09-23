@@ -1,0 +1,65 @@
+// Minimal test of LANGUAGE_SPEC.zen features that should work
+{ io, math } = @std
+
+// Test 1: Basic pattern matching
+test_patterns = () void {
+    io.println("=== Pattern Matching ===")
+    
+    value = true
+    value ?
+        | true { io.println("✓ true branch") }
+        | false { io.println("false branch") }
+}
+
+// Test 2: Variables
+test_vars = () void {
+    io.println("\n=== Variables ===")
+    x = 10
+    io.println("✓ Immutable: x = ${x}")
+    
+    y ::= 20
+    y = 30
+    io.println("✓ Mutable: y = ${y}")
+}
+
+// Test 3: Structs
+Point: {
+    x: f64,
+    y: f64,
+}
+
+test_structs = () void {
+    io.println("\n=== Structs ===")
+    p = Point { x: 3.0, y: 4.0 }
+    io.println("✓ Point: (${p.x}, ${p.y})")
+}
+
+// Test 4: Loops
+test_loops = () void {
+    io.println("\n=== Loops ===")
+    io.print("Range: ")
+    (0..3).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+}
+
+// Test 5: String interpolation
+test_strings = () void {
+    io.println("\n=== Strings ===")
+    name = "Zen"
+    io.println("✓ Hello, ${name}!")
+}
+
+main = () void {
+    io.println("LANGUAGE_SPEC.zen Minimal Test")
+    io.println("===============================")
+    
+    test_patterns()
+    test_vars()
+    test_structs()
+    test_loops()
+    test_strings()
+    
+    io.println("\n✓ Tests Complete")
+}
