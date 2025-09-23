@@ -222,6 +222,28 @@ impl Monomorphizer {
                 }
                 Ok(())
             }
+            Expression::DynVecConstructor { element_types, allocator, initial_capacity } => {
+                // Process element types
+                for element_type in element_types {
+                    self.collect_instantiations_from_type(element_type)?;
+                }
+                // Process allocator expression
+                self.collect_instantiations_from_expression(allocator)?;
+                // Process initial capacity if provided
+                if let Some(capacity) = initial_capacity {
+                    self.collect_instantiations_from_expression(capacity)?;
+                }
+                Ok(())
+            }
+            Expression::VecConstructor { element_type, initial_values, .. } => {
+                self.collect_instantiations_from_type(element_type)?;
+                if let Some(values) = initial_values {
+                    for value in values {
+                        self.collect_instantiations_from_expression(value)?;
+                    }
+                }
+                Ok(())
+            }
             _ => Ok(()),
         }
     }

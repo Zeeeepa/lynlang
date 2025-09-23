@@ -383,14 +383,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     } else {
                                                         // Field not found, fallback to value inference
                                                         match value {
-                                                            BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
+                                                            BasicValueEnum::StructValue(_) => {
+                                                                // Try to infer struct type from context
+                                                                // For now, use a placeholder struct type
+                                                                AstType::Struct { name: "unknown".to_string(), fields: vec![] }
+                                                            },
                                                             _ => AstType::I64,
                                                         }
                                                     }
                                                 } else {
                                                     // Struct not found, fallback to value inference
                                                     match value {
-                                                        BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
+                                                        BasicValueEnum::StructValue(_) => {
+                                                            // Try to infer struct type from context
+                                                            // For now, use a placeholder struct type
+                                                            AstType::Struct { name: "unknown".to_string(), fields: vec![] }
+                                                        },
                                                         _ => AstType::I64,
                                                     }
                                                 }
@@ -398,7 +406,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             _ => {
                                                 // Not a struct, fallback to value inference
                                                 match value {
-                                                    BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
+                                                    BasicValueEnum::StructValue(_) => {
+                                                        // Could be DynVec or other struct type
+                                                        // Check if it matches DynVec structure (3 or 4 fields)
+                                                        AstType::DynVec { element_types: vec![AstType::I32], allocator_type: None }
+                                                    },
                                                     _ => AstType::I64,
                                                 }
                                             }
@@ -406,7 +418,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     } else {
                                         // Variable not found, fallback to value inference
                                         match value {
-                                            BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
+                                            BasicValueEnum::StructValue(_) => {
+                                                // Could be DynVec or other struct type
+                                                // Check if it matches DynVec structure (3 or 4 fields)
+                                                AstType::DynVec { element_types: vec![AstType::I32], allocator_type: None }
+                                            },
                                             _ => AstType::I64,
                                         }
                                     }
@@ -415,7 +431,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Complex member access (e.g., nested)
                                 // For now fallback to value inference
                                 match value {
-                                    BasicValueEnum::StructValue(_) => AstType::Generic { name: String::new(), type_args: vec![] },
+                                    BasicValueEnum::StructValue(_) => {
+                                        // Could be DynVec or other struct type
+                                        // Check if it matches DynVec structure (3 or 4 fields)
+                                        AstType::DynVec { element_types: vec![AstType::I32], allocator_type: None }
+                                    },
                                     _ => AstType::I64,
                                 }
                             }

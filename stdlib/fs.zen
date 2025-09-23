@@ -1,6 +1,0 @@
-// Filesystem module - re-exports from fs/
-// Provides file and directory operations
-
-// Re-export filesystem functionality
-fs_module = import("fs/fs.zen")
-module.exports = fs_module

@@ -1,220 +1,489 @@
-// Zen Standard Library: Build System Module
-// Provides utilities for compiling and building Zen projects
+// Build system API for ZenLang
+// Provides build configuration and management
 
-core = @std
-fs = @std
-process = @std
-string = @std
+build = @std
+std := build.import("std")
+fs := build.import("fs")
+process := build.import("process")
 
-// Build configuration
-BuildConfig: {
-    source_dir: string,
-    output_dir: string,
-    target: string,
-    optimization_level: i32,
-    debug_info: bool,
-    verbose: bool,
+// Target platform configuration
+Target: {
+    cpu_arch: CpuArch
+    os_tag: OsTag
+    abi: Option<Abi>
 }
 
-// Compilation unit
-CompilationUnit: {
-    path: string,
-    module_name: string,
-    dependencies: Vec<string>,
-}
+CpuArch: 
+    x86_64,
+    x86,
+    aarch64,
+    arm,
+    wasm32,
+    wasm64,
+    riscv64,
+    native
 
-// Build result
-BuildResult: Success(output_path: string, warnings: Vec<string>)
-    | Failure(errors: Vec<string>)
+OsTag: 
+    linux,
+    macos,
+    windows,
+    freebsd,
+    openbsd,
+    wasm,
+    native
 
-// Module import system
-import = (module_name: string) Module   {
-    // This would be implemented by the compiler
-    // For now, it's a placeholder that represents module loading
-    Module {
-        name: module_name,
-        exports: HashMap<string, Symbol>,
-    }
-}
+Abi: 
+    none,
+    gnu,
+    musl,
+    msvc,
+    wasi
 
-// Module representation
-Module: {
-    name: string,
-    exports: HashMap<string, Symbol>,
-}
+// Optimization modes
+OptimizeMode: 
+    Debug,
+    ReleaseSafe,
+    ReleaseFast,
+    ReleaseSmall
 
-// Symbol in a module
-Symbol: Function(name: string, type: Type)
-    | Type(name: string, definition: Type)
-    | Constant(name: string, value: Value)
+// Build step types
+StepKind: 
+    Exe,
+    Lib,
+    Test,
+    Run,
+    Install,
+    System,
+    Custom
 
-// Create default build configuration
-default_config = () BuildConfig   {
-    BuildConfig {
-        source_dir: "./src",
-        output_dir: "./build",
-        target: "x86_64-unknown-linux",
-        optimization_level: 2,
-        debug_info: false,
-        verbose: false,
-    }
-}
-
-// Compile a single Zen file
-compile_file = (path: string, config: BuildConfig) BuildResult   {
-    // Read the source file
-    source := fs.read_file(path) ? 
-        | Ok(content) { content }
-        | Err(e) { return BuildResult.Failure([string.format("Failed to read { }}: {}", path, e)])
+// Build step
+Step: {
+    name: String
+    description: String
+    kind: StepKind
+    dependencies: []Ptr<Step>
     
-    // Tokenize
-    tokens := lexer.tokenize(source) ?
-        | Ok(t) { t }
-        | Err(e) { return BuildResult.Failure([string.format("Lexer error in { }}: {}", path, e)])
-    
-    // Parse
-    ast := parser.parse(tokens) ?
-        | Ok(a) { a }
-        | Err(e) { return BuildResult.Failure([string.format("Parse error in { }}: {}", path, e)])
-    
-    // Type check
-    typed_ast := type_checker.check(ast) ?
-        | Ok(a) { a }
-        | Err(e) { return BuildResult.Failure([string.format("Type error in { }}: {}", path, e)])
-    
-    // Generate code
-    output := codegen.generate(typed_ast, config) ?
-        | Ok(o) { o }
-        | Err(e) { return BuildResult.Failure([string.format("Codegen error in { }}: {}", path, e)])
-    
-    // Write output
-    output_path := string.format("target/{}/{}.o", config.output_dir, fs.basename(path))
-    fs.write_file(output_path, output) ?
-        | Ok(_) { BuildResult.Success(output_path, []) }
-        | Err(e) { BuildResult.Failure([string.format("Failed to write output: { }}", e)])
-}
-
-// Build an entire project
-build_project = (config: BuildConfig) BuildResult   {
-    // Find all .zen files in source directory
-    files := fs.find_files(config.source_dir, "*.zen") ?
-        | Ok(f) { f }
-        | Err(e) { return BuildResult.Failure([string.format("Failed to scan source directory: { }}", e)])
-    
-    // Compile each file
-    objects := Vec<string>.new()
-    warnings := Vec<string>.new()
-    
-    files.loop((file) {
-        compile_file(file, config) ?
-            | Success(obj, warn) {
-                objects.push(obj)
-                warnings.extend(warn)
-            }
-            | Failure(errors) { return BuildResult.Failure(errors) }
-    })
-    
-    // Link objects into executable
-    executable := link_objects(objects, config) ?
-        | Ok(exe) { exe }
-        | Err(e) { return BuildResult.Failure([string.format("Linking failed: { }}", e)])
-    
-    BuildResult.Success(executable, warnings)
-}
-
-// Link object files into executable
-link_objects = (objects: Vec<string>, config: BuildConfig) Result<string, string>   {
-    output_path := string.format("target/{}/output", config.output_dir)
-    
-    // Build linker command
-    cmd := Vec<string>.new()
-    cmd.push("ld")
-    cmd.push("-o")
-    cmd.push(output_path)
-    objects.loop((obj) { cmd.push(obj) })
-    
-    // Run linker
-    result := process.run(cmd) ?
-        | Ok(r) { r }
-        | Err(e) { return Result.Err(string.format("Linker error: { }}", e))
-    
-    result.exit_code == 0 ?
-        | true { Result.Ok(output_path) }
-        | false { Result.Err(string.format("Linker failed: { }}", result.stderr))
-}
-
-// Clean build artifacts
-clean = (config: BuildConfig) Result<void, string>   {
-    fs.remove_directory(config.output_dir)
-}
-
-// Run tests
-test = (config: BuildConfig) Result<TestResults, string>   {
-    test_dir := string.format("{}/tests", config.source_dir)
-    test_files := fs.find_files(test_dir, "*_test.zen") ?
-        | Ok(f) { f }
-        | Err(e) { return Result.Err(string.format("Failed to find tests: { }}", e))
-    
-    results := TestResults {
-        total: test_files.len(),
-        passed: 0,
-        failed: 0,
-        skipped: 0,
-        failures: Vec<TestFailure>.new(),
+    dependOn: (other: Ptr<Step>) void {
+        self.dependencies.append(other)
     }
     
-    test_files.loop((file) {
-        run_test_file(file, config) ?
-            | Ok(r) {
-                results.passed = results.passed + r.passed
-                results.failed = results.failed + r.failed
-                results.failures.extend(r.failures)
-            }
-            | Err(e) {
-                results.failed = results.failed + 1
-                results.failures.push(TestFailure {
-                    name: file,
-                    message: e,
-                })
-            }
-    })
-    
-    Result.Ok(results)
-}
-
-// Test results
-TestResults: {
-    total: i64,
-    passed: i64,
-    failed: i64,
-    skipped: i64,
-    failures: Vec<TestFailure>,
-}
-
-TestFailure: {
-    name: string,
-    message: string,
-}
-
-// Run a single test file
-run_test_file = (path: string, config: BuildConfig) Result<TestResults, string>   {
-    // Compile and run the test file
-    // This is simplified - in reality would need more infrastructure
-    compile_file(path, config) ?
-        | Success(obj, _) {
-            result := process.run([obj]) ?
-                | Ok(r) { r }
-                | Err(e) { return Result.Err(e) }
-            
-            r.exit_code == 0 ?
-                | true { Result.Ok(TestResults { total: 1, passed: 1, failed: 0, skipped: 0, failures: Vec<TestFailure>.new()  }})
-                | false { Result.Ok(TestResults {  }
-                    total: 1, 
-                    passed: 0, 
-                    failed: 1, 
-                    skipped: 0,
-                    failures: [TestFailure { name: path, message: r.stderr }]
-                })
+    execute: () !void {
+        // Execute dependencies first
+        loop i := 0; i < self.dependencies.len; i += 1 {
+            self.dependencies[i].execute()?
         }
-        | Failure(errors) { Result.Err(errors.join("\n")) }
+        
+        // Execute this step
+        self.kind ?
+            | Exe { self.buildExecutable()? }
+            | Lib { self.buildLibrary()? }
+            | Test { self.runTests()? }
+            | Run { self.runExecutable()? }
+            | Install { self.installArtifacts()? }
+            | System { self.runSystemCommand()? }
+            | Custom { self.runCustom()? }
+    }
+    
+    buildExecutable: () !void
+    buildLibrary: () !void
+    runTests: () !void
+    runExecutable: () !void
+    installArtifacts: () !void
+    runSystemCommand: () !void
+    runCustom: () !void
+}
+
+// Executable configuration
+ExecutableOptions: {
+    name: String
+    root_source_file: String
+    target: Option<Target>
+    optimize: Option<OptimizeMode>
+    link_libc: bool = false
+}
+
+Executable: {
+    options: ExecutableOptions
+    step: Step
+    symbols: DynVec<Symbol>
+    packages: DynVec<Package>
+    libraries: DynVec<String>
+    include_paths: DynVec<String>
+    library_paths: DynVec<String>
+    frameworks: DynVec<String>  // macOS
+    export_symbol_names: DynVec<String>  // WASM
+    enable_stack_traces: bool = true
+    strip: bool = false
+    
+    Symbol: {
+        name: String
+        value: String
+    }
+    
+    defineSymbol: (name: String, value: String) void {
+        self.symbols.append(Symbol{ name: name, value: value })
+    }
+    
+    addPackage: (name: String, path: String) void {
+        self.packages.append(Package{ name: name, path: path })
+    }
+    
+    linkLibrary: (name: String) void {
+        self.libraries.append(name)
+    }
+    
+    linkSystemLibrary: (name: String) void {
+        self.libraries.append(name)
+    }
+    
+    linkFramework: (name: String) void {
+        self.frameworks.append(name)
+    }
+    
+    addIncludePath: (path: String) void {
+        self.include_paths.append(path)
+    }
+    
+    addLibraryPath: (path: String) void {
+        self.library_paths.append(path)
+    }
+    
+    linkLibC: () void {
+        self.options.link_libc = true
+    }
+    
+    run: () RunStep {
+        return RunStep{
+            executable: self,
+            step: Step{
+                name: "run",
+                description: "Run " ++ self.options.name,
+                kind: .Run,
+                dependencies: []Ptr<Step>{ &self.step }
+            }
+        }
+    }
+}
+
+// Library configuration
+LibraryOptions: {
+    name: String
+    root_source_file: String
+    target: Option<Target>
+    optimize: Option<OptimizeMode>
+    version: Option<Version>
+}
+
+Version: {
+    major: u32
+    minor: u32
+    patch: u32
+}
+
+Library: {
+    options: LibraryOptions
+    step: Step
+    is_static: bool
+    export_headers: DynVec<String>
+    
+    addExportHeader: (path: String) void {
+        self.export_headers.append(path)
+    }
+}
+
+// Test configuration
+Test: {
+    root_source: String
+    step: Step
+    target: Option<Target>
+    symbols: DynVec<Executable.Symbol>
+    
+    setTarget: (target: Target) void {
+        self.target = target
+    }
+    
+    defineSymbol: (name: String, value: String) void {
+        self.symbols.append(Executable.Symbol{ name: name, value: value })
+    }
+}
+
+// Run step for executing built artifacts
+RunStep: {
+    executable: Ptr<Executable>
+    step: Step
+    args: DynVec<String>
+    
+    addArg: (arg: String) void {
+        self.args.append(arg)
+    }
+}
+
+// System command execution
+SystemCommand: {
+    argv: DynVec<String>
+    step: Step
+    
+    execute: () !void {
+        result := process.exec(self.argv)?
+        result.status != 0 ? {
+            return error.SystemCommandFailed
+        } : {}
+    }
+}
+
+// Package/dependency management
+Package: {
+    name: String
+    path: String
+}
+
+Module: {
+    name: String
+    source_file: String
+}
+
+DependencyOptions: {
+    url: String
+    commit: Option<String>
+    tag: Option<String>
+    branch: Option<String>
+}
+
+ModuleOptions: {
+    source_file: String
+}
+
+// Main Build type
+Build: {
+    // Metadata
+    name: String
+    version: String
+    author: String
+    
+    // Build configuration
+    target: Target
+    optimize: OptimizeMode
+    install_prefix: String
+    build_dir: String
+    cache_dir: String
+    
+    // Build artifacts
+    executables: []Ptr<Executable>
+    libraries: []Ptr<Library>  
+    tests: []Ptr<Test>
+    steps: []Ptr<Step>
+    
+    // Options
+    options_map: std.HashMap(String, anytype)
+    
+    // Methods
+    standardTargetOptions: (options: TargetOptions) Target {
+        // Check command line args or use defaults
+        return Target{
+            cpu_arch: .native,
+            os_tag: .native,
+            abi: null
+        }
+    }
+    
+    standardOptimizeOption: (options: OptimizeOptions) OptimizeMode {
+        // Check command line args or use defaults
+        @env("RELEASE") ? {
+            return .ReleaseFast
+        } : {
+            return .Debug
+        }
+    }
+    
+    addExecutable: (options: ExecutableOptions) Ptr<Executable> {
+        exe := Executable{
+            options: options,
+            step: Step{
+                name: options.name,
+                description: "Build executable " ++ options.name,
+                kind: .Exe,
+                dependencies: []Ptr<Step>{}
+            },
+            symbols: DynVec<Executable.Symbol>{},
+            packages: DynVec<Package>{},
+            libraries: DynVec<String>{},
+            include_paths: DynVec<String>{},
+            library_paths: DynVec<String>{},
+            frameworks: DynVec<String>{},
+            export_symbol_names: DynVec<String>{},
+            enable_stack_traces: true,
+            strip: false
+        }
+        
+        self.executables.append(&exe)
+        return &exe
+    }
+    
+    addStaticLibrary: (options: LibraryOptions) Ptr<Library> {
+        lib := Library{
+            options: options,
+            step: Step{
+                name: options.name,
+                description: "Build static library " ++ options.name,
+                kind: .Lib,
+                dependencies: []Ptr<Step>{}
+            },
+            is_static: true,
+            export_headers: []String{}
+        }
+        
+        self.libraries.append(&lib)
+        return &lib
+    }
+    
+    addSharedLibrary: (options: LibraryOptions) Ptr<Library> {
+        lib := Library{
+            options: options,
+            step: Step{
+                name: options.name,
+                description: "Build shared library " ++ options.name,
+                kind: .Lib,
+                dependencies: []Ptr<Step>{}
+            },
+            is_static: false,
+            export_headers: []String{}
+        }
+        
+        self.libraries.append(&lib)
+        return &lib
+    }
+    
+    addTest: (root_source: String) Ptr<Test> {
+        test := Test{
+            root_source: root_source,
+            step: Step{
+                name: "test",
+                description: "Run tests from " ++ root_source,
+                kind: .Test,
+                dependencies: []Ptr<Step>{}
+            },
+            target: null,
+            symbols: []Executable.Symbol{}
+        }
+        
+        self.tests.append(&test)
+        return &test
+    }
+    
+    option: (comptime T: type, name: String, description: String) Option<T> {
+        // Check if option was provided
+        self.options_map.get(name) ?
+            | Some(value) { return @as(T, value) }
+            | None { return null }
+    }
+    
+    installArtifact: (artifact: anytype) void {
+        install_step := Step{
+            name: "install",
+            description: "Install " ++ artifact.options.name,
+            kind: .Install,
+            dependencies: []Ptr<Step>{ &artifact.step }
+        }
+        
+        self.steps.append(&install_step)
+    }
+    
+    installFile: (source: String, dest: String) void {
+        install_step := Step{
+            name: "install-file",
+            description: "Install " ++ source ++ " to " ++ dest,
+            kind: .Install,
+            dependencies: []Ptr<Step>{}
+        }
+        
+        self.steps.append(&install_step)
+    }
+    
+    step: (name: String, description: String) *Step {
+        new_step := Step{
+            name: name,
+            description: description,
+            kind: .Custom,
+            dependencies: []Ptr<Step>{}
+        }
+        
+        self.steps.append(&new_step)
+        return &new_step
+    }
+    
+    getInstallStep: () *Step {
+        // Find or create install step
+        loop i := 0; i < self.steps.len; i += 1 {
+            self.steps[i].name == "install" ? {
+                return self.steps[i]
+            } : {}
+        }
+        
+        return self.step("install", "Install all artifacts")
+    }
+    
+    getInstallPath: (install_dir: InstallDir, name: String) String {
+        base := install_dir ?
+            | bin { self.install_prefix ++ "/bin/" }
+            | lib { self.install_prefix ++ "/lib/" }
+            | include { self.install_prefix ++ "/include/" }
+            | share { self.install_prefix ++ "/share/" }
+        
+        return base ++ name
+    }
+    
+    dependency: (name: String, options: DependencyOptions) *Package {
+        // Fetch and cache dependency
+        pkg := Package{
+            name: name,
+            path: self.cache_dir ++ "/" ++ name
+        }
+        
+        // Would fetch from git if not cached
+        return &pkg
+    }
+    
+    addModule: (name: String, options: ModuleOptions) *Module {
+        mod := Module{
+            name: name,
+            source_file: options.source_file
+        }
+        
+        return &mod
+    }
+    
+    addSystemCommand: (argv: []String) *SystemCommand {
+        cmd := SystemCommand{
+            argv: argv,
+            step: Step{
+                name: "system",
+                description: argv[0],
+                kind: .System,
+                dependencies: []Ptr<Step>{}
+            }
+        }
+        
+        return &cmd
+    }
+}
+
+// Additional types
+TargetOptions: {}
+OptimizeOptions: {}
+
+InstallDir: 
+    bin,
+    lib,
+    include,
+    share
+
+// Helper to read environment variables
+@env = (name: String) Option<String> {
+    return process.getEnv(name)
+}
+
+// Helper to get type ID (for serialization)
+@typeId = (comptime T: type) u64 {
+    // Would compute a stable hash of the type
+    return 0
 }

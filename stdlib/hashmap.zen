@@ -1,6 +1,0 @@
-// HashMap module - re-exports from collections/
-// Provides hash map data structure
-
-// Re-export HashMap functionality
-hashmap_module = import("collections/hashmap")
-module.exports = hashmap_module

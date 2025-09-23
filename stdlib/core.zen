@@ -1,8 +1,0 @@
-// Core module - re-exports from core/
-// Provides essential types and utilities
-
-// Re-export core functionality
-core_module = import("core/core.zen")
-option_module = import("core/option.zen")
-result_module = import("core/result.zen")
-module.exports = { ...core_module, ...option_module, ...result_module }
