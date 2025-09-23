@@ -1,0 +1,170 @@
+// Test file generated from LANGUAGE_SPEC.zen to verify implementation
+// This tests the key features defined in the spec
+
+{ io, math } = @std
+
+// Test 1: Variable declarations and assignments
+test_variables = () void {
+    // Forward declarations
+    x: i32
+    x = 10
+    
+    // Immutable assignments
+    y = 20
+    z: i32 = 30
+    
+    // Mutable declarations and assignments
+    w :: i32
+    w = 40
+    v ::= 50
+    u :: i32 = 60
+    
+    io.println("Variables: x=${x}, y=${y}, z=${z}, w=${w}, v=${v}, u=${u}")
+}
+
+// Test 2: Simple struct
+Point: {
+    x:: f64,
+    y:: f64 = 0.0
+}
+
+// Test 3: Option type (no null!)
+test_option = () void {
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(val) { io.println("Got value: ${val}") }
+        | None { io.println("No value") }
+    
+    no_value: Option<i32> = None
+    no_value ?
+        | Some(val) { io.println("Unexpected: ${val}") }
+        | None { io.println("As expected: None") }
+}
+
+// Test 4: Result type for error handling
+test_result = () void {
+    success: Result<i32, string> = Ok(100)
+    success ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    failure: Result<i32, string> = Err("Something went wrong")
+    failure ?
+        | Ok(val) { io.println("Value: ${val}") }
+        | Err(e) { io.println("Got error: ${e}") }
+}
+
+// Test 5: Boolean pattern matching (no if/else keywords!)
+test_bool_patterns = () void {
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data...") }
+        | false { io.println("No data to process") }
+}
+
+// Test 6: Loops and ranges
+test_loops = () void {
+    // Range iteration
+    (0..3).loop((i) {
+        io.println("Count: ${i}")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 2 ?
+            | true { break }
+            | false { io.println("Loop counter: ${counter}") }
+    })
+}
+
+// Test 7: UFC (Uniform Function Call)
+double = (x: i32) i32 {
+    return x * 2
+}
+
+test_ufc = () void {
+    value = 5
+    // Function can be called as method
+    result = value.double()
+    io.println("UFC: ${value}.double() = ${result}")
+}
+
+// Test 8: Enum type
+Color: Red | Green | Blue
+
+test_enum = () void {
+    my_color: Color = Color.Red
+    my_color ?
+        | Red { io.println("Color is red") }
+        | Green { io.println("Color is green") }
+        | Blue { io.println("Color is blue") }
+}
+
+// Test 9: Trait definition and implementation
+Drawable: {
+    draw: (self) void
+}
+
+Circle: {
+    radius: f64
+}
+
+Circle.implements(Drawable, {
+    draw = (self) void {
+        io.println("Drawing circle with radius ${self.radius}")
+    }
+})
+
+test_traits = () void {
+    c = Circle { radius: 5.0 }
+    c.draw()
+}
+
+// Test 10: @this.defer for cleanup
+test_defer = () void {
+    io.println("Starting defer test")
+    @this.defer(io.println("Deferred: cleaning up"))
+    io.println("Main work")
+    // Deferred statement should execute at end of scope
+}
+
+// Main function
+main = () void {
+    io.println("=== Zen Language Spec Test Suite ===")
+    
+    io.println("\n1. Variables:")
+    test_variables()
+    
+    io.println("\n2. Option types (no null):")
+    test_option()
+    
+    io.println("\n3. Result types:")
+    test_result()
+    
+    io.println("\n4. Boolean patterns (no if/else):")
+    test_bool_patterns()
+    
+    io.println("\n5. Loops and ranges:")
+    test_loops()
+    
+    io.println("\n6. UFC (Uniform Function Call):")
+    test_ufc()
+    
+    io.println("\n7. Enums:")
+    test_enum()
+    
+    io.println("\n8. Traits:")
+    test_traits()
+    
+    io.println("\n9. Defer:")
+    test_defer()
+    
+    io.println("\n=== All tests completed ===")
+}

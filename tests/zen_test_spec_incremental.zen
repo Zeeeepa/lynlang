@@ -1,0 +1,123 @@
+// Incremental test of LANGUAGE_SPEC.zen features
+// Testing each feature independently to identify gaps
+
+{ io } = @std
+
+// Feature 1: Basic variables (immutable and mutable)
+test_basic_vars = () void {
+    // Immutable
+    x = 10
+    y: i32 = 20
+    
+    // Mutable
+    z ::= 30
+    w :: i32 = 40
+    
+    io.println("Basic vars: x=${x}, y=${y}, z=${z}, w=${w}")
+}
+
+// Feature 2: Forward declarations
+test_forward_decl = () void {
+    a: i32  // forward declaration
+    a = 100
+    
+    b :: i32  // mutable forward declaration  
+    b = 200
+    
+    io.println("Forward decl: a=${a}, b=${b}")
+}
+
+// Feature 3: Simple struct with mutable fields
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+test_struct = () void {
+    p = Point { x: 1.0, y: 2.0 }
+    io.println("Point: x=${p.x}, y=${p.y}")
+}
+
+// Feature 4: Boolean pattern matching (no if/else)
+test_bool = () void {
+    flag = true
+    flag ? {
+        io.println("Flag is true")
+    }
+    
+    value = false
+    value ?
+        | true { io.println("Value is true") }
+        | false { io.println("Value is false") }
+}
+
+// Feature 5: Simple enum
+Status: Success | Failure
+
+test_enum = () void {
+    s = Status.Success
+    s ?
+        | Success { io.println("Status: Success") }
+        | Failure { io.println("Status: Failure") }
+}
+
+// Feature 6: Range iteration
+test_range = () void {
+    io.println("Range 0..3:")
+    (0..3).loop((i) {
+        io.println("  ${i}")
+    })
+}
+
+// Feature 7: Infinite loop with break
+test_loop = () void {
+    counter ::= 0
+    loop(() {
+        io.println("Loop: ${counter}")
+        counter = counter + 1
+        counter >= 2 ? {
+            break
+        }
+    })
+}
+
+// Feature 8: UFC (Uniform Function Call)
+double = (n: i32) i32 {
+    return n * 2
+}
+
+test_ufc = () void {
+    val = 5
+    result = val.double()
+    io.println("UFC: ${val}.double() = ${result}")
+}
+
+main = () void {
+    io.println("=== Incremental Feature Test ===\n")
+    
+    io.println("1. Basic variables:")
+    test_basic_vars()
+    
+    io.println("\n2. Forward declarations:")
+    test_forward_decl()
+    
+    io.println("\n3. Structs with mutable fields:")
+    test_struct()
+    
+    io.println("\n4. Boolean patterns:")
+    test_bool()
+    
+    io.println("\n5. Enums:")
+    test_enum()
+    
+    io.println("\n6. Range iteration:")
+    test_range()
+    
+    io.println("\n7. Loops:")
+    test_loop()
+    
+    io.println("\n8. UFC:")
+    test_ufc()
+    
+    io.println("\n=== Tests Complete ===")
+}

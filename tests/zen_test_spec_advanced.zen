@@ -1,66 +1,131 @@
-// Test advanced LANGUAGE_SPEC.zen features
+// Advanced features test from LANGUAGE_SPEC.zen
 
 { io } = @std
 
-// Test Option type (no null!)
-Option<T>: Some(T) | None
-
-// Test Result type for error handling
-Result<T, E>: Ok(T) | Err(E)
-
-// Test simple struct
-Point: {
-    x:: f64,
-    y:: f64
-}
-
-// Test pattern matching with ? operator
-test_pattern_match = (value: i32) void {
-    value > 10 ?
-        | true { io.println("Greater than 10") }
-        | false { io.println("10 or less") }
-}
-
-// Test Option handling
+// Test Option<T> type - no null!
 test_option = () void {
-    maybe_value: Option<i32> = Some(42)
+    io.println("Testing Option<T>:")
     
-    maybe_value ?
-        | Some(v) { io.println("Got value: ${v}") }
-        | None { io.println("No value") }
+    // Some case
+    maybe_val: Option<i32> = Some(42)
+    maybe_val ?
+        | Some(v) { io.println("  Got value: ${v}") }
+        | None { io.println("  No value") }
+    
+    // None case
+    no_val: Option<i32> = None
+    no_val ?
+        | Some(v) { io.println("  Unexpected: ${v}") }
+        | None { io.println("  Got None as expected") }
 }
 
-// Test loops with ranges
-test_loops = () void {
-    // Range loop
-    (0..5).loop((i) {
-        io.println("Count: ${i}")
-    })
+// Test Result<T, E> for error handling
+test_result = () void {
+    io.println("Testing Result<T, E>:")
     
-    // Infinite loop with break
-    counter ::= 0
-    loop(() {
-        counter = counter + 1
-        counter > 3 ?
-            | true { break }
-            | false { io.println("Loop: ${counter}") }
+    // Ok case
+    success: Result<i32, string> = Ok(100)
+    success ?
+        | Ok(val) { io.println("  Success with value: ${val}") }
+        | Err(e) { io.println("  Error: ${e}") }
+    
+    // Err case
+    failure: Result<i32, string> = Err("Something failed")
+    failure ?
+        | Ok(val) { io.println("  Value: ${val}") }
+        | Err(msg) { io.println("  Error as expected: ${msg}") }
+}
+
+// Test @this.defer for cleanup
+test_defer = () void {
+    io.println("Testing @this.defer:")
+    io.println("  Start of scope")
+    @this.defer(io.println("  Deferred: cleanup at end"))
+    io.println("  Middle of scope")
+    @this.defer(io.println("  Deferred: second cleanup"))
+    io.println("  End of scope")
+    // Deferred statements should run in reverse order
+}
+
+// Test error propagation with .raise()
+divide = (a: i32, b: i32) Result<i32, string> {
+    b == 0 ?
+        | true { return Err("Division by zero") }
+        | false { return Ok(a / b) }
+}
+
+calculate = (x: i32, y: i32) Result<i32, string> {
+    // .raise() propagates errors automatically
+    result1 = divide(x, y).raise()
+    result2 = divide(result1, 2).raise()
+    return Ok(result2)
+}
+
+test_raise = () void {
+    io.println("Testing .raise() error propagation:")
+    
+    // Successful case
+    calculate(100, 5) ?
+        | Ok(val) { io.println("  Calculation success: ${val}") }
+        | Err(e) { io.println("  Calculation failed: ${e}") }
+    
+    // Error case
+    calculate(100, 0) ?
+        | Ok(val) { io.println("  Value: ${val}") }
+        | Err(e) { io.println("  Error propagated: ${e}") }
+}
+
+// Test trait definitions and implementations  
+Drawable: {
+    draw: (self) void
+}
+
+Shape: {
+    name: string
+}
+
+Shape.implements(Drawable, {
+    draw = (self) void {
+        io.println("  Drawing shape: ${self.name}")
+    }
+})
+
+test_traits = () void {
+    io.println("Testing traits:")
+    s = Shape { name: "Circle" }
+    s.draw()
+}
+
+// Test Vec with ranges and step
+test_advanced_loops = () void {
+    io.println("Testing advanced loops:")
+    
+    // Range with step
+    io.println("  Range 0..10 step 3:")
+    (0..10).step(3).loop((i) {
+        io.println("    ${i}")
     })
 }
 
 main = () void {
-    io.println("=== Testing Advanced Features ===")
+    io.println("=== Advanced Features Test ===\n")
     
-    // Test pattern matching
-    test_pattern_match(15)
-    test_pattern_match(5)
-    
-    // Test Option type
     test_option()
+    io.println("")
     
-    // Test loops
-    test_loops()
+    test_result()
+    io.println("")
     
-    // Test struct
-    p = Point { x: 10.5, y: 20.3 }
-    io.println("Point x: ${p.x}, y: ${p.y}")
+    test_defer()
+    io.println("")
+    
+    test_raise()
+    io.println("")
+    
+    test_traits()
+    io.println("")
+    
+    test_advanced_loops()
+    
+    io.println("\n=== Advanced Tests Complete ===")
 }

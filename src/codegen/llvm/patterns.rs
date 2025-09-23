@@ -374,17 +374,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         if let Some(payload_pattern) = payload {
                             // Extract the payload value
                             let mut payload_val = if scrutinee_val.is_pointer_value() {
+                                // For now, we'll assume the standard enum structure with i64 payload
+                                // TODO: Track actual payload types for proper type-safe extraction
+                                let enum_struct_type = self.context.struct_type(&[
+                                    self.context.i64_type().into(),
+                                    self.context.f64_type().into(), // Use f64 as it can hold both int and float
+                                ], false);
+                                
                                 let payload_gep = self.builder.build_struct_gep(
-                                    self.context.struct_type(&[
-                                        self.context.i64_type().into(),
-                                        self.context.i64_type().into(),
-                                    ], false),
+                                    enum_struct_type,
                                     scrutinee_val.into_pointer_value(),
                                     1,
                                     "payload_ptr"
                                 )?;
+                                
+                                // Load as f64 - this will work for both int and float payloads
                                 self.builder.build_load(
-                                    self.context.i64_type(),
+                                    self.context.f64_type(),
                                     payload_gep,
                                     "payload"
                                 )?

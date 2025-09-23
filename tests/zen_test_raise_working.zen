@@ -1,0 +1,34 @@
+// Test .raise() error propagation
+{ io } = @std
+
+Result<T, E>: Ok(T) | Err(E)
+
+parse_number = (s: string) Result<i32, string> {
+    // Simplified for testing - just return Ok or Err
+    s ?
+        | "42" { return Ok(42) }
+        | _ { return Err("Invalid number") }
+}
+
+load_config = () Result<i32, string> {
+    // Test .raise() - if parse_number returns Err, this function returns early
+    value = parse_number("42").raise()  // Should unwrap to 42
+    io.println("Got value: ${value}")
+    
+    // This will cause early return with error
+    bad_value = parse_number("bad").raise()
+    io.println("Should not print: ${bad_value}")
+    
+    return Ok(value)
+}
+
+main = () void {
+    io.println("=== Testing .raise() ===")
+    
+    result = load_config()
+    result ?
+        | Ok(v) { io.println("Config loaded: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    io.println("=== Complete ===")
+}

@@ -1,0 +1,141 @@
+// Current working features from LANGUAGE_SPEC.zen
+// This test demonstrates what is actually working right now
+
+{ io } = @std
+
+// Simple struct from spec line 117-120
+Point: {
+    x :: f64,
+    y :: f64
+}
+
+// Basic arithmetic function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Function that returns double of input
+double = (n: i32) i32 {
+    return n * 2
+}
+
+main = () void {
+    io.println("=====================================")
+    io.println("LANGUAGE_SPEC.zen Working Features")
+    io.println("=====================================\n")
+    
+    // 1. NO KEYWORDS - pattern matching with ?
+    io.println("1. NO KEYWORDS:")
+    value = 42
+    is_answer = value == 42
+    is_answer ? {
+        io.println("   ✓ Pattern matching works (no if/else)")
+    }
+    
+    // 2. ONLY TWO @ SYMBOLS
+    io.println("\n2. @ SYMBOLS:")
+    io.println("   ✓ @std imports work")
+    
+    // @this.defer() for cleanup (lines 217, 314, etc)
+    @this.defer(io.println("   ✓ @this.defer() works"))
+    
+    // 3. VARIABLE DECLARATIONS (lines 298-306)
+    io.println("\n3. VARIABLE FORMS:")
+    
+    // Immutable assignment
+    var_a = 10
+    io.println("   ✓ Immutable: var_a = ${var_a}")
+    
+    // Immutable with type
+    var_b: i32 = 20
+    io.println("   ✓ Immutable typed: var_b = ${var_b}")
+    
+    // Mutable assignment
+    var_c ::= 30
+    var_c = var_c + 5
+    io.println("   ✓ Mutable: var_c = ${var_c}")
+    
+    // 4. STRUCTS (lines 117-120)
+    io.println("\n4. STRUCTS:")
+    p = Point { x: 3.14, y: 2.71 }
+    io.println("   ✓ Struct creation: Point(${p.x}, ${p.y})")
+    
+    // Mutable struct fields work
+    p.x = 10.0
+    io.println("   ✓ Mutable fields: Point(${p.x}, ${p.y})")
+    
+    // 5. FUNCTIONS
+    io.println("\n5. FUNCTIONS:")
+    sum = add(10, 20)
+    io.println("   ✓ Function call: add(10, 20) = ${sum}")
+    
+    // 6. UFC (Uniform Function Call) - partial support
+    io.println("\n6. UFC:")
+    result = 5.double()
+    io.println("   ✓ UFC: 5.double() = ${result}")
+    
+    // 7. LOOPS AND RANGES (lines 432-460)
+    io.println("\n7. LOOPS:")
+    io.print("   ✓ Range (0..3): ")
+    (0..3).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Infinite loop with break
+    counter ::= 0
+    io.print("   ✓ Loop with break: ")
+    loop {
+        counter = counter + 1
+        io.print("${counter} ")
+        counter >= 3 ? { break }
+    }
+    io.println("")
+    
+    // 8. PATTERN MATCHING (lines 352-361)
+    io.println("\n8. PATTERN MATCHING:")
+    has_data = false
+    has_data ?
+        | true { io.println("   Processing data...") }
+        | false { io.println("   ✓ Full pattern: Waiting for data...") }
+    
+    // 9. STRING INTERPOLATION
+    io.println("\n9. STRING INTERPOLATION:")
+    name = "Zen"
+    version = 1.0
+    io.println("   ✓ ${name} v${version}")
+    
+    // 10. BASIC ARITHMETIC
+    io.println("\n10. ARITHMETIC:")
+    a = 100
+    b = 25
+    io.println("   ✓ ${a} + ${b} = ${a + b}")
+    io.println("   ✓ ${a} - ${b} = ${a - b}")
+    io.println("   ✓ ${a} * 2 = ${a * 2}")
+    io.println("   ✓ ${a} / 4 = ${a / 4}")
+    
+    io.println("\n=====================================")
+    io.println("Summary of Working Features:")
+    io.println("=====================================")
+    io.println("✅ No keywords - pattern matching only")
+    io.println("✅ @std and @this.defer()")
+    io.println("✅ All variable declaration forms")
+    io.println("✅ Structs with mutable fields")
+    io.println("✅ Functions and basic UFC")
+    io.println("✅ Loops: ranges and infinite with break")
+    io.println("✅ Full pattern matching with ?")
+    io.println("✅ String interpolation with ${}")
+    io.println("✅ All basic arithmetic operators")
+    
+    io.println("\n🚧 Features Not Yet Working:")
+    io.println("❌ Option<T> with proper Some/None (float bug)")
+    io.println("❌ Result<T,E> with Ok/Err (LLVM error)")
+    io.println("❌ .raise() error propagation")
+    io.println("❌ .implements() trait system")
+    io.println("❌ .requires() trait enforcement")
+    io.println("❌ Complex UFC chaining")
+    io.println("❌ Pointer types (Ptr, MutPtr, RawPtr)")
+    io.println("❌ Allocators and async")
+    io.println("❌ Actors and channels")
+    io.println("❌ DynVec and collections")
+}

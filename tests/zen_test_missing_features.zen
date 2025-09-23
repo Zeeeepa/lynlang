@@ -1,0 +1,96 @@
+// Test features that may be missing from LANGUAGE_SPEC.zen
+{ io, math } = @std
+
+// Trait definition
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64
+}
+
+// Circle struct
+Circle: {
+    radius: f64
+}
+
+// Rectangle struct  
+Rectangle: {
+    width: f64,
+    height: f64
+}
+
+// Test trait implementation
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    }
+})
+
+// Test enum with requires
+Shape: Circle | Rectangle
+Shape.requires(Geometric)
+
+// Test generic function
+print_area<T: Geometric>(shape: T) void {
+    io.println("Area: ${shape.area()}")
+}
+
+// Test error propagation with raise
+parse_number = (s: string) Result<i32, string> {
+    // This would test .raise() but string parsing might not be implemented
+    return Result.Ok(42)
+}
+
+load_data = () Result<i32, string> {
+    num = parse_number("42").raise()  // Test .raise()
+    return Result.Ok(num)
+}
+
+main = () void {
+    io.println("=== Testing Missing Features ===")
+    
+    // Test trait methods
+    circle = Circle { radius: 5.0 }
+    io.println("Circle area: ${circle.area()}")
+    io.println("Circle perimeter: ${circle.perimeter()}")
+    
+    // Test generic function
+    print_area(circle)
+    
+    // Test error handling
+    load_data() ?
+        | Ok(v) { io.println("Loaded: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test @this.defer
+    {
+        io.println("Before defer")
+        @this.defer(io.println("Deferred!"))
+        io.println("After defer setup")
+    }
+    
+    // Test step ranges
+    io.println("Step range:")
+    (0..10).step(2).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Test loop with index
+    items = [1, 2, 3]
+    items.loop((item, i) {
+        io.println("Item ${i}: ${item}")
+    })
+    
+    // Test infinite loop with break
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        counter > 3 ?
+            | true { break }
+            | false { io.println("Count: ${counter}") }
+    })
+    
+    io.println("=== Test Complete ===")
+}

@@ -1,68 +1,147 @@
-// Test of currently working features from LANGUAGE_SPEC.zen
+// ============================================================================
+// Working features from LANGUAGE_SPEC.zen
+// This test demonstrates what's currently implemented and working
+// ============================================================================
+
 { io, math } = @std
 
-// Option and Result types
+// Type definitions from LANGUAGE_SPEC.zen L109-113
 Option<T>: Some(T) | None
 Result<T, E>: Ok(T) | Err(E)
 
-main = () void {
-    io.println("=== Zen Language Working Features ===")
-    
-    // 1. Variable declarations (SPEC lines 298-306)
-    a: i32
-    a = 10
-    b = 20
-    c ::= 30
-    io.println("Variables: a=${a}, b=${b}, c=${c}")
-    
-    // 2. Math.pi constant (SPEC line 138)
-    io.println("math.pi = ${math.pi}")
-    circle_area = math.pi * 5.0 * 5.0
-    io.println("Circle area (r=5): ${circle_area}")
-    
-    // 3. Boolean pattern matching (SPEC lines 352-361)
-    is_ready = true
-    is_ready ? {
-        io.println("System ready!")
+// Struct with mutable fields (L117-120)
+Point: {
+    x:: f64,
+    y:: f64 = 0
+}
+
+// Trait definition (L123-127)
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64
+}
+
+// Circle struct (L130-133)
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+// Trait implementation (L136-143)
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
     }
+})
+
+// UFC example function
+double = (n: i32) i32 { return n * 2 }
+
+main = () void {
+    io.println("=== LANGUAGE_SPEC.zen Working Features ===")
+    io.println("")
     
-    has_data = false
-    has_data ?
-        | true { io.println("Has data") }
-        | false { io.println("No data") }
+    // 1. No Keywords - Pattern Matching (L2, L352-361)
+    io.println("1. Pattern Matching (no if/else keywords):")
+    value = 42
+    value == 42 ? { io.println("   Found the answer!") }
     
-    // 4. Option type (SPEC lines 462-473)
-    maybe: Option<i32> = Some(42)
-    maybe ?
-        | Some(v) { io.println("Value: ${v}") }
-        | None { io.println("No value") }
+    is_ready = false
+    is_ready ?
+        | true { io.println("   Ready") }
+        | false { io.println("   Not ready") }
+    io.println("")
     
-    // 5. Result type
-    result: Result<i32, String> = Ok(100)
-    result ?
-        | Ok(v) { io.println("Success: ${v}") }
-        | Err(e) { io.println("Error: ${e}") }
+    // 2. Variable Declarations (L299-306)
+    io.println("2. Variable Declarations:")
+    x: i32
+    x = 10
+    y = 20
+    z ::= 30
+    z = z + 5
+    io.println("   Immutable: x=${x}, y=${y}")
+    io.println("   Mutable: z=${z}")
+    io.println("")
     
-    // 6. Range loops (SPEC lines 432-434)
-    io.println("Range 0..3:")
-    (0..3).loop((i) {
-        io.println("  ${i}")
+    // 3. Structs with Mutable Fields (L117-120)
+    io.println("3. Structs with Mutable Fields:")
+    p = Point { x: 1.0, y: 2.0 }
+    io.println("   Initial: (${p.x}, ${p.y})")
+    p.x = 5.0
+    p.y = 6.0
+    io.println("   After mutation: (${p.x}, ${p.y})")
+    io.println("")
+    
+    // 4. Traits and .implements() (L136-143)
+    io.println("4. Traits (.implements):")
+    center_point = Point { x: 0.0, y: 0.0 }
+    c = Circle {
+        center: center_point,
+        radius: 5.0
+    }
+    io.println("   Circle area: ${c.area()}")
+    io.println("   Circle perimeter: ${c.perimeter()}")
+    io.println("")
+    
+    // 5. UFC (Uniform Function Call) (L5)
+    io.println("5. UFC (Uniform Function Call):")
+    result = 5.double()
+    io.println("   5.double() = ${result}")
+    io.println("")
+    
+    // 6. Loops and Ranges (L432-459)
+    io.println("6. Loops and Ranges:")
+    io.print("   Range (0..5): ")
+    (0..5).loop((i) {
+        io.print("${i} ")
     })
+    io.println("")
     
-    // 7. Infinite loop with break (SPEC lines 453-459)
+    io.print("   Infinite loop with break: ")
     counter ::= 0
     loop(() {
         counter = counter + 1
-        counter > 2 ?
+        counter > 5 ?
             | true { break }
-            | false { io.println("Loop: ${counter}") }
+            | false { io.print("${counter} ") }
     })
+    io.println("")
+    io.println("")
     
-    // 8. String interpolation
-    x = 42
-    y = 3.14
-    z = true
-    io.println("Interpolation: x=${x}, y=${y}, z=${z}")
+    // 7. @this.defer() (L217, L314)
+    io.println("7. Defer (@this.defer):")
+    io.println("   Start of scope")
+    @this.defer(io.println("   Cleanup (runs at function exit)"))
+    io.println("   Middle of scope")
+    io.println("")
     
-    io.println("=== All tests passed! ===")
+    // 8. Option Type - No Null! (L109-110, L462-473)
+    io.println("8. Option Type (no null):")
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("   Has value: ${v}") }
+        | None { io.println("   No value") }
+    
+    empty: Option<i32> = None
+    empty ?
+        | Some(v) { io.println("   Value: ${v}") }
+        | None { io.println("   Empty option") }
+    io.println("")
+    
+    // 9. String Interpolation
+    io.println("9. String Interpolation:")
+    name = "Zen"
+    version = 1
+    io.println("   Language: ${name} v${version}")
+    io.println("")
+    
+    // 10. @std imports with destructuring (L92-107)
+    io.println("10. @std imports work with destructuring")
+    io.println("    Using io and math from @std")
+    io.println("")
+    
+    io.println("=== All Core Features Working! ===")
 }

@@ -1,22 +1,16 @@
-// Minimal Result test
+// Minimal Result type test
 { io } = @std
 
-Result<T, E>: Ok(T) | Err(E)
-
-test_result = () Result<i32, string> {
-    return Ok(42)
+// Simple function returning Result  
+check_positive = (n: i32) Result<i32, string> {
+    n > 0 ?
+        | true { return Ok(n) }
+        | false { return Err("Not positive") }
 }
 
-main = () i32 {
-    result = test_result()
-    
+main = () void {
+    result = check_positive(5)
     result ?
-        | Ok(val) { 
-            io.println("OK: ${val}")
-            return 0
-        }
-        | Err(err) {
-            io.println("Error: ${err}")
-            return 1
-        }
+        | Ok(val) { io.println("Got: ${val}") }
+        | Err(msg) { io.println("Error: ${msg}") }
 }

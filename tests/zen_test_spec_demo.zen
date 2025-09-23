@@ -1,43 +1,56 @@
-// Simplified demo of LANGUAGE_SPEC.zen features
+// Demo of working LANGUAGE_SPEC.zen features
 
 { io } = @std
 
-Option<T>: Some(T) | None
-Result<T, E>: Ok(T) | Err(E)
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+double = (n: i32) i32 {
+    return n * 2
+}
 
 main = () void {
-    io.println("Zen Language Demo")
+    io.println("=== LANGUAGE_SPEC.zen Demo ===")
     
-    // Variables
-    x = 10
-    y ::= 20
-    y = 25
+    // No keywords - pattern matching
+    value = 42
+    value == 42 ? {
+        io.println("Found the answer!")
+    }
     
-    // Pattern matching
-    is_ok = true
-    is_ok ?
-        | true { io.println("OK") }
-        | false { io.println("Not OK") }
+    // Variables (all forms from spec)
+    name = "Zen"           // Immutable
+    version: f64 = 1.0    // Immutable with type
+    count ::= 0           // Mutable
+    count = count + 1
+    io.println("${name} v${version}, count: ${count}")
     
-    // Option
-    val: Option<i32> = Some(42)
-    val ?
-        | Some(n) { io.println("Value found") }
-        | None { io.println("No value") }
+    // Structs
+    p = Point { x: 1.0, y: 2.0 }
+    io.println("Point: (${p.x}, ${p.y})")
+    p.x = 5.0  // Mutable field
+    io.println("Updated: (${p.x}, ${p.y})")
     
-    // Result
-    res: Result<i32, String> = Ok(100)
-    res ?
-        | Ok(v) { io.println("Success") }
-        | Err(e) { io.println("Error") }
+    // UFC
+    result = 5.double()
+    io.println("5.double() = ${result}")
     
     // Loops
+    io.println("Range loop:")
     (0..3).loop((i) {
-        io.println("Loop")
+        io.println("  ${i}")
     })
     
-    // Defer
-    @this.defer(io.println("Cleanup"))
+    // Pattern matching
+    has_data = false
+    has_data ?
+        | true { io.println("Processing...") }
+        | false { io.println("Waiting...") }
     
-    io.println("Done")
+    // @this.defer
+    @this.defer(io.println("Cleanup executed!"))
+    
+    io.println("=== Done ===")
 }

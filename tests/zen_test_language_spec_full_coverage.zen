@@ -1,0 +1,289 @@
+// ============================================================================
+// Full implementation test based on LANGUAGE_SPEC.zen
+// Tests all features that are currently implemented
+// ============================================================================
+
+{ io, math } = @std
+
+// ============================================================================
+// Basic Types and Variables (Lines 299-306)
+// ============================================================================
+
+test_variables = () void {
+    io.println("=== Testing Variables ===")
+    
+    x: i32                  // forward declaration
+    x = 10
+    y = 10                  // Immutable assignment
+    z : i32 = 20           // Immutable with type
+    w :: i32               // mutable forward declaration
+    w = 20
+    v ::= 30               // Mutable assignment
+    u :: i32 = 40          // mutable with type
+    
+    io.println("x = ${x}")
+    io.println("y = ${y}")
+    io.println("z = ${z}")
+    io.println("w = ${w}")
+    v = 35                  // Can modify mutable
+    io.println("v after change = ${v}")
+    io.println("u = ${u}")
+}
+
+// ============================================================================
+// Structs and Fields (Lines 116-120, 130-134, 145-149)
+// ============================================================================
+
+Point: {
+    x: f64,           // field (mutability is per-instance)
+    y: f64           // field
+}
+
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point
+}
+
+test_structs = () void {
+    io.println("=== Testing Structs ===")
+    
+    p = Point { x: 10.0, y: 20.0 }
+    io.println("Point: (${p.x}, ${p.y})")
+    
+    circ = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    io.println("Circle radius: ${circ.radius}")
+}
+
+// ============================================================================
+// Pattern Matching (Lines 352-361, 462-473)
+// ============================================================================
+
+test_pattern_matching = () void {
+    io.println("=== Testing Pattern Matching ===")
+    
+    // Boolean pattern matching
+    is_ready = true
+    is_ready ? {
+        io.println("System is ready!")
+    }
+    
+    // Full boolean pattern match
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data...") }
+        | false { io.println("Waiting for data...") }
+    
+    // Pattern matching with values
+    value = 42
+    value ?
+        | 42 { io.println("The answer!") }
+        | 0 { io.println("Zero") }
+        | _ { io.println("Something else") }
+}
+
+// ============================================================================
+// Loops and Ranges (Lines 432-459)
+// ============================================================================
+
+test_loops = () void {
+    io.println("=== Testing Loops ===")
+    
+    // Range iteration
+    io.println("Counting 0 to 4:")
+    (0..5).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Infinite loop with break
+    counter ::= 0
+    io.println("Loop with break:")
+    loop(() {
+        counter = counter + 1
+        io.println("  Count: ${counter}")
+        counter >= 3 ?
+            | true { break }
+            | false { }
+    })
+}
+
+// ============================================================================
+// Option Type (Lines 110, 462-473)
+// ============================================================================
+
+Option<T>: Some(T) | None
+
+test_option = () void {
+    io.println("=== Testing Option Type ===")
+    
+    maybe_value: Option<i32> = Some(42)
+    maybe_value ?
+        | Some(v) { io.println("Got value: ${v}") }
+        | None { io.println("No value") }
+    
+    empty: Option<i32> = None
+    empty ?
+        | Some(v) { io.println("Should not print: ${v}") }
+        | None { io.println("Empty as expected") }
+}
+
+// ============================================================================
+// Traits (Lines 124-143, 136-162)
+// ============================================================================
+
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    }
+})
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    }
+})
+
+test_traits = () void {
+    io.println("=== Testing Traits ===")
+    
+    circle = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 10.0
+    }
+    io.println("Circle area: ${circle.area()}")
+    io.println("Circle perimeter: ${circle.perimeter()}")
+    
+    rect = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        bottom_right: Point { x: 10.0, y: 5.0 }
+    }
+    io.println("Rectangle area: ${rect.area()}")
+    io.println("Rectangle perimeter: ${rect.perimeter()}")
+}
+
+// ============================================================================
+// Defer Statement (Lines 217, 310, 314, 379, 384, 416, 484)
+// ============================================================================
+
+test_defer = () void {
+    io.println("=== Testing Defer ===")
+    
+    io.println("Before defer statements")
+    
+    @this.defer(io.println("Cleanup 3 (last)"))
+    @this.defer(io.println("Cleanup 2"))
+    @this.defer(io.println("Cleanup 1 (first)"))
+    
+    io.println("Normal execution")
+    // Deferred statements execute here in LIFO order
+}
+
+// ============================================================================
+// Enums (Lines 165-182)
+// ============================================================================
+
+GameEntity: Player | Enemy | Powerup
+
+test_enums = () void {
+    io.println("=== Testing Enums ===")
+    
+    player = GameEntity.Player
+    enemy = GameEntity.Enemy
+    powerup = GameEntity.Powerup
+    
+    // Pattern matching on enums
+    player ?
+        | Player { io.println("Player entity detected") }
+        | _ { io.println("Not a player") }
+    
+    enemy ?
+        | Enemy { io.println("Enemy entity detected") }
+        | _ { io.println("Not an enemy") }
+    
+    powerup ?
+        | Powerup { io.println("Powerup entity detected") }
+        | _ { io.println("Not a powerup") }
+}
+
+// ============================================================================
+// String Operations (Lines 387-394)
+// ============================================================================
+
+test_strings = () void {
+    io.println("=== Testing Strings ===")
+    
+    name = "Zen"
+    version = 1
+    message = "Welcome to ${name} version ${version}!"
+    io.println(message)
+    
+    // String concatenation
+    part1 = "Hello"
+    part2 = "World"
+    combined = "${part1}, ${part2}!"
+    io.println(combined)
+}
+
+// ============================================================================
+// Main Function - Run all tests
+// ============================================================================
+
+main = () void {
+    io.println("============================================")
+    io.println("    ZEN LANGUAGE SPEC COMPLIANCE TEST")
+    io.println("============================================")
+    io.println("")
+    
+    test_variables()
+    io.println("")
+    
+    test_structs()
+    io.println("")
+    
+    test_pattern_matching()
+    io.println("")
+    
+    test_loops()
+    io.println("")
+    
+    test_option()
+    io.println("")
+    
+    test_traits()
+    io.println("")
+    
+    test_defer()
+    io.println("")
+    
+    test_enums()
+    io.println("")
+    
+    test_strings()
+    io.println("")
+    
+    io.println("============================================")
+    io.println("    ALL TESTS COMPLETED SUCCESSFULLY")
+    io.println("============================================")
+}

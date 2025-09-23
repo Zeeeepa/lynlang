@@ -1,0 +1,233 @@
+// Comprehensive test of working features from LANGUAGE_SPEC.zen
+// Testing only what currently works in the implementation
+
+{ io } = @std
+
+// ============================================================================
+// VARIABLES (Lines 9-10, 299-306)
+// ============================================================================
+test_variables = () void {
+    // Immutable assignments
+    x: i32 = 10      // immutable with type annotation
+    y = 20           // immutable with type inference
+    z: i32 = 30      // immutable with type annotation
+    
+    // Mutable assignments  
+    w :: i32 = 40    // mutable with type annotation
+    v ::= 50         // mutable with type inference
+    u :: i32 = 60    // mutable with type annotation
+    
+    io.println("Variables: x=${x}, y=${y}, z=${z}, w=${w}, v=${v}, u=${u}")
+}
+
+// ============================================================================
+// STRUCTS (Lines 116-120, 128-135, 145-149)
+// ============================================================================
+Point: {
+    x:: f64,         // mutable field
+    y:: f64 = 0.0    // with default value
+}
+
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point
+}
+
+test_structs = () void {
+    // Create structs with field initialization
+    p = Point { x: 1.5, y: 2.5 }
+    c = Circle { 
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 10.0
+    }
+    r = Rectangle {
+        top_left: Point { x: 0.0, y: 10.0 },
+        bottom_right: Point { x: 10.0, y: 0.0 }
+    }
+    
+    io.println("Point: (${p.x}, ${p.y})")
+    io.println("Circle: center=(${c.center.x}, ${c.center.y}), r=${c.radius}")
+    io.println("Rectangle: (${r.top_left.x}, ${r.top_left.y}) to (${r.bottom_right.x}, ${r.bottom_right.y})")
+}
+
+// ============================================================================
+// ENUMS (Lines 165-166, 171-182)
+// ============================================================================
+Status: Success | Failure
+Color: Red | Green | Blue
+
+GameEntity: Player | Enemy | Powerup
+
+test_enums = () void {
+    s = Status.Success
+    s ?
+        | Success { io.println("Status is Success") }
+        | Failure { io.println("Status is Failure") }
+    
+    color = Color.Green
+    color ?
+        | Red { io.println("Red selected") }
+        | Green { io.println("Green selected") }
+        | Blue { io.println("Blue selected") }
+    
+    entity = GameEntity.Player
+    entity ?
+        | Player { io.println("Entity: Player") }
+        | Enemy { io.println("Entity: Enemy") }
+        | Powerup { io.println("Entity: Powerup") }
+}
+
+// ============================================================================
+// PATTERN MATCHING (Lines 4, 349-362)
+// ============================================================================
+test_patterns = () void {
+    // Boolean patterns (no if/else!)
+    is_ready = true
+    is_ready ? {
+        io.println("Ready to start")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Processing data") }
+        | false { io.println("No data available") }
+    
+    // Numeric patterns
+    value = 42
+    value == 42 ?
+        | true { io.println("The answer!") }
+        | false { io.println("Not the answer") }
+}
+
+// ============================================================================
+// UFC - Uniform Function Call (Lines 5, 174-182)
+// ============================================================================
+double = (n: i32) i32 {
+    return n * 2
+}
+
+triple = (n: i32) i32 {
+    return n * 3
+}
+
+test_ufc = () void {
+    x = 10
+    
+    // Functions can be called as methods
+    doubled = x.double()
+    tripled = x.triple()
+    
+    io.println("UFC: ${x}.double() = ${doubled}")
+    io.println("UFC: ${x}.triple() = ${tripled}")
+}
+
+// ============================================================================  
+// LOOPS AND RANGES (Lines 12, 431-459)
+// ============================================================================
+test_loops = () void {
+    // Range iteration
+    io.println("Range 0..5:")
+    (0..5).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Infinite loop with break
+    io.println("Infinite loop with break:")
+    counter ::= 0
+    loop(() {
+        io.println("  Counter: ${counter}")
+        counter = counter + 1
+        counter >= 3 ? {
+            break
+        }
+    })
+}
+
+// ============================================================================
+// OPTION TYPE - No null! (Lines 8, 109-110, 461-473)
+// ============================================================================
+Option<T>: Some(T) | None
+
+test_option = () void {
+    // Some case
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("Option has value: ${v}") }
+        | None { io.println("Option is None") }
+    
+    // None case  
+    nothing: Option<i32> = None
+    nothing ?
+        | Some(v) { io.println("Unexpected value: ${v}") }
+        | None { io.println("Correctly None") }
+}
+
+// ============================================================================
+// DEFER (Lines 11, 217, 311-314, 379, 416, 484)
+// ============================================================================
+test_defer = () void {
+    io.println("Start of defer test")
+    @this.defer(io.println("Cleanup: end of scope"))
+    io.println("Middle of function")
+    @this.defer(io.println("Cleanup: second defer"))
+    io.println("About to exit")
+    // Defers execute in reverse order at scope exit
+}
+
+// ============================================================================
+// STRING INTERPOLATION
+// ============================================================================
+test_strings = () void {
+    name = "Zen"
+    version = 1
+    pi = 3.14159
+    
+    io.println("Language: ${name}")
+    io.println("Version: ${version}")
+    io.println("Pi: ${pi}")
+    
+    // Complex interpolation
+    result = 10
+    io.println("The result of 5 * 2 is ${result}")
+}
+
+// ============================================================================
+// MAIN - Demonstrate all working features
+// ============================================================================
+main = () void {
+    io.println("=== ZEN LANGUAGE SPEC - WORKING FEATURES ===\n")
+    
+    io.println("1. Variables (immutable/mutable, forward declarations):")
+    test_variables()
+    
+    io.println("\n2. Structs with fields:")
+    test_structs()
+    
+    io.println("\n3. Enums (sum types):")
+    test_enums()
+    
+    io.println("\n4. Pattern Matching (no if/else/switch!):")
+    test_patterns()
+    
+    io.println("\n5. UFC (Uniform Function Call):")
+    test_ufc()
+    
+    io.println("\n6. Loops and Ranges:")
+    test_loops()
+    
+    io.println("\n7. Option Type (no null!):")
+    test_option()
+    
+    io.println("\n8. Defer for cleanup:")
+    test_defer()
+    
+    io.println("\n9. String Interpolation:")
+    test_strings()
+    
+    io.println("\n=== ALL WORKING FEATURES TESTED ===")
+}

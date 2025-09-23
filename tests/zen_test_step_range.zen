@@ -1,0 +1,24 @@
+// Test step ranges
+{ io } = @std
+
+main = () void {
+    io.println("Testing step ranges:")
+    
+    // Test regular range
+    io.println("Range 0..5:")
+    (0..5).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Test step range
+    io.println("Range 0..10 step 2:")
+    (0..10).step(2).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    // Test step range with larger step
+    io.println("Range 0..20 step 5:")
+    (0..20).step(5).loop((i) {
+        io.println("  ${i}")
+    })
+}

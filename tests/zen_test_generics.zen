@@ -1,0 +1,28 @@
+// Test generic functions with constraints
+{ io } = @std
+
+// Trait definition
+Printable: {
+    display: (self) string
+}
+
+// Test struct
+Person: {
+    name: string
+}
+
+Person.implements(Printable, {
+    display = (self) string {
+        return "Person: ${self.name}"
+    }
+})
+
+// Generic function with constraint
+print_item<T: Printable>(item: T) void {
+    io.println(item.display())
+}
+
+main = () void {
+    person = Person { name: "Alice" }
+    print_item(person)
+}

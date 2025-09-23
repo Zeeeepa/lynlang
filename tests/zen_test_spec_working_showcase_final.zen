@@ -1,0 +1,150 @@
+// Working features from LANGUAGE_SPEC.zen
+// This demonstrates what's currently implemented
+
+{ io, math } = @std
+
+// Type definitions
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+// Struct with mutable fields
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+// Trait definition
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64
+}
+
+// Circle struct
+Circle: {
+    center: Point,
+    radius: f64
+}
+
+// Implement trait for Circle
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    }
+})
+
+// UFC helper functions
+double = (n: i32) i32 {
+    return n * 2
+}
+
+triple = (n: i32) i32 {
+    return n * 3
+}
+
+main = () void {
+    io.println("=== Working LANGUAGE_SPEC.zen Features ===")
+    io.println("")
+    
+    // Variable declarations (all forms from spec)
+    io.println("== Variables ==")
+    x = 10           // Immutable
+    y: i32 = 20      // Immutable with type
+    z ::= 30         // Mutable
+    z = z + 5
+    io.println("x=${x}, y=${y}, z=${z}")
+    io.println("")
+    
+    // Pattern matching (no if/else keywords!)
+    io.println("== Pattern Matching ==")
+    value = 42
+    value == 42 ? {
+        io.println("Found the answer!")
+    }
+    
+    is_ready = false
+    is_ready ?
+        | true { io.println("Ready") }
+        | false { io.println("Not ready") }
+    io.println("")
+    
+    // Structs with mutable fields
+    io.println("== Structs ==")
+    p = Point { x: 1.0, y: 2.0 }
+    io.println("Point: (${p.x}, ${p.y})")
+    p.x = 5.0  // Mutate field
+    io.println("After mutation: (${p.x}, ${p.y})")
+    io.println("")
+    
+    // Traits and methods
+    io.println("== Traits ==")
+    c = Circle {
+        center: Point { x: 0.0, y: 0.0 },
+        radius: 5.0
+    }
+    io.println("Circle area: ${c.area()}")
+    io.println("Circle perimeter: ${c.perimeter()}")
+    io.println("")
+    
+    // Option type (no null!)
+    io.println("== Option Type ==")
+    maybe: Option<f64> = Some(3.14)
+    maybe ?
+        | Some(v) { io.println("Has value: ${v}") }
+        | None { io.println("No value") }
+    
+    empty: Option<f64> = None
+    empty ?
+        | Some(v) { io.println("Value: ${v}") }
+        | None { io.println("Empty option") }
+    io.println("")
+    
+    // Result type
+    io.println("== Result Type ==")
+    ok_result: Result<i32, String> = Ok(100)
+    ok_result ?
+        | Ok(v) { io.println("Success: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    err_result: Result<i32, String> = Err("Failed")
+    err_result ?
+        | Ok(v) { io.println("Success: ${v}") }
+        | Err(e) { io.println("Error: ${e}") }
+    io.println("")
+    
+    // Loops
+    io.println("== Loops ==")
+    io.println("Range loop:")
+    (0..3).loop((i) {
+        io.println("  ${i}")
+    })
+    
+    count ::= 0
+    io.println("Infinite loop:")
+    loop(() {
+        count = count + 1
+        io.println("  Count: ${count}")
+        count >= 3 ?
+            | true { break }
+            | false { }
+    })
+    io.println("")
+    
+    // UFC (Uniform Function Call)
+    io.println("== UFC ==")
+    result = 5.double()
+    io.println("5.double() = ${result}")
+    result2 = 4.triple()
+    io.println("4.triple() = ${result2}")
+    io.println("")
+    
+    // @this.defer() for cleanup
+    io.println("== Defer ==")
+    @this.defer(io.println("Cleanup executed!"))
+    io.println("Main execution...")
+    io.println("")
+    
+    io.println("=== All Working Features Demonstrated ===")
+}

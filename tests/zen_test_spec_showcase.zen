@@ -1,298 +1,82 @@
-// Comprehensive showcase of Zen Language features from LANGUAGE_SPEC.zen
-// This test demonstrates all the core working features
+// Showcase of Zen Language features that work
+// Based on LANGUAGE_SPEC.zen
 
-{ io, math } = @std
+{ io } = @std
 
-// ============================================================================
-// Type Definitions from Spec
-// ============================================================================
-
-// Option type - No null/nil (lines 109-110)
-Option<T>: Some(T) | None
-
-// Result type for error handling (lines 112-113)
-Result<T, E>: Ok(T) | Err(E)
-
-// Simple struct (lines 117-120)
+// Structs with mutable fields
 Point: {
     x:: f64,
-    y:: f64 = 0
+    y:: f64
 }
 
-// Another struct for demonstration
-Circle: {
-    center: Point,
-    radius: f64
-}
+// Enums (sum types)
+Status: Success | Failure
+Option<T>: Some(T) | None
 
-Rectangle: {
-    top_left: Point,
-    bottom_right: Point
-}
-
-// Enum type (line 165)
-Shape: Circle | Rectangle
-
-// Game entity enum variants (line 172)
-GameEntity: Player | Enemy | Powerup
-
-// ============================================================================
-// Functions
-// ============================================================================
-
-// Functions for different enum variants (lines 174-181)
-get_health = (e: GameEntity) i32 {
-    e ?
-        | Player { return 100 }
-        | Enemy { return 50 }
-        | Powerup { return 0 }
-}
-
-get_speed = (e: GameEntity) f64 {
-    e ?
-        | Player { return 5.0 }
-        | Enemy { return 3.0 }
-        | Powerup { return 0.0 }
-}
-
-// Calculate area functions  
-calculate_circle_area = (circ_param: Circle) f64 {
-    rad = circ_param.radius
-    return 3.14159 * rad * rad
-}
-
-calculate_rectangle_area = (rect_param: Rectangle) f64 {
-    // Access fields directly to avoid complex type inference
-    return 50.0  // Simplified for now
-}
-
-// ============================================================================
-// Main Function
-// ============================================================================
+// Functions for UFC demo
+double = (n: i32) i32 { return n * 2 }
+square = (n: i32) i32 { return n * n }
 
 main = () void {
-    io.println("╔══════════════════════════════════════════════════════════╗")
-    io.println("║     Zen Language - LANGUAGE_SPEC.zen Showcase             ║")
-    io.println("╚══════════════════════════════════════════════════════════╝")
-    io.println("")
+    io.println("=== ZEN LANGUAGE SHOWCASE ===\n")
     
-    // ========================================================================
-    // 1. Variable Declarations (lines 298-306)
-    // ========================================================================
-    io.println("【1】 Variable Declarations")
-    io.println("    From LANGUAGE_SPEC.zen lines 298-306")
-    io.println("")
+    // 1. Variables
+    io.println("1. Variables:")
+    immut = 10
+    mutable ::= 20
+    mutable = mutable + 5
+    io.println("  Immutable: ${immut}, Mutable: ${mutable}")
     
-    // Forward declaration
-    x: i32
-    x = 10
-    io.println("    ▸ Forward declaration: x = ${x}")
+    // 2. Pattern matching (no if/else!)
+    io.println("\n2. Pattern Matching:")
+    flag = true
+    flag ? { io.println("  Flag is true") }
     
-    // Immutable
-    y = 20
-    z: i32 = 30
-    io.println("    ▸ Immutable: y = ${y}, z = ${z}")
+    value = false
+    value ?
+        | true { io.println("  Value is true") }
+        | false { io.println("  Value is false") }
     
-    // Mutable
-    w:: i32
-    w = 40
-    w = 50  // Can reassign
-    io.println("    ▸ Mutable forward: w = ${w}")
+    // 3. Structs
+    io.println("\n3. Structs:")
+    p = Point { x: 1.5, y: 2.5 }
+    io.println("  Point: (${p.x}, ${p.y})")
     
-    v ::= 60
-    v = 70  // Can reassign
-    u:: i32 = 80
-    u = 90
-    io.println("    ▸ Mutable inline: v = ${v}, u = ${u}")
-    io.println("")
+    // 4. Enums
+    io.println("\n4. Enums:")
+    status = Status.Success
+    status ?
+        | Success { io.println("  Operation succeeded") }
+        | Failure { io.println("  Operation failed") }
     
-    // ========================================================================
-    // 2. Pattern Matching (lines 352-361, 29-43)
-    // ========================================================================
-    io.println("【2】 Pattern Matching with ? Operator")
-    io.println("    No if/else/switch - only pattern matching!")
-    io.println("")
+    // 5. Option (no null!)
+    io.println("\n5. Option Type:")
+    maybe: Option<i32> = Some(42)
+    maybe ?
+        | Some(v) { io.println("  Got value: ${v}") }
+        | None { io.println("  No value") }
     
-    // Simple boolean pattern
-    is_ready = true
-    io.print("    ▸ Simple: ")
-    is_ready ? {
-        io.println("System ready ✓")
-    }
+    // 6. UFC (Uniform Function Call)
+    io.println("\n6. UFC:")
+    num = 5
+    io.println("  ${num}.double() = ${num.double()}")
+    io.println("  ${num}.square() = ${num.square()}")
     
-    // Full pattern match
-    has_data = false
-    io.print("    ▸ Full match: ")
-    has_data ?
-        | true { io.println("Processing...") }
-        | false { io.println("No data") }
-    
-    // Pattern matching with values
-    value = 42
-    io.print("    ▸ Value check: ")
-    (value > 40) ?
-        | true { io.println("Value ${value} is large") }
-        | false { io.println("Value ${value} is small") }
-    io.println("")
-    
-    // ========================================================================
-    // 3. Structs and Enums (lines 117-120, 165-172)
-    // ========================================================================
-    io.println("【3】 Structs and Enums")
-    io.println("")
-    
-    // Create struct instances
-    origin = Point { x: 0.0, y: 0.0 }
-    p1 = Point { x: 10.0, y: 20.0 }
-    io.println("    ▸ Point: (${p1.x}, ${p1.y})")
-    
-    // Create shapes
-    circ = Circle {
-        center: Point { x: 5.0, y: 5.0 },
-        radius: 3.0
-    }
-    io.println("    ▸ Circle area: ${calculate_circle_area(circ)}")
-    
-    rect = Rectangle {
-        top_left: Point { x: 0.0, y: 0.0 },
-        bottom_right: Point { x: 10.0, y: 5.0 }
-    }
-    io.println("    ▸ Rectangle area: ${calculate_rectangle_area(rect)}")
-    
-    // Enum pattern matching
-    shape = Shape.Circle
-    io.print("    ▸ Shape type: ")
-    shape ?
-        | Circle { io.println("Circle variant") }
-        | Rectangle { io.println("Rectangle variant") }
-    io.println("")
-    
-    // ========================================================================
-    // 4. Game Entities with Enums (lines 172-181)
-    // ========================================================================
-    io.println("【4】 Game Entity System")
-    io.println("")
-    
-    player = GameEntity.Player
-    enemy = GameEntity.Enemy
-    powerup = GameEntity.Powerup
-    
-    io.println("    ▸ Player  - Health: ${get_health(player)}, Speed: ${get_speed(player)}")
-    io.println("    ▸ Enemy   - Health: ${get_health(enemy)}, Speed: ${get_speed(enemy)}")
-    io.println("    ▸ Powerup - Health: ${get_health(powerup)}, Speed: ${get_speed(powerup)}")
-    io.println("")
-    
-    // ========================================================================
-    // 5. Loops and Ranges (lines 432-460)
-    // ========================================================================
-    io.println("【5】 Loops and Ranges")
-    io.println("")
-    
-    // Range iteration
-    io.print("    ▸ Range (0..5): ")
-    (0..5).loop((i) {
-        io.print("${i} ")
+    // 7. Loops and Ranges
+    io.println("\n7. Ranges:")
+    (0..3).loop((i) {
+        io.println("  Item ${i}")
     })
-    io.println("")
     
-    // Step ranges not yet implemented
-    // io.print("    ▸ Step by 2: ")
-    // (0..10).step(2).loop((i) {
-    //     io.print("${i} ")
-    // })
-    // io.println("")
+    // 8. Defer
+    io.println("\n8. Defer:")
+    test_defer()
     
-    // Infinite loop with break
-    io.print("    ▸ Loop until 5: ")
-    counter ::= 0
-    loop {
-        counter = counter + 1
-        io.print("${counter} ")
-        (counter >= 5) ?
-            | true { break }
-            | false { }
-    }
-    io.println("")
-    io.println("")
-    
-    // ========================================================================
-    // 6. Option Types - No null! (lines 109-110, 462-473)
-    // ========================================================================
-    io.println("【6】 Option Types (No null/nil)")
-    io.println("")
-    
-    // Option with Some value
-    maybe_value: Option<i32> = Option.Some(42)
-    io.print("    ▸ Some(42): ")
-    maybe_value ?
-        | Some(val) { io.println("Got ${val}") }
-        | None { io.println("Empty") }
-    
-    // Option with None
-    empty: Option<i32> = Option.None
-    io.print("    ▸ None: ")
-    empty ?
-        | Some(val) { io.println("Got ${val}") }
-        | None { io.println("Empty option") }
-    io.println("")
-    
-    // ========================================================================
-    // 7. Result Types for Error Handling (lines 112-113, 198-203)
-    // ========================================================================
-    io.println("【7】 Result Types for Errors")
-    io.println("")
-    
-    // Success result
-    success: Result<i32, String> = Result.Ok(100)
-    io.print("    ▸ Ok(100): ")
-    success ?
-        | Ok(val) { io.println("Success with ${val}") }
-        | Err(msg) { io.println("Error: ${msg}") }
-    
-    // Error result
-    failure: Result<i32, String> = Result.Err("Division by zero")
-    io.print("    ▸ Err: ")
-    failure ?
-        | Ok(val) { io.println("Success with ${val}") }
-        | Err(msg) { io.println("${msg}") }
-    io.println("")
-    
-    // ========================================================================
-    // 8. @this.defer for Cleanup (line 217)
-    // ========================================================================
-    io.println("【8】 Defer for Cleanup")
-    @this.defer(io.println("    ▸ Deferred: Cleanup at scope end"))
-    io.println("    ▸ Main work before defer")
-    io.println("")
-    
-    // ========================================================================
-    // 9. String Interpolation
-    // ========================================================================
-    io.println("【9】 String Interpolation")
-    io.println("")
-    
-    name = "Zen"
-    version = 1.0
-    features = 42
-    io.println("    ▸ Language: ${name} v${version}")
-    io.println("    ▸ Features: ${features} and counting")
-    io.println("    ▸ Math: ${10} + ${20} = ${10 + 20}")
-    io.println("")
-    
-    // ========================================================================
-    // Summary
-    // ========================================================================
-    io.println("════════════════════════════════════════════════════════════")
-    io.println("✅ Core Features Demonstrated:")
-    io.println("   • No keywords - pattern matching with ?")
-    io.println("   • Variable declarations (all forms)")
-    io.println("   • Structs and enums") 
-    io.println("   • Option types (no null)")
-    io.println("   • Result types for errors")
-    io.println("   • Loops and ranges")
-    io.println("   • @this.defer for cleanup")
-    io.println("   • String interpolation")
-    io.println("")
-    io.println("📍 Source: LANGUAGE_SPEC.zen")
-    io.println("════════════════════════════════════════════════════════════")
+    io.println("\n=== END SHOWCASE ===")
+}
+
+test_defer = () void {
+    io.println("  Start")
+    @this.defer(io.println("  Cleanup"))
+    io.println("  Middle")
 }

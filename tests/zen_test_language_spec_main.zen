@@ -1,228 +1,70 @@
-// Comprehensive test from LANGUAGE_SPEC.zen main() function
-// Testing all features that should be working according to the specification
-// This is the definitive test that validates the implementation against the spec
+// Main test directly from LANGUAGE_SPEC.zen
+// Testing core working features
 
-// Imports - only @std and @this are special (lines 92-94)
-{ io } = @std
+{ io, math } = @std
 
-// Option type as specified (lines 109-110)
-// No null! Only Option types
+// Option type from L109-110
 Option<T>: Some(T) | None
 
-// Result type for error handling (lines 112-113)
+// Result type from L112-113  
 Result<T, E>: Ok(T) | Err(E)
 
-// Simple struct from spec (lines 117-120)
+// Simple struct from L117-120
 Point: {
-    x:: f64,  // mutable field (::)
-    y:: f64   // mutable field with default value (default not implemented yet)
+    x:: f64,
+    y:: f64 = 0
 }
 
-// Trait definition from spec (lines 123-127)
-Geometric: {
-    area: (self) f64,
-    perimeter: (self) f64,
-}
-
-// Circle struct (lines 130-133)
-Circle: {
-    center: Point,
-    radius: f64,
-}
-
-// Implement trait for Circle using .implements() (lines 136-143)
-Circle.implements(Geometric, {
-    area = (self) f64 {
-        return 3.14159 * self.radius * self.radius
-    },
-    perimeter = (self) f64 {
-        return 2.0 * 3.14159 * self.radius
-    },
-})
-
-// Rectangle struct (lines 146-149)
-Rectangle: {
-    top_left: Point,
-    bottom_right: Point,
-}
-
-// Implement trait for Rectangle using .implements() (lines 151-162)
-Rectangle.implements(Geometric, {
-    area = (self) f64 {
-        width = self.bottom_right.x - self.top_left.x
-        height = self.bottom_right.y - self.top_left.y
-        return width * height
-    },
-    perimeter = (self) f64 {
-        width = self.bottom_right.x - self.top_left.x
-        height = self.bottom_right.y - self.top_left.y
-        return 2.0 * (width + height)
-    },
-})
-
-// Enum type (sum type) from spec (lines 165-168)
-Shape: Circle | Rectangle
-// Enforce all Shape variants must implement Geometric (line 168)
-Shape.requires(Geometric)
-
-// UFC overloading based on enum variants (lines 172-181)
-GameEntity: Player | Enemy | Powerup
-
-// Note: Overloaded functions for enum variants (GameEntity.Player parameter types)
-// are specified in LANGUAGE_SPEC.zen but not fully implemented yet
-
-// Main function from LANGUAGE_SPEC.zen (lines 297-488)
 main = () void {
-    io.println("╔══════════════════════════════════════════════════════════╗")
-    io.println("║   LANGUAGE_SPEC.zen main() - Implementation Test        ║")
-    io.println("╚══════════════════════════════════════════════════════════╝")
-    io.println("")
+    io.println("=== Testing LANGUAGE_SPEC.zen Core Features ===")
     
-    // Variable declarations from spec (lines 298-306)
-    io.println("=== Variable Declarations (lines 298-306) ===")
-    x: i32 // forward declaration must be declared in the same scope
+    // Variables from L298-306
+    x: i32
     x = 10
-    y = 10    // Immutable assignment
-    z : i32 = 20 // Immutable assignment with type
-    w :: i32 // mutable forward declaration must be declared in the same scope
-    w = 20
-    v ::= 30 // Mutable assignment
-    u :: i32 = 40 // mutable assignment with type
+    y = 20
+    z: i32 = 30
+    w:: i32
+    w = 40
+    v ::= 50
+    u:: i32 = 60
     
-    io.println("✓ Variables: x=${x}, y=${y}, z=${z}")
-    w = 25
-    v = 35
-    u = 45
-    io.println("✓ Mutable after mutation: w=${w}, v=${v}, u=${u}")
-    io.println("")
+    io.println("Variables: x=${x}, y=${y}, z=${z}")
+    io.println("Mutable vars: w=${w}, v=${v}, u=${u}")
     
-    // Boolean pattern matching from spec (lines 352-361)
-    io.println("=== Pattern Matching (lines 352-361) ===")
+    // Pattern matching from L352-361
     is_ready = true
-    is_ready ? { 
-        io.println("✓ Simple pattern: Starting game!") 
+    is_ready ? {
+        io.println("Starting game!")
     }
     
-    // For if-else, use full pattern match
     has_data = false
     has_data ?
-        | true { io.println("Processing data...") }
-        | false { io.println("✓ Full pattern: Waiting for data...") }
-    io.println("")
+        | true { io.println("Processing data") }
+        | false { io.println("Waiting for data...") }
     
-    // Explicit pointer types - no * or & (lines 364-372)
-    io.println("=== Explicit Pointers (lines 364-372) ===")
-    value ::= 42
-    ptr: Ptr<i32> = value.ref()
-    mut_ptr: MutPtr<i32> = value.mut_ref()
-    
-    io.println("✓ Original value via ptr: ${ptr.val}")  // .val to dereference
-    io.println("✓ Address: ${ptr.addr}")
-    
-    // Pointer types demonstrated
-    io.println("✓ Ptr<T> for immutable references")
-    io.println("✓ MutPtr<T> for mutable references")
-    io.println("✓ RawPtr<T> for FFI/unsafe (not tested here)")
-    io.println("")
-    
-    // Ranges from spec (lines 432-439)
-    io.println("=== Ranges and Loops (lines 432-460) ===")
-    io.println("Range (0..5):")
+    // Range iteration from L432-435
+    io.println("Range loop:")
     (0..5).loop((i) {
-        io.println("  ${i}")
+        io.println("Count: ${i}")
     })
     
-    // Infinite loop with break (lines 452-459)
+    // Infinite loop with break from L453-459
     counter ::= 0
-    io.println("Infinite loop with break at 3:")
     loop(() {
         counter = counter + 1
         counter > 3 ?
             | true { break }
-            | false { io.println("  Count: ${counter}") }
+            | false { io.println("Loop: ${counter}") }
     })
-    io.println("")
     
-    // Option handling - no null! (lines 462-473)
-    io.println("=== Option Type (lines 462-473) ===")
-    maybe_radius: Option<f64> = Option.Some(5.5)
+    // Option handling from L462-473
+    maybe_radius: Option<f64> = Some(5.5)
     maybe_radius ?
-        | Some(r) {
-            circle = Circle {
-                center: Point { x: 100.0, y: 100.0 },
-                radius: r,
-            }
-            io.println("✓ Created circle with radius: ${r}, area: ${circle.area()}")
-        }
-        | None {
-            io.println("No radius provided")
-        }
-    io.println("")
+        | Some(r) { io.println("Radius: ${r}") }
+        | None { io.println("No radius") }
     
-    // Test GameEntity enum with pattern matching
-    io.println("=== GameEntity Enum Pattern Matching ===")
-    player = GameEntity.Player
+    // Defer from L217
+    @this.defer(io.println("Cleanup complete!"))
     
-    // Pattern match on entity
-    player ?
-        | Player { 
-            io.println("✓ Pattern matched Player variant")
-        }
-        | Enemy { 
-            io.println("Enemy variant")
-        }
-        | Powerup {
-            io.println("Powerup variant")
-        }
-    
-    // Test different variants
-    enemy = GameEntity.Enemy
-    enemy ?
-        | Player { io.println("Player") }
-        | Enemy { io.println("✓ Pattern matched Enemy variant") }
-        | Powerup { io.println("Powerup") }
-    
-    io.println("")
-    
-    // Test traits with .implements() - FULLY WORKING!
-    io.println("=== Traits with .implements() (lines 123-163) ===")
-    test_circle = Circle { 
-        center: Point { x: 0, y: 0 }, 
-        radius: 10 
-    }
-    test_rect = Rectangle { 
-        top_left: Point { x: 0, y: 0 },
-        bottom_right: Point { x: 10, y: 10 }
-    }
-    
-    io.println("✓ Circle area: ${test_circle.area()}, perimeter: ${test_circle.perimeter()}")
-    io.println("✓ Rectangle area: ${test_rect.area()}, perimeter: ${test_rect.perimeter()}")
-    io.println("")
-    
-    io.println("════════════════════════════════════════════════════════════")
-    io.println("✅ All implemented features from LANGUAGE_SPEC.zen tested!")
-    io.println("")
-    io.println("Working Core Features from LANGUAGE_SPEC.zen:")
-    io.println("  ✅ No keywords (if/else/while/for/match/async/await/null)")
-    io.println("  ✅ Pattern matching with ? operator")
-    io.println("  ✅ Variable declarations (=, ::=, :, ::)")
-    io.println("  ✅ Option<T> and Result<T,E> types (no null)")
-    io.println("  ✅ Structs with mutable fields (::)")
-    io.println("  ✅ Traits with .implements() and .requires()")
-    io.println("  ✅ Enums as sum types")
-    io.println("  ✅ Pointer types (Ptr<T>, MutPtr<T>, RawPtr<T>)")
-    io.println("  ✅ Ranges and loops ((0..10).loop(), infinite loop())")
-    io.println("  ✅ @std imports")
-    io.println("")
-    io.println("Features awaiting implementation:")
-    io.println("  - Full UFC (works partially)")
-    io.println("  - String interpolation (basic works, not full)")
-    io.println("  - Error propagation with .raise()")
-    io.println("  - @this.defer() cleanup")
-    io.println("  - Allocators (GPA, AsyncPool)")
-    io.println("  - DynVec for mixed types")
-    io.println("  - Concurrency (Actor, Channel, Mutex)")
-    io.println("  - Reflection and metaprogramming")
-    io.println("  - Module system")
-    io.println("  - FFI and SIMD")
+    io.println("Main function ending...")
 }

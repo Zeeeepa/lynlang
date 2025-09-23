@@ -1,303 +1,183 @@
-// Comprehensive test suite for LANGUAGE_SPEC.zen
-// This test validates all working features from the spec
-
-{ io } = @std
-
 // ============================================================================
-// Core Types from LANGUAGE_SPEC.zen
+// Complete test from LANGUAGE_SPEC.zen main function (lines 297-489)
+// This file tests all core features that should work
 // ============================================================================
 
-// Option type (line 110-111)
+// Imports from L92-107
+{ io, math } = @std
+
+// Type definitions from L109-113
 Option<T>: Some(T) | None
-
-// Result type (line 113-114)
 Result<T, E>: Ok(T) | Err(E)
 
-// ============================================================================
-// Structs and Traits (lines 117-163)
-// ============================================================================
-
-// Simple struct (lines 117-121)
+// Simple struct from L117-120
 Point: {
     x:: f64,
-    y:: f64 = 0.0
+    y:: f64 = 0
 }
 
-// Trait definition (lines 124-127)
+// Trait definition from L123-127
 Geometric: {
     area: (self) f64,
-    perimeter: (self) f64,
+    perimeter: (self) f64
 }
 
-// Circle struct (lines 130-133)
+// Circle struct from L130-133
 Circle: {
     center: Point,
-    radius: f64,
+    radius: f64
 }
 
-// Implement trait for Circle (lines 135-143)
+// Implement trait for Circle from L136-143
 Circle.implements(Geometric, {
     area = (self) f64 {
-        return 3.14159 * self.radius * self.radius
+        return math.pi * self.radius * self.radius
     },
     perimeter = (self) f64 {
-        return 2.0 * 3.14159 * self.radius
-    },
+        return 2.0 * math.pi * self.radius
+    }
 })
 
-// Rectangle struct (lines 146-149)
+// Rectangle from L146-149
 Rectangle: {
     top_left: Point,
-    bottom_right: Point,
+    bottom_right: Point
 }
 
-// Implement trait for Rectangle (lines 151-162)
+// Implement trait for Rectangle from L151-162
 Rectangle.implements(Geometric, {
     area = (self) f64 {
-        // Simplified implementation
-        return 200.0  // 20 * 10
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
     },
     perimeter = (self) f64 {
-        // Simplified implementation
-        return 60.0  // 2 * (20 + 10)
-    },
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    }
 })
 
-// Enum type (line 165-166)
+// Enum type from L165-166
 Shape: Circle | Rectangle
-// Shape.requires(Geometric) // TODO: Implement .requires() checking
 
-// ============================================================================
-// UFC Demonstration
-// ============================================================================
+// GameEntity enum from L171
+GameEntity: Player | Enemy | Powerup
 
-// UFC functions
-double = (n: i32) i32 {
-    return n * 2
+// UFC overloaded functions from L174-181
+get_health = (e: GameEntity.Player) u32 { return 100 }
+get_health = (e: GameEntity.Enemy) u32 { return 50 }
+get_health = (e: GameEntity.Powerup) u32 { return 0 }
+
+get_speed = (e: GameEntity.Player) f64 { return 5.0 }
+get_speed = (e: GameEntity.Enemy) f64 { return 3.0 }
+get_speed = (e: GameEntity.Powerup) f64 { return 0.0 }
+
+// Generic function from L184-187
+print_area<T: Geometric>(shape: T) void {
+    io.println("Area: ${shape.area()}")
 }
 
-triple = (n: i32) i32 {
-    return n * 3
+// Parse radius function from L199-203
+parse_radius = (s: string) Result<f64, string> {
+    // Simplified version - just return Ok for demo
+    return Ok(3.14)
 }
 
-add = (a: i32, b: i32) i32 {
-    return a + b
-}
+// Main function from L297-489
+main = () void {
+    // Variable declarations from L299-306
+    x: i32
+    x = 10
+    y = 10
+    z: i32 = 20
+    w:: i32
+    w = 20
+    v ::= 30
+    u:: i32 = 40
 
-// ============================================================================
-// Test Functions
-// ============================================================================
-
-test_variables = () void {
-    io.println("\n=== 1. Variable Declarations (All 6 Forms) ===")
+    io.println("Variables: x=${x}, y=${y}, z=${z}, w=${w}, v=${v}, u=${u}")
     
-    // All forms from lines 298-306
-    x: i32              // forward declaration
-    x = 10              
-    y = 20              // immutable inference
-    z: i32 = 30         // immutable with type
-    w:: i32             // mutable forward declaration
-    w = 40              
-    v ::= 50            // mutable inference
-    u:: i32 = 60        // mutable with type
+    // Defer statement from L314
+    @this.defer(io.println("Cleanup complete!"))
     
-    io.println("  Immutable: x=${x}, y=${y}, z=${z}")
-    
-    // Test mutation
-    v = 55
-    u = 65
-    w = 45
-    io.println("  Mutable after change: v=${v}, u=${u}, w=${w}")
-}
-
-test_ufc = () void {
-    io.println("\n=== 2. UFC (Uniform Function Call) ===")
-    
-    // Traditional calls
-    result1 = double(5)
-    io.println("  double(5) = ${result1}")
-    
-    // UFC style
-    result2 = 5.double()
-    io.println("  5.double() = ${result2}")
-    
-    // Chaining
-    result3 = 5.double().triple()
-    io.println("  5.double().triple() = ${result3}")
-    
-    // Multi-parameter UFC
-    result4 = 10.add(20)
-    io.println("  10.add(20) = ${result4}")
-}
-
-test_pattern_matching = () void {
-    io.println("\n=== 3. Pattern Matching with ? ===")
-    
-    // Boolean short form (line 352)
+    // Pattern matching from L352-361
     is_ready = true
     is_ready ? {
-        io.println("  Boolean short form: Ready!")
+        io.println("Starting game!")
     }
     
-    // Full pattern (lines 358-361)
     has_data = false
     has_data ?
-        | true { io.println("  Has data") }
-        | false { io.println("  Full pattern: No data") }
+        | true { io.println("Processing data") }
+        | false { io.println("Waiting for data...") }
     
-    // Option pattern (lines 462-473)
-    maybe: Option<i32> = Some(42)
-    maybe ?
-        | Some(val) { io.println("  Option: Got value ${val}") }
-        | None { io.println("  Option: Got None") }
+    // Create shapes from L364-370
+    circle = Circle { center: Point { x: 100, y: 100 }, radius: 50 }
+    io.println("Circle area: ${circle.area()}")
     
-    // Result pattern
-    result: Result<i32, string> = Ok(100)
-    result ?
-        | Ok(val) { io.println("  Result: Success with ${val}") }
-        | Err(e) { io.println("  Result: Error ${e}") }
-}
-
-test_defer = () void {
-    io.println("\n=== 4. @this.defer for Cleanup ===")
-    io.println("  Starting function")
-    @this.defer(io.println("  Deferred: Cleaning up at exit"))
-    io.println("  Doing work...")
-    io.println("  More work...")
-}
-
-test_ranges_and_loops = () void {
-    io.println("\n=== 5. Ranges and Loops ===")
+    // Create rectangle
+    rect = Rectangle {
+        top_left: Point { x: 0, y: 0 },
+        bottom_right: Point { x: 50, y: 50 }
+    }
+    io.println("Rectangle area: ${rect.area()}")
+    io.println("Rectangle perimeter: ${rect.perimeter()}")
     
-    // Range iteration (lines 432-434)
-    io.println("  Range (0..5):")
-    (0..5).loop((i) {
-        io.println("    ${i}")
+    // Range iterations from L432-435
+    io.println("Counting from 0 to 9:")
+    (0..10).loop((i) {
+        io.println("Count: ${i}")
     })
     
-    // Infinite loop with break (lines 453-459)
-    io.println("  Infinite loop with break at 3:")
+    // Infinite loop with break from L453-459
     counter ::= 0
     loop(() {
         counter = counter + 1
-        counter > 3 ?
+        counter > 10 ?
             | true { break }
-            | false { io.println("    Count: ${counter}") }
+            | false { 
+                counter < 3 ? {
+                    io.println("Counter: ${counter}")
+                }
+            }
     })
-}
-
-test_structs_and_enums = () void {
-    io.println("\n=== 6. Structs and Enums ===")
     
-    // Create Point
-    p = Point { x: 10.0, y: 20.0 }
-    x_val = p.x
-    y_val = p.y
-    io.println("  Point: (${x_val}, ${y_val})")
+    // Option handling from L462-473
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            io.println("Creating circle with radius: ${r}")
+            c = Circle {
+                center: Point { x: 100.0, y: 100.0 },
+                radius: r
+            }
+            io.println("Created circle with area: ${c.area()}")
+        }
+        | None {
+            io.println("No radius provided")
+        }
     
-    // Mutate mutable fields
-    p.x = 15.0
-    p.y = 25.0
-    x_val2 = p.x
-    y_val2 = p.y
-    io.println("  Point after mutation: (${x_val2}, ${y_val2})")
+    // Test with None
+    empty: Option<f64> = None
+    empty ?
+        | Some(v) { io.println("Has value: ${v}") }
+        | None { io.println("Empty option") }
     
-    // Create Circle
-    c = Circle {
-        center: Point { x: 0.0, y: 0.0 },
-        radius: 5.0
-    }
-    r = c.radius
-    io.println("  Circle radius: ${r}")
-}
-
-test_traits = () void {
-    io.println("\n=== 7. Traits (.implements) ===")
+    // GameEntity tests
+    player = GameEntity.Player
+    enemy = GameEntity.Enemy
     
-    // Create shapes
-    circle = Circle {
-        center: Point { x: 0.0, y: 0.0 },
-        radius: 10.0
-    }
+    io.println("Player health: ${player.get_health()}")
+    io.println("Enemy health: ${enemy.get_health()}")
+    io.println("Player speed: ${player.get_speed()}")
+    io.println("Enemy speed: ${enemy.get_speed()}")
     
-    rect = Rectangle {
-        top_left: Point { x: 0.0, y: 0.0 },
-        bottom_right: Point { x: 20.0, y: 10.0 }
-    }
+    // Test parse_radius with Result type
+    result = parse_radius("3.14")
+    result ?
+        | Ok(val) { io.println("Parsed radius: ${val}") }
+        | Err(e) { io.println("Parse error: ${e}") }
     
-    // Call trait methods
-    circle_area = circle.area()
-    circle_perim = circle.perimeter()
-    rect_area = rect.area()
-    rect_perim = rect.perimeter()
-    
-    io.println("  Circle (r=10): area=${circle_area}, perimeter=${circle_perim}")
-    io.println("  Rectangle (20x10): area=${rect_area}, perimeter=${rect_perim}")
-}
-
-test_string_interpolation = () void {
-    io.println("\n=== 8. String Interpolation ===")
-    
-    name = "Zen"
-    version = 2025
-    count = 42
-    pi_approx = 3.14159
-    
-    io.println("  Language: ${name}")
-    io.println("  Version: ${version}")
-    io.println("  Count: ${count}")
-    io.println("  Pi ≈ ${pi_approx}")
-    io.println("  Combined: ${name} v${version} with ${count} features!")
-}
-
-test_option_result = () void {
-    io.println("\n=== 9. Option and Result Types ===")
-    
-    // Option Some
-    opt1: Option<i32> = Some(100)
-    opt1 ?
-        | Some(v) { io.println("  Option Some: ${v}") }
-        | None { io.println("  Option None") }
-    
-    // Option None  
-    opt2: Option<i32> = None
-    opt2 ?
-        | Some(v) { io.println("  Option Some: ${v}") }
-        | None { io.println("  Option None (as expected)") }
-    
-    // Result Ok
-    res1: Result<i32, string> = Ok(200)
-    res1 ?
-        | Ok(v) { io.println("  Result Ok: ${v}") }
-        | Err(e) { io.println("  Result Err: ${e}") }
-    
-    // Result Err
-    res2: Result<i32, string> = Err("Something failed")
-    res2 ?
-        | Ok(v) { io.println("  Result Ok: ${v}") }
-        | Err(e) { io.println("  Result Err: ${e}") }
-}
-
-// ============================================================================
-// Main Test Runner
-// ============================================================================
-
-main = () void {
-    io.println("========================================")
-    io.println("  LANGUAGE_SPEC.zen Compliance Test")
-    io.println("========================================")
-    
-    test_variables()
-    test_ufc()
-    test_pattern_matching()
-    test_defer()
-    test_ranges_and_loops()
-    test_structs_and_enums()
-    test_traits()
-    test_string_interpolation()
-    test_option_result()
-    
-    io.println("\n========================================")
-    io.println("  All Tests Complete!")
-    io.println("========================================")
+    io.println("Test complete!")
 }
