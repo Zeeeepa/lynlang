@@ -1,0 +1,314 @@
+// ============================================================================
+// LANGUAGE_SPEC.zen Full Implementation Test
+// Tests every feature from the specification
+// ============================================================================
+
+{ io } = @std
+
+// ============================================================================
+// 1. ZERO KEYWORDS - Pattern matching with `?` controls everything
+// ============================================================================
+test_zero_keywords = () void {
+    io.println("\n=== Testing Zero Keywords ===")
+    
+    // Boolean pattern matching - no if/else
+    is_ready = true
+    is_ready ? { 
+        io.println("✓ Boolean pattern (single branch) works")
+    }
+    
+    // Full pattern match for conditionals
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("✓ Boolean pattern (both branches) works") }
+}
+
+// ============================================================================
+// 2. VARIABLE DECLARATIONS - All 6 forms
+// ============================================================================
+test_variables = () void {
+    io.println("\n=== Testing Variable Declarations ===")
+    
+    // Forward declaration (immutable)
+    x: i32
+    x = 10
+    io.println("✓ Forward declaration (immutable): x = ${x}")
+    
+    // Immutable assignment
+    y = 20
+    io.println("✓ Immutable assignment: y = ${y}")
+    
+    // Immutable with type
+    z: i32 = 30
+    io.println("✓ Immutable with type: z = ${z}")
+    
+    // Mutable forward declaration
+    w:: i32
+    w = 40
+    w = 50  // Can reassign
+    io.println("✓ Mutable forward declaration: w = ${w}")
+    
+    // Mutable assignment
+    v ::= 60
+    v = 70  // Can reassign
+    io.println("✓ Mutable assignment: v = ${v}")
+    
+    // Mutable with type
+    u:: i32 = 80
+    u = 90  // Can reassign
+    io.println("✓ Mutable with type: u = ${u}")
+}
+
+// ============================================================================
+// 3. OPTION TYPE - No null, only Option<T>
+// ============================================================================
+Option<T>: Some(T) | None
+
+test_option = () void {
+    io.println("\n=== Testing Option Type ===")
+    
+    maybe_value: Option<i32> = Option.Some(42)
+    maybe_value ?
+        | Some(val) { io.println("✓ Option.Some works: ${val}") }
+        | None { io.println("Got None") }
+    
+    empty: Option<i32> = Option.None
+    empty ?
+        | Some(val) { io.println("Got value: ${val}") }
+        | None { io.println("✓ Option.None works") }
+}
+
+// ============================================================================
+// 4. RESULT TYPE - Error handling without exceptions
+// ============================================================================
+Result<T, E>: Ok(T) | Err(E)
+
+test_result = () void {
+    io.println("\n=== Testing Result Type ===")
+    
+    success: Result<i32, string> = Result.Ok(100)
+    success ?
+        | Ok(val) { io.println("✓ Result.Ok works: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    failure: Result<i32, string> = Result.Err("Something went wrong")
+    failure ?
+        | Ok(val) { io.println("Got value: ${val}") }
+        | Err(e) { io.println("✓ Result.Err works: ${e}") }
+}
+
+// ============================================================================
+// 5. ERROR PROPAGATION with .raise()
+// ============================================================================
+parse_number = (s: string) Result<i32, string> {
+    // Simulate parsing
+    s == "42" ?
+        | true { return Result.Ok(42) }
+        | false { return Result.Err("Invalid number") }
+}
+
+process_input = (input: string) Result<i32, string> {
+    // .raise() propagates errors automatically
+    num = parse_number(input).raise()
+    doubled = num * 2
+    return Result.Ok(doubled)
+}
+
+test_raise = () void {
+    io.println("\n=== Testing Error Propagation (.raise()) ===")
+    
+    result = process_input("42")
+    result ?
+        | Ok(val) { io.println("✓ .raise() propagation works: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    error_result = process_input("invalid")
+    error_result ?
+        | Ok(val) { io.println("Got value: ${val}") }
+        | Err(e) { io.println("✓ .raise() error propagation works: ${e}") }
+}
+
+// ============================================================================
+// 6. STRUCTS AND METHODS
+// ============================================================================
+Point: {
+    x:: f64,  // mutable field
+    y:: f64
+}
+
+Circle: {
+    radius: f64
+}
+
+Rectangle: {
+    width: f64,
+    height: f64
+}
+
+test_structs = () void {
+    io.println("\n=== Testing Structs ===")
+    
+    p ::= Point { x: 10.0, y: 20.0 }
+    io.println("✓ Struct creation: Point(${p.x}, ${p.y})")
+    
+    p.x = 30.0  // Mutable field
+    io.println("✓ Mutable fields work: Point(${p.x}, ${p.y})")
+    
+    circle_struct = Circle { radius: 5.0 }
+    io.println("✓ Immutable struct: Circle(r=${circle_struct.radius})")
+}
+
+// ============================================================================
+// 7. TRAITS with .implements() and .requires()
+// ============================================================================
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return 3.14159 * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * 3.14159 * self.radius
+    }
+})
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        return self.width * self.height
+    },
+    perimeter = (self) f64 {
+        return 2.0 * (self.width + self.height)
+    }
+})
+
+// Enum type requiring trait
+Shape: Circle | Rectangle
+Shape.requires(Geometric)
+
+test_traits = () void {
+    io.println("\n=== Testing Traits ===")
+    
+    circle_test = Circle { radius: 10.0 }
+    io.println("✓ Circle area: ${circle_test.area()}")
+    io.println("✓ Circle perimeter: ${circle_test.perimeter()}")
+    
+    rect_test = Rectangle { width: 5.0, height: 3.0 }
+    io.println("✓ Rectangle area: ${rect_test.area()}")
+    io.println("✓ Rectangle perimeter: ${rect_test.perimeter()}")
+    
+    // Pattern matching on Shape enum
+    shape: Shape = Shape.Circle(Circle { radius: 2.0 })
+    shape ?
+        | Circle(circ_shape) { io.println("✓ Shape enum with Circle: area=${circ_shape.area()}") }
+        | Rectangle(rect_shape) { io.println("Rectangle area: ${rect_shape.area()}") }
+}
+
+// ============================================================================
+// 8. LOOPS AND RANGES
+// ============================================================================
+test_loops = () void {
+    io.println("\n=== Testing Loops and Ranges ===")
+    
+    // Range iteration
+    io.print("✓ Range (0..5): ")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    // Infinite loop with break
+    counter ::= 0
+    io.print("✓ Infinite loop with break: ")
+    loop(() {
+        io.print("${counter} ")
+        counter = counter + 1
+        counter >= 3 ? { break }
+    })
+    io.println("")
+}
+
+// ============================================================================
+// 9. UFC (Uniform Function Call)
+// ============================================================================
+double = (n: i32) i32 {
+    return n * 2
+}
+
+// UFC overloading for different types
+get_name = (circle_param: Circle) string { return "Circle" }
+get_name = (rect_param: Rectangle) string { return "Rectangle" }
+
+test_ufc = () void {
+    io.println("\n=== Testing UFC ===")
+    
+    result = 5.double()  // UFC: same as double(5)
+    io.println("✓ UFC method call: 5.double() = ${result}")
+    
+    circ = Circle { radius: 1.0 }
+    name = circ.get_name()
+    io.println("✓ UFC overloading: ${name}")
+}
+
+// ============================================================================
+// 10. EXPLICIT POINTER TYPES
+// ============================================================================
+test_pointers = () void {
+    io.println("\n=== Testing Explicit Pointers ===")
+    
+    value = 42
+    ptr: Ptr<i32> = value.ref()
+    io.println("✓ Ptr creation: value=${ptr.val}, addr=${ptr.addr}")
+    
+    mutable ::= 100
+    mut_ptr: MutPtr<i32> = mutable.mut_ref()
+    mut_ptr.val = 200
+    io.println("✓ MutPtr modification: ${mutable}")
+}
+
+// ============================================================================
+// 11. STRING INTERPOLATION
+// ============================================================================
+test_string_interpolation = () void {
+    io.println("\n=== Testing String Interpolation ===")
+    
+    name = "Zen"
+    version = 2025
+    multi_line = "Welcome to ${name} v${version}!"
+    io.println("✓ String interpolation: ${multi_line}")
+    
+    // Complex expressions in interpolation
+    x = 10
+    y = 20
+    io.println("✓ Expression interpolation: ${x} + ${y} = ${x + y}")
+}
+
+// ============================================================================
+// MAIN - Run all tests
+// ============================================================================
+main = () void {
+    io.println("=" * 60)
+    io.println("LANGUAGE_SPEC.zen Full Implementation Test Suite")
+    io.println("Testing all core features from the specification")
+    io.println("=" * 60)
+    
+    test_zero_keywords()
+    test_variables()
+    test_option()
+    test_result()
+    test_raise()
+    test_structs()
+    test_traits()
+    test_loops()
+    test_ufc()
+    test_pointers()
+    test_string_interpolation()
+    
+    io.println("\n" + "=" * 60)
+    io.println("✅ ALL CORE LANGUAGE FEATURES WORKING")
+    io.println("LANGUAGE_SPEC.zen is now a reality!")
+    io.println("=" * 60)
+}

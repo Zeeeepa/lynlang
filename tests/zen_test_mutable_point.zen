@@ -1,0 +1,14 @@
+{ io } = @std
+
+Point: {
+    x:: f64,  // mutable field
+    y:: f64   // mutable field
+}
+
+main = () void {
+    p ::= Point { x: 10.0, y: 20.0 }
+    io.println("Initial: Point(${p.x}, ${p.y})")
+    
+    p.x = 30.0
+    io.println("After mutation: Point(${p.x}, ${p.y})")
+}

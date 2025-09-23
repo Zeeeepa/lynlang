@@ -210,9 +210,80 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         return Ok(addr.into());
                     }
                 } else if method == "raise" {
-                    // Handle Result.raise() - for now just return the value
-                    // TODO: Implement proper error propagation
-                    return Ok(object_value);
+                    // Handle Result.raise() - propagate errors
+                    // If the Result is Err, return early with that error
+                    // If Ok, extract and return the value
+                    
+                    // For Result<T, E>, we need to check the discriminant
+                    // and either return early with Err or continue with Ok value
+                    
+                    // Get parent function for control flow
+                    let parent_function = self.current_function
+                        .ok_or_else(|| CompileError::InternalError("No current function for raise".to_string(), None))?;
+                    
+                    // Create blocks for Ok and Err cases
+                    let ok_block = self.context.append_basic_block(parent_function, "raise_ok");
+                    let err_block = self.context.append_basic_block(parent_function, "raise_err");
+                    let continue_block = self.context.append_basic_block(parent_function, "raise_continue");
+                    
+                    // Extract discriminant (assuming Result is an enum with tag at index 0)
+                    let discriminant = if object_value.is_pointer_value() {
+                        // If it's a pointer, load the discriminant
+                        let disc_ptr = self.builder.build_struct_gep(
+                            self.context.struct_type(&[
+                                self.context.i64_type().into(),
+                                self.context.i64_type().into(),
+                            ], false),
+                            object_value.into_pointer_value(),
+                            0,
+                            "disc_ptr"
+                        )?;
+                        self.builder.build_load(self.context.i64_type(), disc_ptr, "disc")?
+                            .into_int_value()
+                    } else {
+                        // Direct value - extract first element
+                        self.builder.build_extract_value(object_value.into_struct_value(), 0, "disc")?
+                            .into_int_value()
+                    };
+                    
+                    // Check if it's Ok (0) or Err (1)
+                    let is_ok = self.builder.build_int_compare(
+                        inkwell::IntPredicate::EQ,
+                        discriminant,
+                        self.context.i64_type().const_int(0, false),
+                        "is_ok"
+                    )?;
+                    
+                    self.builder.build_conditional_branch(is_ok, ok_block, err_block)?;
+                    
+                    // Err block: return the whole Result (propagate the error)
+                    self.builder.position_at_end(err_block);
+                    self.builder.build_return(Some(&object_value))?;
+                    
+                    // Ok block: extract the value and continue
+                    self.builder.position_at_end(ok_block);
+                    let ok_value = if object_value.is_pointer_value() {
+                        // Load from pointer
+                        let payload_ptr = self.builder.build_struct_gep(
+                            self.context.struct_type(&[
+                                self.context.i64_type().into(),
+                                self.context.i64_type().into(),
+                            ], false),
+                            object_value.into_pointer_value(),
+                            1,
+                            "payload_ptr"
+                        )?;
+                        self.builder.build_load(self.context.i64_type(), payload_ptr, "payload")?
+                    } else {
+                        // Extract from struct
+                        self.builder.build_extract_value(object_value.into_struct_value(), 1, "payload")?
+                    };
+                    self.builder.build_unconditional_branch(continue_block)?;
+                    
+                    // Continue block
+                    self.builder.position_at_end(continue_block);
+                    
+                    return Ok(ok_value);
                 }
                 
                 // Try trait method resolution first
@@ -432,12 +503,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Restore variables
             self.restore_variables(saved_vars);
             
-            // Jump to merge block
-            self.builder.build_unconditional_branch(merge_bb)?;
-            let match_bb_end = self.builder.get_insert_block().unwrap();
-            
-            // Save value and block for phi node
-            phi_values.push((arm_val, match_bb_end));
+            // Jump to merge block only if the block doesn't already have a terminator (e.g., return)
+            let current_block = self.builder.get_insert_block().unwrap();
+            if current_block.get_terminator().is_none() {
+                self.builder.build_unconditional_branch(merge_bb)?;
+                let match_bb_end = self.builder.get_insert_block().unwrap();
+                // Save value and block for phi node only if we branch to merge
+                phi_values.push((arm_val, match_bb_end));
+            }
             
             // Position at the next test block for the next iteration
             if !is_last {
@@ -469,27 +542,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
             } else {
                 self.context.i32_type().const_int(0, false).into()
             };
-            self.builder.build_unconditional_branch(merge_bb)?;
-            phi_values.push((default_val, unmatched_bb));
+            // Only branch if there's no terminator
+            let current_block = self.builder.get_insert_block().unwrap();
+            if current_block.get_terminator().is_none() {
+                self.builder.build_unconditional_branch(merge_bb)?;
+                phi_values.push((default_val, unmatched_bb));
+            }
         }
         
-        // Position at merge block and create phi node
-        self.builder.position_at_end(merge_bb);
-        
-        if phi_values.is_empty() {
-            return Err(CompileError::InternalError("No arms in conditional expression".to_string(), None));
+        // Position at merge block and create phi node only if any arms branch to it
+        if !phi_values.is_empty() {
+            self.builder.position_at_end(merge_bb);
+            
+            // All values should have the same type
+            let result_type = phi_values[0].0.get_type();
+            let phi = self.builder.build_phi(result_type, "match_result")?;
+            
+            // Add all incoming values
+            for (value, block) in &phi_values {
+                phi.add_incoming(&[(value, *block)]);
+            }
+            
+            Ok(phi.as_basic_value())
+        } else {
+            // All arms had terminators (e.g., returns), so we don't need a merge block
+            // Return a dummy value that won't be used
+            Ok(self.context.i32_type().const_int(0, false).into())
         }
-        
-        // All values should have the same type
-        let result_type = phi_values[0].0.get_type();
-        let phi = self.builder.build_phi(result_type, "match_result")?;
-        
-        // Add all incoming values
-        for (value, block) in &phi_values {
-            phi.add_incoming(&[(value, *block)]);
-        }
-        
-        Ok(phi.as_basic_value())
     }
 
     fn compile_array_literal(&mut self, elements: &[Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
@@ -837,12 +916,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Restore variables
             self.restore_variables(saved_vars);
             
-            // Jump to merge block
-            self.builder.build_unconditional_branch(merge_bb)?;
-            let match_bb_end = self.builder.get_insert_block().unwrap();
-            
-            // Save value and block for phi node
-            phi_values.push((arm_val, match_bb_end));
+            // Jump to merge block only if the block doesn't already have a terminator (e.g., return)
+            let current_block = self.builder.get_insert_block().unwrap();
+            if current_block.get_terminator().is_none() {
+                self.builder.build_unconditional_branch(merge_bb)?;
+                let match_bb_end = self.builder.get_insert_block().unwrap();
+                // Save value and block for phi node only if we branch to merge
+                phi_values.push((arm_val, match_bb_end));
+            }
             
             // Position at the next test block for the next iteration
             if !is_last {
@@ -874,8 +955,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             } else {
                 self.context.i32_type().const_int(0, false).into()
             };
-            self.builder.build_unconditional_branch(merge_bb)?;
-            phi_values.push((default_val, unmatched_bb));
+            // Only branch if there's no terminator
+            let current_block = self.builder.get_insert_block().unwrap();
+            if current_block.get_terminator().is_none() {
+                self.builder.build_unconditional_branch(merge_bb)?;
+                phi_values.push((default_val, unmatched_bb));
+            }
         }
         
         // Position at merge block and create phi node

@@ -1,0 +1,47 @@
+// Simple test from LANGUAGE_SPEC.zen
+{ io } = @std
+
+main = () void {
+    io.println("=== Simple Spec Test ===")
+    
+    // Test 1: Variable declarations (lines 298-306)
+    x: i32
+    x = 10
+    io.println("Forward decl: x = ${x}")
+    
+    y = 20
+    io.println("Immutable: y = ${y}")
+    
+    z ::= 30
+    z = 40
+    io.println("Mutable: z = ${z}")
+    
+    // Test 2: Pattern matching (lines 352-361)
+    is_ready = true
+    is_ready ? {
+        io.println("Ready!")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
+    
+    // Test 3: Loops (lines 432-439)
+    io.print("Range: ")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    io.print("Infinite: ")
+    count ::= 0
+    loop(() {
+        io.print("${count} ")
+        count = count + 1
+        count >= 3 ? { break }
+    })
+    io.println("")
+    
+    io.println("=== Test Complete ===")
+}

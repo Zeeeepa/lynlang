@@ -1,0 +1,12 @@
+{ io } = @std
+
+Point: {
+    x: f64,
+    y: f64  
+}
+
+main = () void {
+    p = Point { x: 10.0, y: 20.0 }
+    io.println("Point x: ${p.x}")
+    io.println("Point y: ${p.y}")
+}

@@ -1,0 +1,40 @@
+// Test Result type from LANGUAGE_SPEC.zen
+{ io } = @std
+
+// Result type for error handling (line 112-113 of spec)
+Result<T, E>: Ok(T) | Err(E)
+
+// Parse radius function from spec (lines 198-203)
+parse_radius = (s: string) Result<f64, string> {
+    // Simple simulation - in real implementation would parse string
+    s == "5.5" ?
+        | true { return Ok(5.5) }
+        | false { return Err("Invalid radius") }
+}
+
+main = () i32 {
+    io.println("=== Testing Result Types ===")
+    
+    // Test Ok case
+    result1 = parse_radius("5.5")
+    result1 ?
+        | Ok(val) { 
+            io.println("Parsed successfully: ${val}")
+        }
+        | Err(e) { 
+            io.println("Parse error: ${e}")
+        }
+    
+    // Test Err case
+    result2 = parse_radius("invalid")
+    result2 ?
+        | Ok(val) { 
+            io.println("Parsed: ${val}")
+        }
+        | Err(e) { 
+            io.println("Failed to parse: ${e}")
+        }
+    
+    io.println("=== Result tests completed ===")
+    return 0
+}

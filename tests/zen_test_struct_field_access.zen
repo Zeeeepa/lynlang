@@ -1,0 +1,22 @@
+{ io } = @std
+
+Point: {
+    x:: f64,
+    y:: f64
+}
+
+main = () void {
+    p ::= Point { x: 1.0, y: 2.0 }
+    
+    // Test direct field access
+    x_val = p.x
+    y_val = p.y
+    io.println("Direct access: x=${x_val}, y=${y_val}")
+    
+    // Test in string interpolation
+    io.println("Interpolation: x=${p.x}, y=${p.y}")
+    
+    // Test mutation
+    p.x = 3.0
+    io.println("After mutation: x=${p.x}")
+}

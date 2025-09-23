@@ -1,0 +1,55 @@
+// Test .raise() error propagation from LANGUAGE_SPEC.zen lines 205-211
+{ io } = @std
+
+Result<T, E>: Ok(T) | Err(E)
+
+// Simulated file operations
+open_file = (path: string) Result<i32, string> {
+    // Simulate: some paths succeed, some fail
+    path ?
+        | "config.json" { return Ok(1) }  // file handle 1
+        | "data.json" { return Ok(2) }    // file handle 2
+        | _ { return Err("File not found: ${path}") }
+}
+
+read_file = (handle: i32) Result<string, string> {
+    handle ?
+        | 1 { return Ok("{\"version\": \"1.0\"}") }
+        | 2 { return Ok("{\"data\": [1, 2, 3]}") }
+        | _ { return Err("Invalid file handle") }
+}
+
+parse_json = (content: string) Result<i32, string> {
+    // Simple validation
+    content ?
+        | "{\"version\": \"1.0\"}" { return Ok(100) }
+        | "{\"data\": [1, 2, 3]}" { return Ok(200) }
+        | _ { return Err("Invalid JSON") }
+}
+
+// Function using .raise() for error propagation (like lines 206-210)
+load_config = (path: string) Result<i32, string> {
+    file = open_file(path).raise()      // If Err, returns early with that error
+    contents = read_file(file).raise()  // If Err, returns early with that error  
+    config = parse_json(contents).raise() // If Err, returns early with that error
+    return Ok(config)
+}
+
+main = () i32 {
+    io.println("=== Testing .raise() Error Propagation ===")
+    
+    // Test successful case
+    result1 = load_config("config.json")
+    result1 ?
+        | Ok(val) { io.println("Success: config loaded with value ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test error case (file not found)
+    result2 = load_config("missing.json")
+    result2 ?
+        | Ok(val) { io.println("Success: loaded with value ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    io.println("=== Test Complete ===")
+    return 0
+}

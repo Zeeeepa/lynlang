@@ -1,0 +1,21 @@
+// Debug Result return type
+{ io } = @std
+
+Result<T, E>: Ok(T) | Err(E)
+
+test_ok = () Result<i32, string> {
+    return Ok(42)
+}
+
+test_err = () Result<i32, string> {
+    return Err("error")
+}
+
+main = () i32 {
+    // Don't use the result, just call
+    res1 = test_ok()
+    res2 = test_err()
+    
+    io.println("Done")
+    return 0
+}

@@ -1,0 +1,201 @@
+// Complete Implementation Test of LANGUAGE_SPEC.zen
+// This file demonstrates ALL working features from the spec
+
+{ io, math } = @std
+
+// ============================================================================
+// From lines 109-113: Option and Result types
+// ============================================================================
+Option<T>: Some(T) | None
+Result<T, E>: Ok(T) | Err(E)
+
+// ============================================================================
+// From lines 115-120: Simple struct
+// ============================================================================
+Point: {
+    x:: f64,    // mutable field
+    y:: f64 = 0 // with default value
+}
+
+// ============================================================================
+// From lines 123-128: Trait definition
+// ============================================================================
+Geometric: {
+    area: (self) f64,
+    perimeter: (self) f64,
+}
+
+// ============================================================================
+// From lines 130-144: Circle with trait implementation
+// ============================================================================
+Circle: {
+    center: Point,
+    radius: f64,
+}
+
+Circle.implements(Geometric, {
+    area = (self) f64 {
+        return math.pi * self.radius * self.radius
+    },
+    perimeter = (self) f64 {
+        return 2.0 * math.pi * self.radius
+    },
+})
+
+// ============================================================================
+// From lines 146-162: Rectangle with trait implementation
+// ============================================================================
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+Rectangle.implements(Geometric, {
+    area = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return width * height
+    },
+    perimeter = (self) f64 {
+        width = self.bottom_right.x - self.top_left.x
+        height = self.bottom_right.y - self.top_left.y
+        return 2.0 * (width + height)
+    },
+})
+
+// ============================================================================
+// From lines 165-168: Enum with trait requirement
+// ============================================================================
+Shape: Circle | Rectangle
+Shape.requires(Geometric)
+
+// ============================================================================
+// From lines 297-307: Main function demonstrating all features
+// ============================================================================
+main = () i32 {
+    io.println("=== ZEN LANGUAGE SPEC COMPLETE TEST ===")
+    io.println("")
+    
+    // ========================================================================
+    // From lines 298-306: All variable declaration forms
+    // ========================================================================
+    io.println("1. Variable Declarations (lines 298-306):")
+    
+    x: i32          // forward declaration
+    x = 10
+    y = 20          // immutable assignment
+    z: i32 = 30     // immutable with type
+    w:: i32         // mutable forward declaration  
+    w = 40
+    v ::= 50        // mutable assignment
+    u:: i32 = 60    // mutable with type
+    
+    io.println("  x=${x}, y=${y}, z=${z}")
+    io.println("  w=${w}, v=${v}, u=${u}")
+    
+    // Demonstrate mutation
+    w = 45
+    v = 55
+    u = 65
+    io.println("  After mutation: w=${w}, v=${v}, u=${u}")
+    io.println("")
+    
+    // ========================================================================
+    // From lines 352-361: Pattern matching
+    // ========================================================================
+    io.println("2. Pattern Matching (lines 352-361):")
+    
+    is_ready = true
+    is_ready ? { 
+        io.println("  Simple: Ready to start!")
+    }
+    
+    has_data = false
+    has_data ?
+        | true { io.println("  Processing data...") }
+        | false { io.println("  Full match: Waiting for data...") }
+    io.println("")
+    
+    // ========================================================================
+    // From lines 432-459: Loops and ranges
+    // ========================================================================
+    io.println("3. Loops and Ranges (lines 432-459):")
+    
+    io.print("  Range loop: ")
+    (0..5).loop((i) {
+        io.print("${i} ")
+    })
+    io.println("")
+    
+    io.print("  Infinite loop with break: ")
+    counter ::= 0
+    loop(() {
+        counter = counter + 1
+        io.print("${counter} ")
+        counter >= 3 ? { break }
+    })
+    io.println("")
+    io.println("")
+    
+    // ========================================================================
+    // From lines 217, 314, 379, 484: @this.defer
+    // ========================================================================
+    io.println("4. Defer (various lines):")
+    io.println("  Setting up deferred cleanup...")
+    @this.defer(io.println("  Deferred: Cleanup executed at scope end"))
+    io.println("  Main work continues...")
+    io.println("")
+    
+    // ========================================================================
+    // From lines 462-473: Option handling
+    // ========================================================================
+    io.println("5. Option Handling (lines 462-473):")
+    
+    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius ?
+        | Some(r) {
+            io.println("  Has radius: ${r}")
+        }
+        | None {
+            io.println("  No radius provided")
+        }
+    
+    empty: Option<i32> = None
+    empty ?
+        | Some(v) { io.println("  Value: ${v}") }
+        | None { io.println("  Empty option") }
+    io.println("")
+    
+    // ========================================================================
+    // From lines 136-143, 150-161: Traits implementation
+    // ========================================================================
+    io.println("6. Traits with .implements() (lines 136-161):")
+    
+    circle = Circle { 
+        center: Point { x: 0.0, y: 0.0 }, 
+        radius: 10.0 
+    }
+    io.println("  Circle area: ${circle.area()}")
+    io.println("  Circle perimeter: ${circle.perimeter()}")
+    
+    rect = Rectangle {
+        top_left: Point { x: 0.0, y: 0.0 },
+        bottom_right: Point { x: 20.0, y: 10.0 }
+    }
+    io.println("  Rectangle area: ${rect.area()}")
+    io.println("  Rectangle perimeter: ${rect.perimeter()}")
+    io.println("")
+    
+    // ========================================================================
+    // String interpolation throughout
+    // ========================================================================
+    io.println("7. String Interpolation (used throughout):")
+    lang = "Zen"
+    version = 1.0
+    io.println("  Language: ${lang} v${version}")
+    io.println("  Math.pi = ${math.pi}")
+    io.println("")
+    
+    io.println("=== ALL TESTS COMPLETE ===")
+    return 0
+}
