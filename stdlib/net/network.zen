@@ -30,8 +30,8 @@ Socket: {
     fd: i32,
     socket_type: SocketType,
     is_connected: bool,
-    local_addr: ?SocketAddr,
-    remote_addr: ?SocketAddr,
+    local_addr: Option<SocketAddr>,
+    remote_addr: Option<SocketAddr>,
 }
 
 // TCP Listener
@@ -50,8 +50,8 @@ HttpRequest: {
     method: HttpMethod,
     path: core.String,
     version: core.String,
-    headers: []Header,
-    body: ?[]u8,
+    headers: DynVec<Header>,
+    body: Option<Vec<u8>>,
 }
 
 // HTTP Response
@@ -59,8 +59,8 @@ HttpResponse: {
     status_code: u16,
     status_text: core.String,
     version: core.String,
-    headers: []Header,
-    body: []u8,
+    headers: DynVec<Header>,
+    body: Vec<u8>,
 }
 
 // HTTP Methods
@@ -247,7 +247,7 @@ accept = (listener: &TcpListener) Result<Socket, core.String>  {
 }
 
 // Send data over socket
-send = (sock: &Socket, data: []u8) Result<usize, core.String>  {
+send = (sock: &Socket, data: Vec<u8>) Result<usize, core.String>  {
     if !sock.is_connected {
         return Result<usize, core.String>.Err("Socket not connected")
     }
@@ -261,7 +261,7 @@ send = (sock: &Socket, data: []u8) Result<usize, core.String>  {
 }
 
 // Receive data from socket
-recv = (sock: &Socket, buffer: &mut []u8, len: usize) Result<usize, core.String>  {
+recv = (sock: &Socket, buffer: &mut Vec<u8>, len: usize) Result<usize, core.String>  {
     if !sock.is_connected {
         return Result<usize, core.String>.Err("Socket not connected")
     }
@@ -275,7 +275,7 @@ recv = (sock: &Socket, buffer: &mut []u8, len: usize) Result<usize, core.String>
 }
 
 // Send data to specific address (UDP)
-send_to = (sock: &UdpSocket, data: []u8, addr: SocketAddr) Result<usize, core.String>  {
+send_to = (sock: &UdpSocket, data: Vec<u8>, addr: SocketAddr) Result<usize, core.String>  {
     sock_addr := to_sockaddr_in(addr)
     
     sent := __sys_sendto(sock.socket.fd, data.data, data.len, 0, &sock_addr, sizeof(sock_addr))
@@ -287,7 +287,7 @@ send_to = (sock: &UdpSocket, data: []u8, addr: SocketAddr) Result<usize, core.St
 }
 
 // Receive data with source address (UDP)
-recv_from = (sock: &UdpSocket, buffer: &mut []u8, len: usize) Result<(usize, SocketAddr), core.String>  {
+recv_from = (sock: &UdpSocket, buffer: &mut Vec<u8>, len: usize) Result<(usize, SocketAddr), core.String>  {
     addr: SockAddrIn
     addr_len: u32 = sizeof(addr)
     
@@ -327,14 +327,14 @@ set_nonblocking = (sock: &Socket) Result<void, core.String>  {
 // HTTP Client
 HttpClient: {
     timeout: u64,  // milliseconds
-    headers: []Header,
+    headers: DynVec<Header>,
 }
 
 // Create new HTTP client
 http_client = () HttpClient   {
     return HttpClient{
         timeout: 30000,  // 30 seconds default
-        headers: [],
+        headers: DynVec<Header>{},
     }
 }
 
@@ -352,7 +352,7 @@ http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.Str
 }
 
 // Perform HTTP POST request
-http_post = (client: &HttpClient, url: core.String, body: []u8) Result<HttpResponse, core.String>  {
+http_post = (client: &HttpClient, url: core.String, body: Vec<u8>) Result<HttpResponse, core.String>  {
     req := HttpRequest{
         method: HttpMethod.POST,
         path: url,
@@ -395,7 +395,7 @@ http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core
     
     // Read response
     buffer: [8192]u8
-    response_data: []u8 = []
+    response_data: DynVec<u8> = DynVec<u8>{}
     
     loop {
         recv_res := recv(&sock, &mut buffer, 8192)
@@ -639,7 +639,7 @@ format_http_response = (res: HttpResponse) core.String {
 }
 
 // Parse HTTP request (simplified)
-parse_http_request = (data: []u8) Result<HttpRequest, core.String>  {
+parse_http_request = (data: Vec<u8>) Result<HttpRequest, core.String>  {
     text := core.String.from_bytes(data)
     lines := string.split(text, "\r\n")
     
@@ -658,7 +658,7 @@ parse_http_request = (data: []u8) Result<HttpRequest, core.String>  {
     version := parts[2]
     
     // Parse headers
-    mut headers: []Header = []
+    mut headers: DynVec<Header> = DynVec<Header>{}
     mut i := 1
     loop i < lines.len() && lines[i].len > 0 {
         colon_idx := string.index_of(lines[i], ":")
@@ -671,7 +671,7 @@ parse_http_request = (data: []u8) Result<HttpRequest, core.String>  {
     }
     
     // Parse body if present
-    mut body: ?[]u8 = Option.None
+    mut body: Option<Vec<u8>> = Option.None
     if i < lines.len() - 1 {
         body_start := i + 1
         body_text := string.join(lines[body_start:], "\r\n")
@@ -688,7 +688,7 @@ parse_http_request = (data: []u8) Result<HttpRequest, core.String>  {
 }
 
 // Parse HTTP response (simplified)
-parse_http_response = (data: []u8) Result<HttpResponse, core.String>  {
+parse_http_response = (data: Vec<u8>) Result<HttpResponse, core.String>  {
     text := core.String.from_bytes(data)
     lines := string.split(text, "\r\n")
     

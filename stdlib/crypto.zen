@@ -5,7 +5,7 @@ std := @std
 core := std.core
 
 // Simple hash function (FNV-1a 32-bit)
-fnv1a_32 = (data: []u8, len: usize) u32   {
+fnv1a_32 = (data: Vec<u8>, len: usize) u32   {
     hash := 2166136261: u32  // FNV offset basis
     prime := 16777619: u32     // FNV prime
     
@@ -19,7 +19,7 @@ fnv1a_32 = (data: []u8, len: usize) u32   {
 }
 
 // Simple hash function (FNV-1a 64-bit)
-fnv1a_64 = (data: []u8, len: usize) u64   {
+fnv1a_64 = (data: Vec<u8>, len: usize) u64   {
     hash := 14695981039346656037: u64  // FNV offset basis
     prime := 1099511628211: u64         // FNV prime
     
@@ -33,7 +33,7 @@ fnv1a_64 = (data: []u8, len: usize) u64   {
 }
 
 // DJB2 hash function
-djb2_hash = (data: []u8, len: usize) u64   {
+djb2_hash = (data: Vec<u8>, len: usize) u64   {
     hash := 5381: u64
     
     i := 0: usize
@@ -45,7 +45,7 @@ djb2_hash = (data: []u8, len: usize) u64   {
 }
 
 // Simple XOR cipher (for demonstration only - NOT secure!)
-xor_cipher = (data: Ref<Array<u8>>, len: usize, key: []u8, key_len: usize) void   {
+xor_cipher = (data: Ref<Array<u8>>, len: usize, key: Vec<u8>, key_len: usize) void   {
     key_len == 0 ? | true { return }
                    | false {}
     
@@ -71,7 +71,7 @@ rotr32 = (x: u32, n: u8) u32   {
 }
 
 // Simple checksum
-checksum8 = (data: []u8, len: usize) u8   {
+checksum8 = (data: Vec<u8>, len: usize) u8   {
     sum := 0: u8
     i := 0: usize
     loop i < len {
@@ -82,7 +82,7 @@ checksum8 = (data: []u8, len: usize) u8   {
 }
 
 // Fletcher-16 checksum
-fletcher16 = (data: []u8, len: usize) u16   {
+fletcher16 = (data: Vec<u8>, len: usize) u16   {
     sum1 := 0: u16
     sum2 := 0: u16
     
@@ -126,7 +126,7 @@ pseudo_random_bytes = (state: Ref<LCGState>, buffer: Ref<Array<u8>>, len: usize)
 
 // Simple message authentication code (MAC) using XOR and hash
 // NOT cryptographically secure - for educational purposes only
-simple_mac = (message: []u8, msg_len: usize, key: []u8, key_len: usize) u64   {
+simple_mac = (message: Vec<u8>, msg_len: usize, key: Vec<u8>, key_len: usize) u64   {
     // Combine key and message
     combined_len := key_len + msg_len
     combined := array_new<u8>(combined_len)
@@ -150,7 +150,7 @@ simple_mac = (message: []u8, msg_len: usize, key: []u8, key_len: usize) u64   {
 }
 
 // Constant-time comparison (helps prevent timing attacks)
-constant_time_compare = (a: []u8, b: []u8, len: usize) bool   {
+constant_time_compare = (a: Vec<u8>, b: Vec<u8>, len: usize) bool   {
     result := 0: u8
     
     i := 0: usize
@@ -164,7 +164,7 @@ constant_time_compare = (a: []u8, b: []u8, len: usize) bool   {
 
 // Simple key derivation using repeated hashing
 // NOT cryptographically secure - for educational purposes only
-derive_key = (password: []u8, pass_len: usize, salt: []u8, salt_len: usize, iterations: u32, output: Ref<Array<u8>>, out_len: usize) void   {
+derive_key = (password: Vec<u8>, pass_len: usize, salt: Vec<u8>, salt_len: usize, iterations: u32, output: Ref<Array<u8>>, out_len: usize) void   {
     // Combine password and salt
     combined_len := pass_len + salt_len
     combined := array_new<u8>(combined_len)

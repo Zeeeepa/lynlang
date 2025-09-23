@@ -205,7 +205,7 @@ executor_stop = (executor: Ptr<Executor>) void   {
 }
 
 // Create concurrent task - execution mode determined by allocator
-create_task = <T>(fn: () T, alloc: *Allocator) Task<T> {
+create_task = <T>(fn: () T, alloc: Ptr<Allocator>) Task<T> {
     // Get executor from allocator's runtime if available
     executor := alloc.runtime ? 
         | Some(rt) { rt.executor }
@@ -223,14 +223,14 @@ get_default_executor = () Ptr<Executor>   {
 }
 
 // Sleep for specified milliseconds - colorless based on allocator
-sleep_task = (ms: u64, alloc: *Allocator) Task<void>   {
+sleep_task = (ms: u64, alloc: Ptr<Allocator>) Task<void>   {
     create_task(() void {
         thread.sleep(ms)
     }, alloc)
 }
 
 // Run concurrent code in parallel
-parallel = <T>(tasks: Vec<() T>, alloc: *Allocator) Vec<T> {
+parallel = <T>(tasks: Vec<() T>, alloc: Ptr<Allocator>) Vec<T> {
     futures := vec_new<Future<T>>()
     
     range(0, tasks.len()).loop((i) {
@@ -265,7 +265,7 @@ channel_new = <T>(capacity: usize) Channel<T> {
 }
 
 // Send value to channel (colorless - allocator determines sync/concurrent)
-channel_send = <T>(ch: Ptr<Channel<T>>, value: T, alloc: *Allocator) Task<void> {
+channel_send = <T>(ch: Ptr<Channel<T>>, value: T, alloc: Ptr<Allocator>) Task<void> {
     create_task(() void {
         mutex_lock(ch.mutex)
         
@@ -282,7 +282,7 @@ channel_send = <T>(ch: Ptr<Channel<T>>, value: T, alloc: *Allocator) Task<void> 
 }
 
 // Receive value from channel (colorless - allocator determines sync/concurrent)
-channel_recv = <T>(ch: Ptr<Channel<T>>, alloc: *Allocator) Task<T> {
+channel_recv = <T>(ch: Ptr<Channel<T>>, alloc: Ptr<Allocator>) Task<T> {
     create_task(() T {
         mutex_lock(ch.mutex)
         
@@ -303,7 +303,7 @@ channel_recv = <T>(ch: Ptr<Channel<T>>, alloc: *Allocator) Task<T> {
 }
 
 // Select from multiple channels
-select = <T>(channels: Vec<Ptr<Channel<T>>>, alloc: *Allocator) Task<(usize, T)> {
+select = <T>(channels: Vec<Ptr<Channel<T>>>, alloc: Ptr<Allocator>) Task<(usize, T)> {
     create_task(() (usize, T) {
         loop {
             range(0, channels.len()).loop((i) {

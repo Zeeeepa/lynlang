@@ -41,23 +41,23 @@ ActorRef: {
 
 // Mailbox for actor messages
 Mailbox: {
-    messages: []u8  // Serialized messages
-    message_types: []u64  // Type IDs for deserialization
+    messages: DynVec<u8>  // Serialized messages
+    message_types: DynVec<u64>  // Type IDs for deserialization
     lock: std.sync.Mutex
     waiting: ?allocator.Continuation
     alloc: *allocator.Allocator
     
     init: (alloc: *allocator.Allocator) Mailbox {
         return Mailbox{
-            messages: []u8{},
-            message_types: []u64{},
+            messages: DynVec<u8>{},
+            message_types: DynVec<u64>{},
             lock: std.sync.Mutex.init(),
             waiting: null,
             alloc: alloc
         }
     }
     
-    send_raw: (msg_data: []const u8, type_id: u64) void {
+    send_raw: (msg_data: Vec<u8>, type_id: u64) void {
         self.lock.lock()
         defer self.lock.unlock()
         
@@ -81,7 +81,7 @@ Mailbox: {
             | None { }
     }
     
-    receive_raw: () ?([]u8, u64) {
+    receive_raw: () ?(Vec<u8>, u64) {
         self.lock.lock()
         defer self.lock.unlock()
         
@@ -174,14 +174,14 @@ Actor: {
 
 // Actor system managing all actors
 ActorSystem: {
-    actors: []Actor
+    actors: DynVec<Actor>
     next_actor_id: u64
     event_loop: ?runtime.EventLoop
     alloc: *allocator.Allocator
     
     init: (alloc: *allocator.Allocator) ActorSystem {
         return ActorSystem{
-            actors: []Actor{},
+            actors: DynVec<Actor>{},
             next_actor_id: 1,
             event_loop: alloc.is_concurrent ? 
                 runtime.EventLoop.init(alloc) : null,
@@ -312,7 +312,7 @@ PongActor: {
 
 // Worker pool pattern
 WorkerPool = (comptime Job: type, comptime Result: type) {
-    workers: []ActorRef
+    workers: DynVec<ActorRef>
     next_worker: usize
     result_handler: (Result) void
     alloc: *allocator.Allocator

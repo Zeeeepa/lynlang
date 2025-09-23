@@ -116,7 +116,7 @@ read_to_string = (file: &mut File) Result<core.String, core.String>  {
 }
 
 // Read bytes from file
-read = (file: &mut File, buffer: &mut []u8, count: usize) Result<usize, core.String>  {
+read = (file: &mut File, buffer: &mut Vec<u8>, count: usize) Result<usize, core.String>  {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -130,15 +130,15 @@ read = (file: &mut File, buffer: &mut []u8, count: usize) Result<usize, core.Str
 }
 
 // Read entire file into byte array
-read_bytes = (file: &mut File) Result<[]u8, core.String>  {
+read_bytes = (file: &mut File) Result<Vec<u8>, core.String>  {
     if !file.is_open {
-        return Result<[]u8, core.String>.Err("File is not open")
+        return Result<Vec<u8>, core.String>.Err("File is not open")
     }
     
     // Get file size
     stat := get_metadata(file)
     if stat.is_err() {
-        return Result<[]u8, core.String>.Err(stat.unwrap_err())
+        return Result<Vec<u8>, core.String>.Err(stat.unwrap_err())
     }
     
     size := stat.unwrap().size
@@ -147,10 +147,10 @@ read_bytes = (file: &mut File) Result<[]u8, core.String>  {
     bytes_read := __sys_read(file.fd, buffer.data, size)
     if bytes_read < 0 {
         mem.free(buffer.data)
-        return Result<[]u8, core.String>.Err(get_error_string(bytes_read))
+        return Result<Vec<u8>, core.String>.Err(get_error_string(bytes_read))
     }
     
-    return Result<[]u8, core.String>.Ok(buffer[0:bytes_read])
+    return Result<Vec<u8>, core.String>.Ok(buffer[0:bytes_read])
 }
 
 // Write string to file
@@ -168,7 +168,7 @@ write_string = (file: &mut File, content: core.String) Result<usize, core.String
 }
 
 // Write bytes to file
-write = (file: &mut File, buffer: []u8) Result<usize, core.String>  {
+write = (file: &mut File, buffer: Vec<u8>) Result<usize, core.String>  {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -407,14 +407,14 @@ remove_dir = (path: core.String) Result<void, core.String>  {
 }
 
 // Read directory contents
-read_dir = (path: core.String) Result<[]DirEntry, core.String>  {
+read_dir = (path: core.String) Result<DynVec<DirEntry>, core.String>  {
     dir := __sys_opendir(path.data)
     if dir .== None {
-        return Result<[]DirEntry, core.String>.Err("Failed to open directory")
+        return Result<DynVec<DirEntry>, core.String>.Err("Failed to open directory")
     }
     defer __sys_closedir(dir)
     
-    entries: []DirEntry = []
+    entries: DynVec<DirEntry> = DynVec<DirEntry>{}
     
     loop {
         entry := __sys_readdir(dir)
@@ -456,7 +456,7 @@ read_dir = (path: core.String) Result<[]DirEntry, core.String>  {
         }
     }
     
-    return Result<[]DirEntry, core.String>.Ok(entries)
+    return Result<DynVec<DirEntry>, core.String>.Ok(entries)
 }
 
 // Walk directory tree recursively

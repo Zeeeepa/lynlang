@@ -62,13 +62,13 @@ CodeActionKinds: {
 Diagnostic: {
     range: Range,
     severity: DiagnosticSeverity,
-    code: ?String,
-    code_description: ?CodeDescription,
-    source: ?String,
+    code: Option<String>,
+    code_description: Option<CodeDescription>,
+    source: Option<String>,
     message: String,
     tags: Array(DiagnosticTag),
     related_information: Array(DiagnosticRelatedInformation),
-    data: ?JsonValue,
+    data: Option<JsonValue>,
 }
 
 // Code description

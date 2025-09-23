@@ -8,13 +8,13 @@ array = @std
 // Queue node
 QueueNode(T: type): {
     value: T,
-    next: ?*QueueNode(T),
+    next: Option<Ptr<QueueNode(T)>>,
 }
 
 // Queue structure
 Queue(T: type): {
-    head: ?*QueueNode(T),
-    tail: ?*QueueNode(T),
+    head: Option<Ptr<QueueNode(T)>>,
+    tail: Option<Ptr<QueueNode(T)>>,
     size: usize,
 }
 
@@ -28,17 +28,17 @@ new = (T: type) Queue(T) {
 }
 
 // Check if queue is empty
-is_empty = (T: type, q: *Queue(T)) bool {
+is_empty = (T: type, q: Ptr<Queue(T)>) bool {
     return q.size == 0
 }
 
 // Get queue size
-len = (T: type, q: *Queue(T)) usize {
+len = (T: type, q: Ptr<Queue(T)>) usize {
     return q.size
 }
 
 // Enqueue (add to back)
-enqueue = (T: type, q: *Queue(T), value: T) void {
+enqueue = (T: type, q: Ptr<Queue(T)>, value: T) void {
     node := mem.alloc(QueueNode(T), 1)
     node.value = value
     node.next = null
@@ -55,7 +55,7 @@ enqueue = (T: type, q: *Queue(T), value: T) void {
 }
 
 // Dequeue (remove from front)
-dequeue = (T: type, q: *Queue(T)) ?T {
+dequeue = (T: type, q: Ptr<Queue(T)>) Option<T> {
     q.head .== None ? {
         return null
     }
@@ -75,7 +75,7 @@ dequeue = (T: type, q: *Queue(T)) ?T {
 }
 
 // Peek at front without removing
-peek = (T: type, q: *Queue(T)) ?T {
+peek = (T: type, q: Ptr<Queue(T)>) Option<T> {
     q.head .== None ? {
         return null
     }
@@ -83,7 +83,7 @@ peek = (T: type, q: *Queue(T)) ?T {
 }
 
 // Clear queue
-clear = (T: type, q: *Queue(T)) void {
+clear = (T: type, q: Ptr<Queue(T)>) void {
     while (q.head != null) {
         node := q.head
         q.head = node.next
@@ -94,12 +94,12 @@ clear = (T: type, q: *Queue(T)) void {
 }
 
 // Convert to array
-to_array = (T: type, q: *Queue(T)) Array(T) {
+to_array = (T: type, q: Ptr<Queue(T)>) Array(T) {
     result := array.new(T, q.size)
     
     current := q.head
     while (current != null) {
-        array.push(T, &result, current.value)
+        array.push(T, result.mut_ref(), current.value)
         current = current.next
     }
     
@@ -107,16 +107,16 @@ to_array = (T: type, q: *Queue(T)) Array(T) {
 }
 
 // Create queue from array
-from_array = (T: type, arr: *Array(T)) Queue(T) {
+from_array = (T: type, arr: Ptr<Array(T)>) Queue(T) {
     q := new(T)
     for (i := 0; i < arr.len; i += 1) {
-        enqueue(T, &q, arr.data[i])
+        enqueue(T, q.mut_ref(), arr.data[i])
     }
     return q
 }
 
 // Clone queue
-clone = (T: type, q: *Queue(T)) Queue(T) {
+clone = (T: type, q: Ptr<Queue(T)>) Queue(T) {
     result := new(T)
     current := q.head
     
@@ -129,12 +129,12 @@ clone = (T: type, q: *Queue(T)) Queue(T) {
 }
 
 // Free queue memory
-free = (T: type, q: *Queue(T)) void {
+free = (T: type, q: Ptr<Queue(T)>) void {
     clear(T, q)
 }
 
 // Iterator support
-iter = (T: type, q: *Queue(T)) QueueIterator(T) {
+iter = (T: type, q: Ptr<Queue(T)>) QueueIterator(T) {
     return QueueIterator(T){
         current: q.head,
     }
@@ -144,7 +144,7 @@ QueueIterator(T: type): {
     current: ?*QueueNode(T),
 }
 
-next = (T: type, it: *QueueIterator(T)) ?T {
+next = (T: type, it: *QueueIterator(T)) Option<T> {
     it.current .== None ? {
         return null
     }
@@ -195,7 +195,7 @@ enqueue_priority = (T: type, pq: *PriorityQueue(T), value: T, priority: i32) voi
 }
 
 // Dequeue highest priority
-dequeue_priority = (T: type, pq: *PriorityQueue(T)) ?T {
+dequeue_priority = (T: type, pq: *PriorityQueue(T)) Option<T> {
     pq.data.len == 0 ? {
         return null
     }
@@ -205,7 +205,7 @@ dequeue_priority = (T: type, pq: *PriorityQueue(T)) ?T {
 }
 
 // Peek at highest priority
-peek_priority = (T: type, pq: *PriorityQueue(T)) ?T {
+peek_priority = (T: type, pq: *PriorityQueue(T)) Option<T> {
     pq.data.len == 0 ? {
         return null
     }

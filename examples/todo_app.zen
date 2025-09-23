@@ -1,8 +1,8 @@
-// Simple Todo App - Complete Application Example
-{ io, Result, time } = @std
+// Todo App - Complete Application Example
+{ io, time } = @std
 
-// ═══ Core Types ═══════════════════════════════════════════════════════
-Priority: High | Medium | Low
+// Core Types
+Priority: High, Medium, Low
 
 Todo: {
     id: i32,
@@ -13,14 +13,20 @@ Todo: {
 }
 
 TodoList: {
-    items: []Todo,
+    items: DynVec<Todo>,
     next_id: i32
 }
 
-// ═══ Methods ══════════════════════════════════════════════════════════
+// Priority methods
 Priority.icon = (self) string {
     self ? | High { "🔴" } | Medium { "🟡" } | Low { "🟢" }
 }
+
+Priority.sort_value = (self) i32 {
+    self ? | High { 3 } | Medium { 2 } | Low { 1 }
+}
+
+// Todo methods
 
 Todo.display = (self) string {
     check = self.done ? | true { "✅" } | false { "⬜" }
@@ -28,84 +34,69 @@ Todo.display = (self) string {
 }
 
 TodoList.new = () TodoList {
-    TodoList { items: [], next_id: 1 }
+    TodoList { items: DynVec<Todo>{}, next_id: 1 }
 }
 
 TodoList.add = (self, text: string, priority: Priority) void {
-    todo = Todo {
+    self.items.push(Todo {
         id: self.next_id,
         text: text,
         priority: priority,
         done: false,
         created: time.now()
-    }
-    self.items.push(todo)
+    })
     self.next_id += 1
 }
 
-TodoList.complete = (self, id: i32) Result<void, string> {
-    self.items.find_index((t) => t.id == id) ?
-        | Some(idx) {
-            self.items[idx].done = true
-            Result.Ok(void)
-        }
-        | None { Result.Err("Todo #${id} not found") }
+TodoList.complete = (self, id: i32) void {
+    self.items
+        .find_index((t) => t.id == id)
+        .map((i) => { self.items[i].done = true })
 }
 
-TodoList.list_active = (self) void {
-    active = self.items.filter((t) => !t.done)
-    active.len() == 0 ?
+TodoList.active = (self) []Todo {
+    self.items
+        .filter((t) => !t.done)
+        .sort((a, b) => b.priority.sort_value() - a.priority.sort_value())
+}
+
+TodoList.show_active = (self) void {
+    active = self.active()
+    active.empty() ?
         | true { io.println("  No active todos!") }
-        | false {
-            active
-                .sort((a, b) => b.priority == a.priority ? 
-                    | true { 0 }
-                    | false { 
-                        (b.priority == Priority.High ? | true { 1 } | false { 
-                            a.priority == Priority.High ? | true { -1 } | false { 0 }
-                        })
-                    })
-                .loop((t) => io.println("  ${t.display()}"))
-        }
+        | false { active.loop((t) => io.println("  ${t.display()}")) }
 }
 
 TodoList.stats = (self) string {
     total = self.items.len()
     done = self.items.filter((t) => t.done).len()
-    active = total - done
-    
-    "📊 Total: ${total} | Done: ${done} | Active: ${active}"
+    "📊 Total: ${total} | Done: ${done} | Active: ${total - done}"
 }
 
-// ═══ Main Application ═════════════════════════════════════════════════
+// Main Application
 main = () void {
-    io.println("╔════════════════╗")
-    io.println("║   TODO APP     ║")
-    io.println("╚════════════════╝\n")
+    io.println("╔════════════╗")
+    io.println("║  TODO APP  ║")
+    io.println("╚════════════╝\n")
     
-    // Create todo list
     todos = TodoList.new()
     
-    // Add some tasks
+    // Add tasks
     todos.add("Write documentation", Priority.High)
     todos.add("Fix bug in parser", Priority.High)
     todos.add("Refactor lexer", Priority.Medium)
     todos.add("Update README", Priority.Low)
-    todos.add("Add more tests", Priority.Medium)
+    todos.add("Review PRs", Priority.Medium)
     
-    // Show active todos
     io.println("▸ Active Todos:")
-    todos.list_active()
+    todos.show_active()
     
-    // Complete some tasks
     io.println("\n▸ Completing tasks...")
-    todos.complete(2)?
-    todos.complete(4)?
+    todos.complete(2)
+    todos.complete(4)
     
-    // Show updated list
     io.println("\n▸ Updated List:")
-    todos.list_active()
+    todos.show_active()
     
-    // Show stats
     io.println("\n${todos.stats()}")
 }

@@ -25,16 +25,16 @@ Allocator: {
     resume: (cont: Continuation) void
     
     // Utility functions
-    create: (comptime T: type) *T {
+    create: (comptime T: type) Ptr<T> {
         ptr := self.alloc(@std.sizeOf(T))
-        return @std.ptrCast(*T, ptr)
+        return @std.ptrCast(Ptr<T>, ptr)
     }
     
     destroy: (ptr: anytype) void {
         self.free(@std.ptrCast(RawPtr<void>, ptr))
     }
     
-    alloc_slice: (comptime T: type, n: usize) []T {
+    alloc_slice: (comptime T: type, n: usize) Vec<T> {
         bytes := self.alloc(@std.sizeOf(T) * n)
         return @std.ptrCast([*]T, bytes)[0..n]
     }
@@ -54,7 +54,7 @@ SyncAllocator: {
         }
     }
     
-    deinit: (self: *SyncAllocator) void {
+    deinit: (self: Ptr<SyncAllocator>) void {
         self.heap.deinit()
     }
     
@@ -72,13 +72,13 @@ SyncAllocator: {
 
 // Runtime for concurrent execution
 Runtime: {
-    ready_queue: []Continuation
+    ready_queue: DynVec<Continuation>
     current_continuation: ?Continuation
     heap: std.heap.GeneralPurposeAllocator
     
     init: () Runtime {
         return Runtime{
-            ready_queue: []Continuation{},
+            ready_queue: DynVec<Continuation>{},
             current_continuation: null,
             heap: std.heap.GeneralPurposeAllocator.init()
         }
@@ -115,9 +115,9 @@ Runtime: {
 
 // Concurrent allocator - non-blocking with continuations
 ConcurrentAllocator: {
-    runtime: *Runtime
+    runtime: Ptr<Runtime>
     
-    init: (runtime: *Runtime) ConcurrentAllocator {
+    init: (runtime: Ptr<Runtime>) ConcurrentAllocator {
         return ConcurrentAllocator{
             runtime: runtime
         }
@@ -149,7 +149,7 @@ AutoAllocator: {
         }
     }
     
-    init_with_runtime: (runtime: *Runtime) AutoAllocator {
+    init_with_runtime: (runtime: Ptr<Runtime>) AutoAllocator {
         return AutoAllocator{
             sync_alloc: SyncAllocator.init(),
             concurrent_alloc: ConcurrentAllocator.init(runtime),
@@ -168,7 +168,7 @@ AutoAllocator: {
 // Test allocator for debugging
 TestAllocator: {
     underlying: SyncAllocator
-    allocations: []AllocationInfo
+    allocations: DynVec<AllocationInfo>
     total_allocated: usize
     total_freed: usize
     
@@ -181,13 +181,13 @@ TestAllocator: {
     init: () TestAllocator {
         return TestAllocator{
             underlying: SyncAllocator.init(),
-            allocations: []AllocationInfo{},
+            allocations: DynVec<AllocationInfo>{},
             total_allocated: 0,
             total_freed: 0
         }
     }
     
-    deinit: (self: *TestAllocator) void {
+    deinit: (self: Ptr<TestAllocator>) void {
         self.underlying.deinit()
     }
     

@@ -35,7 +35,7 @@ new_suite = (name: string) TestSuite   {
 }
 
 // Run a single test
-run_test = (suite: &mut TestSuite, name: string, test_fn: () bool) void {
+run_test = (suite: MutPtr<TestSuite>, name: string, test_fn: () bool) void {
     io.print("  Running: ")
     io.print(name)
     io.print("... ")
@@ -65,12 +65,12 @@ run_test = (suite: &mut TestSuite, name: string, test_fn: () bool) void {
     io.print(time.format_duration(duration))
     io.print(")\n")
     
-    vec.push(&mut suite.tests, result)
+    vec.push(suite.tests.mut_ref(), result)
     suite.total = suite.total + 1
 }
 
 // Run test with custom error message
-run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result<bool, string>) void {
+run_test_with_message = (suite: MutPtr<TestSuite>, name: string, test_fn: () Result<bool, string>) void {
     io.print("  Running: ")
     io.print(name)
     io.print("... ")
@@ -98,7 +98,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
                     suite.failed = suite.failed + 1
                 }
             
-            vec.push(&mut suite.tests, result)
+            vec.push(suite.tests.mut_ref(), result)
         }
         | Err(msg) {
             result := TestResult {
@@ -111,7 +111,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
             io.print("✗ ERROR: ")
             io.print(msg)
             suite.failed = suite.failed + 1
-            vec.push(&mut suite.tests, result)
+            vec.push(suite.tests.mut_ref(), result)
         }
     }
     
@@ -123,7 +123,7 @@ run_test_with_message = (suite: &mut TestSuite, name: string, test_fn: () Result
 }
 
 // Print test suite summary
-print_summary = (suite: &TestSuite) void   {
+print_summary = (suite: Ref<TestSuite>) void   {
     io.print("\n")
     io.print("=" * 50)
     io.print("\n")
@@ -234,11 +234,11 @@ run_tests = (name: string, tests: [](() bool)) i32 {
     i := 0
     loop (i < tests.len()) {
         test_name := string.concat("Test ", string.from_int(i + 1))
-        run_test(&mut suite, test_name, tests[i])
+        run_test(suite.mut_ref(), test_name, tests[i])
         i = i + 1
     }
     
-    print_summary(&suite)
+    print_summary(suite.ref())
     
     (suite.failed > 0) ? 
         | true { 1 }

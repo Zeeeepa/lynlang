@@ -234,7 +234,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Handle payload pattern if present
                 if let Some(payload_pattern) = payload {
                     // Extract the payload value - preserve the actual type!
-                    let mut payload_val = if scrutinee_val.is_pointer_value() {
+                    let payload_val = if scrutinee_val.is_pointer_value() {
                         let enum_struct_type = enum_info.llvm_type;
                         // Check if enum has payload field
                         if enum_struct_type.count_fields() > 1 {
@@ -272,8 +272,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.context.i64_type().const_int(0, false).into()
                     };
                     
-                    // Don't convert here - let the binding handle type detection
-                    
                     // Recursively match the payload pattern
                     let (payload_match, mut payload_bindings) = self.compile_pattern_test(
                         &payload_val,
@@ -309,22 +307,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // EnumLiteral patterns are like .Some(x) or .None
                 // We need to infer the enum type from the scrutinee
                 
-                // Try to extract enum info from scrutinee type
-                // For now, we'll try to match against any enum that has this variant
-                // In a more complete implementation, we'd use type information
-                
-                
                 // Check if scrutinee is an enum value
                 if scrutinee_val.is_struct_value() || scrutinee_val.is_pointer_value() {
                     // Extract the discriminant
                     let discriminant = if scrutinee_val.is_pointer_value() {
-                        // Assume it's a pointer to an enum struct
+                        let ptr_val = scrutinee_val.into_pointer_value();
+                        
+                        // For now, assume enum struct layout: {i64 tag, T payload}
+                        // This is safe because we control how enums are created
+                        let struct_type = self.context.struct_type(&[
+                            self.context.i64_type().into(),
+                            self.context.i64_type().into(),
+                        ], false);
+                        
                         let discriminant_gep = self.builder.build_struct_gep(
-                            self.context.struct_type(&[
-                                self.context.i64_type().into(),
-                                self.context.i64_type().into(),
-                            ], false),
-                            scrutinee_val.into_pointer_value(),
+                            struct_type,
+                            ptr_val,
                             0,
                             "discriminant_ptr"
                         )?;
@@ -346,15 +344,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     };
                     
                     // Search through all known enum types to find one with this variant
-                    // This is a temporary solution - ideally we'd have type information
                     let mut variant_tag = None;
-                    let mut _enum_info = None;
+                    let mut enum_info = None;
                     
                     for (_name, symbol) in self.symbols.iter() {
                         if let symbols::Symbol::EnumType(info) = symbol {
                             if let Some(tag) = info.variant_indices.get(variant) {
                                 variant_tag = Some(*tag);
-                                _enum_info = Some(info.clone());
+                                enum_info = Some(info.clone());
                                 break;
                             }
                         }
@@ -372,47 +369,54 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         
                         // Handle payload pattern if present
                         if let Some(payload_pattern) = payload {
-                            // Extract the payload value
-                            let mut payload_val = if scrutinee_val.is_pointer_value() {
-                                // We need to extract the payload without knowing its exact type
-                                // The safest approach is to try loading with the actual payload type if we can infer it
+                            // Extract the payload value - preserve the actual type!
+                            let payload_val = if scrutinee_val.is_pointer_value() {
                                 let ptr_val = scrutinee_val.into_pointer_value();
                                 
-                                // Try to determine the payload type from the pattern
-                                // For now, we'll make a conservative assumption about the struct layout
-                                // TODO: Better type tracking to know the exact payload type
+                                // Use enum info if available, otherwise use generic struct
+                                let struct_type = if let Some(ref info) = enum_info {
+                                    info.llvm_type
+                                } else {
+                                    // Fallback to generic struct
+                                    self.context.struct_type(&[
+                                        self.context.i64_type().into(),
+                                        self.context.i64_type().into(),
+                                    ], false)
+                                };
                                 
-                                // Create a generic enum struct type - we know it has tag + payload
-                                let generic_enum_type = self.context.struct_type(&[
-                                    self.context.i64_type().into(),  // tag
-                                    self.context.i64_type().into(),  // payload (generic)
-                                ], false);
-                                
-                                // Build GEP to access the payload field
-                                let payload_ptr = self.builder.build_struct_gep(
-                                    generic_enum_type,
-                                    ptr_val,
-                                    1,
-                                    "payload_ptr"
-                                )?;
-                                
-                                // For better handling, we need to check what kind of value is expected
-                                // For now, always load as i64 which can represent both ints and bitcast floats
-                                let payload_type = self.context.i64_type();
-                                
-                                // Load the payload
-                                let loaded = self.builder.build_load(
-                                    payload_type,
-                                    payload_ptr,
-                                    "payload"
-                                )?;
-                                
-                                // If we loaded an i64 but need a float, bitcast it
-                                // This will be handled by the binding application
-                                loaded
+                                // Check if struct has payload field
+                                if struct_type.count_fields() > 1 {
+                                    // Build GEP to access the payload field
+                                    let payload_ptr = self.builder.build_struct_gep(
+                                        struct_type,
+                                        ptr_val,
+                                        1,
+                                        "payload_ptr"
+                                    )?;
+                                    
+                                    // Get the actual payload type from the struct
+                                    let payload_type = struct_type.get_field_type_at_index(1)
+                                        .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
+                                    
+                                    // Load with the correct type
+                                    self.builder.build_load(
+                                        payload_type,
+                                        payload_ptr,
+                                        "payload"
+                                    )?
+                                } else {
+                                    // No payload field
+                                    self.context.i64_type().const_int(0, false).into()
+                                }
                             } else if scrutinee_val.is_struct_value() {
                                 let struct_val = scrutinee_val.into_struct_value();
-                                self.builder.build_extract_value(struct_val, 1, "payload")?
+                                // Check if struct has payload field
+                                if struct_val.get_type().count_fields() > 1 {
+                                    self.builder.build_extract_value(struct_val, 1, "payload")?
+                                } else {
+                                    // No payload field
+                                    self.context.i64_type().const_int(0, false).into()
+                                }
                             } else {
                                 self.context.i64_type().const_int(0, false).into()
                             };
@@ -564,36 +568,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 saved.insert(name.clone(), existing.clone());
             }
             
-            // For Option<string> payloads: detect when i64 values should be converted to pointers
+            // Determine the AST type based on the LLVM type
             let (actual_value, ast_type) = if value.is_int_value() {
                 let int_val = value.into_int_value();
-                if int_val.get_type().get_bit_width() == 64 {
-                    // Use a heuristic to detect string pointers
-                    // Check if the name suggests it's a string binding
-                    let is_likely_string = name == "s" || name.contains("str") || name.contains("msg") || name.contains("text");
-                    
-                    if is_likely_string {
-                        // Convert i64 to pointer for string bindings
-                        let ptr_val = self.builder.build_int_to_ptr(
-                            int_val,
-                            self.context.ptr_type(inkwell::AddressSpace::default()),
-                            &format!("{}_ptr", name)
-                        ).unwrap();
-                        (ptr_val.into(), crate::ast::AstType::String)
-                    } else {
-                        (*value, crate::ast::AstType::I64)
-                    }
-                } else {
-                    // Other integer types
-                    let ast_type = match int_val.get_type().get_bit_width() {
-                        8 => crate::ast::AstType::I8,
-                        16 => crate::ast::AstType::I16,
-                        32 => crate::ast::AstType::I32,
-                        64 => crate::ast::AstType::I64,
-                        _ => crate::ast::AstType::I64,
-                    };
-                    (*value, ast_type)
-                }
+                // Map integer types
+                let ast_type = match int_val.get_type().get_bit_width() {
+                    8 => crate::ast::AstType::I8,
+                    16 => crate::ast::AstType::I16,
+                    32 => crate::ast::AstType::I32,
+                    64 => crate::ast::AstType::I64,
+                    _ => crate::ast::AstType::I64,
+                };
+                (*value, ast_type)
             } else if value.is_float_value() {
                 let fv = value.into_float_value();
                 let ast_type = if fv.get_type() == self.context.f32_type() {

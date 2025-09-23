@@ -31,7 +31,7 @@ clamp = (value: T, min_val: T, max_val: T) T   {
 }
 
 // Linear search in array
-find = (arr: DynVec<T>, value: T) ?usize   {
+find = (arr: DynVec<T>, value: T) Option<usize>   {
     i = 0
     while (i < arr.len) {
         arr[i] == value ? {
@@ -43,7 +43,7 @@ find = (arr: DynVec<T>, value: T) ?usize   {
 }
 
 // Binary search in sorted array
-binary_search = (arr: DynVec<T>, value: T) ?usize   {
+binary_search = (arr: DynVec<T>, value: T) Option<usize>   {
     left = 0
     right = arr.len - 1
     
@@ -219,7 +219,7 @@ merge = (arr1:: DynVec<T>, arr2: DynVec<T>) DynVec<T>   {
 }
 
 // Apply function to each element
-map = (alloc: Ptr<Allocator>, arr: DynVec<T>, f: fn(T) U) []U {
+map = (alloc: Ptr<Allocator>, arr: DynVec<T>, f: fn(T) U) DynVec<U> {
     result = DynVec<U>.new()
     i = 0
     loop (i < arr.len) {
@@ -282,7 +282,7 @@ any = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) bool {
 }
 
 // Find first element that satisfies predicate
-find_if = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) ?T {
+find_if = (alloc: Ptr<Allocator>, arr: DynVec<T>, pred: fn(T) bool) Option<T> {
     arr.loop((item) {
         pred(item) ? {
             return item

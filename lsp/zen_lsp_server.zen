@@ -72,7 +72,7 @@ DiagnosticSeverity:
 Diagnostic : {
     range: Range,
     severity: DiagnosticSeverity,
-    code: ?string,
+    code: Option<string>,
     source: string,
     message: string,
     related_information: DynVec<DiagnosticRelatedInformation>
@@ -141,12 +141,12 @@ CompletionItemKind :
 CompletionItem : {
     label: string,
     kind: CompletionItemKind,
-    detail: ?string,
-    documentation: ?string,
-    insert_text: ?string,
-    insert_text_format: ?i32,
-    filter_text: ?string,
-    sort_text: ?string
+    detail: Option<string>,
+    documentation: Option<string>,
+    insert_text: Option<string>,
+    insert_text_format: Option<i32>,
+    filter_text: Option<string>,
+    sort_text: Option<string>
 }
 
 // Symbol kind
@@ -181,7 +181,7 @@ SymbolKind:
 // Document symbol
 DocumentSymbol := {
     name: string,
-    detail: ?string,
+    detail: Option<string>,
     kind: SymbolKind,
     deprecated: bool,
     range: Range,
@@ -192,7 +192,7 @@ DocumentSymbol := {
 // Hover information
 Hover : {
     contents: string,
-    range: ?Range
+    range: Option<Range>
 }
 
 // Server capabilities
@@ -207,7 +207,7 @@ ServerCapabilities : {
     code_action_provider: bool,
     document_formatting_provider: bool,
     document_range_formatting_provider: bool,
-    execute_command_provider: ?ExecuteCommandOptions
+    execute_command_provider: Option<ExecuteCommandOptions>
 }
 
 // Execute command options
@@ -218,7 +218,7 @@ ExecuteCommandOptions : {
 // Language server state
 LanguageServer : {
     initialized: bool,
-    root_uri: ?string,
+    root_uri: Option<string>,
     documents: hashmap.HashMap<string, TextDocumentItem>,
     diagnostics: hashmap.HashMap<string, DynVec<Diagnostic>>,
     symbols: hashmap.HashMap<string, DynVec<DocumentSymbol>>,
@@ -880,7 +880,7 @@ extract_enum_members = (node: ASTNode) DynVec<DocumentSymbol> {
 }
 
 // Find definition in imported modules
-find_definition_in_imports = (server: *LanguageServer, doc: Document, word: string) json.Value? {
+find_definition_in_imports = (server: *LanguageServer, doc: Document, word: string) Option<json.Value> {
     // Parse imports from document
     imports := extract_imports(doc.text)
     
@@ -907,7 +907,7 @@ find_definition_in_imports = (server: *LanguageServer, doc: Document, word: stri
 }
 
 // Find definition in standard library
-find_definition_in_stdlib = (word: string) json.Value? {
+find_definition_in_stdlib = (word: string) Option<json.Value> {
     // Map of standard library symbols to their locations
     stdlib_symbols := hashmap.new<string, (string, u32, u32)>()
     stdlib_symbols.insert("DynVec", ("stdlib/collections.zen", 10, 0))
@@ -1078,7 +1078,7 @@ is_numeric = (s: string) bool {
 }
 
 // Find symbol in imports
-find_symbol_in_imports = (server: *LanguageServer, doc: Document, word: string) string? {
+find_symbol_in_imports = (server: *LanguageServer, doc: Document, word: string) Option<string> {
     imports := extract_imports(doc.text)
     
     imports.loop((import_path) {

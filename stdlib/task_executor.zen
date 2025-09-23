@@ -40,7 +40,7 @@ Task<T>: {
     result: Option<TaskResult<T>>,
     created_at: u64,
     started_at: Option<u64>,
-    completed_at: ?u64
+    completed_at: Option<u64>
 }
 
 // Task executor configuration
@@ -214,7 +214,7 @@ worker_loop = (executor: TaskExecutor) void   {
 }
 
 // Wait for a specific task to complete
-wait_for = (executor: *TaskExecutor, task_id: u64) ?TaskResult<any>   {
+wait_for = (executor: Ptr<TaskExecutor>, task_id: u64) Option<TaskResult<any>>   {
     // Check if already completed
     executor.completed_tasks.loop((task) {
         task.id == task_id ? {
@@ -239,7 +239,7 @@ wait_for = (executor: *TaskExecutor, task_id: u64) ?TaskResult<any>   {
 }
 
 // Cancel a task
-cancel = (executor: *TaskExecutor, task_id: u64) bool   {
+cancel = (executor: Ptr<TaskExecutor>, task_id: u64) bool   {
     // Check if task is still pending
     queue_tasks := executor.task_queue.to_vec()
     queue_tasks.loop((i, task) {
@@ -261,7 +261,7 @@ cancel = (executor: *TaskExecutor, task_id: u64) bool   {
 }
 
 // Get task status
-get_status = (executor: *TaskExecutor, task_id: u64) ?TaskStatus   {
+get_status = (executor: Ptr<TaskExecutor>, task_id: u64) Option<TaskStatus>   {
     // Check active tasks
     executor.active_tasks.contains(task_id) ? {
         task := executor.active_tasks.get(task_id)
@@ -287,7 +287,7 @@ get_status = (executor: *TaskExecutor, task_id: u64) ?TaskStatus   {
 }
 
 // Shutdown the executor
-shutdown = (executor: *TaskExecutor, wait_for_completion: bool) void   {
+shutdown = (executor: Ptr<TaskExecutor>, wait_for_completion: bool) void   {
     wait_for_completion ? {
         // Wait for all tasks to complete
         while (executor.task_queue.size() > 0 || executor.active_tasks.size() > 0) {
@@ -305,12 +305,12 @@ shutdown = (executor: *TaskExecutor, wait_for_completion: bool) void   {
 }
 
 // Get executor metrics
-get_metrics = (executor: *TaskExecutor) ?ExecutorMetrics   {
+get_metrics = (executor: Ptr<TaskExecutor>) Option<ExecutorMetrics>   {
     return executor.metrics
 }
 
 // Batch submit multiple tasks
-batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priority: Priority, func: fn()(TaskResult<T>}) []u64 {
+batch_submit<T> = (executor: Ptr<TaskExecutor>, tasks: Vec<struct{name: string, priority: Priority, func: fn()(TaskResult<T>)}) DynVec<u64> {
     task_ids := DynVec.new()
     
     tasks.loop((task_info) {
@@ -318,11 +318,11 @@ batch_submit<T> = (executor: *TaskExecutor, tasks: []struct{name: string, priori
         task_ids.push(id)
     }
     
-    return task_ids.to_slice()
+    return task_ids
 }
 
 // Wait for all tasks in a batch
-wait_for_batch = (executor: *TaskExecutor, task_ids: []u64) []TaskResult<any>   {
+wait_for_batch = (executor: Ptr<TaskExecutor>, task_ids: Vec<u64>) DynVec<TaskResult<any>>   {
     results := DynVec.new()
     
     task_ids.loop((id) {
@@ -332,18 +332,18 @@ wait_for_batch = (executor: *TaskExecutor, task_ids: []u64) []TaskResult<any>   
         }
     }
     
-    return results.to_slice()
+    return results
 }
 
 // Create a task group for related tasks
 TaskGroup := {
-    executor: *TaskExecutor,
+    executor: Ptr<TaskExecutor>,
     task_ids: DynVec<u64>,
     name: string
 }
 
 // Create a new task group
-new_group = (executor: *TaskExecutor, name: string) *TaskGroup {
+new_group = (executor: Ptr<TaskExecutor>, name: string) Ptr<TaskGroup> {
     group := core.alloc<TaskGroup>()
     group.executor = executor
     group.task_ids = DynVec.new()
@@ -352,19 +352,19 @@ new_group = (executor: *TaskExecutor, name: string) *TaskGroup {
 }
 
 // Add a task to the group
-add_to_group<T> = (group: *TaskGroup, name: string, priority: Priority, func: fn()(TaskResult<T>) u64 {
+add_to_group<T> = (group: Ptr<TaskGroup>, name: string, priority: Priority, func: fn()(TaskResult<T>) u64 {
     task_id := submit(group.executor, group.name + "." + name, priority, func)
     group.task_ids.push(task_id)
     return task_id
 }
 
 // Wait for all tasks in the group
-wait_group = (group: *TaskGroup) []TaskResult<any>   {
-    return wait_for_batch(group.executor, group.task_ids.to_slice())
+wait_group = (group: Ptr<TaskGroup>) DynVec<TaskResult<any>>   {
+    return wait_for_batch(group.executor, group.task_ids)
 }
 
 // Cancel all tasks in the group
-cancel_group = (group: *TaskGroup) i32   {
+cancel_group = (group: Ptr<TaskGroup>) i32   {
     cancelled := 0
     group.task_ids.loop((id) {
         cancel(group.executor, id) ? {

@@ -119,7 +119,7 @@ dump_ast = (ast: AST, output_file: string) void   {
 }
 
 // Parse command line arguments
-parse_args = (args: []string) Result<CompilerOptions, string>   {
+parse_args = (args: Vec<string>) Result<CompilerOptions, string>   {
     args.len < 2 ? | true { return Err("Usage: zenc <input.zen> [options]") }
     
     options := CompilerOptions {
@@ -189,7 +189,7 @@ print_help = () void   {
 }
 
 // Main entry point
-main = (args: []string) i32   {
+main = (args: Vec<string>) i32   {
     // Parse command line arguments
     options := parse_args(args) ?
         | Ok(opts) { opts }

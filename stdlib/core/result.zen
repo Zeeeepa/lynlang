@@ -197,8 +197,8 @@ none = () Option<T>   {
 //              | Err(e) { return Err(e) }
 
 // Collect Results into a Result of collection
-collect_results = (results: []Result<T, E>) Result<[]T, E>   {
-    values := []T{}
+collect_results = (results: Vec<Result<T, E>>) Result<DynVec<T>, E>   {
+    values := DynVec<T>{}
     
     (0..results.length).loop((i) {
         results[i] ?

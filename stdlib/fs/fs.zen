@@ -289,9 +289,9 @@ DirEntry: {
 }
 
 // Read directory (simplified - would use opendir/readdir)
-read_dir = (path: string) io.IOResult<[]DirEntry> {
+read_dir = (path: string) io.IOResult<DynVec<DirEntry>> {
     // Placeholder - would use opendir/readdir/closedir
-    io.IOResult:Ok([])
+    io.IOResult:Ok(DynVec<DirEntry>{})
 }
 
 // Walk directory tree recursively

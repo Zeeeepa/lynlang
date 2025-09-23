@@ -10,7 +10,7 @@ process := build.import("process")
 Target: {
     cpu_arch: CpuArch
     os_tag: OsTag
-    abi: ?Abi
+    abi: Option<Abi>
 }
 
 CpuArch: 
@@ -97,21 +97,21 @@ Step: {
 ExecutableOptions: {
     name: String
     root_source_file: String
-    target: ?Target
-    optimize: ?OptimizeMode
+    target: Option<Target>
+    optimize: Option<OptimizeMode>
     link_libc: bool = false
 }
 
 Executable: {
     options: ExecutableOptions
     step: Step
-    symbols: []Symbol
-    packages: []Package
-    libraries: []String
-    include_paths: []String
-    library_paths: []String
-    frameworks: []String  // macOS
-    export_symbol_names: []String  // WASM
+    symbols: DynVec<Symbol>
+    packages: DynVec<Package>
+    libraries: DynVec<String>
+    include_paths: DynVec<String>
+    library_paths: DynVec<String>
+    frameworks: DynVec<String>  // macOS
+    export_symbol_names: DynVec<String>  // WASM
     enable_stack_traces: bool = true
     strip: bool = false
     
@@ -169,9 +169,9 @@ Executable: {
 LibraryOptions: {
     name: String
     root_source_file: String
-    target: ?Target
-    optimize: ?OptimizeMode
-    version: ?Version
+    target: Option<Target>
+    optimize: Option<OptimizeMode>
+    version: Option<Version>
 }
 
 Version: {
@@ -184,7 +184,7 @@ Library: {
     options: LibraryOptions
     step: Step
     is_static: bool
-    export_headers: []String
+    export_headers: DynVec<String>
     
     addExportHeader: (path: String) void {
         self.export_headers.append(path)
@@ -195,8 +195,8 @@ Library: {
 Test: {
     root_source: String
     step: Step
-    target: ?Target
-    symbols: []Executable.Symbol
+    target: Option<Target>
+    symbols: DynVec<Executable.Symbol>
     
     setTarget: (target: Target) void {
         self.target = target
@@ -211,7 +211,7 @@ Test: {
 RunStep: {
     executable: *Executable
     step: Step
-    args: []String
+    args: DynVec<String>
     
     addArg: (arg: String) void {
         self.args.append(arg)
@@ -220,7 +220,7 @@ RunStep: {
 
 // System command execution
 SystemCommand: {
-    argv: []String
+    argv: DynVec<String>
     step: Step
     
     execute: () !void {
@@ -244,9 +244,9 @@ Module: {
 
 DependencyOptions: {
     url: String
-    commit: ?String
-    tag: ?String
-    branch: ?String
+    commit: Option<String>
+    tag: Option<String>
+    branch: Option<String>
 }
 
 ModuleOptions: {
@@ -304,13 +304,13 @@ Build: {
                 kind: .Exe,
                 dependencies: []*Step{}
             },
-            symbols: []Executable.Symbol{},
-            packages: []Package{},
-            libraries: []String{},
-            include_paths: []String{},
-            library_paths: []String{},
-            frameworks: []String{},
-            export_symbol_names: []String{},
+            symbols: DynVec<Executable.Symbol>{},
+            packages: DynVec<Package>{},
+            libraries: DynVec<String>{},
+            include_paths: DynVec<String>{},
+            library_paths: DynVec<String>{},
+            frameworks: DynVec<String>{},
+            export_symbol_names: DynVec<String>{},
             enable_stack_traces: true,
             strip: false
         }
@@ -370,7 +370,7 @@ Build: {
         return &test
     }
     
-    option: (comptime T: type, name: String, description: String) ?T {
+    option: (comptime T: type, name: String, description: String) Option<T> {
         // Check if option was provided
         self.options_map.get(name) ?
             | Some(value) { return @as(T, value) }
@@ -478,7 +478,7 @@ InstallDir:
     share
 
 // Helper to read environment variables
-@env = (name: String) ?String {
+@env = (name: String) Option<String> {
     return process.getEnv(name)
 }
 

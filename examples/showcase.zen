@@ -1,150 +1,78 @@
-// Zen Language Showcase - Core Features & Patterns
-{ io, Result, time } = @std
+// Zen Language - Elegance, Efficiency, Expressiveness
+{ io } = @std
 
 main = () void {
-    io.println("╔═══════════════════════════════╗")
-    io.println("║     ZEN LANGUAGE SHOWCASE     ║")
-    io.println("╚═══════════════════════════════╝\n")
+    header("ZEN LANGUAGE")
     
-    // ═══ 1. UFC: Universal Function Call ═════════════════════════════════
-    io.println("▸ UFC Method Chaining:")
+    section("Universal Function Call")
     double = (n: i32) i32 { n * 2 }
-    triple = (n: i32) i32 { n * 3 }
-    result = 5.double().triple()  // (5 * 2) * 3 = 30
-    io.println("  5.double().triple() = ${result}")
+    demo("5.double().double()", 5.double().double())
     
-    // ═══ 2. Pattern Matching (No if/else) ════════════════════════════════
-    io.println("\n▸ Pattern Matching:")
-    fizzbuzz = (n: i32) string {
-        (n % 15 == 0, n % 3 == 0, n % 5 == 0) ?
-            | (true, _, _) { "FizzBuzz" }
-            | (_, true, _) { "Fizz" }
-            | (_, _, true) { "Buzz" }
-            | _ { "${n}" }
+    section("Pattern Matching - No if/else")
+    sign = (n: i32) string {
+        n == 0 ? | true { "zero" } | false {
+            n > 0 ? | true { "positive" } | false { "negative" }
+        }
     }
+    demo("sign(42)", sign(42))
+    demo("sign(-7)", sign(-7))
+    demo("sign(0)", sign(0))
     
-    sequence = (1..16).map(fizzbuzz).join(", ")
-    io.println("  ${sequence}")
+    section("Algebraic Data Types")
+    Shape:
+        Circle: { radius: f32 },
+        Rectangle: { width: f32, height: f32 },
+        Point
     
-    // ═══ 3. Algebraic Data Types ═════════════════════════════════════════
-    io.println("\n▸ Algebraic Data Types:")
-    
-    Shape: Circle(f64) | Rectangle(f64, f64) | Triangle(f64, f64, f64)
-    
-    area = (s: Shape) f64 {
+    area = (s: Shape) f32 {
         s ?
-            | Circle(r) { 3.14159 * r * r }
-            | Rectangle(w, h) { w * h }
-            | Triangle(a, b, c) { 
-                s = (a + b + c) / 2.0
-                (s * (s - a) * (s - b) * (s - c)).sqrt()
-            }
+            | Circle { radius } { 3.14159 * radius * radius }
+            | Rectangle { width, height } { width * height }
+            | Point { 0.0 }
     }
     
     shapes = [
-        Shape.Circle(5.0),
-        Shape.Rectangle(4.0, 6.0),
-        Shape.Triangle(3.0, 4.0, 5.0)
+        Shape.Circle { radius: 5.0 },
+        Shape.Rectangle { width: 3.0, height: 4.0 },
+        Shape.Point
     ]
     
-    shapes.loop((shape) => {
-        shape ?
-            | Circle(r) { io.println("  Circle(${r}) area = ${area(shape):.2f}") }
-            | Rectangle(w, h) { io.println("  Rectangle(${w}x${h}) area = ${area(shape):.2f}") }
-            | Triangle(a, b, c) { io.println("  Triangle(${a},${b},${c}) area = ${area(shape):.2f}") }
-    })
+    shapes.loop((s, i) => demo("shape[${i}] area", area(s)))
     
-    // ═══ 4. Error Handling as Values ═════════════════════════════════════
-    io.println("\n▸ Result Type Error Handling:")
+    section("Functional Pipelines")
+    result = (1..10)
+        .filter((n) => n % 2 == 0)
+        .map((n) => n * n)
+        .reduce(0, (sum, n) => sum + n)
+    demo("sum of even squares (1-10)", result)
     
-    safe_divide = (a: f64, b: f64) Result<f64, string> {
-        b != 0.0 ?
-            | true { Result.Ok(a / b) }
-            | false { Result.Err("Division by zero") }
+    section("Everything is an Expression")
+    greeting = {
+        hour = 14
+        hour < 12 ? | true { "Morning" } | false {
+            hour < 18 ? | true { "Afternoon" } | false { "Evening" }
+        }
     }
+    demo("greeting at 14:00", greeting)
     
-    chain_calc = (x: f64, y: f64, z: f64) Result<f64, string> {
-        step1 = safe_divide(x, y)?
-        step2 = safe_divide(step1, z)?
-        Result.Ok(step2 * 100.0)
-    }
-    
-    chain_calc(100.0, 4.0, 5.0) ?
-        | Ok(val) { io.println("  100÷4÷5×100 = ${val}") }
-        | Err(msg) { io.println("  Error: ${msg}") }
-    
-    // ═══ 5. Functional Pipelines ═════════════════════════════════════════
-    io.println("\n▸ Functional Pipeline:")
-    
-    result = (1..20)
-        .filter((n) => n % 2 == 0)      // Even numbers
-        .map((n) => n * n)               // Square them
-        .take(5)                         // First 5
-        .reduce(0, (sum, n) => sum + n)  // Sum
-    
-    io.println("  Sum of first 5 even squares = ${result}")
-    
-    // ═══ 6. Structs with Methods ═════════════════════════════════════════
-    io.println("\n▸ Structs & Methods:")
-    
-    Vec2: { x: f64, y: f64 }
-    
-    Vec2.add = (self, other: Vec2) Vec2 {
-        Vec2 { x: self.x + other.x, y: self.y + other.y }
-    }
-    
-    Vec2.magnitude = (self) f64 {
-        (self.x * self.x + self.y * self.y).sqrt()
-    }
-    
-    Vec2.normalize = (self) Vec2 {
-        mag = self.magnitude()
-        mag > 0.0 ?
-            | true { Vec2 { x: self.x / mag, y: self.y / mag } }
-            | false { self }
-    }
-    
-    v1 = Vec2 { x: 3.0, y: 4.0 }
-    v2 = Vec2 { x: 1.0, y: 2.0 }
-    v3 = v1.add(v2)
-    
-    io.println("  v1(${v1.x}, ${v1.y}) + v2(${v2.x}, ${v2.y}) = v3(${v3.x}, ${v3.y})")
-    io.println("  |v1| = ${v1.magnitude()}")
-    
-    normalized = v1.normalize()
-    io.println("  v1 normalized = (${normalized.x:.3f}, ${normalized.y:.3f})")
-    
-    // ═══ 7. Type-Safe State Machines ═════════════════════════════════════
-    io.println("\n▸ State Machine Pattern:")
-    
-    State: Idle | Running(i32) | Complete(string)
-    
-    process = (state: State, input: i32) State {
-        state ?
-            | Idle { 
-                input > 0 ?
-                    | true { State.Running(input) }
-                    | false { State.Idle }
-            }
-            | Running(count) { 
-                new_count = count - 1
-                new_count > 0 ?
-                    | true { State.Running(new_count) }
-                    | false { State.Complete("Done!") }
-            }
-            | Complete(msg) { State.Complete(msg) }
-    }
-    
-    // Run state machine
-    state1 = State.Idle
-    state2 = process(state1, 3)  // Start with count 3
-    state3 = process(state2, 0)  // Decrement
-    state4 = process(state3, 0)  // Decrement
-    state5 = process(state4, 0)  // Complete
-    
-    state5 ?
-        | Complete(msg) { io.println("  State machine result: ${msg}") }
-        | _ { io.println("  State machine still running...") }
-    
-    io.println("\n✨ Zen: Where elegance meets expressiveness!")
+    footer()
+}
+
+// Helper functions for clean output
+header = (title: string) void {
+    io.println("╔═══════════════════════╗")
+    io.println("║   ${title:^19}   ║")
+    io.println("╚═══════════════════════╝\n")
+}
+
+section = (name: string) void {
+    io.println("\n▸ ${name}:")
+}
+
+demo = (label: string, value: any) void {
+    io.println("  ${label} = ${value}")
+}
+
+footer = () void {
+    io.println("\n✨ Zen: Where simplicity meets power!")
 }

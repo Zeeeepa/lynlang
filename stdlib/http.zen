@@ -68,7 +68,7 @@ HttpHeader: {
 HttpRequest: {
     method: HttpMethod,
     url: RawPtr<i8>,
-    headers: *HttpHeader,
+    headers: Ptr<HttpHeader>,
     header_count: i32,
     body: RawPtr<i8>,
     body_length: i32,
@@ -78,7 +78,7 @@ HttpRequest: {
 HttpResponse: {
     status: HttpStatus,
     status_code: i32,
-    headers: *HttpHeader,
+    headers: Ptr<HttpHeader>,
     header_count: i32,
     body: RawPtr<i8>,
     body_length: i32,
@@ -89,7 +89,7 @@ http_request_new = (method: HttpMethod, url: RawPtr<i8>) HttpRequest   {
     return HttpRequest {
         method: method,
         url: url,
-        headers: malloc(32 * @sizeof(HttpHeader)) as *HttpHeader,
+        headers: malloc(32 * @sizeof(HttpHeader)) as Ptr<HttpHeader>,
         header_count: 0,
         body: 0 as RawPtr<i8>,
         body_length: 0,
@@ -97,7 +97,7 @@ http_request_new = (method: HttpMethod, url: RawPtr<i8>) HttpRequest   {
 }
 
 // Add header to request
-http_request_add_header = (req: *HttpRequest, name: RawPtr<i8>, value: RawPtr<i8>) void   {
+http_request_add_header = (req: Ptr<HttpRequest>, name: RawPtr<i8>, value: RawPtr<i8>) void   {
     req.headers[req.header_count] = HttpHeader {
         name: name,
         value: value,
@@ -106,7 +106,7 @@ http_request_add_header = (req: *HttpRequest, name: RawPtr<i8>, value: RawPtr<i8
 }
 
 // Set request body
-http_request_set_body = (req: *HttpRequest, body: RawPtr<i8>) void   {
+http_request_set_body = (req: Ptr<HttpRequest>, body: RawPtr<i8>) void   {
     req.body = body
     req.body_length = strlen(body) as i32
 }
@@ -173,7 +173,7 @@ http_parse_response = (data: RawPtr<i8>) HttpResponse   {
     response := HttpResponse {
         status: HttpStatus:OK,
         status_code: 200,
-        headers: malloc(32 * @sizeof(HttpHeader)) as *HttpHeader,
+        headers: malloc(32 * @sizeof(HttpHeader)) as Ptr<HttpHeader>,
         header_count: 0,
         body: 0 as RawPtr<i8>,
         body_length: 0,
@@ -294,7 +294,7 @@ http_url_encode = (str: RawPtr<i8>) RawPtr<i8> {
 }
 
 // Query string builder
-http_build_query_string = (params: *HttpHeader, count: i32) RawPtr<i8> {
+http_build_query_string = (params: Ptr<HttpHeader>, count: i32) RawPtr<i8> {
     buffer := malloc(1024 as i64) as RawPtr<i8>
     position := 0
     
@@ -321,13 +321,13 @@ http_build_query_string = (params: *HttpHeader, count: i32) RawPtr<i8> {
 }
 
 // Free request
-http_request_free = (req: *HttpRequest) void   {
+http_request_free = (req: Ptr<HttpRequest>) void   {
     free(req.headers as RawPtr<void>)
     req.body ? | 0 as RawPtr<i8> {} | _ { { free(req.body as RawPtr<void>)  }}
 }
 
 // Free response
-http_response_free = (res: *HttpResponse) void   {
+http_response_free = (res: Ptr<HttpResponse>) void   {
     free(res.headers as RawPtr<void>)
     res.body ? | 0 as RawPtr<i8> {} | _ { { free(res.body as RawPtr<void>)  }}
 }

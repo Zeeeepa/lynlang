@@ -151,7 +151,7 @@ get = <T>(list: &List<T>, index: usize) Option<T> {
 
 
 // Convert list to array
-to_array = <T>(list: &List<T>) []T {
+to_array = <T>(list: &List<T>) Vec<T> {
     array := mem.alloc_array<T>(list.size)
     mut current := list.head
     mut i := 0
@@ -171,7 +171,7 @@ to_array = <T>(list: &List<T>) []T {
 }
 
 // Create list from array
-from_array = <T>(array: []T) List<T> {
+from_array = <T>(array: Vec<T>) List<T> {
     mut list := new<T>()
     for i := 0; i < array.len(); i = i + 1 {
         push_back(&mut list, array[i])

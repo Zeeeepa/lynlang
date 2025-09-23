@@ -13,7 +13,7 @@ hex_chars := "0123456789abcdef"
 HEX_CHARS := "0123456789ABCDEF"
 
 // Encode bytes to hex string (lowercase)
-encode_hex = (data: []u8, len: usize) string   {
+encode_hex = (data: Vec<u8>, len: usize) string   {
     result := ""
     i := 0: usize
     loop i < len {
@@ -27,7 +27,7 @@ encode_hex = (data: []u8, len: usize) string   {
 }
 
 // Encode bytes to hex string (uppercase)
-encode_hex_upper = (data: []u8, len: usize) string   {
+encode_hex_upper = (data: Vec<u8>, len: usize) string   {
     result := ""
     i := 0: usize
     loop i < len {
@@ -81,7 +81,7 @@ decode_hex = (hex: string) Result<Vec<u8>, string>   {
 }
 
 // Base64 encode bytes
-encode_base64 = (data: []u8, len: usize) string   {
+encode_base64 = (data: Vec<u8>, len: usize) string   {
     result := ""
     i := 0: usize
     
@@ -207,7 +207,7 @@ decode_base64 = (encoded: string) Result<Vec<u8>, string>   {
 }
 
 // URL-safe base64 encoding (using - and _ instead of + and /)
-encode_base64_url = (data: []u8, len: usize) string   {
+encode_base64_url = (data: Vec<u8>, len: usize) string   {
     result := encode_base64(data, len)
     // Replace characters for URL safety
     result = string.replace_all(result, "+", "-")
@@ -224,7 +224,7 @@ is_utf8_continuation = (byte: u8) bool   {
     (byte & 0xC0) == 0x80
 }
 
-utf8_decode_char = (data: []u8, idx: usize) Result<(char, usize), string>  {
+utf8_decode_char = (data: Vec<u8>, idx: usize) Result<(char, usize), string>  {
     len := vec_len(data)
     idx >= len ? | true { return Err("index out of bounds") }
                 | false {}

@@ -23,9 +23,9 @@ Command:
 // CLI arguments
 Args: {
     command: Command
-    target: ?String
+    target: Option<String>
     release: bool
-    target_arch: ?String
+    target_arch: Option<String>
     args: []String
     verbose: bool
 }
@@ -116,7 +116,7 @@ parseArgs = (args: []String) !Args {
 }
 
 // Find build.zen file
-findBuildFile = () ?String   {
+findBuildFile = () Option<String>   {
     // Check current directory
     fs.exists("build.zen") ?
         | true { return "build.zen" }

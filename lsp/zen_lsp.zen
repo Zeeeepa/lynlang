@@ -20,43 +20,43 @@ errors := build.import("../compiler/errors")
 // LSP Message Types
 Message: {
     jsonrpc: string,
-    id: ?i32,
-    method: ?string,
-    params: ?json.Value,
-    result: ?json.Value,
-    error: ?ErrorResponse,
+    id: Option<i32>,
+    method: Option<string>,
+    params: Option<json.Value>,
+    result: Option<json.Value>,
+    error: Option<ErrorResponse>,
 }
 
 ErrorResponse: {
     code: i32,
     message: string,
-    data: ?json.Value,
+    data: Option<json.Value>,
 }
 
 // LSP Initialize params
 InitializeParams: {
-    processId: ?i32,
-    rootUri: ?string,
+    processId: Option<i32>,
+    rootUri: Option<string>,
     capabilities: ClientCapabilities,
 }
 
 ClientCapabilities: {
-    textDocument: ?TextDocumentClientCapabilities,
-    workspace: ?WorkspaceClientCapabilities,
+    textDocument: Option<TextDocumentClientCapabilities>,
+    workspace: Option<WorkspaceClientCapabilities>,
 }
 
 TextDocumentClientCapabilities: {
-    synchronization: ?SynchronizationCapabilities,
-    completion: ?CompletionCapabilities,
-    hover: ?HoverCapabilities,
-    definition: ?DefinitionCapabilities,
-    references: ?ReferencesCapabilities,
+    synchronization: Option<SynchronizationCapabilities>,
+    completion: Option<CompletionCapabilities>,
+    hover: Option<HoverCapabilities>,
+    definition: Option<DefinitionCapabilities>,
+    references: Option<ReferencesCapabilities>,
 }
 
 // Server capabilities
 ServerCapabilities: {
     textDocumentSync: i32,
-    completionProvider: ?CompletionOptions,
+    completionProvider: Option<CompletionOptions>,
     hoverProvider: bool,
     definitionProvider: bool,
     referencesProvider: bool,
@@ -108,10 +108,10 @@ Location: {
 Diagnostic: {
     range: Range,
     severity: i32,
-    code: ?string,
+    code: Option<string>,
     source: string,
     message: string,
-    relatedInformation: ?DynVec<DiagnosticRelatedInformation>,
+    relatedInformation: Option<DynVec<DiagnosticRelatedInformation>>,
 }
 
 DiagnosticRelatedInformation: {
@@ -123,16 +123,16 @@ DiagnosticRelatedInformation: {
 CompletionItem: {
     label: string,
     kind: i32,
-    detail: ?string,
-    documentation: ?string,
-    insertText: ?string,
+    detail: Option<string>,
+    documentation: Option<string>,
+    insertText: Option<string>,
     insertTextFormat: i32,
 }
 
 // LSP Server state
 LSPServer: {
     documents: map.Map<string, TextDocumentItem>,
-    root_uri: ?string,
+    root_uri: Option<string>,
     initialized: bool,
     shutdown_requested: bool,
     

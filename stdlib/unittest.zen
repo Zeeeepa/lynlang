@@ -161,14 +161,14 @@ assert_false = (value: bool) TestResult   {
     return TestResult.Fail("Expected false, got true")
 }
 
-assert_nil = <T>(value: ?T) TestResult {
+assert_nil = <T>(value: Option<T>) TestResult {
     if value .== None {
         return TestResult.Pass
     }
     return TestResult.Fail("Expected nil value")
 }
 
-assert_not_nil = <T>(value: ?T) TestResult {
+assert_not_nil = <T>(value: Option<T>) TestResult {
     if value != null {
         return TestResult.Pass
     }
@@ -210,7 +210,7 @@ assert_float_eq = (actual: f64, expected: f64, epsilon: f64) TestResult   {
 }
 
 // Array/slice comparison
-assert_array_eq = <T>(actual: []T, expected: []T) TestResult {
+assert_array_eq = <T>(actual: Vec<T>, expected: Vec<T>) TestResult {
     if actual.len != expected.len {
         msg := string.format("Array length mismatch. Expected: {}, Got: {}", expected.len, actual.len)
         return TestResult.Fail(msg)

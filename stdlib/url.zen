@@ -13,7 +13,7 @@ URL := {
     username: string,
     password: string,
     host: string,
-    port: ?u16,
+    port: Option<u16>,
     path: string,
     query: hashmap.HashMap<string, string>,
     fragment: string,
@@ -102,7 +102,7 @@ Authority := {
     username: string,
     password: string,
     host: string,
-    port: ?u16
+    port: Option<u16>
 }
 
 // Parse URL scheme
@@ -545,7 +545,7 @@ without_query = (url: URL) URL   {
 }
 
 // Get default port for scheme
-default_port = (scheme: string) ?u16   {
+default_port = (scheme: string) Option<u16>   {
     if (scheme == "http") return 80
     if (scheme == "https") return 443
     if (scheme == "ftp") return 21

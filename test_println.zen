@@ -1,0 +1,7 @@
+// Test println
+{ io } = @std
+
+main = () i32 {
+    io.println("Test")
+    0
+}

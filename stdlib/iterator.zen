@@ -328,10 +328,10 @@ Iterator<T>.step_by = (self: Iterator<T>, n: i64) Iterator<T> {
 }
 
 // Window sliding iterator
-Iterator<T>.windows = (self: Iterator<T>, window_size: i64) Iterator<[]T> {
+Iterator<T>.windows = (self: Iterator<T>, window_size: i64) Iterator<Vec<T>> {
     // Would yield overlapping windows of size window_size
-    return Iterator<[]T> {
-        data: 0 as *[]T,
+    return Iterator<Vec<T>> {
+        data: 0 as *Vec<T>,
         size: self.size > window_size ? | true { self.size - window_size + 1 }
                                         | false { 0, }
         current: 0,
@@ -339,10 +339,10 @@ Iterator<T>.windows = (self: Iterator<T>, window_size: i64) Iterator<[]T> {
 }
 
 // Chunks iterator - non-overlapping groups
-Iterator<T>.chunks = (self: Iterator<T>, chunk_size: i64) Iterator<[]T> {
+Iterator<T>.chunks = (self: Iterator<T>, chunk_size: i64) Iterator<Vec<T>> {
     // Would yield non-overlapping chunks
-    return Iterator<[]T> {
-        data: 0 as *[]T,
+    return Iterator<Vec<T>> {
+        data: 0 as *Vec<T>,
         size: (self.size + chunk_size - 1) / chunk_size,
         current: 0,
     }
@@ -361,10 +361,10 @@ Iterator<T>.intersperse = (self: Iterator<T>, separator: T) Iterator<T> {
 }
 
 // Group consecutive equal elements
-Iterator<T>.group_by<K> = (self: Iterator<T>, key_fn: (T) K) Iterator<(K, []T)> {
+Iterator<T>.group_by<K> = (self: Iterator<T>, key_fn: (T) K) Iterator<(K, Vec<T>)> {
     // Would group consecutive elements with same key
-    return Iterator<(K, []T)> {
-        data: 0 as *(K, []T),
+    return Iterator<(K, Vec<T>)> {
+        data: 0 as *(K, Vec<T>),
         size: 0,
         current: 0,
     }

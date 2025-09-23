@@ -44,7 +44,7 @@ push = (T: type, arr: *Array(T), value: T) void {
 }
 
 // Pop element from array
-pop = (T: type, arr: *Array(T)) ?T {
+pop = (T: type, arr: *Array(T)) Option<T> {
     arr.len == 0 ? {
         return null
     }
@@ -53,7 +53,7 @@ pop = (T: type, arr: *Array(T)) ?T {
 }
 
 // Get element at index
-get = (T: type, arr: *Array(T), index: usize) ?T {
+get = (T: type, arr: *Array(T), index: usize) Option<T> {
     index >= arr.len ? {
         return null
     }
@@ -94,7 +94,7 @@ insert = (T: type, arr: *Array(T), index: usize, value: T) bool {
 }
 
 // Remove element at index
-remove = (T: type, arr: *Array(T), index: usize) ?T {
+remove = (T: type, arr: *Array(T), index: usize) Option<T> {
     index >= arr.len ? {
         return null
     }
@@ -202,7 +202,7 @@ reverse = (T: type, arr: *Array(T)) void {
 }
 
 // Find element in array
-find = (T: type, arr: *Array(T), value: T) ?usize {
+find = (T: type, arr: *Array(T), value: T) Option<usize> {
     i := 0
     loop (i < arr.len) {
         arr.data[i] == value ? {
@@ -303,7 +303,7 @@ partition = (T: type, data: *T, low: usize, high: usize, compare: fn(T, T) i32) 
 }
 
 // Binary search (array must be sorted)
-binary_search = (T: type, arr: *Array(T), value: T, compare: fn(T, T) i32) ?usize {
+binary_search = (T: type, arr: *Array(T), value: T, compare: fn(T, T) i32) Option<usize> {
     arr.len == 0 ? {
         return null
     }
@@ -380,7 +380,7 @@ ArrayIterator(T: type): {
     index: usize,
 }
 
-next = (T: type, it: *ArrayIterator(T)) ?T {
+next = (T: type, it: *ArrayIterator(T)) Option<T> {
     it.index >= it.len ? {
         return null
     }

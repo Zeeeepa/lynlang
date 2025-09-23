@@ -7,7 +7,7 @@ hash = @std
 
 // Set implemented using a hash table
 Set<T> = {
-    buckets: *Bucket<T>,
+    buckets: Ptr<Bucket<T>>,
     size: i64,
     capacity: i64,
     hash_fn: (T) i64,
@@ -15,17 +15,17 @@ Set<T> = {
 }
 
 Bucket<T> = {
-    items: *T,
+    items: Ptr<T>,
     count: i64,
     capacity: i64,
 }
 
 // Create a new empty set
-set_new<T> = (hash_fn: (T) i64, eq_fn: (T, T) bool) *Set<T> {
+set_new<T> = (hash_fn: (T) i64, eq_fn: (T, T) bool) Ptr<Set<T>> {
     initial_capacity := 16i64
     
-    set := mem.alloc(@sizeof(Set<T>)) as *Set<T>
-    set.buckets = mem.alloc(@sizeof(Bucket<T>) * initial_capacity) as *Bucket<T>
+    set := mem.alloc(@sizeof(Set<T>)) as Ptr<Set<T>>
+    set.buckets = mem.alloc(@sizeof(Bucket<T>) * initial_capacity) as Ptr<Bucket<T>>
     set.size = 0
     set.capacity = initial_capacity
     set.hash_fn = hash_fn
@@ -46,7 +46,7 @@ set_new<T> = (hash_fn: (T) i64, eq_fn: (T, T) bool) *Set<T> {
 }
 
 // Add an element to the set
-set_add<T>: (set: *Set<T>, value: T) bool  = {
+set_add<T>: (set: Ptr<Set<T>>, value: T) bool  = {
     // Check if we need to resize
     set.size >= set.capacity * 3 / 4 ? | true {
         set_resize(set, set.capacity * 2)
@@ -54,7 +54,7 @@ set_add<T>: (set: *Set<T>, value: T) bool  = {
     
     hash := set.hash_fn(value)
     index := (hash & 0x7FFFFFFFFFFFFFFF) % set.capacity
-    bucket := &set.buckets[index]
+    bucket := set.buckets[index].ref()
     
     // Check if element already exists
     i := 0i64
@@ -72,7 +72,7 @@ set_add<T>: (set: *Set<T>, value: T) bool  = {
         // Grow bucket
         new_capacity := bucket.capacity == 0 ? | true { 4i64 }
                                               | false { bucket.capacity * 2 }
-        new_items := mem.alloc(@sizeof(T) * new_capacity) as *T
+        new_items := mem.alloc(@sizeof(T) * new_capacity) as Ptr<T>
         
         // Copy existing items
         j := 0i64
@@ -99,10 +99,10 @@ set_add<T>: (set: *Set<T>, value: T) bool  = {
 }
 
 // Check if an element exists in the set
-set_contains<T>: (set: *Set<T>, value: T) bool  = {
+set_contains<T>: (set: Ptr<Set<T>>, value: T) bool  = {
     hash := set.hash_fn(value)
     index := (hash & 0x7FFFFFFFFFFFFFFF) % set.capacity
-    bucket := &set.buckets[index]
+    bucket := set.buckets[index].ref()
     
     i := 0i64
     loop {
