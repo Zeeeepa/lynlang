@@ -39,3 +39,6 @@ deinit = (sb:: MutPtr<StringBuilder>) void {
     // Clean up resources if needed
     sb.val.buffer = ""
 }
+
+// Module exports
+module.exports = { StringBuilder, append, append_line, build, deinit }

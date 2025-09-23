@@ -1,0 +1,221 @@
+// HTTP client and server module for Zen
+// Provides high-level HTTP operations built on low-level socket operations
+
+core = @std
+string = @std
+net = @std
+result = @std
+hashmap = @std
+
+// HTTP Request
+HttpRequest: {
+    method: HttpMethod,
+    path: core.String,
+    version: core.String,
+    headers: DynVec<Header>,
+    body: Option<Vec<u8>>,
+}
+
+// HTTP Response
+HttpResponse: {
+    status_code: u16,
+    status_text: core.String,
+    version: core.String,
+    headers: DynVec<Header>,
+    body: Vec<u8>,
+}
+
+// HTTP Methods
+HttpMethod: 
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    HEAD,
+    OPTIONS,
+    PATCH,
+    CONNECT,
+    TRACE,
+
+// HTTP Header
+Header: {
+    name: core.String,
+    value: core.String,
+}
+
+// HTTP Client
+HttpClient: {
+    timeout: u64,  // milliseconds
+    headers: DynVec<Header>,
+}
+
+// Create new HTTP client
+http_client = () HttpClient   {
+    return HttpClient{
+        timeout: 30000,  // 30 seconds default
+        headers: DynVec<Header>{},
+    }
+}
+
+// Perform HTTP GET request
+http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.String>  {
+    req := HttpRequest{
+        method: HttpMethod.GET,
+        path: url,
+        version: "HTTP/1.1",
+        headers: client.headers,
+        body: Option.None,
+    }
+    
+    return http_request(client, req)
+}
+
+// Perform HTTP POST request
+http_post = (client: &HttpClient, url: core.String, body: Vec<u8>) Result<HttpResponse, core.String>  {
+    req := HttpRequest{
+        method: HttpMethod.POST,
+        path: url,
+        version: "HTTP/1.1",
+        headers: client.headers,
+        body: Option.Some(body),
+    }
+    
+    return http_request(client, req)
+}
+
+// Perform generic HTTP request
+http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core.String>  {
+    // Parse URL to get host and path
+    host, port, path := net.parse_url(req.path)
+    
+    // Resolve host and connect
+    addr_res := net.resolve_host(host, port)
+    if addr_res.is_err() {
+        return Result<HttpResponse, core.String>.Err(addr_res.unwrap_err())
+    }
+    addr := addr_res.unwrap()
+    
+    // Connect to server
+    sock_res := net.tcp_connect(addr)
+    if sock_res.is_err() {
+        return Result<HttpResponse, core.String>.Err(sock_res.unwrap_err())
+    }
+    mut sock := sock_res.unwrap()
+    defer net.close_socket(&mut sock)
+    
+    // Build and send HTTP request
+    request_str := format_http_request(req, host)
+    send_res := net.send(&sock, request_str.bytes())
+    if send_res.is_err() {
+        return Result<HttpResponse, core.String>.Err(send_res.unwrap_err())
+    }
+    
+    // Read response
+    buffer: [8192]u8
+    response_data: DynVec<u8> = DynVec<u8>{}
+    
+    loop {
+        recv_res := net.recv(&sock, &mut buffer, 8192)
+        if recv_res.is_err() {
+            return Result<HttpResponse, core.String>.Err(recv_res.unwrap_err())
+        }
+        
+        bytes_read := recv_res.unwrap()
+        if bytes_read == 0 { break }
+        
+        response_data.append(buffer[0:bytes_read])
+    }
+    
+    return parse_http_response(response_data)
+}
+
+// Format HTTP request
+format_http_request = (req: HttpRequest, host: core.String) core.String {
+    mut result := string.format("{} {} {}\r\n", 
+        method_to_string(req.method), req.path, req.version)
+    
+    result = string.concat(result, string.format("Host: {}\r\n", host))
+    
+    for header in req.headers {
+        result = string.concat(result, 
+            string.format("{}: {}\r\n", header.name, header.value))
+    }
+    
+    if req.body.is_some() {
+        body := req.body.unwrap()
+        result = string.concat(result, 
+            string.format("Content-Length: {}\r\n", body.len))
+    }
+    
+    result = string.concat(result, "\r\n")
+    
+    if req.body.is_some() {
+        result = string.concat(result, core.String.from_bytes(req.body.unwrap()))
+    }
+    
+    return result
+}
+
+// Parse HTTP response 
+parse_http_response = (data: Vec<u8>) Result<HttpResponse, core.String>  {
+    text := core.String.from_bytes(data)
+    lines := string.split(text, "\r\n")
+    
+    if lines.len() < 1 {
+        return Result<HttpResponse, core.String>.Err("Invalid response")
+    }
+    
+    // Parse status line
+    parts := string.split(lines[0], " ")
+    if parts.len() < 3 {
+        return Result<HttpResponse, core.String>.Err("Invalid status line")
+    }
+    
+    version := parts[0]
+    status_code := parse_u16(parts[1]).unwrap_or(0)
+    status_text := string.join(parts[2:], " ")
+    
+    // Parse headers and body
+    mut headers: DynVec<Header> = DynVec<Header>{}
+    mut i := 1
+    loop i < lines.len() && lines[i].len > 0 {
+        colon_idx := string.index_of(lines[i], ":")
+        if colon_idx > 0 {
+            name := string.substring(lines[i], 0, colon_idx)
+            value := string.trim(string.substring(lines[i], colon_idx + 1, lines[i].len))
+            headers.push(Header{ name: name, value: value })
+        }
+        i += 1
+    }
+    
+    // Parse body
+    mut body: Vec<u8> = Vec<u8>{}
+    if i < lines.len() - 1 {
+        body_start := i + 1
+        body_text := string.join(lines[body_start:], "\r\n")
+        body = body_text.bytes()
+    }
+    
+    return Result<HttpResponse, core.String>.Ok(HttpResponse{
+        status_code: status_code,
+        status_text: status_text,
+        version: version,
+        headers: headers,
+        body: body,
+    })
+}
+
+// Convert method enum to string
+method_to_string = (method: HttpMethod) core.String {
+    method ?
+        HttpMethod.GET => "GET",
+        HttpMethod.POST => "POST",
+        HttpMethod.PUT => "PUT",
+        HttpMethod.DELETE => "DELETE",
+        HttpMethod.HEAD => "HEAD",
+        HttpMethod.OPTIONS => "OPTIONS",
+        HttpMethod.PATCH => "PATCH",
+        HttpMethod.CONNECT => "CONNECT",
+        HttpMethod.TRACE => "TRACE",
+    }
+}

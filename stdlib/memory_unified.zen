@@ -1,0 +1,453 @@
+// Zen Unified Memory Management - CONSOLIDATED
+// Single source of truth for all memory operations
+
+{ core, io } := @std
+
+// ============================================================================
+// CORE MEMORY OPERATIONS
+// ============================================================================
+
+// Low-level C memory operations
+allocate_raw = (size: usize) RawPtr<void> {
+    inline.c("return malloc(${size});")
+}
+
+deallocate_raw = (ptr: RawPtr<void>) void {
+    inline.c("free(${ptr.addr});")
+}
+
+reallocate_raw = (ptr: RawPtr<void>, new_size: usize) RawPtr<void> {
+    inline.c("return realloc(${ptr.addr}, ${new_size});")
+}
+
+allocate_zeroed_raw = (count: usize, size: usize) RawPtr<void> {
+    inline.c("return calloc(${count}, ${size});")
+}
+
+copy_memory_raw = (dest: RawPtr<void>, src: RawPtr<void>, size: usize) RawPtr<void> {
+    inline.c("return memcpy(${dest.addr}, ${src.addr}, ${size});")
+}
+
+set_memory_raw = (ptr: RawPtr<void>, value: i32, size: usize) RawPtr<void> {
+    inline.c("return memset(${ptr.addr}, ${value}, ${size});")
+}
+
+compare_memory_raw = (ptr1: RawPtr<void>, ptr2: RawPtr<void>, size: usize) i32 {
+    inline.c("return memcmp(${ptr1.addr}, ${ptr2.addr}, ${size});")
+}
+
+// ============================================================================
+// UNIFIED ALLOCATOR INTERFACE
+// ============================================================================
+
+AllocatorError:
+    OutOfMemory
+    | InvalidAlignment
+    | InvalidSize
+    | NullPointer
+
+// Standard allocator interface - used by all systems
+Allocator := {
+    // Core operations
+    alloc: (size: usize, align: usize) Result<RawPtr<void>, AllocatorError>
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError>
+    free: (ptr: RawPtr<void>, size: usize, align: usize) void
+    
+    // Typed allocation helpers
+    create: <T>() Result<Ptr<T>, AllocatorError> {
+        result := self.alloc(@sizeof(T), @alignof(T))
+        result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) { return Ok(@ptrcast(Ptr<T>, ptr)) }
+    }
+    
+    destroy: <T>(ptr: Ptr<T>) void {
+        self.free(@ptrcast(RawPtr<void>, ptr), @sizeof(T), @alignof(T))
+    }
+    
+    alloc_array: <T>(count: usize) Result<Ptr<T>, AllocatorError> {
+        size := count * @sizeof(T)
+        result := self.alloc(size, @alignof(T))
+        result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) { return Ok(@ptrcast(Ptr<T>, ptr)) }
+    }
+    
+    free_array: <T>(ptr: Ptr<T>, count: usize) void {
+        size := count * @sizeof(T)
+        self.free(@ptrcast(RawPtr<void>, ptr), size, @alignof(T))
+    }
+}
+
+// ============================================================================
+// DEFAULT SYSTEM ALLOCATOR
+// ============================================================================
+
+DefaultAllocator := {
+    alloc: (size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        (size == 0) ? { return Err(.InvalidSize) }
+        (align == 0 || (align & (align - 1)) != 0) ? { 
+            return Err(.InvalidAlignment) 
+        }
+        
+        // For now, ignore alignment and use malloc
+        ptr := allocate_raw(size)
+        (ptr == null) ? {
+            return Err(.OutOfMemory)
+        } : {
+            return Ok(ptr)
+        }
+    }
+    
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        (ptr == null) ? { return self.alloc(new_size, align) }
+        (new_size == 0) ? { 
+            self.free(ptr, old_size, align)
+            return Ok(null)
+        }
+        
+        new_ptr := reallocate_raw(ptr, new_size)
+        (new_ptr == null) ? {
+            return Err(.OutOfMemory)
+        } : {
+            return Ok(new_ptr)
+        }
+    }
+    
+    free: (ptr: RawPtr<void>, size: usize, align: usize) void {
+        (ptr != null) ? { deallocate_raw(ptr) }
+    }
+}
+
+// Global default allocator instance
+default_allocator: DefaultAllocator = DefaultAllocator{}
+
+get_default_allocator = () Ptr<Allocator> {
+    return @ptrcast(Ptr<Allocator>, &default_allocator)
+}
+
+// ============================================================================
+// ARENA ALLOCATOR
+// ============================================================================
+
+Arena := {
+    buffer: Ptr<u8>
+    capacity: usize
+    offset: usize
+    parent: Option<Ptr<Allocator>>
+    
+    alloc: (size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        (size == 0) ? { return Err(.InvalidSize) }
+        
+        // Align current offset
+        aligned_offset := (self.offset + align - 1) & ~(align - 1)
+        
+        (aligned_offset + size > self.capacity) ? {
+            return Err(.OutOfMemory)
+        }
+        
+        ptr := @ptrcast(RawPtr<void>, self.buffer.addr + aligned_offset)
+        self.offset = aligned_offset + size
+        
+        return Ok(ptr)
+    }
+    
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        // Can only realloc if it's the last allocation
+        expected_ptr := @ptrcast(RawPtr<void>, self.buffer.addr + self.offset - old_size)
+        (ptr != expected_ptr) ? {
+            // Not the last allocation - need to allocate new space
+            new_result := self.alloc(new_size, align)
+            new_result ?
+                | Err(e) { return Err(e) }
+                | Ok(new_ptr) {
+                    copy_size := (old_size < new_size) ? old_size : new_size
+                    copy_memory_raw(new_ptr, ptr, copy_size)
+                    return Ok(new_ptr)
+                }
+        }
+        
+        // Adjust offset for the last allocation
+        new_aligned_offset := (self.offset - old_size + align - 1) & ~(align - 1)
+        
+        (new_aligned_offset + new_size > self.capacity) ? {
+            return Err(.OutOfMemory)
+        }
+        
+        self.offset = new_aligned_offset + new_size
+        return Ok(ptr)
+    }
+    
+    free: (ptr: RawPtr<void>, size: usize, align: usize) void {
+        // Arena doesn't support individual frees
+    }
+    
+    reset: () void {
+        self.offset = 0
+    }
+    
+    destroy: () void {
+        self.parent ?
+            | Some(parent_alloc) {
+                parent_alloc.free_array(self.buffer, self.capacity)
+            }
+            | None {
+                deallocate_raw(@ptrcast(RawPtr<void>, self.buffer))
+            }
+    }
+}
+
+arena_new = (capacity: usize, parent: Option<Ptr<Allocator>>) Result<Arena, AllocatorError> {
+    allocator := parent.unwrap_or(get_default_allocator())
+    
+    buffer_result := allocator.alloc_array<u8>(capacity)
+    buffer_result ?
+        | Err(e) { return Err(e) }
+        | Ok(buffer) {
+            return Ok(Arena{
+                buffer: buffer,
+                capacity: capacity,
+                offset: 0,
+                parent: parent
+            })
+        }
+}
+
+// ============================================================================
+// POOL ALLOCATOR
+// ============================================================================
+
+Pool<T> := {
+    block_size: usize
+    blocks_per_chunk: usize
+    free_list: Option<Ptr<PoolNode<T>>>
+    chunks: Vec<PoolChunk<T>>
+    parent: Ptr<Allocator>
+    
+    alloc: (size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        (size > self.block_size) ? { return Err(.InvalidSize) }
+        
+        // Try free list first
+        self.free_list ?
+            | Some(node) {
+                self.free_list = node.next
+                return Ok(@ptrcast(RawPtr<void>, node))
+            }
+            | None {
+                // Allocate new chunk
+                allocate_pool_chunk(self) ?
+                    | Err(e) { return Err(e) }
+                    | Ok(_) { return self.alloc(size, align) }
+            }
+    }
+    
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        (new_size <= self.block_size) ? {
+            return Ok(ptr)  // No reallocation needed for same-size blocks
+        } : {
+            return Err(.InvalidSize)
+        }
+    }
+    
+    free: (ptr: RawPtr<void>, size: usize, align: usize) void {
+        node := @ptrcast(Ptr<PoolNode<T>>, ptr)
+        node.next = self.free_list
+        self.free_list = Some(node)
+    }
+    
+    destroy: () void {
+        self.chunks.each((chunk) {
+            self.parent.free_array(chunk.memory, self.block_size * self.blocks_per_chunk)
+        })
+        self.chunks.clear()
+    }
+}
+
+PoolNode<T> := {
+    next: Option<Ptr<PoolNode<T>>>
+}
+
+PoolChunk<T> := {
+    memory: Ptr<u8>
+}
+
+pool_new = <T>(blocks_per_chunk: usize, parent: Ptr<Allocator>) Pool<T> {
+    Pool<T>{
+        block_size: @sizeof(T),
+        blocks_per_chunk: blocks_per_chunk,
+        free_list: None,
+        chunks: Vec.new(),
+        parent: parent
+    }
+}
+
+allocate_pool_chunk = <T>(pool: Ptr<Pool<T>>) Result<void, AllocatorError> {
+    memory_result := pool.parent.alloc_array<u8>(pool.block_size * pool.blocks_per_chunk)
+    memory_result ?
+        | Err(e) { return Err(e) }
+        | Ok(memory) {
+            chunk := PoolChunk<T>{ memory: memory }
+            pool.chunks.push(chunk)
+            
+            // Add all blocks to free list
+            i := 0
+            loop (i < pool.blocks_per_chunk) {
+                node := @ptrcast(Ptr<PoolNode<T>>, memory.addr + i * pool.block_size)
+                node.next = pool.free_list
+                pool.free_list = Some(node)
+                i += 1
+            }
+            
+            return Ok()
+        }
+}
+
+// ============================================================================
+// MEMORY TRACKING (DEBUG)
+// ============================================================================
+
+AllocationInfo := {
+    ptr: RawPtr<void>
+    size: usize
+    line: u32
+    file: string
+    next: Option<Ptr<AllocationInfo>>
+}
+
+MemoryStats := {
+    total_allocated: usize
+    total_freed: usize
+    current_usage: usize
+    peak_usage: usize
+    allocation_count: u32
+    deallocation_count: u32
+}
+
+TrackingAllocator := {
+    underlying: Ptr<Allocator>
+    allocations: Vec<AllocationInfo>
+    stats: MemoryStats
+    
+    alloc: (size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        result := self.underlying.alloc(size, align)
+        result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) {
+                @debug ? {
+                    self.allocations.push(AllocationInfo{
+                        ptr: ptr,
+                        size: size,
+                        line: @line,
+                        file: @file,
+                        next: None
+                    })
+                    self.stats.total_allocated += size
+                    self.stats.allocation_count += 1
+                    
+                    current := self.stats.total_allocated - self.stats.total_freed
+                    (current > self.stats.peak_usage) ? {
+                        self.stats.peak_usage = current
+                    }
+                }
+                return Ok(ptr)
+            }
+    }
+    
+    realloc: (ptr: RawPtr<void>, old_size: usize, new_size: usize, align: usize) Result<RawPtr<void>, AllocatorError> {
+        result := self.underlying.realloc(ptr, old_size, new_size, align)
+        result ?
+            | Err(e) { return Err(e) }
+            | Ok(new_ptr) {
+                @debug ? {
+                    // Update tracking
+                    self.stats.total_freed += old_size
+                    self.stats.total_allocated += new_size
+                }
+                return Ok(new_ptr)
+            }
+    }
+    
+    free: (ptr: RawPtr<void>, size: usize, align: usize) void {
+        @debug ? {
+            self.stats.total_freed += size
+            self.stats.deallocation_count += 1
+        }
+        self.underlying.free(ptr, size, align)
+    }
+    
+    get_stats: () MemoryStats {
+        current := self.stats.total_allocated - self.stats.total_freed
+        return MemoryStats{
+            total_allocated: self.stats.total_allocated,
+            total_freed: self.stats.total_freed,
+            current_usage: current,
+            peak_usage: self.stats.peak_usage,
+            allocation_count: self.stats.allocation_count,
+            deallocation_count: self.stats.deallocation_count
+        }
+    }
+}
+
+tracking_allocator_new = (underlying: Ptr<Allocator>) TrackingAllocator {
+    TrackingAllocator{
+        underlying: underlying,
+        allocations: Vec.new(),
+        stats: MemoryStats{
+            total_allocated: 0,
+            total_freed: 0,
+            current_usage: 0,
+            peak_usage: 0,
+            allocation_count: 0,
+            deallocation_count: 0
+        }
+    }
+}
+
+// ============================================================================
+// HIGH-LEVEL CONVENIENCE FUNCTIONS
+// ============================================================================
+
+// High-level typed allocation with default allocator
+allocate = <T>(count: usize) Result<Ptr<T>, AllocatorError> {
+    default_allocator.alloc_array<T>(count)
+}
+
+deallocate = <T>(ptr: Ptr<T>, count: usize) void {
+    default_allocator.free_array(ptr, count)
+}
+
+// Memory utility functions  
+copy = <T>(dest: Ptr<T>, src: Ptr<T>, count: usize) void {
+    size := count * @sizeof(T)
+    copy_memory_raw(@ptrcast(RawPtr<void>, dest), @ptrcast(RawPtr<void>, src), size)
+}
+
+set = <T>(ptr: Ptr<T>, value: u8, count: usize) void {
+    size := count * @sizeof(T)
+    set_memory_raw(@ptrcast(RawPtr<void>, ptr), @intcast(i32, value), size)
+}
+
+compare = <T>(ptr1: Ptr<T>, ptr2: Ptr<T>, count: usize) i32 {
+    size := count * @sizeof(T)
+    return compare_memory_raw(@ptrcast(RawPtr<void>, ptr1), @ptrcast(RawPtr<void>, ptr2), size)
+}
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+module.exports = {
+    // Core types
+    Allocator, AllocatorError, Arena, Pool, MemoryStats, TrackingAllocator,
+    
+    // Raw operations
+    allocate_raw, deallocate_raw, reallocate_raw, allocate_zeroed_raw,
+    copy_memory_raw, set_memory_raw, compare_memory_raw,
+    
+    // Allocators
+    DefaultAllocator, get_default_allocator,
+    arena_new, pool_new, tracking_allocator_new,
+    
+    // High-level functions
+    allocate, deallocate, copy, set, compare
+}

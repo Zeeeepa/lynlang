@@ -6,95 +6,7 @@ mem = @std
 { Vec, DynVec } = @std
 io = @std
 
-// String builder for efficient string concatenation
-StringBuilder: {
-    buffer: DynVec<i8>,
-    length: u32,
-    capacity: u32,
-}
-
-// Create a new string builder
-string_builder_new = () StringBuilder   {
-    initial_capacity := 64
-    StringBuilder{
-        buffer: DynVec.with_capacity<i8>(initial_capacity),
-        length: 0,
-        capacity: initial_capacity,
-    }
-}
-
-// Create string builder with specific capacity
-string_builder_with_capacity = (capacity: u32) StringBuilder   {
-    StringBuilder{
-        buffer: DynVec.with_capacity<i8>(capacity),
-        length: 0,
-        capacity: capacity,
-    }
-}
-
-// Append a string to the builder
-string_builder_append = (sb: Ptr<StringBuilder>, s: string) void   {
-    len := string_len(s)
-    
-    // Ensure capacity
-    sb.length + len > sb.capacity ? | true {
-        new_capacity := (sb.capacity * 2) > (sb.length + len) ?
-            | true { sb.capacity * 2 }
-            | false { sb.length + len + 64 }
-        
-        sb.buffer.reserve(new_capacity)
-        sb.capacity = new_capacity
-    } | false {}
-    
-    // Copy string to buffer
-    i := 0
-    loop i < len {
-        sb.buffer.push(s[i])
-        i = i + 1
-    }
-    
-    sb.length = sb.length + len
-}
-
-// Append a character
-string_builder_append_char = (sb: Ptr<StringBuilder>, c: i8) void   {
-    sb.length + 1 > sb.capacity ? | true {
-        new_capacity := sb.capacity * 2
-        sb.buffer.reserve(new_capacity)
-        sb.capacity = new_capacity
-    } | false {}
-    
-    sb.buffer.push(c)
-    sb.length = sb.length + 1
-}
-
-// Convert to string
-string_builder_to_string = (sb: Ptr<StringBuilder>) string   {
-    // Add null terminator
-    sb.buffer.push(0)
-    
-    // Create string from buffer
-    result := mem.alloc(sb.length + 1)
-    result ?
-        | Ok(ptr) {
-            bytes := ptr as Ptr<i8>
-            i := 0
-            loop i <= sb.length {
-                bytes[i] = sb.buffer.at(i)
-                i = i + 1
-            }
-            return bytes as string
-        }
-        | Err(_) {
-            return ""
-        }
-}
-
-// Clear the builder
-string_builder_clear = (sb: Ptr<StringBuilder>) void   {
-    sb.buffer.clear()
-    sb.length = 0
-}
+// Note: StringBuilder moved to text/string_builder.zen to avoid duplication
 
 // String length
 string_len = (s: string) u32   {
@@ -193,7 +105,7 @@ string_find = (haystack: string, needle: string) i32   {
             j = j + 1
         }
         
-        ? | true ?
+        match ? | true { return i } | false {}
         i = i + 1
     }
     
@@ -223,7 +135,7 @@ string_rfind = (haystack: string, needle: string) i32   {
             j = j + 1
         }
         
-        ? | true ?
+        match ? | true { return i } | false {}
         i = i - 1
     }
     
@@ -436,7 +348,7 @@ string_replace = (s: string, old: string, new: string) string   {
                     i = i + 1
                 }
                 
-                && i == old_len ? | true ?
+                match && i == old_len ? | true {
                     // Copy replacement
                     j := 0
                     loop j < new_len {
@@ -652,4 +564,16 @@ i32_to_string = (n: i32) string   {
         | Err(_) {
             return ""
         }
+}
+
+// Module exports
+module.exports = {
+    string_len, string_eq, string_compare,
+    string_starts_with, string_ends_with,
+    string_find, string_rfind, string_count,
+    string_substring, string_to_upper, string_to_lower,
+    string_trim, string_ltrim, string_rtrim,
+    string_replace, string_split, string_join,
+    char_is_digit, char_is_alpha, char_is_alnum, char_is_space,
+    string_to_i32, i32_to_string
 }

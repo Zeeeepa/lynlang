@@ -1,8 +1,9 @@
-// String module - re-exports from string/
-// Provides string manipulation functionality
+// String module - re-exports from text utilities and string builder
+// Provides unified string manipulation functionality
 
-// Import and re-export string functionality
-string = import("string/string.zen")
+// Import from text utilities and string builder  
+string_utils = import("string_utils.zen")
+string_builder = import("string_builder.zen")
 
-// Module exports
-module.exports = string
+// Module exports - combine all string functionality
+module.exports = { ...string_utils, ...string_builder }

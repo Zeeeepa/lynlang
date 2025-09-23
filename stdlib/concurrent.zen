@@ -1,0 +1,7 @@
+// CONSOLIDATED CONCURRENCY - Use concurrent_unified.zen
+// This directory kept for backward compatibility
+
+{ concurrent_unified } := @std
+
+// Re-export unified concurrency system
+module.exports = concurrent_unified.exports

@@ -1,0 +1,659 @@
+// Zen Unified Concurrency - CONSOLIDATED
+// Single coherent concurrency model combining Task/Future/Actor patterns
+
+{ memory_unified } := @std
+
+// ============================================================================
+// CORE CONCURRENCY TYPES
+// ============================================================================
+
+ExecutionMode:
+    Sync      // Immediate execution
+    | Async   // Cooperative scheduling  
+    | Threaded // Preemptive threading
+
+TaskState:
+    Pending
+    | Running
+    | Completed
+    | Failed
+    | Cancelled
+
+// Unified task that can represent work in any execution mode
+Task<T> := {
+    id: u64
+    name: string
+    state: TaskState
+    priority: u8
+    
+    // Core execution
+    work: () Result<T, string>
+    result: Option<Result<T, string>>
+    
+    // Execution context
+    executor: Ptr<Executor>
+    allocator: Ptr<memory_unified.Allocator>
+    
+    // Scheduling
+    created_at: u64
+    started_at: Option<u64>
+    completed_at: Option<u64>
+    
+    // Continuation chain
+    continuation: Option<Ptr<Task<any>>>
+}
+
+// Future represents eventual result of a Task
+Future<T> := {
+    task: Ptr<Task<T>>
+    
+    // Chain operations
+    then: <U>(callback: (T) Result<U, string>) Future<U> {
+        new_task := task_new(
+            () Result<U, string> {
+                task_result := await(self.task)
+                task_result ?
+                    | Err(e) { return Err(e) }
+                    | Ok(value) { return callback(value) }
+            },
+            self.task.executor,
+            self.task.allocator
+        )
+        return Future<U>{ task: new_task }
+    }
+    
+    catch: (handler: (string) Result<T, string>) Future<T> {
+        new_task := task_new(
+            () Result<T, string> {
+                task_result := await(self.task)
+                task_result ?
+                    | Ok(value) { return Ok(value) }
+                    | Err(error) { return handler(error) }
+            },
+            self.task.executor,
+            self.task.allocator
+        )
+        return Future<T>{ task: new_task }
+    }
+}
+
+// ============================================================================
+// UNIFIED EXECUTOR
+// ============================================================================
+
+Executor := {
+    mode: ExecutionMode
+    allocator: Ptr<memory_unified.Allocator>
+    
+    // Task management
+    pending_queue: TaskQueue
+    running_tasks: Vec<Ptr<Task<any>>>
+    completed_tasks: Vec<Ptr<Task<any>>>
+    next_task_id: u64
+    
+    // Thread pool (for Threaded mode)
+    threads: Vec<ThreadHandle>
+    num_threads: usize
+    
+    // Cooperative scheduling (for Async mode)
+    scheduler: Option<Scheduler>
+    
+    // Control
+    running: bool
+    shutdown_requested: bool
+}
+
+TaskQueue := {
+    high_priority: Vec<Ptr<Task<any>>>
+    normal_priority: Vec<Ptr<Task<any>>>
+    low_priority: Vec<Ptr<Task<any>>>
+    
+    push: (task: Ptr<Task<any>>) void {
+        (task.priority >= 3) ? {
+            self.high_priority.push(task)
+        } : (task.priority >= 1) ? {
+            self.normal_priority.push(task)
+        } : {
+            self.low_priority.push(task)
+        }
+    }
+    
+    pop: () Option<Ptr<Task<any>>> {
+        (!self.high_priority.is_empty()) ? {
+            return self.high_priority.pop()
+        } : (!self.normal_priority.is_empty()) ? {
+            return self.normal_priority.pop()
+        } : (!self.low_priority.is_empty()) ? {
+            return self.low_priority.pop()
+        } : {
+            return None
+        }
+    }
+}
+
+ThreadHandle := {
+    id: u64
+    handle: RawPtr<void>  // Platform-specific thread handle
+    running: bool
+}
+
+Scheduler := {
+    current_task: Option<Ptr<Task<any>>>
+    yield_points: Vec<Ptr<Task<any>>>
+    
+    yield_control: () void {
+        self.current_task ?
+            | Some(task) { self.yield_points.push(task) }
+            | None { }
+    }
+    
+    resume_next: () Option<Ptr<Task<any>>> {
+        return self.yield_points.pop()
+    }
+}
+
+// ============================================================================
+// EXECUTOR CREATION AND MANAGEMENT
+// ============================================================================
+
+executor_new = (mode: ExecutionMode, allocator: Ptr<memory_unified.Allocator>) Executor {
+    num_threads := mode ?
+        | ExecutionMode.Threaded { cpu_count() }
+        | _ { 0 }
+        
+    Executor{
+        mode: mode,
+        allocator: allocator,
+        pending_queue: TaskQueue{
+            high_priority: Vec.new(),
+            normal_priority: Vec.new(), 
+            low_priority: Vec.new()
+        },
+        running_tasks: Vec.new(),
+        completed_tasks: Vec.new(),
+        next_task_id: 1,
+        threads: Vec.new(),
+        num_threads: num_threads,
+        scheduler: mode ?
+            | ExecutionMode.Async { Some(Scheduler{
+                current_task: None,
+                yield_points: Vec.new()
+            })}
+            | _ { None },
+        running: false,
+        shutdown_requested: false
+    }
+}
+
+executor_start = (executor: Ptr<Executor>) void {
+    executor.running = true
+    
+    executor.mode ?
+        | ExecutionMode.Sync { 
+            // Immediate execution - nothing to start
+        }
+        | ExecutionMode.Async {
+            // Start cooperative scheduler
+            spawn_scheduler_loop(executor)
+        }
+        | ExecutionMode.Threaded {
+            // Start worker threads
+            i := 0
+            loop (i < executor.num_threads) {
+                thread_handle := spawn_worker_thread(executor)
+                executor.threads.push(thread_handle)
+                i += 1
+            }
+        }
+}
+
+executor_shutdown = (executor: Ptr<Executor>) void {
+    executor.shutdown_requested = true
+    
+    // Wait for all tasks to complete
+    loop (!executor.pending_queue.is_empty() || !executor.running_tasks.is_empty()) {
+        yield_thread()
+    }
+    
+    executor.mode ?
+        | ExecutionMode.Threaded {
+            // Join all worker threads
+            executor.threads.each((handle) {
+                join_thread(handle)
+            })
+        }
+        | _ { }
+    
+    executor.running = false
+}
+
+// ============================================================================
+// TASK CREATION AND EXECUTION
+// ============================================================================
+
+task_new = <T>(work: () Result<T, string>, executor: Ptr<Executor>, allocator: Ptr<memory_unified.Allocator>) Ptr<Task<T>> {
+    task_result := allocator.create<Task<T>>()
+    task_result ?
+        | Err(_) { panic("Failed to allocate task") }
+        | Ok(task) {
+            task.id = executor.next_task_id
+            executor.next_task_id += 1
+            task.name = "task_" + @inttostring(task.id)
+            task.state = TaskState.Pending
+            task.priority = 1
+            task.work = work
+            task.result = None
+            task.executor = executor
+            task.allocator = allocator
+            task.created_at = current_time_millis()
+            task.started_at = None
+            task.completed_at = None
+            task.continuation = None
+            
+            return task
+        }
+}
+
+// Submit task for execution - mode-agnostic
+submit = <T>(task: Ptr<Task<T>>) Future<T> {
+    executor := task.executor
+    
+    executor.mode ?
+        | ExecutionMode.Sync {
+            // Execute immediately
+            execute_task_sync(task)
+        }
+        | ExecutionMode.Async {
+            // Add to cooperative scheduler
+            executor.pending_queue.push(@ptrcast(Ptr<Task<any>>, task))
+        }
+        | ExecutionMode.Threaded {
+            // Add to thread pool queue
+            executor.pending_queue.push(@ptrcast(Ptr<Task<any>>, task))
+        }
+    
+    return Future<T>{ task: task }
+}
+
+// Execute task synchronously
+execute_task_sync = <T>(task: Ptr<Task<T>>) void {
+    task.state = TaskState.Running
+    task.started_at = Some(current_time_millis())
+    
+    result := task.work()
+    task.result = Some(result)
+    task.completed_at = Some(current_time_millis())
+    
+    result ?
+        | Ok(_) { task.state = TaskState.Completed }
+        | Err(_) { task.state = TaskState.Failed }
+}
+
+// Await task completion - blocks until done
+await = <T>(task: Ptr<Task<T>>) Result<T, string> {
+    task.executor.mode ?
+        | ExecutionMode.Sync {
+            // Already completed in sync mode
+            task.result ?
+                | Some(result) { return result }
+                | None { return Err("Task not executed") }
+        }
+        | _ {
+            // Wait for async/threaded completion
+            loop (task.state == TaskState.Pending || task.state == TaskState.Running) {
+                task.executor.mode ?
+                    | ExecutionMode.Async {
+                        // Yield to scheduler
+                        task.executor.scheduler ?
+                            | Some(sched) { sched.yield_control() }
+                            | None { }
+                    }
+                    | _ { yield_thread() }
+            }
+            
+            task.result ?
+                | Some(result) { return result }
+                | None { return Err("Task completed without result") }
+        }
+}
+
+// ============================================================================
+// COOPERATIVE SCHEDULER (ASYNC MODE)
+// ============================================================================
+
+spawn_scheduler_loop = (executor: Ptr<Executor>) void {
+    loop (executor.running && !executor.shutdown_requested) {
+        // Process pending tasks
+        next_task := executor.pending_queue.pop()
+        next_task ?
+            | Some(task) {
+                execute_task_cooperative(task, executor)
+            }
+            | None {
+                // Process yield points
+                executor.scheduler ?
+                    | Some(sched) {
+                        resumed := sched.resume_next()
+                        resumed ?
+                            | Some(task) { execute_task_cooperative(task, executor) }
+                            | None { yield_thread() }
+                    }
+                    | None { yield_thread() }
+            }
+    }
+}
+
+execute_task_cooperative = (task: Ptr<Task<any>>, executor: Ptr<Executor>) void {
+    task.state = TaskState.Running
+    task.started_at = Some(current_time_millis())
+    executor.running_tasks.push(task)
+    
+    executor.scheduler ?
+        | Some(sched) { sched.current_task = Some(task) }
+        | None { }
+    
+    // Execute work (may yield)
+    result := task.work()
+    task.result = Some(result)
+    task.completed_at = Some(current_time_millis())
+    
+    result ?
+        | Ok(_) { task.state = TaskState.Completed }
+        | Err(_) { task.state = TaskState.Failed }
+    
+    // Move to completed
+    executor.running_tasks.remove_item(task)
+    executor.completed_tasks.push(task)
+    
+    executor.scheduler ?
+        | Some(sched) { sched.current_task = None }
+        | None { }
+}
+
+// ============================================================================
+// THREAD POOL (THREADED MODE)
+// ============================================================================
+
+spawn_worker_thread = (executor: Ptr<Executor>) ThreadHandle {
+    thread_id := next_thread_id()
+    
+    // In real implementation, this would spawn a system thread
+    handle := ThreadHandle{
+        id: thread_id,
+        handle: null,  // Would be actual thread handle
+        running: true
+    }
+    
+    // Mock thread loop - in real implementation would be in separate thread
+    spawn_thread_loop(executor, handle)
+    
+    return handle
+}
+
+spawn_thread_loop = (executor: Ptr<Executor>, handle: ThreadHandle) void {
+    loop (handle.running && executor.running && !executor.shutdown_requested) {
+        next_task := executor.pending_queue.pop()
+        next_task ?
+            | Some(task) {
+                execute_task_threaded(task, executor)
+            }
+            | None {
+                yield_thread()
+            }
+    }
+}
+
+execute_task_threaded = (task: Ptr<Task<any>>, executor: Ptr<Executor>) void {
+    task.state = TaskState.Running
+    task.started_at = Some(current_time_millis())
+    executor.running_tasks.push(task)
+    
+    // Execute work
+    result := task.work()
+    task.result = Some(result)
+    task.completed_at = Some(current_time_millis())
+    
+    result ?
+        | Ok(_) { task.state = TaskState.Completed }
+        | Err(_) { task.state = TaskState.Failed }
+    
+    // Move to completed
+    executor.running_tasks.remove_item(task)
+    executor.completed_tasks.push(task)
+}
+
+// ============================================================================
+// HIGH-LEVEL CONCURRENCY PATTERNS
+// ============================================================================
+
+// Parallel execution of multiple tasks
+parallel = <T>(
+    tasks: Vec<() Result<T, string>>, 
+    executor: Ptr<Executor>
+) Future<Vec<T>> {
+    futures := Vec<Future<T>>.new()
+    
+    tasks.each((work) {
+        task := task_new(work, executor, executor.allocator)
+        future := submit(task)
+        futures.push(future)
+    })
+    
+    // Create combining task
+    combine_task := task_new(
+        () Result<Vec<T>, string> {
+            results := Vec<T>.new()
+            
+            futures.each((future) {
+                result := await(future.task)
+                result ?
+                    | Ok(value) { results.push(value) }
+                    | Err(e) { return Err(e) }
+            })
+            
+            return Ok(results)
+        },
+        executor,
+        executor.allocator
+    )
+    
+    return submit(combine_task)
+}
+
+// Race - first to complete wins
+race = <T>(
+    tasks: Vec<() Result<T, string>>,
+    executor: Ptr<Executor>
+) Future<T> {
+    race_task := task_new(
+        () Result<T, string> {
+            futures := Vec<Future<T>>.new()
+            
+            tasks.each((work) {
+                task := task_new(work, executor, executor.allocator)
+                future := submit(task)
+                futures.push(future)
+            })
+            
+            // Poll until one completes
+            loop {
+                futures.each((future) {
+                    (future.task.state == TaskState.Completed) ? {
+                        future.task.result ?
+                            | Some(Ok(value)) { return Ok(value) }
+                            | Some(Err(e)) { return Err(e) }
+                            | None { }
+                    }
+                })
+                yield_thread()
+            }
+        },
+        executor,
+        executor.allocator
+    )
+    
+    return submit(race_task)
+}
+
+// Sleep for specified milliseconds
+sleep = (ms: u64, executor: Ptr<Executor>) Future<void> {
+    sleep_task := task_new(
+        () Result<void, string> {
+            sleep_thread(ms)
+            return Ok()
+        },
+        executor,
+        executor.allocator
+    )
+    
+    return submit(sleep_task)
+}
+
+// ============================================================================
+// ACTOR MODEL INTEGRATION
+// ============================================================================
+
+Actor<State, Msg> := {
+    id: u64
+    state: State
+    mailbox: Channel<Msg>
+    behavior: (Ptr<State>, Msg, Ptr<ActorContext>) void
+    executor: Ptr<Executor>
+    running: bool
+}
+
+ActorSystem := {
+    actors: Vec<Ptr<Actor<any, any>>>
+    executor: Ptr<Executor>
+    next_actor_id: u64
+}
+
+spawn_actor = <State, Msg>(
+    system: Ptr<ActorSystem>,
+    initial_state: State,
+    behavior: (Ptr<State>, Msg, Ptr<ActorContext>) void
+) Ptr<Actor<State, Msg>> {
+    actor_result := system.executor.allocator.create<Actor<State, Msg>>()
+    actor_result ?
+        | Err(_) { panic("Failed to allocate actor") }
+        | Ok(actor) {
+            actor.id = system.next_actor_id
+            system.next_actor_id += 1
+            actor.state = initial_state
+            actor.mailbox = channel_new<Msg>(100)  // 100 message buffer
+            actor.behavior = behavior
+            actor.executor = system.executor
+            actor.running = true
+            
+            // Start actor loop
+            actor_task := task_new(
+                () Result<void, string> {
+                    actor_loop(actor)
+                    return Ok()
+                },
+                system.executor,
+                system.executor.allocator
+            )
+            submit(actor_task)
+            
+            system.actors.push(@ptrcast(Ptr<Actor<any, any>>, actor))
+            return actor
+        }
+}
+
+actor_loop = <State, Msg>(actor: Ptr<Actor<State, Msg>>) void {
+    loop (actor.running) {
+        msg_result := channel_recv(actor.mailbox)
+        msg_result ?
+            | Ok(msg) {
+                context := ActorContext{ actor_id: actor.id }
+                actor.behavior(&actor.state, msg, &context)
+            }
+            | Err(_) {
+                // Channel closed or error
+                break
+            }
+    }
+}
+
+// ============================================================================
+// CHANNEL COMMUNICATION
+// ============================================================================
+
+Channel<T> := {
+    buffer: Vec<T>
+    capacity: usize
+    closed: bool
+    senders: u32
+    receivers: u32
+}
+
+channel_new = <T>(capacity: usize) Channel<T> {
+    Channel<T>{
+        buffer: Vec<T>.new(),
+        capacity: capacity,
+        closed: false,
+        senders: 0,
+        receivers: 0
+    }
+}
+
+channel_send = <T>(channel: Ptr<Channel<T>>, value: T) Result<void, string> {
+    (channel.closed) ? { return Err("Channel closed") }
+    
+    (channel.buffer.len() >= channel.capacity) ? {
+        return Err("Channel full")
+    }
+    
+    channel.buffer.push(value)
+    return Ok()
+}
+
+channel_recv = <T>(channel: Ptr<Channel<T>>) Result<T, string> {
+    (channel.closed && channel.buffer.is_empty()) ? {
+        return Err("Channel closed and empty")
+    }
+    
+    (channel.buffer.is_empty()) ? {
+        return Err("Channel empty")
+    }
+    
+    return Ok(channel.buffer.pop_front())
+}
+
+// ============================================================================
+// PLATFORM ABSTRACTION
+// ============================================================================
+
+// Platform-specific functions (to be implemented per platform)
+cpu_count = () usize { 4 }  // Mock
+current_time_millis = () u64 { 0 }  // Mock
+next_thread_id = () u64 { 0 }  // Mock
+yield_thread = () void { }  // Mock
+sleep_thread = (ms: u64) void { }  // Mock
+join_thread = (handle: ThreadHandle) void { }  // Mock
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+module.exports = {
+    // Core types
+    ExecutionMode, TaskState, Task, Future, Executor,
+    Actor, ActorSystem, Channel,
+    
+    // Executor functions
+    executor_new, executor_start, executor_shutdown,
+    
+    // Task functions
+    task_new, submit, await,
+    
+    // Patterns
+    parallel, race, sleep,
+    
+    // Actor system
+    spawn_actor, actor_loop,
+    
+    // Channels
+    channel_new, channel_send, channel_recv
+}

@@ -4,6 +4,9 @@
 core = @std
 io = @std
 
+// Import path utilities from dedicated path module
+path = @std
+
 // File metadata
 FileMetadata: {
     size: i64,
@@ -13,106 +16,6 @@ FileMetadata: {
     permissions: i32,
     modified_time: i64,
     created_time: i64,
-}
-
-// Path utilities
-PathBuf: {
-    path: string,
-}
-
-// Create a new path buffer
-path_new = (path: string) PathBuf   {
-    return PathBuf { path: path }
-}
-
-// Join path components
-path_join = (base: PathBuf, component: string) PathBuf   {
-    separator := "/"
-    need_separator := base.path[base.path.len - 1] != '/' ? | true { true | false => false }
-    
-    new_path := need_separator ? | true { base.path + separator + component }
-                                | false { base.path + component }
-    
-    return PathBuf { path: new_path }
-}
-
-// Get file extension
-path_extension = (path: PathBuf) core.Option<string> {
-    last_dot := -1
-    i := path.path.len - 1
-    
-    loop {
-
-    
-        i >= 0 ? | false { { break  }} | true {}
-        path.path[i] == '.' ? | true {
-            last_dot = i
-            break
-        } | false {}
-        
-        path.path[i] == '/' ? | true { break | false => { }}
-        i = i - 1
-    }
-    
-    last_dot == -1 ? | true { core.Option:None }
-                    | false { core.Option:Some(path.path[last_dot + 1..]) }
-}
-
-// Get file name without extension
-path_stem = (path: PathBuf) core.Option<string> {
-    last_slash := -1
-    last_dot := -1
-    i := path.path.len - 1
-    
-    loop {
-
-    
-        i >= 0 ? | false { { break  }} | true {}
-        path.path[i] == '/' ? | true {
-            last_slash = i
-            break
-        } | false {}
-        
-        path.path[i] == '.' && last_dot == -1 ? | true {
-            last_dot = i
-        } | false {}
-        
-        i = i - 1
-    }
-    
-    start := last_slash + 1
-    end := last_dot == -1 ? | true { path.path.len | false => last_dot }
-    
-    start >= end ? | true { core.Option:None }
-                  | false { core.Option:Some(path.path[start..end]) }
-}
-
-// Get parent directory
-path_parent = (path: PathBuf) core.Option<PathBuf> {
-    last_slash := -1
-    i := path.path.len - 1
-    
-    // Skip trailing slash if present
-    i > 0 && path.path[i] == '/' ? | true { { i = i - 1  }} | false {}
-    
-    loop {
-
-    
-        i >= 0 ? | false { { break  }} | true {}
-        path.path[i] == '/' ? | true {
-            last_slash = i
-            break
-        } | false {}
-        i = i - 1
-    }
-    
-    last_slash <= 0 ? | true { core.Option:None }
-                     | false { core.Option:Some(PathBuf { path: path.path[0..last_slash]  }})
-}
-
-// Check if path is absolute
-path_is_absolute = (path: PathBuf) bool   {
-    path.path.len > 0 && path.path[0] == '/' ? | true { true | false => false }
 }
 
 // External functions for file system operations

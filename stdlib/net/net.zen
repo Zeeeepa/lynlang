@@ -7,6 +7,7 @@ string = @std
 result = @std
 file = @std
 concurrency = @std
+sys = @std  // Import unified system calls
 
 // Socket types
 SocketType: 
@@ -123,7 +124,7 @@ socket_addr = (ip: IpAddr, port: u16) SocketAddr   {
 
 // Create a new TCP socket
 tcp_socket = () Result<Socket, core.String>  {
-    fd := __sys_socket(AF_INET, SOCK_STREAM, 0)
+    fd := sys.sys.__sys_socket(sys.sys.AF_INET, sys.sys.SOCK_STREAM, 0)
     if fd < 0 {
         return Result<Socket, core.String>.Err("Failed to create socket")
     }
@@ -139,7 +140,7 @@ tcp_socket = () Result<Socket, core.String>  {
 
 // Create a new UDP socket
 udp_socket = () Result<UdpSocket, core.String>  {
-    fd := __sys_socket(AF_INET, SOCK_DGRAM, 0)
+    fd := sys.__sys_socket(sys.AF_INET, sys.SOCK_DGRAM, 0)
     if fd < 0 {
         return Result<UdpSocket, core.String>.Err("Failed to create socket")
     }
@@ -167,7 +168,7 @@ tcp_connect = (addr: SocketAddr) Result<Socket, core.String>  {
     // Convert address to sockaddr_in
     sock_addr := to_sockaddr_in(addr)
     
-    ret := __sys_connect(sock.fd, &sock_addr, sizeof(sock_addr))
+    ret := sys.__sys_connect(sock.fd, &sock_addr, sizeof(sock_addr))
     if ret < 0 {
         close_socket(&mut sock)
         return Result<Socket, core.String>.Err("Connection failed")
@@ -183,7 +184,7 @@ tcp_connect = (addr: SocketAddr) Result<Socket, core.String>  {
 bind = (sock: &mut Socket, addr: SocketAddr) Result<void, core.String>  {
     sock_addr := to_sockaddr_in(addr)
     
-    ret := __sys_bind(sock.fd, &sock_addr, sizeof(sock_addr))
+    ret := sys.__sys_bind(sock.fd, &sock_addr, sizeof(sock_addr))
     if ret < 0 {
         return Result<void, core.String>.Err("Bind failed")
     }
@@ -203,7 +204,7 @@ listen = (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String>  {
     
     // Enable address reuse
     opt: i32 = 1
-    __sys_setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))
+    sys.__sys_setsockopt(sock.fd, sys.SOL_SOCKET, sys.SO_REUSEADDR, &opt, sizeof(opt))
     
     // Bind to address
     bind_res := bind(&mut sock, addr)
@@ -213,7 +214,7 @@ listen = (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String>  {
     }
     
     // Start listening
-    ret := __sys_listen(sock.fd, backlog)
+    ret := sys.__sys_listen(sock.fd, backlog)
     if ret < 0 {
         close_socket(&mut sock)
         return Result<TcpListener, core.String>.Err("Listen failed")
@@ -227,10 +228,10 @@ listen = (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String>  {
 
 // Accept incoming connection
 accept = (listener: &TcpListener) Result<Socket, core.String>  {
-    addr: SockAddrIn
+    addr: sys.SockAddrIn
     addr_len: u32 = sizeof(addr)
     
-    fd := __sys_accept(listener.socket.fd, &addr, &addr_len)
+    fd := sys.__sys_accept(listener.socket.fd, &addr, &addr_len)
     if fd < 0 {
         return Result<Socket, core.String>.Err("Accept failed")
     }
@@ -252,7 +253,7 @@ send = (sock: &Socket, data: Vec<u8>) Result<usize, core.String>  {
         return Result<usize, core.String>.Err("Socket not connected")
     }
     
-    sent := __sys_send(sock.fd, data.data, data.len, 0)
+    sent := sys.__sys_send(sock.fd, data.data, data.len, 0)
     if sent < 0 {
         return Result<usize, core.String>.Err("Send failed")
     }
@@ -266,7 +267,7 @@ recv = (sock: &Socket, buffer: &mut Vec<u8>, len: usize) Result<usize, core.Stri
         return Result<usize, core.String>.Err("Socket not connected")
     }
     
-    received := __sys_recv(sock.fd, buffer.data, len, 0)
+    received := sys.__sys_recv(sock.fd, buffer.data, len, 0)
     if received < 0 {
         return Result<usize, core.String>.Err("Receive failed")
     }
@@ -278,7 +279,7 @@ recv = (sock: &Socket, buffer: &mut Vec<u8>, len: usize) Result<usize, core.Stri
 send_to = (sock: &UdpSocket, data: Vec<u8>, addr: SocketAddr) Result<usize, core.String>  {
     sock_addr := to_sockaddr_in(addr)
     
-    sent := __sys_sendto(sock.socket.fd, data.data, data.len, 0, &sock_addr, sizeof(sock_addr))
+    sent := sys.__sys_sendto(sock.socket.fd, data.data, data.len, 0, &sock_addr, sizeof(sock_addr))
     if sent < 0 {
         return Result<usize, core.String>.Err("Send failed")
     }
@@ -288,10 +289,10 @@ send_to = (sock: &UdpSocket, data: Vec<u8>, addr: SocketAddr) Result<usize, core
 
 // Receive data with source address (UDP)
 recv_from = (sock: &UdpSocket, buffer: &mut Vec<u8>, len: usize) Result<(usize, SocketAddr), core.String>  {
-    addr: SockAddrIn
+    addr: sys.SockAddrIn
     addr_len: u32 = sizeof(addr)
     
-    received := __sys_recvfrom(sock.socket.fd, buffer.data, len, 0, &addr, &addr_len)
+    received := sys.__sys_recvfrom(sock.socket.fd, buffer.data, len, 0, &addr, &addr_len)
     if received < 0 {
         return Result<(usize, SocketAddr), core.String>.Err("Receive failed")
     }
@@ -303,7 +304,7 @@ recv_from = (sock: &UdpSocket, buffer: &mut Vec<u8>, len: usize) Result<(usize, 
 // Close socket
 close_socket = (sock: &mut Socket) void   {
     if sock.fd >= 0 {
-        __sys_close(sock.fd)
+        sys.__sys_close(sock.fd)
         sock.fd = -1
         sock.is_connected = false
     }
@@ -311,12 +312,12 @@ close_socket = (sock: &mut Socket) void   {
 
 // Set socket to non-blocking mode
 set_nonblocking = (sock: &Socket) Result<void, core.String>  {
-    flags := __sys_fcntl(sock.fd, F_GETFL, 0)
+    flags := sys.__sys_fcntl(sock.fd, sys.F_GETFL, 0)
     if flags < 0 {
         return Result<void, core.String>.Err("Failed to get socket flags")
     }
     
-    ret := __sys_fcntl(sock.fd, F_SETFL, flags | O_NONBLOCK)
+    ret := sys.__sys_fcntl(sock.fd, sys.F_SETFL, flags | sys.O_NONBLOCK)
     if ret < 0 {
         return Result<void, core.String>.Err("Failed to set non-blocking")
     }
@@ -499,9 +500,9 @@ handle_http_connection = (mut conn: Socket, handler: fn(HttpRequest) HttpRespons
 // Helper functions
 
 // Convert IpAddr and port to sockaddr_in
-to_sockaddr_in = (addr: SocketAddr) SockAddrIn   {
-    mut sock_addr: SockAddrIn
-    sock_addr.sin_family = AF_INET
+to_sockaddr_in = (addr: SocketAddr) sys.SockAddrIn   {
+    mut sock_addr: sys.SockAddrIn
+    sock_addr.sin_family = sys.AF_INET
     sock_addr.sin_port = htons(addr.port)
     
     addr.ip ?
@@ -519,7 +520,7 @@ to_sockaddr_in = (addr: SocketAddr) SockAddrIn   {
 }
 
 // Convert sockaddr_in to SocketAddr
-from_sockaddr_in = (addr: RawPtr<SockAddrIn>) SocketAddr   {
+from_sockaddr_in = (addr: RawPtr<sys.SockAddrIn>) SocketAddr   {
     ip_addr := addr.sin_addr
     octets: [4]u8 = [
         (ip_addr >> 24) & 0xFF,
@@ -765,97 +766,7 @@ string_to_method = (s: core.String) HttpMethod   {
     return HttpMethod.GET  // Default
 }
 
-// Socket constants
-AF_INET: i32 = 2
-AF_INET6: i32 = 10
-SOCK_STREAM: i32 = 1
-SOCK_DGRAM: i32 = 2
-SOL_SOCKET: i32 = 1
-SO_REUSEADDR: i32 = 2
-O_NONBLOCK: i32 = 2048
-F_GETFL: i32 = 3
-F_SETFL: i32 = 4
-
-// Socket address structure
-SockAddrIn: {
-    sin_family: u16,
-    sin_port: u16,
-    sin_addr: u32,
-    sin_zero: [8]u8,
-}
-
-// System call declarations
-__sys_socket = (domain: i32, type: i32, protocol: i32) i32 {
-    inline.c("""
-        return socket(${domain}, ${type}, ${protocol});
-    """)
-}
-
-__sys_bind = (fd: i32, addr: RawPtr<SockAddrIn>, len: u32) i32 {
-    inline.c("""
-        return bind(${fd}, ${addr.addr}, ${len});
-    """)
-}
-
-__sys_listen = (fd: i32, backlog: i32) i32 {
-    inline.c("""
-        return listen(${fd}, ${backlog});
-    """)
-}
-
-__sys_accept = (fd: i32, addr: RawPtr<SockAddrIn>, len: RawPtr<u32>) i32 {
-    inline.c("""
-        return accept(${fd}, ${addr.addr}, ${len.addr});
-    """)
-}
-
-__sys_connect = (fd: i32, addr: RawPtr<SockAddrIn>, len: u32) i32 {
-    inline.c("""
-        return connect(${fd}, ${addr.addr}, ${len});
-    """)
-}
-
-__sys_send = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32) i64 {
-    inline.c("""
-        return send(${fd}, ${buf.addr}, ${len}, ${flags});
-    """)
-}
-
-__sys_recv = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32) i64 {
-    inline.c("""
-        return recv(${fd}, ${buf.addr}, ${len}, ${flags});
-    """)
-}
-
-__sys_sendto = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32, addr: RawPtr<SockAddrIn>, addr_len: u32) i64 {
-    inline.c("""
-        return sendto(${fd}, ${buf.addr}, ${len}, ${flags}, ${addr.addr}, ${addr_len});
-    """)
-}
-
-__sys_recvfrom = (fd: i32, buf: RawPtr<u8>, len: usize, flags: i32, addr: RawPtr<SockAddrIn>, addr_len: RawPtr<u32>) i64 {
-    inline.c("""
-        return recvfrom(${fd}, ${buf.addr}, ${len}, ${flags}, ${addr.addr}, ${addr_len.addr});
-    """)
-}
-
-__sys_setsockopt = (fd: i32, level: i32, optname: i32, optval: RawPtr<void>, optlen: u32) i32 {
-    inline.c("""
-        return setsockopt(${fd}, ${level}, ${optname}, ${optval.addr}, ${optlen});
-    """)
-}
-
-__sys_fcntl = (fd: i32, cmd: i32, arg: i32) i32 {
-    inline.c("""
-        return fcntl(${fd}, ${cmd}, ${arg});
-    """)
-}
-
-__sys_close = (fd: i32) i32 {
-    inline.c("""
-        return close(${fd});
-    """)
-}
+// All system calls and constants moved to sys.zen module
 
 // Helper parsing functions (would be in string module)
 parse_u8 = (s: core.String) Result<u8, core.String> {

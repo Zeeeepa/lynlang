@@ -6,6 +6,7 @@ mem = @std
 string = @std
 path = @std
 result = @std
+sys = @std  // Import unified system calls
 
 // File handle
 File: {
@@ -50,7 +51,7 @@ DirEntry: {
 // Open a file with specified mode
 open = (path: core.String, mode: FileMode) Result<File, core.String>  {
     flags := mode_to_flags(mode)
-    fd := __sys_open(path.data, flags, 0o644)
+    fd := sys.sys.__sys_open(path.data, flags, 0o644)
     
     (fd < 0) ?
         | true {
@@ -68,7 +69,7 @@ open = (path: core.String, mode: FileMode) Result<File, core.String>  {
 
 // Create a new file (truncates if exists)
 create = (path: core.String) Result<File, core.String>  {
-    fd := __sys_open(path.data, O_CREAT | O_WRONLY | O_TRUNC, 0o644)
+    fd := sys.sys.__sys_open(path.data, sys.O_CREAT | sys.O_WRONLY | sys.O_TRUNC, 0o644)
     
     (fd < 0) ?
         | true {
@@ -101,7 +102,7 @@ read_to_string = (file: &mut File) Result<core.String, core.String>  {
     size := stat.unwrap().size
     buffer := mem.alloc<u8>(size + 1)
     
-    bytes_read := __sys_read(file.fd, buffer, size)
+    bytes_read := sys.sys.__sys_read(file.fd, buffer, size)
     if bytes_read < 0 {
         mem.free(buffer)
         return Result<core.String, core.String>.Err(get_error_string(bytes_read))
@@ -121,7 +122,7 @@ read = (file: &mut File, buffer: &mut Vec<u8>, count: usize) Result<usize, core.
         return Result<usize, core.String>.Err("File is not open")
     }
     
-    bytes_read := __sys_read(file.fd, buffer.data, count)
+    bytes_read := sys.sys.__sys_read(file.fd, buffer.data, count)
     if bytes_read < 0 {
         return Result<usize, core.String>.Err(get_error_string(bytes_read))
     }
@@ -144,7 +145,7 @@ read_bytes = (file: &mut File) Result<Vec<u8>, core.String>  {
     size := stat.unwrap().size
     buffer := mem.alloc_array<u8>(size)
     
-    bytes_read := __sys_read(file.fd, buffer.data, size)
+    bytes_read := sys.__sys_read(file.fd, buffer.data, size)
     if bytes_read < 0 {
         mem.free(buffer.data)
         return Result<Vec<u8>, core.String>.Err(get_error_string(bytes_read))
@@ -159,7 +160,7 @@ write_string = (file: &mut File, content: core.String) Result<usize, core.String
         return Result<usize, core.String>.Err("File is not open")
     }
     
-    bytes_written := __sys_write(file.fd, content.data, content.len)
+    bytes_written := sys.__sys_write(file.fd, content.data, content.len)
     if bytes_written < 0 {
         return Result<usize, core.String>.Err(get_error_string(bytes_written))
     }
@@ -173,7 +174,7 @@ write = (file: &mut File, buffer: Vec<u8>) Result<usize, core.String>  {
         return Result<usize, core.String>.Err("File is not open")
     }
     
-    bytes_written := __sys_write(file.fd, buffer.data, buffer.len)
+    bytes_written := sys.__sys_write(file.fd, buffer.data, buffer.len)
     if bytes_written < 0 {
         return Result<usize, core.String>.Err(get_error_string(bytes_written))
     }
@@ -213,20 +214,20 @@ seek = (file: &mut File, pos: SeekFrom) Result<u64, core.String>  {
     
     pos ?
         SeekFrom.Start(off) => {
-            whence = SEEK_SET
+            whence = sys.SEEK_SET
             offset = off
         },
         SeekFrom.Current(off) => {
-            whence = SEEK_CUR
+            whence = sys.SEEK_CUR
             offset = off
         },
         SeekFrom.End(off) => {
-            whence = SEEK_END
+            whence = sys.SEEK_END
             offset = off
         },
     }
     
-    new_pos := __sys_lseek(file.fd, offset, whence)
+    new_pos := sys.__sys_lseek(file.fd, offset, whence)
     if new_pos < 0 {
         return Result<u64, core.String>.Err(get_error_string(new_pos))
     }
@@ -240,7 +241,7 @@ tell = (file: &File) Result<u64, core.String>  {
         return Result<u64, core.String>.Err("File is not open")
     }
     
-    pos := __sys_lseek(file.fd, 0, SEEK_CUR)
+    pos := sys.__sys_lseek(file.fd, 0, sys.SEEK_CUR)
     if pos < 0 {
         return Result<u64, core.String>.Err(get_error_string(pos))
     }
@@ -254,7 +255,7 @@ flush = (file: &mut File) Result<void, core.String>  {
         return Result<void, core.String>.Err("File is not open")
     }
     
-    ret := __sys_fsync(file.fd)
+    ret := sys.__sys_fsync(file.fd)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
     }
@@ -268,7 +269,7 @@ close = (file: &mut File) Result<void, core.String>  {
         return Result<void, core.String>.Ok(void)
     }
     
-    ret := __sys_close(file.fd)
+    ret := sys.__sys_close(file.fd)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
     }
@@ -284,7 +285,7 @@ get_metadata = (file: &File) Result<FileMetadata, core.String>  {
     }
     
     stat_buf: StatBuf
-    ret := __sys_fstat(file.fd, &stat_buf)
+    ret := sys.__sys_fstat(file.fd, &stat_buf)
     
     if ret < 0 {
         return Result<FileMetadata, core.String>.Err(get_error_string(ret))
@@ -295,22 +296,22 @@ get_metadata = (file: &File) Result<FileMetadata, core.String>  {
         created: stat_buf.st_ctime,
         modified: stat_buf.st_mtime,
         accessed: stat_buf.st_atime,
-        is_dir: (stat_buf.st_mode & S_IFDIR) != 0,
-        is_file: (stat_buf.st_mode & S_IFREG) != 0,
-        is_symlink: (stat_buf.st_mode & S_IFLNK) != 0,
+        is_dir: (stat_buf.st_mode & sys.S_IFDIR) != 0,
+        is_file: (stat_buf.st_mode & sys.S_IFREG) != 0,
+        is_symlink: (stat_buf.st_mode & sys.S_IFLNK) != 0,
         permissions: stat_buf.st_mode & 0o777,
     })
 }
 
 // Check if file exists
 exists = (path: core.String) bool   {
-    ret := __sys_access(path.data, F_OK)
+    ret := sys.__sys_access(path.data, sys.F_OK)
     return ret == 0
 }
 
 // Delete a file
 delete = (path: core.String) Result<void, core.String>  {
-    ret := __sys_unlink(path.data)
+    ret := sys.__sys_unlink(path.data)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
     }
@@ -319,7 +320,7 @@ delete = (path: core.String) Result<void, core.String>  {
 
 // Rename a file
 rename = (old_path: core.String, new_path: core.String) Result<void, core.String>  {
-    ret := __sys_rename(old_path.data, new_path.data)
+    ret := sys.__sys_rename(old_path.data, new_path.data)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
     }
@@ -372,7 +373,7 @@ copy = (src_path: core.String, dst_path: core.String) Result<u64, core.String>  
 
 // Create a directory
 create_dir = (path: core.String) Result<void, core.String>  {
-    ret := __sys_mkdir(path.data, 0o755)
+    ret := sys.__sys_mkdir(path.data, 0o755)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
     }
@@ -399,7 +400,7 @@ create_dir_all = (path: core.String) Result<void, core.String>  {
 
 // Remove a directory (must be empty)
 remove_dir = (path: core.String) Result<void, core.String>  {
-    ret := __sys_rmdir(path.data)
+    ret := sys.__sys_rmdir(path.data)
     if ret < 0 {
         return Result<void, core.String>.Err(get_error_string(ret))
     }
@@ -408,16 +409,16 @@ remove_dir = (path: core.String) Result<void, core.String>  {
 
 // Read directory contents
 read_dir = (path: core.String) Result<DynVec<DirEntry>, core.String>  {
-    dir := __sys_opendir(path.data)
+    dir := sys.__sys_opendir(path.data)
     if dir .== None {
         return Result<DynVec<DirEntry>, core.String>.Err("Failed to open directory")
     }
-    defer __sys_closedir(dir)
+    defer sys.__sys_closedir(dir)
     
     entries: DynVec<DirEntry> = DynVec<DirEntry>{}
     
     loop {
-        entry := __sys_readdir(dir)
+        entry := sys.__sys_readdir(dir)
         if entry .== None {
             break
         }
@@ -436,15 +437,15 @@ read_dir = (path: core.String) Result<DynVec<DirEntry>, core.String>  {
         
         // Get metadata
         stat_buf: StatBuf
-        if __sys_stat(full_path.data, &stat_buf) == 0 {
+        if sys.__sys_stat(full_path.data, &stat_buf) == 0 {
             metadata := FileMetadata{
                 size: stat_buf.st_size,
                 created: stat_buf.st_ctime,
                 modified: stat_buf.st_mtime,
                 accessed: stat_buf.st_atime,
-                is_dir: (stat_buf.st_mode & S_IFDIR) != 0,
-                is_file: (stat_buf.st_mode & S_IFREG) != 0,
-                is_symlink: (stat_buf.st_mode & S_IFLNK) != 0,
+                is_dir: (stat_buf.st_mode & sys.S_IFDIR) != 0,
+                is_file: (stat_buf.st_mode & sys.S_IFREG) != 0,
+                is_symlink: (stat_buf.st_mode & sys.S_IFLNK) != 0,
                 permissions: stat_buf.st_mode & 0o777,
             }
             
@@ -484,10 +485,10 @@ walk_dir = (path: core.String, callback: fn(DirEntry) void) Result<void, core.St
 // Helper function to convert FileMode to system flags
 mode_to_flags = (mode: FileMode) i32   {
     mode ?
-        FileMode.Read => O_RDONLY,
-        FileMode.Write => O_WRONLY | O_CREAT | O_TRUNC,
-        FileMode.Append => O_WRONLY | O_CREAT | O_APPEND,
-        FileMode.ReadWrite => O_RDWR | O_CREAT,
+        FileMode.Read => sys.O_RDONLY,
+        FileMode.Write => sys.O_WRONLY | sys.O_CREAT | sys.O_TRUNC,
+        FileMode.Append => sys.O_WRONLY | sys.O_CREAT | sys.O_APPEND,
+        FileMode.ReadWrite => sys.O_RDWR | sys.O_CREAT,
     }
 }
 
@@ -510,146 +511,6 @@ get_error_string = (errno: i32) core.String {
     }
 }
 
-// System constants
-O_RDONLY: i32 = 0
-O_WRONLY: i32 = 1
-O_RDWR: i32 = 2
-O_CREAT: i32 = 0o100
-O_TRUNC: i32 = 0o1000
-O_APPEND: i32 = 0o2000
 
-SEEK_SET: i32 = 0
-SEEK_CUR: i32 = 1
-SEEK_END: i32 = 2
 
-F_OK: i32 = 0
-R_OK: i32 = 4
-W_OK: i32 = 2
-X_OK: i32 = 1
-
-S_IFDIR: u32 = 0o040000
-S_IFREG: u32 = 0o100000
-S_IFLNK: u32 = 0o120000
-
-// Stat buffer structure
-StatBuf: {
-    st_dev: u64,
-    st_ino: u64,
-    st_mode: u32,
-    st_nlink: u64,
-    st_uid: u32,
-    st_gid: u32,
-    st_rdev: u64,
-    st_size: u64,
-    st_blksize: u64,
-    st_blocks: u64,
-    st_atime: u64,
-    st_mtime: u64,
-    st_ctime: u64,
-}
-
-// System call declarations
-__sys_open = (path: RawPtr<u8>, flags: i32, mode: u32) i32 {
-    inline.c("""
-        return open(${path.addr}, ${flags}, ${mode});
-    """)
-}
-
-__sys_close = (fd: i32) i32 {
-    inline.c("""
-        return close(${fd});
-    """)
-}
-
-__sys_read = (fd: i32, buf: RawPtr<u8>, count: usize) i64 {
-    inline.c("""
-        return read(${fd}, ${buf.addr}, ${count});
-    """)
-}
-
-__sys_write = (fd: i32, buf: RawPtr<u8>, count: usize) i64 {
-    inline.c("""
-        return write(${fd}, ${buf.addr}, ${count});
-    """)
-}
-
-__sys_lseek = (fd: i32, offset: i64, whence: i32) i64 {
-    inline.c("""
-        return lseek(${fd}, ${offset}, ${whence});
-    """)
-}
-
-__sys_fsync = (fd: i32) i32 {
-    inline.c("""
-        return fsync(${fd});
-    """)
-}
-
-__sys_fstat = (fd: i32, buf: Ptr<StatBuf>) i32 {
-    inline.c("""
-        return fstat(${fd}, ${buf.addr});
-    """)
-}
-
-__sys_stat = (path: RawPtr<u8>, buf: Ptr<StatBuf>) i32 {
-    inline.c("""
-        return stat(${path.addr}, ${buf.addr});
-    """)
-}
-
-__sys_access = (path: RawPtr<u8>, mode: i32) i32 {
-    inline.c("""
-        return access(${path.addr}, ${mode});
-    """)
-}
-
-__sys_unlink = (path: RawPtr<u8>) i32 {
-    inline.c("""
-        return unlink(${path.addr});
-    """)
-}
-
-__sys_rename = (old: RawPtr<u8>, new: RawPtr<u8>) i32 {
-    inline.c("""
-        return rename(${old.addr}, ${new.addr});
-    """)
-}
-
-__sys_mkdir = (path: RawPtr<u8>, mode: u32) i32 {
-    inline.c("""
-        return mkdir(${path.addr}, ${mode});
-    """)
-}
-
-__sys_rmdir = (path: RawPtr<u8>) i32 {
-    inline.c("""
-        return rmdir(${path.addr});
-    """)
-}
-
-__sys_opendir = (path: RawPtr<u8>) RawPtr<void> {
-    inline.c("""
-        return opendir(${path.addr});
-    """)
-}
-
-__sys_readdir = (dir: RawPtr<void>) Ptr<DirEnt> {
-    inline.c("""
-        return readdir(${dir.addr});
-    """)
-}
-
-__sys_closedir = (dir: RawPtr<void>) i32 {
-    inline.c("""
-        return closedir(${dir.addr});
-    """)
-}
-
-// Directory entry structure for readdir
-DirEnt: {
-    d_ino: u64,
-    d_off: i64,
-    d_reclen: u16,
-    d_type: u8,
-    d_name: [256]u8,
-}
+// All system calls are now in sys.zen module

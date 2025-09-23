@@ -48,15 +48,32 @@ Vec<T, N>.pop = (self: Ptr<Vec<T, N>>) core.Option<T> {
         }
 }
 
-// Get element at index
-Vec<T, N>.get = (self: Ptr<Vec<T, N>>, index: usize) core.Result<T, core.Error> {
+// Get element at index (safe)
+Vec<T, N>.get = (self: Ptr<Vec<T, N>>, index: usize) core.Option<T> {
+    index >= self.len ? 
+        | true => core.Option:None
+        | false => core.Option:Some(self.data[index])
+}
+
+// Get element at index (unchecked, returns Result for errors)
+Vec<T, N>.get_unchecked = (self: Ptr<Vec<T, N>>, index: usize) core.Result<T, core.Error> {
     index >= self.len ? 
         | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
         | false => core.Result:Ok(self.data[index])
 }
 
-// Set element at index
-Vec<T, N>.set = (self: Ptr<Vec<T, N>>, index: usize, value: T) core.Result<void, core.Error> {
+// Set element at index (safe)
+Vec<T, N>.set = (self: Ptr<Vec<T, N>>, index: usize, value: T) bool {
+    index >= self.len ? 
+        | true => false
+        | false => {
+            self.data[index] = value
+            true
+        }
+}
+
+// Set element at index (unchecked, returns Result for errors)
+Vec<T, N>.set_unchecked = (self: Ptr<Vec<T, N>>, index: usize, value: T) core.Result<void, core.Error> {
     index >= self.len ? 
         | true => core.Result:Err(core.Error:IndexOutOfBounds(index, self.len))
         | false => {
@@ -260,14 +277,21 @@ DynVec<T>.pop = (vec: MutPtr<DynVec<T>>) core.Option<T> {
         | false { return core.Option:None }
 }
 
-// Get element at index
+// Get element at index (safe)
 DynVec<T>.get = (vec: Ptr<DynVec<T>>, index: usize) core.Option<T> {
     index < vec.val.len ?
         | true { return core.Option:Some(vec.val.data[index]) }
         | false { return core.Option:None }
 }
 
-// Set element at index
+// Get element at index (unchecked, returns Result for errors)
+DynVec<T>.get_unchecked = (vec: Ptr<DynVec<T>>, index: usize) core.Result<T, core.Error> {
+    index >= vec.val.len ?
+        | true { return core.Result:Err(core.Error:IndexOutOfBounds(index, vec.val.len)) }
+        | false { return core.Result:Ok(vec.val.data[index]) }
+}
+
+// Set element at index (safe)
 DynVec<T>.set = (vec: MutPtr<DynVec<T>>, index: usize, value: T) bool {
     index < vec.val.len ?
         | true { 
@@ -275,6 +299,16 @@ DynVec<T>.set = (vec: MutPtr<DynVec<T>>, index: usize, value: T) bool {
             return true
         }
         | false { return false }
+}
+
+// Set element at index (unchecked, returns Result for errors)
+DynVec<T>.set_unchecked = (vec: MutPtr<DynVec<T>>, index: usize, value: T) core.Result<void, core.Error> {
+    index >= vec.val.len ?
+        | true { return core.Result:Err(core.Error:IndexOutOfBounds(index, vec.val.len)) }
+        | false { 
+            vec.val.data[index] = value
+            return core.Result:Ok({})
+        }
 }
 
 // Loop over elements

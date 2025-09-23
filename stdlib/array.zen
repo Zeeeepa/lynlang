@@ -1,26 +1,11 @@
-// Array utilities for Zen - complements Vec<T,N> and DynVec<T>
-// Provides additional array processing functions for fixed arrays
+// Array utilities for Zen - operations on built-in fixed arrays [T; N]
+// For dynamic collections, use Vec<T,N> and DynVec<T> from vec.zen
 
 core := @std
-vec_module = import("vec")
-
-// Re-export the main vector types for convenience
-Vec := vec_module.Vec
-DynVec := vec_module.DynVec
+{ DynVec } = import("vec.zen")
 
 // Array processing utilities for fixed arrays [T; N]
-// These complement the vector types with additional array-specific functions
-
-// Convert fixed array to Vec
-array_to_vec<T, N> = (arr: [T; N]) Vec<T, N> {
-    return Vec<T, N>.from_array(arr)
-}
-
-// Convert fixed array to DynVec
-array_to_dyn_vec<T, N> = (arr: [T; N]) DynVec<T> {
-    vec := Vec<T, N>.from_array(arr)
-    return vec.to_dynamic()
-}
+// These work directly on the language's built-in array type [T; N]
 
 // Array utilities for working with fixed arrays [T; N]
 // These work directly on the language's built-in array type
@@ -199,10 +184,8 @@ array_equal<T, N> = (a: [T; N], b: [T; N]) bool {
     return true
 }
 
-// Export utility functions and vector types
+// Export utility functions for fixed arrays
 module.exports = { 
-    Vec, DynVec,
-    array_to_vec, array_to_dyn_vec,
     array_find, array_contains, array_for_each,
     array_map, array_filter, array_reduce,
     array_reverse, array_sort, array_binary_search,
