@@ -1,0 +1,28 @@
+// Simple test for .raise() error propagation
+{ io } = @std
+
+// Simple function that returns Result
+maybe_fail = (fail: bool) Result<i32, string> {
+    fail ? {
+        return Result.Err("Failed")
+    }
+    return Result.Ok(42)
+}
+
+// Function that uses .raise()
+test_raise = () Result<i32, string> {
+    value = maybe_fail(false).raise()  // Should extract 42
+    io.println("Got value: ${value}")
+    return Result.Ok(value)
+}
+
+main = () i32 {
+    io.println("Testing .raise():")
+    
+    result = test_raise()
+    result ?
+        | Ok(val) { io.println("Result: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    return 0
+}

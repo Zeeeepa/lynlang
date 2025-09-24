@@ -2115,15 +2115,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(ok_bb);
             if struct_type.count_fields() > 1 {
                 let payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
-                // For now, assume the payload is i64. In a complete implementation, 
-                // this would be determined by the actual Result<T,E> type parameters
-                let ok_value = self.builder.build_load(self.context.i64_type(), payload_ptr, "ok_value")?;
+                // Get the actual payload type from the struct
+                let payload_field_type = struct_type.get_field_type_at_index(1)
+                    .ok_or_else(|| CompileError::InternalError("Result payload field not found".to_string(), None))?;
+                
+                // Load the payload pointer
+                let ok_value_ptr = self.builder.build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
+                
+                // If the payload is a pointer (which it usually is for generic enums),
+                // we need to dereference it to get the actual value
+                // Since we don't have the exact type information here, we'll return the pointer
+                // and let the caller handle dereferencing based on context
+                let ok_value = ok_value_ptr;
                 self.builder.build_unconditional_branch(continue_bb)?;
                 
                 // Handle Err case - propagate the error by returning early
                 self.builder.position_at_end(err_bb);
                 let err_payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "err_payload_ptr")?;
-                let err_value = self.builder.build_load(self.context.i64_type(), err_payload_ptr, "err_value")?;
+                
+                // Get the actual payload type from the struct  
+                let payload_field_type = struct_type.get_field_type_at_index(1)
+                    .ok_or_else(|| CompileError::InternalError("Result payload field not found".to_string(), None))?;
+                
+                // Load the error payload with the correct type
+                let err_value = self.builder.build_load(payload_field_type, err_payload_ptr, "err_value")?;
                 
                 // Create a new Result<T,E> with Err variant for early return
                 let return_result_alloca = self.builder.build_alloca(struct_type, "return_result")?;

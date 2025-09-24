@@ -1,0 +1,36 @@
+// Test error propagation with .raise()
+{ io } = @std
+
+// Helper function that might fail
+divide = (a: i32, b: i32) Result<i32, string> {
+    b == 0 ? {
+        return Result.Err("Division by zero")
+    }
+    return Result.Ok(a / b)
+}
+
+// Function that uses .raise() to propagate errors
+calculate = (x: i32) Result<i32, string> {
+    // This should propagate the error if divide fails
+    step1 = divide(10, x).raise()   // If Err, returns early
+    step2 = divide(step1, 2).raise() // Chain operations
+    return Result.Ok(step2)
+}
+
+main = () i32 {
+    io.println("Testing .raise() error propagation:")
+    
+    // Test successful case
+    result1 = calculate(5)
+    result1 ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Test error case (division by zero)
+    result2 = calculate(0)
+    result2 ?
+        | Ok(val) { io.println("Success: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    return 0
+}
