@@ -131,7 +131,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             Type::Basic(self.context.i64_type().into())
                                         }
                                     }
-                                    BasicValueEnum::FloatValue(_) => {
+                                    BasicValueEnum::FloatValue(fv) => {
+                                        eprintln!("DEBUG: Variable '{}' inferred as float, type: {:?}", name, fv.get_type());
                                         // For now, assume all floats are f64
                                         Type::Basic(self.context.f64_type().into())
                                     }
