@@ -10,8 +10,10 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   LLVM_VERSION: "18"
-  # Fix LLVM Polly linking issue
+  # Fix LLVM Polly linking issue by pointing to LLVM install
   LLVM_SYS_181_PREFIX: /usr/lib/llvm-18
+  # Disable static linking to avoid Polly issues
+  LLVM_SYS_181_FFI_WORKAROUND: "1"
 
 jobs:
   # Quick formatting and linting checks
@@ -63,7 +65,20 @@ jobs:
     - name: Install Additional LLVM Libraries
       run: |
         sudo apt-get update
-        sudo apt-get install -y llvm-18-dev libpolly-18-dev || echo "Polly dev not available, continuing..."
+        # Install LLVM and Polly dev libraries to fix linking
+        sudo apt-get install -y llvm-18-dev libpolly-18-dev
+        # Create symlinks if Polly library exists but with different name
+        if [ -f /usr/lib/llvm-18/lib/libPolly.a ]; then
+          echo "Polly library found"
+        elif [ -f /usr/lib/llvm-18/lib/libLLVMPolly.a ]; then
+          sudo ln -sf /usr/lib/llvm-18/lib/libLLVMPolly.a /usr/lib/llvm-18/lib/libPolly.a
+        fi
+        # Also check for PollyISL
+        if [ -f /usr/lib/llvm-18/lib/libPollyISL.a ]; then
+          echo "PollyISL library found"
+        elif [ -f /usr/lib/llvm-18/lib/libLLVMPollyISL.a ]; then
+          sudo ln -sf /usr/lib/llvm-18/lib/libLLVMPollyISL.a /usr/lib/llvm-18/lib/libPollyISL.a
+        fi
     
     - name: Cache Dependencies
       id: cache
@@ -193,7 +208,20 @@ jobs:
     - name: Install Additional LLVM Libraries
       run: |
         sudo apt-get update
-        sudo apt-get install -y llvm-18-dev libpolly-18-dev || echo "Polly dev not available, continuing..."
+        # Install LLVM and Polly dev libraries to fix linking
+        sudo apt-get install -y llvm-18-dev libpolly-18-dev
+        # Create symlinks if Polly library exists but with different name
+        if [ -f /usr/lib/llvm-18/lib/libPolly.a ]; then
+          echo "Polly library found"
+        elif [ -f /usr/lib/llvm-18/lib/libLLVMPolly.a ]; then
+          sudo ln -sf /usr/lib/llvm-18/lib/libLLVMPolly.a /usr/lib/llvm-18/lib/libPolly.a
+        fi
+        # Also check for PollyISL
+        if [ -f /usr/lib/llvm-18/lib/libPollyISL.a ]; then
+          echo "PollyISL library found"
+        elif [ -f /usr/lib/llvm-18/lib/libLLVMPollyISL.a ]; then
+          sudo ln -sf /usr/lib/llvm-18/lib/libLLVMPollyISL.a /usr/lib/llvm-18/lib/libPollyISL.a
+        fi
     
     - name: Build
       run: cargo build --verbose
