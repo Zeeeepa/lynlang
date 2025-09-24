@@ -19,7 +19,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         match name {
             "string_to_f64" => {
                 // string_to_f64(str: *const i8) -> Option<f64> (as struct)
-                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_f64_type = self.context.struct_type(
                     &[
                         self.context.i64_type().into(), // discriminant (0=Some, 1=None)
@@ -32,7 +32,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(func)
             }
             "string_to_f32" => {
-                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_f32_type = self.context.struct_type(
                     &[
                         self.context.i64_type().into(), // discriminant
@@ -45,7 +45,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(func)
             }
             "string_to_i32" => {
-                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_i32_type = self.context.struct_type(
                     &[
                         self.context.i64_type().into(), // discriminant
@@ -58,7 +58,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(func)
             }
             "string_to_i64" => {
-                let string_type = self.context.i8_type().ptr_type(inkwell::AddressSpace::default());
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_i64_type = self.context.struct_type(
                     &[
                         self.context.i64_type().into(), // discriminant

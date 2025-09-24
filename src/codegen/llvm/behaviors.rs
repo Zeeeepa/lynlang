@@ -139,9 +139,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let llvm_param_type = if param_name == "self" || matches!(actual_type, crate::ast::AstType::Struct { .. }) {
                     // Pass structs by pointer
                     let struct_type = self.to_llvm_type(&actual_type)?;
-                    if let super::Type::Struct(st) = struct_type {
+                    if let super::Type::Struct(_st) = struct_type {
                         super::Type::Basic(inkwell::types::BasicTypeEnum::PointerType(
-                            st.ptr_type(inkwell::AddressSpace::default())
+                            self.context.ptr_type(inkwell::AddressSpace::default())
                         ))
                     } else {
                         struct_type
