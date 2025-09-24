@@ -1,0 +1,27 @@
+// Test multiple None values
+{ io } = @std
+
+main = () i32 {
+    io.println("Test 1: None")
+    x = None
+    x ?
+        | .Some(a) {
+            io.println("Got a: ${a}")
+        }
+        | .None {
+            io.println("Got None #1")
+        }
+    
+    io.println("Test 2: None again")
+    y = None
+    y ?
+        | .Some(b) {
+            io.println("Got b: ${b}")
+        }
+        | .None {
+            io.println("Got None #2")
+        }
+    
+    io.println("All tests done")
+    0
+}

@@ -1,0 +1,37 @@
+// Test Option with different variable names in patterns
+{ io } = @std
+
+main = () i32 {
+    io.println("Test 1: Some(42)")
+    x = Some(42)
+    x ?
+        | .Some(a) {
+            io.println("Got a: ${a}")
+        }
+        | .None {
+            io.println("None")
+        }
+    
+    io.println("Test 2: None")
+    y = None
+    y ?
+        | .Some(b) {
+            io.println("Got b: ${b}")
+        }
+        | .None {
+            io.println("Got None")
+        }
+    
+    io.println("Test 3: Some(100)")  
+    z = Some(100)
+    z ?
+        | .Some(c) {
+            io.println("Got c: ${c}")
+        }
+        | .None {
+            io.println("None")
+        }
+    
+    io.println("All tests done")
+    0
+}

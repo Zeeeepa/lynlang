@@ -1,0 +1,15 @@
+// Debug test for None issue
+{ io } = @std
+
+main = () i32 {
+    io.println("Creating first None")
+    x = None
+    io.println("Created first None")
+    
+    io.println("Creating second None")  
+    y = None
+    io.println("Created second None")
+    
+    io.println("Test complete")
+    0
+}

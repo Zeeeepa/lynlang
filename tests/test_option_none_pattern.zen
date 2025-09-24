@@ -1,0 +1,17 @@
+// Debug test for None pattern matching
+{ io } = @std
+
+main = () i32 {
+    io.println("Test 1: First None")
+    x = None
+    x ?
+        | .Some(v) {
+            io.println("Should not print")
+        }
+        | .None {
+            io.println("First None matched")
+        }
+    
+    io.println("Test complete")
+    0
+}
