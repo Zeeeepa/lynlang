@@ -1,0 +1,12 @@
+{ io } = @std
+
+main = () i32 {
+    opt1 = Some(42)
+    
+    result = opt1 ?
+        | Some(v) => v
+        | None => 0
+    
+    io.println("Result: ${result}")
+    result
+}

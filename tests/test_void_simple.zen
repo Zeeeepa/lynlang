@@ -1,0 +1,16 @@
+{ io } = @std
+
+main = () i32 {
+    // Test that void works as a value
+    v = void
+    io.println("void value created")
+    
+    // Test Result with void
+    result = Result.Ok(void)
+    
+    result ?
+        | Ok(_) { io.println("Got Ok with void") }
+        | Err(_) { io.println("Got Err") }
+    
+    0
+}

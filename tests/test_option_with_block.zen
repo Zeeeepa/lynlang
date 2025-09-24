@@ -1,0 +1,17 @@
+{ io } = @std
+
+main = () i32 {
+    opt1 = Some(42)
+    
+    opt1 ?
+        | Some(v) { 
+            io.println("Got value: ${v}")
+            0
+        }
+        | None { 
+            io.println("Got None")
+            0
+        }
+    
+    42
+}

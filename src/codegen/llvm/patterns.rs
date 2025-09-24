@@ -470,24 +470,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let dereferenced_payload = if payload_type.is_pointer_type() && loaded_payload.is_pointer_value() {
                                         let ptr_val = loaded_payload.into_pointer_value();
                                         
-                                        // Try to determine what this pointer points to
-                                        // Load as i64 first since integer literals compile to i64
-                                        match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
-                                            Ok(loaded) => {
-                                                // Successfully loaded as i64 - keep the type!
-                                                loaded
+                                        // Check the generic type context for Option<T> type info
+                                        let load_type = if variant == "Some" {
+                                            self.generic_type_context.get("Option_Some_Type").cloned()
+                                        } else {
+                                            None
+                                        };
+                                        
+                                        // Try to load with the tracked type information
+                                        if let Some(ast_type) = load_type {
+                                            use crate::ast::AstType;
+                                            match ast_type {
+                                                AstType::I8 => self.builder.build_load(self.context.i8_type(), ptr_val, "payload_i8").unwrap_or(loaded_payload),
+                                                AstType::I16 => self.builder.build_load(self.context.i16_type(), ptr_val, "payload_i16").unwrap_or(loaded_payload),
+                                                AstType::I32 => self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32").unwrap_or(loaded_payload),
+                                                AstType::I64 => self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64").unwrap_or(loaded_payload),
+                                                _ => {
+                                                    // Try default loading for other types
+                                                    match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
+                                                        Ok(loaded) => loaded,
+                                                        _ => match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
+                                                            Ok(loaded) => loaded,
+                                                            _ => loaded_payload
+                                                        }
+                                                    }
+                                                }
                                             }
-                                            _ => {
-                                                // Try loading as i32
-                                                match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
-                                                    Ok(loaded) => {
-                                                        // Successfully loaded as i32
-                                                        loaded
-                                                    }
-                                                    _ => {
-                                                        // Not an integer, keep as pointer (likely a string)
-                                                        loaded_payload
-                                                    }
+                                        } else {
+                                            // No type info, fall back to trying different types
+                                            match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
+                                                Ok(loaded) => loaded,
+                                                _ => match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
+                                                    Ok(loaded) => loaded,
+                                                    _ => loaded_payload
                                                 }
                                             }
                                         }
@@ -507,14 +522,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // The payload might be a pointer that needs dereferencing
                                     if extracted.is_pointer_value() {
                                         let ptr_val = extracted.into_pointer_value();
-                                        match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_int") {
-                                            Ok(loaded) => {
-                                                // Successfully loaded - use as integer
-                                                loaded
+                                        
+                                        // Check the generic type context for Option<T> type info
+                                        let load_type = if variant == "Some" {
+                                            self.generic_type_context.get("Option_Some_Type").cloned()
+                                        } else {
+                                            None
+                                        };
+                                        
+                                        // Try to load with the tracked type information
+                                        if let Some(ast_type) = load_type {
+                                            use crate::ast::AstType;
+                                            match ast_type {
+                                                AstType::I8 => self.builder.build_load(self.context.i8_type(), ptr_val, "payload_i8").unwrap_or(extracted),
+                                                AstType::I16 => self.builder.build_load(self.context.i16_type(), ptr_val, "payload_i16").unwrap_or(extracted),
+                                                AstType::I32 => self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32").unwrap_or(extracted),
+                                                AstType::I64 => self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64").unwrap_or(extracted),
+                                                _ => {
+                                                    // Try default loading
+                                                    match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_int") {
+                                                        Ok(loaded) => loaded,
+                                                        _ => extracted
+                                                    }
+                                                }
                                             }
-                                            _ => {
-                                                // Couldn't load - keep as pointer
-                                                extracted
+                                        } else {
+                                            match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_int") {
+                                                Ok(loaded) => {
+                                                    // Successfully loaded - use as integer
+                                                    loaded
+                                                }
+                                                _ => {
+                                                    // Couldn't load - keep as pointer
+                                                    extracted
+                                                }
                                             }
                                         }
                                     } else {
