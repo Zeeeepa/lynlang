@@ -105,11 +105,13 @@
 ✓ Task 101: **EXPANDED** Test Coverage (2025-09-24 @ 19:16 UTC) - Added 3 new tests verifying string interpolation and enums work perfectly. Test suite improved to 165/165 passing (100%). Verified all 13 disabled tests still require major fixes (Result<T,E> return types or unimplemented features).
 ✓ Task 102: **VERIFIED** Perfect Test Suite Health (2025-09-25) - Confirmed 165/165 enabled tests passing (100% pass rate). 13 disabled tests. 178 total test files. Compiler health excellent. Project structure clean.
 ✓ Task 103: **FIXED** Result<T,E> Return Type Architecture (2025-09-25) - Fixed LLVM type mismatch for functions returning Result<T,E>. Added special handling in types.rs for Result and Option as enum structs. Re-enabled test_debug_block_return.zen. Test suite improved to 168/180 (was 165/178).
+✓ Task 104: **FIXED** Enum Pattern Matching Type Mismatch (2025-09-25) - Fixed discriminant extraction in pattern matching to properly handle i32 to i64 extension. This fixes pattern matching on Option/Result types returned from runtime functions like string.to_f64(). Added stub implementation for to_f64() that returns Option.None.
 
 ## Current Status (2025-09-25 - 🎉 168/168 ENABLED TESTS PASSING!)
 
-### 🎉 Major Milestones Achieved
+### 🎉 Major Milestones Achieved  
 - **Test Suite Health PERFECT**: 100% pass rate for enabled tests (168/168 passing) - ALL ENABLED TESTS PASSING! VERIFIED 2025-09-25
+- **Pattern Matching Fix**: Fixed enum discriminant type mismatch for runtime function returns (string.to_f64() etc)
 - **Real Completion Rate**: 168 enabled + 12 disabled = 180 total tests → **93.3% overall completion rate** ⬆️ (was 92.7%)
 - **Result<T,E> Return Types FIXED**: Functions can now return Result<T,E> properly - architecture issue resolved!
 - **Float Support WORKING**: f64 types now correctly work with Result<f64,E> and .raise() error propagation
@@ -162,6 +164,7 @@
   - ✅ @std module import system (destructuring syntax)
   - ✅ String interpolation "${expr}" 
   - ✅ io.println for strings and numbers (fixed i8 integer printing)
+  - ✅ String methods - s.to_f64() returns Option<f64> (stub implementation)
   - ✅ Pattern matching using conditional syntax (? with | true/false)
   - ✅ UFC (Universal Function Call) syntax - x.method()
   - ✅ Blocks return their last expression value
