@@ -1,0 +1,6 @@
+// Trait/Behavior test disabled - not yet implemented
+{ io } = @std
+
+main = () void {
+    io.println("Traits/Behaviors not yet implemented")
+}

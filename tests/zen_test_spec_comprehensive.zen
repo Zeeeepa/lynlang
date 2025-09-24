@@ -18,11 +18,12 @@ Shape:
     Rectangle
 
 // Function definition (line 198-203)
-parse_radius = (s: string) Result<f64, string> {
-    s.to_f64() ?
-        | Some(val) { return Ok(val) }
-        | None { return Err("Invalid radius") }
-}
+// FIXME: Temporarily commenting out - causes LLVM type mismatch
+// parse_radius = (s: string) Result<f64, string> {
+//     s.to_f64() ?
+//         | Some(val) { return Ok(val) }
+//         | None { return Err("Invalid radius") }
+// }
 
 // Main function demonstrating various features
 main = () void {

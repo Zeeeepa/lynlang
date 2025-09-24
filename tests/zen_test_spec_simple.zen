@@ -1,9 +1,10 @@
 // Test basic Zen spec syntax
 
+{ io } = @std
+
 // Option type definition
-Option<T>:
-    Some: T,
-    None
+// NOTE: Using stdlib Option instead of redefining
+{ Option, Some, None } = @std
 
 // Simple assignment operators
 main = () void {

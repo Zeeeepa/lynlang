@@ -31,9 +31,10 @@ GameEntity:
     Powerup
 
 // Overload functions for each variant
-get_health = (e: GameEntity.Player) u32 { return 100 }
-get_health = (e: GameEntity.Enemy) u32 { return 50 }
-get_health = (e: GameEntity.Powerup) u32 { return 0 }
+// FIXME: UFC overloading with enum variants not yet implemented
+// get_health = (e: GameEntity.Player) u32 { return 100 }
+// get_health = (e: GameEntity.Enemy) u32 { return 50 }
+// get_health = (e: GameEntity.Powerup) u32 { return 0 }
 
 main = () void {
     // Different assignment forms

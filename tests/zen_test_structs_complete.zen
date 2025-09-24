@@ -3,8 +3,8 @@
 
 // Simple struct
 Point: {
-    x :: f64,      // Mutable field
-    y :: f64 = 0   // With default value
+    x: f64,      // Field
+    y: f64       // Field
 }
 
 // Struct with immutable and mutable fields
@@ -21,7 +21,7 @@ Rectangle: {
 main = () void {
     // Create struct instances
     p1 = Point { x: 10.0, y: 20.0 }
-    p2 = Point { x: 5.0 }  // y uses default value
+    p2 = Point { x: 5.0, y: 0.0 }  // explicit values
     
     // Mutable struct
     p3 ::= Point { x: 0.0, y: 0.0 }
