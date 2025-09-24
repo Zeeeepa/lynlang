@@ -485,6 +485,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 AstType::I16 => self.builder.build_load(self.context.i16_type(), ptr_val, "payload_i16").unwrap_or(loaded_payload),
                                                 AstType::I32 => self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32").unwrap_or(loaded_payload),
                                                 AstType::I64 => self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64").unwrap_or(loaded_payload),
+                                                AstType::String => loaded_payload, // Strings are already pointers, don't load
                                                 _ => {
                                                     // Try default loading for other types
                                                     match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
@@ -538,6 +539,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 AstType::I16 => self.builder.build_load(self.context.i16_type(), ptr_val, "payload_i16").unwrap_or(extracted),
                                                 AstType::I32 => self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32").unwrap_or(extracted),
                                                 AstType::I64 => self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64").unwrap_or(extracted),
+                                                AstType::String => extracted, // Strings are already pointers, don't load
                                                 _ => {
                                                     // Try default loading
                                                     match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_int") {

@@ -1,0 +1,31 @@
+// Test Option<String> with block-based pattern matching
+{ io } = @std
+
+main = () i32 {
+    // Test with string payload - use blocks instead of arrow functions
+    msg = Some("hello")
+    
+    msg_result = msg ?
+        | .Some(s) {
+            s  // Return the string
+        }
+        | .None {
+            "nothing"  // Return a default string
+        }
+    
+    io.println("Message result: ${msg_result}")
+    
+    // Test with None case
+    empty = None
+    empty_result = empty ?
+        | .Some(s) {
+            s
+        }
+        | .None {
+            "empty"
+        }
+    
+    io.println("Empty result: ${empty_result}")
+    
+    0
+}

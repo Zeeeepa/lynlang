@@ -1,0 +1,16 @@
+// Minimal test for Option<i32> pattern matching
+{ io } = @std
+
+main = () i32 {
+    // Test with integer payload only
+    x = Some(42)
+    x ?
+        | .Some(v) {
+            io.println("Value: ${v}")
+        }
+        | .None {
+            io.println("None")
+        }
+    
+    0
+}
