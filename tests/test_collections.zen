@@ -2,8 +2,8 @@
 { io, HashMap, HashSet } = @std
 
 // Simple hash function for strings
-string_hash = (s: string) u64 {
-    hash ::= 5381u64
+string_hash = (s: string) i64 {
+    hash ::= 5381
     i ::= 0
     loop {
         i >= s.len() ? { break }
@@ -16,9 +16,9 @@ string_hash = (s: string) u64 {
 }
 
 // Simple hash function for i32
-i32_hash = (n: i32) u64 {
-    casted ::= n as u64
-    return casted * 2654435761u64
+i32_hash = (n: i32) i64 {
+    casted ::= n as i64
+    return casted * 2654435761
 }
 
 // Equality function for strings
