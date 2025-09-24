@@ -185,7 +185,7 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
 
 fn compile_file(args: &[String]) -> std::io::Result<()> {
     // Parse arguments
-    let (input_file, output_file) = if args[1] == "-o" {
+    let (input_file, output_file_raw) = if args[1] == "-o" {
         (&args[3], &args[2])
     } else if args[2] == "-o" {
         (&args[1], &args[3])
@@ -193,6 +193,19 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
         print_usage();
         return Ok(());
     };
+    
+    // Ensure output goes to target directory if no directory specified
+    let output_file = if !output_file_raw.contains('/') {
+        format!("target/{}", output_file_raw)
+    } else {
+        output_file_raw.to_string()
+    };
+    
+    // Ensure target directory exists
+    if let Some(parent) = Path::new(&output_file).parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to create output directory: {}", e)))?;
+    }
     
     // Read the source file
     let source = std::fs::read_to_string(input_file)
@@ -211,7 +224,7 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
     let module = compiler.get_module(&program)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
     
-    // Write LLVM IR for debugging
+    // Write LLVM IR for debugging - also in target directory
     let ir_path = format!("{}.ll", output_file);
     module.print_to_file(&ir_path)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to write IR: {}", e)))?;
@@ -241,7 +254,7 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
     let mut cmd = Command::new("cc");
     cmd.arg(&obj_path)
         .arg("-o")
-        .arg(output_file)
+        .arg(&output_file)
         .arg("-no-pie")  // Disable PIE for compatibility
         .arg("-lm");  // Link math library
     

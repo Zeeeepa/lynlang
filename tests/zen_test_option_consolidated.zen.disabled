@@ -6,10 +6,10 @@ main = () void {
     
     // Test 1: Basic Option creation and pattern matching
     io.println("\n1. Basic Option creation:")
-    val = Option.Option.Some(42)
+    val = Option.Some(42)
     io.println("Created Option.Some(42)")
     
-    empty = Option.Option.None
+    empty = Option.None
     io.println("Created Option.None")
     
     // Test 2: Pattern matching
