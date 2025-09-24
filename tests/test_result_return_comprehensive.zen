@@ -1,0 +1,147 @@
+// Comprehensive test of Result<T,E> return type fix
+{ io, Result } = @std
+
+// Test 1: Simple Result<i32, string> returns
+simple_ok = () Result<i32, string> {
+    return Result.Ok(42)
+}
+
+simple_err = () Result<i32, string> {
+    return Result.Err("error message")
+}
+
+// Test 2: Result<f64, string> returns
+float_ok = () Result<f64, string> {
+    return Result.Ok(3.14)
+}
+
+float_err = () Result<f64, string> {
+    return Result.Err("float error")
+}
+
+// Test 3: Pattern matching with returns
+conditional_result = (flag: bool) Result<i32, string> {
+    flag ?
+        | true { return Result.Ok(100) }
+        | false { return Result.Err("flag was false") }
+}
+
+// Test 4: Early returns in complex logic
+validate_range = (n: i32) Result<i32, string> {
+    n < 0 ?
+        | true { return Result.Err("negative number") }
+        | false { }
+    
+    n > 1000 ?
+        | true { return Result.Err("too large") }
+        | false { }
+    
+    n == 666 ?
+        | true { return Result.Err("forbidden number") }
+        | false { }
+    
+    return Result.Ok(n * 2)
+}
+
+// Test 5: Nested Result handling
+outer_function = () Result<i32, string> {
+    inner = simple_ok()
+    inner ?
+        | .Ok(v) { return Result.Ok(v + 10) }
+        | .Err(e) { return Result.Err(e) }
+}
+
+// Test 6: Multiple Result operations
+chain_operations = () Result<i32, string> {
+    r1 = simple_ok()
+    r1 ?
+        | .Ok(v1) {
+            r2 = conditional_result(true)
+            r2 ?
+                | .Ok(v2) { return Result.Ok(v1 + v2) }
+                | .Err(e) { return Result.Err(e) }
+        }
+        | .Err(e) { return Result.Err(e) }
+}
+
+main = () i32 {
+    io.println("=== Result<T,E> Return Type Tests ===\n")
+    
+    passed ::= 0
+    failed ::= 0
+    
+    // Test 1
+    r1 = simple_ok()
+    r1 ?
+        | .Ok(v) { 
+            v == 42 ? 
+                | true { io.println("✓ Test 1a: simple_ok() = ${v}"); passed = passed + 1 }
+                | false { io.println("✗ Test 1a: expected 42, got ${v}"); failed = failed + 1 }
+        }
+        | .Err(e) { io.println("✗ Test 1a: unexpected error: ${e}"); failed = failed + 1 }
+    
+    r2 = simple_err()
+    r2 ?
+        | .Ok(v) { io.println("✗ Test 1b: expected error, got Ok(${v})"); failed = failed + 1 }
+        | .Err(e) { io.println("✓ Test 1b: simple_err() = ${e}"); passed = passed + 1 }
+    
+    // Test 2
+    r3 = float_ok()
+    r3 ?
+        | .Ok(v) { io.println("✓ Test 2a: float_ok() = ${v}"); passed = passed + 1 }
+        | .Err(e) { io.println("✗ Test 2a: unexpected error: ${e}"); failed = failed + 1 }
+    
+    r4 = float_err()
+    r4 ?
+        | .Ok(v) { io.println("✗ Test 2b: expected error, got Ok(${v})"); failed = failed + 1 }
+        | .Err(e) { io.println("✓ Test 2b: float_err() = ${e}"); passed = passed + 1 }
+    
+    // Test 3
+    r5 = conditional_result(true)
+    r5 ?
+        | .Ok(v) { io.println("✓ Test 3a: conditional_result(true) = ${v}"); passed = passed + 1 }
+        | .Err(e) { io.println("✗ Test 3a: unexpected error: ${e}"); failed = failed + 1 }
+    
+    r6 = conditional_result(false)
+    r6 ?
+        | .Ok(v) { io.println("✗ Test 3b: expected error, got Ok(${v})"); failed = failed + 1 }
+        | .Err(e) { io.println("✓ Test 3b: conditional_result(false) = ${e}"); passed = passed + 1 }
+    
+    // Test 4
+    r7 = validate_range(50)
+    r7 ?
+        | .Ok(v) { io.println("✓ Test 4a: validate_range(50) = ${v}"); passed = passed + 1 }
+        | .Err(e) { io.println("✗ Test 4a: unexpected error: ${e}"); failed = failed + 1 }
+    
+    r8 = validate_range(-5)
+    r8 ?
+        | .Ok(v) { io.println("✗ Test 4b: expected error, got Ok(${v})"); failed = failed + 1 }
+        | .Err(e) { io.println("✓ Test 4b: validate_range(-5) = ${e}"); passed = passed + 1 }
+    
+    r9 = validate_range(2000)
+    r9 ?
+        | .Ok(v) { io.println("✗ Test 4c: expected error, got Ok(${v})"); failed = failed + 1 }
+        | .Err(e) { io.println("✓ Test 4c: validate_range(2000) = ${e}"); passed = passed + 1 }
+    
+    // Test 5
+    r10 = outer_function()
+    r10 ?
+        | .Ok(v) { io.println("✓ Test 5: outer_function() = ${v}"); passed = passed + 1 }
+        | .Err(e) { io.println("✗ Test 5: unexpected error: ${e}"); failed = failed + 1 }
+    
+    // Test 6
+    r11 = chain_operations()
+    r11 ?
+        | .Ok(v) { io.println("✓ Test 6: chain_operations() = ${v}"); passed = passed + 1 }
+        | .Err(e) { io.println("✗ Test 6: unexpected error: ${e}"); failed = failed + 1 }
+    
+    io.println("\n=== Summary ===")
+    io.println("Passed: ${passed}")
+    io.println("Failed: ${failed}")
+    total = passed + failed
+    io.println("Total: ${total}")
+    
+    failed == 0 ?
+        | true { io.println("\n✓ All tests passed!"); return 0 }
+        | false { io.println("\n✗ Some tests failed"); return 1 }
+}

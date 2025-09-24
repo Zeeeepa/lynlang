@@ -266,6 +266,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(Type::Basic(self.context.i32_type().into()));
                 }
                 
+                // Special handling for Result<T,E> and Option<T> types
+                // These are always represented as { i64 discriminant, ptr payload }
+                if name == "Result" || name == "Option" {
+                    let enum_struct_type = self.context.struct_type(&[
+                        self.context.i64_type().into(),  // discriminant
+                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),  // payload pointer
+                    ], false);
+                    return Ok(Type::Struct(enum_struct_type));
+                }
+                
                 // Check if this is actually a user-defined struct type
                 if let Some(struct_info) = self.struct_types.get(name) {
                     Ok(Type::Struct(struct_info.llvm_type))

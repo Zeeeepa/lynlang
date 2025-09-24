@@ -3,7 +3,7 @@
 
 test_block = () Result<i32, string> {
     x = 1
-    result = x == 1 ?
+    x == 1 ?
         | true { 
             io.println("In true branch")
             return Result.Ok(42) 
@@ -12,9 +12,6 @@ test_block = () Result<i32, string> {
             io.println("In false branch")
             return Result.Err("error") 
         }
-    
-    io.println("After pattern match")
-    return result
 }
 
 main = () i32 {

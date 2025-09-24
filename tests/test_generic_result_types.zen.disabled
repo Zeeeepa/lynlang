@@ -28,7 +28,7 @@ test_bool_result = () Result<bool, string> {
     a = Result.Ok(true)
     val = a.raise()
     
-    !val ?
+    val == false ?
         | true { return Result.Err("Expected true") }
         | false { }
     
@@ -68,7 +68,7 @@ main = () i32 {
     result_bool = test_bool_result()
     result_bool ?
         | .Ok(v) { 
-            msg = v ? "true" | "false"
+            msg = v ? | true { "true" } | false { "false" }
             io.println("bool test passed: ${msg}")
         }
         | .Err(e) {
