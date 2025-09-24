@@ -1,0 +1,20 @@
+// Test Result inline vs return
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("Testing inline Result values:")
+    
+    // Inline Result.Ok
+    r1 = Result.Ok(42)
+    r1 ?
+        | .Ok(val) { io.println("Inline Ok(42): ${val}") }
+        | .Err(err) { io.println("Inline Err: ${err}") }
+    
+    // Inline Result.Err
+    r2 = Result.Err("inline error")
+    r2 ?
+        | .Ok(val) { io.println("Inline Ok: ${val}") }
+        | .Err(err) { io.println("Inline Err: ${err}") }
+    
+    return 0
+}

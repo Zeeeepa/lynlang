@@ -1,0 +1,20 @@
+// Test Option with string
+{ io, Option } = @std
+
+main = () i32 {
+    io.println("Testing Option<string>:")
+    
+    // Create Some(string)
+    s = Option.Some("hello world")
+    s ?
+        | .Some(val) { io.println("Some: ${val}") }
+        | .None { io.println("None") }
+    
+    // Create None
+    n: Option<string> = Option.None
+    n ?
+        | .Some(val) { io.println("Some: ${val}") }
+        | .None { io.println("None") }
+    
+    return 0
+}

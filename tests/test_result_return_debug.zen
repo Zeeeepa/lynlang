@@ -1,0 +1,29 @@
+// Debug Result return issue
+{ io, Result } = @std
+
+test_ok = () Result<i32, string> {
+    io.println("Creating Result.Ok(100)")
+    return Result.Ok(100)
+}
+
+test_err = () Result<i32, string> {
+    io.println("Creating Result.Err(\"error message\")")
+    return Result.Err("error message")
+}
+
+main = () i32 {
+    io.println("Testing Result.Ok:")
+    r1 = test_ok()
+    r1 ?
+        | .Ok(val) { io.println("Got Ok: ${val}") }
+        | .Err(err) { io.println("Got Err: ${err}") }
+    
+    io.println("")
+    io.println("Testing Result.Err:")
+    r2 = test_err()
+    r2 ?
+        | .Ok(val) { io.println("Got Ok: ${val}") }
+        | .Err(err) { io.println("Got Err: ${err}") }
+    
+    return 0
+}

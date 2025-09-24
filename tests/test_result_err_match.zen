@@ -1,0 +1,19 @@
+// Test if Result.Err is matched correctly
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("Testing Result.Err matching:")
+    
+    r = Result.Err(42)
+    
+    r ?
+        | .Ok(val) { 
+            io.println("Matched Ok (unexpected!): ${val}") 
+        }
+        | .Err(err) { 
+            io.println("Matched Err (expected) with payload") 
+            io.println("Payload should be 42, got: ${err}")
+        }
+    
+    return 0
+}

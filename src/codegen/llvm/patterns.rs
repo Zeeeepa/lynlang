@@ -97,7 +97,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             
             Pattern::Identifier(name) => {
-                eprintln!("DEBUG: Pattern::Identifier binding '{}' to value", name);
                 bindings.push((name.clone(), *scrutinee_val));
                 self.context.bool_type().const_int(1, false)
             }
@@ -686,10 +685,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         
                                         self.builder.build_conditional_branch(is_null, else_bb, then_bb)?;
                                         
-                                        // Not null path - check the generic type context for Option<T> type info
+                                        // Not null path - check the generic type context for Option<T> and Result<T,E> type info
                                         self.builder.position_at_end(then_bb);
                                         let load_type = if variant == "Some" {
                                             self.generic_type_context.get("Option_Some_Type").cloned()
+                                        } else if variant == "Ok" {
+                                            self.generic_type_context.get("Result_Ok_Type").cloned()
+                                        } else if variant == "Err" {
+                                            self.generic_type_context.get("Result_Err_Type").cloned()
                                         } else {
                                             None
                                         };
@@ -761,16 +764,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Don't convert here - let apply_pattern_bindings handle type detection
                             
                             // Recursively match the payload pattern
-                            eprintln!("DEBUG: Testing payload pattern with extracted value of type: {:?}", payload_val.get_type());
                             let (payload_match, mut payload_bindings) = self.compile_pattern_test(
                                 &payload_val,
                                 payload_pattern
                             )?;
-                            
-                            eprintln!("DEBUG: Payload bindings: {} bindings", payload_bindings.len());
-                            for (name, _) in &payload_bindings {
-                                eprintln!("  - Binding: {}", name);
-                            }
                             
                             // Combine the discriminant match with payload match
                             let combined_match = self.builder.build_and(

@@ -1,0 +1,17 @@
+// Test Result with integer error type
+{ io, Result } = @std
+
+test_with_int_err = () Result<i32, i32> {
+    return Result.Err(999)
+}
+
+main = () i32 {
+    io.println("Testing Result<i32, i32>:")
+    
+    r = test_with_int_err()
+    r ?
+        | .Ok(val) { io.println("Got Ok: ${val}") }
+        | .Err(err) { io.println("Got Err: ${err}") }
+    
+    return 0
+}

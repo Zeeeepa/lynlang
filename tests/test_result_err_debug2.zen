@@ -1,0 +1,27 @@
+// Debug Result.Err with different types
+{ io, Result } = @std
+
+test_err_string = () Result<i32, string> {
+    return Result.Err("hello")
+}
+
+test_err_int = () Result<string, i32> {
+    return Result.Err(42)
+}
+
+main = () i32 {
+    io.println("Test 1: Result<i32, string> with Err(string):")
+    r1 = test_err_string()
+    r1 ?
+        | .Ok(val) { io.println("  Ok: ${val}") }
+        | .Err(err) { io.println("  Err: ${err}") }
+    
+    io.println("")
+    io.println("Test 2: Result<string, i32> with Err(i32):")
+    r2 = test_err_int()
+    r2 ?
+        | .Ok(val) { io.println("  Ok: ${val}") }
+        | .Err(err) { io.println("  Err: ${err}") }
+    
+    return 0
+}

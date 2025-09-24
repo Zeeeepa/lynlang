@@ -1,0 +1,18 @@
+// Simple test to isolate Result<T,E> return type issue
+{ io, Result } = @std
+
+// Simplest possible function returning Result
+simple_ok = () Result<i32, string> {
+    return Result.Ok(42)
+}
+
+main = () i32 {
+    io.println("Testing Result return type:")
+    
+    result = simple_ok()
+    result ?
+        | .Ok(val) { io.println("Got Ok: ${val}") }
+        | .Err(err) { io.println("Got Err: ${err}") }
+    
+    return 0
+}

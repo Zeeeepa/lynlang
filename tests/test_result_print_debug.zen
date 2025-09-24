@@ -1,0 +1,29 @@
+// Debug what Result.Err actually contains
+{ io, Result } = @std
+
+main = () i32 {
+    // Test with direct string
+    io.println("Direct string test:")
+    s = "test string"
+    io.println("  Direct: ${s}")
+    
+    // Test with Result.Err
+    io.println("")
+    io.println("Result.Err test:")
+    r = Result.Err("error string")
+    
+    // Don't use pattern matching - just see what happens
+    // if we could access the fields directly
+    // But we can't, so use pattern matching
+    r ?
+        | .Ok(v) { io.println("  Unexpected Ok") }
+        | .Err(e) {
+            io.println("  Got Err")
+            // Try to use the value directly
+            io.println("  Value type should be string")
+            // What does e contain?
+            io.println("  e = ${e}")
+        }
+    
+    return 0
+}
