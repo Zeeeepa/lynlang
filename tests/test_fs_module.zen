@@ -1,0 +1,52 @@
+// Test file system operations
+{ io } = @std
+{ fs } = @std
+
+main = () i32 {
+    io.println("Testing file system operations...")
+    
+    // Test 1: Write a file
+    io.println("\n1. Writing file...")
+    write_result = fs.write_file("test_file.txt", "Hello from Zen!")
+    write_result ?
+        | Result.Ok(_) { io.println("  ✓ File written successfully") }
+        | Result.Err(e) { io.println("  ✗ Write error: ${e}") }
+    
+    // Test 2: Check if file exists
+    io.println("\n2. Checking if file exists...")
+    exists = fs.exists("test_file.txt")
+    exists ?
+        | true { io.println("  ✓ File exists") }
+        | false { io.println("  ✗ File does not exist") }
+    
+    // Test 3: Read the file
+    io.println("\n3. Reading file...")
+    read_result = fs.read_file("test_file.txt")
+    read_result ?
+        | Result.Ok(content) { io.println("  ✓ File content: ${content}") }
+        | Result.Err(e) { io.println("  ✗ Read error: ${e}") }
+    
+    // Test 4: Create a directory
+    io.println("\n4. Creating directory...")
+    dir_result = fs.create_dir("test_dir")
+    dir_result ?
+        | Result.Ok(_) { io.println("  ✓ Directory created") }
+        | Result.Err(e) { io.println("  ✗ Create dir error: ${e}") }
+    
+    // Test 5: Remove the file
+    io.println("\n5. Removing file...")
+    remove_result = fs.remove_file("test_file.txt")
+    remove_result ?
+        | Result.Ok(_) { io.println("  ✓ File removed") }
+        | Result.Err(e) { io.println("  ✗ Remove error: ${e}") }
+    
+    // Test 6: Check file no longer exists
+    io.println("\n6. Verifying file removed...")
+    still_exists = fs.exists("test_file.txt")
+    still_exists ?
+        | false { io.println("  ✓ File successfully removed") }
+        | true { io.println("  ✗ File still exists") }
+    
+    io.println("\nFile system tests completed!")
+    0
+}

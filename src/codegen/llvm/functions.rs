@@ -450,6 +450,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else if module == "math" {
                     // Handle math module functions
                     return self.compile_math_function(func, args);
+                } else if module == "fs" {
+                    // Handle fs module functions
+                    match func {
+                        "read_file" => return self.compile_fs_read_file(args),
+                        "write_file" => return self.compile_fs_write_file(args),
+                        "exists" => return self.compile_fs_exists(args),
+                        "remove_file" => return self.compile_fs_remove_file(args),
+                        "create_dir" => return self.compile_fs_create_dir(args),
+                        _ => {}
+                    }
                 } else if module == "core" {
                     // Handle core module functions
                     match func {
@@ -1234,5 +1244,474 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Return a dummy value (this code is unreachable)
         Ok(self.context.i32_type().const_int(0, false).into())
+    }
+    
+    /// Compile fs.read_file function call
+    fn compile_fs_read_file(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("fs.read_file expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare fopen
+        let fopen_fn = self.module.get_function("fopen").unwrap_or_else(|| {
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+            self.module.add_function("fopen", fn_type, None)
+        });
+        
+        // Get or declare fclose
+        let fclose_fn = self.module.get_function("fclose").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[ptr_type.into()], false);
+            self.module.add_function("fclose", fn_type, None)
+        });
+        
+        // Get or declare fseek
+        let fseek_fn = self.module.get_function("fseek").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let i64_type = self.context.i64_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[ptr_type.into(), i64_type.into(), i32_type.into()], false);
+            self.module.add_function("fseek", fn_type, None)
+        });
+        
+        // Get or declare ftell
+        let ftell_fn = self.module.get_function("ftell").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i64_type.fn_type(&[ptr_type.into()], false);
+            self.module.add_function("ftell", fn_type, None)
+        });
+        
+        // Get or declare fread
+        let fread_fn = self.module.get_function("fread").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), ptr_type.into()], false);
+            self.module.add_function("fread", fn_type, None)
+        });
+        
+        // Compile the path argument
+        let path_value = self.compile_expression(&args[0])?;
+        let path_ptr = path_value.into_pointer_value();
+        
+        // Create mode string "r"
+        let mode_str = self.builder.build_global_string_ptr("r", "read_mode")?;
+        
+        // Call fopen
+        let file_ptr = self.builder.build_call(
+            fopen_fn,
+            &[path_ptr.into(), mode_str.as_pointer_value().into()],
+            "fopen_call"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Check if file opened successfully
+        let is_null = self.builder.build_is_null(file_ptr.into_pointer_value(), "is_null")?;
+        let current_fn = self.current_function.unwrap();
+        let success_block = self.context.append_basic_block(current_fn, "file_opened");
+        let error_block = self.context.append_basic_block(current_fn, "file_error");
+        let merge_block = self.context.append_basic_block(current_fn, "merge");
+        
+        self.builder.build_conditional_branch(is_null, error_block, success_block)?;
+        
+        // Success block: read file
+        self.builder.position_at_end(success_block);
+        
+        // Seek to end to get file size
+        let seek_end = self.context.i32_type().const_int(2, false); // SEEK_END
+        self.builder.build_call(
+            fseek_fn,
+            &[file_ptr.into(), self.context.i64_type().const_zero().into(), seek_end.into()],
+            "fseek_end"
+        )?;
+        
+        // Get file size
+        let file_size = self.builder.build_call(
+            ftell_fn,
+            &[file_ptr.into()],
+            "ftell_call"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Seek back to beginning
+        let seek_set = self.context.i32_type().const_int(0, false); // SEEK_SET
+        self.builder.build_call(
+            fseek_fn,
+            &[file_ptr.into(), self.context.i64_type().const_zero().into(), seek_set.into()],
+            "fseek_start"
+        )?;
+        
+        // Allocate buffer for file contents
+        let malloc_fn = self.module.get_function("malloc").unwrap();
+        let buffer = self.builder.build_call(
+            malloc_fn,
+            &[file_size.into()],
+            "malloc_buffer"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Read file contents
+        self.builder.build_call(
+            fread_fn,
+            &[buffer.into(), self.context.i64_type().const_int(1, false).into(), file_size.into(), file_ptr.into()],
+            "fread_call"
+        )?;
+        
+        // Close file
+        self.builder.build_call(fclose_fn, &[file_ptr.into()], "fclose_call")?;
+        
+        // Create Result.Ok with the buffer
+        let result_ok = self.create_result_ok(buffer)?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let success_value = result_ok;
+        
+        // Error block: return Result.Err
+        self.builder.position_at_end(error_block);
+        let error_msg = self.builder.build_global_string_ptr("Failed to open file", "file_error_msg")?;
+        let result_err = self.create_result_err(error_msg.as_pointer_value().into())?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let error_value = result_err;
+        
+        // Merge block
+        self.builder.position_at_end(merge_block);
+        let phi = self.builder.build_phi(success_value.get_type(), "result_phi")?;
+        phi.add_incoming(&[(&success_value, success_block), (&error_value, error_block)]);
+        
+        Ok(phi.as_basic_value())
+    }
+    
+    /// Compile fs.write_file function call
+    fn compile_fs_write_file(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 2 {
+            return Err(CompileError::TypeError(
+                format!("fs.write_file expects 2 arguments, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare fopen
+        let fopen_fn = self.module.get_function("fopen").unwrap_or_else(|| {
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+            self.module.add_function("fopen", fn_type, None)
+        });
+        
+        // Get or declare fwrite
+        let fwrite_fn = self.module.get_function("fwrite").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i64_type.fn_type(&[ptr_type.into(), i64_type.into(), i64_type.into(), ptr_type.into()], false);
+            self.module.add_function("fwrite", fn_type, None)
+        });
+        
+        // Get or declare fclose
+        let fclose_fn = self.module.get_function("fclose").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[ptr_type.into()], false);
+            self.module.add_function("fclose", fn_type, None)
+        });
+        
+        // Get or declare strlen
+        let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i64_type.fn_type(&[ptr_type.into()], false);
+            self.module.add_function("strlen", fn_type, None)
+        });
+        
+        // Compile arguments
+        let path_value = self.compile_expression(&args[0])?;
+        let path_ptr = path_value.into_pointer_value();
+        let content_value = self.compile_expression(&args[1])?;
+        let content_ptr = content_value.into_pointer_value();
+        
+        // Create mode string "w"
+        let mode_str = self.builder.build_global_string_ptr("w", "write_mode")?;
+        
+        // Call fopen
+        let file_ptr = self.builder.build_call(
+            fopen_fn,
+            &[path_ptr.into(), mode_str.as_pointer_value().into()],
+            "fopen_call"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Check if file opened successfully
+        let is_null = self.builder.build_is_null(file_ptr.into_pointer_value(), "is_null")?;
+        let current_fn = self.current_function.unwrap();
+        let success_block = self.context.append_basic_block(current_fn, "file_opened");
+        let error_block = self.context.append_basic_block(current_fn, "file_error");
+        let merge_block = self.context.append_basic_block(current_fn, "merge");
+        
+        self.builder.build_conditional_branch(is_null, error_block, success_block)?;
+        
+        // Success block: write file
+        self.builder.position_at_end(success_block);
+        
+        // Get content length
+        let content_len = self.builder.build_call(
+            strlen_fn,
+            &[content_ptr.into()],
+            "strlen_call"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Write content
+        self.builder.build_call(
+            fwrite_fn,
+            &[content_ptr.into(), self.context.i64_type().const_int(1, false).into(), content_len.into(), file_ptr.into()],
+            "fwrite_call"
+        )?;
+        
+        // Close file
+        self.builder.build_call(fclose_fn, &[file_ptr.into()], "fclose_call")?;
+        
+        // Create Result.Ok(void)
+        let result_ok = self.create_result_ok_void()?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let success_value = result_ok;
+        
+        // Error block: return Result.Err
+        self.builder.position_at_end(error_block);
+        let error_msg = self.builder.build_global_string_ptr("Failed to write file", "write_error_msg")?;
+        let result_err = self.create_result_err(error_msg.as_pointer_value().into())?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let error_value = result_err;
+        
+        // Merge block
+        self.builder.position_at_end(merge_block);
+        let phi = self.builder.build_phi(success_value.get_type(), "result_phi")?;
+        phi.add_incoming(&[(&success_value, success_block), (&error_value, error_block)]);
+        
+        Ok(phi.as_basic_value())
+    }
+    
+    /// Compile fs.exists function call
+    fn compile_fs_exists(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("fs.exists expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare access
+        let access_fn = self.module.get_function("access").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[ptr_type.into(), i32_type.into()], false);
+            self.module.add_function("access", fn_type, None)
+        });
+        
+        // Compile the path argument
+        let path_value = self.compile_expression(&args[0])?;
+        let path_ptr = path_value.into_pointer_value();
+        
+        // F_OK = 0 (check for existence)
+        let f_ok = self.context.i32_type().const_int(0, false);
+        
+        // Call access
+        let result = self.builder.build_call(
+            access_fn,
+            &[path_ptr.into(), f_ok.into()],
+            "access_call"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Compare result with 0 (success)
+        let zero = self.context.i32_type().const_int(0, false);
+        let exists = self.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            result.into_int_value(),
+            zero,
+            "exists"
+        )?;
+        
+        Ok(exists.into())
+    }
+    
+    /// Compile fs.remove_file function call
+    fn compile_fs_remove_file(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("fs.remove_file expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare unlink
+        let unlink_fn = self.module.get_function("unlink").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[ptr_type.into()], false);
+            self.module.add_function("unlink", fn_type, None)
+        });
+        
+        // Compile the path argument
+        let path_value = self.compile_expression(&args[0])?;
+        let path_ptr = path_value.into_pointer_value();
+        
+        // Call unlink
+        let result = self.builder.build_call(
+            unlink_fn,
+            &[path_ptr.into()],
+            "unlink_call"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Check if successful (result == 0)
+        let zero = self.context.i32_type().const_int(0, false);
+        let is_success = self.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            result.into_int_value(),
+            zero,
+            "is_success"
+        )?;
+        
+        let current_fn = self.current_function.unwrap();
+        let success_block = self.context.append_basic_block(current_fn, "remove_success");
+        let error_block = self.context.append_basic_block(current_fn, "remove_error");
+        let merge_block = self.context.append_basic_block(current_fn, "merge");
+        
+        self.builder.build_conditional_branch(is_success, success_block, error_block)?;
+        
+        // Success block
+        self.builder.position_at_end(success_block);
+        let result_ok = self.create_result_ok_void()?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let success_value = result_ok;
+        
+        // Error block
+        self.builder.position_at_end(error_block);
+        let error_msg = self.builder.build_global_string_ptr("Failed to remove file", "remove_error_msg")?;
+        let result_err = self.create_result_err(error_msg.as_pointer_value().into())?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let error_value = result_err;
+        
+        // Merge block
+        self.builder.position_at_end(merge_block);
+        let phi = self.builder.build_phi(success_value.get_type(), "result_phi")?;
+        phi.add_incoming(&[(&success_value, success_block), (&error_value, error_block)]);
+        
+        Ok(phi.as_basic_value())
+    }
+    
+    /// Compile fs.create_dir function call
+    fn compile_fs_create_dir(&mut self, args: &[ast::Expression]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 1 {
+            return Err(CompileError::TypeError(
+                format!("fs.create_dir expects 1 argument, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Get or declare mkdir
+        let mkdir_fn = self.module.get_function("mkdir").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let fn_type = i32_type.fn_type(&[ptr_type.into(), i32_type.into()], false);
+            self.module.add_function("mkdir", fn_type, None)
+        });
+        
+        // Compile the path argument
+        let path_value = self.compile_expression(&args[0])?;
+        let path_ptr = path_value.into_pointer_value();
+        
+        // Mode = 0755 (rwxr-xr-x)
+        let mode = self.context.i32_type().const_int(0o755, false);
+        
+        // Call mkdir
+        let result = self.builder.build_call(
+            mkdir_fn,
+            &[path_ptr.into(), mode.into()],
+            "mkdir_call"
+        )?.try_as_basic_value().left().unwrap();
+        
+        // Check if successful (result == 0)
+        let zero = self.context.i32_type().const_int(0, false);
+        let is_success = self.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            result.into_int_value(),
+            zero,
+            "is_success"
+        )?;
+        
+        let current_fn = self.current_function.unwrap();
+        let success_block = self.context.append_basic_block(current_fn, "mkdir_success");
+        let error_block = self.context.append_basic_block(current_fn, "mkdir_error");
+        let merge_block = self.context.append_basic_block(current_fn, "merge");
+        
+        self.builder.build_conditional_branch(is_success, success_block, error_block)?;
+        
+        // Success block
+        self.builder.position_at_end(success_block);
+        let result_ok = self.create_result_ok_void()?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let success_value = result_ok;
+        
+        // Error block
+        self.builder.position_at_end(error_block);
+        let error_msg = self.builder.build_global_string_ptr("Failed to create directory", "mkdir_error_msg")?;
+        let result_err = self.create_result_err(error_msg.as_pointer_value().into())?;
+        self.builder.build_unconditional_branch(merge_block)?;
+        let error_value = result_err;
+        
+        // Merge block
+        self.builder.position_at_end(merge_block);
+        let phi = self.builder.build_phi(success_value.get_type(), "result_phi")?;
+        phi.add_incoming(&[(&success_value, success_block), (&error_value, error_block)]);
+        
+        Ok(phi.as_basic_value())
+    }
+    
+    /// Helper function to create Result.Ok with a value
+    fn create_result_ok(&mut self, value: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Create Result struct {discriminant: 0, payload: value}
+        let result_type = self.context.struct_type(&[
+            self.context.i64_type().into(),
+            self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+        ], false);
+        
+        let mut result = result_type.get_undef();
+        result = self.builder.build_insert_value(result, self.context.i64_type().const_int(0, false), 0, "set_ok")?
+            .into_struct_value();
+        result = self.builder.build_insert_value(result, value, 1, "set_payload")?
+            .into_struct_value();
+        
+        Ok(result.into())
+    }
+    
+    /// Helper function to create Result.Ok(void)
+    fn create_result_ok_void(&mut self) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Create Result struct {discriminant: 0, payload: null}
+        let result_type = self.context.struct_type(&[
+            self.context.i64_type().into(),
+            self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+        ], false);
+        
+        let mut result = result_type.get_undef();
+        result = self.builder.build_insert_value(result, self.context.i64_type().const_int(0, false), 0, "set_ok")?
+            .into_struct_value();
+        let null_ptr = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+        result = self.builder.build_insert_value(result, null_ptr, 1, "set_payload")?
+            .into_struct_value();
+        
+        Ok(result.into())
+    }
+    
+    /// Helper function to create Result.Err with an error message
+    fn create_result_err(&mut self, error: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Create Result struct {discriminant: 1, payload: error}
+        let result_type = self.context.struct_type(&[
+            self.context.i64_type().into(),
+            self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+        ], false);
+        
+        let mut result = result_type.get_undef();
+        result = self.builder.build_insert_value(result, self.context.i64_type().const_int(1, false), 0, "set_err")?
+            .into_struct_value();
+        result = self.builder.build_insert_value(result, error, 1, "set_error")?
+            .into_struct_value();
+        
+        Ok(result.into())
     }
 } 

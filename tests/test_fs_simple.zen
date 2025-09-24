@@ -1,0 +1,26 @@
+// Simple test for file system operations
+{ io } = @std
+{ fs } = @std
+
+main = () i32 {
+    // Test writing and checking existence
+    io.println("1. Creating test.txt...")
+    fs.write_file("test.txt", "Hello World!")
+    
+    io.println("2. Checking if test.txt exists...")
+    exists = fs.exists("test.txt")
+    exists ?
+        | true { io.println("   File exists!") }
+        | false { io.println("   File does not exist") }
+    
+    io.println("3. Removing test.txt...")
+    fs.remove_file("test.txt")
+    
+    io.println("4. Checking again...")
+    exists2 = fs.exists("test.txt")
+    exists2 ?
+        | false { io.println("   File removed successfully!") }
+        | true { io.println("   File still exists") }
+    
+    0
+}

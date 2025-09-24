@@ -573,8 +573,23 @@ impl TypeChecker {
                             ("string", "concat") => return Ok(AstType::String),
                             ("mem", "alloc") => return Ok(AstType::Ptr(Box::new(AstType::U8))),
                             ("mem", "free") => return Ok(AstType::Void),
-                            ("fs", "read_file") => return Ok(AstType::String),
-                            ("fs", "write_file") => return Ok(AstType::Bool),
+                            ("fs", "read_file") => return Ok(AstType::Result { 
+                                ok_type: Box::new(AstType::String), 
+                                err_type: Box::new(AstType::String) 
+                            }),
+                            ("fs", "write_file") => return Ok(AstType::Result { 
+                                ok_type: Box::new(AstType::Void), 
+                                err_type: Box::new(AstType::String) 
+                            }),
+                            ("fs", "exists") => return Ok(AstType::Bool),
+                            ("fs", "remove_file") => return Ok(AstType::Result { 
+                                ok_type: Box::new(AstType::Void), 
+                                err_type: Box::new(AstType::String) 
+                            }),
+                            ("fs", "create_dir") => return Ok(AstType::Result { 
+                                ok_type: Box::new(AstType::Void), 
+                                err_type: Box::new(AstType::String) 
+                            }),
                             _ => {}
                         }
                     }
