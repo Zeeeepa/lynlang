@@ -147,15 +147,15 @@ main = () void {
     
     // Test Result type
     io.println("\n8. Result Type:")
-    parse_result: Result<i32, i32> = Ok(42)
+    parse_result: Result<i32, i32> = Result.Ok(42)
     parse_result ?
-        | Ok(val) { io.println("  Parsed successfully: ${val}") }
-        | Err(e) { io.println("  Parse error: ${e}") }
+        | Result.Ok(val) { io.println("  Parsed successfully: ${val}") }
+        | Result.Err(e) { io.println("  Parse error: ${e}") }
     
-    error_result: Result<i32, i32> = Err(404)
+    error_result: Result<i32, i32> = Result.Err(404)
     error_result ?
-        | Ok(val) { io.println("  Unexpected success: ${val}") }
-        | Err(code) { io.println("  Got error code: ${code}") }
+        | Result.Ok(val) { io.println("  Unexpected success: ${val}") }
+        | Result.Err(code) { io.println("  Got error code: ${code}") }
     
     // Test string interpolation
     io.println("\n9. String Interpolation:")

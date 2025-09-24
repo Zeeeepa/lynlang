@@ -10,8 +10,8 @@ test_pattern = () Result<i32, string> {
     
     // Pattern matching in expression context (not statement)
     maybe ?
-        | Some(val) { return Ok(val) }
-        | None { return Err("no value") }
+        | Some(val) { return Result.Ok(val) }
+        | None { return Result.Err("no value") }
 }
 
 main = () void {
@@ -19,6 +19,6 @@ main = () void {
     result = test_pattern()
     
     result ?
-        | Ok(val) { io.println("Got value") }
-        | Err(e) { io.println("Got error") }
+        | Result.Ok(val) { io.println("Got value") }
+        | Result.Err(e) { io.println("Got error") }
 }

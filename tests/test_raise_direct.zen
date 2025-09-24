@@ -1,24 +1,24 @@
 // Test direct use of .raise() without storing in variable
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
-        return Err("Failed")
+        return Result.Err("Failed")
     }
-    return Ok(42)
+    return Result.Ok(42)
 }
 
 process_value = () Result<i32, string> {
     // Use .raise() directly in string interpolation
     io.println("Got value: ${maybe_fail(false).raise()}")
-    return Ok(42)
+    return Result.Ok(42)
 }
 
 main = () i32 {
     result = process_value()
     result ?
-        | Ok(val) { io.println("Done") }
-        | Err(e) { io.println("Error: ${e}") }
+        | Result.Ok(val) { io.println("Done") }
+        | Result.Err(e) { io.println("Error: ${e}") }
     
     return 0
 }

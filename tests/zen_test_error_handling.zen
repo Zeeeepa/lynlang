@@ -9,8 +9,8 @@
 // Parse function that returns Result (lines 198-203)
 parse_radius = (s: string) Result<f64, string> {
     s.to_f64() ?
-        | Some(val) { return Ok(val) }
-        | None { return Err("Invalid radius") }
+        | Some(val) { return Result.Ok(val) }
+        | None { return Result.Err("Invalid radius") }
 }
 
 // Error propagation with .raise() (lines 205-211)
@@ -18,14 +18,14 @@ load_config = (path: string) Result<Config, string> {
     file = File.open(path).raise()      // If Err, returns early
     contents = file.read_all().raise()  // If Err, returns early
     config = json.parse(contents).raise() // If Err, returns early
-    return Ok(config)
+    return Result.Ok(config)
 }
 
 // Helper function that may fail
 divide = (a: f64, b: f64) Result<f64, string> {
     b == 0 ?
-        | true { return Err("Division by zero") }
-        | false { return Ok(a / b) }
+        | true { return Result.Err("Division by zero") }
+        | false { return Result.Ok(a / b) }
 }
 
 // Chain of operations with error handling
@@ -34,21 +34,21 @@ calculate = (x: f64, y: f64) Result<f64, string> {
     step1 = divide(x, y).raise()
     step2 = divide(step1, 2.0).raise()
     step3 = divide(100.0, step2).raise()
-    return Ok(step3)
+    return Result.Ok(step3)
 }
 
 // Manual error handling without .raise()
 safe_calculate = (x: f64, y: f64) f64 {
     result = divide(x, y)
     result ?
-        | Ok(val) {
+        | Result.Ok(val) {
             // Continue with value
             next = divide(val, 2.0)
             next ?
-                | Ok(v) { return v }
-                | Err(_) { return 0.0 }
+                | Result.Ok(v) { return v }
+                | Result.Err(_) { return 0.0 }
         }
-        | Err(msg) {
+        | Result.Err(msg) {
             io.println("Error: ${msg}")
             return 0.0
         }
@@ -58,25 +58,25 @@ main = () void {
     // Test parse_radius
     result1 = parse_radius("3.14")
     result1 ?
-        | Ok(r) { io.println("Parsed radius: ${r}") }
-        | Err(e) { io.println("Parse error: ${e}") }
+        | Result.Ok(r) { io.println("Parsed radius: ${r}") }
+        | Result.Err(e) { io.println("Parse error: ${e}") }
     
     result2 = parse_radius("invalid")
     result2 ?
-        | Ok(r) { io.println("Parsed radius: ${r}") }
-        | Err(e) { io.println("Parse error: ${e}") }
+        | Result.Ok(r) { io.println("Parsed radius: ${r}") }
+        | Result.Err(e) { io.println("Parse error: ${e}") }
     
     // Test error propagation
     calc_result = calculate(100.0, 5.0)
     calc_result ?
-        | Ok(v) { io.println("Result: ${v}") }
-        | Err(e) { io.println("Calculation error: ${e}") }
+        | Result.Ok(v) { io.println("Result: ${v}") }
+        | Result.Err(e) { io.println("Calculation error: ${e}") }
     
     // Test with division by zero
     error_result = calculate(100.0, 0.0)
     error_result ?
-        | Ok(v) { io.println("Result: ${v}") }
-        | Err(e) { io.println("Calculation error: ${e}") }
+        | Result.Ok(v) { io.println("Result: ${v}") }
+        | Result.Err(e) { io.println("Calculation error: ${e}") }
     
     // Manual handling
     safe_val = safe_calculate(50.0, 10.0)

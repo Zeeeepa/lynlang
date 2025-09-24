@@ -1,21 +1,21 @@
 // Test to check type of value returned by .raise()
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
-        return Err("Failed")
+        return Result.Err("Failed")
     }
-    return Ok(42)
+    return Result.Ok(42)
 }
 
 main = () i32 {
     // Test direct pattern matching
     result = maybe_fail(false)
     result ?
-        | Ok(val) { 
+        | Result.Ok(val) { 
             io.println("Pattern match: ${val}")
         }
-        | Err(e) { 
+        | Result.Err(e) { 
             io.println("Error: ${e}") 
         }
     

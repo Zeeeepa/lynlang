@@ -1,9 +1,9 @@
 // Complete test for .raise() functionality
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 process_result = () Result<i32, string> {
     // Create an Ok Result  
-    data = Ok(100)
+    data = Result.Ok(100)
     
     // Extract value - if Err, function returns early with Err
     extracted = data.raise()
@@ -11,32 +11,32 @@ process_result = () Result<i32, string> {
     // Process the extracted value
     processed = extracted * 2 + 50
     
-    return Ok(processed)
+    return Result.Ok(processed)
 }
 
 test_error_propagation = () Result<i32, string> {
     // Create an Err Result
-    err_data = Err("Something went wrong")
+    err_data = Result.Err("Something went wrong")
     
     // This should cause early return with Err
     never_reached = err_data.raise()
     
     // This code should never execute
-    return Ok(999)
+    return Result.Ok(999)
 }
 
 main = () i32 {
     // Test Ok path
     result1 = process_result()
     result1 ?
-        | Ok(v) { io.println("Ok path: ${v}") }  // Should print 250
-        | Err(e) { io.println("Unexpected error: ${e}") }
+        | Result.Ok(v) { io.println("Ok path: ${v}") }  // Should print 250
+        | Result.Err(e) { io.println("Unexpected error: ${e}") }
     
     // Test Err propagation
     result2 = test_error_propagation() 
     result2 ?
-        | Ok(v) { io.println("Should not see this: ${v}") }
-        | Err(e) { io.println("Error propagated: ${e}") }
+        | Result.Ok(v) { io.println("Should not see this: ${v}") }
+        | Result.Err(e) { io.println("Error propagated: ${e}") }
     
     return 0
 }

@@ -14,85 +14,85 @@ Result<T, E>.impl = {
     // Check if Result is Ok
     is_ok = (self: Result<T, E>) bool   {
         self ?
-            | Ok(_) { true }
-            | Err(_) { false }
+            | Result.Ok(_) { true }
+            | Result.Err(_) { false }
     }
     
     // Check if Result is Err
     is_err = (self: Result<T, E>) bool   {
         self ?
-            | Ok(_) { false }
-            | Err(_) { true }
+            | Result.Ok(_) { false }
+            | Result.Err(_) { true }
     }
     
     // Extract Ok value or panic with message
     unwrap = (self: Result<T, E>) T   {
         self ?
-            | Ok(value) { value }
-            | Err(_) { core.panic("called Result.unwrap() on an Err value") }
+            | Result.Ok(value) { value }
+            | Result.Err(_) { core.panic("called Result.unwrap() on an Err value") }
     }
     
     // Extract Ok value or return default
     unwrap_or = (self: Result<T, E>, default: T) T   {
         self ?
-            | Ok(value) { value }
-            | Err(_) { default }
+            | Result.Ok(value) { value }
+            | Result.Err(_) { default }
     }
     
     // Extract Ok value or compute default from closure
     unwrap_or_else = (self: Result<T, E>, f: (E) { T }) T {
         self ?
-            | Ok(value) { value }
-            | Err(error) { f(error) }
+            | Result.Ok(value) { value }
+            | Result.Err(error) { f(error) }
     }
     
     // Extract Err value or panic
     unwrap_err = (self: Result<T, E>) E   {
         self ?
-            | Ok(_) { core.panic("called Result.unwrap_err() on an Ok value") }
-            | Err(error) { error }
+            | Result.Ok(_) { core.panic("called Result.unwrap_err() on an Ok value") }
+            | Result.Err(error) { error }
     }
     
     // Map Ok value through a function
     map = (self: Result<T, E>, f: (T) { U }) Result<U, E> {
         self ?
-            | Ok(value) { Ok(f(value)) }
-            | Err(error) { Err(error) }
+            | Result.Ok(value) { Result.Ok(f(value)) }
+            | Result.Err(error) { Result.Err(error) }
     }
     
     // Map Err value through a function
     map_err = (self: Result<T, E>, f: (E) { F }) Result<T, F> {
         self ?
-            | Ok(ok_val) { Ok(ok_val.value) }
-            | Err(err_val) { Err(f(err_val.error)) }
+            | Result.Ok(ok_val) { Result.Ok(ok_val.value) }
+            | Result.Err(err_val) { Result.Err(f(err_val.error)) }
     }
     
     // Chain Result operations
     and_then = (self: Result<T, E>, f: (T) { Result<U, E> }) Result<U, E> {
         self ?
-            | Ok(ok_val) { f(ok_val.value) }
-            | Err(err_val) { Err(err_val.error) }
+            | Result.Ok(ok_val) { f(ok_val.value) }
+            | Result.Err(err_val) { Result.Err(err_val.error) }
     }
     
     // Chain error handling
     or_else = (self: Result<T, E>, f: (E) { Result<T, F> }) Result<T, F> {
         self ?
-            | Ok(value) { Ok(value) }
-            | Err(error) { f(error) }
+            | Result.Ok(value) { Result.Ok(value) }
+            | Result.Err(error) { f(error) }
     }
     
     // Combine two Results
     and = (self: Result<T, E>, other: Result<U, E>) Result<U, E>   {
         self ?
-            | Ok(_) { other }
-            | Err(error) { Err(error) }
+            | Result.Ok(_) { other }
+            | Result.Err(error) { Result.Err(error) }
     }
     
     // Return self if Ok, otherwise return other
     or = (self: Result<T, E>, other: Result<T, F>) Result<T, F>   {
         self ?
-            | Ok(value) { Ok(value) }
-            | Err(_) { other }
+            | Result.Ok(value) { Result.Ok(value) }
+            | Result.Err(_) { other }
     }
 }
 
@@ -100,11 +100,11 @@ Result<T, E>.impl = {
 
 // Utility functions for Result creation
 ok = (value: T) Result<T, E>   {
-    return Ok(value)
+    return Result.Ok(value)
 }
 
 err = (error: E) Result<T, E>   {
-    return Err(error)
+    return Result.Err(error)
 }
 
 
@@ -112,8 +112,8 @@ err = (error: E) Result<T, E>   {
 // Error propagation using ? operator and pattern matching
 // Example: value := some_result?;  // Propagates error up
 // Or use explicit pattern matching:
-// some_result ? | Ok(value) { process(value) }
-//              | Err(e) { return Err(e) }
+// some_result ? | Result.Ok(value) { process(value) }
+//              | Result.Err(e) { return Result.Err(e) }
 
 // Collect Results into a Result of collection
 collect_results = (results: Vec<Result<T, E>>) Result<DynVec<T>, E>   {
@@ -121,10 +121,10 @@ collect_results = (results: Vec<Result<T, E>>) Result<DynVec<T>, E>   {
     
     (0..results.length).loop((i) {
         results[i] ?
-            | Ok(value) { values.append(value) }
-            | Err(error) { return Err(error) }
+            | Result.Ok(value) { values.append(value) }
+            | Result.Err(error) { return Result.Err(error) }
     })
     
-    return Ok(values)
+    return Result.Ok(values)
 }
 

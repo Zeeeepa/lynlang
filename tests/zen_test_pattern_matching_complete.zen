@@ -44,9 +44,9 @@ main = () void {
         }
     
     // Nested pattern matching
-    result: Result<Option<i32>, string> = Ok(Some(5))
+    result: Result<Option<i32>, string> = Result.Ok(Some(5))
     result ?
-        | Ok(opt) {
+        | Result.Ok(opt) {
             opt ?
                 | Some(n) {
                     // Have a value
@@ -57,7 +57,7 @@ main = () void {
                     value = 0
                 }
         }
-        | Err(msg) {
+        | Result.Err(msg) {
             // Handle error
             value = -1
         }

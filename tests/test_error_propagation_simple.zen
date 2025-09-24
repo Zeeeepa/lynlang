@@ -1,12 +1,12 @@
 // Simplified test for error propagation (.raise() operator)
 // Focuses on the working parts of .raise()
 
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 // Test basic .raise() with Result.Ok
 test_basic = () Result<i32, string> {
-    a = Ok(10)
-    b = Ok(20)
+    a = Result.Ok(10)
+    b = Result.Ok(20)
     
     // Extract values using .raise()
     val_a = a.raise()
@@ -15,18 +15,18 @@ test_basic = () Result<i32, string> {
     // Do arithmetic with extracted values
     sum = val_a + val_b
     
-    Ok(sum)
+    Result.Ok(sum)
 }
 
 // Test .raise() with function result
 get_value = () Result<i32, string> {
-    Ok(42)
+    Result.Ok(42)
 }
 
 test_function_raise = () Result<i32, string> {
     val = get_value().raise()
     doubled = val * 2
-    Ok(doubled)
+    Result.Ok(doubled)
 }
 
 main = () i32 {
@@ -36,14 +36,14 @@ main = () i32 {
     // Test 1
     result1 = test_basic()
     result1 ?
-        | Ok(v) { io.println("Test 1 PASS: 10 + 20 = ${v}") }
-        | Err(e) { io.println("Test 1 FAIL: ${e}") }
+        | Result.Ok(v) { io.println("Test 1 PASS: 10 + 20 = ${v}") }
+        | Result.Err(e) { io.println("Test 1 FAIL: ${e}") }
     
     // Test 2
     result2 = test_function_raise()
     result2 ?
-        | Ok(v) { io.println("Test 2 PASS: 42 * 2 = ${v}") }
-        | Err(e) { io.println("Test 2 FAIL: ${e}") }
+        | Result.Ok(v) { io.println("Test 2 PASS: 42 * 2 = ${v}") }
+        | Result.Err(e) { io.println("Test 2 FAIL: ${e}") }
     
     0
 }

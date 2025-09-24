@@ -1,10 +1,10 @@
 // Test .raise() with arithmetic operations
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 calculate = () Result<i32, string> {
-    a = Ok(10)
-    b = Ok(20)
-    c = Ok(5)
+    a = Result.Ok(10)
+    b = Result.Ok(20)
+    c = Result.Ok(5)
     
     // Chain multiple .raise() calls
     val_a = a.raise()
@@ -15,17 +15,17 @@ calculate = () Result<i32, string> {
     sum = val_a + val_b  // 10 + 20 = 30
     result = sum * val_c  // 30 * 5 = 150
     
-    return Ok(result)
+    return Result.Ok(result)
 }
 
 main = () i32 {
     outcome = calculate()
     outcome ?
-        | Ok(v) { 
+        | Result.Ok(v) { 
             io.println("Calculation result: ${v}")
             return 0
         }
-        | Err(e) { 
+        | Result.Err(e) { 
             io.println("Error: ${e}")
             return 1
         }

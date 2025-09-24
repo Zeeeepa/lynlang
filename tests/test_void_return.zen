@@ -1,16 +1,16 @@
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 // Simple function returning Result<void, string>
 test_fn = () Result<void, string> {
-    Ok(void)
+    Result.Ok(void)
 }
 
 main = () i32 {
     result = test_fn()
     
     result ?
-        | Ok(_) { io.println("Got Ok") }
-        | Err(e) { io.println("Got Err: ${e}") }
+        | Result.Ok(_) { io.println("Got Ok") }
+        | Result.Err(e) { io.println("Got Err: ${e}") }
     
     0
 }

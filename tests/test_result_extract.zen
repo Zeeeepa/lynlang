@@ -1,8 +1,8 @@
 // Test Result value extraction via pattern matching
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 get_result = () Result<i32, string> {
-    return Ok(42)
+    return Result.Ok(42)
 }
 
 main = () i32 {
@@ -10,11 +10,11 @@ main = () i32 {
     
     result = get_result()
     result ?
-        | Ok(val) { 
+        | Result.Ok(val) { 
             io.println("Extracted value: ${val}")
             io.println("Value + 10 = ${val + 10}")
         }
-        | Err(e) { io.println("Error: ${e}") }
+        | Result.Err(e) { io.println("Error: ${e}") }
     
     return 0
 }

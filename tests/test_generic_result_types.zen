@@ -1,56 +1,56 @@
 // Test generic Result<T,E> type instantiation with different types
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 // Test with i64
 test_i64_result = () Result<i64, string> {
-    a = Ok(1000000)
+    a = Result.Ok(1000000)
     val = a.raise()
     
     // Verify we got the correct i64 value
     if val != 1000000 {
-        return Err("Expected i64 value")
+        return Result.Err("Expected i64 value")
     }
     
-    return Ok(val)
+    return Result.Ok(val)
 }
 
 // Test with f64
 test_f64_result = () Result<f64, string> {
-    a = Ok(3.14159)
+    a = Result.Ok(3.14159)
     val = a.raise()
     
     // Return the extracted f64 value
-    return Ok(val)
+    return Result.Ok(val)
 }
 
 // Test with bool
 test_bool_result = () Result<bool, string> {
-    a = Ok(true)
+    a = Result.Ok(true)
     val = a.raise()
     
     if !val {
-        return Err("Expected true")
+        return Result.Err("Expected true")
     }
     
-    return Ok(val)
+    return Result.Ok(val)
 }
 
 // Test with different error types
 test_error_i32 = () Result<i32, i32> {
     // This should propagate the error
-    a = Err(42)
-    val = a.raise() // Should early return with Err(42)
+    a = Result.Err(42)
+    val = a.raise() // Should early return with Result.Err(42)
     
     // This shouldn't be reached
-    return Ok(0)
+    return Result.Ok(0)
 }
 
 main = () i32 {
     // Test i64
     result_i64 = test_i64_result()
     result_i64 ?
-        | Ok(v) { io.println("i64 test passed: ${v}") }
-        | Err(e) { 
+        | Result.Ok(v) { io.println("i64 test passed: ${v}") }
+        | Result.Err(e) { 
             io.println("i64 test failed: ${e}")
             return 1
         }
@@ -58,8 +58,8 @@ main = () i32 {
     // Test f64
     result_f64 = test_f64_result()
     result_f64 ?
-        | Ok(v) { io.println("f64 test passed: ${v}") }
-        | Err(e) {
+        | Result.Ok(v) { io.println("f64 test passed: ${v}") }
+        | Result.Err(e) {
             io.println("f64 test failed: ${e}")
             return 1
         }
@@ -67,11 +67,11 @@ main = () i32 {
     // Test bool
     result_bool = test_bool_result()
     result_bool ?
-        | Ok(v) { 
+        | Result.Ok(v) { 
             msg = v ? "true" | "false"
             io.println("bool test passed: ${msg}")
         }
-        | Err(e) {
+        | Result.Err(e) {
             io.println("bool test failed: ${e}")
             return 1
         }
@@ -79,11 +79,11 @@ main = () i32 {
     // Test error propagation
     result_err = test_error_i32()
     result_err ?
-        | Ok(_) { 
+        | Result.Ok(_) { 
             io.println("Error test failed: expected Err")
             return 1
         }
-        | Err(e) {
+        | Result.Err(e) {
             if e == 42 {
                 io.println("Error propagation test passed: ${e}")
             } else {

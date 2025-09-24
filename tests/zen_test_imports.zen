@@ -71,11 +71,11 @@ main = () void {
     @this.defer(counter.deinit())
     
     counter.lock() ?
-        | Ok(val) {
+        | Result.Ok(val) {
             val = val + 1
             counter.unlock()
         }
-        | Err(e) {
+        | Result.Err(e) {
             io.println("Lock failed: ${e}")
         }
     

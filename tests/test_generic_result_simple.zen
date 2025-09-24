@@ -1,46 +1,46 @@
 // Simple test for generic Result<T,E> type instantiation with different types
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 // Test that .raise() works with i32 (baseline)
 test_i32 = () Result<i32, string> {
-    a = Ok(42)
+    a = Result.Ok(42)
     val = a.raise()
-    return Ok(val * 2)  // Should return 84
+    return Result.Ok(val * 2)  // Should return 84
 }
 
 // Test that .raise() works with i64
 test_i64 = () Result<i64, string> {
-    a = Ok(1000000)
+    a = Result.Ok(1000000)
     val = a.raise()
-    return Ok(val + 1)  // Should return 1000001
+    return Result.Ok(val + 1)  // Should return 1000001
 }
 
 // Test that .raise() works with bool
 test_bool = () Result<bool, string> {
-    a = Ok(true)
+    a = Result.Ok(true)
     val = a.raise()
-    return Ok(val)  
+    return Result.Ok(val)  
 }
 
 main = () i32 {
     // Test i32
     r1 = test_i32()
     r1 ?
-        | Ok(v) { io.println("i32 result: ${v}") }  // Should print 84
-        | Err(e) { io.println("Error: ${e}") }
+        | Result.Ok(v) { io.println("i32 result: ${v}") }  // Should print 84
+        | Result.Err(e) { io.println("Error: ${e}") }
     
     // Test i64 
     r2 = test_i64()
     r2 ?
-        | Ok(v) { io.println("i64 result: ${v}") }  // Should print 1000001
-        | Err(e) { io.println("Error: ${e}") }
+        | Result.Ok(v) { io.println("i64 result: ${v}") }  // Should print 1000001
+        | Result.Err(e) { io.println("Error: ${e}") }
     
     // Test bool
     r3 = test_bool()
     r3 ?
-        | Ok(true) { io.println("bool result: true") }
-        | Ok(false) { io.println("bool result: false") }
-        | Err(e) { io.println("Error: ${e}") }
+        | Result.Ok(true) { io.println("bool result: true") }
+        | Result.Ok(false) { io.println("bool result: false") }
+        | Result.Err(e) { io.println("Error: ${e}") }
     
     io.println("Generic Result type test complete!")
     return 0

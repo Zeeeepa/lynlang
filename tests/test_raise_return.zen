@@ -1,8 +1,8 @@
 // Debug test for .raise() return value
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 test_direct = () i32 {
-    result = Ok(42)
+    result = Result.Ok(42)
     value = result.raise()
     return value
 }

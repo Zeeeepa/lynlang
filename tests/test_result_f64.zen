@@ -3,12 +3,12 @@
 { Result, Ok, Err } = @std
 
 test_f64_result = () Result<f64, string> {
-    return Ok(3.14)
+    return Result.Ok(3.14)
 }
 
 main = () void {
     result = test_f64_result()
     result ?
-        | Ok(val) { io.println("Got f64 value") }
-        | Err(e) { io.println("Got error") }
+        | Result.Ok(val) { io.println("Got f64 value") }
+        | Result.Err(e) { io.println("Got error") }
 }

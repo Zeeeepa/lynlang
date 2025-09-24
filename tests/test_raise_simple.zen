@@ -1,25 +1,25 @@
 // Minimal test for .raise() functionality
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 test_raise = () Result<i32, string> {
     // Create a Ok with an integer
-    result = Ok(42)
+    result = Result.Ok(42)
     
     // Use .raise() to extract the value - if Err, propagates automatically
     value = result.raise()
     
     // Return Ok with the extracted value
-    return Ok(value)
+    return Result.Ok(value)
 }
 
 main = () i32 {
     result = test_raise()
     result ?
-        | Ok(val) { 
+        | Result.Ok(val) { 
             io.println("Got Ok variant")
             return 42
         }
-        | Err(e) { 
+        | Result.Err(e) { 
             io.println("Got Err variant")
             return 1
         }

@@ -11,23 +11,23 @@ FileError:
 read_file = (path: string) Result<string, FileError> {
     // Simulate different file scenarios
     path == "valid.txt" ? {
-        return Ok("File contents here")
+        return Result.Ok("File contents here")
     }
     path == "missing.txt" ? {
-        return Err(FileError.NotFound)
+        return Result.Err(FileError.NotFound)
     }
     path == "protected.txt" ? {
-        return Err(FileError.PermissionDenied)
+        return Result.Err(FileError.PermissionDenied)
     }
-    return Err(FileError.IOError)
+    return Result.Err(FileError.IOError)
 }
 
 // Parse configuration from string
 parse_config = (content: string) Result<i32, string> {
     content == "File contents here" ? {
-        return Ok(42)
+        return Result.Ok(42)
     }
-    return Err("Invalid config format")
+    return Result.Err("Invalid config format")
 }
 
 // Manual error propagation (current approach)
@@ -44,11 +44,11 @@ load_config_manual = (path: string) Result<i32, string> {
             parse_result ?
                 | .Ok(value) {
                     io.println("  Config parsed: ${value}")
-                    return Ok(value)
+                    return Result.Ok(value)
                 }
                 | .Err(error) {
                     io.println("  Parse error: ${error}")
-                    return Err(error)
+                    return Result.Err(error)
                 }
         }
         | .Err(error) {
@@ -57,7 +57,7 @@ load_config_manual = (path: string) Result<i32, string> {
                 | .PermissionDenied { "Permission denied" }
                 | .IOError { "IO error occurred" }
             io.println("  File error: ${error_msg}")
-            return Err(error_msg)
+            return Result.Err(error_msg)
         }
 }
 
@@ -84,7 +84,7 @@ load_config_with_raise_simulation = (path: string) Result<i32, string> {
                 | .PermissionDenied { "Permission denied" }
                 | .IOError { "IO error occurred" }
             io.println("  File error: ${error_msg}")
-            return Err(error_msg)
+            return Result.Err(error_msg)
         }
 }
 
@@ -104,19 +104,19 @@ process_files = (paths: Array<string>) Result<i32, string> {
                 i = i + 1
             }
             | .Err(error) {
-                return Err("Failed processing file ${i}: ${error}")
+                return Result.Err("Failed processing file ${i}: ${error}")
             }
     }
     
-    return Ok(total)
+    return Result.Ok(total)
 }
 
 // Test the Result methods
 test_result_methods = () void {
     io.println("\n▶ Testing Result methods:")
     
-    ok_result ::= Ok(10)
-    err_result ::= Err("Something went wrong")
+    ok_result ::= Result.Ok(10)
+    err_result ::= Result.Err("Something went wrong")
     
     // Test is_ok and is_err
     io.println("  OK result is_ok: ${ok_result.is_ok()}")
@@ -135,7 +135,7 @@ test_result_methods = () void {
         | .Err(_) { io.println("  Unexpected error") }
     
     // Test and_then (flatMap)
-    chained ::= ok_result.and_then((x) => Ok(x + 5))
+    chained ::= ok_result.and_then((x) => Result.Ok(x + 5))
     chained ?
         | .Ok(val) { io.println("  Chained OK value: ${val}") }
         | .Err(_) { io.println("  Unexpected error") }

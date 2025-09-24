@@ -1,24 +1,24 @@
 // Test .raise() with Result<f64, string>
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 calculate_pi = () Result<f64, string> {
-    pi_result = Ok(3.14159)
+    pi_result = Result.Ok(3.14159)
     val = pi_result.raise()
     
     // Do arithmetic with f64
     doubled = val * 2.0
     
-    return Ok(doubled)
+    return Result.Ok(doubled)
 }
 
 main = () i32 {
     outcome = calculate_pi()
     outcome ?
-        | Ok(v) { 
+        | Result.Ok(v) { 
             io.println("f64 calculation result: ${v}")
             return 0
         }
-        | Err(e) { 
+        | Result.Err(e) { 
             io.println("Error: ${e}")
             return 1
         }

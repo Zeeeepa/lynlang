@@ -1,9 +1,9 @@
 // Debug test for .raise() 
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 main = () i32 {
     // Direct test without intermediate function
-    result = Ok(10)
+    result = Result.Ok(10)
     
     // Extract value with .raise()
     value = result.raise()

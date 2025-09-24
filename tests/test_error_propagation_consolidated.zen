@@ -1,55 +1,55 @@
 // Consolidated test for error propagation (.raise() operator)
 // Combines functionality from multiple test_raise_*.zen files
 
-{ io, Result, Ok, Err } = @std
+{ io, Result } = @std
 
 // Result is a built-in type with Ok and Err variants
 
 // Test 1: Basic .raise() with arithmetic
 test_basic_arithmetic = () Result<i32, string> {
-    a = Ok(10).raise()
-    b = Ok(20).raise()
+    a = Result.Ok(10).raise()
+    b = Result.Ok(20).raise()
     c = a + b  // Should be 30
-    Ok(c)
+    Result.Ok(c)
 }
 
 // Test 2: .raise() from function call
 get_value = () Result<i32, string> {
-    Ok(42)
+    Result.Ok(42)
 }
 
 test_from_call = () Result<i32, string> {
     val = get_value().raise()
-    Ok(val)
+    Result.Ok(val)
 }
 
 // Test 3: Multiple .raise() in sequence
 test_multiple_raise = () Result<i32, string> {
-    x = Ok(5).raise()
-    y = Ok(10).raise()
-    z = Ok(15).raise()
+    x = Result.Ok(5).raise()
+    y = Result.Ok(10).raise()
+    z = Result.Ok(15).raise()
     result = x + y + z  // Should be 30
-    Ok(result)
+    Result.Ok(result)
 }
 
 // Test 4: .raise() with error propagation
 test_error_propagation = () Result<i32, string> {
     // This should propagate the error
-    err_val = Err("Something went wrong").raise()
+    err_val = Result.Err("Something went wrong").raise()
     // This line should not execute
-    Ok(err_val)
+    Result.Ok(err_val)
 }
 
 // Test 5: UFC with .raise()
 compute = (x: i32) Result<i32, string> {
     x > 0 ?
-        | true { Ok(x * 2) }
-        | false { Err("Negative value") }
+        | true { Result.Ok(x * 2) }
+        | false { Result.Err("Negative value") }
 }
 
 test_ufc_raise = () Result<i32, string> {
     ufc_val = 5.compute().raise()
-    Ok(ufc_val)
+    Result.Ok(ufc_val)
 }
 
 main = () void {
@@ -58,26 +58,26 @@ main = () void {
     
     // Test 1: Basic arithmetic
     test_basic_arithmetic() ?
-        | Ok(val) { io.println("Test 1 PASS: Basic arithmetic = ${val}") }
-        | Err(e) { io.println("Test 1 FAIL: ${e}") }
+        | Result.Ok(val) { io.println("Test 1 PASS: Basic arithmetic = ${val}") }
+        | Result.Err(e) { io.println("Test 1 FAIL: ${e}") }
     
     // Test 2: From function call
     test_from_call() ?
-        | Ok(val) { io.println("Test 2 PASS: From call = ${val}") }
-        | Err(e) { io.println("Test 2 FAIL: ${e}") }
+        | Result.Ok(val) { io.println("Test 2 PASS: From call = ${val}") }
+        | Result.Err(e) { io.println("Test 2 FAIL: ${e}") }
     
     // Test 3: Multiple raises
     test_multiple_raise() ?
-        | Ok(val) { io.println("Test 3 PASS: Multiple raises = ${val}") }
-        | Err(e) { io.println("Test 3 FAIL: ${e}") }
+        | Result.Ok(val) { io.println("Test 3 PASS: Multiple raises = ${val}") }
+        | Result.Err(e) { io.println("Test 3 FAIL: ${e}") }
     
     // Test 4: Error propagation
     test_error_propagation() ?
-        | Ok(val) { io.println("Test 4 FAIL: Should have propagated error") }
-        | Err(e) { io.println("Test 4 PASS: Error propagated - ${e}") }
+        | Result.Ok(val) { io.println("Test 4 FAIL: Should have propagated error") }
+        | Result.Err(e) { io.println("Test 4 PASS: Error propagated - ${e}") }
     
     // Test 5: UFC with raise
     test_ufc_raise() ?
-        | Ok(val) { io.println("Test 5 PASS: UFC raise = ${val}") }
-        | Err(e) { io.println("Test 5 FAIL: ${e}") }
+        | Result.Ok(val) { io.println("Test 5 PASS: UFC raise = ${val}") }
+        | Result.Err(e) { io.println("Test 5 FAIL: ${e}") }
 }

@@ -31,13 +31,13 @@ main = () void {
     nothing: Option<i32> = None
     
     // Result type usage
-    result: Result<i32, string> = Ok(42)
+    result: Result<i32, string> = Result.Ok(42)
     result ?
-        | Ok(val) {
+        | Result.Ok(val) {
             // Use successful value
             value = val
         }
-        | Err(e) {
+        | Result.Err(e) {
             // Handle error
         }
     
