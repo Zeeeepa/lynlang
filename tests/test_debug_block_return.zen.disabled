@@ -1,0 +1,24 @@
+// Debug test to understand block return behavior
+{ io, Result } = @std
+
+test_block = () Result<i32, string> {
+    x = 1
+    result = x == 1 ?
+        | true { 
+            io.println("In true branch")
+            return Result.Ok(42) 
+        }
+        | false { 
+            io.println("In false branch")
+            return Result.Err("error") 
+        }
+    
+    io.println("After pattern match")
+    return result
+}
+
+main = () i32 {
+    r = test_block()
+    io.println("Test complete")
+    return 0
+}

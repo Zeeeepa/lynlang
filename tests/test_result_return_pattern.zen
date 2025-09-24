@@ -1,0 +1,15 @@
+// Debug test for Result return type with pattern matching
+{ io, Result } = @std
+
+test_pattern = () Result<i32, string> {
+    x = 1
+    return x == 1 ?
+        | true { Result.Ok(42) }
+        | false { Result.Err("error") }
+}
+
+main = () i32 {
+    r = test_pattern()
+    io.println("Test passed")
+    return 0
+}

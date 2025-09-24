@@ -1289,6 +1289,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Save value and block for phi node only if we branch to merge
                 eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
+            } else {
+                eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
             }
             
             // Position at the next test block for the next iteration
@@ -1301,12 +1303,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Handle unmatched pattern block if we created one
         if let Some(unmatched_bb) = unmatched_block {
             self.builder.position_at_end(unmatched_bb);
-            // For now, just return a default value (0) and branch to merge
-            // In a complete implementation, this would be a runtime error
-            // Use the same type as the first arm to ensure type consistency
-            let default_val = if !phi_values.is_empty() {
-                // Create a zero value of the same type as the first arm
-                match phi_values[0].0.get_type() {
+            
+            // Only add to phi_values if other arms also produced values
+            // If all arms had returns/breaks/continues, don't add to phi_values
+            if !phi_values.is_empty() {
+                // For now, just return a default value (0) and branch to merge
+                // In a complete implementation, this would be a runtime error
+                // Use the same type as the first arm to ensure type consistency
+                let default_val = match phi_values[0].0.get_type() {
                     inkwell::types::BasicTypeEnum::IntType(int_type) => {
                         int_type.const_int(0, false).into()
                     }
@@ -1325,15 +1329,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // For other types, use a default value
                         self.context.i32_type().const_int(0, false).into()
                     }
+                };
+                // Only branch if there's no terminator
+                let current_block = self.builder.get_insert_block().unwrap();
+                if current_block.get_terminator().is_none() {
+                    self.builder.build_unconditional_branch(merge_bb)?;
+                    phi_values.push((default_val, unmatched_bb));
                 }
             } else {
-                self.context.i32_type().const_int(0, false).into()
-            };
-            // Only branch if there's no terminator
-            let current_block = self.builder.get_insert_block().unwrap();
-            if current_block.get_terminator().is_none() {
-                self.builder.build_unconditional_branch(merge_bb)?;
-                phi_values.push((default_val, unmatched_bb));
+                // All arms had terminators, so this unmatched block is also unreachable
+                // We still need to add some terminator to make LLVM happy
+                // We'll add an unreachable instruction
+                self.builder.build_unreachable()?;
             }
         }
         
@@ -1811,6 +1818,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Save value and block for phi node only if we branch to merge
                 eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
+            } else {
+                eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
             }
             
             // Position at the next test block for the next iteration
@@ -1823,12 +1832,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Handle unmatched pattern block if we created one
         if let Some(unmatched_bb) = unmatched_block {
             self.builder.position_at_end(unmatched_bb);
-            // For now, just return a default value (0) and branch to merge
-            // In a complete implementation, this would be a runtime error
-            // Use the same type as the first arm to ensure type consistency
-            let default_val = if !phi_values.is_empty() {
-                // Create a zero value of the same type as the first arm
-                match phi_values[0].0.get_type() {
+            
+            // Only add to phi_values if other arms also produced values
+            // If all arms had returns/breaks/continues, don't add to phi_values
+            if !phi_values.is_empty() {
+                // For now, just return a default value (0) and branch to merge
+                // In a complete implementation, this would be a runtime error
+                // Use the same type as the first arm to ensure type consistency
+                let default_val = match phi_values[0].0.get_type() {
                     inkwell::types::BasicTypeEnum::IntType(int_type) => {
                         int_type.const_int(0, false).into()
                     }
@@ -1847,25 +1858,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // For other types, use a default value
                         self.context.i32_type().const_int(0, false).into()
                     }
+                };
+                // Only branch if there's no terminator
+                let current_block = self.builder.get_insert_block().unwrap();
+                if current_block.get_terminator().is_none() {
+                    self.builder.build_unconditional_branch(merge_bb)?;
+                    phi_values.push((default_val, unmatched_bb));
                 }
             } else {
-                self.context.i32_type().const_int(0, false).into()
-            };
-            // Only branch if there's no terminator
-            let current_block = self.builder.get_insert_block().unwrap();
-            if current_block.get_terminator().is_none() {
-                self.builder.build_unconditional_branch(merge_bb)?;
-                phi_values.push((default_val, unmatched_bb));
+                // All arms had terminators, so this unmatched block is also unreachable
+                // We still need to add some terminator to make LLVM happy
+                // We'll add an unreachable instruction
+                self.builder.build_unreachable()?;
             }
         }
         
-        // Position at merge block and create phi node
+        // Position at merge block
         self.builder.position_at_end(merge_bb);
         
+        // Check if we need to create a phi node
         if phi_values.is_empty() {
             // If all arms returned/broke/continued, the pattern match doesn't produce a value
-            // We still need to return something for the expression, but it won't be used
-            // Return a dummy value - this is safe because the merge block is unreachable
+            // The merge block is unreachable, but we still need to add a terminator
+            self.builder.build_unreachable()?;
+            // Return a dummy value - it won't be used since all paths have terminators
             return Ok(self.context.i32_type().const_int(0, false).into());
         }
         
