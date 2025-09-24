@@ -1,15 +1,15 @@
 // Minimal test for .raise() functionality
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 test_raise = () Result<i32, string> {
-    // Create a Result.Ok with an integer
-    result = Result.Ok(42)
+    // Create a Ok with an integer
+    result = Ok(42)
     
     // Use .raise() to extract the value - if Err, propagates automatically
     value = result.raise()
     
     // Return Ok with the extracted value
-    return Result.Ok(value)
+    return Ok(value)
 }
 
 main = () i32 {

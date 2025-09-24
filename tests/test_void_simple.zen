@@ -1,4 +1,4 @@
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 main = () i32 {
     // Test that void works as a value
@@ -6,7 +6,7 @@ main = () i32 {
     io.println("void value created")
     
     // Test Result with void
-    result = Result.Ok(void)
+    result = Ok(void)
     
     result ?
         | Ok(_) { io.println("Got Ok with void") }

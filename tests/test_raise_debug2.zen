@@ -1,11 +1,11 @@
 // Debug test for .raise() issue
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
-        return Result.Err("Failed")
+        return Err("Failed")
     }
-    return Result.Ok(42)
+    return Ok(42)
 }
 
 main = () i32 {

@@ -1,12 +1,12 @@
 // Simple test of Result type and error handling
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 // Simple Result operations
 divide = (a: i32, b: i32) Result<i32, string> {
     b == 0 ? {
-        return Result.Err("Division by zero")
+        return Err("Division by zero")
     }
-    return Result.Ok(a / b)
+    return Ok(a / b)
 }
 
 // Test pattern matching on Result
@@ -43,16 +43,16 @@ safe_calculation = (x: i32) Result<i32, string> {
             step3 ?
                 | .Ok(val3) {
                     io.println("  Step 3: ${val2} / 3 = ${val3}")
-                    return Result.Ok(val3)
+                    return Ok(val3)
                 }
                 | .Err(e) {
                     io.println("  Step 3 failed: ${e}")
-                    return Result.Err(e)
+                    return Err(e)
                 }
         }
         | .Err(e) {
             io.println("  Step 1 failed: ${e}")
-            return Result.Err(e)
+            return Err(e)
         }
 }
 

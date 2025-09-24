@@ -1,9 +1,9 @@
 // Complete test for .raise() functionality
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 process_result = () Result<i32, string> {
     // Create an Ok Result  
-    data = Result.Ok(100)
+    data = Ok(100)
     
     // Extract value - if Err, function returns early with Err
     extracted = data.raise()
@@ -11,18 +11,18 @@ process_result = () Result<i32, string> {
     // Process the extracted value
     processed = extracted * 2 + 50
     
-    return Result.Ok(processed)
+    return Ok(processed)
 }
 
 test_error_propagation = () Result<i32, string> {
     // Create an Err Result
-    err_data = Result.Err("Something went wrong")
+    err_data = Err("Something went wrong")
     
     // This should cause early return with Err
     never_reached = err_data.raise()
     
     // This code should never execute
-    return Result.Ok(999)
+    return Ok(999)
 }
 
 main = () i32 {

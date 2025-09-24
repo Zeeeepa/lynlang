@@ -1,25 +1,25 @@
 // Simple test for generic Result<T,E> type instantiation with different types
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 // Test that .raise() works with i32 (baseline)
 test_i32 = () Result<i32, string> {
-    a = Result.Ok(42)
+    a = Ok(42)
     val = a.raise()
-    return Result.Ok(val * 2)  // Should return 84
+    return Ok(val * 2)  // Should return 84
 }
 
 // Test that .raise() works with i64
 test_i64 = () Result<i64, string> {
-    a = Result.Ok(1000000)
+    a = Ok(1000000)
     val = a.raise()
-    return Result.Ok(val + 1)  // Should return 1000001
+    return Ok(val + 1)  // Should return 1000001
 }
 
 // Test that .raise() works with bool
 test_bool = () Result<bool, string> {
-    a = Result.Ok(true)
+    a = Ok(true)
     val = a.raise()
-    return Result.Ok(val)  
+    return Ok(val)  
 }
 
 main = () i32 {

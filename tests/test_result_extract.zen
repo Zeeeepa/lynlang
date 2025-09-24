@@ -1,8 +1,8 @@
 // Test Result value extraction via pattern matching
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 get_result = () Result<i32, string> {
-    return Result.Ok(42)
+    return Ok(42)
 }
 
 main = () i32 {

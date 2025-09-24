@@ -1,17 +1,17 @@
 // Proper test for .raise() issue
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
-        return Result.Err("Failed")
+        return Err("Failed")
     }
-    return Result.Ok(42)
+    return Ok(42)
 }
 
 process_value = () Result<i32, string> {
     value = maybe_fail(false).raise()
     io.println("Got value: ${value}")
-    return Result.Ok(value)
+    return Ok(value)
 }
 
 main = () i32 {

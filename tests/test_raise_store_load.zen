@@ -1,8 +1,8 @@
 // Test .raise() with store and load
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 main = () i32 {
-    result = Result.Ok(42)
+    result = Ok(42)
     value = result.raise()
     
     // Test arithmetic to see if value is loaded correctly

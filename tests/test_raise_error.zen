@@ -1,18 +1,18 @@
 // Test .raise() with error case
-{ io } = @std
+{ io, Result, Ok, Err } = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
-        return Result.Err("Failed as expected")
+        return Err("Failed as expected")
     }
-    return Result.Ok(42)
+    return Ok(42)
 }
 
 process_value = () Result<i32, string> {
     // This should propagate the error
     value = maybe_fail(true).raise()
     io.println("This should not print: ${value}")
-    return Result.Ok(value)
+    return Ok(value)
 }
 
 main = () i32 {
