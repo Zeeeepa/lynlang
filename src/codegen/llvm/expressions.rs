@@ -1458,17 +1458,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let payload_field_type = enum_struct_type.get_field_type_at_index(1)
                     .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
                 
-                // Cast the compiled value to match the payload field type if needed
-                let payload_value = self.cast_value_to_type(compiled, payload_field_type)?;
+                // If payload field is a pointer type, we need to handle it specially
+                let payload_value = if payload_field_type.is_pointer_type() {
+                    // If the compiled value is already a pointer, use it directly
+                    if compiled.is_pointer_value() {
+                        compiled
+                    } else {
+                        // Otherwise allocate space and store the value, then use the pointer
+                        let value_alloca = self.builder.build_alloca(compiled.get_type(), "enum_payload_value")?;
+                        self.builder.build_store(value_alloca, compiled)?;
+                        value_alloca.into()
+                    }
+                } else {
+                    // For non-pointer payload fields, use casting as before
+                    self.cast_value_to_type(compiled, payload_field_type)?
+                };
                 
                 // Store the properly typed value
                 self.builder.build_store(payload_ptr, payload_value)?;
             }
         } else if enum_struct_type.count_fields() > 1 {
-            // If no payload but enum expects one, store zero value
+            // If no payload but enum expects one, store null pointer
             let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-            let zero_val = self.context.i64_type().const_int(0, false);
-            self.builder.build_store(payload_ptr, zero_val)?;
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let null_ptr = ptr_type.const_null();
+            self.builder.build_store(payload_ptr, null_ptr)?;
         }
         let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
         Ok(loaded)

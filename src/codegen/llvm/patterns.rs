@@ -249,12 +249,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let payload_type = enum_struct_type.get_field_type_at_index(1)
                                 .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
                             
-                            // Load with the correct type
-                            self.builder.build_load(
+                            // Load the payload pointer
+                            let loaded_payload = self.builder.build_load(
                                 payload_type,
                                 payload_gep,
                                 "payload"
-                            )?
+                            )?;
+                            
+                            // If the payload field is a pointer type (which it should be for generic enums),
+                            // we need to dereference it to get the actual value
+                            if payload_type.is_pointer_type() && loaded_payload.is_pointer_value() {
+                                // We have a pointer to the actual value
+                                // For pattern matching, we want to use the pointer directly
+                                // The apply_pattern_bindings will handle the correct type
+                                loaded_payload
+                            } else {
+                                loaded_payload
+                            }
                         } else {
                             // No payload field in enum
                             self.context.i64_type().const_int(0, false).into()
@@ -263,7 +274,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let struct_val = scrutinee_val.into_struct_value();
                         // Check if struct has payload field
                         if struct_val.get_type().count_fields() > 1 {
-                            self.builder.build_extract_value(struct_val, 1, "payload")?
+                            let extracted = self.builder.build_extract_value(struct_val, 1, "payload")?;
+                            // Check if it's a pointer that needs dereferencing
+                            if extracted.is_pointer_value() {
+                                // For pattern matching with pointers, use them directly
+                                extracted
+                            } else {
+                                extracted
+                            }
                         } else {
                             self.context.i64_type().const_int(0, false).into()
                         }
@@ -373,14 +391,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let payload_val = if scrutinee_val.is_pointer_value() {
                                 let ptr_val = scrutinee_val.into_pointer_value();
                                 
-                                // Use enum info if available, otherwise use generic struct
+                                // Use enum info if available, otherwise use generic struct with pointer payload
                                 let struct_type = if let Some(ref info) = enum_info {
                                     info.llvm_type
                                 } else {
-                                    // Fallback to generic struct
+                                    // Fallback to generic struct with pointer payload
+                                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                                     self.context.struct_type(&[
                                         self.context.i64_type().into(),
-                                        self.context.i64_type().into(),
+                                        ptr_type.into(),
                                     ], false)
                                 };
                                 
@@ -398,12 +417,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let payload_type = struct_type.get_field_type_at_index(1)
                                         .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
                                     
-                                    // Load with the correct type
-                                    self.builder.build_load(
+                                    // Load the payload
+                                    let loaded_payload = self.builder.build_load(
                                         payload_type,
                                         payload_ptr,
                                         "payload"
-                                    )?
+                                    )?;
+                                    
+                                    // If the payload is a pointer type (generic enums), use it directly
+                                    // The actual value dereferencing will happen in apply_pattern_bindings
+                                    loaded_payload
                                 } else {
                                     // No payload field
                                     self.context.i64_type().const_int(0, false).into()
@@ -412,7 +435,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let struct_val = scrutinee_val.into_struct_value();
                                 // Check if struct has payload field
                                 if struct_val.get_type().count_fields() > 1 {
-                                    self.builder.build_extract_value(struct_val, 1, "payload")?
+                                    let extracted = self.builder.build_extract_value(struct_val, 1, "payload")?;
+                                    // For pointer payloads, use them directly
+                                    extracted
                                 } else {
                                     // No payload field
                                     self.context.i64_type().const_int(0, false).into()

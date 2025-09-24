@@ -127,9 +127,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
     fn register_builtin_enums(&mut self) {
         // Register Option<T> enum
         // Option has Some(T) with payload and None without, so we need space for payload
+        // Use pointer type for payload to handle any type (including strings and structs)
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let enum_struct_type = self.context.struct_type(&[
             self.context.i64_type().into(), // discriminant
-            self.context.i64_type().into(), // payload (will be properly typed at instantiation)
+            ptr_type.into(), // payload (generic pointer that can hold any type)
         ], false);
         
         let mut variant_indices = HashMap::new();
@@ -156,7 +158,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Result always has payloads (Ok(T) or Err(E))
         let result_struct_type = self.context.struct_type(&[
             self.context.i64_type().into(), // discriminant
-            self.context.i64_type().into(), // payload (will be properly typed at instantiation)
+            ptr_type.into(), // payload (generic pointer that can hold any type)
         ], false);
         
         let mut result_variant_indices = HashMap::new();
@@ -433,17 +435,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Create enum struct type based on actual payload needs
         let enum_struct_type = if has_payloads {
-            // Create a struct with tag and appropriately sized payload field
-            let payload_type = match max_payload_size {
-                8 => self.context.i8_type().into(),
-                16 => self.context.i16_type().into(),
-                32 => self.context.i32_type().into(),
-                _ => self.context.i64_type().into(), // default to i64 for larger or pointer types
-            };
+            // Use a generic pointer type for payloads to handle any type uniformly
+            // This allows us to store strings, structs, and other complex types
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             
             self.context.struct_type(&[
                 self.context.i64_type().into(),  // tag (discriminant)
-                payload_type,                    // payload (sized appropriately)
+                ptr_type.into(),                  // payload (generic pointer for any type)
             ], false)
         } else {
             // For enums with no payloads (like unit enums), just use the tag

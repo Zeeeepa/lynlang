@@ -1,7 +1,9 @@
 // Test basic Zen spec syntax
 
 // Option type definition
-Option<T>: Some(T) | None
+Option<T>:
+    Some: T,
+    None
 
 // Simple assignment operators
 main = () void {
