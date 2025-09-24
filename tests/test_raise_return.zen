@@ -1,0 +1,12 @@
+// Debug test for .raise() return value
+{ io } = @std
+
+test_direct = () i32 {
+    result = Result.Ok(42)
+    value = result.raise()
+    return value
+}
+
+main = () i32 {
+    return test_direct()
+}

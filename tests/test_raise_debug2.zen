@@ -1,0 +1,23 @@
+// Debug test for .raise() issue
+{ io } = @std
+
+maybe_fail = (fail: bool) Result<i32, string> {
+    fail ? {
+        return Result.Err("Failed")
+    }
+    return Result.Ok(42)
+}
+
+main = () i32 {
+    // Direct call without .raise()
+    result1 = maybe_fail(false)
+    result1 ?
+        | Ok(val) { io.println("Direct: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // With .raise()
+    value = maybe_fail(false).raise()
+    io.println("Raise: ${value}")
+    
+    return 0
+}

@@ -1,0 +1,27 @@
+// Test .raise() with store and load
+{ io } = @std
+
+main = () i32 {
+    result = Result.Ok(42)
+    value = result.raise()
+    
+    // Test arithmetic to see if value is loaded correctly
+    test = value + 0  // Force a load and use
+    
+    test == 42 ? {
+        io.println("SUCCESS: Arithmetic works")
+    }
+    
+    test != 42 ? {
+        io.println("FAIL: Arithmetic broken")
+    }
+    
+    // Now test printing directly
+    io.println("Direct print value:")
+    io.println(value)
+    
+    // Test in string interpolation
+    io.println("String interpolation: ${value}")
+    
+    return value
+}

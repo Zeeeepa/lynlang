@@ -195,6 +195,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_type_cast(expr, target_type)
             }
             Expression::MethodCall { object, method, args } => {
+                // Special handling for .raise()
+                if method == "raise" && args.is_empty() {
+                    // Convert to Raise expression
+                    return self.compile_raise_expression(object);
+                }
+                
                 // Special handling for range.loop()
                 if method == "loop" {
                     if let Expression::Range { start, end, inclusive } = object.as_ref() {
@@ -2149,6 +2155,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // The loaded value is now an i32
                     loaded_value
                 } else {
+                    // If it's not a pointer, it might be an integer that looks like a pointer address
+                    // This can happen if the payload is stored incorrectly
                     ok_value_ptr
                 };
                 self.builder.build_unconditional_branch(continue_bb)?;
@@ -2242,7 +2250,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(ok_bb);
             if struct_type.count_fields() > 1 {
                 let payload_ptr = self.builder.build_struct_gep(struct_type, result_ptr, 1, "payload_ptr")?;
-                let ok_value = self.builder.build_load(self.context.i64_type(), payload_ptr, "ok_value")?;
+                // Load the payload, which is stored as a pointer to the actual value
+                let ok_value_ptr = self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), payload_ptr, "ok_value_ptr")?;
+                
+                // Dereference the pointer to get the actual value
+                // For now, assume Result<i32, E>
+                let ok_value = if ok_value_ptr.is_pointer_value() {
+                    let ptr_val = ok_value_ptr.into_pointer_value();
+                    self.builder.build_load(self.context.i32_type(), ptr_val, "ok_value_deref")?
+                } else {
+                    ok_value_ptr
+                };
                 self.builder.build_unconditional_branch(continue_bb)?;
                 
                 // Handle Err case

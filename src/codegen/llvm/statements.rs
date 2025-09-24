@@ -370,6 +370,57 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 name: enum_name.clone(),
                                 type_args: vec![],
                             }
+                        } else if let Expression::Raise(inner_expr) = init_expr {
+                            // .raise() extracts the Ok value from Result<T, E>
+                            // Check if the inner expression is a function call to determine the type
+                            if let Expression::FunctionCall { name, .. } = &**inner_expr {
+                                // Check if we know the function's return type
+                                if let Some(return_type) = self.function_types.get(name) {
+                                    // If the function returns Result<T, E>, extract T
+                                    match return_type {
+                                        AstType::Generic { name, type_args } if name == "Result" && !type_args.is_empty() => {
+                                            // Return the first type argument (T from Result<T, E>)
+                                            type_args[0].clone()
+                                        }
+                                        _ => {
+                                            // Default to i32 if we can't determine
+                                            AstType::I32
+                                        }
+                                    }
+                                } else {
+                                    // Function type unknown, default to i32
+                                    AstType::I32
+                                }
+                            } else {
+                                // For now, assume Result<i32, E> since that's the common case
+                                // This will be properly fixed when we have full generic type instantiation
+                                AstType::I32
+                            }
+                        } else if let Expression::MethodCall { object: _, method, .. } = init_expr {
+                            // Handle other method calls
+                            // For method calls, try to infer from the returned value
+                            match value {
+                                BasicValueEnum::IntValue(int_val) => {
+                                    let bit_width = int_val.get_type().get_bit_width();
+                                    if bit_width == 1 {
+                                        AstType::Bool
+                                    } else if bit_width <= 32 {
+                                        AstType::I32
+                                    } else {
+                                        AstType::I64
+                                    }
+                                }
+                                BasicValueEnum::FloatValue(_) => AstType::F64,
+                                BasicValueEnum::PointerValue(_) => AstType::Ptr(Box::new(AstType::I8)),
+                                BasicValueEnum::StructValue(_) => {
+                                    // Could be DynVec or other struct type
+                                    AstType::Generic {
+                                        name: String::new(),
+                                        type_args: vec![],
+                                    }
+                                }
+                                _ => AstType::I64,
+                            }
                         } else if let Expression::MemberAccess { object, member } = init_expr {
                             // Check if this is an enum variant access (e.g., GameEntity.Player)
                             if let Expression::Identifier(enum_name) = &**object {

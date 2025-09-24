@@ -1,0 +1,27 @@
+// Test UFC with .raise()
+{ io } = @std
+
+maybe_fail = (fail: bool) Result<i32, string> {
+    fail ? {
+        return Result.Err("Failed")
+    }
+    return Result.Ok(42)
+}
+
+main = () i32 {
+    // Test that maybe_fail returns a Result
+    result = maybe_fail(false)
+    io.println("Result created")
+    
+    // Test pattern matching directly
+    result ?
+        | Ok(val) { io.println("Pattern match: ${val}") }
+        | Err(e) { io.println("Error: ${e}") }
+    
+    // Now test UFC .raise() - this should call compile_raise_expression
+    // But it seems like it's being compiled as a regular method call instead
+    value = result.raise()
+    io.println("After raise: ${value}")
+    
+    return 0
+}

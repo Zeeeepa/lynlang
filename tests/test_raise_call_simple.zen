@@ -1,0 +1,11 @@
+// Simple test for .raise() from function call
+{ io } = @std
+
+get_result = () Result<i32, string> {
+    return Result.Ok(42)
+}
+
+main = () i32 {
+    value = get_result().raise()
+    return value
+}
