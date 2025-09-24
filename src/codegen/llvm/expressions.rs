@@ -1532,9 +1532,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             // Apply pattern bindings
             // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
-            for (name, val) in &bindings {
-                eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
-            }
+            // for (name, val) in &bindings {
+            //     eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
+            // }
             let saved_vars = self.apply_pattern_bindings(&bindings);
 
             // Compile the arm body
@@ -2219,9 +2219,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             // Apply pattern bindings
             // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
-            for (name, val) in &bindings {
-                eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
-            }
+            // for (name, val) in &bindings {
+            //     eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
+            // }
             let saved_vars = self.apply_pattern_bindings(&bindings);
 
             // Compile the arm body
@@ -2313,7 +2313,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             phi_values[0].0.get_type()
         } else {
             // This shouldn't happen but let's be safe
-            eprintln!("WARNING: phi_values is empty after non-empty check");
+            // eprintln!("WARNING: phi_values is empty after non-empty check");
             return Ok(self.context.i32_type().const_int(0, false).into());
         };
 
@@ -2365,7 +2365,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Use the normalized type for PHI node
         if normalized_values.is_empty() {
-            eprintln!("WARNING: normalized_values is empty after transformation");
+            // eprintln!("WARNING: normalized_values is empty after transformation");
             return Ok(self.context.i32_type().const_int(0, false).into());
         }
         let phi_type = normalized_values[0].0.get_type();

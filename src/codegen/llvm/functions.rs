@@ -1136,9 +1136,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if args.len() != 1 {
             // eprintln!("DEBUG: io.print called with {} arguments", args.len());
-            for (i, arg) in args.iter().enumerate() {
-                eprintln!("  Arg {}: {:?}", i, arg);
-            }
+            // for (i, arg) in args.iter().enumerate() {
+            //     eprintln!("  Arg {}: {:?}", i, arg);
+            // }
             return Err(CompileError::TypeError(
                 format!("io.print expects 1 argument, got {}", args.len()),
                 None,

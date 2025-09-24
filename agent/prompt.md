@@ -142,6 +142,7 @@
 ✓ Task 138: **VERIFIED** Project Status (2025-09-24 @ 23:00 UTC) - Confirmed test suite maintains 100% pass rate (154/154), 8 disabled tests, 162 total. 25 Rust unit tests passing. 157 compiler warnings. showcase.zen fully operational.
 ✓ Task 139: **ANALYZED** Disabled Tests Blockers (2025-09-24) - Analyzed all 8 disabled tests. Main blocker: Array<T> type not implemented in compiler causing LLVM GEP errors. 4 tests need Array<T>, 4 need other unimplemented features (behaviors, pointers). Email update sent.
 ✓ Task 140: **VERIFIED** Project Status (2025-09-24) - Test suite maintains 100% pass rate (154/154 tests passing), 8 disabled tests, 162 total test files. test_collections_simple.zen confirmed working. showcase.zen fully operational.
+✓ Task 141: **IMPLEMENTED** Array<T> Type Support (2025-09-24) - Added basic Array<T> type to compiler with LLVM representation as struct {ptr, len, capacity}. Array.new() method partially implemented. Type declarations work, but full stdlib integration pending.
 
 ## Current Status (2025-09-24 - 154/154 TESTS PASSING - 100%!)
 
@@ -249,12 +250,12 @@
 
 ### Immediate Priorities
 
-1. **Implement Array<T> Type Support** - 4 disabled tests blocked - 8 hours - **NEW HIGHEST PRIORITY**
-   - Array<T> used by stdlib collections but not implemented in compiler
-   - Causes "GEP pointee is not a struct" LLVM errors
-   - Required for HashMap<K,V>, HashSet<T> collections to work
+1. **Complete Array<T> Implementation** - 4 disabled tests blocked - 6 hours remaining
+   - ✅ Basic Array<T> type representation in LLVM 
+   - ✅ Array.new() method for allocation
+   - ⚠️ Still need: Array indexing, push/pop/get/set methods
+   - ⚠️ Need proper @std module integration for imports
    - Will unlock test_collections.zen, test_error_propagation.zen
-   - Need array indexing, allocation, and LLVM codegen support
 
 2. **Complete Generic Type Instantiation** - Enable full monomorphization - 4 hours
    - ✅ Basic infrastructure added (generic_type_context in compiler)
