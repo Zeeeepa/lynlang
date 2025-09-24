@@ -2119,14 +2119,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let payload_field_type = struct_type.get_field_type_at_index(1)
                     .ok_or_else(|| CompileError::InternalError("Result payload field not found".to_string(), None))?;
                 
-                // Load the payload pointer
+                // Load the payload value (which is a pointer to the actual value)
                 let ok_value_ptr = self.builder.build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
                 
-                // If the payload is a pointer (which it usually is for generic enums),
-                // we need to dereference it to get the actual value
-                // Since we don't have the exact type information here, we'll return the pointer
-                // and let the caller handle dereferencing based on context
-                let ok_value = ok_value_ptr;
+                // The payload is always stored as a pointer in our enum representation
+                // We need to dereference it to get the actual value
+                let ok_value = if ok_value_ptr.is_pointer_value() {
+                    // Integer literals are compiled as i64 by default
+                    // For Result<i32, string>, we need to load as i64 and then truncate if needed
+                    let value_type = self.context.i64_type();
+                    let loaded_value = self.builder.build_load(value_type, ok_value_ptr.into_pointer_value(), "ok_value_deref")?;
+                    
+                    // Check if we need to cast to i32 (based on the Result<i32, _> type annotation)
+                    // For now, return as i64 which matches our default integer type
+                    loaded_value
+                } else {
+                    ok_value_ptr
+                };
                 self.builder.build_unconditional_branch(continue_bb)?;
                 
                 // Handle Err case - propagate the error by returning early
@@ -2243,35 +2252,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Create a struct to represent the enum variant
         // Use i64 for tag to match what the pattern matching expects
         let tag_type = self.context.i64_type();
-        let payload_type = if let Some(_expr) = payload {
-            // For Option.Some with integers, use i32 to match the expected payload
-            self.context.i32_type()
+        
+        // Compile the payload if present and determine its type
+        let (payload_value, payload_type) = if let Some(expr) = payload {
+            let val = self.compile_expression(expr)?;
+            (val, val.get_type())
         } else {
-            self.context.i32_type() // Use i32 as placeholder even for None
+            // For None variant, use i64 as placeholder
+            let placeholder = self.context.i64_type().const_int(0, false).into();
+            (placeholder, self.context.i64_type().into())
         };
         
         let struct_type = self.context.struct_type(&[
             tag_type.into(),
-            payload_type.into(),
+            payload_type,
         ], false);
-        
-        // Compile the payload if present
-        let payload_value = if let Some(expr) = payload {
-            let val = self.compile_expression(expr)?;
-            // Cast integer payloads to i32 to match the struct type
-            if val.is_int_value() {
-                let int_val = val.into_int_value();
-                if int_val.get_type() != self.context.i32_type() {
-                    self.builder.build_int_truncate_or_bit_cast(int_val, self.context.i32_type(), "cast_to_i32")?.into()
-                } else {
-                    val
-                }
-            } else {
-                val
-            }
-        } else {
-            self.context.i32_type().const_int(0, false).into()
-        };
         
         // Create the struct value
         let struct_val = struct_type.get_undef();
