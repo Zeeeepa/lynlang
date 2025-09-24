@@ -64,3 +64,4 @@ secrets.yml
 *Bearer*
 *Authorization*
 test_output/
+test_results.txt

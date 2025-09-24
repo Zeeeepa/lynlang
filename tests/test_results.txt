@@ -1,7 +1,0 @@
-Building compiler...
-1702 |     fn create_result_err(&mut self, error: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CompileError> {
-  --> src/error.rs:16:5
-31 |     // Enhanced error types for better LSP diagnostics
-56 | pub fn err_value(error: Expression) -> Expression {
-    Finished `release` profile [optimized] target(s) in 0.07s
-Error: Compiler binary not found at target/release/zen
