@@ -1,0 +1,13 @@
+// Minimal test case for pattern match return issue
+{ io, Result } = @std
+
+main = () i32 {
+    x = Result.Ok(42)
+    
+    // This pattern match should return void (from io.println)
+    x ? 
+        | .Ok(v) { io.println("OK: ${v}") }
+        | .Err(_) { io.println("Error") }
+    
+    return 0
+}

@@ -1,0 +1,20 @@
+// Simple test for Result pattern matching return values
+{ Result } = @std
+
+test_match_return = () Result<i32, string> {
+    x = Result.Ok(42)
+    
+    // This pattern match should return a Result type
+    return x ? 
+        | .Ok(v) { Result.Ok(v * 2) }
+        | .Err(e) { Result.Err(e) }
+}
+
+main = () i32 {
+    result = test_match_return()
+    
+    // Extract the value
+    result ?
+        | .Ok(val) { return val }
+        | .Err(_) { return -1 }
+}

@@ -1,0 +1,19 @@
+// Test pattern match return values
+{ io, Result } = @std
+
+test_pattern_value = () i32 {
+    x = Result.Ok(42)
+    
+    // This pattern match should evaluate to the arm body value
+    val = x ? 
+        | .Ok(v) { v * 2 }  // Returns 84
+        | .Err(_) { 0 }     // Returns 0
+    
+    return val
+}
+
+main = () i32 {
+    result = test_pattern_value()
+    io.println("Result: ${result}")
+    return result
+}

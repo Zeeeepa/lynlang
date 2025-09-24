@@ -1,0 +1,19 @@
+// Test case for multiple pattern matches
+{ io, Result } = @std
+
+main = () i32 {
+    x = Result.Ok(42)
+    y = Result.Err("oops")
+    
+    // First pattern match
+    x ? 
+        | .Ok(v) { io.println("First OK: ${v}") }
+        | .Err(_) { io.println("First Error") }
+    
+    // Second pattern match - this is where the issue might be
+    y ? 
+        | .Ok(v) { io.println("Second OK: ${v}") }
+        | .Err(e) { io.println("Second Error: ${e}") }
+    
+    return 0
+}

@@ -1235,6 +1235,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // For pointer types (like strings), use a null pointer
                         ptr_type.const_null().into()
                     }
+                    inkwell::types::BasicTypeEnum::StructType(struct_type) => {
+                        // For struct types (like enums), create a zero struct
+                        struct_type.const_zero().into()
+                    }
                     _ => {
                         // For other types, use a default value
                         self.context.i32_type().const_int(0, false).into()
@@ -1752,6 +1756,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     inkwell::types::BasicTypeEnum::PointerType(ptr_type) => {
                         // For pointer types (like strings), use a null pointer
                         ptr_type.const_null().into()
+                    }
+                    inkwell::types::BasicTypeEnum::StructType(struct_type) => {
+                        // For struct types (like enums), create a zero struct
+                        struct_type.const_zero().into()
                     }
                     _ => {
                         // For other types, use a default value
