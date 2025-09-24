@@ -10,6 +10,8 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   LLVM_VERSION: "18"
+  # Fix LLVM Polly linking issue
+  LLVM_SYS_181_PREFIX: /usr/lib/llvm-18
 
 jobs:
   # Quick formatting and linting checks
@@ -57,6 +59,11 @@ jobs:
       with:
         version: ${{ env.LLVM_VERSION }}
         cached: true
+        
+    - name: Install Additional LLVM Libraries
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y llvm-18-dev libpolly-18-dev || echo "Polly dev not available, continuing..."
     
     - name: Cache Dependencies
       id: cache
@@ -182,6 +189,11 @@ jobs:
       with:
         version: ${{ env.LLVM_VERSION }}
         cached: true
+        
+    - name: Install Additional LLVM Libraries
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y llvm-18-dev libpolly-18-dev || echo "Polly dev not available, continuing..."
     
     - name: Build
       run: cargo build --verbose
