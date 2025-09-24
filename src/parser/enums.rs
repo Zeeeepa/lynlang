@@ -15,14 +15,14 @@ impl<'a> Parser<'a> {
             ));
         };
         self.next_token();
-        
+
         // Parse optional type parameters
         let type_params = if self.current_token == Token::Operator("<".to_string()) {
             self.parse_type_parameters()?
         } else {
             Vec::new()
         };
-        
+
         // Expect ':' for type definition
         if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
@@ -31,10 +31,10 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         let mut variants = vec![];
         let mut first_variant = true;
-        
+
         // Parse variants - support both | separator and comma separator
         while self.current_token != Token::Eof {
             // Handle variant separators
@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
                 }
             }
             first_variant = false;
-            
+
             // Check for shorthand enum variant syntax: .VariantName
             let variant_name = if self.current_token == Token::Symbol('.') {
                 self.next_token(); // consume '.'
@@ -72,11 +72,11 @@ impl<'a> Parser<'a> {
                 // If not a variant, break (we're done parsing variants)
                 break;
             };
-            
+
             // Check for payload type
             let payload = if self.current_token == Token::Symbol('(') {
                 self.next_token();
-                
+
                 // Check if this is a named field (field: type) or just a type
                 if let Token::Identifier(_field_name) = &self.current_token {
                     // Look ahead to see if there's a colon
@@ -86,10 +86,10 @@ impl<'a> Parser<'a> {
                         self.next_token(); // skip ':'
                     }
                 }
-                
+
                 // Parse payload type
                 let payload_type = self.parse_type()?;
-                
+
                 // Closing parenthesis
                 if self.current_token != Token::Symbol(')') {
                     return Err(CompileError::SyntaxError(
@@ -98,29 +98,29 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 self.next_token();
-                
+
                 Some(payload_type)
             } else {
                 None
             };
-            
+
             variants.push(EnumVariant {
                 name: variant_name,
                 payload,
             });
         }
-        
+
         if variants.is_empty() {
             return Err(CompileError::SyntaxError(
                 "Enum must have at least one variant".to_string(),
                 Some(self.current_span.clone()),
             ));
         }
-        
-        Ok(EnumDefinition { 
-            name, 
-            type_params, 
-            variants, 
+
+        Ok(EnumDefinition {
+            name,
+            type_params,
+            variants,
             methods: Vec::new(),
             required_traits: Vec::new(), // Will be populated by .requires() statements
         })

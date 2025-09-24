@@ -13,12 +13,12 @@ pub mod comptime;
 pub mod error;
 pub mod ffi;
 pub mod lexer;
+pub mod lsp;
 pub mod module_system;
 pub mod parser;
-pub mod lsp;
 pub mod stdlib;
-pub mod typechecker;
 pub mod type_system;
+pub mod typechecker;
 
 #[cfg(test)]
 mod tests {

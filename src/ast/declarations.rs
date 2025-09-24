@@ -1,8 +1,8 @@
 //! Declaration nodes in the AST
 
-use super::types::{AstType, EnumVariant, TypeParameter};
 use super::expressions::Expression;
 use super::statements::Statement;
+use super::types::{AstType, EnumVariant, TypeParameter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
@@ -24,9 +24,9 @@ pub struct TypeAlias {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExternalFunction {
     pub name: String,
-    pub args: Vec<AstType>,  // Just types, no names for external functions
+    pub args: Vec<AstType>, // Just types, no names for external functions
     pub return_type: AstType,
-    pub is_varargs: bool,  // For functions like printf
+    pub is_varargs: bool, // For functions like printf
 }
 
 #[derive(Debug, Clone, PartialEq)]

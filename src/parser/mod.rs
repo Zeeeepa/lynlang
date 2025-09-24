@@ -1,13 +1,13 @@
-pub mod core;
-pub mod statements;
-pub mod expressions;
-pub mod types;
-pub mod functions;
-pub mod structs;
-pub mod enums;
-pub mod patterns;
-pub mod external;
-pub mod comptime;
 pub mod behaviors;
+pub mod comptime;
+pub mod core;
+pub mod enums;
+pub mod expressions;
+pub mod external;
+pub mod functions;
+pub mod patterns;
+pub mod statements;
+pub mod structs;
+pub mod types;
 
 pub use core::Parser;

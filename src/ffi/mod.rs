@@ -1,12 +1,12 @@
 // FFI Module - Foreign Function Interface with Builder Pattern
 // Implements the Language Spec v1.1.0 requirements for safe C interop
 
+use libloading::Library as DynLib;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use libloading::Library as DynLib;
 
 use crate::ast::AstType;
 
@@ -118,7 +118,8 @@ impl LibBuilder {
 
     /// Add multiple search paths
     pub fn search_paths(mut self, paths: impl IntoIterator<Item = impl Into<PathBuf>>) -> Self {
-        self.search_paths.extend(paths.into_iter().map(|p| p.into()));
+        self.search_paths
+            .extend(paths.into_iter().map(|p| p.into()));
         self
     }
 
@@ -145,12 +146,12 @@ impl LibBuilder {
             fields,
         };
         self.type_mappings.insert(
-            name_str.clone(), 
+            name_str.clone(),
             TypeMapping {
                 c_type: name_str,
                 zen_type: struct_type,
                 marshaller: None,
-            }
+            },
         );
         self
     }
@@ -160,12 +161,13 @@ impl LibBuilder {
         let name_str = name.into();
         let enum_type = AstType::Enum {
             name: name_str.clone(),
-            variants: variants.into_iter().map(|v| {
-                crate::ast::EnumVariant {
+            variants: variants
+                .into_iter()
+                .map(|v| crate::ast::EnumVariant {
                     name: v,
                     payload: None,
-                }
-            }).collect(),
+                })
+                .collect(),
         };
         self.type_mappings.insert(
             name_str.clone(),
@@ -173,7 +175,7 @@ impl LibBuilder {
                 c_type: name_str,
                 zen_type: enum_type,
                 marshaller: None,
-            }
+            },
         );
         self
     }
@@ -215,7 +217,7 @@ impl LibBuilder {
         }
         self
     }
-    
+
     /// Add batch of functions with a common prefix
     pub fn functions_with_prefix(mut self, prefix: &str, funcs: Vec<(&str, FnSignature)>) -> Self {
         for (name, sig) in funcs {
@@ -224,7 +226,7 @@ impl LibBuilder {
         }
         self
     }
-    
+
     /// Add dependency checking for library
     pub fn requires(mut self, lib_name: &str) -> Self {
         // Add validation rule to check for dependency
@@ -235,29 +237,31 @@ impl LibBuilder {
                 // Check if required library exists in system
                 let lib_path = LibBuilder::default_lib_path(&lib_name);
                 let search_paths = LibBuilder::default_search_paths();
-                
+
                 for search_path in search_paths {
                     let full_path = search_path.join(&lib_path);
                     if full_path.exists() {
                         return Ok(());
                     }
                 }
-                
-                Err(FFIError::ValidationError(
-                    format!("Required dependency '{}' not found in system", lib_name)
-                ))
+
+                Err(FFIError::ValidationError(format!(
+                    "Required dependency '{}' not found in system",
+                    lib_name
+                )))
             }),
         });
         self
     }
-    
+
     /// Add metadata for library documentation
     pub fn metadata(mut self, key: &str, value: &str) -> Self {
         // Store metadata in aliases temporarily (should have separate field in production)
-        self.aliases.insert(format!("__meta_{}", key), value.to_string());
+        self.aliases
+            .insert(format!("__meta_{}", key), value.to_string());
         self
     }
-    
+
     /// Configure opaque pointer types for FFI
     pub fn opaque_type(mut self, name: impl Into<String>) -> Self {
         let name_str = name.into();
@@ -267,11 +271,11 @@ impl LibBuilder {
                 c_type: format!("struct {}", name_str),
                 zen_type: AstType::Ptr(Box::new(AstType::Void)),
                 marshaller: None,
-            }
+            },
         );
         self
     }
-    
+
     /// Add function with automatic signature inference from C header style
     pub fn function_from_c_decl(mut self, c_declaration: &str) -> Self {
         // Parse simple C function declaration
@@ -283,12 +287,12 @@ impl LibBuilder {
         }
         self
     }
-    
+
     /// Helper to parse C function declaration
     fn parse_c_function_decl(decl: &str) -> Option<FnSignature> {
         // Simple parser for basic C function declarations
         // This is a simplified version - in production would use a proper C parser
-        
+
         let returns = if decl.starts_with("void ") {
             types::void()
         } else if decl.starts_with("int ") {
@@ -302,7 +306,7 @@ impl LibBuilder {
         } else {
             types::raw_ptr(types::void())
         };
-        
+
         // Extract parameters (simplified)
         let params = if decl.contains("(void)") || decl.contains("()") {
             vec![]
@@ -311,10 +315,10 @@ impl LibBuilder {
         } else {
             vec![types::raw_ptr(types::void())]
         };
-        
+
         Some(FnSignature::new(params, returns).with_safety(FunctionSafety::Unsafe))
     }
-    
+
     /// Extract function name from C declaration
     fn extract_function_name(decl: &str) -> Option<String> {
         // Find function name between return type and opening parenthesis
@@ -332,22 +336,22 @@ impl LibBuilder {
     pub fn build(mut self) -> Result<Library, FFIError> {
         // Apply platform-specific configurations
         self = self.auto_configure();
-        
+
         // Run validation rules
         for rule in &self.validation_rules {
             rule.validate(&self)?;
         }
-        
+
         // Validate function signatures
         for (name, sig) in &self.functions {
             self.validate_signature(name, sig)?;
         }
-        
+
         // Validate type mappings
         for (name, mapping) in &self.type_mappings {
             self.validate_type_mapping(name, mapping)?;
         }
-        
+
         let path = if let Some(p) = self.path {
             p
         } else {
@@ -381,20 +385,20 @@ impl LibBuilder {
     fn default_lib_path(name: &str) -> PathBuf {
         #[cfg(target_os = "linux")]
         let filename = format!("lib{}.so", name);
-        
+
         #[cfg(target_os = "macos")]
         let filename = format!("lib{}.dylib", name);
-        
+
         #[cfg(target_os = "windows")]
         let filename = format!("{}.dll", name);
-        
+
         PathBuf::from(filename)
     }
 
     /// Get default search paths based on platform
     fn default_search_paths() -> Vec<PathBuf> {
         let mut paths = Vec::new();
-        
+
         #[cfg(target_os = "linux")]
         {
             paths.push(PathBuf::from("/usr/lib"));
@@ -406,7 +410,7 @@ impl LibBuilder {
                 }
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             paths.push(PathBuf::from("/usr/lib"));
@@ -418,7 +422,7 @@ impl LibBuilder {
                 }
             }
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             paths.push(PathBuf::from("C:\\Windows\\System32"));
@@ -428,21 +432,21 @@ impl LibBuilder {
                 }
             }
         }
-        
+
         paths
     }
 
     /// Find library in search paths with better error reporting
     fn find_library(&self) -> Option<PathBuf> {
         let lib_name = Self::default_lib_path(&self.name);
-        
+
         // Try exact path first
         if let Some(ref path) = self.path {
             if path.exists() {
                 return Some(path.clone());
             }
         }
-        
+
         // Try with version-specific names
         if let Some(ref version) = self.version_requirement {
             let versioned_names = vec![
@@ -451,7 +455,7 @@ impl LibBuilder {
                 format!("{}-{}.dll", self.name, version),
                 format!("lib{}.{}.dylib", self.name, version),
             ];
-            
+
             for versioned_name in versioned_names {
                 for search_path in &self.search_paths {
                     let full_path = search_path.join(&versioned_name);
@@ -461,14 +465,14 @@ impl LibBuilder {
                 }
             }
         }
-        
+
         // Try standard library names
         for search_path in &self.search_paths {
             let full_path = search_path.join(&lib_name);
             if full_path.exists() {
                 return Some(full_path);
             }
-            
+
             // Try without lib prefix on Windows
             #[cfg(target_os = "windows")]
             {
@@ -479,35 +483,40 @@ impl LibBuilder {
                 }
             }
         }
-        
+
         None
     }
-    
+
     /// Validate function signature
     fn validate_signature(&self, name: &str, sig: &FnSignature) -> Result<(), FFIError> {
         // Check for unsupported types in FFI
         for param in &sig.params {
             if !self.is_ffi_compatible_type(param) {
-                return Err(FFIError::ValidationError(
-                    format!("Function '{}' has incompatible parameter type for FFI", name)
-                ));
+                return Err(FFIError::ValidationError(format!(
+                    "Function '{}' has incompatible parameter type for FFI",
+                    name
+                )));
             }
         }
-        
+
         if !self.is_ffi_compatible_type(&sig.returns) {
-            return Err(FFIError::ValidationError(
-                format!("Function '{}' has incompatible return type for FFI", name)
-            ));
+            return Err(FFIError::ValidationError(format!(
+                "Function '{}' has incompatible return type for FFI",
+                name
+            )));
         }
-        
+
         // Warn about variadic functions without safety checks
         if sig.variadic && self.safety_checks && sig.safety != FunctionSafety::Unsafe {
-            eprintln!("Warning: Variadic function '{}' should be marked as Unsafe", name);
+            eprintln!(
+                "Warning: Variadic function '{}' should be marked as Unsafe",
+                name
+            );
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate type mapping
     fn validate_type_mapping(&self, name: &str, mapping: &TypeMapping) -> Result<(), FFIError> {
         // Ensure the Zen type is compatible with the C type
@@ -516,9 +525,10 @@ impl LibBuilder {
                 // Check that all fields are FFI-compatible
                 for (field_name, field_type) in fields {
                     if !self.is_ffi_compatible_type(field_type) {
-                        return Err(FFIError::ValidationError(
-                            format!("Struct '{}' field '{}' has incompatible type for FFI", name, field_name)
-                        ));
+                        return Err(FFIError::ValidationError(format!(
+                            "Struct '{}' field '{}' has incompatible type for FFI",
+                            name, field_name
+                        )));
                     }
                 }
             }
@@ -527,44 +537,53 @@ impl LibBuilder {
             }
             _ => {
                 if !self.is_ffi_compatible_type(&mapping.zen_type) {
-                    return Err(FFIError::ValidationError(
-                        format!("Type mapping '{}' has incompatible type for FFI", name)
-                    ));
+                    return Err(FFIError::ValidationError(format!(
+                        "Type mapping '{}' has incompatible type for FFI",
+                        name
+                    )));
                 }
             }
         }
         Ok(())
     }
-    
+
     /// Check if a type is FFI-compatible
     fn is_ffi_compatible_type(&self, ast_type: &AstType) -> bool {
         match ast_type {
             // Primitive types are always FFI-compatible
-            AstType::Void | AstType::Bool |
-            AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 |
-            AstType::U8 | AstType::U16 | AstType::U32 | AstType::U64 |
-            AstType::F32 | AstType::F64 => true,
-            
+            AstType::Void
+            | AstType::Bool
+            | AstType::I8
+            | AstType::I16
+            | AstType::I32
+            | AstType::I64
+            | AstType::U8
+            | AstType::U16
+            | AstType::U32
+            | AstType::U64
+            | AstType::F32
+            | AstType::F64 => true,
+
             // Pointers are FFI-compatible
             AstType::Ptr(_) => true,
-            
+
             // Strings need special handling but are allowed
             AstType::String => true,
-            
+
             // Arrays with known size are OK
             AstType::Array { .. } => true,
-            
+
             // Fixed arrays with known size are OK
             AstType::FixedArray { .. } => true,
-            
+
             // Function pointers are FFI-compatible
             AstType::FunctionPointer { .. } => true,
-            
+
             // Structs and enums need to be in type_mappings
             AstType::Struct { name, .. } | AstType::Enum { name, .. } => {
                 self.type_mappings.contains_key(name)
             }
-            
+
             // Other types may not be FFI-compatible
             _ => false,
         }
@@ -590,8 +609,8 @@ pub enum FunctionSafety {
 
 impl FnSignature {
     pub fn new(params: Vec<AstType>, returns: AstType) -> Self {
-        Self { 
-            params, 
+        Self {
+            params,
             returns,
             variadic: false,
             safety: FunctionSafety::Unsafe,
@@ -632,65 +651,70 @@ impl Library {
     /// Create standard marshallers for common types
     pub fn create_standard_marshallers() -> HashMap<String, TypeMarshaller> {
         let mut marshallers = HashMap::new();
-        
+
         // String marshaller (Zen string <-> C string)
-        marshallers.insert("string".to_string(), TypeMarshaller {
-            to_c: Arc::new(|data| {
-                // Convert Zen string to null-terminated C string
-                let mut result = data.to_vec();
-                if !result.ends_with(&[0]) {
-                    result.push(0);
-                }
-                result
-            }),
-            from_c: Arc::new(|data| {
-                // Convert C string to Zen string (remove null terminator)
-                let mut result = data.to_vec();
-                if let Some(pos) = result.iter().position(|&x| x == 0) {
-                    result.truncate(pos);
-                }
-                result
-            }),
-        });
-        
+        marshallers.insert(
+            "string".to_string(),
+            TypeMarshaller {
+                to_c: Arc::new(|data| {
+                    // Convert Zen string to null-terminated C string
+                    let mut result = data.to_vec();
+                    if !result.ends_with(&[0]) {
+                        result.push(0);
+                    }
+                    result
+                }),
+                from_c: Arc::new(|data| {
+                    // Convert C string to Zen string (remove null terminator)
+                    let mut result = data.to_vec();
+                    if let Some(pos) = result.iter().position(|&x| x == 0) {
+                        result.truncate(pos);
+                    }
+                    result
+                }),
+            },
+        );
+
         // Bool marshaller (ensure 0 or 1)
-        marshallers.insert("bool".to_string(), TypeMarshaller {
-            to_c: Arc::new(|data| {
-                if data.is_empty() {
-                    vec![0]
-                } else {
-                    vec![if data[0] != 0 { 1 } else { 0 }]
-                }
-            }),
-            from_c: Arc::new(|data| {
-                if data.is_empty() {
-                    vec![0]
-                } else {
-                    vec![if data[0] != 0 { 1 } else { 0 }]
-                }
-            }),
-        });
-        
+        marshallers.insert(
+            "bool".to_string(),
+            TypeMarshaller {
+                to_c: Arc::new(|data| {
+                    if data.is_empty() {
+                        vec![0]
+                    } else {
+                        vec![if data[0] != 0 { 1 } else { 0 }]
+                    }
+                }),
+                from_c: Arc::new(|data| {
+                    if data.is_empty() {
+                        vec![0]
+                    } else {
+                        vec![if data[0] != 0 { 1 } else { 0 }]
+                    }
+                }),
+            },
+        );
+
         marshallers
     }
-    
+
     /// Load the dynamic library
     pub fn load(&mut self) -> Result<(), FFIError> {
         // Apply load flags if needed
         #[cfg(unix)]
         let lib_result = if self.load_flags.lazy_binding {
-            unsafe { 
+            unsafe {
                 use libloading::os::unix::{Library as UnixLib, RTLD_LAZY};
-                UnixLib::open(Some(&self.path), RTLD_LAZY)
-                    .map(|lib| DynLib::from(lib))
+                UnixLib::open(Some(&self.path), RTLD_LAZY).map(|lib| DynLib::from(lib))
             }
         } else {
             unsafe { DynLib::new(&self.path) }
         };
-        
+
         #[cfg(not(unix))]
         let lib_result = unsafe { DynLib::new(&self.path) };
-        
+
         match lib_result {
             Ok(lib) => {
                 self.handle = Some(lib);
@@ -701,16 +725,23 @@ impl Library {
             Err(e) => Err(FFIError::LibraryNotFound {
                 path: self.path.display().to_string(),
                 error: e.to_string(),
-            })
+            }),
         }
     }
-    
+
     /// Verify library version if required
     fn verify_version(&self) -> Result<(), FFIError> {
         if let Some(required_version) = &self.version_requirement {
             // Try to call a standard version function if it exists
-            if let Some(version_fn_sig) = self.functions.get("version").or_else(|| self.functions.get("get_version")) {
-                if let Ok(_version_fn) = self.get_function("version").or_else(|_| self.get_function("get_version")) {
+            if let Some(version_fn_sig) = self
+                .functions
+                .get("version")
+                .or_else(|| self.functions.get("get_version"))
+            {
+                if let Ok(_version_fn) = self
+                    .get_function("version")
+                    .or_else(|_| self.get_function("get_version"))
+                {
                     // Validate that the function returns a string-like type
                     match &version_fn_sig.returns {
                         AstType::String | AstType::Ptr(_) => {
@@ -727,28 +758,35 @@ impl Library {
                 }
             } else {
                 // No version function found, emit warning
-                eprintln!("Warning: Version requirement {} specified but no version function found", required_version);
+                eprintln!(
+                    "Warning: Version requirement {} specified but no version function found",
+                    required_version
+                );
             }
         }
         Ok(())
     }
-    
+
     /// Initialize callbacks
     fn initialize_callbacks(&mut self) -> Result<(), FFIError> {
         for (name, def) in &self.callbacks {
             // Set up callback trampolines for C -> Zen calls
             // Store callback metadata for runtime invocation
             // Track callback registration in stats
-            
+
             // Validate callback signature
             if def.signature.params.is_empty() {
-                return Err(FFIError::ValidationError(
-                    format!("Callback {} must have at least one parameter", name)
-                ));
+                return Err(FFIError::ValidationError(format!(
+                    "Callback {} must have at least one parameter",
+                    name
+                )));
             }
-            
-            eprintln!("Callback {} initialized with {} parameters", 
-                     name, def.signature.params.len());
+
+            eprintln!(
+                "Callback {} initialized with {} parameters",
+                name,
+                def.signature.params.len()
+            );
         }
         Ok(())
     }
@@ -757,12 +795,13 @@ impl Library {
     pub fn get_function(&self, name: &str) -> Result<*mut c_void, FFIError> {
         // Check for aliases
         let actual_name = self.aliases.get(name).map(|s| s.as_str()).unwrap_or(name);
-        
-        let handle = self.handle.as_ref()
-            .ok_or(FFIError::LibraryNotLoaded)?;
+
+        let handle = self.handle.as_ref().ok_or(FFIError::LibraryNotLoaded)?;
 
         // Verify function signature exists
-        let signature = self.functions.get(actual_name)
+        let signature = self
+            .functions
+            .get(actual_name)
             .ok_or_else(|| FFIError::SymbolNotFound(actual_name.to_string()))?;
 
         // Perform safety checks if enabled
@@ -771,8 +810,8 @@ impl Library {
         }
 
         // Load the symbol
-        let _symbol_name = CString::new(name)
-            .map_err(|_| FFIError::InvalidSymbolName(name.to_string()))?;
+        let _symbol_name =
+            CString::new(name).map_err(|_| FFIError::InvalidSymbolName(name.to_string()))?;
 
         unsafe {
             match handle.get::<*mut c_void>(actual_name.as_bytes()) {
@@ -782,7 +821,7 @@ impl Library {
                         stats.record_call(actual_name, true);
                     }
                     Ok(*sym)
-                },
+                }
                 Err(_e) => {
                     let error = FFIError::SymbolNotFound(actual_name.to_string());
                     // Call error handler if present
@@ -811,7 +850,7 @@ impl Library {
                     }
                 }
                 Ok(())
-            },
+            }
             FunctionSafety::Unsafe => {
                 // Unsafe functions always pass validation but could log warning
                 Ok(())
@@ -854,94 +893,106 @@ impl Library {
         let _func_ptr = self.get_function(name)?;
         // This would need platform-specific implementation
         // For now, return an error
-        Err(FFIError::InvalidSymbolName("Direct calling not yet implemented".to_string()))
+        Err(FFIError::InvalidSymbolName(
+            "Direct calling not yet implemented".to_string(),
+        ))
     }
-    
+
     /// Get the library name
     pub fn name(&self) -> &str {
         &self.name
     }
-    
+
     /// Get the library path
     pub fn path(&self) -> &std::path::Path {
         &self.path
     }
-    
+
     /// Get the functions map
     pub fn functions(&self) -> &HashMap<String, FnSignature> {
         &self.functions
     }
-    
+
     /// Get the constants map
     pub fn constants(&self) -> &HashMap<String, AstType> {
         &self.constants
     }
-    
+
     /// Get the type mappings
     pub fn type_mappings(&self) -> &HashMap<String, TypeMapping> {
         &self.type_mappings
     }
-    
+
     /// Get the calling convention
     pub fn calling_convention(&self) -> CallingConvention {
         self.calling_convention
     }
-    
+
     /// Check if safety checks are enabled
     pub fn safety_checks(&self) -> bool {
         self.safety_checks
     }
-    
+
     /// Get version requirement
     pub fn version_requirement(&self) -> Option<&str> {
         self.version_requirement.as_deref()
     }
-    
+
     /// Get callbacks
     pub fn callbacks(&self) -> &HashMap<String, CallbackDefinition> {
         &self.callbacks
     }
-    
+
     /// Get load flags
     pub fn load_flags(&self) -> &LoadFlags {
         &self.load_flags
     }
-    
+
     /// Check if lazy loading is enabled
     pub fn lazy_loading(&self) -> bool {
         self.lazy_loading
     }
-    
+
     /// Get search paths (derived from builder, not stored in Library)
     pub fn search_paths(&self) -> Vec<PathBuf> {
         // Return default search paths as Library doesn't store them
         LibBuilder::default_search_paths()
     }
-    
+
     /// Register a callback function
-    pub fn register_callback(&mut self, name: &str, callback: Box<dyn Fn(&[u8]) -> Vec<u8>>) -> Result<(), FFIError> {
+    pub fn register_callback(
+        &mut self,
+        name: &str,
+        callback: Box<dyn Fn(&[u8]) -> Vec<u8>>,
+    ) -> Result<(), FFIError> {
         if let Some(def) = self.callbacks.get(name) {
             // Store the callback for later invocation
             // In a real implementation, this would set up proper FFI trampolines
-            
+
             // Validate the callback matches expected signature
             if self.safety_checks {
                 // Perform runtime type checking when callback is invoked
                 eprintln!("Callback {} registered with safety checks enabled", name);
             }
-            
+
             // Store callback in a registry (would be used by trampoline)
             // For now, we just acknowledge registration
             // Track callback registration in stats
-            eprintln!("Successfully registered callback {} with signature {:?}", name, def.signature);
-            
+            eprintln!(
+                "Successfully registered callback {} with signature {:?}",
+                name, def.signature
+            );
+
             // Store the actual callback for invocation
             // In production, this would integrate with the FFI layer
             drop(callback); // Placeholder - would be stored in callback registry
-            
+
             Ok(())
         } else {
-            Err(FFIError::InvalidSymbolName(format!("Unknown callback: {}", name)))
+            Err(FFIError::InvalidSymbolName(format!(
+                "Unknown callback: {}",
+                name
+            )))
         }
     }
 }
@@ -1044,25 +1095,29 @@ impl std::fmt::Display for FFIError {
         match self {
             FFIError::LibraryNotFound { path, error } => {
                 write!(f, "Library not found at '{}': {}", path, error)
-            },
+            }
             FFIError::SymbolNotFound(name) => {
                 write!(f, "Symbol '{}' not found in library", name)
-            },
+            }
             FFIError::InvalidSignature { function, reason } => {
-                write!(f, "Invalid signature for function '{}': {}", function, reason)
-            },
+                write!(
+                    f,
+                    "Invalid signature for function '{}': {}",
+                    function, reason
+                )
+            }
             FFIError::InvalidSymbolName(name) => {
                 write!(f, "Invalid symbol name: '{}'", name)
-            },
+            }
             FFIError::ValidationError(msg) => {
                 write!(f, "Validation error: {}", msg)
-            },
+            }
             FFIError::LibraryNotLoaded => {
                 write!(f, "Library not loaded")
-            },
+            }
             FFIError::CallFailed { function, error } => {
                 write!(f, "Call to function '{}' failed: {}", function, error)
-            },
+            }
         }
     }
 }
@@ -1080,7 +1135,10 @@ impl std::fmt::Debug for CallbackDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CallbackDefinition")
             .field("signature", &self.signature)
-            .field("trampoline", &self.trampoline.as_ref().map(|_| "<function>"))
+            .field(
+                "trampoline",
+                &self.trampoline.as_ref().map(|_| "<function>"),
+            )
             .finish()
     }
 }
@@ -1252,7 +1310,7 @@ pub mod types {
         // Use regular Pointer type
         AstType::Ptr(Box::new(inner))
     }
-    
+
     pub fn array(size: usize, element_type: AstType) -> AstType {
         // Use FixedArray for arrays with known size
         AstType::FixedArray {
@@ -1260,12 +1318,12 @@ pub mod types {
             size,
         }
     }
-    
+
     pub fn slice(element_type: AstType) -> AstType {
         // A slice is a dynamic array
         AstType::Array(Box::new(element_type))
     }
-    
+
     pub fn function(params: Vec<AstType>, returns: AstType) -> AstType {
         AstType::FunctionPointer {
             param_types: params,
@@ -1283,14 +1341,22 @@ mod tests {
         // Test building a library configuration
         let lib = FFI::lib("sqlite3")
             .path("/usr/lib/libsqlite3.so")
-            .function("sqlite3_open", FnSignature::new(
-                vec![types::string(), types::raw_ptr(types::raw_ptr(types::void()))],
-                types::i32(),
-            ).with_safety(FunctionSafety::Unsafe))
-            .function("sqlite3_close", FnSignature::new(
-                vec![types::raw_ptr(types::void())],
-                types::i32(),
-            ).with_safety(FunctionSafety::Unsafe))
+            .function(
+                "sqlite3_open",
+                FnSignature::new(
+                    vec![
+                        types::string(),
+                        types::raw_ptr(types::raw_ptr(types::void())),
+                    ],
+                    types::i32(),
+                )
+                .with_safety(FunctionSafety::Unsafe),
+            )
+            .function(
+                "sqlite3_close",
+                FnSignature::new(vec![types::raw_ptr(types::void())], types::i32())
+                    .with_safety(FunctionSafety::Unsafe),
+            )
             .constant("SQLITE_OK", types::i32())
             .calling_convention(CallingConvention::C)
             .safety_checks(true)
@@ -1310,15 +1376,18 @@ mod tests {
     fn test_ffi_builder_enhanced() {
         // Test enhanced builder features - with explicit path to avoid lookup
         let lib = FFI::lib("custom_lib")
-            .path("/tmp/libcustom.so")  // Use explicit path to bypass find_library
+            .path("/tmp/libcustom.so") // Use explicit path to bypass find_library
             .version("1.2.3")
             .lazy_loading(true)
             .search_path("/custom/path")
             .alias("zen_func", "c_func_impl")
-            .struct_def("Point", vec![
-                ("x".to_string(), types::f64()),
-                ("y".to_string(), types::f64()),
-            ])
+            .struct_def(
+                "Point",
+                vec![
+                    ("x".to_string(), types::f64()),
+                    ("y".to_string(), types::f64()),
+                ],
+            )
             .enum_def("Status", vec!["Ok".to_string(), "Error".to_string()])
             .build();
 
@@ -1328,43 +1397,49 @@ mod tests {
         assert!(lib.lazy_loading);
         assert_eq!(lib.version_requirement, Some("1.2.3".to_string()));
         assert!(lib.aliases.contains_key("zen_func"));
-        assert_eq!(lib.aliases.get("zen_func"), Some(&"c_func_impl".to_string()));
+        assert_eq!(
+            lib.aliases.get("zen_func"),
+            Some(&"c_func_impl".to_string())
+        );
         assert_eq!(lib.type_mappings.len(), 2);
     }
 
     #[test]
     fn test_default_lib_path() {
         let path = LibBuilder::default_lib_path("test");
-        
+
         #[cfg(target_os = "linux")]
         assert_eq!(path, PathBuf::from("libtest.so"));
-        
+
         #[cfg(target_os = "macos")]
         assert_eq!(path, PathBuf::from("libtest.dylib"));
-        
+
         #[cfg(target_os = "windows")]
         assert_eq!(path, PathBuf::from("test.dll"));
     }
-    
+
     #[test]
     fn test_ffi_builder_advanced_features() {
         // Test batch function addition
         let lib = FFI::lib("math")
             .path("/tmp/libmath.so")
-            .functions_with_prefix("math", vec![
-                ("sin", FnSignature::new(vec![types::f64()], types::f64())),
-                ("cos", FnSignature::new(vec![types::f64()], types::f64())),
-                ("tan", FnSignature::new(vec![types::f64()], types::f64())),
-            ])
+            .functions_with_prefix(
+                "math",
+                vec![
+                    ("sin", FnSignature::new(vec![types::f64()], types::f64())),
+                    ("cos", FnSignature::new(vec![types::f64()], types::f64())),
+                    ("tan", FnSignature::new(vec![types::f64()], types::f64())),
+                ],
+            )
             .build();
-        
+
         assert!(lib.is_ok());
         let lib = lib.unwrap();
         assert!(lib.functions.contains_key("math_sin"));
         assert!(lib.functions.contains_key("math_cos"));
         assert!(lib.functions.contains_key("math_tan"));
     }
-    
+
     #[test]
     fn test_opaque_types() {
         let lib = FFI::lib("opaque_test")
@@ -1372,14 +1447,14 @@ mod tests {
             .opaque_type("sqlite3")
             .opaque_type("FILE")
             .build();
-        
+
         assert!(lib.is_ok());
         let lib = lib.unwrap();
         assert_eq!(lib.type_mappings.len(), 2);
         assert!(lib.type_mappings.contains_key("sqlite3"));
         assert!(lib.type_mappings.contains_key("FILE"));
     }
-    
+
     #[test]
     fn test_c_declaration_parsing() {
         let lib = FFI::lib("c_test")
@@ -1388,27 +1463,27 @@ mod tests {
             .function_from_c_decl("void exit(int status)")
             .function_from_c_decl("double sqrt(double x)")
             .build();
-        
+
         assert!(lib.is_ok());
         let lib = lib.unwrap();
-        
+
         // Check printf
         if let Some(printf_sig) = lib.functions.get("printf") {
             assert_eq!(printf_sig.returns, types::i32());
             assert_eq!(printf_sig.params.len(), 1);
         }
-        
+
         // Check exit
         if let Some(exit_sig) = lib.functions.get("exit") {
             assert_eq!(exit_sig.returns, types::void());
         }
-        
+
         // Check sqrt
         if let Some(sqrt_sig) = lib.functions.get("sqrt") {
             assert_eq!(sqrt_sig.returns, types::f64());
         }
     }
-    
+
     #[test]
     fn test_metadata_storage() {
         let lib = FFI::lib("metadata_test")
@@ -1417,11 +1492,17 @@ mod tests {
             .metadata("author", "Zen Team")
             .metadata("license", "MIT")
             .build();
-        
+
         assert!(lib.is_ok());
         let lib = lib.unwrap();
-        assert_eq!(lib.aliases.get("__meta_version"), Some(&"1.2.3".to_string()));
-        assert_eq!(lib.aliases.get("__meta_author"), Some(&"Zen Team".to_string()));
+        assert_eq!(
+            lib.aliases.get("__meta_version"),
+            Some(&"1.2.3".to_string())
+        );
+        assert_eq!(
+            lib.aliases.get("__meta_author"),
+            Some(&"Zen Team".to_string())
+        );
         assert_eq!(lib.aliases.get("__meta_license"), Some(&"MIT".to_string()));
     }
 }

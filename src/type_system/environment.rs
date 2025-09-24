@@ -1,6 +1,6 @@
-use crate::ast::{AstType, Function, StructDefinition, EnumDefinition, TypeParameter};
+use super::{GenericInstance, TypeSubstitution};
+use crate::ast::{AstType, EnumDefinition, Function, StructDefinition, TypeParameter};
 use std::collections::HashMap;
-use super::{TypeSubstitution, GenericInstance};
 
 #[derive(Debug, Clone)]
 pub struct TypeEnvironment {
@@ -41,7 +41,8 @@ impl TypeEnvironment {
 
     pub fn register_generic_struct(&mut self, struct_def: StructDefinition) {
         if !struct_def.type_params.is_empty() {
-            self.generic_structs.insert(struct_def.name.clone(), struct_def);
+            self.generic_structs
+                .insert(struct_def.name.clone(), struct_def);
         }
     }
 
@@ -92,13 +93,18 @@ impl TypeEnvironment {
         self.generic_enums.get(name)
     }
 
-    pub fn record_instantiation(&mut self, base_name: String, type_args: Vec<AstType>, specialized: AstType) {
+    pub fn record_instantiation(
+        &mut self,
+        base_name: String,
+        type_args: Vec<AstType>,
+        specialized: AstType,
+    ) {
         let instance = GenericInstance {
             base_name: base_name.clone(),
             type_args,
             specialized_type: specialized,
         };
-        
+
         self.instantiated_types
             .entry(base_name)
             .or_insert_with(Vec::new)
@@ -114,12 +120,16 @@ impl TypeEnvironment {
     }
 
     pub fn is_type_parameter(&self, name: &str) -> bool {
-        self.current_scope.iter().any(|scope| {
-            scope.type_params.iter().any(|param| param.name == name)
-        })
+        self.current_scope
+            .iter()
+            .any(|scope| scope.type_params.iter().any(|param| param.name == name))
     }
 
-    pub fn validate_type_args(&self, expected: &[TypeParameter], provided: &[AstType]) -> Result<(), String> {
+    pub fn validate_type_args(
+        &self,
+        expected: &[TypeParameter],
+        provided: &[AstType],
+    ) -> Result<(), String> {
         if expected.len() != provided.len() {
             return Err(format!(
                 "Type argument count mismatch: expected {}, got {}",
@@ -127,13 +137,13 @@ impl TypeEnvironment {
                 provided.len()
             ));
         }
-        
+
         for (param, _arg) in expected.iter().zip(provided.iter()) {
             if !param.constraints.is_empty() {
                 // TODO: Check trait bounds when trait system is implemented
             }
         }
-        
+
         Ok(())
     }
 }

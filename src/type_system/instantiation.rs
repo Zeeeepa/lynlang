@@ -1,5 +1,5 @@
-use crate::ast::{AstType, Function, StructDefinition, EnumDefinition, Statement, Expression};
 use super::{TypeEnvironment, TypeSubstitution};
+use crate::ast::{AstType, EnumDefinition, Expression, Function, Statement, StructDefinition};
 
 pub struct TypeInstantiator<'a> {
     env: &'a mut TypeEnvironment,
@@ -16,23 +16,24 @@ impl<'a> TypeInstantiator<'a> {
         type_args: Vec<AstType>,
     ) -> Result<Function, String> {
         self.env.validate_type_args(&func.type_params, &type_args)?;
-        
+
         let mut substitution = TypeSubstitution::new();
         for (param, arg) in func.type_params.iter().zip(type_args.iter()) {
             substitution.add(param.name.clone(), arg.clone());
         }
-        
+
         let instantiated_name = generate_instantiated_name(&func.name, &type_args);
-        
-        let instantiated_args: Vec<(String, AstType)> = func.args
+
+        let instantiated_args: Vec<(String, AstType)> = func
+            .args
             .iter()
             .map(|(name, ty)| (name.clone(), substitution.apply(ty)))
             .collect();
-        
+
         let instantiated_return = substitution.apply(&func.return_type);
-        
+
         let instantiated_body = self.instantiate_statements(&func.body, &substitution)?;
-        
+
         Ok(Function {
             name: instantiated_name,
             type_params: Vec::new(),
@@ -47,16 +48,18 @@ impl<'a> TypeInstantiator<'a> {
         struct_def: &StructDefinition,
         type_args: Vec<AstType>,
     ) -> Result<StructDefinition, String> {
-        self.env.validate_type_args(&struct_def.type_params, &type_args)?;
-        
+        self.env
+            .validate_type_args(&struct_def.type_params, &type_args)?;
+
         let mut substitution = TypeSubstitution::new();
         for (param, arg) in struct_def.type_params.iter().zip(type_args.iter()) {
             substitution.add(param.name.clone(), arg.clone());
         }
-        
+
         let instantiated_name = generate_instantiated_name(&struct_def.name, &type_args);
-        
-        let instantiated_fields = struct_def.fields
+
+        let instantiated_fields = struct_def
+            .fields
             .iter()
             .map(|field| crate::ast::StructField {
                 name: field.name.clone(),
@@ -65,12 +68,13 @@ impl<'a> TypeInstantiator<'a> {
                 default_value: field.default_value.clone(),
             })
             .collect();
-        
-        let instantiated_methods = struct_def.methods
+
+        let instantiated_methods = struct_def
+            .methods
             .iter()
             .map(|method| self.instantiate_method(method, &substitution))
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         Ok(StructDefinition {
             name: instantiated_name,
             type_params: Vec::new(),
@@ -84,28 +88,31 @@ impl<'a> TypeInstantiator<'a> {
         enum_def: &EnumDefinition,
         type_args: Vec<AstType>,
     ) -> Result<EnumDefinition, String> {
-        self.env.validate_type_args(&enum_def.type_params, &type_args)?;
-        
+        self.env
+            .validate_type_args(&enum_def.type_params, &type_args)?;
+
         let mut substitution = TypeSubstitution::new();
         for (param, arg) in enum_def.type_params.iter().zip(type_args.iter()) {
             substitution.add(param.name.clone(), arg.clone());
         }
-        
+
         let instantiated_name = generate_instantiated_name(&enum_def.name, &type_args);
-        
-        let instantiated_variants = enum_def.variants
+
+        let instantiated_variants = enum_def
+            .variants
             .iter()
             .map(|variant| crate::ast::EnumVariant {
                 name: variant.name.clone(),
                 payload: variant.payload.as_ref().map(|ty| substitution.apply(ty)),
             })
             .collect();
-        
-        let instantiated_methods = enum_def.methods
+
+        let instantiated_methods = enum_def
+            .methods
             .iter()
             .map(|method| self.instantiate_method(method, &substitution))
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         Ok(EnumDefinition {
             name: instantiated_name,
             type_params: Vec::new(),
@@ -120,14 +127,15 @@ impl<'a> TypeInstantiator<'a> {
         method: &Function,
         substitution: &TypeSubstitution,
     ) -> Result<Function, String> {
-        let instantiated_args: Vec<(String, AstType)> = method.args
+        let instantiated_args: Vec<(String, AstType)> = method
+            .args
             .iter()
             .map(|(name, ty)| (name.clone(), substitution.apply(ty)))
             .collect();
-        
+
         let instantiated_return = substitution.apply(&method.return_type);
         let instantiated_body = self.instantiate_statements(&method.body, substitution)?;
-        
+
         Ok(Function {
             name: method.name.clone(),
             type_params: Vec::new(),
@@ -142,7 +150,8 @@ impl<'a> TypeInstantiator<'a> {
         statements: &[Statement],
         substitution: &TypeSubstitution,
     ) -> Result<Vec<Statement>, String> {
-        statements.iter()
+        statements
+            .iter()
             .map(|stmt| self.instantiate_statement(stmt, substitution))
             .collect()
     }
@@ -153,26 +162,34 @@ impl<'a> TypeInstantiator<'a> {
         substitution: &TypeSubstitution,
     ) -> Result<Statement, String> {
         match statement {
-            Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } => {
-                Ok(Statement::VariableDeclaration {
-                    name: name.clone(),
-                    type_: type_.as_ref().map(|t| substitution.apply(t)),
-                    initializer: initializer.as_ref().map(|e| self.instantiate_expression(e, substitution)),
-                    is_mutable: *is_mutable,
-                    declaration_type: declaration_type.clone(),
-                })
-            }
-            Statement::Expression(expr) => {
-                Ok(Statement::Expression(self.instantiate_expression(expr, substitution)))
-            }
-            Statement::Return(expr) => {
-                Ok(Statement::Return(self.instantiate_expression(expr, substitution)))
-            }
+            Statement::VariableDeclaration {
+                name,
+                type_,
+                initializer,
+                is_mutable,
+                declaration_type,
+            } => Ok(Statement::VariableDeclaration {
+                name: name.clone(),
+                type_: type_.as_ref().map(|t| substitution.apply(t)),
+                initializer: initializer
+                    .as_ref()
+                    .map(|e| self.instantiate_expression(e, substitution)),
+                is_mutable: *is_mutable,
+                declaration_type: declaration_type.clone(),
+            }),
+            Statement::Expression(expr) => Ok(Statement::Expression(
+                self.instantiate_expression(expr, substitution),
+            )),
+            Statement::Return(expr) => Ok(Statement::Return(
+                self.instantiate_expression(expr, substitution),
+            )),
             Statement::Loop { kind, label, body } => {
                 use crate::ast::LoopKind;
                 let new_kind = match kind {
                     LoopKind::Infinite => LoopKind::Infinite,
-                    LoopKind::Condition(expr) => LoopKind::Condition(self.instantiate_expression(expr, substitution)),
+                    LoopKind::Condition(expr) => {
+                        LoopKind::Condition(self.instantiate_expression(expr, substitution))
+                    }
                 };
                 Ok(Statement::Loop {
                     kind: new_kind,
@@ -184,52 +201,61 @@ impl<'a> TypeInstantiator<'a> {
         }
     }
 
-    fn instantiate_expression(&mut self, expr: &Expression, substitution: &TypeSubstitution) -> Expression {
+    fn instantiate_expression(
+        &mut self,
+        expr: &Expression,
+        substitution: &TypeSubstitution,
+    ) -> Expression {
         match expr {
-            Expression::FunctionCall { name, args } => {
-                Expression::FunctionCall {
-                    name: name.clone(),
-                    args: args.iter().map(|a| self.instantiate_expression(a, substitution)).collect(),
-                }
-            }
-            Expression::BinaryOp { left, op, right } => {
-                Expression::BinaryOp {
-                    left: Box::new(self.instantiate_expression(left, substitution)),
-                    op: op.clone(),
-                    right: Box::new(self.instantiate_expression(right, substitution)),
-                }
-            }
-            Expression::StructLiteral { name, fields } => {
-                Expression::StructLiteral {
-                    name: name.clone(),
-                    fields: fields.iter().map(|(n, e)| (n.clone(), self.instantiate_expression(e, substitution))).collect(),
-                }
-            }
-            Expression::MemberAccess { object, member } => {
-                Expression::MemberAccess {
-                    object: Box::new(self.instantiate_expression(object, substitution)),
-                    member: member.clone(),
-                }
-            }
-            Expression::ArrayLiteral(items) => {
-                Expression::ArrayLiteral(items.iter().map(|e| self.instantiate_expression(e, substitution)).collect())
-            }
+            Expression::FunctionCall { name, args } => Expression::FunctionCall {
+                name: name.clone(),
+                args: args
+                    .iter()
+                    .map(|a| self.instantiate_expression(a, substitution))
+                    .collect(),
+            },
+            Expression::BinaryOp { left, op, right } => Expression::BinaryOp {
+                left: Box::new(self.instantiate_expression(left, substitution)),
+                op: op.clone(),
+                right: Box::new(self.instantiate_expression(right, substitution)),
+            },
+            Expression::StructLiteral { name, fields } => Expression::StructLiteral {
+                name: name.clone(),
+                fields: fields
+                    .iter()
+                    .map(|(n, e)| (n.clone(), self.instantiate_expression(e, substitution)))
+                    .collect(),
+            },
+            Expression::MemberAccess { object, member } => Expression::MemberAccess {
+                object: Box::new(self.instantiate_expression(object, substitution)),
+                member: member.clone(),
+            },
+            Expression::ArrayLiteral(items) => Expression::ArrayLiteral(
+                items
+                    .iter()
+                    .map(|e| self.instantiate_expression(e, substitution))
+                    .collect(),
+            ),
             Expression::Dereference(expr) => {
                 Expression::Dereference(Box::new(self.instantiate_expression(expr, substitution)))
             }
             Expression::AddressOf(expr) => {
                 Expression::AddressOf(Box::new(self.instantiate_expression(expr, substitution)))
             }
-            Expression::QuestionMatch { scrutinee, arms } => {
-                Expression::QuestionMatch {
-                    scrutinee: Box::new(self.instantiate_expression(scrutinee, substitution)),
-                    arms: arms.iter().map(|arm| crate::ast::MatchArm {
+            Expression::QuestionMatch { scrutinee, arms } => Expression::QuestionMatch {
+                scrutinee: Box::new(self.instantiate_expression(scrutinee, substitution)),
+                arms: arms
+                    .iter()
+                    .map(|arm| crate::ast::MatchArm {
                         pattern: arm.pattern.clone(),
-                        guard: arm.guard.as_ref().map(|g| self.instantiate_expression(g, substitution)),
+                        guard: arm
+                            .guard
+                            .as_ref()
+                            .map(|g| self.instantiate_expression(g, substitution)),
                         body: self.instantiate_expression(&arm.body, substitution),
-                    }).collect(),
-                }
-            }
+                    })
+                    .collect(),
+            },
             _ => expr.clone(),
         }
     }
@@ -239,7 +265,7 @@ fn generate_instantiated_name(base_name: &str, type_args: &[AstType]) -> String 
     if type_args.is_empty() {
         return base_name.to_string();
     }
-    
+
     let type_names: Vec<String> = type_args.iter().map(type_to_string).collect();
     format!("{}_{}", base_name, type_names.join("_"))
 }

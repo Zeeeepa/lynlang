@@ -1,4 +1,4 @@
-use crate::ast::{AstType, Expression, Pattern, EnumVariant};
+use crate::ast::{AstType, EnumVariant, Expression, Pattern};
 
 /// Result<T, E> type for error handling
 pub fn create_result_type() -> AstType {

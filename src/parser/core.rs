@@ -37,14 +37,14 @@ impl<'a> Parser<'a> {
     pub fn debug_peek_token(&self) -> &Token {
         &self.peek_token
     }
-    
+
     /// Check if the current position looks like an import statement
     pub fn is_import_statement(&self) -> bool {
         // Check for @std imports
         if self.current_token == Token::AtStd {
             return true;
         }
-        
+
         // Check for identifiers that might be followed by := @std or .import()
         if let Token::Identifier(_) = self.current_token {
             if self.peek_token == Token::Symbol(':') {
@@ -52,14 +52,14 @@ impl<'a> Parser<'a> {
                 return true;
             }
         }
-        
+
         false
     }
-    
+
     /// Check if a statement contains an import
     pub fn is_import_in_statement(&self, stmt: &crate::ast::Statement) -> bool {
         use crate::ast::Statement;
-        
+
         match stmt {
             Statement::VariableDeclaration { initializer, .. } => {
                 if let Some(expr) = initializer {
@@ -68,14 +68,14 @@ impl<'a> Parser<'a> {
                     false
                 }
             }
-            _ => false
+            _ => false,
         }
     }
-    
+
     /// Check if an expression is an import expression
     pub fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {
         use crate::ast::Expression;
-        
+
         match expr {
             Expression::MemberAccess { object, member } => {
                 // Check if it's @std.something or build.import()
@@ -96,7 +96,7 @@ impl<'a> Parser<'a> {
                 // Check for direct @std references
                 name == "@std" || name.starts_with("@std")
             }
-            _ => false
+            _ => false,
         }
     }
 }

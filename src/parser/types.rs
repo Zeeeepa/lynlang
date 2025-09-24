@@ -9,7 +9,7 @@ impl<'a> Parser<'a> {
             Token::Identifier(type_name) => {
                 let mut type_name = type_name.clone();
                 self.next_token();
-                
+
                 // Check for member access in type names (e.g., FFI.Library)
                 while self.current_token == Token::Symbol('.') {
                     self.next_token(); // consume '.'
@@ -23,7 +23,7 @@ impl<'a> Parser<'a> {
                         ));
                     }
                 }
-                
+
                 match type_name.as_str() {
                     "i8" => Ok(AstType::I8),
                     "i16" => Ok(AstType::I16),
@@ -105,10 +105,10 @@ impl<'a> Parser<'a> {
                         // Vec<T, size> - Fixed-size vector with compile-time size
                         if self.current_token == Token::Operator("<".to_string()) {
                             self.next_token();
-                            
+
                             // Parse element type
                             let element_type = self.parse_type()?;
-                            
+
                             // Expect comma
                             if self.current_token != Token::Symbol(',') {
                                 return Err(CompileError::SyntaxError(
@@ -117,7 +117,7 @@ impl<'a> Parser<'a> {
                                 ));
                             }
                             self.next_token();
-                            
+
                             // Parse size (must be integer literal)
                             let size = match &self.current_token {
                                 Token::Integer(size_str) => {
@@ -136,7 +136,7 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            
+
                             if self.current_token != Token::Operator(">".to_string()) {
                                 return Err(CompileError::SyntaxError(
                                     "Expected '>' after Vec size".to_string(),
@@ -144,7 +144,7 @@ impl<'a> Parser<'a> {
                                 ));
                             }
                             self.next_token();
-                            
+
                             Ok(AstType::Vec {
                                 element_type: Box::new(element_type),
                                 size,
@@ -161,10 +161,10 @@ impl<'a> Parser<'a> {
                         if self.current_token == Token::Operator("<".to_string()) {
                             self.next_token();
                             let mut element_types = Vec::new();
-                            
+
                             loop {
                                 element_types.push(self.parse_type()?);
-                                
+
                                 if self.current_token == Token::Operator(">".to_string()) {
                                     self.next_token();
                                     break;
@@ -177,7 +177,7 @@ impl<'a> Parser<'a> {
                                     ));
                                 }
                             }
-                            
+
                             Ok(AstType::DynVec {
                                 element_types,
                                 allocator_type: None, // Allocator is specified at construction time
@@ -194,10 +194,10 @@ impl<'a> Parser<'a> {
                         if self.current_token == Token::Operator("<".to_string()) {
                             self.next_token();
                             let mut type_args = Vec::new();
-                            
+
                             loop {
                                 type_args.push(self.parse_type()?);
-                                
+
                                 if self.current_token == Token::Operator(">".to_string()) {
                                     self.next_token();
                                     break;
@@ -210,7 +210,7 @@ impl<'a> Parser<'a> {
                                     ));
                                 }
                             }
-                            
+
                             Ok(AstType::Generic {
                                 name: type_name,
                                 type_args,
@@ -229,11 +229,11 @@ impl<'a> Parser<'a> {
                 // Array type: [T] (dynamic array) or [T; N] (fixed-size array)
                 self.next_token();
                 let element_type = self.parse_type()?;
-                
+
                 // Check for semicolon to determine if it's a fixed-size array
                 if self.current_token == Token::Symbol(';') {
                     self.next_token();
-                    
+
                     // Parse the size (must be an integer literal for now)
                     match &self.current_token {
                         Token::Integer(size_str) => {
@@ -244,7 +244,7 @@ impl<'a> Parser<'a> {
                                 )
                             })?;
                             self.next_token();
-                            
+
                             if self.current_token != Token::Symbol(']') {
                                 return Err(CompileError::SyntaxError(
                                     "Expected ']' after array size".to_string(),
@@ -252,7 +252,7 @@ impl<'a> Parser<'a> {
                                 ));
                             }
                             self.next_token();
-                            Ok(AstType::FixedArray { 
+                            Ok(AstType::FixedArray {
                                 element_type: Box::new(element_type),
                                 size,
                             })
@@ -260,7 +260,7 @@ impl<'a> Parser<'a> {
                         _ => Err(CompileError::SyntaxError(
                             "Expected integer literal for array size".to_string(),
                             Some(self.current_span.clone()),
-                        ))
+                        )),
                     }
                 } else if self.current_token == Token::Symbol(']') {
                     // Dynamic array [T]
@@ -276,17 +276,17 @@ impl<'a> Parser<'a> {
             Token::Symbol('*') => {
                 // Pointer type: *T or function pointer *(params) return_type
                 self.next_token();
-                
+
                 // Check if it's a function pointer
                 if self.current_token == Token::Symbol('(') {
                     // Function pointer: *(param_types) return_type
                     self.next_token();
                     let mut param_types = Vec::new();
-                    
+
                     // Parse parameter types
                     while self.current_token != Token::Symbol(')') {
                         param_types.push(self.parse_type()?);
-                        
+
                         if self.current_token == Token::Symbol(',') {
                             self.next_token();
                         } else if self.current_token != Token::Symbol(')') {
@@ -296,13 +296,13 @@ impl<'a> Parser<'a> {
                             ));
                         }
                     }
-                    
+
                     // Skip ')'
                     self.next_token();
-                    
+
                     // Parse return type
                     let return_type = self.parse_type()?;
-                    
+
                     Ok(AstType::FunctionPointer {
                         param_types,
                         return_type: Box::new(return_type),
@@ -316,17 +316,17 @@ impl<'a> Parser<'a> {
             Token::Operator(op) if op == "*" => {
                 // Pointer type: *T (operator version)
                 self.next_token();
-                
+
                 // Check if it's a function pointer
                 if self.current_token == Token::Symbol('(') {
                     // Function pointer: *(param_types) return_type
                     self.next_token();
                     let mut param_types = Vec::new();
-                    
+
                     // Parse parameter types
                     while self.current_token != Token::Symbol(')') {
                         param_types.push(self.parse_type()?);
-                        
+
                         if self.current_token == Token::Symbol(',') {
                             self.next_token();
                         } else if self.current_token != Token::Symbol(')') {
@@ -336,13 +336,13 @@ impl<'a> Parser<'a> {
                             ));
                         }
                     }
-                    
+
                     // Skip ')'
                     self.next_token();
-                    
+
                     // Parse return type
                     let return_type = self.parse_type()?;
-                    
+
                     Ok(AstType::FunctionPointer {
                         param_types,
                         return_type: Box::new(return_type),
@@ -357,13 +357,13 @@ impl<'a> Parser<'a> {
                 // Function type: (params) ReturnType (for behaviors)
                 self.next_token();
                 let mut param_types = Vec::new();
-                
+
                 // Parse parameter types
                 while self.current_token != Token::Symbol(')') {
                     // Check if it's a parameter with name (name: Type)
                     if let Token::Identifier(param_name) = &self.current_token {
                         let name = param_name.clone();
-                        
+
                         // Special case for "self" parameter - doesn't need a type
                         if name == "self" {
                             self.next_token();
@@ -375,7 +375,7 @@ impl<'a> Parser<'a> {
                             });
                         } else {
                             self.next_token();
-                            
+
                             // Expect colon after parameter name
                             if self.current_token == Token::Symbol(':') {
                                 self.next_token();
@@ -383,7 +383,8 @@ impl<'a> Parser<'a> {
                             } else {
                                 // It was actually a type name, go back
                                 return Err(CompileError::SyntaxError(
-                                    "Expected ':' after parameter name in function type".to_string(),
+                                    "Expected ':' after parameter name in function type"
+                                        .to_string(),
                                     Some(self.current_span.clone()),
                                 ));
                             }
@@ -392,7 +393,7 @@ impl<'a> Parser<'a> {
                         // Just parse the type directly
                         param_types.push(self.parse_type()?);
                     }
-                    
+
                     if self.current_token == Token::Symbol(',') {
                         self.next_token();
                     } else if self.current_token != Token::Symbol(')') {
@@ -402,13 +403,13 @@ impl<'a> Parser<'a> {
                         ));
                     }
                 }
-                
+
                 // Skip ')'
                 self.next_token();
-                
+
                 // Parse return type
                 let return_type = self.parse_type()?;
-                
+
                 Ok(AstType::FunctionPointer {
                     param_types,
                     return_type: Box::new(return_type),
@@ -426,13 +427,13 @@ impl<'a> Parser<'a> {
             )),
         }
     }
-    
+
     pub fn parse_type_alias(&mut self) -> Result<crate::ast::TypeAlias> {
         use crate::ast::{TypeAlias, TypeParameter};
-        
+
         // Skip 'type' keyword
         self.next_token();
-        
+
         // Get alias name
         let name = if let Token::Identifier(name) = &self.current_token {
             name.clone()
@@ -443,7 +444,7 @@ impl<'a> Parser<'a> {
             ));
         };
         self.next_token();
-        
+
         // Parse optional generic type parameters
         let mut type_params = Vec::new();
         if self.current_token == Token::Operator("<".to_string()) {
@@ -455,7 +456,7 @@ impl<'a> Parser<'a> {
                         constraints: Vec::new(),
                     });
                     self.next_token();
-                    
+
                     if self.current_token == Token::Operator(">".to_string()) {
                         self.next_token();
                         break;
@@ -475,7 +476,7 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        
+
         // Expect ':' for type definition
         if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
@@ -484,10 +485,10 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         // Parse the target type
         let target_type = self.parse_type()?;
-        
+
         Ok(TypeAlias {
             name,
             type_params,

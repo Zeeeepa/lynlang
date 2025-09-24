@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{Pattern, Expression, BinaryOperator};
+use crate::ast::{BinaryOperator, Expression, Pattern};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -14,7 +14,7 @@ impl<'a> Parser<'a> {
             Token::Integer(_) | Token::Float(_) | Token::StringLiteral(_) => {
                 // Literal pattern or range pattern
                 let expr = self.parse_expression()?;
-                
+
                 // Check for range pattern: 0..10 or 0..=10
                 if let Token::Operator(op) = &self.current_token {
                     if op == ".." || op == "..=" {
@@ -28,13 +28,13 @@ impl<'a> Parser<'a> {
                         });
                     }
                 }
-                
+
                 Ok(Pattern::Literal(expr))
             }
             Token::Symbol('.') => {
                 // Shorthand enum variant pattern: .Variant or .Variant(payload)
                 self.next_token();
-                
+
                 let variant_name = if let Token::Identifier(variant) = &self.current_token {
                     variant.clone()
                 } else {
@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
                     ));
                 };
                 self.next_token();
-                
+
                 // Check for payload pattern with arrow syntax: .Ok -> val
                 let payload = if self.current_token == Token::Operator("->".to_string()) {
                     self.next_token();
@@ -64,7 +64,7 @@ impl<'a> Parser<'a> {
                 } else {
                     None
                 };
-                
+
                 // Use EnumLiteral for shorthand syntax (no enum name)
                 return Ok(Pattern::EnumLiteral {
                     variant: variant_name,
@@ -74,17 +74,17 @@ impl<'a> Parser<'a> {
             Token::Identifier(name) => {
                 let name = name.clone();
                 self.next_token();
-                
+
                 // Check if it's a wildcard pattern
                 if name == "_" {
                     return Ok(Pattern::Wildcard);
                 }
-                
+
                 // Check if it's a boolean literal pattern
                 if name == "true" || name == "false" {
                     return Ok(Pattern::Literal(Expression::Boolean(name == "true")));
                 }
-                
+
                 // Check if it's None without parentheses
                 if name == "None" {
                     return Ok(Pattern::EnumLiteral {
@@ -92,12 +92,12 @@ impl<'a> Parser<'a> {
                         payload: None,
                     });
                 }
-                
+
                 // Check if it's an enum variant without prefix (Some, None, Ok, Err)
                 // followed by payload in parentheses
                 if self.current_token == Token::Symbol('(') {
                     self.next_token();
-                    
+
                     // Check if it's empty parentheses (unit variant)
                     if self.current_token == Token::Symbol(')') {
                         self.next_token();
@@ -106,10 +106,10 @@ impl<'a> Parser<'a> {
                             payload: None,
                         });
                     }
-                    
+
                     // Parse the payload pattern
                     let payload_pattern = self.parse_pattern()?;
-                    
+
                     if self.current_token != Token::Symbol(')') {
                         return Err(CompileError::SyntaxError(
                             "Expected ')' after enum variant payload".to_string(),
@@ -117,36 +117,43 @@ impl<'a> Parser<'a> {
                         ));
                     }
                     self.next_token();
-                    
+
                     return Ok(Pattern::EnumLiteral {
                         variant: name,
                         payload: Some(Box::new(payload_pattern)),
                     });
                 }
-                
+
                 // IMPORTANT: Check for qualified enum pattern FIRST (EnumName.Variant)
                 // This must happen before checking for standalone enum variant names
-                if self.current_token == Token::Symbol('.') || self.current_token == Token::Operator("::".to_string()) {
+                if self.current_token == Token::Symbol('.')
+                    || self.current_token == Token::Operator("::".to_string())
+                {
                     let separator = self.current_token.clone();
                     self.next_token();
-                    
+
                     let variant_name = if let Token::Identifier(variant) = &self.current_token {
                         variant.clone()
                     } else {
                         return Err(CompileError::SyntaxError(
-                            format!("Expected variant name after {}", 
-                                if separator == Token::Symbol('.') { "." } else { "::" }
+                            format!(
+                                "Expected variant name after {}",
+                                if separator == Token::Symbol('.') {
+                                    "."
+                                } else {
+                                    "::"
+                                }
                             ),
                             Some(self.current_span.clone()),
                         ));
                     };
                     self.next_token();
-                    
+
                     // Check for payload pattern
                     let payload = if self.current_token == Token::Symbol('(') {
                         self.next_token();
                         let payload_pattern = self.parse_pattern()?;
-                        
+
                         if self.current_token != Token::Symbol(')') {
                             return Err(CompileError::SyntaxError(
                                 "Expected ')' after variant payload".to_string(),
@@ -154,26 +161,27 @@ impl<'a> Parser<'a> {
                             ));
                         }
                         self.next_token();
-                        
+
                         Some(Box::new(payload_pattern))
                     } else {
                         None
                     };
-                    
+
                     return Ok(Pattern::EnumVariant {
                         enum_name: name,
                         variant: variant_name,
                         payload,
                     });
                 }
-                
+
                 // Check if we're parsing an enum variant without payload
                 // Common enum variant names should be treated as enum literals
-                let is_common_enum_variant = matches!(name.as_str(), "Some" | "None" | "Ok" | "Err");
-                
+                let is_common_enum_variant =
+                    matches!(name.as_str(), "Some" | "None" | "Ok" | "Err");
+
                 // Also check if the identifier starts with a capital letter (enum convention)
                 let is_capitalized = name.chars().next().map_or(false, |c| c.is_uppercase());
-                
+
                 // If it's a known enum variant or capitalized, treat as enum pattern
                 // BUT ONLY if not followed by '.' (which would make it a qualified pattern)
                 if is_common_enum_variant || is_capitalized {
@@ -183,12 +191,12 @@ impl<'a> Parser<'a> {
                         payload: None,
                     });
                 }
-                
+
                 // Check if it's a struct pattern: StructName { field: pattern, ... }
                 if self.current_token == Token::Symbol('{') {
                     self.next_token();
                     let mut fields = vec![];
-                    
+
                     while self.current_token != Token::Symbol('}') {
                         if self.current_token == Token::Eof {
                             return Err(CompileError::SyntaxError(
@@ -196,7 +204,7 @@ impl<'a> Parser<'a> {
                                 Some(self.current_span.clone()),
                             ));
                         }
-                        
+
                         // Field name
                         let field_name = if let Token::Identifier(field) = &self.current_token {
                             field.clone()
@@ -207,7 +215,7 @@ impl<'a> Parser<'a> {
                             ));
                         };
                         self.next_token();
-                        
+
                         // Colon
                         if self.current_token != Token::Symbol(':') {
                             return Err(CompileError::SyntaxError(
@@ -216,11 +224,11 @@ impl<'a> Parser<'a> {
                             ));
                         }
                         self.next_token();
-                        
+
                         // Field pattern
                         let field_pattern = self.parse_pattern()?;
                         fields.push((field_name, field_pattern));
-                        
+
                         // Comma separator
                         if self.current_token == Token::Symbol(',') {
                             self.next_token();
@@ -231,28 +239,43 @@ impl<'a> Parser<'a> {
                             ));
                         }
                     }
-                    
+
                     self.next_token(); // consume '}'
                     return Ok(Pattern::Struct { name, fields });
                 }
-                
+
                 // Check for guard pattern with ->
                 if self.current_token == Token::Operator("->".to_string()) {
                     self.next_token();
-                    
+
                     // This could be a type pattern binding (i32 -> n) or a guard (v -> v > 100)
                     // We need to look ahead to determine which
                     let condition_expr = self.parse_expression()?;
-                    
+
                     // If the expression is a boolean comparison, it's a guard
                     // Otherwise, it's a type pattern binding
-                    if matches!(&condition_expr, 
-                        Expression::BinaryOp { op: BinaryOperator::GreaterThan, .. } |
-                        Expression::BinaryOp { op: BinaryOperator::GreaterThanEquals, .. } |
-                        Expression::BinaryOp { op: BinaryOperator::LessThan, .. } |
-                        Expression::BinaryOp { op: BinaryOperator::LessThanEquals, .. } |
-                        Expression::BinaryOp { op: BinaryOperator::Equals, .. } |
-                        Expression::BinaryOp { op: BinaryOperator::NotEquals, .. }) {
+                    if matches!(
+                        &condition_expr,
+                        Expression::BinaryOp {
+                            op: BinaryOperator::GreaterThan,
+                            ..
+                        } | Expression::BinaryOp {
+                            op: BinaryOperator::GreaterThanEquals,
+                            ..
+                        } | Expression::BinaryOp {
+                            op: BinaryOperator::LessThan,
+                            ..
+                        } | Expression::BinaryOp {
+                            op: BinaryOperator::LessThanEquals,
+                            ..
+                        } | Expression::BinaryOp {
+                            op: BinaryOperator::Equals,
+                            ..
+                        } | Expression::BinaryOp {
+                            op: BinaryOperator::NotEquals,
+                            ..
+                        }
+                    ) {
                         // It's a guard pattern
                         return Ok(Pattern::Guard {
                             pattern: Box::new(Pattern::Identifier(name.clone())),
@@ -274,7 +297,7 @@ impl<'a> Parser<'a> {
                         });
                     }
                 }
-                
+
                 // Simple identifier pattern
                 Ok(Pattern::Identifier(name))
             }
@@ -282,7 +305,7 @@ impl<'a> Parser<'a> {
                 // Parenthesized pattern or tuple pattern
                 self.next_token();
                 let mut patterns = vec![];
-                
+
                 while self.current_token != Token::Symbol(')') {
                     if self.current_token == Token::Eof {
                         return Err(CompileError::SyntaxError(
@@ -290,9 +313,9 @@ impl<'a> Parser<'a> {
                             Some(self.current_span.clone()),
                         ));
                     }
-                    
+
                     patterns.push(self.parse_pattern()?);
-                    
+
                     if self.current_token == Token::Symbol(',') {
                         self.next_token();
                     } else if self.current_token != Token::Symbol(')') {
@@ -302,9 +325,9 @@ impl<'a> Parser<'a> {
                         ));
                     }
                 }
-                
+
                 self.next_token(); // consume ')'
-                
+
                 if patterns.len() == 1 {
                     Ok(patterns.remove(0))
                 } else {
@@ -317,7 +340,7 @@ impl<'a> Parser<'a> {
                 // Or pattern: | pattern1 | pattern2
                 self.next_token();
                 let mut patterns = vec![];
-                
+
                 while let Token::Operator(op) = &self.current_token {
                     if op != "|" {
                         break;
@@ -325,14 +348,14 @@ impl<'a> Parser<'a> {
                     self.next_token();
                     patterns.push(self.parse_pattern()?);
                 }
-                
+
                 if patterns.is_empty() {
                     return Err(CompileError::SyntaxError(
                         "Expected at least one pattern after |".to_string(),
                         Some(self.current_span.clone()),
                     ));
                 }
-                
+
                 if patterns.len() == 1 {
                     Ok(patterns.remove(0))
                 } else {
@@ -345,7 +368,7 @@ impl<'a> Parser<'a> {
             )),
         }
     }
-    
+
     pub fn parse_binding_pattern(&mut self) -> Result<Pattern> {
         // Parse binding pattern: name -> pattern
         let name = if let Token::Identifier(name) = &self.current_token {
@@ -357,7 +380,7 @@ impl<'a> Parser<'a> {
             ));
         };
         self.next_token();
-        
+
         if self.current_token != Token::Operator("->".to_string()) {
             return Err(CompileError::SyntaxError(
                 "Expected '->' in binding pattern".to_string(),
@@ -365,7 +388,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         let pattern = self.parse_pattern()?;
         Ok(Pattern::Binding {
             name,

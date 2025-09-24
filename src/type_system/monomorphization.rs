@@ -1,5 +1,5 @@
-use crate::ast::{Program, Declaration, Expression, AstType, Function};
 use super::{TypeEnvironment, TypeInstantiator};
+use crate::ast::{AstType, Declaration, Expression, Function, Program};
 use crate::typechecker::TypeChecker;
 use std::collections::{HashMap, HashSet};
 
@@ -24,14 +24,14 @@ impl Monomorphizer {
 
     pub fn monomorphize_program(&mut self, program: &Program) -> Result<Program, String> {
         let mut declarations = Vec::new();
-        
+
         // eprintln!("DEBUG: Starting monomorphize_program, type checking first");
         // First, type check the program to get type information
         self.type_checker.check_program(program).map_err(|e| {
             // eprintln!("DEBUG: Type check error: {}", e);
             e.to_string()
         })?;
-        
+
         for decl in &program.declarations {
             match decl {
                 Declaration::Function(func) if !func.type_params.is_empty() => {
@@ -49,29 +49,34 @@ impl Monomorphizer {
                 _ => declarations.push(decl.clone()),
             }
         }
-        
+
         for decl in &program.declarations {
             self.collect_instantiations_from_declaration(decl)?;
         }
-        
+
         while !self.pending_instantiations.is_empty() {
             let instantiations = std::mem::take(&mut self.pending_instantiations);
-            
+
             for (name, type_args) in instantiations {
-                if self.processed_instantiations.contains(&(name.clone(), type_args.clone())) {
+                if self
+                    .processed_instantiations
+                    .contains(&(name.clone(), type_args.clone()))
+                {
                     continue;
                 }
-                
-                self.processed_instantiations.insert((name.clone(), type_args.clone()));
-                
+
+                self.processed_instantiations
+                    .insert((name.clone(), type_args.clone()));
+
                 if let Some(func) = self.env.get_generic_function(&name).cloned() {
                     let mut instantiator = TypeInstantiator::new(&mut self.env);
                     let instantiated = instantiator.instantiate_function(&func, type_args)?;
-                    
+
                     self.collect_instantiations_from_function(&instantiated)?;
-                    
+
                     declarations.push(Declaration::Function(instantiated.clone()));
-                    self.instantiated_functions.insert(instantiated.name.clone(), instantiated);
+                    self.instantiated_functions
+                        .insert(instantiated.name.clone(), instantiated);
                 } else if let Some(struct_def) = self.env.get_generic_struct(&name).cloned() {
                     let mut instantiator = TypeInstantiator::new(&mut self.env);
                     let instantiated = instantiator.instantiate_struct(&struct_def, type_args)?;
@@ -83,17 +88,20 @@ impl Monomorphizer {
                 }
             }
         }
-        
+
         // Transform all function calls to use monomorphized names
         let transformed_declarations = self.transform_declarations(declarations)?;
-        
-        Ok(Program { 
+
+        Ok(Program {
             declarations: transformed_declarations,
             statements: Vec::new(),
         })
     }
 
-    fn collect_instantiations_from_declaration(&mut self, decl: &Declaration) -> Result<(), String> {
+    fn collect_instantiations_from_declaration(
+        &mut self,
+        decl: &Declaration,
+    ) -> Result<(), String> {
         match decl {
             Declaration::Function(func) => self.collect_instantiations_from_function(func),
             Declaration::Struct(struct_def) => {
@@ -119,7 +127,10 @@ impl Monomorphizer {
         Ok(())
     }
 
-    fn collect_instantiations_from_statement(&mut self, stmt: &crate::ast::Statement) -> Result<(), String> {
+    fn collect_instantiations_from_statement(
+        &mut self,
+        stmt: &crate::ast::Statement,
+    ) -> Result<(), String> {
         match stmt {
             crate::ast::Statement::Expression(expr) => {
                 self.collect_instantiations_from_expression(expr)
@@ -127,7 +138,9 @@ impl Monomorphizer {
             crate::ast::Statement::Return(expr) => {
                 self.collect_instantiations_from_expression(expr)
             }
-            crate::ast::Statement::VariableDeclaration { initializer, type_, .. } => {
+            crate::ast::Statement::VariableDeclaration {
+                initializer, type_, ..
+            } => {
                 if let Some(init) = initializer {
                     self.collect_instantiations_from_expression(init)?;
                 }
@@ -165,7 +178,7 @@ impl Monomorphizer {
                         self.pending_instantiations.push((base_name, type_args));
                     }
                 }
-                
+
                 for arg in args {
                     self.collect_instantiations_from_expression(arg)?;
                 }
@@ -177,21 +190,26 @@ impl Monomorphizer {
                 if self.env.get_generic_struct(&base_name).is_some() {
                     // Infer type arguments from field values
                     let mut type_args = Vec::new();
-                    
+
                     for (_, field_expr) in fields {
                         // First collect instantiations from the field expression
                         self.collect_instantiations_from_expression(field_expr)?;
-                        
+
                         // Then try to infer its type for struct instantiation
                         if let Ok(field_type) = self.infer_expression_type(field_expr) {
                             // If this field's type helps determine a type parameter, add it
-                            if !type_args.contains(&field_type) && matches!(field_type, AstType::I32 | AstType::I64 | AstType::F32 | AstType::F64) {
+                            if !type_args.contains(&field_type)
+                                && matches!(
+                                    field_type,
+                                    AstType::I32 | AstType::I64 | AstType::F32 | AstType::F64
+                                )
+                            {
                                 type_args.push(field_type);
                                 break; // For now, just take the first concrete type we find
                             }
                         }
                     }
-                    
+
                     if !type_args.is_empty() {
                         self.pending_instantiations.push((base_name, type_args));
                     }
@@ -226,7 +244,11 @@ impl Monomorphizer {
                 }
                 Ok(())
             }
-            Expression::DynVecConstructor { element_types, allocator, initial_capacity } => {
+            Expression::DynVecConstructor {
+                element_types,
+                allocator,
+                initial_capacity,
+            } => {
                 // Process element types
                 for element_type in element_types {
                     self.collect_instantiations_from_type(element_type)?;
@@ -239,7 +261,11 @@ impl Monomorphizer {
                 }
                 Ok(())
             }
-            Expression::VecConstructor { element_type, initial_values, .. } => {
+            Expression::VecConstructor {
+                element_type,
+                initial_values,
+                ..
+            } => {
                 self.collect_instantiations_from_type(element_type)?;
                 if let Some(values) = initial_values {
                     for value in values {
@@ -255,20 +281,23 @@ impl Monomorphizer {
     fn collect_instantiations_from_type(&mut self, ast_type: &AstType) -> Result<(), String> {
         match ast_type {
             AstType::Generic { name, type_args } => {
-                if !type_args.is_empty() && (self.env.get_generic_struct(name).is_some() || 
-                   self.env.get_generic_enum(name).is_some()) {
-                    self.pending_instantiations.push((name.clone(), type_args.clone()));
+                if !type_args.is_empty()
+                    && (self.env.get_generic_struct(name).is_some()
+                        || self.env.get_generic_enum(name).is_some())
+                {
+                    self.pending_instantiations
+                        .push((name.clone(), type_args.clone()));
                 }
-                
+
                 for arg in type_args {
                     self.collect_instantiations_from_type(arg)?;
                 }
                 Ok(())
             }
-            AstType::Ptr(inner) | AstType::Array(inner) | 
-            AstType::Option(inner) | AstType::Ref(inner) => {
-                self.collect_instantiations_from_type(inner)
-            }
+            AstType::Ptr(inner)
+            | AstType::Array(inner)
+            | AstType::Option(inner)
+            | AstType::Ref(inner) => self.collect_instantiations_from_type(inner),
             AstType::Result { ok_type, err_type } => {
                 self.collect_instantiations_from_type(ok_type)?;
                 self.collect_instantiations_from_type(err_type)
@@ -291,26 +320,30 @@ impl Monomorphizer {
             _ => Ok(()),
         }
     }
-    
-    fn infer_type_arguments(&self, generic_func: &Function, args: &[Expression]) -> Result<Vec<AstType>, String> {
+
+    fn infer_type_arguments(
+        &self,
+        generic_func: &Function,
+        args: &[Expression],
+    ) -> Result<Vec<AstType>, String> {
         let mut type_args = Vec::new();
-        
+
         // For each type parameter in the generic function, try to infer it from the arguments
         for type_param in &generic_func.type_params {
             // Find the first parameter that uses this type parameter
             let mut inferred_type = None;
-            
+
             for (i, (_param_name, param_type)) in generic_func.args.iter().enumerate() {
                 if let Some(arg_expr) = args.get(i) {
                     // Check if this parameter uses the current type parameter
                     if self.type_uses_parameter(param_type, &type_param.name) {
                         // Infer the type from the argument expression
-                        inferred_type = Some(self.infer_expression_type(arg_expr)?);  
+                        inferred_type = Some(self.infer_expression_type(arg_expr)?);
                         break;
                     }
                 }
             }
-            
+
             if let Some(ty) = inferred_type {
                 type_args.push(ty);
             } else {
@@ -319,30 +352,29 @@ impl Monomorphizer {
                 type_args.push(AstType::I32);
             }
         }
-        
+
         Ok(type_args)
     }
-    
+
     fn type_uses_parameter(&self, ast_type: &AstType, param_name: &str) -> bool {
         match ast_type {
             AstType::Generic { name, .. } if name == param_name => true,
-            AstType::Ptr(inner) | AstType::Array(inner) | 
-            AstType::Option(inner) | AstType::Ref(inner) => {
-                self.type_uses_parameter(inner, param_name)
-            }
+            AstType::Ptr(inner)
+            | AstType::Array(inner)
+            | AstType::Option(inner)
+            | AstType::Ref(inner) => self.type_uses_parameter(inner, param_name),
             AstType::Result { ok_type, err_type } => {
-                self.type_uses_parameter(ok_type, param_name) || self.type_uses_parameter(err_type, param_name)
+                self.type_uses_parameter(ok_type, param_name)
+                    || self.type_uses_parameter(err_type, param_name)
             }
-            AstType::Vec { element_type, .. } => {
-                self.type_uses_parameter(element_type, param_name)
-            }
-            AstType::DynVec { element_types, .. } => {
-                element_types.iter().any(|t| self.type_uses_parameter(t, param_name))
-            }
+            AstType::Vec { element_type, .. } => self.type_uses_parameter(element_type, param_name),
+            AstType::DynVec { element_types, .. } => element_types
+                .iter()
+                .any(|t| self.type_uses_parameter(t, param_name)),
             _ => false,
         }
     }
-    
+
     fn infer_expression_type(&self, expr: &Expression) -> Result<AstType, String> {
         match expr {
             Expression::Integer32(_) => Ok(AstType::I32),
@@ -359,10 +391,13 @@ impl Monomorphizer {
             _ => Ok(AstType::Void),
         }
     }
-    
-    fn transform_declarations(&mut self, declarations: Vec<Declaration>) -> Result<Vec<Declaration>, String> {
+
+    fn transform_declarations(
+        &mut self,
+        declarations: Vec<Declaration>,
+    ) -> Result<Vec<Declaration>, String> {
         let mut result = Vec::new();
-        
+
         for decl in declarations {
             match decl {
                 Declaration::Function(func) => {
@@ -372,34 +407,46 @@ impl Monomorphizer {
                 other => result.push(other),
             }
         }
-        
+
         Ok(result)
     }
-    
+
     fn transform_function(&mut self, mut func: Function) -> Result<Function, String> {
         func.body = self.transform_statements(func.body)?;
         Ok(func)
     }
-    
-    fn transform_statements(&mut self, statements: Vec<crate::ast::Statement>) -> Result<Vec<crate::ast::Statement>, String> {
+
+    fn transform_statements(
+        &mut self,
+        statements: Vec<crate::ast::Statement>,
+    ) -> Result<Vec<crate::ast::Statement>, String> {
         let mut result = Vec::new();
-        
+
         for stmt in statements {
             result.push(self.transform_statement(stmt)?);
         }
-        
+
         Ok(result)
     }
-    
-    fn transform_statement(&mut self, stmt: crate::ast::Statement) -> Result<crate::ast::Statement, String> {
+
+    fn transform_statement(
+        &mut self,
+        stmt: crate::ast::Statement,
+    ) -> Result<crate::ast::Statement, String> {
         match stmt {
-            crate::ast::Statement::Expression(expr) => {
-                Ok(crate::ast::Statement::Expression(self.transform_expression(expr)?))
-            }
-            crate::ast::Statement::Return(expr) => {
-                Ok(crate::ast::Statement::Return(self.transform_expression(expr)?))
-            }
-            crate::ast::Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } => {
+            crate::ast::Statement::Expression(expr) => Ok(crate::ast::Statement::Expression(
+                self.transform_expression(expr)?,
+            )),
+            crate::ast::Statement::Return(expr) => Ok(crate::ast::Statement::Return(
+                self.transform_expression(expr)?,
+            )),
+            crate::ast::Statement::VariableDeclaration {
+                name,
+                type_,
+                initializer,
+                is_mutable,
+                declaration_type,
+            } => {
                 let transformed_init = if let Some(init) = initializer {
                     Some(self.transform_expression(init)?)
                 } else {
@@ -422,28 +469,30 @@ impl Monomorphizer {
             other => Ok(other),
         }
     }
-    
+
     fn transform_expression(&mut self, expr: Expression) -> Result<Expression, String> {
         match expr {
             Expression::FunctionCall { name, args } => {
                 // Check if this is a call to a generic function that has been monomorphized
                 let base_name = extract_base_name(&name);
-                
+
                 // Transform the arguments first
-                let transformed_args: Vec<Expression> = args.into_iter()
+                let transformed_args: Vec<Expression> = args
+                    .into_iter()
                     .map(|arg| self.transform_expression(arg))
                     .collect::<Result<Vec<_>, _>>()?;
-                
+
                 // If this is a generic function, we need to determine which instantiation to use
                 if self.env.get_generic_function(&base_name).is_some() {
                     // Infer the types of the arguments to determine the instantiation
-                    let arg_types: Vec<AstType> = transformed_args.iter()
+                    let arg_types: Vec<AstType> = transformed_args
+                        .iter()
                         .map(|arg| self.infer_expression_type(arg))
                         .collect::<Result<Vec<_>, _>>()?;
-                    
+
                     // Generate the monomorphized name
                     let instantiated_name = generate_instantiated_name(&base_name, &arg_types);
-                    
+
                     Ok(Expression::FunctionCall {
                         name: instantiated_name,
                         args: transformed_args,
@@ -455,47 +504,52 @@ impl Monomorphizer {
                     })
                 }
             }
-            Expression::BinaryOp { left, op, right } => {
-                Ok(Expression::BinaryOp {
-                    left: Box::new(self.transform_expression(*left)?),
-                    op,
-                    right: Box::new(self.transform_expression(*right)?),
-                })
-            }
+            Expression::BinaryOp { left, op, right } => Ok(Expression::BinaryOp {
+                left: Box::new(self.transform_expression(*left)?),
+                op,
+                right: Box::new(self.transform_expression(*right)?),
+            }),
             Expression::StructLiteral { name, fields } => {
                 // Transform field expressions
-                let transformed_fields: Vec<(String, Expression)> = fields.into_iter()
+                let transformed_fields: Vec<(String, Expression)> = fields
+                    .into_iter()
                     .map(|(field_name, field_expr)| {
                         self.transform_expression(field_expr)
                             .map(|expr| (field_name, expr))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                
+
                 // Check if this is a generic struct that needs monomorphization
                 let base_name = extract_base_name(&name);
                 if self.env.get_generic_struct(&base_name).is_some() {
                     // Infer types from field values to determine the instantiation
                     // For now, we'll use a simplified approach that looks for specific patterns
                     // This should be enhanced with proper type inference
-                    
+
                     // Try to infer the type from the fields
                     if let Some(_struct_def) = self.env.get_generic_struct(&base_name).cloned() {
                         // Collect type arguments based on field types
                         let mut type_args = Vec::new();
-                        
+
                         // Simple heuristic: infer from field expressions
                         for (_field_name, field_expr) in &transformed_fields {
                             if let Ok(field_type) = self.infer_expression_type(field_expr) {
                                 // If this field's type helps determine a type parameter, add it
-                                if !type_args.contains(&field_type) && matches!(field_type, AstType::I32 | AstType::I64 | AstType::F32 | AstType::F64) {
+                                if !type_args.contains(&field_type)
+                                    && matches!(
+                                        field_type,
+                                        AstType::I32 | AstType::I64 | AstType::F32 | AstType::F64
+                                    )
+                                {
                                     type_args.push(field_type);
                                     break; // For now, just take the first concrete type we find
                                 }
                             }
                         }
-                        
+
                         if !type_args.is_empty() {
-                            let instantiated_name = generate_instantiated_name(&base_name, &type_args);
+                            let instantiated_name =
+                                generate_instantiated_name(&base_name, &type_args);
                             return Ok(Expression::StructLiteral {
                                 name: instantiated_name,
                                 fields: transformed_fields,
@@ -503,18 +557,16 @@ impl Monomorphizer {
                         }
                     }
                 }
-                
+
                 Ok(Expression::StructLiteral {
                     name,
                     fields: transformed_fields,
                 })
             }
-            Expression::MemberAccess { object, member } => {
-                Ok(Expression::MemberAccess {
-                    object: Box::new(self.transform_expression(*object)?),
-                    member,
-                })
-            }
+            Expression::MemberAccess { object, member } => Ok(Expression::MemberAccess {
+                object: Box::new(self.transform_expression(*object)?),
+                member,
+            }),
             other => Ok(other),
         }
     }
@@ -524,7 +576,7 @@ fn generate_instantiated_name(base_name: &str, type_args: &[AstType]) -> String 
     if type_args.is_empty() {
         return base_name.to_string();
     }
-    
+
     let type_names: Vec<String> = type_args.iter().map(type_to_string).collect();
     format!("{}_{}", base_name, type_names.join("_"))
 }

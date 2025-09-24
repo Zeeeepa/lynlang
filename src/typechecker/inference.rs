@@ -1,6 +1,6 @@
 use crate::ast::{AstType, BinaryOperator, Expression};
 use crate::error::{CompileError, Result};
-use crate::typechecker::{TypeChecker, StructInfo, EnumInfo};
+use crate::typechecker::{EnumInfo, StructInfo, TypeChecker};
 use std::collections::HashMap;
 
 /// Infer the type of a binary operation
@@ -24,10 +24,13 @@ pub fn infer_binary_op_type(
                 // Promote to the larger type
                 promote_numeric_types(&left_type, &right_type)
             } else {
-                Err(CompileError::TypeError(format!(
-                    "Cannot apply {:?} to types {:?} and {:?}",
-                    op, left_type, right_type
-                ), None))
+                Err(CompileError::TypeError(
+                    format!(
+                        "Cannot apply {:?} to types {:?} and {:?}",
+                        op, left_type, right_type
+                    ),
+                    None,
+                ))
             }
         }
         BinaryOperator::Equals
@@ -40,10 +43,10 @@ pub fn infer_binary_op_type(
             if types_comparable(&left_type, &right_type) {
                 Ok(AstType::Bool)
             } else {
-                Err(CompileError::TypeError(format!(
-                    "Cannot compare types {:?} and {:?}",
-                    left_type, right_type
-                ), None))
+                Err(CompileError::TypeError(
+                    format!("Cannot compare types {:?} and {:?}", left_type, right_type),
+                    None,
+                ))
             }
         }
         BinaryOperator::And | BinaryOperator::Or => {
@@ -51,10 +54,13 @@ pub fn infer_binary_op_type(
             if matches!(left_type, AstType::Bool) && matches!(right_type, AstType::Bool) {
                 Ok(AstType::Bool)
             } else {
-                Err(CompileError::TypeError(format!(
-                    "Logical operators require boolean operands, got {:?} and {:?}",
-                    left_type, right_type
-                ), None))
+                Err(CompileError::TypeError(
+                    format!(
+                        "Logical operators require boolean operands, got {:?} and {:?}",
+                        left_type, right_type
+                    ),
+                    None,
+                ))
             }
         }
         BinaryOperator::StringConcat => {
@@ -62,10 +68,13 @@ pub fn infer_binary_op_type(
             if matches!(left_type, AstType::String) && matches!(right_type, AstType::String) {
                 Ok(AstType::String)
             } else {
-                Err(CompileError::TypeError(format!(
-                    "String concatenation requires string operands, got {:?} and {:?}",
-                    left_type, right_type
-                ), None))
+                Err(CompileError::TypeError(
+                    format!(
+                        "String concatenation requires string operands, got {:?} and {:?}",
+                        left_type, right_type
+                    ),
+                    None,
+                ))
             }
         }
     }
@@ -86,15 +95,15 @@ pub fn infer_member_type(
                         return Ok(field_type.clone());
                     }
                 }
-                Err(CompileError::TypeError(format!(
-                    "Struct '{}' has no field '{}'",
-                    name, member
-                ), None))
+                Err(CompileError::TypeError(
+                    format!("Struct '{}' has no field '{}'", name, member),
+                    None,
+                ))
             } else {
-                Err(CompileError::TypeError(format!(
-                    "Unknown struct type: {}",
-                    name
-                ), None))
+                Err(CompileError::TypeError(
+                    format!("Unknown struct type: {}", name),
+                    None,
+                ))
             }
         }
         // Handle pointer to struct types
@@ -111,15 +120,15 @@ pub fn infer_member_type(
                         return Ok(field_type.clone());
                     }
                 }
-                Err(CompileError::TypeError(format!(
-                    "Struct '{}' has no field '{}'",
-                    name, member
-                ), None))
+                Err(CompileError::TypeError(
+                    format!("Struct '{}' has no field '{}'", name, member),
+                    None,
+                ))
             } else {
-                Err(CompileError::TypeError(format!(
-                    "Type '{}' is not a struct or is not defined",
-                    name
-                ), None))
+                Err(CompileError::TypeError(
+                    format!("Type '{}' is not a struct or is not defined", name),
+                    None,
+                ))
             }
         }
         // Handle enum type constructors
@@ -129,27 +138,29 @@ pub fn infer_member_type(
                 for (variant_name, _variant_type) in &enum_info.variants {
                     if variant_name == member {
                         // Return the enum type itself - the variant constructor creates an instance of the enum
-                        let enum_variants = enum_info.variants.iter().map(|(name, payload)| {
-                            crate::ast::EnumVariant {
+                        let enum_variants = enum_info
+                            .variants
+                            .iter()
+                            .map(|(name, payload)| crate::ast::EnumVariant {
                                 name: name.clone(),
                                 payload: payload.clone(),
-                            }
-                        }).collect();
+                            })
+                            .collect();
                         return Ok(AstType::Enum {
                             name: name.clone(),
                             variants: enum_variants,
                         });
                     }
                 }
-                Err(CompileError::TypeError(format!(
-                    "Enum '{}' has no variant '{}'",
-                    name, member
-                ), None))
+                Err(CompileError::TypeError(
+                    format!("Enum '{}' has no variant '{}'", name, member),
+                    None,
+                ))
             } else {
-                Err(CompileError::TypeError(format!(
-                    "Unknown enum type: {}",
-                    name
-                ), None))
+                Err(CompileError::TypeError(
+                    format!("Unknown enum type: {}", name),
+                    None,
+                ))
             }
         }
         AstType::StdModule => {
@@ -165,18 +176,19 @@ pub fn infer_member_type(
                         type_args: vec![],
                     })
                 }
-                _ => {
-                    Err(CompileError::TypeError(format!(
-                        "Unknown stdlib module member: {}",
-                        member
-                    ), None))
-                }
+                _ => Err(CompileError::TypeError(
+                    format!("Unknown stdlib module member: {}", member),
+                    None,
+                )),
             }
         }
-        _ => Err(CompileError::TypeError(format!(
-            "Cannot access member '{}' on type {:?}",
-            member, object_type
-        ), None)),
+        _ => Err(CompileError::TypeError(
+            format!(
+                "Cannot access member '{}' on type {:?}",
+                member, object_type
+            ),
+            None,
+        )),
     }
 }
 
@@ -227,10 +239,10 @@ fn promote_numeric_types(left: &AstType, right: &AstType) -> Result<AstType> {
             }
         }
     } else {
-        Err(CompileError::TypeError(format!(
-            "Cannot promote types {:?} and {:?}",
-            left, right
-        ), None))
+        Err(CompileError::TypeError(
+            format!("Cannot promote types {:?} and {:?}", left, right),
+            None,
+        ))
     }
 }
 

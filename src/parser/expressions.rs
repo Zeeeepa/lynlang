@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{Expression, BinaryOperator, Pattern, MatchArm, Statement};
+use crate::ast::{BinaryOperator, Expression, MatchArm, Pattern, Statement};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -10,7 +10,7 @@ impl<'a> Parser<'a> {
 
     fn parse_binary_expression(&mut self, precedence: u8) -> Result<Expression> {
         let mut left = self.parse_unary_expression()?;
-        
+
         loop {
             // Check for 'as' identifier for type casting
             if let Token::Identifier(id) = &self.current_token {
@@ -29,7 +29,7 @@ impl<'a> Parser<'a> {
                 let next_prec = self.get_precedence(&op_clone);
                 if next_prec > precedence {
                     self.next_token(); // advance past the operator
-                    
+
                     // Handle range expressions specially
                     if op_clone == ".." || op_clone == "..=" {
                         let right = self.parse_binary_expression(next_prec)?;
@@ -52,7 +52,8 @@ impl<'a> Parser<'a> {
             } else if self.current_token == Token::Question {
                 // Handle pattern matching with low precedence (but higher than assignment)
                 // This ensures x < y ? ... parses as (x < y) ? ...
-                if precedence < 1 {  // Pattern match has very low precedence
+                if precedence < 1 {
+                    // Pattern match has very low precedence
                     self.next_token(); // consume '?'
                     left = self.parse_pattern_match(left)?;
                 } else {
@@ -62,7 +63,7 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-        
+
         Ok(left)
     }
 
@@ -93,10 +94,10 @@ impl<'a> Parser<'a> {
 
     fn parse_postfix_expression(&mut self) -> Result<Expression> {
         let expr = self.parse_primary_expression()?;
-        
+
         // Pattern matching is now handled in binary expression parsing
         // to get correct precedence
-        
+
         Ok(expr)
     }
 
@@ -112,20 +113,22 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 self.next_token(); // consume '('
-                
+
                 // Parse the closure argument
                 let loop_body = if self.current_token == Token::Symbol('(') {
                     // Parse closure parameter list
                     self.next_token(); // consume '('
                     let mut params = vec![];
-                    
+
                     // Handle empty parameter list
                     if self.current_token != Token::Symbol(')') {
-                        while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
+                        while self.current_token != Token::Symbol(')')
+                            && self.current_token != Token::Eof
+                        {
                             if let Token::Identifier(param_name) = &self.current_token {
                                 params.push((param_name.clone(), None));
                                 self.next_token();
-                                
+
                                 if self.current_token == Token::Symbol(',') {
                                     self.next_token();
                                 } else if self.current_token != Token::Symbol(')') {
@@ -142,7 +145,7 @@ impl<'a> Parser<'a> {
                             }
                         }
                     }
-                    
+
                     if self.current_token != Token::Symbol(')') {
                         return Err(CompileError::SyntaxError(
                             "Expected ')' after closure parameters".to_string(),
@@ -150,7 +153,7 @@ impl<'a> Parser<'a> {
                         ));
                     }
                     self.next_token(); // consume ')'
-                    
+
                     // Parse closure body
                     if self.current_token != Token::Symbol('{') {
                         return Err(CompileError::SyntaxError(
@@ -158,7 +161,7 @@ impl<'a> Parser<'a> {
                             Some(self.current_span.clone()),
                         ));
                     }
-                    
+
                     let body = self.parse_block_expression()?;
                     Expression::Closure {
                         params,
@@ -170,7 +173,7 @@ impl<'a> Parser<'a> {
                         Some(self.current_span.clone()),
                     ));
                 };
-                
+
                 if self.current_token != Token::Symbol(')') {
                     return Err(CompileError::SyntaxError(
                         "Expected ')' after loop closure".to_string(),
@@ -178,7 +181,7 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 self.next_token(); // consume ')'
-                
+
                 // Return a Loop expression
                 Ok(Expression::Loop {
                     body: Box::new(loop_body),
@@ -187,27 +190,33 @@ impl<'a> Parser<'a> {
             Token::Identifier(id) if id == "break" => {
                 // Parse break as an expression
                 self.next_token(); // consume 'break'
-                // Check for optional label
+                                   // Check for optional label
                 let mut label = None;
                 let mut value = None;
-                
+
                 // Check if next token could be a label (identifier not followed by an operator)
                 if let Token::Identifier(label_name) = &self.current_token {
                     // Look ahead to see if this is a label or a value expression
-                    if matches!(&self.peek_token, Token::Symbol(_) | Token::Eof | Token::Symbol('}')) {
+                    if matches!(
+                        &self.peek_token,
+                        Token::Symbol(_) | Token::Eof | Token::Symbol('}')
+                    ) {
                         label = Some(label_name.clone());
                         self.next_token();
                     }
                 }
-                
+
                 // Check if there's a value expression after break
-                if !matches!(&self.current_token, Token::Symbol('}') | Token::Eof | Token::Symbol(';')) {
+                if !matches!(
+                    &self.current_token,
+                    Token::Symbol('}') | Token::Eof | Token::Symbol(';')
+                ) {
                     if label.is_none() {
                         // This must be a value expression
                         value = Some(Box::new(self.parse_expression()?));
                     }
                 }
-                
+
                 Ok(Expression::Break { label, value })
             }
             Token::Identifier(id) if id == "continue" => {
@@ -225,7 +234,10 @@ impl<'a> Parser<'a> {
             Token::Identifier(id) if id == "return" => {
                 // Parse return as an expression
                 self.next_token(); // consume 'return'
-                let value = if !matches!(&self.current_token, Token::Symbol('}') | Token::Eof | Token::Symbol(';')) {
+                let value = if !matches!(
+                    &self.current_token,
+                    Token::Symbol('}') | Token::Eof | Token::Symbol(';')
+                ) {
                     Box::new(self.parse_expression()?)
                 } else {
                     // Return void/unit if no expression
@@ -252,13 +264,13 @@ impl<'a> Parser<'a> {
                 } else {
                     Expression::Integer64(value)
                 };
-                
+
                 // Handle UFC on integer literals: 5.double()
                 loop {
                     match &self.current_token {
                         Token::Symbol('.') => {
                             self.next_token(); // consume '.'
-                            
+
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
                                 _ => {
@@ -269,7 +281,7 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            
+
                             // Check if it's a method call
                             if self.current_token == Token::Symbol('(') {
                                 return self.parse_call_expression_with_object(expr, member);
@@ -284,7 +296,7 @@ impl<'a> Parser<'a> {
                         _ => break,
                     }
                 }
-                
+
                 Ok(expr)
             }
             Token::Float(value_str) => {
@@ -296,13 +308,13 @@ impl<'a> Parser<'a> {
                 })?;
                 self.next_token();
                 let mut expr = Expression::Float64(value);
-                
+
                 // Handle UFC on float literals
                 loop {
                     match &self.current_token {
                         Token::Symbol('.') => {
                             self.next_token(); // consume '.'
-                            
+
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
                                 _ => {
@@ -313,7 +325,7 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            
+
                             // Check if it's a method call
                             if self.current_token == Token::Symbol('(') {
                                 return self.parse_call_expression_with_object(expr, member);
@@ -327,26 +339,26 @@ impl<'a> Parser<'a> {
                         _ => break,
                     }
                 }
-                
+
                 Ok(expr)
             }
             Token::StringLiteral(value) => {
                 let value = value.clone();
                 self.next_token();
-                
+
                 // Check if the string contains interpolation markers
                 let mut expr = if value.contains('\x01') {
                     self.parse_interpolated_string(value)?
                 } else {
                     Expression::String(value)
                 };
-                
+
                 // Handle UFC on string literals
                 loop {
                     match &self.current_token {
                         Token::Symbol('.') => {
                             self.next_token(); // consume '.'
-                            
+
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
                                 _ => {
@@ -357,7 +369,7 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            
+
                             // Check if it's a method call
                             if self.current_token == Token::Symbol('(') {
                                 return self.parse_call_expression_with_object(expr, member);
@@ -371,13 +383,13 @@ impl<'a> Parser<'a> {
                         _ => break,
                     }
                 }
-                
+
                 Ok(expr)
             }
             Token::Symbol('.') => {
                 // Shorthand enum variant syntax: .VariantName or .VariantName(payload)
                 self.next_token(); // consume '.'
-                
+
                 let variant = match &self.current_token {
                     Token::Identifier(v) => v.clone(),
                     _ => {
@@ -388,7 +400,7 @@ impl<'a> Parser<'a> {
                     }
                 };
                 self.next_token();
-                
+
                 // Check for variant payload
                 let payload = if self.current_token == Token::Symbol('(') {
                     self.next_token(); // consume '('
@@ -404,24 +416,21 @@ impl<'a> Parser<'a> {
                 } else {
                     None
                 };
-                
+
                 // Use EnumLiteral for shorthand syntax
-                return Ok(Expression::EnumLiteral {
-                    variant,
-                    payload,
-                });
+                return Ok(Expression::EnumLiteral { variant, payload });
             }
             Token::AtStd => {
                 // Handle @std token
                 self.next_token();
                 let mut expr = Expression::Identifier("@std".to_string());
-                
+
                 // Handle UFC on @std
                 loop {
                     match &self.current_token {
                         Token::Symbol('.') => {
                             self.next_token(); // consume '.'
-                            
+
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
                                 _ => {
@@ -432,7 +441,7 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            
+
                             // Check if it's a method call
                             if self.current_token == Token::Symbol('(') {
                                 return self.parse_call_expression_with_object(expr, member);
@@ -446,20 +455,20 @@ impl<'a> Parser<'a> {
                         _ => break,
                     }
                 }
-                
+
                 Ok(expr)
             }
             Token::AtThis => {
                 // Handle @this token
                 self.next_token();
                 let mut expr = Expression::Identifier("@this".to_string());
-                
+
                 // Handle UFC on @this
                 loop {
                     match &self.current_token {
                         Token::Symbol('.') => {
                             self.next_token(); // consume '.'
-                            
+
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
                                 _ => {
@@ -470,7 +479,7 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            
+
                             // Check if it's a method call
                             if self.current_token == Token::Symbol('(') {
                                 return self.parse_call_expression_with_object(expr, member);
@@ -484,13 +493,13 @@ impl<'a> Parser<'a> {
                         _ => break,
                     }
                 }
-                
+
                 Ok(expr)
             }
             Token::Identifier(name) => {
                 let name = name.clone();
                 self.next_token();
-                
+
                 // Check for boolean and unit literals first (these don't chain)
                 if name == "true" {
                     return Ok(Expression::Boolean(true));
@@ -500,17 +509,17 @@ impl<'a> Parser<'a> {
                     // void is a unit value - like () in other languages
                     return Ok(Expression::Unit);
                 }
-                
+
                 // Check for Vec<T, size>() constructor
                 if name == "Vec" && self.current_token == Token::Operator("<".to_string()) {
                     return self.parse_vec_constructor();
                 }
-                
-                // Check for DynVec<T>() or DynVec<T1, T2, ...>() constructor  
+
+                // Check for DynVec<T>() or DynVec<T1, T2, ...>() constructor
                 if name == "DynVec" && self.current_token == Token::Operator("<".to_string()) {
                     return self.parse_dynvec_constructor();
                 }
-                
+
                 // Check for Option type constructors: Some(value) and None
                 if name == "Some" && self.current_token == Token::Symbol('(') {
                     self.next_token(); // consume '('
@@ -526,11 +535,11 @@ impl<'a> Parser<'a> {
                 } else if name == "None" {
                     return Ok(Expression::None);
                 }
-                
+
                 // Check for enum variant syntax: EnumName::VariantName
                 if self.current_token == Token::Operator("::".to_string()) {
                     self.next_token(); // consume '::'
-                    
+
                     let variant = match &self.current_token {
                         Token::Identifier(v) => v.clone(),
                         _ => {
@@ -541,7 +550,7 @@ impl<'a> Parser<'a> {
                         }
                     };
                     self.next_token();
-                    
+
                     // Check for variant payload
                     let payload = if self.current_token == Token::Symbol('(') {
                         self.next_token(); // consume '('
@@ -557,58 +566,59 @@ impl<'a> Parser<'a> {
                     } else {
                         None
                     };
-                    
+
                     return Ok(Expression::EnumVariant {
                         enum_name: name,
                         variant,
                         payload,
                     });
                 }
-                
+
                 // Check for generic type parameters
                 // Could be:
                 // 1. Generic struct literal: Vec<T> { ... }
                 // 2. Generic function call: vec_new<i32>()
                 // 3. Comparison: x < y
-                let (name_with_generics, consumed_generics) = if self.current_token == Token::Operator("<".to_string()) {
-                    // Try to parse generic type arguments
-                    // Save the position in case we need to backtrack
-                    let _saved_pos = self.current_span.start;
-                    
-                    // Look ahead to determine if this is really generic syntax
-                    if self.looks_like_generic_type_args() {
-                        // Consume the generic type arguments
-                        let mut depth = 1;
-                        self.next_token(); // consume '<'
-                        while depth > 0 && self.current_token != Token::Eof {
-                            match &self.current_token {
-                                Token::Operator(op) if op == "<" => depth += 1,
-                                Token::Operator(op) if op == ">" => depth -= 1,
-                                _ => {}
+                let (name_with_generics, consumed_generics) =
+                    if self.current_token == Token::Operator("<".to_string()) {
+                        // Try to parse generic type arguments
+                        // Save the position in case we need to backtrack
+                        let _saved_pos = self.current_span.start;
+
+                        // Look ahead to determine if this is really generic syntax
+                        if self.looks_like_generic_type_args() {
+                            // Consume the generic type arguments
+                            let mut depth = 1;
+                            self.next_token(); // consume '<'
+                            while depth > 0 && self.current_token != Token::Eof {
+                                match &self.current_token {
+                                    Token::Operator(op) if op == "<" => depth += 1,
+                                    Token::Operator(op) if op == ">" => depth -= 1,
+                                    _ => {}
+                                }
+                                self.next_token();
                             }
-                            self.next_token();
+                            // For now, we just track that we consumed generics
+                            // In the future, we should preserve the actual type arguments
+                            (format!("{}<>", name), true)
+                        } else {
+                            // Not generic type args, probably a comparison
+                            (name.clone(), false)
                         }
-                        // For now, we just track that we consumed generics
-                        // In the future, we should preserve the actual type arguments
-                        (format!("{}<>", name), true)
                     } else {
-                        // Not generic type args, probably a comparison
                         (name.clone(), false)
-                    }
-                } else {
-                    (name.clone(), false)
-                };
-                
+                    };
+
                 // Check for struct literal syntax: Name { field: value, ... }
                 if self.current_token == Token::Symbol('{') {
                     return self.parse_struct_literal(name_with_generics);
                 }
-                
+
                 // Check for function call with generics: vec_new<i32>()
                 if consumed_generics && self.current_token == Token::Symbol('(') {
                     return self.parse_call_expression(name_with_generics);
                 }
-                
+
                 // Initialize expression based on special identifiers or regular names
                 let mut expr = if name == "@std" {
                     Expression::StdReference
@@ -624,98 +634,99 @@ impl<'a> Parser<'a> {
                 } else {
                     Expression::Identifier(name)
                 };
-                
+
                 // Handle member access, array indexing, and function calls
                 loop {
                     match &self.current_token {
                         Token::Symbol('.') => {
                             self.next_token(); // consume '.'
-                            
+
                             // Handle special tokens that can appear after '.'
                             if let Token::Identifier(id) = &self.current_token {
                                 if id == "loop" {
-                                // Handle .loop() method on collections
-                                self.next_token(); // consume 'loop'
-                                if self.current_token != Token::Symbol('(') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected '(' after '.loop'".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                self.next_token(); // consume '('
-                                
-                                // Parse the closure parameter
-                                if self.current_token != Token::Symbol('(') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected '(' for loop closure parameter".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                self.next_token(); // consume '('
-                                
-                                // Get the parameter name(s)
-                                let param = if let Token::Identifier(p) = &self.current_token {
-                                    p.clone()
-                                } else {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected parameter name in loop closure".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                };
-                                self.next_token();
-                                
-                                // Check for optional index parameter
-                                let index_param = if self.current_token == Token::Symbol(',') {
-                                    self.next_token(); // consume ','
-                                    if let Token::Identifier(idx) = &self.current_token {
-                                        let idx_name = idx.clone();
-                                        self.next_token();
-                                        Some(idx_name)
-                                    } else {
+                                    // Handle .loop() method on collections
+                                    self.next_token(); // consume 'loop'
+                                    if self.current_token != Token::Symbol('(') {
                                         return Err(CompileError::SyntaxError(
-                                            "Expected index parameter name after ','".to_string(),
+                                            "Expected '(' after '.loop'".to_string(),
                                             Some(self.current_span.clone()),
                                         ));
                                     }
-                                } else {
-                                    None
-                                };
-                                
-                                if self.current_token != Token::Symbol(')') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected ')' after loop parameters".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
+                                    self.next_token(); // consume '('
+
+                                    // Parse the closure parameter
+                                    if self.current_token != Token::Symbol('(') {
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected '(' for loop closure parameter".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    }
+                                    self.next_token(); // consume '('
+
+                                    // Get the parameter name(s)
+                                    let param = if let Token::Identifier(p) = &self.current_token {
+                                        p.clone()
+                                    } else {
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected parameter name in loop closure".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    };
+                                    self.next_token();
+
+                                    // Check for optional index parameter
+                                    let index_param = if self.current_token == Token::Symbol(',') {
+                                        self.next_token(); // consume ','
+                                        if let Token::Identifier(idx) = &self.current_token {
+                                            let idx_name = idx.clone();
+                                            self.next_token();
+                                            Some(idx_name)
+                                        } else {
+                                            return Err(CompileError::SyntaxError(
+                                                "Expected index parameter name after ','"
+                                                    .to_string(),
+                                                Some(self.current_span.clone()),
+                                            ));
+                                        }
+                                    } else {
+                                        None
+                                    };
+
+                                    if self.current_token != Token::Symbol(')') {
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected ')' after loop parameters".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    }
+                                    self.next_token(); // consume ')'
+
+                                    // Parse the body block
+                                    if self.current_token != Token::Symbol('{') {
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected '{' for loop body".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    }
+                                    let body = self.parse_block_expression()?;
+
+                                    if self.current_token != Token::Symbol(')') {
+                                        return Err(CompileError::SyntaxError(
+                                            "Expected ')' to close loop call".to_string(),
+                                            Some(self.current_span.clone()),
+                                        ));
+                                    }
+                                    self.next_token(); // consume ')'
+
+                                    expr = Expression::CollectionLoop {
+                                        collection: Box::new(expr),
+                                        param,
+                                        index_param,
+                                        body: Box::new(body),
+                                    };
+                                    continue; // Continue the loop, no member to process
                                 }
-                                self.next_token(); // consume ')'
-                                
-                                // Parse the body block
-                                if self.current_token != Token::Symbol('{') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected '{' for loop body".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                let body = self.parse_block_expression()?;
-                                
-                                if self.current_token != Token::Symbol(')') {
-                                    return Err(CompileError::SyntaxError(
-                                        "Expected ')' to close loop call".to_string(),
-                                        Some(self.current_span.clone()),
-                                    ));
-                                }
-                                self.next_token(); // consume ')'
-                                
-                                expr = Expression::CollectionLoop {
-                                    collection: Box::new(expr),
-                                    param,
-                                    index_param,
-                                    body: Box::new(body),
-                                };
-                                continue; // Continue the loop, no member to process
                             }
-                            }
-                            
+
                             let member = match &self.current_token {
                                 Token::Identifier(name) => name.clone(),
                                 _ => {
@@ -726,7 +737,7 @@ impl<'a> Parser<'a> {
                                 }
                             };
                             self.next_token();
-                            
+
                             // Check for pointer-specific operations first
                             if member == "val" {
                                 // Pointer dereference: ptr.val
@@ -745,7 +756,9 @@ impl<'a> Parser<'a> {
                                 }
                                 self.next_token(); // consume ')'
                                 expr = Expression::CreateReference(Box::new(expr));
-                            } else if member == "mut_ref" && self.current_token == Token::Symbol('(') {
+                            } else if member == "mut_ref"
+                                && self.current_token == Token::Symbol('(')
+                            {
                                 // Mutable reference creation: expr.mut_ref()
                                 self.next_token(); // consume '('
                                 if self.current_token != Token::Symbol(')') {
@@ -756,7 +769,8 @@ impl<'a> Parser<'a> {
                                 }
                                 self.next_token(); // consume ')'
                                 expr = Expression::CreateMutableReference(Box::new(expr));
-                            } else if member == "raise" && self.current_token == Token::Symbol('(') {
+                            } else if member == "raise" && self.current_token == Token::Symbol('(')
+                            {
                                 self.next_token(); // consume '('
                                 if self.current_token != Token::Symbol(')') {
                                     return Err(CompileError::SyntaxError(
@@ -777,7 +791,7 @@ impl<'a> Parser<'a> {
                                     ));
                                 }
                                 self.next_token(); // consume ')'
-                                // For now, treat as a method call - could be optimized later
+                                                   // For now, treat as a method call - could be optimized later
                                 expr = Expression::MethodCall {
                                     object: Box::new(expr),
                                     method: "step".to_string(),
@@ -833,7 +847,12 @@ impl<'a> Parser<'a> {
                                 return self.parse_call_expression_with_object(*object, member);
                             } else if let Expression::Identifier(name) = expr {
                                 return self.parse_call_expression(name);
-                            } else if let Expression::EnumVariant { enum_name, variant, payload: None } = expr {
+                            } else if let Expression::EnumVariant {
+                                enum_name,
+                                variant,
+                                payload: None,
+                            } = expr
+                            {
                                 // This is an enum variant constructor with payload
                                 self.next_token(); // consume '('
                                 let payload_expr = self.parse_expression()?;
@@ -859,20 +878,20 @@ impl<'a> Parser<'a> {
                         _ => break,
                     }
                 }
-                
+
                 Ok(expr)
             }
             Token::Symbol('(') => {
                 // Try to determine if this is a closure or a parenthesized expression
                 // We'll use a simple heuristic: if we see (ident) { or (ident, ...) {
                 // then it's likely a closure
-                
+
                 self.next_token(); // consume '('
-                
+
                 // Check for empty closure: () { ... } or () => expr
                 if self.current_token == Token::Symbol(')') {
                     self.next_token(); // consume ')'
-                    
+
                     // Check for arrow function syntax: () => expr
                     if self.current_token == Token::Operator("=>".to_string()) {
                         self.next_token(); // consume '=>'
@@ -883,8 +902,7 @@ impl<'a> Parser<'a> {
                             params: vec![],
                             body: Box::new(body),
                         });
-                    }
-                    else if self.current_token == Token::Symbol('{') {
+                    } else if self.current_token == Token::Symbol('{') {
                         // It's a closure with no parameters: () { ... }
                         let body = self.parse_block_expression()?;
                         return Ok(Expression::Closure {
@@ -917,18 +935,18 @@ impl<'a> Parser<'a> {
                         ));
                     }
                 }
-                
+
                 // Try to parse as closure with parameters
                 // A closure looks like: (param) { ... } or (param1, param2) { ... }
                 // or with types: (param: Type) { ... }
                 let mut is_closure = false;
                 let mut params = vec![];
-                
+
                 // Check if this looks like a closure parameter list
                 if let Token::Identifier(param_name) = &self.current_token {
                     let first_param = param_name.clone();
                     self.next_token();
-                    
+
                     // Check for optional type annotation
                     let param_type = if self.current_token == Token::Symbol(':') {
                         self.next_token(); // consume ':'
@@ -936,17 +954,17 @@ impl<'a> Parser<'a> {
                     } else {
                         None
                     };
-                    
+
                     params.push((first_param, param_type));
-                    
+
                     // Check for more parameters
                     while self.current_token == Token::Symbol(',') {
                         self.next_token(); // consume ','
-                        
+
                         if let Token::Identifier(param_name) = &self.current_token {
                             let param = param_name.clone();
                             self.next_token();
-                            
+
                             // Check for optional type annotation
                             let param_type = if self.current_token == Token::Symbol(':') {
                                 self.next_token(); // consume ':'
@@ -954,23 +972,23 @@ impl<'a> Parser<'a> {
                             } else {
                                 None
                             };
-                            
+
                             params.push((param, param_type));
                         } else {
                             // Not a valid parameter list, reset and parse as expression
                             break;
                         }
                     }
-                    
+
                     // Check if we have a valid closure pattern
                     if self.current_token == Token::Symbol(')') {
                         self.next_token(); // consume ')'
-                        
+
                         // Check for arrow function syntax: () => expr
                         if self.current_token == Token::Operator("=>".to_string()) {
                             is_closure = true;
                             self.next_token(); // consume '=>'
-                            // Parse the expression body
+                                               // Parse the expression body
                             let body_expr = self.parse_expression()?;
                             // Convert expression to block that returns the value
                             let body = Expression::Block(vec![Statement::Expression(body_expr)]);
@@ -982,7 +1000,7 @@ impl<'a> Parser<'a> {
                         // Check for the body
                         else if self.current_token == Token::Symbol('{') {
                             is_closure = true;
-                        } 
+                        }
                         // Check for return type: (params) ReturnType { ... }
                         else if matches!(&self.current_token, Token::Identifier(_)) {
                             // Return type specified, check for body after
@@ -992,7 +1010,7 @@ impl<'a> Parser<'a> {
                             }
                         }
                     }
-                    
+
                     if is_closure {
                         // Parse the closure body
                         let body = self.parse_block_expression()?;
@@ -1014,12 +1032,15 @@ impl<'a> Parser<'a> {
                     let mut expr = self.parse_expression()?;
                     if self.current_token != Token::Symbol(')') {
                         return Err(CompileError::SyntaxError(
-                            format!("Expected ')' after parenthesized expression, got {:?}", self.current_token),
+                            format!(
+                                "Expected ')' after parenthesized expression, got {:?}",
+                                self.current_token
+                            ),
                             Some(self.current_span.clone()),
                         ));
                     }
                     self.next_token(); // consume ')'
-                    
+
                     // Check for UFC method chaining after parenthesized expression
                     loop {
                         match &self.current_token {
@@ -1029,10 +1050,13 @@ impl<'a> Parser<'a> {
                                 if let Token::Identifier(member) = &self.current_token.clone() {
                                     let member_clone = member.clone();
                                     self.next_token();
-                                    
+
                                     // Check if it's a method call
                                     if self.current_token == Token::Symbol('(') {
-                                        expr = self.parse_call_expression_with_object(expr, member_clone)?;
+                                        expr = self.parse_call_expression_with_object(
+                                            expr,
+                                            member_clone,
+                                        )?;
                                     } else {
                                         // Member access
                                         expr = Expression::MemberAccess {
@@ -1050,7 +1074,7 @@ impl<'a> Parser<'a> {
                             _ => break,
                         }
                     }
-                    
+
                     Ok(expr)
                 }
             }
@@ -1088,7 +1112,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.next_token(); // consume ')'
-        
+
         // Check if this is an enum constructor (Some, None, Ok, Err)
         let mut expr = match function_name.as_str() {
             "Some" => {
@@ -1146,15 +1170,15 @@ impl<'a> Parser<'a> {
             _ => Expression::FunctionCall {
                 name: function_name,
                 args: arguments,
-            }
+            },
         };
-        
+
         // Continue parsing method chaining after function call
         loop {
             match &self.current_token {
                 Token::Symbol('.') => {
                     self.next_token(); // consume '.'
-                    
+
                     let member = match &self.current_token {
                         Token::Identifier(name) => name.clone(),
                         _ => {
@@ -1165,7 +1189,7 @@ impl<'a> Parser<'a> {
                         }
                     };
                     self.next_token();
-                    
+
                     // Check for pointer-specific operations and method calls
                     if member == "val" {
                         // Pointer dereference: ptr.val
@@ -1207,24 +1231,37 @@ impl<'a> Parser<'a> {
                 _ => break,
             }
         }
-        
+
         Ok(expr)
     }
 
-    fn parse_call_expression_with_object(&mut self, object: Expression, method_name: String) -> Result<Expression> {
+    fn parse_call_expression_with_object(
+        &mut self,
+        object: Expression,
+        method_name: String,
+    ) -> Result<Expression> {
         self.next_token(); // consume '('
-        
+
         // Check if this is a module function call like io.print or math.sqrt
         // These should be treated as qualified function names, not method calls
         let is_module_call = match &object {
             Expression::Identifier(obj_name) => {
                 // Common module names from @std
-                obj_name == "io" || obj_name == "math" || obj_name == "core" || 
-                obj_name == "net" || obj_name == "os" || obj_name == "fs" ||
-                obj_name == "json" || obj_name == "http" || obj_name == "time"
+                obj_name == "io"
+                    || obj_name == "math"
+                    || obj_name == "core"
+                    || obj_name == "net"
+                    || obj_name == "os"
+                    || obj_name == "fs"
+                    || obj_name == "json"
+                    || obj_name == "http"
+                    || obj_name == "time"
             }
             // Handle @std.module.function syntax
-            Expression::MemberAccess { object: base, member: _ } => {
+            Expression::MemberAccess {
+                object: base,
+                member: _,
+            } => {
                 // Check if this is @std.module accessing a function
                 if let Expression::StdReference = base.as_ref() {
                     // This is @std.module, so it's a module call
@@ -1235,7 +1272,7 @@ impl<'a> Parser<'a> {
             }
             _ => false,
         };
-        
+
         let mut arguments = vec![];
         if self.current_token != Token::Symbol(')') {
             // Special handling for .loop() which takes a closure
@@ -1243,13 +1280,13 @@ impl<'a> Parser<'a> {
                 // Parse closure argument for .loop()
                 self.next_token(); // consume '('
                 let mut params = vec![];
-                
+
                 // Parse closure parameters
                 while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
                     if let Token::Identifier(param_name) = &self.current_token {
                         params.push((param_name.clone(), None));
                         self.next_token();
-                        
+
                         // Check for optional second parameter (index)
                         if self.current_token == Token::Symbol(',') {
                             self.next_token();
@@ -1266,7 +1303,7 @@ impl<'a> Parser<'a> {
                         ));
                     }
                 }
-                
+
                 if self.current_token != Token::Symbol(')') {
                     return Err(CompileError::SyntaxError(
                         "Expected ')' after closure parameters".to_string(),
@@ -1274,7 +1311,7 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 self.next_token(); // consume ')'
-                
+
                 // Parse closure body
                 if self.current_token != Token::Symbol('{') {
                     return Err(CompileError::SyntaxError(
@@ -1282,7 +1319,7 @@ impl<'a> Parser<'a> {
                         Some(self.current_span.clone()),
                     ));
                 }
-                
+
                 let body = self.parse_block_expression()?;
                 arguments.push(Expression::Closure {
                     params,
@@ -1299,13 +1336,15 @@ impl<'a> Parser<'a> {
                         let saved_char = self.lexer.current_char;
                         let saved_current = self.current_token.clone();
                         let saved_peek = self.peek_token.clone();
-                        
+
                         // Try to parse closure
                         self.next_token(); // consume '('
                         let mut params = vec![];
                         let mut is_closure = true;
-                        
-                        while self.current_token != Token::Symbol(')') && self.current_token != Token::Eof {
+
+                        while self.current_token != Token::Symbol(')')
+                            && self.current_token != Token::Eof
+                        {
                             if let Token::Identifier(param_name) = &self.current_token {
                                 params.push((param_name.clone(), None));
                                 self.next_token();
@@ -1318,7 +1357,7 @@ impl<'a> Parser<'a> {
                                 break;
                             }
                         }
-                        
+
                         if is_closure && self.current_token == Token::Symbol(')') {
                             self.next_token(); // consume ')'
                             if self.current_token == Token::Symbol('{') {
@@ -1349,7 +1388,7 @@ impl<'a> Parser<'a> {
                     } else {
                         arguments.push(self.parse_expression()?);
                     }
-                    
+
                     if self.current_token == Token::Symbol(')') {
                         break;
                     }
@@ -1364,14 +1403,17 @@ impl<'a> Parser<'a> {
             }
         }
         self.next_token(); // consume ')'
-        
+
         // UFCS implementation: Transform object.method(args) into method(object, args)
         // First, check if this is a stdlib method call (module function)
         let mut expr = if is_module_call {
             // This is a stdlib call like io.print or @std.io.println
             let module_name = match &object {
                 Expression::Identifier(name) => name.clone(),
-                Expression::MemberAccess { object: base, member } => {
+                Expression::MemberAccess {
+                    object: base,
+                    member,
+                } => {
                     // Handle @std.module syntax
                     if let Expression::StdReference = base.as_ref() {
                         member.clone()
@@ -1382,10 +1424,12 @@ impl<'a> Parser<'a> {
                         ));
                     }
                 }
-                _ => return Err(CompileError::SyntaxError(
-                    "Expected identifier for object in method call".to_string(),
-                    Some(self.current_span.clone()),
-                )),
+                _ => {
+                    return Err(CompileError::SyntaxError(
+                        "Expected identifier for object in method call".to_string(),
+                        Some(self.current_span.clone()),
+                    ))
+                }
             };
             Expression::FunctionCall {
                 name: format!("{}.{}", module_name, method_name),
@@ -1394,13 +1438,18 @@ impl<'a> Parser<'a> {
         } else if method_name.contains('.') {
             // This shouldn't happen anymore but keep for compatibility
             Expression::FunctionCall {
-                name: format!("{}.{}", match &object {
-                    Expression::Identifier(name) => name.clone(),
-                    _ => return Err(CompileError::SyntaxError(
-                        "Expected identifier for object in method call".to_string(),
-                        Some(self.current_span.clone()),
-                    )),
-                }, method_name),
+                name: format!(
+                    "{}.{}",
+                    match &object {
+                        Expression::Identifier(name) => name.clone(),
+                        _ =>
+                            return Err(CompileError::SyntaxError(
+                                "Expected identifier for object in method call".to_string(),
+                                Some(self.current_span.clone()),
+                            )),
+                    },
+                    method_name
+                ),
                 args: arguments,
             }
         } else {
@@ -1422,13 +1471,13 @@ impl<'a> Parser<'a> {
                 }
             }
         };
-        
+
         // Continue parsing method chaining after function call
         loop {
             match &self.current_token {
                 Token::Symbol('.') => {
                     self.next_token(); // consume '.'
-                    
+
                     let member = match &self.current_token {
                         Token::Identifier(name) => name.clone(),
                         _ => {
@@ -1439,7 +1488,7 @@ impl<'a> Parser<'a> {
                         }
                     };
                     self.next_token();
-                    
+
                     // Check for pointer-specific operations and method calls
                     if member == "val" {
                         // Pointer dereference: ptr.val
@@ -1481,14 +1530,14 @@ impl<'a> Parser<'a> {
                 _ => break,
             }
         }
-        
+
         Ok(expr)
     }
-    
+
     fn parse_struct_literal(&mut self, name: String) -> Result<Expression> {
         self.next_token(); // consume '{'
         let mut fields = vec![];
-        
+
         while self.current_token != Token::Symbol('}') {
             // Parse field name
             let field_name = match &self.current_token {
@@ -1501,7 +1550,7 @@ impl<'a> Parser<'a> {
                 }
             };
             self.next_token();
-            
+
             // Expect ':'
             if self.current_token != Token::Symbol(':') {
                 return Err(CompileError::SyntaxError(
@@ -1510,11 +1559,11 @@ impl<'a> Parser<'a> {
                 ));
             }
             self.next_token();
-            
+
             // Parse field value
             let field_value = self.parse_expression()?;
             fields.push((field_name, field_value));
-            
+
             // Check for comma or end of struct
             if self.current_token == Token::Symbol(',') {
                 self.next_token();
@@ -1525,7 +1574,7 @@ impl<'a> Parser<'a> {
                 ));
             }
         }
-        
+
         self.next_token(); // consume '}'
         Ok(Expression::StructLiteral { name, fields })
     }
@@ -1534,12 +1583,12 @@ impl<'a> Parser<'a> {
         // Parse: scrutinee ? | pattern => expr | pattern => expr ...
         // OR bool short form: scrutinee ? { block }
         let scrutinee = Box::new(scrutinee);
-        
+
         // Check for bool pattern short form: expr ? { block }
         if self.current_token == Token::Symbol('{') {
             // Bool pattern short form - execute block if scrutinee is true
             let body = self.parse_block_expression()?;
-            
+
             // Convert to standard pattern match with true pattern
             let arms = vec![
                 MatchArm {
@@ -1553,10 +1602,10 @@ impl<'a> Parser<'a> {
                     body: Expression::Block(vec![]), // Empty block for else case (returns void like the true case)
                 },
             ];
-            
+
             return Ok(Expression::QuestionMatch { scrutinee, arms });
         }
-        
+
         // Standard pattern matching with | pattern => expr
         if self.current_token != Token::Pipe {
             return Err(CompileError::SyntaxError(
@@ -1564,32 +1613,33 @@ impl<'a> Parser<'a> {
                 Some(self.current_span.clone()),
             ));
         }
-        
+
         let mut arms = vec![];
-        
+
         // Parse arms: | pattern => expr | pattern => expr ...
         while self.current_token == Token::Pipe {
             self.next_token(); // consume '|'
-            
+
             // Parse pattern - could be single or multiple (or patterns)
             let mut patterns = vec![self.parse_pattern()?];
-            
+
             // Check for additional patterns separated by |
-            while self.current_token == Token::Pipe && 
+            while self.current_token == Token::Pipe &&
                   self.peek_token != Token::Pipe && // Not start of next arm
-                  self.peek_token != Token::Eof {
+                  self.peek_token != Token::Eof
+            {
                 // This is an or pattern - consume the | and parse the next pattern
                 self.next_token();
                 patterns.push(self.parse_pattern()?);
             }
-            
+
             // Create the final pattern
             let pattern = if patterns.len() == 1 {
                 patterns.remove(0)
             } else {
                 Pattern::Or(patterns)
             };
-            
+
             // Check for destructuring/guard with ->
             let guard = if self.current_token == Token::Operator("->".to_string()) {
                 self.next_token();
@@ -1599,15 +1649,15 @@ impl<'a> Parser<'a> {
             } else {
                 None
             };
-            
+
             // Parse body - can be either { block } or => expr (for compatibility)
             let body = if self.current_token == Token::Symbol('{') {
                 // Parse block as expression
                 self.next_token(); // consume '{'
-                
+
                 let mut statements = Vec::new();
                 let mut final_expr = None;
-                
+
                 while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
                     // Check if this could be the final expression
                     if self.peek_token == Token::Symbol('}') {
@@ -1627,7 +1677,7 @@ impl<'a> Parser<'a> {
                         statements.push(stmt);
                     }
                 }
-                
+
                 if self.current_token != Token::Symbol('}') {
                     return Err(CompileError::SyntaxError(
                         "Expected '}' to close block in match arm".to_string(),
@@ -1635,7 +1685,7 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 self.next_token(); // consume '}'
-                
+
                 // If we have statements, return a block expression
                 // Otherwise return the final expression or an empty block
                 if !statements.is_empty() || final_expr.is_some() {
@@ -1651,7 +1701,7 @@ impl<'a> Parser<'a> {
             } else if self.current_token == Token::Operator("=>".to_string()) {
                 // Legacy => syntax for compatibility
                 self.next_token(); // consume '=>'
-                // Handle return statement in pattern arm specially
+                                   // Handle return statement in pattern arm specially
                 if let Token::Identifier(id) = &self.current_token {
                     if id == "return" {
                         self.next_token(); // consume 'return'
@@ -1672,22 +1722,19 @@ impl<'a> Parser<'a> {
                     Some(self.current_span.clone()),
                 ));
             };
-            
+
             arms.push(MatchArm {
                 pattern,
                 guard,
                 body,
             });
-            
+
             // Check if there are more arms
             if self.current_token != Token::Pipe {
                 break;
             }
         }
-        Ok(Expression::QuestionMatch {
-            scrutinee,
-            arms,
-        })
+        Ok(Expression::QuestionMatch { scrutinee, arms })
     }
 
     fn looks_like_generic_type_args(&self) -> bool {
@@ -1700,65 +1747,77 @@ impl<'a> Parser<'a> {
                 if let Token::Identifier(name) = &self.peek_token {
                     // Check for type-like names
                     let first_char = name.chars().next().unwrap_or('_');
-                    
+
                     // Types typically start with uppercase or are primitive types
-                    return first_char.is_uppercase() || 
-                           name == "i8" || name == "i16" || name == "i32" || name == "i64" ||
-                           name == "u8" || name == "u16" || name == "u32" || name == "u64" ||
-                           name == "f32" || name == "f64" || name == "bool" || name == "string";
+                    return first_char.is_uppercase()
+                        || name == "i8"
+                        || name == "i16"
+                        || name == "i32"
+                        || name == "i64"
+                        || name == "u8"
+                        || name == "u16"
+                        || name == "u32"
+                        || name == "u64"
+                        || name == "f32"
+                        || name == "f64"
+                        || name == "bool"
+                        || name == "string";
                 }
             }
         }
         false
     }
-    
+
     fn parse_array_literal(&mut self) -> Result<Expression> {
         // Consume '['
         self.next_token();
-        
+
         let mut elements = Vec::new();
-        
+
         // Handle empty array
         if self.current_token == Token::Symbol(']') {
             self.next_token();
             return Ok(Expression::ArrayLiteral(elements));
         }
-        
+
         // Parse first element
         elements.push(self.parse_expression()?);
-        
+
         // Parse remaining elements
         while self.current_token == Token::Symbol(',') {
             self.next_token(); // consume ','
-            
+
             // Allow trailing comma
             if self.current_token == Token::Symbol(']') {
                 break;
             }
-            
+
             elements.push(self.parse_expression()?);
         }
-        
+
         // Expect closing ']'
         if self.current_token != Token::Symbol(']') {
             return Err(CompileError::SyntaxError(
-                format!("Expected ']' in array literal, got {:?}", self.current_token),
+                format!(
+                    "Expected ']' in array literal, got {:?}",
+                    self.current_token
+                ),
                 Some(self.current_span.clone()),
             ));
         }
         self.next_token();
-        
+
         Ok(Expression::ArrayLiteral(elements))
     }
-    
+
     fn parse_block_expression(&mut self) -> Result<Expression> {
         self.next_token(); // consume '{'
         let mut statements = vec![];
-        
+
         while self.current_token != Token::Symbol('}') && self.current_token != Token::Eof {
             statements.push(self.parse_statement()?);
         }
-        
+
         if self.current_token != Token::Symbol('}') {
             return Err(CompileError::SyntaxError(
                 "Expected '}' to close block expression".to_string(),
@@ -1766,7 +1825,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token(); // consume '}'
-        
+
         Ok(Expression::Block(statements))
     }
 
@@ -1794,13 +1853,13 @@ impl<'a> Parser<'a> {
 
     fn get_precedence(&self, op: &str) -> u8 {
         match op {
-            ".." | "..=" => 1,  // Range has lowest precedence
-            "||" => 2,          // Logical OR
-            "&&" => 3,          // Logical AND
-            "==" | "!=" => 4,   // Equality
-            "<" | "<=" | ">" | ">=" => 5,  // Comparison
-            "+" | "-" => 6,     // Addition/Subtraction
-            "*" | "/" | "%" => 7,  // Multiplication/Division/Modulo
+            ".." | "..=" => 1,            // Range has lowest precedence
+            "||" => 2,                    // Logical OR
+            "&&" => 3,                    // Logical AND
+            "==" | "!=" => 4,             // Equality
+            "<" | "<=" | ">" | ">=" => 5, // Comparison
+            "+" | "-" => 6,               // Addition/Subtraction
+            "*" | "/" | "%" => 7,         // Multiplication/Division/Modulo
             _ => 0,
         }
     }
@@ -1810,20 +1869,20 @@ impl<'a> Parser<'a> {
         let mut parts = Vec::new();
         let mut current = String::new();
         let mut chars = input.chars().peekable();
-        
+
         while let Some(ch) = chars.next() {
             if ch == '\x01' {
                 // Found interpolation start marker
-                
+
                 // Save any literal part before this interpolation
                 if !current.is_empty() {
                     parts.push(StringPart::Literal(current.clone()));
                     current.clear();
                 }
-                
+
                 // Parse the interpolated expression
                 let mut expr_str = String::new();
-                
+
                 while let Some(ch) = chars.next() {
                     if ch == '\x02' {
                         // Found interpolation end marker
@@ -1832,7 +1891,7 @@ impl<'a> Parser<'a> {
                         expr_str.push(ch);
                     }
                 }
-                
+
                 // Parse the expression string
                 // We need to create a temporary parser for this expression
                 let lexer = crate::lexer::Lexer::new(&expr_str);
@@ -1843,29 +1902,32 @@ impl<'a> Parser<'a> {
                 current.push(ch);
             }
         }
-        
+
         // Add any remaining literal part
         if !current.is_empty() {
             parts.push(StringPart::Literal(current));
         }
-        
+
         // If we have interpolation parts, create an interpolated string expression
-        if parts.iter().any(|p| matches!(p, StringPart::Interpolation(_))) {
+        if parts
+            .iter()
+            .any(|p| matches!(p, StringPart::Interpolation(_)))
+        {
             Ok(Expression::StringInterpolation { parts })
         } else {
             // No interpolation found, return a simple string
             Ok(Expression::String(input))
         }
     }
-    
+
     /// Parse Vec<T, size>() constructor
     fn parse_vec_constructor(&mut self) -> Result<Expression> {
         // Consume '<'
         self.next_token();
-        
+
         // Parse element type
         let element_type = self.parse_type()?;
-        
+
         // Expect comma
         if self.current_token != Token::Symbol(',') {
             return Err(CompileError::SyntaxError(
@@ -1874,17 +1936,15 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         // Parse size (must be integer literal)
         let size = match &self.current_token {
-            Token::Integer(size_str) => {
-                size_str.parse::<usize>().map_err(|_| {
-                    CompileError::SyntaxError(
-                        format!("Invalid Vec size: {}", size_str),
-                        Some(self.current_span.clone()),
-                    )
-                })?
-            }
+            Token::Integer(size_str) => size_str.parse::<usize>().map_err(|_| {
+                CompileError::SyntaxError(
+                    format!("Invalid Vec size: {}", size_str),
+                    Some(self.current_span.clone()),
+                )
+            })?,
             _ => {
                 return Err(CompileError::SyntaxError(
                     "Expected integer literal for Vec size".to_string(),
@@ -1893,7 +1953,7 @@ impl<'a> Parser<'a> {
             }
         };
         self.next_token();
-        
+
         // Expect '>'
         if self.current_token != Token::Operator(">".to_string()) {
             return Err(CompileError::SyntaxError(
@@ -1902,7 +1962,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         // Expect '()'
         if self.current_token != Token::Symbol('(') {
             return Err(CompileError::SyntaxError(
@@ -1911,7 +1971,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         // Parse optional initial values
         let initial_values = if self.current_token == Token::Symbol(')') {
             None
@@ -1919,7 +1979,7 @@ impl<'a> Parser<'a> {
             let mut values = vec![];
             loop {
                 values.push(self.parse_expression()?);
-                
+
                 if self.current_token == Token::Symbol(')') {
                     break;
                 } else if self.current_token == Token::Symbol(',') {
@@ -1933,7 +1993,7 @@ impl<'a> Parser<'a> {
             }
             Some(values)
         };
-        
+
         if self.current_token != Token::Symbol(')') {
             return Err(CompileError::SyntaxError(
                 "Expected ')' after Vec constructor arguments".to_string(),
@@ -1941,24 +2001,24 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         Ok(Expression::VecConstructor {
             element_type,
             size,
             initial_values,
         })
     }
-    
+
     /// Parse DynVec<T>() or DynVec<T1, T2, ...>() constructor
     fn parse_dynvec_constructor(&mut self) -> Result<Expression> {
         // Consume '<'
         self.next_token();
-        
+
         // Parse element types (can be multiple for mixed variant vectors)
         let mut element_types = vec![];
         loop {
             element_types.push(self.parse_type()?);
-            
+
             if self.current_token == Token::Operator(">".to_string()) {
                 break;
             } else if self.current_token == Token::Symbol(',') {
@@ -1970,7 +2030,7 @@ impl<'a> Parser<'a> {
                 ));
             }
         }
-        
+
         // Expect '>'
         if self.current_token != Token::Operator(">".to_string()) {
             return Err(CompileError::SyntaxError(
@@ -1979,7 +2039,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         // Expect '('
         if self.current_token != Token::Symbol('(') {
             return Err(CompileError::SyntaxError(
@@ -1988,7 +2048,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         // Check if allocator is provided (optional for now, defaults to malloc)
         let (allocator, initial_capacity) = if self.current_token == Token::Symbol(')') {
             // Empty constructor - use default allocator (0 as placeholder, malloc in codegen)
@@ -1996,7 +2056,7 @@ impl<'a> Parser<'a> {
         } else {
             // Parse allocator expression
             let alloc = self.parse_expression()?;
-            
+
             // Parse optional initial capacity
             let capacity = if self.current_token == Token::Symbol(',') {
                 self.next_token();
@@ -2004,19 +2064,19 @@ impl<'a> Parser<'a> {
             } else {
                 None
             };
-            
+
             if self.current_token != Token::Symbol(')') {
                 return Err(CompileError::SyntaxError(
                     "Expected ')' after DynVec constructor arguments".to_string(),
                     Some(self.current_span.clone()),
                 ));
             }
-            
+
             (alloc, capacity)
         };
-        
+
         self.next_token();
-        
+
         Ok(Expression::DynVecConstructor {
             element_types,
             allocator: Box::new(allocator),

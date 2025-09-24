@@ -7,7 +7,7 @@ use inkwell::{
     context::Context,
     module::Module,
     types::{BasicType, BasicTypeEnum, FunctionType, StructType},
-    values::{FunctionValue, PointerValue, BasicValueEnum},
+    values::{BasicValueEnum, FunctionValue, PointerValue},
 };
 use std::collections::HashMap;
 
@@ -68,7 +68,7 @@ pub struct LLVMCompiler<'ctx> {
     pub builder: Builder<'ctx>,
     pub variables: HashMap<String, VariableInfo<'ctx>>,
     pub functions: HashMap<String, FunctionValue<'ctx>>,
-    pub function_types: HashMap<String, AstType>,  // Track function return types
+    pub function_types: HashMap<String, AstType>, // Track function return types
     pub current_function: Option<FunctionValue<'ctx>>,
     pub symbols: symbols::SymbolTable<'ctx>,
     pub struct_types: HashMap<String, StructTypeInfo<'ctx>>,
@@ -76,10 +76,10 @@ pub struct LLVMCompiler<'ctx> {
     pub defer_stack: Vec<ast::Expression>, // Stack of deferred expressions (LIFO order)
     pub comptime_evaluator: comptime::ComptimeInterpreter,
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
-    pub current_impl_type: Option<String>,  // Track implementing type for trait methods
-    pub inline_counter: usize,  // Counter for unique inline function names
-    pub generic_type_context: HashMap<String, AstType>,  // Track instantiated generic types
-    pub module_imports: HashMap<String, u64>,  // Track module imports (name -> marker value)
+    pub current_impl_type: Option<String>, // Track implementing type for trait methods
+    pub inline_counter: usize,             // Counter for unique inline function names
+    pub generic_type_context: HashMap<String, AstType>, // Track instantiated generic types
+    pub module_imports: HashMap<String, u64>, // Track module imports (name -> marker value)
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -88,17 +88,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let builder = context.create_builder();
         let mut symbols = symbols::SymbolTable::new();
         let comptime_evaluator = comptime::ComptimeInterpreter::new();
-        
+
         let i64_type = context.i64_type();
         let i32_type = context.i32_type();
         let float_type = context.f64_type();
         let bool_type = context.bool_type();
-        
+
         symbols.insert("i64", symbols::Symbol::Type(i64_type.as_basic_type_enum()));
         symbols.insert("i32", symbols::Symbol::Type(i32_type.as_basic_type_enum()));
-        symbols.insert("f64", symbols::Symbol::Type(float_type.as_basic_type_enum()));
-        symbols.insert("bool", symbols::Symbol::Type(bool_type.as_basic_type_enum()));
-        
+        symbols.insert(
+            "f64",
+            symbols::Symbol::Type(float_type.as_basic_type_enum()),
+        );
+        symbols.insert(
+            "bool",
+            symbols::Symbol::Type(bool_type.as_basic_type_enum()),
+        );
+
         let mut compiler = Self {
             context,
             module,
@@ -118,13 +124,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
             generic_type_context: HashMap::new(),
             module_imports: HashMap::new(),
         };
-        
+
         // Declare standard library functions
         compiler.declare_stdlib_functions();
-        
+
         // Register built-in Option and Result enums
         compiler.register_builtin_enums();
-        
+
         compiler
     }
 
@@ -133,22 +139,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Option has Some(T) with payload and None without, so we need space for payload
         // Use pointer type for payload to handle any type (including strings and structs)
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-        let enum_struct_type = self.context.struct_type(&[
-            self.context.i64_type().into(), // discriminant
-            ptr_type.into(), // payload (generic pointer that can hold any type)
-        ], false);
-        
+        let enum_struct_type = self.context.struct_type(
+            &[
+                self.context.i64_type().into(), // discriminant
+                ptr_type.into(),                // payload (generic pointer that can hold any type)
+            ],
+            false,
+        );
+
         let mut variant_indices = HashMap::new();
         variant_indices.insert("Some".to_string(), 0);
         variant_indices.insert("None".to_string(), 1);
-        
+
         let option_info = symbols::EnumInfo {
             llvm_type: enum_struct_type,
             variant_indices: variant_indices.clone(),
             variants: vec![
                 ast::EnumVariant {
                     name: "Some".to_string(),
-                    payload: Some(AstType::Generic { name: "T".to_string(), type_args: vec![] }),
+                    payload: Some(AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    }),
                 },
                 ast::EnumVariant {
                     name: "None".to_string(),
@@ -156,36 +168,47 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 },
             ],
         };
-        self.symbols.insert("Option", symbols::Symbol::EnumType(option_info));
-        
+        self.symbols
+            .insert("Option", symbols::Symbol::EnumType(option_info));
+
         // Register Result<T, E> enum
         // Result always has payloads (Ok(T) or Err(E))
-        let result_struct_type = self.context.struct_type(&[
-            self.context.i64_type().into(), // discriminant
-            ptr_type.into(), // payload (generic pointer that can hold any type)
-        ], false);
-        
+        let result_struct_type = self.context.struct_type(
+            &[
+                self.context.i64_type().into(), // discriminant
+                ptr_type.into(),                // payload (generic pointer that can hold any type)
+            ],
+            false,
+        );
+
         let mut result_variant_indices = HashMap::new();
         result_variant_indices.insert("Ok".to_string(), 0);
         result_variant_indices.insert("Err".to_string(), 1);
-        
+
         let result_info = symbols::EnumInfo {
             llvm_type: result_struct_type,
             variant_indices: result_variant_indices,
             variants: vec![
                 ast::EnumVariant {
                     name: "Ok".to_string(),
-                    payload: Some(AstType::Generic { name: "T".to_string(), type_args: vec![] }),
+                    payload: Some(AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    }),
                 },
                 ast::EnumVariant {
                     name: "Err".to_string(),
-                    payload: Some(AstType::Generic { name: "E".to_string(), type_args: vec![] }),
+                    payload: Some(AstType::Generic {
+                        name: "E".to_string(),
+                        type_args: vec![],
+                    }),
                 },
             ],
         };
-        self.symbols.insert("Result", symbols::Symbol::EnumType(result_info));
+        self.symbols
+            .insert("Result", symbols::Symbol::EnumType(result_info));
     }
-    
+
     fn declare_stdlib_functions(&mut self) {
         // Declare malloc: i8* @malloc(i64)
         if self.module.get_function("malloc").is_none() {
@@ -194,7 +217,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
             self.module.add_function("malloc", malloc_type, None);
         }
-        
+
         // Declare free: void @free(i8*)
         if self.module.get_function("free").is_none() {
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -202,19 +225,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let free_type = void_type.fn_type(&[ptr_type.into()], false);
             self.module.add_function("free", free_type, None);
         }
-        
+
         // Declare memcpy: void @memcpy(i8*, i8*, i64)
         if self.module.get_function("memcpy").is_none() {
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
             let i64_type = self.context.i64_type();
             let void_type = self.context.void_type();
-            let memcpy_type = void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
+            let memcpy_type =
+                void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
             self.module.add_function("memcpy", memcpy_type, None);
         }
     }
-    
+
     pub fn get_type(&self, name: &str) -> Result<BasicTypeEnum<'ctx>, CompileError> {
-        self.symbols.lookup(name)
+        self.symbols
+            .lookup(name)
             .and_then(|sym| match sym {
                 symbols::Symbol::Type(ty) => Some(*ty),
                 _ => None,
@@ -222,7 +247,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .ok_or_else(|| CompileError::UndeclaredVariable(name.to_string(), None))
     }
 
-    pub fn declare_variable(&mut self, name: &str, _ty: AstType, ptr: PointerValue<'ctx>) -> Result<(), CompileError> {
+    pub fn declare_variable(
+        &mut self,
+        name: &str,
+        _ty: AstType,
+        ptr: PointerValue<'ctx>,
+    ) -> Result<(), CompileError> {
         let symbol = symbols::Symbol::Variable(ptr);
         if self.symbols.exists_in_current_scope(name) {
             return Err(CompileError::UndeclaredVariable(name.to_string(), None));
@@ -236,7 +266,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Some(var_info) = self.variables.get(name) {
             return Ok((var_info.pointer, var_info.ast_type.clone()));
         }
-        
+
         // Then check the SymbolTable (used in trait methods and other contexts)
         if let Some(symbol) = self.symbols.lookup(name) {
             if let symbols::Symbol::Variable(ptr) = symbol {
@@ -245,17 +275,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let ty = if name == "self" {
                     // For 'self', we should have the struct type
                     // This is a workaround - ideally we'd store the type in symbols
-                    AstType::Struct { 
-                        name: String::new(),  // Will be resolved in context
-                        fields: vec![] 
+                    AstType::Struct {
+                        name: String::new(), // Will be resolved in context
+                        fields: vec![],
                     }
                 } else {
-                    AstType::Void  // Generic fallback
+                    AstType::Void // Generic fallback
                 };
                 return Ok((*ptr, ty));
             }
         }
-        
+
         // Check if it's a function
         if let Some(function) = self.module.get_function(name) {
             let ptr = function.as_global_value().as_pointer_value();
@@ -265,26 +295,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }));
             return Ok((ptr, ty));
         }
-        
+
         Err(CompileError::UndeclaredVariable(name.to_string(), None))
     }
 
     pub fn compile_program(&mut self, program: &ast::Program) -> Result<(), CompileError> {
-        
         // First pass: register struct types
         for declaration in &program.declarations {
             if let ast::Declaration::Struct(struct_def) = declaration {
                 self.register_struct_type(struct_def)?;
             }
         }
-        
+
         // Register enum types
         for declaration in &program.declarations {
             if let ast::Declaration::Enum(enum_def) = declaration {
                 self.register_enum_type(enum_def)?;
             }
         }
-        
+
         for declaration in &program.declarations {
             match declaration {
                 ast::Declaration::ExternalFunction(ext_func) => {
@@ -292,19 +321,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 ast::Declaration::Function(_) => {}
                 ast::Declaration::Struct(_) => {} // Already handled above
-                ast::Declaration::Enum(_) => {} // Already handled above
+                ast::Declaration::Enum(_) => {}   // Already handled above
                 ast::Declaration::ModuleImport { alias, module_path } => {
                     // Handle module imports like { io } = @std
                     // We just register these as compile-time symbols
                     // The actual variables will be created when needed in functions
-                    
+
                     // Extract the module name from the path (e.g., "@std.io" -> "io")
                     let module_name = if let Some(last_part) = module_path.split('.').last() {
                         last_part
                     } else {
                         alias
                     };
-                    
+
                     // Store a marker value for stdlib modules
                     let module_marker = match module_name {
                         "io" => 1,
@@ -315,7 +344,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "Allocator" => 6,
                         _ => 0,
                     };
-                    
+
                     // Register this as a compile-time module import
                     // We'll create actual variables later when in a function context
                     self.module_imports.insert(alias.clone(), module_marker);
@@ -334,7 +363,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         if let Err(e) = self.comptime_evaluator.execute_statement(stmt) {
                             return Err(CompileError::InternalError(
                                 format!("Comptime evaluation error: {}", e),
-                                None
+                                None,
                             ));
                         }
                     }
@@ -346,13 +375,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Evaluate the constant value and store it in the comptime environment
                     // This allows it to be used in subsequent code
                     if let Ok(comptime_value) = self.comptime_evaluator.evaluate_expression(value) {
-                        self.comptime_evaluator.set_variable(name.clone(), comptime_value);
+                        self.comptime_evaluator
+                            .set_variable(name.clone(), comptime_value);
                     }
                     // Constants are compile-time values, no runtime codegen needed
                 }
             }
         }
-        
+
         // Process top-level statements BEFORE function compilation
         // This ensures imported modules are available inside functions
         if !program.statements.is_empty() {
@@ -364,20 +394,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let fn_type = self.context.i32_type().fn_type(&[], false);
                 self.module.add_function("__temp_toplevel", fn_type, None)
             };
-            
+
             let entry = self.context.append_basic_block(main_fn, "toplevel");
             let saved_block = self.builder.get_insert_block();
             self.builder.position_at_end(entry);
-            
+
             for statement in &program.statements {
                 self.compile_statement(statement)?;
             }
-            
+
             // Restore the builder position
             if let Some(saved) = saved_block {
                 self.builder.position_at_end(saved);
             }
-            
+
             // Remove the temporary block if we created one
             if main_fn.get_name().to_str() == Ok("__temp_toplevel") {
                 unsafe {
@@ -385,29 +415,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
         }
-        
+
         // First pass: Declare all functions
         for declaration in &program.declarations {
             if let ast::Declaration::Function(func) = declaration {
                 self.declare_function(func)?;
             }
         }
-        
+
         // Second pass: Define and compile all functions
         for declaration in &program.declarations {
             if let ast::Declaration::Function(func) = declaration {
                 self.compile_function_body(func)?;
             }
         }
-        
+
         Ok(())
     }
 
-    pub fn register_struct_type(&mut self, struct_def: &ast::StructDefinition) -> Result<(), CompileError> {
+    pub fn register_struct_type(
+        &mut self,
+        struct_def: &ast::StructDefinition,
+    ) -> Result<(), CompileError> {
         // Convert field types to LLVM types
         let mut field_types = Vec::new();
         let mut fields = HashMap::new();
-        
+
         for (index, field) in struct_def.fields.iter().enumerate() {
             let llvm_type = match &field.type_ {
                 AstType::I8 => self.context.i8_type().as_basic_type_enum(),
@@ -421,18 +454,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 AstType::F32 => self.context.f32_type().as_basic_type_enum(),
                 AstType::F64 => self.context.f64_type().as_basic_type_enum(),
                 AstType::Bool => self.context.bool_type().as_basic_type_enum(),
-                AstType::String => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
-                AstType::Void => return Err(CompileError::TypeError("Void type not allowed in struct fields".to_string(), None)),
+                AstType::String => self
+                    .context
+                    .ptr_type(inkwell::AddressSpace::default())
+                    .as_basic_type_enum(),
+                AstType::Void => {
+                    return Err(CompileError::TypeError(
+                        "Void type not allowed in struct fields".to_string(),
+                        None,
+                    ))
+                }
                 AstType::Ptr(_inner) | AstType::MutPtr(_inner) | AstType::RawPtr(_inner) => {
                     // For pointer types in struct fields, we'll use a generic pointer type
                     // This is a simplification - in a full implementation we'd need to handle nested types
-                    self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
-                },
-                AstType::Generic {  .. } => {
+                    self.context
+                        .ptr_type(inkwell::AddressSpace::default())
+                        .as_basic_type_enum()
+                }
+                AstType::Generic { .. } => {
                     // For now, treat generic types as pointers
                     // In a full implementation, we'd need generic instantiation
-                    self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
-                },
+                    self.context
+                        .ptr_type(inkwell::AddressSpace::default())
+                        .as_basic_type_enum()
+                }
                 AstType::Struct { name, .. } => {
                     // Look up the previously registered struct type
                     if let Some(struct_info) = self.struct_types.get(name) {
@@ -441,44 +486,55 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         return Err(CompileError::TypeError(
                             format!("Struct '{}' not yet defined. Structs must be defined before use in fields", name),
                             None
-                        ))
+                        ));
                     }
-                },
+                }
                 AstType::FunctionPointer { .. } => {
                     // Function pointers in struct fields are represented as generic pointers
-                    self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum()
-                },
-                _ => return Err(CompileError::TypeError(format!("Unsupported type in struct: {:?}", field.type_), None)),
+                    self.context
+                        .ptr_type(inkwell::AddressSpace::default())
+                        .as_basic_type_enum()
+                }
+                _ => {
+                    return Err(CompileError::TypeError(
+                        format!("Unsupported type in struct: {:?}", field.type_),
+                        None,
+                    ))
+                }
             };
-            
+
             field_types.push(llvm_type);
             fields.insert(field.name.clone(), (index, field.type_.clone()));
         }
-        
+
         // Create the LLVM struct type
         let struct_type = self.context.struct_type(&field_types, false);
-        
+
         // Register the struct type
         let struct_info = StructTypeInfo {
             llvm_type: struct_type,
             fields,
         };
-        
-        self.struct_types.insert(struct_def.name.clone(), struct_info);
-        
+
+        self.struct_types
+            .insert(struct_def.name.clone(), struct_info);
+
         Ok(())
     }
-    
-    pub fn register_enum_type(&mut self, enum_def: &ast::EnumDefinition) -> Result<(), CompileError> {
+
+    pub fn register_enum_type(
+        &mut self,
+        enum_def: &ast::EnumDefinition,
+    ) -> Result<(), CompileError> {
         // Create variant index mapping
         let mut variant_indices = HashMap::new();
         let mut max_payload_size = 0u32;
         let mut has_payloads = false;
-        
+
         // Find the largest payload type to create a union-like structure
         for (index, variant) in enum_def.variants.iter().enumerate() {
             variant_indices.insert(variant.name.clone(), index as u64);
-            
+
             if let Some(payload_type) = &variant.payload {
                 // Skip void payloads - they don't need storage
                 if !matches!(payload_type, AstType::Void) {
@@ -489,76 +545,116 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         AstType::I16 | AstType::U16 => 16,
                         AstType::I32 | AstType::U32 | AstType::F32 => 32,
                         AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
-                        AstType::String | AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => 64, // pointer size
+                        AstType::String
+                        | AstType::Ptr(_)
+                        | AstType::MutPtr(_)
+                        | AstType::RawPtr(_) => 64, // pointer size
                         AstType::Struct { .. } | AstType::Generic { .. } => 64, // for now, use pointer size
-                        AstType::Void => 0, // void has no size
+                        AstType::Void => 0,                                     // void has no size
                         _ => 64, // default to 64 bits
                     };
                     max_payload_size = max_payload_size.max(payload_size);
                 }
             }
         }
-        
+
         // Create enum struct type based on actual payload needs
         let enum_struct_type = if has_payloads {
             // Use a generic pointer type for payloads to handle any type uniformly
             // This allows us to store strings, structs, and other complex types
             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-            
-            self.context.struct_type(&[
-                self.context.i64_type().into(),  // tag (discriminant)
-                ptr_type.into(),                  // payload (generic pointer for any type)
-            ], false)
+
+            self.context.struct_type(
+                &[
+                    self.context.i64_type().into(), // tag (discriminant)
+                    ptr_type.into(),                // payload (generic pointer for any type)
+                ],
+                false,
+            )
         } else {
             // For enums with no payloads (like unit enums), just use the tag
-            self.context.struct_type(&[
-                self.context.i64_type().into(),  // tag only
-            ], false)
+            self.context.struct_type(
+                &[
+                    self.context.i64_type().into(), // tag only
+                ],
+                false,
+            )
         };
-        
+
         // Create enum info with proper type information preserved
         let enum_info = symbols::EnumInfo {
             llvm_type: enum_struct_type,
             variant_indices,
             variants: enum_def.variants.clone(),
         };
-        
+
         // Register in symbol table
-        self.symbols.insert(&enum_def.name, symbols::Symbol::EnumType(enum_info));
-        
+        self.symbols
+            .insert(&enum_def.name, symbols::Symbol::EnumType(enum_info));
+
         Ok(())
     }
-    
-    pub fn cast_value_to_type(&self, value: BasicValueEnum<'ctx>, target_type: BasicTypeEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+
+    pub fn cast_value_to_type(
+        &self,
+        value: BasicValueEnum<'ctx>,
+        target_type: BasicTypeEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // If the types already match, no cast is needed
         if value.get_type() == target_type {
             return Ok(value);
         }
-        
+
         // Handle casting between integer types
-        if let (BasicValueEnum::IntValue(int_val), BasicTypeEnum::IntType(target_int_type)) = (value, target_type) {
+        if let (BasicValueEnum::IntValue(int_val), BasicTypeEnum::IntType(target_int_type)) =
+            (value, target_type)
+        {
             let source_width = int_val.get_type().get_bit_width();
             let target_width = target_int_type.get_bit_width();
-            
+
             if source_width < target_width {
                 // Sign extend or zero extend
-                Ok(self.builder.build_int_s_extend(int_val, target_int_type, "cast")?.into())
+                Ok(self
+                    .builder
+                    .build_int_s_extend(int_val, target_int_type, "cast")?
+                    .into())
             } else if source_width > target_width {
                 // Truncate
-                Ok(self.builder.build_int_truncate(int_val, target_int_type, "cast")?.into())
+                Ok(self
+                    .builder
+                    .build_int_truncate(int_val, target_int_type, "cast")?
+                    .into())
             } else {
                 // Same width, just return as is
                 Ok(int_val.into())
             }
-        } else if let (BasicValueEnum::FloatValue(float_val), BasicTypeEnum::FloatType(target_float_type)) = (value, target_type) {
+        } else if let (
+            BasicValueEnum::FloatValue(float_val),
+            BasicTypeEnum::FloatType(target_float_type),
+        ) = (value, target_type)
+        {
             // Handle float casting
-            let source_width = if float_val.get_type() == self.context.f32_type() { 32 } else { 64 };
-            let target_width = if target_float_type == self.context.f32_type() { 32 } else { 64 };
-            
+            let source_width = if float_val.get_type() == self.context.f32_type() {
+                32
+            } else {
+                64
+            };
+            let target_width = if target_float_type == self.context.f32_type() {
+                32
+            } else {
+                64
+            };
+
             if source_width < target_width {
-                Ok(self.builder.build_float_ext(float_val, target_float_type, "cast")?.into())
+                Ok(self
+                    .builder
+                    .build_float_ext(float_val, target_float_type, "cast")?
+                    .into())
             } else if source_width > target_width {
-                Ok(self.builder.build_float_trunc(float_val, target_float_type, "cast")?.into())
+                Ok(self
+                    .builder
+                    .build_float_trunc(float_val, target_float_type, "cast")?
+                    .into())
             } else {
                 Ok(float_val.into())
             }
@@ -567,4 +663,4 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Ok(value)
         }
     }
-} 
+}

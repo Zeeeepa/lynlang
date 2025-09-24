@@ -13,9 +13,9 @@ main = () void {
 
     println!("Testing range.loop() parsing");
     println!("Code:\n{}", code);
-    
+
     let mut lexer = Lexer::new(code);
-    
+
     // Tokenize and print tokens
     println!("\nTokens:");
     loop {
@@ -25,12 +25,12 @@ main = () void {
             break;
         }
     }
-    
+
     // Now parse
     println!("\nParsing:");
     let lexer = Lexer::new(code);
     let mut parser = Parser::new(lexer);
-    
+
     match parser.parse_program() {
         Ok(program) => {
             println!("✅ Parsed successfully!");

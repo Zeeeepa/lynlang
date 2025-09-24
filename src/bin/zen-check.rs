@@ -6,17 +6,17 @@ use zen::parser::Parser;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() < 2 {
         eprintln!("Usage: zen-check <file.zen> [files...]");
         eprintln!("       zen-check *.zen");
         process::exit(1);
     }
-    
+
     let mut has_errors = false;
     let mut total_files = 0;
     let mut files_with_errors = 0;
-    
+
     for file_path in &args[1..] {
         // Handle glob patterns
         let paths = if file_path.contains('*') {
@@ -27,15 +27,15 @@ fn main() {
         } else {
             vec![std::path::PathBuf::from(file_path)]
         };
-        
+
         for path in paths {
             total_files += 1;
             let file_str = path.to_string_lossy();
-            
+
             match fs::read_to_string(&path) {
                 Ok(content) => {
                     println!("Checking {}...", file_str);
-                    
+
                     // Check for imports in comptime blocks (which are not allowed)
                     if let Some(error_msg) = check_import_placement(&content) {
                         eprintln!("  ✗ Import error: {}", error_msg);
@@ -43,11 +43,11 @@ fn main() {
                         files_with_errors += 1;
                         continue;
                     }
-                    
+
                     // Try to parse the file
                     let lexer = Lexer::new(&content);
                     let mut parser = Parser::new(lexer);
-                    
+
                     match parser.parse_program() {
                         Ok(_) => {
                             println!("  ✓ No syntax errors found");
@@ -67,7 +67,7 @@ fn main() {
             }
         }
     }
-    
+
     // Print summary if checking multiple files
     if total_files > 1 {
         println!("\n=== Summary ===");
@@ -75,7 +75,7 @@ fn main() {
         println!("Files with errors: {}", files_with_errors);
         println!("Files without errors: {}", total_files - files_with_errors);
     }
-    
+
     process::exit(if has_errors { 1 } else { 0 });
 }
 
@@ -86,10 +86,10 @@ fn check_import_placement(content: &str) -> Option<String> {
     let mut in_comptime = false;
     let mut comptime_line = 0;
     let mut brace_depth = 0;
-    
+
     for (i, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
-        
+
         // Track entering comptime blocks
         if trimmed.starts_with("comptime") && trimmed.contains('{') {
             in_comptime = true;
@@ -109,17 +109,18 @@ fn check_import_placement(content: &str) -> Option<String> {
                     _ => {}
                 }
             }
-            
+
             // Check for imports in comptime blocks
             if in_comptime && (trimmed.contains("@std") || trimmed.contains(".import(")) {
                 return Some(format!(
                     "Line {}: Import statement found inside comptime block (started at line {}). \
                      Imports must be at module level, not inside comptime blocks.",
-                    i + 1, comptime_line
+                    i + 1,
+                    comptime_line
                 ));
             }
         }
     }
-    
+
     None
 }

@@ -2,10 +2,10 @@
 // Implements structural contracts as per Language Spec v1.1.0
 // Behaviors are structs containing function pointers
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use crate::ast::{AstType, Expression};
 use crate::error::{CompileError, Result};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Represents a behavior definition - a struct of function pointers
 #[derive(Clone, Debug)]
@@ -28,7 +28,10 @@ impl std::fmt::Debug for BehaviorMethod {
         f.debug_struct("BehaviorMethod")
             .field("name", &self.name)
             .field("signature", &self.signature)
-            .field("implementation", &self.implementation.as_ref().map(|_| "<function>"))
+            .field(
+                "implementation",
+                &self.implementation.as_ref().map(|_| "<function>"),
+            )
             .finish()
     }
 }
@@ -73,12 +76,12 @@ impl BehaviorRegistry {
             implementations: HashMap::new(),
             derived: HashMap::new(),
         };
-        
+
         // Register built-in behaviors
         registry.register_builtin_behaviors();
         registry
     }
-    
+
     /// Register built-in behaviors like Comparable, Hashable, Serializable
     fn register_builtin_behaviors(&mut self) {
         // Comparable<T>
@@ -87,76 +90,110 @@ impl BehaviorRegistry {
             type_params: vec!["T".to_string()],
             methods: {
                 let mut methods = HashMap::new();
-                methods.insert("compare".to_string(), BehaviorMethod {
-                    name: "compare".to_string(),
-                    signature: FnSignature {
-                        params: vec![
-                            AstType::Struct { name: "T".to_string(), fields: vec![] },
-                            AstType::Struct { name: "T".to_string(), fields: vec![] },
-                        ],
-                        return_type: AstType::I32,
+                methods.insert(
+                    "compare".to_string(),
+                    BehaviorMethod {
+                        name: "compare".to_string(),
+                        signature: FnSignature {
+                            params: vec![
+                                AstType::Struct {
+                                    name: "T".to_string(),
+                                    fields: vec![],
+                                },
+                                AstType::Struct {
+                                    name: "T".to_string(),
+                                    fields: vec![],
+                                },
+                            ],
+                            return_type: AstType::I32,
+                        },
+                        implementation: None,
                     },
-                    implementation: None,
-                });
+                );
                 methods
             },
         });
-        
+
         // Hashable<T>
         self.register_behavior(Behavior {
             name: "Hashable".to_string(),
             type_params: vec!["T".to_string()],
             methods: {
                 let mut methods = HashMap::new();
-                methods.insert("hash".to_string(), BehaviorMethod {
-                    name: "hash".to_string(),
-                    signature: FnSignature {
-                        params: vec![AstType::Struct { name: "T".to_string(), fields: vec![] }],
-                        return_type: AstType::U64,
+                methods.insert(
+                    "hash".to_string(),
+                    BehaviorMethod {
+                        name: "hash".to_string(),
+                        signature: FnSignature {
+                            params: vec![AstType::Struct {
+                                name: "T".to_string(),
+                                fields: vec![],
+                            }],
+                            return_type: AstType::U64,
+                        },
+                        implementation: None,
                     },
-                    implementation: None,
-                });
+                );
                 methods
             },
         });
-        
+
         // Serializable<T>
         self.register_behavior(Behavior {
             name: "Serializable".to_string(),
             type_params: vec!["T".to_string()],
             methods: {
                 let mut methods = HashMap::new();
-                methods.insert("serialize".to_string(), BehaviorMethod {
-                    name: "serialize".to_string(),
-                    signature: FnSignature {
-                        params: vec![
-                            AstType::Struct { name: "T".to_string(), fields: vec![] },
-                            AstType::Ptr(Box::new(AstType::Struct { name: "Writer".to_string(), fields: vec![] })),
-                        ],
-                        return_type: AstType::Struct { name: "Result".to_string(), fields: vec![] },
+                methods.insert(
+                    "serialize".to_string(),
+                    BehaviorMethod {
+                        name: "serialize".to_string(),
+                        signature: FnSignature {
+                            params: vec![
+                                AstType::Struct {
+                                    name: "T".to_string(),
+                                    fields: vec![],
+                                },
+                                AstType::Ptr(Box::new(AstType::Struct {
+                                    name: "Writer".to_string(),
+                                    fields: vec![],
+                                })),
+                            ],
+                            return_type: AstType::Struct {
+                                name: "Result".to_string(),
+                                fields: vec![],
+                            },
+                        },
+                        implementation: None,
                     },
-                    implementation: None,
-                });
-                methods.insert("deserialize".to_string(), BehaviorMethod {
-                    name: "deserialize".to_string(),
-                    signature: FnSignature {
-                        params: vec![
-                            AstType::Ptr(Box::new(AstType::Struct { name: "Reader".to_string(), fields: vec![] })),
-                        ],
-                        return_type: AstType::Struct { name: "Result".to_string(), fields: vec![] },
+                );
+                methods.insert(
+                    "deserialize".to_string(),
+                    BehaviorMethod {
+                        name: "deserialize".to_string(),
+                        signature: FnSignature {
+                            params: vec![AstType::Ptr(Box::new(AstType::Struct {
+                                name: "Reader".to_string(),
+                                fields: vec![],
+                            }))],
+                            return_type: AstType::Struct {
+                                name: "Result".to_string(),
+                                fields: vec![],
+                            },
+                        },
+                        implementation: None,
                     },
-                    implementation: None,
-                });
+                );
                 methods
             },
         });
     }
-    
+
     /// Register a new behavior
     pub fn register_behavior(&mut self, behavior: Behavior) {
         self.behaviors.insert(behavior.name.clone(), behavior);
     }
-    
+
     /// Provide an implementation of a behavior for a type
     pub fn provide_implementation(
         &mut self,
@@ -165,57 +202,60 @@ impl BehaviorRegistry {
         methods: HashMap<String, Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>>,
     ) -> Result<()> {
         // Verify behavior exists
-        let behavior = self.behaviors.get(&behavior_name)
-            .ok_or_else(|| CompileError::TypeError(
-                format!("Unknown behavior: {}", behavior_name),
-                None
-            ))?;
-        
+        let behavior = self.behaviors.get(&behavior_name).ok_or_else(|| {
+            CompileError::TypeError(format!("Unknown behavior: {}", behavior_name), None)
+        })?;
+
         // Verify all required methods are provided
         for method_name in behavior.methods.keys() {
             if !methods.contains_key(method_name) {
                 return Err(CompileError::TypeError(
-                    format!("Missing implementation for method '{}' in behavior '{}'", 
-                            method_name, behavior_name),
-                    None
+                    format!(
+                        "Missing implementation for method '{}' in behavior '{}'",
+                        method_name, behavior_name
+                    ),
+                    None,
                 ));
             }
         }
-        
+
         let implementation = BehaviorImplementation {
             type_name: type_name.clone(),
             behavior_name: behavior_name.clone(),
             methods,
         };
-        
-        self.implementations.insert(
-            (type_name, behavior_name),
-            implementation
-        );
-        
+
+        self.implementations
+            .insert((type_name, behavior_name), implementation);
+
         Ok(())
     }
-    
+
     /// Get implementation of a behavior for a type
-    pub fn get_implementation(&self, type_name: &str, behavior_name: &str) 
-        -> Option<&BehaviorImplementation> 
-    {
-        self.implementations.get(&(type_name.to_string(), behavior_name.to_string()))
+    pub fn get_implementation(
+        &self,
+        type_name: &str,
+        behavior_name: &str,
+    ) -> Option<&BehaviorImplementation> {
+        self.implementations
+            .get(&(type_name.to_string(), behavior_name.to_string()))
     }
-    
+
     /// Check if a type implements a behavior
     pub fn implements(&self, type_name: &str, behavior_name: &str) -> bool {
-        self.implementations.contains_key(&(type_name.to_string(), behavior_name.to_string()))
+        self.implementations
+            .contains_key(&(type_name.to_string(), behavior_name.to_string()))
             || self.is_derived(type_name, behavior_name)
     }
-    
+
     /// Check if a behavior is auto-derived for a type
     fn is_derived(&self, type_name: &str, behavior_name: &str) -> bool {
-        self.derived.get(type_name)
+        self.derived
+            .get(type_name)
             .map(|behaviors| behaviors.contains(&behavior_name.to_string()))
             .unwrap_or(false)
     }
-    
+
     /// Auto-derive common behaviors for a type
     pub fn auto_derive(&mut self, type_name: String, behaviors: Vec<String>) -> Result<()> {
         for behavior_name in &behaviors {
@@ -225,19 +265,20 @@ impl BehaviorRegistry {
                 _ => {
                     return Err(CompileError::TypeError(
                         format!("Cannot auto-derive behavior: {}", behavior_name),
-                        None
+                        None,
                     ));
                 }
             }
         }
-        
-        self.derived.entry(type_name)
+
+        self.derived
+            .entry(type_name)
             .or_insert_with(Vec::new)
             .extend(behaviors);
-        
+
         Ok(())
     }
-    
+
     /// Auto-derive Comparable for a type
     fn derive_comparable(&mut self, type_name: &str) -> Result<()> {
         // Generate comparison function based on type structure
@@ -246,19 +287,18 @@ impl BehaviorRegistry {
             // This would be expanded based on actual type structure
             Expression::Integer32(0)
         });
-        
+
         let mut methods = HashMap::new();
-        methods.insert("compare".to_string(), compare_fn as Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>);
-        
-        self.provide_implementation(
-            type_name.to_string(),
-            "Comparable".to_string(),
-            methods
-        )?;
-        
+        methods.insert(
+            "compare".to_string(),
+            compare_fn as Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>,
+        );
+
+        self.provide_implementation(type_name.to_string(), "Comparable".to_string(), methods)?;
+
         Ok(())
     }
-    
+
     /// Auto-derive Hashable for a type
     fn derive_hashable(&mut self, type_name: &str) -> Result<()> {
         // Generate hash function based on type structure
@@ -267,16 +307,15 @@ impl BehaviorRegistry {
             // This would be expanded based on actual type structure
             Expression::Integer64(0)
         });
-        
+
         let mut methods = HashMap::new();
-        methods.insert("hash".to_string(), hash_fn as Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>);
-        
-        self.provide_implementation(
-            type_name.to_string(),
-            "Hashable".to_string(),
-            methods
-        )?;
-        
+        methods.insert(
+            "hash".to_string(),
+            hash_fn as Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>,
+        );
+
+        self.provide_implementation(type_name.to_string(), "Hashable".to_string(), methods)?;
+
         Ok(())
     }
 }
@@ -294,57 +333,57 @@ pub fn sort_with_behavior<T>(
     items: &mut [T],
     comparable: Arc<dyn Fn(&T, &T) -> i32 + Send + Sync>,
 ) {
-    items.sort_by(|a, b| {
-        match comparable(a, b) {
-            x if x < 0 => std::cmp::Ordering::Less,
-            x if x > 0 => std::cmp::Ordering::Greater,
-            _ => std::cmp::Ordering::Equal,
-        }
+    items.sort_by(|a, b| match comparable(a, b) {
+        x if x < 0 => std::cmp::Ordering::Less,
+        x if x > 0 => std::cmp::Ordering::Greater,
+        _ => std::cmp::Ordering::Equal,
     });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_behavior_registration() {
         let mut registry = BehaviorRegistry::new();
-        
+
         // Check built-in behaviors are registered
         assert!(registry.behaviors.contains_key("Comparable"));
         assert!(registry.behaviors.contains_key("Hashable"));
         assert!(registry.behaviors.contains_key("Serializable"));
     }
-    
+
     #[test]
     fn test_behavior_implementation() {
         let mut registry = BehaviorRegistry::new();
-        
+
         // Provide implementation for i32
         let mut methods = HashMap::new();
-        methods.insert("compare".to_string(), Arc::new(|args: &[Expression]| {
-            Expression::Integer32(0)
-        }) as Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>);
-        
-        registry.provide_implementation(
-            "i32".to_string(),
-            "Comparable".to_string(),
-            methods
-        ).unwrap();
-        
+        methods.insert(
+            "compare".to_string(),
+            Arc::new(|args: &[Expression]| Expression::Integer32(0))
+                as Arc<dyn Fn(&[Expression]) -> Expression + Send + Sync>,
+        );
+
+        registry
+            .provide_implementation("i32".to_string(), "Comparable".to_string(), methods)
+            .unwrap();
+
         assert!(registry.implements("i32", "Comparable"));
     }
-    
+
     #[test]
     fn test_auto_derive() {
         let mut registry = BehaviorRegistry::new();
-        
-        registry.auto_derive(
-            "Point".to_string(),
-            vec!["Comparable".to_string(), "Hashable".to_string()]
-        ).unwrap();
-        
+
+        registry
+            .auto_derive(
+                "Point".to_string(),
+                vec!["Comparable".to_string(), "Hashable".to_string()],
+            )
+            .unwrap();
+
         assert!(registry.implements("Point", "Comparable"));
         assert!(registry.implements("Point", "Hashable"));
     }

@@ -1,11 +1,11 @@
 //! The high-level compiler orchestrator.
 //! This module ties the frontend (parser) and the backend (codegen) together.
 
-use crate::ast::{Program, Declaration};
+use crate::ast::{Declaration, Program};
 use crate::codegen::llvm::LLVMCompiler;
 use crate::comptime::ComptimeInterpreter;
 use crate::error::{CompileError, Result};
-use crate::module_system::{ModuleSystem, resolver::ModuleResolver};
+use crate::module_system::{resolver::ModuleResolver, ModuleSystem};
 use crate::type_system::Monomorphizer;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -25,17 +25,17 @@ impl<'ctx> Compiler<'ctx> {
     pub fn compile_llvm(&self, program: &Program) -> Result<String> {
         // Process module imports
         let processed_program = self.process_imports(program)?;
-        
+
         // Execute comptime blocks and expressions
         let processed_program = self.execute_comptime(processed_program)?;
-        
+
         // Resolve Self types in trait implementations
         let processed_program = self.resolve_self_types(processed_program)?;
-        
+
         // Monomorphize the program to resolve all generic types
         let mut monomorphizer = Monomorphizer::new();
         let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
-        
+
         let mut llvm_compiler = LLVMCompiler::new(self.context);
         llvm_compiler.compile_program(&monomorphized_program)?;
 
@@ -53,17 +53,17 @@ impl<'ctx> Compiler<'ctx> {
     pub fn get_module(&self, program: &Program) -> Result<Module<'ctx>> {
         // Process module imports
         let processed_program = self.process_imports(program)?;
-        
+
         // Execute comptime blocks and expressions
         let processed_program = self.execute_comptime(processed_program)?;
-        
+
         // Resolve Self types in trait implementations
         let processed_program = self.resolve_self_types(processed_program)?;
-        
+
         // Monomorphize the program to resolve all generic types
         let mut monomorphizer = Monomorphizer::new();
         let monomorphized_program = monomorphizer.monomorphize_program(&processed_program)?;
-        
+
         let mut llvm_compiler = LLVMCompiler::new(self.context);
         llvm_compiler.compile_program(&monomorphized_program)?;
 
@@ -76,12 +76,12 @@ impl<'ctx> Compiler<'ctx> {
 
         Ok(llvm_compiler.module)
     }
-    
+
     /// Process module imports and merge imported modules
     fn process_imports(&self, program: &Program) -> Result<Program> {
         let mut module_system = ModuleSystem::new();
         let mut resolver = ModuleResolver::new();
-        
+
         // Process all module imports
         for decl in &program.declarations {
             if let Declaration::ModuleImport { alias, module_path } = decl {
@@ -89,10 +89,10 @@ impl<'ctx> Compiler<'ctx> {
                 if !module_path.starts_with("@std") && !module_path.starts_with("std.") {
                     // Load the module
                     module_system.load_module(module_path)?;
-                    
+
                     // Register the import with the resolver
                     resolver.add_import(alias.clone(), module_path.clone());
-                    
+
                     // Extract and register exports
                     if let Some(module) = module_system.get_modules().get(module_path) {
                         let exports = ModuleResolver::extract_exports(module);
@@ -101,28 +101,29 @@ impl<'ctx> Compiler<'ctx> {
                 }
             }
         }
-        
+
         // Merge all modules into a single program
         let mut merged_program = module_system.merge_programs(program.clone());
-        
+
         // Resolve module references
-        resolver.resolve_program(&mut merged_program)
+        resolver
+            .resolve_program(&mut merged_program)
             .map_err(|e| CompileError::InternalError(e, None))?;
-        
+
         Ok(merged_program)
     }
-    
+
     /// Execute comptime blocks and expressions in the program
     fn execute_comptime(&self, program: Program) -> Result<Program> {
         let mut interpreter = ComptimeInterpreter::new();
         let mut new_declarations = Vec::new();
-        
+
         for decl in program.declarations {
             match decl {
                 Declaration::ComptimeBlock(statements) => {
                     // Execute the comptime block
                     interpreter.execute_comptime_block(&statements)?;
-                    
+
                     // Get any generated declarations from the comptime execution
                     let mut generated = interpreter.get_generated_declarations();
                     new_declarations.append(&mut generated);
@@ -134,15 +135,19 @@ impl<'ctx> Compiler<'ctx> {
                 }
             }
         }
-        
+
         Ok(Program {
             declarations: new_declarations,
             statements: Vec::new(),
         })
     }
-    
+
     /// Process comptime expressions within a declaration
-    fn process_declaration_comptime(&self, decl: Declaration, interpreter: &mut ComptimeInterpreter) -> Result<Declaration> {
+    fn process_declaration_comptime(
+        &self,
+        decl: Declaration,
+        interpreter: &mut ComptimeInterpreter,
+    ) -> Result<Declaration> {
         match decl {
             Declaration::Function(mut func) => {
                 // Process comptime expressions in function body
@@ -153,7 +158,8 @@ impl<'ctx> Compiler<'ctx> {
                 // Process default values in struct fields
                 for field in &mut struct_def.fields {
                     if let Some(default) = &field.default_value {
-                        field.default_value = Some(self.process_expression_comptime(default.clone(), interpreter)?);
+                        field.default_value =
+                            Some(self.process_expression_comptime(default.clone(), interpreter)?);
                     }
                 }
                 Ok(Declaration::Struct(struct_def))
@@ -161,30 +167,44 @@ impl<'ctx> Compiler<'ctx> {
             other => Ok(other),
         }
     }
-    
+
     /// Process comptime expressions within statements
-    fn process_statements_comptime(&self, statements: Vec<crate::ast::Statement>, interpreter: &mut ComptimeInterpreter) -> Result<Vec<crate::ast::Statement>> {
+    fn process_statements_comptime(
+        &self,
+        statements: Vec<crate::ast::Statement>,
+        interpreter: &mut ComptimeInterpreter,
+    ) -> Result<Vec<crate::ast::Statement>> {
         let mut processed = Vec::new();
-        
+
         for stmt in statements {
             processed.push(self.process_statement_comptime(stmt, interpreter)?);
         }
-        
+
         Ok(processed)
     }
-    
+
     /// Process a single statement for comptime expressions
-    fn process_statement_comptime(&self, stmt: crate::ast::Statement, interpreter: &mut ComptimeInterpreter) -> Result<crate::ast::Statement> {
-        use crate::ast::{Statement, Expression};
-        
+    fn process_statement_comptime(
+        &self,
+        stmt: crate::ast::Statement,
+        interpreter: &mut ComptimeInterpreter,
+    ) -> Result<crate::ast::Statement> {
+        use crate::ast::{Expression, Statement};
+
         match stmt {
-            Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } => {
+            Statement::VariableDeclaration {
+                name,
+                type_,
+                initializer,
+                is_mutable,
+                declaration_type,
+            } => {
                 let processed_initializer = if let Some(init) = initializer {
                     Some(self.process_expression_comptime(init, interpreter)?)
                 } else {
                     None
                 };
-                
+
                 Ok(Statement::VariableDeclaration {
                     name,
                     type_,
@@ -193,31 +213,25 @@ impl<'ctx> Compiler<'ctx> {
                     declaration_type,
                 })
             }
-            Statement::VariableAssignment { name, value } => {
-                Ok(Statement::VariableAssignment {
-                    name,
-                    value: self.process_expression_comptime(value, interpreter)?,
-                })
-            }
-            Statement::PointerAssignment { pointer, value } => {
-                Ok(Statement::PointerAssignment {
-                    pointer: self.process_expression_comptime(pointer, interpreter)?,
-                    value: self.process_expression_comptime(value, interpreter)?,
-                })
-            }
-            Statement::Return(expr) => {
-                Ok(Statement::Return(self.process_expression_comptime(expr, interpreter)?))
-            }
-            Statement::Expression(expr) => {
-                Ok(Statement::Expression(self.process_expression_comptime(expr, interpreter)?))
-            }
-            Statement::Loop { kind, label, body } => {
-                Ok(Statement::Loop {
-                    kind,
-                    label,
-                    body: self.process_statements_comptime(body, interpreter)?,
-                })
-            }
+            Statement::VariableAssignment { name, value } => Ok(Statement::VariableAssignment {
+                name,
+                value: self.process_expression_comptime(value, interpreter)?,
+            }),
+            Statement::PointerAssignment { pointer, value } => Ok(Statement::PointerAssignment {
+                pointer: self.process_expression_comptime(pointer, interpreter)?,
+                value: self.process_expression_comptime(value, interpreter)?,
+            }),
+            Statement::Return(expr) => Ok(Statement::Return(
+                self.process_expression_comptime(expr, interpreter)?,
+            )),
+            Statement::Expression(expr) => Ok(Statement::Expression(
+                self.process_expression_comptime(expr, interpreter)?,
+            )),
+            Statement::Loop { kind, label, body } => Ok(Statement::Loop {
+                kind,
+                label,
+                body: self.process_statements_comptime(body, interpreter)?,
+            }),
             Statement::ComptimeBlock(statements) => {
                 // Execute the comptime block inline
                 interpreter.execute_comptime_block(&statements)?;
@@ -227,11 +241,15 @@ impl<'ctx> Compiler<'ctx> {
             other => Ok(other),
         }
     }
-    
+
     /// Process a single expression for comptime evaluation
-    fn process_expression_comptime(&self, expr: crate::ast::Expression, interpreter: &mut ComptimeInterpreter) -> Result<crate::ast::Expression> {
+    fn process_expression_comptime(
+        &self,
+        expr: crate::ast::Expression,
+        interpreter: &mut ComptimeInterpreter,
+    ) -> Result<crate::ast::Expression> {
         use crate::ast::Expression;
-        
+
         match expr {
             Expression::Comptime(inner) => {
                 // Evaluate the comptime expression
@@ -239,13 +257,11 @@ impl<'ctx> Compiler<'ctx> {
                 // Convert the computed value back to an expression
                 value.to_expression()
             }
-            Expression::BinaryOp { left, op, right } => {
-                Ok(Expression::BinaryOp {
-                    left: Box::new(self.process_expression_comptime(*left, interpreter)?),
-                    op,
-                    right: Box::new(self.process_expression_comptime(*right, interpreter)?),
-                })
-            }
+            Expression::BinaryOp { left, op, right } => Ok(Expression::BinaryOp {
+                left: Box::new(self.process_expression_comptime(*left, interpreter)?),
+                op,
+                right: Box::new(self.process_expression_comptime(*right, interpreter)?),
+            }),
             Expression::FunctionCall { name, args } => {
                 let mut processed_args = Vec::new();
                 for arg in args {
@@ -266,7 +282,10 @@ impl<'ctx> Compiler<'ctx> {
             Expression::StructLiteral { name, fields } => {
                 let mut processed_fields = Vec::new();
                 for (field_name, field_expr) in fields {
-                    processed_fields.push((field_name, self.process_expression_comptime(field_expr, interpreter)?));
+                    processed_fields.push((
+                        field_name,
+                        self.process_expression_comptime(field_expr, interpreter)?,
+                    ));
                 }
                 Ok(Expression::StructLiteral {
                     name,
@@ -280,22 +299,26 @@ impl<'ctx> Compiler<'ctx> {
                     match part {
                         StringPart::Literal(s) => processed_parts.push(StringPart::Literal(s)),
                         StringPart::Interpolation(e) => {
-                            processed_parts.push(StringPart::Interpolation(self.process_expression_comptime(e, interpreter)?));
+                            processed_parts.push(StringPart::Interpolation(
+                                self.process_expression_comptime(e, interpreter)?,
+                            ));
                         }
                     }
                 }
-                Ok(Expression::StringInterpolation { parts: processed_parts })
+                Ok(Expression::StringInterpolation {
+                    parts: processed_parts,
+                })
             }
             other => Ok(other),
         }
     }
-    
+
     /// Resolve Self types in trait implementations
     fn resolve_self_types(&self, program: Program) -> Result<Program> {
         use crate::typechecker::self_resolution::transform_trait_impl_self_types;
-        
+
         let mut new_declarations = Vec::new();
-        
+
         for decl in program.declarations {
             match decl {
                 Declaration::TraitImplementation(trait_impl) => {
@@ -306,10 +329,10 @@ impl<'ctx> Compiler<'ctx> {
                 other => new_declarations.push(other),
             }
         }
-        
+
         Ok(Program {
             declarations: new_declarations,
             statements: program.statements,
         })
     }
-} 
+}

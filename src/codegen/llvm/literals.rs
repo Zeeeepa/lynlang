@@ -1,19 +1,29 @@
-use super::{LLVMCompiler, symbols};
+use super::{symbols, LLVMCompiler};
 use crate::ast::AstType;
 use crate::error::CompileError;
 use inkwell::values::BasicValueEnum;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     // Expression compilation methods for literals
-    pub fn compile_integer_literal(&self, value: i64) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        Ok(self.context.i64_type().const_int(value as u64, false).into())
+    pub fn compile_integer_literal(
+        &self,
+        value: i64,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        Ok(self
+            .context
+            .i64_type()
+            .const_int(value as u64, false)
+            .into())
     }
 
     pub fn compile_float_literal(&self, value: f64) -> Result<BasicValueEnum<'ctx>, CompileError> {
         Ok(self.context.f64_type().const_float(value).into())
     }
 
-    pub fn compile_string_literal(&mut self, val: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    pub fn compile_string_literal(
+        &mut self,
+        val: &str,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let ptr = self.builder.build_global_string_ptr(val, "str")?;
         let ptr_val = ptr.as_pointer_value();
         // Always return the pointer value, don't convert to integer
@@ -23,14 +33,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_identifier(&mut self, name: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        
         // Check if this is an enum type name (will be handled later in member access)
         if let Some(symbols::Symbol::EnumType(_)) = self.symbols.lookup(name) {
             // Return a dummy value - this will be handled properly in member access
             // We can't create an enum variant without knowing which variant
             return Ok(self.context.i64_type().const_int(0, false).into());
         }
-        
+
         // First check if this is a function name
         if let Some(function) = self.module.get_function(name) {
             // Return the function's address as a pointer value
@@ -38,7 +47,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         } else {
             // It's a variable, get the pointer
             let (ptr, ast_type) = self.get_variable(name)?;
-            
+
             // Load the value from the alloca based on type
             let loaded: BasicValueEnum = match &ast_type {
                 AstType::Bool => {
@@ -56,7 +65,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
                 AstType::I64 => {
-                    // Load as i64  
+                    // Load as i64
                     match self.builder.build_load(self.context.i64_type(), ptr, name) {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
@@ -78,7 +87,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 AstType::String => {
                     // Strings are stored as pointers
-                    match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {
+                    match self.builder.build_load(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                        ptr,
+                        name,
+                    ) {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
@@ -88,25 +101,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // We need to load the pointer value from the alloca
                     if matches!(**inner, AstType::I8) {
                         // This is likely a string (char pointer)
-                        match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {
+                        match self.builder.build_load(
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            ptr,
+                            name,
+                        ) {
                             Ok(val) => val.into(),
                             Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                         }
                     } else if matches!(**inner, AstType::Function { .. }) {
-                        match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {
+                        match self.builder.build_load(
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            ptr,
+                            name,
+                        ) {
                             Ok(val) => val.into(),
                             Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                         }
                     } else {
                         // Other pointer types - load the pointer value from the alloca
-                        match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {
+                        match self.builder.build_load(
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            ptr,
+                            name,
+                        ) {
                             Ok(val) => val.into(),
                             Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                         }
                     }
                 }
                 AstType::Function { .. } => {
-                    match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {
+                    match self.builder.build_load(
+                        self.context.ptr_type(inkwell::AddressSpace::default()),
+                        ptr,
+                        name,
+                    ) {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
@@ -114,10 +143,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 AstType::EnumType { .. } => {
                     // For enum types, we need to load the struct value
                     // First get the enum struct type from the symbols
-                    let enum_struct_type = self.context.struct_type(&[
-                        self.context.i64_type().into(),
-                        self.context.i64_type().into(),
-                    ], false);
+                    let enum_struct_type = self.context.struct_type(
+                        &[
+                            self.context.i64_type().into(),
+                            self.context.i64_type().into(),
+                        ],
+                        false,
+                    );
                     match self.builder.build_load(enum_struct_type, ptr, name) {
                         Ok(val) => val.into(),
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
@@ -143,15 +175,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Ok(loaded)
         }
     }
-    
-    pub fn compile_string_interpolation(&mut self, parts: &[crate::ast::StringPart]) -> Result<BasicValueEnum<'ctx>, CompileError> {
+
+    pub fn compile_string_interpolation(
+        &mut self,
+        parts: &[crate::ast::StringPart],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         use crate::ast::StringPart;
-        use inkwell::AddressSpace;
         use inkwell::values::BasicMetadataValueEnum;
-        
+        use inkwell::AddressSpace;
+
         // First, calculate the total size needed for the string
         // For now, we'll use a simple approach with sprintf for numeric values
-        
+
         // Declare sprintf if not already declared
         let sprintf_fn = self.module.get_function("sprintf").unwrap_or_else(|| {
             let i32_type = self.context.i32_type();
@@ -159,11 +194,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let fn_type = i32_type.fn_type(&[ptr_type.into(), ptr_type.into()], true);
             self.module.add_function("sprintf", fn_type, None)
         });
-        
+
         // Build the format string and collect interpolated values
         let mut format_string = String::new();
         let mut values: Vec<BasicMetadataValueEnum> = Vec::new();
-        
+
         for part in parts {
             match part {
                 StringPart::Literal(s) => {
@@ -171,17 +206,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 StringPart::Interpolation(expr) => {
                     let val = self.compile_expression(expr)?;
-                    
+
                     // Handle different value types for interpolation
                     let (format_spec, actual_val) = if val.is_struct_value() {
                         // This could be an enum (Option, Result, etc)
                         let struct_val = val.into_struct_value();
-                        
+
                         // For enums, we check if it has a discriminant field
                         if struct_val.get_type().count_fields() >= 1 {
                             // Extract the discriminant (tag)
-                            let tag = self.builder.build_extract_value(struct_val, 0, "enum_tag")?;
-                            
+                            let tag = self
+                                .builder
+                                .build_extract_value(struct_val, 0, "enum_tag")?;
+
                             // Check if this is Option type (Some=0, None=1)
                             let tag_int = tag.into_int_value();
                             let zero = tag_int.get_type().const_zero();
@@ -189,35 +226,46 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 inkwell::IntPredicate::EQ,
                                 tag_int,
                                 zero,
-                                "is_some"
+                                "is_some",
                             )?;
-                            
+
                             // Get the string representations
                             let some_str = if struct_val.get_type().count_fields() > 1 {
                                 // Has payload - extract and format it
-                                let payload = self.builder.build_extract_value(struct_val, 1, "payload")?;
+                                let payload =
+                                    self.builder.build_extract_value(struct_val, 1, "payload")?;
                                 // For now, format the payload as an integer
                                 // In a full implementation, we'd recursively format the payload
-                                let formatted = self.builder.build_global_string_ptr("Some(...)", "some_str")?;
+                                let formatted = self
+                                    .builder
+                                    .build_global_string_ptr("Some(...)", "some_str")?;
                                 formatted.as_pointer_value()
                             } else {
-                                let formatted = self.builder.build_global_string_ptr("Some", "some_str")?;
+                                let formatted =
+                                    self.builder.build_global_string_ptr("Some", "some_str")?;
                                 formatted.as_pointer_value()
                             };
-                            
-                            let none_str = self.builder.build_global_string_ptr("None", "none_str")?;
-                            
+
+                            let none_str =
+                                self.builder.build_global_string_ptr("None", "none_str")?;
+
                             let result = self.builder.build_select(
                                 is_some,
                                 some_str,
                                 none_str.as_pointer_value(),
-                                "option_str"
+                                "option_str",
                             )?;
-                            
+
                             ("%s", result.into())
                         } else {
                             // Unknown struct - use a default representation
-                            ("%s", self.builder.build_global_string_ptr("<struct>", "struct_str")?.as_pointer_value().into())
+                            (
+                                "%s",
+                                self.builder
+                                    .build_global_string_ptr("<struct>", "struct_str")?
+                                    .as_pointer_value()
+                                    .into(),
+                            )
                         }
                     } else if val.is_int_value() {
                         let int_val = val.into_int_value();
@@ -225,23 +273,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         match bit_width {
                             1 => {
                                 // This is a boolean - convert to "true"/"false"
-                                let true_str = self.builder.build_global_string_ptr("true", "true_str")?;
-                                let false_str = self.builder.build_global_string_ptr("false", "false_str")?;
-                                
+                                let true_str =
+                                    self.builder.build_global_string_ptr("true", "true_str")?;
+                                let false_str =
+                                    self.builder.build_global_string_ptr("false", "false_str")?;
+
                                 let is_true = self.builder.build_int_compare(
                                     inkwell::IntPredicate::NE,
                                     int_val,
                                     int_val.get_type().const_zero(),
-                                    "is_true"
+                                    "is_true",
                                 )?;
-                                
+
                                 let result = self.builder.build_select(
                                     is_true,
                                     true_str.as_pointer_value(),
                                     false_str.as_pointer_value(),
-                                    "bool_str"
+                                    "bool_str",
                                 )?;
-                                
+
                                 ("%s", result.into())
                             }
                             8 => {
@@ -249,7 +299,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let extended = self.builder.build_int_z_extend(
                                     int_val,
                                     self.context.i32_type(),
-                                    "i8_to_i32"
+                                    "i8_to_i32",
                                 )?;
                                 ("%d", extended.into())
                             }
@@ -266,36 +316,37 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Default to string format
                         ("%s", val.into())
                     };
-                    
+
                     format_string.push_str(format_spec);
                     values.push(actual_val);
                 }
             }
         }
-        
+
         // Allocate buffer for the result (using a reasonable max size)
         let buffer_size = 1024;
         let buffer_type = self.context.i8_type().array_type(buffer_size);
         let buffer = self.builder.build_alloca(buffer_type, "str_buffer")?;
         let buffer_ptr = self.builder.build_pointer_cast(
-            buffer, 
+            buffer,
             self.context.ptr_type(AddressSpace::default()),
-            "buffer_ptr"
+            "buffer_ptr",
         )?;
-        
+
         // Build the format string
-        let format_ptr = self.builder.build_global_string_ptr(&format_string, "format")?;
-        
+        let format_ptr = self
+            .builder
+            .build_global_string_ptr(&format_string, "format")?;
+
         // Build the sprintf call with all arguments
-        let mut sprintf_args: Vec<BasicMetadataValueEnum> = vec![
-            buffer_ptr.into(),
-            format_ptr.as_pointer_value().into(),
-        ];
+        let mut sprintf_args: Vec<BasicMetadataValueEnum> =
+            vec![buffer_ptr.into(), format_ptr.as_pointer_value().into()];
         sprintf_args.extend(values);
-        
-        self.builder.build_call(sprintf_fn, &sprintf_args, "sprintf_call")?;
-        
+
+        self.builder
+            .build_call(sprintf_fn, &sprintf_args, "sprintf_call")?;
+
         // Return the buffer pointer
         Ok(buffer_ptr.into())
     }
-} 
+}

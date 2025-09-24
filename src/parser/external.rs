@@ -15,7 +15,7 @@ impl<'a> Parser<'a> {
             ));
         };
         self.next_token();
-        
+
         // Skip the ':' symbol
         if self.current_token != Token::Symbol(':') {
             return Err(CompileError::SyntaxError(
@@ -24,7 +24,7 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         // Parameters
         if self.current_token != Token::Symbol('(') {
             return Err(CompileError::SyntaxError(
@@ -33,10 +33,10 @@ impl<'a> Parser<'a> {
             ));
         }
         self.next_token();
-        
+
         let mut args = vec![];
         let mut is_varargs = false;
-        
+
         if self.current_token != Token::Symbol(')') {
             loop {
                 if self.current_token == Token::Operator("...".to_string()) {
@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
                     self.next_token();
                     break;
                 }
-                
+
                 // Check if we have a parameter name (optional)
                 if let Token::Identifier(_param_name) = &self.current_token {
                     // Check if the next token is ':'
@@ -54,10 +54,10 @@ impl<'a> Parser<'a> {
                         self.next_token(); // skip ':'
                     }
                 }
-                
+
                 let arg_type = self.parse_type()?;
                 args.push(arg_type);
-                
+
                 if self.current_token == Token::Symbol(')') {
                     break;
                 }
@@ -71,10 +71,10 @@ impl<'a> Parser<'a> {
             }
         }
         self.next_token(); // consume ')'
-        
+
         // Return type
         let return_type = self.parse_type()?;
-        
+
         Ok(ExternalFunction {
             name,
             args,

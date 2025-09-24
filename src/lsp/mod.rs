@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-use tokio::sync::RwLock;
 
+use crate::ast::{Declaration, Program};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::ast::{Program, Declaration};
 
 pub mod enhanced;
 
@@ -27,34 +27,34 @@ impl ZenServer {
 
     async fn parse_document(&self, uri: &str) -> Result<Program> {
         let documents = self.documents.read().await;
-        let content = documents.get(uri)
-            .ok_or_else(|| {
-                let mut err = tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams);
-                err.message = format!("Document not found: {}", uri).into();
-                err
-            })?;
-        
+        let content = documents.get(uri).ok_or_else(|| {
+            let mut err =
+                tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams);
+            err.message = format!("Document not found: {}", uri).into();
+            err
+        })?;
+
         let lexer = Lexer::new(content);
         let mut parser = Parser::new(lexer);
-        
+
         parser.parse_program()
             .map_err(|e| {
                 // Create a JSON-RPC error with detailed context
                 let lines: Vec<&str> = content.lines().collect();
                 let mut err = tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::ParseError);
-                
+
                 // Use the enhanced detailed_message method for better error reporting
                 let error_msg = e.detailed_message(&lines);
-                
+
                 // Analyze the error context for better suggestions
                 let context_msg = if let Some(span) = e.position() {
                     if span.line > 0 && span.line <= lines.len() {
                         let line = lines[span.line - 1];
                         let trimmed = line.trim();
-                        
+
                         // Provide context-specific help based on what's in the line
                         let mut help = String::new();
-                        
+
                         // Check for forbidden keywords with more detailed help
                         if trimmed.starts_with("if ") || trimmed.contains(" if ") {
                             help.push_str("\n\n🚫 Language Spec Violation: 'if' keyword\n");
@@ -115,11 +115,11 @@ impl ZenServer {
                 } else {
                     String::new()
                 };
-                
+
                 // Also add specific handling for common error patterns
                 let enhanced_msg = match &e {
                     crate::error::CompileError::InvalidSyntax { message, suggestion, .. } => {
-                        format!("❌ Parse Error: {}\n{}\n\n✅ Fix: {}\n\n📚 See LANGUAGE_SPEC.md for complete syntax rules", 
+                        format!("❌ Parse Error: {}\n{}\n\n✅ Fix: {}\n\n📚 See LANGUAGE_SPEC.md for complete syntax rules",
                                 message, error_msg, suggestion)
                     },
                     crate::error::CompileError::UnexpectedToken { expected, found, .. } => {
@@ -128,11 +128,11 @@ impl ZenServer {
                         } else {
                             expected.join(", ")
                         };
-                        format!("❌ Unexpected Token\n{}{}\n\n📝 Expected: {}\n❓ Found: '{}'", 
+                        format!("❌ Unexpected Token\n{}{}\n\n📝 Expected: {}\n❓ Found: '{}'",
                                 error_msg, context_msg, expected_list, found)
                     },
                     crate::error::CompileError::ParseError(msg, _) => {
-                        format!("❌ Parse Error: {}\n{}{}\n\n💡 Debug Tips:\n  1. Check for missing semicolons or braces\n  2. Verify syntax matches LANGUAGE_SPEC.md\n  3. Look for unmatched parentheses\n  4. Ensure proper use of '?' operator", 
+                        format!("❌ Parse Error: {}\n{}{}\n\n💡 Debug Tips:\n  1. Check for missing semicolons or braces\n  2. Verify syntax matches LANGUAGE_SPEC.md\n  3. Look for unmatched parentheses\n  4. Ensure proper use of '?' operator",
                                 msg, error_msg, context_msg)
                     },
                     crate::error::CompileError::SyntaxError(msg, _) => {
@@ -140,7 +140,7 @@ impl ZenServer {
                     },
                     _ => format!("{}{}", error_msg, context_msg),
                 };
-                
+
                 err.message = enhanced_msg.into();
                 err
             })
@@ -148,13 +148,13 @@ impl ZenServer {
 
     async fn get_diagnostics(&self, uri: &str) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        
+
         // Try to parse the document for more detailed error messages
         let documents = self.documents.read().await;
         if let Some(content) = documents.get(uri) {
             let lexer = Lexer::new(content);
             let mut parser = Parser::new(lexer);
-            
+
             match parser.parse_program() {
                 Ok(program) => {
                     // Check for import validation
@@ -163,23 +163,27 @@ impl ZenServer {
                 Err(parse_error) => {
                     // Extract position information from the parse error if available
                     let (line, column, end_column) = if let Some(span) = parse_error.position() {
-                        // IMPORTANT: Lexer uses 1-indexed lines 
+                        // IMPORTANT: Lexer uses 1-indexed lines
                         // LSP uses 0-indexed lines and columns
                         // The span.column is now stored as 0-based internally (fixed in lexer)
-                        let lsp_line = if span.line > 0 { (span.line - 1) as u32 } else { 0 };
-                        
+                        let lsp_line = if span.line > 0 {
+                            (span.line - 1) as u32
+                        } else {
+                            0
+                        };
+
                         // The column in span is the START position of the token
                         // It's now stored as 0-based already, so use directly for LSP
                         let lsp_column = span.column as u32;
-                        
+
                         // Calculate end column based on the span's end position
                         // The span contains both start and end positions
                         let lines: Vec<&str> = content.lines().collect();
-                        
+
                         // Use the span's end position if available, otherwise calculate
                         let end_col = if (lsp_line as usize) < lines.len() {
                             let line_content = lines[lsp_line as usize];
-                            
+
                             // If we have span.end, we can calculate the actual end column
                             // by looking at the difference between start and end
                             let token_length = if span.end > span.start {
@@ -189,22 +193,40 @@ impl ZenServer {
                                 let chars: Vec<char> = line_content.chars().collect();
                                 let start_idx = lsp_column as usize;
                                 let mut token_end = start_idx;
-                                
+
                                 if start_idx < chars.len() {
                                     // If we're on an identifier or keyword, find its end
-                                    if chars[start_idx].is_alphanumeric() || chars[start_idx] == '_' || chars[start_idx] == '@' {
-                                        while token_end < chars.len() && (chars[token_end].is_alphanumeric() || chars[token_end] == '_') {
+                                    if chars[start_idx].is_alphanumeric()
+                                        || chars[start_idx] == '_'
+                                        || chars[start_idx] == '@'
+                                    {
+                                        while token_end < chars.len()
+                                            && (chars[token_end].is_alphanumeric()
+                                                || chars[token_end] == '_')
+                                        {
                                             token_end += 1;
                                         }
-                                    } else if chars[start_idx] == ':' || chars[start_idx] == '.' || chars[start_idx] == '=' {
+                                    } else if chars[start_idx] == ':'
+                                        || chars[start_idx] == '.'
+                                        || chars[start_idx] == '='
+                                    {
                                         // Check for multi-character operators
                                         token_end += 1;
-                                        if token_end < chars.len() && 
-                                           ((chars[start_idx] == ':' && (chars[token_end] == '=' || chars[token_end] == ':')) ||
-                                            (chars[start_idx] == '.' && chars[token_end] == '.') ||
-                                            (chars[start_idx] == '=' && chars[token_end] == '=')) {
+                                        if token_end < chars.len()
+                                            && ((chars[start_idx] == ':'
+                                                && (chars[token_end] == '='
+                                                    || chars[token_end] == ':'))
+                                                || (chars[start_idx] == '.'
+                                                    && chars[token_end] == '.')
+                                                || (chars[start_idx] == '='
+                                                    && chars[token_end] == '='))
+                                        {
                                             token_end += 1;
-                                            if token_end < chars.len() && chars[start_idx] == ':' && chars[token_end-1] == ':' && chars[token_end] == '=' {
+                                            if token_end < chars.len()
+                                                && chars[start_idx] == ':'
+                                                && chars[token_end - 1] == ':'
+                                                && chars[token_end] == '='
+                                            {
                                                 token_end += 1; // Handle ::=
                                             }
                                         }
@@ -215,17 +237,17 @@ impl ZenServer {
                                 }
                                 token_end - start_idx
                             };
-                            
+
                             (lsp_column + token_length as u32).min(line_content.len() as u32)
                         } else {
                             lsp_column + 1
                         };
-                        
+
                         (lsp_line, lsp_column, end_col)
                     } else {
                         (0, 0, 1)
                     };
-                    
+
                     // Get the error line for context
                     let lines: Vec<&str> = content.lines().collect();
                     let error_line = if (line as usize) < lines.len() {
@@ -233,11 +255,11 @@ impl ZenServer {
                     } else {
                         None
                     };
-                    
+
                     // Use the enhanced detailed_message for comprehensive error reporting
                     let lines_for_error: Vec<&str> = content.lines().collect();
                     let _detailed_error = parse_error.detailed_message(&lines_for_error);
-                    
+
                     // Add additional LSP-specific formatting
                     let error_message = match &parse_error {
                         crate::error::CompileError::SyntaxError(msg, _) => {
@@ -282,22 +304,24 @@ impl ZenServer {
                         }
                         _ => format!("{}\n💡 Hint: Review the Zen language specification for correct syntax.", parse_error),
                     };
-                    
+
                     // Add context line if available
                     let final_message = if let Some(line_content) = error_line {
-                        format!("{}\n\n📍 Context:\n  {}\n  {}^", 
-                               error_message, 
-                               line_content,
-                               " ".repeat(column as usize))
+                        format!(
+                            "{}\n\n📍 Context:\n  {}\n  {}^",
+                            error_message,
+                            line_content,
+                            " ".repeat(column as usize)
+                        )
                     } else {
                         error_message
                     };
-                    
+
                     // Add a detailed error diagnostic with actual parse error message
                     diagnostics.push(Diagnostic {
                         range: Range::new(
                             Position::new(line, column),
-                            Position::new(line, end_column)
+                            Position::new(line, end_column),
                         ),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: None,
@@ -311,17 +335,17 @@ impl ZenServer {
                 }
             }
         }
-        
+
         diagnostics
     }
-    
+
     fn check_import_placement(&self, program: &Program) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        
+
         // Check declarations for improper import placement
         for declaration in &program.declarations {
             use crate::ast::Declaration;
-            
+
             match declaration {
                 Declaration::Function(func) => {
                     // Check function body for imports
@@ -342,13 +366,17 @@ impl ZenServer {
                 _ => {}
             }
         }
-        
+
         diagnostics
     }
-    
-    fn check_statement_for_imports(&self, statement: &crate::ast::Statement, in_nested_context: bool) -> Option<Diagnostic> {
+
+    fn check_statement_for_imports(
+        &self,
+        statement: &crate::ast::Statement,
+        in_nested_context: bool,
+    ) -> Option<Diagnostic> {
         use crate::ast::Statement;
-        
+
         match statement {
             Statement::ModuleImport { .. } => {
                 if in_nested_context {
@@ -460,10 +488,10 @@ impl ZenServer {
             }
             _ => {}
         }
-        
+
         None
     }
-    
+
     fn is_import_expression(&self, expr: &crate::ast::Expression) -> bool {
         match expr {
             crate::ast::Expression::Identifier(id) if id.starts_with("@std") => true,
@@ -475,7 +503,7 @@ impl ZenServer {
                 }
             }
             crate::ast::Expression::FunctionCall { name, .. } if name.contains("import") => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -533,12 +561,12 @@ impl LanguageServer for ZenServer {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri.to_string();
         let text = params.text_document.text;
-        
+
         {
             let mut documents = self.documents.write().await;
             documents.insert(uri.clone(), text);
         }
-        
+
         let diagnostics = self.get_diagnostics(&uri).await;
         self.client
             .publish_diagnostics(uri.parse().unwrap(), diagnostics, None)
@@ -547,14 +575,14 @@ impl LanguageServer for ZenServer {
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri.to_string();
-        
+
         // Update document content
         for change in params.content_changes {
             let text = change.text;
             let mut documents = self.documents.write().await;
             documents.insert(uri.clone(), text);
         }
-        
+
         // Publish diagnostics
         let diagnostics = self.get_diagnostics(&uri).await;
         self.client
@@ -571,15 +599,16 @@ impl LanguageServer for ZenServer {
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri.to_string();
         let _position = params.text_document_position.position;
-        
+
         // Get document content
         let documents = self.documents.read().await;
-        let _content = documents.get(&uri)
-            .ok_or_else(|| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))?;
-        
+        let _content = documents.get(&uri).ok_or_else(|| {
+            tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams)
+        })?;
+
         // Simple completion based on position
         let mut completions = Vec::new();
-        
+
         // Add basic keywords
         completions.push(CompletionItem {
             label: "loop".to_string(),
@@ -587,54 +616,59 @@ impl LanguageServer for ZenServer {
             detail: Some("Loop construct".to_string()),
             ..Default::default()
         });
-        
+
         completions.push(CompletionItem {
             label: "break".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("Break from loop".to_string()),
             ..Default::default()
         });
-        
+
         completions.push(CompletionItem {
             label: "continue".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("Continue loop iteration".to_string()),
             ..Default::default()
         });
-        
+
         completions.push(CompletionItem {
             label: "struct".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("Define a struct".to_string()),
             ..Default::default()
         });
-        
+
         completions.push(CompletionItem {
             label: "enum".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("Define an enum".to_string()),
             ..Default::default()
         });
-        
+
         completions.push(CompletionItem {
             label: "comptime".to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
             detail: Some("Compile-time evaluation".to_string()),
             ..Default::default()
         });
-        
+
         Ok(Some(CompletionResponse::Array(completions)))
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        let uri = params.text_document_position_params.text_document.uri.to_string();
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
         let position = params.text_document_position_params.position;
-        
+
         // Get document content
         let documents = self.documents.read().await;
-        let content = documents.get(&uri)
-            .ok_or_else(|| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))?;
-        
+        let content = documents.get(&uri).ok_or_else(|| {
+            tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams)
+        })?;
+
         // Try to parse the document for enhanced hover info with type information
         match self.parse_document(&uri).await {
             Ok(program) => {
@@ -648,20 +682,20 @@ impl LanguageServer for ZenServer {
                 // This helps when the file has syntax errors
             }
         }
-        
+
         // Fallback to keyword-based hover for unparseable content
         let lines: Vec<&str> = content.lines().collect();
         if position.line as usize >= lines.len() {
             return Ok(None);
         }
-        
+
         let line = lines[position.line as usize];
         let identifier = enhanced::extract_symbol_at_position(line, position.character as usize);
-        
+
         if identifier.is_empty() {
             return Ok(None);
         }
-        
+
         // Provide hover information based on identifier
         let hover_content = match identifier.as_str() {
             s if s.starts_with("@std") => {
@@ -695,21 +729,29 @@ impl LanguageServer for ZenServer {
                 format!("**{}**\n\nSymbol in Zen code", identifier)
             }
         };
-        
+
         // Calculate proper range for the identifier
         let char_pos = position.character as usize;
         let line_chars: Vec<char> = line.chars().collect();
         let mut start = char_pos;
         let mut end = char_pos;
-        
+
         // Find actual bounds of the identifier
-        while start > 0 && (line_chars[start - 1].is_alphanumeric() || line_chars[start - 1] == '_' || line_chars[start - 1] == '@') {
+        while start > 0
+            && (line_chars[start - 1].is_alphanumeric()
+                || line_chars[start - 1] == '_'
+                || line_chars[start - 1] == '@')
+        {
             start -= 1;
         }
-        while end < line_chars.len() && (line_chars[end].is_alphanumeric() || line_chars[end] == '_' || line_chars[end] == '.') {
+        while end < line_chars.len()
+            && (line_chars[end].is_alphanumeric()
+                || line_chars[end] == '_'
+                || line_chars[end] == '.')
+        {
             end += 1;
         }
-        
+
         Ok(Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
@@ -722,64 +764,85 @@ impl LanguageServer for ZenServer {
         }))
     }
 
-    async fn goto_definition(&self, params: GotoDefinitionParams) -> Result<Option<GotoDefinitionResponse>> {
-        let uri = params.text_document_position_params.text_document.uri.to_string();
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
         let position = params.text_document_position_params.position;
-        
+
         // Parse the document to find definitions
         let program = match self.parse_document(&uri).await {
             Ok(prog) => prog,
             Err(_) => return Ok(None),
         };
-        
+
         // Get document content to find identifier at position
         let documents = self.documents.read().await;
-        let content = documents.get(&uri)
-            .ok_or_else(|| tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))?;
-        
+        let content = documents.get(&uri).ok_or_else(|| {
+            tower_lsp::jsonrpc::Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams)
+        })?;
+
         // Use enhanced goto definition
-        if let Some(location) = enhanced::enhanced_goto_definition(&program, content, position, &params.text_document_position_params.text_document.uri) {
+        if let Some(location) = enhanced::enhanced_goto_definition(
+            &program,
+            content,
+            position,
+            &params.text_document_position_params.text_document.uri,
+        ) {
             // Update the URI to match the current document
             let mut loc = location;
-            loc.uri = params.text_document_position_params.text_document.uri.clone();
+            loc.uri = params
+                .text_document_position_params
+                .text_document
+                .uri
+                .clone();
             return Ok(Some(GotoDefinitionResponse::Scalar(loc)));
         }
-        
+
         // Fallback to basic search if enhanced fails
         let lines: Vec<&str> = content.lines().collect();
         if position.line as usize >= lines.len() {
             return Ok(None);
         }
-        
+
         let line = lines[position.line as usize];
         let char_pos = position.character as usize;
-        
+
         // Find the identifier at the position
         let mut start = char_pos;
         let mut end = char_pos;
         let chars: Vec<char> = line.chars().collect();
-        
+
         while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
             start -= 1;
         }
-        
+
         while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
             end += 1;
         }
-        
+
         if start >= end {
             return Ok(None);
         }
-        
+
         let identifier: String = chars[start..end].iter().collect();
-        
+
         // Search for the definition in the AST
         for (idx, decl) in program.declarations.iter().enumerate() {
             match decl {
                 Declaration::Function(func) if func.name == identifier => {
                     // Found function definition
                     return Ok(Some(GotoDefinitionResponse::Scalar(Location {
-                        uri: params.text_document_position_params.text_document.uri.clone(),
+                        uri: params
+                            .text_document_position_params
+                            .text_document
+                            .uri
+                            .clone(),
                         range: Range::new(
                             Position::new(idx as u32, 0),
                             Position::new(idx as u32, 10),
@@ -789,7 +852,11 @@ impl LanguageServer for ZenServer {
                 Declaration::Struct(s) if s.name == identifier => {
                     // Found struct definition
                     return Ok(Some(GotoDefinitionResponse::Scalar(Location {
-                        uri: params.text_document_position_params.text_document.uri.clone(),
+                        uri: params
+                            .text_document_position_params
+                            .text_document
+                            .uri
+                            .clone(),
                         range: Range::new(
                             Position::new(idx as u32, 0),
                             Position::new(idx as u32, 10),
@@ -799,21 +866,24 @@ impl LanguageServer for ZenServer {
                 _ => {}
             }
         }
-        
+
         Ok(None)
     }
 
-    async fn document_symbol(&self, params: DocumentSymbolParams) -> Result<Option<DocumentSymbolResponse>> {
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
         let uri = params.text_document.uri.to_string();
         let documents = self.documents.read().await;
-        
+
         if let Some(content) = documents.get(&uri) {
             let symbols = enhanced::get_document_symbols(content);
             if !symbols.is_empty() {
                 return Ok(Some(DocumentSymbolResponse::Nested(symbols)));
             }
         }
-        
+
         Ok(None)
     }
 
@@ -821,17 +891,22 @@ impl LanguageServer for ZenServer {
         let uri = params.text_document_position.text_document.uri.to_string();
         let position = params.text_document_position.position;
         let documents = self.documents.read().await;
-        
+
         if let Some(content) = documents.get(&uri) {
             let references = enhanced::find_references(content, position);
             if !references.is_empty() {
-                return Ok(Some(references.into_iter().map(|range| Location {
-                    uri: params.text_document_position.text_document.uri.clone(),
-                    range,
-                }).collect()));
+                return Ok(Some(
+                    references
+                        .into_iter()
+                        .map(|range| Location {
+                            uri: params.text_document_position.text_document.uri.clone(),
+                            range,
+                        })
+                        .collect(),
+                ));
             }
         }
-        
+
         Ok(None)
     }
 
@@ -840,7 +915,7 @@ impl LanguageServer for ZenServer {
         let position = params.text_document_position.position;
         let new_name = params.new_name;
         let documents = self.documents.read().await;
-        
+
         if let Some(content) = documents.get(&uri) {
             if let Some(edits) = enhanced::rename_symbol(content, position, &new_name) {
                 let mut changes = HashMap::new();
@@ -852,7 +927,7 @@ impl LanguageServer for ZenServer {
                 }));
             }
         }
-        
+
         Ok(None)
     }
 
@@ -860,14 +935,14 @@ impl LanguageServer for ZenServer {
         let uri = params.text_document.uri.to_string();
         let range = params.range;
         let documents = self.documents.read().await;
-        
+
         if let Some(content) = documents.get(&uri) {
             let actions = enhanced::get_code_actions(content, range, &params.context);
             if !actions.is_empty() {
                 return Ok(Some(actions));
             }
         }
-        
+
         Ok(None)
     }
 }
@@ -878,4 +953,4 @@ pub async fn run_lsp_server() {
 
     let (service, socket) = LspService::new(|client| ZenServer::new(client));
     Server::new(stdin, stdout, socket).serve(service).await;
-} 
+}

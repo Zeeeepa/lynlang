@@ -3,7 +3,7 @@ use crate::ast::{AstType, Expression, Statement};
 use crate::error::CompileError;
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
-    values::{BasicValueEnum, BasicValue},
+    values::{BasicValue, BasicValueEnum},
 };
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -15,10 +15,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Statement::Return(expr) => {
                 let value = self.compile_expression(expr)?;
-                
+
                 // Execute all deferred expressions before returning
                 self.execute_deferred_expressions()?;
-                
+
                 // Debug: Check if we're returning the right type
                 if let Some(func) = self.current_function {
                     let expected_ret_type = func.get_type().get_return_type();
@@ -30,9 +30,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_return(Some(&value))?;
                 Ok(())
             }
-            Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } => {
+            Statement::VariableDeclaration {
+                name,
+                type_,
+                initializer,
+                is_mutable,
+                declaration_type,
+            } => {
                 use crate::ast::VariableDeclarationType;
-                
+
                 // Check if this is an assignment to a forward-declared variable
                 // This happens when we have: x: i32 (forward decl) then x = 10 (initialization)
                 if let Some(init_expr) = initializer {
@@ -41,20 +47,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     if let Some(var_info) = existing_var {
                         // Allow initialization of forward-declared variables with = operator
                         // This works for both immutable (x: i32 then x = 10) and mutable (w:: i32 then w = 40)
-                        if !var_info.is_initialized && 
-                           matches!(declaration_type, VariableDeclarationType::InferredImmutable) {
+                        if !var_info.is_initialized
+                            && matches!(
+                                declaration_type,
+                                VariableDeclarationType::InferredImmutable
+                            )
+                        {
                             // This is initialization of a forward-declared variable
                             let value = self.compile_expression(init_expr)?;
                             let alloca = var_info.pointer;
                             self.builder.build_store(alloca, value)?;
-                            
+
                             // Mark the variable as initialized
                             if let Some(var_info) = self.variables.get_mut(name) {
                                 var_info.is_initialized = true;
                             }
                             return Ok(());
-                        } else if var_info.is_initialized && var_info.is_mutable &&
-                                  matches!(declaration_type, VariableDeclarationType::InferredImmutable) {
+                        } else if var_info.is_initialized
+                            && var_info.is_mutable
+                            && matches!(
+                                declaration_type,
+                                VariableDeclarationType::InferredImmutable
+                            )
+                        {
                             // This is a reassignment to an existing mutable variable
                             // (e.g., w = 45 after w:: i32 and w = 40)
                             let value = self.compile_expression(init_expr)?;
@@ -65,20 +80,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else {
                             // Variable already exists and is initialized or wrong declaration type
                             return Err(CompileError::InternalError(
-                                format!("Type error: Variable '{}' already declared in this scope", name),
-                                None
+                                format!(
+                                    "Type error: Variable '{}' already declared in this scope",
+                                    name
+                                ),
+                                None,
                             ));
                         }
                     }
                 }
-                
+
                 // Handle type inference or explicit type
                 // We may need to compile the expression for type inference, so save the value
                 let mut compiled_value: Option<BasicValueEnum> = None;
-                
+
                 // Keep track of inferred AST type for closures
                 let mut inferred_ast_type: Option<AstType> = None;
-                
+
                 let llvm_type = match type_ {
                     Some(type_) => self.to_llvm_type(type_)?,
                     None => {
@@ -87,37 +105,43 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if the initializer is a closure BEFORE compiling it
                             if let Expression::Closure { params, body: _ } = init_expr {
                                 // This is a closure - infer its function pointer type
-                                let param_types: Vec<AstType> = params.iter().map(|(_, opt_type)| {
-                                    opt_type.clone().unwrap_or(AstType::I32)
-                                }).collect();
-                                
+                                let param_types: Vec<AstType> = params
+                                    .iter()
+                                    .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
+                                    .collect();
+
                                 // TODO: Properly infer return type
                                 let return_type = AstType::I32;
-                                
+
                                 // Store the proper function pointer type
                                 let func_type = AstType::FunctionPointer {
                                     param_types: param_types.clone(),
                                     return_type: Box::new(return_type),
                                 };
-                                
+
                                 // Save this for later when we insert the variable
                                 inferred_ast_type = Some(func_type);
-                                
+
                                 // Compile the closure
                                 let init_value = self.compile_expression(init_expr)?;
                                 compiled_value = Some(init_value);
-                                
+
                                 // Return the function pointer type for LLVM
-                                Type::Function(self.context.i32_type().fn_type(
-                                    &param_types.iter().map(|_| self.context.i32_type().into()).collect::<Vec<_>>(),
-                                    false
-                                ))
+                                Type::Function(
+                                    self.context.i32_type().fn_type(
+                                        &param_types
+                                            .iter()
+                                            .map(|_| self.context.i32_type().into())
+                                            .collect::<Vec<_>>(),
+                                        false,
+                                    ),
+                                )
                             } else {
                                 // Not a closure - compile and infer normally
                                 let init_value = self.compile_expression(init_expr)?;
                                 // Save the compiled value to avoid recompiling
                                 compiled_value = Some(init_value);
-                                
+
                                 match init_value {
                                     BasicValueEnum::IntValue(int_val) => {
                                         let bit_width = int_val.get_type().get_bit_width();
@@ -138,7 +162,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                     BasicValueEnum::PointerValue(_) => {
                                         // For pointers (including strings), use ptr type
-                                        Type::Basic(self.context.ptr_type(inkwell::AddressSpace::default()).into())
+                                        Type::Basic(
+                                            self.context
+                                                .ptr_type(inkwell::AddressSpace::default())
+                                                .into(),
+                                        )
                                     }
                                     BasicValueEnum::StructValue(struct_val) => {
                                         // For structs (including enums), use the struct type directly
@@ -150,7 +178,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             }
                         } else {
-                            return Err(CompileError::TypeError("Cannot infer type without initializer".to_string(), None));
+                            return Err(CompileError::TypeError(
+                                "Cannot infer type without initializer".to_string(),
+                                None,
+                            ));
                         }
                     }
                 };
@@ -159,11 +190,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let basic_type = match llvm_type {
                     Type::Basic(basic) => basic,
                     Type::Struct(struct_type) => struct_type.as_basic_type_enum(),
-                    Type::Function(_) => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
-                    _ => return Err(CompileError::TypeError("Cannot allocate non-basic or struct type".to_string(), None)),
+                    Type::Function(_) => self
+                        .context
+                        .ptr_type(inkwell::AddressSpace::default())
+                        .as_basic_type_enum(),
+                    _ => {
+                        return Err(CompileError::TypeError(
+                            "Cannot allocate non-basic or struct type".to_string(),
+                            None,
+                        ))
+                    }
                 };
 
-                let alloca = self.builder.build_alloca(basic_type, name).map_err(|e| CompileError::from(e))?;
+                let alloca = self
+                    .builder
+                    .build_alloca(basic_type, name)
+                    .map_err(|e| CompileError::from(e))?;
 
                 if let Some(init_expr) = initializer {
                     // Use the saved value if we already compiled it for type inference
@@ -172,7 +214,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     } else {
                         self.compile_expression(init_expr)?
                     };
-                    
+
                     // Handle function pointers specially
                     if let Some(type_) = type_ {
                         if matches!(type_, AstType::Function { .. }) {
@@ -181,29 +223,43 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 if let Some(function) = self.module.get_function(&func_name) {
                                     // Store the function pointer
                                     let func_ptr = function.as_global_value().as_pointer_value();
-                                    self.builder.build_store(alloca, func_ptr).map_err(|e| CompileError::from(e))?;
-                                    self.variables.insert(name.clone(), super::VariableInfo {
-                                        pointer: alloca,
-                                        ast_type: type_.clone(),
-                                        is_mutable: *is_mutable,
-                is_initialized: true,
-                                    });
+                                    self.builder
+                                        .build_store(alloca, func_ptr)
+                                        .map_err(|e| CompileError::from(e))?;
+                                    self.variables.insert(
+                                        name.clone(),
+                                        super::VariableInfo {
+                                            pointer: alloca,
+                                            ast_type: type_.clone(),
+                                            is_mutable: *is_mutable,
+                                            is_initialized: true,
+                                        },
+                                    );
                                     Ok(())
                                 } else {
                                     Err(CompileError::UndeclaredFunction(func_name.clone(), None))
                                 }
                             } else {
-                                Err(CompileError::TypeError("Function pointer initializer must be a function name".to_string(), None))
+                                Err(CompileError::TypeError(
+                                    "Function pointer initializer must be a function name"
+                                        .to_string(),
+                                    None,
+                                ))
                             }
                         } else if let AstType::Bool = type_ {
                             // For booleans, store directly as i1
-                            self.builder.build_store(alloca, value).map_err(|e| CompileError::from(e))?;
-                            self.variables.insert(name.clone(), super::VariableInfo {
-                                pointer: alloca,
-                                ast_type: type_.clone(),
-                                is_mutable: *is_mutable,
-                                is_initialized: true,
-                            });
+                            self.builder
+                                .build_store(alloca, value)
+                                .map_err(|e| CompileError::from(e))?;
+                            self.variables.insert(
+                                name.clone(),
+                                super::VariableInfo {
+                                    pointer: alloca,
+                                    ast_type: type_.clone(),
+                                    is_mutable: *is_mutable,
+                                    is_initialized: true,
+                                },
+                            );
                             Ok(())
                         } else if let AstType::Ptr(_inner) = type_ {
                             // For pointers, if the initializer is AddressOf, use the pointer inside the alloca
@@ -212,8 +268,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // Compile the inner expression to get the alloca pointer
                                     match **inner_expr {
                                         Expression::Identifier(ref id) => {
-                                            let var_info = self.variables.get(id).ok_or_else(|| CompileError::UndeclaredVariable(id.clone(), None))?;
-                                let inner_alloca = var_info.pointer;
+                                            let var_info =
+                                                self.variables.get(id).ok_or_else(|| {
+                                                    CompileError::UndeclaredVariable(
+                                                        id.clone(),
+                                                        None,
+                                                    )
+                                                })?;
+                                            let inner_alloca = var_info.pointer;
                                             inner_alloca.as_basic_value_enum()
                                         }
                                         _ => value.clone(),
@@ -221,51 +283,78 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                                 _ => value.clone(),
                             };
-                            self.builder.build_store(alloca, ptr_value).map_err(|e| CompileError::from(e))?;
-                            self.variables.insert(name.clone(), super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: type_.clone(),
-                            is_mutable: *is_mutable,
-                is_initialized: true,
-                        });
+                            self.builder
+                                .build_store(alloca, ptr_value)
+                                .map_err(|e| CompileError::from(e))?;
+                            self.variables.insert(
+                                name.clone(),
+                                super::VariableInfo {
+                                    pointer: alloca,
+                                    ast_type: type_.clone(),
+                                    is_mutable: *is_mutable,
+                                    is_initialized: true,
+                                },
+                            );
                             Ok(())
                         } else {
                             // Regular value assignment
                             let value = match (value, type_) {
-                                (BasicValueEnum::IntValue(int_val), AstType::I32) => {
-                                    self.builder.build_int_truncate(int_val, self.context.i32_type(), "trunc").map_err(|e| CompileError::from(e))?.into()
-                                }
-                                (BasicValueEnum::IntValue(int_val), AstType::I64) => {
-                                    self.builder.build_int_s_extend(int_val, self.context.i64_type(), "extend").map_err(|e| CompileError::from(e))?.into()
-                                }
-                                (BasicValueEnum::FloatValue(float_val), AstType::F32) => {
-                                    self.builder.build_float_trunc(float_val, self.context.f32_type(), "trunc").map_err(|e| CompileError::from(e))?.into()
-                                }
-                                (BasicValueEnum::FloatValue(float_val), AstType::F64) => {
-                                    self.builder.build_float_ext(float_val, self.context.f64_type(), "extend").map_err(|e| CompileError::from(e))?.into()
-                                }
+                                (BasicValueEnum::IntValue(int_val), AstType::I32) => self
+                                    .builder
+                                    .build_int_truncate(int_val, self.context.i32_type(), "trunc")
+                                    .map_err(|e| CompileError::from(e))?
+                                    .into(),
+                                (BasicValueEnum::IntValue(int_val), AstType::I64) => self
+                                    .builder
+                                    .build_int_s_extend(int_val, self.context.i64_type(), "extend")
+                                    .map_err(|e| CompileError::from(e))?
+                                    .into(),
+                                (BasicValueEnum::FloatValue(float_val), AstType::F32) => self
+                                    .builder
+                                    .build_float_trunc(float_val, self.context.f32_type(), "trunc")
+                                    .map_err(|e| CompileError::from(e))?
+                                    .into(),
+                                (BasicValueEnum::FloatValue(float_val), AstType::F64) => self
+                                    .builder
+                                    .build_float_ext(float_val, self.context.f64_type(), "extend")
+                                    .map_err(|e| CompileError::from(e))?
+                                    .into(),
                                 (BasicValueEnum::PointerValue(ptr_val), AstType::Struct { .. }) => {
                                     // If the value is a pointer and the type is a struct, load the struct value
                                     let struct_type = match self.to_llvm_type(type_)? {
                                         Type::Struct(st) => st,
-                                        _ => return Err(CompileError::TypeError("Expected struct type".to_string(), None)),
+                                        _ => {
+                                            return Err(CompileError::TypeError(
+                                                "Expected struct type".to_string(),
+                                                None,
+                                            ))
+                                        }
                                     };
-                                    self.builder.build_load(struct_type, ptr_val, "load_struct_init")?.into()
+                                    self.builder
+                                        .build_load(struct_type, ptr_val, "load_struct_init")?
+                                        .into()
                                 }
                                 _ => value,
                             };
-                            self.builder.build_store(alloca, value).map_err(|e| CompileError::from(e))?;
-                            self.variables.insert(name.clone(), super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: type_.clone(),
-                            is_mutable: *is_mutable,
-                is_initialized: true,
-                        });
+                            self.builder
+                                .build_store(alloca, value)
+                                .map_err(|e| CompileError::from(e))?;
+                            self.variables.insert(
+                                name.clone(),
+                                super::VariableInfo {
+                                    pointer: alloca,
+                                    ast_type: type_.clone(),
+                                    is_mutable: *is_mutable,
+                                    is_initialized: true,
+                                },
+                            );
                             Ok(())
                         }
                     } else {
                         // Type inference case
-                        self.builder.build_store(alloca, value).map_err(|e| CompileError::from(e))?;
+                        self.builder
+                            .build_store(alloca, value)
+                            .map_err(|e| CompileError::from(e))?;
                         // For inferred types, we need to determine the type from the value and the expression
                         let inferred_type = if let Some(ast_type) = inferred_ast_type {
                             // We already inferred the type (e.g., for closures)
@@ -290,7 +379,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Option::None variant - use Option<T> with generic T
                             AstType::Generic {
                                 name: "Option".to_string(),
-                                type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                                type_args: vec![AstType::Generic {
+                                    name: "T".to_string(),
+                                    type_args: vec![],
+                                }],
                             }
                         } else if let Expression::Range { inclusive, .. } = init_expr {
                             // Range expression - infer Range type
@@ -299,7 +391,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 end_type: Box::new(AstType::I32),
                                 inclusive: *inclusive,
                             }
-                        } else if let Expression::StructLiteral { name: struct_name, .. } = init_expr {
+                        } else if let Expression::StructLiteral {
+                            name: struct_name, ..
+                        } = init_expr
+                        {
                             // If initializer is a struct literal, use the struct type
                             // We need to get the field types from the registered struct
                             if let Some(struct_info) = self.struct_types.get(struct_name) {
@@ -353,17 +448,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 AstType::I32
                             };
                             AstType::MutPtr(Box::new(inner_type))
-                        } else if let Expression::DynVecConstructor { element_types, .. } = init_expr {
+                        } else if let Expression::DynVecConstructor { element_types, .. } =
+                            init_expr
+                        {
                             // For DynVec constructors, create the proper DynVec type
-                            AstType::DynVec { 
-                                element_types: element_types.clone(), 
-                                allocator_type: None 
+                            AstType::DynVec {
+                                element_types: element_types.clone(),
+                                allocator_type: None,
                             }
-                        } else if let Expression::VecConstructor { element_type, size, .. } = init_expr {
+                        } else if let Expression::VecConstructor {
+                            element_type, size, ..
+                        } = init_expr
+                        {
                             // For Vec constructors, create the proper Vec type
-                            AstType::Vec { 
-                                element_type: Box::new(element_type.clone()), 
-                                size: *size 
+                            AstType::Vec {
+                                element_type: Box::new(element_type.clone()),
+                                size: *size,
                             }
                         } else if let Expression::TypeCast { target_type, .. } = init_expr {
                             // For type casts, use the target type
@@ -392,7 +492,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     _ => AstType::I64,
                                 }
                             }
-                        } else if let Expression::EnumVariant { enum_name, variant: _, payload: _ } = init_expr {
+                        } else if let Expression::EnumVariant {
+                            enum_name,
+                            variant: _,
+                            payload: _,
+                        } = init_expr
+                        {
                             // Direct enum variant: Status.Active parsed as EnumVariant
                             AstType::Generic {
                                 name: enum_name.clone(),
@@ -406,7 +511,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 if let Some(return_type) = self.function_types.get(name) {
                                     // If the function returns Result<T, E>, extract T
                                     match return_type {
-                                        AstType::Generic { name, type_args } if name == "Result" && !type_args.is_empty() => {
+                                        AstType::Generic { name, type_args }
+                                            if name == "Result" && !type_args.is_empty() =>
+                                        {
                                             // Return the first type argument (T from Result<T, E>)
                                             type_args[0].clone()
                                         }
@@ -424,7 +531,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // This will be properly fixed when we have full generic type instantiation
                                 AstType::I32
                             }
-                        } else if let Expression::MethodCall { object: _, method, .. } = init_expr {
+                        } else if let Expression::MethodCall {
+                            object: _, method, ..
+                        } = init_expr
+                        {
                             // Handle other method calls
                             // For method calls, try to infer from the returned value
                             match value {
@@ -439,7 +549,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                 }
                                 BasicValueEnum::FloatValue(_) => AstType::F64,
-                                BasicValueEnum::PointerValue(_) => AstType::Ptr(Box::new(AstType::I8)),
+                                BasicValueEnum::PointerValue(_) => {
+                                    AstType::Ptr(Box::new(AstType::I8))
+                                }
                                 BasicValueEnum::StructValue(_) => {
                                     // Could be DynVec or other struct type
                                     AstType::Generic {
@@ -453,7 +565,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if this is an enum variant access (e.g., GameEntity.Player)
                             if let Expression::Identifier(enum_name) = &**object {
                                 // Check if this identifier is an enum type
-                                if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
+                                if let Some(super::symbols::Symbol::EnumType(_)) =
+                                    self.symbols.lookup(enum_name)
+                                {
                                     // This is an enum variant, use the Generic type which is how enums are represented in AST
                                     AstType::Generic {
                                         name: enum_name.clone(),
@@ -465,10 +579,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     if let Some(var_info) = self.variables.get(enum_name) {
                                         // Get the type of the parent struct
                                         match &var_info.ast_type {
-                                            AstType::Struct { name: struct_name, .. } => {
+                                            AstType::Struct {
+                                                name: struct_name, ..
+                                            } => {
                                                 // Look up the field type in the struct
-                                                if let Some(struct_info) = self.struct_types.get(struct_name) {
-                                                    if let Some((_, field_type)) = struct_info.fields.get(member) {
+                                                if let Some(struct_info) =
+                                                    self.struct_types.get(struct_name)
+                                                {
+                                                    if let Some((_, field_type)) =
+                                                        struct_info.fields.get(member)
+                                                    {
                                                         // Return the actual field type
                                                         field_type.clone()
                                                     } else {
@@ -477,8 +597,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             BasicValueEnum::StructValue(_) => {
                                                                 // Try to infer struct type from context
                                                                 // For now, use a placeholder struct type
-                                                                AstType::Struct { name: "unknown".to_string(), fields: vec![] }
-                                                            },
+                                                                AstType::Struct {
+                                                                    name: "unknown".to_string(),
+                                                                    fields: vec![],
+                                                                }
+                                                            }
                                                             _ => AstType::I64,
                                                         }
                                                     }
@@ -488,8 +611,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         BasicValueEnum::StructValue(_) => {
                                                             // Try to infer struct type from context
                                                             // For now, use a placeholder struct type
-                                                            AstType::Struct { name: "unknown".to_string(), fields: vec![] }
-                                                        },
+                                                            AstType::Struct {
+                                                                name: "unknown".to_string(),
+                                                                fields: vec![],
+                                                            }
+                                                        }
                                                         _ => AstType::I64,
                                                     }
                                                 }
@@ -500,8 +626,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     BasicValueEnum::StructValue(_) => {
                                                         // Could be DynVec or other struct type
                                                         // Check if it matches DynVec structure (3 or 4 fields)
-                                                        AstType::DynVec { element_types: vec![AstType::I32], allocator_type: None }
-                                                    },
+                                                        AstType::DynVec {
+                                                            element_types: vec![AstType::I32],
+                                                            allocator_type: None,
+                                                        }
+                                                    }
                                                     _ => AstType::I64,
                                                 }
                                             }
@@ -512,8 +641,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             BasicValueEnum::StructValue(_) => {
                                                 // Could be DynVec or other struct type
                                                 // Check if it matches DynVec structure (3 or 4 fields)
-                                                AstType::DynVec { element_types: vec![AstType::I32], allocator_type: None }
-                                            },
+                                                AstType::DynVec {
+                                                    element_types: vec![AstType::I32],
+                                                    allocator_type: None,
+                                                }
+                                            }
                                             _ => AstType::I64,
                                         }
                                     }
@@ -525,8 +657,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     BasicValueEnum::StructValue(_) => {
                                         // Could be DynVec or other struct type
                                         // Check if it matches DynVec structure (3 or 4 fields)
-                                        AstType::DynVec { element_types: vec![AstType::I32], allocator_type: None }
-                                    },
+                                        AstType::DynVec {
+                                            element_types: vec![AstType::I32],
+                                            allocator_type: None,
+                                        }
+                                    }
                                     _ => AstType::I64,
                                 }
                             }
@@ -573,7 +708,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         // Option::None variant - use Option<T> with generic T
                                         AstType::Generic {
                                             name: "Option".to_string(),
-                                            type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                                            type_args: vec![AstType::Generic {
+                                                name: "T".to_string(),
+                                                type_args: vec![],
+                                            }],
                                         }
                                     } else {
                                         // For other struct values, use an empty generic type as fallback
@@ -587,12 +725,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 _ => AstType::I64, // Default
                             }
                         };
-                        self.variables.insert(name.clone(), super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: inferred_type,
-                            is_mutable: *is_mutable,
-                is_initialized: true,
-                        });
+                        self.variables.insert(
+                            name.clone(),
+                            super::VariableInfo {
+                                pointer: alloca,
+                                ast_type: inferred_type,
+                                is_mutable: *is_mutable,
+                                is_initialized: true,
+                            },
+                        );
                         Ok(())
                     }
                 } else {
@@ -609,24 +750,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         _ => self.context.i64_type().const_zero().into(),
                     };
-                    self.builder.build_store(alloca, zero).map_err(|e| CompileError::from(e))?;
-                    
+                    self.builder
+                        .build_store(alloca, zero)
+                        .map_err(|e| CompileError::from(e))?;
+
                     if let Some(type_) = type_ {
-                        self.variables.insert(name.clone(), super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: type_.clone(),
-                            is_mutable: *is_mutable,
-                is_initialized: false,  // Forward declaration without initializer
-                        });
+                        self.variables.insert(
+                            name.clone(),
+                            super::VariableInfo {
+                                pointer: alloca,
+                                ast_type: type_.clone(),
+                                is_mutable: *is_mutable,
+                                is_initialized: false, // Forward declaration without initializer
+                            },
+                        );
                         Ok(())
                     } else {
                         // For inferred types without initializer, default to i64
-                        self.variables.insert(name.clone(), super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: AstType::I64,
-                            is_mutable: *is_mutable,
-                is_initialized: false,  // Forward declaration without initializer
-                        });
+                        self.variables.insert(
+                            name.clone(),
+                            super::VariableInfo {
+                                pointer: alloca,
+                                ast_type: AstType::I64,
+                                is_mutable: *is_mutable,
+                                is_initialized: false, // Forward declaration without initializer
+                            },
+                        );
                         Ok(())
                     }
                 }
@@ -644,7 +793,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let value = match (&value, &struct_type) {
                         (BasicValueEnum::IntValue(int_val), AstType::Struct { .. }) => {
                             if int_val.get_type().get_bit_width() != 64 {
-                                self.builder.build_int_s_extend(*int_val, self.context.i64_type(), "sext").unwrap().into()
+                                self.builder
+                                    .build_int_s_extend(*int_val, self.context.i64_type(), "sext")
+                                    .unwrap()
+                                    .into()
                             } else {
                                 (*int_val).into()
                             }
@@ -655,21 +807,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     self.compile_struct_field_assignment(struct_alloca, field_name, value)?;
                     return Ok(());
                 }
-                
+
                 // Check if variable exists - if not, this is a new immutable declaration with =
                 if !self.variables.contains_key(name) {
                     // eprintln!("DEBUG: Creating new immutable variable '{}'", name);
                     // This is a new immutable declaration: name = value
-                    
-                    
+
                     // First check if this is a closure to get proper type info BEFORE compiling
                     let (init_value, var_type) = match value {
                         Expression::Closure { params, body } => {
                             // Build the function type from the closure parameters
-                            let param_types: Vec<AstType> = params.iter().map(|(_, opt_type)| {
-                                opt_type.clone().unwrap_or(AstType::I32)
-                            }).collect();
-                            
+                            let param_types: Vec<AstType> = params
+                                .iter()
+                                .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
+                                .collect();
+
                             // TODO: Infer return type from body analysis
                             // For now, default to i32, but check if body has explicit return type
                             let return_type = if let Expression::Block(stmts) = body.as_ref() {
@@ -691,22 +843,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             } else {
                                 Box::new(AstType::I32)
                             };
-                            
+
                             let func_type = AstType::FunctionPointer {
                                 param_types,
                                 return_type,
                             };
-                            
-                            
+
                             // Now compile the closure
                             let closure_value = self.compile_expression(value)?;
-                            
+
                             (closure_value, func_type)
                         }
                         _ => {
                             // Compile the value first to infer its type
                             let init_value = self.compile_expression(value)?;
-                            
+
                             // Infer the type from the value
                             let var_type = match init_value {
                                 BasicValueEnum::IntValue(int_val) => {
@@ -738,11 +889,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                                 _ => AstType::Void, // Default fallback
                             };
-                            
+
                             (init_value, var_type)
                         }
                     };
-                    
+
                     // Create the alloca and store the value
                     // Special handling for struct values (including enums)
                     // eprintln!("DEBUG: init_value type: {:?}", std::mem::discriminant(&init_value));
@@ -755,7 +906,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Check what type of value this is
                         // eprintln!("DEBUG: Inferring type for value: {:?}", value);
                         let inferred_type = match value {
-                            Expression::StructLiteral { name: struct_name, .. } => {
+                            Expression::StructLiteral {
+                                name: struct_name, ..
+                            } => {
                                 // This is a struct literal
                                 AstType::Struct {
                                     name: struct_name.clone(),
@@ -765,7 +918,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             Expression::MemberAccess { object, member: _ } => {
                                 if let Expression::Identifier(enum_name) = &**object {
                                     // Check if this is an enum type
-                                    if let Some(super::symbols::Symbol::EnumType(_)) = self.symbols.lookup(enum_name) {
+                                    if let Some(super::symbols::Symbol::EnumType(_)) =
+                                        self.symbols.lookup(enum_name)
+                                    {
                                         AstType::Generic {
                                             name: enum_name.clone(),
                                             type_args: vec![],
@@ -802,32 +957,46 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         };
                         // eprintln!("DEBUG: Inferred type: {:?}", inferred_type);
-                        self.variables.insert(name.clone(), super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: inferred_type,
-                            is_mutable: false,  // Assignment with = creates immutable variables
-                            is_initialized: true,
-                        });
+                        self.variables.insert(
+                            name.clone(),
+                            super::VariableInfo {
+                                pointer: alloca,
+                                ast_type: inferred_type,
+                                is_mutable: false, // Assignment with = creates immutable variables
+                                is_initialized: true,
+                            },
+                        );
                     } else {
                         let llvm_type = self.to_llvm_type(&var_type)?;
                         let basic_type = match llvm_type {
                             Type::Basic(basic) => basic,
                             Type::Struct(struct_type) => struct_type.as_basic_type_enum(),
-                            Type::Function(_) => self.context.ptr_type(inkwell::AddressSpace::default()).as_basic_type_enum(),
-                            _ => return Err(CompileError::TypeError("Cannot allocate non-basic or struct type".to_string(), None)),
+                            Type::Function(_) => self
+                                .context
+                                .ptr_type(inkwell::AddressSpace::default())
+                                .as_basic_type_enum(),
+                            _ => {
+                                return Err(CompileError::TypeError(
+                                    "Cannot allocate non-basic or struct type".to_string(),
+                                    None,
+                                ))
+                            }
                         };
                         let alloca = self.builder.build_alloca(basic_type, name)?;
                         self.builder.build_store(alloca, init_value)?;
-                        self.variables.insert(name.clone(), super::VariableInfo {
-                            pointer: alloca,
-                            ast_type: var_type,
-                            is_mutable: false,  // Assignment with = creates immutable variables
-                            is_initialized: true,
-                        });
+                        self.variables.insert(
+                            name.clone(),
+                            super::VariableInfo {
+                                pointer: alloca,
+                                ast_type: var_type,
+                                is_mutable: false, // Assignment with = creates immutable variables
+                                is_initialized: true,
+                            },
+                        );
                     }
                     return Ok(());
                 }
-                
+
                 // Regular variable assignment to existing variable
                 // First check if the variable is mutable or if this is the first assignment to a forward-declared variable
                 if let Some(var_info) = self.variables.get(name) {
@@ -841,20 +1010,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ));
                     }
                 }
-                
+
                 let (alloca, var_type) = self.get_variable(name)?;
                 let value = self.compile_expression(value)?;
                 let value = match (&value, &var_type) {
                     (BasicValueEnum::IntValue(int_val), AstType::I32) => {
                         if int_val.get_type().get_bit_width() != 32 {
-                            self.builder.build_int_truncate(*int_val, self.context.i32_type(), "trunc").unwrap().into()
+                            self.builder
+                                .build_int_truncate(*int_val, self.context.i32_type(), "trunc")
+                                .unwrap()
+                                .into()
                         } else {
                             (*int_val).into()
                         }
                     }
                     (BasicValueEnum::IntValue(int_val), AstType::I64) => {
                         if int_val.get_type().get_bit_width() != 64 {
-                            self.builder.build_int_s_extend(*int_val, self.context.i64_type(), "sext").unwrap().into()
+                            self.builder
+                                .build_int_s_extend(*int_val, self.context.i64_type(), "sext")
+                                .unwrap()
+                                .into()
                         } else {
                             (*int_val).into()
                         }
@@ -876,12 +1051,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.builder.build_store(alloca, value)?;
                     }
                 }
-                
+
                 // Mark the variable as initialized after first assignment
                 if let Some(var_info) = self.variables.get_mut(name) {
                     var_info.is_initialized = true;
                 }
-                
+
                 Ok(())
             }
             Statement::PointerAssignment { pointer, value } => {
@@ -899,7 +1074,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     if let Expression::Identifier(name) = &**object {
                         // Get the variable info (clone to avoid borrow issues)
                         let var_info = self.variables.get(name).cloned();
-                        
+
                         if let Some(var_info) = var_info {
                             let alloca = var_info.pointer;
                             let var_type = var_info.ast_type;
@@ -908,7 +1083,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Check if inner type is a struct or a generic representing a struct
                                 let struct_name = match &**inner_type {
                                     AstType::Struct { name, .. } => Some(name.clone()),
-                                    AstType::Generic { name, type_args } if type_args.is_empty() => {
+                                    AstType::Generic { name, type_args }
+                                        if type_args.is_empty() =>
+                                    {
                                         // Check if this generic name is a known struct
                                         if self.struct_types.contains_key(name) {
                                             Some(name.clone())
@@ -918,43 +1095,59 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                     _ => None,
                                 };
-                                
+
                                 if let Some(struct_name) = struct_name {
                                     // Get struct type info
-                                    let struct_info = self.struct_types.get(&struct_name)
-                                        .ok_or_else(|| CompileError::TypeError(
-                                            format!("Struct type '{}' not found", struct_name),
-                                            None
-                                        ))?;
-                                    
+                                    let struct_info =
+                                        self.struct_types.get(&struct_name).ok_or_else(|| {
+                                            CompileError::TypeError(
+                                                format!("Struct type '{}' not found", struct_name),
+                                                None,
+                                            )
+                                        })?;
+
                                     // Find field index
-                                    let field_index = struct_info.fields.get(member)
+                                    let field_index = struct_info
+                                        .fields
+                                        .get(member)
                                         .map(|(idx, _)| *idx)
-                                        .ok_or_else(|| CompileError::TypeError(
-                                            format!("Field '{}' not found in struct '{}'", member, struct_name),
-                                            None
-                                        ))?;
-                                    
+                                        .ok_or_else(|| {
+                                            CompileError::TypeError(
+                                                format!(
+                                                    "Field '{}' not found in struct '{}'",
+                                                    member, struct_name
+                                                ),
+                                                None,
+                                            )
+                                        })?;
+
                                     // Load the pointer value
-                                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                                    let struct_ptr = self.builder.build_load(ptr_type, alloca, &format!("load_{}_ptr", name))?;
+                                    let ptr_type =
+                                        self.context.ptr_type(inkwell::AddressSpace::default());
+                                    let struct_ptr = self.builder.build_load(
+                                        ptr_type,
+                                        alloca,
+                                        &format!("load_{}_ptr", name),
+                                    )?;
                                     let struct_ptr = struct_ptr.into_pointer_value();
-                                    
+
                                     // Build GEP to get field pointer
                                     let indices = vec![
                                         self.context.i32_type().const_zero(),
-                                        self.context.i32_type().const_int(field_index as u64, false),
+                                        self.context
+                                            .i32_type()
+                                            .const_int(field_index as u64, false),
                                     ];
-                                    
+
                                     let field_ptr = unsafe {
                                         self.builder.build_gep(
                                             struct_info.llvm_type,
                                             struct_ptr,
                                             &indices,
-                                            &format!("{}_{}__ptr", name, member)
+                                            &format!("{}_{}__ptr", name, member),
                                         )?
                                     };
-                                    
+
                                     // Compile and store the value
                                     let val = self.compile_expression(&value)?;
                                     self.builder.build_store(field_ptr, val)?;
@@ -962,7 +1155,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             }
                             // Handle regular struct (non-pointer)
-                            else if let AstType::Struct { name: _struct_name, .. } = &var_type {
+                            else if let AstType::Struct {
+                                name: _struct_name, ..
+                            } = &var_type
+                            {
                                 // Use existing struct field assignment logic
                                 let val = self.compile_expression(&value)?;
                                 self.compile_struct_field_assignment(alloca, member, val)?;
@@ -972,18 +1168,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                     // If we get here, it's not a simple struct field assignment
                     return Err(CompileError::TypeError(
-                        format!("Cannot assign to member access expression: {:?}.{}", object, member),
-                        None
+                        format!(
+                            "Cannot assign to member access expression: {:?}.{}",
+                            object, member
+                        ),
+                        None,
                     ));
                 } else {
                     let ptr_val = self.compile_expression(&pointer)?;
                     let val = self.compile_expression(&value)?;
-                    
+
                     // For pointer variables, we need to load the address first, then store to that address
                     if ptr_val.is_pointer_value() {
                         let ptr = ptr_val.into_pointer_value();
                         // Load the address stored in the pointer variable
-                        let address = self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, "deref_ptr")?;
+                        let address = self.builder.build_load(
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            ptr,
+                            "deref_ptr",
+                        )?;
                         // Store the value at that address
                         let address_ptr = address.into_pointer_value();
                         self.builder.build_store(address_ptr, val)?;
@@ -997,126 +1200,176 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
             }
-            Statement::Loop { kind, body, label: _ } => {
+            Statement::Loop {
+                kind,
+                body,
+                label: _,
+            } => {
                 use crate::ast::LoopKind;
-                
+
                 match kind {
                     LoopKind::Infinite => {
                         // Create blocks for infinite loop
-                        let loop_body = self.context.append_basic_block(self.current_function.unwrap(), "loop_body");
-                        let after_loop_block = self.context.append_basic_block(self.current_function.unwrap(), "after_loop");
-                        
+                        let loop_body = self
+                            .context
+                            .append_basic_block(self.current_function.unwrap(), "loop_body");
+                        let after_loop_block = self
+                            .context
+                            .append_basic_block(self.current_function.unwrap(), "after_loop");
+
                         // Push loop context for break/continue
                         self.loop_stack.push((loop_body, after_loop_block));
-                        
+
                         // Jump to loop body
-                        self.builder.build_unconditional_branch(loop_body).map_err(|e| CompileError::from(e))?;
+                        self.builder
+                            .build_unconditional_branch(loop_body)
+                            .map_err(|e| CompileError::from(e))?;
                         self.builder.position_at_end(loop_body);
-                        
+
                         // Compile body
                         for stmt in body {
                             self.compile_statement(stmt)?;
                         }
-                        
+
                         // Loop back if no terminator
                         let current_block = self.builder.get_insert_block().unwrap();
                         if current_block.get_terminator().is_none() {
-                            self.builder.build_unconditional_branch(loop_body).map_err(|e| CompileError::from(e))?;
+                            self.builder
+                                .build_unconditional_branch(loop_body)
+                                .map_err(|e| CompileError::from(e))?;
                         }
-                        
+
                         self.loop_stack.pop();
                         self.builder.position_at_end(after_loop_block);
                         Ok(())
                     }
                     LoopKind::Condition(cond_expr) => {
                         // Create blocks
-                        let loop_header = self.context.append_basic_block(self.current_function.unwrap(), "loop_header");
-                        let loop_body = self.context.append_basic_block(self.current_function.unwrap(), "loop_body");
-                        let after_loop_block = self.context.append_basic_block(self.current_function.unwrap(), "after_loop");
-                        
+                        let loop_header = self
+                            .context
+                            .append_basic_block(self.current_function.unwrap(), "loop_header");
+                        let loop_body = self
+                            .context
+                            .append_basic_block(self.current_function.unwrap(), "loop_body");
+                        let after_loop_block = self
+                            .context
+                            .append_basic_block(self.current_function.unwrap(), "after_loop");
+
                         self.loop_stack.push((loop_header, after_loop_block));
-                        
+
                         // Jump to header
-                        self.builder.build_unconditional_branch(loop_header).map_err(|e| CompileError::from(e))?;
+                        self.builder
+                            .build_unconditional_branch(loop_header)
+                            .map_err(|e| CompileError::from(e))?;
                         self.builder.position_at_end(loop_header);
-                        
+
                         // Evaluate condition
                         let cond_value = self.compile_expression(cond_expr)?;
                         if let BasicValueEnum::IntValue(int_val) = cond_value {
                             if int_val.get_type().get_bit_width() == 1 {
-                                self.builder.build_conditional_branch(int_val, loop_body, after_loop_block).map_err(|e| CompileError::from(e))?;
+                                self.builder
+                                    .build_conditional_branch(int_val, loop_body, after_loop_block)
+                                    .map_err(|e| CompileError::from(e))?;
                             } else {
                                 let zero = int_val.get_type().const_zero();
-                                let condition = self.builder.build_int_compare(
-                                    inkwell::IntPredicate::NE,
-                                    int_val,
-                                    zero,
-                                    "loop_condition"
-                                ).map_err(|e| CompileError::from(e))?;
-                                self.builder.build_conditional_branch(condition, loop_body, after_loop_block).map_err(|e| CompileError::from(e))?;
+                                let condition = self
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::NE,
+                                        int_val,
+                                        zero,
+                                        "loop_condition",
+                                    )
+                                    .map_err(|e| CompileError::from(e))?;
+                                self.builder
+                                    .build_conditional_branch(
+                                        condition,
+                                        loop_body,
+                                        after_loop_block,
+                                    )
+                                    .map_err(|e| CompileError::from(e))?;
                             }
                         } else {
-                            return Err(CompileError::TypeError("Loop condition must be an integer".to_string(), None));
+                            return Err(CompileError::TypeError(
+                                "Loop condition must be an integer".to_string(),
+                                None,
+                            ));
                         }
-                        
+
                         // Compile body
                         self.builder.position_at_end(loop_body);
                         for stmt in body {
                             self.compile_statement(stmt)?;
                         }
-                        
+
                         // Loop back to header
                         let current_block = self.builder.get_insert_block().unwrap();
                         if current_block.get_terminator().is_none() {
-                            self.builder.build_unconditional_branch(loop_header).map_err(|e| CompileError::from(e))?;
+                            self.builder
+                                .build_unconditional_branch(loop_header)
+                                .map_err(|e| CompileError::from(e))?;
                         }
-                        
+
                         self.loop_stack.pop();
                         self.builder.position_at_end(after_loop_block);
                         Ok(())
                     }
                 }
-            },
+            }
             Statement::Break { label: _ } => {
                 // Branch to the break target (after_loop block) of the current loop
                 if let Some((_, break_target)) = self.loop_stack.last() {
-                    self.builder.build_unconditional_branch(*break_target).map_err(|e| CompileError::from(e))?;
+                    self.builder
+                        .build_unconditional_branch(*break_target)
+                        .map_err(|e| CompileError::from(e))?;
                     // Create a new block for any unreachable code after break
-                    let unreachable_block = self.context.append_basic_block(self.current_function.unwrap(), "after_break");
+                    let unreachable_block = self
+                        .context
+                        .append_basic_block(self.current_function.unwrap(), "after_break");
                     self.builder.position_at_end(unreachable_block);
                 } else {
-                    return Err(CompileError::SyntaxError("Break statement outside of loop".to_string(), None));
+                    return Err(CompileError::SyntaxError(
+                        "Break statement outside of loop".to_string(),
+                        None,
+                    ));
                 }
                 Ok(())
-            },
+            }
             Statement::Continue { label: _ } => {
                 // Branch to the continue target (loop_header) of the current loop
                 if let Some((continue_target, _)) = self.loop_stack.last() {
-                    self.builder.build_unconditional_branch(*continue_target).map_err(|e| CompileError::from(e))?;
+                    self.builder
+                        .build_unconditional_branch(*continue_target)
+                        .map_err(|e| CompileError::from(e))?;
                     // Create a new block for any unreachable code after continue
-                    let unreachable_block = self.context.append_basic_block(self.current_function.unwrap(), "after_continue");
+                    let unreachable_block = self
+                        .context
+                        .append_basic_block(self.current_function.unwrap(), "after_continue");
                     self.builder.position_at_end(unreachable_block);
                 } else {
-                    return Err(CompileError::SyntaxError("Continue statement outside of loop".to_string(), None));
+                    return Err(CompileError::SyntaxError(
+                        "Continue statement outside of loop".to_string(),
+                        None,
+                    ));
                 }
                 Ok(())
-            },
+            }
             Statement::ComptimeBlock(statements) => {
                 // Evaluate comptime blocks during codegen
                 for stmt in statements {
                     if let Err(e) = self.comptime_evaluator.execute_statement(stmt) {
                         return Err(CompileError::InternalError(
                             format!("Comptime evaluation error: {}", e),
-                            None
+                            None,
                         ));
                     }
                 }
                 Ok(())
-            },
+            }
             Statement::ModuleImport { .. } => {
                 // Module imports are handled during parsing, not codegen
                 Ok(())
-            },
+            }
             Statement::Defer(_deferred_stmt) => {
                 // Defer statements need special handling - they execute at scope exit
                 // For now, we'll implement a basic version that doesn't support defer
@@ -1132,19 +1385,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Statement::DestructuringImport { names, source } => {
                 // Handle destructuring imports: { io, math } = @std
                 // These imports make stdlib modules available in the current scope
-                
+
                 // Compile the source expression (e.g., @std)
                 let _source_val = self.compile_expression(source)?;
-                
+
                 // For each name, create a module reference
                 for name in names {
                     // Special handling for known stdlib modules
                     // Create a marker variable to indicate this is a module reference
-                    let alloca = self.builder.build_alloca(
-                        self.context.i64_type(),
-                        name
-                    ).map_err(|e| CompileError::from(e))?;
-                    
+                    let alloca = self
+                        .builder
+                        .build_alloca(self.context.i64_type(), name)
+                        .map_err(|e| CompileError::from(e))?;
+
                     // Store a special marker value for stdlib modules
                     // We use different values to distinguish different modules
                     let module_marker = match name.as_str() {
@@ -1156,26 +1409,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "Allocator" => 6,
                         _ => 0,
                     };
-                    
-                    self.builder.build_store(
-                        alloca,
-                        self.context.i64_type().const_int(module_marker, false)
-                    ).map_err(|e| CompileError::from(e))?;
-                    
+
+                    self.builder
+                        .build_store(
+                            alloca,
+                            self.context.i64_type().const_int(module_marker, false),
+                        )
+                        .map_err(|e| CompileError::from(e))?;
+
                     // Register the variable as a module reference
-                    self.variables.insert(name.clone(), super::VariableInfo {
-                        pointer: alloca,
-                        ast_type: AstType::StdModule,  // Mark as stdlib module reference
-                        is_mutable: false,  // Module references are immutable
-                        is_initialized: true,
-                    });
+                    self.variables.insert(
+                        name.clone(),
+                        super::VariableInfo {
+                            pointer: alloca,
+                            ast_type: AstType::StdModule, // Mark as stdlib module reference
+                            is_mutable: false,            // Module references are immutable
+                            is_initialized: true,
+                        },
+                    );
                 }
-                
+
                 Ok(())
             }
         }
     }
-    
+
     /// Execute all deferred expressions in LIFO order (last deferred first)
     pub fn execute_deferred_expressions(&mut self) -> Result<(), CompileError> {
         // Execute in reverse order (LIFO)
@@ -1185,4 +1443,4 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         Ok(())
     }
-} 
+}

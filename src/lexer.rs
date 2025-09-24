@@ -8,14 +8,14 @@ pub enum Token {
     StringLiteral(String),
     Symbol(char),
     Operator(String),
-    Question,     // ?
-    Pipe,         // |
-    Underscore,   // _ (for wildcard patterns)
-    AtStd,        // @std
-    AtThis,       // @this
-    AtMeta,       // @meta (for compile-time metaprogramming)
-    InterpolationStart,  // Start of ${...}
-    InterpolationEnd,    // End of ${...}
+    Question,           // ?
+    Pipe,               // |
+    Underscore,         // _ (for wildcard patterns)
+    AtStd,              // @std
+    AtThis,             // @this
+    AtMeta,             // @meta (for compile-time metaprogramming)
+    InterpolationStart, // Start of ${...}
+    InterpolationEnd,   // End of ${...}
     Eof,
 }
 
@@ -43,7 +43,7 @@ impl<'a> Lexer<'a> {
             read_position: 0,
             current_char: None,
             line: 1,
-            column: 0,  // Start at 0 for 0-based column tracking
+            column: 0, // Start at 0 for 0-based column tracking
         };
         lexer.read_char();
         lexer
@@ -57,11 +57,11 @@ impl<'a> Lexer<'a> {
             self.current_char = Some(ch);
             self.position = self.read_position;
             self.read_position += ch.len_utf8();
-            
+
             // Update line and column tracking
             if ch == '\n' {
                 self.line += 1;
-                self.column = 0;  // Reset to 0 for 0-based columns
+                self.column = 0; // Reset to 0 for 0-based columns
             } else {
                 self.column += 1;
             }
@@ -77,19 +77,19 @@ impl<'a> Lexer<'a> {
 
     pub fn next_token_with_span(&mut self) -> TokenWithSpan {
         self.skip_whitespace_and_comments();
-        
+
         // Record position AFTER skipping whitespace/comments
         let start_pos = self.position;
         let start_line = self.line;
         // Column is already 0-based now
         let start_column = self.column;
-        
+
         let token = match self.current_char {
             Some('@') => {
                 // Handle @std, @this, and @meta special symbols
                 let start = self.position;
                 self.read_char(); // consume '@'
-                
+
                 // Read the identifier part after @
                 let ident_start = self.position;
                 while let Some(c) = self.current_char {
@@ -100,7 +100,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 let ident = self.input[ident_start..self.position].to_string();
-                
+
                 // Check for special @ tokens
                 // Support @std, @this, and @meta with optional dot-notation
                 if ident == "std" {
@@ -162,7 +162,12 @@ impl<'a> Lexer<'a> {
                         self.read_char(); // consume '='
                         return TokenWithSpan {
                             token: Token::Operator(":=".to_string()),
-                            span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                            span: Span {
+                                start: start_pos,
+                                end: self.position,
+                                line: start_line,
+                                column: start_column,
+                            },
                         };
                     } else if next == ':' {
                         self.read_char(); // consume ':'
@@ -172,14 +177,24 @@ impl<'a> Lexer<'a> {
                                 self.read_char(); // consume '='
                                 return TokenWithSpan {
                                     token: Token::Operator("::=".to_string()),
-                                    span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                                    span: Span {
+                                        start: start_pos,
+                                        end: self.position,
+                                        line: start_line,
+                                        column: start_column,
+                                    },
                                 };
                             }
                         }
                         self.read_char(); // consume second ':'
                         return TokenWithSpan {
                             token: Token::Operator("::".to_string()),
-                            span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                            span: Span {
+                                start: start_pos,
+                                end: self.position,
+                                line: start_line,
+                                column: start_column,
+                            },
                         };
                     }
                 }
@@ -197,21 +212,36 @@ impl<'a> Lexer<'a> {
                                 self.read_char(); // consume third '.'
                                 return TokenWithSpan {
                                     token: Token::Operator("...".to_string()),
-                                    span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                                    span: Span {
+                                        start: start_pos,
+                                        end: self.position,
+                                        line: start_line,
+                                        column: start_column,
+                                    },
                                 };
                             } else if next2 == '=' {
                                 self.read_char(); // consume second '.'
                                 self.read_char(); // consume '='
                                 return TokenWithSpan {
                                     token: Token::Operator("..=".to_string()),
-                                    span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                                    span: Span {
+                                        start: start_pos,
+                                        end: self.position,
+                                        line: start_line,
+                                        column: start_column,
+                                    },
                                 };
                             }
                         }
                         self.read_char(); // consume second '.'
                         return TokenWithSpan {
                             token: Token::Operator("..".to_string()),
-                            span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                            span: Span {
+                                start: start_pos,
+                                end: self.position,
+                                line: start_line,
+                                column: start_column,
+                            },
                         };
                     }
                 }
@@ -230,7 +260,12 @@ impl<'a> Lexer<'a> {
                         self.read_char(); // consume second '|'
                         return TokenWithSpan {
                             token: Token::Operator("||".to_string()),
-                            span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                            span: Span {
+                                start: start_pos,
+                                end: self.position,
+                                line: start_line,
+                                column: start_column,
+                            },
                         };
                     }
                 }
@@ -246,7 +281,12 @@ impl<'a> Lexer<'a> {
                         self.read_char(); // consume second '&'
                         return TokenWithSpan {
                             token: Token::Operator("&&".to_string()),
-                            span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+                            span: Span {
+                                start: start_pos,
+                                end: self.position,
+                                line: start_line,
+                                column: start_column,
+                            },
                         };
                     }
                 }
@@ -315,10 +355,15 @@ impl<'a> Lexer<'a> {
                 return self.next_token_with_span();
             }
         };
-        
+
         TokenWithSpan {
             token,
-            span: Span { start: start_pos, end: self.position, line: start_line, column: start_column },
+            span: Span {
+                start: start_pos,
+                end: self.position,
+                line: start_line,
+                column: start_column,
+            },
         }
     }
 
@@ -385,7 +430,7 @@ impl<'a> Lexer<'a> {
     fn read_number(&mut self) -> String {
         let start = self.position;
         let mut has_dot = false;
-        
+
         while let Some(c) = self.current_char {
             if c.is_ascii_digit() {
                 self.read_char();
@@ -410,7 +455,6 @@ impl<'a> Lexer<'a> {
         self.input[start..self.position].to_string()
     }
 
-
     fn is_symbol(&self, c: char) -> bool {
         matches!(c, '{' | '}' | '(' | ')' | '[' | ']' | ';' | ',')
     }
@@ -423,7 +467,7 @@ impl<'a> Lexer<'a> {
         self.read_char(); // consume opening quote
         let mut result = String::new();
         let mut escape_next = false;
-        
+
         while let Some(c) = self.current_char {
             if escape_next {
                 // Handle escape sequences
@@ -451,7 +495,7 @@ impl<'a> Lexer<'a> {
                 result.push('\x01'); // Special marker for interpolation
                 self.read_char(); // consume $
                 self.read_char(); // consume {
-                
+
                 // Read the interpolated expression until we find '}'
                 let mut depth = 1;
                 while let Some(ch) = self.current_char {
@@ -481,7 +525,7 @@ impl<'a> Lexer<'a> {
         let _start = self.position;
         let first_char = self.current_char.unwrap();
         self.read_char();
-        
+
         // Handle three-character operators first
         if let Some(second_char) = self.current_char {
             if let Some(third_char) = self.peek_char() {
@@ -493,16 +537,19 @@ impl<'a> Lexer<'a> {
                 }
             }
         }
-        
+
         // Handle two-character operators
         if let Some(second_char) = self.current_char {
             let two_char_op = format!("{}{}", first_char, second_char);
-            if matches!(two_char_op.as_str(), "==" | "!=" | "<=" | ">=" | "&&" | "||" | ":=" | "::" | ".." | "..=") {
+            if matches!(
+                two_char_op.as_str(),
+                "==" | "!=" | "<=" | ">=" | "&&" | "||" | ":=" | "::" | ".." | "..="
+            ) {
                 self.read_char();
                 return two_char_op;
             }
         }
-        
+
         // Single character operator
         first_char.to_string()
     }
@@ -514,4 +561,4 @@ impl<'a> Lexer<'a> {
             self.input[self.read_position..].chars().next()
         }
     }
-} 
+}

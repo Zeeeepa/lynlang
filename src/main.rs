@@ -1,8 +1,8 @@
 use inkwell::context::Context;
-use inkwell::targets::{Target, TargetMachine, RelocMode, CodeModel, FileType};
+use inkwell::targets::{CodeModel, FileType, RelocMode, Target, TargetMachine};
 use inkwell::OptimizationLevel;
-use std::io::{self, Write, BufRead};
 use std::env;
+use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::process::Command;
 
@@ -16,21 +16,25 @@ mod lsp;
 mod module_system;
 mod parser;
 mod stdlib;
-mod typechecker;
 mod type_system;
+mod typechecker;
 
 use zen::compiler::Compiler;
+use zen::error::{CompileError, Result};
 use zen::lexer::Lexer;
 use zen::parser::Parser;
-use zen::error::{Result, CompileError};
 
 fn main() -> std::io::Result<()> {
     // Initialize LLVM
-    Target::initialize_native(&inkwell::targets::InitializationConfig::default())
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("LLVM initialization failed: {}", e)))?;
-    
+    Target::initialize_native(&inkwell::targets::InitializationConfig::default()).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("LLVM initialization failed: {}", e),
+        )
+    })?;
+
     let args: Vec<String> = env::args().collect();
-    
+
     match args.len() {
         1 => {
             // No arguments - start REPL
@@ -60,7 +64,7 @@ fn main() -> std::io::Result<()> {
             return Ok(());
         }
     }
-    
+
     Ok(())
 }
 
@@ -86,29 +90,29 @@ fn run_repl() -> std::io::Result<()> {
     println!("Type 'exit' or 'quit' to exit.");
     println!("Type 'help' for available commands.");
     println!();
-    
+
     let context = Context::create();
     let mut compiler = Compiler::new(&context);
-    
+
     let stdin = io::stdin();
     let mut stdin = stdin.lock();
     let mut stdout = io::stdout();
-    
+
     loop {
         print!("zen> ");
         stdout.flush()?;
-        
+
         let mut input = String::new();
         let bytes_read = stdin.read_line(&mut input)?;
-        
+
         // Handle EOF (no bytes read)
         if bytes_read == 0 {
             println!("\nGoodbye! 👋");
             break;
         }
-        
+
         let input = input.trim();
-        
+
         match input {
             "exit" | "quit" => {
                 println!("Goodbye! 👋");
@@ -140,32 +144,44 @@ fn run_repl() -> std::io::Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
 fn run_file(file_path: &str) -> std::io::Result<()> {
     // Read the file
-    let source = std::fs::read_to_string(file_path)
-        .map_err(|e| io::Error::new(io::ErrorKind::NotFound, format!("Failed to read file: {}", e)))?;
-    
+    let source = std::fs::read_to_string(file_path).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Failed to read file: {}", e),
+        )
+    })?;
+
     let context = Context::create();
     let compiler = Compiler::new(&context);
-    
+
     // Parse the source
     let lexer = Lexer::new(&source);
     let mut parser = Parser::new(lexer);
-    let program = parser.parse_program()
+    let program = parser
+        .parse_program()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Parse error: {}", e)))?;
-    
+
     // Get the LLVM module
-    let module = compiler.get_module(&program)
+    let module = compiler
+        .get_module(&program)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
-    
+
     // Create execution engine and run
-    let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to create execution engine: {}", e)))?;
-    
+    let execution_engine = module
+        .create_jit_execution_engine(OptimizationLevel::None)
+        .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to create execution engine: {}", e),
+            )
+        })?;
+
     // Find and run main function
     match execution_engine.get_function_value("main") {
         Ok(main_fn) => {
@@ -179,7 +195,7 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
             eprintln!("Warning: No main function found");
         }
     }
-    
+
     Ok(())
 }
 
@@ -193,47 +209,59 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
         print_usage();
         return Ok(());
     };
-    
+
     // Ensure output goes to target directory if no directory specified
     let output_file = if !output_file_raw.contains('/') {
         format!("target/{}", output_file_raw)
     } else {
         output_file_raw.to_string()
     };
-    
+
     // Ensure target directory exists
     if let Some(parent) = Path::new(&output_file).parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to create output directory: {}", e)))?;
+        std::fs::create_dir_all(parent).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to create output directory: {}", e),
+            )
+        })?;
     }
-    
+
     // Read the source file
-    let source = std::fs::read_to_string(input_file)
-        .map_err(|e| io::Error::new(io::ErrorKind::NotFound, format!("Failed to read file: {}", e)))?;
-    
+    let source = std::fs::read_to_string(input_file).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Failed to read file: {}", e),
+        )
+    })?;
+
     let context = Context::create();
     let compiler = Compiler::new(&context);
-    
+
     // Parse the source
     let lexer = Lexer::new(&source);
     let mut parser = Parser::new(lexer);
-    let program = parser.parse_program()
+    let program = parser
+        .parse_program()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Parse error: {}", e)))?;
-    
+
     // Get the LLVM module
-    let module = compiler.get_module(&program)
+    let module = compiler
+        .get_module(&program)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Compilation error: {}", e)))?;
-    
+
     // Write LLVM IR for debugging - also in target directory
     let ir_path = format!("{}.ll", output_file);
-    module.print_to_file(&ir_path)
+    module
+        .print_to_file(&ir_path)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to write IR: {}", e)))?;
-    
+
     // Get target machine
     let target_triple = TargetMachine::get_default_triple();
-    let target = Target::from_triple(&target_triple)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to get target: {}", e)))?;
-    
+    let target = Target::from_triple(&target_triple).map_err(|e| {
+        io::Error::new(io::ErrorKind::Other, format!("Failed to get target: {}", e))
+    })?;
+
     let target_machine = target
         .create_target_machine(
             &target_triple,
@@ -244,32 +272,39 @@ fn compile_file(args: &[String]) -> std::io::Result<()> {
             CodeModel::Default,
         )
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to create target machine"))?;
-    
+
     // Write object file
     let obj_path = format!("{}.o", output_file);
-    target_machine.write_to_file(&module, FileType::Object, Path::new(&obj_path))
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to write object file: {}", e)))?;
-    
+    target_machine
+        .write_to_file(&module, FileType::Object, Path::new(&obj_path))
+        .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to write object file: {}", e),
+            )
+        })?;
+
     // Link with system libraries to create executable
     let mut cmd = Command::new("cc");
     cmd.arg(&obj_path)
         .arg("-o")
         .arg(&output_file)
-        .arg("-no-pie")  // Disable PIE for compatibility
-        .arg("-lm");  // Link math library
-    
-    let status = cmd.status()
+        .arg("-no-pie") // Disable PIE for compatibility
+        .arg("-lm"); // Link math library
+
+    let status = cmd
+        .status()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to link: {}", e)))?;
-    
+
     if !status.success() {
         return Err(io::Error::new(io::ErrorKind::Other, "Linking failed"));
     }
-    
+
     // Clean up object file
     std::fs::remove_file(&obj_path).ok();
-    
+
     println!("✅ Successfully compiled to: {}", output_file);
-    
+
     Ok(())
 }
 
@@ -277,16 +312,17 @@ fn execute_zen_code(compiler: &mut Compiler, source: &str) -> Result<Option<Stri
     // Parse the source
     let lexer = Lexer::new(source);
     let mut parser = Parser::new(lexer);
-    let program = parser.parse_program()
+    let program = parser
+        .parse_program()
         .map_err(|e| CompileError::InternalError(format!("Parse error: {}", e), None))?;
-    
+
     if program.declarations.is_empty() {
         return Ok(None);
     }
-    
+
     // Compile the program using LLVM backend
     let llvm_ir = compiler.compile_llvm(&program)?;
-    
+
     // Return just the LLVM IR
     Ok(Some(llvm_ir))
 }
@@ -302,4 +338,4 @@ fn print_repl_help() {
     println!("  add = (a: i32, b: i32) i32 {{ a + b }}");
     println!("  x := 10; y := 20; x + y");
     println!();
-} 
+}

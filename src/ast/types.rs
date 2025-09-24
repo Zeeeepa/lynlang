@@ -17,21 +17,21 @@ pub enum AstType {
     String,
     Void,
     // New pointer types as per spec
-    Ptr(Box<AstType>),       // Immutable pointer
-    MutPtr(Box<AstType>),    // Mutable pointer  
-    RawPtr(Box<AstType>),    // Raw pointer for FFI/unsafe
+    Ptr(Box<AstType>),    // Immutable pointer
+    MutPtr(Box<AstType>), // Mutable pointer
+    RawPtr(Box<AstType>), // Raw pointer for FFI/unsafe
     Array(Box<AstType>),
     // Vec<T, size> - Fixed-size vector with compile-time size
-    Vec {                    
+    Vec {
         element_type: Box<AstType>,
-        size: usize,         // Always has compile-time size
+        size: usize, // Always has compile-time size
     },
     // DynVec<T> or DynVec<T1, T2, ...> - Dynamic vector with allocator
-    DynVec {                 
+    DynVec {
         element_types: Vec<AstType>, // Multiple types for mixed variant vectors
         allocator_type: Option<Box<AstType>>, // Optional allocator type
     },
-    FixedArray { 
+    FixedArray {
         element_type: Box<AstType>,
         size: usize,
     },

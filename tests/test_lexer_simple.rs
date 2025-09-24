@@ -12,9 +12,9 @@ fn main() {
         return value
         continue
     "#;
-    
+
     let mut lexer = Lexer::new(input);
-    
+
     loop {
         let token = lexer.next_token();
         println!("{:?}", token);

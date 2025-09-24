@@ -1,7 +1,7 @@
 //! Expression nodes in the AST
 
-use super::types::AstType;
 use super::patterns::Pattern;
+use super::types::AstType;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BinaryOperator {
@@ -36,7 +36,7 @@ pub enum Expression {
     Boolean(bool),
     String(String),
     Identifier(String),
-    Unit,  // The unit value, similar to () in Rust or void in C
+    Unit, // The unit value, similar to () in Rust or void in C
     BinaryOp {
         left: Box<Expression>,
         op: BinaryOperator,
@@ -91,14 +91,14 @@ pub enum Expression {
         member: String,
     },
     // Pointer-specific operations for Zen spec
-    PointerDereference(Box<Expression>),  // .val operation
-    PointerAddress(Box<Expression>),      // .addr operation
-    CreateReference(Box<Expression>),     // .ref() method
+    PointerDereference(Box<Expression>),     // .val operation
+    PointerAddress(Box<Expression>),         // .addr operation
+    CreateReference(Box<Expression>),        // .ref() method
     CreateMutableReference(Box<Expression>), // .mut_ref() method
     StringLength(Box<Expression>),
     // Option<T> constructors
-    Some(Box<Expression>),  // Some(value)
-    None,                    // None
+    Some(Box<Expression>), // Some(value)
+    None,                  // None
     // String interpolation: "Hello ${name}!"
     StringInterpolation {
         parts: Vec<StringPart>,
@@ -133,7 +133,7 @@ pub enum Expression {
     // Collection loop: collection.loop((item) { ... })
     CollectionLoop {
         collection: Box<Expression>,
-        param: String, // The loop parameter name
+        param: String,               // The loop parameter name
         index_param: Option<String>, // Optional index parameter
         body: Box<Expression>,
     },
@@ -156,12 +156,14 @@ pub enum Expression {
     // Defer expression: @this.defer(expr)
     Defer(Box<Expression>),
     // Break expression for loops (can be used in expression contexts like pattern arms)
-    Break { 
+    Break {
         label: Option<String>,
         value: Option<Box<Expression>>, // Break can optionally return a value
     },
     // Continue expression for loops
-    Continue { label: Option<String> },
+    Continue {
+        label: Option<String>,
+    },
     // Collection constructors
     // Vec<T, size>() - Fixed-size vector constructor
     VecConstructor {
@@ -172,7 +174,7 @@ pub enum Expression {
     // DynVec<T>(allocator) or DynVec<T1, T2, ...>(allocator) - Dynamic vector constructor
     DynVecConstructor {
         element_types: Vec<AstType>,
-        allocator: Box<Expression>, // Allocator expression
+        allocator: Box<Expression>,                // Allocator expression
         initial_capacity: Option<Box<Expression>>, // Optional initial capacity
     },
 }

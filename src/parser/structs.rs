@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{StructDefinition, StructField, AstType, Function};
+use crate::ast::{AstType, Function, StructDefinition, StructField};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -109,7 +109,12 @@ impl<'a> Parser<'a> {
         // TODO: Implement method parsing with correct syntax
         let methods = Vec::new();
 
-        Ok(StructDefinition { name, type_params, fields, methods })
+        Ok(StructDefinition {
+            name,
+            type_params,
+            fields,
+            methods,
+        })
     }
 
     fn parse_method(&mut self) -> Result<Function> {
@@ -147,7 +152,9 @@ impl<'a> Parser<'a> {
             self.next_token();
 
             // Parameter type (optional - if next token is ')' or ',', skip type parsing)
-            let param_type = if self.current_token == Token::Symbol(')') || self.current_token == Token::Symbol(',') {
+            let param_type = if self.current_token == Token::Symbol(')')
+                || self.current_token == Token::Symbol(',')
+            {
                 // No explicit type, use a default (could be inferred later)
                 AstType::I32 // Default type for now
             } else {

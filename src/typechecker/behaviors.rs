@@ -1,4 +1,6 @@
-use crate::ast::{BehaviorDefinition, TraitDefinition, TraitImplementation, TraitRequirement, AstType};
+use crate::ast::{
+    AstType, BehaviorDefinition, TraitDefinition, TraitImplementation, TraitRequirement,
+};
 use crate::error::{CompileError, Result};
 use std::collections::HashMap;
 
@@ -60,22 +62,28 @@ impl BehaviorResolver {
             ));
         }
 
-        let methods = behavior.methods.iter().map(|m| {
-            let has_self = m.params.first()
-                .map(|p| p.name == "self")
-                .unwrap_or(false);
-            
-            BehaviorMethodInfo {
-                name: m.name.clone(),
-                param_types: m.params.iter().map(|p| p.type_.clone()).collect(),
-                return_type: m.return_type.clone(),
-                has_self,
-            }
-        }).collect();
+        let methods = behavior
+            .methods
+            .iter()
+            .map(|m| {
+                let has_self = m.params.first().map(|p| p.name == "self").unwrap_or(false);
+
+                BehaviorMethodInfo {
+                    name: m.name.clone(),
+                    param_types: m.params.iter().map(|p| p.type_.clone()).collect(),
+                    return_type: m.return_type.clone(),
+                    has_self,
+                }
+            })
+            .collect();
 
         let info = BehaviorInfo {
             name: behavior.name.clone(),
-            type_params: behavior.type_params.iter().map(|tp| tp.name.clone()).collect(),
+            type_params: behavior
+                .type_params
+                .iter()
+                .map(|tp| tp.name.clone())
+                .collect(),
             methods,
         };
 
@@ -92,22 +100,28 @@ impl BehaviorResolver {
             ));
         }
 
-        let methods = trait_def.methods.iter().map(|m| {
-            let has_self = m.params.first()
-                .map(|p| p.name == "self")
-                .unwrap_or(false);
-            
-            BehaviorMethodInfo {
-                name: m.name.clone(),
-                param_types: m.params.iter().map(|p| p.type_.clone()).collect(),
-                return_type: m.return_type.clone(),
-                has_self,
-            }
-        }).collect();
+        let methods = trait_def
+            .methods
+            .iter()
+            .map(|m| {
+                let has_self = m.params.first().map(|p| p.name == "self").unwrap_or(false);
+
+                BehaviorMethodInfo {
+                    name: m.name.clone(),
+                    param_types: m.params.iter().map(|p| p.type_.clone()).collect(),
+                    return_type: m.return_type.clone(),
+                    has_self,
+                }
+            })
+            .collect();
 
         let info = BehaviorInfo {
             name: trait_def.name.clone(),
-            type_params: trait_def.type_params.iter().map(|tp| tp.name.clone()).collect(),
+            type_params: trait_def
+                .type_params
+                .iter()
+                .map(|tp| tp.name.clone())
+                .collect(),
             methods,
         };
 
@@ -120,9 +134,9 @@ impl BehaviorResolver {
         match ast_type {
             AstType::Generic { name, type_args: _ } if name == "Self" => {
                 // Replace Self with the concrete type - use Struct with just name
-                AstType::Struct { 
+                AstType::Struct {
                     name: concrete_type.to_string(),
-                    fields: vec![]  // Empty fields - this is just a type reference
+                    fields: vec![], // Empty fields - this is just a type reference
                 }
             }
             AstType::Ptr(inner) => {
@@ -137,37 +151,37 @@ impl BehaviorResolver {
             AstType::Option(inner) => {
                 AstType::Option(Box::new(self.replace_self_type(inner, concrete_type)))
             }
-            AstType::Result { ok_type, err_type } => {
-                AstType::Result {
-                    ok_type: Box::new(self.replace_self_type(ok_type, concrete_type)),
-                    err_type: Box::new(self.replace_self_type(err_type, concrete_type)),
-                }
-            }
+            AstType::Result { ok_type, err_type } => AstType::Result {
+                ok_type: Box::new(self.replace_self_type(ok_type, concrete_type)),
+                err_type: Box::new(self.replace_self_type(err_type, concrete_type)),
+            },
             AstType::Array(element) => {
                 AstType::Array(Box::new(self.replace_self_type(element, concrete_type)))
             }
-            AstType::FixedArray { element_type, size } => {
-                AstType::FixedArray {
-                    element_type: Box::new(self.replace_self_type(element_type, concrete_type)),
-                    size: *size,
-                }
-            }
-            AstType::Function { args, return_type } => {
-                AstType::Function {
-                    args: args.iter().map(|p| self.replace_self_type(p, concrete_type)).collect(),
-                    return_type: Box::new(self.replace_self_type(return_type, concrete_type)),
-                }
-            }
+            AstType::FixedArray { element_type, size } => AstType::FixedArray {
+                element_type: Box::new(self.replace_self_type(element_type, concrete_type)),
+                size: *size,
+            },
+            AstType::Function { args, return_type } => AstType::Function {
+                args: args
+                    .iter()
+                    .map(|p| self.replace_self_type(p, concrete_type))
+                    .collect(),
+                return_type: Box::new(self.replace_self_type(return_type, concrete_type)),
+            },
             // For other types, return as is
             _ => ast_type.clone(),
         }
     }
 
     /// Register an implementation block
-    pub fn register_trait_implementation(&mut self, trait_impl: &TraitImplementation) -> Result<()> {
+    pub fn register_trait_implementation(
+        &mut self,
+        trait_impl: &TraitImplementation,
+    ) -> Result<()> {
         // Register a trait implementation for a type
         let key = (trait_impl.type_name.clone(), trait_impl.trait_name.clone());
-        
+
         if self.implementations.contains_key(&key) {
             return Err(CompileError::TypeError(
                 format!(
@@ -177,7 +191,7 @@ impl BehaviorResolver {
                 None,
             ));
         }
-        
+
         // Verify that the trait exists
         if !self.behaviors.contains_key(&trait_impl.trait_name) {
             return Err(CompileError::TypeError(
@@ -185,15 +199,17 @@ impl BehaviorResolver {
                 None,
             ));
         }
-        
+
         let mut methods = HashMap::new();
         for method in &trait_impl.methods {
             // Replace Self types in parameters and return type with the concrete type
-            let param_types: Vec<AstType> = method.args.iter()
+            let param_types: Vec<AstType> = method
+                .args
+                .iter()
                 .map(|(_, t)| self.replace_self_type(t, &trait_impl.type_name))
                 .collect();
             let return_type = self.replace_self_type(&method.return_type, &trait_impl.type_name);
-            
+
             let method_info = MethodInfo {
                 name: method.name.clone(),
                 param_types,
@@ -201,18 +217,22 @@ impl BehaviorResolver {
             };
             methods.insert(method.name.clone(), method_info);
         }
-        
+
         let impl_info = ImplInfo {
             type_name: trait_impl.type_name.clone(),
             trait_name: trait_impl.trait_name.clone(),
-            type_params: trait_impl.type_params.iter().map(|p| p.name.clone()).collect(),
+            type_params: trait_impl
+                .type_params
+                .iter()
+                .map(|p| p.name.clone())
+                .collect(),
             methods,
         };
-        
+
         self.implementations.insert(key, impl_info);
         Ok(())
     }
-    
+
     pub fn register_trait_requirement(&mut self, trait_req: &TraitRequirement) -> Result<()> {
         // Register that a type requires a trait
         // This is mainly for enum variants that must all implement a trait
@@ -226,7 +246,7 @@ impl BehaviorResolver {
         // TODO: Store requirements and verify them when checking enum variants
         Ok(())
     }
-    
+
     pub fn verify_trait_implementation(&mut self, trait_impl: &TraitImplementation) -> Result<()> {
         // Verify that the implementation satisfies the trait
         if let Some(behavior) = self.behaviors.get(&trait_impl.trait_name) {
@@ -258,7 +278,7 @@ impl BehaviorResolver {
             ))
         }
     }
-    
+
     pub fn verify_trait_requirement(&mut self, trait_req: &TraitRequirement) -> Result<()> {
         // Verify that a trait requirement is valid
         if !self.behaviors.contains_key(&trait_req.trait_name) {
@@ -272,20 +292,18 @@ impl BehaviorResolver {
 
     /// Check if a type implements a trait
     pub fn type_implements(&self, type_name: &str, trait_name: &str) -> bool {
-        self.implementations.contains_key(&(type_name.to_string(), trait_name.to_string()))
+        self.implementations
+            .contains_key(&(type_name.to_string(), trait_name.to_string()))
     }
 
     /// Get the implementation of a behavior for a type
     pub fn get_impl(&self, type_name: &str, behavior_name: &str) -> Option<&ImplInfo> {
-        self.implementations.get(&(type_name.to_string(), behavior_name.to_string()))
+        self.implementations
+            .get(&(type_name.to_string(), behavior_name.to_string()))
     }
 
     /// Resolve a method call on a type
-    pub fn resolve_method(
-        &self,
-        type_name: &str,
-        method_name: &str,
-    ) -> Option<MethodInfo> {
+    pub fn resolve_method(&self, type_name: &str, method_name: &str) -> Option<MethodInfo> {
         // First check inherent methods
         if let Some(methods) = self.inherent_methods.get(type_name) {
             if let Some(method) = methods.iter().find(|m| m.name == method_name) {
@@ -305,7 +323,6 @@ impl BehaviorResolver {
         None
     }
 
-
     /// Get all behaviors implemented by a type
     pub fn get_implemented_behaviors(&self, type_name: &str) -> Vec<String> {
         self.implementations
@@ -322,11 +339,11 @@ impl BehaviorResolver {
 mod tests {
     use super::*;
     use crate::ast::{BehaviorMethod, Function, Parameter};
-    
+
     #[test]
     fn test_register_behavior() {
         let mut resolver = BehaviorResolver::new();
-        
+
         let behavior = BehaviorDefinition {
             name: "Display".to_string(),
             type_params: vec![],
@@ -355,7 +372,7 @@ mod tests {
     #[test]
     fn test_register_impl() {
         let mut resolver = BehaviorResolver::new();
-        
+
         // First register the behavior
         let behavior = BehaviorDefinition {
             name: "Display".to_string(),
@@ -379,7 +396,7 @@ mod tests {
     #[test]
     fn test_method_resolution() {
         let mut resolver = BehaviorResolver::new();
-        
+
         // Register an inherent impl
         let impl_block = ImplBlock {
             type_name: "Point".to_string(),
@@ -400,7 +417,7 @@ mod tests {
         };
 
         resolver.register_impl(&impl_block).unwrap();
-        
+
         let method = resolver.resolve_method("Point", "distance");
         assert!(method.is_some());
         assert_eq!(method.unwrap().name, "distance");

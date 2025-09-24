@@ -37,27 +37,63 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
             types_compatible(expected_inner, element_type)
         }
         // Check struct compatibility
-        (AstType::Struct { name: expected_name, .. }, AstType::Struct { name: actual_name, .. }) => {
-            expected_name == actual_name
-        }
+        (
+            AstType::Struct {
+                name: expected_name,
+                ..
+            },
+            AstType::Struct {
+                name: actual_name, ..
+            },
+        ) => expected_name == actual_name,
         // Check enum compatibility
-        (AstType::Enum { name: expected_name, .. }, AstType::Enum { name: actual_name, .. }) => {
-            expected_name == actual_name
-        }
+        (
+            AstType::Enum {
+                name: expected_name,
+                ..
+            },
+            AstType::Enum {
+                name: actual_name, ..
+            },
+        ) => expected_name == actual_name,
         // Allow Generic type to match Enum type when name matches (for type declarations)
-        (AstType::Generic { name: expected_name, type_args }, AstType::Enum { name: actual_name, .. }) => {
-            expected_name == actual_name && type_args.is_empty()
-        }
+        (
+            AstType::Generic {
+                name: expected_name,
+                type_args,
+            },
+            AstType::Enum {
+                name: actual_name, ..
+            },
+        ) => expected_name == actual_name && type_args.is_empty(),
         // Allow Enum type to match Generic type when name matches (for type declarations)
-        (AstType::Enum { name: expected_name, .. }, AstType::Generic { name: actual_name, type_args }) => {
-            expected_name == actual_name && type_args.is_empty()
-        }
+        (
+            AstType::Enum {
+                name: expected_name,
+                ..
+            },
+            AstType::Generic {
+                name: actual_name,
+                type_args,
+            },
+        ) => expected_name == actual_name && type_args.is_empty(),
         // Allow struct type to be assigned to enum if the struct is one of the enum's variants
-        (AstType::Enum { variants, .. }, AstType::Struct { name: struct_name, .. }) => {
-            variants.iter().any(|v| v.name == *struct_name)
-        }
+        (
+            AstType::Enum { variants, .. },
+            AstType::Struct {
+                name: struct_name, ..
+            },
+        ) => variants.iter().any(|v| v.name == *struct_name),
         // Allow struct type to be assigned to generic enum type
-        (AstType::Generic { name: enum_name, type_args }, AstType::Struct { name: struct_name, .. }) if type_args.is_empty() => {
+        (
+            AstType::Generic {
+                name: enum_name,
+                type_args,
+            },
+            AstType::Struct {
+                name: struct_name, ..
+            },
+        ) if type_args.is_empty() => {
             // This is a workaround - we'd need to look up the actual enum type to verify
             // For now, we'll assume it's valid if the names are plausible
             // TODO: Improve this by looking up the actual enum definition
@@ -68,48 +104,101 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
             types_compatible(expected_inner, actual_inner)
         }
         // Allow T to Option<T>
-        (AstType::Option(expected_inner), actual) => {
-            types_compatible(expected_inner, actual)
-        }
+        (AstType::Option(expected_inner), actual) => types_compatible(expected_inner, actual),
         // Check result compatibility
         (
-            AstType::Result { ok_type: expected_ok, err_type: expected_err },
-            AstType::Result { ok_type: actual_ok, err_type: actual_err },
-        ) => {
-            types_compatible(expected_ok, actual_ok) && types_compatible(expected_err, actual_err)
-        }
+            AstType::Result {
+                ok_type: expected_ok,
+                err_type: expected_err,
+            },
+            AstType::Result {
+                ok_type: actual_ok,
+                err_type: actual_err,
+            },
+        ) => types_compatible(expected_ok, actual_ok) && types_compatible(expected_err, actual_err),
         // Check Option<T> compatibility using generic syntax
         (
-            AstType::Generic { name: expected_name, type_args: expected_args },
-            AstType::Generic { name: actual_name, type_args: actual_args }
+            AstType::Generic {
+                name: expected_name,
+                type_args: expected_args,
+            },
+            AstType::Generic {
+                name: actual_name,
+                type_args: actual_args,
+            },
         ) if expected_name == "Option" && actual_name == "Option" => {
-            expected_args.len() == actual_args.len() && 
-            expected_args.iter().zip(actual_args.iter()).all(|(e, a)| types_compatible(e, a))
+            expected_args.len() == actual_args.len()
+                && expected_args
+                    .iter()
+                    .zip(actual_args.iter())
+                    .all(|(e, a)| types_compatible(e, a))
         }
         // Check Result<T,E> compatibility using generic syntax
         (
-            AstType::Generic { name: expected_name, type_args: expected_args },
-            AstType::Generic { name: actual_name, type_args: actual_args }
+            AstType::Generic {
+                name: expected_name,
+                type_args: expected_args,
+            },
+            AstType::Generic {
+                name: actual_name,
+                type_args: actual_args,
+            },
         ) if expected_name == "Result" && actual_name == "Result" => {
-            expected_args.len() == actual_args.len() && 
-            expected_args.iter().zip(actual_args.iter()).all(|(e, a)| types_compatible(e, a))
+            expected_args.len() == actual_args.len()
+                && expected_args
+                    .iter()
+                    .zip(actual_args.iter())
+                    .all(|(e, a)| types_compatible(e, a))
         }
         // Check range compatibility
         (
-            AstType::Range { start_type: expected_start, end_type: expected_end, .. },
-            AstType::Range { start_type: actual_start, end_type: actual_end, .. },
-        ) => types_compatible(expected_start, actual_start) && types_compatible(expected_end, actual_end),
+            AstType::Range {
+                start_type: expected_start,
+                end_type: expected_end,
+                ..
+            },
+            AstType::Range {
+                start_type: actual_start,
+                end_type: actual_end,
+                ..
+            },
+        ) => {
+            types_compatible(expected_start, actual_start)
+                && types_compatible(expected_end, actual_end)
+        }
         // Function and FunctionPointer compatibility
-        (AstType::Function { args: expected_args, return_type: expected_ret }, 
-         AstType::FunctionPointer { param_types: actual_params, return_type: actual_ret }) => {
+        (
+            AstType::Function {
+                args: expected_args,
+                return_type: expected_ret,
+            },
+            AstType::FunctionPointer {
+                param_types: actual_params,
+                return_type: actual_ret,
+            },
+        ) => {
             expected_args.len() == actual_params.len()
-                && expected_args.iter().zip(actual_params.iter()).all(|(e, a)| types_compatible(e, a))
+                && expected_args
+                    .iter()
+                    .zip(actual_params.iter())
+                    .all(|(e, a)| types_compatible(e, a))
                 && types_compatible(expected_ret, actual_ret)
         }
-        (AstType::FunctionPointer { param_types: expected_params, return_type: expected_ret },
-         AstType::Function { args: actual_args, return_type: actual_ret }) => {
+        (
+            AstType::FunctionPointer {
+                param_types: expected_params,
+                return_type: expected_ret,
+            },
+            AstType::Function {
+                args: actual_args,
+                return_type: actual_ret,
+            },
+        ) => {
             expected_params.len() == actual_args.len()
-                && expected_params.iter().zip(actual_args.iter()).all(|(e, a)| types_compatible(e, a))
+                && expected_params
+                    .iter()
+                    .zip(actual_args.iter())
+                    .all(|(e, a)| types_compatible(e, a))
                 && types_compatible(expected_ret, actual_ret)
         }
         // Void is only compatible with void
@@ -196,7 +285,7 @@ pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
 /// Validate that imports are not inside comptime blocks
 pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(), String> {
     use crate::ast::Statement;
-    
+
     // Check if this is a ModuleImport statement
     if let Statement::ModuleImport { alias, module_path } = stmt {
         // This function is called from within comptime block checking,
@@ -207,9 +296,12 @@ pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(
             alias, module_path
         ));
     }
-    
+
     // Also check for variable declarations that look like imports
-    if let Statement::VariableDeclaration { name, initializer, .. } = stmt {
+    if let Statement::VariableDeclaration {
+        name, initializer, ..
+    } = stmt
+    {
         if let Some(expr) = initializer {
             if contains_import_expression(expr) {
                 return Err(format!(
@@ -220,14 +312,14 @@ pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(
             }
         }
     }
-    
+
     // Check for nested comptime blocks that might contain imports
     if let Statement::ComptimeBlock(nested_stmts) = stmt {
         for nested_stmt in nested_stmts {
             validate_import_not_in_comptime(nested_stmt)?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -243,6 +335,6 @@ pub fn contains_import_expression(expr: &crate::ast::Expression) -> bool {
             }
         }
         crate::ast::Expression::FunctionCall { name, .. } if name.contains("import") => true,
-        _ => false
+        _ => false,
     }
 }

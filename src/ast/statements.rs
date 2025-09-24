@@ -1,7 +1,7 @@
 //! Statement nodes in the AST
 
-use super::types::AstType;
 use super::expressions::Expression;
+use super::types::AstType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {

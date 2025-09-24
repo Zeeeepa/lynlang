@@ -82,7 +82,10 @@ impl AstType {
 
     /// Check if this type is a pointer type
     pub fn is_pointer(&self) -> bool {
-        matches!(self, AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_))
+        matches!(
+            self,
+            AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_)
+        )
     }
 
     /// Get the pointed-to type if this is a pointer type
@@ -116,7 +119,7 @@ impl AstType {
 /// Enum for different pointer kinds
 #[derive(Debug, Clone, PartialEq)]
 pub enum PointerKind {
-    Immutable,  // Ptr<T>
-    Mutable,    // MutPtr<T>
-    Raw,        // RawPtr<T>
+    Immutable, // Ptr<T>
+    Mutable,   // MutPtr<T>
+    Raw,       // RawPtr<T>
 }

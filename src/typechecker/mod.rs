@@ -1,14 +1,14 @@
-pub mod types;
-pub mod inference;
-pub mod validation;
 pub mod behaviors;
+pub mod inference;
 pub mod self_resolution;
+pub mod types;
+pub mod validation;
 
-use crate::ast::{Program, Declaration, Statement, Expression, AstType, Function};
+use crate::ast::{AstType, Declaration, Expression, Function, Program, Statement};
 use crate::error::{CompileError, Result};
 use crate::stdlib::StdNamespace;
-use std::collections::HashMap;
 use behaviors::BehaviorResolver;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct VariableInfo {
@@ -56,23 +56,47 @@ pub struct EnumInfo {
 impl TypeChecker {
     pub fn new() -> Self {
         let mut enums = HashMap::new();
-        
+
         // Register built-in Option<T> type
-        enums.insert("Option".to_string(), EnumInfo {
-            variants: vec![
-                ("Some".to_string(), Some(AstType::Generic { name: "T".to_string(), type_args: vec![] })),
-                ("None".to_string(), None),
-            ],
-        });
-        
+        enums.insert(
+            "Option".to_string(),
+            EnumInfo {
+                variants: vec![
+                    (
+                        "Some".to_string(),
+                        Some(AstType::Generic {
+                            name: "T".to_string(),
+                            type_args: vec![],
+                        }),
+                    ),
+                    ("None".to_string(), None),
+                ],
+            },
+        );
+
         // Register built-in Result<T, E> type
-        enums.insert("Result".to_string(), EnumInfo {
-            variants: vec![
-                ("Ok".to_string(), Some(AstType::Generic { name: "T".to_string(), type_args: vec![] })),
-                ("Err".to_string(), Some(AstType::Generic { name: "E".to_string(), type_args: vec![] })),
-            ],
-        });
-        
+        enums.insert(
+            "Result".to_string(),
+            EnumInfo {
+                variants: vec![
+                    (
+                        "Ok".to_string(),
+                        Some(AstType::Generic {
+                            name: "T".to_string(),
+                            type_args: vec![],
+                        }),
+                    ),
+                    (
+                        "Err".to_string(),
+                        Some(AstType::Generic {
+                            name: "E".to_string(),
+                            type_args: vec![],
+                        }),
+                    ),
+                ],
+            },
+        );
+
         Self {
             scopes: vec![HashMap::new()],
             functions: HashMap::new(),
@@ -111,9 +135,12 @@ impl TypeChecker {
             }
             Declaration::ExternalFunction(ext_func) => {
                 // External functions have args as Vec<AstType>, convert to params format
-                let params = ext_func.args.iter().enumerate().map(|(i, t)| {
-                    (format!("arg{}", i), t.clone())
-                }).collect();
+                let params = ext_func
+                    .args
+                    .iter()
+                    .enumerate()
+                    .map(|(i, t)| (format!("arg{}", i), t.clone()))
+                    .collect();
                 let signature = FunctionSignature {
                     params,
                     return_type: ext_func.return_type.clone(),
@@ -123,9 +150,11 @@ impl TypeChecker {
             }
             Declaration::Struct(struct_def) => {
                 // Convert StructField to (String, AstType)
-                let fields: Vec<(String, AstType)> = struct_def.fields.iter().map(|f| {
-                    (f.name.clone(), f.type_.clone())
-                }).collect();
+                let fields: Vec<(String, AstType)> = struct_def
+                    .fields
+                    .iter()
+                    .map(|f| (f.name.clone(), f.type_.clone()))
+                    .collect();
                 let info = StructInfo {
                     fields: fields.clone(),
                 };
@@ -137,12 +166,12 @@ impl TypeChecker {
             }
             Declaration::Enum(enum_def) => {
                 // Convert EnumVariant to (String, Option<AstType>)
-                let variants = enum_def.variants.iter().map(|v| {
-                    (v.name.clone(), v.payload.clone())
-                }).collect();
-                let info = EnumInfo {
-                    variants,
-                };
+                let variants = enum_def
+                    .variants
+                    .iter()
+                    .map(|v| (v.name.clone(), v.payload.clone()))
+                    .collect();
+                let info = EnumInfo { variants };
                 self.enums.insert(enum_def.name.clone(), info);
             }
             Declaration::Behavior(behavior_def) => {
@@ -152,15 +181,17 @@ impl TypeChecker {
                 self.behavior_resolver.register_trait(trait_def)?;
             }
             Declaration::TraitImplementation(trait_impl) => {
-                self.behavior_resolver.register_trait_implementation(trait_impl)?;
+                self.behavior_resolver
+                    .register_trait_implementation(trait_impl)?;
             }
             Declaration::TraitRequirement(trait_req) => {
-                self.behavior_resolver.register_trait_requirement(trait_req)?;
+                self.behavior_resolver
+                    .register_trait_requirement(trait_req)?;
             }
             Declaration::Constant { name, value, type_ } => {
                 // Type check the constant value
                 let inferred_type = self.infer_expression_type(value)?;
-                
+
                 // If a type was specified, verify it matches
                 if let Some(declared_type) = type_ {
                     if !self.types_compatible(declared_type, &inferred_type) {
@@ -173,19 +204,20 @@ impl TypeChecker {
                         ));
                     }
                 }
-                
+
                 // Store the constant as a global variable (constants are immutable)
                 self.declare_variable(name, inferred_type, false)?;
             }
             Declaration::ModuleImport { alias, module_path } => {
                 // Track module imports
-                self.module_imports.insert(alias.clone(), module_path.clone());
+                self.module_imports
+                    .insert(alias.clone(), module_path.clone());
                 // Register stdlib functions if this is a known stdlib module
                 // Handle "@std.math", "std.math", and "math" formats
                 let module_name = if module_path.starts_with("@std.") {
-                    &module_path[5..]  // Remove "@std." prefix
+                    &module_path[5..] // Remove "@std." prefix
                 } else if module_path.starts_with("std.") {
-                    &module_path[4..]  // Remove "std." prefix
+                    &module_path[4..] // Remove "std." prefix
                 } else {
                     module_path.as_str()
                 };
@@ -208,7 +240,7 @@ impl TypeChecker {
                         return Err(CompileError::SyntaxError(msg, None));
                     }
                 }
-                
+
                 self.enter_scope();
                 for statement in statements {
                     self.check_statement(statement)?;
@@ -220,7 +252,8 @@ impl TypeChecker {
             }
             Declaration::TraitImplementation(trait_impl) => {
                 // Verify that the implementation satisfies the trait
-                self.behavior_resolver.verify_trait_implementation(trait_impl)?;
+                self.behavior_resolver
+                    .verify_trait_implementation(trait_impl)?;
                 // Type check each method in the implementation
                 // We need to set context for resolving Self types
                 self.current_impl_type = Some(trait_impl.type_name.clone());
@@ -238,7 +271,10 @@ impl TypeChecker {
             Declaration::Constant { .. } => {
                 // Constants are already type-checked in collect_declaration_types
             }
-            Declaration::ModuleImport { alias, module_path: _ } => {
+            Declaration::ModuleImport {
+                alias,
+                module_path: _,
+            } => {
                 // Handle module imports like { io, math } = @std which become
                 // ModuleImport declarations at the top level
                 // Register the imported module as a variable with StdModule type
@@ -259,7 +295,9 @@ impl TypeChecker {
             // Special handling for 'self' parameter in trait implementations
             let actual_type = if param_name == "self" {
                 match param_type {
-                    AstType::Generic { name, .. } if name == "Self" || name.starts_with("Self_") => {
+                    AstType::Generic { name, .. }
+                        if name == "Self" || name.starts_with("Self_") =>
+                    {
                         // Replace Self with the concrete implementing type
                         if let Some(impl_type) = &self.current_impl_type {
                             // Look up the actual struct fields from the registry
@@ -279,12 +317,12 @@ impl TypeChecker {
                             param_type.clone()
                         }
                     }
-                    _ => param_type.clone()
+                    _ => param_type.clone(),
                 }
             } else {
                 param_type.clone()
             };
-            
+
             self.declare_variable(param_name, actual_type, false)?; // false = immutable
         }
 
@@ -299,7 +337,7 @@ impl TypeChecker {
 
     fn check_statement(&mut self, statement: &Statement) -> Result<()> {
         // Note: Import validation is handled in check_declaration for ComptimeBlocks
-        
+
         match statement {
             Statement::VariableDeclaration {
                 name,
@@ -316,7 +354,7 @@ impl TypeChecker {
                     if self.variable_exists(name) {
                         // This might be initialization of a forward-declared variable
                         let var_info = self.get_variable_info(name)?;
-                        
+
                         // Allow initialization of forward-declared variables with = operator
                         // This works for both immutable (x: i32 then x = 10) and mutable (w:: i32 then w = 20)
                         if !var_info.is_initialized {
@@ -353,14 +391,14 @@ impl TypeChecker {
                             // Immutable variable already initialized - cannot reassign
                             return Err(CompileError::TypeError(
                                 format!("Cannot reassign immutable variable '{}'", name),
-                                None
+                                None,
                             ));
                         }
                     }
-                    
+
                     // New variable declaration with initializer
                     let inferred_type = self.infer_expression_type(init_expr)?;
-                    
+
                     if let Some(declared_type) = type_ {
                         // Check that the initializer type matches the declared type
                         if !self.types_compatible(declared_type, &inferred_type) {
@@ -372,27 +410,40 @@ impl TypeChecker {
                                 None
                             ));
                         }
-                        self.declare_variable_with_init(name, declared_type.clone(), *is_mutable, true)?;
+                        self.declare_variable_with_init(
+                            name,
+                            declared_type.clone(),
+                            *is_mutable,
+                            true,
+                        )?;
                     } else {
                         // Inferred type from initializer
                         self.declare_variable_with_init(name, inferred_type, *is_mutable, true)?;
                     }
                 } else if let Some(declared_type) = type_ {
                     // Forward declaration without initializer
-                    self.declare_variable_with_init(name, declared_type.clone(), *is_mutable, false)?;
+                    self.declare_variable_with_init(
+                        name,
+                        declared_type.clone(),
+                        *is_mutable,
+                        false,
+                    )?;
                 } else {
                     return Err(CompileError::TypeError(
-                        format!("Cannot infer type for variable '{}' without initializer", name),
-                        None
+                        format!(
+                            "Cannot infer type for variable '{}' without initializer",
+                            name
+                        ),
+                        None,
                     ));
                 }
             }
             Statement::VariableAssignment { name, value } => {
-                // eprintln!("DEBUG TypeChecker: VariableAssignment '{}' with value type: {}", 
+                // eprintln!("DEBUG TypeChecker: VariableAssignment '{}' with value type: {}",
                 //     name,
                 //     match value {
                 //         Expression::Conditional { .. } => "Conditional",
-                //         Expression::Identifier(_) => "Identifier", 
+                //         Expression::Identifier(_) => "Identifier",
                 //         Expression::Some(_) => "Some",
                 //         Expression::None => "None",
                 //         _ => "Other"
@@ -402,11 +453,12 @@ impl TypeChecker {
                 if !self.variable_exists(name) {
                     // This is a new immutable declaration using = operator
                     let value_type = self.infer_expression_type(value)?;
-                    self.declare_variable_with_init(name, value_type, false, true)?; // false = immutable
+                    self.declare_variable_with_init(name, value_type, false, true)?;
+                // false = immutable
                 } else {
                     // This is an assignment to existing variable
                     let var_info = self.get_variable_info(name)?;
-                    
+
                     // Check if this is the first assignment to a forward-declared variable
                     if !var_info.is_initialized {
                         // This is the initial assignment
@@ -427,12 +479,12 @@ impl TypeChecker {
                         if !var_info.is_mutable {
                             return Err(CompileError::TypeError(
                                 format!("Cannot reassign to immutable variable '{}'", name),
-                                None
+                                None,
                             ));
                         }
-                        
+
                         let value_type = self.infer_expression_type(value)?;
-                        
+
                         if !self.types_compatible(&var_info.type_, &value_type) {
                             return Err(CompileError::TypeError(
                                 format!(
@@ -456,7 +508,7 @@ impl TypeChecker {
             Statement::Loop { kind, body, .. } => {
                 use crate::ast::LoopKind;
                 self.enter_scope();
-                
+
                 // Handle loop-specific variables
                 match kind {
                     LoopKind::Infinite => {
@@ -468,13 +520,16 @@ impl TypeChecker {
                         // Condition should be boolean or integer (truthy)
                         if !matches!(cond_type, AstType::Bool | AstType::I32 | AstType::I64) {
                             return Err(CompileError::TypeError(
-                                format!("Loop condition must be boolean or integer, got {:?}", cond_type),
-                                None
+                                format!(
+                                    "Loop condition must be boolean or integer, got {:?}",
+                                    cond_type
+                                ),
+                                None,
                             ));
                         }
                     }
                 }
-                
+
                 // Check loop body with the variable in scope
                 for stmt in body {
                     self.check_statement(stmt)?;
@@ -508,10 +563,10 @@ impl TypeChecker {
     }
 
     fn infer_expression_type(&mut self, expr: &Expression) -> Result<AstType> {
-        // eprintln!("DEBUG TypeChecker: infer_expression_type called for expr type: {}", 
+        // eprintln!("DEBUG TypeChecker: infer_expression_type called for expr type: {}",
         //     match expr {
         //         Expression::Integer8(_) => "Integer8",
-        //         Expression::Integer16(_) => "Integer16", 
+        //         Expression::Integer16(_) => "Integer16",
         //         Expression::Integer32(_) => "Integer32",
         //         Expression::Integer64(_) => "Integer64",
         //         Expression::Identifier(_) => "Identifier",
@@ -558,10 +613,12 @@ impl TypeChecker {
                     if parts.len() == 2 {
                         let module = parts[0];
                         let func = parts[1];
-                        
+
                         // Handle stdlib function return types
                         match (module, func) {
-                            ("io", "print" | "println" | "print_int" | "print_float") => return Ok(AstType::Void),
+                            ("io", "print" | "println" | "print_int" | "print_float") => {
+                                return Ok(AstType::Void)
+                            }
                             ("io", "read_line") => return Ok(AstType::String),
                             ("math", "abs") => return Ok(AstType::I32),
                             ("math", "sqrt") => return Ok(AstType::F64),
@@ -573,43 +630,51 @@ impl TypeChecker {
                             ("string", "concat") => return Ok(AstType::String),
                             ("mem", "alloc") => return Ok(AstType::Ptr(Box::new(AstType::U8))),
                             ("mem", "free") => return Ok(AstType::Void),
-                            ("fs", "read_file") => return Ok(AstType::Result { 
-                                ok_type: Box::new(AstType::String), 
-                                err_type: Box::new(AstType::String) 
-                            }),
-                            ("fs", "write_file") => return Ok(AstType::Result { 
-                                ok_type: Box::new(AstType::Void), 
-                                err_type: Box::new(AstType::String) 
-                            }),
+                            ("fs", "read_file") => {
+                                return Ok(AstType::Result {
+                                    ok_type: Box::new(AstType::String),
+                                    err_type: Box::new(AstType::String),
+                                })
+                            }
+                            ("fs", "write_file") => {
+                                return Ok(AstType::Result {
+                                    ok_type: Box::new(AstType::Void),
+                                    err_type: Box::new(AstType::String),
+                                })
+                            }
                             ("fs", "exists") => return Ok(AstType::Bool),
-                            ("fs", "remove_file") => return Ok(AstType::Result { 
-                                ok_type: Box::new(AstType::Void), 
-                                err_type: Box::new(AstType::String) 
-                            }),
-                            ("fs", "create_dir") => return Ok(AstType::Result { 
-                                ok_type: Box::new(AstType::Void), 
-                                err_type: Box::new(AstType::String) 
-                            }),
+                            ("fs", "remove_file") => {
+                                return Ok(AstType::Result {
+                                    ok_type: Box::new(AstType::Void),
+                                    err_type: Box::new(AstType::String),
+                                })
+                            }
+                            ("fs", "create_dir") => {
+                                return Ok(AstType::Result {
+                                    ok_type: Box::new(AstType::Void),
+                                    err_type: Box::new(AstType::String),
+                                })
+                            }
                             _ => {}
                         }
                     }
                 }
-                
+
                 // First check if it's a known function
                 if let Some(sig) = self.functions.get(name) {
                     Ok(sig.return_type.clone())
                 } else {
                     // Check if it's a variable holding a function pointer
                     match self.get_variable_type(name) {
-                        Ok(AstType::FunctionPointer { return_type, .. }) => {
-                            Ok(*return_type)
-                        }
-                        Ok(_) => {
-                            Err(CompileError::TypeError(format!("'{}' is not a function", name), None))
-                        }
-                        Err(_) => {
-                            Err(CompileError::TypeError(format!("Unknown function: {}", name), None))
-                        }
+                        Ok(AstType::FunctionPointer { return_type, .. }) => Ok(*return_type),
+                        Ok(_) => Err(CompileError::TypeError(
+                            format!("'{}' is not a function", name),
+                            None,
+                        )),
+                        Err(_) => Err(CompileError::TypeError(
+                            format!("Unknown function: {}", name),
+                            None,
+                        )),
                     }
                 }
             }
@@ -676,8 +741,8 @@ impl TypeChecker {
                     AstType::Array(elem_type) => Ok(*elem_type),
                     _ => Err(CompileError::TypeError(
                         format!("Cannot index type {:?}", array_type),
-                        None
-                    ))
+                        None,
+                    )),
                 }
             }
             Expression::AddressOf(inner) => {
@@ -690,8 +755,8 @@ impl TypeChecker {
                     AstType::Ptr(elem_type) => Ok(*elem_type),
                     _ => Err(CompileError::TypeError(
                         format!("Cannot dereference non-pointer type {:?}", inner_type),
-                        None
-                    ))
+                        None,
+                    )),
                 }
             }
             Expression::PointerOffset { pointer, .. } => {
@@ -704,26 +769,48 @@ impl TypeChecker {
                     AstType::Ptr(inner) => {
                         // Handle pointer to struct - automatically dereference
                         match *inner {
-                            AstType::Struct { name, .. } => {
-                                inference::infer_member_type(&AstType::Struct { name, fields: vec![] }, field, &self.structs, &self.enums)
-                            }
+                            AstType::Struct { name, .. } => inference::infer_member_type(
+                                &AstType::Struct {
+                                    name,
+                                    fields: vec![],
+                                },
+                                field,
+                                &self.structs,
+                                &self.enums,
+                            ),
                             AstType::Generic { ref name, .. } => {
                                 // Handle pointer to generic struct
-                                inference::infer_member_type(&AstType::Generic { name: name.clone(), type_args: vec![] }, field, &self.structs, &self.enums)
+                                inference::infer_member_type(
+                                    &AstType::Generic {
+                                        name: name.clone(),
+                                        type_args: vec![],
+                                    },
+                                    field,
+                                    &self.structs,
+                                    &self.enums,
+                                )
                             }
                             _ => Err(CompileError::TypeError(
-                                format!("Cannot access field '{}' on non-struct pointer type", field),
-                                None
-                            ))
+                                format!(
+                                    "Cannot access field '{}' on non-struct pointer type",
+                                    field
+                                ),
+                                None,
+                            )),
                         }
                     }
                     AstType::Struct { .. } | AstType::Generic { .. } => {
-                        inference::infer_member_type(&struct_type, field, &self.structs, &self.enums)
+                        inference::infer_member_type(
+                            &struct_type,
+                            field,
+                            &self.structs,
+                            &self.enums,
+                        )
                     }
                     _ => Err(CompileError::TypeError(
                         format!("Cannot access field '{}' on type {:?}", field, struct_type),
-                        None
-                    ))
+                        None,
+                    )),
                 }
             }
             Expression::Integer8(_) => Ok(AstType::I8),
@@ -741,42 +828,43 @@ impl TypeChecker {
                     Ok(AstType::Array(Box::new(elem_type)))
                 }
             }
-            Expression::TypeCast { target_type, .. } => {
-                Ok(target_type.clone())
-            }
+            Expression::TypeCast { target_type, .. } => Ok(target_type.clone()),
             Expression::QuestionMatch { scrutinee, arms } => {
                 // QuestionMatch expression type is determined by the first arm
                 // All arms should have the same type
-                
+
                 // Infer the type of the scrutinee to properly type pattern bindings
                 let scrutinee_type = self.infer_expression_type(scrutinee)?;
-                
+
                 if arms.is_empty() {
                     Ok(AstType::Void)
                 } else {
                     let mut result_type = AstType::Void;
-                    
+
                     // Process each arm with its own pattern bindings
                     for (i, arm) in arms.iter().enumerate() {
                         // Enter a new scope for the pattern bindings
                         self.enter_scope();
-                        
+
                         // Extract pattern bindings and add them to the scope
                         // Pass the scrutinee type for proper typing
-                        self.add_pattern_bindings_to_scope_with_type(&arm.pattern, &scrutinee_type)?;
-                        
+                        self.add_pattern_bindings_to_scope_with_type(
+                            &arm.pattern,
+                            &scrutinee_type,
+                        )?;
+
                         // Infer the type with bindings in scope
                         let arm_type = self.infer_expression_type(&arm.body)?;
-                        
+
                         // The first arm determines the type
                         if i == 0 {
                             result_type = arm_type;
                         }
-                        
+
                         // Exit the scope to remove the bindings
                         self.exit_scope();
                     }
-                    
+
                     Ok(result_type)
                 }
             }
@@ -787,36 +875,36 @@ impl TypeChecker {
                     Ok(AstType::Void)
                 } else {
                     let mut result_type = AstType::Void;
-                    
+
                     // Process each arm with its own pattern bindings
                     for (i, arm) in arms.iter().enumerate() {
                         // Enter a new scope for the pattern bindings
                         self.enter_scope();
-                        
+
                         // Extract pattern bindings and add them to the scope
                         self.add_pattern_bindings_to_scope(&arm.pattern)?;
-                        
+
                         // Infer the type with bindings in scope
                         let arm_type = self.infer_expression_type(&arm.body)?;
-                        
+
                         // The first arm determines the type
                         if i == 0 {
                             result_type = arm_type;
                         }
-                        
+
                         // Exit the scope to remove the bindings
                         self.exit_scope();
                     }
-                    
+
                     Ok(result_type)
                 }
             }
             Expression::Block(statements) => {
                 // Enter a new scope for the block
                 self.enter_scope();
-                
+
                 let mut block_type = AstType::Void;
-                
+
                 // Process all statements in the block
                 for (i, stmt) in statements.iter().enumerate() {
                     match stmt {
@@ -835,16 +923,16 @@ impl TypeChecker {
                         }
                     }
                 }
-                
+
                 // Exit the block's scope
                 self.exit_scope();
-                
+
                 Ok(block_type)
             }
-            Expression::Return(expr) => {
-                self.infer_expression_type(expr)
-            }
-            Expression::EnumVariant { enum_name, variant, .. } => {
+            Expression::Return(expr) => self.infer_expression_type(expr),
+            Expression::EnumVariant {
+                enum_name, variant, ..
+            } => {
                 // Infer the type of an enum variant
                 // If enum_name is empty, search for an enum with this variant
                 let enum_type_name = if enum_name.is_empty() {
@@ -865,19 +953,21 @@ impl TypeChecker {
                 } else {
                     enum_name.clone()
                 };
-                
+
                 // For now, return a generic type with the enum name
                 // In the future, this should handle type parameters properly
                 if enum_type_name == "Option" || enum_type_name == "Result" {
                     // These are generic types - for now, use a simple representation
-                    Ok(AstType::Generic { 
+                    Ok(AstType::Generic {
                         name: enum_type_name,
-                        type_args: vec![AstType::I32] // Default to I32 for now
+                        type_args: vec![AstType::I32], // Default to I32 for now
                     })
                 } else {
                     // Look up the enum to get its variant info
                     if let Some(enum_info) = self.enums.get(&enum_type_name) {
-                        let variants = enum_info.variants.iter()
+                        let variants = enum_info
+                            .variants
+                            .iter()
                             .map(|(name, payload)| crate::ast::EnumVariant {
                                 name: name.clone(),
                                 payload: payload.clone(),
@@ -896,16 +986,18 @@ impl TypeChecker {
                     }
                 }
             }
-            Expression::StringLength(_) => {
-                Ok(AstType::I64)
-            }
-            Expression::MethodCall { object, method, args: _ } => {
+            Expression::StringLength(_) => Ok(AstType::I64),
+            Expression::MethodCall {
+                object,
+                method,
+                args: _,
+            } => {
                 // Implement UFC (Uniform Function Call)
                 // Any function can be called as a method: object.function(args) -> function(object, args)
-                
+
                 // First check if it's a built-in method on the object type
                 let object_type = self.infer_expression_type(object)?;
-                
+
                 // Try to find the function in scope
                 // The method call object.method(args) becomes method(object, args)
                 if let Some(func_type) = self.functions.get(method) {
@@ -915,48 +1007,56 @@ impl TypeChecker {
                         return Ok(func_type.return_type.clone());
                     }
                 }
-                
+
                 // Special handling for string methods
                 if object_type == AstType::String {
                     // Common string methods with hardcoded return types for now
                     match method.as_str() {
                         "len" => return Ok(AstType::I64),
-                        "to_i32" => return Ok(AstType::Generic { 
-                            name: "Option".to_string(), 
-                            type_args: vec![AstType::I32] 
-                        }),
-                        "to_i64" => return Ok(AstType::Generic { 
-                            name: "Option".to_string(), 
-                            type_args: vec![AstType::I64] 
-                        }),
-                        "to_f32" => return Ok(AstType::Generic { 
-                            name: "Option".to_string(), 
-                            type_args: vec![AstType::F32] 
-                        }),
-                        "to_f64" => return Ok(AstType::Generic { 
-                            name: "Option".to_string(), 
-                            type_args: vec![AstType::F64] 
-                        }),
+                        "to_i32" => {
+                            return Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![AstType::I32],
+                            })
+                        }
+                        "to_i64" => {
+                            return Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![AstType::I64],
+                            })
+                        }
+                        "to_f32" => {
+                            return Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![AstType::F32],
+                            })
+                        }
+                        "to_f64" => {
+                            return Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![AstType::F64],
+                            })
+                        }
                         _ => {}
                     }
                 }
-                
+
                 // Special handling for built-in methods like .loop()
                 if method == "loop" {
                     // .loop() on ranges and collections returns void
                     return Ok(AstType::Void);
                 }
-                
+
                 // Special handling for pointer methods
                 match &object_type {
                     AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => {
                         if method == "val" {
                             // Dereference pointer
                             return match object_type {
-                                AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => {
-                                    Ok(inner.as_ref().clone())
-                                }
-                                _ => unreachable!()
+                                AstType::Ptr(inner)
+                                | AstType::MutPtr(inner)
+                                | AstType::RawPtr(inner) => Ok(inner.as_ref().clone()),
+                                _ => unreachable!(),
                             };
                         } else if method == "addr" {
                             // Get address as usize
@@ -965,11 +1065,13 @@ impl TypeChecker {
                     }
                     _ => {}
                 }
-                
+
                 // Special handling for Result.raise()
                 if method == "raise" {
                     match object_type {
-                        AstType::Generic { name, type_args } if name == "Result" && !type_args.is_empty() => {
+                        AstType::Generic { name, type_args }
+                            if name == "Result" && !type_args.is_empty() =>
+                        {
                             return Ok(type_args[0].clone());
                         }
                         AstType::Result { ok_type, .. } => {
@@ -978,7 +1080,7 @@ impl TypeChecker {
                         _ => {}
                     }
                 }
-                
+
                 // If no specific handling found, try to resolve as UFC
                 // For now, return the object type as a fallback
                 // TODO: Implement full UFC resolution with function lookup
@@ -990,10 +1092,11 @@ impl TypeChecker {
             }
             Expression::Closure { params, body } => {
                 // Infer closure type - create a FunctionPointer type
-                let param_types: Vec<AstType> = params.iter().map(|(_, opt_type)| {
-                    opt_type.clone().unwrap_or(AstType::I32)
-                }).collect();
-                
+                let param_types: Vec<AstType> = params
+                    .iter()
+                    .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
+                    .collect();
+
                 // TODO: Properly infer return type from body
                 // For now, try to infer from the body if it's a simple return
                 let return_type = match body.as_ref() {
@@ -1029,7 +1132,7 @@ impl TypeChecker {
                         }
                     }
                 };
-                
+
                 Ok(AstType::FunctionPointer {
                     param_types,
                     return_type,
@@ -1041,21 +1144,22 @@ impl TypeChecker {
                 let result_type = self.infer_expression_type(expr)?;
                 match result_type {
                     // Handle modern generic Result<T, E> type
-                    AstType::Generic { name, type_args } if name == "Result" && type_args.len() >= 1 => {
+                    AstType::Generic { name, type_args }
+                        if name == "Result" && type_args.len() >= 1 =>
+                    {
                         // Return the Ok type (first type argument)
                         Ok(type_args[0].clone())
-                    },
-                    // Handle legacy Result type (still used in some places)
-                    AstType::Result { ok_type, .. } => {
-                        Ok(*ok_type)
-                    },
-                    // Type error: .raise() can only be used on Result types
-                    _ => {
-                        Err(CompileError::TypeError(
-                            format!(".raise() can only be used on Result<T, E> types, found: {:?}", result_type),
-                            None
-                        ))
                     }
+                    // Handle legacy Result type (still used in some places)
+                    AstType::Result { ok_type, .. } => Ok(*ok_type),
+                    // Type error: .raise() can only be used on Result types
+                    _ => Err(CompileError::TypeError(
+                        format!(
+                            ".raise() can only be used on Result<T, E> types, found: {:?}",
+                            result_type
+                        ),
+                        None,
+                    )),
                 }
             }
             Expression::Break { .. } | Expression::Continue { .. } => {
@@ -1113,42 +1217,45 @@ impl TypeChecker {
                 // eprintln!("DEBUG TypeChecker: Processing conditional with {} arms", arms.len());
                 // Conditional expression type is determined by the first arm
                 // All arms should have the same type (checked during type checking)
-                
+
                 // Infer the type of the scrutinee to properly type pattern bindings
                 let scrutinee_type = self.infer_expression_type(scrutinee)?;
-                
+
                 if arms.is_empty() {
                     Ok(AstType::Void)
                 } else {
                     let mut result_type = AstType::Void;
-                    
+
                     // Process each arm with its own pattern bindings
                     for (i, arm) in arms.iter().enumerate() {
                         // eprintln!("DEBUG TypeChecker: Processing arm {} pattern: {:?}", i, arm.pattern);
-                        
+
                         // Enter a new scope for the pattern bindings
                         self.enter_scope();
                         // eprintln!("DEBUG TypeChecker: Entered scope for arm {}", i);
-                        
+
                         // Extract pattern bindings and add them to the scope
-                        self.add_pattern_bindings_to_scope_with_type(&arm.pattern, &scrutinee_type)?;
+                        self.add_pattern_bindings_to_scope_with_type(
+                            &arm.pattern,
+                            &scrutinee_type,
+                        )?;
                         // eprintln!("DEBUG TypeChecker: Added pattern bindings for arm {}", i);
-                        
+
                         // Infer the type with bindings in scope
                         // eprintln!("DEBUG TypeChecker: Inferring type for arm {} body", i);
                         let arm_type = self.infer_expression_type(&arm.body)?;
                         // eprintln!("DEBUG TypeChecker: Arm {} type: {:?}", i, arm_type);
-                        
+
                         // The first arm determines the type
                         if i == 0 {
                             result_type = arm_type;
                         }
-                        
+
                         // Exit the scope to remove the bindings
                         self.exit_scope();
                         // eprintln!("DEBUG TypeChecker: Exited scope for arm {}", i);
                     }
-                    
+
                     Ok(result_type)
                 }
             }
@@ -1181,14 +1288,22 @@ impl TypeChecker {
                 let expr_type = self.infer_expression_type(expr)?;
                 Ok(AstType::MutPtr(Box::new(expr_type)))
             }
-            Expression::VecConstructor { element_type, size, initial_values: _ } => {
+            Expression::VecConstructor {
+                element_type,
+                size,
+                initial_values: _,
+            } => {
                 // Vec<T, size>() -> Vec<T, size>
                 Ok(AstType::Vec {
                     element_type: Box::new(element_type.clone()),
                     size: *size,
                 })
             }
-            Expression::DynVecConstructor { element_types, allocator: _, initial_capacity: _ } => {
+            Expression::DynVecConstructor {
+                element_types,
+                allocator: _,
+                initial_capacity: _,
+            } => {
                 // DynVec<T>() or DynVec<T1, T2, ...>() -> DynVec<T, ...>
                 Ok(AstType::DynVec {
                     element_types: element_types.clone(),
@@ -1210,7 +1325,10 @@ impl TypeChecker {
                 // Option::None -> Option<T>
                 Ok(AstType::Generic {
                     name: "Option".to_string(),
-                    type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                    type_args: vec![AstType::Generic {
+                        name: "T".to_string(),
+                        type_args: vec![],
+                    }],
                 })
             }
             Expression::CollectionLoop { .. } => {
@@ -1234,7 +1352,7 @@ impl TypeChecker {
             "math" => {
                 // Register math constants as global variables
                 // We'll treat them as functions that return constants for now
-                
+
                 // Register math functions
                 let math_funcs = vec![
                     ("sqrt", vec![AstType::F64], AstType::F64),
@@ -1247,21 +1365,26 @@ impl TypeChecker {
                     ("floor", vec![AstType::F64], AstType::F64),
                     ("ceil", vec![AstType::F64], AstType::F64),
                     ("round", vec![AstType::F64], AstType::F64),
-                    ("abs", vec![AstType::I64], AstType::I64),  // For now, just i64 version
+                    ("abs", vec![AstType::I64], AstType::I64), // For now, just i64 version
                     ("min", vec![AstType::F64, AstType::F64], AstType::F64),
                     ("max", vec![AstType::F64, AstType::F64], AstType::F64),
                 ];
-                
+
                 for (name, args, ret) in math_funcs {
                     let qualified_name = format!("{}.{}", alias, name);
-                    let params = args.into_iter().enumerate().map(|(i, t)| {
-                        (format!("arg{}", i), t)
-                    }).collect();
-                    self.functions.insert(qualified_name, FunctionSignature {
-                        params,
-                        return_type: ret,
-                        is_external: true,
-                    });
+                    let params = args
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, t)| (format!("arg{}", i), t))
+                        .collect();
+                    self.functions.insert(
+                        qualified_name,
+                        FunctionSignature {
+                            params,
+                            return_type: ret,
+                            is_external: true,
+                        },
+                    );
                 }
             }
             "io" => {
@@ -1273,19 +1396,28 @@ impl TypeChecker {
                     ("println", vec![AstType::String], AstType::Void),
                     ("read_line", vec![], AstType::String),
                     ("read_file", vec![AstType::String], AstType::String),
-                    ("write_file", vec![AstType::String, AstType::String], AstType::Void),
+                    (
+                        "write_file",
+                        vec![AstType::String, AstType::String],
+                        AstType::Void,
+                    ),
                 ];
-                
+
                 for (name, args, ret) in io_funcs {
                     let qualified_name = format!("{}.{}", alias, name);
-                    let params = args.into_iter().enumerate().map(|(i, t)| {
-                        (format!("arg{}", i), t)
-                    }).collect();
-                    self.functions.insert(qualified_name, FunctionSignature {
-                        params,
-                        return_type: ret,
-                        is_external: true,
-                    });
+                    let params = args
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, t)| (format!("arg{}", i), t))
+                        .collect();
+                    self.functions.insert(
+                        qualified_name,
+                        FunctionSignature {
+                            params,
+                            return_type: ret,
+                            is_external: true,
+                        },
+                    );
                 }
             }
             "core" => {
@@ -1295,17 +1427,22 @@ impl TypeChecker {
                     ("assert", vec![AstType::Bool], AstType::Void),
                     ("panic", vec![AstType::String], AstType::Void),
                 ];
-                
+
                 for (name, args, ret) in core_funcs {
                     let qualified_name = format!("{}.{}", alias, name);
-                    let params = args.into_iter().enumerate().map(|(i, t)| {
-                        (format!("arg{}", i), t)
-                    }).collect();
-                    self.functions.insert(qualified_name, FunctionSignature {
-                        params,
-                        return_type: ret,
-                        is_external: true,
-                    });
+                    let params = args
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, t)| (format!("arg{}", i), t))
+                        .collect();
+                    self.functions.insert(
+                        qualified_name,
+                        FunctionSignature {
+                            params,
+                            return_type: ret,
+                            is_external: true,
+                        },
+                    );
                 }
             }
             _ => {
@@ -1327,19 +1464,28 @@ impl TypeChecker {
         self.declare_variable_with_init(name, type_, is_mutable, true)
     }
 
-    fn declare_variable_with_init(&mut self, name: &str, type_: AstType, is_mutable: bool, is_initialized: bool) -> Result<()> {
+    fn declare_variable_with_init(
+        &mut self,
+        name: &str,
+        type_: AstType,
+        is_mutable: bool,
+        is_initialized: bool,
+    ) -> Result<()> {
         if let Some(scope) = self.scopes.last_mut() {
             if scope.contains_key(name) {
                 return Err(CompileError::TypeError(
                     format!("Variable '{}' already declared in this scope", name),
-                    None
+                    None,
                 ));
             }
-            scope.insert(name.to_string(), VariableInfo {
-                type_,
-                is_mutable,
-                is_initialized,
-            });
+            scope.insert(
+                name.to_string(),
+                VariableInfo {
+                    type_,
+                    is_mutable,
+                    is_initialized,
+                },
+            );
             Ok(())
         } else {
             Err(CompileError::TypeError("No active scope".to_string(), None))
@@ -1356,7 +1502,7 @@ impl TypeChecker {
         }
         Err(CompileError::TypeError(
             format!("Undefined variable: {}", name),
-            None
+            None,
         ))
     }
 
@@ -1367,16 +1513,21 @@ impl TypeChecker {
                 return Ok(var_info.type_.clone());
             }
         }
-        
+
         // Check if it's an enum type
         if self.enums.contains_key(name) {
             // Return a special type to indicate this is an enum type constructor
-            return Ok(AstType::EnumType { name: name.to_string() });
+            return Ok(AstType::EnumType {
+                name: name.to_string(),
+            });
         }
-        
-        Err(CompileError::TypeError(format!("Undefined variable: {}", name), None))
+
+        Err(CompileError::TypeError(
+            format!("Undefined variable: {}", name),
+            None,
+        ))
     }
-    
+
     fn get_variable_info(&self, name: &str) -> Result<VariableInfo> {
         // Search from innermost to outermost scope
         for scope in self.scopes.iter().rev() {
@@ -1384,24 +1535,35 @@ impl TypeChecker {
                 return Ok(var_info.clone());
             }
         }
-        Err(CompileError::TypeError(format!("Undefined variable: {}", name), None))
+        Err(CompileError::TypeError(
+            format!("Undefined variable: {}", name),
+            None,
+        ))
     }
-    
+
     fn add_pattern_bindings_to_scope(&mut self, pattern: &crate::ast::Pattern) -> Result<()> {
         // Default to I32 when no type context is available (legacy behavior)
         self.add_pattern_bindings_to_scope_with_type(pattern, &AstType::I32)
     }
-    
-    fn add_pattern_bindings_to_scope_with_type(&mut self, pattern: &crate::ast::Pattern, scrutinee_type: &AstType) -> Result<()> {
+
+    fn add_pattern_bindings_to_scope_with_type(
+        &mut self,
+        pattern: &crate::ast::Pattern,
+        scrutinee_type: &AstType,
+    ) -> Result<()> {
         use crate::ast::Pattern;
-        
+
         // eprintln!("DEBUG TypeChecker: add_pattern_bindings_to_scope_with_type for pattern: {:?}, type: {:?}", pattern, scrutinee_type);
-        
+
         match pattern {
             Pattern::Identifier(name) => {
                 // Simple identifier pattern binds the name to the type of the matched value
                 // For Option<T>, extract T from the generic type
-                let binding_type = if let AstType::Generic { name: enum_name, type_args } = scrutinee_type {
+                let binding_type = if let AstType::Generic {
+                    name: enum_name,
+                    type_args,
+                } = scrutinee_type
+                {
                     if enum_name == "Option" && !type_args.is_empty() {
                         // For Option<T>, the payload has type T
                         type_args[0].clone()
@@ -1417,14 +1579,18 @@ impl TypeChecker {
                     // For non-generic types, use the scrutinee type directly
                     scrutinee_type.clone()
                 };
-                
+
                 // eprintln!("DEBUG TypeChecker: Adding variable '{}' with type {:?} from identifier pattern", name, binding_type);
                 self.declare_variable(name, binding_type, false)?;
             }
             Pattern::EnumLiteral { variant, payload } => {
                 // For enum patterns with payloads, determine the payload type based on the variant
                 if let Some(payload_pattern) = payload {
-                    let payload_type = if let AstType::Generic { name: enum_name, type_args } = scrutinee_type {
+                    let payload_type = if let AstType::Generic {
+                        name: enum_name,
+                        type_args,
+                    } = scrutinee_type
+                    {
                         if enum_name == "Result" && type_args.len() >= 2 {
                             // For Result<T,E>, Ok has type T, Err has type E
                             if variant == "Ok" {
@@ -1450,10 +1616,16 @@ impl TypeChecker {
                     self.add_pattern_bindings_to_scope_with_type(payload_pattern, &payload_type)?;
                 }
             }
-            Pattern::EnumVariant { variant, payload, .. } => {
+            Pattern::EnumVariant {
+                variant, payload, ..
+            } => {
                 // For qualified enum patterns with payloads, determine the payload type based on the variant
                 if let Some(payload_pattern) = payload {
-                    let payload_type = if let AstType::Generic { name: enum_name, type_args } = scrutinee_type {
+                    let payload_type = if let AstType::Generic {
+                        name: enum_name,
+                        type_args,
+                    } = scrutinee_type
+                    {
                         if enum_name == "Result" && type_args.len() >= 2 {
                             // For Result<T,E>, Ok has type T, Err has type E
                             if variant == "Ok" {
@@ -1508,11 +1680,14 @@ impl TypeChecker {
                 }
             }
             // Other patterns don't create bindings
-            Pattern::Wildcard | Pattern::Literal(_) | Pattern::Range { .. } | Pattern::Guard { .. } => {}
+            Pattern::Wildcard
+            | Pattern::Literal(_)
+            | Pattern::Range { .. }
+            | Pattern::Guard { .. } => {}
         }
         Ok(())
     }
-    
+
     fn variable_exists(&self, name: &str) -> bool {
         // Search from innermost to outermost scope
         for scope in self.scopes.iter().rev() {

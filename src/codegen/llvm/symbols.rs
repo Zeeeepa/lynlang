@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use crate::ast::EnumVariant;
 use inkwell::{
     types::{BasicTypeEnum, FunctionType, StructType},
     values::{FunctionValue, PointerValue},
 };
-use crate::ast::EnumVariant;
+use std::collections::HashMap;
 
 /// Information about an enum type
 #[derive(Debug, Clone)]
@@ -21,19 +21,19 @@ pub struct EnumInfo<'ctx> {
 pub enum Symbol<'ctx> {
     /// A type symbol
     Type(BasicTypeEnum<'ctx>),
-    
+
     /// A struct type symbol
     StructType(StructType<'ctx>),
-    
+
     /// An enum type symbol
     EnumType(EnumInfo<'ctx>),
-    
+
     /// A function type symbol
     FunctionType(FunctionType<'ctx>),
-    
+
     /// A variable symbol (pointer to the value)
     Variable(PointerValue<'ctx>),
-    
+
     /// A function value
     Function(FunctionValue<'ctx>),
 }
@@ -59,24 +59,24 @@ impl<'ctx> SymbolTable<'ctx> {
             symbols: HashMap::new(),
             parent: None,
         };
-        
+
         SymbolTable {
             scopes: vec![global_scope],
             current_scope: 0,
         }
     }
-    
+
     /// Enter a new scope
     pub fn enter_scope(&mut self) {
         let new_scope = Scope {
             symbols: HashMap::new(),
             parent: Some(self.current_scope),
         };
-        
+
         self.scopes.push(new_scope);
         self.current_scope = self.scopes.len() - 1;
     }
-    
+
     /// Exit the current scope and return to the parent scope
     pub fn exit_scope(&mut self) -> Option<()> {
         if let Some(parent_scope) = self.scopes[self.current_scope].parent {
@@ -86,50 +86,56 @@ impl<'ctx> SymbolTable<'ctx> {
             None // Can't exit the global scope
         }
     }
-    
+
     /// Insert a symbol into the current scope
-    pub fn insert<S: Into<String>>(&mut self, name: S, symbol: Symbol<'ctx>) -> Option<Symbol<'ctx>> {
-        self.scopes[self.current_scope].symbols.insert(name.into(), symbol)
+    pub fn insert<S: Into<String>>(
+        &mut self,
+        name: S,
+        symbol: Symbol<'ctx>,
+    ) -> Option<Symbol<'ctx>> {
+        self.scopes[self.current_scope]
+            .symbols
+            .insert(name.into(), symbol)
     }
-    
+
     /// Look up a symbol starting from the current scope and moving up through parent scopes
     pub fn lookup(&self, name: &str) -> Option<&Symbol<'ctx>> {
         let mut current_scope = Some(self.current_scope);
-        
+
         while let Some(scope_idx) = current_scope {
             if let Some(symbol) = self.scopes[scope_idx].symbols.get(name) {
                 return Some(symbol);
             }
-            
+
             current_scope = self.scopes[scope_idx].parent;
         }
-        
+
         None
     }
-    
+
     /// Get a mutable reference to a symbol if it exists in the current scope
     pub fn get_mut(&mut self, name: &str) -> Option<&mut Symbol<'ctx>> {
         self.scopes[self.current_scope].symbols.get_mut(name)
     }
-    
+
     /// Check if a symbol exists in the current scope (doesn't check parent scopes)
     pub fn exists_in_current_scope(&self, name: &str) -> bool {
         self.scopes[self.current_scope].symbols.contains_key(name)
     }
-    
+
     /// Get the current scope depth (0 = global scope)
     pub fn depth(&self) -> usize {
         let mut depth = 0;
         let mut current = Some(self.current_scope);
-        
+
         while let Some(scope_idx) = current {
             depth += 1;
             current = self.scopes[scope_idx].parent;
         }
-        
+
         depth - 1 // Subtract 1 because we start counting from 0
     }
-    
+
     /// Get all symbols from all scopes
     pub fn all_symbols(&self) -> Vec<&Symbol<'ctx>> {
         let mut symbols = Vec::new();
@@ -140,13 +146,13 @@ impl<'ctx> SymbolTable<'ctx> {
         }
         symbols
     }
-    
+
     /// Iterate over all symbols in the current scope chain
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Symbol<'ctx>)> {
         // Collect all symbols from current scope and parent scopes
         let mut all_symbols = Vec::new();
         let mut scope_idx = Some(self.current_scope);
-        
+
         while let Some(idx) = scope_idx {
             let scope = &self.scopes[idx];
             for (name, symbol) in &scope.symbols {
@@ -154,7 +160,7 @@ impl<'ctx> SymbolTable<'ctx> {
             }
             scope_idx = scope.parent;
         }
-        
+
         all_symbols.into_iter()
     }
 }
@@ -163,34 +169,34 @@ impl<'ctx> SymbolTable<'ctx> {
 mod tests {
     use super::*;
     use inkwell::context::Context;
-    
+
     #[test]
     fn test_symbol_table_scoping() {
         let context = Context::create();
         let i32_type = context.i32_type();
         let _fn_type = i32_type.fn_type(&[], false);
-        
+
         let mut symtab = SymbolTable::new();
-        
+
         // Add to global scope
         symtab.insert("i32", Symbol::Type(i32_type.into()));
-        
+
         // Enter function scope
         symtab.enter_scope();
         symtab.insert("x", Symbol::Type(i32_type.into()));
-        
+
         // Can find in current scope
         assert!(matches!(symtab.lookup("x"), Some(Symbol::Type(_))));
-        
+
         // Can find in parent scope
         assert!(matches!(symtab.lookup("i32"), Some(Symbol::Type(_))));
-        
+
         // Exit scope
         symtab.exit_scope();
-        
+
         // Can't find in global scope
         assert!(symtab.lookup("x").is_none());
-        
+
         // Still can find in global scope
         assert!(matches!(symtab.lookup("i32"), Some(Symbol::Type(_))));
     }

@@ -1,8 +1,8 @@
 use crate::ast::AstType;
 use std::collections::HashMap;
 
-pub mod instantiation;
 pub mod environment;
+pub mod instantiation;
 pub mod monomorphization;
 
 pub use environment::TypeEnvironment;
@@ -44,36 +44,24 @@ impl TypeSubstitution {
                         return concrete.clone();
                     }
                 }
-                
+
                 AstType::Generic {
                     name: name.clone(),
                     type_args: type_args.iter().map(|t| self.apply(t)).collect(),
                 }
             }
-            AstType::Ptr(inner) => {
-                AstType::Ptr(Box::new(self.apply(inner)))
-            }
-            AstType::Array(inner) => {
-                AstType::Array(Box::new(self.apply(inner)))
-            }
-            AstType::Option(inner) => {
-                AstType::Option(Box::new(self.apply(inner)))
-            }
-            AstType::Result { ok_type, err_type } => {
-                AstType::Result {
-                    ok_type: Box::new(self.apply(ok_type)),
-                    err_type: Box::new(self.apply(err_type)),
-                }
-            }
-            AstType::Ref(inner) => {
-                AstType::Ref(Box::new(self.apply(inner)))
-            }
-            AstType::Function { args, return_type } => {
-                AstType::Function {
-                    args: args.iter().map(|t| self.apply(t)).collect(),
-                    return_type: Box::new(self.apply(return_type)),
-                }
-            }
+            AstType::Ptr(inner) => AstType::Ptr(Box::new(self.apply(inner))),
+            AstType::Array(inner) => AstType::Array(Box::new(self.apply(inner))),
+            AstType::Option(inner) => AstType::Option(Box::new(self.apply(inner))),
+            AstType::Result { ok_type, err_type } => AstType::Result {
+                ok_type: Box::new(self.apply(ok_type)),
+                err_type: Box::new(self.apply(err_type)),
+            },
+            AstType::Ref(inner) => AstType::Ref(Box::new(self.apply(inner))),
+            AstType::Function { args, return_type } => AstType::Function {
+                args: args.iter().map(|t| self.apply(t)).collect(),
+                return_type: Box::new(self.apply(return_type)),
+            },
             _ => ast_type.clone(),
         }
     }
@@ -88,9 +76,13 @@ pub struct TypeConstraint {
 pub fn is_generic_type(ast_type: &AstType) -> bool {
     match ast_type {
         AstType::Generic { .. } => true,
-        AstType::Ptr(inner) | AstType::Array(inner) | 
-        AstType::Option(inner) | AstType::Ref(inner) => is_generic_type(inner),
-        AstType::Result { ok_type, err_type } => is_generic_type(ok_type) || is_generic_type(err_type),
+        AstType::Ptr(inner)
+        | AstType::Array(inner)
+        | AstType::Option(inner)
+        | AstType::Ref(inner) => is_generic_type(inner),
+        AstType::Result { ok_type, err_type } => {
+            is_generic_type(ok_type) || is_generic_type(err_type)
+        }
         AstType::Function { args, return_type } => {
             args.iter().any(is_generic_type) || is_generic_type(return_type)
         }
@@ -114,8 +106,10 @@ fn extract_type_params_recursive(ast_type: &AstType, params: &mut Vec<String>) {
                 extract_type_params_recursive(arg, params);
             }
         }
-        AstType::Ptr(inner) | AstType::Array(inner) | 
-        AstType::Option(inner) | AstType::Ref(inner) => {
+        AstType::Ptr(inner)
+        | AstType::Array(inner)
+        | AstType::Option(inner)
+        | AstType::Ref(inner) => {
             extract_type_params_recursive(inner, params);
         }
         AstType::Result { ok_type, err_type } => {

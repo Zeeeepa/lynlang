@@ -1,11 +1,11 @@
 // Compile-time execution framework for Zen
 // This module provides an interpreter that executes Zen code during compilation
 
-use crate::ast::{self, AstType, Expression, Statement, Declaration};
+use crate::ast::{self, AstType, Declaration, Expression, Statement};
 use crate::error::{CompileError, Result};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 // Value types that can exist at compile time
 #[derive(Debug, Clone)]
@@ -23,17 +23,17 @@ pub enum ComptimeValue {
     F64(f64),
     Bool(bool),
     String(String),
-    
+
     // Compound values
     Array(Vec<ComptimeValue>),
     Struct {
         name: String,
         fields: HashMap<String, ComptimeValue>,
     },
-    
+
     // Type value (for type-level computations)
     Type(AstType),
-    
+
     // Function value (for higher-order functions)
     Function {
         name: String,
@@ -41,7 +41,7 @@ pub enum ComptimeValue {
         body: Vec<Statement>,
         closure: Environment,
     },
-    
+
     // Special values
     Void,
     Null,
@@ -58,23 +58,22 @@ impl ComptimeValue {
             ComptimeValue::Bool(v) => Ok(Expression::Boolean(*v)),
             ComptimeValue::String(v) => Ok(Expression::String(v.clone())),
             ComptimeValue::Array(values) => {
-                let exprs: Result<Vec<_>> = values.iter()
-                    .map(|v| v.to_expression())
-                    .collect();
+                let exprs: Result<Vec<_>> = values.iter().map(|v| v.to_expression()).collect();
                 Ok(Expression::ArrayLiteral(exprs?))
             }
             ComptimeValue::Type(_t) => {
                 // Type values become type annotations
                 Err(CompileError::ComptimeError(
-                    "Cannot convert type value to runtime expression".to_string()
+                    "Cannot convert type value to runtime expression".to_string(),
                 ))
             }
-            _ => Err(CompileError::ComptimeError(
-                format!("Cannot convert {:?} to expression", self)
-            ))
+            _ => Err(CompileError::ComptimeError(format!(
+                "Cannot convert {:?} to expression",
+                self
+            ))),
         }
     }
-    
+
     /// Get the type of a compile-time value
     pub fn get_type(&self) -> AstType {
         match self {
@@ -135,23 +134,26 @@ impl Environment {
             parent: None,
         }
     }
-    
+
     pub fn with_parent(parent: Environment) -> Self {
         Environment {
             variables: Rc::new(RefCell::new(HashMap::new())),
             parent: Some(Box::new(parent)),
         }
     }
-    
+
     pub fn define(&self, name: String, value: ComptimeValue) {
         self.variables.borrow_mut().insert(name, value);
     }
-    
+
     pub fn get(&self, name: &str) -> Option<ComptimeValue> {
-        self.variables.borrow().get(name).cloned()
+        self.variables
+            .borrow()
+            .get(name)
+            .cloned()
             .or_else(|| self.parent.as_ref()?.get(name))
     }
-    
+
     pub fn set(&self, name: &str, value: ComptimeValue) -> Result<()> {
         if self.variables.borrow().contains_key(name) {
             self.variables.borrow_mut().insert(name.to_string(), value);
@@ -159,9 +161,10 @@ impl Environment {
         } else if let Some(parent) = &self.parent {
             parent.set(name, value)
         } else {
-            Err(CompileError::ComptimeError(
-                format!("Undefined variable: {}", name)
-            ))
+            Err(CompileError::ComptimeError(format!(
+                "Undefined variable: {}",
+                name
+            )))
         }
     }
 }
@@ -182,115 +185,157 @@ impl ComptimeInterpreter {
             generated_declarations: Vec::new(),
             modules: HashMap::new(),
         };
-        
+
         // Initialize built-in compile-time functions
         interpreter.init_builtins();
         interpreter
     }
-    
+
     // Helper methods for testing
     pub fn set_variable(&mut self, name: String, value: ComptimeValue) {
         self.env.variables.borrow_mut().insert(name, value);
     }
-    
+
     pub fn get_variable(&self, name: &str) -> Option<ComptimeValue> {
         self.env.variables.borrow().get(name).cloned()
     }
-    
+
     fn init_builtins(&mut self) {
         // @std namespace
-        self.modules.insert("@std".to_string(), ComptimeValue::Struct {
-            name: "@std".to_string(),
-            fields: {
-                let mut fields = HashMap::new();
-                
-                // @std.core
-                fields.insert("core".to_string(), ComptimeValue::Struct {
-                    name: "core".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.io
-                fields.insert("io".to_string(), ComptimeValue::Struct {
-                    name: "io".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.vec
-                fields.insert("vec".to_string(), ComptimeValue::Struct {
-                    name: "vec".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.hashmap
-                fields.insert("hashmap".to_string(), ComptimeValue::Struct {
-                    name: "hashmap".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.string
-                fields.insert("string".to_string(), ComptimeValue::Struct {
-                    name: "string".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.math
-                fields.insert("math".to_string(), ComptimeValue::Struct {
-                    name: "math".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.lexer
-                fields.insert("lexer".to_string(), ComptimeValue::Struct {
-                    name: "lexer".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.parser
-                fields.insert("parser".to_string(), ComptimeValue::Struct {
-                    name: "parser".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.ast
-                fields.insert("ast".to_string(), ComptimeValue::Struct {
-                    name: "ast".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.type_checker
-                fields.insert("type_checker".to_string(), ComptimeValue::Struct {
-                    name: "type_checker".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.codegen
-                fields.insert("codegen".to_string(), ComptimeValue::Struct {
-                    name: "codegen".to_string(),
-                    fields: HashMap::new(),
-                });
-                
-                // @std.build
-                fields.insert("build".to_string(), ComptimeValue::Struct {
-                    name: "build".to_string(),
-                    fields: {
-                        let mut build_fields = HashMap::new();
-                        // build.import function
-                        build_fields.insert("import".to_string(), ComptimeValue::Function {
-                            name: "import".to_string(),
-                            params: vec!["module_name".to_string()],
-                            body: vec![],
-                            closure: Environment::new(),
-                        });
-                        build_fields
-                    },
-                });
-                
-                fields
+        self.modules.insert(
+            "@std".to_string(),
+            ComptimeValue::Struct {
+                name: "@std".to_string(),
+                fields: {
+                    let mut fields = HashMap::new();
+
+                    // @std.core
+                    fields.insert(
+                        "core".to_string(),
+                        ComptimeValue::Struct {
+                            name: "core".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.io
+                    fields.insert(
+                        "io".to_string(),
+                        ComptimeValue::Struct {
+                            name: "io".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.vec
+                    fields.insert(
+                        "vec".to_string(),
+                        ComptimeValue::Struct {
+                            name: "vec".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.hashmap
+                    fields.insert(
+                        "hashmap".to_string(),
+                        ComptimeValue::Struct {
+                            name: "hashmap".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.string
+                    fields.insert(
+                        "string".to_string(),
+                        ComptimeValue::Struct {
+                            name: "string".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.math
+                    fields.insert(
+                        "math".to_string(),
+                        ComptimeValue::Struct {
+                            name: "math".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.lexer
+                    fields.insert(
+                        "lexer".to_string(),
+                        ComptimeValue::Struct {
+                            name: "lexer".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.parser
+                    fields.insert(
+                        "parser".to_string(),
+                        ComptimeValue::Struct {
+                            name: "parser".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.ast
+                    fields.insert(
+                        "ast".to_string(),
+                        ComptimeValue::Struct {
+                            name: "ast".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.type_checker
+                    fields.insert(
+                        "type_checker".to_string(),
+                        ComptimeValue::Struct {
+                            name: "type_checker".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.codegen
+                    fields.insert(
+                        "codegen".to_string(),
+                        ComptimeValue::Struct {
+                            name: "codegen".to_string(),
+                            fields: HashMap::new(),
+                        },
+                    );
+
+                    // @std.build
+                    fields.insert(
+                        "build".to_string(),
+                        ComptimeValue::Struct {
+                            name: "build".to_string(),
+                            fields: {
+                                let mut build_fields = HashMap::new();
+                                // build.import function
+                                build_fields.insert(
+                                    "import".to_string(),
+                                    ComptimeValue::Function {
+                                        name: "import".to_string(),
+                                        params: vec!["module_name".to_string()],
+                                        body: vec![],
+                                        closure: Environment::new(),
+                                    },
+                                );
+                                build_fields
+                            },
+                        },
+                    );
+
+                    fields
+                },
             },
-        });
+        );
     }
-    
+
     /// Execute a compile-time block
     pub fn execute_comptime_block(&mut self, statements: &[Statement]) -> Result<()> {
         for stmt in statements {
@@ -298,46 +343,49 @@ impl ComptimeInterpreter {
         }
         Ok(())
     }
-    
+
     /// Execute a single statement
     pub fn execute_statement(&mut self, stmt: &Statement) -> Result<Option<ComptimeValue>> {
         match stmt {
-            Statement::VariableDeclaration { name, initializer, .. } => {
+            Statement::VariableDeclaration {
+                name, initializer, ..
+            } => {
                 if let Some(init) = initializer {
                     let value = self.evaluate_expression(init)?;
                     self.env.define(name.clone(), value);
                 }
                 Ok(None)
             }
-            
+
             Statement::VariableAssignment { name, value } => {
                 let val = self.evaluate_expression(value)?;
                 self.env.set(name, val)?;
                 Ok(None)
             }
-            
+
             Statement::Expression(expr) => {
                 let value = self.evaluate_expression(expr)?;
                 Ok(Some(value))
             }
-            
+
             Statement::Return(expr) => {
                 let value = self.evaluate_expression(expr)?;
                 Ok(Some(value))
             }
-            
+
             Statement::ComptimeBlock(stmts) => {
                 // Nested comptime block
                 self.execute_comptime_block(stmts)?;
                 Ok(None)
             }
-            
-            _ => Err(CompileError::ComptimeError(
-                format!("Statement type not supported in comptime: {:?}", stmt)
-            ))
+
+            _ => Err(CompileError::ComptimeError(format!(
+                "Statement type not supported in comptime: {:?}",
+                stmt
+            ))),
         }
     }
-    
+
     /// Evaluate an expression to a compile-time value
     pub fn evaluate_expression(&mut self, expr: &Expression) -> Result<ComptimeValue> {
         match expr {
@@ -347,7 +395,7 @@ impl ComptimeInterpreter {
             Expression::Float64(v) => Ok(ComptimeValue::F64(*v)),
             Expression::Boolean(v) => Ok(ComptimeValue::Bool(*v)),
             Expression::String(v) => Ok(ComptimeValue::String(v.clone())),
-            
+
             Expression::Identifier(name) => {
                 // Check for module reference
                 if name.starts_with("@") {
@@ -355,67 +403,70 @@ impl ComptimeInterpreter {
                         return Ok(module.clone());
                     }
                 }
-                
-                self.env.get(name)
-                    .ok_or_else(|| CompileError::ComptimeError(
-                        format!("Undefined identifier: {}", name)
-                    ))
+
+                self.env.get(name).ok_or_else(|| {
+                    CompileError::ComptimeError(format!("Undefined identifier: {}", name))
+                })
             }
-            
+
             Expression::BinaryOp { left, op, right } => {
                 let left_val = self.evaluate_expression(left)?;
                 let right_val = self.evaluate_expression(right)?;
                 self.evaluate_binary_op(left_val, op, right_val)
             }
-            
-            Expression::FunctionCall { name, args } => {
-                self.evaluate_function_call(name, args)
-            }
-            
+
+            Expression::FunctionCall { name, args } => self.evaluate_function_call(name, args),
+
             Expression::ArrayLiteral(elements) => {
-                let values: Result<Vec<_>> = elements.iter()
+                let values: Result<Vec<_>> = elements
+                    .iter()
                     .map(|e| self.evaluate_expression(e))
                     .collect();
                 Ok(ComptimeValue::Array(values?))
             }
-            
+
             Expression::MemberAccess { object, member } => {
                 let obj_val = self.evaluate_expression(object)?;
                 self.evaluate_member_access(obj_val, member)
             }
-            
+
             Expression::Comptime(inner) => {
                 // Nested comptime expression
                 self.evaluate_expression(inner)
             }
-            
-            Expression::Range { start, end, inclusive } => {
+
+            Expression::Range {
+                start,
+                end,
+                inclusive,
+            } => {
                 let start_val = self.evaluate_expression(start)?;
                 let end_val = self.evaluate_expression(end)?;
-                
+
                 match (start_val, end_val) {
                     (ComptimeValue::I32(start_i), ComptimeValue::I32(end_i)) => {
                         let mut values = Vec::new();
                         let end_val = if *inclusive { end_i + 1 } else { end_i };
-                        
+
                         for i in start_i..end_val {
                             values.push(ComptimeValue::I32(i));
                         }
-                        
+
                         Ok(ComptimeValue::Array(values))
                     }
                     _ => Err(CompileError::ComptimeError(
-                        "Range expressions only support integer bounds".to_string()
-                    ))
+                        "Range expressions only support integer bounds".to_string(),
+                    )),
                 }
             }
-            
-            _ => Err(CompileError::ComptimeError(
-                format!("Expression type not supported in comptime: {:?}", expr)
-            ))
+
+            _ => Err(CompileError::ComptimeError(format!(
+                "Expression type not supported in comptime: {:?}",
+                expr
+            ))),
         }
     }
-    
+
     /// Evaluate binary operations
     fn evaluate_binary_op(
         &self,
@@ -424,60 +475,57 @@ impl ComptimeInterpreter {
         right: ComptimeValue,
     ) -> Result<ComptimeValue> {
         use ast::BinaryOperator;
-        
+
         match (left, right) {
-            (ComptimeValue::I32(l), ComptimeValue::I32(r)) => {
-                match op {
-                    BinaryOperator::Add => Ok(ComptimeValue::I32(l + r)),
-                    BinaryOperator::Subtract => Ok(ComptimeValue::I32(l - r)),
-                    BinaryOperator::Multiply => Ok(ComptimeValue::I32(l * r)),
-                    BinaryOperator::Divide => {
-                        if r == 0 {
-                            Err(CompileError::ComptimeError("Division by zero".to_string()))
-                        } else {
-                            Ok(ComptimeValue::I32(l / r))
-                        }
+            (ComptimeValue::I32(l), ComptimeValue::I32(r)) => match op {
+                BinaryOperator::Add => Ok(ComptimeValue::I32(l + r)),
+                BinaryOperator::Subtract => Ok(ComptimeValue::I32(l - r)),
+                BinaryOperator::Multiply => Ok(ComptimeValue::I32(l * r)),
+                BinaryOperator::Divide => {
+                    if r == 0 {
+                        Err(CompileError::ComptimeError("Division by zero".to_string()))
+                    } else {
+                        Ok(ComptimeValue::I32(l / r))
                     }
-                    BinaryOperator::Equals => Ok(ComptimeValue::Bool(l == r)),
-                    BinaryOperator::NotEquals => Ok(ComptimeValue::Bool(l != r)),
-                    BinaryOperator::LessThan => Ok(ComptimeValue::Bool(l < r)),
-                    BinaryOperator::LessThanEquals => Ok(ComptimeValue::Bool(l <= r)),
-                    BinaryOperator::GreaterThan => Ok(ComptimeValue::Bool(l > r)),
-                    BinaryOperator::GreaterThanEquals => Ok(ComptimeValue::Bool(l >= r)),
-                    _ => Err(CompileError::ComptimeError(
-                        format!("Unsupported operation {:?} for I32", op)
-                    ))
                 }
-            }
-            
-            (ComptimeValue::Bool(l), ComptimeValue::Bool(r)) => {
-                match op {
-                    BinaryOperator::And => Ok(ComptimeValue::Bool(l && r)),
-                    BinaryOperator::Or => Ok(ComptimeValue::Bool(l || r)),
-                    BinaryOperator::Equals => Ok(ComptimeValue::Bool(l == r)),
-                    BinaryOperator::NotEquals => Ok(ComptimeValue::Bool(l != r)),
-                    _ => Err(CompileError::ComptimeError(
-                        format!("Unsupported operation {:?} for Bool", op)
-                    ))
-                }
-            }
-            
-            (ComptimeValue::String(l), ComptimeValue::String(r)) => {
-                match op {
-                    BinaryOperator::Equals => Ok(ComptimeValue::Bool(l == r)),
-                    BinaryOperator::NotEquals => Ok(ComptimeValue::Bool(l != r)),
-                    _ => Err(CompileError::ComptimeError(
-                        format!("Unsupported operation {:?} for String", op)
-                    ))
-                }
-            }
-            
+                BinaryOperator::Equals => Ok(ComptimeValue::Bool(l == r)),
+                BinaryOperator::NotEquals => Ok(ComptimeValue::Bool(l != r)),
+                BinaryOperator::LessThan => Ok(ComptimeValue::Bool(l < r)),
+                BinaryOperator::LessThanEquals => Ok(ComptimeValue::Bool(l <= r)),
+                BinaryOperator::GreaterThan => Ok(ComptimeValue::Bool(l > r)),
+                BinaryOperator::GreaterThanEquals => Ok(ComptimeValue::Bool(l >= r)),
+                _ => Err(CompileError::ComptimeError(format!(
+                    "Unsupported operation {:?} for I32",
+                    op
+                ))),
+            },
+
+            (ComptimeValue::Bool(l), ComptimeValue::Bool(r)) => match op {
+                BinaryOperator::And => Ok(ComptimeValue::Bool(l && r)),
+                BinaryOperator::Or => Ok(ComptimeValue::Bool(l || r)),
+                BinaryOperator::Equals => Ok(ComptimeValue::Bool(l == r)),
+                BinaryOperator::NotEquals => Ok(ComptimeValue::Bool(l != r)),
+                _ => Err(CompileError::ComptimeError(format!(
+                    "Unsupported operation {:?} for Bool",
+                    op
+                ))),
+            },
+
+            (ComptimeValue::String(l), ComptimeValue::String(r)) => match op {
+                BinaryOperator::Equals => Ok(ComptimeValue::Bool(l == r)),
+                BinaryOperator::NotEquals => Ok(ComptimeValue::Bool(l != r)),
+                _ => Err(CompileError::ComptimeError(format!(
+                    "Unsupported operation {:?} for String",
+                    op
+                ))),
+            },
+
             _ => Err(CompileError::ComptimeError(
-                "Type mismatch in binary operation".to_string()
-            ))
+                "Type mismatch in binary operation".to_string(),
+            )),
         }
     }
-    
+
     /// Evaluate function calls
     fn evaluate_function_call(&mut self, name: &str, args: &[Expression]) -> Result<ComptimeValue> {
         // Check for built-in compile-time functions
@@ -486,98 +534,107 @@ impl ComptimeInterpreter {
                 // TODO: Implement sizeof
                 Ok(ComptimeValue::I64(8))
             }
-            
+
             "typeof" => {
                 if args.len() != 1 {
                     return Err(CompileError::ComptimeError(
-                        "typeof expects exactly one argument".to_string()
+                        "typeof expects exactly one argument".to_string(),
                     ));
                 }
                 let val = self.evaluate_expression(&args[0])?;
                 Ok(ComptimeValue::Type(val.get_type()))
             }
-            
+
             "comptime_assert" => {
                 if args.len() != 1 {
                     return Err(CompileError::ComptimeError(
-                        "comptime_assert expects exactly one argument".to_string()
+                        "comptime_assert expects exactly one argument".to_string(),
                     ));
                 }
                 let val = self.evaluate_expression(&args[0])?;
                 match val {
                     ComptimeValue::Bool(true) => Ok(ComptimeValue::Void),
-                    ComptimeValue::Bool(false) => {
-                        Err(CompileError::ComptimeError(
-                            "Compile-time assertion failed".to_string()
-                        ))
-                    }
+                    ComptimeValue::Bool(false) => Err(CompileError::ComptimeError(
+                        "Compile-time assertion failed".to_string(),
+                    )),
                     _ => Err(CompileError::ComptimeError(
-                        "comptime_assert expects a boolean".to_string()
-                    ))
+                        "comptime_assert expects a boolean".to_string(),
+                    )),
                 }
             }
-            
+
             _ => {
                 // Look up user-defined function
-                if let Some(ComptimeValue::Function { params, body, closure, .. }) = self.env.get(name) {
+                if let Some(ComptimeValue::Function {
+                    params,
+                    body,
+                    closure,
+                    ..
+                }) = self.env.get(name)
+                {
                     // Create new environment for function execution
                     let func_env = Environment::with_parent(closure);
-                    
+
                     // Bind arguments
                     if args.len() != params.len() {
-                        return Err(CompileError::ComptimeError(
-                            format!("Function {} expects {} arguments, got {}", 
-                                    name, params.len(), args.len())
-                        ));
+                        return Err(CompileError::ComptimeError(format!(
+                            "Function {} expects {} arguments, got {}",
+                            name,
+                            params.len(),
+                            args.len()
+                        )));
                     }
-                    
+
                     for (param, arg) in params.iter().zip(args) {
                         let val = self.evaluate_expression(arg)?;
                         func_env.define(param.clone(), val);
                     }
-                    
+
                     // Execute function body
                     let saved_env = std::mem::replace(&mut self.env, func_env);
                     let mut result = ComptimeValue::Void;
-                    
+
                     for stmt in &body {
                         if let Some(val) = self.execute_statement(stmt)? {
                             result = val;
                             break;
                         }
                     }
-                    
+
                     self.env = saved_env;
                     Ok(result)
                 } else {
-                    Err(CompileError::ComptimeError(
-                        format!("Unknown function: {}", name)
-                    ))
+                    Err(CompileError::ComptimeError(format!(
+                        "Unknown function: {}",
+                        name
+                    )))
                 }
             }
         }
     }
-    
+
     /// Evaluate member access
-    fn evaluate_member_access(&mut self, object: ComptimeValue, member: &str) -> Result<ComptimeValue> {
+    fn evaluate_member_access(
+        &mut self,
+        object: ComptimeValue,
+        member: &str,
+    ) -> Result<ComptimeValue> {
         match object {
-            ComptimeValue::Struct { fields, .. } => {
-                fields.get(member).cloned()
-                    .ok_or_else(|| CompileError::ComptimeError(
-                        format!("Struct has no field: {}", member)
-                    ))
-            }
-            _ => Err(CompileError::ComptimeError(
-                format!("Cannot access member {} on non-struct value", member)
-            ))
+            ComptimeValue::Struct { fields, .. } => fields.get(member).cloned().ok_or_else(|| {
+                CompileError::ComptimeError(format!("Struct has no field: {}", member))
+            }),
+            _ => Err(CompileError::ComptimeError(format!(
+                "Cannot access member {} on non-struct value",
+                member
+            ))),
         }
     }
-    
+
     /// Get any declarations generated during compile-time execution
     pub fn get_generated_declarations(&self) -> Vec<Declaration> {
         self.generated_declarations.clone()
     }
-    
+
     /// Generate code from compile-time values
     pub fn generate_code(&mut self, value: ComptimeValue) -> Result<Expression> {
         value.to_expression()
