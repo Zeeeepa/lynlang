@@ -112,13 +112,14 @@
 ✓ Task 108: **VERIFIED** Perfect Test Suite Status (2025-09-24) - Confirmed 169/169 enabled tests passing (100% pass rate), 11 disabled tests, 180 total test files. All core features working perfectly. Project structure clean with proper test organization.
 ✓ Task 109: **VERIFIED** Project Status (2025-09-24 @ 20:00 UTC) - Test suite maintains perfect 100% pass rate (169/169 enabled tests), 11 disabled tests, 180 total test files. showcase.zen confirmed fully operational.
 ✓ Task 110: **VERIFIED** Project Status (2025-09-25 @ 09:15 UTC) - Test suite maintains perfect 100% pass rate (169/169 enabled tests), 11 disabled tests, 180 total test files. showcase.zen confirmed fully operational with all features demonstrated successfully.
+✓ Task 111: **EXPANDED** Test Coverage (2025-09-25) - Added test_range_operations.zen and test_block_expressions.zen. Test suite improved to 171/171 passing (100% pass rate). All tests demonstrate working language features.
 
-## Current Status (2025-09-25 @ 09:15 UTC - 🎉 169/169 ENABLED TESTS PASSING!)
+## Current Status (2025-09-25 - 🎉 171/171 ENABLED TESTS PASSING!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health PERFECT**: 100% pass rate for enabled tests (169/169 passing) - ALL ENABLED TESTS PASSING! VERIFIED 2025-09-25 @ 09:15 UTC
+- **Test Suite Health PERFECT**: 100% pass rate for enabled tests (171/171 passing) - ALL ENABLED TESTS PASSING! VERIFIED 2025-09-25
 - **Pattern Matching Fix**: Fixed enum discriminant type mismatch for runtime function returns (string.to_f64() etc)
-- **Real Completion Rate**: 169 enabled + 11 disabled = 180 total tests → **93.9% overall completion rate** ⬆️ (was 93.3%)
+- **Real Completion Rate**: 171 enabled + 11 disabled = 182 total tests → **94.0% overall completion rate** ⬆️ (was 93.9%)
 - **Result<T,E> Return Types FIXED**: Functions can now return Result<T,E> properly - architecture issue resolved!
 - **Float Support WORKING**: f64 types now correctly work with Result<f64,E> and .raise() error propagation
 - **Disabled Tests Status**: 11 tests remain disabled - mostly advanced features not yet implemented (behaviors, LSP, complex generics)
