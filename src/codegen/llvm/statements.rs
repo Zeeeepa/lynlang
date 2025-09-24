@@ -825,7 +825,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         _ => value.clone(),
                     };
                     // Use struct field assignment
-                    self.compile_struct_field_assignment(struct_alloca, field_name, value)?;
+                    // Extract struct name from the AstType
+                    let type_struct_name = match &struct_type {
+                        AstType::Struct { name, .. } => name.clone(),
+                        _ => {
+                            return Err(CompileError::TypeError(
+                                format!("Expected struct type for field assignment, got {:?}", struct_type),
+                                None,
+                            ));
+                        }
+                    };
+                    self.compile_struct_field_assignment(struct_alloca, field_name, value, &type_struct_name)?;
                     return Ok(());
                 }
 
@@ -1206,7 +1216,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             {
                                 // Use existing struct field assignment logic
                                 let val = self.compile_expression(&value)?;
-                                self.compile_struct_field_assignment(alloca, member, val)?;
+                                self.compile_struct_field_assignment(alloca, member, val, _struct_name)?;
                                 return Ok(());
                             }
                         }

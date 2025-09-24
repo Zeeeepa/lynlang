@@ -874,18 +874,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         struct_alloca: inkwell::values::PointerValue<'ctx>,
         field_name: &str,
         value: BasicValueEnum<'ctx>,
+        struct_name: &str,
     ) -> Result<(), CompileError> {
-        // Find the struct type info by trying to match the pointer type with any known struct
-        // This is a fallback approach since we can't easily get the element type
+        // Get the struct type info using the struct name
         let struct_type_info = self
             .struct_types
-            .values()
-            .find(|_info| {
-                // Try to match by checking if this struct type could be the one we're looking for
-                // We'll use the first struct type as a reasonable fallback
-                true
-            })
-            .ok_or_else(|| CompileError::TypeError("No struct types defined".to_string(), None))?;
+            .get(struct_name)
+            .ok_or_else(|| CompileError::TypeError(format!("Struct '{}' not found", struct_name), None))?;
 
         let struct_type = struct_type_info.llvm_type;
         let field_index = struct_type_info
@@ -893,7 +888,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .get(field_name)
             .map(|(index, _)| *index)
             .ok_or_else(|| {
-                CompileError::TypeError(format!("Field '{}' not found in struct", field_name), None)
+                CompileError::TypeError(format!("Field '{}' not found in struct '{}'", field_name, struct_name), None)
             })?;
 
         // Create GEP to get the field pointer
