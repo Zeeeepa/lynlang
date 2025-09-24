@@ -1,0 +1,13 @@
+{ io } = @std
+
+main = () i32 {
+    opt = Option.Some(42)
+    opt ?
+        | Some(val) { 
+            // Try using val in arithmetic
+            result = val + 10
+            io.println("Result: ${result}")
+        }
+        | None { io.println("None") }
+    return 0
+}

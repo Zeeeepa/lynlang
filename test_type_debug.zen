@@ -1,0 +1,17 @@
+{ io } = @std
+
+main = () i32 {
+    // Test both ways
+    val1 = 42
+    io.println("Direct var: ${val1}")
+    
+    opt = Option.Some(42)
+    opt ?
+        | Some(val2) { 
+            direct_test = 65  // ASCII A
+            io.println("Direct test: ${direct_test}")
+            io.println("Extracted val: ${val2}")
+        }
+        | None { io.println("None") }
+    return 0
+}

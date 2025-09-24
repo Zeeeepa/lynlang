@@ -1,0 +1,13 @@
+{ io } = @std
+
+main = () i32 {
+    opt = Option.Some(42)
+    opt ?
+        | Some(val) { 
+            io.println("Got Some")
+            direct_val = 42
+            io.println("Direct: ${direct_val}")
+        }
+        | None { io.println("None") }
+    return 0
+}

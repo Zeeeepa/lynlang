@@ -47,6 +47,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
+                AstType::I32 => {
+                    // Load as i32
+                    match self.builder.build_load(self.context.i32_type(), ptr, name) {
+                        Ok(val) => val,
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                    }
+                }
+                AstType::I64 => {
+                    // Load as i64  
+                    match self.builder.build_load(self.context.i64_type(), ptr, name) {
+                        Ok(val) => val,
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                    }
+                }
                 AstType::String => {
                     // Strings are stored as pointers
                     match self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), ptr, name) {

@@ -1,0 +1,14 @@
+{ io } = @std
+
+Message:
+    Number(i32),
+    Text(string)
+
+main = () i32 {
+    msg = Message.Number(42)
+    msg ?
+        | Number(n) { io.println("Number: ${n}") }
+        | Text(s) { io.println("Text: ${s}") }
+    
+    return 0
+}

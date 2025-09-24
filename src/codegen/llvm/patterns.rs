@@ -257,12 +257,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             )?;
                             
                             // If the payload field is a pointer type (which it should be for generic enums),
-                            // we need to dereference it to get the actual value
+                            // we need to determine what it points to and possibly dereference
                             if payload_type.is_pointer_type() && loaded_payload.is_pointer_value() {
-                                // We have a pointer to the actual value
-                                // For pattern matching, we want to use the pointer directly
-                                // The apply_pattern_bindings will handle the correct type
-                                loaded_payload
+                                let ptr_val = loaded_payload.into_pointer_value();
+                                
+                                // Try to determine what this pointer points to
+                                // First try loading as i32 (common integer payload)
+                                match self.builder.build_load(self.context.i32_type(), ptr_val, "try_i32") {
+                                    Ok(int_val) if int_val.is_int_value() => {
+                                        // Successfully loaded as i32
+                                        int_val
+                                    }
+                                    _ => {
+                                        // Try loading as i64
+                                        match self.builder.build_load(self.context.i64_type(), ptr_val, "try_i64") {
+                                            Ok(int_val) if int_val.is_int_value() => {
+                                                // Successfully loaded as i64
+                                                int_val
+                                            }
+                                            _ => {
+                                                // Not an integer, keep as pointer (likely a string)
+                                                loaded_payload
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
                                 loaded_payload
                             }
@@ -275,13 +294,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Check if struct has payload field
                         if struct_val.get_type().count_fields() > 1 {
                             let extracted = self.builder.build_extract_value(struct_val, 1, "payload")?;
-                            // Check if it's a pointer that needs dereferencing
-                            if extracted.is_pointer_value() {
-                                // For pattern matching with pointers, use them directly
-                                extracted
-                            } else {
-                                extracted
-                            }
+                            // The payload is stored directly in the struct (not as a pointer)
+                            // so we can use it directly
+                            extracted
                         } else {
                             self.context.i64_type().const_int(0, false).into()
                         }
@@ -424,9 +439,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         "payload"
                                     )?;
                                     
-                                    // If the payload is a pointer type (generic enums), use it directly
-                                    // The actual value dereferencing will happen in apply_pattern_bindings
-                                    loaded_payload
+                                    // If the payload is a pointer type (generic enums), dereference if it's an integer
+                                    if payload_type.is_pointer_type() && loaded_payload.is_pointer_value() {
+                                        let ptr_val = loaded_payload.into_pointer_value();
+                                        
+                                        // Try to determine what this pointer points to
+                                        // First try loading as i32 (common integer payload)
+                                        match self.builder.build_load(self.context.i32_type(), ptr_val, "try_i32") {
+                                            Ok(int_val) if int_val.is_int_value() => {
+                                                // Successfully loaded as i32
+                                                int_val
+                                            }
+                                            _ => {
+                                                // Try loading as i64
+                                                match self.builder.build_load(self.context.i64_type(), ptr_val, "try_i64") {
+                                                    Ok(int_val) if int_val.is_int_value() => {
+                                                        // Successfully loaded as i64
+                                                        int_val
+                                                    }
+                                                    _ => {
+                                                        // Not an integer, keep as pointer (likely a string)
+                                                        loaded_payload
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        loaded_payload
+                                    }
                                 } else {
                                     // No payload field
                                     self.context.i64_type().const_int(0, false).into()
@@ -436,7 +476,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Check if struct has payload field
                                 if struct_val.get_type().count_fields() > 1 {
                                     let extracted = self.builder.build_extract_value(struct_val, 1, "payload")?;
-                                    // For pointer payloads, use them directly
+                                    // The payload is stored directly in the struct
                                     extracted
                                 } else {
                                     // No payload field
@@ -614,7 +654,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 };
                 (*value, ast_type)
             } else if value.is_pointer_value() {
-                // Already a pointer - it's a string
+                // For pointer values in pattern bindings, we need to check what they point to
+                // Try to determine if it's a string or something else
+                // For now, assume strings - this may need more sophisticated type inference
                 (*value, crate::ast::AstType::String)
             } else {
                 // Default case

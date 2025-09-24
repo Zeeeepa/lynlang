@@ -1,0 +1,11 @@
+{ io } = @std
+
+main = () i32 {
+    opt = Option.Some(42)
+    opt ?
+        | Some(val) { 
+            io.println("${val}")
+        }
+        | None { io.println("None") }
+    return 0
+}

@@ -1,0 +1,11 @@
+{ io } = @std
+
+main = () i32 {
+    val = 42
+    c = "*"
+    
+    io.println("Direct: ${val}")
+    io.println("Char: ${c}")
+    
+    return 0
+}

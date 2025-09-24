@@ -1,37 +1,37 @@
 // Test enum payload extraction bug
 { io } = @std
 
-// Define a custom enum with payload
+// Define a custom enum with payload - using correct syntax
 Message:
-    Text: string,
-    Number: i32,
+    Text(string),
+    Number(i32),
     Empty
 
 main = () i32 {
     io.println("Testing enum payload extraction...")
     
     // Test with string payload
-    msg1 = Text("Hello World")
+    msg1 = Message.Text("Hello World")
     msg1 ?
         | Text(s) { io.println("Text message: ${s}") }
         | Number(n) { io.println("Number: ${n}") }
         | Empty { io.println("Empty message") }
     
     // Test with number payload  
-    msg2 = Number(42)
+    msg2 = Message.Number(42)
     msg2 ?
         | Text(s) { io.println("Text: ${s}") }
         | Number(n) { io.println("Number message: ${n}") }
         | Empty { io.println("Empty") }
     
     // Test Option enum with string
-    opt = Some("Testing Option")
+    opt = Option.Some("Testing Option")
     opt ?
         | Some(val) { io.println("Option value: ${val}") }
         | None { io.println("No value") }
     
     // Test Option with number
-    opt2 = Some(123) 
+    opt2 = Option.Some(123) 
     opt2 ?
         | Some(val) { io.println("Option number: ${val}") }
         | None { io.println("None") }

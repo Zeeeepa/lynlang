@@ -1327,41 +1327,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     };
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     
-                    // Create proper enum struct type based on payload
-                    // First compile the payload (if any) to determine its actual type
-                    let (enum_struct_type, compiled_payload) = if let Some(expr) = payload {
-                        let compiled = self.compile_expression(expr)?;
-                        let payload_type = compiled.get_type();
-                        
-                        let struct_type = self.context.struct_type(&[
-                            self.context.i64_type().into(),
-                            payload_type.into(),
-                        ], false);
-                        (struct_type, Some(compiled))
-                    } else {
-                        // For None variant, still need space but use i64 as placeholder
-                        let struct_type = self.context.struct_type(&[
-                            self.context.i64_type().into(),
-                            self.context.i64_type().into(),
-                        ], false);
-                        (struct_type, None)
-                    };
+                    // Create proper enum struct type with pointer payload for genericity
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let enum_struct_type = self.context.struct_type(&[
+                        self.context.i64_type().into(),
+                        ptr_type.into(),
+                    ], false);
                     
                     let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
                     let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
                     self.builder.build_store(tag_ptr, tag_val)?;
                     
                     // Handle payload if present
-                    if let Some(payload_val) = compiled_payload {
-                        if enum_struct_type.count_fields() > 1 {
-                            let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-                            self.builder.build_store(payload_ptr, payload_val)?;
-                        }
-                    } else if enum_struct_type.count_fields() > 1 {
-                        // For None variant, store zero value
+                    if let Some(expr) = payload {
+                        let compiled = self.compile_expression(expr)?;
                         let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-                        let zero_val = self.context.i64_type().const_int(0, false);
-                        self.builder.build_store(payload_ptr, zero_val)?;
+                        
+                        // Store payload as pointer
+                        let payload_value = if compiled.is_pointer_value() {
+                            compiled
+                        } else {
+                            let value_alloca = self.builder.build_alloca(compiled.get_type(), "enum_payload_value")?;
+                            self.builder.build_store(value_alloca, compiled)?;
+                            value_alloca.into()
+                        };
+                        self.builder.build_store(payload_ptr, payload_value)?;
+                    } else {
+                        // For None variant, store null pointer
+                        let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+                        let null_ptr = ptr_type.const_null();
+                        self.builder.build_store(payload_ptr, null_ptr)?;
                     }
                     
                     let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
@@ -1388,41 +1383,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     };
                     let tag_val = self.context.i64_type().const_int(tag, false);
                     
-                    // Create proper enum struct type based on payload
-                    // First compile the payload (if any) to determine its actual type
-                    let (enum_struct_type, compiled_payload) = if let Some(expr) = payload {
-                        let compiled = self.compile_expression(expr)?;
-                        let payload_type = compiled.get_type();
-                        
-                        let struct_type = self.context.struct_type(&[
-                            self.context.i64_type().into(),
-                            payload_type.into(),
-                        ], false);
-                        (struct_type, Some(compiled))
-                    } else {
-                        // For None variant, still need space but use i64 as placeholder
-                        let struct_type = self.context.struct_type(&[
-                            self.context.i64_type().into(),
-                            self.context.i64_type().into(),
-                        ], false);
-                        (struct_type, None)
-                    };
+                    // Create proper enum struct type with pointer payload for genericity
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let enum_struct_type = self.context.struct_type(&[
+                        self.context.i64_type().into(),
+                        ptr_type.into(),
+                    ], false);
                     
                     let alloca = self.builder.build_alloca(enum_struct_type, &format!("{}_{}_enum_tmp", enum_name, variant))?;
                     let tag_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
                     self.builder.build_store(tag_ptr, tag_val)?;
                     
                     // Handle payload if present
-                    if let Some(payload_val) = compiled_payload {
-                        if enum_struct_type.count_fields() > 1 {
-                            let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-                            self.builder.build_store(payload_ptr, payload_val)?;
-                        }
-                    } else if enum_struct_type.count_fields() > 1 {
-                        // For None variant, store zero value
+                    if let Some(expr) = payload {
+                        let compiled = self.compile_expression(expr)?;
                         let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
-                        let zero_val = self.context.i64_type().const_int(0, false);
-                        self.builder.build_store(payload_ptr, zero_val)?;
+                        
+                        // Store payload as pointer
+                        let payload_value = if compiled.is_pointer_value() {
+                            compiled
+                        } else {
+                            let value_alloca = self.builder.build_alloca(compiled.get_type(), "enum_payload_value")?;
+                            self.builder.build_store(value_alloca, compiled)?;
+                            value_alloca.into()
+                        };
+                        self.builder.build_store(payload_ptr, payload_value)?;
+                    } else {
+                        // For None variant, store null pointer
+                        let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
+                        let null_ptr = ptr_type.const_null();
+                        self.builder.build_store(payload_ptr, null_ptr)?;
                     }
                     
                     let loaded = self.builder.build_load(enum_struct_type, alloca, &format!("{}_{}_enum_val", enum_name, variant))?;
@@ -2232,15 +2222,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
     fn compile_option_variant(&mut self, variant: &str, payload: Option<&Expression>) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // For Option type, use a simple tag-based representation
-        // Tag 0 = None, Tag 1 = Some
-        let tag = if variant == "None" { 0 } else { 1 };
+        // Tag 0 = Some, Tag 1 = None (matching the standard enum ordering)
+        let tag = if variant == "Some" { 0 } else { 1 };
         
         // Create a struct to represent the enum variant
-        let tag_type = self.context.i32_type();
-        let payload_type = if payload.is_some() {
-            self.context.i64_type() // Simplified: assume i64 payload
+        // Use i64 for tag to match what the pattern matching expects
+        let tag_type = self.context.i64_type();
+        let payload_type = if let Some(_expr) = payload {
+            // For Option.Some with integers, use i32 to match the expected payload
+            self.context.i32_type()
         } else {
-            self.context.i64_type() // Use i64 as placeholder even for None
+            self.context.i32_type() // Use i32 as placeholder even for None
         };
         
         let struct_type = self.context.struct_type(&[
@@ -2250,9 +2242,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Compile the payload if present
         let payload_value = if let Some(expr) = payload {
-            self.compile_expression(expr)?
+            let val = self.compile_expression(expr)?;
+            // Cast integer payloads to i32 to match the struct type
+            if val.is_int_value() {
+                let int_val = val.into_int_value();
+                if int_val.get_type() != self.context.i32_type() {
+                    self.builder.build_int_truncate_or_bit_cast(int_val, self.context.i32_type(), "cast_to_i32")?.into()
+                } else {
+                    val
+                }
+            } else {
+                val
+            }
         } else {
-            self.context.i64_type().const_int(0, false).into()
+            self.context.i32_type().const_int(0, false).into()
         };
         
         // Create the struct value

@@ -1,0 +1,12 @@
+// Simple enum payload test
+{ io } = @std
+
+main = () i32 {
+    // Test Option with number only
+    opt = Option.Some(42) 
+    opt ?
+        | Some(val) { io.println("Option number: ${val}") }
+        | None { io.println("None") }
+    
+    return 0
+}
