@@ -1,0 +1,116 @@
+// Test for Zen Behaviors (Traits) System
+// Demonstrates .implements() and .requires() pattern
+
+{ io } = @std
+{ implements, requires, Eq, Display, Debug } = @std.meta
+
+// Define a custom behavior (trait)
+Drawable := {
+    draw: (self) void,
+    get_color: (self) string
+}
+
+// Simple struct
+Point := {
+    x: f64,
+    y: f64
+}
+
+// Implement Display for Point
+Point.implements(Display, {
+    fmt: (self) string {
+        return "Point(${self.x}, ${self.y})"
+    }
+})
+
+// Implement Eq for Point
+Point.implements(Eq, {
+    eq: (self, other: Point) bool {
+        return self.x == other.x && self.y == other.y
+    }
+})
+
+// Another struct
+Circle := {
+    center: Point,
+    radius: f64
+}
+
+// Implement multiple behaviors
+Circle.implements(Display, {
+    fmt: (self) string {
+        return "Circle(center: ${self.center.fmt()}, radius: ${self.radius})"
+    }
+})
+
+Circle.implements(Drawable, {
+    draw: (self) void {
+        io.println("Drawing circle at ${self.center.fmt()} with radius ${self.radius}")
+    },
+    get_color: (self) string {
+        return "red"
+    }
+})
+
+// Enum with behavior requirements
+Shape:
+    Circle: Circle
+    | Rectangle: {width: f64, height: f64}
+    | Triangle: {a: Point, b: Point, c: Point}
+
+// Require all Shape variants to implement Drawable
+Shape.requires(Drawable)
+
+// Generic function with behavior constraint
+print_formatted<T: Display>(item: T) void {
+    io.println("Formatted: ${item.fmt()}")
+}
+
+// Generic with multiple constraints
+draw_and_display<T: Drawable + Display>(item: T) void {
+    io.println("Display: ${item.fmt()}")
+    item.draw()
+    io.println("Color: ${item.get_color()}")
+}
+
+// Test behavior checking
+test_has_behavior := () void {
+    p := Point{x: 10.0, y: 20.0}
+    c := Circle{center: p, radius: 5.0}
+    
+    // Test Display behavior
+    print_formatted(p)
+    print_formatted(c)
+    
+    // Test Eq behavior
+    p2 := Point{x: 10.0, y: 20.0}
+    p3 := Point{x: 5.0, y: 10.0}
+    
+    p.eq(p2) ? {
+        io.println("Points are equal")
+    } : {
+        io.println("Points are not equal")
+    }
+    
+    p.eq(p3) ? {
+        io.println("Points are equal")
+    } : {
+        io.println("Points are not equal")
+    }
+    
+    // Test Drawable behavior
+    c.draw()
+    
+    // Test generic with constraints
+    draw_and_display(c)
+}
+
+main := () void {
+    io.println("=== Zen Behaviors System Test ===")
+    io.println("")
+    
+    test_has_behavior()
+    
+    io.println("")
+    io.println("=== Test Complete ===")
+}
