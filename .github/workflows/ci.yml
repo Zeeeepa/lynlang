@@ -151,7 +151,7 @@ jobs:
     - name: Run Zen Test Suite
       run: |
         echo "Running Zen test suite..."
-        ./run_tests.sh
+        ./scripts/run_tests.sh
 
   # Project statistics (non-blocking)
   stats:
