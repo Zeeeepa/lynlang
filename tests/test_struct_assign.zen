@@ -1,0 +1,15 @@
+// Test struct field assignment
+
+Point: {
+    x :: f64,
+    y :: f64 = 0
+}
+
+main = () void {
+    p ::= Point { x: 10.0, y: 20.0 }
+    io.println("Point created")
+    
+    // Try to assign to field
+    p.x = 15.0
+    io.println("Field assigned")
+}

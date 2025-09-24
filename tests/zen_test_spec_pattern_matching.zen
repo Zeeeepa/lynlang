@@ -5,18 +5,18 @@ main = () void {
     is_ready = true
     is_ready ? {
         // Single arm pattern match
-        print("Ready!")
+        io.println("Ready!")
     }
     
     has_data = false
     has_data ?
-        | true { print("Has data") }
-        | false { print("No data") }
+        | true { io.println("Has data") }
+        | false { io.println("No data") }
     
     // Test pattern matching with values
     value = 5
     value ?
-        | 0 { print("Zero") }
-        | 5 { print("Five") }
-        | _ { print("Other") }
+        | 0 { io.println("Zero") }
+        | 5 { io.println("Five") }
+        | _ { io.println("Other") }
 }
