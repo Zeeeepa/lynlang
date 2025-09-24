@@ -8,7 +8,8 @@ string_hash = (s: string) u64 {
     loop {
         i >= s.len() ? { break }
         char_val = s.char_at(i)
-        hash = (((hash * 32) + hash) + char_val)  // Using multiplication instead of shift
+        temp ::= hash * 32
+        hash = temp + hash + char_val  // Using multiplication instead of shift
         i = i + 1
     }
     return hash
@@ -16,7 +17,8 @@ string_hash = (s: string) u64 {
 
 // Simple hash function for i32
 i32_hash = (n: i32) u64 {
-    return (n as u64) * 2654435761u64
+    casted ::= n as u64
+    return casted * 2654435761u64
 }
 
 // Equality function for strings

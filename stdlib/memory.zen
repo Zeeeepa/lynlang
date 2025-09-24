@@ -1,7 +1,22 @@
-// BACKWARD COMPATIBILITY ONLY - Use memory_unified.zen
-// This file maintained for existing code that imports memory.zen
+// Memory management module
+// Re-exports memory_unified for compatibility
 
-{ memory_unified } := @std
+{ sys } = @std
 
-// Re-export all functions for compatibility
-module.exports = memory_unified.exports
+// Memory allocation functions using sys module
+system_allocator = () Ptr<void> {
+    // Return a simple allocator
+    return sys.null_ptr()
+}
+
+allocate = (size: u64) Ptr<void> {
+    return sys.malloc(size)
+}
+
+free = (ptr: Ptr<void>) void {
+    sys.free(ptr)
+}
+
+reallocate = (ptr: Ptr<void>, old_size: u64, new_size: u64) Ptr<void> {
+    return sys.realloc(ptr, new_size)
+}

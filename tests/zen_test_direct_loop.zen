@@ -3,13 +3,13 @@
 { io } = @std
 
 main = () void {
-    // Direct loop statement (currently not supported per spec comment)
+    // Direct loop statement 
     counter ::= 0
-    loop(() {
-        (counter >= 3) ? { break }
+    loop {
+        counter >= 3 ? { break }
         io.println("Loop: ${counter}")
         counter = counter + 1
-    })
+    }
     
     io.println("Final: ${counter}")
 }
