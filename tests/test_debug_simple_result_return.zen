@@ -1,0 +1,12 @@
+// Debug test for simple Result return
+{ io, Result } = @std
+
+simple_test = () Result<i32, string> {
+    return Result.Ok(42)
+}
+
+main = () i32 {
+    r = simple_test()
+    io.println("Test complete")
+    return 0
+}
