@@ -4,7 +4,7 @@
 { io, math } = @std
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Structs from spec
 Point: {
@@ -132,18 +132,18 @@ main = () void {
     io.println("\n7. Option Type (No Null!):")
     maybe_radius: Option<f64> = Option.Some(5.5)
     maybe_radius ?
-        | Some(r) {
+        | Option.Some(r) {
             io.println("  Created circle with radius: ${r}")
             // Note: Can't compute area without trait implementation
         }
-        | None {
+        | Option.None {
             io.println("  No radius provided")
         }
     
     empty_option: Option<f64> = Option.None
     empty_option ?
-        | Some(r) { io.println("  Unexpected: ${r}") }
-        | None { io.println("  Got None as expected") }
+        | Option.Some(r) { io.println("  Unexpected: ${r}") }
+        | Option.None { io.println("  Got None as expected") }
     
     // Test Result type
     io.println("\n8. Result Type:")

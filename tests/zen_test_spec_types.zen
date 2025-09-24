@@ -1,7 +1,7 @@
 // Test type definitions from LANGUAGE_SPEC.zen
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Simple struct (line 116-120)
 Point: {
@@ -12,7 +12,7 @@ Point: {
 // Main function
 main = () void {
     // Test Option handling
-    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius: Option<f64> = Option.Some(5.5)
     
     // Test struct creation
     point = Point { x: 1.0, y: 2.0 }

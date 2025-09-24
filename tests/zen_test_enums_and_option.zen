@@ -2,7 +2,7 @@
 // Tests enum definitions and Option<T> type
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Simple enum
 Shape:
@@ -17,18 +17,18 @@ GameEntity:
 
 main = () void {
     // Option handling - no null!
-    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius: Option<f64> = Option.Some(5.5)
     maybe_radius ?
-        | Some(r) {
+        | Option.Some(r) {
             // Use the value
             radius = r
         }
-        | None {
+        | Option.None {
             // Handle None case
         }
     
     // Create None variant
-    nothing: Option<i32> = None
+    nothing: Option<i32> = Option.None
     
     // Result type usage
     result: Result<i32, string> = Result.Ok(42)

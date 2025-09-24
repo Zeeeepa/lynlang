@@ -4,7 +4,7 @@
 { io, math } = @std
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Struct with mutable fields (lines 116-120)
 Point: {
@@ -51,12 +51,12 @@ main = () void {
         | false { io.println("No data") }
     
     // Option handling (lines 462-473)
-    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius: Option<f64> = Option.Some(5.5)
     maybe_radius ?
-        | Some(r) {
+        | Option.Some(r) {
             io.println("Radius: ${r}")
         }
-        | None {
+        | Option.None {
             io.println("No radius")
         }
     

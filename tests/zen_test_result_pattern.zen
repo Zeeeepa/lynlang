@@ -2,16 +2,16 @@
 { io } = @std
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Function with pattern matching as expression
 test_pattern = () Result<i32, string> {
-    maybe: Option<i32> = Some(42)
+    maybe: Option<i32> = Option.Some(42)
     
     // Pattern matching in expression context (not statement)
     maybe ?
-        | Some(val) { return Result.Ok(val) }
-        | None { return Result.Err("no value") }
+        | Option.Some(val) { return Result.Ok(val) }
+        | Option.None { return Result.Err("no value") }
 }
 
 main = () void {

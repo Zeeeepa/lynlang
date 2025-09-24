@@ -13,8 +13,8 @@ test_raise = () Result<i32, string> {
 }
 
 main = () i32 {
-    result = test_raise()
-    result ?
+    test_result = test_raise()
+    test_result ?
         | Result.Ok(val) { 
             io.println("Got Ok variant")
             return 42

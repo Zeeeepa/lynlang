@@ -5,7 +5,7 @@
 { String, StringBuilder } = @std
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Simple struct
 Point: {
@@ -65,16 +65,16 @@ main = () void {
     })
     
     // Option handling - no null!
-    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius: Option<f64> = Option.Some(5.5)
     maybe_radius ?
-        | Some(r) {
+        | Option.Some(r) {
             circle = Circle {
                 center: Point { x: 0.0, y: 0.0 },
                 radius: r,
             }
             io.println("Created circle")
         }
-        | None {
+        | Option.None {
             io.println("No radius provided")
         }
 }

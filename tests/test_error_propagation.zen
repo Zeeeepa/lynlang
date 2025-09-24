@@ -1,5 +1,5 @@
 // Test error propagation patterns in Zen
-{ io, Result, Ok, Err, Error } = @std
+{ io, Result, Error } = @std
 
 // Example file operations that can fail
 FileError:

@@ -4,7 +4,7 @@
 { io, math } = @std
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Simple struct from spec (line 116-120)
 Point: {
@@ -55,12 +55,12 @@ main = () void {
     
     // Test 3: Option handling from spec (lines 462-473)
     io.println("\n3. Option Handling:")
-    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius: Option<f64> = Option.Some(5.5)
     maybe_radius ?
-        | Some(r) {
+        | Option.Some(r) {
             io.println("Radius is Some(${r})")
         }
-        | None {
+        | Option.None {
             io.println("No radius")
         }
     

@@ -1,6 +1,5 @@
 // Test Result<f64, string> type
-{ io } = @std
-{ Result, Ok, Err } = @std
+{ io, Result } = @std
 
 test_f64_result = () Result<f64, string> {
     return Result.Ok(3.14)

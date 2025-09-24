@@ -4,13 +4,13 @@
 { io } = @std
 
 // Import Result and Option from stdlib  
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Parse function that returns Result (lines 198-203)
 parse_radius = (s: string) Result<f64, string> {
     s.to_f64() ?
-        | Some(val) { return Result.Ok(val) }
-        | None { return Result.Err("Invalid radius") }
+        | Option.Some(val) { return Result.Ok(val) }
+        | Option.None { return Result.Err("Invalid radius") }
 }
 
 // Error propagation with .raise() (lines 205-211)

@@ -1,7 +1,7 @@
 // Test file based on LANGUAGE_SPEC.zen
 // Testing new Zen syntax features
 
-{ io, maths } = @std
+{ io, maths, Option } = @std
 { String, StringBuilder } = @std
 
 main = () void {
@@ -31,17 +31,17 @@ main = () void {
     // })
     
     // Test Option types
-    maybe_radius: Option<f64> = Some(5.5)
+    maybe_radius: Option<f64> = Option.Some(5.5)
     maybe_radius ?
-        | Some(r) {
+        | Option.Some(r) {
             io.println("Radius: ${r}")
         }
-        | None {
+        | Option.None {
             io.println("No radius provided")
         }
     
     // Test None
-    empty: Option<i32> = None
+    empty: Option<i32> = Option.None
     
     // Test error propagation with .raise() - commenting out for missing functions
     // file_result = open_file("test.txt")

@@ -8,7 +8,7 @@ string_hash = (s: string) u64 {
     loop {
         i >= s.len() ? { break }
         char_val = s.char_at(i)
-        hash = ((hash * 32) + hash) + char_val  // Using multiplication instead of shift
+        hash = (((hash * 32) + hash) + char_val)  // Using multiplication instead of shift
         i = i + 1
     }
     return hash

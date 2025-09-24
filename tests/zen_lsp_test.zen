@@ -5,7 +5,7 @@ io {  } = @std;
 math {  } = @std;
 
 // Import Result and Option from stdlib
-{ Result, Ok, Err, Option, Some, None } = @std
+{ Result, Option } = @std
 
 // Type definitions
 Point: {
