@@ -1,0 +1,27 @@
+// Test Result.Ok with string payloads
+{ io, Result } = @std
+
+test_ok_string = () Result<string, i32> {
+    return Result.Ok("success")
+}
+
+test_ok_int = () Result<i32, string> {
+    return Result.Ok(99)
+}
+
+main = () i32 {
+    io.println("Test 1: Result<string, i32> with Ok(string):")
+    r1 = test_ok_string()
+    r1 ?
+        | .Ok(val) { io.println("  Ok: ${val}") }
+        | .Err(err) { io.println("  Err: ${err}") }
+    
+    io.println("")
+    io.println("Test 2: Result<i32, string> with Ok(i32):")
+    r2 = test_ok_int()
+    r2 ?
+        | .Ok(val) { io.println("  Ok: ${val}") }
+        | .Err(err) { io.println("  Err: ${err}") }
+    
+    return 0
+}

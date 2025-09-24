@@ -278,6 +278,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Clear variables from previous function by entering a new scope
         self.symbols.enter_scope();
         
+        // Extract generic type information from the function's return type
+        // This helps with proper payload extraction in pattern matching
+        if let AstType::Generic { name, type_args } = &function.return_type {
+            if name == "Result" && type_args.len() == 2 {
+                // Store Result<T, E> type arguments for pattern matching
+                self.generic_type_context.insert("Result_Ok_Type".to_string(), type_args[0].clone());
+                self.generic_type_context.insert("Result_Err_Type".to_string(), type_args[1].clone());
+            } else if name == "Option" && type_args.len() == 1 {
+                // Store Option<T> type argument for pattern matching
+                self.generic_type_context.insert("Option_Some_Type".to_string(), type_args[0].clone());
+            }
+        }
+        
         // Create variables for module imports
         for (name, marker) in self.module_imports.clone() {
             let alloca = self.builder.build_alloca(
@@ -527,6 +540,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ))
                 .collect::<Result<Vec<_>, _>>()?;
             let call = self.builder.build_call(function, &args_metadata, "calltmp")?;
+            
+            // Update generic_type_context if this function returns Result<T,E> or Option<T>
+            if let Some(return_type) = self.function_types.get(name) {
+                if let AstType::Generic { name: type_name, type_args } = return_type {
+                    if type_name == "Result" && type_args.len() == 2 {
+                        self.generic_type_context.insert("Result_Ok_Type".to_string(), type_args[0].clone());
+                        self.generic_type_context.insert("Result_Err_Type".to_string(), type_args[1].clone());
+                    } else if type_name == "Option" && type_args.len() == 1 {
+                        self.generic_type_context.insert("Option_Some_Type".to_string(), type_args[0].clone());
+                    }
+                }
+            }
+            
             // Check if the function returns void
             if function.get_type().get_return_type().is_none() {
                 // Return a dummy value for void functions
