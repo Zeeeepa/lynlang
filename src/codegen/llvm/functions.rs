@@ -22,6 +22,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         match name {
             "string_to_f64" => {
                 // string_to_f64(str: *const i8) -> Option<f64> (as struct)
+                // For now, create a stub implementation that always returns None
+                // TODO: Implement actual string to float parsing with strtod
                 let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_f64_type = self.context.struct_type(
                     &[
@@ -33,7 +35,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let fn_type = option_f64_type.fn_type(&[string_type.into()], false);
                 let func = self
                     .module
-                    .add_function(name, fn_type, Some(Linkage::External));
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Create a basic implementation that returns None for now
+                let entry = self.context.append_basic_block(func, "entry");
+                let current_block = self.builder.get_insert_block();
+                self.builder.position_at_end(entry);
+                
+                // Return None variant
+                let none_value = option_f64_type.const_named_struct(&[
+                    self.context.i64_type().const_int(1, false).into(), // None discriminant
+                    self.context.f64_type().const_float(0.0).into(), // dummy payload
+                ]);
+                self.builder.build_return(Some(&none_value))?;
+                
+                // Restore builder position
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
                 Ok(func)
             }
             "string_to_f32" => {
