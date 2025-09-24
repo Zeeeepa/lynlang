@@ -256,6 +256,58 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Implement range iteration
                         return self.compile_range_loop(start, end, *inclusive, args);
                     }
+                    
+                    // Check if object is an identifier holding a Range
+                    if let Expression::Identifier(name) = object.as_ref() {
+                        if let Some(var_info) = self.variables.get(name).cloned() {
+                            if let AstType::Range { .. } = &var_info.ast_type {
+                                // Load the range struct
+                                let range_type = match self.to_llvm_type(&var_info.ast_type)? {
+                                    super::Type::Struct(s) => s,
+                                    _ => return Err(CompileError::InternalError("Expected struct type for Range".to_string(), None))
+                                };
+                                let range_val = self.builder.build_load(
+                                    range_type,
+                                    var_info.pointer,
+                                    name
+                                )?;
+                                
+                                // Extract start, end, and inclusive from the struct
+                                let range_struct = range_val.into_struct_value();
+                                let start_val = self.builder.build_extract_value(range_struct, 0, "start")?
+                                    .into_int_value();
+                                let end_val = self.builder.build_extract_value(range_struct, 1, "end")?
+                                    .into_int_value();
+                                let inclusive_val = self.builder.build_extract_value(range_struct, 2, "inclusive")?
+                                    .into_int_value();
+                                
+                                
+                                // Check if inclusive (convert bool to actual value)
+                                // Check if the constant is non-zero
+                                let is_inclusive = if let Some(const_val) = inclusive_val.get_zero_extended_constant() {
+                                    const_val != 0
+                                } else {
+                                    false // Default to exclusive if we can't determine
+                                };
+                                
+                                // Get the closure from args
+                                let closure = args.get(0).ok_or_else(|| 
+                                    CompileError::InternalError("Range.loop() requires a closure argument".to_string(), None))?;
+                                
+                                let (param_name, loop_body) = match closure {
+                                    Expression::Closure { params, body } => {
+                                        let param = params.get(0).ok_or_else(||
+                                            CompileError::InternalError("Range.loop() closure must have one parameter".to_string(), None))?;
+                                        (param.0.clone(), body.as_ref())
+                                    }
+                                    _ => return Err(CompileError::InternalError("Range.loop() requires a closure argument".to_string(), None))
+                                };
+                                
+                                // Call the range loop implementation
+                                return self.compile_range_loop_from_values(start_val, end_val, is_inclusive, &param_name, loop_body);
+                            }
+                        }
+                    }
                 }
                 
                 // Implement UFC (Uniform Function Call)
@@ -1859,22 +1911,45 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     fn compile_range_expression(&mut self, start: &Expression, end: &Expression, inclusive: bool) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        eprintln!("DEBUG: Compiling Range expression");
-        // For now, represent ranges as a simple struct { start: i64, end: i64, inclusive: bool }
+        // Represent ranges as a struct { start: i64, end: i64, inclusive: bool }
+        // Always cast to i64 to ensure consistent types
         let start_val = self.compile_expression(start)?;
         let end_val = self.compile_expression(end)?;
         
-        // Create a simple struct type for the range
+        // Cast to i64 if needed
+        let start_i64 = if start_val.is_int_value() {
+            let int_val = start_val.into_int_value();
+            if int_val.get_type() != self.context.i64_type() {
+                self.builder.build_int_cast(int_val, self.context.i64_type(), "start_cast")?.into()
+            } else {
+                start_val
+            }
+        } else {
+            start_val
+        };
+        
+        let end_i64 = if end_val.is_int_value() {
+            let int_val = end_val.into_int_value();
+            if int_val.get_type() != self.context.i64_type() {
+                self.builder.build_int_cast(int_val, self.context.i64_type(), "end_cast")?.into()
+            } else {
+                end_val
+            }
+        } else {
+            end_val
+        };
+        
+        // Create a simple struct type for the range - always use i64 for consistency
         let _range_struct_type = self.context.struct_type(&[
-            start_val.get_type(),
-            end_val.get_type(),
+            self.context.i64_type().into(),
+            self.context.i64_type().into(),
             self.context.bool_type().into(),
         ], false);
         
         // Create the range struct value
         let range_struct = self.context.const_struct(&[
-            start_val,
-            end_val,
+            start_i64,
+            end_i64,
             self.context.bool_type().const_int(inclusive as u64, false).into(),
         ], false);
         
@@ -2569,7 +2644,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
             if let Some(var_info) = self.variables.get(name).cloned() {
                 eprintln!("DEBUG: Variable {} has type {:?}", name, var_info.ast_type);
                 if let AstType::Range { inclusive, .. } = &var_info.ast_type {
-                    eprintln!("DEBUG: Detected Range type, calling compile_range_loop_from_values");
                     // We need to extract the range values from the stored struct
                     // Load the range struct
                     let range_type = match self.to_llvm_type(&var_info.ast_type)? {
@@ -2582,16 +2656,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         name
                     )?;
                     
-                    // Extract start and end from the struct
+                    // Extract start, end, and inclusive from the struct
                     let range_struct = range_val.into_struct_value();
                     let start_val = self.builder.build_extract_value(range_struct, 0, "start")?
                         .into_int_value();
                     let end_val = self.builder.build_extract_value(range_struct, 1, "end")?
                         .into_int_value();
+                    let inclusive_val = self.builder.build_extract_value(range_struct, 2, "inclusive")?
+                        .into_int_value();
                     
-                    // Actually, we need to implement this differently
-                    // For now, create a proper range loop implementation here
-                    return self.compile_range_loop_from_values(start_val, end_val, *inclusive, param, body);
+                    
+                    // Check if inclusive (convert bool to actual value)
+                    // Check if the constant is non-zero
+                    let is_inclusive = if let Some(const_val) = inclusive_val.get_zero_extended_constant() {
+                        const_val != 0
+                    } else {
+                        false // Default to exclusive if we can't determine
+                    };
+                    
+                    // Create a proper range loop implementation here
+                    return self.compile_range_loop_from_values(start_val, end_val, is_inclusive, param, body);
                 }
             }
         }

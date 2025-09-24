@@ -191,13 +191,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(Type::Struct(result_struct))
             },
             AstType::Range { start_type, end_type, inclusive: _ } => {
-                // Range is represented as a struct with start and end values
+                // Range is represented as a struct with start, end, and inclusive values
                 let _start_type = self.to_llvm_type(start_type)?;
                 let _end_type = self.to_llvm_type(end_type)?;
-                // For now, just use i64 for both start and end
+                // For now, just use i64 for both start and end, and bool for inclusive
                 let range_struct = self.context.struct_type(&[
                     self.context.i64_type().into(),
                     self.context.i64_type().into(),
+                    self.context.bool_type().into(),  // Add inclusive field
                 ], false);
                 Ok(Type::Struct(range_struct))
             },
