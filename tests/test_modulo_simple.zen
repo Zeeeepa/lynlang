@@ -1,0 +1,26 @@
+// Simple test for modulo operator
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing modulo operator...")
+    
+    a = 10 % 3
+    io.println("10 % 3 = ${a}")
+    
+    b = 4 % 2
+    io.println("4 % 2 = ${b}")
+    
+    c = 5 % 2
+    io.println("5 % 2 = ${c}")
+    
+    d = 7 % 4
+    io.println("7 % 4 = ${d}")
+    
+    // Test with variables
+    x = 8
+    y = 3
+    z = x % y
+    io.println("8 % 3 = ${z}")
+    
+    return 0
+}

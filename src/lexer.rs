@@ -460,7 +460,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn is_operator_start(&self, c: char) -> bool {
-        matches!(c, '+' | '*' | '/' | '!' | '<' | '>' | '&' | '|' | ':')
+        matches!(c, '+' | '*' | '/' | '%' | '!' | '<' | '>' | '&' | '|' | ':')
     }
 
     fn read_string(&mut self) -> String {
