@@ -1,0 +1,21 @@
+// Debug test for multiple Result functions
+{ io, Result } = @std
+
+test_i32 = () Result<i32, string> {
+    a = Result.Ok(42)
+    val = a.raise()
+    return Result.Ok(val * 2)
+}
+
+test_i64 = () Result<i64, string> {
+    a = Result.Ok(1000)
+    val = a.raise()
+    return Result.Ok(val + 1)
+}
+
+main = () i32 {
+    r1 = test_i32()
+    r2 = test_i64()
+    io.println("Test complete")
+    return 0
+}

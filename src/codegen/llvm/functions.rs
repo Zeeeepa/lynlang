@@ -417,6 +417,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
+        // Clear function-local state before moving to next function
+        self.symbols.exit_scope();
+        self.variables.clear();
         self.current_function = None;
         Ok(())
     }
