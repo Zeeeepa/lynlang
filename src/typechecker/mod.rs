@@ -1407,15 +1407,61 @@ impl TypeChecker {
                 self.declare_variable(name, binding_type, false)?;
             }
             Pattern::EnumLiteral { variant, payload } => {
-                // For enum patterns with payloads, add the payload bindings
+                // For enum patterns with payloads, determine the payload type based on the variant
                 if let Some(payload_pattern) = payload {
-                    self.add_pattern_bindings_to_scope_with_type(payload_pattern, scrutinee_type)?;
+                    let payload_type = if let AstType::Generic { name: enum_name, type_args } = scrutinee_type {
+                        if enum_name == "Result" && type_args.len() >= 2 {
+                            // For Result<T,E>, Ok has type T, Err has type E
+                            if variant == "Ok" {
+                                type_args[0].clone()
+                            } else if variant == "Err" {
+                                type_args[1].clone()
+                            } else {
+                                AstType::I32
+                            }
+                        } else if enum_name == "Option" && !type_args.is_empty() {
+                            // For Option<T>, Some has type T
+                            if variant == "Some" {
+                                type_args[0].clone()
+                            } else {
+                                AstType::Void
+                            }
+                        } else {
+                            scrutinee_type.clone()
+                        }
+                    } else {
+                        scrutinee_type.clone()
+                    };
+                    self.add_pattern_bindings_to_scope_with_type(payload_pattern, &payload_type)?;
                 }
             }
-            Pattern::EnumVariant { payload, .. } => {
-                // For qualified enum patterns with payloads
+            Pattern::EnumVariant { variant, payload, .. } => {
+                // For qualified enum patterns with payloads, determine the payload type based on the variant
                 if let Some(payload_pattern) = payload {
-                    self.add_pattern_bindings_to_scope_with_type(payload_pattern, scrutinee_type)?;
+                    let payload_type = if let AstType::Generic { name: enum_name, type_args } = scrutinee_type {
+                        if enum_name == "Result" && type_args.len() >= 2 {
+                            // For Result<T,E>, Ok has type T, Err has type E
+                            if variant == "Ok" {
+                                type_args[0].clone()
+                            } else if variant == "Err" {
+                                type_args[1].clone()
+                            } else {
+                                AstType::I32
+                            }
+                        } else if enum_name == "Option" && !type_args.is_empty() {
+                            // For Option<T>, Some has type T
+                            if variant == "Some" {
+                                type_args[0].clone()
+                            } else {
+                                AstType::Void
+                            }
+                        } else {
+                            scrutinee_type.clone()
+                        }
+                    } else {
+                        scrutinee_type.clone()
+                    };
+                    self.add_pattern_bindings_to_scope_with_type(payload_pattern, &payload_type)?;
                 }
             }
             Pattern::Binding { name, pattern } => {
