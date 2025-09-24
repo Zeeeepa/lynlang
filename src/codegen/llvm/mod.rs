@@ -135,6 +135,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     fn register_builtin_enums(&mut self) {
+        // Register Array<T> as a built-in type (not an enum)
+        // Array has methods like new() and is a dynamic array type
+        let array_struct_type = self.context.struct_type(
+            &[
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(), // data pointer
+                self.context.i64_type().into(), // length
+                self.context.i64_type().into(), // capacity
+            ],
+            false,
+        );
+        
+        // Register Array as a special built-in type
+        // We'll use a struct info for now to make it available
+        let array_info = StructTypeInfo {
+            llvm_type: array_struct_type,
+            fields: {
+                let mut fields = HashMap::new();
+                fields.insert("data".to_string(), (0, AstType::Ptr(Box::new(AstType::Void))));
+                fields.insert("length".to_string(), (1, AstType::I64));
+                fields.insert("capacity".to_string(), (2, AstType::I64));
+                fields
+            },
+        };
+        self.struct_types.insert("Array".to_string(), array_info);
+        
+        // Also register Array in symbols table so it can be used like a type
+        self.symbols.insert("Array", symbols::Symbol::StructType(array_struct_type));
+        
         // Register Option<T> enum
         // Option has Some(T) with payload and None without, so we need space for payload
         // Use pointer type for payload to handle any type (including strings and structs)

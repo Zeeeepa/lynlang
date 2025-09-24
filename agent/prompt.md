@@ -140,8 +140,10 @@
 ✓ Task 136: **VERIFIED** Project Status (2025-09-24) - All 154/154 tests passing (100.0% pass rate). 8 disabled tests. 162 total test files confirmed. Project structure clean and organized. Compiler builds successfully.
 ✓ Task 137: **UPDATED** Tasks Documentation (2025-09-24) - Updated agent/prompt.md to reflect accurate project status: 154/154 tests passing (100%), 8 disabled tests, 162 total test files. Int-to-float coercion and modulo operator confirmed working.
 ✓ Task 138: **VERIFIED** Project Status (2025-09-24 @ 23:00 UTC) - Confirmed test suite maintains 100% pass rate (154/154), 8 disabled tests, 162 total. 25 Rust unit tests passing. 157 compiler warnings. showcase.zen fully operational.
+✓ Task 139: **ANALYZED** Disabled Tests Blockers (2025-09-24) - Analyzed all 8 disabled tests. Main blocker: Array<T> type not implemented in compiler causing LLVM GEP errors. 4 tests need Array<T>, 4 need other unimplemented features (behaviors, pointers). Email update sent.
+✓ Task 140: **VERIFIED** Project Status (2025-09-24) - Test suite maintains 100% pass rate (154/154 tests passing), 8 disabled tests, 162 total test files. test_collections_simple.zen confirmed working. showcase.zen fully operational.
 
-## Current Status (2025-09-24 @ 23:00 UTC - 154/154 TESTS PASSING - 100%!)
+## Current Status (2025-09-24 - 154/154 TESTS PASSING - 100%!)
 
 ### 🎉 Major Milestones Achieved  
 - **Test Suite Health**: PERFECT 100% pass rate (154/154 passing) - ALL TESTS NOW PASSING!
@@ -247,12 +249,12 @@
 
 ### Immediate Priorities
 
-1. **Fix Result<T,E> Return Type Architecture** - 5 disabled tests blocked - 6 hours
-   - Functions returning Result<T,E> have LLVM struct type mismatch
-   - Return statements expect simple types but Result is {i64, ptr} struct
-   - Requires fundamental compiler architecture change
-   - Will unlock 5 disabled tests immediately
-   - NOTE: 6 Result tests were already re-enabled and are working!
+1. **Implement Array<T> Type Support** - 4 disabled tests blocked - 8 hours - **NEW HIGHEST PRIORITY**
+   - Array<T> used by stdlib collections but not implemented in compiler
+   - Causes "GEP pointee is not a struct" LLVM errors
+   - Required for HashMap<K,V>, HashSet<T> collections to work
+   - Will unlock test_collections.zen, test_error_propagation.zen
+   - Need array indexing, allocation, and LLVM codegen support
 
 2. **Complete Generic Type Instantiation** - Enable full monomorphization - 4 hours
    - ✅ Basic infrastructure added (generic_type_context in compiler)

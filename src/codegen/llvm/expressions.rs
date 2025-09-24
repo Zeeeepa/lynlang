@@ -2086,6 +2086,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
 
+        // Check if this is Array.new() or other Array methods
+        if let Expression::Identifier(type_name) = object {
+            if type_name == "Array" && member == "new" {
+                // Array.new() is a special static method
+                // Return a marker that indicates this is Array.new
+                // The actual implementation will be in the FunctionCall handler
+                // For now, just return a dummy value that won't be used
+                return Ok(self.context.i64_type().const_int(0xA77A9_0001, false).into());
+            }
+        }
+        
         // Check if this is an enum variant access (GameEntity.Player syntax)
         if let Expression::Identifier(enum_name) = object {
             // Check if this identifier is an enum type

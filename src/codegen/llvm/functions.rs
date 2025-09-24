@@ -8,6 +8,110 @@ use inkwell::{
 };
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Compile Array.new(capacity, default_value) - creates a new array
+    fn compile_array_new(
+        &mut self,
+        args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if args.len() != 2 {
+            return Err(CompileError::TypeError(
+                format!("Array.new expects 2 arguments, got {}", args.len()),
+                None,
+            ));
+        }
+        
+        // Compile the capacity argument
+        let capacity_val = self.compile_expression(&args[0])?;
+        let capacity = capacity_val.into_int_value();
+        
+        // Compile the default value (could be Option.None)
+        let _default_val = self.compile_expression(&args[1])?;
+        
+        // Create the Array<T> struct: { ptr, length, capacity }
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let array_struct_type = self.context.struct_type(
+            &[
+                ptr_type.into(),                 // data pointer
+                self.context.i64_type().into(),  // length
+                self.context.i64_type().into(),  // capacity
+            ],
+            false,
+        );
+        
+        // Allocate memory for the array data
+        // For now, allocate as i64 array (8 bytes per element)
+        let element_size = self.context.i64_type().const_int(8, false);
+        let total_size = self.builder.build_int_mul(capacity, element_size, "total_size")?;
+        
+        // Call malloc to allocate memory
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, Some(Linkage::External))
+        });
+        
+        let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| CompileError::InternalError(
+                "malloc should return a pointer".to_string(),
+                None,
+            ))?;
+        
+        // Initialize the array to zeros
+        let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
+            let i8_type = self.context.i8_type();
+            let i32_type = self.context.i32_type();
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[ptr_type.into(), i32_type.into(), i64_type.into()], false);
+            self.module.add_function("memset", fn_type, Some(Linkage::External))
+        });
+        
+        self.builder.build_call(
+            memset_fn,
+            &[
+                data_ptr.into(),
+                self.context.i32_type().const_int(0, false).into(),
+                total_size.into(),
+            ],
+            "memset_call",
+        )?;
+        
+        // Create the Array struct
+        let array_alloca = self.builder.build_alloca(array_struct_type, "array")?;
+        
+        // Store data pointer
+        let data_ptr_field = self.builder.build_struct_gep(
+            array_struct_type,
+            array_alloca,
+            0,
+            "data_ptr_field",
+        )?;
+        self.builder.build_store(data_ptr_field, data_ptr)?;
+        
+        // Store length (initially 0 for empty array with capacity)
+        let length_field = self.builder.build_struct_gep(
+            array_struct_type,
+            array_alloca,
+            1,
+            "length_field",
+        )?;
+        self.builder.build_store(length_field, self.context.i64_type().const_int(0, false))?;
+        
+        // Store capacity
+        let capacity_field = self.builder.build_struct_gep(
+            array_struct_type,
+            array_alloca,
+            2,
+            "capacity_field",
+        )?;
+        self.builder.build_store(capacity_field, capacity)?;
+        
+        // Load and return the array struct
+        let result = self.builder.build_load(array_struct_type, array_alloca, "array_value")?;
+        Ok(result)
+    }
+    
     /// Gets or creates a runtime function
     pub fn get_or_create_runtime_function(
         &mut self,
@@ -708,6 +812,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         name: &str,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Check if this is Array.new() static method
+        if name == "Array.new" {
+            return self.compile_array_new(args);
+        }
+        
         // Check if this is a stdlib function call (e.g., io.print)
         if name.contains('.') {
             let parts: Vec<&str> = name.splitn(2, '.').collect();

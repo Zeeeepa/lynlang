@@ -355,6 +355,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(Type::Basic(self.context.i32_type().into()));
                 }
 
+                // Special handling for Array<T> type - dynamic array with pointer and length
+                if name == "Array" {
+                    // Array<T> is represented as a struct: { ptr, length, capacity }
+                    let array_struct_type = self.context.struct_type(
+                        &[
+                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // data pointer
+                            self.context.i64_type().into(), // length
+                            self.context.i64_type().into(), // capacity
+                        ],
+                        false,
+                    );
+                    return Ok(Type::Struct(array_struct_type));
+                }
+                
                 // Special handling for Result<T,E> and Option<T> types
                 // These are always represented as { i64 discriminant, ptr payload }
                 if name == "Result" || name == "Option" {
