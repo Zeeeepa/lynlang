@@ -67,6 +67,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     "strtod_result"
                 )?.try_as_basic_value().left().unwrap().into_float_value();
                 
+                
                 // Load the endptr value
                 let endptr_value = self.builder.build_load(string_type, endptr, "endptr_value")?;
                 

@@ -1,0 +1,15 @@
+{ io, Option } = @std
+
+main = () void {
+    s = "3.14159"
+    result = s.to_f64()
+    
+    result ?
+        | Option.Some(v) { 
+            // Just print the value directly
+            io.println("Value: ${v}")
+        }
+        | Option.None { 
+            io.println("Parse failed")
+        }
+}

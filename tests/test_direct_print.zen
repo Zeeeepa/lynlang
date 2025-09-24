@@ -1,7 +1,0 @@
-{ io } = @std
-
-main = () i32 {
-    val = 42
-    io.println("Direct number: \${val}")
-    return 0
-}

@@ -1,0 +1,16 @@
+{ io, Option } = @std
+
+main = () void {
+    s = "2.5"
+    opt = s.to_f64()
+    
+    opt ?
+        | Option.Some(v) {
+            // Try simple arithmetic to see if it's really a float
+            result = v + 1.5
+            io.println("2.5 + 1.5 = ${result}")
+        }
+        | Option.None {
+            io.println("Parse failed")
+        }
+}

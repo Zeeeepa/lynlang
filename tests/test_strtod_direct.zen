@@ -1,0 +1,22 @@
+{ io } = @std
+
+// Test calling strtod directly via FFI
+inline.c("
+#include <stdlib.h>
+#include <stdio.h>
+
+void test_strtod() {
+    const char* str = \"3.14159\";
+    char* endptr;
+    double result = strtod(str, &endptr);
+    printf(\"strtod result: %f\\n\", result);
+    printf(\"endptr points to: '%s'\\n\", endptr);
+}
+")
+
+extern test_strtod() void
+
+main = () void {
+    io.println("Testing strtod directly:")
+    test_strtod()
+}

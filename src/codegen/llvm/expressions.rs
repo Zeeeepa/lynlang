@@ -383,7 +383,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let object_value = self.compile_expression(object)?;
 
                 // Special handling for string methods
-                if let Expression::Identifier(_) = object.as_ref() {
+                // Check if the object is a string value (pointer type)
+                if object_value.is_pointer_value() {
                     // Check if this is a string method
                     match method.as_str() {
                         "to_f64" => {
@@ -1531,8 +1532,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             // Apply pattern bindings
             // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
-            for (name, _) in &bindings {
-                eprintln!("  - Variable: {}", name);
+            for (name, val) in &bindings {
+                eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
             }
             let saved_vars = self.apply_pattern_bindings(&bindings);
 
@@ -2127,6 +2128,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         scrutinee: &Expression,
         arms: &[crate::ast::PatternArm],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        eprintln!("[DEBUG] compile_pattern_match called, scrutinee: {:?}", scrutinee);
+        eprintln!("[DEBUG] generic_type_context at pattern match: {:?}", self.generic_type_context);
+        
         let parent_function = self.current_function.ok_or_else(|| {
             CompileError::InternalError("No current function for pattern match".to_string(), None)
         })?;
@@ -2206,8 +2210,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             // Apply pattern bindings
             // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
-            for (name, _) in &bindings {
-                eprintln!("  - Variable: {}", name);
+            for (name, val) in &bindings {
+                eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
             }
             let saved_vars = self.apply_pattern_bindings(&bindings);
 

@@ -1,0 +1,12 @@
+{ io, Option } = @std
+
+main = () void {
+    // Pattern match immediately after to_f64()
+    "3.14159".to_f64() ?
+        | Option.Some(v) {
+            io.println("Value: ${v}")
+        }
+        | Option.None {
+            io.println("Parse failed")
+        }
+}

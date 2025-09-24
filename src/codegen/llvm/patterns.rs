@@ -13,6 +13,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<(IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
         let mut bindings = Vec::new();
 
+        eprintln!("[DEBUG] compile_pattern_test - pattern type: {:?}", std::any::type_name_of_val(pattern));
+        eprintln!("[DEBUG] compile_pattern_test - pattern: {:?}", pattern);
+        eprintln!("[DEBUG] compile_pattern_test - scrutinee type: {:?}, is_struct: {}, is_pointer: {}", 
+                 scrutinee_val.get_type(), scrutinee_val.is_struct_value(), scrutinee_val.is_pointer_value());
         let matches = match pattern {
             Pattern::Literal(lit_expr) => {
                 // Check if the literal expression is a range
@@ -292,6 +296,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Handle payload pattern if present
                 if let Some(payload_pattern) = payload {
+                    eprintln!("[DEBUG] Handling payload pattern for enum variant {}.{}", enum_name, variant);
+                    eprintln!("[DEBUG] Scrutinee is_pointer={}, is_struct={}", 
+                             scrutinee_val.is_pointer_value(), scrutinee_val.is_struct_value());
                     // Extract the payload value - preserve the actual type!
                     let payload_val = if scrutinee_val.is_pointer_value() {
                         let enum_struct_type = enum_info.llvm_type;
@@ -331,7 +338,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                 // Check if we have type information for this enum
                                 let load_type = if enum_name == "Option" && variant == "Some" {
-                                    self.generic_type_context.get("Option_Some_Type").cloned()
+                                    let t = self.generic_type_context.get("Option_Some_Type").cloned();
+                                    eprintln!("[DEBUG-ENUM] Pattern matching Option.Some, enum_name={}, variant={}, context={:?}", enum_name, variant, t);
+                                    t
                                 } else if enum_name == "Result" {
                                     if variant == "Ok" {
                                         self.generic_type_context.get("Result_Ok_Type").cloned()
@@ -379,6 +388,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 "payload_i64",
                                             )
                                             .unwrap_or(loaded_payload),
+                                        AstType::F32 => self
+                                            .builder
+                                            .build_load(
+                                                self.context.f32_type(),
+                                                ptr_val,
+                                                "payload_f32",
+                                            )
+                                            .unwrap_or(loaded_payload),
+                                        AstType::F64 => {
+                                            eprintln!("[DEBUG] Loading Option.Some payload as F64");
+                                            let loaded = self
+                                                .builder
+                                                .build_load(
+                                                    self.context.f64_type(),
+                                                    ptr_val,
+                                                    "payload_f64",
+                                                )
+                                                .unwrap_or(loaded_payload);
+                                            eprintln!("[DEBUG] Loaded value type: {:?}", loaded.get_type());
+                                            loaded
+                                        }
                                         AstType::String => loaded_payload, // Strings are already pointers, don't load
                                         _ => {
                                             // Try default loading for other types - i32 first
@@ -437,6 +467,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         if struct_val.get_type().count_fields() > 1 {
                             let extracted =
                                 self.builder.build_extract_value(struct_val, 1, "payload")?;
+                            eprintln!("[DEBUG] Extracted payload from struct: type={:?}, is_pointer={}, is_float={}", 
+                                     extracted.get_type(), extracted.is_pointer_value(), extracted.is_float_value());
                             // The payload in a struct is a pointer
                             // For integers: pointer to the integer value
                             // For strings: the string pointer itself
@@ -448,6 +480,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let ptr_val = extracted.into_pointer_value();
 
                                 // Check if pointer is null before attempting to load
+                                eprintln!("[DEBUG] Extracted pointer from struct payload, checking for null");
                                 let null_ptr = ptr_val.get_type().const_null();
                                 let is_null = self.builder.build_int_compare(
                                     inkwell::IntPredicate::EQ,
@@ -475,7 +508,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                 // Check if we have type information for this enum
                                 let load_type = if enum_name == "Option" && variant == "Some" {
-                                    self.generic_type_context.get("Option_Some_Type").cloned()
+                                    let t = self.generic_type_context.get("Option_Some_Type").cloned();
+                                    eprintln!("[DEBUG-ENUM] Pattern matching Option.Some, enum_name={}, variant={}, context={:?}", enum_name, variant, t);
+                                    t
                                 } else if enum_name == "Result" {
                                     if variant == "Ok" {
                                         self.generic_type_context.get("Result_Ok_Type").cloned()
@@ -611,10 +646,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     } else {
                         // No payload available
+                        eprintln!("[DEBUG] Fallback case - scrutinee type: {:?}", scrutinee_val.get_type());
                         self.context.i64_type().const_int(0, false).into()
                     };
 
                     // Recursively match the payload pattern
+                    eprintln!("[DEBUG] Before recursive match - payload_val type: {:?}, is_float: {}", 
+                             payload_val.get_type(), payload_val.is_float_value());
                     let (payload_match, mut payload_bindings) =
                         self.compile_pattern_test(&payload_val, payload_pattern)?;
 
@@ -791,9 +829,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         } else {
                                             // Check the generic type context for Option<T> and Result<T,E> type info
                                             let load_type = if variant == "Some" {
-                                                self.generic_type_context
+                                                let t = self.generic_type_context
                                                     .get("Option_Some_Type")
-                                                    .cloned()
+                                                    .cloned();
+                                                eprintln!("[DEBUG-PATH3] Pattern matching Some, generic_type_context Option_Some_Type = {:?}", t);
+                                                t
                                             } else if variant == "Ok" {
                                                 self.generic_type_context
                                                     .get("Result_Ok_Type")
@@ -840,6 +880,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             self.context.i64_type(),
                                                             ptr_val,
                                                             "payload_i64",
+                                                        )
+                                                        .unwrap_or(loaded_payload),
+                                                    AstType::F32 => self
+                                                        .builder
+                                                        .build_load(
+                                                            self.context.f32_type(),
+                                                            ptr_val,
+                                                            "payload_f32",
+                                                        )
+                                                        .unwrap_or(loaded_payload),
+                                                    AstType::F64 => self
+                                                        .builder
+                                                        .build_load(
+                                                            self.context.f64_type(),
+                                                            ptr_val,
+                                                            "payload_f64",
                                                         )
                                                         .unwrap_or(loaded_payload),
                                                     AstType::String => loaded_payload, // Strings are already pointers, don't load
