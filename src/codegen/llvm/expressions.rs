@@ -1477,20 +1477,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub(super) fn compile_enum_variant(&mut self, enum_name: &str, variant: &str, payload: &Option<Box<Expression>>) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        eprintln!("DEBUG: compile_enum_variant called: {}_{}", enum_name, variant);
+        // eprintln!("DEBUG: compile_enum_variant called: {}_{}", enum_name, variant);
         // Track Result<T, E> type information when compiling Result variants
         if enum_name == "Result" && payload.is_some() {
             if let Some(ref payload_expr) = payload {
-                eprintln!("DEBUG: Result {} payload expression: {:?}", variant, payload_expr);
+                // eprintln!("DEBUG: Result {} payload expression: {:?}", variant, payload_expr);
                 let payload_type = self.infer_expression_type(payload_expr);
-                eprintln!("DEBUG: Result {} payload type inferred: {:?}", variant, payload_type);
+                // eprintln!("DEBUG: Result {} payload type inferred: {:?}", variant, payload_type);
                 if let Ok(t) = payload_type {
                     let key = if variant == "Ok" {
                         "Result_Ok_Type".to_string()
                     } else {
                         "Result_Err_Type".to_string()
                     };
-                    eprintln!("DEBUG: Setting generic_type_context['{}'] to {:?}", key, t);
+                    // eprintln!("DEBUG: Setting generic_type_context['{}'] to {:?}", key, t);
                     self.generic_type_context.insert(key, t);
                 }
             }
@@ -1551,9 +1551,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // Handle payload if present
                     if let Some(expr) = payload {
-                        eprintln!("DEBUG: Compiling payload for {}_{}", enum_name, variant);
+                        // eprintln!("DEBUG: Compiling payload for {}_{}", enum_name, variant);
                         let compiled = self.compile_expression(expr)?;
-                        eprintln!("DEBUG: Payload type: {:?}, is_float: {}", compiled.get_type(), compiled.is_float_value());
+                        // eprintln!("DEBUG: Payload type: {:?}, is_float: {}", compiled.get_type(), compiled.is_float_value());
                         let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
                         
                         // Store payload as pointer
@@ -1609,9 +1609,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // Handle payload if present
                     if let Some(expr) = payload {
-                        eprintln!("DEBUG: Compiling payload for {}_{}", enum_name, variant);
+                        // eprintln!("DEBUG: Compiling payload for {}_{}", enum_name, variant);
                         let compiled = self.compile_expression(expr)?;
-                        eprintln!("DEBUG: Payload type: {:?}, is_float: {}", compiled.get_type(), compiled.is_float_value());
+                        // eprintln!("DEBUG: Payload type: {:?}, is_float: {}", compiled.get_type(), compiled.is_float_value());
                         let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
                         
                         // Store payload as pointer
@@ -2451,7 +2451,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // Use the tracked generic type information to determine the correct type to load
                     let load_type: inkwell::types::BasicTypeEnum = if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
-                        eprintln!("DEBUG: Found Result_Ok_Type in context: {:?}", ast_type);
+                        // eprintln!("DEBUG: Found Result_Ok_Type in context: {:?}", ast_type);
                         match ast_type {
                             AstType::I8 => self.context.i8_type().into(),
                             AstType::I16 => self.context.i16_type().into(),
@@ -2463,7 +2463,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             AstType::U64 => self.context.i64_type().into(),
                             AstType::F32 => self.context.f32_type().into(),
                             AstType::F64 => {
-                                eprintln!("DEBUG: Loading payload as F64");
+                                // eprintln!("DEBUG: Loading payload as F64");
                                 self.context.f64_type().into()
                             },
                             AstType::Bool => self.context.bool_type().into(),
@@ -2474,7 +2474,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.context.i32_type().into()
                     };
                     let loaded_value = self.builder.build_load(load_type, ptr_val, "ok_value_deref")?;
-                    eprintln!("DEBUG: Loaded value type: {:?}, is_float: {}", loaded_value.get_type(), loaded_value.is_float_value());
+                    // eprintln!("DEBUG: Loaded value type: {:?}, is_float: {}", loaded_value.get_type(), loaded_value.is_float_value());
                     
                     // The loaded value should be the correct type
                     loaded_value
@@ -2523,7 +2523,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
-                eprintln!("DEBUG: raise() returning ok_value type: {:?}, is_float: {}", ok_value.get_type(), ok_value.is_float_value());
+                // eprintln!("DEBUG: raise() returning ok_value type: {:?}, is_float: {}", ok_value.get_type(), ok_value.is_float_value());
                 Ok(ok_value)
             } else {
                 // Unit Result (no payload)
@@ -2603,7 +2603,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
-                eprintln!("DEBUG: raise() returning ok_value type: {:?}, is_float: {}", ok_value.get_type(), ok_value.is_float_value());
+                // eprintln!("DEBUG: raise() returning ok_value type: {:?}, is_float: {}", ok_value.get_type(), ok_value.is_float_value());
                 Ok(ok_value)
             } else {
                 // Unit Result

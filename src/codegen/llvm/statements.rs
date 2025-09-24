@@ -31,7 +31,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(())
             }
             Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } => {
-                eprintln!("DEBUG: VariableDeclaration for '{}', type_: {:?}, initializer: {:?}", name, type_, initializer.as_ref().map(|e| std::mem::discriminant(e)));
+                // eprintln!("DEBUG: VariableDeclaration for '{}', type_: {:?}, initializer: {:?}", name, type_, initializer.as_ref().map(|e| std::mem::discriminant(e)));
                 use crate::ast::VariableDeclarationType;
                 
                 // Check if this is an assignment to a forward-declared variable
@@ -132,7 +132,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         }
                                     }
                                     BasicValueEnum::FloatValue(fv) => {
-                                        eprintln!("DEBUG: Variable '{}' inferred as float, type: {:?}", name, fv.get_type());
+                                        // eprintln!("DEBUG: Variable '{}' inferred as float, type: {:?}", name, fv.get_type());
+                                        // Store the AST type as F64 to ensure proper loading later
+                                        inferred_ast_type = Some(AstType::F64);
                                         // For now, assume all floats are f64
                                         Type::Basic(self.context.f64_type().into())
                                     }

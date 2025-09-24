@@ -545,8 +545,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             if let Some(return_type) = self.function_types.get(name) {
                 if let AstType::Generic { name: type_name, type_args } = return_type {
                     if type_name == "Result" && type_args.len() == 2 {
-                        eprintln!("DEBUG: Setting Result_Ok_Type to {:?}", type_args[0]);
-                        eprintln!("DEBUG: Setting Result_Err_Type to {:?}", type_args[1]);
+                        // eprintln!("DEBUG: Setting Result_Ok_Type to {:?}", type_args[0]);
+                        // eprintln!("DEBUG: Setting Result_Err_Type to {:?}", type_args[1]);
                         self.generic_type_context.insert("Result_Ok_Type".to_string(), type_args[0].clone());
                         self.generic_type_context.insert("Result_Err_Type".to_string(), type_args[1].clone());
                     } else if type_name == "Option" && type_args.len() == 1 {
