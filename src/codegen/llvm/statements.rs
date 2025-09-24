@@ -271,6 +271,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else if let Expression::Boolean(_) = init_expr {
                             // Boolean literal - always infer as bool
                             AstType::Bool
+                        } else if let Expression::Some(inner_expr) = init_expr {
+                            // Option::Some variant - infer Option<T> where T is the type of inner_expr
+                            let inner_type = self.infer_expression_type(inner_expr);
+                            match inner_type {
+                                Ok(t) => AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![t],
+                                },
+                                Err(_) => AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![AstType::I32], // Default to i32 if we can't infer
+                                },
+                            }
+                        } else if let Expression::None = init_expr {
+                            // Option::None variant - use Option<T> with generic T
+                            AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                            }
                         } else if let Expression::StructLiteral { name: struct_name, .. } = init_expr {
                             // If initializer is a struct literal, use the struct type
                             // We need to get the field types from the registered struct
@@ -527,10 +546,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                 }
                                 BasicValueEnum::StructValue(_) => {
-                                    // For struct values (including enums), use a generic enum type
-                                    AstType::Generic {
-                                        name: String::new(),
-                                        type_args: vec![],
+                                    // For struct values (including enums), try to infer from expression
+                                    if let Expression::Some(inner_expr) = init_expr {
+                                        // Option::Some variant - infer Option<T> where T is the type of inner_expr
+                                        let inner_type = self.infer_expression_type(inner_expr);
+                                        match inner_type {
+                                            Ok(t) => AstType::Generic {
+                                                name: "Option".to_string(),
+                                                type_args: vec![t],
+                                            },
+                                            Err(_) => AstType::Generic {
+                                                name: "Option".to_string(),
+                                                type_args: vec![AstType::I32], // Default to i32 if we can't infer
+                                            },
+                                        }
+                                    } else if let Expression::None = init_expr {
+                                        // Option::None variant - use Option<T> with generic T
+                                        AstType::Generic {
+                                            name: "Option".to_string(),
+                                            type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                                        }
+                                    } else {
+                                        // For other struct values, use an empty generic type as fallback
+                                        // This should be improved to handle other enum types properly
+                                        AstType::Generic {
+                                            name: String::new(),
+                                            type_args: vec![],
+                                        }
                                     }
                                 }
                                 _ => AstType::I64, // Default

@@ -36,6 +36,7 @@ pub enum Expression {
     Boolean(bool),
     String(String),
     Identifier(String),
+    Unit,  // The unit value, similar to () in Rust or void in C
     BinaryOp {
         left: Box<Expression>,
         op: BinaryOperator,

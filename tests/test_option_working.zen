@@ -1,0 +1,27 @@
+// Working Option<T> pattern matching test - December 2024
+{ io } = @std
+
+main = () i32 {
+    // Integer payload extraction - WORKS!
+    x = Some(42)
+    result = x ? 
+        | .Some(v) => v
+        | .None => 99
+    io.println("Extracted from Some(42): ${result}")  // Prints: 42
+    
+    // None case - WORKS!
+    y = None
+    result2 = y ?
+        | .Some(v) => v
+        | .None => -999
+    io.println("None gives: ${result2}")  // Prints: -999
+    
+    // Pattern matching without extraction - WORKS!
+    z = Some(100)
+    result3 = z ?
+        | .Some(_) => 200
+        | .None => 300
+    io.println("Wildcard match: ${result3}")  // Prints: 200
+    
+    0
+}

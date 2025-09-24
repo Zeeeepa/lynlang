@@ -491,11 +491,14 @@ impl<'a> Parser<'a> {
                 let name = name.clone();
                 self.next_token();
                 
-                // Check for boolean literals first (these don't chain)
+                // Check for boolean and unit literals first (these don't chain)
                 if name == "true" {
                     return Ok(Expression::Boolean(true));
                 } else if name == "false" {
                     return Ok(Expression::Boolean(false));
+                } else if name == "void" {
+                    // void is a unit value - like () in other languages
+                    return Ok(Expression::Unit);
                 }
                 
                 // Check for Vec<T, size>() constructor

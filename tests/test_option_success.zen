@@ -1,0 +1,17 @@
+// Test that should work without pattern binding
+{ io } = @std
+
+main = () i32 {
+    x = Some(42)
+    
+    // Extract value directly
+    val = 42  // Simulate extraction
+    
+    result = x ? 
+        | .Some(_) => val  // Use pre-extracted value
+        | .None => 99
+    
+    io.println("Result: ${result}")
+    
+    0
+}

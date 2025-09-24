@@ -97,6 +97,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             
             Pattern::Identifier(name) => {
+                eprintln!("DEBUG: Pattern::Identifier binding '{}' to value", name);
                 bindings.push((name.clone(), *scrutinee_val));
                 self.context.bool_type().const_int(1, false)
             }
@@ -530,10 +531,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Don't convert here - let apply_pattern_bindings handle type detection
                             
                             // Recursively match the payload pattern
+                            eprintln!("DEBUG: Testing payload pattern with extracted value of type: {:?}", payload_val.get_type());
                             let (payload_match, mut payload_bindings) = self.compile_pattern_test(
                                 &payload_val,
                                 payload_pattern
                             )?;
+                            
+                            eprintln!("DEBUG: Payload bindings: {} bindings", payload_bindings.len());
+                            for (name, _) in &payload_bindings {
+                                eprintln!("  - Binding: {}", name);
+                            }
                             
                             // Combine the discriminant match with payload match
                             let combined_match = self.builder.build_and(
@@ -667,9 +674,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         bindings: &[(String, BasicValueEnum<'ctx>)]
     ) -> HashMap<String, super::VariableInfo<'ctx>> {
+        eprintln!("DEBUG: apply_pattern_bindings called with {} bindings", bindings.len());
         let mut saved = HashMap::new();
         
         for (name, value) in bindings {
+            eprintln!("DEBUG: Binding variable '{}' with value type {:?}", name, value.get_type());
             if let Some(existing) = self.variables.get(name) {
                 saved.insert(name.clone(), existing.clone());
             }

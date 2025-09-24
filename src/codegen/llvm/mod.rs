@@ -420,18 +420,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
             variant_indices.insert(variant.name.clone(), index as u64);
             
             if let Some(payload_type) = &variant.payload {
-                has_payloads = true;
-                // Calculate the size needed for this payload type
-                let payload_size = match payload_type {
-                    AstType::I8 | AstType::U8 | AstType::Bool => 8,
-                    AstType::I16 | AstType::U16 => 16,
-                    AstType::I32 | AstType::U32 | AstType::F32 => 32,
-                    AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
-                    AstType::String | AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => 64, // pointer size
-                    AstType::Struct { .. } | AstType::Generic { .. } => 64, // for now, use pointer size
-                    _ => 64, // default to 64 bits
-                };
-                max_payload_size = max_payload_size.max(payload_size);
+                // Skip void payloads - they don't need storage
+                if !matches!(payload_type, AstType::Void) {
+                    has_payloads = true;
+                    // Calculate the size needed for this payload type
+                    let payload_size = match payload_type {
+                        AstType::I8 | AstType::U8 | AstType::Bool => 8,
+                        AstType::I16 | AstType::U16 => 16,
+                        AstType::I32 | AstType::U32 | AstType::F32 => 32,
+                        AstType::I64 | AstType::U64 | AstType::F64 | AstType::Usize => 64,
+                        AstType::String | AstType::Ptr(_) | AstType::MutPtr(_) | AstType::RawPtr(_) => 64, // pointer size
+                        AstType::Struct { .. } | AstType::Generic { .. } => 64, // for now, use pointer size
+                        AstType::Void => 0, // void has no size
+                        _ => 64, // default to 64 bits
+                    };
+                    max_payload_size = max_payload_size.max(payload_size);
+                }
             }
         }
         

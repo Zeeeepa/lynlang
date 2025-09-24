@@ -1,0 +1,22 @@
+// Test Option pattern matching without payload binding
+{ io } = @std
+
+main = () i32 {
+    x = Some(42)
+    
+    // Test pattern matching without extracting payload
+    result = x ? 
+        | .Some => 100
+        | .None => -1
+    
+    io.println("Some matched: ${result}")
+    
+    y = None
+    result2 = y ?
+        | .Some => 100
+        | .None => -1
+        
+    io.println("None matched: ${result2}")
+    
+    0
+}

@@ -7,7 +7,7 @@ use inkwell::module::Linkage;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     /// Infer the type of an expression for generic type tracking
-    fn infer_expression_type(&self, expr: &Expression) -> Result<AstType, CompileError> {
+    pub fn infer_expression_type(&self, expr: &Expression) -> Result<AstType, CompileError> {
         match expr {
             Expression::Integer8(_) => Ok(AstType::I8),
             Expression::Integer16(_) => Ok(AstType::I16),
@@ -20,6 +20,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::Float32(_) => Ok(AstType::F32),
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
+            Expression::Unit => Ok(AstType::Void),
             Expression::String(_) => Ok(AstType::String),
             Expression::Identifier(name) => {
                 // Look up variable type
@@ -67,6 +68,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::Boolean(value) => {
                 Ok(self.context.bool_type().const_int(*value as u64, false).into())
+            }
+            Expression::Unit => {
+                // Unit type is represented as an empty struct in LLVM
+                // We use a null pointer to represent unit values
+                Ok(self.context.ptr_type(inkwell::AddressSpace::default()).const_null().into())
             }
             Expression::String(value) => {
                 self.compile_string_literal(value)
@@ -1054,12 +1060,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_dynvec_constructor(element_types, allocator, initial_capacity.as_ref().map(|v| &**v))
             }
             Expression::Some(value) => {
-                // Compile Option::Some variant
-                self.compile_option_variant("Some", Some(value))
+                // Compile Option::Some variant using the registered enum
+                self.compile_enum_variant("Option", "Some", &Some(value.clone()))
             }
             Expression::None => {
-                // Compile Option::None variant
-                self.compile_option_variant("None", None)
+                // Compile Option::None variant using the registered enum
+                self.compile_enum_variant("Option", "None", &None)
             }
             Expression::CollectionLoop { collection, param, index_param, body } => {
                 // Compile collection.loop() expression
@@ -1173,6 +1179,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(match_bb);
             
             // Apply pattern bindings
+            eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
+            for (name, _) in &bindings {
+                eprintln!("  - Variable: {}", name);
+            }
             let saved_vars = self.apply_pattern_bindings(&bindings);
             
             // Compile the arm body
@@ -1187,6 +1197,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(merge_bb)?;
                 let match_bb_end = self.builder.get_insert_block().unwrap();
                 // Save value and block for phi node only if we branch to merge
+                eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
             }
             
@@ -1236,12 +1247,49 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if !phi_values.is_empty() {
             self.builder.position_at_end(merge_bb);
             
-            // All values should have the same type
-            let result_type = phi_values[0].0.get_type();
-            let phi = self.builder.build_phi(result_type, "match_result")?;
+            // Normalize all values to the same type
+            // If all values are integers, cast them to the widest type
+            let mut max_int_width = 0;
+            let mut has_non_int = false;
+            
+            for (value, _) in &phi_values {
+                if value.is_int_value() {
+                    let int_val = value.into_int_value();
+                    let width = int_val.get_type().get_bit_width();
+                    max_int_width = max_int_width.max(width);
+                } else {
+                    has_non_int = true;
+                }
+            }
+            
+            // Normalize integer values if needed
+            let normalized_values: Vec<(BasicValueEnum<'ctx>, inkwell::basic_block::BasicBlock<'ctx>)> = if !has_non_int && max_int_width > 0 {
+                // All values are integers, cast them to the widest type
+                let target_type = self.context.custom_width_int_type(max_int_width);
+                phi_values.into_iter().map(|(value, block)| {
+                    if value.is_int_value() {
+                        let int_val = value.into_int_value();
+                        if int_val.get_type().get_bit_width() < max_int_width {
+                            // Need to cast
+                            let casted = self.builder.build_int_z_extend_or_bit_cast(int_val, target_type, "cast_to_common").unwrap();
+                            (casted.into(), block)
+                        } else {
+                            (value, block)
+                        }
+                    } else {
+                        (value, block)
+                    }
+                }).collect()
+            } else {
+                phi_values
+            };
+            
+            // Use the normalized type for PHI node
+            let phi_type = normalized_values[0].0.get_type();
+            let phi = self.builder.build_phi(phi_type, "match_result")?;
             
             // Add all incoming values
-            for (value, block) in &phi_values {
+            for (value, block) in &normalized_values {
                 phi.add_incoming(&[(value, *block)]);
             }
             
@@ -1339,6 +1387,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "Result_Err_Type".to_string()
                     };
                     self.generic_type_context.insert(key, t);
+                }
+            }
+        }
+        
+        // Track Option<T> type information when compiling Option variants
+        if enum_name == "Option" && payload.is_some() {
+            if let Some(ref payload_expr) = payload {
+                let payload_type = self.infer_expression_type(payload_expr);
+                if let Ok(t) = payload_type {
+                    self.generic_type_context.insert("Option_Some_Type".to_string(), t);
                 }
             }
         }
@@ -1639,6 +1697,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(match_bb);
             
             // Apply pattern bindings
+            eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
+            for (name, _) in &bindings {
+                eprintln!("  - Variable: {}", name);
+            }
             let saved_vars = self.apply_pattern_bindings(&bindings);
             
             // Compile the arm body
@@ -1653,6 +1715,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(merge_bb)?;
                 let match_bb_end = self.builder.get_insert_block().unwrap();
                 // Save value and block for phi node only if we branch to merge
+                eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
             }
             
@@ -1708,12 +1771,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
             return Ok(self.context.i32_type().const_int(0, false).into());
         }
         
-        // All values should have the same type
+        // Normalize all values to the same type
+        // If all values are integers, cast them to the widest type
+        let mut max_int_width = 0;
+        let mut has_non_int = false;
         let result_type = phi_values[0].0.get_type();
-        let phi = self.builder.build_phi(result_type, "match_result")?;
+        
+        for (value, _) in &phi_values {
+            eprintln!("DEBUG: PHI value type: {:?}", value.get_type());
+            if value.is_int_value() {
+                let int_val = value.into_int_value();
+                let width = int_val.get_type().get_bit_width();
+                eprintln!("DEBUG: Integer value with width: {}", width);
+                max_int_width = max_int_width.max(width);
+            } else {
+                has_non_int = true;
+            }
+        }
+        
+        // Normalize integer values if needed
+        eprintln!("DEBUG: Normalizing values - has_non_int: {}, max_int_width: {}", has_non_int, max_int_width);
+        let normalized_values: Vec<(BasicValueEnum<'ctx>, inkwell::basic_block::BasicBlock<'ctx>)> = if !has_non_int && max_int_width > 0 {
+            // All values are integers, cast them to the widest type
+            let target_type = self.context.custom_width_int_type(max_int_width);
+            phi_values.into_iter().map(|(value, block)| {
+                if value.is_int_value() {
+                    let int_val = value.into_int_value();
+                    if int_val.get_type().get_bit_width() < max_int_width {
+                        // Need to cast
+                        let casted = self.builder.build_int_z_extend_or_bit_cast(int_val, target_type, "cast_to_common").unwrap();
+                        (casted.into(), block)
+                    } else {
+                        (value, block)
+                    }
+                } else {
+                    (value, block)
+                }
+            }).collect()
+        } else {
+            phi_values
+        };
+        
+        // Use the normalized type for PHI node
+        let phi_type = normalized_values[0].0.get_type();
+        let phi = self.builder.build_phi(phi_type, "match_result")?;
         
         // Add all incoming values
-        for (value, block) in &phi_values {
+        for (value, block) in &normalized_values {
             phi.add_incoming(&[(value, *block)]);
         }
         
@@ -2378,6 +2482,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Compile the payload if present and determine its type
         let (payload_value, payload_type) = if let Some(expr) = payload {
             let val = self.compile_expression(expr)?;
+            
+            // Track the type for generic instantiation
+            if variant == "Some" {
+                // Infer and store the AST type for Option<T>
+                let ast_type = self.infer_expression_type(expr);
+                if let Ok(t) = ast_type {
+                    self.generic_type_context.insert("Option_Some_Type".to_string(), t);
+                }
+            }
+            
             (val, val.get_type())
         } else {
             // For None variant, use i64 as placeholder

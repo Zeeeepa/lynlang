@@ -1,0 +1,31 @@
+// Test Option pattern matching with payload extraction
+{ io } = @std
+
+main = () i32 {
+    // Test Some with payload extraction
+    x = Some(42)
+    
+    result = x ? 
+        | .Some(value) => value
+        | .None => -1
+    
+    io.println("Extracted from Some: ${result}")
+    
+    // Test None case
+    y = None
+    result2 = y ?
+        | .Some(value) => value
+        | .None => -999
+        
+    io.println("None gives: ${result2}")
+    
+    // Test with string payload
+    msg = Some("hello")
+    msg_result = msg ?
+        | .Some(s) => s
+        | .None => "nothing"
+    
+    io.println("Message: ${msg_result}")
+    
+    0
+}

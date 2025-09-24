@@ -1,0 +1,16 @@
+// Test basic Option pattern matching
+{ io } = @std
+
+main = () i32 {
+    // Test direct Some variant creation
+    x = Some(42)
+    
+    io.println("Created Some(42)")
+    
+    // Test direct None variant
+    y = None
+    
+    io.println("Created None")
+    
+    0
+}

@@ -1,0 +1,17 @@
+// Debug Option pattern parsing
+{ io } = @std
+
+main = () i32 {
+    x = Some(42)
+    
+    // Test with identifier pattern
+    result = x ? 
+        | Some(value) => {
+            value
+        }
+        | None => -1
+    
+    io.println("Value extracted: ${result}")
+    
+    0
+}

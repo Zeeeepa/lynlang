@@ -388,6 +388,16 @@ impl TypeChecker {
                 }
             }
             Statement::VariableAssignment { name, value } => {
+                eprintln!("DEBUG TypeChecker: VariableAssignment '{}' with value type: {}", 
+                    name,
+                    match value {
+                        Expression::Conditional { .. } => "Conditional",
+                        Expression::Identifier(_) => "Identifier", 
+                        Expression::Some(_) => "Some",
+                        Expression::None => "None",
+                        _ => "Other"
+                    }
+                );
                 // Check if variable exists
                 if !self.variable_exists(name) {
                     // This is a new immutable declaration using = operator
@@ -440,6 +450,7 @@ impl TypeChecker {
                 // TODO: Check against function return type
             }
             Statement::Expression(expr) => {
+                eprintln!("DEBUG TypeChecker: check_statement for Expression: {:?}", expr);
                 self.infer_expression_type(expr)?;
             }
             Statement::Loop { kind, body, .. } => {
@@ -497,14 +508,34 @@ impl TypeChecker {
     }
 
     fn infer_expression_type(&mut self, expr: &Expression) -> Result<AstType> {
+        eprintln!("DEBUG TypeChecker: infer_expression_type called for expr type: {}", 
+            match expr {
+                Expression::Integer8(_) => "Integer8",
+                Expression::Integer16(_) => "Integer16", 
+                Expression::Integer32(_) => "Integer32",
+                Expression::Integer64(_) => "Integer64",
+                Expression::Identifier(_) => "Identifier",
+                Expression::Conditional { .. } => "Conditional",
+                Expression::PatternMatch { .. } => "PatternMatch",
+                Expression::QuestionMatch { .. } => "QuestionMatch",
+                Expression::Some(_) => "Some",
+                Expression::None => "None",
+                Expression::String(_) => "String",
+                Expression::Boolean(_) => "Boolean",
+                Expression::Unit => "Unit",
+                _ => "Other"
+            }
+        );
         match expr {
             Expression::Integer32(_) => Ok(AstType::I32),
             Expression::Integer64(_) => Ok(AstType::I64),
             Expression::Float32(_) => Ok(AstType::F32),
             Expression::Float64(_) => Ok(AstType::F64),
             Expression::Boolean(_) => Ok(AstType::Bool),
+            Expression::Unit => Ok(AstType::Void),
             Expression::String(_) => Ok(AstType::String),
             Expression::Identifier(name) => {
+                eprintln!("DEBUG TypeChecker: Looking up identifier '{}'", name);
                 // First check if it's a function name
                 if let Some(sig) = self.functions.get(name) {
                     // Return function pointer type
@@ -699,19 +730,65 @@ impl TypeChecker {
                 Ok(target_type.clone())
             }
             Expression::QuestionMatch { arms, .. } => {
-                // Return type of first arm's body
+                // QuestionMatch expression type is determined by the first arm
+                // All arms should have the same type
                 if arms.is_empty() {
                     Ok(AstType::Void)
                 } else {
-                    self.infer_expression_type(&arms[0].body)
+                    let mut result_type = AstType::Void;
+                    
+                    // Process each arm with its own pattern bindings
+                    for (i, arm) in arms.iter().enumerate() {
+                        // Enter a new scope for the pattern bindings
+                        self.enter_scope();
+                        
+                        // Extract pattern bindings and add them to the scope
+                        self.add_pattern_bindings_to_scope(&arm.pattern)?;
+                        
+                        // Infer the type with bindings in scope
+                        let arm_type = self.infer_expression_type(&arm.body)?;
+                        
+                        // The first arm determines the type
+                        if i == 0 {
+                            result_type = arm_type;
+                        }
+                        
+                        // Exit the scope to remove the bindings
+                        self.exit_scope();
+                    }
+                    
+                    Ok(result_type)
                 }
             }
             Expression::PatternMatch { arms, .. } => {
-                // Return type of first arm's body
+                // Pattern match expression type is determined by the first arm
+                // All arms should have the same type
                 if arms.is_empty() {
                     Ok(AstType::Void)
                 } else {
-                    self.infer_expression_type(&arms[0].body)
+                    let mut result_type = AstType::Void;
+                    
+                    // Process each arm with its own pattern bindings
+                    for (i, arm) in arms.iter().enumerate() {
+                        // Enter a new scope for the pattern bindings
+                        self.enter_scope();
+                        
+                        // Extract pattern bindings and add them to the scope
+                        self.add_pattern_bindings_to_scope(&arm.pattern)?;
+                        
+                        // Infer the type with bindings in scope
+                        let arm_type = self.infer_expression_type(&arm.body)?;
+                        
+                        // The first arm determines the type
+                        if i == 0 {
+                            result_type = arm_type;
+                        }
+                        
+                        // Exit the scope to remove the bindings
+                        self.exit_scope();
+                    }
+                    
+                    Ok(result_type)
                 }
             }
             Expression::Block(statements) => {
@@ -1013,12 +1090,42 @@ impl TypeChecker {
                 }
             }
             Expression::Conditional { arms, .. } => {
+                eprintln!("DEBUG TypeChecker: Processing conditional with {} arms", arms.len());
                 // Conditional expression type is determined by the first arm
                 // All arms should have the same type (checked during type checking)
                 if arms.is_empty() {
                     Ok(AstType::Void)
                 } else {
-                    self.infer_expression_type(&arms[0].body)
+                    let mut result_type = AstType::Void;
+                    
+                    // Process each arm with its own pattern bindings
+                    for (i, arm) in arms.iter().enumerate() {
+                        eprintln!("DEBUG TypeChecker: Processing arm {} pattern: {:?}", i, arm.pattern);
+                        
+                        // Enter a new scope for the pattern bindings
+                        self.enter_scope();
+                        eprintln!("DEBUG TypeChecker: Entered scope for arm {}", i);
+                        
+                        // Extract pattern bindings and add them to the scope
+                        self.add_pattern_bindings_to_scope(&arm.pattern)?;
+                        eprintln!("DEBUG TypeChecker: Added pattern bindings for arm {}", i);
+                        
+                        // Infer the type with bindings in scope
+                        eprintln!("DEBUG TypeChecker: Inferring type for arm {} body", i);
+                        let arm_type = self.infer_expression_type(&arm.body)?;
+                        eprintln!("DEBUG TypeChecker: Arm {} type: {:?}", i, arm_type);
+                        
+                        // The first arm determines the type
+                        if i == 0 {
+                            result_type = arm_type;
+                        }
+                        
+                        // Exit the scope to remove the bindings
+                        self.exit_scope();
+                        eprintln!("DEBUG TypeChecker: Exited scope for arm {}", i);
+                    }
+                    
+                    Ok(result_type)
                 }
             }
             // Zen spec pointer operations
@@ -1064,11 +1171,15 @@ impl TypeChecker {
                     allocator_type: None, // Allocator type inferred from constructor arg
                 })
             }
-            Expression::Some(_) => {
+            Expression::Some(inner) => {
+                eprintln!("DEBUG TypeChecker: Processing Some() with inner expr");
+                // Check the inner expression to determine the actual type
+                let inner_type = self.infer_expression_type(inner)?;
+                eprintln!("DEBUG TypeChecker: Some() inner type: {:?}", inner_type);
                 // Option::Some(T) -> Option<T>
                 Ok(AstType::Generic {
                     name: "Option".to_string(),
-                    type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                    type_args: vec![inner_type],
                 })
             }
             Expression::None => {
@@ -1250,6 +1361,63 @@ impl TypeChecker {
             }
         }
         Err(CompileError::TypeError(format!("Undefined variable: {}", name), None))
+    }
+    
+    fn add_pattern_bindings_to_scope(&mut self, pattern: &crate::ast::Pattern) -> Result<()> {
+        use crate::ast::Pattern;
+        
+        eprintln!("DEBUG TypeChecker: add_pattern_bindings_to_scope for pattern: {:?}", pattern);
+        
+        match pattern {
+            Pattern::Identifier(name) => {
+                // Simple identifier pattern binds the name to a generic type
+                // In a real implementation, we'd infer this from the scrutinee type
+                eprintln!("DEBUG TypeChecker: Adding variable '{}' from identifier pattern", name);
+                self.declare_variable(name, AstType::I64, false)?;
+            }
+            Pattern::EnumLiteral { variant, payload } => {
+                // For enum patterns with payloads, add the payload bindings
+                if let Some(payload_pattern) = payload {
+                    self.add_pattern_bindings_to_scope(payload_pattern)?;
+                }
+            }
+            Pattern::EnumVariant { payload, .. } => {
+                // For qualified enum patterns with payloads
+                if let Some(payload_pattern) = payload {
+                    self.add_pattern_bindings_to_scope(payload_pattern)?;
+                }
+            }
+            Pattern::Binding { name, pattern } => {
+                // Binding pattern: name @ pattern
+                // Add the name as a variable
+                self.declare_variable(name, AstType::I64, false)?;
+                // And recursively process the pattern
+                self.add_pattern_bindings_to_scope(pattern)?;
+            }
+            Pattern::Or(patterns) => {
+                // For or patterns, we need to ensure all alternatives bind the same names
+                // For now, just process the first one
+                if let Some(first) = patterns.first() {
+                    self.add_pattern_bindings_to_scope(first)?;
+                }
+            }
+            Pattern::Struct { fields, .. } => {
+                // For struct patterns, add bindings for all fields
+                for field in fields {
+                    // field is (String, Pattern)
+                    self.add_pattern_bindings_to_scope(&field.1)?;
+                }
+            }
+            Pattern::Type { binding, .. } => {
+                // Type pattern with optional binding
+                if let Some(name) = binding {
+                    self.declare_variable(name, AstType::I64, false)?;
+                }
+            }
+            // Other patterns don't create bindings
+            Pattern::Wildcard | Pattern::Literal(_) | Pattern::Range { .. } | Pattern::Guard { .. } => {}
+        }
+        Ok(())
     }
     
     fn variable_exists(&self, name: &str) -> bool {

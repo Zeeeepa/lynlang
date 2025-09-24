@@ -1,0 +1,15 @@
+// Test Option pattern matching with explicit casting
+{ io } = @std
+
+main = () i32 {
+    // Test Some with payload extraction
+    x = Some(42)
+    
+    result = x ? 
+        | .Some(v) => v  // Use the extracted value
+        | .None => 99
+    
+    io.println("Result: ${result}")
+    
+    0
+}

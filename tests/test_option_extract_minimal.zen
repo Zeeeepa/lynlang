@@ -1,0 +1,15 @@
+// Minimal Option extraction test
+{ io } = @std
+
+main = () i32 {
+    x = Some(42)
+    
+    // Just test pattern without using variable
+    result = x ? 
+        | .Some(_) => 999
+        | .None => -1
+    
+    io.println("Result: ${result}")
+    
+    0
+}

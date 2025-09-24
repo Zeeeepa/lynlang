@@ -23,6 +23,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_identifier(&mut self, name: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        eprintln!("DEBUG: compile_identifier for '{}'", name);
+        eprintln!("DEBUG: Variables in scope: {:?}", self.variables.keys().collect::<Vec<_>>());
+        
         // Check if this is an enum type name (will be handled later in member access)
         if let Some(symbols::Symbol::EnumType(_)) = self.symbols.lookup(name) {
             // Return a dummy value - this will be handled properly in member access
@@ -36,6 +39,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Ok(function.as_global_value().as_pointer_value().into())
         } else {
             // It's a variable, get the pointer
+            eprintln!("DEBUG: Looking up variable '{}'", name);
             let (ptr, ast_type) = self.get_variable(name)?;
             
             // Load the value from the alloca based on type
