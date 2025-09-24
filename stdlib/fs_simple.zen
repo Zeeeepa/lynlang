@@ -1,0 +1,157 @@
+// Simplified File System module for Zen
+// Provides basic file I/O operations
+
+{ io } = @std
+
+// File handle type (opaque pointer for now)
+File = Ptr<void>
+
+// File modes for opening
+FileMode: 
+    ReadOnly,
+    WriteOnly,
+    ReadWrite,
+    Append,
+    Create,
+    Truncate
+
+// Open a file with specified mode
+open = (path: string, mode: FileMode) Result<File, string> {
+    // Simplified implementation - would use fopen
+    inline.c("""
+        char* mode_str = "r";
+        FILE* f = fopen(path, mode_str);
+        if (f) return (void*)f;
+        return NULL;
+    """)
+    // For now return a mock result
+    return Result.Ok(null)
+}
+
+// Close a file
+close = (file: File) Result<void, string> {
+    inline.c("""
+        if (file) fclose((FILE*)file);
+    """)
+    return Result.Ok(void)
+}
+
+// Read from file into buffer
+read = (file: File, buffer: Ptr<u8>, size: i64) Result<i64, string> {
+    inline.c("""
+        if (!file) return -1;
+        return fread(buffer, 1, size, (FILE*)file);
+    """)
+    // Mock implementation
+    return Result.Ok(0)
+}
+
+// Write to file from buffer
+write = (file: File, buffer: Ptr<u8>, size: i64) Result<i64, string> {
+    inline.c("""
+        if (!file) return -1;
+        return fwrite(buffer, 1, size, (FILE*)file);
+    """)
+    // Mock implementation
+    return Result.Ok(size)
+}
+
+// Read entire file to string (simplified)
+read_to_string = (path: string) Result<string, string> {
+    // This would:
+    // 1. Open the file
+    // 2. Get its size
+    // 3. Allocate buffer
+    // 4. Read contents
+    // 5. Close file
+    // 6. Return string
+    
+    // Mock implementation for now
+    return Result.Ok("File contents here")
+}
+
+// Write string to file (simplified)
+write_string = (path: string, contents: string) Result<void, string> {
+    // This would:
+    // 1. Open file for writing
+    // 2. Write string contents
+    // 3. Close file
+    
+    // Mock implementation
+    return Result.Ok(void)
+}
+
+// Check if file exists (simplified)
+exists = (path: string) bool {
+    // Would use access() or stat()
+    inline.c("""
+        struct stat st;
+        return stat(path, &st) == 0;
+    """)
+    // Mock implementation
+    return false
+}
+
+// Delete a file
+delete = (path: string) Result<void, string> {
+    inline.c("""
+        if (unlink(path) == 0) return 0;
+        return -1;
+    """)
+    // Mock implementation
+    return Result.Ok(void)
+}
+
+// Create a directory
+mkdir = (path: string) Result<void, string> {
+    inline.c("""
+        if (mkdir(path, 0755) == 0) return 0;
+        return -1;
+    """)
+    // Mock implementation
+    return Result.Ok(void)
+}
+
+// Example usage function
+example_file_ops = () Result<void, string> {
+    // Write a file
+    write_result = write_string("test.txt", "Hello, Zen!")
+    write_result ?
+        | Ok(_) { io.println("File written successfully") }
+        | Err(e) { io.println("Write error: ${e}") }
+    
+    // Read the file
+    read_result = read_to_string("test.txt")
+    read_result ?
+        | Ok(contents) { io.println("File contents: ${contents}") }
+        | Err(e) { io.println("Read error: ${e}") }
+    
+    // Check if file exists
+    exists("test.txt") ? {
+        io.println("File exists")
+        
+        // Delete the file
+        delete_result = delete("test.txt")
+        delete_result ?
+            | Ok(_) { io.println("File deleted") }
+            | Err(e) { io.println("Delete error: ${e}") }
+    }
+    
+    return Result.Ok(void)
+}
+
+// Export the module interface
+module.exports = {
+    File: File,
+    FileMode: FileMode,
+    open: open,
+    close: close,
+    read: read,
+    write: write,
+    read_to_string: read_to_string,
+    write_string: write_string,
+    exists: exists,
+    delete: delete,
+    mkdir: mkdir,
+    example_file_ops: example_file_ops
+}
