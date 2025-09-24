@@ -269,6 +269,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Check if we have type information for this enum
                                 let load_type = if enum_name == "Option" && variant == "Some" {
                                     self.generic_type_context.get("Option_Some_Type").cloned()
+                                } else if enum_name == "Result" {
+                                    if variant == "Ok" {
+                                        self.generic_type_context.get("Result_Ok_Type").cloned()
+                                    } else if variant == "Err" {
+                                        self.generic_type_context.get("Result_Err_Type").cloned()
+                                    } else {
+                                        None
+                                    }
                                 } else {
                                     None
                                 };
@@ -358,6 +366,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Check if we have type information for this enum
                                 let load_type = if enum_name == "Option" && variant == "Some" {
                                     self.generic_type_context.get("Option_Some_Type").cloned()
+                                } else if enum_name == "Result" {
+                                    if variant == "Ok" {
+                                        self.generic_type_context.get("Result_Ok_Type").cloned()
+                                    } else if variant == "Err" {
+                                        self.generic_type_context.get("Result_Err_Type").cloned()
+                                    } else {
+                                        None
+                                    }
                                 } else {
                                     None
                                 };
@@ -587,9 +603,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             // This happens when testing Some(x) pattern against None value
                                             self.context.i64_type().const_int(0, false).into()
                                         } else {
-                                            // Check the generic type context for Option<T> type info
+                                            // Check the generic type context for Option<T> and Result<T,E> type info
                                             let load_type = if variant == "Some" {
                                                 self.generic_type_context.get("Option_Some_Type").cloned()
+                                            } else if variant == "Ok" {
+                                                self.generic_type_context.get("Result_Ok_Type").cloned()
+                                            } else if variant == "Err" {
+                                                self.generic_type_context.get("Result_Err_Type").cloned()
                                             } else {
                                                 None
                                             };
