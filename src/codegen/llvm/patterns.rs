@@ -905,7 +905,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         bindings: &[(String, BasicValueEnum<'ctx>)]
     ) -> HashMap<String, super::VariableInfo<'ctx>> {
-        eprintln!("DEBUG: apply_pattern_bindings called with {} bindings", bindings.len());
+        // eprintln!("DEBUG: apply_pattern_bindings called with {} bindings", bindings.len());
         let mut saved = HashMap::new();
         
         for (name, value) in bindings {

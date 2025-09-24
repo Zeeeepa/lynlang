@@ -23,8 +23,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub fn compile_identifier(&mut self, name: &str) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // eprintln!("DEBUG: compile_identifier for '{}'", name);
-        // eprintln!("DEBUG: Variables in scope: {:?}", self.variables.keys().collect::<Vec<_>>());
         
         // Check if this is an enum type name (will be handled later in member access)
         if let Some(symbols::Symbol::EnumType(_)) = self.symbols.lookup(name) {
@@ -39,9 +37,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Ok(function.as_global_value().as_pointer_value().into())
         } else {
             // It's a variable, get the pointer
-            // eprintln!("DEBUG: Looking up variable '{}'", name);
             let (ptr, ast_type) = self.get_variable(name)?;
-            // eprintln!("DEBUG: Variable '{}' has AST type: {:?}", name, ast_type);
             
             // Load the value from the alloca based on type
             let loaded: BasicValueEnum = match &ast_type {
@@ -68,7 +64,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 AstType::F32 => {
                     // Load as f32
-                    // eprintln!("DEBUG: Loading variable '{}' as F32", name);
                     match self.builder.build_load(self.context.f32_type(), ptr, name) {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
@@ -76,7 +71,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 AstType::F64 => {
                     // Load as f64
-                    // eprintln!("DEBUG: Loading variable '{}' as F64", name);
                     match self.builder.build_load(self.context.f64_type(), ptr, name) {
                         Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
@@ -177,7 +171,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 StringPart::Interpolation(expr) => {
                     let val = self.compile_expression(expr)?;
-                    // eprintln!("DEBUG: Interpolation value type: {:?}, is_float: {}", val.get_type(), val.is_float_value());
                     
                     // Handle different value types for interpolation
                     let (format_spec, actual_val) = if val.is_struct_value() {
@@ -265,7 +258,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             _ => ("%d", val.into()),
                         }
                     } else if val.is_float_value() {
-                        // eprintln!("DEBUG: String interpolation for float value");
                         ("%.6f", val.into())
                     } else if val.is_pointer_value() {
                         // Pointer values are strings - use %s

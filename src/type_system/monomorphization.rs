@@ -25,10 +25,10 @@ impl Monomorphizer {
     pub fn monomorphize_program(&mut self, program: &Program) -> Result<Program, String> {
         let mut declarations = Vec::new();
         
-        eprintln!("DEBUG: Starting monomorphize_program, type checking first");
+        // eprintln!("DEBUG: Starting monomorphize_program, type checking first");
         // First, type check the program to get type information
         self.type_checker.check_program(program).map_err(|e| {
-            eprintln!("DEBUG: Type check error: {}", e);
+            // eprintln!("DEBUG: Type check error: {}", e);
             e.to_string()
         })?;
         

@@ -11,7 +11,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Debug empty Generic types
         if let AstType::Generic { name, .. } = type_ {
             if name.is_empty() {
-                eprintln!("DEBUG: Empty generic type encountered: {:?}", type_);
+                // eprintln!("DEBUG: Empty generic type encountered: {:?}", type_);
             }
         }
         
@@ -275,7 +275,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     // After monomorphization, we should not encounter generic types
                     // If we do, it means monomorphization failed to resolve this type
-                    eprintln!("DEBUG: Unresolved generic type: name='{}', type_args={:?}", name, type_args);
+                    // eprintln!("DEBUG: Unresolved generic type: name='{}', type_args={:?}", name, type_args);
                     Err(CompileError::InternalError(
                         format!("Unresolved generic type '{}' found after monomorphization. This is a compiler bug.", name),
                         None

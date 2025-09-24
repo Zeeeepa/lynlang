@@ -88,7 +88,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             // Not an enum, check if it's a variable
             // First check self.variables (main storage)
-            eprintln!("DEBUG: Looking for variable '{}' in compile_struct_field", name);
+            // eprintln!("DEBUG: Looking for variable '{}' in compile_struct_field", name);
             let (alloca, var_type) = if let Some(var_info) = self.variables.get(name) {
                 // eprintln!("DEBUG: Found '{}' in variables with type: {:?}", name, var_info.ast_type);
                 (var_info.pointer, var_info.ast_type.clone())
@@ -96,7 +96,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Then check self.symbols (used in trait methods)
                 if let symbols::Symbol::Variable(ptr) = symbol {
                     // For 'self' in trait methods, we need to infer the type
-                    eprintln!("DEBUG: Looking up type for '{}' in symbols", name);
+                    // eprintln!("DEBUG: Looking up type for '{}' in symbols", name);
                     let inferred_type = if name == "self" {
                         // Use the current implementing type if available
                         if let Some(impl_type) = &self.current_impl_type {

@@ -103,7 +103,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             let mut param_types = Vec::new();
             for (param_name, param_type) in &method.args {
-                eprintln!("DEBUG: Converting param '{}' type {:?} to LLVM", param_name, param_type);
+                // eprintln!("DEBUG: Converting param '{}' type {:?} to LLVM", param_name, param_type);
                 
                 // For 'self' parameter, use the implementing type
                 let actual_type = if param_name == "self" {
@@ -150,20 +150,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     self.to_llvm_type(&actual_type)?
                 };
                 
-                eprintln!("DEBUG: LLVM param type: {:?}", llvm_param_type);
+                // eprintln!("DEBUG: LLVM param type: {:?}", llvm_param_type);
                 match llvm_param_type {
                     super::Type::Basic(basic_type) => {
                         param_types.push(BasicMetadataTypeEnum::from(basic_type));
-                        eprintln!("DEBUG: Added param type to function signature");
+                        // eprintln!("DEBUG: Added param type to function signature");
                     }
                     super::Type::Struct(_struct_type) => {
                         // Pass struct by pointer - use context's pointer type
                         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                         param_types.push(BasicMetadataTypeEnum::from(ptr_type));
-                        eprintln!("DEBUG: Added struct pointer type to function signature");
+                        // eprintln!("DEBUG: Added struct pointer type to function signature");
                     }
                     _ => {
-                        eprintln!("DEBUG: Failed to convert type to function parameter");
+                        // eprintln!("DEBUG: Failed to convert type to function parameter");
                     }
                 }
             }
@@ -202,14 +202,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             // Add parameters to symbol table and variables map
             self.symbols.enter_scope();
-            eprintln!("DEBUG: Function has {} params, method has {} args", function.count_params(), method.args.len());
+            // eprintln!("DEBUG: Function has {} params, method has {} args", function.count_params(), method.args.len());
             for (i, (param_name, param_type)) in method.args.iter().enumerate() {
-                eprintln!("DEBUG: Processing param {} - '{}'", i, param_name);
+                // eprintln!("DEBUG: Processing param {} - '{}'", i, param_name);
                 if i < function.count_params() as usize {
                     let param_value = function.get_nth_param(i as u32).unwrap();
                     let alloca = self.builder.build_alloca(param_value.get_type(), param_name)?;
                     self.builder.build_store(alloca, param_value)?;
-                    eprintln!("DEBUG: Inserting parameter '{}' into symbols and variables", param_name);
+                    // eprintln!("DEBUG: Inserting parameter '{}' into symbols and variables", param_name);
                     self.symbols.insert(param_name.clone(), super::symbols::Symbol::Variable(alloca));
                     
                     // Also add to variables map for struct field access
@@ -255,14 +255,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         is_mutable: false,  // Function parameters are immutable by default
                         is_initialized: true,
                     });
-                    eprintln!("DEBUG: After inserting '{}', variables map has {} entries", param_name, self.variables.len());
+                    // eprintln!("DEBUG: After inserting '{}', variables map has {} entries", param_name, self.variables.len());
                 }
             }
             
             // Compile method body
-            eprintln!("DEBUG: Before compiling method body, variables map has {} entries", self.variables.len());
+            // eprintln!("DEBUG: Before compiling method body, variables map has {} entries", self.variables.len());
             for (k, _) in &self.variables {
-                eprintln!("DEBUG:   - Variable: {}", k);
+                // eprintln!("DEBUG:   - Variable: {}", k);
             }
             for stmt in &method.body {
                 self.compile_statement(stmt)?;

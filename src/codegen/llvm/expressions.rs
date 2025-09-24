@@ -1269,7 +1269,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(match_bb);
             
             // Apply pattern bindings
-            eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
+            // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
             for (name, _) in &bindings {
                 eprintln!("  - Variable: {}", name);
             }
@@ -1287,10 +1287,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(merge_bb)?;
                 let match_bb_end = self.builder.get_insert_block().unwrap();
                 // Save value and block for phi node only if we branch to merge
-                eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
+                // eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
             } else {
-                eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
+                // eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
             }
             
             // Position at the next test block for the next iteration
@@ -1477,20 +1477,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub(super) fn compile_enum_variant(&mut self, enum_name: &str, variant: &str, payload: &Option<Box<Expression>>) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // eprintln!("DEBUG: compile_enum_variant called: {}_{}", enum_name, variant);
         // Track Result<T, E> type information when compiling Result variants
         if enum_name == "Result" && payload.is_some() {
             if let Some(ref payload_expr) = payload {
-                // eprintln!("DEBUG: Result {} payload expression: {:?}", variant, payload_expr);
                 let payload_type = self.infer_expression_type(payload_expr);
-                // eprintln!("DEBUG: Result {} payload type inferred: {:?}", variant, payload_type);
                 if let Ok(t) = payload_type {
                     let key = if variant == "Ok" {
                         "Result_Ok_Type".to_string()
                     } else {
                         "Result_Err_Type".to_string()
                     };
-                    // eprintln!("DEBUG: Setting generic_type_context['{}'] to {:?}", key, t);
                     self.generic_type_context.insert(key, t);
                 }
             }
@@ -1551,9 +1547,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // Handle payload if present
                     if let Some(expr) = payload {
-                        // eprintln!("DEBUG: Compiling payload for {}_{}", enum_name, variant);
                         let compiled = self.compile_expression(expr)?;
-                        // eprintln!("DEBUG: Payload type: {:?}, is_float: {}", compiled.get_type(), compiled.is_float_value());
                         let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
                         
                         // Store payload as pointer
@@ -1609,9 +1603,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // Handle payload if present
                     if let Some(expr) = payload {
-                        // eprintln!("DEBUG: Compiling payload for {}_{}", enum_name, variant);
                         let compiled = self.compile_expression(expr)?;
-                        // eprintln!("DEBUG: Payload type: {:?}, is_float: {}", compiled.get_type(), compiled.is_float_value());
                         let payload_ptr = self.builder.build_struct_gep(enum_struct_type, alloca, 1, "payload_ptr")?;
                         
                         // Store payload as pointer
@@ -1806,7 +1798,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(match_bb);
             
             // Apply pattern bindings
-            eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
+            // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
             for (name, _) in &bindings {
                 eprintln!("  - Variable: {}", name);
             }
@@ -1824,10 +1816,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(merge_bb)?;
                 let match_bb_end = self.builder.get_insert_block().unwrap();
                 // Save value and block for phi node only if we branch to merge
-                eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
+                // eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
             } else {
-                eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
+                // eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
             }
             
             // Position at the next test block for the next iteration
@@ -1906,11 +1898,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         };
         
         for (value, _) in &phi_values {
-            eprintln!("DEBUG: PHI value type: {:?}", value.get_type());
+            // eprintln!("DEBUG: PHI value type: {:?}", value.get_type());
             if value.is_int_value() {
                 let int_val = value.into_int_value();
                 let width = int_val.get_type().get_bit_width();
-                eprintln!("DEBUG: Integer value with width: {}", width);
+                // eprintln!("DEBUG: Integer value with width: {}", width);
                 max_int_width = max_int_width.max(width);
             } else {
                 has_non_int = true;
@@ -1918,7 +1910,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         
         // Normalize integer values if needed
-        eprintln!("DEBUG: Normalizing values - has_non_int: {}, max_int_width: {}", has_non_int, max_int_width);
+        // eprintln!("DEBUG: Normalizing values - has_non_int: {}, max_int_width: {}", has_non_int, max_int_width);
         let normalized_values: Vec<(BasicValueEnum<'ctx>, inkwell::basic_block::BasicBlock<'ctx>)> = if !has_non_int && max_int_width > 0 {
             // All values are integers, cast them to the widest type
             let target_type = self.context.custom_width_int_type(max_int_width);
@@ -2451,7 +2443,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // Use the tracked generic type information to determine the correct type to load
                     let load_type: inkwell::types::BasicTypeEnum = if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
-                        // eprintln!("DEBUG: Found Result_Ok_Type in context: {:?}", ast_type);
                         match ast_type {
                             AstType::I8 => self.context.i8_type().into(),
                             AstType::I16 => self.context.i16_type().into(),
@@ -2463,7 +2454,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             AstType::U64 => self.context.i64_type().into(),
                             AstType::F32 => self.context.f32_type().into(),
                             AstType::F64 => {
-                                // eprintln!("DEBUG: Loading payload as F64");
                                 self.context.f64_type().into()
                             },
                             AstType::Bool => self.context.bool_type().into(),
@@ -2474,7 +2464,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.context.i32_type().into()
                     };
                     let loaded_value = self.builder.build_load(load_type, ptr_val, "ok_value_deref")?;
-                    // eprintln!("DEBUG: Loaded value type: {:?}, is_float: {}", loaded_value.get_type(), loaded_value.is_float_value());
                     
                     // The loaded value should be the correct type
                     loaded_value
@@ -2523,7 +2512,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
-                // eprintln!("DEBUG: raise() returning ok_value type: {:?}, is_float: {}", ok_value.get_type(), ok_value.is_float_value());
                 Ok(ok_value)
             } else {
                 // Unit Result (no payload)
@@ -2603,7 +2591,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
-                // eprintln!("DEBUG: raise() returning ok_value type: {:?}, is_float: {}", ok_value.get_type(), ok_value.is_float_value());
                 Ok(ok_value)
             } else {
                 // Unit Result
@@ -2695,7 +2682,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Expression::Identifier(name) = collection {
             // Look up the variable to see if it's a Range type
             if let Some(var_info) = self.variables.get(name).cloned() {
-                eprintln!("DEBUG: Variable {} has type {:?}", name, var_info.ast_type);
+                // eprintln!("DEBUG: Variable {} has type {:?}", name, var_info.ast_type);
                 if let AstType::Range { inclusive, .. } = &var_info.ast_type {
                     // We need to extract the range values from the stored struct
                     // Load the range struct
