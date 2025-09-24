@@ -229,6 +229,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 ("%s", result.into())
                             }
+                            8 => {
+                                // For 8-bit integers, extend to 32-bit to ensure proper printing
+                                let extended = self.builder.build_int_z_extend(
+                                    int_val,
+                                    self.context.i32_type(),
+                                    "i8_to_i32"
+                                )?;
+                                ("%d", extended.into())
+                            }
                             32 => ("%d", val.into()),
                             64 => ("%lld", val.into()),
                             _ => ("%d", val.into()),
