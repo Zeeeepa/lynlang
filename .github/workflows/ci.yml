@@ -120,6 +120,24 @@ jobs:
         version: ${{ env.LLVM_VERSION }}
         cached: true
     
+    - name: Install Additional LLVM Libraries
+      run: |
+        sudo apt-get update
+        # Install LLVM and Polly dev libraries to fix linking
+        sudo apt-get install -y llvm-18-dev libpolly-18-dev
+        # Create symlinks if Polly library exists but with different name
+        if [ -f /usr/lib/llvm-18/lib/libPolly.a ]; then
+          echo "Polly library found"
+        elif [ -f /usr/lib/llvm-18/lib/libLLVMPolly.a ]; then
+          sudo ln -sf /usr/lib/llvm-18/lib/libLLVMPolly.a /usr/lib/llvm-18/lib/libPolly.a
+        fi
+        # Also check for PollyISL
+        if [ -f /usr/lib/llvm-18/lib/libPollyISL.a ]; then
+          echo "PollyISL library found"
+        elif [ -f /usr/lib/llvm-18/lib/libLLVMPollyISL.a ]; then
+          sudo ln -sf /usr/lib/llvm-18/lib/libLLVMPollyISL.a /usr/lib/llvm-18/lib/libPollyISL.a
+        fi
+    
     - name: Restore Cache
       uses: actions/cache@v4
       with:
