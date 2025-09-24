@@ -622,6 +622,138 @@ channel_recv = <T>(channel: Ptr<Channel<T>>) Result<T, string> {
 }
 
 // ============================================================================
+// THREAD POOL
+// ============================================================================
+
+ThreadPool := {
+    threads: Vec<ThreadHandle>
+    work_queue: Queue<() void>
+    num_threads: usize
+    running: bool
+    
+    new := (num_threads: usize) ThreadPool {
+        return ThreadPool {
+            threads: Vec.new(),
+            work_queue: Queue.new(),
+            num_threads: num_threads,
+            running: false
+        }
+    }
+    
+    submit := <T>(work: () T) Future<T> {
+        // Create task wrapper
+        task := task_new(
+            () Result<T, string> {
+                result := work()
+                return Ok(result)
+            },
+            get_thread_pool_executor(),
+            memory_unified.get_default_allocator()
+        )
+        
+        // Add to queue
+        self.work_queue.push(() {
+            execute_task_sync(task)
+        })
+        
+        return Future<T>{ task: task }
+    }
+    
+    shutdown := () void {
+        self.running = false
+        // Join all threads
+        self.threads.each((thread) {
+            join_thread(thread)
+        })
+    }
+    
+    wait_all := () void {
+        // Wait until queue is empty
+        loop(!self.work_queue.is_empty()) {
+            yield_thread()
+        }
+    }
+}
+
+// ============================================================================
+// QUEUE DATA STRUCTURE
+// ============================================================================
+
+Queue<T> := {
+    items: Vec<T>
+    front: usize
+    back: usize
+    size: usize
+    capacity: usize
+    
+    new := () Queue<T> {
+        return Queue<T> {
+            items: Vec<T>.with_capacity(16),
+            front: 0,
+            back: 0,
+            size: 0,
+            capacity: 16
+        }
+    }
+    
+    push := (item: T) void {
+        (self.size >= self.capacity) ? {
+            // Grow queue
+            self.grow()
+        }
+        
+        self.items.set(self.back, item)
+        self.back = (self.back + 1) % self.capacity
+        self.size += 1
+    }
+    
+    pop := () Option<T> {
+        (self.size == 0) ? {
+            return None
+        }
+        
+        item := self.items.get(self.front)
+        self.front = (self.front + 1) % self.capacity
+        self.size -= 1
+        
+        return Some(item)
+    }
+    
+    is_empty := () bool {
+        return self.size == 0
+    }
+    
+    len := () usize {
+        return self.size
+    }
+    
+    grow := () void {
+        new_capacity := self.capacity * 2
+        new_items := Vec<T>.with_capacity(new_capacity)
+        
+        // Copy items in order
+        i := 0
+        loop(i < self.size) {
+            idx := (self.front + i) % self.capacity
+            new_items.push(self.items.get(idx))
+            i += 1
+        }
+        
+        self.items = new_items
+        self.front = 0
+        self.back = self.size
+        self.capacity = new_capacity
+    }
+}
+
+// Helper to get thread pool executor
+get_thread_pool_executor := () Ptr<Executor> {
+    // Return a static threaded executor
+    static executor := executor_new(ExecutionMode.Threaded, memory_unified.get_default_allocator())
+    return &executor
+}
+
+// ============================================================================
 // PLATFORM ABSTRACTION
 // ============================================================================
 
@@ -640,7 +772,7 @@ join_thread = (handle: ThreadHandle) void { }  // Mock
 module.exports = {
     // Core types
     ExecutionMode, TaskState, Task, Future, Executor,
-    Actor, ActorSystem, Channel,
+    Actor, ActorSystem, Channel, ThreadPool, Queue,
     
     // Executor functions
     executor_new, executor_start, executor_shutdown,

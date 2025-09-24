@@ -1,0 +1,125 @@
+// Demonstration of Allocator-Based Async System
+// No async/await keywords - allocator determines sync/async behavior
+
+{ io } = @std
+{ Result } = @std.core
+
+// Multisync function - works with both sync and async allocators
+// This is the key pattern from LANGUAGE_SPEC.zen
+fetch_data := (id: i32, alloc: memory_unified.Allocator) Result<string, string> {
+    io.println("Fetching data for ID: ${id}")
+    
+    // Simulate some work
+    // In sync mode, this blocks
+    // In async mode, this doesn't block
+    simulate_delay(1000)
+    
+    (id > 0) ?
+        | true { return Result.Ok("Data for ${id}") }
+        | false { return Result.Err("Invalid ID") }
+}
+
+// Another multisync function
+process_data := (data: string, alloc: memory_unified.Allocator) Result<i32, string> {
+    io.println("Processing: ${data}")
+    
+    // More work
+    simulate_delay(500)
+    
+    return Result.Ok(42)
+}
+
+// Simulate some delay (would be actual I/O in real code)
+simulate_delay := (ms: i32) void {
+    // In real implementation, this would check allocator type
+    // and either block or yield accordingly
+    io.println("  [simulated delay ${ms}ms]")
+}
+
+main := () void {
+    io.println("═══════════════════════════════════════════")
+    io.println("  ALLOCATOR-BASED ASYNC DEMONSTRATION")
+    io.println("═══════════════════════════════════════════")
+    io.println("")
+    
+    // ========================================
+    // SYNCHRONOUS MODE - Using GPA
+    // ========================================
+    io.println("▸ Synchronous Mode (GPA)")
+    io.println("  Everything blocks until complete")
+    io.println("")
+    
+    // Initialize synchronous allocator
+    sync_alloc := GPA.init()
+    @this.defer(sync_alloc.deinit())
+    
+    // These calls BLOCK because we're using GPA
+    result1 := fetch_data(1, sync_alloc.allocator())
+    result1 ?
+        | Result.Ok(data) {
+            io.println("  Got sync data: ${data}")
+            
+            // This also blocks
+            process_result := process_data(data, sync_alloc.allocator())
+            process_result ?
+                | Result.Ok(value) { io.println("  Processed sync value: ${value}") }
+                | Result.Err(e) { io.println("  Process error: ${e}") }
+        }
+        | Result.Err(e) {
+            io.println("  Fetch error: ${e}")
+        }
+    
+    io.println("")
+    
+    // ========================================
+    // ASYNCHRONOUS MODE - Using AsyncPool
+    // ========================================
+    io.println("▸ Asynchronous Mode (AsyncPool)")
+    io.println("  Operations don't block, run concurrently")
+    io.println("")
+    
+    // Initialize async allocator
+    async_alloc := AsyncPool.init()
+    @this.defer(async_alloc.deinit())
+    
+    // These calls DON'T BLOCK because we're using AsyncPool
+    // They return immediately and run in background
+    result2 := fetch_data(2, async_alloc.allocator())
+    result3 := fetch_data(3, async_alloc.allocator())
+    result4 := fetch_data(4, async_alloc.allocator())
+    
+    io.println("  All async fetches initiated (non-blocking)")
+    
+    // Process results as they become available
+    result2 ?
+        | Result.Ok(data) {
+            io.println("  Got async data: ${data}")
+            process_data(data, async_alloc.allocator())
+        }
+        | Result.Err(e) { io.println("  Async error: ${e}") }
+    
+    result3 ?
+        | Result.Ok(data) {
+            io.println("  Got async data: ${data}")
+            process_data(data, async_alloc.allocator())
+        }
+        | Result.Err(e) { io.println("  Async error: ${e}") }
+        
+    result4 ?
+        | Result.Ok(data) {
+            io.println("  Got async data: ${data}")
+            process_data(data, async_alloc.allocator())
+        }
+        | Result.Err(e) { io.println("  Async error: ${e}") }
+    
+    // Wait for all async operations to complete
+    async_alloc.flush()
+    
+    io.println("")
+    io.println("═══════════════════════════════════════════")
+    io.println("  KEY INSIGHT:")
+    io.println("  Same functions work sync OR async")
+    io.println("  based solely on allocator type!")
+    io.println("  No function coloring problem!")
+    io.println("═══════════════════════════════════════════")
+}
