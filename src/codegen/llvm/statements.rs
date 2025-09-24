@@ -536,30 +536,51 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } = init_expr
                         {
                             // Handle other method calls
-                            // For method calls, try to infer from the returned value
-                            match value {
-                                BasicValueEnum::IntValue(int_val) => {
-                                    let bit_width = int_val.get_type().get_bit_width();
-                                    if bit_width == 1 {
-                                        AstType::Bool
-                                    } else if bit_width <= 32 {
-                                        AstType::I32
-                                    } else {
-                                        AstType::I64
+                            // Check the method name first for known return types
+                            match method.as_str() {
+                                "to_f64" => AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![AstType::F64],
+                                },
+                                "to_f32" => AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![AstType::F32],
+                                },
+                                "to_i32" => AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![AstType::I32],
+                                },
+                                "to_i64" => AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![AstType::I64],
+                                },
+                                _ => {
+                                    // For other methods, try to infer from the returned value
+                                    match value {
+                                        BasicValueEnum::IntValue(int_val) => {
+                                            let bit_width = int_val.get_type().get_bit_width();
+                                            if bit_width == 1 {
+                                                AstType::Bool
+                                            } else if bit_width <= 32 {
+                                                AstType::I32
+                                            } else {
+                                                AstType::I64
+                                            }
+                                        }
+                                        BasicValueEnum::FloatValue(_) => AstType::F64,
+                                        BasicValueEnum::PointerValue(_) => {
+                                            AstType::Ptr(Box::new(AstType::I8))
+                                        }
+                                        BasicValueEnum::StructValue(_) => {
+                                            // Could be DynVec or other struct type
+                                            AstType::Generic {
+                                                name: String::new(),
+                                                type_args: vec![],
+                                            }
+                                        }
+                                        _ => AstType::I64,
                                     }
                                 }
-                                BasicValueEnum::FloatValue(_) => AstType::F64,
-                                BasicValueEnum::PointerValue(_) => {
-                                    AstType::Ptr(Box::new(AstType::I8))
-                                }
-                                BasicValueEnum::StructValue(_) => {
-                                    // Could be DynVec or other struct type
-                                    AstType::Generic {
-                                        name: String::new(),
-                                        type_args: vec![],
-                                    }
-                                }
-                                _ => AstType::I64,
                             }
                         } else if let Expression::MemberAccess { object, member } = init_expr {
                             // Check if this is an enum variant access (e.g., GameEntity.Player)
@@ -904,7 +925,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let alloca = self.builder.build_alloca(struct_type, name)?;
                         self.builder.build_store(alloca, struct_val)?;
                         // Check what type of value this is
-                        // eprintln!("DEBUG: Inferring type for value: {:?}", value);
                         let inferred_type = match value {
                             Expression::StructLiteral {
                                 name: struct_name, ..
@@ -948,6 +968,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     inclusive: *inclusive,
                                 }
                             }
+                            Expression::MethodCall { object: _, method, .. } => {
+                                // Check method name to determine return type
+                                // These string conversion methods return Option<T>
+                                match method.as_str() {
+                                    "to_f64" => AstType::Generic {
+                                        name: "Option".to_string(),
+                                        type_args: vec![AstType::F64],
+                                    },
+                                    "to_f32" => AstType::Generic {
+                                        name: "Option".to_string(),
+                                        type_args: vec![AstType::F32],
+                                    },
+                                    "to_i32" => AstType::Generic {
+                                        name: "Option".to_string(),
+                                        type_args: vec![AstType::I32],
+                                    },
+                                    "to_i64" => AstType::Generic {
+                                        name: "Option".to_string(),
+                                        type_args: vec![AstType::I64],
+                                    },
+                                    _ => AstType::Generic {
+                                        name: String::new(),
+                                        type_args: vec![],
+                                    }
+                                }
+                            }
                             _ => {
                                 // Default to enum type for other cases
                                 AstType::Generic {
@@ -956,7 +1002,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             }
                         };
-                        // eprintln!("DEBUG: Inferred type: {:?}", inferred_type);
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {

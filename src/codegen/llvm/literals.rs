@@ -163,6 +163,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
                     }
                 }
+                AstType::Generic { name: enum_name, .. } if enum_name == "Option" || enum_name == "Result" => {
+                    // For Option and Result generics, load as enum struct
+                    let enum_struct_type = self.context.struct_type(
+                        &[
+                            self.context.i64_type().into(),  // discriminant
+                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
+                        ],
+                        false,
+                    );
+                    match self.builder.build_load(enum_struct_type, ptr, name) {
+                        Ok(val) => val.into(),
+                        Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
+                    }
+                }
                 _ => {
                     let elem_type = self.to_llvm_type(&ast_type)?;
                     let basic_type = self.expect_basic_type(elem_type)?;

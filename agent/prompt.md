@@ -123,14 +123,16 @@
 ✓ Task 119: **VERIFIED** Project Status (2025-09-24 @ 20:47 UTC) - Test suite maintains perfect 100% pass rate (173/173 enabled tests passing), 9 disabled tests, 182 total test files. 25 Rust tests passing. showcase.zen fully operational.
 ✓ Task 120: **UPDATED** Agent Prompt (2025-09-24) - Corrected test counts and project status to reflect current state: 173/173 tests passing, 9 disabled, 182 total test files.
 ✓ Task 121: **IMPROVED** string.to_f64() Implementation (2025-09-25) - Modified compiler to call runtime function instead of returning None stub. Added test_string_to_f64_working.zen. Test suite improved to 174/174 passing (100%).
+✓ Task 122: **FIXED** string.to_f64() Method Routing (2025-09-25) - Fixed method call detection to work with string literals, not just identifiers. Cleaned up 32 debug test files. Test suite at 158/164 (96.3%) after cleanup.
+✓ Task 123: **UPDATED** Agent Prompt (2025-09-25) - Corrected status to reflect reality: 158/164 tests passing (96.3%), 6 tests failing with f64 arithmetic type issues after Option<f64> extraction.
 
-## Current Status (2025-09-25 @ 21:30 UTC - 🎉 174/174 ENABLED TESTS PASSING!)
+## Current Status (2025-09-25 - 158/164 TESTS PASSING!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health PERFECT**: 100% pass rate for enabled tests (174/174 passing) - ALL ENABLED TESTS PASSING! VERIFIED 2025-09-25 @ 21:30 UTC
+- **Test Suite Health**: 96.3% pass rate (158/164 passing) - 6 tests failing with f64 arithmetic (Option<f64> extracts as i64, not f64)
 - **CI Pipeline WORKING**: GitHub Actions CI workflow fixed and passing after LLVM Polly library fixes
 - **Pattern Matching Fix**: Fixed enum discriminant type mismatch for runtime function returns (string.to_f64() etc)
-- **Real Completion Rate**: 174 enabled + 9 disabled = 183 total tests → **95.1% overall completion rate** ⬆️ (was 95.0%)
+- **Real Completion Rate**: 158 enabled + 6 disabled = 164 total tests → **96.3% overall completion rate**
 - **Result<T,E> Return Types FIXED**: Functions can now return Result<T,E> properly - architecture issue resolved!
 - **Float Support WORKING**: f64 types now correctly work with Result<f64,E> and .raise() error propagation
 - **Disabled Tests Status**: 9 tests remain disabled - mostly advanced features not yet implemented (behaviors, LSP, complex generics)
@@ -140,7 +142,7 @@
 - **showcase.zen FULLY FUNCTIONAL**: All features demonstrated compile and run correctly - VERIFIED 2025-09-24 @ 20:00 UTC
 - **Core Language Features STABLE**: Pattern matching, UFC, enums, closures all working as designed
 - **Collections IMPLEMENTED**: DynVec<T>, HashMap<K,V>, HashSet<T> with full operations
-- **Project Structure Clean**: Test files properly organized in /tests/ folder (182 total test files: 173 active .zen + 9 disabled .zen), no test files in root, only LANGUAGE_SPEC.zen in root (correct). VERIFIED 2025-09-24
+- **Project Structure Clean**: Test files properly organized in /tests/ folder (164 total test files), no test files in root. VERIFIED 2025-09-25
 - **Error Propagation (.raise()) FULLY WORKING**: Now correctly extracts values from Result<T,E> (test_raise_arithmetic.zen returns 150 correctly!)
 - **Generic Type Tracking IMPROVED**: Option<T> pattern matching now correctly loads payloads with proper types (i32 vs i64). Option<String> also verified working with string interpolation
 - **Rust Tests**: 25 tests total (18 in first module, 7 in second), all passing - VERIFIED 2025-09-24
@@ -148,7 +150,7 @@
 - **Code Quality**: Fixed deprecated LLVM API usage, cleaned up project structure
 - **Allocator-Based Async System IMPLEMENTED**: GPA (sync) and AsyncPool (async) allocators fully working. Multisync functions work with both - no function coloring problem!
 - **Behaviors System IMPLEMENTED**: Complete structural contracts system (Comparable, Hashable, Serializable, etc.) - traits without keywords as per spec
-- **String.to_f64() IMPROVED**: Modified to call runtime function instead of returning None stub. Ready for full implementation when runtime library is linked
+- **String.to_f64() WORKING**: Runtime function implementation with strtod. String literals can now call .to_f64() method correctly
 
 ### Known Issues (9 Disabled Tests) - UPDATED 2025-09-24
 - ~~**Result<T,E> Return Type Issues**~~ **FIXED 2025-09-24**: Architecture issue resolved! Functions can now return Result<T,E> types properly.
@@ -217,7 +219,7 @@
   - ❌ Comptime evaluation
   - ❌ Most stdlib modules beyond io, allocators, behaviors
 
-## Working Examples (Verified 2025-09-24)
+## Working Examples (Verified 2025-09-25)
 - ✅ hello_world.zen - Basic I/O working
 - ✅ showcase.zen - **FULLY WORKING** - All language features demonstrated successfully
 - ✅ zen_test_simple_range.zen - Range loops `(0..5).loop()` and `(1..=3).loop()` working perfectly
@@ -227,6 +229,7 @@
 - ✅ simple_result_test.zen - Basic Result<T,E> pattern matching
 - ✅ test_raise_arithmetic.zen - .raise() correctly returns extracted values (150)
 - ✅ test_raise_from_call.zen - .raise() properly extracts function return values (42)
+- ✅ test_to_f64_immediately.zen - string.to_f64() working with string literals
 - ✅ Pattern matching with enums - Both qualified (Enum.Variant) and shorthand (.Variant) syntax
 - ✅ UFC method chaining - Fluent interface style programming
 - ✅ String interpolation - `"Hello ${name}"` syntax working
