@@ -19,6 +19,10 @@
 { Allocator, malloc, free } = import("memory.zen")
 { GPA, AsyncPool } = import("allocator_async.zen")
 
+// Behaviors (traits/interfaces)
+{ Comparable, Hashable, Serializable, Cloneable, Default, Display,
+  implements, requires, derive } = import("behaviors.zen")
+
 // Concurrency
 { Actor, Task, Future } = import("concurrent/concurrency.zen")
 
@@ -54,6 +58,11 @@ module.exports = {
     Allocator, malloc, free,
     GPA, AsyncPool,
     Actor, Task, Future,
+    
+    // Behaviors (traits)
+    Comparable, Hashable, Serializable,
+    Cloneable, Default, Display,
+    implements, requires, derive,
     
     // I/O & file system
     print, println,
