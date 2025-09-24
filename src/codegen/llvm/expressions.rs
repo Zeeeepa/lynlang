@@ -2128,8 +2128,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         scrutinee: &Expression,
         arms: &[crate::ast::PatternArm],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        eprintln!("[DEBUG] compile_pattern_match called, scrutinee: {:?}", scrutinee);
-        eprintln!("[DEBUG] generic_type_context at pattern match: {:?}", self.generic_type_context);
         
         let parent_function = self.current_function.ok_or_else(|| {
             CompileError::InternalError("No current function for pattern match".to_string(), None)

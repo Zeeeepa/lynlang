@@ -13,10 +13,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
     ) -> Result<(IntValue<'ctx>, Vec<(String, BasicValueEnum<'ctx>)>), CompileError> {
         let mut bindings = Vec::new();
 
-        eprintln!("[DEBUG] compile_pattern_test - pattern type: {:?}", std::any::type_name_of_val(pattern));
-        eprintln!("[DEBUG] compile_pattern_test - pattern: {:?}", pattern);
-        eprintln!("[DEBUG] compile_pattern_test - scrutinee type: {:?}, is_struct: {}, is_pointer: {}", 
-                 scrutinee_val.get_type(), scrutinee_val.is_struct_value(), scrutinee_val.is_pointer_value());
         let matches = match pattern {
             Pattern::Literal(lit_expr) => {
                 // Check if the literal expression is a range
@@ -296,9 +292,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Handle payload pattern if present
                 if let Some(payload_pattern) = payload {
-                    eprintln!("[DEBUG] Handling payload pattern for enum variant {}.{}", enum_name, variant);
-                    eprintln!("[DEBUG] Scrutinee is_pointer={}, is_struct={}", 
-                             scrutinee_val.is_pointer_value(), scrutinee_val.is_struct_value());
                     // Extract the payload value - preserve the actual type!
                     let payload_val = if scrutinee_val.is_pointer_value() {
                         let enum_struct_type = enum_info.llvm_type;
@@ -397,7 +390,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             )
                                             .unwrap_or(loaded_payload),
                                         AstType::F64 => {
-                                            eprintln!("[DEBUG] Loading Option.Some payload as F64");
                                             let loaded = self
                                                 .builder
                                                 .build_load(
@@ -406,7 +398,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     "payload_f64",
                                                 )
                                                 .unwrap_or(loaded_payload);
-                                            eprintln!("[DEBUG] Loaded value type: {:?}", loaded.get_type());
                                             loaded
                                         }
                                         AstType::String => loaded_payload, // Strings are already pointers, don't load
@@ -467,8 +458,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         if struct_val.get_type().count_fields() > 1 {
                             let extracted =
                                 self.builder.build_extract_value(struct_val, 1, "payload")?;
-                            eprintln!("[DEBUG] Extracted payload from struct: type={:?}, is_pointer={}, is_float={}", 
-                                     extracted.get_type(), extracted.is_pointer_value(), extracted.is_float_value());
                             // The payload in a struct is a pointer
                             // For integers: pointer to the integer value
                             // For strings: the string pointer itself
@@ -480,7 +469,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let ptr_val = extracted.into_pointer_value();
 
                                 // Check if pointer is null before attempting to load
-                                eprintln!("[DEBUG] Extracted pointer from struct payload, checking for null");
                                 let null_ptr = ptr_val.get_type().const_null();
                                 let is_null = self.builder.build_int_compare(
                                     inkwell::IntPredicate::EQ,
@@ -646,13 +634,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                     } else {
                         // No payload available
-                        eprintln!("[DEBUG] Fallback case - scrutinee type: {:?}", scrutinee_val.get_type());
                         self.context.i64_type().const_int(0, false).into()
                     };
 
                     // Recursively match the payload pattern
-                    eprintln!("[DEBUG] Before recursive match - payload_val type: {:?}, is_float: {}", 
-                             payload_val.get_type(), payload_val.is_float_value());
                     let (payload_match, mut payload_bindings) =
                         self.compile_pattern_test(&payload_val, payload_pattern)?;
 
