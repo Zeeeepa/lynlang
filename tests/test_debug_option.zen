@@ -1,0 +1,22 @@
+// Debug test for Option matching
+{ io } = @std
+
+main = () void {
+    io.println("Creating Some(42)")
+    val = Some(42)
+    
+    io.println("Creating None")
+    empty = None
+    
+    io.println("Matching val...")
+    val ?
+        | Some(x) { io.println("Got Some: ${x}") }
+        | None { io.println("Got None on val") }
+    
+    io.println("About to match empty...")
+    empty ?
+        | None { io.println("Empty is None") }
+        | Some(y) { io.println("Empty is Some: ${y}") }
+    
+    io.println("Done!")
+}

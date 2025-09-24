@@ -1,0 +1,15 @@
+// Test two Some values in sequence
+{ io } = @std
+
+main = () void {
+    val1 = Some(42)
+    val2 = Some(100)
+    
+    val1 ?
+        | Some(x) { io.println("Val1: ${x}") }
+        | None { io.println("Val1 is None") }
+    
+    val2 ?
+        | Some(y) { io.println("Val2: ${y}") }
+        | None { io.println("Val2 is None") }
+}

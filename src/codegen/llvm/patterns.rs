@@ -478,7 +478,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         };
                                         
                                         // Try to load with the tracked type information
-                                        if let Some(ast_type) = load_type {
+                                        // For Option matching, check if we might be loading from None's null pointer
+                                        if variant == "Some" && ptr_val.is_const() && ptr_val.is_null() {
+                                            // Don't try to load from null pointer - return dummy value
+                                            // This happens when testing Some(x) pattern against None value
+                                            self.context.i64_type().const_int(0, false).into()
+                                        } else if let Some(ast_type) = load_type {
                                             use crate::ast::AstType;
                                             match ast_type {
                                                 AstType::I8 => self.builder.build_load(self.context.i8_type(), ptr_val, "payload_i8").unwrap_or(loaded_payload),

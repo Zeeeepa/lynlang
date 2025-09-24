@@ -1,0 +1,11 @@
+// Test just None variable creation and match
+{ io } = @std
+
+main = () void {
+    empty = None
+    io.println("Created None")
+    
+    empty ?
+        | None { io.println("Is None") }
+        | Some(x) { io.println("Is Some: ${x}") }
+}
