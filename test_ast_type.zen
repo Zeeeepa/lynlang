@@ -1,6 +1,0 @@
-{ io, Option } = @std
-
-main = () void {
-    result = "3.14".to_f64()
-    io.println("Done")
-}
