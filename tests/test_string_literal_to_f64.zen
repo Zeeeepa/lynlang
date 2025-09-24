@@ -1,0 +1,31 @@
+{ io, Option } = @std
+
+main = () void {
+    // Test 1: Direct literal
+    "123.456".to_f64() ?
+        | Option.Some(v) {
+            io.println("Test 1 value: ${v}")
+        }
+        | Option.None {
+            io.println("Test 1 failed")
+        }
+    
+    // Test 2: Invalid number
+    "not_a_number".to_f64() ?
+        | Option.Some(v) {
+            io.println("Test 2 unexpected: ${v}")
+        }
+        | Option.None {
+            io.println("Test 2 correctly failed")
+        }
+    
+    // Test 3: Variable
+    s = "999.99"
+    s.to_f64() ?
+        | Option.Some(v) {
+            io.println("Test 3 value: ${v}")
+        }
+        | Option.None {
+            io.println("Test 3 failed")
+        }
+}
