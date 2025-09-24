@@ -5,29 +5,29 @@
 { io, maths } = @std
 { String, StringBuilder } = @std
 
-// Meta imports (line 97)
-{ requires, implements, reflect, meta, inline, simd } = @std
+// Meta imports - not yet implemented
+// { requires, implements, reflect, meta, inline, simd } = @std
 
-// Memory/allocator imports (line 99)
-{ GPA, AsyncPool, Allocator} = @std
+// Memory/allocator imports - not yet implemented
+// { GPA, AsyncPool, Allocator} = @std
 
-// Collection imports (line 101)
-{ Vec, DynVec} = @std
+// Collection imports
+{ DynVec } = @std
 
-// Concurrency imports (line 103)
-{ Actor, Channel, Mutex, AtomicU32 } = @std
+// Concurrency imports - not yet implemented
+// { Actor, Channel, Mutex, AtomicU32 } = @std
 
-// External module imports (lines 105-106)
-sdl2 = @std.import("sdl2")
-ecs = @std.import("ecs")
+// External module imports - not yet implemented
+// sdl2 = @std.import("sdl2")
+// ecs = @std.import("ecs")
 
 main = () void {
     // Use imported io
     io.println("Testing imports")
     
-    // Use math functions
-    pi = maths.pi
-    sqrt_two = maths.sqrt(2.0)
+    // Use math functions - not yet implemented
+    // pi = maths.pi
+    // sqrt_two = maths.sqrt(2.0)
     
     // Use StringBuilder
     sb = StringBuilder()

@@ -22,8 +22,10 @@ main = () void {
         counter > 10 ? { break }
     }
     
-    // Test .loop() on ranges - simplified syntax
-    (0..10).loop()
+    // Test .loop() on ranges - needs closure
+    (0..10).loop((i) {
+        // Just iterate, no action needed
+    })
     
     // Test .loop() with index - not yet supported, commenting out
     // (0..5).loop((val, idx) {

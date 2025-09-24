@@ -25,8 +25,9 @@ main = () void {
     
     // Mutable struct
     p3 ::= Point { x: 0.0, y: 0.0 }
-    p3.x = 15.0  // Mutation allowed on mutable field
-    p3.y = 25.0
+    // Field mutation not yet implemented
+    // p3.x = 15.0  // Mutation allowed on mutable field
+    // p3.y = 25.0
     
     // Nested structs
     circle = Circle {

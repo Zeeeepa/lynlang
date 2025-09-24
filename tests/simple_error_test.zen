@@ -10,7 +10,7 @@ divide = (a: i32, b: i32) Result<i32, string> {
 }
 
 // Test pattern matching on Result
-test_result_matching = () void {
+test_result_matching = () i32 {
     io.println("Testing Result pattern matching:")
     
     result1 = divide(10, 2)
@@ -22,6 +22,8 @@ test_result_matching = () void {
     result2 ?
         | .Ok(value) { io.println("  10 / 0 = ${value}") }
         | .Err(error) { io.println("  Error: ${error}") }
+    
+    return 0
 }
 
 // Chain operations manually

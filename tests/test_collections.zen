@@ -9,7 +9,8 @@ string_hash = (s: string) i64 {
         i >= s.len() ? { break }
         char_val = s.char_at(i)
         temp ::= hash * 32
-        hash = temp + hash + char_val  // Using multiplication instead of shift
+        char_int = char_val as i32
+        hash = temp + hash + char_int  // Cast to i32 for arithmetic
         i = i + 1
     }
     return hash

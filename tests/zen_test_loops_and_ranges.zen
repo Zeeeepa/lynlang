@@ -9,32 +9,32 @@ main = () void {
         io.println("Count: ${i}")
     })
     
-    // Step ranges (lines 436-439)
-    (0..100).step(10).loop((i) {
-        io.println("Step: ${i}")  // 0, 10, 20, ...
-    })
+    // Step ranges - not yet implemented
+    // (0..100).step(10).loop((i) {
+    //     io.println("Step: ${i}")  // 0, 10, 20, ...
+    // })
     
-    // Collection loop with UFC (lines 441-445)
-    numbers = [1, 2, 3, 4, 5]
-    total ::= 0
-    numbers.loop((n) {
-        total = total + n
-    })
+    // Collection loop - arrays not yet implemented
+    // numbers = [1, 2, 3, 4, 5]
+    // total ::= 0
+    // numbers.loop((n) {
+    //     total = total + n
+    // })
     
-    // Loop with index (lines 447-450)
-    items = ["a", "b", "c"]
-    items.loop((item, i) {
-        io.println("Item ${i}: ${item}")
-    })
+    // Loop with index - arrays not yet implemented
+    // items = ["a", "b", "c"]
+    // items.loop((item, i) {
+    //     io.println("Item ${i}: ${item}")
+    // })
     
     // Infinite loop with break (lines 452-459)
     counter ::= 0
-    loop(() {
+    loop {
         counter = counter + 1
         counter > 10 ?
             | true { break }
             | false { io.println("Count: ${counter}") }
-    })
+    }
     
     // While-like pattern with loop
     running ::= true

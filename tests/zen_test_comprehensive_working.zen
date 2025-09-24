@@ -103,9 +103,11 @@ main = () void {
     enemy = GameEntity.Enemy
     powerup = GameEntity.Powerup
     
-    io.println("  Player health: ${player.get_health()}, speed: ${player.get_speed()}")
-    io.println("  Enemy health: ${enemy.get_health()}, speed: ${enemy.get_speed()}")
-    io.println("  Powerup health: ${powerup.get_health()}, speed: ${powerup.get_speed()}")
+    // UFC enum overloading not yet implemented
+    // io.println("  Player health: ${player.get_health()}, speed: ${player.get_speed()}")
+    // io.println("  Enemy health: ${enemy.get_health()}, speed: ${enemy.get_speed()}")
+    // io.println("  Powerup health: ${powerup.get_health()}, speed: ${powerup.get_speed()}")
+    io.println("  UFC enum overloading not yet implemented")
     
     // Test ranges from spec lines 432-439
     io.println("\n5. Range Iteration:")

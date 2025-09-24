@@ -5,15 +5,17 @@
 { Result, Option } = @std
 
 // Simple enum
-Shape:
+Shape = enum {
     Circle,
     Rectangle
+}
 
 // Enum with different variant types
-GameEntity:
+GameEntity = enum {
     Player,
     Enemy,
     Powerup
+}
 
 main = () void {
     // Option handling - no null!

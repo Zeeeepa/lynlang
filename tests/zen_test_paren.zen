@@ -1,6 +1,8 @@
+{ io } = @std
+
 main = () void {
     x = (10 + 5)
-    io.print(x)
+    io.println("${x}")
     
     y = (true)
     y ? { io.println("yes") }
