@@ -729,9 +729,13 @@ impl TypeChecker {
             Expression::TypeCast { target_type, .. } => {
                 Ok(target_type.clone())
             }
-            Expression::QuestionMatch { arms, .. } => {
+            Expression::QuestionMatch { scrutinee, arms } => {
                 // QuestionMatch expression type is determined by the first arm
                 // All arms should have the same type
+                
+                // Infer the type of the scrutinee to properly type pattern bindings
+                let scrutinee_type = self.infer_expression_type(scrutinee)?;
+                
                 if arms.is_empty() {
                     Ok(AstType::Void)
                 } else {
@@ -743,7 +747,8 @@ impl TypeChecker {
                         self.enter_scope();
                         
                         // Extract pattern bindings and add them to the scope
-                        self.add_pattern_bindings_to_scope(&arm.pattern)?;
+                        // Pass the scrutinee type for proper typing
+                        self.add_pattern_bindings_to_scope_with_type(&arm.pattern, &scrutinee_type)?;
                         
                         // Infer the type with bindings in scope
                         let arm_type = self.infer_expression_type(&arm.body)?;
@@ -1089,10 +1094,14 @@ impl TypeChecker {
                     Ok(AstType::Void)
                 }
             }
-            Expression::Conditional { arms, .. } => {
+            Expression::Conditional { scrutinee, arms } => {
                 eprintln!("DEBUG TypeChecker: Processing conditional with {} arms", arms.len());
                 // Conditional expression type is determined by the first arm
                 // All arms should have the same type (checked during type checking)
+                
+                // Infer the type of the scrutinee to properly type pattern bindings
+                let scrutinee_type = self.infer_expression_type(scrutinee)?;
+                
                 if arms.is_empty() {
                     Ok(AstType::Void)
                 } else {
@@ -1107,7 +1116,7 @@ impl TypeChecker {
                         eprintln!("DEBUG TypeChecker: Entered scope for arm {}", i);
                         
                         // Extract pattern bindings and add them to the scope
-                        self.add_pattern_bindings_to_scope(&arm.pattern)?;
+                        self.add_pattern_bindings_to_scope_with_type(&arm.pattern, &scrutinee_type)?;
                         eprintln!("DEBUG TypeChecker: Added pattern bindings for arm {}", i);
                         
                         // Infer the type with bindings in scope
@@ -1364,54 +1373,77 @@ impl TypeChecker {
     }
     
     fn add_pattern_bindings_to_scope(&mut self, pattern: &crate::ast::Pattern) -> Result<()> {
+        // Default to I32 when no type context is available (legacy behavior)
+        self.add_pattern_bindings_to_scope_with_type(pattern, &AstType::I32)
+    }
+    
+    fn add_pattern_bindings_to_scope_with_type(&mut self, pattern: &crate::ast::Pattern, scrutinee_type: &AstType) -> Result<()> {
         use crate::ast::Pattern;
         
-        eprintln!("DEBUG TypeChecker: add_pattern_bindings_to_scope for pattern: {:?}", pattern);
+        eprintln!("DEBUG TypeChecker: add_pattern_bindings_to_scope_with_type for pattern: {:?}, type: {:?}", pattern, scrutinee_type);
         
         match pattern {
             Pattern::Identifier(name) => {
-                // Simple identifier pattern binds the name to a generic type
-                // In a real implementation, we'd infer this from the scrutinee type
-                eprintln!("DEBUG TypeChecker: Adding variable '{}' from identifier pattern", name);
-                self.declare_variable(name, AstType::I64, false)?;
+                // Simple identifier pattern binds the name to the type of the matched value
+                // For Option<T>, extract T from the generic type
+                let binding_type = if let AstType::Generic { name: enum_name, type_args } = scrutinee_type {
+                    if enum_name == "Option" && !type_args.is_empty() {
+                        // For Option<T>, the payload has type T
+                        type_args[0].clone()
+                    } else if enum_name == "Result" && type_args.len() >= 2 {
+                        // For Result<T,E>, depends on the variant being matched
+                        // This is simplified - ideally we'd know which variant we're in
+                        type_args[0].clone()
+                    } else {
+                        // For other generics, default to I32
+                        AstType::I32
+                    }
+                } else {
+                    // For non-generic types, use the scrutinee type directly
+                    scrutinee_type.clone()
+                };
+                
+                eprintln!("DEBUG TypeChecker: Adding variable '{}' with type {:?} from identifier pattern", name, binding_type);
+                self.declare_variable(name, binding_type, false)?;
             }
             Pattern::EnumLiteral { variant, payload } => {
                 // For enum patterns with payloads, add the payload bindings
                 if let Some(payload_pattern) = payload {
-                    self.add_pattern_bindings_to_scope(payload_pattern)?;
+                    self.add_pattern_bindings_to_scope_with_type(payload_pattern, scrutinee_type)?;
                 }
             }
             Pattern::EnumVariant { payload, .. } => {
                 // For qualified enum patterns with payloads
                 if let Some(payload_pattern) = payload {
-                    self.add_pattern_bindings_to_scope(payload_pattern)?;
+                    self.add_pattern_bindings_to_scope_with_type(payload_pattern, scrutinee_type)?;
                 }
             }
             Pattern::Binding { name, pattern } => {
                 // Binding pattern: name @ pattern
-                // Add the name as a variable
-                self.declare_variable(name, AstType::I64, false)?;
+                // Add the name as a variable with the scrutinee type
+                self.declare_variable(name, scrutinee_type.clone(), false)?;
                 // And recursively process the pattern
-                self.add_pattern_bindings_to_scope(pattern)?;
+                self.add_pattern_bindings_to_scope_with_type(pattern, scrutinee_type)?;
             }
             Pattern::Or(patterns) => {
                 // For or patterns, we need to ensure all alternatives bind the same names
                 // For now, just process the first one
                 if let Some(first) = patterns.first() {
-                    self.add_pattern_bindings_to_scope(first)?;
+                    self.add_pattern_bindings_to_scope_with_type(first, scrutinee_type)?;
                 }
             }
             Pattern::Struct { fields, .. } => {
                 // For struct patterns, add bindings for all fields
                 for field in fields {
                     // field is (String, Pattern)
-                    self.add_pattern_bindings_to_scope(&field.1)?;
+                    // TODO: Should extract field type from struct type
+                    self.add_pattern_bindings_to_scope_with_type(&field.1, scrutinee_type)?;
                 }
             }
             Pattern::Type { binding, .. } => {
                 // Type pattern with optional binding
                 if let Some(name) = binding {
-                    self.declare_variable(name, AstType::I64, false)?;
+                    self.declare_variable(name, scrutinee_type.clone(), false)?;
                 }
             }
             // Other patterns don't create bindings

@@ -264,25 +264,50 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Try to determine what this pointer points to
                                 // For integer literals stored in enums, we need to load them with the right type
-                                // The issue is that integers are stored as i64 but we need to preserve that type
+                                // Default integers are i32, so try that first
                                 
-                                // First, try to peek at what's stored to determine the correct type
-                                // We'll load as i64 first since that's what integer literals compile to
-                                match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
-                                    Ok(loaded) => {
-                                        // Successfully loaded as i64 - keep the type!
-                                        loaded
-                                    }
-                                    _ => {
-                                        // Try loading as i32
-                                        match self.builder.build_load(self.context.i32_type(), ptr_val, "try_i32") {
-                                            Ok(int_val) if int_val.is_int_value() => {
-                                                // Successfully loaded as i32
-                                                int_val
+                                // Check if we have type information for this enum
+                                let load_type = if enum_name == "Option" && variant == "Some" {
+                                    self.generic_type_context.get("Option_Some_Type").cloned()
+                                } else {
+                                    None
+                                };
+                                
+                                if let Some(ast_type) = load_type {
+                                    use crate::ast::AstType;
+                                    match ast_type {
+                                        AstType::I8 => self.builder.build_load(self.context.i8_type(), ptr_val, "payload_i8").unwrap_or(loaded_payload),
+                                        AstType::I16 => self.builder.build_load(self.context.i16_type(), ptr_val, "payload_i16").unwrap_or(loaded_payload),
+                                        AstType::I32 => self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32").unwrap_or(loaded_payload),
+                                        AstType::I64 => self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64").unwrap_or(loaded_payload),
+                                        AstType::String => loaded_payload, // Strings are already pointers, don't load
+                                        _ => {
+                                            // Try default loading for other types - i32 first
+                                            match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
+                                                Ok(loaded) => loaded,
+                                                _ => match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
+                                                    Ok(loaded) => loaded,
+                                                    _ => loaded_payload
+                                                }
                                             }
-                                            _ => {
-                                                // Not an integer, keep as pointer (likely a string)
-                                                loaded_payload
+                                        }
+                                    }
+                                } else {
+                                    // No type info, try i32 first since that's the default for integer literals
+                                    match self.builder.build_load(self.context.i32_type(), ptr_val, "try_i32") {
+                                        Ok(int_val) => {
+                                            int_val
+                                        }
+                                        _ => {
+                                            // Try loading as i64
+                                            match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
+                                                Ok(loaded) => {
+                                                        loaded
+                                                }
+                                                _ => {
+                                                    // Not an integer, keep as pointer (likely a string)
+                                                    loaded_payload
+                                                }
                                             }
                                         }
                                     }
@@ -329,9 +354,42 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Not null path - attempt to load
                                 self.builder.position_at_end(then_bb);
-                                let loaded_value = match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_int") {
-                                    Ok(loaded) => loaded,
-                                    _ => extracted  // Keep as pointer if load fails
+                                
+                                // Check if we have type information for this enum
+                                let load_type = if enum_name == "Option" && variant == "Some" {
+                                    self.generic_type_context.get("Option_Some_Type").cloned()
+                                } else {
+                                    None
+                                };
+                                
+                                let loaded_value = if let Some(ast_type) = load_type {
+                                    use crate::ast::AstType;
+                                    match ast_type {
+                                        AstType::I8 => self.builder.build_load(self.context.i8_type(), ptr_val, "payload_i8").unwrap_or(extracted),
+                                        AstType::I16 => self.builder.build_load(self.context.i16_type(), ptr_val, "payload_i16").unwrap_or(extracted),
+                                        AstType::I32 => self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32").unwrap_or(extracted),
+                                        AstType::I64 => self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64").unwrap_or(extracted),
+                                        AstType::String => extracted, // Strings are already pointers, don't load
+                                        _ => {
+                                            // Try default loading - i32 first, then i64
+                                            match self.builder.build_load(self.context.i32_type(), ptr_val, "try_i32") {
+                                                Ok(loaded) => loaded,
+                                                _ => match self.builder.build_load(self.context.i64_type(), ptr_val, "try_i64") {
+                                                    Ok(loaded) => loaded,
+                                                    _ => extracted  // Keep as pointer if load fails
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // No type info, try i32 first as default integer type
+                                    match self.builder.build_load(self.context.i32_type(), ptr_val, "try_load_i32") {
+                                        Ok(loaded) => loaded,
+                                        _ => match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_i64") {
+                                            Ok(loaded) => loaded,
+                                            _ => extracted  // Keep as pointer if load fails
+                                        }
+                                    }
                                 };
                                 self.builder.build_unconditional_branch(merge_bb)?;
                                 let then_val = loaded_value;
@@ -547,9 +605,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 AstType::String => loaded_payload, // Strings are already pointers, don't load
                                                 _ => {
                                                     // Try default loading for other types
-                                                    match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
+                                                    // Try i32 first since it's the default integer type
+                                                    match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
                                                         Ok(loaded) => loaded,
-                                                        _ => match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
+                                                        _ => match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
                                                             Ok(loaded) => loaded,
                                                             _ => loaded_payload
                                                         }
@@ -558,10 +617,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             }
                                             } else {
                                                 // No type info, fall back to trying different types
-                                                match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
-                                                    Ok(loaded) => loaded,
-                                                    _ => match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
-                                                        Ok(loaded) => loaded,
+                                                // Try i32 first since it's the default integer type
+                                                match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
+                                                    Ok(loaded) => {
+                                                        loaded
+                                                    },
+                                                    _ => match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
+                                                        Ok(loaded) => {
+                                                            loaded
+                                                        },
                                                         _ => loaded_payload
                                                     }
                                                 }
@@ -824,7 +888,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let mut saved = HashMap::new();
         
         for (name, value) in bindings {
-            eprintln!("DEBUG: Binding variable '{}' with value type {:?}", name, value.get_type());
             if let Some(existing) = self.variables.get(name) {
                 saved.insert(name.clone(), existing.clone());
             }

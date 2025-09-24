@@ -30,6 +30,10 @@ name = "zen"
 path = "src/lib.rs"
 
 [[bin]]
+name = "zen"
+path = "src/main.rs"
+
+[[bin]]
 name = "zen-lsp"
 path = "src/lsp/main.rs"
 
