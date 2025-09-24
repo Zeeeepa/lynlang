@@ -277,6 +277,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Clear variables from previous function by entering a new scope
         self.symbols.enter_scope();
+        
+        // Create variables for module imports
+        for (name, marker) in self.module_imports.clone() {
+            let alloca = self.builder.build_alloca(
+                self.context.i64_type(),
+                &name
+            ).map_err(|e| CompileError::from(e))?;
+            
+            self.builder.build_store(
+                alloca,
+                self.context.i64_type().const_int(marker, false)
+            ).map_err(|e| CompileError::from(e))?;
+            
+            self.variables.insert(name.clone(), super::VariableInfo {
+                pointer: alloca,
+                ast_type: AstType::StdModule,
+                is_mutable: false,
+                is_initialized: true,
+            });
+        }
 
         // Store function parameters in variables
         for (i, (name, type_)) in function.args.iter().enumerate() {

@@ -1,0 +1,21 @@
+// Test allocator imports at top level
+{ io, GPA, AsyncPool } = @std
+
+main = () i32 {
+    io.println("Testing allocator imports...")
+    
+    // Debug: Check if GPA is recognized
+    io.println("About to call GPA.init()")
+    
+    // Try to use GPA - this should work now
+    sync_alloc = GPA.init()
+    
+    io.println("Created GPA allocator")
+    
+    // Try AsyncPool  
+    async_alloc = AsyncPool.init()
+    
+    io.println("Created AsyncPool allocator") 
+    
+    return 0
+}

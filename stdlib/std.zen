@@ -17,6 +17,7 @@
 
 // Memory management
 { Allocator, malloc, free } = import("memory.zen")
+{ GPA, AsyncPool } = import("allocator_async.zen")
 
 // Concurrency
 { Actor, Task, Future } = import("concurrent/concurrency.zen")
@@ -51,6 +52,7 @@ module.exports = {
     
     // Memory & concurrency
     Allocator, malloc, free,
+    GPA, AsyncPool,
     Actor, Task, Future,
     
     // I/O & file system

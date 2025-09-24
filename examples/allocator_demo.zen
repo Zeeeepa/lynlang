@@ -1,0 +1,40 @@
+// Allocator-Based Async System Demo
+// As per LANGUAGE_SPEC.zen: "Allocators determine sync/async behavior (no function coloring)"
+// No async/await keywords - the allocator type determines if operations block or not
+
+{ io, GPA, AsyncPool } = @std
+
+main = () i32 {
+    io.println("=== Allocator-Based Async System Foundation ===")
+    io.println("")
+    
+    // Create a synchronous allocator (GPA = General Purpose Allocator)
+    // All operations using this allocator will BLOCK
+    sync_alloc = GPA.init()
+    io.println("✓ Created GPA (synchronous allocator)")
+    io.println("  - All operations using sync_alloc will block")
+    io.println("  - No async/await keywords needed")
+    
+    io.println("")
+    
+    // Create an asynchronous allocator (AsyncPool)
+    // All operations using this allocator will be NON-BLOCKING
+    async_alloc = AsyncPool.init()
+    io.println("✓ Created AsyncPool (asynchronous allocator)")
+    io.println("  - All operations using async_alloc are non-blocking")
+    io.println("  - Same functions work with both allocators!")
+    
+    io.println("")
+    io.println("Key Benefits:")
+    io.println("  1. No async/await keywords in the language")
+    io.println("  2. No red/blue function coloring problem")
+    io.println("  3. Same function can be sync OR async based on allocator")
+    io.println("  4. Uniform interface for all code")
+    io.println("  5. Allocator choice determines runtime behavior")
+    
+    io.println("")
+    io.println("=== Foundation Complete ===")
+    io.println("Next steps: Implement actual allocator behavior in runtime")
+    
+    return 0
+}

@@ -1,0 +1,13 @@
+// Simple test to see how GPA.init is parsed
+{ io, GPA } = @std
+
+main = () i32 {
+    io.println("Testing GPA parsing...")
+    
+    // Test field access without call
+    gpa_ref = GPA.init
+    
+    io.println("Got GPA.init reference")
+    
+    return 0
+}

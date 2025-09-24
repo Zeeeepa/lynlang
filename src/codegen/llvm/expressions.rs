@@ -244,6 +244,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_type_cast(expr, target_type)
             }
             Expression::MethodCall { object, method, args } => {
+                // Special handling for module method calls (GPA.init())
+                if let Expression::Identifier(name) = object.as_ref() {
+                    if let Some(var_info) = self.variables.get(name) {
+                        if var_info.ast_type == AstType::StdModule {
+                            // This is a module method call like GPA.init()
+                            match method.as_str() {
+                                "init" => {
+                                    // For allocator modules, init() returns a dummy allocator
+                                    // In a real implementation, this would create the actual allocator
+                                    return Ok(self.context.i64_type().const_int(1, false).into());
+                                }
+                                _ => {
+                                    return Err(CompileError::TypeError(
+                                        format!("Unknown method '{}' for module '{}'", method, name),
+                                        None
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Special handling for .raise()
                 if method == "raise" && args.is_empty() {
                     // Convert to Raise expression

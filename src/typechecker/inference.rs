@@ -153,16 +153,24 @@ pub fn infer_member_type(
             }
         }
         AstType::StdModule => {
-            // Handle stdlib module member access (e.g., math.pi)
-            // For now, we'll just return F64 for math.pi
+            // Handle stdlib module member access (e.g., math.pi, GPA.init)
             // TODO: Implement a proper registry of stdlib module members
-            if member == "pi" {
-                Ok(AstType::F64)
-            } else {
-                Err(CompileError::TypeError(format!(
-                    "Unknown stdlib module member: {}",
-                    member
-                ), None))
+            match member {
+                "pi" => Ok(AstType::F64),
+                "init" => {
+                    // For allocator modules, init() returns an allocator type
+                    // We'll use a generic type for now
+                    Ok(AstType::Generic {
+                        name: "Allocator".to_string(),
+                        type_args: vec![],
+                    })
+                }
+                _ => {
+                    Err(CompileError::TypeError(format!(
+                        "Unknown stdlib module member: {}",
+                        member
+                    ), None))
+                }
             }
         }
         _ => Err(CompileError::TypeError(format!(

@@ -146,6 +146,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 return Err(CompileError::UndeclaredVariable(name.to_string(), None));
             };
             
+            // Check if this is a stdlib module reference (GPA.init())
+            if var_type == AstType::StdModule {
+                // This is a module method call like GPA.init()
+                // For now, return a dummy value to allow compilation to proceed
+                // Real implementation would create the proper type
+                match field {
+                    "init" => {
+                        // Return a dummy struct value representing the allocator
+                        // In a real implementation, this would create the actual allocator type
+                        return Ok(self.context.i64_type().const_int(1, false).into());
+                    }
+                    _ => {
+                        return Err(CompileError::TypeError(
+                            format!("Unknown method '{}' for module '{}'", field, name),
+                            None
+                        ));
+                    }
+                }
+            }
+            
             {
                 let alloca = alloca;  // Shadow to keep same name as before
                 let var_type = &var_type;  // Take reference to match original code

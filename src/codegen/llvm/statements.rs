@@ -1150,6 +1150,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "io" => 1,
                         "math" => 2,
                         "core" => 3,
+                        "GPA" => 4,
+                        "AsyncPool" => 5,
+                        "Allocator" => 6,
                         _ => 0,
                     };
                     

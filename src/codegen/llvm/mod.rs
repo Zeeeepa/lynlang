@@ -79,6 +79,7 @@ pub struct LLVMCompiler<'ctx> {
     pub current_impl_type: Option<String>,  // Track implementing type for trait methods
     pub inline_counter: usize,  // Counter for unique inline function names
     pub generic_type_context: HashMap<String, AstType>,  // Track instantiated generic types
+    pub module_imports: HashMap<String, u64>,  // Track module imports (name -> marker value)
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -115,6 +116,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             current_impl_type: None,
             inline_counter: 0,
             generic_type_context: HashMap::new(),
+            module_imports: HashMap::new(),
         };
         
         // Declare standard library functions
@@ -291,7 +293,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::Function(_) => {}
                 ast::Declaration::Struct(_) => {} // Already handled above
                 ast::Declaration::Enum(_) => {} // Already handled above
-                ast::Declaration::ModuleImport { .. } => {}
+                ast::Declaration::ModuleImport { alias, module_path } => {
+                    // Handle module imports like { io } = @std
+                    // We just register these as compile-time symbols
+                    // The actual variables will be created when needed in functions
+                    
+                    // Extract the module name from the path (e.g., "@std.io" -> "io")
+                    let module_name = if let Some(last_part) = module_path.split('.').last() {
+                        last_part
+                    } else {
+                        alias
+                    };
+                    
+                    // Store a marker value for stdlib modules
+                    let module_marker = match module_name {
+                        "io" => 1,
+                        "math" => 2,
+                        "core" => 3,
+                        "GPA" => 4,
+                        "AsyncPool" => 5,
+                        "Allocator" => 6,
+                        _ => 0,
+                    };
+                    
+                    // Register this as a compile-time module import
+                    // We'll create actual variables later when in a function context
+                    self.module_imports.insert(alias.clone(), module_marker);
+                }
                 ast::Declaration::Behavior(_) => {} // Behaviors are interface definitions, no codegen needed
                 ast::Declaration::Trait(_) => {} // Trait definitions are interface definitions, no direct codegen needed
                 ast::Declaration::TraitImplementation(trait_impl) => {
@@ -325,6 +353,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         }
         
+        // Process top-level statements BEFORE function compilation
+        // This ensures imported modules are available inside functions
+        if !program.statements.is_empty() {
+            // Create a temporary main block to process top-level statements
+            let main_fn = if let Some(main) = self.module.get_function("main") {
+                main
+            } else {
+                // Create a temporary function to process top-level statements
+                let fn_type = self.context.i32_type().fn_type(&[], false);
+                self.module.add_function("__temp_toplevel", fn_type, None)
+            };
+            
+            let entry = self.context.append_basic_block(main_fn, "toplevel");
+            let saved_block = self.builder.get_insert_block();
+            self.builder.position_at_end(entry);
+            
+            for statement in &program.statements {
+                self.compile_statement(statement)?;
+            }
+            
+            // Restore the builder position
+            if let Some(saved) = saved_block {
+                self.builder.position_at_end(saved);
+            }
+            
+            // Remove the temporary block if we created one
+            if main_fn.get_name().to_str() == Ok("__temp_toplevel") {
+                unsafe {
+                    main_fn.delete();
+                }
+            }
+        }
+        
         // First pass: Declare all functions
         for declaration in &program.declarations {
             if let ast::Declaration::Function(func) = declaration {
@@ -338,7 +399,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_function_body(func)?;
             }
         }
-        
         
         Ok(())
     }
