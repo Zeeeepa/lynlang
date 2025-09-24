@@ -1,0 +1,56 @@
+// Test basic enum functionality without advanced features
+{ io, Result, Option } = @std
+
+// Simple enum
+Shape:
+    Circle
+    | Rectangle
+
+// Enum with different variant types  
+GameEntity:
+    Player
+    | Enemy
+    | Powerup
+
+main = () i32 {
+    io.println("Testing basic enums...")
+    
+    // Simple enum usage
+    shape = Shape.Circle
+    shape ?
+        | .Circle {
+            io.println("  Shape is Circle")
+        }
+        | .Rectangle {
+            io.println("  Shape is Rectangle")
+        }
+    
+    // Game entity enum
+    entity = GameEntity.Player
+    entity ?
+        | .Player {
+            io.println("  Entity is Player")
+        }
+        | .Enemy {
+            io.println("  Entity is Enemy")
+        }
+        | .Powerup {
+            io.println("  Entity is Powerup")
+        }
+    
+    // Test with different values
+    entity2 = GameEntity.Enemy
+    entity2 ?
+        | .Player {
+            io.println("  Entity2 is Player")
+        }
+        | .Enemy {
+            io.println("  Entity2 is Enemy")
+        }
+        | .Powerup {
+            io.println("  Entity2 is Powerup")
+        }
+    
+    io.println("Enum tests completed!")
+    return 0
+}

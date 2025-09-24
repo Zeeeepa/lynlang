@@ -1,0 +1,43 @@
+// Test more complex string interpolation cases
+{ io, Option, Result } = @std
+
+CustomEnum:
+    Value(i32)
+    | Message(string)
+    | Empty
+
+main = () i32 {
+    // Test with enum values
+    myEnum = CustomEnum.Value(123)
+    myEnum ?
+        | .Value(v) {
+            io.println("Enum value: ${v}")
+        }
+        | .Message(m) {
+            io.println("Enum message: ${m}")
+        }
+        | .Empty {
+            io.println("Enum is empty")
+        }
+    
+    // Test with Option
+    someVal = Option.Some(999)
+    someVal ?
+        | .Some(x) {
+            io.println("Option value: ${x}")
+        }
+        | .None {
+            io.println("Option is None")
+        }
+    
+    // Test with nested strings
+    inner = "world"
+    outer = "Hello, ${inner}!"
+    io.println("Nested: ${outer}")
+    
+    // Test with boolean
+    flag = true
+    io.println("Boolean flag: ${flag}")
+    
+    return 0
+}

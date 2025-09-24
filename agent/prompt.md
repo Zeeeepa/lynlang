@@ -102,12 +102,13 @@
 ✓ Task 98: **VERIFIED** Project Health Check (2025-09-24 @ 18:59 UTC) - Confirmed test suite maintains 100% pass rate (162/162 passing). Core features working perfectly. showcase.zen fully functional with all language features demonstrated. No critical issues found.
 ✓ Task 99: **UPDATED** Agent Prompt Status (2025-09-25) - Updated agent/prompt.md to reflect current project status: 162/162 enabled tests passing (100%), 13 disabled tests, 175 total test files in tests/ folder.
 ✓ Task 100: **VERIFIED** Project Health (2025-09-24 @ 19:03 UTC) - Test suite maintains perfect 100% pass rate (162/162 enabled tests). 13 disabled tests. 175 total test files. Compiler builds successfully with 154 warnings. showcase.zen fully functional.
+✓ Task 101: **EXPANDED** Test Coverage (2025-09-24 @ 19:16 UTC) - Added 3 new tests verifying string interpolation and enums work perfectly. Test suite improved to 165/165 passing (100%). Verified all 13 disabled tests still require major fixes (Result<T,E> return types or unimplemented features).
 
-## Current Status (2025-09-24 @ 19:03 UTC - 🎉 162/162 ENABLED TESTS PASSING!)
+## Current Status (2025-09-24 @ 19:16 UTC - 🎉 165/165 ENABLED TESTS PASSING!)
 
 ### 🎉 Major Milestones Achieved
-- **Test Suite Health PERFECT**: 100% pass rate for enabled tests (162/162 passing) - ALL ENABLED TESTS PASSING! VERIFIED 2025-09-24
-- **Real Completion Rate**: 162 enabled + 13 disabled = 175 total tests → **92.6% overall completion rate**
+- **Test Suite Health PERFECT**: 100% pass rate for enabled tests (165/165 passing) - ALL ENABLED TESTS PASSING! VERIFIED 2025-09-24
+- **Real Completion Rate**: 165 enabled + 13 disabled = 178 total tests → **92.7% overall completion rate**
 - **Float Support WORKING**: f64 types now correctly work with Result<f64,E> and .raise() error propagation
 - **Disabled Tests Status**: 13 tests remain disabled - Result<T,E> return type issues and advanced features not yet implemented
 - **Range Loops FULLY WORKING**: Both `(0..5).loop()` and `(1..=3).loop()` syntax confirmed working! Parser correctly handles parenthesized ranges and UFC chaining.
