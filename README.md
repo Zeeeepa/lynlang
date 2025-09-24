@@ -8,10 +8,12 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 ## 🎉 Project Status (2025-09-24)
 
-- **Test Suite**: **100% PASS RATE** - 143/143 tests passing, 19 disabled
-- **Compiler**: Builds successfully with warnings only
+- **Test Suite**: **100% PASS RATE** - 154/154 tests passing, 8 disabled
+- **Compiler**: Builds successfully with warnings only  
 - **Core Features**: All working - showcase.zen runs perfectly
 - **Recent Achievements**: 
+  - ✅ Automatic int-to-float type coercion in operations (NEW!)
+  - ✅ Modulo operator (%) fully working
   - ✅ Allocator-based async system (GPA/AsyncPool) foundation
   - ✅ Behaviors (traits) system without keywords
   - ✅ Error propagation with `.raise()` fully functional
