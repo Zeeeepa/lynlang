@@ -3,13 +3,13 @@
 { Result } = @std
 
 // Helper functions for testing
-divide = (a i32, b i32) Result<i32, string> {
+divide = (a: i32, b: i32) Result<i32, string> {
     b == 0 ?
         | true { Result.Err("Division by zero") }
         | false { Result.Ok(a / b) }
 }
 
-safe_add = (a i32, b i32) Result<i32, string> {
+safe_add = (a: i32, b: i32) Result<i32, string> {
     sum = a + b
     // Check for overflow (simplified)
     sum < a && b > 0 ?
@@ -17,14 +17,14 @@ safe_add = (a i32, b i32) Result<i32, string> {
         | false { Result.Ok(sum) }
 }
 
-compute = (x i32) Result<i32, string> {
+compute = (x: i32) Result<i32, string> {
     // Chain operations with .raise()
     step1 = divide(100, x).raise()
     step2 = safe_add(step1, 50).raise()
     Result.Ok(step2)
 }
 
-process_float = (x f64) Result<f64, string> {
+process_float = (x: f64) Result<f64, string> {
     x < 0.0 ?
         | true { Result.Err("Negative input") }
         | false { Result.Ok(x * 2.0) }

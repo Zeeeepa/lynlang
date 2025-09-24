@@ -1,98 +1,98 @@
 // Consolidated Option type tests
-{ io } = @std
+{ io, Option } = @std
 
 main = () void {
     io.println("=== Option Type Tests ===")
     
     // Test 1: Basic Option creation and pattern matching
     io.println("\n1. Basic Option creation:")
-    val = Some(42)
-    io.println("Created Some(42)")
+    val = Option.Option.Some(42)
+    io.println("Created Option.Some(42)")
     
-    empty = None
-    io.println("Created None")
+    empty = Option.Option.None
+    io.println("Created Option.None")
     
     // Test 2: Pattern matching
     io.println("\n2. Pattern matching:")
     val ?
-        | Some(x) { io.println("  Some value: ${x}") }
-        | None { io.println("  Empty") }
+        | Option.Some(x) { io.println("  Some value: ${x}") }
+        | Option.None { io.println("  Empty") }
     
     empty ?
-        | Some(y) { io.println("  Some value: ${y}") }
-        | None { io.println("  Empty value") }
+        | Option.Some(y) { io.println("  Some value: ${y}") }
+        | Option.None { io.println("  Empty value") }
     
     // Test 3: Different data types
     io.println("\n3. Different types in Option:")
-    str_opt = Some("hello")
+    str_opt = Option.Some("hello")
     str_opt ?
-        | Some(s) { io.println("  String: ${s}") }
-        | None { io.println("  No string") }
+        | Option.Some(s) { io.println("  String: ${s}") }
+        | Option.None { io.println("  No string") }
     
     // Test 4: Option arithmetic  
     io.println("\n4. Option arithmetic:")
-    opt1 = Some(10)
-    opt2 = Some(20)
+    opt1 = Option.Some(10)
+    opt2 = Option.Some(20)
     
     result = opt1 ?
-        | Some(a) {
+        | Option.Some(a) {
             opt2 ?
-                | Some(b) { Some(a + b) }
-                | None { None }
+                | Option.Some(b) { Option.Some(a + b) }
+                | Option.None { Option.None }
         }
-        | None { None }
+        | Option.None { Option.None }
     
     result ?
-        | Some(r) { io.println("  10 + 20 = ${r}") }
-        | None { io.println("  Failed") }
+        | Option.Some(r) { io.println("  10 + 20 = ${r}") }
+        | Option.None { io.println("  Failed") }
     
-    // Test 5: Multiple None checks
-    io.println("\n5. Multiple None patterns:")
-    none1 = None
-    none2 = None
+    // Test 5: Multiple Option.None checks
+    io.println("\n5. Multiple Option.None patterns:")
+    none1 = Option.None
+    none2 = Option.None
     
     none1 ?
-        | Some(x) { io.println("  First has value: ${x}") }
-        | None { io.println("  First is None") }
+        | Option.Some(x) { io.println("  First has value: ${x}") }
+        | Option.None { io.println("  First is Option.None") }
     
     none2 ?
-        | Some(y) { io.println("  Second has value: ${y}") }
-        | None { io.println("  Second is None") }
+        | Option.Some(y) { io.println("  Second has value: ${y}") }
+        | Option.None { io.println("  Second is Option.None") }
     
     // Test 6: Option with blocks
     io.println("\n6. Option with block expressions:")
     computed = {
-        temp = Some(100)
+        temp = Option.Some(100)
         temp ?
-            | Some(t) { Some(t * 2) }
-            | None { None }
+            | Option.Some(t) { Option.Some(t * 2) }
+            | Option.None { Option.None }
     }
     
     computed ?
-        | Some(v) { io.println("  Computed: ${v}") }
-        | None { io.println("  No value") }
+        | Option.Some(v) { io.println("  Computed: ${v}") }
+        | Option.None { io.println("  No value") }
     
     // Test 7: Chained Option operations
     io.println("\n7. Chained Option operations:")
-    chain = Some(5)
+    chain = Option.Some(5)
     doubled = chain ?
-        | Some(n) { Some(n * 2) }
-        | None { None }
+        | Option.Some(n) { Option.Some(n * 2) }
+        | Option.None { Option.None }
     
     doubled ?
-        | Some(d) { io.println("  5 * 2 = ${d}") }
-        | None { io.println("  Failed") }
+        | Option.Some(d) { io.println("  5 * 2 = ${d}") }
+        | Option.None { io.println("  Failed") }
     
     // Test 8: Option extraction
     io.println("\n8. Option extraction:")
-    extract_test = Some(999)
+    extract_test = Option.Some(999)
     extract_test ?
-        | Some(extracted) {
+        | Option.Some(extracted) {
             io.println("  Extracted: ${extracted}")
             extracted_doubled = extracted * 2
             io.println("  Doubled: ${extracted_doubled}")
         }
-        | None { io.println("  Nothing to extract") }
+        | Option.None { io.println("  Nothing to extract") }
     
     io.println("\n=== All Option tests passed ===")
 }

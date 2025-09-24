@@ -3,14 +3,14 @@
 # Test runner for zen language test suite
 # Runs all .zen test files in the tests/ directory and reports results
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # Build compiler first
 echo "Building compiler..."
-cargo build --release 2>&1 | grep -E "(Compiling|Finished|error)" || true
+cargo build 2>&1 | grep -E "(Compiling|Finished|error)" || true
 
-if [ ! -f "target/release/zen" ]; then
-    echo "Error: Compiler binary not found at target/release/zen"
+if [ ! -f "target/debug/zen" ]; then
+    echo "Error: Compiler binary not found at target/debug/zen"
     exit 1
 fi
 
@@ -34,7 +34,7 @@ for test_file in *.zen; do
         fi
         
         # Run test with timeout
-        OUTPUT=$(timeout 2 ../target/release/zen "$test_file" 2>&1)
+        OUTPUT=$(timeout 2 ../target/debug/zen "$test_file" 2>&1)
         EXIT_CODE=$?
         
         if [ $EXIT_CODE -eq 0 ]; then
