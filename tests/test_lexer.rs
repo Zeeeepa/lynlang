@@ -84,7 +84,7 @@ fn main() {
     
     // Test arrow operators
     let tokens = tokenize("->");
-    assert_eq!(tokens, vec![Token::Arrow]);
+    assert_eq!(tokens, vec![Token::Operator("->".to_string())]);
     println!("✓ Arrow: ->");
     
     // Test range operators

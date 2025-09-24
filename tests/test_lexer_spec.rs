@@ -28,8 +28,8 @@ fn main() {
         ("_", Token::Underscore),
         
         // Arrows
-        ("->", Token::Arrow),
-        ("=>", Token::FatArrow),
+        ("->", Token::Operator("->".to_string())),
+        ("=>", Token::Operator("=>".to_string())),
         
         // Range operators
         ("..", Token::Operator("..".to_string())),

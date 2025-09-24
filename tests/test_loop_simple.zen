@@ -1,0 +1,18 @@
+// Test simple infinite loop with break
+{ io } = @std
+
+main = () i32 {
+    counter ::= 0
+    
+    loop(() {
+        counter = counter + 1
+        io.println("Counter: ${counter}")
+        
+        counter >= 3 ? {
+            break
+        }
+    })
+    
+    io.println("Done!")
+    return 0
+}

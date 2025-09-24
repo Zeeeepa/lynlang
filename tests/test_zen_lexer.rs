@@ -44,8 +44,8 @@ fn main() {
     test_lexer("_", vec![Token::Underscore, Token::Eof]);
     
     // Test arrow operators
-    test_lexer("->", vec![Token::Arrow, Token::Eof]);
-    test_lexer("=>", vec![Token::FatArrow, Token::Eof]);
+    test_lexer("->", vec![Token::Operator("->".to_string()), Token::Eof]);
+    test_lexer("=>", vec![Token::Operator("=>".to_string()), Token::Eof]);
     
     // Test range operators
     test_lexer("..", vec![Token::Operator("..".to_string()), Token::Eof]);
