@@ -81,6 +81,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 "addtmp",
             )?;
             Ok(result.into())
+        } else if left_val.is_int_value() && right_val.is_float_value() {
+            // Convert int to float
+            let left_float = self.builder.build_signed_int_to_float(
+                left_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_add(
+                left_float,
+                right_val.into_float_value(),
+                "addtmp",
+            )?;
+            Ok(result.into())
+        } else if left_val.is_float_value() && right_val.is_int_value() {
+            // Convert int to float  
+            let right_float = self.builder.build_signed_int_to_float(
+                right_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_add(
+                left_val.into_float_value(),
+                right_float,
+                "addtmp",
+            )?;
+            Ok(result.into())
         } else {
             // Check for specific type mismatches
             let left_is_pointer = left_val.is_pointer_value();
@@ -152,6 +178,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 "subtmp",
             )?;
             Ok(result.into())
+        } else if left_val.is_int_value() && right_val.is_float_value() {
+            // Convert int to float
+            let left_float = self.builder.build_signed_int_to_float(
+                left_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_sub(
+                left_float,
+                right_val.into_float_value(),
+                "subtmp",
+            )?;
+            Ok(result.into())
+        } else if left_val.is_float_value() && right_val.is_int_value() {
+            // Convert int to float
+            let right_float = self.builder.build_signed_int_to_float(
+                right_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_sub(
+                left_val.into_float_value(),
+                right_float,
+                "subtmp",
+            )?;
+            Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
                 expected: "int or float".to_string(),
@@ -202,6 +254,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let result = self.builder.build_float_mul(
                 left_val.into_float_value(),
                 right_val.into_float_value(),
+                "multmp",
+            )?;
+            Ok(result.into())
+        } else if left_val.is_int_value() && right_val.is_float_value() {
+            // Convert int to float
+            let left_float = self.builder.build_signed_int_to_float(
+                left_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_mul(
+                left_float,
+                right_val.into_float_value(),
+                "multmp",
+            )?;
+            Ok(result.into())
+        } else if left_val.is_float_value() && right_val.is_int_value() {
+            // Convert int to float
+            let right_float = self.builder.build_signed_int_to_float(
+                right_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_mul(
+                left_val.into_float_value(),
+                right_float,
                 "multmp",
             )?;
             Ok(result.into())
@@ -258,6 +336,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 "divtmp",
             )?;
             Ok(result.into())
+        } else if left_val.is_int_value() && right_val.is_float_value() {
+            // Convert int to float
+            let left_float = self.builder.build_signed_int_to_float(
+                left_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_div(
+                left_float,
+                right_val.into_float_value(),
+                "divtmp",
+            )?;
+            Ok(result.into())
+        } else if left_val.is_float_value() && right_val.is_int_value() {
+            // Convert int to float
+            let right_float = self.builder.build_signed_int_to_float(
+                right_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_div(
+                left_val.into_float_value(),
+                right_float,
+                "divtmp",
+            )?;
+            Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
                 expected: "int or float".to_string(),
@@ -285,6 +389,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 FloatPredicate::OEQ,
                 left_val.into_float_value(),
                 right_val.into_float_value(),
+                "eqtmp",
+            )?;
+            Ok(result.into())
+        } else if left_val.is_int_value() && right_val.is_float_value() {
+            // Convert int to float for comparison
+            let left_float = self.builder.build_signed_int_to_float(
+                left_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_compare(
+                FloatPredicate::OEQ,
+                left_float,
+                right_val.into_float_value(),
+                "eqtmp",
+            )?;
+            Ok(result.into())
+        } else if left_val.is_float_value() && right_val.is_int_value() {
+            // Convert int to float for comparison
+            let right_float = self.builder.build_signed_int_to_float(
+                right_val.into_int_value(),
+                self.context.f64_type(),
+                "int_to_float",
+            )?;
+            let result = self.builder.build_float_compare(
+                FloatPredicate::OEQ,
+                left_val.into_float_value(),
+                right_float,
                 "eqtmp",
             )?;
             Ok(result.into())
