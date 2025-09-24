@@ -1,12 +1,9 @@
 // Test allocator imports with debug output
 
-{ io } = @std
+{ io, GPA } = @std
 
 main = () i32 {
     io.println("Test 1: io module works")
-    
-    // Now import allocator modules 
-    { GPA } = @std
     
     io.println("Test 2: GPA imported")
     
