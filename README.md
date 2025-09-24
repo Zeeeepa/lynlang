@@ -31,10 +31,13 @@ From [`LANGUAGE_SPEC.zen`](./LANGUAGE_SPEC.zen):
 cargo build --release
 
 # Run a Zen program
-./target/release/zen <file.zen>
+cargo run --bin zen <file.zen>
 
-# Run tests
-./run_tests.sh
+# Run showcase example
+cargo run --bin zen examples/showcase.zen
+
+# Run test suite
+./scripts/run_tests.sh
 ```
 
 ## Language Features by Example
