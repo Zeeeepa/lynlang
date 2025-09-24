@@ -23,8 +23,14 @@ Rectangle = {
 }
 
 // Enum types from spec
-Shape : .Circle | .Rectangle
-GameEntity : .Player | .Enemy | .Powerup
+Shape:
+    Circle
+    | Rectangle
+    
+GameEntity:
+    Player
+    | Enemy
+    | Powerup
 
 // UFC overloading from spec
 get_health = (e: GameEntity.Player) u32 { return 100 }

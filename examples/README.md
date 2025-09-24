@@ -15,6 +15,13 @@ zen run examples/todo_app.zen
 ### 🌟 hello_world.zen
 The classic first program - minimal and clear.
 
+### ⚡ async_unified_demo.zen **MUST SEE**
+**Revolutionary allocator-based async system:**
+- Same functions work sync AND async based on allocator choice
+- No async/await keywords needed
+- Eliminates the red/blue function coloring problem
+- Shows how Zen solves async without splitting the ecosystem
+
 ### 🎯 showcase.zen  
 Interactive tour of Zen's unique features:
 - Universal Function Call (UFC)

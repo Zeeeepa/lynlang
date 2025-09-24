@@ -1,0 +1,68 @@
+// Unified Allocator-Based Async/Sync Demo
+// Shows the SAME functions working with both sync and async allocators
+// No function coloring - allocator determines behavior
+
+{ io, GPA, AsyncPool, fs } = @std
+
+// This function works with ANY allocator - sync or async!
+read_and_process = (allocator, filename: string) string {
+    io.println("Processing ${filename}...")
+    
+    // Same fs.read_file call works with both allocators
+    // Blocks if GPA, non-blocking if AsyncPool
+    content = fs.read_file(allocator, filename).raise()
+    
+    // Same string operations work with both
+    lines = content.split("\n").len()
+    
+    return "File: ${filename}, Lines: ${lines}"
+}
+
+// Another function that works with any allocator
+batch_process = (allocator, files: Array<string>) Array<string> {
+    results = Array.new(allocator)
+    
+    // Same loop works with both allocators  
+    files.loop((file) {
+        result = read_and_process(allocator, file)
+        results.push(result)
+    })
+    
+    return results
+}
+
+main = () i32 {
+    io.println("=== Unified Allocator Demo ===")
+    io.println("Same code, different behavior based on allocator choice")
+    io.println("")
+    
+    test_files = ["config.txt", "data.csv", "readme.md"]
+    
+    // === SYNCHRONOUS EXECUTION ===
+    io.println("🔄 Using GPA (synchronous allocator):")
+    sync_alloc = GPA.init()
+    
+    // Same functions, BLOCKING behavior
+    sync_results = batch_process(sync_alloc, test_files)
+    sync_results.loop((result) { io.println("  ${result}") })
+    
+    io.println("")
+    
+    // === ASYNCHRONOUS EXECUTION ===  
+    io.println("⚡ Using AsyncPool (asynchronous allocator):")
+    async_alloc = AsyncPool.init()
+    
+    // IDENTICAL functions, NON-BLOCKING behavior
+    async_results = batch_process(async_alloc, test_files)
+    async_results.loop((result) { io.println("  ${result}") })
+    
+    io.println("")
+    io.println("🎉 Benefits Demonstrated:")
+    io.println("  • Same functions work with both allocators")
+    io.println("  • No async/await keywords needed")
+    io.println("  • No function coloring problem")
+    io.println("  • Allocator choice = execution model")
+    io.println("  • Zero code duplication")
+    
+    return 0
+}
