@@ -39,6 +39,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // We can't create an enum variant without knowing which variant
             return Ok(self.context.i64_type().const_int(0, false).into());
         }
+        
+        // Check if this is a struct type name (e.g., Array) that has static methods
+        if let Some(symbols::Symbol::StructType(_)) = self.symbols.lookup(name) {
+            // Return a dummy value - this will be handled properly in member access
+            // Static methods like Array.new() will be handled later
+            return Ok(self.context.i64_type().const_int(0, false).into());
+        }
+        
+        // Also check the struct_types map for built-in types like Array
+        if self.struct_types.contains_key(name) {
+            // Return a dummy value - this will be handled properly in member access
+            return Ok(self.context.i64_type().const_int(0, false).into());
+        }
 
         // First check if this is a function name
         if let Some(function) = self.module.get_function(name) {

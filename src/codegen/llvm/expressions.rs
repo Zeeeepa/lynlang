@@ -250,8 +250,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 method,
                 args,
             } => {
-                // Special handling for module method calls (GPA.init())
+                // Special handling for Array.new() static method
                 if let Expression::Identifier(name) = object.as_ref() {
+                    if name == "Array" && method == "new" {
+                        // This is Array.new() - a static method call
+                        return self.compile_array_new(args);
+                    }
+                    
+                    // Special handling for module method calls (GPA.init())
                     if let Some(var_info) = self.variables.get(name) {
                         if var_info.ast_type == AstType::StdModule {
                             // This is a module method call like GPA.init()

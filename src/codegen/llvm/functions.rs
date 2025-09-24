@@ -9,7 +9,7 @@ use inkwell::{
 
 impl<'ctx> LLVMCompiler<'ctx> {
     /// Compile Array.new(capacity, default_value) - creates a new array
-    fn compile_array_new(
+    pub fn compile_array_new(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
@@ -22,7 +22,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Compile the capacity argument
         let capacity_val = self.compile_expression(&args[0])?;
-        let capacity = capacity_val.into_int_value();
+        let capacity_raw = capacity_val.into_int_value();
+        
+        // Cast capacity to i64 if needed
+        let capacity = if capacity_raw.get_type() == self.context.i64_type() {
+            capacity_raw
+        } else {
+            self.builder.build_int_z_extend(capacity_raw, self.context.i64_type(), "capacity_i64")?
+        };
         
         // Compile the default value (could be Option.None)
         let _default_val = self.compile_expression(&args[1])?;

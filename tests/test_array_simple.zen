@@ -1,0 +1,13 @@
+// Simple test for Array<T> type
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing Array<T> type")
+    
+    // Test Array type declaration  
+    arr ::= Array<i32>.new(5, 0)
+    
+    io.println("Array created successfully")
+    
+    return 0
+}

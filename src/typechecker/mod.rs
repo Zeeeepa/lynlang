@@ -598,6 +598,12 @@ impl TypeChecker {
                         param_types: sig.params.iter().map(|(_, t)| t.clone()).collect(),
                         return_type: Box::new(sig.return_type.clone()),
                     })
+                } else if name == "Array" {
+                    // Array is a built-in type with static methods
+                    Ok(AstType::Generic {
+                        name: "Array".to_string(),
+                        type_args: vec![],
+                    })
                 } else {
                     // Otherwise check if it's a variable
                     self.get_variable_type(name)
@@ -992,6 +998,17 @@ impl TypeChecker {
                 method,
                 args: _,
             } => {
+                // Special handling for Array.new() static method
+                if let Expression::Identifier(name) = &**object {
+                    if name == "Array" && method == "new" {
+                        // Array.new() returns an Array<T> type  
+                        return Ok(AstType::Generic {
+                            name: "Array".to_string(),
+                            type_args: vec![AstType::I32], // Default to i32 array for now
+                        });
+                    }
+                }
+                
                 // Implement UFC (Uniform Function Call)
                 // Any function can be called as a method: object.function(args) -> function(object, args)
 
