@@ -305,22 +305,58 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // For strings: the string pointer itself
                             // We need to dereference integer pointers but not string pointers
                             // 
-                            // For now, use a simple heuristic: try to load as i64
-                            // and see if we get something reasonable
+                            // CRITICAL FIX: Check for null pointer before dereferencing
+                            // This prevents segfault when matching None variants
                             if extracted.is_pointer_value() {
                                 let ptr_val = extracted.into_pointer_value();
-                                match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_int") {
-                                    Ok(loaded) => {
-                                        // Successfully loaded - could be integer or string bytes
-                                        // We'll use it as integer and hope for the best
-                                        // This works for our integer test cases
-                                        loaded
-                                    }
-                                    _ => {
-                                        // Couldn't load - keep as pointer
-                                        extracted
-                                    }
-                                }
+                                
+                                // Check if pointer is null before attempting to load
+                                let null_ptr = ptr_val.get_type().const_null();
+                                let is_null = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::EQ,
+                                    ptr_val,
+                                    null_ptr,
+                                    "is_null_check"
+                                )?;
+                                
+                                // Create blocks for null check
+                                let current_fn = self.current_function.unwrap();
+                                let then_bb = self.context.append_basic_block(current_fn, "payload_not_null");
+                                let else_bb = self.context.append_basic_block(current_fn, "payload_is_null");
+                                let merge_bb = self.context.append_basic_block(current_fn, "payload_merge");
+                                
+                                self.builder.build_conditional_branch(is_null, else_bb, then_bb)?;
+                                
+                                // Not null path - attempt to load
+                                self.builder.position_at_end(then_bb);
+                                let loaded_value = match self.builder.build_load(self.context.i64_type(), ptr_val, "try_load_int") {
+                                    Ok(loaded) => loaded,
+                                    _ => extracted  // Keep as pointer if load fails
+                                };
+                                self.builder.build_unconditional_branch(merge_bb)?;
+                                let then_val = loaded_value;
+                                
+                                // Null path - use default value matching the loaded type
+                                self.builder.position_at_end(else_bb);
+                                // Use the same type as then_val for type consistency
+                                let null_value: BasicValueEnum = if then_val.is_int_value() {
+                                    let int_type = then_val.into_int_value().get_type();
+                                    int_type.const_int(0, false).into()
+                                } else if then_val.is_float_value() {
+                                    let float_type = then_val.into_float_value().get_type();
+                                    float_type.const_float(0.0).into()
+                                } else {
+                                    // For pointers, use null pointer
+                                    let ptr_type = then_val.into_pointer_value().get_type();
+                                    ptr_type.const_null().into()
+                                };
+                                self.builder.build_unconditional_branch(merge_bb)?;
+                                
+                                // Merge paths
+                                self.builder.position_at_end(merge_bb);
+                                let phi = self.builder.build_phi(then_val.get_type(), "payload_result")?;
+                                phi.add_incoming(&[(&then_val, then_bb), (&null_value, else_bb)]);
+                                phi.as_basic_value()
                             } else {
                                 extracted
                             }
@@ -459,33 +495,51 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let payload_type = struct_type.get_field_type_at_index(1)
                                         .ok_or_else(|| CompileError::InternalError("Enum payload field not found".to_string(), None))?;
                                     
-                                    // Load the payload
+                                    // Load the payload pointer first
                                     let loaded_payload = self.builder.build_load(
                                         payload_type,
                                         payload_ptr,
                                         "payload"
                                     )?;
                                     
+                                    // Check if the payload is null (for None variant)
+                                    // This prevents segfaults when pattern matching against None
+                                    let loaded_payload = if payload_type.is_pointer_type() && loaded_payload.is_pointer_value() {
+                                        let ptr_val = loaded_payload.into_pointer_value();
+                                        
+                                        // Check if this is a null pointer
+                                        if ptr_val.is_const() && ptr_val.is_null() {
+                                            // This is a null pointer (None variant) - don't try to dereference
+                                            self.context.i64_type().const_int(0, false).into()
+                                        } else {
+                                            // Non-null pointer, keep as is for further processing
+                                            loaded_payload
+                                        }
+                                    } else {
+                                        loaded_payload
+                                    };
+                                    
                                     // If the payload is a pointer type (generic enums), dereference if it's an integer
                                     let dereferenced_payload = if payload_type.is_pointer_type() && loaded_payload.is_pointer_value() {
                                         let ptr_val = loaded_payload.into_pointer_value();
                                         
-                                        // Check the generic type context for Option<T> type info
-                                        let load_type = if variant == "Some" {
-                                            self.generic_type_context.get("Option_Some_Type").cloned()
-                                        } else {
-                                            None
-                                        };
-                                        
-                                        // Try to load with the tracked type information
-                                        // For Option matching, check if we might be loading from None's null pointer
-                                        if variant == "Some" && ptr_val.is_const() && ptr_val.is_null() {
+                                        // First check if this pointer is null to avoid segfaults
+                                        if ptr_val.is_const() && ptr_val.is_null() {
                                             // Don't try to load from null pointer - return dummy value
                                             // This happens when testing Some(x) pattern against None value
                                             self.context.i64_type().const_int(0, false).into()
-                                        } else if let Some(ast_type) = load_type {
-                                            use crate::ast::AstType;
-                                            match ast_type {
+                                        } else {
+                                            // Check the generic type context for Option<T> type info
+                                            let load_type = if variant == "Some" {
+                                                self.generic_type_context.get("Option_Some_Type").cloned()
+                                            } else {
+                                                None
+                                            };
+                                            
+                                            // Try to load with the tracked type information
+                                            if let Some(ast_type) = load_type {
+                                                use crate::ast::AstType;
+                                                match ast_type {
                                                 AstType::I8 => self.builder.build_load(self.context.i8_type(), ptr_val, "payload_i8").unwrap_or(loaded_payload),
                                                 AstType::I16 => self.builder.build_load(self.context.i16_type(), ptr_val, "payload_i16").unwrap_or(loaded_payload),
                                                 AstType::I32 => self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32").unwrap_or(loaded_payload),
@@ -502,13 +556,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     }
                                                 }
                                             }
-                                        } else {
-                                            // No type info, fall back to trying different types
-                                            match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
-                                                Ok(loaded) => loaded,
-                                                _ => match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
+                                            } else {
+                                                // No type info, fall back to trying different types
+                                                match self.builder.build_load(self.context.i64_type(), ptr_val, "payload_i64") {
                                                     Ok(loaded) => loaded,
-                                                    _ => loaded_payload
+                                                    _ => match self.builder.build_load(self.context.i32_type(), ptr_val, "payload_i32") {
+                                                        Ok(loaded) => loaded,
+                                                        _ => loaded_payload
+                                                    }
                                                 }
                                             }
                                         }
@@ -529,7 +584,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     if extracted.is_pointer_value() {
                                         let ptr_val = extracted.into_pointer_value();
                                         
-                                        // Check the generic type context for Option<T> type info
+                                        // CRITICAL FIX: Check for null pointer before dereferencing
+                                        // This prevents segfault when matching None variants
+                                        let null_ptr = ptr_val.get_type().const_null();
+                                        let is_null = self.builder.build_int_compare(
+                                            inkwell::IntPredicate::EQ,
+                                            ptr_val,
+                                            null_ptr,
+                                            "is_null_check"
+                                        )?;
+                                        
+                                        // Create blocks for null check
+                                        let current_fn = self.current_function.unwrap();
+                                        let then_bb = self.context.append_basic_block(current_fn, "payload_not_null");
+                                        let else_bb = self.context.append_basic_block(current_fn, "payload_is_null");
+                                        let merge_bb = self.context.append_basic_block(current_fn, "payload_merge");
+                                        
+                                        self.builder.build_conditional_branch(is_null, else_bb, then_bb)?;
+                                        
+                                        // Not null path - check the generic type context for Option<T> type info
+                                        self.builder.position_at_end(then_bb);
                                         let load_type = if variant == "Some" {
                                             self.generic_type_context.get("Option_Some_Type").cloned()
                                         } else {
@@ -537,7 +611,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         };
                                         
                                         // Try to load with the tracked type information
-                                        if let Some(ast_type) = load_type {
+                                        let loaded_value = if let Some(ast_type) = load_type {
                                             use crate::ast::AstType;
                                             match ast_type {
                                                 AstType::I8 => self.builder.build_load(self.context.i8_type(), ptr_val, "payload_i8").unwrap_or(extracted),
@@ -564,7 +638,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     extracted
                                                 }
                                             }
-                                        }
+                                        };
+                                        self.builder.build_unconditional_branch(merge_bb)?;
+                                        let then_val = loaded_value;
+                                        
+                                        // Null path - use default value matching the loaded type
+                                        self.builder.position_at_end(else_bb);
+                                        // Use the same type as then_val for type consistency
+                                        let null_value: BasicValueEnum = if then_val.is_int_value() {
+                                            let int_type = then_val.into_int_value().get_type();
+                                            int_type.const_int(0, false).into()
+                                        } else if then_val.is_float_value() {
+                                            let float_type = then_val.into_float_value().get_type();
+                                            float_type.const_float(0.0).into()
+                                        } else {
+                                            // For pointers, use null pointer
+                                            let ptr_type = then_val.into_pointer_value().get_type();
+                                            ptr_type.const_null().into()
+                                        };
+                                        self.builder.build_unconditional_branch(merge_bb)?;
+                                        
+                                        // Merge paths
+                                        self.builder.position_at_end(merge_bb);
+                                        let phi = self.builder.build_phi(then_val.get_type(), "payload_result")?;
+                                        phi.add_incoming(&[(&then_val, then_bb), (&null_value, else_bb)]);
+                                        phi.as_basic_value()
                                     } else {
                                         extracted
                                     }

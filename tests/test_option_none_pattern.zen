@@ -1,17 +1,34 @@
-// Debug test for None pattern matching
+// Test for Option<None> pattern matching with null pointer check fix
 { io } = @std
 
+test_option_pattern = (opt: Option<i32>) i32 {
+    opt ? 
+        | .Some(x) => x
+        | .None => -1
+}
+
 main = () i32 {
-    io.println("Test 1: First None")
-    x = None
-    x ?
-        | .Some(v) {
-            io.println("Should not print")
-        }
-        | .None {
-            io.println("First None matched")
-        }
+    io.println("Testing Option pattern matching with null pointer fix")
     
-    io.println("Test complete")
-    0
+    // Test 1: Some value
+    some_value = Option.Some(42)
+    result1 = test_option_pattern(some_value)
+    io.println("Some(42) result: ${result1}")
+    
+    // Test 2: None value 
+    none_value = Option.None
+    result2 = test_option_pattern(none_value)
+    io.println("None result: ${result2}")
+    
+    // Test 3: Pattern with Some before None (this used to segfault)
+    io.println("\nTest critical case: None with Some pattern first")
+    none_value ? 
+        | .Some(x) => {
+            io.println("Got Some: ${x}")
+            0
+        }
+        | .None => {
+            io.println("Got None - FIX SUCCESSFUL!")
+            1
+        }
 }
