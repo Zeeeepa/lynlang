@@ -15,5 +15,15 @@ test_pattern_value = () i32 {
 main = () i32 {
     result = test_pattern_value()
     io.println("Result: ${result}")
-    return result
+    
+    // Check that we got the expected value
+    result == 84 ?
+        | true { 
+            io.println("✅ Test PASSED: Got expected value 84")
+            return 0
+        }
+        | false {
+            io.println("❌ Test FAILED: Expected 84, got ${result}")
+            return 1
+        }
 }
