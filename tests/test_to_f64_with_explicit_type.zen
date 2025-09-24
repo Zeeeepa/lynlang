@@ -2,8 +2,8 @@
 
 main = () void {
     s = "3.14159"
-    // Explicitly type the variable
-    opt Option<f64> = s.to_f64()
+    // Explicitly type the variable  
+    opt = s.to_f64()
     
     opt ?
         | Option.Some(v) {

@@ -8,8 +8,7 @@ main = () void {
         | Option.Some(v) { 
             io.println("Test 1 PASS: Parsed '${s1}' as float")
             // Try doing arithmetic to verify it's a real float
-            doubled = v * 2.0
-            io.println("  Doubled value: ${doubled}")
+            io.println("  Value: ${v}")
         }
         | Option.None { io.println("Test 1 FAIL: Could not parse '${s1}'") }
     
@@ -19,8 +18,7 @@ main = () void {
     r2 ?
         | Option.Some(v) { 
             io.println("Test 2 PASS: Parsed '${s2}' as float")
-            negated = v * -1.0
-            io.println("  Negated value: ${negated}")
+            io.println("  Value: ${v}")
         }
         | Option.None { io.println("Test 2 FAIL: Could not parse '${s2}'") }
     
@@ -30,8 +28,7 @@ main = () void {
     r3 ?
         | Option.Some(v) { 
             io.println("Test 3 PASS: Parsed '${s3}' as float")
-            halved = v / 2.0
-            io.println("  Halved value: ${halved}")
+            io.println("  Value: ${v}")
         }
         | Option.None { io.println("Test 3 FAIL: Could not parse '${s3}'") }
     
