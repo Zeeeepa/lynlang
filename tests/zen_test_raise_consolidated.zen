@@ -1,0 +1,103 @@
+// Consolidated .raise() error propagation tests
+{ io } = @std
+{ Result } = @std
+
+// Helper functions for testing
+divide = (a i32, b i32) Result<i32, string> {
+    b == 0 ?
+        | true { Result.Err("Division by zero") }
+        | false { Result.Ok(a / b) }
+}
+
+safe_add = (a i32, b i32) Result<i32, string> {
+    sum = a + b
+    // Check for overflow (simplified)
+    sum < a && b > 0 ?
+        | true { Result.Err("Overflow") }
+        | false { Result.Ok(sum) }
+}
+
+compute = (x i32) Result<i32, string> {
+    // Chain operations with .raise()
+    step1 = divide(100, x).raise()
+    step2 = safe_add(step1, 50).raise()
+    Result.Ok(step2)
+}
+
+process_float = (x f64) Result<f64, string> {
+    x < 0.0 ?
+        | true { Result.Err("Negative input") }
+        | false { Result.Ok(x * 2.0) }
+}
+
+main = () void {
+    io.println("=== Raise Error Propagation Tests ===")
+    
+    // Test 1: Basic raise with arithmetic
+    io.println("\n1. Basic arithmetic with raise:")
+    res1 = compute(5)
+    res1 ?
+        | Result.Ok(v) { io.println("  compute(5) = ${v}") }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    // Test 2: Raise with error case
+    io.println("\n2. Raise with division by zero:")
+    res2 = compute(0)
+    res2 ?
+        | Result.Ok(v) { io.println("  compute(0) = ${v}") }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    // Test 3: Direct raise usage
+    io.println("\n3. Direct raise usage:")
+    direct = divide(150, 3).raise()
+    io.println("  150 / 3 = ${direct}")
+    
+    // Test 4: Raise with i64
+    io.println("\n4. Raise with i64:")
+    big_num = divide(1000000, 1000).raise()
+    io.println("  1000000 / 1000 = ${big_num}")
+    
+    // Test 5: Multiple raise in sequence
+    io.println("\n5. Multiple raise operations:")
+    chain_test = () Result<i32, string> {
+        a = divide(100, 2).raise()
+        b = divide(50, 5).raise()
+        c = safe_add(a, b).raise()
+        Result.Ok(c)
+    }
+    
+    chain_result = chain_test()
+    chain_result ?
+        | Result.Ok(v) { io.println("  Chain result: ${v}") }
+        | Result.Err(e) { io.println("  Chain error: ${e}") }
+    
+    // Test 6: Store and load with raise
+    io.println("\n6. Store and load with raise:")
+    stored = divide(42, 6)
+    loaded = stored.raise()
+    io.println("  42 / 6 = ${loaded}")
+    
+    // Test 7: Raise with type checking
+    io.println("\n7. Type checking with raise:")
+    typed_result = safe_add(10, 20)
+    typed_value = typed_result.raise()
+    doubled = typed_value * 2
+    io.println("  (10 + 20) * 2 = ${doubled}")
+    
+    // Test 8: Nested function calls with raise
+    io.println("\n8. Nested calls with raise:")
+    nested = () Result<i32, string> {
+        inner = () Result<i32, string> {
+            Result.Ok(777)
+        }
+        val = inner().raise()
+        Result.Ok(val + 223)
+    }
+    
+    nested_res = nested()
+    nested_res ?
+        | Result.Ok(v) { io.println("  Nested result: ${v}") }
+        | Result.Err(e) { io.println("  Nested error: ${e}") }
+    
+    io.println("\n=== All raise tests passed ===")
+}

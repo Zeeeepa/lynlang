@@ -6,11 +6,17 @@
 echo "=== Zen Language Test Suite ==="
 echo "Building compiler..."
 
-# Build the compiler
-cargo build --bin zen 2>/dev/null
+# Build the compiler  
+cargo build --release 2>/dev/null
 
-COMPILER="cargo run --bin zen --"
-TEST_DIR="tests"
+# Check if we're in the tests directory or project root
+if [ -d "tests" ]; then
+    TEST_DIR="tests"
+    COMPILER="target/release/zen"
+else
+    TEST_DIR="."
+    COMPILER="../target/release/zen"
+fi
 PASSED=0
 FAILED=0
 DISABLED=0

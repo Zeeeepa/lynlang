@@ -1,0 +1,37 @@
+// Simplified consolidated Option tests
+{ io } = @std
+
+main = () void {
+    io.println("=== Option Type Tests ===")
+    
+    // Test 1: Basic Some and None
+    val = Some(42)
+    val ?
+        | Some(x) { io.println("Got value: ${x}") }
+        | None { io.println("Empty") }
+    
+    empty = None
+    empty ?
+        | Some(y) { io.println("Got: ${y}") }
+        | None { io.println("Empty value") }
+    
+    // Test 2: String Option
+    str_opt = Some("hello")
+    str_opt ?
+        | Some(s) { io.println("String: ${s}") }
+        | None { io.println("No string") }
+    
+    // Test 3: Multiple Options
+    opt1 = Some(10)
+    opt2 = Some(20)
+    
+    opt1 ?
+        | Some(a) { io.println("First: ${a}") }
+        | None { io.println("First empty") }
+    
+    opt2 ?
+        | Some(b) { io.println("Second: ${b}") }
+        | None { io.println("Second empty") }
+    
+    io.println("=== Tests complete ===")
+}
