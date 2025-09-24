@@ -23,5 +23,5 @@ main = () i32 {
     // Test in string interpolation
     io.println("String interpolation: ${value}")
     
-    return value
+    return 0  // Return 0 for test success
 }

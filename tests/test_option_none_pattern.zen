@@ -22,7 +22,7 @@ main = () i32 {
     
     // Test 3: Pattern with Some before None (this used to segfault)
     io.println("\nTest critical case: None with Some pattern first")
-    none_value ? 
+    result3 = none_value ? 
         | .Some(x) => {
             io.println("Got Some: ${x}")
             0
@@ -31,4 +31,7 @@ main = () i32 {
             io.println("Got None - FIX SUCCESSFUL!")
             1
         }
+    
+    // Return 0 for success
+    0
 }

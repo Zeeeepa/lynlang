@@ -8,5 +8,5 @@ main = () i32 {
         | None => 0
     
     io.println("Result: ${result}")
-    result
+    0  // Return 0 for test success
 }

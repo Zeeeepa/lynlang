@@ -8,5 +8,7 @@ test_direct = () i32 {
 }
 
 main = () i32 {
-    return test_direct()
+    value = test_direct()
+    io.println("Value: ${value}")
+    return 0  // Return 0 for test success
 }

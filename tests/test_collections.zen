@@ -7,7 +7,8 @@ string_hash = (s: string) u64 {
     i ::= 0
     loop {
         i >= s.len() ? { break }
-        hash = ((hash << 5) + hash) + (s.char_at(i) as u64)
+        char_val = s.char_at(i) as u64
+        hash = ((hash << 5) + hash) + char_val
         i = i + 1
     }
     return hash
