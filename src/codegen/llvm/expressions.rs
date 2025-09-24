@@ -87,18 +87,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.compile_function_call(name, args)
             }
             Expression::QuestionMatch { scrutinee, arms } => {
-                self.compile_conditional_expression(scrutinee, arms)
-            }
-            Expression::Conditional { scrutinee, arms } => {
-                // Convert ConditionalArm to MatchArm for compilation
-                let match_arms: Vec<crate::ast::MatchArm> = arms.iter().map(|arm| {
-                    crate::ast::MatchArm {
+                // Convert MatchArm to PatternArm for compilation
+                let pattern_arms: Vec<crate::ast::PatternArm> = arms.iter().map(|arm| {
+                    crate::ast::PatternArm {
                         pattern: arm.pattern.clone(),
                         guard: arm.guard.clone(),
                         body: arm.body.clone(),
                     }
                 }).collect();
-                self.compile_conditional_expression(scrutinee, &match_arms)
+                self.compile_pattern_match(scrutinee, &pattern_arms)
+            }
+            Expression::Conditional { scrutinee, arms } => {
+                // Convert ConditionalArm to PatternArm for compilation
+                let pattern_arms: Vec<crate::ast::PatternArm> = arms.iter().map(|arm| {
+                    crate::ast::PatternArm {
+                        pattern: arm.pattern.clone(),
+                        guard: arm.guard.clone(),
+                        body: arm.body.clone(),
+                    }
+                }).collect();
+                self.compile_pattern_match(scrutinee, &pattern_arms)
             }
             Expression::AddressOf(expr) => {
                 self.compile_address_of(expr)
@@ -1775,7 +1783,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // If all values are integers, cast them to the widest type
         let mut max_int_width = 0;
         let mut has_non_int = false;
-        let result_type = phi_values[0].0.get_type();
+        let result_type = if !phi_values.is_empty() {
+            phi_values[0].0.get_type()
+        } else {
+            // This shouldn't happen but let's be safe
+            eprintln!("WARNING: phi_values is empty after non-empty check");
+            return Ok(self.context.i32_type().const_int(0, false).into());
+        };
         
         for (value, _) in &phi_values {
             eprintln!("DEBUG: PHI value type: {:?}", value.get_type());
@@ -1813,6 +1827,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         };
         
         // Use the normalized type for PHI node
+        if normalized_values.is_empty() {
+            eprintln!("WARNING: normalized_values is empty after transformation");
+            return Ok(self.context.i32_type().const_int(0, false).into());
+        }
         let phi_type = normalized_values[0].0.get_type();
         let phi = self.builder.build_phi(phi_type, "match_result")?;
         
