@@ -22,13 +22,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
         match name {
             "string_to_f64" => {
                 // string_to_f64(str: *const i8) -> Option<f64> (as struct)
-                // For now, create a stub implementation that always returns None
-                // TODO: Implement actual string to float parsing with strtod
+                // Implement string to float parsing using strtod
                 let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_f64_type = self.context.struct_type(
                     &[
                         self.context.i64_type().into(), // discriminant (0=Some, 1=None)
-                        self.context.f64_type().into(), // payload
+                        ptr_type.into(), // payload pointer (matches Option<T> layout)
                     ],
                     false,
                 );
@@ -37,19 +37,190 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     .module
                     .add_function(name, fn_type, Some(Linkage::Internal));
                 
-                // Create a basic implementation that returns None for now
-                let entry = self.context.append_basic_block(func, "entry");
+                // Save current position
                 let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
                 self.builder.position_at_end(entry);
+                self.current_function = Some(func);
                 
-                // Return None variant
-                let none_value = option_f64_type.const_named_struct(&[
-                    self.context.i64_type().const_int(1, false).into(), // None discriminant
-                    self.context.f64_type().const_float(0.0).into(), // dummy payload
-                ]);
-                self.builder.build_return(Some(&none_value))?;
+                // Get the string parameter
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
                 
-                // Restore builder position
+                // Declare strtod function if needed
+                let strtod_fn = self.module.get_function("strtod").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let f64_type = self.context.f64_type();
+                    let fn_type = f64_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+                    self.module.add_function("strtod", fn_type, Some(Linkage::External))
+                });
+                
+                // Allocate space for the endptr
+                let endptr = self.builder.build_alloca(string_type, "endptr")?;
+                
+                // Call strtod
+                let result = self.builder.build_call(
+                    strtod_fn,
+                    &[str_param.into(), endptr.into()],
+                    "strtod_result"
+                )?.try_as_basic_value().left().unwrap().into_float_value();
+                
+                // Load the endptr value
+                let endptr_value = self.builder.build_load(string_type, endptr, "endptr_value")?;
+                
+                // Check if conversion was successful:
+                // 1. endptr should be different from str_param (some chars were consumed)
+                // 2. The first char at endptr should be null or whitespace
+                
+                // Compare endptr with str_param
+                let ptr_eq = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    self.builder.build_ptr_to_int(
+                        endptr_value.into_pointer_value(),
+                        self.context.i64_type(),
+                        "endptr_int"
+                    )?,
+                    self.builder.build_ptr_to_int(
+                        str_param,
+                        self.context.i64_type(),
+                        "str_int"
+                    )?,
+                    "ptrs_equal"
+                )?;
+                
+                // Load the char at endptr to check if it's null or whitespace
+                let i8_type = self.context.i8_type();
+                let endptr_char = self.builder.build_load(
+                    i8_type,
+                    endptr_value.into_pointer_value(),
+                    "endptr_char"
+                )?.into_int_value();
+                
+                // Check if the char is null (0) or common whitespace
+                let zero = i8_type.const_zero();
+                let space = i8_type.const_int(32, false); // ' '
+                let tab = i8_type.const_int(9, false);     // '\t'
+                let newline = i8_type.const_int(10, false); // '\n'
+                let cr = i8_type.const_int(13, false);     // '\r'
+                
+                let is_null = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    endptr_char,
+                    zero,
+                    "is_null"
+                )?;
+                let is_space = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    endptr_char,
+                    space,
+                    "is_space"
+                )?;
+                let is_tab = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    endptr_char,
+                    tab,
+                    "is_tab"
+                )?;
+                let is_newline = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    endptr_char,
+                    newline,
+                    "is_newline"
+                )?;
+                let is_cr = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    endptr_char,
+                    cr,
+                    "is_cr"
+                )?;
+                
+                // Combine whitespace checks
+                let is_ws1 = self.builder.build_or(is_null, is_space, "is_ws1")?;
+                let is_ws2 = self.builder.build_or(is_ws1, is_tab, "is_ws2")?;
+                let is_ws3 = self.builder.build_or(is_ws2, is_newline, "is_ws3")?;
+                let is_valid_end = self.builder.build_or(is_ws3, is_cr, "is_valid_end")?;
+                
+                // Valid conversion if ptrs are different AND endptr points to valid end
+                let not_equal = self.builder.build_not(ptr_eq, "not_equal")?;
+                let is_valid = self.builder.build_and(not_equal, is_valid_end, "is_valid")?;
+                
+                // Create blocks for Some and None cases
+                let some_block = self.context.append_basic_block(func, "some");
+                let none_block = self.context.append_basic_block(func, "none");
+                let merge_block = self.context.append_basic_block(func, "merge");
+                
+                self.builder.build_conditional_branch(is_valid, some_block, none_block)?;
+                
+                // Some block - return Option.Some with the parsed value
+                self.builder.position_at_end(some_block);
+                
+                // Allocate space for the f64 value on the heap
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let i64_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
+                });
+                let size = self.context.i64_type().const_int(8, false); // sizeof(f64) = 8
+                let heap_ptr = self.builder.build_call(
+                    malloc_fn,
+                    &[size.into()],
+                    "heap_alloc"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Store the float value in the heap allocation
+                self.builder.build_store(heap_ptr, result)?;
+                
+                // Build the Some variant struct
+                let some_alloca = self.builder.build_alloca(option_f64_type, "some_opt")?;
+                let disc_ptr = self.builder.build_struct_gep(
+                    option_f64_type,
+                    some_alloca,
+                    0,
+                    "disc_ptr"
+                )?;
+                self.builder.build_store(disc_ptr, self.context.i64_type().const_int(0, false))?;
+                let payload_ptr = self.builder.build_struct_gep(
+                    option_f64_type,
+                    some_alloca,
+                    1,
+                    "payload_ptr_field"
+                )?;
+                self.builder.build_store(payload_ptr, heap_ptr)?;
+                let some_value = self.builder.build_load(option_f64_type, some_alloca, "some_value")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // None block - return Option.None
+                self.builder.position_at_end(none_block);
+                let none_alloca = self.builder.build_alloca(option_f64_type, "none_opt")?;
+                let disc_ptr = self.builder.build_struct_gep(
+                    option_f64_type,
+                    none_alloca,
+                    0,
+                    "disc_ptr"
+                )?;
+                self.builder.build_store(disc_ptr, self.context.i64_type().const_int(1, false))?;
+                let payload_ptr = self.builder.build_struct_gep(
+                    option_f64_type,
+                    none_alloca,
+                    1,
+                    "payload_ptr_field"
+                )?;
+                // Store null pointer for None variant
+                let null_ptr = ptr_type.const_null();
+                self.builder.build_store(payload_ptr, null_ptr)?;
+                let none_value = self.builder.build_load(option_f64_type, none_alloca, "none_value")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // Merge block - create PHI node and return
+                self.builder.position_at_end(merge_block);
+                let phi = self.builder.build_phi(option_f64_type, "result")?;
+                phi.add_incoming(&[(&some_value, some_block), (&none_value, none_block)]);
+                self.builder.build_return(Some(&phi.as_basic_value()))?;
+                
+                // Restore builder position and current function
+                self.current_function = current_fn;
                 if let Some(block) = current_block {
                     self.builder.position_at_end(block);
                 }

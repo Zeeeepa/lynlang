@@ -1,0 +1,32 @@
+{ io, Option } = @std
+
+main = () void {
+    // Test with a specific value we can verify
+    s1 = "3.14159"
+    result = s1.to_f64()
+    
+    // Check if parsing succeeded
+    result ?
+        | Option.Some(v) {
+            io.println("Parsing succeeded")
+            io.print("Value: ")
+            io.print_float(v)
+            io.println("")
+            
+            // Test with a computation to see if it's really 0
+            result2 = v + 1.0
+            io.print("Value + 1.0 = ")
+            io.print_float(result2) 
+            io.println("")
+        }
+        | Option.None { 
+            io.println("Parsing failed - got None")
+        }
+    
+    // Test an invalid string
+    s2 = "not a number"
+    result2 = s2.to_f64()
+    result2 ?
+        | Option.Some(v) { io.println("ERROR: Invalid string parsed as ${v}") }
+        | Option.None { io.println("Invalid string correctly rejected") }
+}

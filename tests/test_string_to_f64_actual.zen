@@ -1,0 +1,10 @@
+{ io, Option } = @std
+
+main = () void {
+    // Test valid float parsing
+    s1 = "3.14"
+    result1 = s1.to_f64()
+    result1 ?
+        | Option.Some(v) { io.println("SUCCESS: Parsed '${s1}' as: ${v}") }
+        | Option.None { io.println("FAILED: Could not parse '${s1}'") }
+}

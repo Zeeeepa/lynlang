@@ -1,0 +1,16 @@
+{ io, Option } = @std
+
+main = () void {
+    s = "42.5"
+    opt = s.to_f64()
+    
+    opt ?
+        | Option.Some(value) { 
+            io.println("Got Some")
+            io.print_float(value)
+            io.println("")
+        }
+        | Option.None { 
+            io.println("Got None") 
+        }
+}

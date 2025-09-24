@@ -397,6 +397,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 .ok_or_else(|| {
                                     CompileError::InternalError("string_to_f64 did not return a value".to_string(), None)
                                 })?;
+                            // Update generic type context for Option<f64>
+                            self.generic_type_context
+                                .insert("Option_Some_Type".to_string(), crate::ast::AstType::F64);
                             return Ok(result);
                         }
                         "to_i32" => {
