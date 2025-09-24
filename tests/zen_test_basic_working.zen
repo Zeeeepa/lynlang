@@ -41,11 +41,14 @@ main = () void {
     
     // 3. Ranges (spec lines 432-434)
     io.println("\n3. Ranges:")
-    i := 0
-    loop (i < 3) {
+    i ::= 0
+    loop(() {
+        i >= 3 ? {
+            break
+        }
         io.println("i = ${i}")
-        i += 1
-    }
+        i = i + 1
+    })
     
     // 4. Infinite loop with break (spec lines 453-459)
     io.println("\n4. Loop with break:")

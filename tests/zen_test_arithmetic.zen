@@ -15,9 +15,9 @@ main = () void {
     quot = a / b
     
     // Complex expressions
-    expr1 := (10 + 20) * 3
-    expr2 := 100 - (25 * 2)
-    expr3 := (50 + 50) / 10
+    expr1 ::= (10 + 20) * 3
+    expr2 ::= 100 - (25 * 2)
+    expr3 ::= (50 + 50) / 10
     
     // Comparisons
     is_greater = a > b

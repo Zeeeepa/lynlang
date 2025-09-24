@@ -1,9 +1,9 @@
 // Test DynVec operations
-{ io, memory } := @std
+{ io, memory } = @std
 
 test_dynvec = () i32 {
     // Create a DynVec with initial capacity
-    vec := DynVec<i32>(memory.system_allocator(), 10)
+    vec ::= DynVec<i32>(memory.system_allocator(), 10)
     
     // Test push operations
     vec.push(42)
@@ -14,13 +14,13 @@ test_dynvec = () i32 {
     io.println("Length: ${vec.len()}")
     
     // Test get operations
-    first := vec.get(0)
+    first ::= vec.get(0)
     first ?
         | Some(val) { io.println("First element: ${val}") }
         | None { io.println("No element at index 0") }
     
     // Test pop operation
-    popped := vec.pop()
+    popped ::= vec.pop()
     popped ?
         | Some(val) { io.println("Popped: ${val}") }
         | None { io.println("Vector was empty") }
@@ -28,7 +28,7 @@ test_dynvec = () i32 {
     // Test set operation
     vec.set(1, 999)
     
-    second := vec.get(1)
+    second ::= vec.get(1)
     second ?
         | Some(val) { io.println("Second element after set: ${val}") }
         | None { io.println("No element at index 1") }

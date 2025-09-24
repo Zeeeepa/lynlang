@@ -35,12 +35,12 @@ load_config_manual = (path: string) Result<i32, string> {
     io.println("Loading config manually from: ${path}")
     
     // Read file with explicit error handling
-    file_result := read_file(path)
+    file_result ::= read_file(path)
     file_result ?
         | .Ok(content) {
             io.println("  File read successfully")
             // Parse the content
-            parse_result := parse_config(content)
+            parse_result ::= parse_config(content)
             parse_result ?
                 | .Ok(value) {
                     io.println("  Config parsed: ${value}")
@@ -52,7 +52,7 @@ load_config_manual = (path: string) Result<i32, string> {
                 }
         }
         | .Err(error) {
-            error_msg := error ?
+            error_msg ::= error ?
                 | .NotFound { "File not found" }
                 | .PermissionDenied { "Permission denied" }
                 | .IOError { "IO error occurred" }
@@ -72,14 +72,14 @@ load_config_with_raise_simulation = (path: string) Result<i32, string> {
     // return Result.Ok(config)
     
     // For now, we use the propagate helper
-    file_result := read_file(path)
+    file_result ::= read_file(path)
     file_result ?
         | .Ok(content) {
             io.println("  File read successfully")
             return parse_config(content)
         }
         | .Err(error) {
-            error_msg := error ?
+            error_msg ::= error ?
                 | .NotFound { "File not found" }
                 | .PermissionDenied { "Permission denied" }
                 | .IOError { "IO error occurred" }
@@ -92,12 +92,12 @@ load_config_with_raise_simulation = (path: string) Result<i32, string> {
 process_files = (paths: Array<string>) Result<i32, string> {
     io.println("Processing multiple files")
     
-    total := 0
-    i := 0
+    total ::= 0
+    i ::= 0
     loop {
         i >= paths.len() ? { break }
         
-        config_result := load_config_manual(paths[i])
+        config_result ::= load_config_manual(paths[i])
         config_result ?
             | .Ok(value) {
                 total = total + value
@@ -115,8 +115,8 @@ process_files = (paths: Array<string>) Result<i32, string> {
 test_result_methods = () void {
     io.println("\n▶ Testing Result methods:")
     
-    ok_result := Result<i32, string>.Ok(10)
-    err_result := Result<i32, string>.Err("Something went wrong")
+    ok_result ::= Result<i32, string>.Ok(10)
+    err_result ::= Result<i32, string>.Err("Something went wrong")
     
     // Test is_ok and is_err
     io.println("  OK result is_ok: ${ok_result.is_ok()}")
@@ -129,13 +129,13 @@ test_result_methods = () void {
     io.println("  Err unwrap_or(0): ${err_result.unwrap_or(0)}")
     
     // Test map
-    doubled := ok_result.map((x) => x * 2)
+    doubled ::= ok_result.map((x) => x * 2)
     doubled ?
         | .Ok(val) { io.println("  Mapped OK value: ${val}") }
         | .Err(_) { io.println("  Unexpected error") }
     
     // Test and_then (flatMap)
-    chained := ok_result.and_then((x) => Result<i32, string>.Ok(x + 5))
+    chained ::= ok_result.and_then((x) => Result<i32, string>.Ok(x + 5))
     chained ?
         | .Ok(val) { io.println("  Chained OK value: ${val}") }
         | .Err(_) { io.println("  Unexpected error") }
@@ -149,12 +149,12 @@ main = () i32 {
     // Test manual error handling
     io.println("\n▶ Testing manual error propagation:")
     
-    result1 := load_config_manual("valid.txt")
+    result1 ::= load_config_manual("valid.txt")
     result1 ?
         | .Ok(value) { io.println("✓ Success: got value ${value}") }
         | .Err(error) { io.println("✗ Error: ${error}") }
     
-    result2 := load_config_manual("missing.txt")
+    result2 ::= load_config_manual("missing.txt")
     result2 ?
         | .Ok(value) { io.println("✓ Success: got value ${value}") }
         | .Err(error) { io.println("✗ Error: ${error}") }
@@ -162,12 +162,12 @@ main = () i32 {
     // Test simulated raise approach
     io.println("\n▶ Testing raise simulation:")
     
-    result3 := load_config_with_raise_simulation("valid.txt")
+    result3 ::= load_config_with_raise_simulation("valid.txt")
     result3 ?
         | .Ok(value) { io.println("✓ Success: got value ${value}") }
         | .Err(error) { io.println("✗ Error: ${error}") }
     
-    result4 := load_config_with_raise_simulation("protected.txt")
+    result4 ::= load_config_with_raise_simulation("protected.txt")
     result4 ?
         | .Ok(value) { io.println("✓ Success: got value ${value}") }
         | .Err(error) { io.println("✗ Error: ${error}") }
@@ -175,14 +175,14 @@ main = () i32 {
     // Test processing multiple files
     io.println("\n▶ Testing batch processing:")
     
-    files := ["valid.txt", "valid.txt", "valid.txt"]
-    batch_result := process_files(files)
+    files ::= ["valid.txt", "valid.txt", "valid.txt"]
+    batch_result ::= process_files(files)
     batch_result ?
         | .Ok(total) { io.println("✓ Batch success: total = ${total}") }
         | .Err(error) { io.println("✗ Batch error: ${error}") }
     
-    files_with_error := ["valid.txt", "missing.txt", "valid.txt"]
-    batch_error := process_files(files_with_error)
+    files_with_error ::= ["valid.txt", "missing.txt", "valid.txt"]
+    batch_error ::= process_files(files_with_error)
     batch_error ?
         | .Ok(total) { io.println("✓ Batch success: total = ${total}") }
         | .Err(error) { io.println("✗ Batch error: ${error}") }

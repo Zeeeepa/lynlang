@@ -15,14 +15,14 @@ Point: {
 
 // Function definitions
 distance = (p1: Point, p2: Point) f64   {
-    dx := p2.x - p1.x;
-    dy := p2.y - p1.y;
+    dx ::= p2.x - p1.x;
+    dy ::= p2.y - p1.y;
     return math.sqrt(dx * dx + dy * dy);
 }
 
 // Generic function with type parameters
 map<T, U> = (items: []T, transform: (T) U) []U {
-    result := []U{};
+    result ::= []U{};
     items.loop((item) => {
         result.push(transform(item));
     });
@@ -32,21 +32,21 @@ map<T, U> = (items: []T, transform: (T) U) []U {
 // Main entry point
 main = () void   {
     // Variable declarations with type inference
-    p1 := Point { x: 0.0, y: 0.0 };
-    p2 := Point { x: 3.0, y: 4.0 };
+    p1 ::= Point { x: 0.0, y: 0.0 };
+    p2 ::= Point { x: 3.0, y: 4.0 };
     
     // Function call
-    dist := distance(p1, p2);
+    dist ::= distance(p1, p2);
     io.println("Distance: " + dist.to_string());
     
     // Pattern matching
-    result := compute_something();
+    result ::= compute_something();
     result ? 
         | Ok(value) { io.println("Success: " + value.to_string()) }
         | Err(error) { io.println("Error: " + error); }
     
     // Loop constructs
-    count := 0;
+    count ::= 0;
     loop (count < 10) {
         io.println("Count: " + count.to_string());
         count = count + 1;
@@ -62,14 +62,14 @@ main = () void   {
     
     // Comptime evaluation
     @comptime {
-        const_value := 42;
+        const_value ::= 42;
         static_assert(const_value == 42);
     }
 }
 
 // Helper function returning Result
 compute_something = () Result<i32, string>   {
-    condition := true;
+    condition ::= true;
     condition ? {
         return Ok(42);
     };
@@ -119,7 +119,7 @@ delay = (ms: i32, alloc: *Allocator) void {
     alloc.is_concurrent ? 
         | true {
             // Concurrent path: suspend and resume after delay
-            cont := alloc.suspend();
+            cont ::= alloc.suspend();
             schedule_resume(cont, ms);
         }
         | false {
