@@ -31,6 +31,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(())
             }
             Statement::VariableDeclaration { name, type_, initializer, is_mutable, declaration_type } => {
+                eprintln!("DEBUG: VariableDeclaration for '{}', type_: {:?}, initializer: {:?}", name, type_, initializer.as_ref().map(|e| std::mem::discriminant(e)));
                 use crate::ast::VariableDeclarationType;
                 
                 // Check if this is an assignment to a forward-declared variable
@@ -289,6 +290,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             AstType::Generic {
                                 name: "Option".to_string(),
                                 type_args: vec![AstType::Generic { name: "T".to_string(), type_args: vec![] }],
+                            }
+                        } else if let Expression::Range { inclusive, .. } = init_expr {
+                            // Range expression - infer Range type
+                            AstType::Range {
+                                start_type: Box::new(AstType::I32),
+                                end_type: Box::new(AstType::I32),
+                                inclusive: *inclusive,
                             }
                         } else if let Expression::StructLiteral { name: struct_name, .. } = init_expr {
                             // If initializer is a struct literal, use the struct type
@@ -649,6 +657,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Check if variable exists - if not, this is a new immutable declaration with =
                 if !self.variables.contains_key(name) {
+                    eprintln!("DEBUG: Creating new immutable variable '{}'", name);
                     // This is a new immutable declaration: name = value
                     
                     
@@ -735,12 +744,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     
                     // Create the alloca and store the value
                     // Special handling for struct values (including enums)
+                    eprintln!("DEBUG: init_value type: {:?}", std::mem::discriminant(&init_value));
                     if let BasicValueEnum::StructValue(struct_val) = init_value {
+                        eprintln!("DEBUG: Handling struct value");
                         // Directly use the struct type from the value
                         let struct_type = struct_val.get_type();
                         let alloca = self.builder.build_alloca(struct_type, name)?;
                         self.builder.build_store(alloca, struct_val)?;
                         // Check what type of value this is
+                        eprintln!("DEBUG: Inferring type for value: {:?}", value);
                         let inferred_type = match value {
                             Expression::StructLiteral { name: struct_name, .. } => {
                                 // This is a struct literal
@@ -772,6 +784,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                 }
                             }
+                            Expression::Range { inclusive, .. } => {
+                                // Range expression
+                                AstType::Range {
+                                    start_type: Box::new(AstType::I32),
+                                    end_type: Box::new(AstType::I32),
+                                    inclusive: *inclusive,
+                                }
+                            }
                             _ => {
                                 // Default to enum type for other cases
                                 AstType::Generic {
@@ -780,6 +800,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             }
                         };
+                        eprintln!("DEBUG: Inferred type: {:?}", inferred_type);
                         self.variables.insert(name.clone(), super::VariableInfo {
                             pointer: alloca,
                             ast_type: inferred_type,

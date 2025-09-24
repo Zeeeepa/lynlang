@@ -30,6 +30,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(AstType::Void)
                 }
             }
+            Expression::Range { start: _, end: _, inclusive } => {
+                // Range expressions have Range type
+                Ok(AstType::Range {
+                    start_type: Box::new(AstType::I32),
+                    end_type: Box::new(AstType::I32),
+                    inclusive: *inclusive,
+                })
+            }
             _ => Ok(AstType::Void),
         }
     }
@@ -1851,6 +1859,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     fn compile_range_expression(&mut self, start: &Expression, end: &Expression, inclusive: bool) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        eprintln!("DEBUG: Compiling Range expression");
         // For now, represent ranges as a simple struct { start: i64, end: i64, inclusive: bool }
         let start_val = self.compile_expression(start)?;
         let end_val = self.compile_expression(end)?;
@@ -2544,7 +2553,50 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
     
     fn compile_collection_loop(&mut self, collection: &Expression, param: &str, index_param: Option<&str>, body: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // This is a simplified implementation
+        // Check if the collection is a Range
+        if let Expression::Range { start, end, inclusive } = collection {
+            // Convert to compile_range_loop format
+            let closure = Expression::Closure {
+                params: vec![(param.to_string(), None)],
+                body: Box::new(body.clone()),
+            };
+            return self.compile_range_loop(start, end, *inclusive, &[closure]);
+        }
+        
+        // Check if collection is an identifier that holds a Range
+        if let Expression::Identifier(name) = collection {
+            // Look up the variable to see if it's a Range type
+            if let Some(var_info) = self.variables.get(name).cloned() {
+                eprintln!("DEBUG: Variable {} has type {:?}", name, var_info.ast_type);
+                if let AstType::Range { inclusive, .. } = &var_info.ast_type {
+                    eprintln!("DEBUG: Detected Range type, calling compile_range_loop_from_values");
+                    // We need to extract the range values from the stored struct
+                    // Load the range struct
+                    let range_type = match self.to_llvm_type(&var_info.ast_type)? {
+                        super::Type::Struct(s) => s,
+                        _ => return Err(CompileError::InternalError("Expected struct type for Range".to_string(), None))
+                    };
+                    let range_val = self.builder.build_load(
+                        range_type,
+                        var_info.pointer,
+                        name
+                    )?;
+                    
+                    // Extract start and end from the struct
+                    let range_struct = range_val.into_struct_value();
+                    let start_val = self.builder.build_extract_value(range_struct, 0, "start")?
+                        .into_int_value();
+                    let end_val = self.builder.build_extract_value(range_struct, 1, "end")?
+                        .into_int_value();
+                    
+                    // Actually, we need to implement this differently
+                    // For now, create a proper range loop implementation here
+                    return self.compile_range_loop_from_values(start_val, end_val, *inclusive, param, body);
+                }
+            }
+        }
+        
+        // This is a simplified implementation for non-Range collections
         // In a full implementation, we'd need to handle different collection types
         
         // Compile the collection expression
@@ -2606,6 +2658,99 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Pop loop stack
         self.loop_stack.pop();
+        
+        // Return unit value
+        Ok(self.context.i32_type().const_int(0, false).into())
+    }
+    
+    fn compile_range_loop_from_values(&mut self, start_val: inkwell::values::IntValue<'ctx>, end_val: inkwell::values::IntValue<'ctx>, inclusive: bool, param: &str, body: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Create loop blocks
+        let loop_header = self.context.append_basic_block(self.current_function.unwrap(), "range_header");
+        let loop_body_block = self.context.append_basic_block(self.current_function.unwrap(), "range_body");
+        let after_loop = self.context.append_basic_block(self.current_function.unwrap(), "after_range");
+        
+        // Allocate space for the loop variable
+        let loop_var = self.builder.build_alloca(start_val.get_type(), param)?;
+        self.builder.build_store(loop_var, start_val)?;
+        
+        // Jump to loop header
+        self.builder.build_unconditional_branch(loop_header)?;
+        self.builder.position_at_end(loop_header);
+        
+        // Load current value
+        let current = self.builder.build_load(start_val.get_type(), loop_var, param)?;
+        let current_int = current.into_int_value();
+        
+        // Check loop condition
+        let condition = if inclusive {
+            self.builder.build_int_compare(
+                inkwell::IntPredicate::SLE,
+                current_int,
+                end_val,
+                "range_check"
+            )?
+        } else {
+            self.builder.build_int_compare(
+                inkwell::IntPredicate::SLT,
+                current_int,
+                end_val,
+                "range_check"
+            )?
+        };
+        
+        self.builder.build_conditional_branch(condition, loop_body_block, after_loop)?;
+        self.builder.position_at_end(loop_body_block);
+        
+        // Push loop context for break/continue
+        self.loop_stack.push((loop_header, after_loop));
+        
+        // Enter a new scope for the loop body
+        self.symbols.enter_scope();
+        
+        // Store the loop variable in symbols table (AFTER entering scope)
+        use crate::codegen::llvm::symbols::Symbol;
+        self.symbols.insert(param, Symbol::Variable(loop_var));
+        
+        // Also store in the variables map for compatibility
+        self.variables.insert(param.to_string(), super::VariableInfo {
+            pointer: loop_var,
+            ast_type: crate::ast::AstType::I32,
+            is_mutable: false,  // Loop variables are immutable
+            is_initialized: true,
+        });
+        
+        // Compile the loop body
+        match body {
+            Expression::Block(statements) => {
+                for stmt in statements {
+                    self.compile_statement(stmt)?;
+                }
+            }
+            _ => {
+                self.compile_expression(body)?;
+            }
+        }
+        
+        // Exit the scope but DON'T remove from variables map yet
+        self.symbols.exit_scope();
+        
+        // Increment the loop variable (still needs to access loop_var)
+        let current = self.builder.build_load(start_val.get_type(), loop_var, param)?;
+        let one = start_val.get_type().const_int(1, false);
+        let next = self.builder.build_int_add(current.into_int_value(), one, "next")?;
+        self.builder.build_store(loop_var, next)?;
+        
+        // Jump back to loop header
+        self.builder.build_unconditional_branch(loop_header)?;
+        
+        // Position after loop
+        self.builder.position_at_end(after_loop);
+        
+        // Pop loop stack
+        self.loop_stack.pop();
+        
+        // NOW remove from variables map (after we're done using the loop variable)
+        self.variables.remove(param);
         
         // Return unit value
         Ok(self.context.i32_type().const_int(0, false).into())
