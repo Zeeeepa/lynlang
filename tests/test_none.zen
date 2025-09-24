@@ -1,0 +1,10 @@
+{ io } = @std
+
+main = () void {
+    empty = None
+    io.println("Created None")
+    
+    empty ?
+        | Some(x) { io.println("Got: ${x}") }
+        | None { io.println("Is None") }
+}
