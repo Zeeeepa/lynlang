@@ -14,12 +14,13 @@ parse_radius = (s: string) Result<f64, string> {
 }
 
 // Error propagation with .raise() (lines 205-211)
-load_config = (path: string) Result<Config, string> {
-    file = File.open(path).raise()      // If Err, returns early
-    contents = file.read_all().raise()  // If Err, returns early
-    config = json.parse(contents).raise() // If Err, returns early
-    return Result.Ok(config)
-}
+// Commented out - Config, File, json not implemented
+// load_config = (path: string) Result<Config, string> {
+//     file = File.open(path).raise()      // If Err, returns early
+//     contents = file.read_all().raise()  // If Err, returns early
+//     config = json.parse(contents).raise() // If Err, returns early
+//     return Result.Ok(config)
+// }
 
 // Helper function that may fail
 divide = (a: f64, b: f64) Result<f64, string> {

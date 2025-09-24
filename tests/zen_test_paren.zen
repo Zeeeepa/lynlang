@@ -1,9 +1,13 @@
 { io } = @std
 
-main = () void {
+main = () i32 {
     x = (10 + 5)
     io.println("${x}")
     
-    y = (true)
-    y ? { io.println("yes") }
+    y = true
+    y ? 
+        | true { io.println("yes") }
+        | false { }
+    
+    return 0
 }

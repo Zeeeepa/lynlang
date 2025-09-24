@@ -17,10 +17,10 @@ main = () i32 {
     test_result ?
         | Result.Ok(val) { 
             io.println("Got Ok variant")
-            return 42
+            return 0  // Success
         }
         | Result.Err(e) { 
             io.println("Got Err variant")
-            return 1
+            return 1  // Error
         }
 }

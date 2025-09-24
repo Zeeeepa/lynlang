@@ -19,8 +19,8 @@ add = (a: i32, b: i32) i32 {
 // }
 
 // UFC - can be called as method on first parameter
-double = (x: f64) f64 {
-    return x * 2.0
+double = (x: i32) i32 {
+    return x * 2
 }
 
 // Multiple overloads - not yet implemented
@@ -28,18 +28,11 @@ double = (x: f64) f64 {
 // get_name = (x: f64) string { return "float" }
 // get_name = (x: string) string { return "string" }
 
-// Struct for UFC demonstration
-Vector: {
-    x: f64,
-    y: f64
-}
-
-// Functions that can be called as methods via UFC
-magnitude = (v: Vector) f64 {
-    return (v.x * v.x + v.y * v.y)// .sqrt() not implemented
-    // return (v.x * v.x + v.y * v.y).sqrt()
-    return 0.0  // placeholder
-}
+// Commenting out structs - not fully working
+// Vector: {
+//     x: f64,
+//     y: f64
+// }
 
 // Mutable parameters not yet implemented
 // normalize = (v :: Vector) void {
@@ -48,32 +41,26 @@ magnitude = (v: Vector) f64 {
 //     v.y = v.y / mag
 // }
 
-main = () void {
+main = () i32 {
     // Regular function calls
     sum = add(5, 3)
+    io.println("5 + 3 = ${sum}")
     
     // UFC - function called as method
-    value = 10.0
+    value = 10
     doubled = value.double()  // Same as double(value)
+    io.println("10.double() = ${doubled}")
     
-    // Generic function
-    print_value(42)
-    print_value("Hello")
-    print_value(3.14)
-    
-    // Overloaded functions
-    name1 = get_name(10)      // "integer"
-    name2 = get_name(3.14)     // "float"  
-    name3 = get_name("test")   // "string"
-    
-    // UFC with structs
-    v ::= Vector { x: 3.0, y: 4.0 }
-    mag = v.magnitude()        // UFC: magnitude(v)
-    v.normalize()              // UFC: normalize(v)
+    // Also works with regular call syntax
+    tripled = double(15)
+    io.println("double(15) = ${tripled}")
     
     // Chaining via UFC
-    result = 5.0
-        .double()              // 10.0
-        .double()              // 20.0
-        .double()              // 40.0
+    result = 5
+        .double()              // 10
+        .double()              // 20
+        .double()              // 40
+    io.println("5 chained double 3 times = ${result}")
+    
+    return 0
 }

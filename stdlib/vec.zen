@@ -6,7 +6,7 @@ core := @std
 { Allocator } = @std
 
 // Fixed-size vector structure - stack allocated
-Vec<T, N>: {
+Vec<T, N> = {
     data: [T; N]         // Fixed-size array on stack
     len: usize           // Current number of elements (≤ N)
 }
@@ -229,7 +229,7 @@ Vec<T, N>.fold<U> = (self: Ptr<Vec<T, N>>, initial: U, f: (U, T) U) U {
 }
 
 // Dynamic vector structure - heap allocated with allocator support
-DynVec<T>: {
+DynVec<T> = {
     data: MutPtr<T>
     len: usize
     capacity: usize

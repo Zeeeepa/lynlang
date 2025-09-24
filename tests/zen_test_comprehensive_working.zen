@@ -7,29 +7,24 @@
 { Result, Option } = @std
 
 // Structs from spec
-Point: {
-    x:: f64,
-    y:: f64
+Point = {
+    x: f64
+    y: f64
 }
 
-Circle: {
-    center: Point,
+Circle = {
+    center: Point
     radius: f64
 }
 
-Rectangle: {
-    top_left: Point,
+Rectangle = {
+    top_left: Point
     bottom_right: Point
 }
 
 // Enum types from spec
-Shape:
-    Circle,
-    Rectangle
-GameEntity:
-    Player,
-    Enemy,
-    Powerup
+Shape : .Circle | .Rectangle
+GameEntity : .Player | .Enemy | .Powerup
 
 // UFC overloading from spec
 get_health = (e: GameEntity.Player) u32 { return 100 }

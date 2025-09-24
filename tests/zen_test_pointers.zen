@@ -2,9 +2,9 @@
 
 { io } = @std
 
-Point: {
-    x:: f64,
-    y:: f64,
+Point = {
+    x: f64
+    y: f64
 }
 
 main = () void {

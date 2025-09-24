@@ -4,14 +4,14 @@
 { Allocator, Option, Result, Error } = @std
 
 // Hash bucket for collision resolution via chaining  
-HashBucket<K, V>: {
+HashBucket<K, V> = {
     key: K
     value: V
     next: Option<Ptr<HashBucket<K, V>>>
 }
 
 // HashMap structure
-HashMap<K, V>: {
+HashMap<K, V> = {
     buckets: Array<Option<Ptr<HashBucket<K, V>>>>
     size: usize
     capacity: usize

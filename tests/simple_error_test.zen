@@ -3,10 +3,9 @@
 
 // Simple Result operations
 divide = (a: i32, b: i32) Result<i32, string> {
-    b == 0 ? {
-        return Result.Err("Division by zero")
-    }
-    return Result.Ok(a / b)
+    b == 0 ? 
+        | true { return Result.Err("Division by zero") }
+        | false { return Result.Ok(a / b) }
 }
 
 // Test pattern matching on Result

@@ -8,9 +8,9 @@ math {  } = @std;
 { Result, Option } = @std
 
 // Type definitions
-Point: {
-    x: f64,
-    y: f64,
+Point = {
+    x: f64
+    y: f64
 }
 
 // Function definitions

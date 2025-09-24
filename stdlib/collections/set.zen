@@ -4,7 +4,7 @@
 { HashMap, Allocator, Option, Result, Error, DynVec } = @std
 
 // HashSet structure - uses HashMap internally
-HashSet<T>: {
+HashSet<T> = {
     map: HashMap<T, bool>
     hash_func: (T) u64
     eq_func: (T, T) bool

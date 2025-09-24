@@ -5,17 +5,10 @@
 { Result, Option } = @std
 
 // Simple enum
-Shape = enum {
-    Circle,
-    Rectangle
-}
+Shape : .Circle | .Rectangle
 
 // Enum with different variant types
-GameEntity = enum {
-    Player,
-    Enemy,
-    Powerup
-}
+GameEntity : .Player | .Enemy | .Powerup
 
 main = () void {
     // Option handling - no null!
@@ -44,25 +37,25 @@ main = () void {
         }
     
     // Simple enum usage
-    shape: Shape = Circle
+    shape: Shape = .Circle
     shape ?
-        | Circle {
+        | .Circle {
             // Handle Circle variant
         }
-        | Rectangle {
+        | .Rectangle {
             // Handle Rectangle variant
         }
     
     // Game entity enum
-    entity: GameEntity = Player
+    entity: GameEntity = .Player
     entity ?
-        | Player {
+        | .Player {
             // Player logic
         }
-        | Enemy {
+        | .Enemy {
             // Enemy logic
         }
-        | Powerup {
+        | .Powerup {
             // Powerup logic
         }
 }

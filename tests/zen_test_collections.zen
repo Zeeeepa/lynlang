@@ -5,27 +5,20 @@
 { Vec, DynVec, GPA } = @std
 
 // Test types for mixed collections
-GameEntity = enum {
-    Player,
-    Enemy,
-    Powerup
-}
-Shape = enum {
-    Circle,
-    Rectangle
-}
+GameEntity : .Player | .Enemy | .Powerup
+Shape : .CircleShape | .RectangleShape
 
-Circle: {
-    center: Point,
-    radius: f64,
+Circle = {
+    center: Point
+    radius: f64
     area = (self) f64 {
         return 3.14159 * self.radius * self.radius
     }
 }
 
-Rectangle: {
-    top_left: Point,
-    bottom_right: Point,
+Rectangle = {
+    top_left: Point
+    bottom_right: Point
     area = (self) f64 {
         width = self.bottom_right.x - self.top_left.x
         height = self.bottom_right.y - self.top_left.y
@@ -33,8 +26,8 @@ Rectangle: {
     }
 }
 
-Point: {
-    x: f64,
+Point = {
+    x: f64
     y: f64
 }
 

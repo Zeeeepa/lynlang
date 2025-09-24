@@ -1,14 +1,21 @@
 // Debug test for .raise() return value
 { io, Result } = @std
 
-test_direct = () i32 {
+test_direct = () Result<i32, string> {
     result = Result.Ok(42)
     value = result.raise()
-    return value
+    return Result.Ok(value)
 }
 
 main = () i32 {
-    value = test_direct()
-    io.println("Value: ${value}")
-    return 0  // Return 0 for test success
+    test_result = test_direct()
+    test_result ?
+        | Result.Ok(value) {
+            io.println("Value: ${value}")
+            return 0  // Return 0 for test success
+        }
+        | Result.Err(e) {
+            io.println("Error: ${e}")
+            return 1
+        }
 }

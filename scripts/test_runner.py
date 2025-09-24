@@ -27,7 +27,7 @@ def run_test(test_file, compiler):
 
 def main():
     test_dir = Path("tests")
-    compiler = Path("target/debug/zen")
+    compiler = Path("target/release/zen")
     
     if not compiler.exists():
         print(f"Compiler not found: {compiler}")
