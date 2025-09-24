@@ -1,3 +1,5 @@
+{ io } = @std
+
 main = () void {
     // Test direct member access
     x = (0..3)

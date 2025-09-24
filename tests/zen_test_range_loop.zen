@@ -1,3 +1,5 @@
+{ io } = @std
+
 main = () void {
     // Test range.loop()
     range = (0..10)

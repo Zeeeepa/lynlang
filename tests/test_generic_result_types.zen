@@ -7,9 +7,9 @@ test_i64_result = () Result<i64, string> {
     val = a.raise()
     
     // Verify we got the correct i64 value
-    if val != 1000000 {
-        return Result.Err("Expected i64 value")
-    }
+    val != 1000000 ?
+        | true { return Result.Err("Expected i64 value") }
+        | false { }
     
     return Result.Ok(val)
 }
@@ -28,9 +28,9 @@ test_bool_result = () Result<bool, string> {
     a = Result.Ok(true)
     val = a.raise()
     
-    if !val {
-        return Result.Err("Expected true")
-    }
+    !val ?
+        | true { return Result.Err("Expected true") }
+        | false { }
     
     return Result.Ok(val)
 }
@@ -49,8 +49,8 @@ main = () i32 {
     // Test i64
     result_i64 = test_i64_result()
     result_i64 ?
-        | Result.Ok(v) { io.println("i64 test passed: ${v}") }
-        | Result.Err(e) { 
+        | .Ok(v) { io.println("i64 test passed: ${v}") }
+        | .Err(e) { 
             io.println("i64 test failed: ${e}")
             return 1
         }
@@ -58,8 +58,8 @@ main = () i32 {
     // Test f64
     result_f64 = test_f64_result()
     result_f64 ?
-        | Result.Ok(v) { io.println("f64 test passed: ${v}") }
-        | Result.Err(e) {
+        | .Ok(v) { io.println("f64 test passed: ${v}") }
+        | .Err(e) {
             io.println("f64 test failed: ${e}")
             return 1
         }
@@ -67,11 +67,11 @@ main = () i32 {
     // Test bool
     result_bool = test_bool_result()
     result_bool ?
-        | Result.Ok(v) { 
+        | .Ok(v) { 
             msg = v ? "true" | "false"
             io.println("bool test passed: ${msg}")
         }
-        | Result.Err(e) {
+        | .Err(e) {
             io.println("bool test failed: ${e}")
             return 1
         }
@@ -79,17 +79,17 @@ main = () i32 {
     // Test error propagation
     result_err = test_error_i32()
     result_err ?
-        | Result.Ok(_) { 
+        | .Ok(_) { 
             io.println("Error test failed: expected Err")
             return 1
         }
-        | Result.Err(e) {
-            if e == 42 {
-                io.println("Error propagation test passed: ${e}")
-            } else {
-                io.println("Error test failed: wrong error value")
-                return 1
-            }
+        | .Err(e) {
+            e == 42 ?
+                | true { io.println("Error propagation test passed: ${e}") }
+                | false {
+                    io.println("Error test failed: wrong error value")
+                    return 1
+                }
         }
     
     io.println("All generic Result<T,E> tests passed!")

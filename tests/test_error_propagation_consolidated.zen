@@ -58,26 +58,26 @@ main = () void {
     
     // Test 1: Basic arithmetic
     test_basic_arithmetic() ?
-        | Result.Ok(val) { io.println("Test 1 PASS: Basic arithmetic = ${val}") }
-        | Result.Err(e) { io.println("Test 1 FAIL: ${e}") }
+        | .Ok(v1) { io.println("Test 1 PASS: Basic arithmetic = ${v1}") }
+        | .Err(e1) { io.println("Test 1 FAIL: ${e1}") }
     
     // Test 2: From function call
     test_from_call() ?
-        | Result.Ok(val) { io.println("Test 2 PASS: From call = ${val}") }
-        | Result.Err(e) { io.println("Test 2 FAIL: ${e}") }
+        | .Ok(v2) { io.println("Test 2 PASS: From call = ${v2}") }
+        | .Err(e2) { io.println("Test 2 FAIL: ${e2}") }
     
     // Test 3: Multiple raises
     test_multiple_raise() ?
-        | Result.Ok(val) { io.println("Test 3 PASS: Multiple raises = ${val}") }
-        | Result.Err(e) { io.println("Test 3 FAIL: ${e}") }
+        | .Ok(v3) { io.println("Test 3 PASS: Multiple raises = ${v3}") }
+        | .Err(e3) { io.println("Test 3 FAIL: ${e3}") }
     
     // Test 4: Error propagation
     test_error_propagation() ?
-        | Result.Ok(val) { io.println("Test 4 FAIL: Should have propagated error") }
-        | Result.Err(e) { io.println("Test 4 PASS: Error propagated - ${e}") }
+        | .Ok(v4) { io.println("Test 4 FAIL: Should have propagated error") }
+        | .Err(e4) { io.println("Test 4 PASS: Error propagated - ${e4}") }
     
     // Test 5: UFC with raise
     test_ufc_raise() ?
-        | Result.Ok(val) { io.println("Test 5 PASS: UFC raise = ${val}") }
-        | Result.Err(e) { io.println("Test 5 FAIL: ${e}") }
+        | .Ok(v5) { io.println("Test 5 PASS: UFC raise = ${v5}") }
+        | .Err(e5) { io.println("Test 5 FAIL: ${e5}") }
 }

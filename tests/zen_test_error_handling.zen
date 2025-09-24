@@ -9,8 +9,8 @@
 // Parse function that returns Result (lines 198-203)
 parse_radius = (s: string) Result<f64, string> {
     s.to_f64() ?
-        | Option.Some(val) { return Result.Ok(val) }
-        | Option.None { return Result.Err("Invalid radius") }
+        | .Some(v) { return Result.Ok(v) }
+        | .None { return Result.Err("Invalid radius") }
 }
 
 // Error propagation with .raise() (lines 205-211)
@@ -42,14 +42,14 @@ calculate = (x: f64, y: f64) Result<f64, string> {
 safe_calculate = (x: f64, y: f64) f64 {
     result = divide(x, y)
     result ?
-        | Result.Ok(val) {
+        | .Ok(val1) {
             // Continue with value
-            next = divide(val, 2.0)
+            next = divide(val1, 2.0)
             next ?
-                | Result.Ok(v) { return v }
-                | Result.Err(_) { return 0.0 }
+                | .Ok(v2) { return v2 }
+                | .Err(_) { return 0.0 }
         }
-        | Result.Err(msg) {
+        | .Err(msg) {
             io.println("Error: ${msg}")
             return 0.0
         }
@@ -59,25 +59,25 @@ main = () void {
     // Test parse_radius
     result1 = parse_radius("3.14")
     result1 ?
-        | Result.Ok(r) { io.println("Parsed radius: ${r}") }
-        | Result.Err(e) { io.println("Parse error: ${e}") }
+        | .Ok(r1) { io.println("Parsed radius: ${r1}") }
+        | .Err(e1) { io.println("Parse error: ${e1}") }
     
     result2 = parse_radius("invalid")
     result2 ?
-        | Result.Ok(r) { io.println("Parsed radius: ${r}") }
-        | Result.Err(e) { io.println("Parse error: ${e}") }
+        | .Ok(r2) { io.println("Parsed radius: ${r2}") }
+        | .Err(e2) { io.println("Parse error: ${e2}") }
     
     // Test error propagation
     calc_result = calculate(100.0, 5.0)
     calc_result ?
-        | Result.Ok(v) { io.println("Result: ${v}") }
-        | Result.Err(e) { io.println("Calculation error: ${e}") }
+        | .Ok(v3) { io.println("Result: ${v3}") }
+        | .Err(e3) { io.println("Calculation error: ${e3}") }
     
     // Test with division by zero
     error_result = calculate(100.0, 0.0)
     error_result ?
-        | Result.Ok(v) { io.println("Result: ${v}") }
-        | Result.Err(e) { io.println("Calculation error: ${e}") }
+        | .Ok(v4) { io.println("Result: ${v4}") }
+        | .Err(e4) { io.println("Calculation error: ${e4}") }
     
     // Manual handling
     safe_val = safe_calculate(50.0, 10.0)

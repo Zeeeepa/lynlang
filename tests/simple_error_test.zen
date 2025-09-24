@@ -14,13 +14,13 @@ test_result_matching = () i32 {
     
     result1 = divide(10, 2)
     result1 ?
-        | .Ok(value) { io.println("  10 / 2 = ${value}") }
-        | .Err(error) { io.println("  Error: ${error}") }
+        | .Ok(val1) { io.println("  10 / 2 = ${val1}") }
+        | .Err(err1) { io.println("  Error: ${err1}") }
     
     result2 = divide(10, 0)
     result2 ?
-        | .Ok(value) { io.println("  10 / 0 = ${value}") }
-        | .Err(error) { io.println("  Error: ${error}") }
+        | .Ok(val2) { io.println("  10 / 0 = ${val2}") }
+        | .Err(err2) { io.println("  Error: ${err2}") }
     
     return 0
 }
@@ -32,28 +32,28 @@ safe_calculation = (x: i32) Result<i32, string> {
     // First operation: divide by 2
     step1 = divide(x, 2)
     step1 ?
-        | .Ok(val1) {
-            io.println("  Step 1: ${x} / 2 = ${val1}")
+        | .Ok(v1) {
+            io.println("  Step 1: ${x} / 2 = ${v1}")
             
             // Second operation: add 10
-            val2 = val1 + 10
-            io.println("  Step 2: ${val1} + 10 = ${val2}")
+            v2 = v1 + 10
+            io.println("  Step 2: ${v1} + 10 = ${v2}")
             
             // Third operation: divide by 3
-            step3 = divide(val2, 3)
+            step3 = divide(v2, 3)
             step3 ?
-                | .Ok(val3) {
-                    io.println("  Step 3: ${val2} / 3 = ${val3}")
-                    return Result.Ok(val3)
+                | .Ok(v3) {
+                    io.println("  Step 3: ${v2} / 3 = ${v3}")
+                    return Result.Ok(v3)
                 }
-                | .Err(e) {
-                    io.println("  Step 3 failed: ${e}")
-                    return Result.Err(e)
+                | .Err(e3) {
+                    io.println("  Step 3 failed: ${e3}")
+                    return Result.Err(e3)
                 }
         }
-        | .Err(e) {
-            io.println("  Step 1 failed: ${e}")
-            return Result.Err(e)
+        | .Err(e1) {
+            io.println("  Step 1 failed: ${e1}")
+            return Result.Err(e1)
         }
 }
 
@@ -68,14 +68,14 @@ main = () i32 {
     io.println("")
     calc1 = safe_calculation(24)
     calc1 ?
-        | .Ok(result) { io.println("Final result: ${result}") }
-        | .Err(error) { io.println("Calculation failed: ${error}") }
+        | .Ok(res1) { io.println("Final result: ${res1}") }
+        | .Err(err1) { io.println("Calculation failed: ${err1}") }
     
     io.println("")
     calc2 = safe_calculation(0)
     calc2 ?
-        | .Ok(result) { io.println("Final result: ${result}") }
-        | .Err(error) { io.println("Calculation failed: ${error}") }
+        | .Ok(res2) { io.println("Final result: ${res2}") }
+        | .Err(err2) { io.println("Calculation failed: ${err2}") }
     
     io.println("")
     io.println("All tests completed!")
