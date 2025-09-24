@@ -216,10 +216,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else if scrutinee_val.is_struct_value() {
                     // Extract discriminant from struct value
                     let struct_val = scrutinee_val.into_struct_value();
-                    self.builder.build_extract_value(struct_val, 0, "discriminant")?
+                    let extracted = self.builder.build_extract_value(struct_val, 0, "discriminant")?;
+                    // Cast to i64 if needed for comparison
+                    if extracted.is_int_value() {
+                        let int_val = extracted.into_int_value();
+                        if int_val.get_type().get_bit_width() < 64 {
+                            self.builder.build_int_z_extend(int_val, self.context.i64_type(), "discriminant_extended")?.into()
+                        } else {
+                            extracted
+                        }
+                    } else {
+                        extracted
+                    }
                 } else {
                     // Fallback to treating as integer
-                    *scrutinee_val
+                    // If it's an integer that's not i64, extend it
+                    if scrutinee_val.is_int_value() {
+                        let int_val = scrutinee_val.into_int_value();
+                        if int_val.get_type().get_bit_width() < 64 {
+                            self.builder.build_int_z_extend(int_val, self.context.i64_type(), "discriminant_extended")?.into()
+                        } else {
+                            *scrutinee_val
+                        }
+                    } else {
+                        *scrutinee_val
+                    }
                 };
                 
                 // Compare discriminant with expected value

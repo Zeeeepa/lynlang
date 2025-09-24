@@ -343,14 +343,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Check if this is a string method
                     match method.as_str() {
                         "to_f64" => {
-                            // Call the string_to_f64 runtime function
-                            // This returns an Option<f64>
-                            let func = self.get_or_create_runtime_function("string_to_f64")?;
-                            let result = self.builder.build_call(func, &[object_value.into()], "to_f64_result")?
-                                .try_as_basic_value()
-                                .left()
-                                .ok_or_else(|| CompileError::InternalError("string_to_f64 should return a value".to_string(), None))?;
-                            return Ok(result);
+                            // For now, just return Option.None as a stub
+                            // TODO: Implement actual string to float parsing
+                            
+                            // Create an Option<f64> struct with None variant
+                            let option_f64_type = self.context.struct_type(
+                                &[
+                                    self.context.i64_type().into(), // discriminant (0=Some, 1=None)
+                                    self.context.f64_type().into(), // payload (unused for None)
+                                ],
+                                false,
+                            );
+                            
+                            // Create None variant (discriminant = 1, payload = 0.0)
+                            let none_struct = option_f64_type.const_named_struct(&[
+                                self.context.i64_type().const_int(1, false).into(),
+                                self.context.f64_type().const_float(0.0).into(),
+                            ]);
+                            
+                            return Ok(none_struct.into());
                         }
                         "to_i32" => {
                             let func = self.get_or_create_runtime_function("string_to_i32")?;

@@ -566,6 +566,77 @@ i32_to_string = (n: i32) string   {
         }
 }
 
+// Parse float from string  
+string_to_f64 = (s: string) core.Option<f64> {
+    s .== None || string_len(s) == 0 ? | true {
+        return core.Option.None
+    } | false {}
+    
+    negative := false
+    start := 0
+    
+    s[0] == '-' ? | true {
+        negative = true
+        start = 1
+    } | false {}
+    
+    s[0] == '+' ? | true {
+        start = 1
+    } | false {}
+    
+    // Parse integer part
+    integer_part := 0.0
+    decimal_part := 0.0
+    decimal_places := 0
+    found_dot := false
+    
+    i := start
+    len := string_len(s)
+    
+    loop i < len {
+        c := s[i]
+        
+        c == '.' ? | true {
+            found_dot ? | true {
+                // Multiple dots
+                return core.Option.None
+            } | false {
+                found_dot = true
+            }
+        } | false {
+            !char_is_digit(c) ? | true {
+                return core.Option.None
+            } | false {
+                digit := (c - '0') as f64
+                found_dot ? | true {
+                    decimal_places = decimal_places + 1
+                    decimal_part = decimal_part * 10.0 + digit
+                } | false {
+                    integer_part = integer_part * 10.0 + digit
+                }
+            }
+        }
+        
+        i = i + 1
+    }
+    
+    // Combine parts
+    result := integer_part
+    decimal_places > 0 ? | true {
+        divisor := 1.0
+        j := 0
+        loop j < decimal_places {
+            divisor = divisor * 10.0
+            j = j + 1
+        }
+        result = result + decimal_part / divisor
+    } | false {}
+    
+    negative ? | true { result = -result | false => { }}
+    
+    return core.Option.Some(result)
+}
+
 // Module exports
 module.exports = {
     string_len, string_eq, string_compare,
@@ -575,5 +646,5 @@ module.exports = {
     string_trim, string_ltrim, string_rtrim,
     string_replace, string_split, string_join,
     char_is_digit, char_is_alpha, char_is_alnum, char_is_space,
-    string_to_i32, i32_to_string
+    string_to_i32, i32_to_string, string_to_f64
 }
