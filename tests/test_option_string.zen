@@ -1,0 +1,32 @@
+// Test Option<String> pattern matching
+{ io } = @std
+
+main = () i32 {
+    // Test Option<String> with Some variant
+    name: Option<String> = Some("Alice")
+    
+    // Pattern matching on Option<String>
+    greeting = name ? 
+        | Some(n) => "Hello, ${n}!"
+        | None => "Hello, stranger!"
+    
+    io.println(greeting)
+    
+    // Test None variant
+    empty: Option<String> = None
+    message = empty ?
+        | Some(s) => "Found: ${s}"
+        | None => "Nothing here"
+    
+    io.println(message)
+    
+    // Test with string concatenation in patterns
+    city: Option<String> = Some("New York")
+    location = city ?
+        | Some(c) => "Living in ${c}"
+        | None => "Location unknown"
+    
+    io.println(location)
+    
+    0
+}
