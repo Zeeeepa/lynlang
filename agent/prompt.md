@@ -169,7 +169,7 @@
   - ✅ DynVec<T> - FULLY WORKING (push, pop, get, set, len, clear) with dynamic memory allocation
   - ✅ HashMap<K,V> - FULLY WORKING with chaining collision resolution and dynamic resizing
   - ✅ HashSet<T> - FULLY WORKING with all set operations (union, intersection, difference, etc.)
-  - ✅ Basic loop construct - Infinite loops with break statement working
+  - ✅ Multiple loop syntaxes - All supported: `loop() { ... }`, `loop(condition) { ... }`, `loop(() { ... })`, `loop(true) { ... }`
   - ✅ Void type support - Unit/void values work in expressions and Result<void,E> patterns
 - **Recent stdlib cleanup**:
   - ✅ Unified system calls in sys.zen module
@@ -294,6 +294,15 @@ Before making any changes, **ALWAYS**:
 - **ALL** progress tracking documents → `/.agent/` folder  
 - **ALL** thinking and planning artifacts → `/.agent/` folder
 - **NEVER** clutter the root directory with temporary analysis files
+
+### Loop Syntax Support (IMPORTANT)
+Zen supports **multiple loop syntaxes** - all are valid per LANGUAGE_SPEC.zen:
+- `loop() { ... }` - Infinite loop
+- `loop(condition) { ... }` - Conditional loop (traditional syntax)
+- `loop(() { ... })` - Closure-based infinite loop  
+- `loop(true) { ... }` - Explicit infinite loop with boolean
+- `(range).loop()` - Range-based loop (UFC style)
+- **DO NOT** "fix" or "correct" valid loop syntax variants - they are ALL supported
 
 
 
