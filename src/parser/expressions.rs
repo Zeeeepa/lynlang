@@ -989,24 +989,66 @@ impl<'a> Parser<'a> {
                             }
                         }
                     }
-                }
-                
-                if is_closure {
-                    // Parse the closure body
-                    let body = self.parse_block_expression()?;
-                    return Ok(Expression::Closure {
-                        params,
-                        body: Box::new(body),
-                    });
+                    
+                    if is_closure {
+                        // Parse the closure body
+                        let body = self.parse_block_expression()?;
+                        return Ok(Expression::Closure {
+                            params,
+                            body: Box::new(body),
+                        });
+                    } else {
+                        // Not a closure, we have an issue with parsing
+                        // Since we consumed tokens trying to parse as closure, we can't backtrack
+                        return Err(CompileError::SyntaxError(
+                            "Ambiguous syntax: Use explicit type annotations for closure parameters or parenthesize complex expressions".to_string(),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
                 } else {
-                    // Not a closure, parse as parenthesized expression  
-                    // We've already consumed tokens, so just parse the expression
-                    // The first parameter was actually an expression, not a parameter name
-                    // For simplicity, let's just error out here since we can't easily backtrack
-                    return Err(CompileError::SyntaxError(
-                        "Ambiguous syntax: Use explicit type annotations for closure parameters or parenthesize complex expressions".to_string(),
-                        Some(self.current_span.clone()),
-                    ));
+                    // Not starting with an identifier, so it's definitely not a closure
+                    // Parse as a parenthesized expression
+                    let mut expr = self.parse_expression()?;
+                    if self.current_token != Token::Symbol(')') {
+                        return Err(CompileError::SyntaxError(
+                            format!("Expected ')' after parenthesized expression, got {:?}", self.current_token),
+                            Some(self.current_span.clone()),
+                        ));
+                    }
+                    self.next_token(); // consume ')'
+                    
+                    // Check for UFC method chaining after parenthesized expression
+                    loop {
+                        match &self.current_token {
+                            Token::Symbol('.') => {
+                                // Member access or method call
+                                self.next_token();
+                                if let Token::Identifier(member) = &self.current_token.clone() {
+                                    let member_clone = member.clone();
+                                    self.next_token();
+                                    
+                                    // Check if it's a method call
+                                    if self.current_token == Token::Symbol('(') {
+                                        expr = self.parse_call_expression_with_object(expr, member_clone)?;
+                                    } else {
+                                        // Member access
+                                        expr = Expression::MemberAccess {
+                                            object: Box::new(expr),
+                                            member: member_clone,
+                                        };
+                                    }
+                                } else {
+                                    return Err(CompileError::SyntaxError(
+                                        format!("Expected identifier after '.' in member access, got {:?}", self.current_token),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            }
+                            _ => break,
+                        }
+                    }
+                    
+                    Ok(expr)
                 }
             }
             Token::Symbol('[') => {

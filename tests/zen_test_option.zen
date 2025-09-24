@@ -1,0 +1,14 @@
+{ io } = @std
+
+main = () void {
+    // Test Option with Some and None
+    opt1 = Some(42)
+    opt1 ?
+        | Some(v) { io.println("Got value: ${v}") }
+        | None { io.println("Got None") }
+    
+    opt2 = None
+    opt2 ?
+        | Some(v) { io.println("Got value: ${v}") }
+        | None { io.println("Got None") }
+}
