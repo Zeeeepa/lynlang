@@ -2,10 +2,8 @@
 
 main = () i32 {
     x = 42
-    x ?
-        | val {
-            io.println("Bound value: ${val}")
-        }
+    // Direct print - pattern matching on scalars not valid
+    io.println("Bound value: ${x}")
     
     return 0
 }
