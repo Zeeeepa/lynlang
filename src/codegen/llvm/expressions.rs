@@ -6,6 +6,33 @@ use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::module::Linkage;
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Infer the type of an expression for generic type tracking
+    fn infer_expression_type(&self, expr: &Expression) -> Result<AstType, CompileError> {
+        match expr {
+            Expression::Integer8(_) => Ok(AstType::I8),
+            Expression::Integer16(_) => Ok(AstType::I16),
+            Expression::Integer32(_) => Ok(AstType::I32),
+            Expression::Integer64(_) => Ok(AstType::I64),
+            Expression::Unsigned8(_) => Ok(AstType::U8),
+            Expression::Unsigned16(_) => Ok(AstType::U16),
+            Expression::Unsigned32(_) => Ok(AstType::U32),
+            Expression::Unsigned64(_) => Ok(AstType::U64),
+            Expression::Float32(_) => Ok(AstType::F32),
+            Expression::Float64(_) => Ok(AstType::F64),
+            Expression::Boolean(_) => Ok(AstType::Bool),
+            Expression::String(_) => Ok(AstType::String),
+            Expression::Identifier(name) => {
+                // Look up variable type
+                if let Some(var_info) = self.variables.get(name) {
+                    Ok(var_info.ast_type.clone())
+                } else {
+                    Ok(AstType::Void)
+                }
+            }
+            _ => Ok(AstType::Void),
+        }
+    }
+
     pub fn compile_expression(&mut self, expr: &Expression) -> Result<BasicValueEnum<'ctx>, CompileError> {
         match expr {
             Expression::Integer8(value) => {
@@ -1301,6 +1328,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     pub(super) fn compile_enum_variant(&mut self, enum_name: &str, variant: &str, payload: &Option<Box<Expression>>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Track Result<T, E> type information when compiling Result variants
+        if enum_name == "Result" && payload.is_some() {
+            if let Some(ref payload_expr) = payload {
+                let payload_type = self.infer_expression_type(payload_expr);
+                if let Ok(t) = payload_type {
+                    let key = if variant == "Ok" {
+                        "Result_Ok_Type".to_string()
+                    } else {
+                        "Result_Err_Type".to_string()
+                    };
+                    self.generic_type_context.insert(key, t);
+                }
+            }
+        }
+        
         // Look up the enum info from the symbol table
         let enum_info = if enum_name.is_empty() {
             // If enum_name is empty, we need to search for an enum that has this variant
@@ -2147,10 +2189,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let ok_value = if ok_value_ptr.is_pointer_value() {
                     let ptr_val = ok_value_ptr.into_pointer_value();
                     
-                    // Check if the pointer points to an integer or other type
-                    // For now, we'll load as i32 for Result<i32, E> since that's the common case
-                    // This will be properly fixed when we have full generic type instantiation
-                    let loaded_value = self.builder.build_load(self.context.i32_type(), ptr_val, "ok_value_deref")?;
+                    // Use the tracked generic type information to determine the correct type to load
+                    let load_type: inkwell::types::BasicTypeEnum = if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
+                        match ast_type {
+                            AstType::I8 => self.context.i8_type().into(),
+                            AstType::I16 => self.context.i16_type().into(),
+                            AstType::I32 => self.context.i32_type().into(),
+                            AstType::I64 => self.context.i64_type().into(),
+                            AstType::U8 => self.context.i8_type().into(),
+                            AstType::U16 => self.context.i16_type().into(),
+                            AstType::U32 => self.context.i32_type().into(),
+                            AstType::U64 => self.context.i64_type().into(),
+                            AstType::F32 => self.context.f32_type().into(),
+                            AstType::F64 => self.context.f64_type().into(),
+                            AstType::Bool => self.context.bool_type().into(),
+                            _ => self.context.i32_type().into(), // Default fallback
+                        }
+                    } else {
+                        // Default to i32 for backward compatibility
+                        self.context.i32_type().into()
+                    };
+                    let loaded_value = self.builder.build_load(load_type, ptr_val, "ok_value_deref")?;
                     
                     // The loaded value is now an i32
                     loaded_value

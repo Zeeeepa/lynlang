@@ -1,0 +1,25 @@
+// Test .raise() with Result<i64, string>
+{ io } = @std
+
+calculate_big = () Result<i64, string> {
+    big_num = Result.Ok(1000000)
+    val = big_num.raise()
+    
+    // Do arithmetic with i64
+    doubled = val * 2
+    
+    return Result.Ok(doubled)
+}
+
+main = () i32 {
+    outcome = calculate_big()
+    outcome ?
+        | Ok(v) { 
+            io.println("i64 calculation result: ${v}")
+            return 0
+        }
+        | Err(e) { 
+            io.println("Error: ${e}")
+            return 1
+        }
+}

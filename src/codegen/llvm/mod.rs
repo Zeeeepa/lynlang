@@ -78,6 +78,7 @@ pub struct LLVMCompiler<'ctx> {
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
     pub current_impl_type: Option<String>,  // Track implementing type for trait methods
     pub inline_counter: usize,  // Counter for unique inline function names
+    pub generic_type_context: HashMap<String, AstType>,  // Track instantiated generic types
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -113,6 +114,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             behavior_codegen: Some(behaviors::BehaviorCodegen::new()),
             current_impl_type: None,
             inline_counter: 0,
+            generic_type_context: HashMap::new(),
         };
         
         // Declare standard library functions
