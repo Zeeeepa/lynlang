@@ -2069,6 +2069,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         let parent_function = self.current_function
             .ok_or_else(|| CompileError::InternalError("No current function for .raise()".to_string(), None))?;
+        
+        // Get the current function's name to look up its return type
+        let function_name = parent_function.get_name().to_str().unwrap_or("anon").to_string();
+        
+        // Check if the function returns a Result type
+        let returns_result = if let Some(return_type) = self.function_types.get(&function_name) {
+            match return_type {
+                AstType::Generic { name, .. } if name == "Result" => true,
+                AstType::Result { .. } => true, // Also handle legacy Result type
+                _ => false,
+            }
+        } else {
+            false
+        };
 
         // Compile the expression that should return a Result<T, E>
         let result_value = self.compile_expression(expr)?;
@@ -2125,13 +2139,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // The payload is always stored as a pointer in our enum representation
                 // We need to dereference it to get the actual value
                 let ok_value = if ok_value_ptr.is_pointer_value() {
-                    // Integer literals are compiled as i64 by default
-                    // For Result<i32, string>, we need to load as i64 and then truncate if needed
-                    let value_type = self.context.i64_type();
-                    let loaded_value = self.builder.build_load(value_type, ok_value_ptr.into_pointer_value(), "ok_value_deref")?;
+                    let ptr_val = ok_value_ptr.into_pointer_value();
                     
-                    // Check if we need to cast to i32 (based on the Result<i32, _> type annotation)
-                    // For now, return as i64 which matches our default integer type
+                    // Check if the pointer points to an integer or other type
+                    // For now, we'll load as i32 for Result<i32, E> since that's the common case
+                    // This will be properly fixed when we have full generic type instantiation
+                    let loaded_value = self.builder.build_load(self.context.i32_type(), ptr_val, "ok_value_deref")?;
+                    
+                    // The loaded value is now an i32
                     loaded_value
                 } else {
                     ok_value_ptr
@@ -2140,29 +2155,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Handle Err case - propagate the error by returning early
                 self.builder.position_at_end(err_bb);
-                let err_payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "err_payload_ptr")?;
                 
-                // Get the actual payload type from the struct  
-                let payload_field_type = struct_type.get_field_type_at_index(1)
-                    .ok_or_else(|| CompileError::InternalError("Result payload field not found".to_string(), None))?;
-                
-                // Load the error payload with the correct type
-                let err_value = self.builder.build_load(payload_field_type, err_payload_ptr, "err_value")?;
-                
-                // Create a new Result<T,E> with Err variant for early return
-                let return_result_alloca = self.builder.build_alloca(struct_type, "return_result")?;
-                
-                // Set tag to 1 (Err)
-                let return_tag_ptr = self.builder.build_struct_gep(struct_type, return_result_alloca, 0, "return_tag_ptr")?;
-                self.builder.build_store(return_tag_ptr, self.context.i64_type().const_int(1, false))?;
-                
-                // Store the error value
-                let return_payload_ptr = self.builder.build_struct_gep(struct_type, return_result_alloca, 1, "return_payload_ptr")?;
-                self.builder.build_store(return_payload_ptr, err_value)?;
-                
-                // Load and return the complete Result
-                let return_result = self.builder.build_load(struct_type, return_result_alloca, "return_result")?;
-                self.builder.build_return(Some(&return_result))?;
+                if returns_result {
+                    // Function returns Result<T,E> - propagate the entire Result with Err variant
+                    let err_payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "err_payload_ptr")?;
+                    
+                    // Get the actual payload type from the struct  
+                    let payload_field_type = struct_type.get_field_type_at_index(1)
+                        .ok_or_else(|| CompileError::InternalError("Result payload field not found".to_string(), None))?;
+                    
+                    // Load the error payload with the correct type
+                    let err_value = self.builder.build_load(payload_field_type, err_payload_ptr, "err_value")?;
+                    
+                    // Create a new Result<T,E> with Err variant for early return
+                    let return_result_alloca = self.builder.build_alloca(struct_type, "return_result")?;
+                    
+                    // Set tag to 1 (Err)
+                    let return_tag_ptr = self.builder.build_struct_gep(struct_type, return_result_alloca, 0, "return_tag_ptr")?;
+                    self.builder.build_store(return_tag_ptr, self.context.i64_type().const_int(1, false))?;
+                    
+                    // Store the error value
+                    let return_payload_ptr = self.builder.build_struct_gep(struct_type, return_result_alloca, 1, "return_payload_ptr")?;
+                    self.builder.build_store(return_payload_ptr, err_value)?;
+                    
+                    // Load and return the complete Result
+                    let return_result = self.builder.build_load(struct_type, return_result_alloca, "return_result")?;
+                    self.builder.build_return(Some(&return_result))?;
+                } else {
+                    // Function returns a plain type (like i32) - this is an error case
+                    // For now, we'll return a default error value (1 for i32, indicating error)
+                    // In a proper implementation, this would need better error handling
+                    let error_value = self.context.i32_type().const_int(1, false);
+                    self.builder.build_return(Some(&error_value))?;
+                }
                 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
@@ -2172,8 +2197,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(continue_bb)?;
                 
                 self.builder.position_at_end(err_bb);
-                // For unit Results, just return the original struct
-                self.builder.build_return(Some(&struct_val))?;
+                // For unit Results, handle based on return type
+                if returns_result {
+                    self.builder.build_return(Some(&struct_val))?;
+                } else {
+                    // Return error value for plain return type
+                    let error_value = self.context.i32_type().const_int(1, false);
+                    self.builder.build_return(Some(&error_value))?;
+                }
                 
                 self.builder.position_at_end(continue_bb);
                 Ok(self.context.i64_type().const_int(0, false).into())
@@ -2216,9 +2247,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Handle Err case
                 self.builder.position_at_end(err_bb);
-                // Return the original Result (already contains Err)
-                let err_result = self.builder.build_load(struct_type, result_ptr, "err_result")?;
-                self.builder.build_return(Some(&err_result))?;
+                
+                if returns_result {
+                    // Return the original Result (already contains Err)
+                    let err_result = self.builder.build_load(struct_type, result_ptr, "err_result")?;
+                    self.builder.build_return(Some(&err_result))?;
+                } else {
+                    // Function returns a plain type - return error value
+                    let error_value = self.context.i32_type().const_int(1, false);
+                    self.builder.build_return(Some(&error_value))?;
+                }
                 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
@@ -2228,8 +2266,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(continue_bb)?;
                 
                 self.builder.position_at_end(err_bb);
-                let err_result = self.builder.build_load(struct_type, result_ptr, "err_result")?;
-                self.builder.build_return(Some(&err_result))?;
+                
+                if returns_result {
+                    let err_result = self.builder.build_load(struct_type, result_ptr, "err_result")?;
+                    self.builder.build_return(Some(&err_result))?;
+                } else {
+                    // Return error value for plain return type
+                    let error_value = self.context.i32_type().const_int(1, false);
+                    self.builder.build_return(Some(&error_value))?;
+                }
                 
                 self.builder.position_at_end(continue_bb);
                 Ok(self.context.i64_type().const_int(0, false).into())

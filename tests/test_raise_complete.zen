@@ -1,0 +1,42 @@
+// Complete test for .raise() functionality
+{ io } = @std
+
+process_result = () Result<i32, string> {
+    // Create an Ok Result  
+    data = Result.Ok(100)
+    
+    // Extract value - if Err, function returns early with Err
+    extracted = data.raise()
+    
+    // Process the extracted value
+    processed = extracted * 2 + 50
+    
+    return Result.Ok(processed)
+}
+
+test_error_propagation = () Result<i32, string> {
+    // Create an Err Result
+    err_data = Result.Err("Something went wrong")
+    
+    // This should cause early return with Err
+    never_reached = err_data.raise()
+    
+    // This code should never execute
+    return Result.Ok(999)
+}
+
+main = () i32 {
+    // Test Ok path
+    result1 = process_result()
+    result1 ?
+        | Ok(v) { io.println("Ok path: ${v}") }  // Should print 250
+        | Err(e) { io.println("Unexpected error: ${e}") }
+    
+    // Test Err propagation
+    result2 = test_error_propagation() 
+    result2 ?
+        | Ok(v) { io.println("Should not see this: ${v}") }
+        | Err(e) { io.println("Error propagated: ${e}") }
+    
+    return 0
+}

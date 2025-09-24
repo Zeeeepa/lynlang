@@ -1,0 +1,16 @@
+// Debug test for .raise() 
+{ io } = @std
+
+main = () i32 {
+    // Direct test without intermediate function
+    result = Result.Ok(10)
+    
+    // Extract value with .raise()
+    value = result.raise()
+    
+    // Try to use the value in arithmetic
+    doubled = value * 2
+    
+    io.println("Doubled: ${doubled}")
+    return 0
+}
