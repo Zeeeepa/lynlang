@@ -713,10 +713,63 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // Function type unknown, default to i32
                                     AstType::I32
                                 }
+                            } else if let Expression::MethodCall { object, method, .. } = &**inner_expr {
+                                // Handle method calls like variable.raise()
+                                if method == "raise" {
+                                    // This is a nested raise - the object should be a Result
+                                    if let Expression::Identifier(var_name) = &**object {
+                                        // Look up the variable's type
+                                        if let Some(var_info) = self.variables.get(var_name) {
+                                            // If it's Result<T, E>, extract T
+                                            match &var_info.ast_type {
+                                                AstType::Generic { name, type_args }
+                                                    if name == "Result" && !type_args.is_empty() =>
+                                                {
+                                                    type_args[0].clone()
+                                                }
+                                                _ => {
+                                                    // Check if we stored the extracted type during raise
+                                                    if let Some(extracted_type) = self.generic_type_context.get("Last_Raise_Extracted_Type") {
+                                                        extracted_type.clone()
+                                                    } else {
+                                                        AstType::I32
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            // Check if we stored the extracted type during raise
+                                            if let Some(extracted_type) = self.generic_type_context.get("Last_Raise_Extracted_Type") {
+                                                extracted_type.clone()
+                                            } else {
+                                                AstType::I32
+                                            }
+                                        }
+                                    } else {
+                                        // Check if we stored the extracted type during raise
+                                        if let Some(extracted_type) = self.generic_type_context.get("Last_Raise_Extracted_Type") {
+                                            extracted_type.clone()
+                                        } else {
+                                            AstType::I32
+                                        }
+                                    }
+                                } else {
+                                    // Some other method call
+                                    // Check if we stored the extracted type during raise
+                                    if let Some(extracted_type) = self.generic_type_context.get("Last_Raise_Extracted_Type") {
+                                        extracted_type.clone()
+                                    } else {
+                                        AstType::I32
+                                    }
+                                }
                             } else {
-                                // For now, assume Result<i32, E> since that's the common case
-                                // This will be properly fixed when we have full generic type instantiation
-                                AstType::I32
+                                // Check if we stored the extracted type during raise
+                                if let Some(extracted_type) = self.generic_type_context.get("Last_Raise_Extracted_Type") {
+                                    extracted_type.clone()
+                                } else {
+                                    // For now, assume Result<i32, E> since that's the common case
+                                    // This will be properly fixed when we have full generic type instantiation
+                                    AstType::I32
+                                }
                             }
                         } else if let Expression::MethodCall {
                             object, method, ..

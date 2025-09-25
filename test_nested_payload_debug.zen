@@ -1,0 +1,51 @@
+// Debug test for nested Result payload extraction
+{ io, Result } = @std
+
+// Test 1: Direct nested Result
+test_direct = () Result<Result<i32, string>, string> {
+    inner = Result.Ok(100)
+    io.println("Inner Result.Ok payload should be 100")
+    Result.Ok(inner)
+}
+
+// Test 2: Extract with raise
+test_extract = () Result<i32, string> {
+    outer = test_direct()
+    io.println("Got outer Result")
+    
+    // Extract inner Result
+    inner = outer.raise()
+    io.println("Extracted inner Result") 
+    
+    // Extract value from inner
+    value = inner.raise()
+    io.println("Extracted value: ${value}") // Should be 100
+    
+    Result.Ok(value)
+}
+
+// Test 3: Pattern matching
+test_pattern = () void {
+    result = test_direct()
+    result ? | Result.Ok(inner_res) => {
+        io.println("Pattern matched outer Ok")
+        inner_res ? | Result.Ok(val) => io.println("Inner value via pattern: ${val}")
+                   | Result.Err(e) => io.println("Inner error: ${e}")
+    } | Result.Err(e) => {
+        io.println("Outer error: ${e}")
+    }
+}
+
+main = () void {
+    io.println("=== Testing nested Result payload extraction ===")
+    
+    // Test pattern matching
+    io.println("\nTest 1: Pattern matching")
+    test_pattern()
+    
+    // Test raise extraction  
+    io.println("\nTest 2: Raise extraction")
+    result = test_extract()
+    result ? | Result.Ok(v) => io.println("Final result: ${v}")
+            | Result.Err(e) => io.println("Error: ${e}")
+}

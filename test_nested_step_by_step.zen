@@ -1,0 +1,85 @@
+// Step-by-step test for nested Result debugging
+{ io, Result } = @std
+
+// Test 1: Create a simple Result<i32, string>
+test_simple = () Result<i32, string> {
+    io.println("Creating simple Result.Ok(42)")
+    Result.Ok(42)
+}
+
+// Test 2: Extract from simple Result
+test_simple_extract = () i32 {
+    result = test_simple()
+    result ? | Result.Ok(val) => {
+        io.println("Simple extracted: ${val}")
+        val
+    } | Result.Err(e) => {
+        io.println("Simple error: ${e}")
+        0
+    }
+}
+
+// Test 3: Extract via raise
+test_simple_raise = () i32 {
+    result = test_simple()
+    val = result.raise()
+    io.println("Simple raise extracted: ${val}")
+    val
+}
+
+// Test 4: Nested Result stored in variable
+test_nested_var = () void {
+    io.println("\n=== Testing nested with variables ===")
+    
+    // Create inner Result
+    inner = Result.Ok(100)
+    io.println("Inner created")
+    
+    // Test the inner directly
+    inner ? | Result.Ok(v) => io.println("Inner has value: ${v}")
+           | Result.Err(e) => io.println("Inner has error: ${e}")
+    
+    // Wrap in outer
+    outer = Result.Ok(inner)
+    io.println("Outer created")
+    
+    // Extract and test
+    outer ? | Result.Ok(extracted_inner) => {
+        io.println("Outer Ok, checking extracted inner...")
+        extracted_inner ? | Result.Ok(v) => io.println("Extracted inner value: ${v}")
+                         | Result.Err(e) => io.println("Extracted inner error: ${e}")
+    } | Result.Err(e) => {
+        io.println("Outer error: ${e}")
+    }
+}
+
+// Test 5: Direct nested construction
+test_direct_nested = () void {
+    io.println("\n=== Testing direct nested construction ===")
+    
+    nested = Result.Ok(Result.Ok(200))
+    nested ? | Result.Ok(inner) => {
+        io.println("Got inner from direct construction")
+        inner ? | Result.Ok(v) => io.println("Direct nested value: ${v}")
+               | Result.Err(e) => io.println("Direct nested error: ${e}")
+    } | Result.Err(e) => {
+        io.println("Outer error: ${e}")
+    }
+}
+
+main = () void {
+    io.println("=== Step-by-step nested Result test ===")
+    
+    // Test simple cases first
+    val1 = test_simple_extract()
+    io.println("Simple extract returned: ${val1}")
+    
+    val2 = test_simple_raise()
+    io.println("Simple raise returned: ${val2}")
+    
+    // Test nested cases
+    test_nested_var()
+    test_direct_nested()
+    
+    io.println("\nDone!")
+}
