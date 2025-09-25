@@ -8,11 +8,12 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 ## 🎉 Project Status (2025-09-25)
 
-- **Test Suite**: **100% PASS RATE** - 170/170 tests passing
+- **Test Suite**: **100% PASS RATE** - 176/176 tests passing
 - **Compiler**: Builds successfully with warnings only  
 - **Core Features**: All working - showcase.zen runs perfectly
 - **Recent Achievements**: 
-  - ✅ Array<T> type with push/get/set/len/pop methods (NEW!)
+  - ✅ Numeric methods for integers - abs(), min(), max() (NEW!)
+  - ✅ Array<T> type with push/get/set/len/pop methods
   - ✅ Automatic int-to-float type coercion in operations  
   - ✅ Modulo operator (%) fully working
   - ✅ Allocator-based async system (GPA/AsyncPool) foundation
