@@ -1,7 +1,7 @@
-{ io } = @std
+{ io, Array } = @std
 
 main = () i32 {
-    arr: Array<i32> = Array<i32>.new(10, 0)
+    arr: Array<i32> = Array.new(10, 0)
     
     // Push a specific value
     arr.push(333)

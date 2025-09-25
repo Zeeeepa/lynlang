@@ -1,8 +1,8 @@
 { io, Array } = @std
 
 main = () i32 {
-    // Create a mutable array without type annotation to avoid parse issue
-    arr ::= Array.new(10, 0)
+    // Create an array with type annotation - required for methods to work
+    arr: Array<i32> = Array.new(10, 0)
     
     // Test push method (requires mutable array)
     arr.push(5)

@@ -1,8 +1,8 @@
-{ io } = @std
+{ io, Array } = @std
 
 main = () i32 {
     // Create array with larger capacity
-    arr: Array<i32> = Array<i32>.new(100, 0)
+    arr: Array<i32> = Array.new(100, 0)
     
     // Push exactly 3 values
     arr.push(111)
