@@ -457,6 +457,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 if object_value.is_pointer_value() {
                     // Check if this is a string method
                     match method.as_str() {
+                        "len" => {
+                            // Call the runtime string_len function
+                            let func = self.get_or_create_runtime_function("string_len")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into()], "len_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError("string_len did not return a value".to_string(), None)
+                                })?;
+                            return Ok(result);
+                        }
                         "to_f64" => {
                             // Call the runtime string_to_f64 function
                             let func = self.get_or_create_runtime_function("string_to_f64")?;

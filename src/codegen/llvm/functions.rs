@@ -884,6 +884,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     .add_function(name, fn_type, Some(Linkage::External));
                 Ok(func)
             }
+            "string_len" => {
+                // string_len(str: *const i8) -> i64
+                // Returns the length of a string
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = self.context.i64_type().fn_type(&[string_type.into()], false);
+                let func = self
+                    .module
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the string parameter
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                
+                // Declare strlen function if needed
+                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = i64_type.fn_type(&[ptr_type.into()], false);
+                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
+                });
+                
+                // Call strlen
+                let length = self.builder.build_call(
+                    strlen_fn,
+                    &[str_param.into()],
+                    "strlen_result"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Return the length as i64
+                self.builder.build_return(Some(&length))?;
+                
+                // Restore position
+                self.current_function = current_fn;
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
             "string_to_i32" => {
                 let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_i32_type = self.context.struct_type(
@@ -941,54 +988,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let func = self
                     .module
                     .add_function(name, fn_type, Some(Linkage::External));
-                Ok(func)
-            }
-            "string_len" => {
-                // string_len(str: *const i8) -> i64
-                // Returns the length of a null-terminated string
-                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                let i64_type = self.context.i64_type();
-                let fn_type = i64_type.fn_type(&[string_type.into()], false);
-                let func = self
-                    .module
-                    .add_function(name, fn_type, Some(Linkage::Internal));
-                
-                // Save current position
-                let current_block = self.builder.get_insert_block();
-                let current_fn = self.current_function;
-                
-                // Build the function body
-                let entry = self.context.append_basic_block(func, "entry");
-                self.builder.position_at_end(entry);
-                self.current_function = Some(func);
-                
-                // Get the string parameter
-                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
-                
-                // Declare strlen function if needed
-                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
-                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                    let size_type = self.context.i64_type();
-                    let fn_type = size_type.fn_type(&[ptr_type.into()], false);
-                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
-                });
-                
-                // Call strlen
-                let length = self.builder.build_call(
-                    strlen_fn,
-                    &[str_param.into()],
-                    "strlen_result"
-                )?.try_as_basic_value().left().unwrap().into_int_value();
-                
-                // Return the length
-                self.builder.build_return(Some(&length))?;
-                
-                // Restore position
-                if let Some(block) = current_block {
-                    self.builder.position_at_end(block);
-                }
-                self.current_function = current_fn;
-                
                 Ok(func)
             }
             _ => Err(CompileError::InternalError(

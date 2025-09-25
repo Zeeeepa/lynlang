@@ -1,17 +1,69 @@
+// Test string.len() method implementation
 { io } = @std
 
 main = () i32 {
-    s = "Hello"
-    len: i64 = s.len()
-    io.println("Length of 'Hello': ${len}")
-    
+    // Test 1: Empty string
     empty = ""
     empty_len: i64 = empty.len()
-    io.println("Length of empty string: ${empty_len}")
+    io.println("Empty string length: ${empty_len}")
     
-    long = "This is a longer string for testing"
-    long_len: i64 = long.len()
-    io.println("Length of long string: ${long_len}")
+    // Test 2: Simple string
+    hello = "Hello"
+    hello_len: i64 = hello.len()
+    io.println("'Hello' length: ${hello_len}")
     
+    // Test 3: String with spaces
+    phrase = "Hello World"
+    phrase_len: i64 = phrase.len()
+    io.println("'Hello World' length: ${phrase_len}")
+    
+    // Test 4: String literal direct call
+    direct_len: i64 = "Test".len()
+    io.println("'Test' length: ${direct_len}")
+    
+    // Test 5: String with special characters
+    special = "Hello, 世界!"
+    special_len: i64 = special.len()
+    io.println("'Hello, 世界!' byte length: ${special_len}")
+    
+    // Verify expected values (using i64 literals)
+    zero: i64 = 0
+    five: i64 = 5
+    eleven: i64 = 11
+    four: i64 = 4
+    
+    empty_len == zero ? {
+        io.println("✓ Empty string test passed")
+    }
+    empty_len != zero ? {
+        io.println("✗ Empty string test failed")
+        return 1
+    }
+    
+    hello_len == five ? {
+        io.println("✓ 'Hello' test passed")
+    }
+    hello_len != five ? {
+        io.println("✗ 'Hello' test failed")
+        return 1
+    }
+    
+    phrase_len == eleven ? {
+        io.println("✓ 'Hello World' test passed")
+    }
+    phrase_len != eleven ? {
+        io.println("✗ 'Hello World' test failed")
+        return 1
+    }
+    
+    direct_len == four ? {
+        io.println("✓ Direct literal test passed")
+    }
+    direct_len != four ? {
+        io.println("✗ Direct literal test failed")
+        return 1
+    }
+    
+    io.println("\n✓ All string.len() tests passed!")
     return 0
 }
