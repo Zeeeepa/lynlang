@@ -1,0 +1,13 @@
+{ io, Result } = @std
+
+main = () i32 {
+    // Test closure without explicit return type
+    compute = () {
+        return Result.Ok(3.14)  // Should infer Result<f64, string>
+    }
+    
+    value = compute().raise()
+    io.println("Value: ${value}")
+    
+    return 0
+}

@@ -4044,18 +4044,48 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 Ok(AstType::Void)
             }
-            Expression::FunctionCall { name, .. } => {
+            Expression::FunctionCall { name, args } => {
                 // Check if this is Result.Ok or Result.Err
-                if name == "Result.Ok" || name == "Result.Err" {
-                    // This returns Result<i32, string> (simplified for now)
+                if name == "Result.Ok" {
+                    // Infer the T type from the payload
+                    let t_type = if !args.is_empty() {
+                        self.infer_expression_type(&args[0])?
+                    } else {
+                        AstType::Void
+                    };
+                    // For Result.Ok, E type defaults to string (common error type)
                     Ok(AstType::Generic {
                         name: "Result".to_string(),
-                        type_args: vec![AstType::I32, AstType::String],
+                        type_args: vec![t_type, AstType::String],
                     })
-                } else if name == "Option.Some" || name == "Option.None" {
+                } else if name == "Result.Err" {
+                    // Infer the E type from the payload
+                    let e_type = if !args.is_empty() {
+                        self.infer_expression_type(&args[0])?
+                    } else {
+                        AstType::String
+                    };
+                    // For Result.Err, T type is unknown but we can use i32 as placeholder
+                    Ok(AstType::Generic {
+                        name: "Result".to_string(),
+                        type_args: vec![AstType::I32, e_type],
+                    })
+                } else if name == "Option.Some" {
+                    // Infer the T type from the payload
+                    let t_type = if !args.is_empty() {
+                        self.infer_expression_type(&args[0])?
+                    } else {
+                        AstType::Void
+                    };
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
-                        type_args: vec![AstType::I32],
+                        type_args: vec![t_type],
+                    })
+                } else if name == "Option.None" {
+                    // None variant - type needs to be inferred from context
+                    Ok(AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args: vec![AstType::Void],
                     })
                 } else {
                     // Check if we know the function's return type
