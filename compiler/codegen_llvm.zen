@@ -84,14 +84,14 @@ new_codegen = (module_name: string) CodeGen   {
 }
 
 // Allocate new register
-alloc_register = (gen: &mut CodeGen) u32   {
+alloc_register = (gen: MutPtr<CodeGen>) u32   {
     reg := gen.next_register
     gen.next_register = gen.next_register + 1
     return reg
 }
 
 // Emit LLVM IR line
-emit = (gen: &mut CodeGen, line: string)  {
+emit = (gen: MutPtr<CodeGen>, line: string)  {
     i := 0
     loop i < gen.indent_level {
         gen.output = gen.output + "  "
@@ -139,7 +139,7 @@ zen_type_to_llvm = (t: Type) string   {
 }
 
 // Generate code for binary operation
-gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg: u32, ty: string) u32   {
+gen_binary_op = (gen: MutPtr<CodeGen>, op: BinaryOperator, left_reg: u32, right_reg: u32, ty: string) u32   {
     result_reg := alloc_register(gen)
     
     op_instr := match op {
@@ -171,7 +171,7 @@ gen_binary_op = (gen: &mut CodeGen, op: BinaryOperator, left_reg: u32, right_reg
 }
 
 // Generate code for expression
-gen_expression = (gen: &mut CodeGen, expr: AstNode) u32   {
+gen_expression = (gen: MutPtr<CodeGen>, expr: AstNode) u32   {
     expr ?
         | AstNode.IntLit(val) {
             reg := alloc_register(gen)
@@ -251,7 +251,7 @@ find_variable = (gen: &CodeGen, name: string) Option<LocalVar>   {
 }
 
 // Generate code for statement
-gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
+gen_statement = (gen: MutPtr<CodeGen>, stmt: AstNode)  {
     stmt ?
         | AstNode.VarDecl(name, ty, init) {
             // Allocate local variable
@@ -305,7 +305,7 @@ gen_statement = (gen: &mut CodeGen, stmt: AstNode)  {
 }
 
 // Generate function definition
-gen_function = (gen: &mut CodeGen, func: AstNode)  {
+gen_function = (gen: MutPtr<CodeGen>, func: AstNode)  {
     func ?
         | AstNode.FnDecl(name, params, ret_ty, body) {
             // Clear locals for new function
@@ -410,7 +410,7 @@ string_len = (s: string) u32   {
 // Use DynVec.new instead
 
 // Generate complete module
-gen_module = (gen: &mut CodeGen, ast: DynVec<AstNode>)  {
+gen_module = (gen: MutPtr<CodeGen>, ast: DynVec<AstNode>)  {
     // Generate module header
     emit(gen, "; ModuleID = '" + gen.module_name + "'")
     emit(gen, "source_filename = \"" + gen.module_name + ".zen\"")
@@ -479,7 +479,7 @@ main = () i32   {
     vec_push(test_ast, main_func)
     
     // Generate LLVM IR for the module
-    gen_module(&mut gen, test_ast)
+    gen_module(MutPtr<CodeGen>(gen), test_ast)
     
     // Output the generated LLVM IR
     io.print("Generated LLVM IR:\n")

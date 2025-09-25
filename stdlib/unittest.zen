@@ -59,17 +59,17 @@ suite = (name: string) TestSuite   {
 }
 
 // Add setup function to suite
-suite_setup = (s: &mut TestSuite, setup_fn: () void) void {
+suite_setup = (s: MutPtr<TestSuite>, setup_fn: () void) void {
     s.setup = Option.Some(setup_fn)
 }
 
 // Add teardown function to suite
-suite_teardown = (s: &mut TestSuite, teardown_fn: () void) void {
+suite_teardown = (s: MutPtr<TestSuite>, teardown_fn: () void) void {
     s.teardown = Option.Some(teardown_fn)
 }
 
 // Add test case to suite
-add_test = (s: &mut TestSuite, name: string, test_fn: () TestResult) void {
+add_test = (s: MutPtr<TestSuite>, name: string, test_fn: () TestResult) void {
     test_case := TestCase {
         name: name,
         test_fn: test_fn,
@@ -366,7 +366,7 @@ run_all = () TestStats   {
 }
 
 // Macro-like function for defining test suites
-define_tests = (name: string, tests_fn: (&mut TestSuite) void) void {
+define_tests = (name: string, tests_fn: (MutPtr<TestSuite>) void) void {
     s := suite(name)
     tests_fn(&s)
     register_suite(s)

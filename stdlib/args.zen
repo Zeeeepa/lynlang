@@ -69,7 +69,7 @@ new_parser = (name: string, desc: string) ArgParser   {
 }
 
 // Add flag to parser
-add_flag = (parser: &mut ArgParser, flag: Flag)  {
+add_flag = (parser: MutPtr<ArgParser>, flag: Flag)  {
     parser.flags.push(flag)
 }
 
@@ -130,7 +130,7 @@ flag_required = (long: string, value_name: string, desc: string) Flag   {
 }
 
 // Add positional argument
-add_positional = (parser: &mut ArgParser, name: string, desc: string, required: bool)  {
+add_positional = (parser: MutPtr<ArgParser>, name: string, desc: string, required: bool)  {
     pos := Positional{
         name: name,
         description: desc,
@@ -141,7 +141,7 @@ add_positional = (parser: &mut ArgParser, name: string, desc: string, required: 
 }
 
 // Add subcommand
-add_subcommand = (parser: &mut ArgParser, name: string, desc: string, sub_parser: ArgParser)  {
+add_subcommand = (parser: MutPtr<ArgParser>, name: string, desc: string, sub_parser: ArgParser)  {
     sub := Subcommand{
         name: name,
         description: desc,

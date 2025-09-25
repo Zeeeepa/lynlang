@@ -147,7 +147,7 @@ elapsed = (timer: &Timer) Duration   {
 }
 
 // Stop timer and return elapsed time
-stop_timer = (timer: &mut Timer) Duration   {
+stop_timer = (timer: MutPtr<Timer>) Duration   {
     timer.is_running ? {
         timer.is_running = false
         return elapsed(timer)
@@ -157,7 +157,7 @@ stop_timer = (timer: &mut Timer) Duration   {
 }
 
 // Reset timer
-reset_timer = (timer: &mut Timer)  {
+reset_timer = (timer: MutPtr<Timer>)  {
     timer.start_time = monotonic()
     timer.is_running = true
 }
@@ -182,7 +182,7 @@ benchmark = <T>(name: string, iterations: u32, f: () T) {
         f()
         i = i + 1
     }
-    elapsed_time := stop_timer(&mut timer)
+    elapsed_time := stop_timer(MutPtr<Timer>(timer))
     
     // Calculate statistics
     total_ms := as_millis(elapsed_time)

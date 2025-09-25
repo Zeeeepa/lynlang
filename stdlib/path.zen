@@ -425,7 +425,7 @@ builder = () PathBuilder   {
 }
 
 // Add a component to the path
-PathBuilder.add = (self: &mut PathBuilder, component: string) &mut PathBuilder {
+PathBuilder.add = (self: MutPtr<PathBuilder>, component: string) MutPtr<PathBuilder> {
     self.components.push(component)
     return self
 }

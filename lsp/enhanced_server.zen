@@ -513,7 +513,7 @@ handle_document_symbols = (server: &EnhancedLanguageServer, params: DocumentSymb
 }
 
 // Rename symbol
-handle_rename = (server: &mut EnhancedLanguageServer, params: RenameParams) Result<WorkspaceEdit, string>   {
+handle_rename = (server: MutPtr<EnhancedLanguageServer>, params: RenameParams) Result<WorkspaceEdit, string>   {
     edits := WorkspaceEdit{
         changes: hashmap.new<string, DynVec<TextEdit>>()
     }
@@ -618,7 +618,7 @@ handle_code_actions = (server: &EnhancedLanguageServer, params: CodeActionParams
 }
 
 // Check for comptime import violations
-check_comptime_imports = (doc: &mut EnhancedDocument) void   {
+check_comptime_imports = (doc: MutPtr<EnhancedDocument>) void   {
     if (doc.ast.is_none()) return
     
     program := doc.ast.unwrap()

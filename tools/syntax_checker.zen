@@ -173,7 +173,7 @@ check_syntax = (content: string) CheckResult   {
                         }
                     }
                     | false {
-                        check_character(&state, ch)
+                        check_character(Ptr<State>(state), ch)
                     }
             }
         

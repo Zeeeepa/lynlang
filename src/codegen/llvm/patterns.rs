@@ -973,7 +973,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         )
                                                         .unwrap_or(loaded_payload),
                                                     AstType::String => loaded_payload, // Strings are already pointers, don't load
-                                                    AstType::Generic { name, .. } if name == "Result" || name == "Option" => {
+                                                    AstType::Generic { name, type_args } if name == "Result" || name == "Option" => {
                                                         // For nested generics (Result<Result<T,E>,E2>), 
                                                         // the payload is a struct stored directly
                                                         let struct_type = self.context.struct_type(
@@ -983,6 +983,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             ],
                                                             false,
                                                         );
+                                                        
+                                                        // Update the generic type context for the nested type
+                                                        // This ensures that when we pattern match on the nested type,
+                                                        // we have the correct type information
+                                                        if name == "Result" && type_args.len() == 2 {
+                                                            // For Result<T,E>, track the nested types
+                                                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                            
+                                                            // Also track nested types recursively
+                                                            self.track_complex_generic(&type_args[0], "Result_Ok");
+                                                            self.track_complex_generic(&type_args[1], "Result_Err");
+                                                        } else if name == "Option" && type_args.len() == 1 {
+                                                            // For Option<T>, track the nested type
+                                                            self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                            self.track_complex_generic(&type_args[0], "Option_Some");
+                                                        }
+                                                        
                                                         self.builder.build_load(
                                                             struct_type,
                                                             ptr_val,
@@ -1145,7 +1163,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     )
                                                     .unwrap_or(extracted),
                                                 AstType::String => extracted, // Strings are already pointers, don't load
-                                                AstType::Generic { name, .. } if name == "Option" || name == "Result" => {
+                                                AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
                                                     // For nested generics (Result<Option<T>, E> or Option<Result<T,E>>),
                                                     // the payload is itself an enum struct. Load it as a struct.
                                                     // The struct has format: { i64 discriminant, ptr payload }
@@ -1156,6 +1174,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         ],
                                                         false,
                                                     );
+                                                    
+                                                    // Update generic type context for the nested type
+                                                    if name == "Result" && type_args.len() == 2 {
+                                                        // For Result<T,E>, track the nested types
+                                                        self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                        self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                        
+                                                        // Also track nested types recursively
+                                                        self.track_complex_generic(&type_args[0], "Result_Ok");
+                                                        self.track_complex_generic(&type_args[1], "Result_Err");
+                                                    } else if name == "Option" && type_args.len() == 1 {
+                                                        // For Option<T>, track the nested type
+                                                        self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                        self.track_complex_generic(&type_args[0], "Option_Some");
+                                                    }
+                                                    
                                                     match self.builder.build_load(
                                                         enum_struct_type,
                                                         ptr_val,

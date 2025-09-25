@@ -113,7 +113,7 @@ print_usage = () void   {
 }
 
 // Compile a Zen source file
-compile_file = (options: &CompilerOptions) bool   {
+compile_file = (options: Ptr<CompilerOptions>) bool   {
     options.verbose ? {
         io.print("Compiling: ")
         io.print(options.input_file)
@@ -137,7 +137,7 @@ compile_file = (options: &CompilerOptions) bool   {
     }
     
     lex := lexer.new_lexer(source, options.input_file)
-    tokens := lexer.tokenize(&lex)
+    tokens := lexer.tokenize(Ptr<Lexer>(lex))
     
     lex.errors.len > 0 ? {
         io.print("\nLexical errors:\n")
@@ -161,7 +161,7 @@ compile_file = (options: &CompilerOptions) bool   {
     }
     
     p := parser.new_parser(tokens, options.input_file)
-    ast := parser.parse(&p)
+    ast := parser.parse(Ptr<Parser>(p))
     
     p.errors.len > 0 ? {
         io.print("\nParse errors:\n")
@@ -185,7 +185,7 @@ compile_file = (options: &CompilerOptions) bool   {
     }
     
     checker := type_checker.new_checker()
-    type_errors := type_checker.check(&checker, &ast)
+    type_errors := type_checker.check(Ptr<TypeChecker>(checker), Ptr<AstNode>(ast))
     
     type_errors.len > 0 ? {
         io.print("\nType errors:\n")
@@ -210,7 +210,7 @@ compile_file = (options: &CompilerOptions) bool   {
     
     options.emit_c ? {
         gen := codegen.new_codegen()
-        output_code = codegen.generate_c(&gen, &ast)
+        output_code = codegen.generate_c(Ptr<CodeGen>(gen), Ptr<AstNode>(ast))
     } else if (options.emit_llvm) {
         io.print("\nError: LLVM backend not yet implemented\n")
         return false
@@ -274,7 +274,7 @@ main = (args: []string) i32   {
     options := parse_args(args)
     
     // Compile the file
-    !compile_file(&options) ? {
+    !compile_file(Ptr<CompilerOptions>(options)) ? {
         return 1
     }
     

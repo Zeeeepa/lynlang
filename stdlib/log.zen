@@ -353,7 +353,7 @@ LogContext: {
 }
 
 // Add field to context
-add_field = (ctx: &mut LogContext, key: string, value: string)  {
+add_field = (ctx: MutPtr<LogContext>, key: string, value: string)  {
     vec_push(ctx.fields, (key, value))
 }
 

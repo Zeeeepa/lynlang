@@ -301,7 +301,7 @@ repl_loop = () void   {
             state.in_multiline ? {
                 // Execute multi-line buffer
                 state.in_multiline = false
-                evaluate(&mut state, state.multiline_buffer)
+                evaluate(MutPtr<ReplState>(state), state.multiline_buffer)
                 state.multiline_buffer = ""
                 state.line_number += 1
             }
@@ -327,9 +327,9 @@ repl_loop = () void   {
         state.multiline_buffer = ""
         
         // Check for special commands
-        !process_command(&mut state, complete_input) ? {
+        !process_command(MutPtr<ReplState>(state), complete_input) ? {
             // Evaluate as Zen code
-            evaluate(&mut state, complete_input)
+            evaluate(MutPtr<ReplState>(state), complete_input)
         }
         
         state.line_number += 1

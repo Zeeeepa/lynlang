@@ -154,7 +154,7 @@ new_server = () LSPServer   {
 }
 
 // Handle incoming LSP message
-handle_message = (server: &mut LSPServer, msg: Message) result.Result<Message, string> {
+handle_message = (server: MutPtr<LSPServer>, msg: Message) result.Result<Message, string> {
     msg.method? ? 
         | some(method) => {
             method ? 
@@ -182,7 +182,7 @@ handle_message = (server: &mut LSPServer, msg: Message) result.Result<Message, s
 }
 
 // Initialize request handler
-handle_initialize = (server: &mut LSPServer, msg: Message) result.Result<Message, string> {
+handle_initialize = (server: MutPtr<LSPServer>, msg: Message) result.Result<Message, string> {
     let params = parse_initialize_params(msg.params?)?
     
     server.root_uri = params.rootUri
@@ -221,7 +221,7 @@ handle_initialize = (server: &mut LSPServer, msg: Message) result.Result<Message
 }
 
 // Did open text document handler
-handle_did_open = (server: &mut LSPServer, msg: Message) result.Result<Message, string> {
+handle_did_open = (server: MutPtr<LSPServer>, msg: Message) result.Result<Message, string> {
     let params = parse_did_open_params(msg.params?)?
     let document = params.textDocument
     
@@ -238,7 +238,7 @@ handle_did_open = (server: &mut LSPServer, msg: Message) result.Result<Message, 
 }
 
 // Analyze document for errors and symbols
-analyze_document = (server: &mut LSPServer, uri: string) result.Result<(), string> {
+analyze_document = (server: MutPtr<LSPServer>, uri: string) result.Result<(), string> {
     let doc = map.get(server.documents, uri)?
     
     // Create lexer and parser
@@ -358,7 +358,7 @@ get_completions = (server: &LSPServer, uri: string, pos: Position) result.Result
 }
 
 // Add keyword completions
-add_keyword_completions = (items: &mut DynVec<CompletionItem>)  {
+add_keyword_completions = (items: MutPtr<DynVec<CompletionItem>>)  {
     let keywords = [
         "return", "break", "continue", "loop",
         "struct", "enum", "type", "comptime", "pub", "mut",
@@ -378,7 +378,7 @@ add_keyword_completions = (items: &mut DynVec<CompletionItem>)  {
 }
 
 // Add type completions
-add_type_completions = (items: &mut DynVec<CompletionItem>)  {
+add_type_completions = (items: MutPtr<DynVec<CompletionItem>>)  {
     let types = [
         "i8", "i16", "i32", "i64", "i128",
         "u8", "u16", "u32", "u64", "u128",
@@ -399,7 +399,7 @@ add_type_completions = (items: &mut DynVec<CompletionItem>)  {
 }
 
 // Add stdlib completions
-add_stdlib_completions = (items: &mut DynVec<CompletionItem>)  {
+add_stdlib_completions = (items: MutPtr<DynVec<CompletionItem>>)  {
     let modules = [
         "@std.io", "@std.fs", "@std.net", "@std.math",
         "@std.string", "@std.vec", "@std.map", "@std.set",
@@ -435,7 +435,7 @@ main = () i32   {
         let msg = parse_message(input)?
         
         // Handle message
-        let response = handle_message(&mut server, msg)
+        let response = handle_message(MutPtr<LSPServer>(server), msg)
         
         response ? 
             | ok(resp) => send_message(resp)

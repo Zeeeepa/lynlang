@@ -49,7 +49,7 @@ CompileResult:
 
 // Create default configuration
 default_config = () CompilerConfig   {
-    return CompilerConfig{
+    return CompilerConfig (
         input_file: "",
         output_file: Option<string>.None,
         output_type: OutputType.Executable,
@@ -60,7 +60,7 @@ default_config = () CompilerConfig   {
         check_only: false,
         dump_ast: false,
         dump_ir: false,
-    }
+    )
 }
 
 // Parse command line arguments
@@ -68,34 +68,34 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
     parser := args.new_parser("zenc", "The Zen compiler")
     
     // Add flags
-    args.add_flag(&mut parser, args.flag_short('h', "help", "Show help message"))
-    args.add_flag(&mut parser, args.flag_short('v', "version", "Show version"))
-    args.add_flag(&mut parser, args.flag_short('V', "verbose", "Verbose output"))
-    args.add_flag(&mut parser, args.flag_value('o', "output", "FILE", "Output file"))
-    args.add_flag(&mut parser, args.flag_value('O', "opt", "LEVEL", "Optimization level (0-3)"))
-    args.add_flag(&mut parser, args.flag_short('g', "debug", "Generate debug info"))
-    args.add_flag(&mut parser, args.flag_long("emit-llvm", "Emit LLVM IR"))
-    args.add_flag(&mut parser, args.flag_long("check", "Type check only"))
-    args.add_flag(&mut parser, args.flag_long("dump-ast", "Dump AST"))
-    args.add_flag(&mut parser, args.flag_long("dump-ir", "Dump IR"))
-    args.add_flag(&mut parser, args.flag_value('t', "type", "TYPE", "Output type (exe|obj|asm|llvm)"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_short('h', "help", "Show help message"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_short('v', "version", "Show version"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_short('V', "verbose", "Verbose output"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_value('o', "output", "FILE", "Output file"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_value('O', "opt", "LEVEL", "Optimization level (0-3)"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_short('g', "debug", "Generate debug info"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("emit-llvm", "Emit LLVM IR"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("check", "Type check only"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("dump-ast", "Dump AST"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("dump-ir", "Dump IR"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_value('t', "type", "TYPE", "Output type (exe|obj|asm|llvm)"))
     
     // Add positional argument for input file
-    args.add_positional(&mut parser, "input", "Input Zen source file", true)
+    args.add_positional(MutPtr<ArgParser>(parser), "input", "Input Zen source file", true)
     
     // Parse arguments
-    result := args.parse(&parser, argv)
+    result := args.parse(Ptr<ArgParser>(parser), argv)
     
     result ?
         | Result<args.ParsedArgs, string>.Ok(parsed) {
             // Check for help
-            args.has_flag(&parsed, "help") ? {
-                io.print(args.help_text(&parser))
+            args.has_flag(Ptr<ParsedArgs>(parsed), "help") ? {
+                io.print(args.help_text(Ptr<ArgParser>(parser)))
                 core.exit(0)
             } : {}
             
             // Check for version
-            args.has_flag(&parsed, "version") ? {
+            args.has_flag(Ptr<ParsedArgs>(parsed), "version") ? {
                 io.print("zenc version 0.1.0 (self-hosted)\n")
                 core.exit(0)
             } : {}
@@ -111,7 +111,7 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             }
             
             // Get output file
-            args.get_flag(&parsed, "output") ?
+            args.get_flag(Ptr<ParsedArgs>(parsed), "output") ?
                 | Option<string>.Some(out) {
                     config.output_file = Option<string>.Some(out)
                 }
@@ -119,7 +119,7 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             }
             
             // Get optimization level
-            args.get_flag(&parsed, "opt") ?
+            args.get_flag(Ptr<ParsedArgs>(parsed), "opt") ?
                 | Option<string>.Some(level) {
                     config.optimization_level = string.parse_u8(level)
                 }
@@ -127,7 +127,7 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             }
             
             // Get output type
-            args.get_flag(&parsed, "type") ?
+            args.get_flag(Ptr<ParsedArgs>(parsed), "type") ?
                 | Option<string>.Some(t) {
                     t == "exe" ? { config.output_type = OutputType.Executable } :
                     t == "obj" ? { config.output_type = OutputType.ObjectFile } :
@@ -139,12 +139,12 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             }
             
             // Set boolean flags
-            config.verbose = args.has_flag(&parsed, "verbose")
-            config.debug_info = args.has_flag(&parsed, "debug")
-            config.emit_llvm = args.has_flag(&parsed, "emit-llvm")
-            config.check_only = args.has_flag(&parsed, "check")
-            config.dump_ast = args.has_flag(&parsed, "dump-ast")
-            config.dump_ir = args.has_flag(&parsed, "dump-ir")
+            config.verbose = args.has_flag(Ptr<ParsedArgs>(parsed), "verbose")
+            config.debug_info = args.has_flag(Ptr<ParsedArgs>(parsed), "debug")
+            config.emit_llvm = args.has_flag(Ptr<ParsedArgs>(parsed), "emit-llvm")
+            config.check_only = args.has_flag(Ptr<ParsedArgs>(parsed), "check")
+            config.dump_ast = args.has_flag(Ptr<ParsedArgs>(parsed), "dump-ast")
+            config.dump_ir = args.has_flag(Ptr<ParsedArgs>(parsed), "dump-ir")
             
             return Result<CompilerConfig, string>.Ok(config)
         }
@@ -177,7 +177,7 @@ read_source = (path: string) Result<string, string>   {
 }
 
 // Compile source code
-compile = (config: &CompilerConfig, source: string) CompileResult   {
+compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
     timer := time.start_timer()
     
     config.verbose ? {
@@ -243,7 +243,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
     
     // If check-only mode, stop here
     config.check_only ? {
-        elapsed := time.stop_timer(&mut timer)
+        elapsed := time.stop_timer(MutPtr<Timer>(timer))
         config.verbose ? {
             log.info("Compilation time: " + time.format_duration(elapsed))
         } : {}
@@ -259,7 +259,7 @@ compile = (config: &CompilerConfig, source: string) CompileResult   {
         // Generate LLVM IR
         module_name := get_module_name(config.input_file)
         gen := codegen_llvm.new_codegen(module_name)
-        codegen_llvm.gen_module(&mut gen, typed_ast.unwrap().nodes)
+        codegen_llvm.gen_module(MutPtr<CodeGen>(gen), typed_ast.unwrap().nodes)
         
         config.dump_ir || config.emit_llvm ? {
             io.print("\n=== LLVM IR ===\n")

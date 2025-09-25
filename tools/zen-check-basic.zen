@@ -52,7 +52,7 @@ new_checker = (input: string) SyntaxChecker   {
 }
 
 // Add an error
-add_error = (checker: &mut SyntaxChecker, message: string) void   {
+add_error = (checker: MutPtr<SyntaxChecker>, message: string) void   {
     error := SyntaxError {
         line: checker.line,
         column: checker.column,
@@ -71,7 +71,7 @@ get_line_context = (input: string, line_num: i32) string   {
 }
 
 // Check for balanced braces
-check_balanced_braces = (checker: &mut SyntaxChecker) void   {
+check_balanced_braces = (checker: MutPtr<SyntaxChecker>) void   {
     brace_count := 0
     paren_count := 0
     bracket_count := 0
@@ -129,7 +129,7 @@ check_balanced_braces = (checker: &mut SyntaxChecker) void   {
 }
 
 // Check for invalid import placement
-check_import_placement = (checker: &mut SyntaxChecker) void   {
+check_import_placement = (checker: MutPtr<SyntaxChecker>) void   {
     lines := string.split(checker.input, "\n")
     in_comptime := false
     brace_depth := 0
@@ -197,8 +197,8 @@ check_syntax = (input: string) CheckResult   {
     checker := new_checker(input)
     
     // Run various checks
-    check_balanced_braces(&mut checker)
-    check_import_placement(&mut checker)
+    check_balanced_braces(MutPtr<SyntaxChecker>(checker))
+    check_import_placement(MutPtr<SyntaxChecker>(checker))
     
     // Return result
     checker.errors.is_empty() ?

@@ -237,9 +237,9 @@ print_diagnostics = (ctx: ErrorContext) void {
             
             // Print summary
             summary := concat("Summary: ", format_u32(ctx.error_count))
-            summary = concat(summary, " error(s), ")
-            summary = concat(summary, format_u32(ctx.warning_count))
-            summary = concat(summary, " warning(s)")
+            summary = summary.concat(" error(s), ")
+            summary = summary.concat(format_u32(ctx.warning_count))
+            summary = summary.concat(" warning(s)")
             print_line(summary)
         }
 }

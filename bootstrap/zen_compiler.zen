@@ -121,7 +121,7 @@ peek = (lexer: &Lexer) u8   {
 }
 
 // Advance to next character
-advance = (lexer: &mut Lexer) u8   {
+advance = (lexer: MutPtr<Lexer>) u8   {
     c := peek(lexer);
     lexer.current = lexer.current + 1;
     lexer.column = lexer.column + 1;
@@ -135,7 +135,7 @@ advance = (lexer: &mut Lexer) u8   {
 }
 
 // Skip whitespace
-skip_whitespace = (lexer: &mut Lexer) void   {
+skip_whitespace = (lexer: MutPtr<Lexer>) void   {
     loop {
         c := peek(lexer);
         c == ' ' || c == '\r' || c == '\t' || c == '\n' ?
@@ -165,7 +165,7 @@ peek_next = (lexer: &Lexer) u8   {
 }
 
 // Add token to list
-add_token = (lexer: &mut Lexer, type: TokenType, lexeme: string) void   {
+add_token = (lexer: MutPtr<Lexer>, type: TokenType, lexeme: string) void   {
     token := Token {
         type: type,
         lexeme: lexeme,
@@ -176,7 +176,7 @@ add_token = (lexer: &mut Lexer, type: TokenType, lexeme: string) void   {
 }
 
 // Scan identifier or keyword
-scan_identifier = (lexer: &mut Lexer) void   {
+scan_identifier = (lexer: MutPtr<Lexer>) void   {
     start := lexer.current - 1;
     loop {
         c := peek(lexer);
@@ -213,7 +213,7 @@ scan_identifier = (lexer: &mut Lexer) void   {
 }
 
 // Scan number literal
-scan_number = (lexer: &mut Lexer) void   {
+scan_number = (lexer: MutPtr<Lexer>) void   {
     start := lexer.current - 1;
     is_float := false;
     
@@ -239,7 +239,7 @@ scan_number = (lexer: &mut Lexer) void   {
 }
 
 // Scan string literal
-scan_string = (lexer: &mut Lexer) void   {
+scan_string = (lexer: MutPtr<Lexer>) void   {
     start := lexer.current;
     
     loop {
@@ -275,7 +275,7 @@ is_digit = (c: u8) bool   {
 }
 
 // Scan all tokens
-scan_tokens = (lexer: &mut Lexer) void   {
+scan_tokens = (lexer: MutPtr<Lexer>) void   {
     loop {
         is_at_end(lexer) ?
             | true { break }
