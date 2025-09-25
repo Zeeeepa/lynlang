@@ -1,0 +1,13 @@
+// Test string.trim() method
+{ io } = @std
+
+main = () i32 {
+    // Test trim on string with spaces
+    s1 = "  hello  "
+    trimmed = s1.trim()
+    
+    io.println("Original: '${s1}'")
+    io.println("Trimmed: '${trimmed}'")
+    
+    return 0
+}

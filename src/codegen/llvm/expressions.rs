@@ -675,6 +675,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 })?;
                             return Ok(result);
                         }
+                        "trim" => {
+                            // string.trim() - remove leading and trailing whitespace
+                            if args.len() != 0 {
+                                return Err(CompileError::TypeError(
+                                    format!("trim expects no arguments, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Call the runtime string_trim function
+                            let func = self.get_or_create_runtime_function("string_trim")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into()], "trim_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError(
+                                        "string_trim did not return a value".to_string(),
+                                        None,
+                                    )
+                                })?;
+                            return Ok(result);
+                        }
                         _ => {}
                     }
                 }
