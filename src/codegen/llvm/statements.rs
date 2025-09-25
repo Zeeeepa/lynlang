@@ -348,6 +348,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             self.builder
                                 .build_store(alloca, value)
                                 .map_err(|e| CompileError::from(e))?;
+                            
+                            // Track generic type parameters for variables with explicit types
+                            if let AstType::Generic { name: type_name, type_args } = type_ {
+                                if type_name == "Result" && type_args.len() == 2 {
+                                    // Track Result<T,E> types with variable-specific keys
+                                    self.track_generic_type(format!("{}_Result_Ok_Type", name), type_args[0].clone());
+                                    self.track_generic_type(format!("{}_Result_Err_Type", name), type_args[1].clone());
+                                } else if type_name == "Option" && type_args.len() == 1 {
+                                    // Track Option<T> types with variable-specific keys
+                                    self.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                                }
+                            }
+                            
                             self.variables.insert(
                                 name.clone(),
                                 super::VariableInfo {
@@ -1044,6 +1057,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         
                         // eprintln!("[DEBUG VAR STORED] Variable {} stored with type {:?}", name, inferred_type);
+                        
+                        // Track generic type parameters for this variable
+                        if let AstType::Generic { name: type_name, type_args } = &inferred_type {
+                            if type_name == "Result" && type_args.len() == 2 {
+                                // Track Result<T,E> types with variable-specific keys
+                                self.track_generic_type(format!("{}_Result_Ok_Type", name), type_args[0].clone());
+                                self.track_generic_type(format!("{}_Result_Err_Type", name), type_args[1].clone());
+                            } else if type_name == "Option" && type_args.len() == 1 {
+                                // Track Option<T> types with variable-specific keys
+                                self.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                            }
+                        }
+                        
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {

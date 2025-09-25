@@ -5169,6 +5169,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
             CompileError::InternalError("No current function for pattern match".to_string(), None)
         })?;
 
+        // Track the scrutinee variable name if it's an identifier 
+        // This helps us look up variable-specific generic type information
+        let scrutinee_name = if let Expression::Identifier(name) = scrutinee {
+            Some(name.clone())
+        } else {
+            None
+        };
+        
+        // If we have a variable name, temporarily set its generic types as the current ones
+        if let Some(ref var_name) = scrutinee_name {
+            // Check if we have variable-specific generic types stored
+            if let Some(ok_type) = self.generic_type_context.get(&format!("{}_Result_Ok_Type", var_name)) {
+                self.track_generic_type("Result_Ok_Type".to_string(), ok_type.clone());
+            }
+            if let Some(err_type) = self.generic_type_context.get(&format!("{}_Result_Err_Type", var_name)) {
+                self.track_generic_type("Result_Err_Type".to_string(), err_type.clone());
+            }
+            if let Some(some_type) = self.generic_type_context.get(&format!("{}_Option_Some_Type", var_name)) {
+                self.track_generic_type("Option_Some_Type".to_string(), some_type.clone());
+            }
+        }
+
         // Compile the scrutinee expression
         let scrutinee_val = self.compile_expression(scrutinee)?;
 
