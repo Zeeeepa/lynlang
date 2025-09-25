@@ -3173,6 +3173,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Compile the expression that should return a Result<T, E>
         let result_value = self.compile_expression(expr)?;
+        
+        // When a function returns Result<T,E>, we need to ensure we track its generic types
+        // This is particularly important for functions that return Result
+        if let Expression::FunctionCall { name, .. } = expr {
+            // Check if we know the function's return type - clone to avoid borrow issues
+            if let Some(return_type) = self.function_types.get(name).cloned() {
+                if let AstType::Generic { name: type_name, type_args } = return_type {
+                    if type_name == "Result" && type_args.len() == 2 {
+                        // Store Result<T, E> type arguments for proper payload extraction
+                        self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                        self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                    }
+                }
+            }
+        }
 
         // Create blocks for pattern matching on Result
         let check_bb = self
@@ -3470,15 +3485,198 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(self.context.i64_type().const_int(0, false).into())
             }
         } else {
-            // Fallback: if we can't determine the Result structure,
-            // treat it as an immediate value and try pattern matching
-            return Err(CompileError::TypeError(
-                format!(
-                    "Unsupported Result type for .raise(): {:?}",
-                    result_value.get_type()
-                ),
-                None,
-            ));
+            // Check if this is actually a struct type but LLVM isn't recognizing it
+            // This happens when a Result<T,E> is returned from a function call
+            // The value might be aggregate or the type check is failing
+            
+            // Try to handle it as a struct type anyway if it looks like one
+            let result_type = result_value.get_type();
+            if result_type.is_struct_type() {
+                let struct_type = result_type.into_struct_type();
+                
+                // Create a temporary alloca to work with the struct
+                let temp_alloca = self.builder.build_alloca(struct_type, "result_func_temp")?;
+                self.builder.build_store(temp_alloca, result_value)?;
+                
+                // Extract the tag (discriminant) from the first field
+                let tag_ptr = self
+                    .builder
+                    .build_struct_gep(struct_type, temp_alloca, 0, "tag_ptr")?;
+                let tag_value = self
+                    .builder
+                    .build_load(self.context.i64_type(), tag_ptr, "tag")?;
+                
+                // Check if tag == 0 (Ok variant)
+                let is_ok = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    tag_value.into_int_value(),
+                    self.context.i64_type().const_int(0, false),
+                    "is_ok",
+                )?;
+                
+                // Branch based on the tag
+                self.builder
+                    .build_conditional_branch(is_ok, ok_bb, err_bb)?;
+                
+                // Handle Ok case - extract the Ok value
+                self.builder.position_at_end(ok_bb);
+                if struct_type.count_fields() > 1 {
+                    let payload_ptr =
+                        self.builder
+                            .build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
+                    // Get the actual payload type from the struct
+                    let payload_field_type =
+                        struct_type.get_field_type_at_index(1).ok_or_else(|| {
+                            CompileError::InternalError(
+                                "Result payload field not found".to_string(),
+                                None,
+                            )
+                        })?;
+                    
+                    // Load the payload value (which is a pointer to the actual value)
+                    let ok_value_ptr =
+                        self.builder
+                            .build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
+                    
+                    // The payload is always stored as a pointer in our enum representation
+                    // We need to dereference it to get the actual value
+                    let ok_value = if ok_value_ptr.is_pointer_value() {
+                        let ptr_val = ok_value_ptr.into_pointer_value();
+                        
+                        // Use the tracked generic type information to determine the correct type to load
+                        let load_type: inkwell::types::BasicTypeEnum =
+                            if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
+                                match ast_type {
+                                    AstType::I8 => self.context.i8_type().into(),
+                                    AstType::I16 => self.context.i16_type().into(),
+                                    AstType::I32 => self.context.i32_type().into(),
+                                    AstType::I64 => self.context.i64_type().into(),
+                                    AstType::U8 => self.context.i8_type().into(),
+                                    AstType::U16 => self.context.i16_type().into(),
+                                    AstType::U32 => self.context.i32_type().into(),
+                                    AstType::U64 => self.context.i64_type().into(),
+                                    AstType::F32 => self.context.f32_type().into(),
+                                    AstType::F64 => self.context.f64_type().into(),
+                                    AstType::Bool => self.context.bool_type().into(),
+                                    _ => self.context.i32_type().into(), // Default fallback
+                                }
+                            } else {
+                                // Default to i32 for backward compatibility
+                                self.context.i32_type().into()
+                            };
+                        let loaded_value =
+                            self.builder
+                                .build_load(load_type, ptr_val, "ok_value_deref")?;
+                        
+                        // The loaded value should be the correct type
+                        loaded_value
+                    } else {
+                        // If it's not a pointer, it might be an integer that looks like a pointer address
+                        // This can happen if the payload is stored incorrectly
+                        ok_value_ptr
+                    };
+                    self.builder.build_unconditional_branch(continue_bb)?;
+                    
+                    // Handle Err case - propagate the error by returning early
+                    self.builder.position_at_end(err_bb);
+                    
+                    if returns_result {
+                        // Function returns Result<T,E> - propagate the entire Result with Err variant
+                        let err_payload_ptr = self.builder.build_struct_gep(
+                            struct_type,
+                            temp_alloca,
+                            1,
+                            "err_payload_ptr",
+                        )?;
+                        
+                        // Get the actual payload type from the struct
+                        let payload_field_type =
+                            struct_type.get_field_type_at_index(1).ok_or_else(|| {
+                                CompileError::InternalError(
+                                    "Result payload field not found".to_string(),
+                                    None,
+                                )
+                            })?;
+                        
+                        // Load the error payload with the correct type
+                        let err_value = self.builder.build_load(
+                            payload_field_type,
+                            err_payload_ptr,
+                            "err_value",
+                        )?;
+                        
+                        // Create a new Result<T,E> with Err variant for early return
+                        let return_result_alloca =
+                            self.builder.build_alloca(struct_type, "return_result")?;
+                        
+                        // Set tag to 1 (Err)
+                        let return_tag_ptr = self.builder.build_struct_gep(
+                            struct_type,
+                            return_result_alloca,
+                            0,
+                            "return_tag_ptr",
+                        )?;
+                        self.builder
+                            .build_store(return_tag_ptr, self.context.i64_type().const_int(1, false))?;
+                        
+                        // Store the error value
+                        let return_payload_ptr = self.builder.build_struct_gep(
+                            struct_type,
+                            return_result_alloca,
+                            1,
+                            "return_payload_ptr",
+                        )?;
+                        self.builder.build_store(return_payload_ptr, err_value)?;
+                        
+                        // Load and return the complete Result
+                        let return_result = self.builder.build_load(
+                            struct_type,
+                            return_result_alloca,
+                            "return_result",
+                        )?;
+                        self.builder.build_return(Some(&return_result))?;
+                    } else {
+                        // Function returns a plain type - return error value
+                        let error_value = self.context.i32_type().const_int(1, false);
+                        self.builder.build_return(Some(&error_value))?;
+                    }
+                    
+                    // Continue with Ok value
+                    self.builder.position_at_end(continue_bb);
+                    Ok(ok_value)
+                } else {
+                    // Unit Result (no payload)
+                    self.builder.build_unconditional_branch(continue_bb)?;
+                    
+                    self.builder.position_at_end(err_bb);
+                    // For unit Results, handle based on return type
+                    if returns_result {
+                        let return_result = self.builder.build_load(
+                            struct_type,
+                            temp_alloca,
+                            "return_result",
+                        )?;
+                        self.builder.build_return(Some(&return_result))?;
+                    } else {
+                        // Return error value for plain return type
+                        let error_value = self.context.i32_type().const_int(1, false);
+                        self.builder.build_return(Some(&error_value))?;
+                    }
+                    
+                    self.builder.position_at_end(continue_bb);
+                    Ok(self.context.i64_type().const_int(0, false).into())
+                }
+            } else {
+                // Fallback: if we can't determine the Result structure,
+                // treat it as an immediate value and try pattern matching
+                return Err(CompileError::TypeError(
+                    format!(
+                        "Unsupported Result type for .raise(): {:?}",
+                        result_value.get_type()
+                    ),
+                    None,
+                ));
+            }
         }
     }
 
