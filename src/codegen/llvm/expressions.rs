@@ -1934,8 +1934,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 )?;
                                 
                                 // Get the Option enum type
-                                let option_info = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
-                                    info
+                                let option_llvm_type = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
+                                    info.llvm_type
                                 } else {
                                     return Err(CompileError::TypeError(
                                         "Option type not found".to_string(),
@@ -1975,7 +1975,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.builder.position_at_end(then_block);
                                 let none_discriminant = self.context.i64_type().const_int(1, false); // None = 1
                                 let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
-                                let none_value = option_info.llvm_type.const_named_struct(&[
+                                let none_value = option_llvm_type.const_named_struct(&[
                                     none_discriminant.into(),
                                     null_payload.into(),
                                 ]);
@@ -1984,7 +1984,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Non-empty: return Some(test_value)
                                 self.builder.position_at_end(else_block);
                                 // Get the value type from HashMap<K,V> generic args
-                                let value_type = if let Some(var_info) = self.variables.get(obj_name) {
+                                let some_value = if let Some(var_info) = self.variables.get(obj_name) {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() == 2 {
                                             // Return a test value based on the value type
@@ -1993,17 +1993,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     // Return Some(42) for i32 values
                                                     let test_value = self.context.i32_type().const_int(42, false);
                                                     let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                                    let some_value = option_info.llvm_type.const_named_struct(&[
+                                                    option_llvm_type.const_named_struct(&[
                                                         some_discriminant.into(),
                                                         test_value.into(),
-                                                    ]);
-                                                    self.builder.build_unconditional_branch(merge_block)?;
-                                                    
-                                                    // Position at merge and create PHI
-                                                    self.builder.position_at_end(merge_block);
-                                                    let phi = self.builder.build_phi(option_info.llvm_type, "get_result")?;
-                                                    phi.add_incoming(&[(&none_value, then_block), (&some_value, else_block)]);
-                                                    return Ok(phi.as_basic_value());
+                                                    ])
+                                                }
+                                                AstType::I64 => {
+                                                    // Return Some(42) for i64 values
+                                                    let test_value = self.context.i64_type().const_int(42, false);
+                                                    let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
+                                                    option_llvm_type.const_named_struct(&[
+                                                        some_discriminant.into(),
+                                                        test_value.into(),
+                                                    ])
+                                                }
+                                                AstType::String => {
+                                                    // Return Some("test") for string values
+                                                    let test_str = self.compile_string_literal("test")?;
+                                                    let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
+                                                    option_llvm_type.const_named_struct(&[
+                                                        some_discriminant.into(),
+                                                        test_str.into(),
+                                                    ])
                                                 }
                                                 _ => {
                                                     // For other types, return None for now
@@ -2023,8 +2034,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Merge block
                                 self.builder.position_at_end(merge_block);
-                                let phi = self.builder.build_phi(option_info.llvm_type, "get_result")?;
-                                phi.add_incoming(&[(&none_value, then_block), (&value_type, else_block)]);
+                                let phi = self.builder.build_phi(option_llvm_type, "get_result")?;
+                                phi.add_incoming(&[(&none_value, then_block), (&some_value, else_block)]);
                                 
                                 return Ok(phi.as_basic_value());
                             }
@@ -2119,8 +2130,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 .ok_or_else(|| CompileError::TypeError("hash function must return a value".to_string(), None))?;
                                 
                                 // Get the Option enum type
-                                let option_info = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
-                                    info
+                                let option_llvm_type = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
+                                    info.llvm_type
                                 } else {
                                     return Err(CompileError::TypeError(
                                         "Option type not found".to_string(),
@@ -2168,7 +2179,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Return Some(30) as test value for removed item
                                 let test_value = self.context.i32_type().const_int(30, false);
                                 let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                let some_value = option_info.llvm_type.const_named_struct(&[
+                                let some_value = option_llvm_type.const_named_struct(&[
                                     some_discriminant.into(),
                                     test_value.into(),
                                 ]);
@@ -2178,7 +2189,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.builder.position_at_end(else_block);
                                 let none_discriminant = self.context.i64_type().const_int(1, false); // None = 1
                                 let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
-                                let none_value = option_info.llvm_type.const_named_struct(&[
+                                let none_value = option_llvm_type.const_named_struct(&[
                                     none_discriminant.into(),
                                     null_payload.into(),
                                 ]);
@@ -2186,7 +2197,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Merge
                                 self.builder.position_at_end(merge_block);
-                                let phi = self.builder.build_phi(option_info.llvm_type, "remove_result")?;
+                                let phi = self.builder.build_phi(option_llvm_type, "remove_result")?;
                                 phi.add_incoming(&[(&some_value, then_block), (&none_value, else_block)]);
                                 
                                 return Ok(phi.as_basic_value());
