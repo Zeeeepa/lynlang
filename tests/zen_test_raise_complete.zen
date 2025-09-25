@@ -31,7 +31,8 @@ helper_function = () i32 {
 }
 
 test_function_raise = () i32 {
-    result = Result.Ok(helper_function())
+    func_result = helper_function()
+    result = Result.Ok(func_result)
     value = result.raise()  // Extract 100
     doubled = value * 2
     return doubled
