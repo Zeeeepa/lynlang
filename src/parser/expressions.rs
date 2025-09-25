@@ -199,7 +199,7 @@ impl<'a> Parser<'a> {
                     // Look ahead to see if this is a label or a value expression
                     if matches!(
                         &self.peek_token,
-                        Token::Symbol(_) | Token::Eof | Token::Symbol('}')
+                        Token::Symbol(_) | Token::Eof
                     ) {
                         label = Some(label_name.clone());
                         self.next_token();
@@ -986,6 +986,7 @@ impl<'a> Parser<'a> {
 
                         // Check for arrow function syntax: () => expr
                         if self.current_token == Token::Operator("=>".to_string()) {
+                            let _ = is_closure; // Mark as intentionally unused
                             is_closure = true;
                             self.next_token(); // consume '=>'
                                                // Parse the expression body

@@ -67,7 +67,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         
         // Initialize the array to zeros
         let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
-            let i8_type = self.context.i8_type();
+            let _i8_type = self.context.i8_type();
             let i32_type = self.context.i32_type();
             let i64_type = self.context.i64_type();
             let fn_type = ptr_type.fn_type(&[ptr_type.into(), i32_type.into(), i64_type.into()], false);
@@ -236,7 +236,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             2,
             "capacity_ptr",
         )?;
-        let capacity = self.builder.build_load(self.context.i64_type(), capacity_ptr, "capacity")?
+        let _capacity = self.builder.build_load(self.context.i64_type(), capacity_ptr, "capacity")?
             .into_int_value();
         
         // TODO: Check if we need to resize (for now, assume we have capacity)

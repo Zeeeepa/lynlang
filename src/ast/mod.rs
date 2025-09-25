@@ -14,7 +14,7 @@ mod types;
 pub use declarations::*;
 pub use expressions::*;
 pub use patterns::*;
-pub use span::{Position, Span};
+// pub use span::{Position, Span}; // Currently unused
 pub use statements::*;
 pub use types::*;
 

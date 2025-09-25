@@ -162,7 +162,7 @@ fn transform_statement_self_types(stmt: &Statement, concrete_type: &str) -> Resu
 }
 
 /// Transform Self types in expressions
-fn transform_expression_self_types(expr: &Expression, concrete_type: &str) -> Result<Expression> {
+fn transform_expression_self_types(expr: &Expression, _concrete_type: &str) -> Result<Expression> {
     // For now, most expressions don't contain type annotations that need transformation
     // The main transformation happens in variable declarations and function signatures
     // This is a placeholder for future expansion if needed

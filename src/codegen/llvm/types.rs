@@ -242,8 +242,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             AstType::Result { ok_type, err_type } => {
                 // Result<T, E> is represented as a tagged union struct
                 // Struct layout: { tag: i64, payload: max(sizeof(T), sizeof(E)) }
-                let ok_llvm = self.to_llvm_type(ok_type)?;
-                let err_llvm = self.to_llvm_type(err_type)?;
+                let _ok_llvm = self.to_llvm_type(ok_type)?;
+                let _err_llvm = self.to_llvm_type(err_type)?;
 
                 // For now, create a struct that can hold either type
                 // We'll use i64 for both to ensure consistent size
@@ -342,7 +342,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(Type::Struct(dynvec_struct))
                 }
             }
-            AstType::Generic { name, type_args } => {
+            AstType::Generic { name, type_args: _ } => {
                 // Special handling for empty generic names - this is likely a bug
                 if name.is_empty() {
                     // Debug output commented out to avoid false test failures

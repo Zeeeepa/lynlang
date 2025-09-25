@@ -6,13 +6,14 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 > *"No keywords. Pure expression. Allocator-driven concurrency."*
 
-## 🎉 Project Status (2025-09-24)
+## 🎉 Project Status (2025-09-25)
 
-- **Test Suite**: **100% PASS RATE** - 154/154 tests passing, 8 disabled
+- **Test Suite**: **100% PASS RATE** - 165/165 tests passing, 7 disabled
 - **Compiler**: Builds successfully with warnings only  
 - **Core Features**: All working - showcase.zen runs perfectly
 - **Recent Achievements**: 
-  - ✅ Automatic int-to-float type coercion in operations (NEW!)
+  - ✅ Array<T> type with push/get/set/len/pop methods (NEW!)
+  - ✅ Automatic int-to-float type coercion in operations  
   - ✅ Modulo operator (%) fully working
   - ✅ Allocator-based async system (GPA/AsyncPool) foundation
   - ✅ Behaviors (traits) system without keywords

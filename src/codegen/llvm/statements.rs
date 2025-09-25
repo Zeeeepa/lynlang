@@ -154,7 +154,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             Type::Basic(self.context.i64_type().into())
                                         }
                                     }
-                                    BasicValueEnum::FloatValue(fv) => {
+                                    BasicValueEnum::FloatValue(_fv) => {
                                         // Store the AST type as F64 to ensure proper loading later
                                         inferred_ast_type = Some(AstType::F64);
                                         // For now, assume all floats are f64

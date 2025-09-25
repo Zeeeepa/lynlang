@@ -159,7 +159,7 @@ impl TypeChecker {
                     fields: fields.clone(),
                 };
                 // eprintln!("DEBUG: Registering struct '{}' with {} fields", struct_def.name, fields.len());
-                for (field_name, field_type) in &fields {
+                for (_field_name, _field_type) in &fields {
                     // eprintln!("DEBUG:   Field '{}': {:?}", field_name, field_type);
                 }
                 self.structs.insert(struct_def.name.clone(), info);
@@ -344,7 +344,7 @@ impl TypeChecker {
                 type_,
                 initializer,
                 is_mutable,
-                declaration_type,
+                
                 ..
             } => {
                 // Check if this is an assignment to a forward-declared variable

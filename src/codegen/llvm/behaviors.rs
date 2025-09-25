@@ -287,8 +287,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             // Compile method body
             // eprintln!("DEBUG: Before compiling method body, variables map has {} entries", self.variables.len());
-            for (k, _) in &self.variables {
-                // eprintln!("DEBUG:   - Variable: {}", k);
+            for (_k, _) in &self.variables {
+                // eprintln!("DEBUG:   - Variable: {}", _k);
             }
             for stmt in &method.body {
                 self.compile_statement(stmt)?;

@@ -87,11 +87,11 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
         // Allow struct type to be assigned to generic enum type
         (
             AstType::Generic {
-                name: enum_name,
+                name: _enum_name,
                 type_args,
             },
             AstType::Struct {
-                name: struct_name, ..
+                name: _struct_name, ..
             },
         ) if type_args.is_empty() => {
             // This is a workaround - we'd need to look up the actual enum type to verify

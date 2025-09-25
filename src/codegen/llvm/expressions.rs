@@ -2,7 +2,6 @@ use super::{symbols, LLVMCompiler, Type, VariableInfo};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use inkwell::module::Linkage;
-use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -2315,7 +2314,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // If all values are integers, cast them to the widest type
         let mut max_int_width = 0;
         let mut has_non_int = false;
-        let result_type = if !phi_values.is_empty() {
+        let _result_type = if !phi_values.is_empty() {
             phi_values[0].0.get_type()
         } else {
             // This shouldn't happen but let's be safe
@@ -3357,7 +3356,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Look up the variable to see if it's a Range type
             if let Some(var_info) = self.variables.get(name).cloned() {
                 // eprintln!("DEBUG: Variable {} has type {:?}", name, var_info.ast_type);
-                if let AstType::Range { inclusive, .. } = &var_info.ast_type {
+                if let AstType::Range {  .. } = &var_info.ast_type {
                     // We need to extract the range values from the stored struct
                     // Load the range struct
                     let range_type = match self.to_llvm_type(&var_info.ast_type)? {

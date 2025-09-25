@@ -259,7 +259,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Get the string representations
                             let some_str = if struct_val.get_type().count_fields() > 1 {
                                 // Has payload - extract and format it
-                                let payload =
+                                let _payload =
                                     self.builder.build_extract_value(struct_val, 1, "payload")?;
                                 // For now, format the payload as an integer
                                 // In a full implementation, we'd recursively format the payload
