@@ -235,24 +235,56 @@ impl TypeChecker {
                     .register_trait_requirement(trait_req)?;
             }
             Declaration::Constant { name, value, type_ } => {
-                // Type check the constant value
-                let inferred_type = self.infer_expression_type(value)?;
-
-                // If a type was specified, verify it matches
-                if let Some(declared_type) = type_ {
-                    if !self.types_compatible(declared_type, &inferred_type) {
-                        return Err(CompileError::TypeError(
-                            format!(
-                                "Type mismatch: constant '{}' declared as {:?} but has value of type {:?}",
-                                name, declared_type, inferred_type
-                            ),
-                            None
-                        ));
+                // Check if this is a struct definition pattern: Name = { field: Type, ... }
+                if let Expression::StructLiteral { name: _, fields } = value {
+                    // This is a struct definition in the form: Point = { x: f64, y: f64 }
+                    // Convert the struct literal fields to struct type fields
+                    let mut struct_fields = Vec::new();
+                    for (field_name, field_value) in fields {
+                        // Try to extract type from the field value
+                        // In struct definitions, field values are type expressions
+                        if let Expression::TypeExpression(type_expr) = field_value {
+                            struct_fields.push((field_name.clone(), type_expr.clone()));
+                        } else {
+                            // Try to infer the type from the expression
+                            let field_type = self.infer_expression_type(field_value)?;
+                            struct_fields.push((field_name.clone(), field_type));
+                        }
                     }
-                }
+                    
+                    // Register this as a struct type
+                    let info = StructInfo {
+                        fields: struct_fields,
+                    };
+                    self.structs.insert(name.clone(), info);
+                    
+                    // Also store as a constant of struct type
+                    let struct_type = AstType::Struct {
+                        name: Some(name.clone()),
+                        fields: Vec::new(), // Empty for the type reference
+                    };
+                    self.declare_variable(name, struct_type, false)?;
+                } else {
+                    // Regular constant declaration
+                    // Type check the constant value
+                    let inferred_type = self.infer_expression_type(value)?;
 
-                // Store the constant as a global variable (constants are immutable)
-                self.declare_variable(name, inferred_type, false)?;
+                    // If a type was specified, verify it matches
+                    if let Some(declared_type) = type_ {
+                        if !self.types_compatible(declared_type, &inferred_type) {
+                            return Err(CompileError::TypeError(
+                                format!(
+                                    "Type mismatch: constant '{}' declared as {:?} but has value of type {:?}",
+                                    name, declared_type, inferred_type
+                                ),
+                                None
+                            ));
+                        }
+                    }
+
+                    // Store the constant as a global variable (constants are immutable)
+                    self.declare_variable(name, inferred_type, false)?;
+                }
             }
             Declaration::ModuleImport { alias, module_path } => {
                 // Track module imports
@@ -268,6 +300,16 @@ impl TypeChecker {
                     module_path.as_str()
                 };
                 self.register_stdlib_module(alias, module_name)?;
+            }
+            Declaration::TypeAlias(type_alias) => {
+                // Check if the target type is a struct literal
+                if let AstType::Struct { name: _, fields } = &type_alias.target_type {
+                    let info = StructInfo {
+                        fields: fields.clone(),
+                    };
+                    self.structs.insert(type_alias.name.clone(), info);
+                }
+                // Could also handle other type alias cases here
             }
             _ => {}
         }
@@ -325,6 +367,9 @@ impl TypeChecker {
                 // ModuleImport declarations at the top level
                 // Register the imported module as a variable with StdModule type
                 self.declare_variable_with_init(alias, AstType::StdModule, false, true)?;
+            }
+            Declaration::TypeAlias(_) => {
+                // TypeAlias already handled in collect_declaration_types
             }
             _ => {}
         }

@@ -1,0 +1,24 @@
+// Test simple struct definition and usage
+{ io } = @std
+
+// Define a simple struct
+Point: {
+    x: f64,
+    y: f64,
+}
+
+main = () void {
+    // Create a struct instance
+    p = Point { x: 10.0, y: 20.0 }
+    
+    // Access fields
+    io.println("Point x: ${p.x}")
+    io.println("Point y: ${p.y}")
+    
+    // Modify fields
+    p.x = 30.0
+    p.y = 40.0
+    
+    io.println("Modified x: ${p.x}")
+    io.println("Modified y: ${p.y}")
+}

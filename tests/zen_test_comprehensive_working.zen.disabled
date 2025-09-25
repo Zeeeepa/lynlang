@@ -7,19 +7,19 @@
 { Result, Option } = @std
 
 // Structs from spec
-Point = {
-    x: f64
-    y: f64
+Point: {
+    x: f64,
+    y: f64,
 }
 
-Circle = {
-    center: Point
-    radius: f64
+Circle: {
+    center: Point,
+    radius: f64,
 }
 
-Rectangle = {
-    top_left: Point
-    bottom_right: Point
+Rectangle: {
+    top_left: Point,
+    bottom_right: Point,
 }
 
 // Enum types from spec
