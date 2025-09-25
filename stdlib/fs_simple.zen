@@ -86,7 +86,7 @@ exists = (path: string) bool {
     // Would use access() or stat()
     inline.c("""
         struct stat st;
-        return stat(path, &st) == 0;
+        return stat(path, Ptr<Stat>(st)) == 0;
     """)
     // Mock implementation
     return false

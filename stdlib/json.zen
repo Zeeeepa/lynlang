@@ -116,7 +116,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     json_skip_whitespace(parser)
     
     parser.position >= parser.length ? | true {
-        return &JsonValue:Null
+        return Ptr<JsonValue>(JsonValue.Null)
     } | false {}
     
     ch := parser.input[parser.position]
@@ -124,7 +124,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
     // Null
     ch == 110 ? | true { { // 'n' }
         parser.position = parser.position + 4 // Skip "null"
-        return &JsonValue:Null
+        return Ptr<JsonValue>(JsonValue.Null)
     } | false {}
     
     // Boolean true
@@ -175,7 +175,7 @@ json_parse_value = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
         return json_parse_object(parser)
     } | false {}
     
-    return &JsonValue:Null
+    return Ptr<JsonValue>(JsonValue.Null)
 }
 
 // Parse JSON array
@@ -256,7 +256,7 @@ json_parse_object = (parser: Ptr<JsonParser>) Ptr<JsonValue> {
 // Main parse function
 json_parse = (input: RawPtr<i8>) Ptr<JsonValue> {
     parser := json_parser_new(input)
-    return json_parse_value(&parser)
+    return json_parse_value(Ptr<JsonParser>(parser))
 }
 
 // Stringify a JSON value (simplified)
@@ -276,7 +276,7 @@ json_free = (value: Ptr<JsonValue>) void   {
         | String(s) { { deallocate_raw(s as RawPtr<void>)  }}
         | Array(elements, count) {
             range(0, count).loop((i) {
-                json_free(&elements[i])
+                json_free(Ptr<JsonValue>(elements[i]))
             })
             deallocate_raw(elements as RawPtr<void>)
         }

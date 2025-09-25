@@ -185,10 +185,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         ],
                         false,
                     );
-                    match self.builder.build_load(enum_struct_type, ptr, name) {
-                        Ok(val) => val.into(),
+                    let loaded: BasicValueEnum = match self.builder.build_load(enum_struct_type, ptr, name) {
+                        Ok(val) => val,
                         Err(e) => return Err(CompileError::InternalError(e.to_string(), None)),
-                    }
+                    };
+                    loaded
                 }
                 _ => {
                     let elem_type = self.to_llvm_type(&ast_type)?;

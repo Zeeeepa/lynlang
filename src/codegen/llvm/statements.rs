@@ -96,6 +96,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Keep track of inferred AST type for closures
                 let mut inferred_ast_type: Option<AstType> = None;
+                
+                // Save generic context before compiling to handle raise() correctly
+                let saved_ok_type = self.generic_type_context.get("Result_Ok_Type").cloned();
 
                 let llvm_type = match type_ {
                     Some(type_) => self.to_llvm_type(type_)?,
@@ -629,6 +632,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         name: "Option".to_string(),
                                                         type_args: vec![AstType::I32],
                                                     }
+                                                }
+                                            } else if method == "raise" {
+                                                // .raise() extracts the Ok value from Result<T,E>
+                                                // Check if raise() stored what type it extracted
+                                                if let Some(extracted_type) = self.generic_type_context.get("Last_Raise_Extracted_Type") {
+                                                    extracted_type.clone()
+                                                } else {
+                                                    // Fallback when no type was stored
+                                                    AstType::I32
                                                 }
                                             } else {
                                                 // For other methods returning structs, try to determine from context

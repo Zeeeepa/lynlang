@@ -159,7 +159,7 @@ Executable: {
                 name: "run",
                 description: "Run " ++ self.options.name,
                 kind: .Run,
-                dependencies: []Ptr<Step>{ &self.step }
+                dependencies: []Ptr<Step>{ Ptr<Step>(self.step) }
             }
         }
     }
@@ -315,8 +315,8 @@ Build: {
             strip: false
         }
         
-        self.executables.append(&exe)
-        return &exe
+        self.executables.append(Ptr<Executable>(exe))
+        return Ptr<Executable>(exe)
     }
     
     addStaticLibrary: (options: LibraryOptions) Ptr<Library> {
@@ -332,8 +332,8 @@ Build: {
             export_headers: []String{}
         }
         
-        self.libraries.append(&lib)
-        return &lib
+        self.libraries.append(Ptr<Library>(lib))
+        return Ptr<Library>(lib)
     }
     
     addSharedLibrary: (options: LibraryOptions) Ptr<Library> {
@@ -349,8 +349,8 @@ Build: {
             export_headers: []String{}
         }
         
-        self.libraries.append(&lib)
-        return &lib
+        self.libraries.append(Ptr<Library>(lib))
+        return Ptr<Library>(lib)
     }
     
     addTest: (root_source: String) Ptr<Test> {
@@ -366,8 +366,8 @@ Build: {
             symbols: []Executable.Symbol{}
         }
         
-        self.tests.append(&test)
-        return &test
+        self.tests.append(Ptr<Test>(test))
+        return Ptr<Test>(test)
     }
     
     option: (comptime T: type, name: String, description: String) Option<T> {
@@ -382,10 +382,10 @@ Build: {
             name: "install",
             description: "Install " ++ artifact.options.name,
             kind: .Install,
-            dependencies: []Ptr<Step>{ &artifact.step }
+            dependencies: []Ptr<Step>{ Ptr<Step>(artifact.step) }
         }
         
-        self.steps.append(&install_step)
+        self.steps.append(Ptr<Step>(install_step))
     }
     
     installFile: (source: String, dest: String) void {
@@ -396,7 +396,7 @@ Build: {
             dependencies: []Ptr<Step>{}
         }
         
-        self.steps.append(&install_step)
+        self.steps.append(Ptr<Step>(install_step))
     }
     
     step: (name: String, description: String) *Step {
@@ -407,8 +407,8 @@ Build: {
             dependencies: []Ptr<Step>{}
         }
         
-        self.steps.append(&new_step)
-        return &new_step
+        self.steps.append(Ptr<Step>(new_step))
+        return Ptr<Step>(new_step)
     }
     
     getInstallStep: () *Step {
@@ -440,7 +440,7 @@ Build: {
         }
         
         // Would fetch from git if not cached
-        return &pkg
+        return Ptr<Package>(pkg)
     }
     
     addModule: (name: String, options: ModuleOptions) *Module {
@@ -449,7 +449,7 @@ Build: {
             source_file: options.source_file
         }
         
-        return &mod
+        return Ptr<Module>(mod)
     }
     
     addSystemCommand: (argv: []String) *SystemCommand {
@@ -463,7 +463,7 @@ Build: {
             }
         }
         
-        return &cmd
+        return Ptr<Command>(cmd)
     }
 }
 

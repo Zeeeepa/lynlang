@@ -129,7 +129,7 @@ add_error = (ctx: Ptr<DiagnosticContext>, range: Range, message: String) void   
         data: null,
     }
     
-    array.push(Diagnostic, &ctx.diagnostics, diag)
+    array.push(Diagnostic, MutPtr<DynVec<Diagnostic>>(ctx.diagnostics), diag)
 }
 
 // Add warning diagnostic
@@ -148,7 +148,7 @@ add_warning = (ctx: Ptr<DiagnosticContext>, range: Range, message: String) void 
         data: null,
     }
     
-    array.push(Diagnostic, &ctx.diagnostics, diag)
+    array.push(Diagnostic, MutPtr<DynVec<Diagnostic>>(ctx.diagnostics), diag)
 }
 
 // Add information diagnostic
@@ -167,7 +167,7 @@ add_info = (ctx: Ptr<DiagnosticContext>, range: Range, message: String) void   {
         data: null,
     }
     
-    array.push(Diagnostic, &ctx.diagnostics, diag)
+    array.push(Diagnostic, MutPtr<DynVec<Diagnostic>>(ctx.diagnostics), diag)
 }
 
 // Add hint diagnostic
@@ -186,7 +186,7 @@ add_hint = (ctx: Ptr<DiagnosticContext>, range: Range, message: String) void   {
         data: null,
     }
     
-    array.push(Diagnostic, &ctx.diagnostics, diag)
+    array.push(Diagnostic, MutPtr<DynVec<Diagnostic>>(ctx.diagnostics), diag)
 }
 
 // Add diagnostic with code
@@ -207,37 +207,37 @@ add_diagnostic_with_code: (ctx: Ptr<DiagnosticContext>, range: Range,
         data: null,
     }
     
-    array.push(Diagnostic, &ctx.diagnostics, diag)
+    array.push(Diagnostic, MutPtr<DynVec<Diagnostic>>(ctx.diagnostics), diag)
 }
 
 // Add related information to last diagnostic
 add_related_info = (ctx: Ptr<DiagnosticContext>, location: Location, message: String) void   {
     ctx.diagnostics.len == 0 ? { return }
     
-    last_diag := &ctx.diagnostics.data[ctx.diagnostics.len - 1]
+    last_diag := Ptr<Diagnostic>(ctx.diagnostics.data[ctx.diagnostics.len - 1])
     
     info := DiagnosticRelatedInformation{
         location: location,
         message: message,
     }
     
-    array.push(DiagnosticRelatedInformation, &last_diag.related_information, info)
+    array.push(DiagnosticRelatedInformation, MutPtr<DynVec<DiagnosticRelatedInformation>>(last_diag.related_information), info)
 }
 
 // Mark diagnostic as deprecated
 mark_deprecated = (ctx: Ptr<DiagnosticContext>, index: usize) void   {
     index >= ctx.diagnostics.len ? { return }
     
-    diag := &ctx.diagnostics.data[index]
-    array.push(DiagnosticTag, &diag.tags, DiagnosticTag.Deprecated)
+    diag := Ptr<Diagnostic>(ctx.diagnostics.data[index])
+    array.push(DiagnosticTag, MutPtr<DynVec<DiagnosticTag>>(diag.tags), DiagnosticTag.Deprecated)
 }
 
 // Mark diagnostic as unnecessary
 mark_unnecessary = (ctx: Ptr<DiagnosticContext>, index: usize) void   {
     index >= ctx.diagnostics.len ? { return }
     
-    diag := &ctx.diagnostics.data[index]
-    array.push(DiagnosticTag, &diag.tags, DiagnosticTag.Unnecessary)
+    diag := Ptr<Diagnostic>(ctx.diagnostics.data[index])
+    array.push(DiagnosticTag, MutPtr<DynVec<DiagnosticTag>>(diag.tags), DiagnosticTag.Unnecessary)
 }
 
 // Common error diagnostics
@@ -293,7 +293,7 @@ diagnostics_to_json = (ctx: Ptr<DiagnosticContext>) String   {
     
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
         i > 0 ? { result = string.concat(result, ",") }
-        result = string.concat(result, diagnostic_to_json(&ctx.diagnostics.data[i]))
+        result = string.concat(result, diagnostic_to_json(Ptr<Diagnostic>(ctx.diagnostics.data[i])))
     }
     
     result = string.concat(result, "]")
@@ -322,7 +322,7 @@ diagnostic_to_json = (diag: Ptr<Diagnostic>) String   {
     
     // Range
     result = string.concat(result, "\"range\":")
-    result = string.concat(result, range_to_json(&diag.range))
+    result = string.concat(result, range_to_json(Ptr<Range>(diag.range)))
     result = string.concat(result, ",")
     
     // Severity
@@ -365,7 +365,7 @@ diagnostic_to_json = (diag: Ptr<Diagnostic>) String   {
         for (i := 0; i < diag.related_information.len; i += 1) {
             i > 0 ? { result = string.concat(result, ",") }
             result = string.concat(result, 
-                                 related_info_to_json(&diag.related_information.data[i]))
+                                 related_info_to_json(Ptr<DiagnosticRelatedInformation>(diag.related_information.data[i])))
         }
         result = string.concat(result, "]")
     }
@@ -386,7 +386,7 @@ related_info_to_json = (info: Ptr<DiagnosticRelatedInformation>) String   {
     result := string.from_literal("{\"location\":{\"uri\":\"")
     result = string.concat(result, info.location.uri)
     result = string.concat(result, "\",\"range\":")
-    result = string.concat(result, range_to_json(&info.location.range))
+    result = string.concat(result, range_to_json(Ptr<Range>(info.location.range)))
     result = string.concat(result, "},\"message\":\"")
     result = string.concat(result, escape_json_string(info.message))
     result = string.concat(result, "\"}")
@@ -406,7 +406,7 @@ escape_json_string = (s: String) String   {
 
 // Clear all diagnostics
 clear_diagnostics = (ctx: Ptr<DiagnosticContext>) void   {
-    array.clear(Diagnostic, &ctx.diagnostics)
+    array.clear(Diagnostic, MutPtr<DynVec<Diagnostic>>(ctx.diagnostics))
 }
 
 // Get diagnostic count
@@ -435,9 +435,9 @@ warning_count = (ctx: Ptr<DiagnosticContext>) usize   {
 // Free diagnostic context
 free_context = (ctx: Ptr<DiagnosticContext>) void   {
     for (i := 0; i < ctx.diagnostics.len; i += 1) {
-        diag := &ctx.diagnostics.data[i]
-        array.free(DiagnosticTag, &diag.tags)
-        array.free(DiagnosticRelatedInformation, &diag.related_information)
+        diag := Ptr<Diagnostic>(ctx.diagnostics.data[i])
+        array.free(DiagnosticTag, MutPtr<DynVec<DiagnosticTag>>(diag.tags))
+        array.free(DiagnosticRelatedInformation, MutPtr<DynVec<DiagnosticRelatedInformation>>(diag.related_information))
     }
-    array.free(Diagnostic, &ctx.diagnostics)
+    array.free(Diagnostic, MutPtr<DynVec<Diagnostic>>(ctx.diagnostics))
 }

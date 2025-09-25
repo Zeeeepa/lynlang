@@ -108,12 +108,12 @@ new_lexer = (source: string) Lexer   {
 }
 
 // Check if at end of source
-is_at_end = (lexer: &Lexer) bool   {
+is_at_end = (lexer: Ptr<Lexer>) bool   {
     return lexer.current >= string.len(lexer.source)
 }
 
 // Get current character
-peek = (lexer: &Lexer) u8   {
+peek = (lexer: Ptr<Lexer>) u8   {
     is_at_end(lexer) ?
         | true { return 0 }
         | false { }
@@ -157,7 +157,7 @@ skip_whitespace = (lexer: MutPtr<Lexer>) void   {
 }
 
 // Peek next character
-peek_next = (lexer: &Lexer) u8   {
+peek_next = (lexer: Ptr<Lexer>) u8   {
     lexer.current + 1 >= string.len(lexer.source) ?
         | true { return 0 }
         | false { }

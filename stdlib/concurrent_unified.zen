@@ -567,7 +567,7 @@ actor_loop = <State, Msg>(actor: Ptr<Actor<State, Msg>>) void {
         msg_result ?
             | Ok(msg) {
                 context := ActorContext{ actor_id: actor.id }
-                actor.behavior(&actor.state, msg, &context)
+                actor.behavior(Ptr<ActorState>(actor.state), msg, Ptr<Context>(context))
             }
             | Err(_) {
                 // Channel closed or error
@@ -750,7 +750,7 @@ Queue<T> := {
 get_thread_pool_executor := () Ptr<Executor> {
     // Return a static threaded executor
     static executor := executor_new(ExecutionMode.Threaded, memory_unified.get_default_allocator())
-    return &executor
+    return Ptr<Executor>(executor)
 }
 
 // ============================================================================

@@ -92,13 +92,13 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
             args.has_flag(Ptr<ParsedArgs>(parsed), "help") ? {
                 io.print(args.help_text(Ptr<ArgParser>(parser)))
                 core.exit(0)
-            } : {}
+            } 
             
             // Check for version
             args.has_flag(Ptr<ParsedArgs>(parsed), "version") ? {
                 io.print("zenc version 0.1.0 (self-hosted)\n")
                 core.exit(0)
-            } : {}
+            } 
             
             // Build configuration
             config := default_config()
@@ -158,12 +158,12 @@ parse_args = (argv: DynVec<string>) Result<CompilerConfig, string>   {
 read_source = (path: string) Result<string, string>   {
     config.verbose ? {
         log.info("Reading source file: " + path)
-    } : {}
+    } 
     
     exists := fs.exists(path)
     !exists ? {
         return Result<string, string>.Err("File not found: " + path)
-    } : {}
+    } 
     
     content := fs.read_file(path)
     content ?
@@ -182,12 +182,12 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
     
     config.verbose ? {
         log.info("Starting compilation...")
-    } : {}
+    } 
     
     // Phase 1: Lexical Analysis
     config.verbose ? {
         log.info("Phase 1: Lexical analysis...")
-    } : {}
+    } 
     
     tokens := lexer.tokenize(source)
     tokens ?
@@ -197,14 +197,14 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
         | Result<DynVec<lexer.Token>, string>.Ok(toks) {
             config.verbose ? {
                 log.info("  Lexed " + int_to_string(DynVec.len(toks)) + " tokens")
-            } : {}
+            } 
         }
     }
     
     // Phase 2: Parsing
     config.verbose ? {
         log.info("Phase 2: Parsing...")
-    } : {}
+    } 
     
     ast := parser.parse(tokens.unwrap())
     ast ?
@@ -214,20 +214,20 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
         | Result<parser.AstNode, string>.Ok(tree) {
             config.verbose ? {
                 log.info("  Parse successful")
-            } : {}
+            } 
             
             config.dump_ast ? {
                 io.print("\n=== AST ===\n")
                 io.print(parser.ast_to_string(tree))
                 io.print("\n")
-            } : {}
+            } 
         }
     }
     
     // Phase 3: Type Checking
     config.verbose ? {
         log.info("Phase 3: Type checking...")
-    } : {}
+    } 
     
     typed_ast := type_checker.check(ast.unwrap())
     typed_ast ?
@@ -237,7 +237,7 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
         | Result<type_checker.TypedAst, string>.Ok(checked) {
             config.verbose ? {
                 log.info("  Type check successful")
-            } : {}
+            } 
         }
     }
     
@@ -246,14 +246,14 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
         elapsed := time.stop_timer(MutPtr<Timer>(timer))
         config.verbose ? {
             log.info("Compilation time: " + time.format_duration(elapsed))
-        } : {}
+        } 
         return CompileResult.Success
-    } : {}
+    } 
     
     // Phase 4: Code Generation
     config.verbose ? {
         log.info("Phase 4: Code generation...")
-    } : {}
+    } 
     
     config.emit_llvm || config.output_type == OutputType.LLVMIR ? {
         // Generate LLVM IR
@@ -265,7 +265,7 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
             io.print("\n=== LLVM IR ===\n")
             io.print(gen.output)
             io.print("\n")
-        } : {}
+        } 
         
         // Write LLVM IR to file if requested
         config.output_file ?
@@ -278,7 +278,7 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
                     | Result<(), string>.Ok(_) {
                         config.verbose ? {
                             log.info("Wrote LLVM IR to: " + out)
-                        } : {}
+                        } 
                     }
                 }
             }
@@ -294,7 +294,7 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
             | Result<string, string>.Ok(output) {
                 config.verbose ? {
                     log.info("  Code generation successful")
-                } : {}
+                } 
                 
                 // Write output
                 config.output_file ?
@@ -307,7 +307,7 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
                             | Result<(), string>.Ok(_) {
                                 config.verbose ? {
                                     log.info("Wrote output to: " + out)
-                                } : {}
+                                } 
                             }
                         }
                     }
@@ -322,7 +322,7 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
                             | Result<(), string>.Ok(_) {
                                 config.verbose ? {
                                     log.info("Wrote output to: " + default_out)
-                                } : {}
+                                } 
                             }
                         }
                     }
@@ -331,11 +331,11 @@ compile = (config: Ptr<CompilerConfig>, source: string) CompileResult   {
         }
     }
     
-    elapsed := time.stop_timer(&mut timer)
+    elapsed := time.stop_timer(MutPtr<Timer>(timer))
     config.verbose ? {
         log.info("Compilation successful!")
         log.info("Total time: " + time.format_duration(elapsed))
-    } : {}
+    } 
     
     return CompileResult.Success
 }
@@ -359,7 +359,7 @@ get_module_name = (path: string) string   {
 }
 
 // Get default output filename
-get_default_output = (config: &CompilerConfig) string   {
+get_default_output = (config: Ptr<CompilerConfig>) string   {
     base_name := get_module_name(config.input_file)
     
     config.output_type ?
@@ -372,8 +372,8 @@ get_default_output = (config: &CompilerConfig) string   {
 
 // Helper function
 int_to_string = (n: i32) string   {
-    n == 0 ? { return "0" } : {}
-    n < 0 ? { return "-" + int_to_string(-n) } : {}
+    n == 0 ? { return "0" } 
+    n < 0 ? { return "-" + int_to_string(-n) } 
     n < 10 ? { return "" + (n + 48) as u8 } : {
         return int_to_string(n / 10) + int_to_string(n % 10)
     }
@@ -397,7 +397,7 @@ main = (argc: i32, argv: DynVec<string>) i32   {
             // Set verbose logging if requested
             config.verbose ? {
                 log.set_level(log.LogLevel.Debug)
-            } : {}
+            } 
             
             // Read source file
             source_result := read_source(config.input_file)
@@ -409,13 +409,13 @@ main = (argc: i32, argv: DynVec<string>) i32   {
                 }
                 | Result<string, string>.Ok(source) {
                     // Compile the source
-                    result := compile(&config, source)
+                    result := compile(Ptr<CompilerConfig>(config), source)
                     
                     result ?
                         | CompileResult.Success {
                             !config.verbose ? {
                                 log.info("Compilation successful")
-                            } : {}
+                            } 
                             return 0
                         }
                         | CompileResult.LexerError(e) {

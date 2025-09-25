@@ -47,7 +47,7 @@ parse = (url_str: string) result.Result<URL, URLError> {
     remaining := url_str
     
     // Parse scheme
-    scheme_result := parse_scheme(&remaining)
+    scheme_result := parse_scheme(Ptr<String>(remaining))
     scheme_result.is_error() ? {
         return result.error(scheme_result.unwrap_error())
     }
@@ -57,7 +57,7 @@ parse = (url_str: string) result.Result<URL, URLError> {
     string.starts_with(remaining, "//") ? {
         remaining = string.slice(remaining, 2, remaining.len())
         
-        authority_result := parse_authority(&remaining)
+        authority_result := parse_authority(Ptr<String>(remaining))
         authority_result.is_error() ? {
             return result.error(authority_result.unwrap_error())
         }
@@ -70,7 +70,7 @@ parse = (url_str: string) result.Result<URL, URLError> {
     }
     
     // Parse path
-    path_result := parse_path(&remaining)
+    path_result := parse_path(Ptr<String>(remaining))
     path_result.is_error() ? {
         return result.error(path_result.unwrap_error())
     }
@@ -78,7 +78,7 @@ parse = (url_str: string) result.Result<URL, URLError> {
     
     // Parse query
     string.contains(remaining, "?") ? {
-        query_result := parse_query(&remaining)
+        query_result := parse_query(Ptr<String>(remaining))
         query_result.is_error() ? {
             return result.error(query_result.unwrap_error())
         }
@@ -87,7 +87,7 @@ parse = (url_str: string) result.Result<URL, URLError> {
     
     // Parse fragment
     string.contains(remaining, "#") ? {
-        fragment_result := parse_fragment(&remaining)
+        fragment_result := parse_fragment(Ptr<String>(remaining))
         fragment_result.is_error() ? {
             return result.error(fragment_result.unwrap_error())
         }

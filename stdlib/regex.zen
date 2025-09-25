@@ -246,7 +246,7 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
     }
     
     node_count == 1 ? | true {
-        return &nodes[0]
+        return Ptr<RegexNode>(nodes[0])
     } | false {
         node := RegexNode:Sequence(nodes, node_count)
         result := allocate_raw(@sizeof(RegexNode)) as *RegexNode
@@ -258,7 +258,7 @@ regex_parse_sequence = (parser: *RegexParser) *RegexNode {
 // Compile regex pattern
 regex_compile = (pattern: RawPtr<i8>) Regex   {
     parser := regex_parser_new(pattern)
-    root := regex_parse_sequence(&parser)
+    root := regex_parse_sequence(Ptr<RegexParser>(parser))
     
     return Regex {
         pattern: pattern,
@@ -357,7 +357,7 @@ regex_match_node = (node: *RegexNode, text: RawPtr<i8>, pos: i32, length: i32) (
         | Sequence(nodes, count) {
             new_pos := pos
             range(0, count).loop((i) {
-                result := regex_match_node(&nodes[i], text, new_pos, length)
+                result := regex_match_node(Ptr<RegexNode>(nodes[i]), text, new_pos, length)
                 result.0 ? | true {
                     new_pos = result.1
                 } | false {

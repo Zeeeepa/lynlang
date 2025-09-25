@@ -157,7 +157,7 @@ read_to_string = (path: string) io.IOResult<string> {
     // Get file size (would use stat)
     // For now, use a fixed buffer
     buffer: [65536]u8
-    bytes_read := io.read(file, &buffer[0], 65536)?
+    bytes_read := io.read(file, Ptr<u8>(buffer[0]), 65536)?
     
     io.IOResult:Ok(string(buffer[0..bytes_read]))
 }
@@ -183,10 +183,10 @@ copy_file = (from: string, to: string) io.IOResult<i64> {
     total_copied := 0i64
     
     loop {
-        bytes_read := io.read(source, &buffer[0], 8192)?
+        bytes_read := io.read(source, Ptr<u8>(buffer[0]), 8192)?
         bytes_read == 0 ? | true { break | false => { }}
         
-        io.write(dest, &buffer[0], bytes_read)?
+        io.write(dest, Ptr<u8>(buffer[0]), bytes_read)?
         total_copied = total_copied + bytes_read
     }
     

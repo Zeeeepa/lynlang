@@ -5794,9 +5794,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Load the nested Result struct
                                 let loaded = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
                                 
-                                // Track the nested generic types for further raise() operations
-                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                // DON'T update Result_Ok_Type here! The loaded value IS a Result<T,E>
+                                // and subsequent raise() calls should handle it as such
+                                // We only update these when we're done with THIS raise, not within the payload loading
                                 
                                 Ok(loaded)
                             }
@@ -5842,6 +5842,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // This can happen if the payload is stored incorrectly
                     ok_value_ptr
                 };
+                // Track what type raise() is extracting
+                // Store the type BEFORE updating the context so variables can be typed correctly
+                let extracted_type = self.generic_type_context.get("Result_Ok_Type").cloned();
+                
+                // Update generic context BEFORE building the branch
+                // If we just extracted a nested generic type, update the context immediately
+                // so that subsequent raise() calls will see the correct type
+                if let Some(ref ast_type) = extracted_type {
+                    if let AstType::Generic { name, type_args } = ast_type {
+                        if name == "Result" && type_args.len() == 2 {
+                            // We're extracting a Result<T,E>, update context for next raise()
+                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                        } else if name == "Option" && type_args.len() == 1 {
+                            self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                        }
+                    }
+                }
+                
+                // Store the extracted type for variable type inference
+                if let Some(extracted) = extracted_type {
+                    self.track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted);
+                }
+                
                 self.builder.build_unconditional_branch(continue_bb)?;
 
                 // Handle Err case - propagate the error by returning early
@@ -5912,6 +5936,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
+                
+                // Context has already been updated before the branch, no need to update again
+                
                 Ok(ok_value)
             } else {
                 // Unit Result (no payload)

@@ -123,7 +123,7 @@ DefaultAllocator := {
 default_allocator: DefaultAllocator = DefaultAllocator{}
 
 get_default_allocator = () Ptr<Allocator> {
-    return @ptrcast(Ptr<Allocator>, &default_allocator)
+    return @ptrcast(Ptr<Allocator>, Ptr<Allocator>(default_allocator))
 }
 
 // ============================================================================

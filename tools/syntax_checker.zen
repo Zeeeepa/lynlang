@@ -181,7 +181,7 @@ check_syntax = (content: string) CheckResult   {
     }
     
     // Final validation
-    validate_final_state(&state)
+    validate_final_state(Ptr<State>(state))
     
     // Return result
     state.error_count > 0 ?

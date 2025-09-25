@@ -238,7 +238,7 @@ gen_expression = (gen: MutPtr<CodeGen>, expr: AstNode) u32   {
 }
 
 // Find variable in symbol table
-find_variable = (gen: &CodeGen, name: string) Option<LocalVar>   {
+find_variable = (gen: Ptr<CodeGen>, name: string) Option<LocalVar>   {
     i := 0
     loop i < vec_len(gen.locals) {
         var := vec_get(gen.locals, i)
