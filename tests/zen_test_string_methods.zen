@@ -1,0 +1,35 @@
+// Test string methods and operations
+{ io } = @std
+{ Option } = @std
+
+main = () void {
+    io.println("=== String Methods Test ===")
+    
+    // Test string interpolation
+    name = "Zen"
+    version = 1
+    message = "Welcome to ${name} v${version}!"
+    io.println(message)
+    
+    // Test string concatenation
+    part1 = "Hello"
+    part2 = "World"
+    // Note: String concatenation might not be implemented yet
+    // combined = part1 + " " + part2
+    
+    // Test string to float conversion  
+    num_str = "42.5"
+    result = num_str.to_f64()
+    result ?
+        | Option.Some(v) { io.println("Parsed: ${v}") }
+        | Option.None { io.println("Failed to parse") }
+    
+    // Test with invalid string
+    invalid = "not_a_number"
+    result2 = invalid.to_f64()
+    result2 ?
+        | Option.Some(v) { io.println("Unexpected: ${v}") }
+        | Option.None { io.println("Correctly failed to parse") }
+    
+    io.println("Test complete!")
+}

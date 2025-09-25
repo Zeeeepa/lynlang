@@ -1,0 +1,41 @@
+// Test nested blocks and scope
+{ io } = @std
+
+main = () void {
+    io.println("=== Nested Blocks Test ===")
+    
+    outer = 10
+    
+    result = {
+        inner = 20
+        value = {
+            nested = 30
+            // Blocks can access outer scope
+            sum = outer + inner + nested
+            sum  // Return the sum
+        }
+        value * 2  // Return doubled value
+    }
+    
+    io.println("Result from nested blocks: ${result}")
+    
+    // Test conditional blocks
+    x = 5
+    message = x > 3 ? 
+        | true { "Greater than 3" }
+        | false { "Not greater" }
+    
+    io.println(message)
+    
+    // Test block with early return
+    compute = (n: i32) i32 {
+        n < 0 ? 
+            | true { 0 }  // Early return for negative
+            | false { n * 2 }  // Normal computation
+    }
+    
+    io.println("compute(-5) = ${compute(-5)}")
+    io.println("compute(7) = ${compute(7)}")
+    
+    io.println("Test complete!")
+}
