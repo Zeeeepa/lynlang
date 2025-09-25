@@ -4505,84 +4505,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.module.add_function("malloc", malloc_type, None)
                             });
                             
-                            // For nested enums, we need to deep copy the payload
-                            // Check if this is an enum struct (2 fields: discriminant + payload)
-                            let is_enum_struct = if let BasicTypeEnum::StructType(st) = struct_type {
-                                st.count_fields() == 2
-                            } else {
-                                false
-                            };
+                            // Calculate size of the struct  
+                            // Enum structs are { i64 tag, ptr payload } = 16 bytes on 64-bit systems
+                            let size = self.context.i64_type().const_int(16, false);
+                            let size_val = size;
+                            let malloc_call = self.builder.build_call(malloc_fn, &[size_val.into()], "heap_enum")?;
+                            let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                             
-                            if is_enum_struct {
-                                let struct_type = struct_type.into_struct_type();
-                                // Create a temp alloca to extract fields
-                                let temp_alloca = self.builder.build_alloca(struct_type, "temp_enum_extract")?;
-                                self.builder.build_store(temp_alloca, compiled)?;
-                                
-                                // Extract discriminant
-                                let disc_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 0, "inner_disc_ptr")?;
-                                let discriminant = self.builder.build_load(self.context.i64_type(), disc_ptr, "inner_discriminant")?;
-                                
-                                // Extract payload pointer
-                                let inner_payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "inner_payload_ptr")?;
-                                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                                let inner_payload = self.builder.build_load(ptr_type, inner_payload_ptr, "inner_payload")?;
-                                
-                                // Allocate heap memory for the new enum struct
-                                let size = self.context.i64_type().const_int(16, false);
-                                let heap_enum_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_enum")?;
-                                let heap_enum = heap_enum_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                                
-                                // Store discriminant to heap enum
-                                let heap_disc_ptr = self.builder.build_struct_gep(struct_type, heap_enum, 0, "heap_disc")?;
-                                self.builder.build_store(heap_disc_ptr, discriminant)?;
-                                
-                                // Check if inner payload is not null and copy it too
-                                let is_null = self.builder.build_is_null(inner_payload.into_pointer_value(), "inner_is_null")?;
-                                let copy_inner_bb = self.context.append_basic_block(self.current_function.unwrap(), "copy_inner_payload");
-                                let skip_inner_bb = self.context.append_basic_block(self.current_function.unwrap(), "skip_inner_payload");
-                                let continue_bb = self.context.append_basic_block(self.current_function.unwrap(), "continue_nested");
-                                
-                                self.builder.build_conditional_branch(is_null, skip_inner_bb, copy_inner_bb)?;
-                                
-                                // Copy inner payload
-                                self.builder.position_at_end(copy_inner_bb);
-                                // Allocate space for inner payload data (8 bytes for primitive types)
-                                let inner_size = self.context.i64_type().const_int(8, false);
-                                let inner_malloc = self.builder.build_call(malloc_fn, &[inner_size.into()], "inner_heap")?;
-                                let new_inner_ptr = inner_malloc.try_as_basic_value().left().unwrap().into_pointer_value();
-                                
-                                // Copy the inner payload value (assume i64 or smaller)
-                                let inner_val = self.builder.build_load(self.context.i64_type(), inner_payload.into_pointer_value(), "inner_value")?;
-                                self.builder.build_store(new_inner_ptr, inner_val)?;
-                                self.builder.build_unconditional_branch(continue_bb)?;
-                                
-                                // Skip inner (null payload)
-                                self.builder.position_at_end(skip_inner_bb);
-                                let null_ptr = ptr_type.const_null();
-                                self.builder.build_unconditional_branch(continue_bb)?;
-                                
-                                // Continue with the correct payload pointer
-                                self.builder.position_at_end(continue_bb);
-                                let phi = self.builder.build_phi(ptr_type, "final_inner_payload")?;
-                                phi.add_incoming(&[
-                                    (&new_inner_ptr.as_basic_value_enum(), copy_inner_bb),
-                                    (&null_ptr.as_basic_value_enum(), skip_inner_bb),
-                                ]);
-                                
-                                // Store the payload pointer to heap enum
-                                let heap_payload_ptr = self.builder.build_struct_gep(struct_type, heap_enum, 1, "heap_payload")?;
-                                self.builder.build_store(heap_payload_ptr, phi.as_basic_value())?;
-                                
-                                heap_enum.into()
-                            } else {
-                                // Not an enum struct, just allocate and copy normally
-                                let size = self.context.i64_type().const_int(16, false);
-                                let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_struct")?;
-                                let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                                self.builder.build_store(heap_ptr, compiled)?;
-                                heap_ptr.into()
-                            }
+                            // Store the struct value to heap memory
+                            self.builder.build_store(heap_ptr, compiled)?;
+                            heap_ptr.into()
                         } else if compiled.is_pointer_value() {
                             compiled
                         } else {
@@ -4673,84 +4605,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.module.add_function("malloc", malloc_type, None)
                             });
                             
-                            // For nested enums, we need to deep copy the payload
-                            // Check if this is an enum struct (2 fields: discriminant + payload)
-                            let is_enum_struct = if let BasicTypeEnum::StructType(st) = struct_type {
-                                st.count_fields() == 2
-                            } else {
-                                false
-                            };
+                            // Calculate size of the struct  
+                            // Enum structs are { i64 tag, ptr payload } = 16 bytes on 64-bit systems
+                            let size = self.context.i64_type().const_int(16, false);
+                            let size_val = size;
+                            let malloc_call = self.builder.build_call(malloc_fn, &[size_val.into()], "heap_enum")?;
+                            let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                             
-                            if is_enum_struct {
-                                let struct_type = struct_type.into_struct_type();
-                                // Create a temp alloca to extract fields
-                                let temp_alloca = self.builder.build_alloca(struct_type, "temp_enum_extract")?;
-                                self.builder.build_store(temp_alloca, compiled)?;
-                                
-                                // Extract discriminant
-                                let disc_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 0, "inner_disc_ptr")?;
-                                let discriminant = self.builder.build_load(self.context.i64_type(), disc_ptr, "inner_discriminant")?;
-                                
-                                // Extract payload pointer
-                                let inner_payload_ptr = self.builder.build_struct_gep(struct_type, temp_alloca, 1, "inner_payload_ptr")?;
-                                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                                let inner_payload = self.builder.build_load(ptr_type, inner_payload_ptr, "inner_payload")?;
-                                
-                                // Allocate heap memory for the new enum struct
-                                let size = self.context.i64_type().const_int(16, false);
-                                let heap_enum_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_enum")?;
-                                let heap_enum = heap_enum_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                                
-                                // Store discriminant to heap enum
-                                let heap_disc_ptr = self.builder.build_struct_gep(struct_type, heap_enum, 0, "heap_disc")?;
-                                self.builder.build_store(heap_disc_ptr, discriminant)?;
-                                
-                                // Check if inner payload is not null and copy it too
-                                let is_null = self.builder.build_is_null(inner_payload.into_pointer_value(), "inner_is_null")?;
-                                let copy_inner_bb = self.context.append_basic_block(self.current_function.unwrap(), "copy_inner_payload");
-                                let skip_inner_bb = self.context.append_basic_block(self.current_function.unwrap(), "skip_inner_payload");
-                                let continue_bb = self.context.append_basic_block(self.current_function.unwrap(), "continue_nested");
-                                
-                                self.builder.build_conditional_branch(is_null, skip_inner_bb, copy_inner_bb)?;
-                                
-                                // Copy inner payload
-                                self.builder.position_at_end(copy_inner_bb);
-                                // Allocate space for inner payload data (8 bytes for primitive types)
-                                let inner_size = self.context.i64_type().const_int(8, false);
-                                let inner_malloc = self.builder.build_call(malloc_fn, &[inner_size.into()], "inner_heap")?;
-                                let new_inner_ptr = inner_malloc.try_as_basic_value().left().unwrap().into_pointer_value();
-                                
-                                // Copy the inner payload value (assume i64 or smaller)
-                                let inner_val = self.builder.build_load(self.context.i64_type(), inner_payload.into_pointer_value(), "inner_value")?;
-                                self.builder.build_store(new_inner_ptr, inner_val)?;
-                                self.builder.build_unconditional_branch(continue_bb)?;
-                                
-                                // Skip inner (null payload)
-                                self.builder.position_at_end(skip_inner_bb);
-                                let null_ptr = ptr_type.const_null();
-                                self.builder.build_unconditional_branch(continue_bb)?;
-                                
-                                // Continue with the correct payload pointer
-                                self.builder.position_at_end(continue_bb);
-                                let phi = self.builder.build_phi(ptr_type, "final_inner_payload")?;
-                                phi.add_incoming(&[
-                                    (&new_inner_ptr.as_basic_value_enum(), copy_inner_bb),
-                                    (&null_ptr.as_basic_value_enum(), skip_inner_bb),
-                                ]);
-                                
-                                // Store the payload pointer to heap enum
-                                let heap_payload_ptr = self.builder.build_struct_gep(struct_type, heap_enum, 1, "heap_payload")?;
-                                self.builder.build_store(heap_payload_ptr, phi.as_basic_value())?;
-                                
-                                heap_enum.into()
-                            } else {
-                                // Not an enum struct, just allocate and copy normally
-                                let size = self.context.i64_type().const_int(16, false);
-                                let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_struct")?;
-                                let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                                self.builder.build_store(heap_ptr, compiled)?;
-                                heap_ptr.into()
-                            }
+                            // Store the struct value to heap memory
+                            self.builder.build_store(heap_ptr, compiled)?;
+                            heap_ptr.into()
                         } else if compiled.is_pointer_value() {
                             compiled
                         } else {
