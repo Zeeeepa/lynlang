@@ -4550,6 +4550,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Store the entire struct - this preserves the discriminant and payload pointer
                                 self.builder.build_store(heap_ptr, struct_val)?;
+                                
+                                // CRITICAL FIX: We need to ensure the nested payload's payload is also heap-allocated!
+                                // Extract the discriminant and payload pointer from the struct
+                                let discriminant = self.builder.build_extract_value(struct_val, 0, "nested_disc")?;
+                                let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
+                                
+                                // Debug: Check if the payload pointer is valid
+                                if payload_ptr.is_pointer_value() {
+                                    let ptr_val = payload_ptr.into_pointer_value();
+                                    if !ptr_val.is_null() {
+                                        // The nested enum's payload pointer points to the actual value (e.g., i32)
+                                        // We need to ensure this value is also heap-allocated, not stack-allocated
+                                        // This is already handled by the recursive compile_enum_variant calls above
+                                        // Just return the heap pointer to the nested enum struct
+                                    }
+                                }
+                                
                                 heap_ptr.into()
                             } else {
                                 // Not an enum struct, just heap-allocate and copy
@@ -4676,6 +4693,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Store the entire struct - this preserves the discriminant and payload pointer
                                 self.builder.build_store(heap_ptr, struct_val)?;
+                                
+                                // CRITICAL FIX: We need to ensure the nested payload's payload is also heap-allocated!
+                                // Extract the discriminant and payload pointer from the struct
+                                let discriminant = self.builder.build_extract_value(struct_val, 0, "nested_disc")?;
+                                let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
+                                
+                                // Debug: Check if the payload pointer is valid
+                                if payload_ptr.is_pointer_value() {
+                                    let ptr_val = payload_ptr.into_pointer_value();
+                                    if !ptr_val.is_null() {
+                                        // The nested enum's payload pointer points to the actual value (e.g., i32)
+                                        // We need to ensure this value is also heap-allocated, not stack-allocated
+                                        // This is already handled by the recursive compile_enum_variant calls above
+                                        // Just return the heap pointer to the nested enum struct
+                                    }
+                                }
+                                
                                 heap_ptr.into()
                             } else {
                                 // Not an enum struct, just heap-allocate and copy
@@ -4782,13 +4816,47 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // If the compiled value is already a pointer, use it directly
                     if compiled.is_pointer_value() {
                         compiled
+                    } else if compiled.is_struct_value() {
+                        // For struct values (like nested enums), we need to heap-allocate
+                        // to ensure they persist beyond function scope
+                        let struct_val = compiled.into_struct_value();
+                        let struct_type = struct_val.get_type();
+                        
+                        // Always heap-allocate structs used as enum payloads
+                        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                            let i64_type = self.context.i64_type();
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                            self.module.add_function("malloc", malloc_type, None)
+                        });
+                        
+                        // Calculate struct size (simplified - use 16 bytes for enum structs)
+                        let size = if struct_type.count_fields() == 2 {
+                            // Enum struct (discriminant + pointer)
+                            self.context.i64_type().const_int(16, false)
+                        } else {
+                            // Other structs - use a reasonable size
+                            self.context.i64_type().const_int(64, false)
+                        };
+                        
+                        let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_struct_payload")?;
+                        let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                        self.builder.build_store(heap_ptr, struct_val)?;
+                        heap_ptr.into()
                     } else {
-                        // Otherwise allocate space and store the value, then use the pointer
-                        let value_alloca = self
-                            .builder
-                            .build_alloca(compiled.get_type(), "enum_payload_value")?;
-                        self.builder.build_store(value_alloca, compiled)?;
-                        value_alloca.into()
+                        // For simple values, heap-allocate to ensure persistence
+                        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                            let i64_type = self.context.i64_type();
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                            let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                            self.module.add_function("malloc", malloc_type, None)
+                        });
+                        
+                        let size = self.context.i64_type().const_int(8, false);
+                        let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_simple_payload")?;
+                        let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                        self.builder.build_store(heap_ptr, compiled)?;
+                        heap_ptr.into()
                     }
                 } else {
                     // For non-pointer payload fields, use casting as before

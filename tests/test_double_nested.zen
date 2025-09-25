@@ -1,0 +1,45 @@
+// Test doubly nested generics Result<Result<T,E>, E2>
+{ io } = @std
+{ Result } = @std
+
+main = () void {
+    io.println("=== Testing Result<Result<T,E>, E2> ===")
+    
+    // Test 1: Inline creation
+    io.println("\nTest 1: Inline")
+    inline = Result.Ok(Result.Ok(42))
+    inline ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("  Got: ${v}") }
+                | Result.Err(e) { io.println("  Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Outer error: ${e}") }
+    
+    // Test 2: With variable
+    io.println("\nTest 2: Variable")
+    inner2 = Result.Ok(42)
+    outer2 = Result.Ok(inner2)
+    outer2 ?
+        | Result.Ok(res) {
+            res ?
+                | Result.Ok(v) { io.println("  Got: ${v}") }
+                | Result.Err(e) { io.println("  Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Outer error: ${e}") }
+    
+    // Test 3: Function return
+    io.println("\nTest 3: Function")
+    get_double = () Result<Result<i32, string>, string> {
+        return Result.Ok(Result.Ok(99))
+    }
+    
+    result = get_double()
+    result ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("  Got: ${v}") }
+                | Result.Err(e) { io.println("  Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Outer error: ${e}") }
+}
