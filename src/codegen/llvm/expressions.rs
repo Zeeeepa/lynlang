@@ -486,6 +486,64 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 .insert("Option_Some_Type".to_string(), crate::ast::AstType::F64);
                             return Ok(result);
                         }
+                        "substr" => {
+                            // string.substr(start, length) - extract substring
+                            if args.len() != 2 {
+                                return Err(CompileError::TypeError(
+                                    format!("substr expects 2 arguments, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Compile the arguments
+                            let start = self.compile_expression(&args[0])?;
+                            let length = self.compile_expression(&args[1])?;
+                            
+                            // Convert to i64 if needed
+                            let start_i64 = match start {
+                                BasicValueEnum::IntValue(i) => {
+                                    if i.get_type().get_bit_width() < 64 {
+                                        self.builder.build_int_s_extend(i, self.context.i64_type(), "start_ext")?
+                                    } else {
+                                        i
+                                    }
+                                }
+                                _ => return Err(CompileError::TypeError(
+                                    "substr start argument must be an integer".to_string(),
+                                    None,
+                                ))
+                            };
+                            
+                            let length_i64 = match length {
+                                BasicValueEnum::IntValue(i) => {
+                                    if i.get_type().get_bit_width() < 64 {
+                                        self.builder.build_int_s_extend(i, self.context.i64_type(), "length_ext")?
+                                    } else {
+                                        i
+                                    }
+                                }
+                                _ => return Err(CompileError::TypeError(
+                                    "substr length argument must be an integer".to_string(),
+                                    None,
+                                ))
+                            };
+                            
+                            // Call the runtime string_substr function
+                            let func = self.get_or_create_runtime_function("string_substr")?;
+                            let result = self
+                                .builder
+                                .build_call(
+                                    func, 
+                                    &[object_value.into(), start_i64.into(), length_i64.into()], 
+                                    "substr_result"
+                                )?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError("string_substr did not return a value".to_string(), None)
+                                })?;
+                            return Ok(result);
+                        }
                         "to_i32" => {
                             let func = self.get_or_create_runtime_function("string_to_i32")?;
                             let result = self

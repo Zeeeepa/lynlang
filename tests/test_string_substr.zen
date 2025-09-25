@@ -1,0 +1,116 @@
+// Test string.substr() method
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing string.substr() method...")
+    
+    // Test 1: Basic substring extraction
+    text = "Hello, World!"
+    sub1 = text.substr(0, 5)
+    io.println("Substring (0, 5) of 'Hello, World!': '${sub1}'")
+    sub1_len: i64 = sub1.len()
+    expected1: i64 = 5
+    sub1_len == expected1 ? {
+        io.println("✓ Basic substring test passed (length check)")
+    }
+    sub1_len != expected1 ? {
+        io.println("✗ Basic substring test failed: expected length 5, got ${sub1_len}")
+        return 1
+    }
+    
+    // Test 2: Middle substring extraction
+    sub2 = text.substr(7, 5)
+    io.println("Substring (7, 5) of 'Hello, World!': '${sub2}'")
+    sub2_len: i64 = sub2.len()
+    expected2: i64 = 5
+    sub2_len == expected2 ? {
+        io.println("✓ Middle substring test passed (length check)")
+    }
+    sub2_len != expected2 ? {
+        io.println("✗ Middle substring test failed: expected length 5, got ${sub2_len}")
+        return 1
+    }
+    
+    // Test 3: Single character extraction
+    sub3 = text.substr(6, 1)
+    io.println("Substring (6, 1) of 'Hello, World!': '${sub3}'")
+    sub3_len: i64 = sub3.len()
+    expected3: i64 = 1
+    sub3_len == expected3 ? {
+        io.println("✓ Single character test passed")
+    }
+    sub3_len != expected3 ? {
+        io.println("✗ Single character test failed: expected length 1, got ${sub3_len}")
+        return 1
+    }
+    
+    // Test 4: Empty substring (length 0)
+    sub4 = text.substr(0, 0)
+    io.println("Substring (0, 0) of 'Hello, World!': '${sub4}'")
+    sub4_len: i64 = sub4.len()
+    expected4: i64 = 0
+    sub4_len == expected4 ? {
+        io.println("✓ Empty substring test passed")
+    }
+    sub4_len != expected4 ? {
+        io.println("✗ Empty substring test failed: expected length 0, got ${sub4_len}")
+        return 1
+    }
+    
+    // Test 5: String literal direct call
+    sub5 = "Testing".substr(1, 3)
+    io.println("Substring (1, 3) of 'Testing': '${sub5}'")
+    sub5_len: i64 = sub5.len()
+    expected5: i64 = 3
+    sub5_len == expected5 ? {
+        io.println("✓ String literal test passed")
+    }
+    sub5_len != expected5 ? {
+        io.println("✗ String literal test failed: expected length 3, got ${sub5_len}")
+        return 1
+    }
+    
+    // Test 6: Full string extraction
+    full_text = "Complete"
+    full_len_var: i64 = full_text.len()
+    sub6 = full_text.substr(0, full_len_var)
+    io.println("Full substring of 'Complete': '${sub6}'")
+    sub6_len: i64 = sub6.len()
+    sub6_len == full_len_var ? {
+        io.println("✓ Full string extraction test passed")
+    }
+    sub6_len != full_len_var ? {
+        io.println("✗ Full string extraction test failed: expected length ${full_len_var}, got ${sub6_len}")
+        return 1
+    }
+    
+    // Test 7: Chained operations
+    chain_result = "Hello, World!".substr(0, 5).len()
+    io.println("Length of 'Hello, World!'.substr(0, 5): ${chain_result}")
+    expected7: i64 = 5
+    chain_result == expected7 ? {
+        io.println("✓ Chained operations test passed")
+    }
+    chain_result != expected7 ? {
+        io.println("✗ Chained operations test failed: expected 5, got ${chain_result}")
+        return 1
+    }
+    
+    // Test 8: Using i32 arguments (should be auto-converted to i64)
+    start_i32: i32 = 2
+    length_i32: i32 = 4
+    sub8 = text.substr(start_i32, length_i32)
+    io.println("Substring with i32 args (2, 4) of 'Hello, World!': '${sub8}'")
+    sub8_len: i64 = sub8.len()
+    expected8: i64 = 4
+    sub8_len == expected8 ? {
+        io.println("✓ i32 arguments test passed")
+    }
+    sub8_len != expected8 ? {
+        io.println("✗ i32 arguments test failed: expected length 4, got ${sub8_len}")
+        return 1
+    }
+    
+    io.println("\n✓ All string.substr() tests passed!")
+    return 0
+}

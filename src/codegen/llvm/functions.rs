@@ -931,6 +931,145 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 Ok(func)
             }
+            "string_substr" => {
+                // string_substr(str: *const i8, start: i64, length: i64) -> *const i8
+                // Returns a substring starting at 'start' with 'length' characters
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let i64_type = self.context.i64_type();
+                let fn_type = string_type.fn_type(
+                    &[string_type.into(), i64_type.into(), i64_type.into()], 
+                    false
+                );
+                let func = self
+                    .module
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the parameters
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                let start_param = func.get_nth_param(1).unwrap().into_int_value();
+                let length_param = func.get_nth_param(2).unwrap().into_int_value();
+                
+                // Allocate memory for the substring (length + 1 for null terminator)
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let size_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[size_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
+                });
+                
+                // Allocate length + 1 bytes
+                let one = self.context.i64_type().const_int(1, false);
+                let alloc_size = self.builder.build_int_add(length_param, one, "alloc_size")?;
+                let new_str = self.builder.build_call(
+                    malloc_fn,
+                    &[alloc_size.into()],
+                    "malloc_result"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Create loop to copy characters
+                let copy_block = self.context.append_basic_block(func, "copy_loop");
+                let copy_check = self.context.append_basic_block(func, "copy_check");
+                let copy_done = self.context.append_basic_block(func, "copy_done");
+                
+                // Initialize loop counter
+                let counter_alloca = self.builder.build_alloca(i64_type, "counter")?;
+                let zero = i64_type.const_int(0, false);
+                self.builder.build_store(counter_alloca, zero)?;
+                
+                // Jump to check block
+                self.builder.build_unconditional_branch(copy_check)?;
+                
+                // Check block: counter < length
+                self.builder.position_at_end(copy_check);
+                let counter = self.builder.build_load(i64_type, counter_alloca, "counter_val")?;
+                let should_continue = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLT,
+                    counter.into_int_value(),
+                    length_param,
+                    "should_continue"
+                )?;
+                self.builder.build_conditional_branch(should_continue, copy_block, copy_done)?;
+                
+                // Copy block: copy character from source to dest
+                self.builder.position_at_end(copy_block);
+                let current_counter = self.builder.build_load(i64_type, counter_alloca, "current_counter")?;
+                
+                // Calculate source index (start + counter)
+                let src_index = self.builder.build_int_add(
+                    start_param, 
+                    current_counter.into_int_value(),
+                    "src_index"
+                )?;
+                
+                // Get pointer to source character
+                let src_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        self.context.i8_type(),
+                        str_param,
+                        &[src_index],
+                        "src_ptr"
+                    )?
+                };
+                
+                // Get pointer to dest character
+                let dest_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        self.context.i8_type(),
+                        new_str,
+                        &[current_counter.into_int_value()],
+                        "dest_ptr"
+                    )?
+                };
+                
+                // Load character from source and store to dest
+                let char_val = self.builder.build_load(self.context.i8_type(), src_ptr, "char_val")?;
+                self.builder.build_store(dest_ptr, char_val)?;
+                
+                // Increment counter
+                let one = i64_type.const_int(1, false);
+                let next_counter = self.builder.build_int_add(
+                    current_counter.into_int_value(),
+                    one,
+                    "next_counter"
+                )?;
+                self.builder.build_store(counter_alloca, next_counter)?;
+                
+                // Jump back to check
+                self.builder.build_unconditional_branch(copy_check)?;
+                
+                // Done block: add null terminator and return
+                self.builder.position_at_end(copy_done);
+                let null_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        self.context.i8_type(),
+                        new_str,
+                        &[length_param],
+                        "null_ptr"
+                    )?
+                };
+                let null_char = self.context.i8_type().const_int(0, false);
+                self.builder.build_store(null_ptr, null_char)?;
+                
+                // Return the new string
+                self.builder.build_return(Some(&new_str))?;
+                
+                // Restore position
+                self.current_function = current_fn;
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
             "string_to_i32" => {
                 let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_i32_type = self.context.struct_type(
