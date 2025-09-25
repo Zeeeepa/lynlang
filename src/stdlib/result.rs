@@ -1,6 +1,7 @@
 use crate::ast::{AstType, EnumVariant, Expression, Pattern};
 
 /// Result<T, E> type for error handling
+#[allow(dead_code)]
 pub fn create_result_type() -> AstType {
     AstType::Enum {
         name: "Result".to_string(),
@@ -24,6 +25,7 @@ pub fn create_result_type() -> AstType {
 }
 
 /// Option<T> type for nullable values
+#[allow(dead_code)]
 pub fn create_option_type() -> AstType {
     AstType::Enum {
         name: "Option".to_string(),
@@ -74,6 +76,7 @@ pub fn some_value(value: Expression) -> Expression {
 }
 
 /// Helper to create a None variant
+#[allow(dead_code)]
 pub fn none_value() -> Expression {
     Expression::EnumVariant {
         enum_name: "Option".to_string(),
@@ -83,6 +86,7 @@ pub fn none_value() -> Expression {
 }
 
 /// Pattern for matching Ok(value)
+#[allow(dead_code)]
 pub fn ok_pattern(binding: Option<String>) -> Pattern {
     Pattern::EnumVariant {
         enum_name: "Result".to_string(),
@@ -92,6 +96,7 @@ pub fn ok_pattern(binding: Option<String>) -> Pattern {
 }
 
 /// Pattern for matching Err(error)
+#[allow(dead_code)]
 pub fn err_pattern(binding: Option<String>) -> Pattern {
     Pattern::EnumVariant {
         enum_name: "Result".to_string(),
@@ -101,6 +106,7 @@ pub fn err_pattern(binding: Option<String>) -> Pattern {
 }
 
 /// Pattern for matching Some(value)
+#[allow(dead_code)]
 pub fn some_pattern(binding: Option<String>) -> Pattern {
     Pattern::EnumVariant {
         enum_name: "Option".to_string(),
@@ -110,6 +116,7 @@ pub fn some_pattern(binding: Option<String>) -> Pattern {
 }
 
 /// Pattern for matching None
+#[allow(dead_code)]
 pub fn none_pattern() -> Pattern {
     Pattern::EnumVariant {
         enum_name: "Option".to_string(),
