@@ -569,9 +569,61 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     BasicValueEnum::PointerValue(_) => {
                                         AstType::Ptr(Box::new(AstType::I8))
                                     }
-                                    BasicValueEnum::StructValue(_) => {
-                                        // For struct values, default to I32 unless we can determine more
-                                        AstType::I32
+                                    BasicValueEnum::StructValue(struct_val) => {
+                                        // For struct values that are enums (Option, Result), check their structure
+                                        let struct_type = struct_val.get_type();
+                                        if struct_type.count_fields() == 2 {
+                                            // This might be an enum struct (tag + payload)
+                                            // Check if it's an Option or Result by examining the method name
+                                            if method == "get" {
+                                                // HashMap.get returns Option<V>
+                                                // Try to get the value type from the object type
+                                                if let Expression::Identifier(obj_name) = &**object {
+                                                    if let Some(var_info) = self.variables.get(obj_name) {
+                                                        if let AstType::Generic { name, type_args, .. } = &var_info.ast_type {
+                                                            if name == "HashMap" && type_args.len() >= 2 {
+                                                                // Return Option<V> where V is the value type
+                                                                AstType::Generic {
+                                                                    name: "Option".to_string(),
+                                                                    type_args: vec![type_args[1].clone()],
+                                                                }
+                                                            } else {
+                                                                // Not a HashMap, default to Option<i32>
+                                                                AstType::Generic {
+                                                                    name: "Option".to_string(),
+                                                                    type_args: vec![AstType::I32],
+                                                                }
+                                                            }
+                                                        } else {
+                                                            // No generic type info, default to Option<i32>
+                                                            AstType::Generic {
+                                                                name: "Option".to_string(),
+                                                                type_args: vec![AstType::I32],
+                                                            }
+                                                        }
+                                                    } else {
+                                                        // Variable not found, default to Option<i32>
+                                                        AstType::Generic {
+                                                            name: "Option".to_string(),
+                                                            type_args: vec![AstType::I32],
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Object is not an identifier, default to Option<i32>
+                                                    AstType::Generic {
+                                                        name: "Option".to_string(),
+                                                        type_args: vec![AstType::I32],
+                                                    }
+                                                }
+                                            } else {
+                                                // For other methods returning structs, try to determine from context
+                                                // For now, default to I32
+                                                AstType::I32
+                                            }
+                                        } else {
+                                            // Not an enum struct, default to I32
+                                            AstType::I32
+                                        }
                                     }
                                     _ => AstType::I64,
                                 }

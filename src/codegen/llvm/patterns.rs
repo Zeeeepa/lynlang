@@ -332,7 +332,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Check if we have type information for this enum
                                 let load_type = if enum_name == "Option" && variant == "Some" {
                                     let t = self.generic_type_context.get("Option_Some_Type").cloned();
-                                    // eprintln!("[DEBUG-ENUM] Pattern matching Option.Some, enum_name={}, variant={}, context={:?}", enum_name, variant, t);
                                     t
                                 } else if enum_name == "Result" {
                                     if variant == "Ok" {
@@ -370,14 +369,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 "payload_i16",
                                             )
                                             .unwrap_or(loaded_payload),
-                                        AstType::I32 => self
-                                            .builder
-                                            .build_load(
-                                                self.context.i32_type(),
-                                                ptr_val,
-                                                "payload_i32",
-                                            )
-                                            .unwrap_or(loaded_payload),
+                                        AstType::I32 => {
+                                            let loaded_i32 = self
+                                                .builder
+                                                .build_load(
+                                                    self.context.i32_type(),
+                                                    ptr_val,
+                                                    "payload_i32",
+                                                )
+                                                .unwrap_or(loaded_payload);
+                                            loaded_i32
+                                        }
                                         AstType::I64 => self
                                             .builder
                                             .build_load(
@@ -502,7 +504,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Check if we have type information for this enum
                                 let load_type = if enum_name == "Option" && variant == "Some" {
                                     let t = self.generic_type_context.get("Option_Some_Type").cloned();
-                                    // eprintln!("[DEBUG-ENUM] Pattern matching Option.Some, enum_name={}, variant={}, context={:?}", enum_name, variant, t);
                                     t
                                 } else if enum_name == "Result" {
                                     if variant == "Ok" {
@@ -535,14 +536,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 "payload_i16",
                                             )
                                             .unwrap_or(extracted),
-                                        AstType::I32 => self
-                                            .builder
-                                            .build_load(
-                                                self.context.i32_type(),
-                                                ptr_val,
-                                                "payload_i32",
-                                            )
-                                            .unwrap_or(extracted),
+                                        AstType::I32 => {
+                                            let loaded = self
+                                                .builder
+                                                .build_load(
+                                                    self.context.i32_type(),
+                                                    ptr_val,
+                                                    "payload_i32",
+                                                )
+                                                .unwrap_or(extracted);
+                                            loaded
+                                        }
                                         AstType::I64 => self
                                             .builder
                                             .build_load(
@@ -1276,7 +1280,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         bindings: &[(String, BasicValueEnum<'ctx>)],
     ) -> HashMap<String, super::VariableInfo<'ctx>> {
-        // eprintln!("DEBUG: apply_pattern_bindings called with {} bindings", bindings.len());
         let mut saved = HashMap::new();
 
         for (name, value) in bindings {

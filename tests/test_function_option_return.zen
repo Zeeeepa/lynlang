@@ -1,0 +1,20 @@
+// Test Option returned from function
+{ io, Option } = @std
+
+get_option = () Option<i32> {
+    return Option.Some(456)
+}
+
+main = () i32 {
+    result ::= get_option()
+    
+    result ?
+        | Option.Some(val) { 
+            io.println("val = ${val}")
+            return 0
+        }
+        | Option.None { 
+            io.println("None")
+            return 1
+        }
+}

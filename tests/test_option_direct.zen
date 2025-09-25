@@ -1,0 +1,16 @@
+// Direct test of Option pattern matching
+{ io, Option } = @std
+
+main = () i32 {
+    test ::= Option.Some(123)
+    
+    test ?
+        | Option.Some(x) { 
+            io.println("x = ${x}")
+            return 0
+        }
+        | Option.None { 
+            io.println("None")
+            return 1
+        }
+}

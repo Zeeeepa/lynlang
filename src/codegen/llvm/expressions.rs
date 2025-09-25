@@ -2125,7 +2125,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "capacity"
                                 )?.into_int_value();
                                 
-                                eprintln!("[DEBUG HashMap.get] Hash value calculated, getting bucket index");
                                 // Calculate bucket index: hash % capacity
                                 let bucket_index = self.builder.build_int_unsigned_rem(
                                     hash_value.into_int_value(),
@@ -2183,7 +2182,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "occupied"
                                 )?.into_int_value();
                                 
-                                eprintln!("[DEBUG HashMap.get] Bucket occupied check");
                                 
                                 let is_occupied = self.builder.build_int_compare(
                                     inkwell::IntPredicate::NE,
@@ -2262,18 +2260,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let (actual_value, value_type) = if let Some(var_info) = self.variables.get(obj_name) {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() >= 2 {
-                                            eprintln!("[DEBUG HashMap.get] Value type: {:?}", type_args[1]);
                                             match &type_args[1] {
                                                 AstType::I32 => {
                                                     // Value was stored as a pointer to i32, dereference it
-                                                    eprintln!("[DEBUG HashMap.get] Dereferencing i32 pointer, ptr value = {:?}", stored_value_or_ptr);
                                                     
                                                     // Check if pointer is valid (non-zero)
                                                     if stored_value_or_ptr.is_const() {
                                                         let const_val = stored_value_or_ptr.get_zero_extended_constant();
-                                                        eprintln!("[DEBUG HashMap.get] Const pointer value: {:?}", const_val);
                                                         if const_val == Some(0) {
-                                                            eprintln!("[DEBUG HashMap.get] WARNING: Pointer is null!");
                                                             (self.context.i32_type().const_int(0, false).into(), AstType::I32)
                                                         } else {
                                                             let value_ptr = self.builder.build_int_to_ptr(
@@ -2299,7 +2293,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                             value_ptr,
                                                             "loaded_i32"
                                                         )?;
-                                                        eprintln!("[DEBUG HashMap.get] Successfully loaded i32 value: {:?}", loaded_i32);
                                                         (loaded_i32, AstType::I32)
                                                     }
                                                 }
@@ -2325,7 +2318,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Create the Option::Some variant with the actual value
                                 let some_value = match value_type {
                                     AstType::I32 => {
-                                        // actual_value is already an i32
+                                        // actual_value is an i32, but Option payload field expects a pointer
+                                        // Allocate space for the i32 and store pointer to it
+                                        let i32_alloca = self.builder.build_alloca(self.context.i32_type(), "i32_payload_storage")?;
+                                        self.builder.build_store(i32_alloca, actual_value)?;
+                                        
                                         let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
                                         let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
                                         let disc_ptr = self.builder.build_struct_gep(
@@ -2341,10 +2338,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             1,
                                             "payload_ptr"
                                         )?;
-                                        eprintln!("[DEBUG HashMap.get] Storing to Option payload: {:?}", actual_value);
-                                        self.builder.build_store(payload_ptr, actual_value)?;
+                                        self.builder.build_store(payload_ptr, i32_alloca)?;
                                         let loaded_option = self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?;
-                                        eprintln!("[DEBUG HashMap.get] Created Option::Some: {:?}", loaded_option);
                                         loaded_option
                                     }
                                     _ => {
@@ -2383,7 +2378,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             match &type_args[1] {
                                                 AstType::I32 => {
                                                     self.generic_type_context.insert("Option_Some_Type".to_string(), AstType::I32);
-                                                    eprintln!("[DEBUG HashMap.get] Set Option_Some_Type to i32");
                                                 }
                                                 AstType::I64 => {
                                                     self.generic_type_context.insert("Option_Some_Type".to_string(), AstType::I64);
@@ -3250,10 +3244,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(merge_bb)?;
                 let match_bb_end = self.builder.get_insert_block().unwrap();
                 // Save value and block for phi node only if we branch to merge
-                // eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
             } else {
-                // eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
             }
 
             // Position at the next test block for the next iteration
@@ -3990,10 +3982,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 self.builder.build_unconditional_branch(merge_bb)?;
                 let match_bb_end = self.builder.get_insert_block().unwrap();
                 // Save value and block for phi node only if we branch to merge
-                // eprintln!("DEBUG: Adding PHI value with type: {:?}", arm_val.get_type());
                 phi_values.push((arm_val, match_bb_end));
             } else {
-                // eprintln!("DEBUG: Arm {} has terminator, not adding to phi_values", i);
             }
 
             // Position at the next test block for the next iteration
@@ -4072,11 +4062,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         };
 
         for (value, _) in &phi_values {
-            // eprintln!("DEBUG: PHI value type: {:?}", value.get_type());
             if value.is_int_value() {
                 let int_val = value.into_int_value();
                 let width = int_val.get_type().get_bit_width();
-                // eprintln!("DEBUG: Integer value with width: {}", width);
                 max_int_width = max_int_width.max(width);
             } else {
                 has_non_int = true;
@@ -4084,7 +4072,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
 
         // Normalize integer values if needed
-        // eprintln!("DEBUG: Normalizing values - has_non_int: {}, max_int_width: {}", has_non_int, max_int_width);
         let normalized_values: Vec<(BasicValueEnum<'ctx>, inkwell::basic_block::BasicBlock<'ctx>)> =
             if !has_non_int && max_int_width > 0 {
                 // All values are integers, cast them to the widest type
@@ -5383,7 +5370,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Expression::Identifier(name) = collection {
             // Look up the variable to see if it's a Range type
             if let Some(var_info) = self.variables.get(name).cloned() {
-                // eprintln!("DEBUG: Variable {} has type {:?}", name, var_info.ast_type);
                 if let AstType::Range {  .. } = &var_info.ast_type {
                     // We need to extract the range values from the stored struct
                     // Load the range struct
