@@ -1,0 +1,16 @@
+// Test basic Array operations
+{ io, Array } = @std
+
+main = () i32 {
+    io.println("Testing Array operations...")
+    
+    // Try creating an array
+    arr ::= Array.new(10, 0)
+    io.println("Array created")
+    
+    // Try to get array length
+    // len ::= arr.len()
+    // io.println("Array length: ${len}")
+    
+    return 0
+}

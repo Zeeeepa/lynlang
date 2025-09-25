@@ -1,0 +1,16 @@
+// Test char_at type issue
+{ io } = @std
+
+main = () i32 {
+    s ::= "test"
+    
+    // Test basic char_at
+    c ::= s.char_at(0)
+    io.println("char_at(0) = ${c}")
+    
+    // Test type of c by using in arithmetic
+    val ::= c + 10
+    io.println("c + 10 = ${val}")
+    
+    return 0
+}

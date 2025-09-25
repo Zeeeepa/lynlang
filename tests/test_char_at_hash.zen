@@ -1,0 +1,20 @@
+// Test char_at in hash function
+{ io } = @std
+
+main = () i32 {
+    s ::= "test"
+    
+    // Test basic char_at
+    c ::= s.char_at(0)
+    io.println("char_at(0) = ${c}")
+    
+    // Test arithmetic with char value
+    hash ::= 5381
+    temp ::= hash * 32
+    
+    // Try adding char value to hash
+    result ::= temp + hash + c
+    io.println("Hash calculation: ${result}")
+    
+    return 0
+}

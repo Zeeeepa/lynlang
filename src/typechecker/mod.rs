@@ -1056,6 +1056,8 @@ impl TypeChecker {
                                 type_args: vec![AstType::F64],
                             })
                         }
+                        "substr" => return Ok(AstType::String),
+                        "char_at" => return Ok(AstType::I32),
                         _ => {}
                     }
                 }

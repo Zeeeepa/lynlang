@@ -1070,6 +1070,67 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 Ok(func)
             }
+            "string_char_at" => {
+                // string_char_at(str: *const i8, index: i64) -> i32
+                // Returns the character (as i32) at the given index
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let i64_type = self.context.i64_type();
+                let fn_type = self.context.i32_type().fn_type(
+                    &[string_type.into(), i64_type.into()], 
+                    false
+                );
+                let func = self
+                    .module
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the parameters
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                let index_param = func.get_nth_param(1).unwrap().into_int_value();
+                
+                // Get the character at the index using pointer arithmetic
+                let char_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i8_type(),
+                        str_param,
+                        &[index_param],
+                        "char_ptr"
+                    )?
+                };
+                
+                // Load the character value
+                let char_value = self.builder.build_load(
+                    self.context.i8_type(),
+                    char_ptr,
+                    "char_value"
+                )?.into_int_value();
+                
+                // Convert i8 to i32 by zero extension (since char values are unsigned)
+                let char_i32 = self.builder.build_int_z_extend(
+                    char_value,
+                    self.context.i32_type(),
+                    "char_i32"
+                )?;
+                
+                // Return the character as i32
+                self.builder.build_return(Some(&char_i32))?;
+                
+                // Restore position
+                self.current_function = current_fn;
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
             "string_to_i32" => {
                 let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_i32_type = self.context.struct_type(

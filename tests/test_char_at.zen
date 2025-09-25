@@ -1,0 +1,22 @@
+// Test string.char_at() method
+{ io } = @std
+
+main = () i32 {
+    s ::= "Hello"
+    
+    // Test char_at
+    c0 ::= s.char_at(0)
+    io.println("char_at(0): ${c0}")  // Should print 72 (H)
+    
+    c1 ::= s.char_at(1)
+    io.println("char_at(1): ${c1}")  // Should print 101 (e)
+    
+    c4 ::= s.char_at(4)
+    io.println("char_at(4): ${c4}")  // Should print 111 (o)
+    
+    // Test with string literal
+    direct ::= "World".char_at(0)
+    io.println("World[0]: ${direct}")  // Should print 87 (W)
+    
+    return 0
+}

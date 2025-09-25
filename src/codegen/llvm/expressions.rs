@@ -545,6 +545,49 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 })?;
                             return Ok(result);
                         }
+                        "char_at" => {
+                            // string.char_at(index) - get character at index
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("char_at expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Compile the index argument
+                            let index = self.compile_expression(&args[0])?;
+                            
+                            // Convert to i64 if needed
+                            let index_i64 = match index {
+                                BasicValueEnum::IntValue(i) => {
+                                    if i.get_type().get_bit_width() < 64 {
+                                        self.builder.build_int_s_extend(i, self.context.i64_type(), "index_ext")?
+                                    } else {
+                                        i
+                                    }
+                                }
+                                _ => return Err(CompileError::TypeError(
+                                    "char_at index argument must be an integer".to_string(),
+                                    None,
+                                ))
+                            };
+                            
+                            // Call the runtime string_char_at function
+                            let func = self.get_or_create_runtime_function("string_char_at")?;
+                            let result = self
+                                .builder
+                                .build_call(
+                                    func, 
+                                    &[object_value.into(), index_i64.into()], 
+                                    "char_at_result"
+                                )?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError("string_char_at did not return a value".to_string(), None)
+                                })?;
+                            return Ok(result);
+                        }
                         "to_i32" => {
                             let func = self.get_or_create_runtime_function("string_to_i32")?;
                             let result = self
