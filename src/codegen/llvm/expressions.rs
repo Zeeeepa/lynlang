@@ -135,6 +135,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(AstType::Void)
                 }
             }
+            Expression::MethodCall { object, method, .. } => {
+                // Special handling for .raise() method which extracts T from Result<T,E>
+                if method == "raise" {
+                    // Get the type of the object being raised
+                    let object_type = self.infer_expression_type(object)?;
+                    
+                    // If it's Result<T,E>, return T
+                    if let AstType::Generic { name, type_args } = object_type {
+                        if name == "Result" && type_args.len() == 2 {
+                            // The raise() method returns the Ok type (T) from Result<T,E>
+                            return Ok(type_args[0].clone());
+                        }
+                    }
+                    // If not a Result type, return Void (will error during compilation)
+                    Ok(AstType::Void)
+                } else {
+                    // For other methods, we'll need more context
+                    // For now, return Void
+                    Ok(AstType::Void)
+                }
+            }
             _ => Ok(AstType::Void),
         }
     }
@@ -5992,6 +6013,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Compile the expression that should return a Result<T, E>
         let result_value = self.compile_expression(expr)?;
+        // eprintln!("[DEBUG RAISE] Result value type: {:?}, is_struct: {}", 
+        //           result_value.get_type(), 
+        //           result_value.is_struct_value());
         
         // Track the Result's generic types based on the expression type
         match expr {

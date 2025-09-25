@@ -584,6 +584,60 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 } else {
                                     AstType::I32
                                 }
+                            } else if method == "raise" {
+                                // For .raise() method, we need to extract the Ok type from Result<T,E>
+                                // First, get the type of the object being raised
+                                let object_type = self.infer_expression_type(object).unwrap_or(AstType::Void);
+                                // eprintln!("[DEBUG] Inferred type for raise object: {:?}", object_type);
+                                
+                                // If it's Result<T,E>, the raise() returns T
+                                if let AstType::Generic { name, type_args } = &object_type {
+                                    if name == "Result" && type_args.len() == 2 {
+                                        // The raise() method returns the Ok type (T) from Result<T,E>
+                                        let extracted_type = type_args[0].clone();
+                                        // eprintln!("[DEBUG] Raise extracts type: {:?}", extracted_type);
+                                        extracted_type
+                                    } else {
+                                        // Not a Result type, shouldn't happen but fall back to inferring from value
+                                        match value {
+                                            BasicValueEnum::IntValue(int_val) => {
+                                                let bit_width = int_val.get_type().get_bit_width();
+                                                if bit_width == 1 {
+                                                    AstType::Bool
+                                                } else if bit_width <= 32 {
+                                                    AstType::I32
+                                                } else {
+                                                    AstType::I64
+                                                }
+                                            }
+                                            BasicValueEnum::FloatValue(_) => AstType::F64,
+                                            BasicValueEnum::PointerValue(_) => AstType::String,
+                                            BasicValueEnum::StructValue(_) => {
+                                                // Could be a nested Result or Option, try to infer
+                                                AstType::Void
+                                            }
+                                            _ => AstType::Void
+                                        }
+                                    }
+                                } else {
+                                    // Not a generic type, shouldn't happen for raise but fall back
+                                    match value {
+                                        BasicValueEnum::IntValue(int_val) => {
+                                            let bit_width = int_val.get_type().get_bit_width();
+                                            if bit_width == 1 {
+                                                AstType::Bool
+                                            } else if bit_width <= 32 {
+                                                AstType::I32
+                                            } else {
+                                                AstType::I64
+                                            }
+                                        }
+                                        BasicValueEnum::FloatValue(_) => AstType::F64,
+                                        BasicValueEnum::PointerValue(_) => AstType::String,
+                                        BasicValueEnum::StructValue(_) => AstType::Void,
+                                        _ => AstType::Void
+                                    }
+                                }
                             } else {
                                 // For other method calls, try to infer from value
                                 match value {
@@ -698,31 +752,66 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else if let Expression::EnumVariant {
                             enum_name,
                             variant,
-                            payload: _,
+                            payload,
                         } = init_expr
                         {
                             // Direct enum variant: Result.Ok, Option.Some, etc.
-                            // We need to use the tracked generic type information
+                            // Infer type directly from the payload to handle nested generics correctly
                             if enum_name == "Result" {
-                                // Get the tracked type arguments for Result
-                                let ok_type = self.generic_type_context.get("Result_Ok_Type")
-                                    .cloned()
-                                    .unwrap_or(AstType::Void);
-                                let err_type = self.generic_type_context.get("Result_Err_Type")
-                                    .cloned()
-                                    .unwrap_or(AstType::String); // Default error type
-                                
-                                // eprintln!("[DEBUG VAR] Variable {} inferred as Result<{:?}, {:?}>", name, ok_type, err_type);
-                                
-                                AstType::Generic {
-                                    name: enum_name.clone(),
-                                    type_args: vec![ok_type, err_type],
+                                if variant == "Ok" {
+                                    // Infer Ok type from the payload
+                                    let ok_type = if let Some(p) = payload {
+                                        self.infer_expression_type(p).unwrap_or(AstType::I32)
+                                    } else {
+                                        AstType::Void
+                                    };
+                                    
+                                    // For Result.Ok, we don't know the error type yet, default to String
+                                    AstType::Generic {
+                                        name: enum_name.clone(),
+                                        type_args: vec![ok_type, AstType::String],
+                                    }
+                                } else if variant == "Err" {
+                                    // Infer Err type from the payload
+                                    let err_type = if let Some(p) = payload {
+                                        self.infer_expression_type(p).unwrap_or(AstType::String)
+                                    } else {
+                                        AstType::String
+                                    };
+                                    
+                                    // For Result.Err, we don't know the ok type yet, default to I32
+                                    AstType::Generic {
+                                        name: enum_name.clone(),
+                                        type_args: vec![AstType::I32, err_type],
+                                    }
+                                } else {
+                                    // Unknown variant, use tracked types
+                                    let ok_type = self.generic_type_context.get("Result_Ok_Type")
+                                        .cloned()
+                                        .unwrap_or(AstType::I32);
+                                    let err_type = self.generic_type_context.get("Result_Err_Type")
+                                        .cloned()
+                                        .unwrap_or(AstType::String);
+                                    
+                                    AstType::Generic {
+                                        name: enum_name.clone(),
+                                        type_args: vec![ok_type, err_type],
+                                    }
                                 }
                             } else if enum_name == "Option" {
-                                // Get the tracked type argument for Option
-                                let some_type = self.generic_type_context.get("Option_Some_Type")
-                                    .cloned()
-                                    .unwrap_or(AstType::Void);
+                                let some_type = if variant == "Some" {
+                                    // Infer type from payload
+                                    if let Some(p) = payload {
+                                        self.infer_expression_type(p).unwrap_or(AstType::I32)
+                                    } else {
+                                        AstType::Void
+                                    }
+                                } else {
+                                    // None variant, check context
+                                    self.generic_type_context.get("Option_Some_Type")
+                                        .cloned()
+                                        .unwrap_or(AstType::Void)
+                                };
                                 
                                 AstType::Generic {
                                     name: enum_name.clone(),
@@ -832,6 +921,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             
                             // Check the method name first for known return types
                             match method.as_str() {
+                                "raise" => {
+                                    // For .raise(), get the type of the object and extract T from Result<T,E>
+                                    // eprintln!("[DEBUG] Processing raise in MethodCall case");
+                                    let object_type = self.infer_expression_type(object).unwrap_or(AstType::Void);
+                                    // eprintln!("[DEBUG] Object type for raise: {:?}", object_type);
+                                    
+                                    match object_type {
+                                        AstType::Generic { name, type_args } if name == "Result" && type_args.len() >= 1 => {
+                                            let extracted = type_args[0].clone();
+                                            // eprintln!("[DEBUG] Extracted type from Result: {:?}", extracted);
+                                            extracted
+                                        }
+                                        _ => {
+                                            // eprintln!("[DEBUG] Not a Result type, defaulting to I32");
+                                            AstType::I32
+                                        }
+                                    }
+                                }
                                 "pop" => AstType::Generic {
                                     name: "Option".to_string(),
                                     type_args: vec![AstType::I32],  // Array.pop() returns Option<i32> for now
@@ -1070,6 +1177,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         }
                         
+                        // eprintln!("[DEBUG VAR] Storing variable {} with type {:?}", name, inferred_type);
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {

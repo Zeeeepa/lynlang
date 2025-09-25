@@ -1121,7 +1121,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                         // Try to load with the tracked type information
                                         let loaded_value = if let Some(ast_type) = load_type {
-                                            eprintln!("[DEBUG] Loading payload with tracked type: {:?}", ast_type);
+                                            // eprintln!("[DEBUG] Loading payload with tracked type: {:?}", ast_type);
                                             use crate::ast::AstType;
                                             match ast_type {
                                                 AstType::I8 => self

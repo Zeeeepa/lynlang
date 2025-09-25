@@ -1050,7 +1050,7 @@ impl TypeChecker {
             }
             Expression::Return(expr) => self.infer_expression_type(expr),
             Expression::EnumVariant {
-                enum_name, variant, ..
+                enum_name, variant, payload
             } => {
                 // Infer the type of an enum variant
                 // If enum_name is empty, search for an enum with this variant
@@ -1073,14 +1073,48 @@ impl TypeChecker {
                     enum_name.clone()
                 };
 
-                // For now, return a generic type with the enum name
-                // In the future, this should handle type parameters properly
-                if enum_type_name == "Option" || enum_type_name == "Result" {
-                    // These are generic types - for now, use a simple representation
+                // For generic types like Option and Result, infer type args from payload
+                if enum_type_name == "Option" {
+                    let inner_type = if let Some(p) = payload {
+                        self.infer_expression_type(p)?
+                    } else {
+                        AstType::Void
+                    };
                     Ok(AstType::Generic {
-                        name: enum_type_name,
-                        type_args: vec![AstType::I32], // Default to I32 for now
+                        name: "Option".to_string(),
+                        type_args: vec![inner_type],
                     })
+                } else if enum_type_name == "Result" {
+                    // For Result, we need to infer based on the variant
+                    if variant == "Ok" {
+                        let ok_type = if let Some(p) = payload {
+                            self.infer_expression_type(p)?
+                        } else {
+                            AstType::Void
+                        };
+                        // We don't know the error type yet, default to String
+                        Ok(AstType::Generic {
+                            name: "Result".to_string(),
+                            type_args: vec![ok_type, AstType::String],
+                        })
+                    } else if variant == "Err" {
+                        let err_type = if let Some(p) = payload {
+                            self.infer_expression_type(p)?
+                        } else {
+                            AstType::String
+                        };
+                        // We don't know the ok type yet, default to I32
+                        Ok(AstType::Generic {
+                            name: "Result".to_string(),
+                            type_args: vec![AstType::I32, err_type],
+                        })
+                    } else {
+                        // Unknown variant, default
+                        Ok(AstType::Generic {
+                            name: "Result".to_string(),
+                            type_args: vec![AstType::I32, AstType::String],
+                        })
+                    }
                 } else {
                     // Look up the enum to get its variant info
                     if let Some(enum_info) = self.enums.get(&enum_type_name) {
