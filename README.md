@@ -53,7 +53,7 @@ cargo run --bin zen <file.zen>
 cargo run --bin zen examples/showcase.zen
 
 # Run test suite
-./scripts/run_tests.sh
+./scripts/test_runner.sh
 ```
 
 ## Language Features by Example
@@ -379,14 +379,15 @@ builder = (b :: Build) void {
 - **Zero segfaults** - rock solid stability
 - **7 disabled tests** - require unimplemented features (behaviors, pointers, inline.c FFI)
 - **showcase.zen** fully operational with all features
-- **18 Rust unit tests** - all passing
+- **Test runner script** - `./scripts/test_runner.sh` for easy testing
 
 ### Project Structure
 - `/` - Root contains only LANGUAGE_SPEC.zen and config files
-- `/tests/` - 175 test files properly organized (168 active, 7 disabled)
+- `/tests/` - 175 total test files properly organized (168 active, 7 disabled)
 - `/examples/` - Example programs including showcase.zen
 - `/stdlib/` - Standard library modules with allocators and behaviors
 - `/src/` - Compiler source (Rust/LLVM)
+- `/scripts/` - Test runner and build scripts
 
 ### Working Features
 - ✅ **Zero keywords design** - Complete
