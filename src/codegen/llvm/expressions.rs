@@ -1279,6 +1279,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                     // For Result<T, E>, we need to check the discriminant
                     // and either return early with Err or continue with Ok value
+                    
+                    // First check if the identifier is actually a Result type
+                    if let Expression::Identifier(var_name) = object.as_ref() {
+                        if let Some(var_info) = self.variables.get(var_name) {
+                            
+                            // If it's a generic Result type, delegate to compile_raise_expression
+                            if let AstType::Generic { name, .. } = &var_info.ast_type {
+                                if name == "Result" {
+                                    return self.compile_raise_expression(object);
+                                }
+                            }
+                        }
+                    }
 
                     // Get parent function for control flow
                     let parent_function = self.current_function.ok_or_else(|| {
@@ -6011,7 +6024,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Use the tracked generic type information to determine the correct type to load
                     // Determine the correct type to load - handle nested generics
                     let load_result: Result<BasicValueEnum<'ctx>, CompileError> = if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type").cloned() {
-                        match &ast_type {
+                            match &ast_type {
                             AstType::I8 => {
                                 let load_type: inkwell::types::BasicTypeEnum = self.context.i8_type().into();
                                 Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
@@ -6061,10 +6074,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
                                 // So ptr_val IS the pointer to the heap-allocated Result struct
                                 
-                                // Update context for nested Result types
-                                // Track the nested Result's types for subsequent raise() calls
-                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                
+                                // DON'T update context here - it will overwrite the current extraction type!
+                                // The nested Result's types will be handled when IT gets raised
+                                // self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                // self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
                                 
                                 // Also track them with more specific keys for nested context
                                 self.generic_tracker.track_generic_type(&ast_type, "Result");
@@ -6080,108 +6094,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Load the nested Result struct from heap
                                 let loaded_struct = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
                                 
-                                // CRITICAL FIX: Deep copy the nested Result structure
-                                // We need to copy both the struct AND its payload to ensure it remains valid
-                                let struct_val = loaded_struct.into_struct_value();
-                                
-                                // Extract the discriminant and payload pointer from the loaded struct
-                                let discriminant = self.builder.build_extract_value(struct_val, 0, "nested_discriminant")?;
-                                let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
-                                
-                                
-                                // Check if we need to deep copy the payload (if discriminant is Ok/Some)
-                                let needs_copy = self.builder.build_int_compare(
-                                    inkwell::IntPredicate::EQ,
-                                    discriminant.into_int_value(),
-                                    self.context.i64_type().const_int(0, false),
-                                    "is_ok_variant"
-                                )?;
-                                
-                                // Create blocks for conditional copy
-                                let current_block = self.builder.get_insert_block().unwrap();
-                                let parent_fn = current_block.get_parent().unwrap();
-                                let copy_block = self.context.append_basic_block(parent_fn, "copy_payload");
-                                let continue_block = self.context.append_basic_block(parent_fn, "continue_nested");
-                                
-                                self.builder.build_conditional_branch(needs_copy, copy_block, continue_block)?;
-                                
-                                // In copy block: Deep copy the payload
-                                self.builder.position_at_end(copy_block);
-                                
-                                // The payload for inner Result<i32, string> is an i32 value
-                                // We need to allocate new space and copy it
-                                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                                    let i64_type = self.context.i64_type();
-                                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                                    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
-                                    self.module.add_function("malloc", malloc_type, None)
-                                });
-                                
-                                // Allocate space for the payload (8 bytes for i32/i64)
-                                let payload_size = self.context.i64_type().const_int(8, false);
-                                let new_payload_call = self.builder.build_call(malloc_fn, &[payload_size.into()], "new_payload")?;
-                                let new_payload_ptr = new_payload_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                                
-                                // Copy the payload value
-                                if !payload_ptr.is_pointer_value() {
-                                }
-                                let old_payload_ptr = payload_ptr.into_pointer_value();
-                                
-                                // Load the value from the old payload and store to the new one
-                                // Use the correct type from type_args[0] for the inner Result's Ok payload
-                                let payload_load_type: inkwell::types::BasicTypeEnum = match &type_args[0] {
-                                    AstType::I8 => self.context.i8_type().into(),
-                                    AstType::I16 => self.context.i16_type().into(),
-                                    AstType::I32 => self.context.i32_type().into(),
-                                    AstType::I64 => self.context.i64_type().into(),
-                                    AstType::U8 => self.context.i8_type().into(),
-                                    AstType::U16 => self.context.i16_type().into(),
-                                    AstType::U32 => self.context.i32_type().into(),
-                                    AstType::U64 => self.context.i64_type().into(),
-                                    AstType::F32 => self.context.f32_type().into(),
-                                    AstType::F64 => self.context.f64_type().into(),
-                                    AstType::Bool => self.context.bool_type().into(),
-                                    AstType::String => self.context.ptr_type(AddressSpace::default()).into(),
-                                    _ => self.context.i32_type().into(), // Default to i32 for unknown types
-                                };
-                                let payload_value = self.builder.build_load(payload_load_type, old_payload_ptr, "payload_value")?;
-                                self.builder.build_store(new_payload_ptr, payload_value)?;
-                                
-                                self.builder.build_unconditional_branch(continue_block)?;
-                                
-                                // In continue block: Build the final struct
-                                self.builder.position_at_end(continue_block);
-                                
-                                // Create PHI nodes for the potentially updated payload pointer
-                                let phi_payload = self.builder.build_phi(
-                                    self.context.ptr_type(inkwell::AddressSpace::default()),
-                                    "final_payload_ptr"
-                                )?;
-                                phi_payload.add_incoming(&[
-                                    (&new_payload_ptr.as_basic_value_enum(), copy_block),
-                                    (&payload_ptr, current_block)
-                                ]);
-                                
-                                // Build the final struct with the (potentially) new payload pointer
-                                let mut final_struct = self.context.struct_type(
-                                    &[
-                                        self.context.i64_type().into(),
-                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-                                    ],
-                                    false
-                                ).get_undef();
-                                
-                                final_struct = self.builder.build_insert_value(final_struct, discriminant, 0, "insert_disc")?
-                                    .into_struct_value();
-                                final_struct = self.builder.build_insert_value(
-                                    final_struct,
-                                    phi_payload.as_basic_value(),
-                                    1,
-                                    "insert_payload"
-                                )?.into_struct_value();
-                                
-                                
-                                Ok(final_struct.as_basic_value_enum())
+                                // IMPORTANT: The extracted type is the nested Result, not its inner type!
+                                // We're extracting Result<i32, string> from Result<Result<i32, string>, string>
+                                // This is what allows the second .raise() to work
+                                Ok(loaded_struct)
                             }
                             AstType::Generic { name, type_args } if name == "Option" && type_args.len() == 1 => {
                                 // Handle Option<T> - similar to Result but with only one type parameter
@@ -6245,8 +6161,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
                 
                 // Store the extracted type for variable type inference
-                if let Some(extracted) = extracted_type {
-                    self.track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted);
+                if let Some(extracted) = extracted_type.clone() {
+                    self.track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted.clone());
+                    
+                    // Also track it in the generic tracker for better nested handling
+                    self.generic_tracker.track_generic_type(&extracted, "Extracted");
+                    
                 }
                 
                 self.builder.build_unconditional_branch(continue_bb)?;
@@ -6567,6 +6487,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         // the payload pointer points to a heap-allocated struct
                                         // We need to load the struct from that pointer
                                         // The struct itself has the format [i64 tag, ptr payload]
+                                        eprintln!("[DEBUG] Loading nested generic {} from payload pointer", name);
                                         self.context.struct_type(
                                             &[
                                                 self.context.i64_type().into(), // tag
@@ -6587,6 +6508,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             self.builder
                                 .build_load(load_type, ptr_val, "ok_value_deref")?;
                         
+                        eprintln!("[DEBUG] Loaded value type: {:?}", loaded_value.get_type());
+                        if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
+                            eprintln!("[DEBUG] Result_Ok_Type: {:?}", ast_type);
+                        }
                         
                         // The loaded value should be the correct type
                         // For nested Result/Option types, this will be a struct value that can be raised again

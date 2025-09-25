@@ -1,0 +1,21 @@
+// Debug assignment of nested raise result
+{ io } = @std
+{ Result } = @std
+
+get_double_result = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(789))
+}
+
+main = () void {
+    io.println("Testing assignment of raise result")
+    
+    // Extract inner Result
+    inner = get_double_result().raise()
+    
+    io.println("Got inner after raise")
+    
+    // Try to pattern match (this should work if type is correct)
+    inner ?
+        | Result.Ok(val) { io.println("Inner Ok: ${val}") }
+        | Result.Err(e) { io.println("Inner Err: ${e}") }
+}

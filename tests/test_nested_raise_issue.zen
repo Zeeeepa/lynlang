@@ -1,0 +1,28 @@
+// Test .raise() with nested generics (currently fails)
+{ io } = @std
+{ Option, Result } = @std
+
+// Helper function that returns Result<Option<i32>, string>
+get_nested = () Result<Option<i32>, string> {
+    Result.Ok(Option.Some(42))
+}
+
+// Function that uses .raise() to extract Option<i32>
+test_raise_nested = () Result<i32, string> {
+    // Extract Option<i32> from Result<Option<i32>, string>
+    opt = get_nested().raise()
+    
+    // Now handle the Option
+    opt ?
+        | Option.Some(val) => Result.Ok(val)
+        | Option.None => Result.Err("was None")
+}
+
+main = () void {
+    io.println("=== Testing .raise() with Nested Generics ===")
+    
+    result = test_raise_nested()
+    result ?
+        | Result.Ok(val) { io.println("Success: ${val}") }
+        | Result.Err(e) { io.println("Error: ${e}") }
+}

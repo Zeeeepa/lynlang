@@ -1,0 +1,34 @@
+// Debug double raise issue
+{ io } = @std
+{ Result } = @std
+
+// Helper that returns Result<Result<i32, string>, string>
+get_double_result = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(789))
+}
+
+main = () void {
+    io.println("=== Testing Double Raise ===")
+    
+    // First test: manual unwrapping
+    outer = get_double_result()
+    outer ?
+        | Result.Ok(inner) {
+            io.println("Got inner Result")
+            inner ?
+                | Result.Ok(val) { io.println("  Inner value: ${val}") }
+                | Result.Err(e) { io.println("  Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer error: ${e}") }
+    
+    io.println("\n--- Now testing with single raise ---")
+    
+    // Extract inner Result with raise
+    inner2 = get_double_result().raise()
+    io.println("After first raise - got inner Result")
+    
+    // Now pattern match on inner
+    inner2 ?
+        | Result.Ok(val) { io.println("  Inner Ok: ${val}") }
+        | Result.Err(e) { io.println("  Inner Err: ${e}") }
+}

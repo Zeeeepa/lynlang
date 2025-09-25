@@ -1,0 +1,26 @@
+// Debug test for nested generic raise issue
+{ io } = @std
+{ Option, Result } = @std
+
+// Helper function that returns Result<Option<i32>, string>
+get_nested = () Result<Option<i32>, string> {
+    Result.Ok(Option.Some(42))
+}
+
+main = () void {
+    io.println("=== Testing .raise() with Nested Generics ===")
+    
+    // Try extracting Option<i32> from Result<Option<i32>, string>
+    // This should work but currently fails with type error
+    result = get_nested()
+    
+    // Pattern match on the Result directly first
+    result ?
+        | Result.Ok(opt) {
+            io.println("Got Ok with Option payload")
+            opt ?
+                | Option.Some(val) { io.println("  Value: ${val}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("Got Err: ${e}") }
+}

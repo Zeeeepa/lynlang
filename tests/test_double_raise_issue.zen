@@ -1,0 +1,27 @@
+// Debug double raise issue - second raise
+{ io } = @std
+{ Result } = @std
+
+// Helper that returns Result<Result<i32, string>, string>
+get_double_result = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(789))
+}
+
+test_double_raise = () Result<i32, string> {
+    // Extract inner Result with first raise
+    inner = get_double_result().raise()
+    
+    // Try second raise on inner Result
+    val = inner.raise()
+    
+    Result.Ok(val)
+}
+
+main = () void {
+    io.println("=== Testing Double Raise ===")
+    
+    result = test_double_raise()
+    result ?
+        | Result.Ok(v) { io.println("Success: ${v}") }
+        | Result.Err(e) { io.println("Error: ${e}") }
+}
