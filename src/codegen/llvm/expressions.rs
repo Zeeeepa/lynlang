@@ -521,6 +521,106 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
 
+                // Special handling for integer methods
+                if object_value.is_int_value() {
+                    let int_value = object_value.into_int_value();
+                    match method.as_str() {
+                        "abs" => {
+                            // Get the bit width to determine the type
+                            let _bit_width = int_value.get_type().get_bit_width();
+                            
+                            // Create comparison with zero
+                            let zero = int_value.get_type().const_int(0, false);
+                            let is_negative = self.builder.build_int_compare(
+                                inkwell::IntPredicate::SLT,
+                                int_value,
+                                zero,
+                                "is_negative"
+                            )?;
+                            
+                            // Negate if negative
+                            let negated = self.builder.build_int_neg(int_value, "negated")?;
+                            
+                            // Select positive value
+                            let abs_value = self.builder.build_select(
+                                is_negative,
+                                negated,
+                                int_value,
+                                "abs_value"
+                            )?;
+                            
+                            return Ok(abs_value);
+                        }
+                        "min" => {
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("min expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            let other = self.compile_expression(&args[0])?;
+                            if !other.is_int_value() {
+                                return Err(CompileError::TypeError(
+                                    "min argument must be an integer".to_string(),
+                                    None,
+                                ));
+                            }
+                            let other_int = other.into_int_value();
+                            
+                            // Compare and select minimum
+                            let is_less = self.builder.build_int_compare(
+                                inkwell::IntPredicate::SLT,
+                                int_value,
+                                other_int,
+                                "is_less"
+                            )?;
+                            
+                            let min_value = self.builder.build_select(
+                                is_less,
+                                int_value,
+                                other_int,
+                                "min_value"
+                            )?;
+                            
+                            return Ok(min_value);
+                        }
+                        "max" => {
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("max expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            let other = self.compile_expression(&args[0])?;
+                            if !other.is_int_value() {
+                                return Err(CompileError::TypeError(
+                                    "max argument must be an integer".to_string(),
+                                    None,
+                                ));
+                            }
+                            let other_int = other.into_int_value();
+                            
+                            // Compare and select maximum
+                            let is_greater = self.builder.build_int_compare(
+                                inkwell::IntPredicate::SGT,
+                                int_value,
+                                other_int,
+                                "is_greater"
+                            )?;
+                            
+                            let max_value = self.builder.build_select(
+                                is_greater,
+                                int_value,
+                                other_int,
+                                "max_value"
+                            )?;
+                            
+                            return Ok(max_value);
+                        }
+                        _ => {}
+                    }
+                }
+
                 // Special handling for pointer methods
                 if method == "val" {
                     // Dereference pointer

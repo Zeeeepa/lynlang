@@ -1,0 +1,20 @@
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing numeric methods:")
+    
+    // Test abs
+    negative = -42
+    positive = negative.abs()
+    io.println("  abs(-42) = ${positive}")
+    
+    // Test min/max
+    a = 10
+    b = 20
+    minimum = a.min(b)
+    maximum = a.max(b)
+    io.println("  min(10, 20) = ${minimum}")
+    io.println("  max(10, 20) = ${maximum}")
+    
+    return 0
+}
