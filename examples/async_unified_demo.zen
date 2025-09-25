@@ -5,7 +5,7 @@
 { io, GPA, AsyncPool, fs } = @std
 
 // This function works with ANY allocator - sync or async!
-read_and_process = (allocator, filename: string) string {
+read_and_process = (allocator: i64, filename: string) string {
     io.println("Processing ${filename}...")
     
     // Same fs.read_file call works with both allocators
@@ -19,7 +19,7 @@ read_and_process = (allocator, filename: string) string {
 }
 
 // Another function that works with any allocator
-batch_process = (allocator, files: Array<string>) Array<string> {
+batch_process = (allocator: i64, files: i64) i64 {
     results = Array.new(allocator)
     
     // Same loop works with both allocators  
