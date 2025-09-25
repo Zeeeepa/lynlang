@@ -1,25 +1,34 @@
-// Simple test of raise with nested Result
+// Test simple nested Result.raise() - currently broken
+// Issue: Nested Result payload extraction fails
 { io, Result } = @std
 
-// Function that returns Result<Result<i32, string>, string>
-get_nested = () Result<Result<i32, string>, string> {
-    inner = Result.Ok(42)
-    Result.Ok(inner)
-}
-
-// Function that uses raise on nested Result
-process = () Result<i32, string> {
-    // This should extract the inner Result<i32, string> from the outer Result
-    inner_result = get_nested().raise()
-    
-    // This should extract the i32 from the inner Result
-    value = inner_result.raise()
-    
-    Result.Ok(value + 10)
-}
-
 main = () void {
-    result = process()
-    result ? | Result.Ok(v) => io.println("Final value: ${v}")
-            | Result.Err(e) => io.println("Error: ${e}")
+    io.println("Testing simple nested Result.raise()")
+    
+    // Direct inline construction - this is where the issue occurs
+    outer = Result.Ok(Result.Ok(100))
+    
+    // Try to extract with pattern matching
+    outer ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(val) { 
+                    io.println("Pattern match value: ${val}")
+                    val == 100 ?
+                        | true { io.println("✓ Pattern match works") }
+                        | false { io.println("✗ Pattern match failed: got ${val}") }
+                }
+                | Result.Err(e) { io.println("Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer error: ${e}") }
+    
+    // Try with raise()
+    outer2 = Result.Ok(Result.Ok(200))
+    inner2 = outer2.raise()
+    value2 = inner2.raise()
+    
+    io.println("Raise value: ${value2}")
+    value2 == 200 ?
+        | true { io.println("✓ Raise works") }
+        | false { io.println("✗ Raise failed: got ${value2}") }
 }

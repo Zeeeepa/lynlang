@@ -4453,7 +4453,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         variant: &str,
         payload: &Option<Box<Expression>>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        eprintln!("[DEBUG] compile_enum_variant: {}.{}, has_payload: {}", enum_name, variant, payload.is_some());
+        // eprintln!("[DEBUG] compile_enum_variant: {}.{}, has_payload: {}", enum_name, variant, payload.is_some());
         // Save the current generic context before potentially overwriting it with nested compilation
         let saved_ok_type = self.generic_type_context.get("Result_Ok_Type").cloned();
         let saved_err_type = self.generic_type_context.get("Result_Err_Type").cloned();
@@ -4469,7 +4469,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     } else {
                         "Result_Err_Type".to_string()
                     };
-                    eprintln!("[DEBUG TRACK] Setting {} = {:?}", key, t);
+        // eprintln!("[DEBUG TRACK] Setting {} = {:?}", key, t);
                     self.track_generic_type(key.clone(), t.clone());
                     // Also track nested generics recursively
                     if matches!(t, AstType::Generic { .. }) {
@@ -4512,7 +4512,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             match found_enum {
                 Some(info) => info,
                 None => {
-                    eprintln!("[DEBUG] Using fallback for {}.{} - not found in symbol table", enum_name, variant);
+        // eprintln!("[DEBUG] Using fallback for {}.{} - not found in symbol table", enum_name, variant);
                     // Fallback to basic representation if enum not found in symbol table
                     // This maintains backward compatibility
                     // Special handling for Result type variants
@@ -4546,7 +4546,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                     // Handle payload if present
                     if let Some(expr) = payload {
-                        eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
+        // eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
                         
                         // Check if the payload is itself an enum variant (nested case)
                         let is_nested_enum = match expr.as_ref() {
@@ -4558,12 +4558,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         };
                         
                         if is_nested_enum {
-                            eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
+        // eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
                         }
                         
                         let compiled = self.compile_expression(expr)?;
-                        eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
-                                compiled.is_struct_value(), compiled.is_pointer_value());
+        // eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
+        //                         compiled.is_struct_value(), compiled.is_pointer_value());
                         let payload_ptr = self.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -4573,7 +4573,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
-                        eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
+        // eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like nested Result/Option), we need special handling
                             let struct_val = compiled.into_struct_value();
@@ -4582,7 +4582,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
                             // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
-                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
+        // eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
                                 // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
@@ -4713,7 +4713,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                     // Handle payload if present
                     if let Some(expr) = payload {
-                        eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
+        // eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
                         
                         // Check if the payload is itself an enum variant (nested case)
                         let is_nested_enum = match expr.as_ref() {
@@ -4725,12 +4725,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         };
                         
                         if is_nested_enum {
-                            eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
+        // eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
                         }
                         
                         let compiled = self.compile_expression(expr)?;
-                        eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
-                                compiled.is_struct_value(), compiled.is_pointer_value());
+        // eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
+        //                         compiled.is_struct_value(), compiled.is_pointer_value());
                         let payload_ptr = self.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -4740,7 +4740,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
-                        eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
+        // eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like nested Result/Option), we need special handling
                             let struct_val = compiled.into_struct_value();
@@ -4749,7 +4749,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
                             // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
-                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
+        // eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
                                 // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
@@ -4897,10 +4897,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Handle payload if present - preserve the actual type!
         if let Some(expr) = payload {
-            eprintln!("[DEBUG] Compiling payload for {}.{} (found in symbol table)", enum_name, variant);
+        // eprintln!("[DEBUG] Compiling payload for {}.{} (found in symbol table)", enum_name, variant);
             let compiled = self.compile_expression(expr)?;
-            eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
-                    compiled.is_struct_value(), compiled.is_pointer_value());
+        // eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
+        //             compiled.is_struct_value(), compiled.is_pointer_value());
             // Check if enum has payload field (index 1)
             if enum_struct_type.count_fields() > 1 {
                 let payload_ptr =
@@ -4926,7 +4926,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // to ensure they persist beyond function scope
                         let struct_val = compiled.into_struct_value();
                         let struct_type = struct_val.get_type();
-                        eprintln!("[DEBUG] Struct has {} fields", struct_type.count_fields());
+        // eprintln!("[DEBUG] Struct has {} fields", struct_type.count_fields());
                         
                         // Always heap-allocate structs used as enum payloads
                         let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -4967,13 +4967,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let inner_discriminant = self.builder.build_extract_value(struct_val, 0, "inner_disc_check")?;
                             let inner_payload_ptr = self.builder.build_extract_value(struct_val, 1, "inner_payload_check")?;
                             
-                            eprintln!("[DEBUG] Nested enum struct stored to heap:");
+        // eprintln!("[DEBUG] Nested enum struct stored to heap:");
                             if inner_discriminant.is_int_value() {
                                 let disc = inner_discriminant.into_int_value();
                                 if let Some(val) = disc.get_zero_extended_constant() {
-                                    eprintln!("[DEBUG]   Inner discriminant: {}", val);
+        // eprintln!("[DEBUG]   Inner discriminant: {}", val);
                                     if val == 0 {
-                                        eprintln!("[DEBUG]   This is Ok/Some variant - payload should be valid");
+        // eprintln!("[DEBUG]   This is Ok/Some variant - payload should be valid");
                                         
                                         // CRITICAL FIX: The inner payload pointer might point to stack memory!
                                         // For inline constructions like Result.Ok(Result.Ok(42)), the inner
@@ -4982,7 +4982,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         
                                         if inner_payload_ptr.is_pointer_value() {
                                             let ptr = inner_payload_ptr.into_pointer_value();
-                                            eprintln!("[DEBUG]   Inner payload ptr: {:?}", ptr);
+        // eprintln!("[DEBUG]   Inner payload ptr: {:?}", ptr);
                                             
                                             // TODO: Here we would need to check if the pointer is to stack
                                             // and if so, copy the value to heap. This is complex because
@@ -5048,11 +5048,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // This ensures the variable gets the right type after nested compilation
         if enum_name == "Result" {
             if let Some(ok_type) = saved_ok_type {
-                eprintln!("[DEBUG RESTORE] Restoring Result_Ok_Type = {:?}", ok_type);
+        // eprintln!("[DEBUG RESTORE] Restoring Result_Ok_Type = {:?}", ok_type);
                 self.track_generic_type("Result_Ok_Type".to_string(), ok_type);
             }
             if let Some(err_type) = saved_err_type {
-                eprintln!("[DEBUG RESTORE] Restoring Result_Err_Type = {:?}", err_type);
+        // eprintln!("[DEBUG RESTORE] Restoring Result_Err_Type = {:?}", err_type);
                 self.track_generic_type("Result_Err_Type".to_string(), err_type);
             }
         }
@@ -6263,7 +6263,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Store the extracted type for variable type inference
                 if let Some(extracted) = extracted_type.clone() {
-                    eprintln!("[DEBUG RAISE] Storing Last_Raise_Extracted_Type = {:?}", extracted);
+        // eprintln!("[DEBUG RAISE] Storing Last_Raise_Extracted_Type = {:?}", extracted);
                     self.track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted.clone());
                     
                     // Also track it in the generic tracker for better nested handling
@@ -6589,7 +6589,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         // the payload pointer points to a heap-allocated struct
                                         // We need to load the struct from that pointer
                                         // The struct itself has the format [i64 tag, ptr payload]
-                                        eprintln!("[DEBUG] Loading nested generic {} from payload pointer", name);
+        // eprintln!("[DEBUG] Loading nested generic {} from payload pointer", name);
                                         self.context.struct_type(
                                             &[
                                                 self.context.i64_type().into(), // tag
@@ -6610,9 +6610,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             self.builder
                                 .build_load(load_type, ptr_val, "ok_value_deref")?;
                         
-                        eprintln!("[DEBUG] Loaded value type: {:?}", loaded_value.get_type());
+        // eprintln!("[DEBUG] Loaded value type: {:?}", loaded_value.get_type());
                         if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
-                            eprintln!("[DEBUG] Result_Ok_Type: {:?}", ast_type);
+        // eprintln!("[DEBUG] Result_Ok_Type: {:?}", ast_type);
                         }
                         
                         // The loaded value should be the correct type
