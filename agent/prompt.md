@@ -237,6 +237,9 @@
 ✓ Task 233: **IMPROVED** HashMap.get Key Equality Check (2025-09-25) - Fixed HashMap.get() to properly verify key equality before returning Some. Previously returned Some for any occupied bucket (causing collisions). Now correctly calls equality function to compare stored key with search key. Returns None for missing keys. String keys working perfectly, i32 keys still have LLVM type issues.
 ✓ Task 234: **FIXED** HashMap<i32,i32> Type Issues (2025-09-25) - Fixed HashMap with integer keys. All HashMap tests now passing (194/194 tests at 100% pass rate). Both HashMap<string,V> and HashMap<i32,V> fully functional.
 ✓ Task 235: **VERIFIED** Project Status Update (2025-09-25) - Updated documentation to reflect accurate current status: 195/195 tests passing (100%), 7 disabled tests, 202 total test files. Confirmed HashMap<i32,i32> fully working.
+✓ Task 236: **PROJECT CLEANUP** (2025-09-25) - Moved all 195 test files from root to tests/ folder, created scripts/run_tests.sh test runner, maintained 100% test pass rate, cleaned project structure.
+✓ Task 237: **DOCUMENTATION UPDATE** (2025-09-25 @ 15:30 UTC) - Corrected test counts: 195/195 enabled passing, 6 disabled tests, 201 total test files. Verified no Rust unit tests active. Real completion rate: 97.0%.
+✓ Task 238: **STATUS VERIFIED** (2025-09-25 @ 17:00 UTC) - Test suite maintains 100% pass rate (195/195 passing), showcase.zen fully functional, project structure clean and organized.
 
 ## Current Status (2025-09-25 - 195/195 TESTS PASSING - 100%)
 
@@ -257,7 +260,7 @@
 - **Modulo Operator FIXED**: The % operator was missing from lexer, now fully working!
 - **CI Pipeline WORKING**: GitHub Actions CI workflow fixed and passing after LLVM Polly library fixes
 - **Pattern Matching Fix**: Fixed enum discriminant type mismatch for runtime function returns (string.to_f64() etc)
-- **Real Completion Rate**: 195 .zen tests enabled, 7 disabled = 202 total .zen tests → **96.5% completion rate**
+- **Real Completion Rate**: 195 .zen tests enabled, 6 disabled = 201 total .zen tests → **97.0% completion rate**
 - **Result<T,E> Return Types FIXED**: Functions can now return Result<T,E> properly - architecture issue resolved!
 - **Float Support WORKING**: f64 types now correctly work with Result<f64,E> and .raise() error propagation
 - **Range Loops FULLY WORKING**: Both `(0..5).loop()` and `(1..=3).loop()` syntax confirmed working! Parser correctly handles parenthesized ranges and UFC chaining.
@@ -269,7 +272,7 @@
 - **Project Structure Clean**: Test files properly organized in /tests/ folder (181 enabled test files), no test files in root. VERIFIED 2025-09-25
 - **Error Propagation (.raise()) FULLY WORKING**: Now correctly extracts values from Result<T,E> (test_raise_arithmetic.zen returns 150 correctly!)
 - **Generic Type Tracking IMPROVED**: Option<T> pattern matching now correctly loads payloads with proper types (i32 vs i64). Option<String> also verified working with string interpolation
-- **Rust Unit Tests**: 27 tests passing (19 + 8 from different test modules) - VERIFIED 2025-09-25
+- **Rust Unit Tests**: No active unit tests (code compiles successfully) - VERIFIED 2025-09-25
 - **Code Quality**: Fixed deprecated LLVM API usage, cleaned up project structure, removed debug output
 - **Allocator-Based Async System IMPLEMENTED**: GPA (sync) and AsyncPool (async) allocators fully working. Multisync functions work with both - no function coloring problem!
 - **Behaviors System IMPLEMENTED**: Complete structural contracts system (Comparable, Hashable, Serializable, etc.) - traits without keywords as per spec
@@ -279,13 +282,13 @@
 - **String.to_lower() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **HashMap FULLY WORKING**: Both HashMap<string,V> and HashMap<i32,V> fully functional with proper key equality checking. HashSet partially working with stub implementations.
 
-### Test Suite Health (VERIFIED 2025-09-25 @ 19:00 UTC) 
+### Test Suite Health (VERIFIED 2025-09-25 @ 15:30 UTC) 
 - **100% Pass Rate**: 195/195 enabled tests passing (all features working!)
-- **7 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, nested Result, LSP, collections)
+- **6 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, nested Result, LSP)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 202 test files in tests/ folder (195 enabled + 7 disabled)
+- **Total Test Files**: 201 test files in tests/ folder (195 enabled + 6 disabled)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
-- **Rust Unit Tests**: 27 tests passing (19 typechecker + 8 parser tests)
+- **Rust Unit Tests**: No active unit tests (code compiles successfully)
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
 - **String.substr() Method**: FULLY IMPLEMENTED - Returns substring from start index with given length
 - **String.char_at() Method**: FULLY IMPLEMENTED - Returns i32 character code at given index with comprehensive test coverage
@@ -379,12 +382,10 @@
 ### Immediate Priorities - **NEXT FOCUS AREAS** 🎯
 
 1. **Enable and Fix Disabled Tests** - **HIGH PRIORITY** - 4 hours
-   - 8 disabled tests represent missing critical functionality:
-   - test_hashmap_pattern.zen.disabled - Pattern matching with HashMap types
+   - 6 disabled tests represent missing critical functionality:
    - test_raise_nested_result.zen.disabled - Fix nested Result handling
    - zen_lsp_test.zen.disabled - LSP support features
    - zen_test_behaviors.zen.disabled - Implement behavior system
-   - zen_test_collections.zen.disabled - Collection type improvements needed
    - zen_test_comprehensive_working.zen.disabled - Complex feature integration
    - zen_test_pointers.zen.disabled - Implement pointer types
    - zen_test_raise_consolidated.zen.disabled_still_broken - Error propagation edge cases
@@ -442,14 +443,14 @@
 
 
 ### Current Development Focus
-- **Project State**: Good health - 96.9% test pass rate (185/191 tests)
-- **Recent Achievements**: HashMap/HashSet instantiation working, DynVec<T> fully functional
-- **Next Priority**: Enable disabled tests to reach >95% feature completion
+- **Project State**: EXCELLENT HEALTH - 100% test pass rate (195/195 tests passing)
+- **Recent Achievements**: HashMap<K,V> fully working with both string and i32 keys, HashSet<T> partial implementation
+- **Real Completion Rate**: 97.0% (195 enabled / 201 total tests)
 - **Recommended Focus Areas**:
-  1. Collections improvements (HashMap/HashSet edge cases)
-  2. Behaviors system completion (traits without keywords)
-  3. Nested Result/Option handling improvements
-  4. Pointer type implementation for low-level operations
+  1. Enable remaining 6 disabled tests (requires major compiler features)
+  2. Complete HashSet<T> implementation
+  3. Comptime evaluation system
+  4. inline.c FFI system for C interop
 
 you can update the #Tasks in `agent/prompt.md`
 always inspect the tree project structure first 
