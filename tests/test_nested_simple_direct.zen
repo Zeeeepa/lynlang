@@ -1,0 +1,25 @@
+// Test direct nested Result pattern matching without raise
+{ io, Result } = @std
+
+main = () i32 {
+    // Create nested Result directly
+    nested = Result.Ok(Result.Ok(42))
+    
+    // Direct pattern match
+    nested ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(val) {
+                    io.println("Direct inner value: ${val}")
+                    val == 42 ? | true => 0 | false => 1
+                }
+                | Result.Err(e) {
+                    io.println("Direct inner error: ${e}")
+                    2
+                }
+        }
+        | Result.Err(e) {
+            io.println("Direct outer error: ${e}")
+            3
+        }
+}

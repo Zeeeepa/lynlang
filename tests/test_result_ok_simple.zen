@@ -1,0 +1,19 @@
+// Test simple Result.Ok without raise
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("Testing Result.Ok...")
+    
+    // Create Result directly
+    r = Result.Ok(42)
+    
+    // Pattern match on it
+    r ? | Result.Ok(val) {
+            io.println("Got Ok: ${val}")
+            val
+        }
+        | Result.Err(e) {
+            io.println("Got Err")
+            1
+        }
+}

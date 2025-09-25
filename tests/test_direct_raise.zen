@@ -1,0 +1,12 @@
+// Test direct Result raise
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("Testing direct raise...")
+    
+    // Create Result directly and raise
+    val = Result.Ok(42).raise()
+    io.println("Got value: ${val}")
+    
+    val
+}

@@ -1,0 +1,20 @@
+// Debug raise issue
+{ io, Result } = @std
+
+get_simple = () Result<i32, string> {
+    io.println("  in get_simple, returning Ok(42)")
+    Result.Ok(42)
+}
+
+main = () i32 {
+    io.println("Testing raise issue...")
+    
+    // First call function without raise
+    io.println("\n1. Without raise:")
+    r = get_simple()
+    r ? | Result.Ok(v) => io.println("  Got: ${v}")
+        | Result.Err(e) => io.println("  Err: ${e}")
+    
+    io.println("\nDone.")
+    0
+}

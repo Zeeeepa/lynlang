@@ -5880,6 +5880,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
             }
+            Expression::EnumVariant { enum_name, variant, payload } => {
+                // For direct Result.Ok(value) or Result.Err(value) constructions
+                if enum_name == "Result" {
+                    if variant == "Ok" {
+                        // Infer type from the payload
+                        if let Some(payload_expr) = payload {
+                            let payload_type = self.infer_expression_type(payload_expr).unwrap_or(AstType::I32);
+                            self.track_generic_type("Result_Ok_Type".to_string(), payload_type.clone());
+                            // For Result.Ok, we don't know the error type yet, default to String
+                            self.track_generic_type("Result_Err_Type".to_string(), AstType::String);
+                        }
+                    } else if variant == "Err" {
+                        // Infer type from the payload
+                        if let Some(payload_expr) = payload {
+                            let payload_type = self.infer_expression_type(payload_expr).unwrap_or(AstType::String);
+                            // For Result.Err, we don't know the Ok type yet, default to I32
+                            self.track_generic_type("Result_Ok_Type".to_string(), AstType::I32);
+                            self.track_generic_type("Result_Err_Type".to_string(), payload_type.clone());
+                        }
+                    }
+                }
+            }
             _ => {
                 // Try to infer the type for other expressions
                 if let Ok(expr_type) = self.infer_expression_type(expr) {

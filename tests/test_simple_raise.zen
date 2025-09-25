@@ -1,0 +1,17 @@
+// Test simple .raise() operation
+{ io, Result } = @std
+
+// Simple function that returns Result<i32, string>
+get_simple = () Result<i32, string> {
+    Result.Ok(42)
+}
+
+main = () Result<i32, string> {
+    io.println("Testing simple raise...")
+    
+    // Use raise to get the value
+    val = get_simple().raise()
+    io.println("Got value: ${val}")
+    
+    Result.Ok(val)
+}
