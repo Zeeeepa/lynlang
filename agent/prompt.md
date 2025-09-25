@@ -211,16 +211,19 @@
 ✓ Task 207: **VERIFIED** Project Status (2025-09-25) - Test suite maintains 100% pass rate (166/166 enabled tests passing), 8 disabled tests, 174 total .zen files, 8 Rust test files in tests/
 ✓ Task 208: **ORGANIZED** Test Files (2025-09-25) - Moved all test files from root directory to tests/ folder where they belong. Verified 166 enabled tests, 9 disabled tests, 175 total zen test files, 8 Rust test files.
 ✓ Task 209: **VERIFIED** string.split() Implementation (2025-09-25) - Confirmed string.split() method is fully implemented and working. Returns Array<string> but array element access methods not yet available. Test suite maintains 100% pass rate (167/167 tests passing).
+✓ Task 210: **IMPLEMENTED** string.to_i32() and string.to_i64() Methods (2025-09-25) - Successfully implemented string to integer conversion methods. Both return Option<T> types handling valid/invalid input correctly. Uses strtol for i32 and strtoll for i64. Test suite improved to 168/168 passing (100%).
 
-## Current Status (2025-09-25 - 167/167 TESTS PASSING - 100%!!)
+## Current Status (2025-09-25 - 168/168 TESTS PASSING - 100%!!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (167/167 passing) - PERFECT! VERIFIED 2025-09-25
+- **Test Suite Health**: 100% pass rate (168/168 passing) - PERFECT! VERIFIED 2025-09-25
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!
 - **string.substr() IMPLEMENTED**: String substring extraction method taking start and length parameters now fully working!
 - **string.char_at() IMPLEMENTED**: String character access method taking index parameter, returns i32 character code!
+- **string.to_i32() IMPLEMENTED**: String to i32 conversion method returning Option<i32> - fully working with strtol!
+- **string.to_i64() IMPLEMENTED**: String to i64 conversion method returning Option<i64> - fully working with strtoll!
 - **Numeric Methods IMPLEMENTED**: Integer methods abs(), min(), max() now fully working!
 - **Compiler Warnings**: ZERO warnings in both debug and release builds - VERIFIED 2025-09-25
 - **Array<T> Type IMPLEMENTED**: Basic Array<T> type with push/get/set/len/pop methods fully working
@@ -247,16 +250,18 @@
 - **String.to_f64() WORKING**: Runtime function implementation with strtod. String literals can now call .to_f64() method correctly
 
 ### Test Suite Health (VERIFIED 2025-09-25) 
-- **100% Pass Rate**: 167/167 enabled tests passing - PERFECT!
-- **9 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, collections)
+- **100% Pass Rate**: 168/168 enabled tests passing - PERFECT!
+- **8 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, collections)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 176 test files in tests/ folder (167 .zen passing + 8 .zen.disabled + 1 .c test file = 176 files total)
+- **Total Test Files**: 177 test files in tests/ folder (168 .zen passing + 8 .zen.disabled + 1 .c test file = 177 files total)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
 - **Rust Test Files**: 8 Rust test files in tests/ folder
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
 - **String.substr() Method**: FULLY IMPLEMENTED - Returns substring from start index with given length
 - **String.char_at() Method**: FULLY IMPLEMENTED - Returns i32 character code at given index with comprehensive test coverage
 - **String.split() Method**: FULLY IMPLEMENTED - Returns Array<string> split by delimiter (array methods pending)
+- **String.to_i32() Method**: FULLY IMPLEMENTED - Returns Option<i32> from string parsing using strtol
+- **String.to_i64() Method**: FULLY IMPLEMENTED - Returns Option<i64> from string parsing using strtoll
 
 ## Compiler Status  
 - **Compiler**: Rust implementation at ~92% of spec (LLVM-based) - **0 WARNINGS!**
@@ -266,7 +271,7 @@
   - ✅ @std module import system (destructuring syntax)
   - ✅ String interpolation "${expr}" 
   - ✅ io.println for strings and numbers (fixed i8 integer printing)
-  - ✅ String methods - s.to_f64() returns Option<f64>, s.len() returns i64 length, s.substr(start, length) returns substring, s.char_at(index) returns i32 character code
+  - ✅ String methods - s.to_f64() returns Option<f64>, s.to_i32() returns Option<i32>, s.to_i64() returns Option<i64>, s.len() returns i64 length, s.substr(start, length) returns substring, s.char_at(index) returns i32 character code, s.split(delimiter) returns Array<string>
   - ✅ Pattern matching using conditional syntax (? with | true/false)
   - ✅ UFC (Universal Function Call) syntax - x.method()
   - ✅ Blocks return their last expression value
