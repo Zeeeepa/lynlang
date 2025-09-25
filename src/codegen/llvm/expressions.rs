@@ -322,6 +322,103 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         return self.compile_array_new(args);
                     }
                     
+                    // Check if this is a generic type constructor (e.g., HashMap<K,V>.new())
+                    if name.contains('<') && method == "new" {
+                        // Extract the base type name
+                        if let Some(angle_pos) = name.find('<') {
+                            let base_type = &name[..angle_pos];
+                            
+                            // Call the appropriate constructor function
+                            match base_type {
+                                "HashMap" => {
+                                    // HashMap.new() creates an empty hashmap
+                                    // For now, return a placeholder struct
+                                    // In a real implementation, this would allocate the hash table
+                                    let hashmap_type = self.context.struct_type(
+                                        &[
+                                            self.context.ptr_type(AddressSpace::default()).into(), // buckets
+                                            self.context.i64_type().into(), // size
+                                            self.context.i64_type().into(), // capacity
+                                        ],
+                                        false,
+                                    );
+                                    
+                                    // Create an empty hashmap struct
+                                    let null_ptr = self.context.ptr_type(AddressSpace::default()).const_null();
+                                    let zero = self.context.i64_type().const_int(0, false);
+                                    let capacity = self.context.i64_type().const_int(16, false);
+                                    
+                                    let hashmap = hashmap_type.const_named_struct(&[
+                                        null_ptr.into(),
+                                        zero.into(),
+                                        capacity.into(),
+                                    ]);
+                                    
+                                    return Ok(hashmap.into());
+                                }
+                                "HashSet" => {
+                                    // HashSet.new() creates an empty hashset
+                                    // For now, return a placeholder struct
+                                    let hashset_type = self.context.struct_type(
+                                        &[
+                                            self.context.ptr_type(AddressSpace::default()).into(), // buckets
+                                            self.context.i64_type().into(), // size
+                                            self.context.i64_type().into(), // capacity
+                                        ],
+                                        false,
+                                    );
+                                    
+                                    let null_ptr = self.context.ptr_type(AddressSpace::default()).const_null();
+                                    let zero = self.context.i64_type().const_int(0, false);
+                                    let capacity = self.context.i64_type().const_int(16, false);
+                                    
+                                    let hashset = hashset_type.const_named_struct(&[
+                                        null_ptr.into(),
+                                        zero.into(),
+                                        capacity.into(),
+                                    ]);
+                                    
+                                    return Ok(hashset.into());
+                                }
+                                "DynVec" => {
+                                    // DynVec.new() creates an empty dynamic vector
+                                    // Reuse the existing dynvec_new implementation if it exists
+                                    if self.functions.contains_key("dynvec_new") {
+                                        return self.compile_function_call("dynvec_new", args);
+                                    }
+                                    
+                                    // Otherwise create a placeholder
+                                    let dynvec_type = self.context.struct_type(
+                                        &[
+                                            self.context.ptr_type(AddressSpace::default()).into(), // data
+                                            self.context.i64_type().into(), // len
+                                            self.context.i64_type().into(), // capacity
+                                        ],
+                                        false,
+                                    );
+                                    
+                                    let null_ptr = self.context.ptr_type(AddressSpace::default()).const_null();
+                                    let zero = self.context.i64_type().const_int(0, false);
+                                    
+                                    let dynvec = dynvec_type.const_named_struct(&[
+                                        null_ptr.into(),
+                                        zero.into(),
+                                        zero.into(),
+                                    ]);
+                                    
+                                    return Ok(dynvec.into());
+                                }
+                                _ => {
+                                    // Unknown generic type
+                                    return Err(CompileError::TypeError(
+                                        format!("Unknown generic type: {}", base_type),
+                                        None,
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    
                     // Special handling for module method calls (GPA.init())
                     if let Some(var_info) = self.variables.get(name) {
                         if var_info.ast_type == AstType::StdModule {
@@ -2654,6 +2751,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // The actual implementation will be in the FunctionCall handler
                 // For now, just return a dummy value that won't be used
                 return Ok(self.context.i64_type().const_int(0xA77A9_0001, false).into());
+            }
+            
+            // Check if this is a generic type constructor (e.g., HashMap<K,V>.new())
+            if type_name.contains('<') && member == "new" {
+                // Extract the base type name and type arguments
+                if let Some(angle_pos) = type_name.find('<') {
+                    let base_type = &type_name[..angle_pos];
+                    
+                    // For now, delegate to the appropriate constructor function
+                    // The type arguments are embedded in the type_name string
+                    match base_type {
+                        "HashMap" => {
+                            // Call hashmap_new function
+                            // For now, return a placeholder that will be handled in function call
+                            return self.compile_function_call("hashmap_new", &[]);
+                        }
+                        "HashSet" => {
+                            // Call hashset_new function  
+                            return self.compile_function_call("hashset_new", &[]);
+                        }
+                        "DynVec" => {
+                            // Call dynvec_new function
+                            return self.compile_function_call("dynvec_new", &[]);
+                        }
+                        _ => {
+                            // Unknown generic type
+                            return Err(CompileError::TypeError(
+                                format!("Unknown generic type: {}", base_type),
+                                None,
+                            ));
+                        }
+                    }
+                }
             }
         }
         

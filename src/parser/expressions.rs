@@ -580,28 +580,71 @@ impl<'a> Parser<'a> {
                 // 1. Generic struct literal: Vec<T> { ... }
                 // 2. Generic function call: vec_new<i32>()
                 // 3. Comparison: x < y
+                // 4. Collection types: HashMap<K,V>.new()
                 let (name_with_generics, consumed_generics) =
                     if self.current_token == Token::Operator("<".to_string()) {
-                        // Try to parse generic type arguments
-                        // Save the position in case we need to backtrack
-                        let _saved_pos = self.current_span.start;
-
-                        // Look ahead to determine if this is really generic syntax
-                        if self.looks_like_generic_type_args() {
-                            // Consume the generic type arguments
-                            let mut depth = 1;
+                        // Special handling for Array<T> which needs different treatment
+                        if name == "Array" {
+                            // Don't consume generics for Array, let it be handled later
+                            (name.clone(), false)
+                        } else if matches!(name.as_str(), "HashMap" | "HashSet" | "DynVec" | "Vec") {
+                            // For collection types, we need to parse and preserve generics
+                            // Parse the generic type arguments properly
                             self.next_token(); // consume '<'
-                            while depth > 0 && self.current_token != Token::Eof {
-                                match &self.current_token {
-                                    Token::Operator(op) if op == "<" => depth += 1,
-                                    Token::Operator(op) if op == ">" => depth -= 1,
-                                    _ => {}
+                            let mut type_args = Vec::new();
+                            
+                            // Parse comma-separated type arguments
+                            loop {
+                                type_args.push(self.parse_type()?);
+                                
+                                if self.current_token == Token::Symbol(',') {
+                                    self.next_token(); // consume ','
+                                } else if self.current_token == Token::Operator(">".to_string()) {
+                                    self.next_token(); // consume '>'
+                                    break;
+                                } else {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ',' or '>' in generic type arguments".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
                                 }
-                                self.next_token();
                             }
-                            // For now, we just track that we consumed generics
-                            // In the future, we should preserve the actual type arguments
-                            (format!("{}<>", name), true)
+                            
+                            // Format the name with the actual type arguments
+                            let type_args_str = type_args.iter()
+                                .map(|t| format!("{:?}", t))  // This is a temporary representation
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            (format!("{}<{}>", name, type_args_str), true)
+                        } else if self.looks_like_generic_type_args() {
+                            // For other potential generic types
+                            // Parse the generic type arguments properly
+                            self.next_token(); // consume '<'
+                            let mut type_args = Vec::new();
+                            
+                            // Parse comma-separated type arguments
+                            loop {
+                                type_args.push(self.parse_type()?);
+                                
+                                if self.current_token == Token::Symbol(',') {
+                                    self.next_token(); // consume ','
+                                } else if self.current_token == Token::Operator(">".to_string()) {
+                                    self.next_token(); // consume '>'
+                                    break;
+                                } else {
+                                    return Err(CompileError::SyntaxError(
+                                        "Expected ',' or '>' in generic type arguments".to_string(),
+                                        Some(self.current_span.clone()),
+                                    ));
+                                }
+                            }
+                            
+                            // Format the name with the actual type arguments
+                            let type_args_str = type_args.iter()
+                                .map(|t| format!("{:?}", t))  // This is a temporary representation
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            (format!("{}<{}>", name, type_args_str), true)
                         } else {
                             // Not generic type args, probably a comparison
                             (name.clone(), false)
@@ -632,6 +675,10 @@ impl<'a> Parser<'a> {
                         variant: "None".to_string(),
                         payload: None,
                     }
+                } else if consumed_generics {
+                    // If we consumed generics, use the name with generics
+                    // This handles cases like HashMap<K,V>.new()
+                    Expression::Identifier(name_with_generics)
                 } else {
                     Expression::Identifier(name)
                 };

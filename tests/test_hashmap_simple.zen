@@ -1,0 +1,16 @@
+// Simple test for HashMap instantiation
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing HashMap instantiation...")
+    
+    // Create a HashMap - this should now work
+    map ::= HashMap<string, i32>.new()
+    
+    io.println("HashMap created successfully!")
+    
+    // For now, we can't use methods yet, but at least creation works
+    io.println("Note: HashMap methods not yet implemented")
+    
+    return 0
+}

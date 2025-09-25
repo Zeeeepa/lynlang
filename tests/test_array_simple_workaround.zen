@@ -1,0 +1,27 @@
+{ io, Array } = @std
+
+main = () i32 {
+    // Create a mutable array without type annotation to avoid parse issue
+    arr ::= Array.new(10, 0)
+    
+    // Test push method (requires mutable array)
+    arr.push(5)
+    arr.push(10)
+    arr.push(15)
+    
+    // Test len method
+    len = arr.len()
+    io.println("Length after 3 pushes: ${len}")
+    
+    // Test get method
+    val0 = arr.get(0)
+    io.println("Value at index 0: ${val0}")
+    
+    val1 = arr.get(1)
+    io.println("Value at index 1: ${val1}")
+    
+    val2 = arr.get(2)
+    io.println("Value at index 2: ${val2}")
+    
+    return 0
+}

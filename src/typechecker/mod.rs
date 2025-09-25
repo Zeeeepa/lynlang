@@ -606,6 +606,31 @@ impl TypeChecker {
                         name: "Array".to_string(),
                         type_args: vec![],
                     })
+                } else if name.contains('<') {
+                    // This looks like a generic type (e.g., HashMap<String, I32>)
+                    // Extract the base type name
+                    if let Some(angle_pos) = name.find('<') {
+                        let base_type = &name[..angle_pos];
+                        
+                        // Check if it's a known generic collection type
+                        match base_type {
+                            "HashMap" | "HashSet" | "DynVec" | "Vec" => {
+                                // Return a generic type placeholder
+                                // The actual type arguments are embedded in the name string
+                                Ok(AstType::Generic {
+                                    name: base_type.to_string(),
+                                    type_args: vec![], // TODO: Parse actual type args from the name
+                                })
+                            }
+                            _ => {
+                                // Unknown generic type, try as variable
+                                self.get_variable_type(name)
+                            }
+                        }
+                    } else {
+                        // Shouldn't happen, but try as variable
+                        self.get_variable_type(name)
+                    }
                 } else {
                     // Otherwise check if it's a variable
                     self.get_variable_type(name)
