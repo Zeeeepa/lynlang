@@ -1,0 +1,60 @@
+// Test string.len() method
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing string.len() method...")
+    
+    // Test 1: Empty string
+    empty = ""
+    len1: i64 = empty.len()
+    io.println("Empty string length: ${len1}")
+    expected1: i64 = 0
+    len1 == expected1 ? {
+        io.println("✓ Empty string test passed")
+    }
+    len1 != expected1 ? {
+        io.println("✗ Empty string test failed: expected 0, got ${len1}")
+        return 1
+    }
+    
+    // Test 2: Simple string
+    hello = "Hello"
+    len2: i64 = hello.len()
+    io.println("'Hello' length: ${len2}")
+    expected2: i64 = 5
+    len2 == expected2 ? {
+        io.println("✓ Simple string test passed")
+    }
+    len2 != expected2 ? {
+        io.println("✗ Simple string test failed: expected 5, got ${len2}")
+        return 1
+    }
+    
+    // Test 3: String with spaces
+    sentence = "Hello World"
+    len3: i64 = sentence.len()
+    io.println("'Hello World' length: ${len3}")
+    expected3: i64 = 11
+    len3 == expected3 ? {
+        io.println("✓ String with spaces test passed")
+    }
+    len3 != expected3 ? {
+        io.println("✗ String with spaces test failed: expected 11, got ${len3}")
+        return 1
+    }
+    
+    // Test 4: String literal direct call
+    len4: i64 = "Test".len()
+    io.println("'Test' length: ${len4}")
+    expected4: i64 = 4
+    len4 == expected4 ? {
+        io.println("✓ String literal test passed")
+    }
+    len4 != expected4 ? {
+        io.println("✗ String literal test failed: expected 4, got ${len4}")
+        return 1
+    }
+    
+    io.println("\n✓ All string.len() tests passed!")
+    return 0
+}
