@@ -331,9 +331,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Call the appropriate constructor function
                             match base_type {
                                 "HashMap" => {
-                                    // HashMap.new() creates an empty hashmap
-                                    // For now, return a placeholder struct
-                                    // In a real implementation, this would allocate the hash table
+                                    // HashMap.new() creates an empty hashmap with allocated buckets
                                     let hashmap_type = self.context.struct_type(
                                         &[
                                             self.context.ptr_type(AddressSpace::default()).into(), // buckets
@@ -343,17 +341,84 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         false,
                                     );
                                     
-                                    // Create an empty hashmap struct
-                                    let null_ptr = self.context.ptr_type(AddressSpace::default()).const_null();
+                                    // Initial capacity
+                                    let initial_capacity = 16i64;
+                                    let capacity_value = self.context.i64_type().const_int(initial_capacity as u64, false);
+                                    
+                                    // Each bucket is a struct with: key_ptr, value, occupied_flag
+                                    // For simplicity, we'll allocate an array of i64 values (3 per bucket)
+                                    // [key_hash, value, occupied]
+                                    let bucket_size = 3i64; // 3 i64s per bucket
+                                    let total_size = initial_capacity * bucket_size * 8; // 8 bytes per i64
+                                    
+                                    // Call malloc to allocate memory for buckets
+                                    let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                                        let malloc_type = self.context.ptr_type(AddressSpace::default())
+                                            .fn_type(&[self.context.i64_type().into()], false);
+                                        self.module.add_function("malloc", malloc_type, None)
+                                    });
+                                    
+                                    let size_arg = self.context.i64_type().const_int(total_size as u64, false);
+                                    let buckets_ptr = self.builder
+                                        .build_call(malloc_fn, &[size_arg.into()], "buckets")
+                                        .unwrap()
+                                        .try_as_basic_value()
+                                        .left()
+                                        .unwrap();
+                                    
+                                    // Initialize all buckets as unoccupied (memset to 0)
+                                    let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
+                                        let memset_type = self.context.ptr_type(AddressSpace::default())
+                                            .fn_type(&[
+                                                self.context.ptr_type(AddressSpace::default()).into(),
+                                                self.context.i32_type().into(),
+                                                self.context.i64_type().into(),
+                                            ], false);
+                                        self.module.add_function("memset", memset_type, None)
+                                    });
+                                    
+                                    self.builder.build_call(
+                                        memset_fn, 
+                                        &[
+                                            buckets_ptr.into(),
+                                            self.context.i32_type().const_int(0, false).into(),
+                                            size_arg.into(),
+                                        ],
+                                        "memset"
+                                    ).unwrap();
+                                    
+                                    // Create the hashmap struct
                                     let zero = self.context.i64_type().const_int(0, false);
-                                    let capacity = self.context.i64_type().const_int(16, false);
+                                    let hashmap_alloca = self.builder.build_alloca(hashmap_type, "hashmap")?;
                                     
-                                    let hashmap = hashmap_type.const_named_struct(&[
-                                        null_ptr.into(),
-                                        zero.into(),
-                                        capacity.into(),
-                                    ]);
+                                    // Store buckets pointer
+                                    let buckets_field_ptr = self.builder.build_struct_gep(
+                                        hashmap_type,
+                                        hashmap_alloca,
+                                        0,
+                                        "buckets_field"
+                                    )?;
+                                    self.builder.build_store(buckets_field_ptr, buckets_ptr)?;
                                     
+                                    // Store size (initially 0)
+                                    let size_field_ptr = self.builder.build_struct_gep(
+                                        hashmap_type,
+                                        hashmap_alloca,
+                                        1,
+                                        "size_field"
+                                    )?;
+                                    self.builder.build_store(size_field_ptr, zero)?;
+                                    
+                                    // Store capacity
+                                    let capacity_field_ptr = self.builder.build_struct_gep(
+                                        hashmap_type,
+                                        hashmap_alloca,
+                                        2,
+                                        "capacity_field"
+                                    )?;
+                                    self.builder.build_store(capacity_field_ptr, capacity_value)?;
+                                    
+                                    let hashmap = self.builder.build_load(hashmap_type, hashmap_alloca, "hashmap_value")?;
                                     return Ok(hashmap.into());
                                 }
                                 "HashSet" => {
@@ -1856,7 +1921,82 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "buckets_ptr"
                                 )?.into_pointer_value();
                                 
-                                // For now, just update size - proper implementation would handle collisions
+                                // Each bucket has 3 i64 values: [key_hash, value, occupied]
+                                // Calculate the offset to the target bucket
+                                let i64_ptr_type = self.context.i64_type().ptr_type(AddressSpace::default());
+                                let buckets_as_i64_ptr = self.builder.build_pointer_cast(
+                                    buckets_ptr,
+                                    i64_ptr_type,
+                                    "buckets_as_i64"
+                                )?;
+                                
+                                // Multiply bucket_index by 3 to get the starting position
+                                let bucket_offset = self.builder.build_int_mul(
+                                    bucket_index,
+                                    self.context.i64_type().const_int(3, false),
+                                    "bucket_offset"
+                                )?;
+                                
+                                // Get pointers to bucket fields
+                                let key_hash_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[bucket_offset],
+                                        "key_hash_ptr"
+                                    )?
+                                };
+                                
+                                let value_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(1, false),
+                                    "value_offset"
+                                )?;
+                                let value_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[value_offset],
+                                        "value_ptr"
+                                    )?
+                                };
+                                
+                                let occupied_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(2, false),
+                                    "occupied_offset"
+                                )?;
+                                let occupied_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[occupied_offset],
+                                        "occupied_ptr"
+                                    )?
+                                };
+                                
+                                // Store the hash and value (for now, assume i64 value)
+                                self.builder.build_store(key_hash_ptr, hash_value)?;
+                                
+                                // Convert value to i64 if needed
+                                let value_as_i64 = if value.get_type() == self.context.i64_type().into() {
+                                    value.into_int_value()
+                                } else if value.get_type() == self.context.i32_type().into() {
+                                    // Zero-extend i32 to i64
+                                    self.builder.build_int_z_extend(
+                                        value.into_int_value(),
+                                        self.context.i64_type(),
+                                        "value_i64"
+                                    )?
+                                } else {
+                                    // For other types, use a placeholder
+                                    self.context.i64_type().const_int(0, false)
+                                };
+                                
+                                self.builder.build_store(value_ptr, value_as_i64)?;
+                                self.builder.build_store(occupied_ptr, self.context.i64_type().const_int(1, false))?;
+                                
+                                // Update size
                                 let size_ptr = self.builder.build_struct_gep(
                                     object_value.get_type(),
                                     hashmap_ptr,
@@ -1933,6 +2073,63 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "bucket_index"
                                 )?;
                                 
+                                // Load buckets pointer from HashMap
+                                let buckets_ptr_ptr = self.builder.build_struct_gep(
+                                    object_value.get_type(),
+                                    hashmap_ptr,
+                                    0, // buckets_ptr is at index 0
+                                    "buckets_ptr_ptr",
+                                )?;
+                                let buckets_ptr = self.builder.build_load(
+                                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                                    buckets_ptr_ptr,
+                                    "buckets_ptr"
+                                )?.into_pointer_value();
+                                
+                                // Each bucket has 3 i64 values: [key_hash, value, occupied]
+                                let i64_ptr_type = self.context.i64_type().ptr_type(AddressSpace::default());
+                                let buckets_as_i64_ptr = self.builder.build_pointer_cast(
+                                    buckets_ptr,
+                                    i64_ptr_type,
+                                    "buckets_as_i64"
+                                )?;
+                                
+                                // Multiply bucket_index by 3 to get the starting position
+                                let bucket_offset = self.builder.build_int_mul(
+                                    bucket_index,
+                                    self.context.i64_type().const_int(3, false),
+                                    "bucket_offset"
+                                )?;
+                                
+                                // Get pointers to bucket fields
+                                let occupied_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(2, false),
+                                    "occupied_offset"
+                                )?;
+                                let occupied_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[occupied_offset],
+                                        "occupied_ptr"
+                                    )?
+                                };
+                                
+                                // Load occupied flag
+                                let occupied = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    occupied_ptr,
+                                    "occupied"
+                                )?.into_int_value();
+                                
+                                let is_occupied = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::NE,
+                                    occupied,
+                                    self.context.i64_type().const_int(0, false),
+                                    "is_occupied"
+                                )?;
+                                
                                 // Get the Option enum type
                                 let option_llvm_type = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
                                     info.llvm_type
@@ -1943,99 +2140,203 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     ));
                                 };
                                 
-                                // For demonstration, check size and return Some(test_value) if non-empty
-                                let size_ptr = self.builder.build_struct_gep(
-                                    object_value.get_type(),
-                                    hashmap_ptr,
-                                    1, // size is at index 1
-                                    "size_ptr",
-                                )?;
-                                let size = self.builder.build_load(
-                                    self.context.i64_type(),
-                                    size_ptr,
-                                    "size"
-                                )?.into_int_value();
-                                
-                                let is_empty = self.builder.build_int_compare(
-                                    inkwell::IntPredicate::EQ,
-                                    size,
-                                    self.context.i64_type().const_int(0, false),
-                                    "is_empty"
-                                )?;
-                                
                                 // Create basic blocks for conditional return
                                 let current_fn = self.current_function.unwrap();
-                                let then_block = self.context.append_basic_block(current_fn, "get_empty");
-                                let else_block = self.context.append_basic_block(current_fn, "get_nonempty");
+                                let found_block = self.context.append_basic_block(current_fn, "get_found");
+                                let not_found_block = self.context.append_basic_block(current_fn, "get_not_found");
                                 let merge_block = self.context.append_basic_block(current_fn, "get_merge");
                                 
-                                self.builder.build_conditional_branch(is_empty, then_block, else_block)?;
+                                self.builder.build_conditional_branch(is_occupied, found_block, not_found_block)?;
                                 
-                                // Empty: return None
-                                self.builder.position_at_end(then_block);
+                                // Not found: return None
+                                self.builder.position_at_end(not_found_block);
                                 let none_discriminant = self.context.i64_type().const_int(1, false); // None = 1
-                                let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
-                                let none_value = option_llvm_type.const_named_struct(&[
-                                    none_discriminant.into(),
-                                    null_payload.into(),
-                                ]);
+                                let none_alloca = self.builder.build_alloca(option_llvm_type, "none_value")?;
+                                let disc_ptr = self.builder.build_struct_gep(
+                                    option_llvm_type,
+                                    none_alloca,
+                                    0,
+                                    "disc_ptr"
+                                )?;
+                                self.builder.build_store(disc_ptr, none_discriminant)?;
+                                // Payload for None can be undefined/zero
+                                let payload_ptr = self.builder.build_struct_gep(
+                                    option_llvm_type,
+                                    none_alloca,
+                                    1,
+                                    "payload_ptr"
+                                )?;
+                                let zero_payload = self.context.i64_type().const_int(0, false);
+                                self.builder.build_store(payload_ptr, zero_payload)?;
+                                let none_value = self.builder.build_load(option_llvm_type, none_alloca, "none_value")?;
                                 self.builder.build_unconditional_branch(merge_block)?;
                                 
-                                // Non-empty: return Some(test_value)
-                                self.builder.position_at_end(else_block);
-                                // Get the value type from HashMap<K,V> generic args
+                                // Found: retrieve the value and return Some(value)
+                                self.builder.position_at_end(found_block);
+                                
+                                // Get pointer to value
+                                let value_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(1, false),
+                                    "value_offset"
+                                )?;
+                                let value_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[value_offset],
+                                        "value_ptr"
+                                    )?
+                                };
+                                
+                                // Load the value
+                                let stored_value = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    value_ptr,
+                                    "stored_value"
+                                )?.into_int_value();
+                                
+                                // Get the value type from HashMap<K,V> generic args and convert accordingly
                                 let some_value = if let Some(var_info) = self.variables.get(obj_name) {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() == 2 {
-                                            // Return a test value based on the value type
+                                            // Convert the i64 back to the appropriate type
                                             match &type_args[1] {
                                                 AstType::I32 => {
-                                                    // Return Some(42) for i32 values
-                                                    let test_value = self.context.i32_type().const_int(42, false);
+                                                    // Truncate i64 to i32
+                                                    let value_i32 = self.builder.build_int_truncate(
+                                                        stored_value,
+                                                        self.context.i32_type(),
+                                                        "value_i32"
+                                                    )?;
                                                     let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                                    option_llvm_type.const_named_struct(&[
-                                                        some_discriminant.into(),
-                                                        test_value.into(),
-                                                    ])
+                                                    let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
+                                                    let disc_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        0,
+                                                        "disc_ptr"
+                                                    )?;
+                                                    self.builder.build_store(disc_ptr, some_discriminant)?;
+                                                    let payload_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        1,
+                                                        "payload_ptr"
+                                                    )?;
+                                                    self.builder.build_store(payload_ptr, value_i32)?;
+                                                    self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?
                                                 }
                                                 AstType::I64 => {
-                                                    // Return Some(42) for i64 values
-                                                    let test_value = self.context.i64_type().const_int(42, false);
+                                                    // Use value as-is
                                                     let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                                    option_llvm_type.const_named_struct(&[
-                                                        some_discriminant.into(),
-                                                        test_value.into(),
-                                                    ])
-                                                }
-                                                AstType::String => {
-                                                    // Return Some("test") for string values
-                                                    let test_str = self.compile_string_literal("test")?;
-                                                    let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                                    option_llvm_type.const_named_struct(&[
-                                                        some_discriminant.into(),
-                                                        test_str.into(),
-                                                    ])
+                                                    let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
+                                                    let disc_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        0,
+                                                        "disc_ptr"
+                                                    )?;
+                                                    self.builder.build_store(disc_ptr, some_discriminant)?;
+                                                    let payload_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        1,
+                                                        "payload_ptr"
+                                                    )?;
+                                                    self.builder.build_store(payload_ptr, stored_value)?;
+                                                    self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?
                                                 }
                                                 _ => {
-                                                    // For other types, return None for now
-                                                    none_value
+                                                    // For other types, return the raw i64 value for now
+                                                    let some_discriminant = self.context.i64_type().const_int(0, false);
+                                                    let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
+                                                    let disc_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        0,
+                                                        "disc_ptr"
+                                                    )?;
+                                                    self.builder.build_store(disc_ptr, some_discriminant)?;
+                                                    let payload_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        1,
+                                                        "payload_ptr"
+                                                    )?;
+                                                    self.builder.build_store(payload_ptr, stored_value)?;
+                                                    self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?
                                                 }
                                             }
                                         } else {
-                                            none_value
+                                            // Return None for invalid type args
+                                            let none_discriminant = self.context.i64_type().const_int(1, false);
+                                            let none_alloca = self.builder.build_alloca(option_llvm_type, "none_value")?;
+                                            let disc_ptr = self.builder.build_struct_gep(
+                                                option_llvm_type,
+                                                none_alloca,
+                                                0,
+                                                "disc_ptr"
+                                            )?;
+                                            self.builder.build_store(disc_ptr, none_discriminant)?;
+                                            let payload_ptr = self.builder.build_struct_gep(
+                                                option_llvm_type,
+                                                none_alloca,
+                                                1,
+                                                "payload_ptr"
+                                            )?;
+                                            let zero_payload = self.context.i64_type().const_int(0, false);
+                                            self.builder.build_store(payload_ptr, zero_payload)?;
+                                            self.builder.build_load(option_llvm_type, none_alloca, "none_value")?
                                         }
                                     } else {
-                                        none_value
+                                        // Return None - no type info
+                                        let none_discriminant = self.context.i64_type().const_int(1, false);
+                                        let none_alloca = self.builder.build_alloca(option_llvm_type, "none_value")?;
+                                        let disc_ptr = self.builder.build_struct_gep(
+                                            option_llvm_type,
+                                            none_alloca,
+                                            0,
+                                            "disc_ptr"
+                                        )?;
+                                        self.builder.build_store(disc_ptr, none_discriminant)?;
+                                        let payload_ptr = self.builder.build_struct_gep(
+                                            option_llvm_type,
+                                            none_alloca,
+                                            1,
+                                            "payload_ptr"
+                                        )?;
+                                        let zero_payload = self.context.i64_type().const_int(0, false);
+                                        self.builder.build_store(payload_ptr, zero_payload)?;
+                                        self.builder.build_load(option_llvm_type, none_alloca, "none_value")?
                                     }
                                 } else {
-                                    none_value
+                                    // Return None - var not found
+                                    let none_discriminant = self.context.i64_type().const_int(1, false);
+                                    let none_alloca = self.builder.build_alloca(option_llvm_type, "none_value")?;
+                                    let disc_ptr = self.builder.build_struct_gep(
+                                        option_llvm_type,
+                                        none_alloca,
+                                        0,
+                                        "disc_ptr"
+                                    )?;
+                                    self.builder.build_store(disc_ptr, none_discriminant)?;
+                                    let payload_ptr = self.builder.build_struct_gep(
+                                        option_llvm_type,
+                                        none_alloca,
+                                        1,
+                                        "payload_ptr"
+                                    )?;
+                                    let zero_payload = self.context.i64_type().const_int(0, false);
+                                    self.builder.build_store(payload_ptr, zero_payload)?;
+                                    self.builder.build_load(option_llvm_type, none_alloca, "none_value")?
                                 };
                                 self.builder.build_unconditional_branch(merge_block)?;
                                 
                                 // Merge block
                                 self.builder.position_at_end(merge_block);
                                 let phi = self.builder.build_phi(option_llvm_type, "get_result")?;
-                                phi.add_incoming(&[(&none_value, then_block), (&some_value, else_block)]);
+                                phi.add_incoming(&[(&none_value, not_found_block), (&some_value, found_block)]);
                                 
                                 return Ok(phi.as_basic_value());
                             }

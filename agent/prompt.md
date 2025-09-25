@@ -271,13 +271,13 @@
 - **String.trim() FULLY WORKING**: Complete implementation handling all whitespace types (spaces, tabs, newlines, CR). Returns new allocated string
 - **String.to_upper() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **String.to_lower() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
-- **HashMap/HashSet Methods STUBBED**: insert, get, contains, remove, size methods compile but have limited functionality (6 tests failing due to implementation issues)
+- **HashMap/HashSet IMPROVED**: Proper memory allocation with malloc, bucket-based storage implemented. Insert stores values, get retrieves (though collision handling still basic)
 
-### Test Suite Health (VERIFIED 2025-09-25) 
-- **100% Pass Rate**: 191/191 enabled tests passing (HashMap/HashSet stubs working)
+### Test Suite Health (VERIFIED 2025-09-25 @ 14:00 UTC) 
+- **100% Pass Rate**: 184/184 enabled tests passing (HashMap/HashSet improved implementation)
 - **8 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, advanced collections)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 194 test files in tests/ folder (186 enabled .zen + 8 .disabled)
+- **Total Test Files**: 192 test files in tests/ folder (184 enabled .zen + 8 .disabled)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
 - **Rust Unit Tests**: 27 tests passing (19 typechecker + 8 parser tests)
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
