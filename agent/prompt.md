@@ -219,6 +219,7 @@
 ✓ Task 215: **IMPROVED** Test Suite Coverage (2025-09-25) - Added test_loop_with_closure.zen and test_nested_blocks.zen. Test suite improved to 171/171 passing (100% pass rate). 7 disabled tests remain.
 ✓ Task 216: **VERIFIED** Test Suite Health (2025-09-25) - Both new test files pass successfully. Test suite maintains perfect 100% pass rate (171/171 tests passing). 178 total test files (171 enabled + 7 disabled).
 ✓ Task 217: **IMPLEMENTED** string.trim() Method (2025-09-25) - Successfully implemented string.trim() method that removes leading and trailing whitespace. Returns new allocated string. Handles spaces, tabs, newlines, carriage returns. Test suite maintained at 173/173 passing (100%).
+✓ Task 218: **IMPLEMENTED** string methods contains(), starts_with(), ends_with(), index_of() (2025-09-25) - All four string methods fully working with runtime implementations using strstr, strncmp, and strlen. Tests created and passing. 173/173 tests passing (100%).
 
 ## Current Status (2025-09-25 - 173/173 TESTS PASSING - 100%!!)
 
@@ -272,6 +273,10 @@
 - **String.to_i32() Method**: FULLY IMPLEMENTED - Returns Option<i32> from string parsing using strtol
 - **String.to_i64() Method**: FULLY IMPLEMENTED - Returns Option<i64> from string parsing using strtoll
 - **String.trim() Method**: FULLY IMPLEMENTED - Removes leading/trailing whitespace (spaces, tabs, newlines, CR), returns new string
+- **String.contains() Method**: FULLY IMPLEMENTED - Returns bool if string contains substring using strstr
+- **String.starts_with() Method**: FULLY IMPLEMENTED - Returns bool if string starts with prefix using strncmp
+- **String.ends_with() Method**: FULLY IMPLEMENTED - Returns bool if string ends with suffix using strlen comparison
+- **String.index_of() Method**: FULLY IMPLEMENTED - Returns i64 index of substring in string, -1 if not found
 
 ## Compiler Status  
 - **Compiler**: Rust implementation at ~92% of spec (LLVM-based) - **0 WARNINGS!**
@@ -281,7 +286,7 @@
   - ✅ @std module import system (destructuring syntax)
   - ✅ String interpolation "${expr}" 
   - ✅ io.println for strings and numbers (fixed i8 integer printing)
-  - ✅ String methods - s.to_f64() returns Option<f64>, s.to_i32() returns Option<i32>, s.to_i64() returns Option<i64>, s.len() returns i64 length, s.substr(start, length) returns substring, s.char_at(index) returns i32 character code, s.split(delimiter) returns Array<string>
+  - ✅ String methods - s.to_f64() returns Option<f64>, s.to_i32() returns Option<i32>, s.to_i64() returns Option<i64>, s.len() returns i64 length, s.substr(start, length) returns substring, s.char_at(index) returns i32 character code, s.split(delimiter) returns Array<string>, s.trim() removes whitespace, s.contains(substr) returns bool, s.starts_with(prefix) returns bool, s.ends_with(suffix) returns bool, s.index_of(substr) returns i64
   - ✅ Pattern matching using conditional syntax (? with | true/false)
   - ✅ UFC (Universal Function Call) syntax - x.method()
   - ✅ Blocks return their last expression value
