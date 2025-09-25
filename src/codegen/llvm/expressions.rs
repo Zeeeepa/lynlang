@@ -4,6 +4,7 @@ use crate::error::CompileError;
 use inkwell::module::Linkage;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
+use inkwell::AddressSpace;
 
 impl<'ctx> LLVMCompiler<'ctx> {
     /// Infer the type of an expression for generic type tracking
@@ -3250,6 +3251,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let Expression::FunctionCall { name, .. } = expr {
             // Check if we know the function's return type - clone to avoid borrow issues
             if let Some(return_type) = self.function_types.get(name).cloned() {
+                // Track the complex generic type recursively
+                self.track_complex_generic(&return_type, "Result");
+                
                 if let AstType::Generic { name: type_name, type_args } = return_type {
                     if type_name == "Result" && type_args.len() == 2 {
                         // Store Result<T, E> type arguments for proper payload extraction
@@ -3337,29 +3341,106 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let ptr_val = ok_value_ptr.into_pointer_value();
 
                     // Use the tracked generic type information to determine the correct type to load
-                    let load_type: inkwell::types::BasicTypeEnum =
-                        if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
-                            match ast_type {
-                                AstType::I8 => self.context.i8_type().into(),
-                                AstType::I16 => self.context.i16_type().into(),
-                                AstType::I32 => self.context.i32_type().into(),
-                                AstType::I64 => self.context.i64_type().into(),
-                                AstType::U8 => self.context.i8_type().into(),
-                                AstType::U16 => self.context.i16_type().into(),
-                                AstType::U32 => self.context.i32_type().into(),
-                                AstType::U64 => self.context.i64_type().into(),
-                                AstType::F32 => self.context.f32_type().into(),
-                                AstType::F64 => self.context.f64_type().into(),
-                                AstType::Bool => self.context.bool_type().into(),
-                                _ => self.context.i32_type().into(), // Default fallback
+                    // Determine the correct type to load - handle nested generics
+                    let load_result: Result<BasicValueEnum<'ctx>, CompileError> = if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type").cloned() {
+                        match &ast_type {
+                            AstType::I8 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i8_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
                             }
-                        } else {
-                            // Default to i32 for backward compatibility
-                            self.context.i32_type().into()
-                        };
-                    let loaded_value =
-                        self.builder
-                            .build_load(load_type, ptr_val, "ok_value_deref")?;
+                            AstType::I16 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i16_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::I32 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i32_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::I64 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i64_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::U8 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i8_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::U16 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i16_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::U32 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i32_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::U64 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i64_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::F32 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.f32_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::F64 => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.f64_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::Bool => {
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.bool_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                            AstType::Generic { name, type_args } if name == "Result" && type_args.len() == 2 => {
+                                // Handle nested Result<T,E> - the payload is itself a Result struct
+                                // The Result struct type is {i64, ptr} where i64 is discriminant and ptr is payload
+                                let result_struct_type = self.context.struct_type(
+                                    &[
+                                        self.context.i64_type().into(), // discriminant
+                                        self.context.ptr_type(AddressSpace::default()).into(), // payload
+                                    ],
+                                    false
+                                );
+                                // Load the nested Result struct
+                                let loaded = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
+                                
+                                // Track the nested generic types for further raise() operations
+                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                
+                                Ok(loaded)
+                            }
+                            AstType::Generic { name, type_args } if name == "Option" && type_args.len() == 1 => {
+                                // Handle Option<T> - similar to Result but with only one type parameter
+                                let option_struct_type = self.context.struct_type(
+                                    &[
+                                        self.context.i64_type().into(), // discriminant  
+                                        self.context.ptr_type(AddressSpace::default()).into(), // payload
+                                    ],
+                                    false
+                                );
+                                let loaded = self.builder.build_load(option_struct_type, ptr_val, "nested_option")?;
+                                
+                                // Track the nested generic type
+                                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                
+                                Ok(loaded)
+                            }
+                            AstType::String => {
+                                // String is represented as a pointer
+                                let ptr_type: inkwell::types::BasicTypeEnum = self.context.ptr_type(AddressSpace::default()).into();
+                                Ok(self.builder.build_load(ptr_type, ptr_val, "ok_string")?)
+                            }
+                            _ => {
+                                // Default fallback to i32
+                                let load_type: inkwell::types::BasicTypeEnum = self.context.i32_type().into();
+                                Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                            }
+                        }
+                    } else {
+                        // Default to i32 for backward compatibility
+                        let load_type: inkwell::types::BasicTypeEnum = self.context.i32_type().into();
+                        Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
+                    };
+                    
+                    let loaded_value = load_result?;
 
                     // The loaded value should be the correct type
                     loaded_value

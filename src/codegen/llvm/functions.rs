@@ -1284,9 +1284,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Store the function for later use
         self.functions.insert(function.name.clone(), function_value);
-        // Store the return type for type inference
+        // Store the return type for type inference (use actual_return_type which handles main() special case)
         self.function_types
-            .insert(function.name.clone(), function.return_type.clone());
+            .insert(function.name.clone(), actual_return_type);
 
         Ok(function_value)
     }
