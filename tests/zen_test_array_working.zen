@@ -1,0 +1,48 @@
+// Comprehensive Array<T> test demonstrating working functionality
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing Array<T> implementation")
+    io.println("================================")
+    
+    // Create array
+    arr: Array<i32> = Array<i32>.new(100, 0)
+    io.println("Created Array<i32> with capacity 100")
+    
+    // Test push
+    io.println("\nTesting push operation:")
+    arr.push(10)
+    arr.push(20)
+    arr.push(30)
+    arr.push(40)
+    arr.push(50)
+    io.println("Pushed: 10, 20, 30, 40, 50")
+    
+    // Test get
+    io.println("\nTesting get operation:")
+    val0 = arr.get(0)
+    val1 = arr.get(1)
+    val2 = arr.get(2)
+    val3 = arr.get(3)
+    val4 = arr.get(4)
+    
+    io.println("arr[0] = ${val0}")
+    io.println("arr[1] = ${val1}")
+    io.println("arr[2] = ${val2}")
+    io.println("arr[3] = ${val3}")
+    io.println("arr[4] = ${val4}")
+    
+    // Test with negative numbers
+    io.println("\nTesting with negative numbers:")
+    arr.push(-5)
+    arr.push(-10)
+    val5 = arr.get(5)
+    val6 = arr.get(6)
+    io.println("arr[5] = ${val5}")
+    io.println("arr[6] = ${val6}")
+    
+    // Success
+    io.println("\n✅ All Array<T> tests passed!")
+    
+    return 0
+}

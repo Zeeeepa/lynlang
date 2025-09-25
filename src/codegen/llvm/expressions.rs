@@ -586,9 +586,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Special handling for DynVec methods
                 if let Expression::Identifier(obj_name) = object.as_ref() {
-                    // Check if this is a DynVec type by looking at the object's type
-                    // For now, we'll handle common DynVec methods
-                    match method.as_str() {
+                    // Check if this is actually a DynVec type
+                    let is_dynvec = if let Some(var_info) = self.variables.get(obj_name) {
+                        matches!(&var_info.ast_type, AstType::DynVec { .. })
+                    } else {
+                        false
+                    };
+                    
+                    if is_dynvec {
+                        // Only handle DynVec methods if it's actually a DynVec
+                        match method.as_str() {
                         "push" => {
                             // DynVec.push(value) implementation
                             if args.len() != 1 {
@@ -1156,6 +1163,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         _ => {}
                     }
+                    }  // Close the is_dynvec check
                 }
 
                 // Try trait method resolution first

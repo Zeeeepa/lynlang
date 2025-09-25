@@ -532,10 +532,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 AstType::I32
                             }
                         } else if let Expression::MethodCall {
-                            object: _, method, ..
+                            object, method, ..
                         } = init_expr
                         {
                             // Handle other method calls
+                            // Check if this is Array.new() 
+                            if let Expression::Identifier(name) = &**object {
+                                if name == "Array" && method == "new" {
+                                    // This is Array<T>.new() - return Array<i32> for now
+                                    // TODO: Properly infer T from type arguments
+                                    return Ok(());  // The type was already set by explicit type annotation
+                                }
+                            }
+                            
                             // Check the method name first for known return types
                             match method.as_str() {
                                 "to_f64" => AstType::Generic {

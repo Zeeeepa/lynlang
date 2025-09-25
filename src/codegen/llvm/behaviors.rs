@@ -1,5 +1,5 @@
 use super::LLVMCompiler;
-use crate::ast::{Expression, TraitImplementation};
+use crate::ast::{Expression, TraitImplementation, AstType};
 use crate::error::CompileError;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
@@ -354,6 +354,70 @@ impl<'ctx> LLVMCompiler<'ctx> {
         method_name: &str,
         args: &[Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // First check if the object type is Array
+        // Try to infer type from the expression
+        if let Expression::Identifier(name) = object {
+            // Check if this is an Array type - get what we need and drop the borrow
+            let array_info = self.variables.get(name).and_then(|var_info| {
+                if let AstType::Generic { name: type_name, .. } = &var_info.ast_type {
+                    if type_name == "Array" {
+                        Some((var_info.pointer, var_info.ast_type.clone()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            });
+            
+            if let Some((array_ptr, _ast_type)) = array_info {
+                // Compile the object to get the array value
+                // Array struct type: { ptr, length, capacity }
+                let array_struct_type = self.context.struct_type(
+                    &[
+                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                        self.context.i64_type().into(),
+                        self.context.i64_type().into(),
+                    ],
+                    false,
+                );
+                let object_val = self.builder.build_load(
+                    array_struct_type,
+                    array_ptr,
+                    "array_val"
+                )?;
+                
+                // Handle Array methods
+                match method_name {
+                    "push" => {
+                        if args.len() != 1 {
+                            return Err(CompileError::TypeError(
+                                format!("Array.push expects 1 argument, got {}", args.len()),
+                                None,
+                            ));
+                        }
+                        let value = self.compile_expression(&args[0])?;
+                        // Pass the pointer instead of the value for in-place modification
+                        return self.compile_array_push_by_ptr(array_ptr, value);
+                    }
+                    "get" => {
+                        if args.len() != 1 {
+                            return Err(CompileError::TypeError(
+                                format!("Array.get expects 1 argument, got {}", args.len()),
+                                None,
+                            ));
+                        }
+                        let index = self.compile_expression(&args[0])?;
+                        let result = self.compile_array_get(object_val, index)?;
+                        return Ok(result);
+                    }
+                    _ => {
+                        // Fall through to regular method handling
+                    }
+                }
+            }
+        }
+        
         // For now, we'll implement static dispatch only
         // Dynamic dispatch would require trait objects
 
