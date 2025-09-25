@@ -2252,6 +2252,320 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 Ok(func)
             }
+            "string_to_upper" => {
+                // string_to_upper(str: *const i8) -> *const i8
+                // Returns a new string with all characters converted to uppercase
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = string_type.fn_type(&[string_type.into()], false);
+                let func = self
+                    .module
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the string parameter
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                
+                // Declare strlen function
+                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = self.context.i64_type().fn_type(&[ptr_type.into()], false);
+                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
+                });
+                
+                // Declare malloc function
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
+                });
+                
+                // Get string length
+                let str_len = self.builder.build_call(
+                    strlen_fn,
+                    &[str_param.into()],
+                    "strlen"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Allocate memory for new string (+1 for null terminator)
+                let one = self.context.i64_type().const_int(1, false);
+                let alloc_size = self.builder.build_int_add(str_len, one, "alloc_size")?;
+                let new_str = self.builder.build_call(
+                    malloc_fn,
+                    &[alloc_size.into()],
+                    "new_str"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Create loop to convert each character
+                let loop_block = self.context.append_basic_block(func, "loop");
+                let loop_body = self.context.append_basic_block(func, "loop_body");
+                let loop_end = self.context.append_basic_block(func, "loop_end");
+                
+                // Initialize loop counter
+                let i_alloca = self.builder.build_alloca(self.context.i64_type(), "i")?;
+                let zero = self.context.i64_type().const_int(0, false);
+                self.builder.build_store(i_alloca, zero)?;
+                
+                self.builder.build_unconditional_branch(loop_block)?;
+                
+                // Loop condition
+                self.builder.position_at_end(loop_block);
+                let i = self.builder.build_load(self.context.i64_type(), i_alloca, "i_val")?.into_int_value();
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::ULT,
+                    i,
+                    str_len,
+                    "loop_cond"
+                )?;
+                self.builder.build_conditional_branch(cond, loop_body, loop_end)?;
+                
+                // Loop body - convert character to uppercase
+                self.builder.position_at_end(loop_body);
+                
+                // Get source character
+                let src_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i8_type(),
+                        str_param,
+                        &[i],
+                        "src_ptr"
+                    )?
+                };
+                let src_char = self.builder.build_load(self.context.i8_type(), src_ptr, "src_char")?.into_int_value();
+                
+                // Convert to uppercase (simple ASCII conversion)
+                // if (c >= 'a' && c <= 'z') c = c - 32;
+                let a_val = self.context.i8_type().const_int(97, false); // 'a'
+                let z_val = self.context.i8_type().const_int(122, false); // 'z'
+                let is_lower = self.builder.build_and(
+                    self.builder.build_int_compare(inkwell::IntPredicate::SGE, src_char, a_val, "ge_a")?,
+                    self.builder.build_int_compare(inkwell::IntPredicate::SLE, src_char, z_val, "le_z")?,
+                    "is_lower"
+                )?;
+                
+                let upper_block = self.context.append_basic_block(func, "to_upper");
+                let store_block = self.context.append_basic_block(func, "store_char");
+                
+                self.builder.build_conditional_branch(is_lower, upper_block, store_block)?;
+                
+                // Convert to uppercase
+                self.builder.position_at_end(upper_block);
+                let diff = self.context.i8_type().const_int(32, false);
+                let upper_char = self.builder.build_int_sub(src_char, diff, "upper_char")?;
+                self.builder.build_unconditional_branch(store_block)?;
+                
+                // Store character (either converted or original)
+                self.builder.position_at_end(store_block);
+                let char_phi = self.builder.build_phi(self.context.i8_type(), "char_phi")?;
+                char_phi.add_incoming(&[(&upper_char, upper_block), (&src_char, loop_body)]);
+                let final_char = char_phi.as_basic_value().into_int_value();
+                
+                // Store in destination
+                let dst_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i8_type(),
+                        new_str,
+                        &[i],
+                        "dst_ptr"
+                    )?
+                };
+                self.builder.build_store(dst_ptr, final_char)?;
+                
+                // Increment counter
+                let next_i = self.builder.build_int_add(i, one, "next_i")?;
+                self.builder.build_store(i_alloca, next_i)?;
+                
+                self.builder.build_unconditional_branch(loop_block)?;
+                
+                // Loop end - add null terminator
+                self.builder.position_at_end(loop_end);
+                let null_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i8_type(),
+                        new_str,
+                        &[str_len],
+                        "null_ptr"
+                    )?
+                };
+                let null_char = self.context.i8_type().const_int(0, false);
+                self.builder.build_store(null_ptr, null_char)?;
+                
+                // Return the new string
+                self.builder.build_return(Some(&new_str))?;
+                
+                // Restore position
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                self.current_function = current_fn;
+                
+                Ok(func)
+            }
+            "string_to_lower" => {
+                // string_to_lower(str: *const i8) -> *const i8
+                // Returns a new string with all characters converted to lowercase
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = string_type.fn_type(&[string_type.into()], false);
+                let func = self
+                    .module
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the string parameter
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                
+                // Declare strlen function
+                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = self.context.i64_type().fn_type(&[ptr_type.into()], false);
+                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
+                });
+                
+                // Declare malloc function
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
+                });
+                
+                // Get string length
+                let str_len = self.builder.build_call(
+                    strlen_fn,
+                    &[str_param.into()],
+                    "strlen"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Allocate memory for new string (+1 for null terminator)
+                let one = self.context.i64_type().const_int(1, false);
+                let alloc_size = self.builder.build_int_add(str_len, one, "alloc_size")?;
+                let new_str = self.builder.build_call(
+                    malloc_fn,
+                    &[alloc_size.into()],
+                    "new_str"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Create loop to convert each character
+                let loop_block = self.context.append_basic_block(func, "loop");
+                let loop_body = self.context.append_basic_block(func, "loop_body");
+                let loop_end = self.context.append_basic_block(func, "loop_end");
+                
+                // Initialize loop counter
+                let i_alloca = self.builder.build_alloca(self.context.i64_type(), "i")?;
+                let zero = self.context.i64_type().const_int(0, false);
+                self.builder.build_store(i_alloca, zero)?;
+                
+                self.builder.build_unconditional_branch(loop_block)?;
+                
+                // Loop condition
+                self.builder.position_at_end(loop_block);
+                let i = self.builder.build_load(self.context.i64_type(), i_alloca, "i_val")?.into_int_value();
+                let cond = self.builder.build_int_compare(
+                    inkwell::IntPredicate::ULT,
+                    i,
+                    str_len,
+                    "loop_cond"
+                )?;
+                self.builder.build_conditional_branch(cond, loop_body, loop_end)?;
+                
+                // Loop body - convert character to lowercase
+                self.builder.position_at_end(loop_body);
+                
+                // Get source character
+                let src_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i8_type(),
+                        str_param,
+                        &[i],
+                        "src_ptr"
+                    )?
+                };
+                let src_char = self.builder.build_load(self.context.i8_type(), src_ptr, "src_char")?.into_int_value();
+                
+                // Convert to lowercase (simple ASCII conversion)
+                // if (c >= 'A' && c <= 'Z') c = c + 32;
+                let a_val = self.context.i8_type().const_int(65, false); // 'A'
+                let z_val = self.context.i8_type().const_int(90, false); // 'Z'
+                let is_upper = self.builder.build_and(
+                    self.builder.build_int_compare(inkwell::IntPredicate::SGE, src_char, a_val, "ge_a")?,
+                    self.builder.build_int_compare(inkwell::IntPredicate::SLE, src_char, z_val, "le_z")?,
+                    "is_upper"
+                )?;
+                
+                let lower_block = self.context.append_basic_block(func, "to_lower");
+                let store_block = self.context.append_basic_block(func, "store_char");
+                
+                self.builder.build_conditional_branch(is_upper, lower_block, store_block)?;
+                
+                // Convert to lowercase
+                self.builder.position_at_end(lower_block);
+                let diff = self.context.i8_type().const_int(32, false);
+                let lower_char = self.builder.build_int_add(src_char, diff, "lower_char")?;
+                self.builder.build_unconditional_branch(store_block)?;
+                
+                // Store character (either converted or original)
+                self.builder.position_at_end(store_block);
+                let char_phi = self.builder.build_phi(self.context.i8_type(), "char_phi")?;
+                char_phi.add_incoming(&[(&lower_char, lower_block), (&src_char, loop_body)]);
+                let final_char = char_phi.as_basic_value().into_int_value();
+                
+                // Store in destination
+                let dst_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i8_type(),
+                        new_str,
+                        &[i],
+                        "dst_ptr"
+                    )?
+                };
+                self.builder.build_store(dst_ptr, final_char)?;
+                
+                // Increment counter
+                let next_i = self.builder.build_int_add(i, one, "next_i")?;
+                self.builder.build_store(i_alloca, next_i)?;
+                
+                self.builder.build_unconditional_branch(loop_block)?;
+                
+                // Loop end - add null terminator
+                self.builder.position_at_end(loop_end);
+                let null_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i8_type(),
+                        new_str,
+                        &[str_len],
+                        "null_ptr"
+                    )?
+                };
+                let null_char = self.context.i8_type().const_int(0, false);
+                self.builder.build_store(null_ptr, null_char)?;
+                
+                // Return the new string
+                self.builder.build_return(Some(&new_str))?;
+                
+                // Restore position
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                self.current_function = current_fn;
+                
+                Ok(func)
+            }
             _ => Err(CompileError::InternalError(
                 format!("Unknown runtime function: {}", name),
                 None,

@@ -807,6 +807,54 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 })?;
                             return Ok(result);
                         }
+                        "to_upper" => {
+                            // string.to_upper() - convert string to uppercase
+                            if !args.is_empty() {
+                                return Err(CompileError::TypeError(
+                                    format!("to_upper expects no arguments, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Call the runtime string_to_upper function
+                            let func = self.get_or_create_runtime_function("string_to_upper")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into()], "to_upper_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError(
+                                        "string_to_upper did not return a value".to_string(),
+                                        None,
+                                    )
+                                })?;
+                            return Ok(result);
+                        }
+                        "to_lower" => {
+                            // string.to_lower() - convert string to lowercase
+                            if !args.is_empty() {
+                                return Err(CompileError::TypeError(
+                                    format!("to_lower expects no arguments, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Call the runtime string_to_lower function
+                            let func = self.get_or_create_runtime_function("string_to_lower")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into()], "to_lower_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError(
+                                        "string_to_lower did not return a value".to_string(),
+                                        None,
+                                    )
+                                })?;
+                            return Ok(result);
+                        }
                         _ => {}
                     }
                 }
