@@ -1518,10 +1518,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let ret_type = self.to_llvm_type(return_type)?;
                     match ret_type {
                         Type::Basic(b) => b.fn_type(&param_metadata, false),
+                        Type::Struct(s) => s.fn_type(&param_metadata, false),
                         Type::Void => self.context.void_type().fn_type(&param_metadata, false),
                         _ => {
                             return Err(CompileError::InternalError(
-                                "Function return type must be a basic type or void".to_string(),
+                                "Function return type must be a basic type, struct or void".to_string(),
                                 None,
                             ))
                         }
@@ -1550,10 +1551,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let ret_type = self.to_llvm_type(return_type)?;
                     match ret_type {
                         Type::Basic(b) => b.fn_type(&param_metadata, false),
+                        Type::Struct(s) => s.fn_type(&param_metadata, false),
                         Type::Void => self.context.void_type().fn_type(&param_metadata, false),
                         _ => {
                             return Err(CompileError::InternalError(
-                                "Function return type must be a basic type or void".to_string(),
+                                "Function return type must be a basic type, struct or void".to_string(),
                                 None,
                             ))
                         }
@@ -1592,12 +1594,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let ret_type = self.to_llvm_type(return_type)?;
                                 match ret_type {
                                     Type::Basic(b) => b.fn_type(&param_metadata, false),
+                                    Type::Struct(s) => s.fn_type(&param_metadata, false),
                                     Type::Void => {
                                         self.context.void_type().fn_type(&param_metadata, false)
                                     }
                                     _ => {
                                         return Err(CompileError::InternalError(
-                                            "Function return type must be a basic type or void"
+                                            "Function return type must be a basic type, struct or void"
                                                 .to_string(),
                                             None,
                                         ))

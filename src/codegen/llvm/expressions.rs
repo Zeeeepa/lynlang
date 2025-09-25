@@ -4027,7 +4027,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
     }
 
     /// Infer the return type of a closure from its body
-    fn infer_closure_return_type(&self, body: &Expression) -> Result<AstType, CompileError> {
+    pub fn infer_closure_return_type(&self, body: &Expression) -> Result<AstType, CompileError> {
         match body {
             Expression::Block(statements) => {
                 // Look for the last expression or a return statement

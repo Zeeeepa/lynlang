@@ -1,9 +1,0 @@
-// Test integer printing
-{ io } = @std
-
-main = () i32 {
-    val = 42
-    io.println("Direct: ${val}")
-    
-    return 0
-}

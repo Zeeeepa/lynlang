@@ -103,15 +103,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Type inference - try to infer from initializer
                         if let Some(init_expr) = initializer {
                             // Check if the initializer is a closure BEFORE compiling it
-                            if let Expression::Closure { params, return_type: _, body: _ } = init_expr {
+                            if let Expression::Closure { params, return_type, body } = init_expr {
                                 // This is a closure - infer its function pointer type
                                 let param_types: Vec<AstType> = params
                                     .iter()
                                     .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
                                     .collect();
 
-                                // TODO: Properly infer return type
-                                let return_type = AstType::I32;
+                                // Use the explicit return type if provided, otherwise infer from body
+                                let return_type = if let Some(rt) = return_type {
+                                    rt.clone()
+                                } else {
+                                    // Try to infer the return type from the closure body
+                                    self.infer_closure_return_type(body).unwrap_or(AstType::I32)
+                                };
 
                                 // Store the proper function pointer type
                                 let func_type = AstType::FunctionPointer {
@@ -126,7 +131,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let init_value = self.compile_expression(init_expr)?;
                                 compiled_value = Some(init_value);
 
-                                // Return the function pointer type for LLVM
+                                // For now, use simple function type - the actual closure compilation
+                                // will handle the correct types internally
                                 Type::Function(
                                     self.context.i32_type().fn_type(
                                         &param_types
@@ -759,6 +765,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 _ => AstType::I64, // Default
                             }
                         };
+                        
+                        // If this is a closure with a Result return type, track it in function_types
+                        // so that .raise() can work correctly when calling the closure
+                        if let AstType::FunctionPointer { return_type, .. } = &inferred_type {
+                            if let AstType::Generic { name: type_name, .. } = &**return_type {
+                                if type_name == "Result" {
+                                    // Track this closure's return type for later use
+                                    self.function_types.insert(name.clone(), (**return_type).clone());
+                                }
+                            }
+                        }
+                        
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {
