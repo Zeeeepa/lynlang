@@ -349,6 +349,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 if let Some(ast_type) = load_type {
                                     use crate::ast::AstType;
                                     match ast_type {
+                                        AstType::Generic { name, .. } if name == "Option" || name == "Result" => {
+                                            // For nested generics, the payload is already a pointer to the enum struct
+                                            // Don't try to dereference it further
+                                            loaded_payload
+                                        }
                                         AstType::I8 => self
                                             .builder
                                             .build_load(

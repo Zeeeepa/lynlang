@@ -484,7 +484,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         array_ptr: PointerValue<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         // Set the generic type context so pattern matching knows this is Option<i32>
-        self.generic_type_context.insert("Option_Some_Type".to_string(), crate::ast::AstType::I32);
+        self.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
         // Array struct type: { ptr, length, capacity }
         let array_struct_type = self.context.struct_type(
             &[
@@ -1137,14 +1137,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
         if let AstType::Generic { name, type_args } = &function.return_type {
             if name == "Result" && type_args.len() == 2 {
                 // Store Result<T, E> type arguments for pattern matching
-                self.generic_type_context
-                    .insert("Result_Ok_Type".to_string(), type_args[0].clone());
-                self.generic_type_context
-                    .insert("Result_Err_Type".to_string(), type_args[1].clone());
+                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                // Use the new recursive tracker for nested types
+                self.track_complex_generic(&function.return_type, "Result");
             } else if name == "Option" && type_args.len() == 1 {
                 // Store Option<T> type argument for pattern matching
-                self.generic_type_context
-                    .insert("Option_Some_Type".to_string(), type_args[0].clone());
+                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                // Use the new recursive tracker for nested types
+                self.track_complex_generic(&function.return_type, "Option");
             }
         }
 
@@ -1448,21 +1449,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 .build_call(function, &args_metadata, "calltmp")?;
 
             // Update generic_type_context if this function returns Result<T,E> or Option<T>
-            if let Some(return_type) = self.function_types.get(name) {
+            let generic_updates = if let Some(return_type) = self.function_types.get(name) {
                 if let AstType::Generic {
                     name: type_name,
                     type_args,
                 } = return_type
                 {
                     if type_name == "Result" && type_args.len() == 2 {
-                        self.generic_type_context
-                            .insert("Result_Ok_Type".to_string(), type_args[0].clone());
-                        self.generic_type_context
-                            .insert("Result_Err_Type".to_string(), type_args[1].clone());
+                        Some(vec![
+                            ("Result_Ok_Type".to_string(), type_args[0].clone()),
+                            ("Result_Err_Type".to_string(), type_args[1].clone()),
+                        ])
                     } else if type_name == "Option" && type_args.len() == 1 {
-                        self.generic_type_context
-                            .insert("Option_Some_Type".to_string(), type_args[0].clone());
+                        Some(vec![("Option_Some_Type".to_string(), type_args[0].clone())])
+                    } else {
+                        None
                     }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            
+            if let Some(updates) = generic_updates {
+                for (key, type_) in updates {
+                    self.track_generic_type(key, type_);
                 }
             }
 

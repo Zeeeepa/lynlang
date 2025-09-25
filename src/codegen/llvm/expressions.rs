@@ -41,6 +41,70 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     inclusive: *inclusive,
                 })
             }
+            Expression::EnumVariant { enum_name, variant, payload } => {
+                // Infer the type of enum variants
+                if enum_name == "Option" {
+                    if variant == "Some" && payload.is_some() {
+                        if let Some(ref p) = payload {
+                            let inner_type = self.infer_expression_type(p)?;
+                            Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![inner_type],
+                            })
+                        } else {
+                            Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![AstType::Void],
+                            })
+                        }
+                    } else {
+                        // None variant
+                        Ok(AstType::Generic {
+                            name: "Option".to_string(),
+                            type_args: vec![AstType::Void],
+                        })
+                    }
+                } else if enum_name == "Result" {
+                    // For Result, we need to track which variant we're in
+                    if variant == "Ok" && payload.is_some() {
+                        if let Some(ref p) = payload {
+                            let inner_type = self.infer_expression_type(p)?;
+                            // We can't determine E type from just Ok variant, so use placeholder
+                            Ok(AstType::Generic {
+                                name: "Result".to_string(),
+                                type_args: vec![inner_type, AstType::Void],
+                            })
+                        } else {
+                            Ok(AstType::Generic {
+                                name: "Result".to_string(),
+                                type_args: vec![AstType::Void, AstType::Void],
+                            })
+                        }
+                    } else if variant == "Err" && payload.is_some() {
+                        if let Some(ref p) = payload {
+                            let inner_type = self.infer_expression_type(p)?;
+                            // We can't determine T type from just Err variant, so use placeholder
+                            Ok(AstType::Generic {
+                                name: "Result".to_string(),
+                                type_args: vec![AstType::Void, inner_type],
+                            })
+                        } else {
+                            Ok(AstType::Generic {
+                                name: "Result".to_string(),
+                                type_args: vec![AstType::Void, AstType::Void],
+                            })
+                        }
+                    } else {
+                        Ok(AstType::Generic {
+                            name: "Result".to_string(),
+                            type_args: vec![AstType::Void, AstType::Void],
+                        })
+                    }
+                } else {
+                    // Unknown enum
+                    Ok(AstType::Void)
+                }
+            }
             _ => Ok(AstType::Void),
         }
     }
@@ -1814,7 +1878,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     } else {
                         "Result_Err_Type".to_string()
                     };
-                    self.generic_type_context.insert(key, t);
+                    self.track_generic_type(key.clone(), t.clone());
+                    // Also track nested generics recursively
+                    if matches!(t, AstType::Generic { .. }) {
+                        let prefix = if variant == "Ok" { "Result_Ok" } else { "Result_Err" };
+                        self.track_complex_generic(&t, prefix);
+                    }
                 }
             }
         }
@@ -1824,8 +1893,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
             if let Some(ref payload_expr) = payload {
                 let payload_type = self.infer_expression_type(payload_expr);
                 if let Ok(t) = payload_type {
-                    self.generic_type_context
-                        .insert("Option_Some_Type".to_string(), t);
+                    self.track_generic_type("Option_Some_Type".to_string(), t.clone());
+                    // Also track nested generics recursively
+                    if matches!(t, AstType::Generic { .. }) {
+                        self.track_complex_generic(&t, "Option_Some");
+                    }
                 }
             }
         }
@@ -1888,7 +1960,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         )?;
 
                         // Store payload as pointer
-                        let payload_value = if compiled.is_pointer_value() {
+                        // Check if the payload is an enum struct itself (for nested generics)
+                        let payload_value = if compiled.is_struct_value() {
+                            // For enum structs (like Option.Some), store pointer to the struct
+                            let enum_alloca = self
+                                .builder
+                                .build_alloca(compiled.get_type(), "nested_enum_payload")?;
+                            self.builder.build_store(enum_alloca, compiled)?;
+                            enum_alloca.into()
+                        } else if compiled.is_pointer_value() {
                             compiled
                         } else {
                             let value_alloca = self
@@ -1964,7 +2044,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         )?;
 
                         // Store payload as pointer
-                        let payload_value = if compiled.is_pointer_value() {
+                        // Check if the payload is an enum struct itself (for nested generics)
+                        let payload_value = if compiled.is_struct_value() {
+                            // For enum structs (like Option.Some), store pointer to the struct
+                            let enum_alloca = self
+                                .builder
+                                .build_alloca(compiled.get_type(), "nested_enum_payload")?;
+                            self.builder.build_store(enum_alloca, compiled)?;
+                            enum_alloca.into()
+                        } else if compiled.is_pointer_value() {
                             compiled
                         } else {
                             let value_alloca = self

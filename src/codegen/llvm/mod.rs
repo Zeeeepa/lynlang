@@ -18,6 +18,7 @@ mod binary_ops;
 mod control_flow;
 mod expressions;
 mod functions;
+mod generics;
 mod literals;
 mod patterns;
 mod pointers;
@@ -80,11 +81,36 @@ pub struct LLVMCompiler<'ctx> {
     pub behavior_codegen: Option<behaviors::BehaviorCodegen<'ctx>>,
     pub current_impl_type: Option<String>, // Track implementing type for trait methods
     pub inline_counter: usize,             // Counter for unique inline function names
-    pub generic_type_context: HashMap<String, AstType>, // Track instantiated generic types
+    pub generic_type_context: HashMap<String, AstType>, // Track instantiated generic types (legacy, kept for compatibility)
+    pub generic_tracker: generics::GenericTypeTracker, // New improved generic type tracking
     pub module_imports: HashMap<String, u64>, // Track module imports (name -> marker value)
 }
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Helper to track generic types in both old and new systems
+    pub fn track_generic_type(&mut self, key: String, type_: AstType) {
+        self.generic_type_context.insert(key.clone(), type_.clone());
+        self.generic_tracker.insert(key, type_);
+    }
+    
+    /// Helper to track complex generic types recursively
+    pub fn track_complex_generic(&mut self, type_: &AstType, prefix: &str) {
+        self.generic_tracker.track_generic_type(type_, prefix);
+        
+        // Also update the old system for backwards compatibility
+        match type_ {
+            AstType::Generic { name, type_args } => {
+                if name == "Result" && type_args.len() == 2 {
+                    self.generic_type_context.insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
+                    self.generic_type_context.insert(format!("{}_Err_Type", prefix), type_args[1].clone());
+                } else if name == "Option" && type_args.len() == 1 {
+                    self.generic_type_context.insert(format!("{}_Some_Type", prefix), type_args[0].clone());
+                }
+            }
+            _ => {}
+        }
+    }
+    
     pub fn new(context: &'ctx Context) -> Self {
         let module = context.create_module("main");
         let builder = context.create_builder();
@@ -124,6 +150,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             current_impl_type: None,
             inline_counter: 0,
             generic_type_context: HashMap::new(),
+            generic_tracker: generics::GenericTypeTracker::new(),
             module_imports: HashMap::new(),
         };
 
