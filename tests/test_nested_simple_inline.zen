@@ -1,0 +1,38 @@
+// Test inline construction of nested Result types
+{ io, Result, Option } = @std
+
+main = () i32 {
+    io.println("=== Testing Inline Nested Construction ===")
+    
+    // Test 1: Direct inline Result<Result<i32, string>, string>
+    nested1 = Result.Ok(Result.Ok(42))
+    nested1 ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("Test 1 - Nested Result value: ${v}") }
+                | Result.Err(e) { io.println("Test 1 - Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Test 1 - Outer error: ${e}") }
+    
+    // Test 2: Direct inline Result<Option<i32>, string>
+    nested2 = Result.Ok(Option.Some(100))
+    nested2 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("Test 2 - Result<Option> value: ${v}") }
+                | Option.None { io.println("Test 2 - Result<Option>: None") }
+        }
+        | Result.Err(e) { io.println("Test 2 - Error: ${e}") }
+    
+    // Test 3: Direct inline Option<Result<i32, string>>
+    nested3 = Option.Some(Result.Ok(200))
+    nested3 ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(v) { io.println("Test 3 - Option<Result> value: ${v}") }
+                | Result.Err(e) { io.println("Test 3 - Inner error: ${e}") }
+        }
+        | Option.None { io.println("Test 3 - None") }
+    
+    0
+}

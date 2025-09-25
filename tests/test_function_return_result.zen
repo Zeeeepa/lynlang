@@ -1,0 +1,24 @@
+// Test function returning Result<i32, string>
+{ io, Result } = @std
+
+// Function that returns Result<i32, string>
+make_result = (val: i32) Result<i32, string> {
+    Result.Ok(val)
+}
+
+main = () i32 {
+    io.println("=== Testing function returns with Result<i32, string> ===")
+    
+    // Call function
+    res = make_result(42)
+    
+    // Extract value
+    res ?
+        | Result.Ok(v) { 
+            io.println("Value from function: ${v}")
+            io.println("Expected: 42")
+        }
+        | Result.Err(e) { io.println("Error: ${e}") }
+    
+    0
+}

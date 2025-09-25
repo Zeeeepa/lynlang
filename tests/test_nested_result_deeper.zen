@@ -1,0 +1,31 @@
+// Test deeply nested Result types to identify the issue
+{ io, Result } = @std
+
+// Simple nested Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+// Extract using pattern matching
+extract_nested = () void {
+    result = get_nested()
+    
+    result ?
+        | Result.Ok(inner) {
+            io.println("Outer Ok, inner type extracted")
+            inner ?
+                | Result.Ok(v) { 
+                    io.println("Inner Ok value: ${v}")
+                    v == 42 ?
+                        | true { io.println("✓ Value correct!") }
+                        | false { io.println("✗ Value wrong: ${v}") }
+                }
+                | Result.Err(e) { io.println("Inner Err: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer Err: ${e}") }
+}
+
+main = () void {
+    io.println("=== Testing Nested Result Pattern Matching ===")
+    extract_nested()
+}

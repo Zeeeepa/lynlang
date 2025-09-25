@@ -1,0 +1,25 @@
+// Test Result.Ok(Option.Some(100)) specifically
+{ io, Result, Option } = @std
+
+main = () i32 {
+    io.println("=== Testing Result<Option<i32>, string> ===")
+    
+    // This is the failing case
+    result = Result.Ok(Option.Some(100))
+    
+    result ?
+        | Result.Ok(opt) {
+            io.println("Extracted Option from Result.Ok")
+            opt ?
+                | Option.Some(v) { 
+                    io.println("Value should be 100, got: ${v}")
+                    v == 100 ?
+                        | true { io.println("✓ PASS") }
+                        | false { io.println("✗ FAIL: Got ${v} instead of 100") }
+                }
+                | Option.None { io.println("✗ FAIL: Got None instead of Some(100)") }
+        }
+        | Result.Err(e) { io.println("✗ FAIL: Got Err instead of Ok") }
+    
+    0
+}

@@ -1,0 +1,33 @@
+// Test function with conditional returning Result<i32, string>
+{ io, Result } = @std
+
+// Function with conditional that returns Result<i32, string>
+make_result = (success: bool) Result<i32, string> {
+    success ?
+        | true { Result.Ok(42) }
+        | false { Result.Err("failed") }
+}
+
+main = () i32 {
+    io.println("=== Testing conditional function returns ===")
+    
+    // Test success case
+    res1 = make_result(true)
+    res1 ?
+        | Result.Ok(v) { 
+            io.println("Success case value: ${v}")
+            io.println("Expected: 42")
+        }
+        | Result.Err(e) { io.println("Error: ${e}") }
+    
+    // Test failure case
+    res2 = make_result(false)
+    res2 ?
+        | Result.Ok(v) { io.println("Should not see: ${v}") }
+        | Result.Err(e) { 
+            io.println("Failure case error: ${e}")
+            io.println("Expected: failed")
+        }
+    
+    0
+}

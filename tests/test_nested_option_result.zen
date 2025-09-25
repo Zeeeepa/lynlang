@@ -1,0 +1,33 @@
+// Test Option<Result<Option<i32>, string>> - triple nested
+{ io, Result, Option } = @std
+
+// Triple nested: Option<Result<Option<i32>, string>>
+get_triple_nested = () Option<Result<Option<i32>, string>> {
+    Option.Some(Result.Ok(Option.Some(999)))
+}
+
+main = () i32 {
+    io.println("=== Testing Triple Nested Generic ===")
+    
+    deep = get_triple_nested()
+    deep ?
+        | Option.Some(res) {
+            io.println("Outer Some extracted")
+            res ?
+                | Result.Ok(opt) {
+                    io.println("Middle Ok extracted")
+                    opt ?
+                        | Option.Some(v) { 
+                            io.println("Inner value: ${v}")
+                            v == 999 ?
+                                | true { io.println("✓ Value correct: 999") }
+                                | false { io.println("✗ Wrong value: ${v} (expected 999)") }
+                        }
+                        | Option.None { io.println("Inner None") }
+                }
+                | Result.Err(e) { io.println("Middle error: ${e}") }
+        }
+        | Option.None { io.println("Outer None") }
+    
+    0
+}

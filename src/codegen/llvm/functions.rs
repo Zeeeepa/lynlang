@@ -1,4 +1,4 @@
-use super::{LLVMCompiler, Type};
+use super::{generics, LLVMCompiler, Type};
 use crate::ast::{self, AstType};
 use crate::error::CompileError;
 use inkwell::module::Linkage;
@@ -2955,6 +2955,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Clear function-local state before moving to next function
         self.symbols.exit_scope();
         self.variables.clear();
+        self.generic_type_context.clear(); // Clear generic type context to avoid pollution across functions
+        self.generic_tracker = generics::GenericTypeTracker::new(); // Reset the generic tracker
         self.current_function = None;
         Ok(())
     }

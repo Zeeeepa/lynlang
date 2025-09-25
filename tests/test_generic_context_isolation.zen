@@ -1,0 +1,46 @@
+// Test if generic type context is properly isolated
+{ io, Result, Option } = @std
+
+test1 = () void {
+    io.println("Test 1:")
+    nested = Result.Ok(Result.Ok(42))
+    nested ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("  Value: ${v}") }
+                | Result.Err(e) { io.println("  Error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+}
+
+test2 = () void {
+    io.println("Test 2:")
+    nested = Result.Ok(Option.Some(100))
+    nested ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Value: ${v}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+}
+
+test3 = () void {
+    io.println("Test 3 (same as Test 1):")
+    nested = Result.Ok(Result.Ok(99))
+    nested ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("  Value: ${v}") }
+                | Result.Err(e) { io.println("  Error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+}
+
+main = () i32 {
+    io.println("=== Testing Generic Context Isolation ===")
+    test1()
+    test2()
+    test3()
+    0
+}
