@@ -547,6 +547,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             
                             // Check the method name first for known return types
                             match method.as_str() {
+                                "pop" => AstType::Generic {
+                                    name: "Option".to_string(),
+                                    type_args: vec![AstType::I32],  // Array.pop() returns Option<i32> for now
+                                },
                                 "to_f64" => AstType::Generic {
                                     name: "Option".to_string(),
                                     type_args: vec![AstType::F64],

@@ -597,8 +597,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
             &format!("pop_val_i32_{}", unique_id)
         )?;
         
+        
         // Store the i32 value to the pre-allocated pointer (allocated at function scope)
         self.builder.build_store(value_ptr, value_i32)?;
+        
         
         // Create Some(value) - following the same pattern as compile_enum_variant
         let some_alloca = self.builder.build_alloca(option_type, &format!("pop_some_alloca_{}", unique_id))?;

@@ -1545,10 +1545,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(match_bb);
 
             // Apply pattern bindings
-            // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
-            // for (name, val) in &bindings {
-            //     eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
-            // }
             let saved_vars = self.apply_pattern_bindings(&bindings);
 
             // Compile the arm body
@@ -2232,10 +2228,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
             self.builder.position_at_end(match_bb);
 
             // Apply pattern bindings
-            // eprintln!("DEBUG: Applying {} bindings for arm {}", bindings.len(), i);
-            // for (name, val) in &bindings {
-            //     eprintln!("  - Variable: {}, value type: {:?}, is_float: {}", name, val.get_type(), val.is_float_value());
-            // }
             let saved_vars = self.apply_pattern_bindings(&bindings);
 
             // Compile the arm body

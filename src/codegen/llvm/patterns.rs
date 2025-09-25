@@ -817,7 +817,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 let t = self.generic_type_context
                                                     .get("Option_Some_Type")
                                                     .cloned();
-                                                // eprintln!("[DEBUG-PATH3] Pattern matching Some, generic_type_context Option_Some_Type = {:?}", t);
+                                                // Track Option_Some_Type from generic context
                                                 t
                                             } else if variant == "Ok" {
                                                 self.generic_type_context
