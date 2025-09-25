@@ -492,17 +492,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     // For now, assume string,i32 or similar simple types
                                                     let type_args = if remaining.contains(',') {
                                                         let parts: Vec<&str> = remaining.trim_end_matches('>').split(',').collect();
-                                                        let key_type = match parts[0].trim() {
-                                                            "string" => AstType::String,
-                                                            "i32" => AstType::I32,
-                                                            "i64" => AstType::I64,
-                                                            _ => AstType::String, // Default
+                                                        let key_str = parts[0].trim();
+                                                        let key_type = match key_str {
+                                                            "string" | "String" => AstType::String,
+                                                            "i32" | "I32" => AstType::I32,
+                                                            "i64" | "I64" => AstType::I64,
+                                                            "f32" | "F32" => AstType::F32,
+                                                            "f64" | "F64" => AstType::F64,
+                                                            _ => {
+                                                                // Default to String for unknown types
+                                                                AstType::String
+                                                            }
                                                         };
-                                                        let value_type = match parts.get(1).map(|s| s.trim()) {
-                                                            Some("string") => AstType::String,
-                                                            Some("i32") => AstType::I32,
-                                                            Some("i64") => AstType::I64,
-                                                            _ => AstType::I32, // Default
+                                                        let value_type = if let Some(value_str) = parts.get(1).map(|s| s.trim()) {
+                                                            match value_str {
+                                                                "string" | "String" => AstType::String,
+                                                                "i32" | "I32" => AstType::I32,
+                                                                "i64" | "I64" => AstType::I64,
+                                                                "f32" | "F32" => AstType::F32,
+                                                                "f64" | "F64" => AstType::F64,
+                                                                _ => {
+                                                                    // Default to i32 for unknown types
+                                                                    AstType::I32
+                                                                }
+                                                            }
+                                                        } else {
+                                                            AstType::I32
                                                         };
                                                         vec![key_type, value_type]
                                                     } else {
