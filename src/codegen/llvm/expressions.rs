@@ -1947,10 +1947,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Only handle HashMap methods if it's actually a HashMap
                         match method.as_str() {
                             "insert" => {
-                                // HashMap.insert(key, value, hash_fn, eq_fn) implementation
-                                if args.len() != 4 {
+                                // HashMap.insert(key, value[, hash_fn, eq_fn]) implementation
+                                // If only 2 args provided, generate default hash/eq functions
+                                if args.len() != 2 && args.len() != 4 {
                                     return Err(CompileError::TypeError(
-                                        "insert expects exactly 4 arguments (key, value, hash_fn, eq_fn)".to_string(),
+                                        "insert expects 2 arguments (key, value) or 4 arguments (key, value, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
@@ -1961,8 +1962,52 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Compile arguments
                                 let key = self.compile_expression(&args[0])?;
                                 let value = self.compile_expression(&args[1])?;
-                                let hash_fn = self.compile_expression(&args[2])?;
-                                let _eq_fn = self.compile_expression(&args[3])?;
+                                
+                                // Handle hash and equality functions
+                                let (hash_fn, _eq_fn) = if args.len() == 4 {
+                                    // Use provided functions
+                                    let hash = self.compile_expression(&args[2])?;
+                                    let eq = self.compile_expression(&args[3])?;
+                                    (hash, eq)
+                                } else {
+                                    // Generate default hash and equality for common types
+                                    // For i32 keys, use simple identity hash and equality
+                                    if key.get_type() == self.context.i32_type().into() {
+                                        // Create inline hash function: convert i32 to i64
+                                        let hash_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into()], false);
+                                        let hash_fn = self.module.add_function("hash_i32_default", hash_fn_type, None);
+                                        let hash_bb = self.context.append_basic_block(hash_fn, "entry");
+                                        let builder = self.context.create_builder();
+                                        builder.position_at_end(hash_bb);
+                                        let param = hash_fn.get_nth_param(0).unwrap().into_int_value();
+                                        let extended = builder.build_int_z_extend(param, self.context.i64_type(), "extended")?;
+                                        builder.build_return(Some(&extended))?;
+                                        
+                                        // Create inline equality function
+                                        let eq_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into(), self.context.i32_type().into()], false);
+                                        let eq_fn = self.module.add_function("eq_i32_default", eq_fn_type, None);
+                                        let eq_bb = self.context.append_basic_block(eq_fn, "entry");
+                                        builder.position_at_end(eq_bb);
+                                        let a = eq_fn.get_nth_param(0).unwrap().into_int_value();
+                                        let b = eq_fn.get_nth_param(1).unwrap().into_int_value();
+                                        let cmp = builder.build_int_compare(inkwell::IntPredicate::EQ, a, b, "eq")?;
+                                        let result = builder.build_int_z_extend(cmp, self.context.i64_type(), "result")?;
+                                        builder.build_return(Some(&result))?;
+                                        
+                                        (hash_fn.as_global_value().as_pointer_value().into(), 
+                                         eq_fn.as_global_value().as_pointer_value().into())
+                                    } else {
+                                        // For other types, use a simple hash for now
+                                        // This is a placeholder - should be extended for strings, etc.
+                                        return Err(CompileError::TypeError(
+                                            "Default hash/eq functions not implemented for this key type. Please provide explicit hash and equality functions.".to_string(),
+                                            None,
+                                        ));
+                                    }
+                                };
+                                
+                                let hash_fn = hash_fn;
+                                let _eq_fn = _eq_fn;
                                 
                                 // Step 1: Call hash_fn(key) to get hash value
                                 // The hash_fn is passed as a closure/function pointer
@@ -2173,10 +2218,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 return Ok(self.context.struct_type(&[], false).const_zero().into());
                             }
                             "get" => {
-                                // HashMap.get(key, hash_fn, eq_fn) -> Option<V>
-                                if args.len() != 3 {
+                                // HashMap.get(key[, hash_fn, eq_fn]) -> Option<V>
+                                if args.len() != 1 && args.len() != 3 {
                                     return Err(CompileError::TypeError(
-                                        "get expects exactly 3 arguments (key, hash_fn, eq_fn)".to_string(),
+                                        "get expects 1 argument (key) or 3 arguments (key, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
@@ -2184,10 +2229,60 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Get the pointer to the original HashMap variable
                                 let (hashmap_ptr, _) = self.get_variable(obj_name)?;
                                 
-                                // Compile arguments
+                                // Compile key argument
                                 let key = self.compile_expression(&args[0])?;
-                                let hash_fn = self.compile_expression(&args[1])?;
-                                let eq_fn = self.compile_expression(&args[2])?;
+                                
+                                // Handle hash and equality functions
+                                let (hash_fn, eq_fn) = if args.len() == 3 {
+                                    // Use provided functions
+                                    let hash = self.compile_expression(&args[1])?;
+                                    let eq = self.compile_expression(&args[2])?;
+                                    (hash, eq)
+                                } else {
+                                    // Generate default functions for i32 keys
+                                    if key.get_type() == self.context.i32_type().into() {
+                                        // Reuse or create default functions
+                                        let hash_fn = if let Some(func) = self.module.get_function("hash_i32_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            let hash_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into()], false);
+                                            let hash_fn = self.module.add_function("hash_i32_default", hash_fn_type, None);
+                                            let hash_bb = self.context.append_basic_block(hash_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(hash_bb);
+                                            let param = hash_fn.get_nth_param(0).unwrap().into_int_value();
+                                            let extended = builder.build_int_z_extend(param, self.context.i64_type(), "extended")?;
+                                            builder.build_return(Some(&extended))?;
+                                            hash_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        let eq_fn = if let Some(func) = self.module.get_function("eq_i32_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            let eq_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into(), self.context.i32_type().into()], false);
+                                            let eq_fn = self.module.add_function("eq_i32_default", eq_fn_type, None);
+                                            let eq_bb = self.context.append_basic_block(eq_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(eq_bb);
+                                            let a = eq_fn.get_nth_param(0).unwrap().into_int_value();
+                                            let b = eq_fn.get_nth_param(1).unwrap().into_int_value();
+                                            let cmp = builder.build_int_compare(inkwell::IntPredicate::EQ, a, b, "eq")?;
+                                            let result = builder.build_int_z_extend(cmp, self.context.i64_type(), "result")?;
+                                            builder.build_return(Some(&result))?;
+                                            eq_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        (hash_fn, eq_fn)
+                                    } else {
+                                        return Err(CompileError::TypeError(
+                                            "Default hash/eq functions not implemented for this key type. Please provide explicit hash and equality functions.".to_string(),
+                                            None,
+                                        ));
+                                    }
+                                };
+                                
+                                let hash_fn = hash_fn;
+                                let eq_fn = eq_fn;
                                 
                                 // Step 1: Call hash_fn(key) to get hash value
                                 let hash_fn_ptr = if hash_fn.is_pointer_value() {
@@ -2621,10 +2716,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 return Ok(phi.as_basic_value());
                             }
                             "contains" => {
-                                // HashMap.contains(key, hash_fn, eq_fn) -> bool
-                                if args.len() != 3 {
+                                // HashMap.contains(key[, hash_fn, eq_fn]) -> bool
+                                if args.len() != 1 && args.len() != 3 {
                                     return Err(CompileError::TypeError(
-                                        "contains expects exactly 3 arguments (key, hash_fn, eq_fn)".to_string(),
+                                        "contains expects 1 argument (key) or 3 arguments (key, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
@@ -2633,8 +2728,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let (hashmap_ptr, _) = self.get_variable(obj_name)?;
                                 
                                 let key = self.compile_expression(&args[0])?;
-                                let hash_fn = self.compile_expression(&args[1])?;
-                                let _eq_fn = self.compile_expression(&args[2])?;
+                                
+                                // Handle hash and equality functions
+                                let (hash_fn, _eq_fn) = if args.len() == 3 {
+                                    let hash = self.compile_expression(&args[1])?;
+                                    let eq = self.compile_expression(&args[2])?;
+                                    (hash, eq)
+                                } else {
+                                    // Generate default functions for i32 keys
+                                    if key.get_type() == self.context.i32_type().into() {
+                                        let hash_fn = if let Some(func) = self.module.get_function("hash_i32_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            let hash_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into()], false);
+                                            let hash_fn = self.module.add_function("hash_i32_default", hash_fn_type, None);
+                                            let hash_bb = self.context.append_basic_block(hash_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(hash_bb);
+                                            let param = hash_fn.get_nth_param(0).unwrap().into_int_value();
+                                            let extended = builder.build_int_z_extend(param, self.context.i64_type(), "extended")?;
+                                            builder.build_return(Some(&extended))?;
+                                            hash_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        let eq_fn = if let Some(func) = self.module.get_function("eq_i32_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            let eq_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into(), self.context.i32_type().into()], false);
+                                            let eq_fn = self.module.add_function("eq_i32_default", eq_fn_type, None);
+                                            let eq_bb = self.context.append_basic_block(eq_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(eq_bb);
+                                            let a = eq_fn.get_nth_param(0).unwrap().into_int_value();
+                                            let b = eq_fn.get_nth_param(1).unwrap().into_int_value();
+                                            let cmp = builder.build_int_compare(inkwell::IntPredicate::EQ, a, b, "eq")?;
+                                            let result = builder.build_int_z_extend(cmp, self.context.i64_type(), "result")?;
+                                            builder.build_return(Some(&result))?;
+                                            eq_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        (hash_fn, eq_fn)
+                                    } else {
+                                        return Err(CompileError::TypeError(
+                                            "Default hash/eq functions not implemented for this key type".to_string(),
+                                            None,
+                                        ));
+                                    }
+                                };
                                 
                                 // Step 1: Call hash_fn(key) to get hash value
                                 let hash_fn_ptr = if hash_fn.is_pointer_value() {
@@ -2677,10 +2817,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 return Ok(has_items.into());
                             }
                             "remove" => {
-                                // HashMap.remove(key, hash_fn, eq_fn) -> Option<V>
-                                if args.len() != 3 {
+                                // HashMap.remove(key[, hash_fn, eq_fn]) -> Option<V>
+                                if args.len() != 1 && args.len() != 3 {
                                     return Err(CompileError::TypeError(
-                                        "remove expects exactly 3 arguments (key, hash_fn, eq_fn)".to_string(),
+                                        "remove expects 1 argument (key) or 3 arguments (key, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
@@ -2689,8 +2829,53 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let (hashmap_ptr, _) = self.get_variable(obj_name)?;
                                 
                                 let key = self.compile_expression(&args[0])?;
-                                let hash_fn = self.compile_expression(&args[1])?;
-                                let _eq_fn = self.compile_expression(&args[2])?;
+                                
+                                // Handle hash and equality functions
+                                let (hash_fn, _eq_fn) = if args.len() == 3 {
+                                    let hash = self.compile_expression(&args[1])?;
+                                    let eq = self.compile_expression(&args[2])?;
+                                    (hash, eq)
+                                } else {
+                                    // Generate default functions for i32 keys
+                                    if key.get_type() == self.context.i32_type().into() {
+                                        let hash_fn = if let Some(func) = self.module.get_function("hash_i32_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            let hash_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into()], false);
+                                            let hash_fn = self.module.add_function("hash_i32_default", hash_fn_type, None);
+                                            let hash_bb = self.context.append_basic_block(hash_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(hash_bb);
+                                            let param = hash_fn.get_nth_param(0).unwrap().into_int_value();
+                                            let extended = builder.build_int_z_extend(param, self.context.i64_type(), "extended")?;
+                                            builder.build_return(Some(&extended))?;
+                                            hash_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        let eq_fn = if let Some(func) = self.module.get_function("eq_i32_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            let eq_fn_type = self.context.i64_type().fn_type(&[self.context.i32_type().into(), self.context.i32_type().into()], false);
+                                            let eq_fn = self.module.add_function("eq_i32_default", eq_fn_type, None);
+                                            let eq_bb = self.context.append_basic_block(eq_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(eq_bb);
+                                            let a = eq_fn.get_nth_param(0).unwrap().into_int_value();
+                                            let b = eq_fn.get_nth_param(1).unwrap().into_int_value();
+                                            let cmp = builder.build_int_compare(inkwell::IntPredicate::EQ, a, b, "eq")?;
+                                            let result = builder.build_int_z_extend(cmp, self.context.i64_type(), "result")?;
+                                            builder.build_return(Some(&result))?;
+                                            eq_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        (hash_fn, eq_fn)
+                                    } else {
+                                        return Err(CompileError::TypeError(
+                                            "Default hash/eq functions not implemented for this key type".to_string(),
+                                            None,
+                                        ));
+                                    }
+                                };
                                 
                                 // Step 1: Call hash_fn(key) to get hash value
                                 let hash_fn_ptr = if hash_fn.is_pointer_value() {
@@ -2844,8 +3029,105 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 )?;
                                 self.builder.build_store(size_ptr, self.context.i64_type().const_int(0, false))?;
                                 
-                                // TODO: Clear all buckets properly by setting occupied = false for each bucket
-                                // For now, just resetting size makes the map appear empty
+                                // Clear all buckets by setting occupied = false for each bucket
+                                // Load capacity to know how many buckets to clear
+                                let capacity_ptr = self.builder.build_struct_gep(
+                                    object_value.get_type(),
+                                    hashmap_ptr,
+                                    2, // capacity is at index 2
+                                    "capacity_ptr",
+                                )?;
+                                let capacity = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    capacity_ptr,
+                                    "capacity"
+                                )?.into_int_value();
+                                
+                                // Load buckets pointer
+                                let buckets_ptr_ptr = self.builder.build_struct_gep(
+                                    object_value.get_type(),
+                                    hashmap_ptr,
+                                    0, // buckets_ptr is at index 0
+                                    "buckets_ptr_ptr",
+                                )?;
+                                let buckets_ptr = self.builder.build_load(
+                                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                                    buckets_ptr_ptr,
+                                    "buckets_ptr"
+                                )?.into_pointer_value();
+                                
+                                // Convert buckets pointer to i64 pointer for easier manipulation
+                                let i64_ptr_type = self.context.ptr_type(AddressSpace::default());
+                                let buckets_as_i64_ptr = self.builder.build_pointer_cast(
+                                    buckets_ptr,
+                                    i64_ptr_type,
+                                    "buckets_as_i64"
+                                )?;
+                                
+                                // Create a loop to clear all buckets
+                                let clear_loop = self.context.append_basic_block(self.current_function.unwrap(), "clear_loop");
+                                let clear_body = self.context.append_basic_block(self.current_function.unwrap(), "clear_body");
+                                let clear_done = self.context.append_basic_block(self.current_function.unwrap(), "clear_done");
+                                
+                                // Initialize loop counter
+                                let counter_ptr = self.builder.build_alloca(self.context.i64_type(), "counter")?;
+                                self.builder.build_store(counter_ptr, self.context.i64_type().const_int(0, false))?;
+                                
+                                // Jump to loop condition
+                                self.builder.build_unconditional_branch(clear_loop)?;
+                                
+                                // Loop condition: counter < capacity
+                                self.builder.position_at_end(clear_loop);
+                                let counter = self.builder.build_load(self.context.i64_type(), counter_ptr, "counter_val")?.into_int_value();
+                                let continue_loop = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::ULT,
+                                    counter,
+                                    capacity,
+                                    "continue_clear"
+                                )?;
+                                self.builder.build_conditional_branch(continue_loop, clear_body, clear_done)?;
+                                
+                                // Loop body: Clear the bucket at index counter
+                                self.builder.position_at_end(clear_body);
+                                
+                                // Each bucket has 4 fields, so multiply counter by 4
+                                let bucket_offset = self.builder.build_int_mul(
+                                    counter,
+                                    self.context.i64_type().const_int(4, false),
+                                    "bucket_offset"
+                                )?;
+                                
+                                // Get pointer to occupied field (offset + 3)
+                                let occupied_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(3, false),
+                                    "occupied_offset"
+                                )?;
+                                let occupied_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[occupied_offset],
+                                        "occupied_ptr"
+                                    )?
+                                };
+                                
+                                // Set occupied = 0 (false)
+                                self.builder.build_store(occupied_ptr, self.context.i64_type().const_int(0, false))?;
+                                
+                                // Increment counter
+                                let next_counter = self.builder.build_int_add(
+                                    counter,
+                                    self.context.i64_type().const_int(1, false),
+                                    "next_counter"
+                                )?;
+                                self.builder.build_store(counter_ptr, next_counter)?;
+                                
+                                // Jump back to loop condition
+                                self.builder.build_unconditional_branch(clear_loop)?;
+                                
+                                // Done clearing
+                                self.builder.position_at_end(clear_done);
                                 
                                 // Return void
                                 return Ok(self.context.struct_type(&[], false).const_zero().into());
@@ -4211,12 +4493,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
                         let payload_value = if compiled.is_struct_value() {
-                            // For enum structs (like Option.Some), store pointer to the struct
-                            let enum_alloca = self
-                                .builder
-                                .build_alloca(compiled.get_type(), "nested_enum_payload")?;
-                            self.builder.build_store(enum_alloca, compiled)?;
-                            enum_alloca.into()
+                            // For enum structs (like Option.Some), we need to heap-allocate to ensure
+                            // the nested struct persists when extracted from the outer enum
+                            let struct_type = compiled.get_type();
+                            
+                            // Use malloc to heap-allocate the nested enum struct
+                            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                                let i64_type = self.context.i64_type();
+                                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                self.module.add_function("malloc", malloc_type, None)
+                            });
+                            
+                            // Calculate size of the struct  
+                            // Enum structs are { i64 tag, ptr payload } = 16 bytes on 64-bit systems
+                            let size = self.context.i64_type().const_int(16, false);
+                            let size_val = size;
+                            let malloc_call = self.builder.build_call(malloc_fn, &[size_val.into()], "heap_enum")?;
+                            let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                            
+                            // Store the struct value to heap memory
+                            self.builder.build_store(heap_ptr, compiled)?;
+                            heap_ptr.into()
                         } else if compiled.is_pointer_value() {
                             compiled
                         } else {
@@ -4295,12 +4593,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
                         let payload_value = if compiled.is_struct_value() {
-                            // For enum structs (like Option.Some), store pointer to the struct
-                            let enum_alloca = self
-                                .builder
-                                .build_alloca(compiled.get_type(), "nested_enum_payload")?;
-                            self.builder.build_store(enum_alloca, compiled)?;
-                            enum_alloca.into()
+                            // For enum structs (like Option.Some), we need to heap-allocate to ensure
+                            // the nested struct persists when extracted from the outer enum
+                            let struct_type = compiled.get_type();
+                            
+                            // Use malloc to heap-allocate the nested enum struct
+                            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                                let i64_type = self.context.i64_type();
+                                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                self.module.add_function("malloc", malloc_type, None)
+                            });
+                            
+                            // Calculate size of the struct  
+                            // Enum structs are { i64 tag, ptr payload } = 16 bytes on 64-bit systems
+                            let size = self.context.i64_type().const_int(16, false);
+                            let size_val = size;
+                            let malloc_call = self.builder.build_call(malloc_fn, &[size_val.into()], "heap_enum")?;
+                            let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                            
+                            // Store the struct value to heap memory
+                            self.builder.build_store(heap_ptr, compiled)?;
+                            heap_ptr.into()
                         } else if compiled.is_pointer_value() {
                             compiled
                         } else {

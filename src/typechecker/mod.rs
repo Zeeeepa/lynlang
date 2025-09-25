@@ -56,6 +56,50 @@ pub struct EnumInfo {
 }
 
 impl TypeChecker {
+    /// Parse type arguments from a generic type string like "HashMap<i32, i32>"
+    fn parse_generic_type_string(type_str: &str) -> (String, Vec<AstType>) {
+        if let Some(angle_pos) = type_str.find('<') {
+            let base_type = type_str[..angle_pos].to_string();
+            let args_str = &type_str[angle_pos + 1..type_str.len() - 1]; // Remove < and >
+            
+            // Simple parsing - split by comma and trim
+            let type_args: Vec<AstType> = args_str
+                .split(',')
+                .map(|s| {
+                    let trimmed = s.trim();
+                    match trimmed {
+                        "i32" => AstType::I32,
+                        "i64" => AstType::I64,
+                        "f32" => AstType::F32,
+                        "f64" => AstType::F64,
+                        "bool" => AstType::Bool,
+                        "string" => AstType::String,
+                        _ => {
+                            // Check if it's another generic type
+                            if trimmed.contains('<') {
+                                let (inner_base, inner_args) = Self::parse_generic_type_string(trimmed);
+                                AstType::Generic {
+                                    name: inner_base,
+                                    type_args: inner_args,
+                                }
+                            } else {
+                                // Unknown type, treat as identifier
+                                AstType::Generic {
+                                    name: trimmed.to_string(),
+                                    type_args: vec![],
+                                }
+                            }
+                        }
+                    }
+                })
+                .collect();
+            
+            (base_type, type_args)
+        } else {
+            (type_str.to_string(), vec![])
+        }
+    }
+    
     pub fn new() -> Self {
         let mut enums = HashMap::new();
 
@@ -615,11 +659,11 @@ impl TypeChecker {
                         // Check if it's a known generic collection type
                         match base_type {
                             "HashMap" | "HashSet" | "DynVec" | "Vec" => {
-                                // Return a generic type placeholder
-                                // The actual type arguments are embedded in the name string
+                                // Parse the type arguments from the string
+                                let (_, type_args) = Self::parse_generic_type_string(name);
                                 Ok(AstType::Generic {
                                     name: base_type.to_string(),
-                                    type_args: vec![], // TODO: Parse actual type args from the name
+                                    type_args,
                                 })
                             }
                             _ => {
@@ -1025,14 +1069,23 @@ impl TypeChecker {
                 method,
                 args: _,
             } => {
-                // Special handling for Array.new() static method
+                // Special handling for collection .new() static methods
                 if let Expression::Identifier(name) = &**object {
-                    if name == "Array" && method == "new" {
-                        // Array.new() returns an Array<T> type  
-                        return Ok(AstType::Generic {
-                            name: "Array".to_string(),
-                            type_args: vec![AstType::I32], // Default to i32 array for now
-                        });
+                    if method == "new" {
+                        if name == "Array" {
+                            // Array.new() returns an Array<T> type  
+                            return Ok(AstType::Generic {
+                                name: "Array".to_string(),
+                                type_args: vec![AstType::I32], // Default to i32 array for now
+                            });
+                        } else if name.contains('<') {
+                            // Generic collection constructor like HashMap<i32, i32>.new()
+                            let (base_type, type_args) = Self::parse_generic_type_string(name);
+                            return Ok(AstType::Generic {
+                                name: base_type,
+                                type_args,
+                            });
+                        }
                     }
                 }
                 
@@ -1102,6 +1155,48 @@ impl TypeChecker {
                 if method == "loop" {
                     // .loop() on ranges and collections returns void
                     return Ok(AstType::Void);
+                }
+                
+                // Special handling for HashMap/HashSet methods
+                if let AstType::Generic { name, type_args } = &object_type {
+                    if name == "HashMap" {
+                        match method.as_str() {
+                            "size" | "len" => return Ok(AstType::I64),
+                            "is_empty" => return Ok(AstType::Bool),
+                            "clear" => return Ok(AstType::Void),
+                            "contains" => return Ok(AstType::Bool),
+                            "remove" => {
+                                // HashMap.remove() returns Option<V>
+                                if type_args.len() >= 2 {
+                                    return Ok(AstType::Generic {
+                                        name: "Option".to_string(),
+                                        type_args: vec![type_args[1].clone()],
+                                    });
+                                }
+                            }
+                            "get" => {
+                                // HashMap.get() returns Option<V>
+                                if type_args.len() >= 2 {
+                                    return Ok(AstType::Generic {
+                                        name: "Option".to_string(),
+                                        type_args: vec![type_args[1].clone()],
+                                    });
+                                }
+                            }
+                            "insert" => return Ok(AstType::Void),
+                            _ => {}
+                        }
+                    } else if name == "HashSet" {
+                        match method.as_str() {
+                            "size" | "len" => return Ok(AstType::I64),
+                            "is_empty" => return Ok(AstType::Bool),
+                            "clear" => return Ok(AstType::Void),
+                            "contains" => return Ok(AstType::Bool),
+                            "insert" => return Ok(AstType::Bool),
+                            "remove" => return Ok(AstType::Bool),
+                            _ => {}
+                        }
+                    }
                 }
 
                 // Special handling for pointer methods

@@ -1,0 +1,41 @@
+// Test nested generic return values
+{ io } = @std
+{ Option, Result } = @std
+
+// Simple function returning Option<i32>
+simple_option = () Option<i32> {
+    Option.Some(42)
+}
+
+// Function returning Result<Option<i32>, string>
+nested_result_option = () Result<Option<i32>, string> {
+    inner = Option.Some(123)
+    Result.Ok(inner)
+}
+
+// Function returning Option<Result<i32, string>>
+nested_option_result = () Option<Result<i32, string>> {
+    inner = Result.Ok(456)
+    Option.Some(inner)
+}
+
+main = () void {
+    // Test simple Option return
+    opt1 = simple_option()
+    opt1 ? | Option.Some(n) => io.println("Simple Option: ${n}")
+          | Option.None => io.println("Simple Option: None")
+    
+    // Test Result<Option<i32>, string> return
+    res1 = nested_result_option()
+    res1 ? | Result.Ok(opt) => {
+        opt ? | Option.Some(n) => io.println("Result<Option>: ${n}")
+              | Option.None => io.println("Result<Option>: None")
+    } | Result.Err(e) => io.println("Error: ${e}")
+    
+    // Test Option<Result<i32, string>> return
+    opt2 = nested_option_result()
+    opt2 ? | Option.Some(res) => {
+        res ? | Result.Ok(n) => io.println("Option<Result>: ${n}")
+              | Result.Err(e) => io.println("Option<Result> error: ${e}")
+    } | Option.None => io.println("Option was None")
+}

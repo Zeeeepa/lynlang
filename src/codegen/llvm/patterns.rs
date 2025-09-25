@@ -1148,11 +1148,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 AstType::Generic { name, .. } if name == "Option" || name == "Result" => {
                                                     // For nested generics (Result<Option<T>, E> or Option<Result<T,E>>),
                                                     // the payload is itself an enum struct. Load it as a struct.
-                                                    // The struct has format: { i32 discriminant, ptr payload }
-                                                    // TODO: This needs more work to properly extract nested enum payloads
+                                                    // The struct has format: { i64 discriminant, ptr payload }
                                                     let enum_struct_type = self.context.struct_type(
                                                         &[
-                                                            self.context.i32_type().into(),
+                                                            self.context.i64_type().into(),  // Changed from i32 to i64 to match actual enum representation
                                                             self.context.ptr_type(AddressSpace::default()).into(),
                                                         ],
                                                         false,
@@ -1162,7 +1161,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         ptr_val,
                                                         "nested_enum",
                                                     ) {
-                                                        Ok(loaded) => loaded,
+                                                        Ok(loaded) => {
+                                                            // For nested enums, we want to return the full struct
+                                                            // so that subsequent pattern matching can work with it
+                                                            loaded
+                                                        },
                                                         Err(_) => extracted,
                                                     }
                                                 }
@@ -1412,6 +1415,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // For now, be conservative and assume pointers are strings
                 // This means integer payloads won't work unless we dereference them earlier
                 (*value, crate::ast::AstType::String)
+            } else if value.is_struct_value() {
+                // For struct values, check if it's an enum struct (has 2 fields: discriminant + payload)
+                let struct_val = value.into_struct_value();
+                if struct_val.get_type().count_fields() == 2 {
+                    // This is likely an enum struct (Option or Result)
+                    // Try to determine which based on the generic type context
+                    let ast_type = if let Some(option_type) = self.generic_tracker.get("Option_Some_Type") {
+                        // It's an Option
+                        crate::ast::AstType::Generic {
+                            name: "Option".to_string(),
+                            type_args: vec![option_type.clone()],
+                        }
+                    } else if let Some(ok_type) = self.generic_tracker.get("Result_Ok_Type") {
+                        // It's a Result
+                        let err_type = self.generic_tracker.get("Result_Err_Type")
+                            .cloned()
+                            .unwrap_or(crate::ast::AstType::String);
+                        crate::ast::AstType::Generic {
+                            name: "Result".to_string(),
+                            type_args: vec![ok_type.clone(), err_type],
+                        }
+                    } else {
+                        // Fallback - generic Option with unknown type
+                        crate::ast::AstType::Generic {
+                            name: "Option".to_string(),
+                            type_args: vec![crate::ast::AstType::I64],
+                        }
+                    };
+                    (*value, ast_type)
+                } else {
+                    // Other struct types
+                    (*value, crate::ast::AstType::I64)
+                }
             } else {
                 // Default case
                 (*value, crate::ast::AstType::I64)

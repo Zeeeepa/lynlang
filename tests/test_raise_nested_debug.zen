@@ -1,0 +1,28 @@
+// Debug nested Result.raise()
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+nested_result = (val: i32) Result<Result<i32, string>, string> {
+    val < 0 ?
+        | true { Result.Err("Negative value not allowed") }
+        | false {
+            val > 100 ?
+                | true { Result.Ok(Result.Err("Value too large")) }
+                | false { Result.Ok(Result.Ok(val * 2)) }
+        }
+}
+
+// Test direct pattern matching without raise()
+test_without_raise = () void {
+    result = nested_result(50)
+    result ? | Result.Ok(inner) => {
+        io.println("Got inner Result from Ok")
+        inner ? | Result.Ok(val) => io.println("Inner Ok value: ${val}")
+               | Result.Err(msg) => io.println("Inner Err: ${msg}")
+    } | Result.Err(msg) => io.println("Outer Err: ${msg}")
+}
+
+main = () void {
+    io.println("Testing nested Result without raise()...")
+    test_without_raise()
+}

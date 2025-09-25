@@ -13,27 +13,27 @@ queue_new<T> = () Queue<T> {
     return list_module.new<T>()
 }
 
-queue_enqueue<T> = (queue: &mut Queue<T>, value: T) void {
+queue_enqueue<T> = (queue: MutPtr<Queue<T>>, value: T) void {
     list_module.push_back<T>(queue, value)
 }
 
-queue_dequeue<T> = (queue: &mut Queue<T>) Option<T> {
+queue_dequeue<T> = (queue: MutPtr<Queue<T>>) Option<T> {
     return list_module.pop_front<T>(queue)
 }
 
-queue_peek<T> = (queue: &Queue<T>) Option<T> {
+queue_peek<T> = (queue: Ptr<Queue<T>>) Option<T> {
     return list_module.peek_front<T>(queue)
 }
 
-queue_size<T> = (queue: &Queue<T>) usize {
+queue_size<T> = (queue: Ptr<Queue<T>>) usize {
     return list_module.len<T>(queue)
 }
 
-queue_is_empty<T> = (queue: &Queue<T>) bool {
+queue_is_empty<T> = (queue: Ptr<Queue<T>>) bool {
     return list_module.is_empty<T>(queue)
 }
 
-queue_clear<T> = (queue: &mut Queue<T>) void {
+queue_clear<T> = (queue: MutPtr<Queue<T>>) void {
     list_module.clear<T>(queue)
 }
 

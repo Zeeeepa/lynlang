@@ -132,28 +132,28 @@ xor = <T>(opt: Option<T>, other: Option<T>) Option<T> {
 }
 
 // Get contained value by reference
-as_ref = <T>(opt: &Option<T>) Option<&T> {
+as_ref = <T>(opt: Ptr<Option<T>>) Option<Ptr<T>> {
     opt ?
         | Some(ref v) { Option.Some(v) }
         | None { Option.None }
 }
 
 // Get contained value by mutable reference
-as_mut = <T>(opt: &mut Option<T>) Option<&mut T> {
+as_mut = <T>(opt: MutPtr<Option<T>>) Option<MutPtr<T>> {
     opt ?
         | Some(ref mut v) { Option.Some(v) }
         | None { Option.None }
 }
 
 // Take value out, leaving None
-take = <T>(opt: &mut Option<T>) Option<T> {
+take = <T>(opt: MutPtr<Option<T>>) Option<T> {
     let old = *opt
     *opt = Option.None
     return old
 }
 
 // Replace value, returning old value
-replace = <T>(opt: &mut Option<T>, value: T) Option<T> {
+replace = <T>(opt: MutPtr<Option<T>>, value: T) Option<T> {
     let old = *opt
     *opt = Option.Some(value)
     return old

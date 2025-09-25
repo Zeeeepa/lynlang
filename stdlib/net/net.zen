@@ -170,7 +170,7 @@ tcp_connect = (addr: SocketAddr) Result<Socket, core.String>  {
     
     ret := sys.__sys_connect(sock.fd, &sock_addr, sizeof(sock_addr))
     if ret < 0 {
-        close_socket(&mut sock)
+        close_socket(MutPtr<Socket>(sock))
         return Result<Socket, core.String>.Err("Connection failed")
     }
     
@@ -181,7 +181,7 @@ tcp_connect = (addr: SocketAddr) Result<Socket, core.String>  {
 }
 
 // Bind socket to address
-bind = (sock: &mut Socket, addr: SocketAddr) Result<void, core.String>  {
+bind = (sock: MutPtr<Socket>, addr: SocketAddr) Result<void, core.String>  {
     sock_addr := to_sockaddr_in(addr)
     
     ret := sys.__sys_bind(sock.fd, &sock_addr, sizeof(sock_addr))
@@ -207,16 +207,16 @@ listen = (addr: SocketAddr, backlog: i32) Result<TcpListener, core.String>  {
     sys.__sys_setsockopt(sock.fd, sys.SOL_SOCKET, sys.SO_REUSEADDR, &opt, sizeof(opt))
     
     // Bind to address
-    bind_res := bind(&mut sock, addr)
+    bind_res := bind(MutPtr<Socket>(sock), addr)
     if bind_res.is_err() {
-        close_socket(&mut sock)
+        close_socket(MutPtr<Socket>(sock))
         return Result<TcpListener, core.String>.Err(bind_res.unwrap_err())
     }
     
     // Start listening
     ret := sys.__sys_listen(sock.fd, backlog)
     if ret < 0 {
-        close_socket(&mut sock)
+        close_socket(MutPtr<Socket>(sock))
         return Result<TcpListener, core.String>.Err("Listen failed")
     }
     
@@ -262,7 +262,7 @@ send = (sock: &Socket, data: Vec<u8>) Result<usize, core.String>  {
 }
 
 // Receive data from socket
-recv = (sock: &Socket, buffer: &mut Vec<u8>, len: usize) Result<usize, core.String>  {
+recv = (sock: Ptr<Socket>, buffer: MutPtr<Vec<u8>>, len: usize) Result<usize, core.String>  {
     if !sock.is_connected {
         return Result<usize, core.String>.Err("Socket not connected")
     }
@@ -288,7 +288,7 @@ send_to = (sock: &UdpSocket, data: Vec<u8>, addr: SocketAddr) Result<usize, core
 }
 
 // Receive data with source address (UDP)
-recv_from = (sock: &UdpSocket, buffer: &mut Vec<u8>, len: usize) Result<(usize, SocketAddr), core.String>  {
+recv_from = (sock: Ptr<UdpSocket>, buffer: MutPtr<Vec<u8>>, len: usize) Result<(usize, SocketAddr), core.String>  {
     addr: sys.SockAddrIn
     addr_len: u32 = sizeof(addr)
     
@@ -302,7 +302,7 @@ recv_from = (sock: &UdpSocket, buffer: &mut Vec<u8>, len: usize) Result<(usize, 
 }
 
 // Close socket
-close_socket = (sock: &mut Socket) void   {
+close_socket = (sock: MutPtr<Socket>) void   {
     if sock.fd >= 0 {
         sys.__sys_close(sock.fd)
         sock.fd = -1
@@ -311,7 +311,7 @@ close_socket = (sock: &mut Socket) void   {
 }
 
 // Set socket to non-blocking mode
-set_nonblocking = (sock: &Socket) Result<void, core.String>  {
+set_nonblocking = (sock: Ptr<Socket>) Result<void, core.String>  {
     flags := sys.__sys_fcntl(sock.fd, sys.F_GETFL, 0)
     if flags < 0 {
         return Result<void, core.String>.Err("Failed to get socket flags")
@@ -340,7 +340,7 @@ http_client = () HttpClient   {
 }
 
 // Perform HTTP GET request
-http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.String>  {
+http_get = (client: Ptr<HttpClient>, url: core.String) Result<HttpResponse, core.String>  {
     req := HttpRequest{
         method: HttpMethod.GET,
         path: url,
@@ -353,7 +353,7 @@ http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.Str
 }
 
 // Perform HTTP POST request
-http_post = (client: &HttpClient, url: core.String, body: Vec<u8>) Result<HttpResponse, core.String>  {
+http_post = (client: Ptr<HttpClient>, url: core.String, body: Vec<u8>) Result<HttpResponse, core.String>  {
     req := HttpRequest{
         method: HttpMethod.POST,
         path: url,
@@ -366,7 +366,7 @@ http_post = (client: &HttpClient, url: core.String, body: Vec<u8>) Result<HttpRe
 }
 
 // Perform generic HTTP request
-http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core.String>  {
+http_request = (client: Ptr<HttpClient>, req: HttpRequest) Result<HttpResponse, core.String>  {
     // Parse URL to get host and path
     host, port, path := parse_url(req.path)
     
@@ -383,7 +383,7 @@ http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core
         return Result<HttpResponse, core.String>.Err(sock_res.unwrap_err())
     }
     mut sock := sock_res.unwrap()
-    defer close_socket(&mut sock)
+    defer close_socket(MutPtr<Socket>(sock))
     
     // Build HTTP request string
     request_str := format_http_request(req, host)
@@ -399,7 +399,7 @@ http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core
     response_data: DynVec<u8> = DynVec<u8>{}
     
     loop {
-        recv_res := recv(&sock, &mut buffer, 8192)
+        recv_res := recv(Ptr<Socket>(sock), MutPtr<Vec<u8>>(buffer), 8192)
         if recv_res.is_err() {
             return Result<HttpResponse, core.String>.Err(recv_res.unwrap_err())
         }
@@ -438,7 +438,7 @@ http_server = (addr: SocketAddr, handler: fn(HttpRequest) HttpResponse) Result<H
 }
 
 // Start serving HTTP requests
-serve = (server: &mut HttpServer) void   {
+serve = (server: MutPtr<HttpServer>) void   {
     loop {
         // Accept connection
         conn_res := accept(&server.listener)
@@ -449,7 +449,7 @@ serve = (server: &mut HttpServer) void   {
         conn := conn_res.unwrap()
         
         // Handle connection in thread pool
-        concurrency.submit_task(&mut server.thread_pool, || {
+        concurrency.submit_task(MutPtr<ThreadPool>(server.thread_pool), || {
             handle_http_connection(conn, server.handler)
         })
     }
@@ -457,11 +457,11 @@ serve = (server: &mut HttpServer) void   {
 
 // Handle individual HTTP connection
 handle_http_connection = (mut conn: Socket, handler: fn(HttpRequest) HttpResponse) void {
-    defer close_socket(&mut conn)
+    defer close_socket(MutPtr<Socket>(conn))
     
     // Read request
     buffer: [8192]u8
-    recv_res := recv(&conn, &mut buffer, 8192)
+    recv_res := recv(Ptr<Socket>(conn), MutPtr<Vec<u8>>(buffer), 8192)
     if recv_res.is_err() {
         return
     }
@@ -483,7 +483,7 @@ handle_http_connection = (mut conn: Socket, handler: fn(HttpRequest) HttpRespons
             body: "Bad Request".bytes(),
         }
         response_str := format_http_response(response)
-        send(&conn, response_str.bytes())
+        send(Ptr<Socket>(conn), response_str.bytes())
         return
     }
     
@@ -494,7 +494,7 @@ handle_http_connection = (mut conn: Socket, handler: fn(HttpRequest) HttpRespons
     
     // Send response
     response_str := format_http_response(response)
-    send(&conn, response_str.bytes())
+    send(Ptr<Socket>(conn), response_str.bytes())
 }
 
 // Helper functions

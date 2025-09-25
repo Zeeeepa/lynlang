@@ -147,7 +147,7 @@ check_syntax = (file_path: string) DynVec<Diagnostic>   {
     // Read file contents
     content := fs.read_file(file_path)
     if content == "" {
-        DynVec.push(&mut diagnostics, Diagnostic {
+        DynVec.push(MutPtr<DynVec<Diagnostic>>(diagnostics), Diagnostic {
             file: file_path,
             line: 0,
             column: 0,
@@ -173,7 +173,7 @@ check_syntax = (file_path: string) DynVec<Diagnostic>   {
                 j < lines.len() && depth > 0 ? | false { break } | true {
                     inner_line := lines[j]
                     if is_import_line(inner_line) {
-                        DynVec.push(&mut diagnostics, Diagnostic {
+                        DynVec.push(MutPtr<DynVec<Diagnostic>>(diagnostics), Diagnostic {
                             file: file_path,
                             line: j + 1,
                             column: 1,
@@ -200,7 +200,7 @@ check_syntax = (file_path: string) DynVec<Diagnostic>   {
            string.len(string.trim(line)) > 0 &&
            !string.starts_with(string.trim(line), "//") {
             // This might be a multi-line statement, so it's just a warning
-            DynVec.push(&mut diagnostics, Diagnostic {
+            DynVec.push(MutPtr<DynVec<Diagnostic>>(diagnostics), Diagnostic {
                 file: file_path,
                 line: i + 1,
                 column: string.len(line),
@@ -233,7 +233,7 @@ check_imports = (file_path: string) DynVec<Diagnostic>   {
             check_import_context(lines, i) ?
                 | Option<Diagnostic>.Some(mut diag) => {
                     diag.file = file_path
-                    DynVec.push(&mut diagnostics, diag)
+                    DynVec.push(MutPtr<DynVec<Diagnostic>>(diagnostics), diag)
                 }
                 | Option<Diagnostic>.None => {}
             }
@@ -283,14 +283,14 @@ check_file = (file_path: string, config: CheckConfig) CheckResult   {
     if config.check_syntax {
         syntax_diags := check_syntax(file_path)
         for i := 0; i < DynVec.len(syntax_diags); i = i + 1 {
-            DynVec.push(&mut all_diagnostics, DynVec.get(syntax_diags, i))
+            DynVec.push(MutPtr<DynVec<Diagnostic>>(all_diagnostics), DynVec.get(syntax_diags, i))
         }
     }
     
     if config.check_imports {
         import_diags := check_imports(file_path)
         for i := 0; i < DynVec.len(import_diags); i = i + 1 {
-            DynVec.push(&mut all_diagnostics, DynVec.get(import_diags, i))
+            DynVec.push(MutPtr<DynVec<Diagnostic>>(all_diagnostics), DynVec.get(import_diags, i))
         }
     }
     
@@ -316,15 +316,15 @@ main = () i32   {
     // Parse command line arguments
     parser := args.new_parser("zen-lsp-check", "Zen Language Server Protocol Checker")
     
-    args.add_flag(&mut parser, args.flag_short('v', "verbose", "Enable verbose output"))
-    args.add_flag(&mut parser, args.flag_short('q', "quiet", "Suppress non-error output"))
-    args.add_flag(&mut parser, args.flag_long("no-syntax", "Skip syntax checking"))
-    args.add_flag(&mut parser, args.flag_long("no-imports", "Skip import checking"))
-    args.add_flag(&mut parser, args.flag_long("no-style", "Skip style checking"))
-    args.add_flag(&mut parser, args.flag_long("fix", "Attempt to fix issues"))
-    args.add_flag(&mut parser, args.flag_value('o', "output", "FORMAT", "Output format (text|json)"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_short('v', "verbose", "Enable verbose output"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_short('q', "quiet", "Suppress non-error output"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("no-syntax", "Skip syntax checking"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("no-imports", "Skip import checking"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("no-style", "Skip style checking"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_long("fix", "Attempt to fix issues"))
+    args.add_flag(MutPtr<ArgParser>(parser), args.flag_value('o', "output", "FORMAT", "Output format (text|json)"))
     
-    parsed := args.parse(&parser, args.get_args())
+    parsed := args.parse(Ptr<ArgParser>(parser), args.get_args())
     
     parsed ?
         | Result<args.ParsedArgs, string>.Err(msg) => {
@@ -337,19 +337,19 @@ main = () i32   {
             // Build configuration
             mut config := default_config()
             
-            if args.has_flag(&opts, "verbose") {
+            if args.has_flag(Ptr<ParsedArgs>(opts), "verbose") {
                 config.verbose = true
             }
-            if args.has_flag(&opts, "no-syntax") {
+            if args.has_flag(Ptr<ParsedArgs>(opts), "no-syntax") {
                 config.check_syntax = false
             }
-            if args.has_flag(&opts, "no-imports") {
+            if args.has_flag(Ptr<ParsedArgs>(opts), "no-imports") {
                 config.check_imports = false
             }
-            if args.has_flag(&opts, "no-style") {
+            if args.has_flag(Ptr<ParsedArgs>(opts), "no-style") {
                 config.check_style = false
             }
-            if args.has_flag(&opts, "fix") {
+            if args.has_flag(Ptr<ParsedArgs>(opts), "fix") {
                 config.fix_issues = true
             }
             
@@ -390,7 +390,7 @@ main = () i32   {
             }
             
             // Print summary
-            if !args.has_flag(&opts, "quiet") {
+            if !args.has_flag(Ptr<ParsedArgs>(opts), "quiet") {
                 io.print("\n")
                 io.print("Summary: ")
                 io.print_int(total_errors)

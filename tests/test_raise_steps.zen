@@ -1,0 +1,21 @@
+// Test raise() step by step
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    inner = Result.Ok(88)
+    Result.Ok(inner)
+}
+
+main = () void {
+    // Get the outer Result
+    outer = get_nested()
+    
+    // Pattern match manually to extract inner Result
+    outer ? | Result.Ok(inner) => {
+        io.println("Got inner Result")
+        // Now pattern match the inner
+        inner ? | Result.Ok(val) => io.println("Inner value: ${val}")
+               | Result.Err(e) => io.println("Inner error: ${e}")
+    } | Result.Err(e) => io.println("Outer error: ${e}")
+}

@@ -1,0 +1,16 @@
+// Test nested generics created locally vs in function
+{ io } = @std
+{ Option, Result } = @std
+
+main = () void {
+    // Create nested Result locally
+    inner1 = Result.Ok(77)
+    outer1 = Result.Ok(inner1)
+    
+    // Extract from locally created nested Result
+    outer1 ? | Result.Ok(inner) => {
+        io.println("Local nested Result:")
+        inner ? | Result.Ok(val) => io.println("  Inner value: ${val}")
+               | Result.Err(e) => io.println("  Inner error: ${e}")
+    } | Result.Err(e) => io.println("Outer error: ${e}")
+}

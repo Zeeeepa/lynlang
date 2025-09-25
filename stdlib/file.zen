@@ -86,7 +86,7 @@ create = (path: core.String) Result<File, core.String>  {
 }
 
 // Read entire file contents as string
-read_to_string = (file: &mut File) Result<core.String, core.String>  {
+read_to_string = (file: MutPtr<File>) Result<core.String, core.String>  {
     (!file.is_open) ?
         | true {
             return Result<core.String, core.String>.Err("File is not open")
@@ -117,7 +117,7 @@ read_to_string = (file: &mut File) Result<core.String, core.String>  {
 }
 
 // Read bytes from file
-read = (file: &mut File, buffer: &mut Vec<u8>, count: usize) Result<usize, core.String>  {
+read = (file: MutPtr<File>, buffer: MutPtr<Vec<u8>>, count: usize) Result<usize, core.String>  {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -131,7 +131,7 @@ read = (file: &mut File, buffer: &mut Vec<u8>, count: usize) Result<usize, core.
 }
 
 // Read entire file into byte array
-read_bytes = (file: &mut File) Result<Vec<u8>, core.String>  {
+read_bytes = (file: MutPtr<File>) Result<Vec<u8>, core.String>  {
     if !file.is_open {
         return Result<Vec<u8>, core.String>.Err("File is not open")
     }
@@ -155,7 +155,7 @@ read_bytes = (file: &mut File) Result<Vec<u8>, core.String>  {
 }
 
 // Write string to file
-write_string = (file: &mut File, content: core.String) Result<usize, core.String>  {
+write_string = (file: MutPtr<File>, content: core.String) Result<usize, core.String>  {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -169,7 +169,7 @@ write_string = (file: &mut File, content: core.String) Result<usize, core.String
 }
 
 // Write bytes to file
-write = (file: &mut File, buffer: Vec<u8>) Result<usize, core.String>  {
+write = (file: MutPtr<File>, buffer: Vec<u8>) Result<usize, core.String>  {
     if !file.is_open {
         return Result<usize, core.String>.Err("File is not open")
     }
@@ -183,7 +183,7 @@ write = (file: &mut File, buffer: Vec<u8>) Result<usize, core.String>  {
 }
 
 // Write line to file (adds newline)
-write_line = (file: &mut File, line: core.String) Result<usize, core.String>  {
+write_line = (file: MutPtr<File>, line: core.String) Result<usize, core.String>  {
     total := 0
     
     // Write the line
@@ -204,7 +204,7 @@ write_line = (file: &mut File, line: core.String) Result<usize, core.String>  {
 }
 
 // Seek to position in file
-seek = (file: &mut File, pos: SeekFrom) Result<u64, core.String>  {
+seek = (file: MutPtr<File>, pos: SeekFrom) Result<u64, core.String>  {
     if !file.is_open {
         return Result<u64, core.String>.Err("File is not open")
     }
@@ -236,7 +236,7 @@ seek = (file: &mut File, pos: SeekFrom) Result<u64, core.String>  {
 }
 
 // Get current position in file
-tell = (file: &File) Result<u64, core.String>  {
+tell = (file: Ptr<File>) Result<u64, core.String>  {
     if !file.is_open {
         return Result<u64, core.String>.Err("File is not open")
     }
@@ -250,7 +250,7 @@ tell = (file: &File) Result<u64, core.String>  {
 }
 
 // Flush file buffers
-flush = (file: &mut File) Result<void, core.String>  {
+flush = (file: MutPtr<File>) Result<void, core.String>  {
     if !file.is_open {
         return Result<void, core.String>.Err("File is not open")
     }
@@ -264,7 +264,7 @@ flush = (file: &mut File) Result<void, core.String>  {
 }
 
 // Close file
-close = (file: &mut File) Result<void, core.String>  {
+close = (file: MutPtr<File>) Result<void, core.String>  {
     if !file.is_open {
         return Result<void, core.String>.Ok(void)
     }
@@ -279,7 +279,7 @@ close = (file: &mut File) Result<void, core.String>  {
 }
 
 // Get file metadata
-get_metadata = (file: &File) Result<FileMetadata, core.String>  {
+get_metadata = (file: Ptr<File>) Result<FileMetadata, core.String>  {
     if !file.is_open {
         return Result<FileMetadata, core.String>.Err("File is not open")
     }
@@ -335,7 +335,7 @@ copy = (src_path: core.String, dst_path: core.String) Result<u64, core.String>  
         return Result<u64, core.String>.Err(src_res.unwrap_err())
     }
     src := src_res.unwrap()
-    defer close(&mut src)
+    defer close(MutPtr<File>(src))
     
     // Create destination file
     dst_res := create(dst_path)
@@ -343,14 +343,14 @@ copy = (src_path: core.String, dst_path: core.String) Result<u64, core.String>  
         return Result<u64, core.String>.Err(dst_res.unwrap_err())
     }
     dst := dst_res.unwrap()
-    defer close(&mut dst)
+    defer close(MutPtr<File>(dst))
     
     // Copy data
     buffer: [4096]u8
     total_copied: u64 = 0
     
     loop {
-        read_res := read(&mut src, &mut buffer, 4096)
+        read_res := read(MutPtr<File>(src), MutPtr<Vec<u8>>(buffer), 4096)
         if read_res.is_err() {
             return Result<u64, core.String>.Err(read_res.unwrap_err())
         }
@@ -360,7 +360,7 @@ copy = (src_path: core.String, dst_path: core.String) Result<u64, core.String>  
             break
         }
         
-        write_res := write(&mut dst, buffer[0:bytes_read])
+        write_res := write(MutPtr<File>(dst), buffer[0:bytes_read])
         if write_res.is_err() {
             return Result<u64, core.String>.Err(write_res.unwrap_err())
         }

@@ -1,0 +1,15 @@
+// Test Option<Option> to see if it's specific to Result
+{ io } = @std
+{ Option } = @std
+
+main = () void {
+    // Create Option<Option<i32>>
+    inner_opt = Option.Some(321)
+    outer_opt = Option.Some(inner_opt)
+    
+    outer_opt ? | Option.Some(extracted) => {
+        io.println("Extracted inner Option")
+        extracted ? | Option.Some(v) => io.println("Inner value: ${v}")
+                   | Option.None => io.println("Inner was None")
+    } | Option.None => io.println("Outer was None")
+}

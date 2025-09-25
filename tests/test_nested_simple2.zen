@@ -1,0 +1,14 @@
+// Simpler test for nested generics
+{ io } = @std
+{ Option, Result } = @std
+
+main = () void {
+    // Direct nested creation
+    nested = Result.Ok(Option.Some(999))
+    
+    // Extract and check
+    nested ? | Result.Ok(opt) => {
+        opt ? | Option.Some(val) => io.println("Nested value: ${val}")
+              | Option.None => io.println("Was None")
+    } | Result.Err(e) => io.println("Error: ${e}")
+}

@@ -58,7 +58,7 @@ http_client = () HttpClient   {
 }
 
 // Perform HTTP GET request
-http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.String>  {
+http_get = (client: Ptr<HttpClient>, url: core.String) Result<HttpResponse, core.String>  {
     req := HttpRequest{
         method: HttpMethod.GET,
         path: url,
@@ -71,7 +71,7 @@ http_get = (client: &HttpClient, url: core.String) Result<HttpResponse, core.Str
 }
 
 // Perform HTTP POST request
-http_post = (client: &HttpClient, url: core.String, body: Vec<u8>) Result<HttpResponse, core.String>  {
+http_post = (client: Ptr<HttpClient>, url: core.String, body: Vec<u8>) Result<HttpResponse, core.String>  {
     req := HttpRequest{
         method: HttpMethod.POST,
         path: url,
@@ -84,7 +84,7 @@ http_post = (client: &HttpClient, url: core.String, body: Vec<u8>) Result<HttpRe
 }
 
 // Perform generic HTTP request
-http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core.String>  {
+http_request = (client: Ptr<HttpClient>, req: HttpRequest) Result<HttpResponse, core.String>  {
     // Parse URL to get host and path
     host, port, path := net.parse_url(req.path)
     
@@ -101,11 +101,11 @@ http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core
         return Result<HttpResponse, core.String>.Err(sock_res.unwrap_err())
     }
     mut sock := sock_res.unwrap()
-    defer net.close_socket(&mut sock)
+    defer net.close_socket(MutPtr<Socket>(sock))
     
     // Build and send HTTP request
     request_str := format_http_request(req, host)
-    send_res := net.send(&sock, request_str.bytes())
+    send_res := net.send(Ptr<Socket>(sock), request_str.bytes())
     if send_res.is_err() {
         return Result<HttpResponse, core.String>.Err(send_res.unwrap_err())
     }
@@ -115,7 +115,7 @@ http_request = (client: &HttpClient, req: HttpRequest) Result<HttpResponse, core
     response_data: DynVec<u8> = DynVec<u8>{}
     
     loop {
-        recv_res := net.recv(&sock, &mut buffer, 8192)
+        recv_res := net.recv(Ptr<Socket>(sock), MutPtr<Vec<u8>>(buffer), 8192)
         if recv_res.is_err() {
             return Result<HttpResponse, core.String>.Err(recv_res.unwrap_err())
         }
