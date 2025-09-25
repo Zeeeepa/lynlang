@@ -4556,6 +4556,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let discriminant = self.builder.build_extract_value(struct_val, 0, "nested_disc")?;
                                 let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
                                 
+                                
                                 // Debug: Check if the payload pointer is valid
                                 if payload_ptr.is_pointer_value() {
                                     let ptr_val = payload_ptr.into_pointer_value();
@@ -4698,6 +4699,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Extract the discriminant and payload pointer from the struct
                                 let discriminant = self.builder.build_extract_value(struct_val, 0, "nested_disc")?;
                                 let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
+                                
                                 
                                 // Debug: Check if the payload pointer is valid
                                 if payload_ptr.is_pointer_value() {
@@ -5847,15 +5849,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::FunctionCall { name, .. } => {
                 // Check if we know the function's return type - clone to avoid borrow issues
                 if let Some(return_type) = self.function_types.get(name).cloned() {
-                    eprintln!("[DEBUG raise] Function {} returns: {:?}", name, return_type);
                     // Track the complex generic type recursively
                     self.track_complex_generic(&return_type, "Result");
                     
                     if let AstType::Generic { name: type_name, type_args } = &return_type {
                         if type_name == "Result" && type_args.len() == 2 {
                             // Store Result<T, E> type arguments for proper payload extraction
-                            eprintln!("[DEBUG raise] Tracking Ok type: {:?}", type_args[0]);
-                            eprintln!("[DEBUG raise] Tracking Err type: {:?}", type_args[1]);
                             self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                             self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
                             
@@ -5915,9 +5914,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.builder.build_unconditional_branch(check_bb)?;
         self.builder.position_at_end(check_bb);
 
-        eprintln!("[DEBUG raise] Result value type: {:?}", result_value.get_type());
-        eprintln!("[DEBUG raise] Is pointer: {}", result_value.is_pointer_value());
-        eprintln!("[DEBUG raise] Is struct: {}", result_value.is_struct_value());
 
         // Handle the Result enum based on its actual representation
         // Result<T, E> is an enum with variants Ok(T) and Err(E)
@@ -5954,12 +5950,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             // Handle Ok case - extract the Ok value
             self.builder.position_at_end(ok_bb);
-            eprintln!("[DEBUG raise] In Ok branch, struct has {} fields", struct_type.count_fields());
             if struct_type.count_fields() > 1 {
                 let payload_ptr =
                     self.builder
                         .build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
-                eprintln!("[DEBUG raise] Got payload ptr");
                 // Get the actual payload type from the struct
                 let payload_field_type =
                     struct_type.get_field_type_at_index(1).ok_or_else(|| {
@@ -5970,22 +5964,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     })?;
 
                 // Load the payload value (which is a pointer to the actual value)
-                eprintln!("[DEBUG raise] Payload field type: {:?}", payload_field_type);
                 let ok_value_ptr =
                     self.builder
                         .build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
-                eprintln!("[DEBUG raise] Loaded ok_value_ptr type: {:?}", ok_value_ptr.get_type());
 
                 // The payload is always stored as a pointer in our enum representation
                 // We need to dereference it to get the actual value
                 let ok_value = if ok_value_ptr.is_pointer_value() {
-                    eprintln!("[DEBUG raise] Payload is a pointer, dereferencing...");
                     let ptr_val = ok_value_ptr.into_pointer_value();
 
                     // Use the tracked generic type information to determine the correct type to load
                     // Determine the correct type to load - handle nested generics
                     let load_result: Result<BasicValueEnum<'ctx>, CompileError> = if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type").cloned() {
-                        eprintln!("[DEBUG raise] AST type for Ok payload: {:?}", ast_type);
                         match &ast_type {
                             AstType::I8 => {
                                 let load_type: inkwell::types::BasicTypeEnum = self.context.i8_type().into();
@@ -6032,7 +6022,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
                             }
                             AstType::Generic { name, type_args } if name == "Result" && type_args.len() == 2 => {
-                                eprintln!("[DEBUG raise] Detected nested Result<{:?}, {:?}>", type_args[0], type_args[1]);
                                 // Handle nested Result<T,E> - the payload is itself a Result struct
                                 // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
                                 // So ptr_val IS the pointer to the heap-allocated Result struct
@@ -6054,9 +6043,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 );
                                 
                                 // Load the nested Result struct from heap
-                                eprintln!("[DEBUG raise] Loading nested Result struct from heap");
                                 let loaded_struct = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
-                                eprintln!("[DEBUG raise] Loaded nested Result type: {:?}", loaded_struct.get_type());
                                 
                                 // CRITICAL FIX: Deep copy the nested Result structure
                                 // We need to copy both the struct AND its payload to ensure it remains valid
@@ -6066,7 +6053,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let discriminant = self.builder.build_extract_value(struct_val, 0, "nested_discriminant")?;
                                 let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
                                 
-                                eprintln!("[DEBUG raise] Extracted discriminant and payload pointer");
                                 
                                 // Check if we need to deep copy the payload (if discriminant is Ok/Some)
                                 let needs_copy = self.builder.build_int_compare(
@@ -6103,17 +6089,29 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Copy the payload value
                                 if !payload_ptr.is_pointer_value() {
-                                    eprintln!("[DEBUG raise] WARNING: Payload is not a pointer!");
                                 }
                                 let old_payload_ptr = payload_ptr.into_pointer_value();
                                 
                                 // Load the value from the old payload and store to the new one
-                                // Since we know it's an i32 from the type args, load as i32
-                                let payload_value = self.builder.build_load(self.context.i32_type(), old_payload_ptr, "payload_value")?;
-                                eprintln!("[DEBUG raise] Loaded payload value: {:?}", payload_value);
+                                // Use the correct type from type_args[0] for the inner Result's Ok payload
+                                let payload_load_type: inkwell::types::BasicTypeEnum = match &type_args[0] {
+                                    AstType::I8 => self.context.i8_type().into(),
+                                    AstType::I16 => self.context.i16_type().into(),
+                                    AstType::I32 => self.context.i32_type().into(),
+                                    AstType::I64 => self.context.i64_type().into(),
+                                    AstType::U8 => self.context.i8_type().into(),
+                                    AstType::U16 => self.context.i16_type().into(),
+                                    AstType::U32 => self.context.i32_type().into(),
+                                    AstType::U64 => self.context.i64_type().into(),
+                                    AstType::F32 => self.context.f32_type().into(),
+                                    AstType::F64 => self.context.f64_type().into(),
+                                    AstType::Bool => self.context.bool_type().into(),
+                                    AstType::String => self.context.ptr_type(AddressSpace::default()).into(),
+                                    _ => self.context.i32_type().into(), // Default to i32 for unknown types
+                                };
+                                let payload_value = self.builder.build_load(payload_load_type, old_payload_ptr, "payload_value")?;
                                 self.builder.build_store(new_payload_ptr, payload_value)?;
                                 
-                                eprintln!("[DEBUG raise] Deep copied payload to new location");
                                 self.builder.build_unconditional_branch(continue_block)?;
                                 
                                 // In continue block: Build the final struct
@@ -6147,8 +6145,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "insert_payload"
                                 )?.into_struct_value();
                                 
-                                eprintln!("[DEBUG raise] Built final nested Result struct with discriminant and payload pointer");
-                                eprintln!("[DEBUG raise] Returning nested struct: {:?}", final_struct);
                                 
                                 Ok(final_struct.as_basic_value_enum())
                             }
@@ -6186,7 +6182,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     };
                     
                     let loaded_value = load_result?;
-                    eprintln!("[DEBUG raise] Dereferenced value type: {:?}", loaded_value.get_type());
 
                     // The loaded value should be the correct type
                     loaded_value
@@ -6290,8 +6285,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
                 
-                eprintln!("[DEBUG raise] Returning ok_value type: {:?}", ok_value.get_type());
-                eprintln!("[DEBUG raise] Returning ok_value: {:?}", ok_value);
                 
                 // Context has already been updated before the branch, no need to update again
                 
@@ -6372,8 +6365,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     ok_value_ptr
                 };
-                eprintln!("[DEBUG raise] Final ok_value type: {:?}", ok_value.get_type());
-                eprintln!("[DEBUG raise] Final ok_value: {:?}", ok_value);
                 self.builder.build_unconditional_branch(continue_bb)?;
 
                 // Handle Err case
@@ -6393,7 +6384,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
-                eprintln!("[DEBUG raise] Returning from raise with value type: {:?}", ok_value.get_type());
                 Ok(ok_value)
             } else {
                 // Unit Result
@@ -6524,7 +6514,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let load_type: inkwell::types::BasicTypeEnum =
                             if let Some(ast_type) = ast_type_opt {
                                 // Debug: Check what type we're loading
-                                eprintln!("[DEBUG raise] AST type: {:?}", ast_type);
                                 
                                 match ast_type {
                                     AstType::I8 => self.context.i8_type().into(),
@@ -6539,7 +6528,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     AstType::F64 => self.context.f64_type().into(),
                                     AstType::Bool => self.context.bool_type().into(),
                                     AstType::Generic { name, .. } if name == "Result" || name == "Option" => {
-                                        eprintln!("[DEBUG raise] Detected nested generic: {}", name);
                                         // For nested generics (Result<Result<T,E>,E2>), 
                                         // the payload pointer points to a heap-allocated struct
                                         // We need to load the struct from that pointer
@@ -6559,13 +6547,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.context.i32_type().into()
                             };
                         // Debug: Check what type we're loading
-                        eprintln!("[DEBUG raise] Loading with type: {:?}", load_type);
                         
                         let loaded_value =
                             self.builder
                                 .build_load(load_type, ptr_val, "ok_value_deref")?;
                         
-                        eprintln!("[DEBUG raise] Loaded value type: {:?}", loaded_value.get_type());
                         
                         // The loaded value should be the correct type
                         // For nested Result/Option types, this will be a struct value that can be raised again
