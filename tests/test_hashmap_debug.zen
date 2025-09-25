@@ -1,0 +1,40 @@
+// Debug test for HashMap.get returning 0
+{ io, HashMap, Option } = @std
+
+// Simple hash function for strings
+string_hash = (s: string) i64 {
+    return 42 as i64
+}
+
+// Equality function for strings  
+string_eq = (a: string, b: string) i64 {
+    a == b ? 
+        | true { return 1 as i64 }
+        | false { return 0 as i64 }
+}
+
+main = () i32 {
+    io.println("Testing HashMap.get debug...")
+    
+    // Create HashMap<string, i32>
+    map ::= HashMap<string, i32>.new()
+    
+    // Insert a simple key-value pair
+    map.insert("test", 123, string_hash, string_eq)
+    io.println("Inserted: test -> 123")
+    
+    // Try to get the value
+    result ::= map.get("test", string_hash, string_eq)
+    
+    // Pattern match on the result
+    result ?
+        | Option.Some(value) { 
+            io.println("Found value: ${value}")
+            value == 123 ?
+                | true { io.println("PASS: Value is correct (123)") }
+                | false { io.println("FAIL: Value is ${value} but expected 123") }
+        }
+        | Option.None { io.println("FAIL: Key not found") }
+    
+    return 0
+}

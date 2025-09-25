@@ -2125,6 +2125,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "capacity"
                                 )?.into_int_value();
                                 
+                                eprintln!("[DEBUG HashMap.get] Hash value calculated, getting bucket index");
                                 // Calculate bucket index: hash % capacity
                                 let bucket_index = self.builder.build_int_unsigned_rem(
                                     hash_value.into_int_value(),
@@ -2181,6 +2182,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     occupied_ptr,
                                     "occupied"
                                 )?.into_int_value();
+                                
+                                eprintln!("[DEBUG HashMap.get] Bucket occupied check");
                                 
                                 let is_occupied = self.builder.build_int_compare(
                                     inkwell::IntPredicate::NE,
@@ -2255,177 +2258,115 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "stored_value_or_ptr"
                                 )?.into_int_value();
                                 
-                                // For i32 values, we stored a pointer that needs dereferencing
-                                // Check if we stored this as a pointer (non-zero high bits indicate pointer)
-                                let stored_value = if let Some(var_info) = self.variables.get(obj_name) {
+                                // Retrieve the actual value based on type
+                                let (actual_value, value_type) = if let Some(var_info) = self.variables.get(obj_name) {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() >= 2 {
+                                            eprintln!("[DEBUG HashMap.get] Value type: {:?}", type_args[1]);
                                             match &type_args[1] {
                                                 AstType::I32 => {
                                                     // Value was stored as a pointer to i32, dereference it
-                                                    let value_ptr = self.builder.build_int_to_ptr(
-                                                        stored_value_or_ptr,
-                                                        self.context.ptr_type(AddressSpace::default()),
-                                                        "value_ptr"
-                                                    )?;
-                                                    let loaded_i32 = self.builder.build_load(
-                                                        self.context.i32_type(),
-                                                        value_ptr,
-                                                        "loaded_i32"
-                                                    )?.into_int_value();
-                                                    // Convert to i64 for Option payload
-                                                    self.builder.build_int_z_extend(
-                                                        loaded_i32,
-                                                        self.context.i64_type(),
-                                                        "value_as_i64"
-                                                    )?
-                                                }
-                                                _ => stored_value_or_ptr // Direct i64 value
-                                            }
-                                        } else {
-                                            stored_value_or_ptr
-                                        }
-                                    } else {
-                                        stored_value_or_ptr
-                                    }
-                                } else {
-                                    stored_value_or_ptr
-                                };
-                                
-                                // Get the value type from HashMap<K,V> generic args and convert accordingly
-                                let some_value = if let Some(var_info) = self.variables.get(obj_name) {
-                                    if let AstType::Generic { type_args, .. } = &var_info.ast_type {
-                                        if type_args.len() == 2 {
-                                            // Convert the i64 back to the appropriate type
-                                            match &type_args[1] {
-                                                AstType::I32 => {
-                                                    // Truncate i64 to i32
-                                                    let value_i32 = self.builder.build_int_truncate(
-                                                        stored_value,
-                                                        self.context.i32_type(),
-                                                        "value_i32"
-                                                    )?;
-                                                    let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                                    let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
-                                                    let disc_ptr = self.builder.build_struct_gep(
-                                                        option_llvm_type,
-                                                        some_value_alloca,
-                                                        0,
-                                                        "disc_ptr"
-                                                    )?;
-                                                    self.builder.build_store(disc_ptr, some_discriminant)?;
-                                                    let payload_ptr = self.builder.build_struct_gep(
-                                                        option_llvm_type,
-                                                        some_value_alloca,
-                                                        1,
-                                                        "payload_ptr"
-                                                    )?;
-                                                    self.builder.build_store(payload_ptr, value_i32)?;
-                                                    self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?
+                                                    eprintln!("[DEBUG HashMap.get] Dereferencing i32 pointer, ptr value = {:?}", stored_value_or_ptr);
+                                                    
+                                                    // Check if pointer is valid (non-zero)
+                                                    if stored_value_or_ptr.is_const() {
+                                                        let const_val = stored_value_or_ptr.get_zero_extended_constant();
+                                                        eprintln!("[DEBUG HashMap.get] Const pointer value: {:?}", const_val);
+                                                        if const_val == Some(0) {
+                                                            eprintln!("[DEBUG HashMap.get] WARNING: Pointer is null!");
+                                                            (self.context.i32_type().const_int(0, false).into(), AstType::I32)
+                                                        } else {
+                                                            let value_ptr = self.builder.build_int_to_ptr(
+                                                                stored_value_or_ptr,
+                                                                self.context.ptr_type(AddressSpace::default()),
+                                                                "value_ptr"
+                                                            )?;
+                                                            let loaded_i32 = self.builder.build_load(
+                                                                self.context.i32_type(),
+                                                                value_ptr,
+                                                                "loaded_i32"
+                                                            )?;
+                                                            (loaded_i32, AstType::I32)
+                                                        }
+                                                    } else {
+                                                        let value_ptr = self.builder.build_int_to_ptr(
+                                                            stored_value_or_ptr,
+                                                            self.context.ptr_type(AddressSpace::default()),
+                                                            "value_ptr"
+                                                        )?;
+                                                        let loaded_i32 = self.builder.build_load(
+                                                            self.context.i32_type(),
+                                                            value_ptr,
+                                                            "loaded_i32"
+                                                        )?;
+                                                        eprintln!("[DEBUG HashMap.get] Successfully loaded i32 value: {:?}", loaded_i32);
+                                                        (loaded_i32, AstType::I32)
+                                                    }
                                                 }
                                                 AstType::I64 => {
-                                                    // Use value as-is
-                                                    let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                                    let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
-                                                    let disc_ptr = self.builder.build_struct_gep(
-                                                        option_llvm_type,
-                                                        some_value_alloca,
-                                                        0,
-                                                        "disc_ptr"
-                                                    )?;
-                                                    self.builder.build_store(disc_ptr, some_discriminant)?;
-                                                    let payload_ptr = self.builder.build_struct_gep(
-                                                        option_llvm_type,
-                                                        some_value_alloca,
-                                                        1,
-                                                        "payload_ptr"
-                                                    )?;
-                                                    self.builder.build_store(payload_ptr, stored_value)?;
-                                                    self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?
+                                                    // Direct i64 value
+                                                    (stored_value_or_ptr.into(), AstType::I64)
                                                 }
                                                 _ => {
-                                                    // For other types, return the raw i64 value for now
-                                                    let some_discriminant = self.context.i64_type().const_int(0, false);
-                                                    let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
-                                                    let disc_ptr = self.builder.build_struct_gep(
-                                                        option_llvm_type,
-                                                        some_value_alloca,
-                                                        0,
-                                                        "disc_ptr"
-                                                    )?;
-                                                    self.builder.build_store(disc_ptr, some_discriminant)?;
-                                                    let payload_ptr = self.builder.build_struct_gep(
-                                                        option_llvm_type,
-                                                        some_value_alloca,
-                                                        1,
-                                                        "payload_ptr"
-                                                    )?;
-                                                    self.builder.build_store(payload_ptr, stored_value)?;
-                                                    self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?
+                                                    // Unknown type, treat as i64
+                                                    (stored_value_or_ptr.into(), AstType::I64)
                                                 }
                                             }
                                         } else {
-                                            // Return None for invalid type args
-                                            let none_discriminant = self.context.i64_type().const_int(1, false);
-                                            let none_alloca = self.builder.build_alloca(option_llvm_type, "none_value")?;
-                                            let disc_ptr = self.builder.build_struct_gep(
-                                                option_llvm_type,
-                                                none_alloca,
-                                                0,
-                                                "disc_ptr"
-                                            )?;
-                                            self.builder.build_store(disc_ptr, none_discriminant)?;
-                                            let payload_ptr = self.builder.build_struct_gep(
-                                                option_llvm_type,
-                                                none_alloca,
-                                                1,
-                                                "payload_ptr"
-                                            )?;
-                                            let zero_payload = self.context.i64_type().const_int(0, false);
-                                            self.builder.build_store(payload_ptr, zero_payload)?;
-                                            self.builder.build_load(option_llvm_type, none_alloca, "none_value")?
+                                            (stored_value_or_ptr.into(), AstType::I64)
                                         }
                                     } else {
-                                        // Return None - no type info
-                                        let none_discriminant = self.context.i64_type().const_int(1, false);
-                                        let none_alloca = self.builder.build_alloca(option_llvm_type, "none_value")?;
+                                        (stored_value_or_ptr.into(), AstType::I64)
+                                    }
+                                } else {
+                                    (stored_value_or_ptr.into(), AstType::I64)
+                                };
+                                
+                                // Create the Option::Some variant with the actual value
+                                let some_value = match value_type {
+                                    AstType::I32 => {
+                                        // actual_value is already an i32
+                                        let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
+                                        let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
                                         let disc_ptr = self.builder.build_struct_gep(
                                             option_llvm_type,
-                                            none_alloca,
+                                            some_value_alloca,
                                             0,
                                             "disc_ptr"
                                         )?;
-                                        self.builder.build_store(disc_ptr, none_discriminant)?;
+                                        self.builder.build_store(disc_ptr, some_discriminant)?;
                                         let payload_ptr = self.builder.build_struct_gep(
                                             option_llvm_type,
-                                            none_alloca,
+                                            some_value_alloca,
                                             1,
                                             "payload_ptr"
                                         )?;
-                                        let zero_payload = self.context.i64_type().const_int(0, false);
-                                        self.builder.build_store(payload_ptr, zero_payload)?;
-                                        self.builder.build_load(option_llvm_type, none_alloca, "none_value")?
+                                        eprintln!("[DEBUG HashMap.get] Storing to Option payload: {:?}", actual_value);
+                                        self.builder.build_store(payload_ptr, actual_value)?;
+                                        let loaded_option = self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?;
+                                        eprintln!("[DEBUG HashMap.get] Created Option::Some: {:?}", loaded_option);
+                                        loaded_option
                                     }
-                                } else {
-                                    // Return None - var not found
-                                    let none_discriminant = self.context.i64_type().const_int(1, false);
-                                    let none_alloca = self.builder.build_alloca(option_llvm_type, "none_value")?;
-                                    let disc_ptr = self.builder.build_struct_gep(
-                                        option_llvm_type,
-                                        none_alloca,
-                                        0,
-                                        "disc_ptr"
-                                    )?;
-                                    self.builder.build_store(disc_ptr, none_discriminant)?;
-                                    let payload_ptr = self.builder.build_struct_gep(
-                                        option_llvm_type,
-                                        none_alloca,
-                                        1,
-                                        "payload_ptr"
-                                    )?;
-                                    let zero_payload = self.context.i64_type().const_int(0, false);
-                                    self.builder.build_store(payload_ptr, zero_payload)?;
-                                    self.builder.build_load(option_llvm_type, none_alloca, "none_value")?
+                                    _ => {
+                                        // For other types, return the raw value
+                                        let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
+                                        let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
+                                                    let disc_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        0,
+                                                        "disc_ptr"
+                                                    )?;
+                                                    self.builder.build_store(disc_ptr, some_discriminant)?;
+                                                    let payload_ptr = self.builder.build_struct_gep(
+                                                        option_llvm_type,
+                                                        some_value_alloca,
+                                                        1,
+                                                        "payload_ptr"
+                                                    )?;
+                                                    self.builder.build_store(payload_ptr, actual_value)?;
+                                                    self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?
+                                                }
                                 };
                                 self.builder.build_unconditional_branch(merge_block)?;
                                 
@@ -2433,6 +2374,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.builder.position_at_end(merge_block);
                                 let phi = self.builder.build_phi(option_llvm_type, "get_result")?;
                                 phi.add_incoming(&[(&none_value, not_found_block), (&some_value, found_block)]);
+                                
+                                // Set the generic type context for Option<V> where V is the value type
+                                if let Some(var_info) = self.variables.get(obj_name) {
+                                    if let AstType::Generic { type_args, .. } = &var_info.ast_type {
+                                        if type_args.len() >= 2 {
+                                            // Set Option_Some_Type based on the HashMap value type
+                                            match &type_args[1] {
+                                                AstType::I32 => {
+                                                    self.generic_type_context.insert("Option_Some_Type".to_string(), AstType::I32);
+                                                    eprintln!("[DEBUG HashMap.get] Set Option_Some_Type to i32");
+                                                }
+                                                AstType::I64 => {
+                                                    self.generic_type_context.insert("Option_Some_Type".to_string(), AstType::I64);
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                }
                                 
                                 return Ok(phi.as_basic_value());
                             }

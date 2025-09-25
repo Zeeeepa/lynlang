@@ -1,0 +1,21 @@
+{ io, Option } = @std
+
+// Function that returns Option<i32>
+get_option = () Option<i32> {
+    return Option.Some(99)
+}
+
+main = () i32 {
+    result ::= get_option()
+    
+    result ?
+        | Option.Some(val) { 
+            io.println("Got: ${val}")
+            val == 99 ?
+                | true { io.println("SUCCESS") }
+                | false { io.println("FAIL: Expected 99, got ${val}") }
+        }
+        | Option.None { io.println("Got None") }
+    
+    return 0
+}

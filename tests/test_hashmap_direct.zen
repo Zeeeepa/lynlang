@@ -1,0 +1,29 @@
+// Test direct HashMap value extraction without Option
+{ io } = @std
+
+main = () i32 {
+    // Create a simple test case to check memory operations
+    
+    // Test 1: Basic value storage and retrieval
+    x ::= 42
+    y ::= x
+    io.println("Basic assignment test: ${y}")
+    
+    y == 42 ?
+        | true { io.println("PASS: Basic assignment works") }
+        | false { io.println("FAIL: Basic assignment broken") }
+    
+    // Test 2: Function return with value
+    get_value = () i32 {
+        return 123
+    }
+    
+    v ::= get_value()
+    io.println("Function return test: ${v}")
+    
+    v == 123 ?
+        | true { io.println("PASS: Function return works") }
+        | false { io.println("FAIL: Function return broken") }
+    
+    return 0
+}

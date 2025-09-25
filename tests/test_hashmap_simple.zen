@@ -1,0 +1,36 @@
+// Simple test to debug HashMap value storage
+{ io, HashMap, Option } = @std
+
+main = () i32 {
+    // Create HashMap<i32, i32> for simpler debugging
+    map ::= HashMap<i32, i32>.new()
+    
+    // Simple hash function for i32
+    hash_fn = (x: i32) i64 {
+        return x as i64
+    }
+    
+    // Simple equality function for i32
+    eq_fn = (a: i32, b: i32) i64 {
+        a == b ?
+            | true { return 1 as i64 }
+            | false { return 0 as i64 }
+    }
+    
+    // Insert a simple value
+    io.println("Inserting: 5 -> 100")
+    map.insert(5, 100, hash_fn, eq_fn)
+    
+    // Get it back
+    result ::= map.get(5, hash_fn, eq_fn)
+    result ?
+        | Option.Some(value) { 
+            io.println("Got value: ${value}")
+            value == 100 ?
+                | true { io.println("SUCCESS: Value is correct") }
+                | false { io.println("FAIL: Expected 100, got ${value}") }
+        }
+        | Option.None { io.println("FAIL: Key not found") }
+    
+    return 0
+}
