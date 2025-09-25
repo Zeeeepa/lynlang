@@ -6052,12 +6052,105 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     ],
                                     false
                                 );
+                                
                                 // Load the nested Result struct from heap
                                 eprintln!("[DEBUG raise] Loading nested Result struct from heap");
-                                let loaded = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
-                                eprintln!("[DEBUG raise] Loaded nested Result type: {:?}", loaded.get_type());
+                                let loaded_struct = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
+                                eprintln!("[DEBUG raise] Loaded nested Result type: {:?}", loaded_struct.get_type());
                                 
-                                Ok(loaded)
+                                // CRITICAL FIX: Deep copy the nested Result structure
+                                // We need to copy both the struct AND its payload to ensure it remains valid
+                                let struct_val = loaded_struct.into_struct_value();
+                                
+                                // Extract the discriminant and payload pointer from the loaded struct
+                                let discriminant = self.builder.build_extract_value(struct_val, 0, "nested_discriminant")?;
+                                let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
+                                
+                                eprintln!("[DEBUG raise] Extracted discriminant and payload pointer");
+                                
+                                // Check if we need to deep copy the payload (if discriminant is Ok/Some)
+                                let needs_copy = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::EQ,
+                                    discriminant.into_int_value(),
+                                    self.context.i64_type().const_int(0, false),
+                                    "is_ok_variant"
+                                )?;
+                                
+                                // Create blocks for conditional copy
+                                let current_block = self.builder.get_insert_block().unwrap();
+                                let parent_fn = current_block.get_parent().unwrap();
+                                let copy_block = self.context.append_basic_block(parent_fn, "copy_payload");
+                                let continue_block = self.context.append_basic_block(parent_fn, "continue_nested");
+                                
+                                self.builder.build_conditional_branch(needs_copy, copy_block, continue_block)?;
+                                
+                                // In copy block: Deep copy the payload
+                                self.builder.position_at_end(copy_block);
+                                
+                                // The payload for inner Result<i32, string> is an i32 value
+                                // We need to allocate new space and copy it
+                                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                                    let i64_type = self.context.i64_type();
+                                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                    self.module.add_function("malloc", malloc_type, None)
+                                });
+                                
+                                // Allocate space for the payload (8 bytes for i32/i64)
+                                let payload_size = self.context.i64_type().const_int(8, false);
+                                let new_payload_call = self.builder.build_call(malloc_fn, &[payload_size.into()], "new_payload")?;
+                                let new_payload_ptr = new_payload_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                                
+                                // Copy the payload value
+                                if !payload_ptr.is_pointer_value() {
+                                    eprintln!("[DEBUG raise] WARNING: Payload is not a pointer!");
+                                }
+                                let old_payload_ptr = payload_ptr.into_pointer_value();
+                                
+                                // Load the value from the old payload and store to the new one
+                                // Since we know it's an i32 from the type args, load as i32
+                                let payload_value = self.builder.build_load(self.context.i32_type(), old_payload_ptr, "payload_value")?;
+                                eprintln!("[DEBUG raise] Loaded payload value: {:?}", payload_value);
+                                self.builder.build_store(new_payload_ptr, payload_value)?;
+                                
+                                eprintln!("[DEBUG raise] Deep copied payload to new location");
+                                self.builder.build_unconditional_branch(continue_block)?;
+                                
+                                // In continue block: Build the final struct
+                                self.builder.position_at_end(continue_block);
+                                
+                                // Create PHI nodes for the potentially updated payload pointer
+                                let phi_payload = self.builder.build_phi(
+                                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                                    "final_payload_ptr"
+                                )?;
+                                phi_payload.add_incoming(&[
+                                    (&new_payload_ptr.as_basic_value_enum(), copy_block),
+                                    (&payload_ptr, current_block)
+                                ]);
+                                
+                                // Build the final struct with the (potentially) new payload pointer
+                                let mut final_struct = self.context.struct_type(
+                                    &[
+                                        self.context.i64_type().into(),
+                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                                    ],
+                                    false
+                                ).get_undef();
+                                
+                                final_struct = self.builder.build_insert_value(final_struct, discriminant, 0, "insert_disc")?
+                                    .into_struct_value();
+                                final_struct = self.builder.build_insert_value(
+                                    final_struct,
+                                    phi_payload.as_basic_value(),
+                                    1,
+                                    "insert_payload"
+                                )?.into_struct_value();
+                                
+                                eprintln!("[DEBUG raise] Built final nested Result struct with discriminant and payload pointer");
+                                eprintln!("[DEBUG raise] Returning nested struct: {:?}", final_struct);
+                                
+                                Ok(final_struct.as_basic_value_enum())
                             }
                             AstType::Generic { name, type_args } if name == "Option" && type_args.len() == 1 => {
                                 // Handle Option<T> - similar to Result but with only one type parameter
