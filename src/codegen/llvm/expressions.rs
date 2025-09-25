@@ -588,6 +588,42 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 })?;
                             return Ok(result);
                         }
+                        "split" => {
+                            // string.split(delimiter) - split string by delimiter
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("split expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Compile the delimiter argument
+                            let delimiter = self.compile_expression(&args[0])?;
+                            
+                            // Make sure delimiter is a string
+                            if !delimiter.is_pointer_value() {
+                                return Err(CompileError::TypeError(
+                                    "split delimiter argument must be a string".to_string(),
+                                    None,
+                                ));
+                            }
+                            
+                            // Call the runtime string_split function
+                            let func = self.get_or_create_runtime_function("string_split")?;
+                            let result = self
+                                .builder
+                                .build_call(
+                                    func, 
+                                    &[object_value.into(), delimiter.into()], 
+                                    "split_result"
+                                )?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError("string_split did not return a value".to_string(), None)
+                                })?;
+                            return Ok(result);
+                        }
                         "to_i32" => {
                             let func = self.get_or_create_runtime_function("string_to_i32")?;
                             let result = self

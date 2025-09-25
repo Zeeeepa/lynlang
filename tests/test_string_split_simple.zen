@@ -1,0 +1,19 @@
+// Simple test for string.split() method
+{ io } = @std
+
+main = () i32 {
+    // Test basic split
+    text = "hello,world"
+    parts = text.split(",")
+    
+    io.println("Testing string.split():")
+    io.println("Split 'hello,world' by ','")
+    
+    // Just test that split works without crashing
+    // Array methods need to be implemented separately
+    
+    // For now just test that it runs without crashing
+    io.println("✓ string.split() executed without crash")
+    
+    return 0
+}

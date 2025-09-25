@@ -1161,6 +1161,291 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     .add_function(name, fn_type, Some(Linkage::External));
                 Ok(func)
             }
+            "string_split" => {
+                // string_split(str: *const i8, delimiter: *const i8) -> Array<string>
+                // Returns an array of strings split by delimiter
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                
+                // Array<string> type: struct { ptr, len, capacity }
+                let array_type = self.context.struct_type(
+                    &[
+                        ptr_type.into(),  // data pointer (array of string pointers)
+                        self.context.i64_type().into(), // length
+                        self.context.i64_type().into(), // capacity
+                    ],
+                    false,
+                );
+                
+                let fn_type = array_type.fn_type(
+                    &[string_type.into(), string_type.into()], 
+                    false
+                );
+                let func = self
+                    .module
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the parameters
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                let delim_param = func.get_nth_param(1).unwrap().into_pointer_value();
+                
+                // Get helper functions
+                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = i64_type.fn_type(&[ptr_type.into()], false);
+                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
+                });
+                
+                let strstr_fn = self.module.get_function("strstr").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+                    self.module.add_function("strstr", fn_type, Some(Linkage::External))
+                });
+                
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let size_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[size_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
+                });
+                
+                let memcpy_fn = self.module.get_function("memcpy").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let size_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(
+                        &[ptr_type.into(), ptr_type.into(), size_type.into()], 
+                        false
+                    );
+                    self.module.add_function("memcpy", fn_type, Some(Linkage::External))
+                });
+                
+                // Get delimiter length
+                let delim_len = self.builder.build_call(
+                    strlen_fn,
+                    &[delim_param.into()],
+                    "delim_len"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Count occurrences to determine array size
+                // Start with count = 1 (at least one part)
+                let count_alloca = self.builder.build_alloca(self.context.i64_type(), "count")?;
+                let one = self.context.i64_type().const_int(1, false);
+                self.builder.build_store(count_alloca, one)?;
+                
+                // Current position in string
+                let current_alloca = self.builder.build_alloca(ptr_type, "current")?;
+                self.builder.build_store(current_alloca, str_param)?;
+                
+                // Count loop
+                let count_loop = self.context.append_basic_block(func, "count_loop");
+                let count_done = self.context.append_basic_block(func, "count_done");
+                
+                self.builder.build_unconditional_branch(count_loop)?;
+                self.builder.position_at_end(count_loop);
+                
+                // Find next occurrence
+                let current = self.builder.build_load(ptr_type, current_alloca, "current_val")?.into_pointer_value();
+                let found = self.builder.build_call(
+                    strstr_fn,
+                    &[current.into(), delim_param.into()],
+                    "found"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Check if found
+                let is_null = self.builder.build_is_null(found, "is_null")?;
+                let increment_block = self.context.append_basic_block(func, "increment");
+                self.builder.build_conditional_branch(is_null, count_done, increment_block)?;
+                
+                // Increment count and advance pointer
+                self.builder.position_at_end(increment_block);
+                let count_val = self.builder.build_load(self.context.i64_type(), count_alloca, "count_val")?;
+                let new_count = self.builder.build_int_add(count_val.into_int_value(), one, "new_count")?;
+                self.builder.build_store(count_alloca, new_count)?;
+                
+                // Advance past the delimiter
+                let next = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        self.context.i8_type(),
+                        found,
+                        &[delim_len],
+                        "next"
+                    )?
+                };
+                self.builder.build_store(current_alloca, next)?;
+                self.builder.build_unconditional_branch(count_loop)?;
+                
+                // Count done, allocate array
+                self.builder.position_at_end(count_done);
+                let final_count = self.builder.build_load(self.context.i64_type(), count_alloca, "final_count")?.into_int_value();
+                
+                // Allocate array of string pointers
+                let ptr_size = self.context.i64_type().const_int(8, false); // 8 bytes per pointer
+                let array_size = self.builder.build_int_mul(final_count, ptr_size, "array_size")?;
+                let data_ptr = self.builder.build_call(
+                    malloc_fn,
+                    &[array_size.into()],
+                    "data_ptr"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Now split the string into parts
+                let index_alloca = self.builder.build_alloca(self.context.i64_type(), "index")?;
+                let zero = self.context.i64_type().const_int(0, false);
+                self.builder.build_store(index_alloca, zero)?;
+                
+                // Reset current to start of string
+                self.builder.build_store(current_alloca, str_param)?;
+                
+                // Split loop
+                let split_loop = self.context.append_basic_block(func, "split_loop");
+                let split_done = self.context.append_basic_block(func, "split_done");
+                
+                self.builder.build_unconditional_branch(split_loop)?;
+                self.builder.position_at_end(split_loop);
+                
+                // Get current position and index
+                let current_str = self.builder.build_load(ptr_type, current_alloca, "current_str")?.into_pointer_value();
+                let idx = self.builder.build_load(self.context.i64_type(), index_alloca, "idx")?.into_int_value();
+                
+                // Find next delimiter
+                let next_delim = self.builder.build_call(
+                    strstr_fn,
+                    &[current_str.into(), delim_param.into()],
+                    "next_delim"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Calculate part length
+                let is_last = self.builder.build_is_null(next_delim, "is_last")?;
+                let last_len_block = self.context.append_basic_block(func, "last_len");
+                let mid_len_block = self.context.append_basic_block(func, "mid_len");
+                let store_part_block = self.context.append_basic_block(func, "store_part");
+                
+                // Branch based on whether delimiter was found
+                self.builder.build_conditional_branch(is_last, last_len_block, mid_len_block)?;
+                
+                // Last part: use strlen
+                self.builder.position_at_end(last_len_block);
+                let last_len = self.builder.build_call(
+                    strlen_fn,
+                    &[current_str.into()],
+                    "last_len"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                self.builder.build_unconditional_branch(store_part_block)?;
+                
+                // Middle part: calculate difference
+                self.builder.position_at_end(mid_len_block);
+                let current_int = self.builder.build_ptr_to_int(current_str, self.context.i64_type(), "current_int")?;
+                let delim_int = self.builder.build_ptr_to_int(next_delim, self.context.i64_type(), "delim_int")?;
+                let mid_len = self.builder.build_int_sub(delim_int, current_int, "mid_len")?;
+                self.builder.build_unconditional_branch(store_part_block)?;
+                
+                // Set up PHI in store_part block
+                self.builder.position_at_end(store_part_block);
+                let part_len_phi = self.builder.build_phi(self.context.i64_type(), "part_len_phi")?;
+                part_len_phi.add_incoming(&[(&last_len, last_len_block), (&mid_len, mid_len_block)]);
+                let part_len = part_len_phi.as_basic_value().into_int_value();
+                
+                // Allocate memory for this part (+1 for null terminator)
+                let part_size = self.builder.build_int_add(part_len, one, "part_size")?;
+                let part_ptr = self.builder.build_call(
+                    malloc_fn,
+                    &[part_size.into()],
+                    "part_ptr"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Copy the part
+                let _ = self.builder.build_call(
+                    memcpy_fn,
+                    &[part_ptr.into(), current_str.into(), part_len.into()],
+                    "memcpy_result"
+                )?;
+                
+                // Add null terminator
+                let null_pos = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        self.context.i8_type(),
+                        part_ptr,
+                        &[part_len],
+                        "null_pos"
+                    )?
+                };
+                let null_char = self.context.i8_type().const_int(0, false);
+                self.builder.build_store(null_pos, null_char)?;
+                
+                // Store pointer in array
+                let array_pos = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        ptr_type,
+                        data_ptr,
+                        &[idx],
+                        "array_pos"
+                    )?
+                };
+                self.builder.build_store(array_pos, part_ptr)?;
+                
+                // Update index
+                let next_idx = self.builder.build_int_add(idx, one, "next_idx")?;
+                self.builder.build_store(index_alloca, next_idx)?;
+                
+                // Check if done
+                let check_done_block = self.context.append_basic_block(func, "check_done");
+                let advance_block = self.context.append_basic_block(func, "advance");
+                
+                self.builder.build_conditional_branch(is_last, split_done, check_done_block)?;
+                
+                // Advance to next part
+                self.builder.position_at_end(check_done_block);
+                self.builder.build_unconditional_branch(advance_block)?;
+                
+                self.builder.position_at_end(advance_block);
+                let next_pos = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        self.context.i8_type(),
+                        next_delim,
+                        &[delim_len],
+                        "next_pos"
+                    )?
+                };
+                self.builder.build_store(current_alloca, next_pos)?;
+                self.builder.build_unconditional_branch(split_loop)?;
+                
+                // Create and return the array struct
+                self.builder.position_at_end(split_done);
+                let array_val = self.builder.build_alloca(array_type, "array")?;
+                
+                // Store data pointer
+                let data_field = self.builder.build_struct_gep(array_type, array_val, 0, "data_field")?;
+                self.builder.build_store(data_field, data_ptr)?;
+                
+                // Store length
+                let len_field = self.builder.build_struct_gep(array_type, array_val, 1, "len_field")?;
+                self.builder.build_store(len_field, final_count)?;
+                
+                // Store capacity (same as length for now)
+                let cap_field = self.builder.build_struct_gep(array_type, array_val, 2, "cap_field")?;
+                self.builder.build_store(cap_field, final_count)?;
+                
+                // Load and return the struct
+                let result = self.builder.build_load(array_type, array_val, "result")?;
+                self.builder.build_return(Some(&result))?;
+                
+                // Restore position
+                self.current_function = current_fn;
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
             "realloc" => {
                 // realloc(ptr: *void, size: i64) -> *void
                 let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
