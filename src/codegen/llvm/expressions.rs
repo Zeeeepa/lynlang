@@ -78,6 +78,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     if variant == "Ok" && payload.is_some() {
                         if let Some(ref p) = payload {
                             let inner_type = self.infer_expression_type(p)?;
+                            
+                            // NOTE: Can't store type here because infer_expression_type is immutable
+                            // The actual type tracking happens during compile_enum_variant
+                            
                             // Try to get error type from context
                             let err_type = self.generic_type_context.get("Result_Err_Type")
                                 .cloned()
@@ -95,6 +99,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     } else if variant == "Err" && payload.is_some() {
                         if let Some(ref p) = payload {
                             let inner_type = self.infer_expression_type(p)?;
+                            
+                            // NOTE: Can't store type here because infer_expression_type is immutable
+                            // The actual type tracking happens during compile_enum_variant
+                            
                             // Try to get ok type from context
                             let ok_type = self.generic_type_context.get("Result_Ok_Type")
                                 .cloned()
@@ -4446,7 +4454,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
         payload: &Option<Box<Expression>>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         eprintln!("[DEBUG] compile_enum_variant: {}.{}, has_payload: {}", enum_name, variant, payload.is_some());
+        // Save the current generic context before potentially overwriting it with nested compilation
+        let saved_ok_type = self.generic_type_context.get("Result_Ok_Type").cloned();
+        let saved_err_type = self.generic_type_context.get("Result_Err_Type").cloned();
+        
         // Track Result<T, E> type information when compiling Result variants
+        // This happens BEFORE we compile the payload, so we know what type this Result should be
         if enum_name == "Result" && payload.is_some() {
             if let Some(ref payload_expr) = payload {
                 let payload_type = self.infer_expression_type(payload_expr);
@@ -4456,6 +4469,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     } else {
                         "Result_Err_Type".to_string()
                     };
+                    eprintln!("[DEBUG TRACK] Setting {} = {:?}", key, t);
                     self.track_generic_type(key.clone(), t.clone());
                     // Also track nested generics recursively
                     if matches!(t, AstType::Generic { .. }) {
@@ -5029,6 +5043,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Note: Result and Option are already heap-allocated from the start
         // The loaded value contains the discriminant and a pointer to the heap-allocated payload
         // This is correct and will work for nested generics
+        
+        // CRITICAL: Restore the saved generic context for the OUTER Result 
+        // This ensures the variable gets the right type after nested compilation
+        if enum_name == "Result" {
+            if let Some(ok_type) = saved_ok_type {
+                eprintln!("[DEBUG RESTORE] Restoring Result_Ok_Type = {:?}", ok_type);
+                self.track_generic_type("Result_Ok_Type".to_string(), ok_type);
+            }
+            if let Some(err_type) = saved_err_type {
+                eprintln!("[DEBUG RESTORE] Restoring Result_Err_Type = {:?}", err_type);
+                self.track_generic_type("Result_Err_Type".to_string(), err_type);
+            }
+        }
         
         Ok(loaded)
     }
@@ -6236,6 +6263,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Store the extracted type for variable type inference
                 if let Some(extracted) = extracted_type.clone() {
+                    eprintln!("[DEBUG RAISE] Storing Last_Raise_Extracted_Type = {:?}", extracted);
                     self.track_generic_type("Last_Raise_Extracted_Type".to_string(), extracted.clone());
                     
                     // Also track it in the generic tracker for better nested handling

@@ -365,6 +365,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             .build_store(alloca, value)
                             .map_err(|e| CompileError::from(e))?;
                         // For inferred types, we need to determine the type from the value and the expression
+                        eprintln!("[DEBUG TYPE] Inferring type for variable {} from expression", name);
                         let inferred_type = if let Some(ast_type) = inferred_ast_type {
                             // We already inferred the type (e.g., for closures)
                             ast_type
@@ -637,8 +638,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 // .raise() extracts the Ok value from Result<T,E>
                                                 // Check if raise() stored what type it extracted
                                                 if let Some(extracted_type) = self.generic_type_context.get("Last_Raise_Extracted_Type") {
+                                                    eprintln!("[DEBUG VAR] Variable {} from raise() gets type {:?}", name, extracted_type);
                                                     extracted_type.clone()
                                                 } else {
+                                                    eprintln!("[DEBUG VAR] Variable {} from raise() - no extracted type found, defaulting to I32", name);
                                                     // Fallback when no type was stored
                                                     AstType::I32
                                                 }
@@ -695,6 +698,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let err_type = self.generic_type_context.get("Result_Err_Type")
                                     .cloned()
                                     .unwrap_or(AstType::String); // Default error type
+                                
+                                eprintln!("[DEBUG VAR] Variable {} inferred as Result<{:?}, {:?}>", name, ok_type, err_type);
                                 
                                 AstType::Generic {
                                     name: enum_name.clone(),
@@ -1038,11 +1043,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         }
                         
+                        eprintln!("[DEBUG VAR STORED] Variable {} stored with type {:?}", name, inferred_type);
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {
                                 pointer: alloca,
-                                ast_type: inferred_type,
+                                ast_type: inferred_type.clone(),
                                 is_mutable: *is_mutable,
                                 is_initialized: true,
                             },

@@ -540,7 +540,8 @@ impl TypeChecker {
                 if !self.variable_exists(name) {
                     // This is a new immutable declaration using = operator
                     let value_type = self.infer_expression_type(value)?;
-                    self.declare_variable_with_init(name, value_type, false, true)?;
+                    eprintln!("[DEBUG TYPECHECKER] Variable {} assigned type: {:?}", name, value_type);
+                    self.declare_variable_with_init(name, value_type.clone(), false, true)?;
                 // false = immutable
                 } else {
                     // This is an assignment to existing variable
@@ -1261,6 +1262,7 @@ impl TypeChecker {
 
                 // Special handling for Result.raise()
                 if method == "raise" {
+                    eprintln!("[DEBUG TYPECHECKER] MethodCall raise() on object type: {:?}", object_type);
                     match object_type {
                         AstType::Generic { name, type_args }
                             if name == "Result" && !type_args.is_empty() =>
@@ -1335,6 +1337,7 @@ impl TypeChecker {
                 // .raise() unwraps a Result type and returns the Ok variant
                 // If it's an Err, it propagates the error
                 let result_type = self.infer_expression_type(expr)?;
+                eprintln!("[DEBUG TYPECHECKER] Raise expression type: {:?}", result_type);
                 match result_type {
                     // Handle modern generic Result<T, E> type
                     AstType::Generic { name, type_args }
