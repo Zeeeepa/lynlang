@@ -1,0 +1,36 @@
+// Test .raise() with function calls returning Result<T,E>
+{ io, Result } = @std
+
+// Helper function that returns Result<i32, string>
+compute = (x: i32) Result<i32, string> {
+    x > 0 ?
+        | true { Result.Ok(x * 2) }
+        | false { Result.Err("Value must be positive") }
+}
+
+// Function that uses raise() on function call results
+process = () Result<i32, string> {
+    // Call function and immediately raise
+    val1 = compute(10).raise()  // Should extract 20
+    val2 = compute(5).raise()   // Should extract 10
+    
+    // Combine results
+    total = val1 + val2  // 20 + 10 = 30
+    
+    Result.Ok(total)
+}
+
+main = () i32 {
+    result = process()
+    result ?
+        | Result.Ok(v) { 
+            io.println("Total: ${v}")
+            v == 30 ?
+                | true { 0 }
+                | false { 1 }
+        }
+        | Result.Err(e) { 
+            io.println("Error: ${e}")
+            2
+        }
+}

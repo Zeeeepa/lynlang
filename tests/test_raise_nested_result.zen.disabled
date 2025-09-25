@@ -1,0 +1,39 @@
+// Test .raise() with nested Result types and function calls
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+nested_result = (val: i32) Result<Result<i32, string>, string> {
+    val < 0 ?
+        | true { Result.Err("Negative value not allowed") }
+        | false {
+            val > 100 ?
+                | true { Result.Ok(Result.Err("Value too large")) }
+                | false { Result.Ok(Result.Ok(val * 2)) }
+        }
+}
+
+// Function that processes a nested result
+process = () Result<i32, string> {
+    // Get the outer Result
+    outer = nested_result(50).raise()  // Should get Result<i32, string>
+    
+    // Extract from the inner Result
+    value = outer.raise()  // Should get i32 (100)
+    
+    Result.Ok(value + 10)  // Should return 110
+}
+
+main = () i32 {
+    result = process()
+    result ?
+        | Result.Ok(v) { 
+            io.println("Result: ${v}")
+            v == 110 ?
+                | true { 0 }
+                | false { 1 }
+        }
+        | Result.Err(e) { 
+            io.println("Error: ${e}")
+            2
+        }
+}
