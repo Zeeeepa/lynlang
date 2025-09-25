@@ -232,11 +232,12 @@
 ✓ Task 228: **ATTEMPTED** Full HashMap/HashSet Implementation (2025-09-25) - Attempted chaining collision resolution but encountered LLVM PHI node issues. Reverted to stub implementation
 ✓ Task 229: **VERIFIED** Test Suite Status (2025-09-25) - Confirmed 100% pass rate (191/191 passing) with HashMap/HashSet stubs working. 8 disabled tests remain for unimplemented features
 ✓ Task 230: **IMPROVED** HashMap Implementation (2025-09-25) - Enhanced HashMap with actual memory allocation for keys and values. Using malloc for i32 values, proper bucket structure with 4 fields [key_hash, key_ptr, value_ptr, occupied]. Test suite maintains 100% pass rate (184/184).
+✓ Task 231: **ENHANCED** HashMap.get Value Retrieval (2025-09-25) - HashMap.get now correctly loads values from memory (verified with debug output). Values are successfully dereferenced from malloc'd pointers. Issue identified: Option::Some pattern matching returns 0 despite correct value in payload. Root cause: PHI node handling in Option return path. Direct Option.Some works, HashMap.get internal retrieval works, but combination needs fixing.
 
-## Current Status (2025-09-25 - 184/184 TESTS PASSING - 100.0%)
+## Current Status (2025-09-25 - 189/189 TESTS PASSING - 100.0%)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (191/191 passing) - PERFECT! VERIFIED 2025-09-25
+- **Test Suite Health**: 100% pass rate (189/189 passing) - PERFECT! VERIFIED 2025-09-25
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!
@@ -272,13 +273,13 @@
 - **String.trim() FULLY WORKING**: Complete implementation handling all whitespace types (spaces, tabs, newlines, CR). Returns new allocated string
 - **String.to_upper() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **String.to_lower() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
-- **HashMap/HashSet ENHANCED**: Improved memory allocation with malloc for actual key/value storage. Bucket structure uses 4 fields [key_hash, key_ptr, value_ptr, occupied]. Insert properly allocates memory for i32 values. Get method improved with dereferencing logic (value retrieval in progress)
+- **HashMap/HashSet ENHANCED**: Improved memory allocation with malloc for actual key/value storage. Bucket structure uses 4 fields [key_hash, key_ptr, value_ptr, occupied]. Insert properly allocates memory for i32 values. Get method successfully loads values from memory but Option::Some pattern matching needs fixing (returns 0 instead of actual value)
 
-### Test Suite Health (VERIFIED 2025-09-25 @ 14:00 UTC) 
-- **100% Pass Rate**: 184/184 enabled tests passing (HashMap/HashSet improved implementation)
-- **8 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, advanced collections)
+### Test Suite Health (VERIFIED 2025-09-25 @ 16:00 UTC) 
+- **100% Pass Rate**: 189/189 enabled tests passing (HashMap/HashSet improved implementation)
+- **7 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, advanced collections)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 192 test files in tests/ folder (184 enabled .zen + 8 .disabled)
+- **Total Test Files**: 196 test files in tests/ folder (189 enabled .zen + 7 .disabled)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
 - **Rust Unit Tests**: 27 tests passing (19 typechecker + 8 parser tests)
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
