@@ -20,6 +20,7 @@ main = () i32 {
             inner ?
                 | Result.Ok(value) {
                     io.println("Got value: ${value}")
+                    io.println("Value is 42? ${value == 42}")
                     value == 42 ? | true => 0 | false => 1
                 }
                 | Result.Err(e) => 2

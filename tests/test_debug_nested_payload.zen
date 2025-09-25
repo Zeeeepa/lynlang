@@ -1,0 +1,35 @@
+// Debug nested payload issue
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("Creating inner Result.Ok(42)...")
+    inner = Result.Ok(42)
+    
+    io.println("Pattern matching inner directly:")
+    inner ? | Result.Ok(v) {
+                io.println("  Inner value: ${v}")
+            }
+            | Result.Err(e) {
+                io.println("  Inner error")
+            }
+    
+    io.println("\nCreating outer Result.Ok(inner)...")
+    outer = Result.Ok(inner)
+    
+    io.println("Pattern matching outer:")
+    outer ? | Result.Ok(extracted_inner) {
+                io.println("  Got inner Result")
+                extracted_inner ? | Result.Ok(v) {
+                                      io.println("    Inner value: ${v}")
+                                      v == 42 ? | true => 0 | false => 1
+                                  }
+                                  | Result.Err(e) {
+                                      io.println("    Inner error")
+                                      2
+                                  }
+            }
+            | Result.Err(e) {
+                io.println("  Outer error")
+                3
+            }
+}
