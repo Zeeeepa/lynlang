@@ -5789,6 +5789,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     AstType::F32 => self.context.f32_type().into(),
                                     AstType::F64 => self.context.f64_type().into(),
                                     AstType::Bool => self.context.bool_type().into(),
+                                    AstType::Generic { name, .. } if name == "Result" || name == "Option" => {
+                                        // For nested generics (Result<Result<T,E>,E2>), 
+                                        // the payload is stored as a struct
+                                        self.context.struct_type(
+                                            &[
+                                                self.context.i64_type().into(), // tag
+                                                self.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
+                                            ],
+                                            false,
+                                        ).into()
+                                    },
                                     _ => self.context.i32_type().into(), // Default fallback
                                 }
                             } else {

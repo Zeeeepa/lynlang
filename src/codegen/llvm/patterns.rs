@@ -973,6 +973,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         )
                                                         .unwrap_or(loaded_payload),
                                                     AstType::String => loaded_payload, // Strings are already pointers, don't load
+                                                    AstType::Generic { name, .. } if name == "Result" || name == "Option" => {
+                                                        // For nested generics (Result<Result<T,E>,E2>), 
+                                                        // the payload is a struct stored directly
+                                                        let struct_type = self.context.struct_type(
+                                                            &[
+                                                                self.context.i64_type().into(), // tag/discriminant
+                                                                self.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
+                                                            ],
+                                                            false,
+                                                        );
+                                                        self.builder.build_load(
+                                                            struct_type,
+                                                            ptr_val,
+                                                            "nested_generic",
+                                                        ).unwrap_or(loaded_payload)
+                                                    },
                                                     _ => {
                                                         // Try default loading for other types
                                                         // Try i32 first since it's the default integer type
