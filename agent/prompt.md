@@ -215,11 +215,14 @@
 ✓ Task 211: **VERIFIED** Project Status Accuracy (2025-09-25) - Confirmed test suite has 168/168 tests passing (100% pass rate). Found 169 .zen files (161 enabled + 8 disabled), 8 Rust test files, 177 total test files. Project documentation accurate.
 ✓ Task 212: **UPDATED** Project Documentation (2025-09-25) - Corrected test counts in prompt.md: 168/168 enabled tests passing (100% pass rate), 8 disabled tests, 184 total test files (168 enabled .zen + 8 disabled + 8 Rust test files).
 ✓ Task 213: **PROJECT CLEANUP** (2025-09-25) - Moved 183 test files from root to tests/ folder. Fixed test runner. Re-enabled zen_test_raise_consolidated.zen. Test suite improved to 169/169 passing (100% pass rate).
+✓ Task 214: **ANALYZED** Disabled Tests (2025-09-25) - Reviewed all 8 disabled tests. Main blockers: HashMap/HashSet generic instantiation, nested Result types, behaviors system, pointer types. None can be re-enabled without major compiler changes.
+✓ Task 215: **IMPROVED** Test Suite Coverage (2025-09-25) - Added test_loop_with_closure.zen and test_nested_blocks.zen. Test suite improved to 171/171 passing (100% pass rate). 7 disabled tests remain.
+✓ Task 216: **VERIFIED** Test Suite Health (2025-09-25) - Both new test files pass successfully. Test suite maintains perfect 100% pass rate (171/171 tests passing). 178 total test files (171 enabled + 7 disabled).
 
-## Current Status (2025-09-25 - 169/169 TESTS PASSING - 100%!!)
+## Current Status (2025-09-25 - 171/171 TESTS PASSING - 100%!!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (169/169 passing) - PERFECT! VERIFIED 2025-09-25
+- **Test Suite Health**: 100% pass rate (171/171 passing) - PERFECT! VERIFIED 2025-09-25
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!

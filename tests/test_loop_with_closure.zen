@@ -1,0 +1,29 @@
+// Test loop with closure and control handle
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing loop with closure...")
+    
+    // Simple counter loop
+    count ::= 0
+    loop(() {
+        count >= 5 ? { break }
+        io.println("Count: ${count}")
+        count = count + 1
+    })
+    
+    io.println("Final count: ${count}")
+    
+    // Loop with condition checking
+    sum ::= 0
+    i ::= 0
+    loop(() {
+        i >= 10 ? { break }
+        sum = sum + i
+        i = i + 1
+    })
+    
+    io.println("Sum of 0-9: ${sum}")
+    
+    return 0
+}
