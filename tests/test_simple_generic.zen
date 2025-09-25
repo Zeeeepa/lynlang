@@ -1,0 +1,13 @@
+// Very simple generic test
+{ io, Result } = @std
+
+main = () void {
+    // Direct pattern match - this works
+    Result.Ok(42) ? | Result.Ok(v) => io.println("Direct: ${v}")
+                    | Result.Err(e) => io.println("Error: ${e}")
+    
+    // Through variable - does this work?
+    r = Result.Ok(100)
+    r ? | Result.Ok(v) => io.println("Variable: ${v}")
+        | Result.Err(e) => io.println("Error: ${e}")
+}

@@ -1,0 +1,40 @@
+// Test that generic types are preserved through operations
+{ io, Result, Option } = @std
+
+main = () void {
+    io.println("Testing generic type preservation")
+    
+    // Test 1: Result type preservation through variables
+    r1 = Result.Ok(42)
+    r2 = r1  // Assignment should preserve type
+    r2 ? | Result.Ok(v) => io.println("Assigned Result: ${v}")
+         | Result.Err(e) => io.println("Error: ${e}")
+    
+    // Test 2: Option type preservation
+    o1 = Option.Some(100)
+    o2 = o1
+    o2 ? | Option.Some(v) => io.println("Assigned Option: ${v}")
+         | Option.None => io.println("None")
+    
+    // Test 3: Generic in conditional
+    condition = true
+    r3 = condition ? | true => Result.Ok(200)
+                     | false => Result.Ok(300)
+    r3 ? | Result.Ok(v) => io.println("Conditional Result: ${v}")
+         | Result.Err(e) => io.println("Error: ${e}")
+    
+    // Test 4: Generic from block
+    r4 = {
+        x = 50
+        Result.Ok(x * 2)
+    }
+    r4 ? | Result.Ok(v) => io.println("Block Result: ${v}")
+         | Result.Err(e) => io.println("Error: ${e}")
+    
+    // Test 5: Chained operations
+    start = Option.Some(10)
+    doubled = start ? | Option.Some(v) => Option.Some(v * 2)
+                      | Option.None => Option.None
+    doubled ? | Option.Some(v) => io.println("Doubled Option: ${v}")
+              | Option.None => io.println("None")
+}

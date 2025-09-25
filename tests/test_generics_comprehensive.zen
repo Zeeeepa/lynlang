@@ -58,6 +58,7 @@ main = () void {
     
     make_option = () { Option.Some(666) }
     closure_option = make_option()
+    io.println("  DEBUG: Got closure option")
     closure_option ? | Option.Some(v) => io.println("  Closure option: ${v}")
                      | Option.None => io.println("  None")
     
