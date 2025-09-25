@@ -4533,6 +4533,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Handle payload if present
                     if let Some(expr) = payload {
                         eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
+                        
+                        // Check if the payload is itself an enum variant (nested case)
+                        let is_nested_enum = match expr.as_ref() {
+                            Expression::EnumVariant { .. } => true,
+                            Expression::MemberAccess { member, .. } => {
+                                member == "Ok" || member == "Err" || member == "Some" || member == "None"
+                            }
+                            _ => false,
+                        };
+                        
+                        if is_nested_enum {
+                            eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
+                        }
+                        
                         let compiled = self.compile_expression(expr)?;
                         eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
                                 compiled.is_struct_value(), compiled.is_pointer_value());
@@ -4686,6 +4700,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Handle payload if present
                     if let Some(expr) = payload {
                         eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
+                        
+                        // Check if the payload is itself an enum variant (nested case)
+                        let is_nested_enum = match expr.as_ref() {
+                            Expression::EnumVariant { .. } => true,
+                            Expression::MemberAccess { member, .. } => {
+                                member == "Ok" || member == "Err" || member == "Some" || member == "None"
+                            }
+                            _ => false,
+                        };
+                        
+                        if is_nested_enum {
+                            eprintln!("[DEBUG] *** NESTED ENUM DETECTED *** Payload is a nested enum variant!");
+                        }
+                        
                         let compiled = self.compile_expression(expr)?;
                         eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
                                 compiled.is_struct_value(), compiled.is_pointer_value());
@@ -4918,6 +4946,38 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         
                         // Store the struct value to the heap
                         self.builder.build_store(typed_ptr, struct_val)?;
+                        
+                        // CRITICAL CHECK: For nested enum structs, verify payload persistence
+                        if struct_type.count_fields() == 2 {
+                            // This is an enum struct - check if the inner payload is properly heap-allocated
+                            let inner_discriminant = self.builder.build_extract_value(struct_val, 0, "inner_disc_check")?;
+                            let inner_payload_ptr = self.builder.build_extract_value(struct_val, 1, "inner_payload_check")?;
+                            
+                            eprintln!("[DEBUG] Nested enum struct stored to heap:");
+                            if inner_discriminant.is_int_value() {
+                                let disc = inner_discriminant.into_int_value();
+                                if let Some(val) = disc.get_zero_extended_constant() {
+                                    eprintln!("[DEBUG]   Inner discriminant: {}", val);
+                                    if val == 0 {
+                                        eprintln!("[DEBUG]   This is Ok/Some variant - payload should be valid");
+                                        
+                                        // CRITICAL FIX: The inner payload pointer might point to stack memory!
+                                        // For inline constructions like Result.Ok(Result.Ok(42)), the inner
+                                        // Result.Ok(42)'s payload (42) might be on the stack.
+                                        // We need to ensure it's properly heap-allocated.
+                                        
+                                        if inner_payload_ptr.is_pointer_value() {
+                                            let ptr = inner_payload_ptr.into_pointer_value();
+                                            eprintln!("[DEBUG]   Inner payload ptr: {:?}", ptr);
+                                            
+                                            // TODO: Here we would need to check if the pointer is to stack
+                                            // and if so, copy the value to heap. This is complex because
+                                            // we need to know the payload type.
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         
                         // IMPORTANT: Return the typed pointer, not the generic heap_ptr
                         // This preserves type information for later extraction
