@@ -1121,6 +1121,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                         // Try to load with the tracked type information
                                         let loaded_value = if let Some(ast_type) = load_type {
+                                            eprintln!("[DEBUG] Loading payload with tracked type: {:?}", ast_type);
                                             use crate::ast::AstType;
                                             match ast_type {
                                                 AstType::I8 => self
@@ -1207,9 +1208,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     ) {
                                                         Ok(loaded) => {
                                                             // Update keys for next level of pattern matching  
+                                                            // CRITICAL FIX: When we load a nested Result/Option, we need to update
+                                                            // the type context for its inner payloads
                                                             if name == "Result" && type_args.len() == 2 {
+                                                                // The inner Result's Ok type becomes the new Result_Ok_Type
                                                                 self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                                                                 self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                                
+                                                                // If the Ok type is i32, make sure we track that
+                                                                if matches!(type_args[0], AstType::I32) {
+                                                                    eprintln!("[DEBUG] Nested Result has I32 Ok type");
+                                                                }
                                                             } else if name == "Option" && type_args.len() == 1 {
                                                                 self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
                                                             }

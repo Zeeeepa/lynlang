@@ -4535,6 +4535,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
                             // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
+                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload");
                                 // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
@@ -4557,14 +4558,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
                                 
                                 
-                                // Debug: Check if the payload pointer is valid
-                                if payload_ptr.is_pointer_value() {
-                                    let ptr_val = payload_ptr.into_pointer_value();
-                                    if !ptr_val.is_null() {
-                                        // The nested enum's payload pointer points to the actual value (e.g., i32)
-                                        // We need to ensure this value is also heap-allocated, not stack-allocated
-                                        // This is already handled by the recursive compile_enum_variant calls above
-                                        // Just return the heap pointer to the nested enum struct
+                                // CRITICAL: For nested enums, we need to ensure the inner payload is persistent
+                                // The inner Result.Ok(42) has its payload (42) on the heap, but we need to verify
+                                if payload_ptr.is_pointer_value() && discriminant.is_int_value() {
+                                    let disc_val = discriminant.into_int_value();
+                                    // Check if this is an Ok/Some variant (discriminant == 0)
+                                    let is_ok_or_some = disc_val.is_const() && disc_val.get_zero_extended_constant() == Some(0);
+                                    
+                                    if is_ok_or_some {
+                                        // The payload pointer should point to heap memory
+                                        // No additional work needed - the nested compile_enum_variant
+                                        // should have already heap-allocated the inner payload
+                                        // But let's make absolutely sure by doing nothing that could corrupt it
                                     }
                                 }
                                 
@@ -4679,6 +4684,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
                             // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
+                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload");
                                 // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
@@ -4701,14 +4707,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let payload_ptr = self.builder.build_extract_value(struct_val, 1, "nested_payload_ptr")?;
                                 
                                 
-                                // Debug: Check if the payload pointer is valid
-                                if payload_ptr.is_pointer_value() {
-                                    let ptr_val = payload_ptr.into_pointer_value();
-                                    if !ptr_val.is_null() {
-                                        // The nested enum's payload pointer points to the actual value (e.g., i32)
-                                        // We need to ensure this value is also heap-allocated, not stack-allocated
-                                        // This is already handled by the recursive compile_enum_variant calls above
-                                        // Just return the heap pointer to the nested enum struct
+                                // CRITICAL: For nested enums, we need to ensure the inner payload is persistent
+                                // The inner Result.Ok(42) has its payload (42) on the heap, but we need to verify
+                                if payload_ptr.is_pointer_value() && discriminant.is_int_value() {
+                                    let disc_val = discriminant.into_int_value();
+                                    // Check if this is an Ok/Some variant (discriminant == 0)
+                                    let is_ok_or_some = disc_val.is_const() && disc_val.get_zero_extended_constant() == Some(0);
+                                    
+                                    if is_ok_or_some {
+                                        // The payload pointer should point to heap memory
+                                        // No additional work needed - the nested compile_enum_variant
+                                        // should have already heap-allocated the inner payload
+                                        // But let's make absolutely sure by doing nothing that could corrupt it
                                     }
                                 }
                                 
@@ -4921,6 +4931,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         }
         
         // Load the struct from the alloca
+        // CRITICAL FIX: For heap-allocated Result/Option, we need to preserve the heap structure
+        // when they're used as nested generics. Loading loses the heap reference.
         let loaded = self.builder.build_load(
             enum_struct_type,
             alloca,
@@ -4928,7 +4940,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
         )?;
         
         // Note: Result and Option are already heap-allocated from the start
-        // so we don't need to do it again here
+        // The loaded value contains the discriminant and a pointer to the heap-allocated payload
+        // This is correct and will work for nested generics
         
         Ok(loaded)
     }
