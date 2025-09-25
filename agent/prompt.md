@@ -234,11 +234,12 @@
 ✓ Task 230: **IMPROVED** HashMap Implementation (2025-09-25) - Enhanced HashMap with actual memory allocation for keys and values. Using malloc for i32 values, proper bucket structure with 4 fields [key_hash, key_ptr, value_ptr, occupied]. Test suite maintains 100% pass rate (184/184).
 ✓ Task 231: **ENHANCED** HashMap.get Value Retrieval (2025-09-25) - HashMap.get now correctly loads values from memory (verified with debug output). Values are successfully dereferenced from malloc'd pointers. Issue identified: Option::Some pattern matching returns 0 despite correct value in payload. Root cause: PHI node handling in Option return path. Direct Option.Some works, HashMap.get internal retrieval works, but combination needs fixing.
 ✓ Task 232: **FIXED** HashMap Option.Some Pattern Matching (2025-09-25) - Fixed type inference for variables storing HashMap.get() results. Previously incorrectly inferred as I32 instead of Option<i32>. Now properly identifies struct values from methods like HashMap.get() and correctly infers them as Option<V>. Pattern matching on HashMap-returned Options now works perfectly, extracting Some payloads correctly!
+✓ Task 233: **IMPROVED** HashMap.get Key Equality Check (2025-09-25) - Fixed HashMap.get() to properly verify key equality before returning Some. Previously returned Some for any occupied bucket (causing collisions). Now correctly calls equality function to compare stored key with search key. Returns None for missing keys. String keys working perfectly, i32 keys still have LLVM type issues.
 
-## Current Status (2025-09-25 - 194/194 TESTS PASSING - 100.0%)
+## Current Status (2025-09-25 - 190/194 TESTS PASSING - 97.9%)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (194/194 passing) - PERFECT! VERIFIED 2025-09-25
+- **Test Suite Health**: 97.9% pass rate (190/194 passing) - 4 HashMap<i32,i32> tests failing with type issues
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!
@@ -274,10 +275,10 @@
 - **String.trim() FULLY WORKING**: Complete implementation handling all whitespace types (spaces, tabs, newlines, CR). Returns new allocated string
 - **String.to_upper() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **String.to_lower() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
-- **HashMap/HashSet ENHANCED**: Improved memory allocation with malloc for actual key/value storage. Bucket structure uses 4 fields [key_hash, key_ptr, value_ptr, occupied]. Insert properly allocates memory for i32 values. Get method successfully loads values from memory but Option::Some pattern matching needs fixing (returns 0 instead of actual value)
+- **HashMap MOSTLY WORKING**: HashMap<string,V> fully functional with proper key equality checking. HashMap<i32,V> has LLVM type issues in key comparison. HashSet partially working with stub implementations.
 
-### Test Suite Health (VERIFIED 2025-09-25 @ 17:00 UTC) 
-- **100% Pass Rate**: 194/194 enabled tests passing (HashMap pattern matching now working!)
+### Test Suite Health (VERIFIED 2025-09-25 @ 18:00 UTC) 
+- **97.9% Pass Rate**: 190/194 enabled tests passing (4 HashMap<i32,i32> tests failing)
 - **6 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, advanced collections)
 - **Zero Segfaults**: Project completely stable with no crashes
 - **Total Test Files**: 200 test files in tests/ folder (194 enabled .zen + 6 .disabled)
