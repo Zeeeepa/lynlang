@@ -1,0 +1,17 @@
+{ io } = @std
+
+main = () i32 {
+    s = "Hello"
+    len: i64 = s.len()
+    io.println("Length of 'Hello': ${len}")
+    
+    empty = ""
+    empty_len: i64 = empty.len()
+    io.println("Length of empty string: ${empty_len}")
+    
+    long = "This is a longer string for testing"
+    long_len: i64 = long.len()
+    io.println("Length of long string: ${long_len}")
+    
+    return 0
+}
