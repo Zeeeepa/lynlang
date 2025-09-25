@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Module system for Zen language
+#[allow(dead_code)]
 pub struct ModuleSystem {
     /// Map from module paths to their resolved AST
     modules: HashMap<String, Program>,

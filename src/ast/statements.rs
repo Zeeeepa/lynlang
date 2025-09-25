@@ -15,6 +15,7 @@ pub enum Statement {
         is_mutable: bool, // true for ::= and :: T =, false for := and : T =
         declaration_type: VariableDeclarationType,
     },
+    #[allow(dead_code)]
     VariableAssignment {
         name: String,
         value: Expression,
@@ -37,6 +38,7 @@ pub enum Statement {
     },
     // New statements for enhanced features
     ComptimeBlock(Vec<Statement>),
+    #[allow(dead_code)]
     ModuleImport {
         alias: String,
         module_path: String,

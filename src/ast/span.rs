@@ -11,6 +11,7 @@ pub struct Position {
 }
 
 impl Position {
+    #[allow(dead_code)]
     pub fn new(line: usize, column: usize, offset: usize) -> Self {
         Self {
             line,
@@ -34,10 +35,12 @@ pub struct Span {
 }
 
 impl Span {
+    #[allow(dead_code)]
     pub fn new(start: Position, end: Position) -> Self {
         Self { start, end }
     }
 
+    #[allow(dead_code)]
     pub fn merge(self, other: Span) -> Span {
         Span {
             start: if self.start.offset < other.start.offset {

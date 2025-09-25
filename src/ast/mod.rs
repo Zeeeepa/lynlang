@@ -27,6 +27,7 @@ pub struct Program {
 
 // Convenience methods for backward compatibility
 impl Program {
+    #[allow(dead_code)]
     pub fn new(declarations: Vec<Declaration>) -> Self {
         Self {
             declarations,
@@ -34,6 +35,7 @@ impl Program {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_functions(functions: Vec<Function>) -> Self {
         Self {
             declarations: functions.into_iter().map(Declaration::Function).collect(),
@@ -41,6 +43,7 @@ impl Program {
         }
     }
 
+    #[allow(dead_code)]
     pub fn functions(&self) -> impl Iterator<Item = &Function> {
         self.declarations.iter().filter_map(|decl| {
             if let Declaration::Function(func) = decl {

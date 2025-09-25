@@ -947,6 +947,7 @@ impl LanguageServer for ZenServer {
     }
 }
 
+#[allow(dead_code)]
 pub async fn run_lsp_server() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();

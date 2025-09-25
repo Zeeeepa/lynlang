@@ -16,6 +16,7 @@ pub enum BinaryOperator {
     GreaterThan,
     LessThanEquals,
     GreaterThanEquals,
+    #[allow(dead_code)]
     StringConcat,
     And,
     Or,
@@ -23,14 +24,21 @@ pub enum BinaryOperator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
+    #[allow(dead_code)]
     Integer8(i8),
+    #[allow(dead_code)]
     Integer16(i16),
     Integer32(i32),
     Integer64(i64),
+    #[allow(dead_code)]
     Unsigned8(u8),
+    #[allow(dead_code)]
     Unsigned16(u16),
+    #[allow(dead_code)]
     Unsigned32(u32),
+    #[allow(dead_code)]
     Unsigned64(u64),
+    #[allow(dead_code)]
     Float32(f32),
     Float64(f64),
     Boolean(bool),

@@ -5,6 +5,7 @@ use crate::lexer::Token;
 
 impl<'a> Parser<'a> {
     /// Parse a comptime block: comptime { ... }
+    #[allow(dead_code)]
     pub fn parse_comptime_block(&mut self) -> Result<Statement> {
         // Expect 'comptime' keyword (already consumed)
 
@@ -99,6 +100,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a comptime expression: comptime expr
+    #[allow(dead_code)]
     pub fn parse_comptime_expression(&mut self) -> Result<Expression> {
         // 'comptime' keyword already consumed
         let expr = self.parse_expression()?;
@@ -106,6 +108,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Check if we're in a comptime context and handle accordingly
+    #[allow(dead_code)]
     pub fn parse_comptime(&mut self) -> Result<Statement> {
         // Check what follows 'comptime'
         if self.peek_token == Token::Symbol('{') {

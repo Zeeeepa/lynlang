@@ -11,6 +11,7 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 
 /// The main compiler structure.
+#[allow(dead_code)]
 pub struct Compiler<'ctx> {
     context: &'ctx Context,
 }

@@ -14,7 +14,9 @@ pub enum Token {
     AtStd,              // @std
     AtThis,             // @this
     AtMeta,             // @meta (for compile-time metaprogramming)
+    #[allow(dead_code)]
     InterpolationStart, // Start of ${...}
+    #[allow(dead_code)]
     InterpolationEnd,   // End of ${...}
     Eof,
 }

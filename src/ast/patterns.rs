@@ -27,6 +27,7 @@ pub enum Pattern {
         end: Box<Expression>,
         inclusive: bool,
     }, // For range patterns like 1..=10
+    #[allow(dead_code)]
     Binding {
         name: String,
         pattern: Box<Pattern>,

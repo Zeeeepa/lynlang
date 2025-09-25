@@ -47,6 +47,7 @@ pub enum AstType {
         name: String,
         fields: Vec<(String, AstType)>,
     },
+    #[allow(dead_code)]
     Enum {
         name: String,
         variants: Vec<EnumVariant>,
@@ -54,7 +55,9 @@ pub enum AstType {
     // Enhanced type system support
     Ref(Box<AstType>), // Managed reference
     // TODO: These should be removed once stdlib is updated to use Generic types
+    #[allow(dead_code)]
     Option(Box<AstType>), // Option<T> - legacy, use Generic instead
+    #[allow(dead_code)]
     Result {
         ok_type: Box<AstType>,
         err_type: Box<AstType>,
@@ -70,6 +73,7 @@ pub enum AstType {
         type_args: Vec<AstType>,
     },
     // For enum type references (e.g., when MyOption is used as an identifier)
+    #[allow(dead_code)]
     EnumType {
         name: String,
     },
