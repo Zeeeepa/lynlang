@@ -1,6 +1,7 @@
 use super::{TypeEnvironment, TypeSubstitution};
 use crate::ast::{AstType, EnumDefinition, Expression, Function, Statement, StructDefinition};
 
+#[allow(dead_code)]
 pub struct TypeInstantiator<'a> {
     env: &'a mut TypeEnvironment,
 }
@@ -261,6 +262,7 @@ impl<'a> TypeInstantiator<'a> {
     }
 }
 
+#[allow(dead_code)]
 fn generate_instantiated_name(base_name: &str, type_args: &[AstType]) -> String {
     if type_args.is_empty() {
         return base_name.to_string();
@@ -270,6 +272,7 @@ fn generate_instantiated_name(base_name: &str, type_args: &[AstType]) -> String 
     format!("{}_{}", base_name, type_names.join("_"))
 }
 
+#[allow(dead_code)]
 fn type_to_string(ast_type: &AstType) -> String {
     match ast_type {
         AstType::I8 => "i8".to_string(),

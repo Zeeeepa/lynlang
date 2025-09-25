@@ -121,6 +121,7 @@ fn transform_statements_self_types(
 }
 
 /// Transform Self types in a single statement
+#[allow(dead_code)]
 fn transform_statement_self_types(stmt: &Statement, concrete_type: &str) -> Result<Statement> {
     match stmt {
         Statement::VariableDeclaration {
@@ -162,6 +163,7 @@ fn transform_statement_self_types(stmt: &Statement, concrete_type: &str) -> Resu
 }
 
 /// Transform Self types in expressions
+#[allow(dead_code)]
 fn transform_expression_self_types(expr: &Expression, _concrete_type: &str) -> Result<Expression> {
     // For now, most expressions don't contain type annotations that need transformation
     // The main transformation happens in variable declarations and function signatures

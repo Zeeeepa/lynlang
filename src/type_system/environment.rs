@@ -3,6 +3,7 @@ use crate::ast::{AstType, EnumDefinition, Function, StructDefinition, TypeParame
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TypeEnvironment {
     generic_functions: HashMap<String, Function>,
     generic_structs: HashMap<String, StructDefinition>,
@@ -13,6 +14,7 @@ pub struct TypeEnvironment {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TypeScope {
     type_params: Vec<TypeParameter>,
     substitutions: TypeSubstitution,

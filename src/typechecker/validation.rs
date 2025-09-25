@@ -209,6 +209,7 @@ pub fn types_compatible(expected: &AstType, actual: &AstType) -> bool {
 }
 
 /// Check if a type can be implicitly converted to another
+#[allow(dead_code)]
 pub fn can_implicitly_convert(from: &AstType, to: &AstType) -> bool {
     // Same type needs no conversion
     if std::mem::discriminant(from) == std::mem::discriminant(to) {
@@ -243,6 +244,7 @@ pub fn can_implicitly_convert(from: &AstType, to: &AstType) -> bool {
 }
 
 /// Check if a type requires explicit initialization
+#[allow(dead_code)]
 pub fn requires_initialization(type_: &AstType) -> bool {
     match type_ {
         // References must be initialized
@@ -255,6 +257,7 @@ pub fn requires_initialization(type_: &AstType) -> bool {
 }
 
 /// Check if a type can be used in a loop condition
+#[allow(dead_code)]
 pub fn is_valid_condition_type(type_: &AstType) -> bool {
     matches!(type_, AstType::Bool)
         || type_.is_numeric()
@@ -263,6 +266,7 @@ pub fn is_valid_condition_type(type_: &AstType) -> bool {
 }
 
 /// Check if a type can be indexed
+#[allow(dead_code)]
 pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
     match type_ {
         AstType::Array(elem_type) => Some((**elem_type).clone()),
@@ -274,6 +278,7 @@ pub fn can_be_indexed(type_: &AstType) -> Option<AstType> {
 }
 
 /// Check if a type supports the dereference operation
+#[allow(dead_code)]
 pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
     match type_ {
         AstType::Ptr(inner) => Some((**inner).clone()),
@@ -324,6 +329,7 @@ pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(
 }
 
 /// Check if an expression contains import-related patterns
+#[allow(dead_code)]
 pub fn contains_import_expression(expr: &crate::ast::Expression) -> bool {
     match expr {
         crate::ast::Expression::Identifier(id) if id.starts_with("@std") => true,

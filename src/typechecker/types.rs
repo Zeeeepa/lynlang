@@ -40,6 +40,7 @@ impl AstType {
     }
 
     /// Check if this type is a signed integer
+    #[allow(dead_code)]
     pub fn is_signed_integer(&self) -> bool {
         matches!(
             self,
@@ -68,6 +69,7 @@ impl AstType {
     }
 
     /// Get a default value for initialization
+    #[allow(dead_code)]
     pub fn default_value(&self) -> String {
         match self {
             AstType::I8 | AstType::I16 | AstType::I32 | AstType::I64 => "0".to_string(),
@@ -81,6 +83,7 @@ impl AstType {
     }
 
     /// Check if this type is a pointer type
+    #[allow(dead_code)]
     pub fn is_pointer(&self) -> bool {
         matches!(
             self,
@@ -89,6 +92,7 @@ impl AstType {
     }
 
     /// Get the pointed-to type if this is a pointer type
+    #[allow(dead_code)]
     pub fn pointee_type(&self) -> Option<&AstType> {
         match self {
             AstType::Ptr(inner) | AstType::MutPtr(inner) | AstType::RawPtr(inner) => Some(inner),
@@ -97,16 +101,19 @@ impl AstType {
     }
 
     /// Check if this is a mutable pointer type
+    #[allow(dead_code)]
     pub fn is_mutable_pointer(&self) -> bool {
         matches!(self, AstType::MutPtr(_))
     }
 
     /// Check if this is a raw/unsafe pointer type
+    #[allow(dead_code)]
     pub fn is_raw_pointer(&self) -> bool {
         matches!(self, AstType::RawPtr(_))
     }
 
     /// Convert between pointer types while preserving the pointee type
+    #[allow(dead_code)]
     pub fn as_pointer_type(&self, pointer_kind: PointerKind) -> Option<AstType> {
         self.pointee_type().map(|inner| match pointer_kind {
             PointerKind::Immutable => AstType::Ptr(Box::new(inner.clone())),
@@ -118,6 +125,7 @@ impl AstType {
 
 /// Enum for different pointer kinds
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum PointerKind {
     Immutable, // Ptr<T>
     Mutable,   // MutPtr<T>

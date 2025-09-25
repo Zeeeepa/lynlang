@@ -5,6 +5,7 @@ use crate::error::{CompileError, Result};
 use std::collections::HashMap;
 
 /// Tracks behaviors, implementations, and provides trait resolution
+#[allow(dead_code)]
 pub struct BehaviorResolver {
     /// All defined behaviors/traits
     behaviors: HashMap<String, BehaviorInfo>,
@@ -15,6 +16,7 @@ pub struct BehaviorResolver {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct BehaviorInfo {
     pub name: String,
     pub type_params: Vec<String>,
@@ -22,6 +24,7 @@ pub struct BehaviorInfo {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct BehaviorMethodInfo {
     pub name: String,
     pub param_types: Vec<AstType>,
@@ -30,6 +33,7 @@ pub struct BehaviorMethodInfo {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct ImplInfo {
     pub type_name: String,
     pub trait_name: String,
@@ -38,6 +42,7 @@ pub struct ImplInfo {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct MethodInfo {
     pub name: String,
     pub param_types: Vec<AstType>,

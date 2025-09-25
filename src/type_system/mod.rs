@@ -22,20 +22,24 @@ pub struct TypeSubstitution {
 }
 
 impl TypeSubstitution {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             mappings: HashMap::new(),
         }
     }
 
+    #[allow(dead_code)]
     pub fn add(&mut self, param: String, concrete: AstType) {
         self.mappings.insert(param, concrete);
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, param: &str) -> Option<&AstType> {
         self.mappings.get(param)
     }
 
+    #[allow(dead_code)]
     pub fn apply(&self, ast_type: &AstType) -> AstType {
         match ast_type {
             AstType::Generic { name, type_args } => {
@@ -68,11 +72,13 @@ impl TypeSubstitution {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TypeConstraint {
     pub param: String,
     pub bounds: Vec<String>,
 }
 
+#[allow(dead_code)]
 pub fn is_generic_type(ast_type: &AstType) -> bool {
     match ast_type {
         AstType::Generic { .. } => true,
@@ -90,12 +96,14 @@ pub fn is_generic_type(ast_type: &AstType) -> bool {
     }
 }
 
+#[allow(dead_code)]
 pub fn extract_type_parameters(ast_type: &AstType) -> Vec<String> {
     let mut params = Vec::new();
     extract_type_params_recursive(ast_type, &mut params);
     params
 }
 
+#[allow(dead_code)]
 fn extract_type_params_recursive(ast_type: &AstType, params: &mut Vec<String>) {
     match ast_type {
         AstType::Generic { name, type_args } => {

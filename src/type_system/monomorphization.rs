@@ -3,6 +3,7 @@ use crate::ast::{AstType, Declaration, Expression, Function, Program};
 use crate::typechecker::TypeChecker;
 use std::collections::{HashMap, HashSet};
 
+#[allow(dead_code)]
 pub struct Monomorphizer {
     env: TypeEnvironment,
     instantiated_functions: HashMap<String, Function>,
@@ -572,6 +573,7 @@ impl Monomorphizer {
     }
 }
 
+#[allow(dead_code)]
 fn generate_instantiated_name(base_name: &str, type_args: &[AstType]) -> String {
     if type_args.is_empty() {
         return base_name.to_string();
@@ -581,6 +583,7 @@ fn generate_instantiated_name(base_name: &str, type_args: &[AstType]) -> String 
     format!("{}_{}", base_name, type_names.join("_"))
 }
 
+#[allow(dead_code)]
 fn type_to_string(ast_type: &AstType) -> String {
     match ast_type {
         AstType::I8 => "i8".to_string(),
@@ -600,6 +603,7 @@ fn type_to_string(ast_type: &AstType) -> String {
     }
 }
 
+#[allow(dead_code)]
 fn extract_generic_struct_types(name: &str) -> Option<Vec<AstType>> {
     if name.contains('<') && name.contains('>') {
         // TODO: Parse type arguments from struct construction syntax
@@ -609,6 +613,7 @@ fn extract_generic_struct_types(name: &str) -> Option<Vec<AstType>> {
     }
 }
 
+#[allow(dead_code)]
 fn extract_base_name(name: &str) -> String {
     if let Some(idx) = name.find('<') {
         name[..idx].to_string()

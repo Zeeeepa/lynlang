@@ -4,6 +4,7 @@ use crate::typechecker::{EnumInfo, StructInfo, TypeChecker};
 use std::collections::HashMap;
 
 /// Infer the type of a binary operation
+#[allow(dead_code)]
 pub fn infer_binary_op_type(
     checker: &mut TypeChecker,
     left: &Expression,
@@ -81,6 +82,7 @@ pub fn infer_binary_op_type(
 }
 
 /// Infer the type of a member access expression
+#[allow(dead_code)]
 pub fn infer_member_type(
     object_type: &AstType,
     member: &str,
