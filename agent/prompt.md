@@ -220,11 +220,12 @@
 ✓ Task 216: **VERIFIED** Test Suite Health (2025-09-25) - Both new test files pass successfully. Test suite maintains perfect 100% pass rate (171/171 tests passing). 178 total test files (171 enabled + 7 disabled).
 ✓ Task 217: **IMPLEMENTED** string.trim() Method (2025-09-25) - Successfully implemented string.trim() method that removes leading and trailing whitespace. Returns new allocated string. Handles spaces, tabs, newlines, carriage returns. Test suite maintained at 173/173 passing (100%).
 ✓ Task 218: **IMPLEMENTED** string methods contains(), starts_with(), ends_with(), index_of() (2025-09-25) - All four string methods fully working with runtime implementations using strstr, strncmp, and strlen. Tests created and passing. 179/179 tests passing (100%).
+✓ Task 219: **IMPLEMENTED** string.to_upper() and string.to_lower() methods (2025-09-25) - Both case conversion methods fully implemented with ASCII support. Allocate new strings, preserve non-alphabetic characters. Test suite improved to 180/180 passing (100%).
 
-## Current Status (2025-09-25 - 179/179 TESTS PASSING - 100%!!)
+## Current Status (2025-09-25 - 180/180 TESTS PASSING - 100%!!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (179/179 passing) - PERFECT! VERIFIED 2025-09-25
+- **Test Suite Health**: 100% pass rate (180/180 passing) - PERFECT! VERIFIED 2025-09-25
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!
@@ -258,12 +259,14 @@
 - **Behaviors System IMPLEMENTED**: Complete structural contracts system (Comparable, Hashable, Serializable, etc.) - traits without keywords as per spec
 - **String.to_f64() WORKING**: Runtime function implementation with strtod. String literals can now call .to_f64() method correctly
 - **String.trim() FULLY WORKING**: Complete implementation handling all whitespace types (spaces, tabs, newlines, CR). Returns new allocated string
+- **String.to_upper() IMPLEMENTED**: Converts ASCII lowercase letters to uppercase, preserves non-alphabetic characters
+- **String.to_lower() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 
 ### Test Suite Health (VERIFIED 2025-09-25) 
-- **100% Pass Rate**: 179/179 enabled tests passing - PERFECT!
+- **100% Pass Rate**: 180/180 enabled tests passing - PERFECT!
 - **7 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, collections)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 186 test files in tests/ folder (179 enabled .zen + 7 .disabled)
+- **Total Test Files**: 187 test files in tests/ folder (180 enabled .zen + 7 .disabled)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
 - **Rust Test Files**: 8 Rust test files in tests/ folder
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
@@ -277,6 +280,8 @@
 - **String.starts_with() Method**: FULLY IMPLEMENTED - Returns bool if string starts with prefix using strncmp
 - **String.ends_with() Method**: FULLY IMPLEMENTED - Returns bool if string ends with suffix using strlen comparison
 - **String.index_of() Method**: FULLY IMPLEMENTED - Returns i64 index of substring in string, -1 if not found
+- **String.to_upper() Method**: FULLY IMPLEMENTED - Converts ASCII lowercase to uppercase, returns new allocated string
+- **String.to_lower() Method**: FULLY IMPLEMENTED - Converts ASCII uppercase to lowercase, returns new allocated string
 
 ## Compiler Status  
 - **Compiler**: Rust implementation at ~92% of spec (LLVM-based) - **0 WARNINGS!**
@@ -286,7 +291,7 @@
   - ✅ @std module import system (destructuring syntax)
   - ✅ String interpolation "${expr}" 
   - ✅ io.println for strings and numbers (fixed i8 integer printing)
-  - ✅ String methods - s.to_f64() returns Option<f64>, s.to_i32() returns Option<i32>, s.to_i64() returns Option<i64>, s.len() returns i64 length, s.substr(start, length) returns substring, s.char_at(index) returns i32 character code, s.split(delimiter) returns Array<string>, s.trim() removes whitespace, s.contains(substr) returns bool, s.starts_with(prefix) returns bool, s.ends_with(suffix) returns bool, s.index_of(substr) returns i64
+  - ✅ String methods - s.to_f64() returns Option<f64>, s.to_i32() returns Option<i32>, s.to_i64() returns Option<i64>, s.len() returns i64 length, s.substr(start, length) returns substring, s.char_at(index) returns i32 character code, s.split(delimiter) returns Array<string>, s.trim() removes whitespace, s.contains(substr) returns bool, s.starts_with(prefix) returns bool, s.ends_with(suffix) returns bool, s.index_of(substr) returns i64, s.to_upper() returns uppercase string, s.to_lower() returns lowercase string
   - ✅ Pattern matching using conditional syntax (? with | true/false)
   - ✅ UFC (Universal Function Call) syntax - x.method()
   - ✅ Blocks return their last expression value
