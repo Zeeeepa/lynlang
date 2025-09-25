@@ -258,11 +258,13 @@ DISABLED TESTS ANALYSIS:
 ✓ Task 238: **STATUS VERIFIED** (2025-09-25 @ 17:00 UTC) - Test suite maintains 100% pass rate (195/195 passing), showcase.zen fully functional, project structure clean and organized.
 ✓ Task 239: **PROJECT STATUS UPDATE** (2025-09-25 @ 15:40 UTC) - Verified test suite: 195/195 enabled tests passing (100%), 7 disabled tests, 203 total test files (195 enabled + 7 disabled + 1 C test file). 19 Rust unit tests passing. Real completion rate: 96.5% (195/202 zen tests).
 ✓ Task 240: **VERIFIED** HashMap Working Status (2025-09-25) - Confirmed HashMap<K,V> is FULLY WORKING. Both HashMap<string,V> and HashMap<i32,V> function correctly with insert/get operations, proper key equality checking, and Option<V> return types. Test suite maintains 100% pass rate (195/195 tests passing, 6 disabled tests).
+✓ Task 241: **INVESTIGATED** Nested Generic Payload Issue (2025-09-25) - Found deep issue with nested Result<Result<T,E>,E2> payloads. When inner Result stored as payload in outer Result, the stack-allocated struct gets overwritten. Payloads return 0 instead of actual values. Added proper handling for Result.Ok/Err as enum constructors.
+✓ Task 242: **PARTIAL FIX** Nested Generic Type Loading (2025-09-25) - Enhanced pattern matching to recognize Generic { Result/Option } types and load them as structs. Added explicit routing for Result.Ok/Err/Option.Some/None to compile_enum_variant. Test suite at 197/200 (98.5%). Core issue remains: stack vs heap allocation of nested enum payloads.
 
-## Current Status (2025-09-25 - 195/195 TESTS PASSING - 100%)
+## Current Status (2025-09-25 - 197/200 TESTS PASSING - 98.5%)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (195/195 passing) - HashMap<i32,i32> fully working!
+- **Test Suite Health**: 98.5% pass rate (197/200 passing) - 3 test failures being investigated
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!
@@ -299,12 +301,13 @@ DISABLED TESTS ANALYSIS:
 - **String.to_upper() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **String.to_lower() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **HashMap FULLY WORKING**: Both HashMap<string,V> and HashMap<i32,V> fully functional with proper key equality checking. HashSet partially working with stub implementations.
+- **Nested Generics PARTIAL**: Basic nested generics partially working, but payload extraction for Result<Result<T,E>,E2> returns 0 instead of actual values. Stack allocation issue identified.
 
-### Test Suite Health (VERIFIED 2025-09-25 @ 15:40 UTC) 
-- **100% Pass Rate**: 195/195 enabled tests passing (all features working!)
+### Test Suite Health (VERIFIED 2025-09-25 @ Latest) 
+- **98.5% Pass Rate**: 197/200 enabled tests passing (3 failures under investigation)
 - **7 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, nested Result, LSP, collections)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 203 test files in tests/ folder (195 enabled + 7 disabled + 1 C test file)
+- **Total Test Files**: 207 test files in tests/ folder (200 enabled + 7 disabled)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
 - **Rust Unit Tests**: 19 unit tests passing (module system, type checker, FFI, behaviors)
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
