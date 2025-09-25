@@ -1,0 +1,35 @@
+// Test generic type tracking for variables
+{ io, Result, Option } = @std
+
+main = () void {
+    // Test Result<i32, string> tracking
+    result_ok = Result.Ok(42)
+    result_err = Result.Err("error message")
+    
+    // Extract and verify types are preserved
+    result_ok ? | Result.Ok(v) => io.println("Ok value: ${v}")
+                | Result.Err(e) => io.println("Err: ${e}")
+    
+    result_err ? | Result.Ok(v) => io.println("Ok: ${v}")
+                 | Result.Err(e) => io.println("Err value: ${e}")
+    
+    // Test Option<i32> tracking
+    some_val = Option.Some(100)
+    none_val = Option.None
+    
+    some_val ? | Option.Some(v) => io.println("Some value: ${v}")
+              | Option.None => io.println("None")
+    
+    none_val ? | Option.Some(v) => io.println("Some: ${v}")
+              | Option.None => io.println("None value")
+    
+    // Test with different types
+    string_result = Result.Ok("hello")
+    float_option = Option.Some(3.14)
+    
+    string_result ? | Result.Ok(s) => io.println("String: ${s}")
+                    | Result.Err(_) => io.println("Error")
+    
+    float_option ? | Option.Some(f) => io.println("Float: ${f}")
+                   | Option.None => io.println("None")
+}

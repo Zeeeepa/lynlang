@@ -1,0 +1,24 @@
+// Test raise() with variables holding Result types
+{ io, Result } = @std
+
+// Helper function that returns Result<i32, string>
+divide = (a: i32, b: i32) {
+    b == 0 ? | true => Result.Err("division by zero")
+             | false => Result.Ok(a / b)
+}
+
+main = () void {
+    io.println("Testing raise() with Result variables")
+    
+    // Store results in variables
+    result1 = divide(10, 2)
+    result2 = divide(10, 0)
+    
+    // Use raise() on variables
+    value1 = result1.raise()  // Should extract 5
+    io.println("10 / 2 = ${value1}")
+    
+    // This should extract the error
+    result2 ? | Result.Ok(v) => io.println("Value: ${v}")
+              | Result.Err(e) => io.println("Error: ${e}")
+}

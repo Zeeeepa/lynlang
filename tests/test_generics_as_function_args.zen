@@ -1,0 +1,65 @@
+// Test passing generic types to functions
+{ io, Result, Option } = @std
+
+// Function that takes a Result<i32, string>
+process_result = (r) void {
+    r ? | Result.Ok(v) => io.println("Function got Ok: ${v}")
+        | Result.Err(e) => io.println("Function got Err: ${e}")
+}
+
+// Function that takes an Option<i32>
+process_option = (o) void {
+    o ? | Option.Some(v) => io.println("Function got Some: ${v}")
+        | Option.None => io.println("Function got None")
+}
+
+// Function that returns Result - can't specify return type yet
+make_result = (success) {
+    success ? | true => Result.Ok(123)
+              | false => Result.Err("failed")
+}
+
+// Function that returns Option
+make_option = (has_value) {
+    has_value ? | true => Option.Some(2.718)
+                | false => Option.None
+}
+
+main = () void {
+    io.println("=== Testing Generics as Function Arguments ===")
+    
+    // Test passing Result to function
+    ok_result = Result.Ok(42)
+    err_result = Result.Err("error")
+    
+    process_result(ok_result)
+    process_result(err_result)
+    
+    // Test passing Option to function
+    some_option = Option.Some(99)
+    none_option = Option.None
+    
+    process_option(some_option)
+    process_option(none_option)
+    
+    // Test functions returning generics
+    io.println("\n=== Testing Generic Return Types ===")
+    
+    success_result = make_result(true)
+    failure_result = make_result(false)
+    
+    success_result ? | Result.Ok(v) => io.println("Got success: ${v}")
+                     | Result.Err(e) => io.println("Got error: ${e}")
+    
+    failure_result ? | Result.Ok(v) => io.println("Got success: ${v}")
+                     | Result.Err(e) => io.println("Got error: ${e}")
+    
+    some_option2 = make_option(true)
+    none_option2 = make_option(false)
+    
+    some_option2 ? | Option.Some(v) => io.println("Got value: ${v}")
+                   | Option.None => io.println("Got none")
+    
+    none_option2 ? | Option.Some(v) => io.println("Got value: ${v}")
+                   | Option.None => io.println("Got none")
+}

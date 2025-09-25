@@ -1,0 +1,29 @@
+// Simple test of generics in functions
+{ io, Result, Option } = @std
+
+main = () void {
+    // Function that processes a Result
+    check = (r) void {
+        r ? | Result.Ok(v) => io.println("Ok: ${v}")
+            | Result.Err(e) => io.println("Err: ${e}")
+    }
+    
+    // Create and check Results
+    r1 = Result.Ok(42)
+    r2 = Result.Err("fail")
+    
+    check(r1)
+    check(r2)
+    
+    // Return Result from closure
+    make = (x) {
+        x > 0 ? | true => Result.Ok(x)
+                | false => Result.Err("negative")
+    }
+    
+    r3 = make(10)
+    r4 = make(-5)
+    
+    check(r3)
+    check(r4)
+}

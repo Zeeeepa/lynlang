@@ -4495,7 +4495,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like Option.Some), we need to heap-allocate to ensure
                             // the nested struct persists when extracted from the outer enum
-                            let struct_type = compiled.get_type();
+                            let _struct_type = compiled.get_type();
                             
                             // Use malloc to heap-allocate the nested enum struct
                             let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -4595,7 +4595,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like Option.Some), we need to heap-allocate to ensure
                             // the nested struct persists when extracted from the outer enum
-                            let struct_type = compiled.get_type();
+                            let _struct_type = compiled.get_type();
                             
                             // Use malloc to heap-allocate the nested enum struct
                             let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
