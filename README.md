@@ -8,12 +8,12 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 ## 🎉 Project Status (2025-09-25)
 
-- **Test Suite**: **100% PASS RATE** - 191/191 tests passing, zero failures!
+- **Test Suite**: **100% PASS RATE** - 194/194 tests passing, zero failures!
 - **Disabled Tests**: 7 tests await unimplemented features  
-- **Compiler Health**: Builds successfully with minimal warnings (6)
+- **Compiler Health**: Builds successfully with zero warnings
 - **Core Features**: All working - showcase.zen runs perfectly
 - **Recent Achievements**: 
-  - 🎉 **HashMap/HashSet implementations working!** Test pass rate: 100% (191/191)
+  - 🎉 **HashMap<i32,i32> fixed!** Full type inference for generic collections now working
   - ✅ String case conversion - to_upper(), to_lower() 
   - ✅ String search methods - contains(), starts_with(), ends_with(), index_of()
   - ✅ String manipulation - len(), substr(), char_at(), split(), trim()
