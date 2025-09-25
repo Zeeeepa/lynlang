@@ -361,6 +361,292 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(value_i32.into())
     }
     
+    /// Compile Array.len() - returns the current length of the array
+    pub fn compile_array_len(
+        &mut self,
+        array_val: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Array struct type: { ptr, length, capacity }
+        let array_struct_type = self.context.struct_type(
+            &[
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            false,
+        );
+        
+        // Use inline_counter for unique naming
+        self.inline_counter += 1;
+        let unique_id = self.inline_counter;
+        
+        // Store array to get a pointer
+        let array_ptr = self.builder.build_alloca(array_struct_type, &format!("array_len_ptr_{}", unique_id))?;
+        self.builder.build_store(array_ptr, array_val)?;
+        
+        // Get length field (index 1)
+        let length_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            1,
+            &format!("len_field_ptr_{}", unique_id),
+        )?;
+        
+        let length = self.builder.build_load(
+            self.context.i64_type(),
+            length_ptr,
+            &format!("len_value_{}", unique_id)
+        )?;
+        
+        Ok(length)
+    }
+    
+    /// Compile Array.set(index, value) - sets an element at the given index
+    pub fn compile_array_set(
+        &mut self,
+        array_val: BasicValueEnum<'ctx>,
+        index_val: BasicValueEnum<'ctx>,
+        value: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Array struct type: { ptr, length, capacity }
+        let array_struct_type = self.context.struct_type(
+            &[
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            false,
+        );
+        
+        // Use inline_counter for unique naming
+        self.inline_counter += 1;
+        let unique_id = self.inline_counter;
+        
+        // Store array to get a pointer
+        let array_ptr = self.builder.build_alloca(array_struct_type, &format!("array_set_ptr_{}", unique_id))?;
+        self.builder.build_store(array_ptr, array_val)?;
+        
+        // Get index as int
+        let index = index_val.into_int_value();
+        let index_i64 = if index.get_type() == self.context.i64_type() {
+            index
+        } else {
+            self.builder.build_int_s_extend(index, self.context.i64_type(), &format!("set_index_i64_{}", unique_id))?
+        };
+        
+        // Get data pointer
+        let data_ptr_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            0,
+            &format!("set_data_ptr_ptr_{}", unique_id),
+        )?;
+        let data_ptr = self.builder.build_load(
+            self.context.ptr_type(inkwell::AddressSpace::default()),
+            data_ptr_ptr,
+            &format!("set_data_ptr_{}", unique_id)
+        )?.into_pointer_value();
+        
+        // Calculate element address
+        let element_ptr = unsafe {
+            self.builder.build_gep(
+                self.context.i64_type(),
+                data_ptr,
+                &[index_i64],
+                &format!("set_elem_ptr_{}", unique_id),
+            )?
+        };
+        
+        // Store the value (convert to i64 if needed)
+        let value_to_store = if value.is_int_value() {
+            let int_val = value.into_int_value();
+            if int_val.get_type() == self.context.i64_type() {
+                int_val
+            } else {
+                self.builder.build_int_s_extend(int_val, self.context.i64_type(), &format!("set_value_i64_{}", unique_id))?
+            }
+        } else {
+            return Err(CompileError::TypeError(
+                "Array.set currently only supports integer values".to_string(),
+                None,
+            ));
+        };
+        
+        self.builder.build_store(element_ptr, value_to_store)?;
+        
+        // Return the array itself for chaining
+        Ok(array_val)
+    }
+    
+    /// Compile Array.pop() by pointer - modifies array in place and returns Option<T>
+    pub fn compile_array_pop_by_ptr(
+        &mut self,
+        array_ptr: PointerValue<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Set the generic type context so pattern matching knows this is Option<i32>
+        self.generic_type_context.insert("Option_Some_Type".to_string(), crate::ast::AstType::I32);
+        // Array struct type: { ptr, length, capacity }
+        let array_struct_type = self.context.struct_type(
+            &[
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            false,
+        );
+        
+        // Option struct type: { discriminant: i64, payload: T }
+        let option_type = self.context.struct_type(
+            &[
+                self.context.i64_type().into(),
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+            ],
+            false,
+        );
+        
+        // Use inline_counter for unique naming
+        self.inline_counter += 1;
+        let unique_id = self.inline_counter;
+        
+        // Allocate space for the return value at function scope (not inside a branch)
+        let value_ptr = self.builder.build_alloca(self.context.i32_type(), &format!("pop_return_val_{}", unique_id))?;
+        
+        // Get length field
+        let length_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            1,
+            &format!("pop_len_ptr_{}", unique_id),
+        )?;
+        let length = self.builder.build_load(
+            self.context.i64_type(),
+            length_ptr,
+            &format!("pop_len_{}", unique_id)
+        )?.into_int_value();
+        
+        // Check if array is empty
+        let zero = self.context.i64_type().const_zero();
+        let is_empty = self.builder.build_int_compare(
+            inkwell::IntPredicate::EQ,
+            length,
+            zero,
+            &format!("pop_is_empty_{}", unique_id),
+        )?;
+        
+        // Create blocks for empty and non-empty cases
+        let current_fn = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let empty_bb = self.context.append_basic_block(current_fn, &format!("pop_empty_{}", unique_id));
+        let nonempty_bb = self.context.append_basic_block(current_fn, &format!("pop_nonempty_{}", unique_id));
+        let merge_bb = self.context.append_basic_block(current_fn, &format!("pop_merge_{}", unique_id));
+        
+        self.builder.build_conditional_branch(is_empty, empty_bb, nonempty_bb)?;
+        
+        // Empty case: return None
+        self.builder.position_at_end(empty_bb);
+        
+        // Store a dummy value (0) to value_ptr in the None case  
+        self.builder.build_store(value_ptr, self.context.i32_type().const_zero())?;
+        
+        let none_val = {
+            let discriminant = self.context.i64_type().const_int(1, false); // 1 for None
+            let null_ptr = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+            option_type.const_named_struct(&[discriminant.into(), null_ptr.into()])
+        };
+        self.builder.build_unconditional_branch(merge_bb)?;
+        
+        // Non-empty case: get last element and return Some(value)
+        self.builder.position_at_end(nonempty_bb);
+        
+        // Decrement length AFTER getting the element
+        let one = self.context.i64_type().const_int(1, false);
+        let new_length = self.builder.build_int_sub(length, one, &format!("pop_new_len_{}", unique_id))?;
+        
+        // Get data pointer
+        let data_ptr_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            0,
+            &format!("pop_data_ptr_ptr_{}", unique_id),
+        )?;
+        let data_ptr = self.builder.build_load(
+            self.context.ptr_type(inkwell::AddressSpace::default()),
+            data_ptr_ptr,
+            &format!("pop_data_ptr_{}", unique_id)
+        )?.into_pointer_value();
+        
+        // Get element at new_length position (which is the last element, since we haven't decremented length yet)
+        let element_ptr = unsafe {
+            self.builder.build_gep(
+                self.context.i64_type(),
+                data_ptr,
+                &[new_length],  // This is now correct - it points to the last element
+                &format!("pop_elem_ptr_{}", unique_id),
+            )?
+        };
+        
+        // NOW store the new length after we've gotten the element
+        self.builder.build_store(length_ptr, new_length)?;
+        
+        // Load the value from the array
+        let value_i64 = self.builder.build_load(self.context.i64_type(), element_ptr, &format!("pop_val_i64_{}", unique_id))?;
+        
+        // Truncate to i32 as that's what Array<i32> expects
+        let value_i32 = self.builder.build_int_truncate(
+            value_i64.into_int_value(),
+            self.context.i32_type(),
+            &format!("pop_val_i32_{}", unique_id)
+        )?;
+        
+        // Store the i32 value to the pre-allocated pointer (allocated at function scope)
+        self.builder.build_store(value_ptr, value_i32)?;
+        
+        // Create Some(value) - following the same pattern as compile_enum_variant
+        let some_alloca = self.builder.build_alloca(option_type, &format!("pop_some_alloca_{}", unique_id))?;
+        
+        // Store discriminant
+        let tag_ptr = self.builder.build_struct_gep(option_type, some_alloca, 0, &format!("pop_tag_ptr_{}", unique_id))?;
+        self.builder.build_store(tag_ptr, self.context.i64_type().const_zero())?;
+        
+        // Store payload pointer
+        let payload_ptr = self.builder.build_struct_gep(option_type, some_alloca, 1, &format!("pop_payload_ptr_{}", unique_id))?;
+        self.builder.build_store(payload_ptr, value_ptr)?;
+        
+        // Load the struct
+        let some_val = self.builder.build_load(option_type, some_alloca, &format!("pop_some_val_{}", unique_id))?;
+        self.builder.build_unconditional_branch(merge_bb)?;
+        
+        // Merge block
+        self.builder.position_at_end(merge_bb);
+        let phi = self.builder.build_phi(option_type, &format!("pop_result_{}", unique_id))?;
+        phi.add_incoming(&[(&none_val, empty_bb), (&some_val, nonempty_bb)]);
+        
+        Ok(phi.as_basic_value())
+    }
+    
+    /// Compile Array.pop() - removes and returns the last element as Option<T>
+    /// This version takes a value and creates a temporary pointer
+    pub fn compile_array_pop(
+        &mut self,
+        array_val: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Array struct type: { ptr, length, capacity }
+        let array_struct_type = self.context.struct_type(
+            &[
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            false,
+        );
+        
+        // Store array to get a pointer
+        let array_ptr = self.builder.build_alloca(array_struct_type, "array_pop_temp")?;
+        self.builder.build_store(array_ptr, array_val)?;
+        
+        // Call the pointer version
+        self.compile_array_pop_by_ptr(array_ptr)
+    }
+    
     /// Gets or creates a runtime function
     pub fn get_or_create_runtime_function(
         &mut self,

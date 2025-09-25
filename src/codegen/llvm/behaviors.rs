@@ -411,6 +411,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let result = self.compile_array_get(object_val, index)?;
                         return Ok(result);
                     }
+                    "len" => {
+                        if args.len() != 0 {
+                            return Err(CompileError::TypeError(
+                                format!("Array.len expects no arguments, got {}", args.len()),
+                                None,
+                            ));
+                        }
+                        let result = self.compile_array_len(object_val)?;
+                        return Ok(result);
+                    }
+                    "set" => {
+                        if args.len() != 2 {
+                            return Err(CompileError::TypeError(
+                                format!("Array.set expects 2 arguments, got {}", args.len()),
+                                None,
+                            ));
+                        }
+                        let index = self.compile_expression(&args[0])?;
+                        let value = self.compile_expression(&args[1])?;
+                        let result = self.compile_array_set(object_val, index, value)?;
+                        return Ok(result);
+                    }
+                    "pop" => {
+                        if args.len() != 0 {
+                            return Err(CompileError::TypeError(
+                                format!("Array.pop expects no arguments, got {}", args.len()),
+                                None,
+                            ));
+                        }
+                        // Pass the pointer for in-place modification
+                        let result = self.compile_array_pop_by_ptr(array_ptr)?;
+                        return Ok(result);
+                    }
                     _ => {
                         // Fall through to regular method handling
                     }

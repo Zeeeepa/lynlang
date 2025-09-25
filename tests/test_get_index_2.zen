@@ -1,0 +1,28 @@
+{ io } = @std
+
+main = () i32 {
+    arr: Array<i32> = Array<i32>.new(10, 0)
+    
+    arr.push(111)
+    arr.push(222)
+    arr.push(333)
+    
+    // Get index 2 directly
+    val2 = arr.get(2)
+    io.println("arr.get(2) = ${val2}")
+    
+    // Get length
+    len = arr.len()
+    io.println("length = ${len}")
+    
+    // Pop should get the element at index 2 (when length is 3)
+    io.println("pop should get element at index 2")
+    
+    // Now test pop
+    result = arr.pop()
+    result ?
+        | Option.Some(v) { io.println("pop returned: ${v}") }
+        | Option.None { io.println("pop returned None") }
+    
+    return 0
+}

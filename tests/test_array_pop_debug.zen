@@ -1,0 +1,31 @@
+{ io } = @std
+
+main = () i32 {
+    // Create array
+    arr: Array<i32> = Array<i32>.new(10, 0)
+    
+    // Push some values
+    arr.push(100)
+    arr.push(200)
+    arr.push(300)
+    
+    io.println("After pushes:")
+    io.println("  arr[0] = ${arr.get(0)}")
+    io.println("  arr[1] = ${arr.get(1)}")
+    io.println("  arr[2] = ${arr.get(2)}")
+    io.println("  length = ${arr.len()}")
+    
+    // Now pop
+    io.println("\nPopping...")
+    p1 = arr.pop()
+    p1 ?
+        | Option.Some(val) { io.println("Popped value: ${val} (expected 300)") }
+        | Option.None { io.println("Got None") }
+    
+    io.println("After first pop:")
+    io.println("  arr[0] = ${arr.get(0)}")
+    io.println("  arr[1] = ${arr.get(1)}")
+    io.println("  length = ${arr.len()}")
+    
+    return 0
+}

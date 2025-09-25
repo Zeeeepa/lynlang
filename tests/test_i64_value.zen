@@ -1,0 +1,16 @@
+{ io } = @std
+
+main = () i32 {
+    arr: Array<i32> = Array<i32>.new(10, 0)
+    
+    // Push a specific value
+    arr.push(333)
+    
+    io.println("Pushed 333")
+    
+    // Get it back
+    val = arr.get(0)
+    io.println("arr.get(0) = ${val}")
+    
+    return 0
+}

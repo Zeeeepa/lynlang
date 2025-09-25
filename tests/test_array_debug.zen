@@ -1,0 +1,36 @@
+{ io } = @std
+
+main = () i32 {
+    // Create array
+    arr: Array<i32> = Array<i32>.new(10, -1)  // Use -1 as default
+    
+    io.println("Created array with default -1")
+    
+    // Check a few initial values
+    io.println("Initial arr[0] = ${arr.get(0)}")
+    io.println("Initial arr[1] = ${arr.get(1)}")
+    
+    // Push a value
+    arr.push(100)
+    io.println("Pushed 100")
+    
+    len1 = arr.len()
+    io.println("Length after push: ${len1}")
+    
+    // Check values
+    io.println("arr[0] = ${arr.get(0)}")
+    io.println("arr[1] = ${arr.get(1)}")
+    
+    // Push another
+    arr.push(200)
+    io.println("Pushed 200")
+    
+    len2 = arr.len()
+    io.println("Length after 2nd push: ${len2}")
+    
+    io.println("arr[0] = ${arr.get(0)}")
+    io.println("arr[1] = ${arr.get(1)}")
+    io.println("arr[2] = ${arr.get(2)}")
+    
+    return 0
+}
