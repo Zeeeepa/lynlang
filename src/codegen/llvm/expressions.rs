@@ -2092,13 +2092,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Compile arguments
                                 let key = self.compile_expression(&args[0])?;
                                 let hash_fn = self.compile_expression(&args[1])?;
-                                let _eq_fn = self.compile_expression(&args[2])?;
+                                let eq_fn = self.compile_expression(&args[2])?;
                                 
                                 // Step 1: Call hash_fn(key) to get hash value
                                 let hash_fn_ptr = if hash_fn.is_pointer_value() {
                                     hash_fn.into_pointer_value()
                                 } else {
                                     return Err(CompileError::TypeError("hash_fn must be a function pointer".to_string(), None));
+                                };
+                                
+                                let eq_fn_ptr = if eq_fn.is_pointer_value() {
+                                    eq_fn.into_pointer_value()
+                                } else {
+                                    return Err(CompileError::TypeError("eq_fn must be a function pointer".to_string(), None));
                                 };
                                 
                                 let hash_fn_type = self.context.i64_type().fn_type(&[key.get_type().into()], false);
@@ -2202,11 +2208,140 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 
                                 // Create basic blocks for conditional return
                                 let current_fn = self.current_function.unwrap();
+                                let check_key_block = self.context.append_basic_block(current_fn, "check_key");
                                 let found_block = self.context.append_basic_block(current_fn, "get_found");
                                 let not_found_block = self.context.append_basic_block(current_fn, "get_not_found");
                                 let merge_block = self.context.append_basic_block(current_fn, "get_merge");
                                 
-                                self.builder.build_conditional_branch(is_occupied, found_block, not_found_block)?;
+                                // If bucket is occupied, check if key matches
+                                self.builder.build_conditional_branch(is_occupied, check_key_block, not_found_block)?;
+                                
+                                // Check if the key in this bucket matches our search key
+                                self.builder.position_at_end(check_key_block);
+                                
+                                // Get pointer to stored key (at offset 1)
+                                let key_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(1, false), // key_ptr is at offset 1
+                                    "key_offset"
+                                )?;
+                                let stored_key_ptr_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[key_offset],
+                                        "stored_key_ptr_ptr"
+                                    )?
+                                };
+                                let stored_key_i64 = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    stored_key_ptr_ptr,
+                                    "stored_key_i64"
+                                )?.into_int_value();
+                                
+                                // Determine key type and handle accordingly
+                                let (stored_key_for_eq, eq_fn_type): (BasicValueEnum, _) = if let Some(var_info) = self.variables.get(obj_name) {
+                                    if let AstType::Generic { type_args, .. } = &var_info.ast_type {
+                                        if type_args.len() >= 1 {
+                                            match &type_args[0] {
+                                                AstType::String => {
+                                                    // String key: convert i64 to pointer
+                                                    let stored_key_ptr = self.builder.build_int_to_ptr(
+                                                        stored_key_i64,
+                                                        self.context.ptr_type(AddressSpace::default()),
+                                                        "stored_key_ptr"
+                                                    )?;
+                                                    let fn_type = self.context.i64_type().fn_type(
+                                                        &[
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                        ],
+                                                        false
+                                                    );
+                                                    (stored_key_ptr.into(), fn_type)
+                                                }
+                                                AstType::I32 => {
+                                                    // i32 key: truncate i64 to i32
+                                                    let stored_key_i32 = self.builder.build_int_truncate(
+                                                        stored_key_i64,
+                                                        self.context.i32_type(),
+                                                        "stored_key_i32"
+                                                    )?;
+                                                    let fn_type = self.context.i64_type().fn_type(
+                                                        &[
+                                                            self.context.i32_type().into(),
+                                                            self.context.i32_type().into(),
+                                                        ],
+                                                        false
+                                                    );
+                                                    (stored_key_i32.into(), fn_type)
+                                                }
+                                                _ => {
+                                                    // Default: use as i64
+                                                    let fn_type = self.context.i64_type().fn_type(
+                                                        &[
+                                                            self.context.i64_type().into(),
+                                                            self.context.i64_type().into(),
+                                                        ],
+                                                        false
+                                                    );
+                                                    (stored_key_i64.into(), fn_type)
+                                                }
+                                            }
+                                        } else {
+                                            // No type args, default to i64
+                                            let fn_type = self.context.i64_type().fn_type(
+                                                &[
+                                                    self.context.i64_type().into(),
+                                                    self.context.i64_type().into(),
+                                                ],
+                                                false
+                                            );
+                                            (stored_key_i64.into(), fn_type)
+                                        }
+                                    } else {
+                                        // Not a generic type, default to i64
+                                        let fn_type = self.context.i64_type().fn_type(
+                                            &[
+                                                self.context.i64_type().into(),
+                                                self.context.i64_type().into(),
+                                            ],
+                                            false
+                                        );
+                                        (stored_key_i64.into(), fn_type)
+                                    }
+                                } else {
+                                    // Variable not found, default to i64
+                                    let fn_type = self.context.i64_type().fn_type(
+                                        &[
+                                            self.context.i64_type().into(),
+                                            self.context.i64_type().into(),
+                                        ],
+                                        false
+                                    );
+                                    (stored_key_i64.into(), fn_type)
+                                };
+                                
+                                // Call equality function to compare keys
+                                let eq_result = self.builder.build_indirect_call(
+                                    eq_fn_type,
+                                    eq_fn_ptr,
+                                    &[stored_key_for_eq.into(), key.into()],
+                                    "eq_result"
+                                )?;
+                                let eq_int = eq_result.try_as_basic_value().left()
+                                    .and_then(|v| v.try_into().ok())
+                                    .ok_or_else(|| CompileError::InternalError("Equality function didn't return a value".to_string(), None))?;
+                                
+                                let keys_match = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::NE,
+                                    eq_int,
+                                    self.context.i64_type().const_int(0, false),
+                                    "keys_match"
+                                )?;
+                                
+                                // Branch based on key comparison
+                                self.builder.build_conditional_branch(keys_match, found_block, not_found_block)?;
                                 
                                 // Not found: return None
                                 self.builder.position_at_end(not_found_block);
