@@ -1,0 +1,40 @@
+// Trace nested generic extraction in detail
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("Creating inner Result.Ok(42)")
+    inner = Result.Ok(42)
+    
+    io.println("Creating outer Result.Ok(inner)")
+    outer = Result.Ok(inner)
+    
+    io.println("Extracting from outer...")
+    outer ?
+        | Result.Ok(inner_result) {
+            io.println("Got inner_result from outer")
+            // At this point, inner_result should be a struct { i64, ptr }
+            // representing Result<i32, string>
+            
+            io.println("Extracting from inner_result...")
+            inner_result ?
+                | Result.Ok(val) {
+                    io.println("Got val from inner_result")
+                    // val should be i32 (42)
+                    // But the error shows it's { i64, ptr }
+                    
+                    // Try to print just to see what happens
+                    io.println("Success!")
+                    return 0
+                }
+                | Result.Err(e) {
+                    io.println("Inner was Err")
+                    return -1
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer was Err")
+            return -2
+        }
+    
+    return -3
+}

@@ -1,0 +1,31 @@
+// Debug test for nested generic - minimal extraction
+{ io, Result } = @std
+
+main = () i32 {
+    // Create inner Result.Ok(42)
+    inner = Result.Ok(42)
+    
+    // Create outer Result.Ok(inner)
+    outer = Result.Ok(inner)
+    
+    // Extract outer
+    outer ?
+        | Result.Ok(inner_result) {
+            io.println("Extracted inner Result")
+            
+            // Just check the inner result without extracting
+            inner_result ?
+                | Result.Ok(val) {
+                    io.println("Got Ok variant")
+                }
+                | Result.Err(e) {
+                    io.println("Got Err variant")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer was Err")
+        }
+    
+    io.println("Done")
+    0
+}

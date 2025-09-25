@@ -1,0 +1,21 @@
+// Minimal nested generic test
+{ io, Result } = @std
+
+main = () i32 {
+    inner = Result.Ok(42)
+    outer = Result.Ok(inner)
+    
+    outer ?
+        | Result.Ok(inner_result) {
+            inner_result ?
+                | Result.Ok(val) {
+                    return 0  // Just return 0, don't use val
+                }
+                | Result.Err(e) {
+                    return -1
+                }
+        }
+        | Result.Err(e) {
+            return -2
+        }
+}

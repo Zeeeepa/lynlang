@@ -355,14 +355,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             // Track nested generic types for further extraction
                                             if name == "Option" && !type_args.is_empty() {
                                                 // Result<Option<T>, E> case - track Option<T> inner type
-                                                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
-                                                self.generic_tracker.track_generic_type(&type_args[0], "Option_Some");
+                                                self.track_generic_type("Nested_Option_Some_Type".to_string(), type_args[0].clone());
+                                                self.generic_tracker.track_generic_type(&type_args[0], "Nested_Option_Some");
                                             } else if name == "Result" && type_args.len() == 2 {
                                                 // Option<Result<T,E>> case - track Result<T,E> inner types
-                                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                                                self.generic_tracker.track_generic_type(&type_args[0], "Result_Ok");
-                                                self.generic_tracker.track_generic_type(&type_args[1], "Result_Err");
+                                                self.track_generic_type("Nested_Result_Ok_Type".to_string(), type_args[0].clone());
+                                                self.track_generic_type("Nested_Result_Err_Type".to_string(), type_args[1].clone());
+                                                self.generic_tracker.track_generic_type(&type_args[0], "Nested_Result_Ok");
+                                                self.generic_tracker.track_generic_type(&type_args[1], "Nested_Result_Err");
                                             }
                                             
                                             // The payload is a pointer to the nested enum struct
@@ -373,25 +373,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 loaded_payload
                                             } else {
                                                 // Determine the enum struct type for the nested generic
-                                                let nested_enum_type = if name == "Option" {
-                                                    // Option has discriminant (i64) and payload (ptr)
-                                                    self.context.struct_type(&[
-                                                        self.context.i64_type().into(),
-                                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-                                                    ], false)
-                                                } else if name == "Result" {
-                                                    // Result has discriminant (i64) and payload (ptr)
-                                                    self.context.struct_type(&[
-                                                        self.context.i64_type().into(),
-                                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-                                                    ], false)
-                                                } else {
-                                                    // Default struct type
-                                                    self.context.struct_type(&[
-                                                        self.context.i64_type().into(),
-                                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
-                                                    ], false)
-                                                };
+                                                let nested_enum_type = self.context.struct_type(&[
+                                                    self.context.i64_type().into(),
+                                                    self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                                                ], false);
                                                 
                                                 // Load the nested enum struct value
                                                 match self.builder.build_load(
@@ -399,7 +384,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     ptr_val,
                                                     &format!("nested_{}_struct", name.to_lowercase()),
                                                 ) {
-                                                    Ok(loaded_struct) => loaded_struct,
+                                                    Ok(loaded_struct) => {
+                                                        // CRITICAL: Update the type context so we know this is a struct for next pattern match
+                                                        if name == "Option" && !type_args.is_empty() {
+                                                            self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                        } else if name == "Result" && type_args.len() == 2 {
+                                                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                        }
+                                                        loaded_struct
+                                                    },
                                                     Err(_) => loaded_payload
                                                 }
                                             }
@@ -1178,16 +1172,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     // Update generic type context for the nested type
                                                     if name == "Result" && type_args.len() == 2 {
                                                         // For Result<T,E>, track the nested types
-                                                        self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                                        self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                        // Use different keys to avoid conflicts with outer Result
+                                                        self.track_generic_type("Nested_Result_Ok_Type".to_string(), type_args[0].clone());
+                                                        self.track_generic_type("Nested_Result_Err_Type".to_string(), type_args[1].clone());
                                                         
                                                         // Also track nested types recursively
-                                                        self.track_complex_generic(&type_args[0], "Result_Ok");
-                                                        self.track_complex_generic(&type_args[1], "Result_Err");
+                                                        self.track_complex_generic(&type_args[0], "Nested_Result_Ok");
+                                                        self.track_complex_generic(&type_args[1], "Nested_Result_Err");
                                                     } else if name == "Option" && type_args.len() == 1 {
                                                         // For Option<T>, track the nested type
-                                                        self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
-                                                        self.track_complex_generic(&type_args[0], "Option_Some");
+                                                        self.track_generic_type("Nested_Option_Some_Type".to_string(), type_args[0].clone());
+                                                        self.track_complex_generic(&type_args[0], "Nested_Option_Some");
                                                     }
                                                     
                                                     match self.builder.build_load(
@@ -1196,6 +1191,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         "nested_enum",
                                                     ) {
                                                         Ok(loaded) => {
+                                                            // Update keys for next level of pattern matching  
+                                                            if name == "Result" && type_args.len() == 2 {
+                                                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                            } else if name == "Option" && type_args.len() == 1 {
+                                                                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                            }
                                                             // For nested enums, we want to return the full struct
                                                             // so that subsequent pattern matching can work with it
                                                             loaded
