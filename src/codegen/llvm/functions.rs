@@ -3025,6 +3025,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "panic" => return self.compile_core_panic(args),
                         _ => {}
                     }
+                } else if module == "Result" {
+                    // Handle Result enum constructors
+                    let payload = if !args.is_empty() {
+                        Some(Box::new(args[0].clone()))
+                    } else {
+                        None
+                    };
+                    return self.compile_enum_variant("Result", func, &payload);
+                } else if module == "Option" {
+                    // Handle Option enum constructors
+                    let payload = if !args.is_empty() {
+                        Some(Box::new(args[0].clone()))
+                    } else {
+                        None
+                    };
+                    return self.compile_enum_variant("Option", func, &payload);
                 }
             }
         }
