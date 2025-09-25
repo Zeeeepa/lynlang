@@ -44,8 +44,10 @@ pub enum Statement {
         module_path: String,
     },
     // Defer statement for cleanup - traditional defer syntax
+    #[allow(dead_code)]
     Defer(Box<Statement>),
     // @this.defer() for scope-based cleanup
+    #[allow(dead_code)]
     ThisDefer(Expression),
     // Destructuring import: { io, maths } = @std
     DestructuringImport {

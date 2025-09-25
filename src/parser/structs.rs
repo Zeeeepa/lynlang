@@ -117,6 +117,7 @@ impl<'a> Parser<'a> {
         })
     }
 
+    #[allow(dead_code)]
     fn parse_method(&mut self) -> Result<Function> {
         // Method name (after 'fn' keyword)
         let name = if let Token::Identifier(name) = &self.current_token {

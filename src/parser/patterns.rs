@@ -369,6 +369,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn parse_binding_pattern(&mut self) -> Result<Pattern> {
         // Parse binding pattern: name -> pattern
         let name = if let Token::Identifier(name) = &self.current_token {

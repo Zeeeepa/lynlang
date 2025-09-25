@@ -130,6 +130,7 @@ pub enum Expression {
         inclusive: bool,
     },
     // Pattern matching expressions
+    #[allow(dead_code)]
     PatternMatch {
         scrutinee: Box<Expression>,
         arms: Vec<PatternArm>,
@@ -172,6 +173,7 @@ pub enum Expression {
     // Error propagation: expr.raise()
     Raise(Box<Expression>),
     // Defer expression: @this.defer(expr)
+    #[allow(dead_code)]
     Defer(Box<Expression>),
     // Break expression for loops (can be used in expression contexts like pattern arms)
     Break {

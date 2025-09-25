@@ -29,6 +29,7 @@ pub enum CompileError {
     #[allow(dead_code)]
     TypeError(String, Option<Span>),
     FileNotFound(String, Option<String>),
+    #[allow(dead_code)]
     ParseError(String, Option<Span>),
     #[allow(dead_code)]
     ComptimeError(String),

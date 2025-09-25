@@ -12,10 +12,12 @@ pub mod string;
 pub mod vec;
 
 /// The @std namespace provides built-in compiler intrinsics and standard library access
+#[allow(dead_code)]
 pub struct StdNamespace {
     modules: HashMap<String, StdModule>,
 }
 
+#[allow(dead_code)]
 pub enum StdModule {
     Core(core::CoreModule),
     Build(build::BuildModule),
@@ -26,6 +28,7 @@ pub enum StdModule {
     Fs(fs::FsModule),
 }
 
+#[allow(dead_code)]
 impl StdNamespace {
     pub fn new() -> Self {
         let mut modules = HashMap::new();

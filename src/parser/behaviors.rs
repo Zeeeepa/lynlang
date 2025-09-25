@@ -524,6 +524,7 @@ impl<'a> Parser<'a> {
 
     /// Parse a function within an impl block context
     /// This is different from parse_function() because the function name and '=' have already been consumed
+    #[allow(dead_code)]
     pub fn parse_impl_function(&mut self) -> Result<crate::ast::Function> {
         use crate::ast::Function;
 

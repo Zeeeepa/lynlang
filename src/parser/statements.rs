@@ -1283,6 +1283,7 @@ impl<'a> Parser<'a> {
         Ok(Statement::Loop { kind, label, body })
     }
 
+    #[allow(dead_code)]
     fn parse_variable_assignment(&mut self) -> Result<Statement> {
         // Parse as either declaration or assignment - typechecker will determine which
         let name = if let Token::Identifier(name) = &self.current_token {
