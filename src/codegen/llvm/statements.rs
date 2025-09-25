@@ -681,14 +681,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         } else if let Expression::EnumVariant {
                             enum_name,
-                            variant: _,
+                            variant,
                             payload: _,
                         } = init_expr
                         {
-                            // Direct enum variant: Status.Active parsed as EnumVariant
-                            AstType::Generic {
-                                name: enum_name.clone(),
-                                type_args: vec![],
+                            // Direct enum variant: Result.Ok, Option.Some, etc.
+                            // We need to use the tracked generic type information
+                            if enum_name == "Result" {
+                                // Get the tracked type arguments for Result
+                                let ok_type = self.generic_type_context.get("Result_Ok_Type")
+                                    .cloned()
+                                    .unwrap_or(AstType::Void);
+                                let err_type = self.generic_type_context.get("Result_Err_Type")
+                                    .cloned()
+                                    .unwrap_or(AstType::String); // Default error type
+                                
+                                AstType::Generic {
+                                    name: enum_name.clone(),
+                                    type_args: vec![ok_type, err_type],
+                                }
+                            } else if enum_name == "Option" {
+                                // Get the tracked type argument for Option
+                                let some_type = self.generic_type_context.get("Option_Some_Type")
+                                    .cloned()
+                                    .unwrap_or(AstType::Void);
+                                
+                                AstType::Generic {
+                                    name: enum_name.clone(),
+                                    type_args: vec![some_type],
+                                }
+                            } else {
+                                // Other enums without generics
+                                AstType::Generic {
+                                    name: enum_name.clone(),
+                                    type_args: vec![],
+                                }
                             }
                         } else if let Expression::Raise(inner_expr) = init_expr {
                             // .raise() extracts the Ok value from Result<T, E>

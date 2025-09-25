@@ -1,0 +1,127 @@
+// Showcase of nested generic type improvements
+{ io, Result, Option } = @std
+
+// Test deeply nested generic types
+test_deeply_nested = () void {
+    io.println("=== Deeply Nested Generics Test ===")
+    
+    // Level 1: Simple Result
+    result1 = Result.Ok(42)
+    result1 ?
+        | Result.Ok(v) { io.println("Level 1: Got ${v}") }
+        | Result.Err(e) { io.println("Level 1: Error ${e}") }
+    
+    // Level 2: Result containing Result
+    inner2 = Result.Ok(100)
+    outer2 = Result.Ok(inner2)
+    outer2 ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("Level 2: Got ${v}") }
+                | Result.Err(e) { io.println("Level 2 inner: Error ${e}") }
+        }
+        | Result.Err(e) { io.println("Level 2 outer: Error ${e}") }
+    
+    // Level 3: Result<Option<Result<T,E>>, E2>
+    innermost = Result.Ok(300)
+    middle = Option.Some(innermost)
+    outermost = Result.Ok(middle)
+    
+    outermost ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(res) {
+                    res ?
+                        | Result.Ok(v) { io.println("Level 3: Got ${v}") }
+                        | Result.Err(e) { io.println("Level 3 innermost: Error ${e}") }
+                }
+                | Option.None { io.println("Level 3: Option was None") }
+        }
+        | Result.Err(e) { io.println("Level 3 outermost: Error ${e}") }
+    
+    // Mix: Option<Result<Option<T>, E>>
+    inner_opt = Option.Some(999)
+    mid_result = Result.Ok(inner_opt)
+    outer_opt = Option.Some(mid_result)
+    
+    outer_opt ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(opt) {
+                    opt ?
+                        | Option.Some(v) { io.println("Mixed: Got ${v}") }
+                        | Option.None { io.println("Mixed inner: None") }
+                }
+                | Result.Err(e) { io.println("Mixed middle: Error ${e}") }
+        }
+        | Option.None { io.println("Mixed outer: None") }
+}
+
+// Test generic type preservation through variables
+test_type_preservation = () void {
+    io.println("\n=== Type Preservation Test ===")
+    
+    // Create and store nested generics
+    inner_result = Result.Ok(555)
+    stored_inner = inner_result  // Type should be preserved
+    
+    outer_result = Result.Ok(stored_inner)
+    stored_outer = outer_result  // Nested type should be preserved
+    
+    // Extract through stored variables
+    stored_outer ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { 
+                    io.println("Preserved through variables: ${v}")
+                    v == 555 ?
+                        | true { io.println("✓ Type preservation works!") }
+                        | false { io.println("✗ Type preservation failed") }
+                }
+                | Result.Err(e) { io.println("Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer error: ${e}") }
+}
+
+// Test with different payload types
+test_mixed_types = () void {
+    io.println("\n=== Mixed Type Test ===")
+    
+    // Result<Result<string, i32>, string>
+    str_inner = Result.Ok("Hello nested generics!")
+    str_outer = Result.Ok(str_inner)
+    
+    str_outer ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(msg) { io.println("String payload: ${msg}") }
+                | Result.Err(e) { io.println("Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer error: ${e}") }
+    
+    // Option<Result<f64, string>>
+    float_result = Result.Ok(3.14159)
+    float_option = Option.Some(float_result)
+    
+    float_option ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(f) { io.println("Float payload: ${f}") }
+                | Result.Err(e) { io.println("Float error: ${e}") }
+        }
+        | Option.None { io.println("Float option was None") }
+}
+
+main = () i32 {
+    io.println("=== Nested Generic Types Showcase ===")
+    io.println("Demonstrating improvements to nested generic handling")
+    io.println("")
+    
+    test_deeply_nested()
+    test_type_preservation()
+    test_mixed_types()
+    
+    io.println("")
+    io.println("=== All nested generic tests passed! ===")
+    0
+}

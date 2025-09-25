@@ -352,6 +352,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             // For nested generics, the payload is a pointer to the nested enum struct
                                             // We need to track the nested type information for proper extraction later
                                             
+                                            
                                             // Track nested generic types for further extraction
                                             if name == "Option" && !type_args.is_empty() {
                                                 // Result<Option<T>, E> case - track Option<T> inner type
@@ -378,6 +379,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                                                 ], false);
                                                 
+                                                
                                                 // Load the nested enum struct value
                                                 match self.builder.build_load(
                                                     nested_enum_type,
@@ -394,7 +396,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                         }
                                                         loaded_struct
                                                     },
-                                                    Err(_) => loaded_payload
+                                                    Err(e) => {
+                                                        loaded_payload
+                                                    }
                                                 }
                                             }
                                         }
@@ -546,15 +550,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Not null path - attempt to load
                                 self.builder.position_at_end(then_bb);
 
+                                
                                 // Check if we have type information for this enum
                                 let load_type = if enum_name == "Option" && variant == "Some" {
                                     let t = self.generic_type_context.get("Option_Some_Type").cloned();
                                     t
                                 } else if enum_name == "Result" {
                                     if variant == "Ok" {
-                                        self.generic_type_context.get("Result_Ok_Type").cloned()
+                                        let t = self.generic_type_context.get("Result_Ok_Type").cloned();
+                                        t
                                     } else if variant == "Err" {
-                                        self.generic_type_context.get("Result_Err_Type").cloned()
+                                        let t = self.generic_type_context.get("Result_Err_Type").cloned();
+                                        t
                                     } else {
                                         None
                                     }
