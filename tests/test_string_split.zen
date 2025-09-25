@@ -1,0 +1,23 @@
+// Test string.split() method - returns Array<string> but array methods not yet fully implemented
+{ io } = @std
+
+main = () i32 {
+    // Test basic split - returns memory address of Array<string>
+    s ::= "hello,world,test"
+    parts ::= s.split(",")  // Returns Array<string> with 3 elements
+    
+    // The split works but we can't access individual elements yet
+    // without proper array indexing methods
+    io.println("String split compiles and returns Array structure")
+    
+    // More split tests
+    s2 ::= "one two three"
+    words ::= s2.split(" ")  // Returns Array<string> with 3 elements
+    
+    s3 ::= "path/to/file"
+    path_parts ::= s3.split("/")  // Returns Array<string> with 3 elements
+    
+    io.println("All splits executed successfully")
+    
+    0
+}
