@@ -1,16 +1,20 @@
-// Simple test for HashMap instantiation
-{ io } = @std
+// Simple HashMap test to isolate issues
+{ io, HashMap } = @std
 
 main = () i32 {
-    io.println("Testing HashMap instantiation...")
+    io.println("Testing HashMap basic instantiation...")
     
-    // Create a HashMap - this should now work
+    // Create HashMap<string, i32>
     map ::= HashMap<string, i32>.new()
+    io.println("HashMap created successfully")
     
-    io.println("HashMap created successfully!")
+    // Test len() method
+    size ::= map.len()
+    io.println("Map size: ${size}")
     
-    // For now, we can't use methods yet, but at least creation works
-    io.println("Note: HashMap methods not yet implemented")
+    // Test is_empty() method  
+    empty ::= map.is_empty()
+    io.println("Map is empty: ${empty}")
     
     return 0
 }

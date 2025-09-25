@@ -357,8 +357,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     return Ok(hashmap.into());
                                 }
                                 "HashSet" => {
-                                    // HashSet.new() creates an empty hashset
-                                    // For now, return a placeholder struct
+                                    // HashSet.new(hash_fn, eq_fn) creates an empty hashset
+                                    // The test passes hash and equality functions as arguments
+                                    // For now, we'll ignore them but accept them
+                                    if !args.is_empty() {
+                                        // Compile the arguments to ensure they're valid
+                                        for arg in args {
+                                            let _ = self.compile_expression(arg)?;
+                                        }
+                                    }
+                                    
+                                    // Return a placeholder struct
                                     let hashset_type = self.context.struct_type(
                                         &[
                                             self.context.ptr_type(AddressSpace::default()).into(), // buckets
@@ -1778,10 +1787,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Only handle HashMap methods if it's actually a HashMap
                         match method.as_str() {
                             "insert" => {
-                                // HashMap.insert(key, value) implementation
-                                if args.len() != 2 {
+                                // HashMap.insert(key, value, hash_fn, eq_fn) implementation
+                                if args.len() != 4 {
                                     return Err(CompileError::TypeError(
-                                        "insert expects exactly 2 arguments".to_string(),
+                                        "insert expects exactly 4 arguments (key, value, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
@@ -1789,98 +1798,119 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // For now, we'll implement a simple linear probing hash table
                                 // The HashMap struct is: { buckets_ptr, size, capacity }
                                 
-                                // Get the key and value
+                                // Get the key, value, and function arguments
                                 let _key = self.compile_expression(&args[0])?;
                                 let _value = self.compile_expression(&args[1])?;
+                                let _hash_fn = self.compile_expression(&args[2])?;
+                                let _eq_fn = self.compile_expression(&args[3])?;
                                 
                                 // For now, just return void - actual implementation would:
-                                // 1. Hash the key
+                                // 1. Call hash_fn(key) to hash the key
                                 // 2. Find the bucket
-                                // 3. Insert or update the entry
+                                // 3. Insert or update the entry using eq_fn for comparison
                                 // 4. Possibly resize if load factor too high
                                 
                                 // Return void (unit type) 
                                 return Ok(self.context.struct_type(&[], false).const_zero().into());
                             }
                             "get" => {
-                                // HashMap.get(key) -> Option<V>
-                                if args.len() != 1 {
+                                // HashMap.get(key, hash_fn, eq_fn) -> Option<V>
+                                if args.len() != 3 {
                                     return Err(CompileError::TypeError(
-                                        "get expects exactly 1 argument".to_string(),
+                                        "get expects exactly 3 arguments (key, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
                                 
                                 let _key = self.compile_expression(&args[0])?;
+                                let _hash_fn = self.compile_expression(&args[1])?;
+                                let _eq_fn = self.compile_expression(&args[2])?;
                                 
                                 // For now, return None - actual implementation would:
-                                // 1. Hash the key
+                                // 1. Call hash_fn(key) to hash the key
                                 // 2. Search buckets
-                                // 3. Return Some(value) if found, None otherwise
+                                // 3. Use eq_fn to compare keys
+                                // 4. Return Some(value) if found, None otherwise
                                 
-                                let option_type = self.context.struct_type(
-                                    &[
-                                        self.context.i64_type().into(), // discriminant
-                                        self.context.i64_type().into(), // payload (assuming i32 value for now)
-                                    ],
-                                    false,
-                                );
+                                // Get the Option enum type
+                                let option_info = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
+                                    info
+                                } else {
+                                    return Err(CompileError::TypeError(
+                                        "Option type not found".to_string(),
+                                        None,
+                                    ));
+                                };
                                 
-                                // Return None for now
-                                let none_value = option_type.const_named_struct(&[
-                                    self.context.i64_type().const_int(1, false).into(), // None = 1  
-                                    self.context.i64_type().const_int(0, false).into(), // dummy payload
+                                // Return Option.None for now
+                                // The Option enum struct is { i64 discriminant, ptr payload }
+                                let none_discriminant = self.context.i64_type().const_int(1, false); // None = 1
+                                let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                                
+                                let none_value = option_info.llvm_type.const_named_struct(&[
+                                    none_discriminant.into(),
+                                    null_payload.into(),
                                 ]);
                                 
                                 return Ok(none_value.into());
                             }
                             "contains" => {
-                                // HashMap.contains(key) -> bool
-                                if args.len() != 1 {
+                                // HashMap.contains(key, hash_fn, eq_fn) -> bool
+                                if args.len() != 3 {
                                     return Err(CompileError::TypeError(
-                                        "contains expects exactly 1 argument".to_string(),
+                                        "contains expects exactly 3 arguments (key, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
                                 
                                 let _key = self.compile_expression(&args[0])?;
+                                let _hash_fn = self.compile_expression(&args[1])?;
+                                let _eq_fn = self.compile_expression(&args[2])?;
                                 
                                 // For now, return false - actual implementation would check if key exists
                                 return Ok(self.context.bool_type().const_int(0, false).into());
                             }
                             "remove" => {
-                                // HashMap.remove(key) -> Option<V>
-                                if args.len() != 1 {
+                                // HashMap.remove(key, hash_fn, eq_fn) -> Option<V>
+                                if args.len() != 3 {
                                     return Err(CompileError::TypeError(
-                                        "remove expects exactly 1 argument".to_string(),
+                                        "remove expects exactly 3 arguments (key, hash_fn, eq_fn)".to_string(),
                                         None,
                                     ));
                                 }
                                 
                                 let _key = self.compile_expression(&args[0])?;
+                                let _hash_fn = self.compile_expression(&args[1])?;
+                                let _eq_fn = self.compile_expression(&args[2])?;
                                 
                                 // For now, return None - actual implementation would:
                                 // 1. Find and remove the entry
                                 // 2. Return Some(old_value) if found, None otherwise
                                 
-                                let option_type = self.context.struct_type(
-                                    &[
-                                        self.context.i64_type().into(), // discriminant
-                                        self.context.i64_type().into(), // payload
-                                    ],
-                                    false,
-                                );
+                                // Get the Option enum type
+                                let option_info = if let Some(symbols::Symbol::EnumType(info)) = self.symbols.lookup("Option") {
+                                    info
+                                } else {
+                                    return Err(CompileError::TypeError(
+                                        "Option type not found".to_string(),
+                                        None,
+                                    ));
+                                };
                                 
-                                // Return None for now
-                                let none_value = option_type.const_named_struct(&[
-                                    self.context.i64_type().const_int(1, false).into(), // None = 1
-                                    self.context.i64_type().const_int(0, false).into(), // dummy payload
+                                // Return Option.None for now
+                                // The Option enum struct is { i64 discriminant, ptr payload }
+                                let none_discriminant = self.context.i64_type().const_int(1, false); // None = 1
+                                let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                                
+                                let none_value = option_info.llvm_type.const_named_struct(&[
+                                    none_discriminant.into(),
+                                    null_payload.into(),
                                 ]);
                                 
                                 return Ok(none_value.into());
                             }
-                            "size" => {
-                                // HashMap.size() -> i64
+                            "size" | "len" => {
+                                // HashMap.size() or HashMap.len() -> i64
                                 // Get the pointer to the original variable
                                 let (hashmap_ptr, _) = self.get_variable(obj_name)?;
                                 
@@ -1897,6 +1927,35 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "size"
                                 )?;
                                 return Ok(size);
+                            }
+                            "is_empty" => {
+                                // HashMap.is_empty() -> bool
+                                // Get the pointer to the original variable
+                                let (hashmap_ptr, _) = self.get_variable(obj_name)?;
+                                
+                                // Load size and check if it's 0
+                                let size_ptr = self.builder.build_struct_gep(
+                                    object_value.get_type(),
+                                    hashmap_ptr,
+                                    1, // size is at index 1
+                                    "size_ptr",
+                                )?;
+                                let size = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    size_ptr,
+                                    "size"
+                                )?.into_int_value();
+                                
+                                // Compare size == 0
+                                let zero = self.context.i64_type().const_int(0, false);
+                                let is_empty = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::EQ,
+                                    size,
+                                    zero,
+                                    "is_empty"
+                                )?;
+                                
+                                return Ok(is_empty.into());
                             }
                             _ => {}
                         }
