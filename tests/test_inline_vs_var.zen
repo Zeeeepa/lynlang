@@ -1,0 +1,29 @@
+// Test inline vs variable creation
+{ io, Result } = @std
+
+main = () i32 {
+    // Method 1: Using variable
+    inner1 = Result.Ok(42)
+    outer1 = Result.Ok(inner1)
+    io.println("=== With Variable ===")
+    outer1 ?
+        | Result.Ok(i) {
+            i ?
+                | Result.Ok(v) { io.println("Value: ${v}") }
+                | Result.Err(e) { io.println("Err") }
+        }
+        | Result.Err(e) { io.println("Err") }
+    
+    // Method 2: Inline
+    io.println("\n=== Inline ===")
+    outer2 = Result.Ok(Result.Ok(42))
+    outer2 ?
+        | Result.Ok(i) {
+            i ?
+                | Result.Ok(v) { io.println("Value: ${v}") }
+                | Result.Err(e) { io.println("Err") }
+        }
+        | Result.Err(e) { io.println("Err") }
+    
+    0
+}

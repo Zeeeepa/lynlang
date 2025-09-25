@@ -1,0 +1,199 @@
+// Comprehensive generic type test suite
+{ io, Result, Option } = @std
+{ HashMap, DynVec } = @std
+
+// === Test 1: Basic Generic Types ===
+test_basic_generics = () void {
+    io.println("=== Test 1: Basic Generic Types ===")
+    
+    // Option<i32>
+    opt1 = Option.Some(42)
+    opt1 ?
+        | Option.Some(v) { io.println("  Option<i32>: ${v}") }
+        | Option.None { io.println("  Option<i32>: None") }
+    
+    // Result<string, i32>
+    res1 = Result.Ok("success")
+    res1 ?
+        | Result.Ok(v) { io.println("  Result<string, i32>: ${v}") }
+        | Result.Err(e) { io.println("  Result error: ${e}") }
+}
+
+// === Test 2: Nested Generic Types ===
+test_nested_generics = () void {
+    io.println("\n=== Test 2: Nested Generic Types ===")
+    
+    // Result<Option<i32>, string>
+    nested1 = Result.Ok(Option.Some(100))
+    nested1 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Result<Option<i32>>: ${v}") }
+                | Option.None { io.println("  Result<Option<i32>>: None") }
+        }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    // Option<Result<string, i32>>
+    nested2 = Option.Some(Result.Ok("nested"))
+    nested2 ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(v) { io.println("  Option<Result<string>>: ${v}") }
+                | Result.Err(e) { io.println("  Inner error: ${e}") }
+        }
+        | Option.None { io.println("  None") }
+    
+    // Result<Result<i32, string>, string>
+    nested3 = Result.Ok(Result.Ok(42))
+    nested3 ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("  Result<Result<i32>>: ${v}") }
+                | Result.Err(e) { io.println("  Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Outer error: ${e}") }
+}
+
+// === Test 3: Generic-like Functions (without syntax) ===
+test_generic_functions = () void {
+    io.println("\n=== Test 3: Generic-like Functions ===")
+    
+    // Identity function
+    identity_i32 = (val: i32) i32 { val }
+    x = identity_i32(42)
+    io.println("  identity(42) = ${x}")
+    
+    // Simple transformation
+    double = (n: i32) i32 { n * 2 }
+    y = double(21)
+    io.println("  double(21) = ${y}")
+}
+
+// === Test 4: Collection Generics ===
+test_collection_generics = () void {
+    io.println("\n=== Test 4: Collection Generics ===")
+    
+    // DynVec<i32>
+    vec = DynVec<i32>()
+    vec.push(1)
+    vec.push(2)
+    vec.push(3)
+    io.println("  DynVec<i32> length: ${vec.len()}")
+}
+
+// === Test 5: Complex Nested Generics ===
+test_complex_nested = () void {
+    io.println("\n=== Test 5: Complex Nested Generics ===")
+    
+    // Deeply nested: Option<Result<Option<i32>, string>>
+    deep = Option.Some(Result.Ok(Option.Some(999)))
+    deep ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(opt) {
+                    opt ?
+                        | Option.Some(v) { io.println("  Triple nested value: ${v}") }
+                        | Option.None { io.println("  Inner None") }
+                }
+                | Result.Err(e) { io.println("  Middle error: ${e}") }
+        }
+        | Option.None { io.println("  Outer None") }
+}
+
+// === Test 6: Generic Type Inference ===
+test_type_inference = () void {
+    io.println("\n=== Test 6: Generic Type Inference ===")
+    
+    // Should infer Result<i32, string>
+    make_result = (success: bool) Result<i32, string> {
+        success ?
+            | true { Result.Ok(42) }
+            | false { Result.Err("failed") }
+    }
+    
+    res = make_result(true)
+    res ?
+        | Result.Ok(v) { io.println("  Inferred type value: ${v}") }
+        | Result.Err(e) { io.println("  Inferred type error: ${e}") }
+    
+    res2 = make_result(false)
+    res2 ?
+        | Result.Ok(v) { io.println("  Should not print: ${v}") }
+        | Result.Err(e) { io.println("  Inferred type error: ${e}") }
+}
+
+// === Test 7: Generic with Different Payload Types ===
+test_mixed_payloads = () void {
+    io.println("\n=== Test 7: Mixed Payload Types ===")
+    
+    // Result with string payload
+    str_result = Result.Ok("hello generic")
+    str_result ?
+        | Result.Ok(s) { io.println("  String payload: ${s}") }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    // Result with integer payload
+    int_result = Result.Ok(314159)
+    int_result ?
+        | Result.Ok(i) { io.println("  Integer payload: ${i}") }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    // Result with nested Option<string>
+    nested_str = Result.Ok(Option.Some("nested string"))
+    nested_str ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(s) { io.println("  Nested string: ${s}") }
+                | Option.None { io.println("  Nested None") }
+        }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+}
+
+// === Test 8: Error Handling with Generics ===
+test_error_handling = () void {
+    io.println("\n=== Test 8: Error Handling with Generics ===")
+    
+    // Test Result.Err cases
+    err_result = Result.Err("Something went wrong")
+    err_result ?
+        | Result.Ok(v) { io.println("  Should not reach: ${v}") }
+        | Result.Err(e) { io.println("  Error case: ${e}") }
+    
+    // Test Option.None cases
+    none_opt = Option.None
+    none_opt ?
+        | Option.Some(v) { io.println("  Should not reach: ${v}") }
+        | Option.None { io.println("  None case handled") }
+    
+    // Nested error case
+    nested_err = Result.Ok(Result.Err("inner error"))
+    nested_err ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) { io.println("  Should not reach: ${v}") }
+                | Result.Err(e) { io.println("  Inner error caught: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Outer error: ${e}") }
+}
+
+// === Main Test Runner ===
+main = () i32 {
+    io.println("========================================")
+    io.println("    COMPREHENSIVE GENERIC TYPE TESTS")
+    io.println("========================================")
+    
+    test_basic_generics()
+    test_nested_generics()
+    test_generic_functions()
+    test_collection_generics()
+    test_complex_nested()
+    test_type_inference()
+    test_mixed_payloads()
+    test_error_handling()
+    
+    io.println("\n========================================")
+    io.println("        ALL GENERIC TESTS COMPLETE")
+    io.println("========================================")
+    
+    0
+}

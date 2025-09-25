@@ -1,0 +1,62 @@
+// Test deeply nested generic types
+{ io, Result, Option } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested_result = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(100))
+}
+
+// Function that returns Result<Option<i32>, string>
+get_result_option = () Result<Option<i32>, string> {
+    Result.Ok(Option.Some(200))
+}
+
+// Function that returns Option<Result<i32, string>>
+get_option_result = () Option<Result<i32, string>> {
+    Option.Some(Result.Ok(300))
+}
+
+main = () i32 {
+    io.println("=== Testing Nested Generic Payload Extraction ===")
+    
+    // Test Result<Result<i32, string>, string>
+    nested1 = get_nested_result()
+    nested1 ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(val) {
+                    io.println("Result<Result>: Got value ${val}")
+                    val == 100 ? | true { io.println("  ✓ Value is correct") } | false { io.println("  ✗ Wrong value!") }
+                }
+                | Result.Err(e) { io.println("Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer error: ${e}") }
+    
+    // Test Result<Option<i32>, string>
+    nested2 = get_result_option()
+    nested2 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(val) {
+                    io.println("Result<Option>: Got value ${val}")
+                    val == 200 ? | true { io.println("  ✓ Value is correct") } | false { io.println("  ✗ Wrong value!") }
+                }
+                | Option.None { io.println("Got None") }
+        }
+        | Result.Err(e) { io.println("Error: ${e}") }
+    
+    // Test Option<Result<i32, string>>
+    nested3 = get_option_result()
+    nested3 ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(val) {
+                    io.println("Option<Result>: Got value ${val}")
+                    val == 300 ? | true { io.println("  ✓ Value is correct") } | false { io.println("  ✗ Wrong value!") }
+                }
+                | Result.Err(e) { io.println("Error: ${e}") }
+        }
+        | Option.None { io.println("Got None") }
+    
+    0
+}

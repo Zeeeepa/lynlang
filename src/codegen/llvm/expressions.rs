@@ -4830,19 +4830,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             self.module.add_function("malloc", malloc_type, None)
                         });
                         
-                        // Calculate struct size (simplified - use 16 bytes for enum structs)
+                        // Calculate struct size properly
+                        // For enum structs: 8 bytes discriminant + 8 bytes pointer = 16 bytes
+                        // But we need to ensure proper alignment, so use 24 bytes to be safe
                         let size = if struct_type.count_fields() == 2 {
                             // Enum struct (discriminant + pointer)
-                            self.context.i64_type().const_int(16, false)
+                            self.context.i64_type().const_int(24, false)
                         } else {
-                            // Other structs - use a reasonable size
-                            self.context.i64_type().const_int(64, false)
+                            // Other structs - use a reasonable size based on field count
+                            let field_count = struct_type.count_fields();
+                            self.context.i64_type().const_int((field_count as u64) * 8 + 8, false)
                         };
                         
                         let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_struct_payload")?;
                         let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                        self.builder.build_store(heap_ptr, struct_val)?;
-                        heap_ptr.into()
+                        
+                        // Cast the pointer to the correct struct type before storing
+                        let typed_ptr = self.builder.build_pointer_cast(
+                            heap_ptr,
+                            struct_type.ptr_type(inkwell::AddressSpace::default()),
+                            "typed_struct_ptr"
+                        )?;
+                        
+                        // Store the struct value to the heap
+                        self.builder.build_store(typed_ptr, struct_val)?;
+                        
+                        // IMPORTANT: Return the typed pointer, not the generic heap_ptr
+                        // This preserves type information for later extraction
+                        typed_ptr.into()
                     } else {
                         // For simple values, heap-allocate to ensure persistence
                         let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -4875,11 +4890,59 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let null_ptr = ptr_type.const_null();
             self.builder.build_store(payload_ptr, null_ptr)?;
         }
+        
+        // Load the struct from the alloca
         let loaded = self.builder.build_load(
             enum_struct_type,
             alloca,
             &format!("{}_{}_enum_val", enum_name, variant),
         )?;
+        
+        // CRITICAL FIX: For Result and Option types that might be nested,
+        // ensure the entire struct is heap-allocated when it has a complex payload
+        // This prevents stack corruption when these are used as payloads in other enums
+        if (enum_name == "Result" || enum_name == "Option") && payload.is_some() {
+            if let Some(expr) = payload {
+                // Check if the payload is itself an enum variant
+                let is_nested_enum = matches!(
+                    expr.as_ref(),
+                    Expression::EnumVariant { .. } | Expression::EnumLiteral { .. }
+                );
+                if is_nested_enum {
+                    // Heap-allocate this entire enum struct to ensure it persists
+                    let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                        let i64_type = self.context.i64_type();
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                        self.module.add_function("malloc", malloc_type, None)
+                    });
+                    
+                    // Allocate space for the enum struct
+                    let size = self.context.i64_type().const_int(24, false); // 8 + 8 + padding
+                    let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_enum_for_nesting")?;
+                    let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                    
+                    // Cast to the correct type
+                    let typed_ptr = self.builder.build_pointer_cast(
+                        heap_ptr,
+                        enum_struct_type.ptr_type(inkwell::AddressSpace::default()),
+                        "typed_enum_ptr"
+                    )?;
+                    
+                    // Store the struct to heap
+                    self.builder.build_store(typed_ptr, loaded)?;
+                    
+                    // Load it back to return as a value (but now it's heap-backed)
+                    let heap_loaded = self.builder.build_load(
+                        enum_struct_type,
+                        typed_ptr,
+                        &format!("{}_{}_heap_enum", enum_name, variant),
+                    )?;
+                    return Ok(heap_loaded);
+                }
+            }
+        }
+        
         Ok(loaded)
     }
 

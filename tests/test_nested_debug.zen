@@ -1,0 +1,34 @@
+// Debug nested Result extraction step by step
+{ io, Result } = @std
+
+main = () i32 {
+    // Create inner Result
+    inner = Result.Ok(42)
+    inner ?
+        | Result.Ok(v) { io.println("Inner direct: ${v}") }
+        | Result.Err(e) { io.println("Error") }
+    
+    // Create outer Result containing inner
+    outer = Result.Ok(inner)
+    
+    // Extract outer
+    outer ?
+        | Result.Ok(extracted_inner) {
+            io.println("Got outer Ok")
+            
+            // Now check what extracted_inner is
+            extracted_inner ?
+                | Result.Ok(val) {
+                    io.println("Inner value: ${val}")
+                    0
+                }
+                | Result.Err(e) {
+                    io.println("Inner error")
+                    1
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer error")
+            2
+        }
+}

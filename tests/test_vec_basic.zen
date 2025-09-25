@@ -1,0 +1,9 @@
+// Basic Vec test
+{ io } = @std
+
+main = () void {
+    // Try creating a simple Vec<i32, 10>
+    vec = Vec<i32, 10>()
+    vec.push(42)
+    io.println("Pushed 42 to vec")
+}

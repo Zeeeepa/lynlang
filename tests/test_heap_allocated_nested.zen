@@ -1,0 +1,29 @@
+// Test nested generics with heap-allocated values
+{ io, Result, Option, allocator } = @std
+
+// Function that returns a nested Result with allocated string
+create_nested_with_string = () Result<Result<string, string>, string> {
+    inner_str = allocator.alloc_string("heap value")
+    Result.Ok(Result.Ok(inner_str))
+}
+
+main = () i32 {
+    io.println("=== Testing Heap-Allocated Nested Payloads ===")
+    
+    // Test with heap-allocated string
+    nested = create_nested_with_string()
+    nested ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(val) {
+                    io.println("Got string: ${val}")
+                    val == "heap value" ? 
+                        | true { io.println("  ✓ String is correct") } 
+                        | false { io.println("  ✗ Wrong string!") }
+                }
+                | Result.Err(e) { io.println("Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer error: ${e}") }
+    
+    0
+}
