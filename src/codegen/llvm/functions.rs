@@ -1280,24 +1280,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Get the string parameter
                 let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
                 
-                // Declare strtol function if needed
-                let strtol_fn = self.module.get_function("strtol").unwrap_or_else(|| {
+                // Declare strtoll function if needed (for 64-bit integers)
+                let strtoll_fn = self.module.get_function("strtoll").unwrap_or_else(|| {
                     let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                     let i64_type = self.context.i64_type();
                     let i32_type = self.context.i32_type();
                     let fn_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into(), i32_type.into()], false);
-                    self.module.add_function("strtol", fn_type, Some(Linkage::External))
+                    self.module.add_function("strtoll", fn_type, Some(Linkage::External))
                 });
                 
                 // Allocate space for endptr
                 let endptr_alloca = self.builder.build_alloca(self.context.ptr_type(inkwell::AddressSpace::default()), "endptr")?;
                 
-                // Call strtol with base 10
+                // Call strtoll with base 10
                 let base = self.context.i32_type().const_int(10, false);
                 let result = self.builder.build_call(
-                    strtol_fn,
+                    strtoll_fn,
                     &[str_param.into(), endptr_alloca.into(), base.into()],
-                    "strtol_result"
+                    "strtoll_result"
                 )?.try_as_basic_value().left().unwrap().into_int_value();
                 
                 // Load endptr to check if parsing was successful

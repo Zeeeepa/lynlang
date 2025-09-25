@@ -637,6 +637,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         None,
                                     )
                                 })?;
+                            // Update generic type context for Option<i32>
+                            self.generic_type_context
+                                .insert("Option_Some_Type".to_string(), crate::ast::AstType::I32);
                             return Ok(result);
                         }
                         "to_i64" => {
@@ -652,6 +655,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         None,
                                     )
                                 })?;
+                            // Update generic type context for Option<i64>
+                            self.generic_type_context
+                                .insert("Option_Some_Type".to_string(), crate::ast::AstType::I64);
                             return Ok(result);
                         }
                         "to_f32" => {
