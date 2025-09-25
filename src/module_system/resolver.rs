@@ -2,6 +2,7 @@ use crate::ast::{Declaration, Expression, Function, Program, Statement};
 use std::collections::{HashMap, HashSet};
 
 /// Resolves module imports and manages symbol visibility
+#[allow(dead_code)]
 pub struct ModuleResolver {
     /// Map from module alias to actual module path
     imports: HashMap<String, String>,

@@ -10,10 +10,13 @@ use tower_lsp::lsp_types::*;
 /// Symbol information for goto definition, references, etc.
 #[derive(Debug, Clone)]
 pub struct Symbol {
+    #[allow(dead_code)]
     pub name: String,
     pub kind: SymbolKind,
+    #[allow(dead_code)]
     pub range: Range,
     pub detail: Option<String>,
+    #[allow(dead_code)]
     pub children: Vec<Symbol>,
     pub definition_range: Range,
     pub references: Vec<Range>,
@@ -47,6 +50,7 @@ impl SymbolTable {
         self.enums.insert(name, symbol);
     }
 
+    #[allow(dead_code)]
     pub fn add_variable(&mut self, name: String, symbol: Symbol) {
         self.variables.insert(name, symbol);
     }
@@ -374,6 +378,7 @@ pub fn rename_symbol(content: &str, position: Position, new_name: &str) -> Optio
 }
 
 /// Rename symbol support
+#[allow(dead_code)]
 pub fn prepare_rename(content: &str, position: Position) -> Option<(String, Range)> {
     let lines: Vec<&str> = content.lines().collect();
 
@@ -581,6 +586,7 @@ fn get_text_in_range(content: &str, range: Range) -> String {
 }
 
 /// Semantic tokens for syntax highlighting
+#[allow(dead_code)]
 pub fn get_semantic_tokens(content: &str) -> SemanticTokens {
     let lexer = Lexer::new(content);
     let _parser = Parser::new(lexer);

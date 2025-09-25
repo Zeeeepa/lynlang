@@ -37,6 +37,7 @@ impl ModuleSystem {
     }
 
     /// Add a search path for modules
+    #[allow(dead_code)]
     pub fn add_search_path(&mut self, path: PathBuf) {
         self.search_paths.push(path);
     }

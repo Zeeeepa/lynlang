@@ -194,10 +194,12 @@ impl ComptimeInterpreter {
     }
 
     // Helper methods for testing
+    #[allow(dead_code)]
     pub fn set_variable(&mut self, name: String, value: ComptimeValue) {
         self.env.variables.borrow_mut().insert(name, value);
     }
 
+    #[allow(dead_code)]
     pub fn get_variable(&self, name: &str) -> Option<ComptimeValue> {
         self.env.variables.borrow().get(name).cloned()
     }

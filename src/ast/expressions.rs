@@ -60,12 +60,16 @@ pub enum Expression {
         arms: Vec<MatchArm>,
     },
     // Conditional expression for simple boolean patterns (expr ? { block })
+    #[allow(dead_code)]
     Conditional {
         scrutinee: Box<Expression>,
         arms: Vec<ConditionalArm>,
     },
+    #[allow(dead_code)]
     AddressOf(Box<Expression>),
+    #[allow(dead_code)]
     Dereference(Box<Expression>),
+    #[allow(dead_code)]
     PointerOffset {
         pointer: Box<Expression>,
         offset: Box<Expression>,
@@ -74,6 +78,7 @@ pub enum Expression {
         name: String,
         fields: Vec<(String, Expression)>,
     },
+    #[allow(dead_code)]
     StructField {
         struct_: Box<Expression>,
         field: String,
@@ -99,10 +104,15 @@ pub enum Expression {
         member: String,
     },
     // Pointer-specific operations for Zen spec
+    #[allow(dead_code)]
     PointerDereference(Box<Expression>),     // .val operation
+    #[allow(dead_code)]
     PointerAddress(Box<Expression>),         // .addr operation
+    #[allow(dead_code)]
     CreateReference(Box<Expression>),        // .ref() method
+    #[allow(dead_code)]
     CreateMutableReference(Box<Expression>), // .mut_ref() method
+    #[allow(dead_code)]
     StringLength(Box<Expression>),
     // Option<T> constructors
     Some(Box<Expression>), // Some(value)

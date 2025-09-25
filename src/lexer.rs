@@ -73,6 +73,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn next_token(&mut self) -> Token {
         self.next_token_with_span().token
     }
