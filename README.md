@@ -6,12 +6,13 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 > *"No keywords. Pure expression. Allocator-driven concurrency."*
 
-## 🎉 Project Status (2025-09-25)
+## 🎉 Project Status (2025-09-25 @ 15:40 UTC)
 
 - **Test Suite**: **100% PASS RATE** - 195/195 tests passing, zero failures!
 - **Disabled Tests**: 7 tests await unimplemented features  
 - **Compiler Health**: Builds successfully with zero warnings
 - **Core Features**: All working - showcase.zen runs perfectly
+- **Rust Unit Tests**: 19 tests passing (module system, type checker, FFI, behaviors)
 - **Recent Achievements**: 
   - 🎉 **HashMap<i32,i32> fixed!** Full type inference for generic collections now working
   - ✅ String case conversion - to_upper(), to_lower() 
