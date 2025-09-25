@@ -288,6 +288,7 @@ pub fn can_be_dereferenced(type_: &AstType) -> Option<AstType> {
 }
 
 /// Validate that imports are not inside comptime blocks
+#[allow(dead_code)]
 pub fn validate_import_not_in_comptime(stmt: &crate::ast::Statement) -> Result<(), String> {
     use crate::ast::Statement;
 

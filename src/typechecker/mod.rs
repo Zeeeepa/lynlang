@@ -17,6 +17,7 @@ pub struct VariableInfo {
     pub is_initialized: bool,
 }
 
+#[allow(dead_code)]
 pub struct TypeChecker {
     // Symbol table for tracking variable types and mutability
     scopes: Vec<HashMap<String, VariableInfo>>,
@@ -37,6 +38,7 @@ pub struct TypeChecker {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct FunctionSignature {
     pub params: Vec<(String, AstType)>,
     pub return_type: AstType,

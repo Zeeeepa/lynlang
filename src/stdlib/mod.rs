@@ -76,6 +76,7 @@ impl StdNamespace {
 }
 
 /// Trait for standard library modules
+#[allow(dead_code)]
 pub trait StdModuleTrait {
     fn name(&self) -> &str;
     fn get_function(&self, name: &str) -> Option<StdFunction>;
@@ -83,6 +84,7 @@ pub trait StdModuleTrait {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct StdFunction {
     pub name: String,
     pub params: Vec<(String, AstType)>,

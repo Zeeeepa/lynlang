@@ -21,6 +21,7 @@ struct TypeScope {
 }
 
 impl TypeEnvironment {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             generic_functions: HashMap::new(),
@@ -35,12 +36,14 @@ impl TypeEnvironment {
         }
     }
 
+    #[allow(dead_code)]
     pub fn register_generic_function(&mut self, func: Function) {
         if !func.type_params.is_empty() {
             self.generic_functions.insert(func.name.clone(), func);
         }
     }
 
+    #[allow(dead_code)]
     pub fn register_generic_struct(&mut self, struct_def: StructDefinition) {
         if !struct_def.type_params.is_empty() {
             self.generic_structs
@@ -48,12 +51,14 @@ impl TypeEnvironment {
         }
     }
 
+    #[allow(dead_code)]
     pub fn register_generic_enum(&mut self, enum_def: EnumDefinition) {
         if !enum_def.type_params.is_empty() {
             self.generic_enums.insert(enum_def.name.clone(), enum_def);
         }
     }
 
+    #[allow(dead_code)]
     pub fn push_scope(&mut self, type_params: Vec<TypeParameter>) {
         self.current_scope.push(TypeScope {
             type_params,
@@ -61,18 +66,21 @@ impl TypeEnvironment {
         });
     }
 
+    #[allow(dead_code)]
     pub fn pop_scope(&mut self) {
         if self.current_scope.len() > 1 {
             self.current_scope.pop();
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_substitution(&mut self, param: String, concrete: AstType) {
         if let Some(scope) = self.current_scope.last_mut() {
             scope.substitutions.add(param, concrete);
         }
     }
 
+    #[allow(dead_code)]
     pub fn resolve_type(&self, ast_type: &AstType) -> AstType {
         for scope in self.current_scope.iter().rev() {
             let resolved = scope.substitutions.apply(ast_type);
@@ -83,18 +91,22 @@ impl TypeEnvironment {
         ast_type.clone()
     }
 
+    #[allow(dead_code)]
     pub fn get_generic_function(&self, name: &str) -> Option<&Function> {
         self.generic_functions.get(name)
     }
 
+    #[allow(dead_code)]
     pub fn get_generic_struct(&self, name: &str) -> Option<&StructDefinition> {
         self.generic_structs.get(name)
     }
 
+    #[allow(dead_code)]
     pub fn get_generic_enum(&self, name: &str) -> Option<&EnumDefinition> {
         self.generic_enums.get(name)
     }
 
+    #[allow(dead_code)]
     pub fn record_instantiation(
         &mut self,
         base_name: String,
@@ -113,6 +125,7 @@ impl TypeEnvironment {
             .push(instance);
     }
 
+    #[allow(dead_code)]
     pub fn get_instantiation(&self, base_name: &str, type_args: &[AstType]) -> Option<&AstType> {
         self.instantiated_types
             .get(base_name)?
@@ -121,12 +134,14 @@ impl TypeEnvironment {
             .map(|inst| &inst.specialized_type)
     }
 
+    #[allow(dead_code)]
     pub fn is_type_parameter(&self, name: &str) -> bool {
         self.current_scope
             .iter()
             .any(|scope| scope.type_params.iter().any(|param| param.name == name))
     }
 
+    #[allow(dead_code)]
     pub fn validate_type_args(
         &self,
         expected: &[TypeParameter],

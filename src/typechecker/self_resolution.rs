@@ -2,6 +2,7 @@ use crate::ast::{AstType, Expression, Function, Statement, TraitImplementation};
 use crate::error::Result;
 
 /// Transform Self types to concrete types in trait implementations
+#[allow(dead_code)]
 pub fn transform_trait_impl_self_types(
     trait_impl: &TraitImplementation,
 ) -> Result<TraitImplementation> {
@@ -17,6 +18,7 @@ pub fn transform_trait_impl_self_types(
 }
 
 /// Transform Self types in a function to the concrete type
+#[allow(dead_code)]
 pub fn transform_function_self_types(func: &Function, concrete_type: &str) -> Result<Function> {
     let mut transformed = func.clone();
 

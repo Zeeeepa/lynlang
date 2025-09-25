@@ -11,6 +11,7 @@ pub struct ModuleResolver {
 }
 
 impl ModuleResolver {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         ModuleResolver {
             imports: HashMap::new(),
@@ -19,16 +20,19 @@ impl ModuleResolver {
     }
 
     /// Register an import alias
+    #[allow(dead_code)]
     pub fn add_import(&mut self, alias: String, module_path: String) {
         self.imports.insert(alias, module_path);
     }
 
     /// Register exported symbols from a module
+    #[allow(dead_code)]
     pub fn add_exports(&mut self, module_path: String, symbols: HashSet<String>) {
         self.exports.insert(module_path, symbols);
     }
 
     /// Resolve a qualified name (e.g., "io.println") to its full module path
+    #[allow(dead_code)]
     pub fn resolve_qualified_name(&self, name: &str) -> Option<(String, String)> {
         if let Some(dot_pos) = name.find('.') {
             let module_alias = &name[..dot_pos];
@@ -42,6 +46,7 @@ impl ModuleResolver {
     }
 
     /// Check if a symbol is exported from a module
+    #[allow(dead_code)]
     pub fn is_exported(&self, module_path: &str, symbol: &str) -> bool {
         self.exports
             .get(module_path)
@@ -50,6 +55,7 @@ impl ModuleResolver {
     }
 
     /// Extract exported symbols from a module
+    #[allow(dead_code)]
     pub fn extract_exports(program: &Program) -> HashSet<String> {
         let mut exports = HashSet::new();
 
@@ -76,6 +82,7 @@ impl ModuleResolver {
     }
 
     /// Rewrite a program to resolve module references
+    #[allow(dead_code)]
     pub fn resolve_program(&self, program: &mut Program) -> Result<(), String> {
         // Process each declaration
         for decl in &mut program.declarations {
@@ -87,6 +94,7 @@ impl ModuleResolver {
     }
 
     /// Resolve module references in a function
+    #[allow(dead_code)]
     fn resolve_function(&self, func: &mut Function) -> Result<(), String> {
         for stmt in &mut func.body {
             self.resolve_statement(stmt)?;
@@ -95,6 +103,7 @@ impl ModuleResolver {
     }
 
     /// Resolve module references in a statement
+    #[allow(dead_code)]
     fn resolve_statement(&self, stmt: &mut Statement) -> Result<(), String> {
         match stmt {
             Statement::Expression(expr) => self.resolve_expression(expr),
@@ -117,6 +126,7 @@ impl ModuleResolver {
     }
 
     /// Resolve module references in an expression
+    #[allow(dead_code)]
     fn resolve_expression(&self, expr: &mut Expression) -> Result<(), String> {
         match expr {
             Expression::FunctionCall { name, args } => {

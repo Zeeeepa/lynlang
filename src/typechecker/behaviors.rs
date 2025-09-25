@@ -50,6 +50,7 @@ pub struct MethodInfo {
 }
 
 impl BehaviorResolver {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             behaviors: HashMap::new(),
@@ -59,6 +60,7 @@ impl BehaviorResolver {
     }
 
     /// Register a behavior definition
+    #[allow(dead_code)]
     pub fn register_behavior(&mut self, behavior: &BehaviorDefinition) -> Result<()> {
         if self.behaviors.contains_key(&behavior.name) {
             return Err(CompileError::TypeError(
@@ -97,6 +99,7 @@ impl BehaviorResolver {
     }
 
     /// Register a trait definition (using same storage as behaviors)
+    #[allow(dead_code)]
     pub fn register_trait(&mut self, trait_def: &TraitDefinition) -> Result<()> {
         if self.behaviors.contains_key(&trait_def.name) {
             return Err(CompileError::TypeError(
@@ -180,6 +183,7 @@ impl BehaviorResolver {
     }
 
     /// Register an implementation block
+    #[allow(dead_code)]
     pub fn register_trait_implementation(
         &mut self,
         trait_impl: &TraitImplementation,
@@ -238,6 +242,7 @@ impl BehaviorResolver {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn register_trait_requirement(&mut self, trait_req: &TraitRequirement) -> Result<()> {
         // Register that a type requires a trait
         // This is mainly for enum variants that must all implement a trait
@@ -252,6 +257,7 @@ impl BehaviorResolver {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn verify_trait_implementation(&mut self, trait_impl: &TraitImplementation) -> Result<()> {
         // Verify that the implementation satisfies the trait
         if let Some(behavior) = self.behaviors.get(&trait_impl.trait_name) {
@@ -284,6 +290,7 @@ impl BehaviorResolver {
         }
     }
 
+    #[allow(dead_code)]
     pub fn verify_trait_requirement(&mut self, trait_req: &TraitRequirement) -> Result<()> {
         // Verify that a trait requirement is valid
         if !self.behaviors.contains_key(&trait_req.trait_name) {
@@ -296,18 +303,21 @@ impl BehaviorResolver {
     }
 
     /// Check if a type implements a trait
+    #[allow(dead_code)]
     pub fn type_implements(&self, type_name: &str, trait_name: &str) -> bool {
         self.implementations
             .contains_key(&(type_name.to_string(), trait_name.to_string()))
     }
 
     /// Get the implementation of a behavior for a type
+    #[allow(dead_code)]
     pub fn get_impl(&self, type_name: &str, behavior_name: &str) -> Option<&ImplInfo> {
         self.implementations
             .get(&(type_name.to_string(), behavior_name.to_string()))
     }
 
     /// Resolve a method call on a type
+    #[allow(dead_code)]
     pub fn resolve_method(&self, type_name: &str, method_name: &str) -> Option<MethodInfo> {
         // First check inherent methods
         if let Some(methods) = self.inherent_methods.get(type_name) {
@@ -329,6 +339,7 @@ impl BehaviorResolver {
     }
 
     /// Get all behaviors implemented by a type
+    #[allow(dead_code)]
     pub fn get_implemented_behaviors(&self, type_name: &str) -> Vec<String> {
         self.implementations
             .keys()

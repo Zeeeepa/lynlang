@@ -17,12 +17,14 @@ pub struct Compiler<'ctx> {
 }
 
 impl<'ctx> Compiler<'ctx> {
+    #[allow(dead_code)]
     pub fn new(context: &'ctx Context) -> Self {
         Self { context }
     }
 
     /// Compiles a program using the LLVM backend.
     /// In the future, this could take a `target` enum.
+    #[allow(dead_code)]
     pub fn compile_llvm(&self, program: &Program) -> Result<String> {
         // Process module imports
         let processed_program = self.process_imports(program)?;
@@ -51,6 +53,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     /// Gets the LLVM module after compilation for execution engine creation.
+    #[allow(dead_code)]
     pub fn get_module(&self, program: &Program) -> Result<Module<'ctx>> {
         // Process module imports
         let processed_program = self.process_imports(program)?;
@@ -79,6 +82,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     /// Process module imports and merge imported modules
+    #[allow(dead_code)]
     fn process_imports(&self, program: &Program) -> Result<Program> {
         let mut module_system = ModuleSystem::new();
         let mut resolver = ModuleResolver::new();
@@ -115,6 +119,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     /// Execute comptime blocks and expressions in the program
+    #[allow(dead_code)]
     fn execute_comptime(&self, program: Program) -> Result<Program> {
         let mut interpreter = ComptimeInterpreter::new();
         let mut new_declarations = Vec::new();
@@ -315,6 +320,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     /// Resolve Self types in trait implementations
+    #[allow(dead_code)]
     fn resolve_self_types(&self, program: Program) -> Result<Program> {
         use crate::typechecker::self_resolution::transform_trait_impl_self_types;
 

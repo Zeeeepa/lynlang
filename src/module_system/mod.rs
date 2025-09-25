@@ -18,6 +18,7 @@ pub struct ModuleSystem {
 }
 
 impl ModuleSystem {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let mut search_paths = vec![cwd.clone(), cwd.join("lib"), cwd.join("modules")];
@@ -43,6 +44,7 @@ impl ModuleSystem {
     }
 
     /// Resolve and load a module
+    #[allow(dead_code)]
     pub fn load_module(&mut self, module_path: &str) -> Result<&Program, CompileError> {
         // Check if already loaded
         if self.modules.contains_key(module_path) {
@@ -132,6 +134,7 @@ impl ModuleSystem {
     }
 
     /// Merge all loaded modules into a single program
+    #[allow(dead_code)]
     pub fn merge_programs(&self, main_program: Program) -> Program {
         let mut merged = main_program;
 

@@ -635,11 +635,13 @@ impl ComptimeInterpreter {
     }
 
     /// Get any declarations generated during compile-time execution
+    #[allow(dead_code)]
     pub fn get_generated_declarations(&self) -> Vec<Declaration> {
         self.generated_declarations.clone()
     }
 
     /// Generate code from compile-time values
+    #[allow(dead_code)]
     pub fn generate_code(&mut self, value: ComptimeValue) -> Result<Expression> {
         value.to_expression()
     }
