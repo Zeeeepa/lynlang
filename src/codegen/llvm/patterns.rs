@@ -2,7 +2,7 @@ use super::{symbols, LLVMCompiler};
 use crate::ast::Pattern;
 use crate::error::CompileError;
 use inkwell::values::{BasicValueEnum, IntValue};
-use inkwell::IntPredicate;
+use inkwell::{AddressSpace, IntPredicate};
 use std::collections::HashMap;
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -975,16 +975,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                         // Not null path - check the generic type context for Option<T> and Result<T,E> type info
                                         self.builder.position_at_end(then_bb);
+                                        // First check the new generic tracker for nested types
                                         let load_type = if variant == "Some" {
-                                            self.generic_type_context
-                                                .get("Option_Some_Type")
+                                            self.generic_tracker.get("Option_Some_Type")
                                                 .cloned()
+                                                .or_else(|| self.generic_type_context.get("Option_Some_Type").cloned())
                                         } else if variant == "Ok" {
-                                            self.generic_type_context.get("Result_Ok_Type").cloned()
-                                        } else if variant == "Err" {
-                                            self.generic_type_context
-                                                .get("Result_Err_Type")
+                                            self.generic_tracker.get("Result_Ok_Type")
                                                 .cloned()
+                                                .or_else(|| self.generic_type_context.get("Result_Ok_Type").cloned())
+                                        } else if variant == "Err" {
+                                            self.generic_tracker.get("Result_Err_Type")
+                                                .cloned()
+                                                .or_else(|| self.generic_type_context.get("Result_Err_Type").cloned())
                                         } else {
                                             None
                                         };
@@ -1042,6 +1045,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     )
                                                     .unwrap_or(extracted),
                                                 AstType::String => extracted, // Strings are already pointers, don't load
+                                                AstType::Generic { name, .. } if name == "Option" || name == "Result" => {
+                                                    // For nested generics (Result<Option<T>, E> or Option<Result<T,E>>),
+                                                    // the payload is itself an enum struct. Load it as a struct.
+                                                    // The struct has format: { i32 discriminant, ptr payload }
+                                                    // TODO: This needs more work to properly extract nested enum payloads
+                                                    let enum_struct_type = self.context.struct_type(
+                                                        &[
+                                                            self.context.i32_type().into(),
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                        ],
+                                                        false,
+                                                    );
+                                                    match self.builder.build_load(
+                                                        enum_struct_type,
+                                                        ptr_val,
+                                                        "nested_enum",
+                                                    ) {
+                                                        Ok(loaded) => loaded,
+                                                        Err(_) => extracted,
+                                                    }
+                                                }
                                                 _ => {
                                                     // Try default loading
                                                     match self.builder.build_load(
