@@ -5799,14 +5799,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
             Expression::FunctionCall { name, .. } => {
                 // Check if we know the function's return type - clone to avoid borrow issues
                 if let Some(return_type) = self.function_types.get(name).cloned() {
+                    eprintln!("[DEBUG raise] Function {} returns: {:?}", name, return_type);
                     // Track the complex generic type recursively
                     self.track_complex_generic(&return_type, "Result");
                     
-                    if let AstType::Generic { name: type_name, type_args } = return_type {
+                    if let AstType::Generic { name: type_name, type_args } = &return_type {
                         if type_name == "Result" && type_args.len() == 2 {
                             // Store Result<T, E> type arguments for proper payload extraction
+                            eprintln!("[DEBUG raise] Tracking Ok type: {:?}", type_args[0]);
+                            eprintln!("[DEBUG raise] Tracking Err type: {:?}", type_args[1]);
                             self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                             self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                            
+                            // Also use the generic tracker for better nested handling
+                            self.generic_tracker.track_generic_type(&return_type, "Result");
                         }
                     }
                 }
@@ -5861,6 +5867,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.builder.build_unconditional_branch(check_bb)?;
         self.builder.position_at_end(check_bb);
 
+        eprintln!("[DEBUG raise] Result value type: {:?}", result_value.get_type());
+        eprintln!("[DEBUG raise] Is pointer: {}", result_value.is_pointer_value());
+        eprintln!("[DEBUG raise] Is struct: {}", result_value.is_struct_value());
+
         // Handle the Result enum based on its actual representation
         // Result<T, E> is an enum with variants Ok(T) and Err(E)
         // This should work with the existing enum compilation system
@@ -5896,10 +5906,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
             // Handle Ok case - extract the Ok value
             self.builder.position_at_end(ok_bb);
+            eprintln!("[DEBUG raise] In Ok branch, struct has {} fields", struct_type.count_fields());
             if struct_type.count_fields() > 1 {
                 let payload_ptr =
                     self.builder
                         .build_struct_gep(struct_type, temp_alloca, 1, "payload_ptr")?;
+                eprintln!("[DEBUG raise] Got payload ptr");
                 // Get the actual payload type from the struct
                 let payload_field_type =
                     struct_type.get_field_type_at_index(1).ok_or_else(|| {
@@ -5910,18 +5922,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     })?;
 
                 // Load the payload value (which is a pointer to the actual value)
+                eprintln!("[DEBUG raise] Payload field type: {:?}", payload_field_type);
                 let ok_value_ptr =
                     self.builder
                         .build_load(payload_field_type, payload_ptr, "ok_value_ptr")?;
+                eprintln!("[DEBUG raise] Loaded ok_value_ptr type: {:?}", ok_value_ptr.get_type());
 
                 // The payload is always stored as a pointer in our enum representation
                 // We need to dereference it to get the actual value
                 let ok_value = if ok_value_ptr.is_pointer_value() {
+                    eprintln!("[DEBUG raise] Payload is a pointer, dereferencing...");
                     let ptr_val = ok_value_ptr.into_pointer_value();
 
                     // Use the tracked generic type information to determine the correct type to load
                     // Determine the correct type to load - handle nested generics
                     let load_result: Result<BasicValueEnum<'ctx>, CompileError> = if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type").cloned() {
+                        eprintln!("[DEBUG raise] AST type for Ok payload: {:?}", ast_type);
                         match &ast_type {
                             AstType::I8 => {
                                 let load_type: inkwell::types::BasicTypeEnum = self.context.i8_type().into();
@@ -5968,6 +5984,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 Ok(self.builder.build_load(load_type, ptr_val, "ok_value_deref")?)
                             }
                             AstType::Generic { name, type_args } if name == "Result" && type_args.len() == 2 => {
+                                eprintln!("[DEBUG raise] Detected nested Result<{:?}, {:?}>", type_args[0], type_args[1]);
                                 // Handle nested Result<T,E> - the payload is itself a Result struct
                                 // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
                                 // So ptr_val IS the pointer to the heap-allocated Result struct
@@ -5988,7 +6005,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     false
                                 );
                                 // Load the nested Result struct from heap
+                                eprintln!("[DEBUG raise] Loading nested Result struct from heap");
                                 let loaded = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
+                                eprintln!("[DEBUG raise] Loaded nested Result type: {:?}", loaded.get_type());
                                 
                                 Ok(loaded)
                             }
@@ -6026,6 +6045,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     };
                     
                     let loaded_value = load_result?;
+                    eprintln!("[DEBUG raise] Dereferenced value type: {:?}", loaded_value.get_type());
 
                     // The loaded value should be the correct type
                     loaded_value
@@ -6129,6 +6149,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
                 
+                eprintln!("[DEBUG raise] Returning ok_value type: {:?}", ok_value.get_type());
+                eprintln!("[DEBUG raise] Returning ok_value: {:?}", ok_value);
+                
                 // Context has already been updated before the branch, no need to update again
                 
                 Ok(ok_value)
@@ -6208,6 +6231,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     ok_value_ptr
                 };
+                eprintln!("[DEBUG raise] Final ok_value type: {:?}", ok_value.get_type());
+                eprintln!("[DEBUG raise] Final ok_value: {:?}", ok_value);
                 self.builder.build_unconditional_branch(continue_bb)?;
 
                 // Handle Err case
@@ -6227,6 +6252,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                 // Continue with Ok value
                 self.builder.position_at_end(continue_bb);
+                eprintln!("[DEBUG raise] Returning from raise with value type: {:?}", ok_value.get_type());
                 Ok(ok_value)
             } else {
                 // Unit Result
@@ -6255,12 +6281,57 @@ impl<'ctx> LLVMCompiler<'ctx> {
             
             // Try to handle it as a struct type anyway if it looks like one
             let result_type = result_value.get_type();
-            if result_type.is_struct_type() {
+            
+            // Check if this is a Result struct (2 fields) even if it's presented as an array or aggregate type
+            // This can happen with nested Results where the loaded value becomes an aggregate
+            let is_result_like = if result_type.is_struct_type() {
                 let struct_type = result_type.into_struct_type();
+                struct_type.count_fields() == 2  // Result/Option structs have 2 fields: tag + payload
+            } else if result_type.is_array_type() {
+                // Sometimes LLVM represents loaded structs as arrays
+                let array_type = result_type.into_array_type();
+                array_type.len() == 2
+            } else {
+                // Check if the value itself is a struct value (not just the type)
+                result_value.is_struct_value() && {
+                    if let Ok(struct_val) = result_value.try_into() {
+                        let sv: inkwell::values::StructValue = struct_val;
+                        sv.get_type().count_fields() == 2
+                    } else {
+                        false
+                    }
+                }
+            };
+            
+            if is_result_like {
+                // Create a proper struct type for Result
+                let struct_type = if result_type.is_struct_type() {
+                    result_type.into_struct_type()
+                } else {
+                    // Create a struct type that matches Result representation
+                    self.context.struct_type(
+                        &[
+                            self.context.i64_type().into(), // discriminant
+                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
+                        ],
+                        false,
+                    )
+                };
                 
-                // Create a temporary alloca to work with the struct
-                let temp_alloca = self.builder.build_alloca(struct_type, "result_func_temp")?;
-                self.builder.build_store(temp_alloca, result_value)?;
+                // If the value is already a struct, use it directly; otherwise store it first
+                let temp_alloca = if result_value.is_struct_value() {
+                    let alloca = self.builder.build_alloca(struct_type, "result_struct_temp")?;
+                    self.builder.build_store(alloca, result_value)?;
+                    alloca
+                } else {
+                    // Try to treat the value as something we can work with
+                    // This handles cases where the nested Result was loaded as an aggregate
+                    let alloca = self.builder.build_alloca(struct_type, "result_aggregate_temp")?;
+                    
+                    // Try to store the value - if it's compatible, this will work
+                    self.builder.build_store(alloca, result_value)?;
+                    alloca
+                };
                 
                 // Extract the tag (discriminant) from the first field
                 let tag_ptr = self
@@ -6308,8 +6379,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let ptr_val = ok_value_ptr.into_pointer_value();
                         
                         // Use the tracked generic type information to determine the correct type to load
+                        let ast_type_opt = self.generic_type_context.get("Result_Ok_Type");
                         let load_type: inkwell::types::BasicTypeEnum =
-                            if let Some(ast_type) = self.generic_type_context.get("Result_Ok_Type") {
+                            if let Some(ast_type) = ast_type_opt {
+                                // Debug: Check what type we're loading
+                                eprintln!("[DEBUG raise] AST type: {:?}", ast_type);
+                                
                                 match ast_type {
                                     AstType::I8 => self.context.i8_type().into(),
                                     AstType::I16 => self.context.i16_type().into(),
@@ -6323,8 +6398,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     AstType::F64 => self.context.f64_type().into(),
                                     AstType::Bool => self.context.bool_type().into(),
                                     AstType::Generic { name, .. } if name == "Result" || name == "Option" => {
+                                        eprintln!("[DEBUG raise] Detected nested generic: {}", name);
                                         // For nested generics (Result<Result<T,E>,E2>), 
-                                        // the payload is stored as a struct
+                                        // the payload pointer points to a heap-allocated struct
+                                        // We need to load the struct from that pointer
+                                        // The struct itself has the format [i64 tag, ptr payload]
                                         self.context.struct_type(
                                             &[
                                                 self.context.i64_type().into(), // tag
@@ -6339,11 +6417,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Default to i32 for backward compatibility
                                 self.context.i32_type().into()
                             };
+                        // Debug: Check what type we're loading
+                        eprintln!("[DEBUG raise] Loading with type: {:?}", load_type);
+                        
                         let loaded_value =
                             self.builder
                                 .build_load(load_type, ptr_val, "ok_value_deref")?;
                         
+                        eprintln!("[DEBUG raise] Loaded value type: {:?}", loaded_value.get_type());
+                        
                         // The loaded value should be the correct type
+                        // For nested Result/Option types, this will be a struct value that can be raised again
                         loaded_value
                     } else {
                         // If it's not a pointer, it might be an integer that looks like a pointer address

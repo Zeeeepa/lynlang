@@ -1,0 +1,17 @@
+// Test single .raise() on nested Result
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () i32 {
+    // Test raise directly  
+    result = get_nested().raise()
+    io.println("After raise")
+    
+    // The result should now be Result<i32, string>
+    // But let's see what we actually get
+    0
+}

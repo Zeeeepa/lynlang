@@ -1,0 +1,42 @@
+// Test .raise() with nested Result - simple version
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+// Function that uses raise
+process = () Result<i32, string> {
+    // First raise to get inner Result<i32, string>
+    inner = get_nested().raise()
+    
+    io.println("Got inner result after raise")
+    
+    // The inner variable should now be Result<i32, string>
+    // Let's pattern match on it to verify
+    inner ?
+        | Result.Ok(val) {
+            io.println("Inner Ok: ${val}")
+            Result.Ok(val + 10)
+        }
+        | Result.Err(e) {
+            io.println("Inner Err: ${e}")
+            Result.Err(e)
+        }
+}
+
+main = () i32 {
+    result = process()
+    result ?
+        | Result.Ok(v) {
+            io.println("Final value: ${v}")
+            v == 52 ?
+                | true { 0 }
+                | false { 1 }
+        }
+        | Result.Err(e) {
+            io.println("Final error: ${e}")
+            2
+        }
+}

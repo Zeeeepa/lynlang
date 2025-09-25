@@ -1,0 +1,31 @@
+// Test what .raise() returns for nested Result
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+// Function to process the raised value
+test_raise = () Result<i32, string> {
+    inner = get_nested().raise()
+    
+    // Try to use inner as Result
+    inner
+}
+
+main = () i32 {
+    result = test_raise()
+    
+    result ?
+        | Result.Ok(v) { 
+            io.println("Got Ok: ${v}")
+            v == 42 ?
+                | true { 0 }
+                | false { 1 }
+        }
+        | Result.Err(e) { 
+            io.println("Got Err: ${e}")
+            2
+        }
+}
