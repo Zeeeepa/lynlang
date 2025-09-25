@@ -1,0 +1,86 @@
+// Test string.to_i32() and string.to_i64() methods
+{ io, Option } = @std
+
+main = () i32 {
+    io.println("Testing string.to_i32() and string.to_i64() methods...")
+    
+    // Test 1: Valid i32 conversion
+    s1 = "42"
+    opt1 = s1.to_i32()
+    opt1 ? 
+        | Option.Some(v) { 
+            io.println("✓ Parsed '42' as i32: ${v}")
+        }
+        | Option.None { 
+            io.println("✗ Failed to parse '42' as i32")
+        }
+    
+    // Test 2: Negative i32
+    s2 = "-123"
+    opt2 = s2.to_i32()
+    opt2 ? 
+        | Option.Some(v) { 
+            io.println("✓ Parsed '-123' as i32: ${v}")
+        }
+        | Option.None { 
+            io.println("✗ Failed to parse '-123' as i32")
+        }
+    
+    // Test 3: Valid i64 conversion
+    s3 = "9999999999"
+    opt3 = s3.to_i64()
+    opt3 ? 
+        | Option.Some(v) { 
+            io.println("✓ Parsed '9999999999' as i64: ${v}")
+        }
+        | Option.None { 
+            io.println("✗ Failed to parse '9999999999' as i64")
+        }
+    
+    // Test 4: Invalid string (should return None)
+    invalid = "not_a_number"
+    opt4 = invalid.to_i32()
+    opt4 ? 
+        | Option.Some(v) { 
+            io.println("✗ Unexpectedly parsed 'not_a_number': ${v}")
+        }
+        | Option.None { 
+            io.println("✓ Correctly returned None for 'not_a_number'")
+        }
+    
+    // Test 5: Empty string (should return None)
+    empty = ""
+    opt5 = empty.to_i32()
+    opt5 ? 
+        | Option.Some(v) { 
+            io.println("✗ Unexpectedly parsed empty string: ${v}")
+        }
+        | Option.None { 
+            io.println("✓ Correctly returned None for empty string")
+        }
+    
+    // Test 6: Zero
+    zero_str = "0"
+    opt6 = zero_str.to_i32()
+    opt6 ? 
+        | Option.Some(v) { 
+            io.println("✓ Parsed '0' as i32: ${v}")
+        }
+        | Option.None { 
+            io.println("✗ Failed to parse '0' as i32")
+        }
+    
+    // Test 7: Large negative i64
+    s7 = "-9999999999"
+    opt7 = s7.to_i64()
+    opt7 ? 
+        | Option.Some(v) { 
+            io.println("✓ Parsed '-9999999999' as i64: ${v}")
+        }
+        | Option.None { 
+            io.println("✗ Failed to parse '-9999999999' as i64")
+        }
+    
+    io.println("All string to integer conversion tests completed!")
+    0
+}

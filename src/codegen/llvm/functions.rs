@@ -2,6 +2,7 @@ use super::{LLVMCompiler, Type};
 use crate::ast::{self, AstType};
 use crate::error::CompileError;
 use inkwell::module::Linkage;
+use inkwell::IntPredicate;
 use inkwell::{
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum},
     values::{BasicValueEnum, FunctionValue, PointerValue},
@@ -1132,33 +1133,234 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(func)
             }
             "string_to_i32" => {
+                // string_to_i32(str: *const i8) -> Option<i32> (as struct)
                 let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_i32_type = self.context.struct_type(
                     &[
-                        self.context.i64_type().into(), // discriminant
-                        self.context.i32_type().into(), // payload
+                        self.context.i64_type().into(), // discriminant (0=Some, 1=None)
+                        ptr_type.into(), // payload pointer (matches Option<T> layout)
                     ],
                     false,
                 );
                 let fn_type = option_i32_type.fn_type(&[string_type.into()], false);
                 let func = self
                     .module
-                    .add_function(name, fn_type, Some(Linkage::External));
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the string parameter
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                
+                // Declare strtol function if needed
+                let strtol_fn = self.module.get_function("strtol").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let i32_type = self.context.i32_type();
+                    let fn_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into(), i32_type.into()], false);
+                    self.module.add_function("strtol", fn_type, Some(Linkage::External))
+                });
+                
+                // Allocate space for endptr
+                let endptr_alloca = self.builder.build_alloca(self.context.ptr_type(inkwell::AddressSpace::default()), "endptr")?;
+                
+                // Call strtol with base 10
+                let base = self.context.i32_type().const_int(10, false);
+                let result_i64 = self.builder.build_call(
+                    strtol_fn,
+                    &[str_param.into(), endptr_alloca.into(), base.into()],
+                    "strtol_result"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Load endptr to check if parsing was successful
+                let endptr = self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), endptr_alloca, "endptr_val")?;
+                let endptr_val = endptr.into_pointer_value();
+                
+                // Check if endptr is different from str (indicating success)
+                let str_as_int = self.builder.build_ptr_to_int(str_param, self.context.i64_type(), "str_int")?;
+                let endptr_as_int = self.builder.build_ptr_to_int(endptr_val, self.context.i64_type(), "endptr_int")?;
+                let is_success = self.builder.build_int_compare(
+                    IntPredicate::NE,
+                    str_as_int,
+                    endptr_as_int,
+                    "parse_success"
+                )?;
+                
+                // Also check if the result is within i32 range
+                let i32_min = self.context.i64_type().const_int((-2147483648_i64) as u64, true);
+                let i32_max = self.context.i64_type().const_int(2147483647, false);
+                let ge_min = self.builder.build_int_compare(IntPredicate::SGE, result_i64, i32_min, "ge_min")?;
+                let le_max = self.builder.build_int_compare(IntPredicate::SLE, result_i64, i32_max, "le_max")?;
+                let in_range = self.builder.build_and(ge_min, le_max, "in_range")?;
+                let valid_parse = self.builder.build_and(is_success, in_range, "valid_parse")?;
+                
+                // Create blocks for Some and None cases
+                let some_block = self.context.append_basic_block(func, "some");
+                let none_block = self.context.append_basic_block(func, "none");
+                let merge_block = self.context.append_basic_block(func, "merge");
+                
+                self.builder.build_conditional_branch(valid_parse, some_block, none_block)?;
+                
+                // Some block: return Option.Some with the parsed value
+                self.builder.position_at_end(some_block);
+                let result_i32 = self.builder.build_int_truncate(result_i64, self.context.i32_type(), "result_i32")?;
+                
+                // Allocate memory for the i32 payload
+                let payload_alloca = self.builder.build_alloca(self.context.i32_type(), "payload_alloca")?;
+                self.builder.build_store(payload_alloca, result_i32)?;
+                
+                let some_val = self.builder.build_alloca(option_i32_type, "some_val")?;
+                let disc_ptr = self.builder.build_struct_gep(option_i32_type, some_val, 0, "disc_ptr")?;
+                let zero = self.context.i64_type().const_int(0, false);
+                self.builder.build_store(disc_ptr, zero)?;
+                let payload_ptr = self.builder.build_struct_gep(option_i32_type, some_val, 1, "payload_ptr")?;
+                self.builder.build_store(payload_ptr, payload_alloca)?;
+                let some_result = self.builder.build_load(option_i32_type, some_val, "some_result")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // None block: return Option.None
+                self.builder.position_at_end(none_block);
+                let none_val = self.builder.build_alloca(option_i32_type, "none_val")?;
+                let disc_ptr_none = self.builder.build_struct_gep(option_i32_type, none_val, 0, "disc_ptr_none")?;
+                let one = self.context.i64_type().const_int(1, false);
+                self.builder.build_store(disc_ptr_none, one)?;
+                let payload_ptr_none = self.builder.build_struct_gep(option_i32_type, none_val, 1, "payload_ptr_none")?;
+                let null_ptr = ptr_type.const_null();
+                self.builder.build_store(payload_ptr_none, null_ptr)?;
+                let none_result = self.builder.build_load(option_i32_type, none_val, "none_result")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // Merge block: return the result
+                self.builder.position_at_end(merge_block);
+                let phi = self.builder.build_phi(option_i32_type, "result")?;
+                phi.add_incoming(&[(&some_result, some_block), (&none_result, none_block)]);
+                self.builder.build_return(Some(&phi.as_basic_value()))?;
+                
+                // Restore position
+                self.current_function = current_fn;
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
                 Ok(func)
             }
             "string_to_i64" => {
+                // string_to_i64(str: *const i8) -> Option<i64> (as struct)
                 let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_i64_type = self.context.struct_type(
                     &[
-                        self.context.i64_type().into(), // discriminant
-                        self.context.i64_type().into(), // payload
+                        self.context.i64_type().into(), // discriminant (0=Some, 1=None)
+                        ptr_type.into(), // payload pointer (matches Option<T> layout)
                     ],
                     false,
                 );
                 let fn_type = option_i64_type.fn_type(&[string_type.into()], false);
                 let func = self
                     .module
-                    .add_function(name, fn_type, Some(Linkage::External));
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the string parameter
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                
+                // Declare strtol function if needed
+                let strtol_fn = self.module.get_function("strtol").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let i32_type = self.context.i32_type();
+                    let fn_type = i64_type.fn_type(&[ptr_type.into(), ptr_type.into(), i32_type.into()], false);
+                    self.module.add_function("strtol", fn_type, Some(Linkage::External))
+                });
+                
+                // Allocate space for endptr
+                let endptr_alloca = self.builder.build_alloca(self.context.ptr_type(inkwell::AddressSpace::default()), "endptr")?;
+                
+                // Call strtol with base 10
+                let base = self.context.i32_type().const_int(10, false);
+                let result = self.builder.build_call(
+                    strtol_fn,
+                    &[str_param.into(), endptr_alloca.into(), base.into()],
+                    "strtol_result"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Load endptr to check if parsing was successful
+                let endptr = self.builder.build_load(self.context.ptr_type(inkwell::AddressSpace::default()), endptr_alloca, "endptr_val")?;
+                let endptr_val = endptr.into_pointer_value();
+                
+                // Check if endptr is different from str (indicating success)
+                let str_as_int = self.builder.build_ptr_to_int(str_param, self.context.i64_type(), "str_int")?;
+                let endptr_as_int = self.builder.build_ptr_to_int(endptr_val, self.context.i64_type(), "endptr_int")?;
+                let is_success = self.builder.build_int_compare(
+                    IntPredicate::NE,
+                    str_as_int,
+                    endptr_as_int,
+                    "parse_success"
+                )?;
+                
+                // Create blocks for Some and None cases
+                let some_block = self.context.append_basic_block(func, "some");
+                let none_block = self.context.append_basic_block(func, "none");
+                let merge_block = self.context.append_basic_block(func, "merge");
+                
+                self.builder.build_conditional_branch(is_success, some_block, none_block)?;
+                
+                // Some block: return Option.Some with the parsed value
+                self.builder.position_at_end(some_block);
+                
+                // Allocate memory for the i64 payload
+                let payload_alloca = self.builder.build_alloca(self.context.i64_type(), "payload_alloca")?;
+                self.builder.build_store(payload_alloca, result)?;
+                
+                let some_val = self.builder.build_alloca(option_i64_type, "some_val")?;
+                let disc_ptr = self.builder.build_struct_gep(option_i64_type, some_val, 0, "disc_ptr")?;
+                let zero = self.context.i64_type().const_int(0, false);
+                self.builder.build_store(disc_ptr, zero)?;
+                let payload_ptr = self.builder.build_struct_gep(option_i64_type, some_val, 1, "payload_ptr")?;
+                self.builder.build_store(payload_ptr, payload_alloca)?;
+                let some_result = self.builder.build_load(option_i64_type, some_val, "some_result")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // None block: return Option.None
+                self.builder.position_at_end(none_block);
+                let none_val = self.builder.build_alloca(option_i64_type, "none_val")?;
+                let disc_ptr_none = self.builder.build_struct_gep(option_i64_type, none_val, 0, "disc_ptr_none")?;
+                let one = self.context.i64_type().const_int(1, false);
+                self.builder.build_store(disc_ptr_none, one)?;
+                let payload_ptr_none = self.builder.build_struct_gep(option_i64_type, none_val, 1, "payload_ptr_none")?;
+                let null_ptr = ptr_type.const_null();
+                self.builder.build_store(payload_ptr_none, null_ptr)?;
+                let none_result = self.builder.build_load(option_i64_type, none_val, "none_result")?;
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // Merge block: return the result
+                self.builder.position_at_end(merge_block);
+                let phi = self.builder.build_phi(option_i64_type, "result")?;
+                phi.add_incoming(&[(&some_result, some_block), (&none_result, none_block)]);
+                self.builder.build_return(Some(&phi.as_basic_value()))?;
+                
+                // Restore position
+                self.current_function = current_fn;
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
                 Ok(func)
             }
             "string_split" => {
