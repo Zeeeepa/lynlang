@@ -1,0 +1,55 @@
+// Debug nested payload with verbose output
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("=== Debug Nested Payload Heap Allocation ===")
+    
+    // Test 1: Simple value - should work
+    simple_val = 42
+    io.println("Simple val: ${simple_val}")
+    
+    // Test 2: Simple Result - should work
+    simple = Result.Ok(42)
+    simple ?
+        | Result.Ok(v) { io.println("Simple Result value: ${v}") }
+        | Result.Err(e) { io.println("Error") }
+    
+    // Test 3: Two-step nesting - should work
+    inner = Result.Ok(42)
+    io.println("Created inner Result")
+    outer = Result.Ok(inner)
+    io.println("Created outer Result")
+    outer ?
+        | Result.Ok(inner_res) {
+            io.println("Got outer Ok")
+            inner_res ?
+                | Result.Ok(val) { 
+                    io.println("Two-step value: ${val}")
+                }
+                | Result.Err(e) { io.println("Inner Err") }
+        }
+        | Result.Err(e) { io.println("Outer Err") }
+    
+    // Test 4: Inline nesting - problematic
+    inline_nested = Result.Ok(Result.Ok(42))
+    io.println("\nTesting inline nested...")
+    inline_nested ?
+        | Result.Ok(inner_res) {
+            io.println("Got outer Ok for inline")
+            inner_res ?
+                | Result.Ok(val) { 
+                    io.println("Inline nested value: ${val}")
+                    val == 42 ?
+                        | true { return 0 }
+                        | false { return 1 }
+                }
+                | Result.Err(e) { 
+                    io.println("Inner Err")
+                    return 2
+                }
+        }
+        | Result.Err(e) { 
+            io.println("Outer Err")
+            return 3
+        }
+}

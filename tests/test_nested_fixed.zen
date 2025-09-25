@@ -1,0 +1,50 @@
+// Test nested payload extraction with heap allocation fix
+{ io, Result, Option } = @std
+
+main = () i32 {
+    io.println("=== Testing Nested Payload Extraction Fix ===")
+    
+    // Step 1: Create simple Result - this works
+    simple = Result.Ok(42)
+    simple ?
+        | Result.Ok(v) { io.println("Simple Result.Ok: ${v}") }
+        | Result.Err(e) { io.println("Simple Result.Err: ${e}") }
+    
+    // Step 2: Create nested Result with explicit value
+    // First create the inner Result
+    inner = Result.Ok(42)
+    io.println("Inner created")
+    
+    // Now wrap it in an outer Result
+    nested = Result.Ok(inner)
+    io.println("Nested created")
+    
+    // Step 3: Extract outer payload
+    nested ?
+        | Result.Ok(inner_result) {
+            io.println("Got outer Result.Ok, extracting inner...")
+            
+            // Step 4: Extract inner payload
+            inner_result ?
+                | Result.Ok(val) {
+                    io.println("Got inner Result.Ok with value: ${val}")
+                    val == 42 ?
+                        | true { 
+                            io.println("✓ Nested extraction works correctly!")
+                            return 0
+                        }
+                        | false { 
+                            io.println("✗ Value is wrong (expected 42, got ${val})")
+                            return 1
+                        }
+                }
+                | Result.Err(e) { 
+                    io.println("Inner Result.Err: ${e}")
+                    return 2
+                }
+        }
+        | Result.Err(e) { 
+            io.println("Outer Result.Err: ${e}")
+            return 3
+        }
+}

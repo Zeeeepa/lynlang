@@ -577,9 +577,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             // Track nested generic types for further extraction
                                             if name == "Option" && !type_args.is_empty() {
                                                 self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                // Track deeper nesting
+                                                self.generic_tracker.track_generic_type(&type_args[0], "Option_Some");
                                             } else if name == "Result" && type_args.len() == 2 {
                                                 self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                                                 self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                // Track deeper nesting
+                                                if variant == "Ok" {
+                                                    self.generic_tracker.track_generic_type(&type_args[0], "Result_Ok");
+                                                } else if variant == "Err" {
+                                                    self.generic_tracker.track_generic_type(&type_args[1], "Result_Err");
+                                                }
                                             }
                                             
                                             // Load the nested enum struct

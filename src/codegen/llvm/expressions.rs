@@ -4784,10 +4784,35 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Use the enum's LLVM type
         let enum_struct_type = enum_info.llvm_type;
-        let alloca = self.builder.build_alloca(
-            enum_struct_type,
-            &format!("{}_{}_enum_tmp", enum_name, variant),
-        )?;
+        // CRITICAL FIX: Always heap-allocate Result and Option enum structs to ensure
+        // they work correctly when used as payloads in other enums (nested generics)
+        let alloca = if enum_name == "Result" || enum_name == "Option" {
+            // Heap-allocate for Result and Option to support nested generics
+            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                let i64_type = self.context.i64_type();
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                self.module.add_function("malloc", malloc_type, None)
+            });
+            
+            // Allocate space for the enum struct (24 bytes for safety)
+            let size = self.context.i64_type().const_int(24, false);
+            let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_enum_struct_direct")?;
+            let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+            
+            // Cast to the correct enum struct type
+            self.builder.build_pointer_cast(
+                heap_ptr,
+                enum_struct_type.ptr_type(inkwell::AddressSpace::default()),
+                &format!("{}_{}_enum_heap", enum_name, variant)
+            )?
+        } else {
+            // For other enums, use stack allocation as before
+            self.builder.build_alloca(
+                enum_struct_type,
+                &format!("{}_{}_enum_tmp", enum_name, variant),
+            )?
+        };
         let tag_ptr = self
             .builder
             .build_struct_gep(enum_struct_type, alloca, 0, "tag_ptr")?;
@@ -4859,7 +4884,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // This preserves type information for later extraction
                         typed_ptr.into()
                     } else {
-                        // For simple values, heap-allocate to ensure persistence
+                        // For simple values, ALWAYS heap-allocate to ensure persistence
+                        // This is critical for nested generics to work correctly
                         let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                             let i64_type = self.context.i64_type();
                             let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -4867,7 +4893,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             self.module.add_function("malloc", malloc_type, None)
                         });
                         
-                        let size = self.context.i64_type().const_int(8, false);
+                        // Allocate enough space for any primitive type
+                        let size = self.context.i64_type().const_int(16, false);
                         let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_simple_payload")?;
                         let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                         self.builder.build_store(heap_ptr, compiled)?;
@@ -4898,50 +4925,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             &format!("{}_{}_enum_val", enum_name, variant),
         )?;
         
-        // CRITICAL FIX: For Result and Option types that might be nested,
-        // ensure the entire struct is heap-allocated when it has a complex payload
-        // This prevents stack corruption when these are used as payloads in other enums
-        if (enum_name == "Result" || enum_name == "Option") && payload.is_some() {
-            if let Some(expr) = payload {
-                // Check if the payload is itself an enum variant
-                let is_nested_enum = matches!(
-                    expr.as_ref(),
-                    Expression::EnumVariant { .. } | Expression::EnumLiteral { .. }
-                );
-                if is_nested_enum {
-                    // Heap-allocate this entire enum struct to ensure it persists
-                    let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                        let i64_type = self.context.i64_type();
-                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-                        let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
-                        self.module.add_function("malloc", malloc_type, None)
-                    });
-                    
-                    // Allocate space for the enum struct
-                    let size = self.context.i64_type().const_int(24, false); // 8 + 8 + padding
-                    let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_enum_for_nesting")?;
-                    let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
-                    
-                    // Cast to the correct type
-                    let typed_ptr = self.builder.build_pointer_cast(
-                        heap_ptr,
-                        enum_struct_type.ptr_type(inkwell::AddressSpace::default()),
-                        "typed_enum_ptr"
-                    )?;
-                    
-                    // Store the struct to heap
-                    self.builder.build_store(typed_ptr, loaded)?;
-                    
-                    // Load it back to return as a value (but now it's heap-backed)
-                    let heap_loaded = self.builder.build_load(
-                        enum_struct_type,
-                        typed_ptr,
-                        &format!("{}_{}_heap_enum", enum_name, variant),
-                    )?;
-                    return Ok(heap_loaded);
-                }
-            }
-        }
+        // Note: Result and Option are already heap-allocated from the start
+        // so we don't need to do it again here
         
         Ok(loaded)
     }

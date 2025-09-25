@@ -1,0 +1,39 @@
+// Test nested payload extraction with inline creation
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("=== Testing Inline Nested Result ===")
+    
+    // Create nested Result inline - this is where the issue occurs
+    nested = Result.Ok(Result.Ok(42))
+    io.println("Nested created inline")
+    
+    // Extract outer payload
+    nested ?
+        | Result.Ok(inner_result) {
+            io.println("Got outer Result.Ok")
+            
+            // Extract inner payload
+            inner_result ?
+                | Result.Ok(val) {
+                    io.println("Inner value: ${val}")
+                    val == 42 ?
+                        | true { 
+                            io.println("✓ Works!")
+                            return 0
+                        }
+                        | false { 
+                            io.println("✗ Wrong value: ${val}")
+                            return 1
+                        }
+                }
+                | Result.Err(e) { 
+                    io.println("Inner Err")
+                    return 2
+                }
+        }
+        | Result.Err(e) { 
+            io.println("Outer Err")
+            return 3
+        }
+}
