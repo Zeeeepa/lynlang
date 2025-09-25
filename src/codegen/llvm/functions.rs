@@ -1648,6 +1648,270 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 Ok(func)
             }
+            "string_trim" => {
+                // string_trim(str: *const i8) -> *const i8
+                // Returns a new string with leading and trailing whitespace removed
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = string_type.fn_type(&[string_type.into()], false);
+                let func = self
+                    .module
+                    .add_function(name, fn_type, Some(Linkage::Internal));
+                
+                // Save current position
+                let current_block = self.builder.get_insert_block();
+                let current_fn = self.current_function;
+                
+                // Build the function body
+                let entry = self.context.append_basic_block(func, "entry");
+                self.builder.position_at_end(entry);
+                self.current_function = Some(func);
+                
+                // Get the string parameter
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                
+                // Declare strlen function
+                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = self.context.i64_type().fn_type(&[ptr_type.into()], false);
+                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
+                });
+                
+                // Declare malloc function
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
+                });
+                
+                // Get string length
+                let strlen = self.builder.build_call(
+                    strlen_fn,
+                    &[str_param.into()],
+                    "strlen"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Define whitespace characters
+                let i8_type = self.context.i8_type();
+                let space = i8_type.const_int(32, false); // ' '
+                let tab = i8_type.const_int(9, false);     // '\t'
+                let newline = i8_type.const_int(10, false); // '\n'
+                let cr = i8_type.const_int(13, false);     // '\r'
+                
+                // Find start of non-whitespace
+                let start_alloca = self.builder.build_alloca(string_type, "start")?;
+                self.builder.build_store(start_alloca, str_param)?;
+                
+                // Loop to skip leading whitespace
+                let trim_start_loop = self.context.append_basic_block(func, "trim_start_loop");
+                let trim_start_check = self.context.append_basic_block(func, "trim_start_check");
+                let trim_start_done = self.context.append_basic_block(func, "trim_start_done");
+                
+                self.builder.build_unconditional_branch(trim_start_loop)?;
+                
+                self.builder.position_at_end(trim_start_loop);
+                let current_start = self.builder.build_load(string_type, start_alloca, "current_start")?.into_pointer_value();
+                let char_val = self.builder.build_load(i8_type, current_start, "char")?.into_int_value();
+                
+                // Check if char is whitespace
+                let is_space = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, space, "is_space")?;
+                let is_tab = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, tab, "is_tab")?;
+                let is_newline = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, newline, "is_newline")?;
+                let is_cr = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, cr, "is_cr")?;
+                
+                let is_ws1 = self.builder.build_or(is_space, is_tab, "is_ws1")?;
+                let is_ws2 = self.builder.build_or(is_ws1, is_newline, "is_ws2")?;
+                let is_whitespace = self.builder.build_or(is_ws2, is_cr, "is_whitespace")?;
+                
+                // Check if we're at the end of string (null terminator)
+                let is_null = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    char_val,
+                    i8_type.const_zero(),
+                    "is_null"
+                )?;
+                
+                self.builder.build_conditional_branch(is_null, trim_start_done, trim_start_check)?;
+                
+                self.builder.position_at_end(trim_start_check);
+                
+                // Create advance block for incrementing pointer
+                let advance_block = self.context.append_basic_block(func, "advance_start");
+                
+                self.builder.build_conditional_branch(is_whitespace, advance_block, trim_start_done)?;
+                
+                // If whitespace, advance pointer
+                self.builder.position_at_end(advance_block);
+                let next_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        i8_type,
+                        current_start,
+                        &[self.context.i64_type().const_int(1, false)],
+                        "next"
+                    )?
+                };
+                self.builder.build_store(start_alloca, next_ptr)?;
+                self.builder.build_unconditional_branch(trim_start_loop)?;
+                
+                // Now find the end of non-whitespace
+                self.builder.position_at_end(trim_start_done);
+                let trimmed_start = self.builder.build_load(string_type, start_alloca, "trimmed_start")?.into_pointer_value();
+                
+                // Get length of remaining string
+                let remaining_len = self.builder.build_call(
+                    strlen_fn,
+                    &[trimmed_start.into()],
+                    "remaining_len"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Check if string is empty
+                let is_empty = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    remaining_len,
+                    self.context.i64_type().const_zero(),
+                    "is_empty"
+                )?;
+                
+                let empty_block = self.context.append_basic_block(func, "empty");
+                let trim_end_block = self.context.append_basic_block(func, "trim_end");
+                let final_block = self.context.append_basic_block(func, "final");
+                
+                self.builder.build_conditional_branch(is_empty, empty_block, trim_end_block)?;
+                
+                // Empty string case - return empty string
+                self.builder.position_at_end(empty_block);
+                let empty_size = self.context.i64_type().const_int(1, false);
+                let empty_str = self.builder.build_call(
+                    malloc_fn,
+                    &[empty_size.into()],
+                    "empty_str"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                self.builder.build_store(empty_str, i8_type.const_zero())?;
+                self.builder.build_unconditional_branch(final_block)?;
+                
+                // Find trailing whitespace
+                self.builder.position_at_end(trim_end_block);
+                
+                // Initialize end pointer to last char (length - 1)
+                let one = self.context.i64_type().const_int(1, false);
+                let last_index = self.builder.build_int_sub(remaining_len, one, "last_index")?;
+                let end_alloca = self.builder.build_alloca(self.context.i64_type(), "end_index")?;
+                self.builder.build_store(end_alloca, last_index)?;
+                
+                // Loop to find last non-whitespace
+                let trim_end_loop = self.context.append_basic_block(func, "trim_end_loop");
+                let trim_end_check = self.context.append_basic_block(func, "trim_end_check");
+                let trim_end_done = self.context.append_basic_block(func, "trim_end_done");
+                
+                self.builder.build_unconditional_branch(trim_end_loop)?;
+                
+                self.builder.position_at_end(trim_end_loop);
+                let current_end = self.builder.build_load(self.context.i64_type(), end_alloca, "current_end")?.into_int_value();
+                
+                // Check if we've gone before the start
+                let is_before_start = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SLT,
+                    current_end,
+                    self.context.i64_type().const_zero(),
+                    "is_before_start"
+                )?;
+                
+                self.builder.build_conditional_branch(is_before_start, trim_end_done, trim_end_check)?;
+                
+                self.builder.position_at_end(trim_end_check);
+                
+                // Get character at current_end position
+                let char_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        i8_type,
+                        trimmed_start,
+                        &[current_end],
+                        "char_ptr"
+                    )?
+                };
+                let char_val = self.builder.build_load(i8_type, char_ptr, "char")?.into_int_value();
+                
+                // Check if char is whitespace
+                let is_space = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, space, "is_space")?;
+                let is_tab = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, tab, "is_tab")?;
+                let is_newline = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, newline, "is_newline")?;
+                let is_cr = self.builder.build_int_compare(inkwell::IntPredicate::EQ, char_val, cr, "is_cr")?;
+                
+                let is_ws1 = self.builder.build_or(is_space, is_tab, "is_ws1")?;
+                let is_ws2 = self.builder.build_or(is_ws1, is_newline, "is_ws2")?;
+                let is_whitespace = self.builder.build_or(is_ws2, is_cr, "is_whitespace")?;
+                
+                // Create decrement block for updating end index
+                let decrement_block = self.context.append_basic_block(func, "decrement_end");
+                
+                // If not whitespace, we're done
+                self.builder.build_conditional_branch(is_whitespace, decrement_block, trim_end_done)?;
+                
+                // Decrement end index
+                self.builder.position_at_end(decrement_block);
+                let prev_end = self.builder.build_int_sub(current_end, one, "prev_end")?;
+                self.builder.build_store(end_alloca, prev_end)?;
+                self.builder.build_unconditional_branch(trim_end_loop)?;
+                
+                // Calculate length of trimmed string
+                self.builder.position_at_end(trim_end_done);
+                let final_end = self.builder.build_load(self.context.i64_type(), end_alloca, "final_end")?.into_int_value();
+                let trimmed_len = self.builder.build_int_add(final_end, one, "trimmed_len")?;
+                
+                // Allocate new string (length + 1 for null terminator)
+                let alloc_size = self.builder.build_int_add(trimmed_len, one, "alloc_size")?;
+                let new_str = self.builder.build_call(
+                    malloc_fn,
+                    &[alloc_size.into()],
+                    "new_str"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Declare memcpy function
+                let memcpy_fn = self.module.get_function("memcpy").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(
+                        &[ptr_type.into(), ptr_type.into(), i64_type.into()],
+                        false
+                    );
+                    self.module.add_function("memcpy", fn_type, Some(Linkage::External))
+                });
+                
+                // Copy the trimmed string
+                self.builder.build_call(
+                    memcpy_fn,
+                    &[new_str.into(), trimmed_start.into(), trimmed_len.into()],
+                    "memcpy_call"
+                )?;
+                
+                // Add null terminator
+                let null_pos = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        i8_type,
+                        new_str,
+                        &[trimmed_len],
+                        "null_pos"
+                    )?
+                };
+                self.builder.build_store(null_pos, i8_type.const_zero())?;
+                
+                self.builder.build_unconditional_branch(final_block)?;
+                
+                // Final block - PHI node to select result
+                self.builder.position_at_end(final_block);
+                let result = self.builder.build_phi(string_type, "result")?;
+                result.add_incoming(&[(&empty_str, empty_block), (&new_str, trim_end_done)]);
+                
+                self.builder.build_return(Some(&result.as_basic_value()))?;
+                
+                // Restore position
+                self.current_function = current_fn;
+                if let Some(block) = current_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
             "realloc" => {
                 // realloc(ptr: *void, size: i64) -> *void
                 let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());

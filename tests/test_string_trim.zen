@@ -3,88 +3,63 @@
 
 main = () i32 {
     io.println("Testing string.trim() method...")
-    io.println("================================")
     
-    // Test 1: Basic trim with spaces
-    s1 = "  hello  "
-    trimmed1 = s1.trim()
-    io.println("Original: '${s1}'")
-    io.println("Trimmed:  '${trimmed1}'")
+    // Test 1: Basic string with leading and trailing spaces
+    basic = "  hello world  "
+    trimmed1 = basic.trim()
+    io.println("Test 1: '${basic}' -> '${trimmed1}'")
     
-    // Test 2: Tabs and newlines
-    s2 = "\t\tworld\n\n"
-    trimmed2 = s2.trim()
-    io.println("\nOriginal with tabs/newlines: '${s2}'")
-    io.println("Trimmed: '${trimmed2}'")
+    // Test 2: String with tabs
+    with_tabs = "\thello\tworld\t"
+    trimmed2 = with_tabs.trim()
+    io.println("Test 2: Tabs trimmed -> '${trimmed2}'")
     
-    // Test 3: Mixed whitespace
-    s3 = "   mixed   \t\n  "
-    trimmed3 = s3.trim()
-    io.println("\nOriginal mixed: '${s3}'")
-    io.println("Trimmed: '${trimmed3}'")
+    // Test 3: String with newlines
+    with_newlines = "\nhello world\n"
+    trimmed3 = with_newlines.trim()
+    io.println("Test 3: Newlines trimmed -> '${trimmed3}'")
     
-    // Test 4: Empty string
-    s4 = ""
-    trimmed4 = s4.trim()
-    io.println("\nEmpty string: '${s4}'")
-    io.println("Trimmed empty: '${trimmed4}'")
+    // Test 4: String with mixed whitespace
+    mixed = " \t\nhello world\n\t "
+    trimmed4 = mixed.trim()
+    io.println("Test 4: Mixed whitespace -> '${trimmed4}'")
     
-    // Test 5: All whitespace
-    s5 = "   \t\n  "
-    trimmed5 = s5.trim()
-    io.println("\nAll whitespace: '${s5}'")
-    io.println("Trimmed (should be empty): '${trimmed5}'")
+    // Test 5: String with no whitespace
+    no_ws = "hello"
+    trimmed5 = no_ws.trim()
+    io.println("Test 5: No whitespace -> '${trimmed5}'")
     
-    // Test 6: No whitespace
-    s6 = "already_trimmed"
-    trimmed6 = s6.trim()
-    io.println("\nNo whitespace: '${s6}'")
-    io.println("Trimmed (unchanged): '${trimmed6}'")
+    // Test 6: Empty string
+    empty = ""
+    trimmed6 = empty.trim()
+    io.println("Test 6: Empty string -> '${trimmed6}'")
     
-    // Test 7: Left side only
-    s7 = "  left_only"
-    trimmed7 = s7.trim()
-    io.println("\nLeft whitespace: '${s7}'")
-    io.println("Trimmed: '${trimmed7}'")
+    // Test 7: Only whitespace
+    only_ws = "   \t\n   "
+    trimmed7 = only_ws.trim()
+    io.println("Test 7: Only whitespace -> '${trimmed7}'")
     
-    // Test 8: Right side only
-    s8 = "right_only  "
-    trimmed8 = s8.trim()
-    io.println("\nRight whitespace: '${s8}'")
-    io.println("Trimmed: '${trimmed8}'")
+    // Test 8: String with carriage returns
+    with_cr = "\rhello world\r"
+    trimmed8 = with_cr.trim()
+    io.println("Test 8: CR trimmed -> '${trimmed8}'")
     
-    // Test 9: Newlines
-    s9 = "\nhello\nworld\n"
-    trimmed9 = s9.trim()
-    io.println("\nWith newlines: '${s9}'")
-    io.println("Trimmed: '${trimmed9}'")
+    // Test 9: String with internal whitespace (should not be trimmed)
+    internal = "  hello    world  "
+    trimmed9 = internal.trim()
+    io.println("Test 9: Internal spaces preserved -> '${trimmed9}'")
     
-    // Test 10: Windows-style newlines
-    s10 = "\r\nwindows\r\n"
-    trimmed10 = s10.trim()
-    io.println("\nWindows newlines: '${s10}'")
-    io.println("Trimmed: '${trimmed10}'")
+    // Test 10: Single character with whitespace
+    single = "  x  "
+    trimmed10 = single.trim()
+    io.println("Test 10: Single char -> '${trimmed10}'")
     
-    // Test 11: Only tabs
-    s11 = "\t\ttabbed\t\t"
-    trimmed11 = s11.trim()
-    io.println("\nWith tabs: '${s11}'")
-    io.println("Trimmed: '${trimmed11}'")
+    // Test 11: String literal directly
+    trimmed11 = "  direct literal  ".trim()
+    io.println("Test 11: Direct literal -> '${trimmed11}'")
     
-    // Test 12: Single character
-    s12 = " x "
-    trimmed12 = s12.trim()
-    io.println("\nSingle char with spaces: '${s12}'")
-    io.println("Trimmed: '${trimmed12}'")
-    
-    // Test 13: Unicode-like string (but ASCII)
-    s13 = "  test_string_123  "
-    trimmed13 = s13.trim()
-    io.println("\nTest string: '${s13}'")
-    io.println("Trimmed: '${trimmed13}'")
-    
-    io.println("\n================================")
-    io.println("All string.trim() tests completed!")
-    
-    return 0
+    io.println("\n✓ All string.trim() tests completed successfully!")
+    0
 }
+
+result = main()
