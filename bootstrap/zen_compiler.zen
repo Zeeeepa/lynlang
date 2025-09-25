@@ -172,7 +172,7 @@ add_token = (lexer: MutPtr<Lexer>, type: TokenType, lexeme: string) void   {
         line: lexer.line,
         column: lexer.column - string.len(lexeme),
     };
-    DynVec.push(&lexer.tokens, token);
+    DynVec.push(MutPtr<DynVec<Token>>(lexer.tokens), token);
 }
 
 // Scan identifier or keyword
