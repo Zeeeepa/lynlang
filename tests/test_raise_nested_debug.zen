@@ -22,7 +22,25 @@ test_without_raise = () void {
     } | Result.Err(msg) => io.println("Outer Err: ${msg}")
 }
 
+// Test with raise() - the problematic case
+test_with_raise = () Result<i32, string> {
+    // Get the outer Result
+    outer = nested_result(50).raise()  // Should get Result<i32, string>
+    io.println("After first raise, got inner Result")
+    
+    // Extract from the inner Result
+    value = outer.raise()  // Should get i32 (100)
+    io.println("After second raise, got value: ${value}")
+    
+    Result.Ok(value + 10)  // Should return 110
+}
+
 main = () void {
     io.println("Testing nested Result without raise()...")
     test_without_raise()
+    
+    io.println("\nTesting nested Result with raise()...")
+    result = test_with_raise()
+    result ? | Result.Ok(v) => io.println("Final result: ${v}")
+            | Result.Err(e) => io.println("Error: ${e}")
 }

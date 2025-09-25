@@ -241,15 +241,11 @@ impl TypeChecker {
                     // Convert the struct literal fields to struct type fields
                     let mut struct_fields = Vec::new();
                     for (field_name, field_value) in fields {
-                        // Try to extract type from the field value
-                        // In struct definitions, field values are type expressions
-                        if let Expression::TypeExpression(type_expr) = field_value {
-                            struct_fields.push((field_name.clone(), type_expr.clone()));
-                        } else {
-                            // Try to infer the type from the expression
-                            let field_type = self.infer_expression_type(field_value)?;
-                            struct_fields.push((field_name.clone(), field_type));
-                        }
+                        // Try to infer the type from the field value expression
+                        // In struct definitions, field values should be type annotations
+                        // For now, treat them as type identifiers or infer from expression
+                        let field_type = self.infer_expression_type(field_value)?;
+                        struct_fields.push((field_name.clone(), field_type));
                     }
                     
                     // Register this as a struct type
@@ -260,7 +256,7 @@ impl TypeChecker {
                     
                     // Also store as a constant of struct type
                     let struct_type = AstType::Struct {
-                        name: Some(name.clone()),
+                        name: name.clone(),
                         fields: Vec::new(), // Empty for the type reference
                     };
                     self.declare_variable(name, struct_type, false)?;
