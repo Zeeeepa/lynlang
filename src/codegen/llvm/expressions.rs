@@ -1764,6 +1764,145 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }  // Close the is_dynvec check
                 }
 
+                // Special handling for HashMap methods
+                if let Expression::Identifier(obj_name) = object.as_ref() {
+                    // Check if this is actually a HashMap type  
+                    let is_hashmap = if let Some(var_info) = self.variables.get(obj_name) {
+                        matches!(&var_info.ast_type, 
+                            AstType::Generic { name, .. } if name == "HashMap")
+                    } else {
+                        false
+                    };
+                    
+                    if is_hashmap {
+                        // Only handle HashMap methods if it's actually a HashMap
+                        match method.as_str() {
+                            "insert" => {
+                                // HashMap.insert(key, value) implementation
+                                if args.len() != 2 {
+                                    return Err(CompileError::TypeError(
+                                        "insert expects exactly 2 arguments".to_string(),
+                                        None,
+                                    ));
+                                }
+                                
+                                // For now, we'll implement a simple linear probing hash table
+                                // The HashMap struct is: { buckets_ptr, size, capacity }
+                                
+                                // Get the key and value
+                                let _key = self.compile_expression(&args[0])?;
+                                let _value = self.compile_expression(&args[1])?;
+                                
+                                // For now, just return void - actual implementation would:
+                                // 1. Hash the key
+                                // 2. Find the bucket
+                                // 3. Insert or update the entry
+                                // 4. Possibly resize if load factor too high
+                                
+                                // Return void (unit type) 
+                                return Ok(self.context.struct_type(&[], false).const_zero().into());
+                            }
+                            "get" => {
+                                // HashMap.get(key) -> Option<V>
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        "get expects exactly 1 argument".to_string(),
+                                        None,
+                                    ));
+                                }
+                                
+                                let _key = self.compile_expression(&args[0])?;
+                                
+                                // For now, return None - actual implementation would:
+                                // 1. Hash the key
+                                // 2. Search buckets
+                                // 3. Return Some(value) if found, None otherwise
+                                
+                                let option_type = self.context.struct_type(
+                                    &[
+                                        self.context.i64_type().into(), // discriminant
+                                        self.context.i64_type().into(), // payload (assuming i32 value for now)
+                                    ],
+                                    false,
+                                );
+                                
+                                // Return None for now
+                                let none_value = option_type.const_named_struct(&[
+                                    self.context.i64_type().const_int(1, false).into(), // None = 1  
+                                    self.context.i64_type().const_int(0, false).into(), // dummy payload
+                                ]);
+                                
+                                return Ok(none_value.into());
+                            }
+                            "contains" => {
+                                // HashMap.contains(key) -> bool
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        "contains expects exactly 1 argument".to_string(),
+                                        None,
+                                    ));
+                                }
+                                
+                                let _key = self.compile_expression(&args[0])?;
+                                
+                                // For now, return false - actual implementation would check if key exists
+                                return Ok(self.context.bool_type().const_int(0, false).into());
+                            }
+                            "remove" => {
+                                // HashMap.remove(key) -> Option<V>
+                                if args.len() != 1 {
+                                    return Err(CompileError::TypeError(
+                                        "remove expects exactly 1 argument".to_string(),
+                                        None,
+                                    ));
+                                }
+                                
+                                let _key = self.compile_expression(&args[0])?;
+                                
+                                // For now, return None - actual implementation would:
+                                // 1. Find and remove the entry
+                                // 2. Return Some(old_value) if found, None otherwise
+                                
+                                let option_type = self.context.struct_type(
+                                    &[
+                                        self.context.i64_type().into(), // discriminant
+                                        self.context.i64_type().into(), // payload
+                                    ],
+                                    false,
+                                );
+                                
+                                // Return None for now
+                                let none_value = option_type.const_named_struct(&[
+                                    self.context.i64_type().const_int(1, false).into(), // None = 1
+                                    self.context.i64_type().const_int(0, false).into(), // dummy payload
+                                ]);
+                                
+                                return Ok(none_value.into());
+                            }
+                            "size" => {
+                                // HashMap.size() -> i64
+                                // Get the pointer to the original variable
+                                let (hashmap_ptr, _) = self.get_variable(obj_name)?;
+                                
+                                // Load and return size
+                                let size_ptr = self.builder.build_struct_gep(
+                                    object_value.get_type(),
+                                    hashmap_ptr,
+                                    1, // size is at index 1
+                                    "size_ptr",
+                                )?;
+                                let size = self.builder.build_load(
+                                    self.context.i64_type(),
+                                    size_ptr,
+                                    "size"
+                                )?;
+                                return Ok(size);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
                 // Try trait method resolution first
                 if let Ok(result) = self.compile_method_call(object, method, args) {
                     return Ok(result);

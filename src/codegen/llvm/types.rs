@@ -383,6 +383,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     );
                     return Ok(Type::Struct(enum_struct_type));
                 }
+                
+                // Special handling for HashMap<K,V> type
+                if name == "HashMap" {
+                    let hashmap_struct_type = self.context.struct_type(
+                        &[
+                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // buckets
+                            self.context.i64_type().into(), // size
+                            self.context.i64_type().into(), // capacity
+                        ],
+                        false,
+                    );
+                    return Ok(Type::Struct(hashmap_struct_type));
+                }
+                
+                // Special handling for HashSet<T> type  
+                if name == "HashSet" {
+                    let hashset_struct_type = self.context.struct_type(
+                        &[
+                            self.context.ptr_type(inkwell::AddressSpace::default()).into(), // buckets
+                            self.context.i64_type().into(), // size
+                            self.context.i64_type().into(), // capacity
+                        ],
+                        false,
+                    );
+                    return Ok(Type::Struct(hashset_struct_type));
+                }
 
                 // Check if this is actually a user-defined struct type
                 if let Some(struct_info) = self.struct_types.get(name) {

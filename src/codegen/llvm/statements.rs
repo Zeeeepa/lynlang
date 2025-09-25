@@ -474,6 +474,108 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else if let Expression::TypeCast { target_type, .. } = init_expr {
                             // For type casts, use the target type
                             target_type.clone()
+                        } else if let Expression::MethodCall { object, method, .. } = init_expr {
+                            // For method calls like HashMap<K,V>.new()
+                            if method == "new" {
+                                if let Expression::Identifier(type_name) = &**object {
+                                    // Check if it's a generic type constructor
+                                    if type_name.contains('<') {
+                                        // Extract base type and type args
+                                        if let Some(angle_pos) = type_name.find('<') {
+                                            let base_type = &type_name[..angle_pos];
+                                            let remaining = &type_name[angle_pos+1..];
+                                            
+                                            // Simple parsing of type arguments (assumes K,V format)
+                                            match base_type {
+                                                "HashMap" => {
+                                                    // Parse the type arguments
+                                                    // For now, assume string,i32 or similar simple types
+                                                    let type_args = if remaining.contains(',') {
+                                                        let parts: Vec<&str> = remaining.trim_end_matches('>').split(',').collect();
+                                                        let key_type = match parts[0].trim() {
+                                                            "string" => AstType::String,
+                                                            "i32" => AstType::I32,
+                                                            "i64" => AstType::I64,
+                                                            _ => AstType::String, // Default
+                                                        };
+                                                        let value_type = match parts.get(1).map(|s| s.trim()) {
+                                                            Some("string") => AstType::String,
+                                                            Some("i32") => AstType::I32,
+                                                            Some("i64") => AstType::I64,
+                                                            _ => AstType::I32, // Default
+                                                        };
+                                                        vec![key_type, value_type]
+                                                    } else {
+                                                        vec![AstType::String, AstType::I32] // Default
+                                                    };
+                                                    
+                                                    AstType::Generic {
+                                                        name: "HashMap".to_string(),
+                                                        type_args,
+                                                    }
+                                                }
+                                                "HashSet" => {
+                                                    let element_type = match remaining.trim_end_matches('>') {
+                                                        "string" => AstType::String,
+                                                        "i32" => AstType::I32,
+                                                        "i64" => AstType::I64,
+                                                        _ => AstType::I32, // Default
+                                                    };
+                                                    AstType::Generic {
+                                                        name: "HashSet".to_string(),
+                                                        type_args: vec![element_type],
+                                                    }
+                                                }
+                                                "DynVec" => {
+                                                    let element_type = match remaining.trim_end_matches('>') {
+                                                        "string" => AstType::String,
+                                                        "i32" => AstType::I32,
+                                                        "i64" => AstType::I64,
+                                                        _ => AstType::I32, // Default
+                                                    };
+                                                    AstType::DynVec {
+                                                        element_types: vec![element_type],
+                                                        allocator_type: None,
+                                                    }
+                                                }
+                                                _ => {
+                                                    // Unknown generic type, fallback
+                                                    AstType::I32
+                                                }
+                                            }
+                                        } else {
+                                            AstType::I32
+                                        }
+                                    } else {
+                                        AstType::I32
+                                    }
+                                } else {
+                                    AstType::I32
+                                }
+                            } else {
+                                // For other method calls, try to infer from value
+                                match value {
+                                    BasicValueEnum::IntValue(int_val) => {
+                                        let bit_width = int_val.get_type().get_bit_width();
+                                        if bit_width == 1 {
+                                            AstType::Bool
+                                        } else if bit_width <= 32 {
+                                            AstType::I32
+                                        } else {
+                                            AstType::I64
+                                        }
+                                    }
+                                    BasicValueEnum::FloatValue(_) => AstType::F64,
+                                    BasicValueEnum::PointerValue(_) => {
+                                        AstType::Ptr(Box::new(AstType::I8))
+                                    }
+                                    BasicValueEnum::StructValue(_) => {
+                                        // For struct values, default to I32 unless we can determine more
+                                        AstType::I32
+                                    }
+                                    _ => AstType::I64,
+                                }
+                            }
                         } else if let Expression::FunctionCall { name, .. } = init_expr {
                             // For function calls, get the return type from function_types
                             if let Some(return_type) = self.function_types.get(name) {
