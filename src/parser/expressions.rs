@@ -1,5 +1,5 @@
 use super::core::Parser;
-use crate::ast::{BinaryOperator, Expression, MatchArm, Pattern, Statement};
+use crate::ast::{AstType, BinaryOperator, Expression, MatchArm, Pattern, Statement};
 use crate::error::{CompileError, Result};
 use crate::lexer::Token;
 
@@ -165,6 +165,7 @@ impl<'a> Parser<'a> {
                     let body = self.parse_block_expression()?;
                     Expression::Closure {
                         params,
+                        return_type: None,
                         body: Box::new(body),
                     }
                 } else {
@@ -900,6 +901,7 @@ impl<'a> Parser<'a> {
                         let body = Expression::Block(vec![Statement::Expression(body_expr)]);
                         return Ok(Expression::Closure {
                             params: vec![],
+                            return_type: None,
                             body: Box::new(body),
                         });
                     } else if self.current_token == Token::Symbol('{') {
@@ -907,18 +909,20 @@ impl<'a> Parser<'a> {
                         let body = self.parse_block_expression()?;
                         return Ok(Expression::Closure {
                             params: vec![],
+                            return_type: None,
                             body: Box::new(body),
                         });
                     }
                     // Check for return type: () ReturnType { ... }
                     else if matches!(&self.current_token, Token::Identifier(_)) {
                         // This could be a return type
-                        let _return_type = self.parse_type()?;
+                        let return_type = self.parse_type()?;
                         if self.current_token == Token::Symbol('{') {
                             // It's a closure with return type: () ReturnType { ... }
                             let body = self.parse_block_expression()?;
                             return Ok(Expression::Closure {
                                 params: vec![],
+                                return_type: Some(return_type),
                                 body: Box::new(body),
                             });
                         } else {
@@ -940,6 +944,7 @@ impl<'a> Parser<'a> {
                 // A closure looks like: (param) { ... } or (param1, param2) { ... }
                 // or with types: (param: Type) { ... }
                 let mut is_closure = false;
+                let mut closure_return_type: Option<AstType> = None;
                 let mut params = vec![];
 
                 // Check if this looks like a closure parameter list
@@ -993,19 +998,22 @@ impl<'a> Parser<'a> {
                             let body = Expression::Block(vec![Statement::Expression(body_expr)]);
                             return Ok(Expression::Closure {
                                 params,
+                                return_type: None,
                                 body: Box::new(body),
                             });
                         }
                         // Check for the body
                         else if self.current_token == Token::Symbol('{') {
                             is_closure = true;
+                            closure_return_type = None;
                         }
                         // Check for return type: (params) ReturnType { ... }
                         else if matches!(&self.current_token, Token::Identifier(_)) {
                             // Return type specified, check for body after
-                            let _return_type = self.parse_type()?;
+                            let return_type = self.parse_type()?;
                             if self.current_token == Token::Symbol('{') {
                                 is_closure = true;
+                                closure_return_type = Some(return_type);
                             }
                         }
                     }
@@ -1015,6 +1023,7 @@ impl<'a> Parser<'a> {
                         let body = self.parse_block_expression()?;
                         return Ok(Expression::Closure {
                             params,
+                            return_type: closure_return_type,
                             body: Box::new(body),
                         });
                     } else {
@@ -1322,6 +1331,7 @@ impl<'a> Parser<'a> {
                 let body = self.parse_block_expression()?;
                 arguments.push(Expression::Closure {
                     params,
+                    return_type: None,
                     body: Box::new(body),
                 });
             } else {
@@ -1364,6 +1374,7 @@ impl<'a> Parser<'a> {
                                 let body = self.parse_block_expression()?;
                                 arguments.push(Expression::Closure {
                                     params,
+                                    return_type: None,
                                     body: Box::new(body),
                                 });
                             } else {

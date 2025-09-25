@@ -415,7 +415,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 })?;
 
                                 let (param_name, loop_body) = match closure {
-                                    Expression::Closure { params, body } => {
+                                    Expression::Closure { params, return_type: _, body } => {
                                         let param = params.get(0).ok_or_else(|| {
                                             CompileError::InternalError(
                                                 "Range.loop() closure must have one parameter"
@@ -1366,6 +1366,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 match body.as_ref() {
                     Expression::Closure {
                         params: _,
+                        return_type: _,
                         body: closure_body,
                     } => {
                         // If the closure body is a Block, compile its statements
@@ -1404,7 +1405,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Return void value
                 Ok(self.context.i32_type().const_int(0, false).into())
             }
-            Expression::Closure { params, body } => {
+            Expression::Closure { params, return_type, body } => {
                 // Generate inline function
                 let current_func = self.current_function.ok_or_else(|| {
                     CompileError::InternalError(
@@ -1436,11 +1437,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
 
-                // Infer return type from body
-                let inferred_ast_type = self.infer_closure_return_type(body)?;
+                // Use explicit return type if provided, otherwise infer
+                let ast_return_type = if let Some(explicit_type) = return_type {
+                    explicit_type.clone()
+                } else {
+                    self.infer_closure_return_type(body)?
+                };
                 
                 // Convert AST type to LLVM type
-                let return_llvm_type = self.to_llvm_type(&inferred_ast_type)?;
+                let return_llvm_type = self.to_llvm_type(&ast_return_type)?;
                 
                 // Create function type based on the return type
                 let fn_type = match return_llvm_type {
@@ -1464,7 +1469,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         .add_function(&inline_func_name, fn_type, Some(Linkage::Internal));
 
                 // Store the function's return type for later use (e.g., in .raise())
-                self.function_types.insert(inline_func_name.clone(), inferred_ast_type.clone());
+                self.function_types.insert(inline_func_name.clone(), ast_return_type.clone());
 
                 // Save current state
                 let prev_func = self.current_function;
@@ -2760,7 +2765,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         })?;
 
         let (param_name, loop_body) = match closure {
-            Expression::Closure { params, body } => {
+            Expression::Closure { params, return_type: _, body } => {
                 let param = params.get(0).ok_or_else(|| {
                     CompileError::InternalError(
                         "Range.loop() closure must have one parameter".to_string(),
@@ -3555,6 +3560,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Convert to compile_range_loop format
             let closure = Expression::Closure {
                 params: vec![(param.to_string(), None)],
+                return_type: None,
                 body: Box::new(body.clone()),
             };
             return self.compile_range_loop(start, end, *inclusive, &[closure]);

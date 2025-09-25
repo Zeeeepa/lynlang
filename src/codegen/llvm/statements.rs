@@ -103,7 +103,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Type inference - try to infer from initializer
                         if let Some(init_expr) = initializer {
                             // Check if the initializer is a closure BEFORE compiling it
-                            if let Expression::Closure { params, body: _ } = init_expr {
+                            if let Expression::Closure { params, return_type: _, body: _ } = init_expr {
                                 // This is a closure - infer its function pointer type
                                 let param_types: Vec<AstType> = params
                                     .iter()
@@ -859,16 +859,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                     // First check if this is a closure to get proper type info BEFORE compiling
                     let (init_value, var_type) = match value {
-                        Expression::Closure { params, body } => {
+                        Expression::Closure { params, return_type, body } => {
                             // Build the function type from the closure parameters
                             let param_types: Vec<AstType> = params
                                 .iter()
                                 .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
                                 .collect();
 
-                            // TODO: Infer return type from body analysis
-                            // For now, default to i32, but check if body has explicit return type
-                            let return_type = if let Expression::Block(stmts) = body.as_ref() {
+                            // Use the explicit return type if provided, otherwise infer
+                            let ret_type = if let Some(explicit_type) = return_type {
+                                Box::new(explicit_type.clone())
+                            } else if let Expression::Block(stmts) = body.as_ref() {
                                 // Look for a return statement to infer type
                                 let mut ret_type = AstType::I32;
                                 for stmt in stmts {
@@ -890,7 +891,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                             let func_type = AstType::FunctionPointer {
                                 param_types,
-                                return_type,
+                                return_type: ret_type,
                             };
 
                             // Now compile the closure

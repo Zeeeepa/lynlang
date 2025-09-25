@@ -1109,7 +1109,7 @@ impl TypeChecker {
                 // Loop expressions return void for now
                 Ok(AstType::Void)
             }
-            Expression::Closure { params, body } => {
+            Expression::Closure { params, return_type: _, body } => {
                 // Infer closure type - create a FunctionPointer type
                 let param_types: Vec<AstType> = params
                     .iter()

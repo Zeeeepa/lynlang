@@ -159,6 +159,7 @@ pub enum Expression {
     // Closure expression
     Closure {
         params: Vec<(String, Option<AstType>)>,
+        return_type: Option<AstType>,
         body: Box<Expression>,
     },
     // Block expression - evaluates to the last expression or void
