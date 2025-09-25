@@ -4445,6 +4445,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         variant: &str,
         payload: &Option<Box<Expression>>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        eprintln!("[DEBUG] compile_enum_variant: {}.{}, has_payload: {}", enum_name, variant, payload.is_some());
         // Track Result<T, E> type information when compiling Result variants
         if enum_name == "Result" && payload.is_some() {
             if let Some(ref payload_expr) = payload {
@@ -4497,6 +4498,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             match found_enum {
                 Some(info) => info,
                 None => {
+                    eprintln!("[DEBUG] Using fallback for {}.{} - not found in symbol table", enum_name, variant);
                     // Fallback to basic representation if enum not found in symbol table
                     // This maintains backward compatibility
                     // Special handling for Result type variants
@@ -4530,7 +4532,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                     // Handle payload if present
                     if let Some(expr) = payload {
+                        eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
                         let compiled = self.compile_expression(expr)?;
+                        eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
+                                compiled.is_struct_value(), compiled.is_pointer_value());
                         let payload_ptr = self.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -4540,6 +4545,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
+                        eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like nested Result/Option), we need special handling
                             let struct_val = compiled.into_struct_value();
@@ -4548,7 +4554,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
                             // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
-                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload");
+                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
                                 // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
@@ -4679,7 +4685,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                     // Handle payload if present
                     if let Some(expr) = payload {
+                        eprintln!("[DEBUG] Compiling payload expression for {}.{}", enum_name, variant);
                         let compiled = self.compile_expression(expr)?;
+                        eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
+                                compiled.is_struct_value(), compiled.is_pointer_value());
                         let payload_ptr = self.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -4689,6 +4698,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
+                        eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like nested Result/Option), we need special handling
                             let struct_val = compiled.into_struct_value();
@@ -4697,7 +4707,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
                             // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
-                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload");
+                                eprintln!("[DEBUG] Heap allocating nested enum struct as payload for {}.{}", enum_name, variant);
                                 // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
@@ -4845,7 +4855,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
         // Handle payload if present - preserve the actual type!
         if let Some(expr) = payload {
+            eprintln!("[DEBUG] Compiling payload for {}.{} (found in symbol table)", enum_name, variant);
             let compiled = self.compile_expression(expr)?;
+            eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
+                    compiled.is_struct_value(), compiled.is_pointer_value());
             // Check if enum has payload field (index 1)
             if enum_struct_type.count_fields() > 1 {
                 let payload_ptr =
@@ -4871,6 +4884,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // to ensure they persist beyond function scope
                         let struct_val = compiled.into_struct_value();
                         let struct_type = struct_val.get_type();
+                        eprintln!("[DEBUG] Struct has {} fields", struct_type.count_fields());
                         
                         // Always heap-allocate structs used as enum payloads
                         let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
