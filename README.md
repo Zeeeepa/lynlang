@@ -8,7 +8,7 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 ## 🎉 Project Status (2025-09-25)
 
-- **Test Suite**: **100% PASS RATE** - 168/168 tests passing, 7 disabled
+- **Test Suite**: **100% PASS RATE** - 168/168 tests passing
 - **Compiler**: Builds successfully with warnings only  
 - **Core Features**: All working - showcase.zen runs perfectly
 - **Recent Achievements**: 
