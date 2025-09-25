@@ -4447,6 +4447,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     if matches!(t, AstType::Generic { .. }) {
                         let prefix = if variant == "Ok" { "Result_Ok" } else { "Result_Err" };
                         self.track_complex_generic(&t, prefix);
+                        // Use the generic tracker for better nested type handling
+                        self.generic_tracker.track_generic_type(&t, prefix);
                     }
                 }
             }
@@ -4531,10 +4533,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let struct_type = struct_val.get_type();
                             
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
-                            // These need deep copying to preserve nested payloads
+                            // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
-                                // This looks like an enum struct - deep copy it
-                                // First, allocate memory for the struct itself
+                                // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
                                     let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -4542,12 +4543,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     self.module.add_function("malloc", malloc_type, None)
                                 });
                                 
-                                // Allocate 16 bytes for the enum struct
+                                // Allocate 16 bytes for the enum struct (8 for discriminant + 8 for pointer)
                                 let struct_size = self.context.i64_type().const_int(16, false);
                                 let malloc_call = self.builder.build_call(malloc_fn, &[struct_size.into()], "heap_enum")?;
                                 let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                                 
-                                // Store the entire struct - the payload pointer will be preserved
+                                // Store the entire struct - this preserves the discriminant and payload pointer
                                 self.builder.build_store(heap_ptr, struct_val)?;
                                 heap_ptr.into()
                             } else {
@@ -4658,10 +4659,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let struct_type = struct_val.get_type();
                             
                             // Check if this is a Result/Option enum struct (has 2 fields: discriminant + payload ptr)
-                            // These need deep copying to preserve nested payloads
+                            // These need heap allocation to preserve nested payloads
                             if struct_type.count_fields() == 2 {
-                                // This looks like an enum struct - deep copy it
-                                // First, allocate memory for the struct itself
+                                // This looks like an enum struct - heap allocate it
                                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                                     let i64_type = self.context.i64_type();
                                     let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
@@ -4669,12 +4669,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     self.module.add_function("malloc", malloc_type, None)
                                 });
                                 
-                                // Allocate 16 bytes for the enum struct
+                                // Allocate 16 bytes for the enum struct (8 for discriminant + 8 for pointer)
                                 let struct_size = self.context.i64_type().const_int(16, false);
                                 let malloc_call = self.builder.build_call(malloc_fn, &[struct_size.into()], "heap_enum")?;
                                 let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                                 
-                                // Store the entire struct - the payload pointer will be preserved
+                                // Store the entire struct - this preserves the discriminant and payload pointer
                                 self.builder.build_store(heap_ptr, struct_val)?;
                                 heap_ptr.into()
                             } else {
@@ -5726,19 +5726,50 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Compile the expression that should return a Result<T, E>
         let result_value = self.compile_expression(expr)?;
         
-        // When a function returns Result<T,E>, we need to ensure we track its generic types
-        // This is particularly important for functions that return Result
-        if let Expression::FunctionCall { name, .. } = expr {
-            // Check if we know the function's return type - clone to avoid borrow issues
-            if let Some(return_type) = self.function_types.get(name).cloned() {
-                // Track the complex generic type recursively
-                self.track_complex_generic(&return_type, "Result");
-                
-                if let AstType::Generic { name: type_name, type_args } = return_type {
-                    if type_name == "Result" && type_args.len() == 2 {
-                        // Store Result<T, E> type arguments for proper payload extraction
-                        self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                        self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+        // Track the Result's generic types based on the expression type
+        match expr {
+            Expression::FunctionCall { name, .. } => {
+                // Check if we know the function's return type - clone to avoid borrow issues
+                if let Some(return_type) = self.function_types.get(name).cloned() {
+                    // Track the complex generic type recursively
+                    self.track_complex_generic(&return_type, "Result");
+                    
+                    if let AstType::Generic { name: type_name, type_args } = return_type {
+                        if type_name == "Result" && type_args.len() == 2 {
+                            // Store Result<T, E> type arguments for proper payload extraction
+                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                        }
+                    }
+                }
+            }
+            Expression::Identifier(_name) => {
+                // For identifiers/variables, try to infer their type
+                if let Ok(var_type) = self.infer_expression_type(expr) {
+                    if let AstType::Generic { name: type_name, type_args } = &var_type {
+                        if type_name == "Result" && type_args.len() == 2 {
+                            // Store Result<T, E> type arguments for proper payload extraction
+                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                            
+                            // Also track nested generics recursively
+                            self.track_complex_generic(&var_type, "Result");
+                            self.generic_tracker.track_generic_type(&var_type, "Result");
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Try to infer the type for other expressions
+                if let Ok(expr_type) = self.infer_expression_type(expr) {
+                    if let AstType::Generic { name: type_name, type_args } = &expr_type {
+                        if type_name == "Result" && type_args.len() == 2 {
+                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                            
+                            self.track_complex_generic(&expr_type, "Result");
+                            self.generic_tracker.track_generic_type(&expr_type, "Result");
+                        }
                     }
                 }
             }
@@ -5872,7 +5903,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Handle nested Result<T,E> - the payload is itself a Result struct
                                 // When we store a nested Result/Option, we heap-allocate the struct and store the pointer
                                 // So ptr_val IS the pointer to the heap-allocated Result struct
-                                // We need to load the struct from that heap location
+                                
+                                // Update context for nested Result types
+                                // Track the nested Result's types for subsequent raise() calls
+                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                
+                                // Also track them with more specific keys for nested context
+                                self.generic_tracker.track_generic_type(&ast_type, "Result");
+                                
                                 let result_struct_type = self.context.struct_type(
                                     &[
                                         self.context.i64_type().into(), // discriminant
@@ -5882,10 +5921,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 );
                                 // Load the nested Result struct from heap
                                 let loaded = self.builder.build_load(result_struct_type, ptr_val, "nested_result")?;
-                                
-                                // DON'T update Result_Ok_Type here! The loaded value IS a Result<T,E>
-                                // and subsequent raise() calls should handle it as such
-                                // We only update these when we're done with THIS raise, not within the payload loading
                                 
                                 Ok(loaded)
                             }

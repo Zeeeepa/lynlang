@@ -1,0 +1,31 @@
+// Debug test for nested Result from function
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    inner = Result.Ok(42)
+    io.println("Function: created inner Result.Ok(42)")
+    outer = Result.Ok(inner)
+    io.println("Function: created outer Result.Ok(inner)")
+    outer
+}
+
+main = () i32 {
+    io.println("Calling get_nested()...")
+    result = get_nested()
+    
+    io.println("Got result from function, pattern matching...")
+    result ? | Result.Ok(inner) => {
+        io.println("Extracted inner from outer")
+        
+        inner ? | Result.Ok(val) => {
+            io.println("Value from inner: ${val}")
+            val == 42 ? | true => 0 | false => 1
+        } | Result.Err(e) => {
+            io.println("Inner was Err: ${e}")
+            2
+        }
+    } | Result.Err(e) => {
+        io.println("Outer was Err: ${e}")
+        3
+    }
+}
