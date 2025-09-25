@@ -60,7 +60,7 @@ cargo run --bin zen <file.zen>
 cargo run --bin zen examples/showcase.zen
 
 # Run test suite
-./scripts/test_runner.sh
+./scripts/run_tests.sh
 ```
 
 ## Language Features by Example
@@ -382,15 +382,15 @@ builder = (b :: Build) void {
 **Current Status: 90% Language Core Complete | 100% Test Pass Rate**
 
 ### Test Suite Health (2025-09-25)
-- **179/179** tests passing (100% pass rate)
+- **195/195** tests passing (100% pass rate)
 - **Zero segfaults** - rock solid stability
 - **7 disabled tests** - require unimplemented features (behaviors, pointers, inline.c FFI)
 - **showcase.zen** fully operational with all features
-- **Test runner script** - `./scripts/test_runner.sh` for easy testing
+- **Test runner script** - `./scripts/run_tests.sh` for easy testing
 
 ### Project Structure
 - `/` - Root contains only LANGUAGE_SPEC.zen and config files
-- `/tests/` - 175 total test files properly organized (168 active, 7 disabled)
+- `/tests/` - 202 total test files properly organized (195 active, 7 disabled)
 - `/examples/` - Example programs including showcase.zen
 - `/stdlib/` - Standard library modules with allocators and behaviors
 - `/src/` - Compiler source (Rust/LLVM)
