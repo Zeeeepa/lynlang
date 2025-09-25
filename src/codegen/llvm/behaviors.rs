@@ -6,6 +6,7 @@ use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
 use std::collections::HashMap;
 
 /// Manages behavior/trait implementations and method dispatch in LLVM
+#[allow(dead_code)]
 pub struct BehaviorCodegen<'ctx> {
     /// Maps (type_name, behavior_name) -> vtable global
     vtables: HashMap<(String, String), PointerValue<'ctx>>,
@@ -14,6 +15,7 @@ pub struct BehaviorCodegen<'ctx> {
 }
 
 impl<'ctx> BehaviorCodegen<'ctx> {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             vtables: HashMap::new(),

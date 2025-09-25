@@ -986,7 +986,6 @@ impl<'a> Parser<'a> {
 
                         // Check for arrow function syntax: () => expr
                         if self.current_token == Token::Operator("=>".to_string()) {
-                            let _ = is_closure; // Mark as intentionally unused
                             is_closure = true;
                             self.next_token(); // consume '=>'
                                                // Parse the expression body
