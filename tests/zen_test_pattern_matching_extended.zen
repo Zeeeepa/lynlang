@@ -1,0 +1,78 @@
+// Extended pattern matching tests
+{ io } = @std
+{ Option, Result } = @std
+
+// Custom enum for testing
+Priority : .High | .Medium | .Low
+
+// Test basic enum pattern matching
+test_priority = (p: Priority) void {
+    p ?
+        | .High { io.println("  Priority is HIGH!") }
+        | .Medium { io.println("  Priority is medium") }
+        | .Low { io.println("  Priority is low") }
+}
+
+// Test Option pattern matching with different types
+test_option_int = (opt: Option<i32>) void {
+    opt ?
+        | Option.Some(val) { io.println("  Option has value: ${val}") }
+        | Option.None { io.println("  Option is None") }
+}
+
+test_option_string = (opt: Option<string>) void {
+    opt ?
+        | Option.Some(s) { io.println("  String option: ${s}") }
+        | Option.None { io.println("  No string value") }
+}
+
+// Test Result pattern matching
+test_result = (res: Result<i32, string>) void {
+    res ?
+        | Result.Ok(val) { io.println("  Result OK: ${val}") }
+        | Result.Err(err) { io.println("  Result Error: ${err}") }
+}
+
+main = () void {
+    io.println("=== Extended Pattern Matching Tests ===")
+    
+    // Test custom enum
+    io.println("\n1. Custom enum patterns:")
+    test_priority(Priority.High)
+    test_priority(Priority.Medium)
+    test_priority(Priority.Low)
+    
+    // Test Option<i32>
+    io.println("\n2. Option<i32> patterns:")
+    some_int = Option.Some(42)
+    none_int: Option<i32> = Option.None
+    test_option_int(some_int)
+    test_option_int(none_int)
+    
+    // Test Option<string>
+    io.println("\n3. Option<string> patterns:")
+    some_str = Option.Some("Hello Zen")
+    none_str: Option<string> = Option.None
+    test_option_string(some_str)
+    test_option_string(none_str)
+    
+    // Test Result<i32, string>
+    io.println("\n4. Result patterns:")
+    ok_result = Result.Ok(100)
+    err_result = Result.Err("Something failed")
+    test_result(ok_result)
+    test_result(err_result)
+    
+    // Test nested patterns
+    io.println("\n5. Nested pattern matching:")
+    val = 10
+    check = val > 5 ?
+        | true { Option.Some(val * 2) }
+        | false { Option.None }
+    
+    check ?
+        | Option.Some(v) { io.println("  Nested result: ${v}") }
+        | Option.None { io.println("  Nested: None") }
+    
+    io.println("\n=== All Pattern Tests Passed ===")
+}

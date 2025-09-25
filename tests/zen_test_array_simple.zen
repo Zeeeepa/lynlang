@@ -1,0 +1,26 @@
+// Simple test for Array<T> functionality
+{ io } = @std
+
+main = () void {
+    io.println("=== Simple Array Test ===")
+    
+    // Create array
+    arr: Array<i32> = Array<i32>.new(10, 0)
+    
+    // Push values
+    arr.push(42)
+    arr.push(100)
+    
+    // Get values
+    val0 = arr.get(0)
+    val1 = arr.get(1)
+    
+    io.println("arr[0] = ${val0}")
+    io.println("arr[1] = ${val1}")
+    
+    // Get length
+    len = arr.len()
+    io.println("Length: ${len}")
+    
+    io.println("=== Test Passed ===")
+}

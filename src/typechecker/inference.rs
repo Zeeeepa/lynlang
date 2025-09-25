@@ -193,6 +193,7 @@ pub fn infer_member_type(
 }
 
 /// Promote two numeric types to their common type
+#[allow(dead_code)]
 fn promote_numeric_types(left: &AstType, right: &AstType) -> Result<AstType> {
     // If either is a float, promote to float
     if left.is_float() || right.is_float() {
@@ -247,6 +248,7 @@ fn promote_numeric_types(left: &AstType, right: &AstType) -> Result<AstType> {
 }
 
 /// Check if two types can be compared
+#[allow(dead_code)]
 fn types_comparable(left: &AstType, right: &AstType) -> bool {
     // Same type is always comparable
     if std::mem::discriminant(left) == std::mem::discriminant(right) {

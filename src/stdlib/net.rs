@@ -5,6 +5,7 @@ use crate::ast::{AstType, Declaration, Expression, ExternalFunction, Function, S
 use crate::ast::{StructDefinition, StructField, VariableDeclarationType};
 
 /// Create the net module with TCP and UDP support
+#[allow(dead_code)]
 pub fn create_net_module() -> Vec<Declaration> {
     let mut declarations = Vec::new();
 
@@ -26,6 +27,7 @@ pub fn create_net_module() -> Vec<Declaration> {
     declarations
 }
 
+#[allow(dead_code)]
 fn create_socket_externals() -> Vec<Declaration> {
     vec![
         // Socket creation and management
@@ -148,6 +150,7 @@ fn create_socket_externals() -> Vec<Declaration> {
     ]
 }
 
+#[allow(dead_code)]
 fn create_socket_types() -> Vec<Declaration> {
     vec![
         // Socket address structure
@@ -238,6 +241,7 @@ fn create_socket_types() -> Vec<Declaration> {
     ]
 }
 
+#[allow(dead_code)]
 fn create_tcp_functions() -> Vec<Declaration> {
     vec![
         // Create TCP listener
@@ -383,6 +387,7 @@ fn create_tcp_functions() -> Vec<Declaration> {
     ]
 }
 
+#[allow(dead_code)]
 fn create_udp_functions() -> Vec<Declaration> {
     vec![
         // Create UDP socket
@@ -491,6 +496,7 @@ fn create_udp_functions() -> Vec<Declaration> {
     ]
 }
 
+#[allow(dead_code)]
 fn create_helper_functions() -> Vec<Declaration> {
     vec![
         // Close socket

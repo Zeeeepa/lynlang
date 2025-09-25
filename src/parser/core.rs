@@ -30,15 +30,18 @@ impl<'a> Parser<'a> {
         self.peek_span = token_with_span.span;
     }
 
+    #[allow(dead_code)]
     pub fn debug_current_token(&self) -> &Token {
         &self.current_token
     }
 
+    #[allow(dead_code)]
     pub fn debug_peek_token(&self) -> &Token {
         &self.peek_token
     }
 
     /// Check if the current position looks like an import statement
+    #[allow(dead_code)]
     pub fn is_import_statement(&self) -> bool {
         // Check for @std imports
         if self.current_token == Token::AtStd {
@@ -57,6 +60,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Check if a statement contains an import
+    #[allow(dead_code)]
     pub fn is_import_in_statement(&self, stmt: &crate::ast::Statement) -> bool {
         use crate::ast::Statement;
 

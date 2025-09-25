@@ -98,6 +98,7 @@ impl ModuleSystem {
     }
 
     /// Resolve a module path to a file path
+    #[allow(dead_code)]
     fn resolve_module_path(&self, module_path: &str) -> Result<PathBuf, CompileError> {
         // Convert module path (e.g., "std.io") to file path (e.g., "std/io.zen")
         let relative_path = module_path.replace('.', "/") + ".zen";
@@ -125,6 +126,7 @@ impl ModuleSystem {
     }
 
     /// Get all loaded modules
+    #[allow(dead_code)]
     pub fn get_modules(&self) -> &HashMap<String, Program> {
         &self.modules
     }

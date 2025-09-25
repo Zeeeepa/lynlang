@@ -44,6 +44,7 @@ pub fn create_option_type() -> AstType {
 }
 
 /// Helper to create an Ok variant
+#[allow(dead_code)]
 pub fn ok_value(value: Expression) -> Expression {
     Expression::EnumVariant {
         enum_name: "Result".to_string(),
@@ -53,6 +54,7 @@ pub fn ok_value(value: Expression) -> Expression {
 }
 
 /// Helper to create an Err variant
+#[allow(dead_code)]
 pub fn err_value(error: Expression) -> Expression {
     Expression::EnumVariant {
         enum_name: "Result".to_string(),
@@ -62,6 +64,7 @@ pub fn err_value(error: Expression) -> Expression {
 }
 
 /// Helper to create a Some variant
+#[allow(dead_code)]
 pub fn some_value(value: Expression) -> Expression {
     Expression::EnumVariant {
         enum_name: "Option".to_string(),
