@@ -1,0 +1,19 @@
+{ io } = @std
+{ Result } = @std
+
+divide = (a: i32, b: i32) Result<i32, string> {
+    Result.Ok(a / b)
+}
+
+main = () void {
+    io.println("Testing .raise() inside closure that returns Result")
+    
+    test = () Result<i32, string> {
+        // This is the problematic pattern
+        val = divide(10, 2).raise()
+        Result.Ok(val)
+    }
+    
+    result = test()
+    io.println("Got result")
+}

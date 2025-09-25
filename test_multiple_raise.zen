@@ -1,0 +1,29 @@
+{ io } = @std
+{ Result } = @std
+
+divide = (a: i32, b: i32) Result<i32, string> {
+    b == 0 ?
+        | true { Result.Err("Division by zero") }
+        | false { Result.Ok(a / b) }
+}
+
+safe_add = (a: i32, b: i32) Result<i32, string> {
+    sum = a + b
+    Result.Ok(sum)
+}
+
+main = () void {
+    io.println("Testing multiple .raise() in closure")
+    
+    chain_test = () Result<i32, string> {
+        a = divide(100, 2).raise()
+        b = divide(50, 5).raise()
+        c = safe_add(a, b).raise()
+        Result.Ok(c)
+    }
+    
+    result = chain_test()
+    result ?
+        | Result.Ok(v) { io.println("Result: ${v}") }
+        | Result.Err(e) { io.println("Error: ${e}") }
+}

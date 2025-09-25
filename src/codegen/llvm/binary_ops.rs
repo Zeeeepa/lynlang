@@ -869,9 +869,56 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+
+            // Cast to same type if needed (prefer wider type)
+            let (left_final, right_final) = if left_int.get_type() != right_int.get_type() {
+                let left_width = left_int.get_type().get_bit_width();
+                let right_width = right_int.get_type().get_bit_width();
+
+                if left_width > right_width {
+                    // Cast right to left's type
+                    let right_cast = if right_width == 1 {
+                        // Zero-extend boolean to match left's type
+                        self.builder.build_int_z_extend(
+                            right_int,
+                            left_int.get_type(),
+                            "zext_right",
+                        )?
+                    } else {
+                        self.builder.build_int_s_extend(
+                            right_int,
+                            left_int.get_type(),
+                            "ext_right",
+                        )?
+                    };
+                    (left_int, right_cast)
+                } else {
+                    // Cast left to right's type
+                    let left_cast = if left_width == 1 {
+                        // Zero-extend boolean to match right's type
+                        self.builder.build_int_z_extend(
+                            left_int,
+                            right_int.get_type(),
+                            "zext_left",
+                        )?
+                    } else {
+                        self.builder.build_int_s_extend(
+                            left_int,
+                            right_int.get_type(),
+                            "ext_left",
+                        )?
+                    };
+                    (left_cast, right_int)
+                }
+            } else {
+                (left_int, right_int)
+            };
+
             let result = self.builder.build_and(
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "andtmp",
             )?;
             Ok(result.into())
@@ -890,9 +937,56 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+
+            // Cast to same type if needed (prefer wider type)
+            let (left_final, right_final) = if left_int.get_type() != right_int.get_type() {
+                let left_width = left_int.get_type().get_bit_width();
+                let right_width = right_int.get_type().get_bit_width();
+
+                if left_width > right_width {
+                    // Cast right to left's type
+                    let right_cast = if right_width == 1 {
+                        // Zero-extend boolean to match left's type
+                        self.builder.build_int_z_extend(
+                            right_int,
+                            left_int.get_type(),
+                            "zext_right",
+                        )?
+                    } else {
+                        self.builder.build_int_s_extend(
+                            right_int,
+                            left_int.get_type(),
+                            "ext_right",
+                        )?
+                    };
+                    (left_int, right_cast)
+                } else {
+                    // Cast left to right's type
+                    let left_cast = if left_width == 1 {
+                        // Zero-extend boolean to match right's type
+                        self.builder.build_int_z_extend(
+                            left_int,
+                            right_int.get_type(),
+                            "zext_left",
+                        )?
+                    } else {
+                        self.builder.build_int_s_extend(
+                            left_int,
+                            right_int.get_type(),
+                            "ext_left",
+                        )?
+                    };
+                    (left_cast, right_int)
+                }
+            } else {
+                (left_int, right_int)
+            };
+
             let result = self.builder.build_or(
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "ortmp",
             )?;
             Ok(result.into())

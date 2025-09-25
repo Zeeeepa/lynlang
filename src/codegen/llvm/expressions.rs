@@ -2,6 +2,7 @@ use super::{symbols, LLVMCompiler, Type, VariableInfo};
 use crate::ast::{AstType, Expression};
 use crate::error::CompileError;
 use inkwell::module::Linkage;
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
 
 impl<'ctx> LLVMCompiler<'ctx> {
@@ -1435,15 +1436,35 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
 
-                // For now, assume i32 return type if body is not analyzed
-                // TODO: Infer return type from body
-                let return_type = self.context.i32_type();
-                let fn_type = return_type.fn_type(&param_types, false);
+                // Infer return type from body
+                let inferred_ast_type = self.infer_closure_return_type(body)?;
+                
+                // Convert AST type to LLVM type
+                let return_llvm_type = self.to_llvm_type(&inferred_ast_type)?;
+                
+                // Create function type based on the return type
+                let fn_type = match return_llvm_type {
+                    Type::Basic(basic_type) => match basic_type {
+                        BasicTypeEnum::IntType(t) => t.fn_type(&param_types, false),
+                        BasicTypeEnum::FloatType(t) => t.fn_type(&param_types, false),
+                        BasicTypeEnum::PointerType(t) => t.fn_type(&param_types, false),
+                        BasicTypeEnum::StructType(t) => t.fn_type(&param_types, false),
+                        BasicTypeEnum::ArrayType(t) => t.fn_type(&param_types, false),
+                        BasicTypeEnum::VectorType(t) => t.fn_type(&param_types, false),
+                        BasicTypeEnum::ScalableVectorType(t) => t.fn_type(&param_types, false),
+                    },
+                    Type::Struct(struct_type) => struct_type.fn_type(&param_types, false),
+                    Type::Void => self.context.void_type().fn_type(&param_types, false),
+                    _ => self.context.i32_type().fn_type(&param_types, false), // Fallback
+                };
 
                 // Create the inline function
                 let inline_func =
                     self.module
                         .add_function(&inline_func_name, fn_type, Some(Linkage::Internal));
+
+                // Store the function's return type for later use (e.g., in .raise())
+                self.function_types.insert(inline_func_name.clone(), inferred_ast_type.clone());
 
                 // Save current state
                 let prev_func = self.current_function;
@@ -3800,4 +3821,49 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.defer_stack.push(expr.clone());
         Ok(())
     }
+
+    /// Infer the return type of a closure from its body
+    fn infer_closure_return_type(&self, body: &Expression) -> Result<AstType, CompileError> {
+        match body {
+            Expression::Block(statements) => {
+                // Look for the last expression or a return statement
+                for stmt in statements {
+                    if let crate::ast::Statement::Return(ret_expr) = stmt {
+                        return self.infer_expression_type(ret_expr);
+                    }
+                }
+                // Check if the last statement is an expression
+                if let Some(last_stmt) = statements.last() {
+                    if let crate::ast::Statement::Expression(expr) = last_stmt {
+                        return self.infer_expression_type(expr);
+                    }
+                }
+                Ok(AstType::Void)
+            }
+            Expression::FunctionCall { name, .. } => {
+                // Check if this is Result.Ok or Result.Err
+                if name == "Result.Ok" || name == "Result.Err" {
+                    // This returns Result<i32, string> (simplified for now)
+                    Ok(AstType::Generic {
+                        name: "Result".to_string(),
+                        type_args: vec![AstType::I32, AstType::String],
+                    })
+                } else if name == "Option.Some" || name == "Option.None" {
+                    Ok(AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args: vec![AstType::I32],
+                    })
+                } else {
+                    // Check if we know the function's return type
+                    if let Some(return_type) = self.function_types.get(name) {
+                        Ok(return_type.clone())
+                    } else {
+                        Ok(AstType::I32) // Default
+                    }
+                }
+            }
+            _ => self.infer_expression_type(body),
+        }
+    }
+
 }
