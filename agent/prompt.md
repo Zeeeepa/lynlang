@@ -1,6 +1,22 @@
 # Tasks
 `./LANGUAGE_SPEC.zen` IS THE SOURCE OF TRUTH 
 
+we need to give generics so much more love generics and types should be super hardened, if we have nested genetrics and things like this we will enable alot of out tests.
+
+
+
+DISABLED TESTS ANALYSIS:
+1. zen_test_collections.zen.disabled - Vec<T, size> push() not implemented
+2. test_raise_nested_result.zen.disabled - Nested Result<Result<T,E>,E> not supported
+3. zen_test_behaviors.zen.disabled - Syntax error in behavior definitions
+4. zen_test_pointers.zen.disabled - Pointer types not implemented
+5. zen_lsp_test.zen.disabled - LSP features not implemented
+6. zen_test_comprehensive_working.zen.disabled - Complex feature integration issues
+7. zen_test_raise_consolidated.zen.disabled_still_broken - Error propagation edge cases
+
+
+
+
 ## Completed Tasks
 ✓ Task 1: Cleaned up test files in root directory - moved to tests/ with zen_ prefix
 ✓ Task 2: Updated lexer, parser, and compiler to match LANGUAGE_SPEC.zen

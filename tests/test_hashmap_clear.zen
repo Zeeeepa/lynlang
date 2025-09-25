@@ -1,0 +1,45 @@
+// Test HashMap.clear() functionality
+{ io } = @std
+{ HashMap } = @std
+
+main = () i32 {
+    // Create a HashMap
+    map = HashMap<i32, i32>.new()
+    
+    // Add some values
+    map.insert(5, 100)
+    map.insert(10, 200)
+    map.insert(15, 300)
+    
+    // Check size before clear
+    sizeBefore = map.size()
+    io.println("Size before clear: ${sizeBefore}")
+    
+    // Clear the map
+    map.clear()
+    
+    // Check size after clear
+    sizeAfter = map.size()
+    io.println("Size after clear: ${sizeAfter}")
+    
+    // Check if empty
+    isEmpty = map.is_empty()
+    isEmpty ?
+        | true { io.println("Map is empty after clear") }
+        | false { io.println("ERROR: Map should be empty after clear") }
+    
+    // Try to get a key that was previously there
+    result = map.get(10)
+    result ?
+        | Option.Some(value) { io.println("ERROR: Key 10 still exists with value: ${value}") }
+        | Option.None { io.println("Key 10 correctly removed after clear") }
+    
+    // Add a new value after clear
+    map.insert(20, 400)
+    newSize = map.size()
+    io.println("Size after adding new value: ${newSize}")
+    
+    newSize == 1 ?
+        | true { 0 }
+        | false { 1 }
+}

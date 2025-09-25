@@ -1,0 +1,74 @@
+// Comprehensive HashSet test to drive implementation
+{ io } = @std
+{ HashSet } = @std
+
+main = () i32 {
+    // Test HashSet creation
+    set = HashSet<i32>.new()
+    
+    // Test add operation
+    added1 = set.add(10)
+    added1 ? 
+        | true { io.println("Added 10 successfully") }
+        | false { io.println("Failed to add 10") }
+    
+    // Test add duplicate - should return false
+    added2 = set.add(10)
+    added2 ? 
+        | false { io.println("Correctly rejected duplicate 10") }
+        | true { io.println("ERROR: Added duplicate 10") }
+    
+    // Add more unique values
+    set.add(20)
+    set.add(30)
+    
+    // Test contains
+    has10 = set.contains(10)
+    has10 ?
+        | true { io.println("Contains 10: correct") }
+        | false { io.println("ERROR: Should contain 10") }
+    
+    has40 = set.contains(40)
+    has40 ?
+        | false { io.println("Does not contain 40: correct") }
+        | true { io.println("ERROR: Should not contain 40") }
+    
+    // Test size
+    size = set.size()
+    io.println("Set size: ${size}")
+    size == 3 ?
+        | true { io.println("Size is correct") }
+        | false { io.println("ERROR: Size should be 3") }
+    
+    // Test remove
+    removed = set.remove(20)
+    removed ?
+        | true { io.println("Removed 20 successfully") }
+        | false { io.println("ERROR: Should have removed 20") }
+    
+    // Check size after remove
+    newSize = set.size()
+    newSize == 2 ?
+        | true { io.println("Size after remove is correct") }
+        | false { io.println("ERROR: Size should be 2") }
+    
+    // Test is_empty
+    empty = set.is_empty()
+    empty ?
+        | false { io.println("Set is not empty: correct") }
+        | true { io.println("ERROR: Set should not be empty") }
+    
+    // Test clear
+    set.clear()
+    finalSize = set.size()
+    finalSize == 0 ?
+        | true { io.println("Clear worked correctly") }
+        | false { io.println("ERROR: Size should be 0 after clear") }
+    
+    emptyAfterClear = set.is_empty()
+    emptyAfterClear ?
+        | true { io.println("Set is empty after clear: correct") }
+        | false { io.println("ERROR: Set should be empty after clear") }
+    
+    0
+}

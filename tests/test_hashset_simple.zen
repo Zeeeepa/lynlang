@@ -1,0 +1,26 @@
+// Simple HashSet test to verify basic functionality
+{ io } = @std
+{ HashSet } = @std
+
+main = () i32 {
+    // Test HashSet creation
+    set = HashSet<i32>.new()
+    
+    // Test add operation
+    added = set.add(10)
+    added ? 
+        | true { io.println("Added 10 to set") }
+        | false { io.println("Failed to add 10") }
+    
+    // Test contains
+    has10 = set.contains(10)
+    has10 ?
+        | true { io.println("Set contains 10") }
+        | false { io.println("Set does not contain 10") }
+    
+    // Test size
+    size = set.size()
+    io.println("Set size: ${size}")
+    
+    0
+}

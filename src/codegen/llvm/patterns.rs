@@ -347,11 +347,62 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                 if let Some(ast_type) = load_type {
                                     use crate::ast::AstType;
-                                    match ast_type {
-                                        AstType::Generic { name, .. } if name == "Option" || name == "Result" => {
-                                            // For nested generics, the payload is already a pointer to the enum struct
-                                            // Don't try to dereference it further
-                                            loaded_payload
+                                    match &ast_type {
+                                        AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
+                                            // For nested generics, the payload is a pointer to the nested enum struct
+                                            // We need to track the nested type information for proper extraction later
+                                            
+                                            // Track nested generic types for further extraction
+                                            if name == "Option" && !type_args.is_empty() {
+                                                // Result<Option<T>, E> case - track Option<T> inner type
+                                                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                self.generic_tracker.track_generic_type(&type_args[0], "Option_Some");
+                                            } else if name == "Result" && type_args.len() == 2 {
+                                                // Option<Result<T,E>> case - track Result<T,E> inner types
+                                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                self.generic_tracker.track_generic_type(&type_args[0], "Result_Ok");
+                                                self.generic_tracker.track_generic_type(&type_args[1], "Result_Err");
+                                            }
+                                            
+                                            // The payload is a pointer to the nested enum struct
+                                            // We need to load it as a struct value for recursive matching
+                                            
+                                            // Load the nested enum struct
+                                            if ptr_val.is_null() {
+                                                loaded_payload
+                                            } else {
+                                                // Determine the enum struct type for the nested generic
+                                                let nested_enum_type = if name == "Option" {
+                                                    // Option has discriminant (i64) and payload (ptr)
+                                                    self.context.struct_type(&[
+                                                        self.context.i64_type().into(),
+                                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                                                    ], false)
+                                                } else if name == "Result" {
+                                                    // Result has discriminant (i64) and payload (ptr)
+                                                    self.context.struct_type(&[
+                                                        self.context.i64_type().into(),
+                                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                                                    ], false)
+                                                } else {
+                                                    // Default struct type
+                                                    self.context.struct_type(&[
+                                                        self.context.i64_type().into(),
+                                                        self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                                                    ], false)
+                                                };
+                                                
+                                                // Load the nested enum struct value
+                                                match self.builder.build_load(
+                                                    nested_enum_type,
+                                                    ptr_val,
+                                                    &format!("nested_{}_struct", name.to_lowercase()),
+                                                ) {
+                                                    Ok(loaded_struct) => loaded_struct,
+                                                    Err(_) => loaded_payload
+                                                }
+                                            }
                                         }
                                         AstType::I8 => self
                                             .builder
@@ -519,7 +570,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                 let loaded_value = if let Some(ast_type) = load_type {
                                     use crate::ast::AstType;
-                                    match ast_type {
+                                    match &ast_type {
+                                        AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
+                                            
+                                            // Track nested generic types for further extraction
+                                            if name == "Option" && !type_args.is_empty() {
+                                                self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                            } else if name == "Result" && type_args.len() == 2 {
+                                                self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                            }
+                                            
+                                            // Load the nested enum struct
+                                            let nested_enum_type = self.context.struct_type(&[
+                                                self.context.i64_type().into(),
+                                                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                                            ], false);
+                                            
+                                            match self.builder.build_load(
+                                                nested_enum_type,
+                                                ptr_val,
+                                                &format!("nested_{}_struct", name.to_lowercase()),
+                                            ) {
+                                                Ok(loaded_struct) => loaded_struct,
+                                                Err(_) => extracted
+                                            }
+                                        }
                                         AstType::I8 => self
                                             .builder
                                             .build_load(
@@ -621,6 +697,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 } else if then_val.is_float_value() {
                                     let float_type = then_val.into_float_value().get_type();
                                     float_type.const_float(0.0).into()
+                                } else if then_val.is_struct_value() {
+                                    // For structs (nested enums), create a null struct with same type
+                                    let struct_type = then_val.into_struct_value().get_type();
+                                    struct_type.const_zero().into()
                                 } else {
                                     // For pointers, use null pointer
                                     let ptr_type = then_val.into_pointer_value().get_type();

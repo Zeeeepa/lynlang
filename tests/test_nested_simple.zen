@@ -1,0 +1,21 @@
+// Simplified test for nested generics
+{ io } = @std
+{ Option, Result } = @std
+
+main = () void {
+    // Test 1: Simple Option<i32>
+    opt1 = Option.Some(42)
+    opt1 ? | Option.Some(n) => io.println("Option value: ${n}")
+           | Option.None => io.println("None")
+    
+    // Test 2: Create Result<Option<i32>, string>
+    inner_opt = Option.Some(99)
+    result = Result.Ok(inner_opt)
+    
+    // Test 3: Extract nested value step by step
+    result ? | Result.Ok(opt) => {
+        io.println("Got Ok with Option")
+        opt ? | Option.Some(n) => io.println("Nested value: ${n}")
+              | Option.None => io.println("Got None")
+    } | Result.Err(e) => io.println("Error: ${e}")
+}
