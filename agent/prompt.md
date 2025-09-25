@@ -214,11 +214,12 @@
 ✓ Task 210: **IMPLEMENTED** string.to_i32() and string.to_i64() Methods (2025-09-25) - Successfully implemented string to integer conversion methods. Both return Option<T> types handling valid/invalid input correctly. Uses strtol for i32 and strtoll for i64. Test suite improved to 168/168 passing (100%).
 ✓ Task 211: **VERIFIED** Project Status Accuracy (2025-09-25) - Confirmed test suite has 168/168 tests passing (100% pass rate). Found 169 .zen files (161 enabled + 8 disabled), 8 Rust test files, 177 total test files. Project documentation accurate.
 ✓ Task 212: **UPDATED** Project Documentation (2025-09-25) - Corrected test counts in prompt.md: 168/168 enabled tests passing (100% pass rate), 8 disabled tests, 184 total test files (168 enabled .zen + 8 disabled + 8 Rust test files).
+✓ Task 213: **PROJECT CLEANUP** (2025-09-25) - Moved 183 test files from root to tests/ folder. Fixed test runner. Re-enabled zen_test_raise_consolidated.zen. Test suite improved to 169/169 passing (100% pass rate).
 
-## Current Status (2025-09-25 - 168/168 TESTS PASSING - 100%!!)
+## Current Status (2025-09-25 - 169/169 TESTS PASSING - 100%!!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (168/168 passing) - PERFECT! VERIFIED 2025-09-25
+- **Test Suite Health**: 100% pass rate (169/169 passing) - PERFECT! VERIFIED 2025-09-25
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!
@@ -252,10 +253,10 @@
 - **String.to_f64() WORKING**: Runtime function implementation with strtod. String literals can now call .to_f64() method correctly
 
 ### Test Suite Health (VERIFIED 2025-09-25) 
-- **100% Pass Rate**: 168/168 enabled tests passing - PERFECT!
-- **8 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, collections)
+- **100% Pass Rate**: 169/169 enabled tests passing - PERFECT!
+- **7 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, collections)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 184 test files in tests/ folder (168 enabled .zen + 8 .zen.disabled + 8 .rs test files)
+- **Total Test Files**: 176 test files in tests/ folder (169 enabled .zen + 7 .zen.disabled)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
 - **Rust Test Files**: 8 Rust test files in tests/ folder
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
