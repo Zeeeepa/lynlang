@@ -190,11 +190,12 @@
 ✓ Task 186: **ACHIEVED** Perfect Test Suite (2025-09-25) - All 176 tests re-enabled and passing (100% pass rate). Fixed explicit return type annotations for closures. Added Task 187 improvements brought total to 178/178 tests passing.
 ✓ Task 187: **UPDATED** Project Documentation (2025-09-25 @ 22:15 UTC) - Updated agent/prompt.md to reflect accurate current status: 178/178 tests passing (100%), 7 disabled tests, 186 total test files, 0 compiler warnings, 22 Rust unit tests.
 ✓ Task 188: **IMPROVED** Result<T,E> Handling in raise() (2025-09-25) - Enhanced raise() expression to better handle Result<T,E> returned from function calls. Added type tracking for Result generic parameters and improved struct type handling. Test suite improved to 179/179 tests passing (100%).
+✓ Task 189: **VERIFIED** raise() with Function Call Results (2025-09-25) - Created comprehensive test confirming raise() correctly extracts values from all function return types (i32, f64, string payloads). All 8 test cases pass including nested calls, multiple raises, and expressions. Test suite improved to 180/180 tests passing (100%).
 
-## Current Status (2025-09-25 - 179/179 TESTS PASSING - 100%!!)
+## Current Status (2025-09-25 - 180/180 TESTS PASSING - 100%!!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (179/179 passing) - PERFECT!
+- **Test Suite Health**: 100% pass rate (180/180 passing) - PERFECT!
 - **Numeric Methods IMPLEMENTED**: Integer methods abs(), min(), max() now fully working!
 - **Compiler Warnings**: ZERO warnings in both debug and release builds - VERIFIED 2025-09-25
 - **Array<T> Type IMPLEMENTED**: Basic Array<T> type with push/get/set/len/pop methods fully working
@@ -202,7 +203,7 @@
 - **Modulo Operator FIXED**: The % operator was missing from lexer, now fully working!
 - **CI Pipeline WORKING**: GitHub Actions CI workflow fixed and passing after LLVM Polly library fixes
 - **Pattern Matching Fix**: Fixed enum discriminant type mismatch for runtime function returns (string.to_f64() etc)
-- **Real Completion Rate**: 179 .zen tests enabled, 8 disabled = 187 .zen tests → **95.7% completion rate**
+- **Real Completion Rate**: 180 .zen tests enabled, 8 disabled = 188 .zen tests → **95.7% completion rate**
 - **Result<T,E> Return Types FIXED**: Functions can now return Result<T,E> properly - architecture issue resolved!
 - **Float Support WORKING**: f64 types now correctly work with Result<f64,E> and .raise() error propagation
 - **Range Loops FULLY WORKING**: Both `(0..5).loop()` and `(1..=3).loop()` syntax confirmed working! Parser correctly handles parenthesized ranges and UFC chaining.

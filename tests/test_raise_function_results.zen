@@ -1,0 +1,179 @@
+// Comprehensive test for .raise() with function call results
+{ io, Result, Option } = @std
+
+// Test 1: Basic function returning Result<i32, string>
+get_number = () Result<i32, string> {
+    return Result.Ok(42)
+}
+
+// Test 2: Function with parameters returning Result<i32, string>
+multiply = (a: i32, b: i32) Result<i32, string> {
+    a < 0 ? {
+        return Result.Err("Negative number not allowed")
+    }
+    return Result.Ok(a * b)
+}
+
+// Test 3: Function returning Result<f64, string>
+divide = (a: f64, b: f64) Result<f64, string> {
+    b == 0.0 ? {
+        return Result.Err("Division by zero")
+    }
+    return Result.Ok(a / b)
+}
+
+// Test 4: Nested function calls with raise
+calculate_complex = () Result<i32, string> {
+    // Chain multiple function calls with raise
+    base = get_number().raise()  // Should get 42
+    multiplied = multiply(base, 3).raise()  // Should get 126
+    
+    // Do more operations
+    final = multiplied + 24  // 126 + 24 = 150
+    return Result.Ok(final)
+}
+
+// Test 5: Function returning Result with different types
+process_string = (s: string) Result<i32, string> {
+    s == "test" ? {
+        return Result.Ok(100)
+    }
+    return Result.Err("Invalid string")
+}
+
+// Test 6: Multiple raises in sequence
+test_multiple_raises = () Result<i32, string> {
+    val1 = get_number().raise()           // 42
+    val2 = multiply(2, 5).raise()         // 10
+    val3 = process_string("test").raise() // 100
+    
+    sum = val1 + val2 + val3  // 42 + 10 + 100 = 152
+    return Result.Ok(sum)
+}
+
+// Test 7: Function with raise in expression
+test_raise_in_expression = () Result<i32, string> {
+    // Use raise directly in arithmetic
+    result = get_number().raise() * 2 + multiply(3, 4).raise()  // 42 * 2 + 12 = 96
+    return Result.Ok(result)
+}
+
+// Test 8: Test with float operations
+test_float_raise = () Result<f64, string> {
+    quotient = divide(10.0, 2.0).raise()  // 5.0
+    doubled = quotient * 2.0  // 10.0
+    return Result.Ok(doubled)
+}
+
+main = () i32 {
+    // Test 1: Basic function call with raise
+    test1 = get_number().raise()
+    test1 == 42 ? {
+        io.println("✓ Test 1 passed: Basic function call")
+    }
+    test1 != 42 ? {
+        io.println("✗ Test 1 failed: Expected 42, got ${test1}")
+        return 1
+    }
+    
+    // Test 2: Function with parameters
+    test2 = multiply(6, 7).raise()
+    test2 == 42 ? {
+        io.println("✓ Test 2 passed: Function with parameters")
+    }
+    test2 != 42 ? {
+        io.println("✗ Test 2 failed: Expected 42, got ${test2}")
+        return 1
+    }
+    
+    // Test 3: Float function
+    test3 = divide(84.0, 2.0).raise()
+    test3 == 42.0 ? {
+        io.println("✓ Test 3 passed: Float function")
+    }
+    test3 != 42.0 ? {
+        io.println("✗ Test 3 failed: Expected 42.0, got ${test3}")
+        return 1
+    }
+    
+    // Test 4: Nested function calls
+    test4_result = calculate_complex()
+    test4_result ?
+        | Result.Ok(v) {
+            v == 150 ? {
+                io.println("✓ Test 4 passed: Nested function calls")
+            }
+            v != 150 ? {
+                io.println("✗ Test 4 failed: Expected 150, got ${v}")
+                return 1
+            }
+        }
+        | Result.Err(e) {
+            io.println("✗ Test 4 failed with error: ${e}")
+            return 1
+        }
+    
+    // Test 5: String processing
+    test5 = process_string("test").raise()
+    test5 == 100 ? {
+        io.println("✓ Test 5 passed: String processing")
+    }
+    test5 != 100 ? {
+        io.println("✗ Test 5 failed: Expected 100, got ${test5}")
+        return 1
+    }
+    
+    // Test 6: Multiple raises
+    test6_result = test_multiple_raises()
+    test6_result ?
+        | Result.Ok(v) {
+            v == 152 ? {
+                io.println("✓ Test 6 passed: Multiple raises")
+            }
+            v != 152 ? {
+                io.println("✗ Test 6 failed: Expected 152, got ${v}")
+                return 1
+            }
+        }
+        | Result.Err(e) {
+            io.println("✗ Test 6 failed with error: ${e}")
+            return 1
+        }
+    
+    // Test 7: Raise in expression
+    test7_result = test_raise_in_expression()
+    test7_result ?
+        | Result.Ok(v) {
+            v == 96 ? {
+                io.println("✓ Test 7 passed: Raise in expression")
+            }
+            v != 96 ? {
+                io.println("✗ Test 7 failed: Expected 96, got ${v}")
+                return 1
+            }
+        }
+        | Result.Err(e) {
+            io.println("✗ Test 7 failed with error: ${e}")
+            return 1
+        }
+    
+    // Test 8: Float operations
+    test8_result = test_float_raise()
+    test8_result ?
+        | Result.Ok(v) {
+            v == 10.0 ? {
+                io.println("✓ Test 8 passed: Float operations")
+            }
+            v != 10.0 ? {
+                io.println("✗ Test 8 failed: Expected 10.0, got ${v}")
+                return 1
+            }
+        }
+        | Result.Err(e) {
+            io.println("✗ Test 8 failed with error: ${e}")
+            return 1
+        }
+    
+    io.println("\n✓ All tests passed! raise() with function calls works correctly")
+    return 0
+}
