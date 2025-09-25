@@ -345,11 +345,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let initial_capacity = 16i64;
                                     let capacity_value = self.context.i64_type().const_int(initial_capacity as u64, false);
                                     
-                                    // Each bucket is a struct with: key_ptr, value, occupied_flag
-                                    // For simplicity, we'll allocate an array of i64 values (3 per bucket)
-                                    // [key_hash, value, occupied]
-                                    let bucket_size = 3i64; // 3 i64s per bucket
-                                    let total_size = initial_capacity * bucket_size * 8; // 8 bytes per i64
+                                    // Each bucket is a struct with: [key_hash, key_ptr, value_ptr, occupied_flag]
+                                    // We'll allocate an array of i64 values (4 per bucket)
+                                    // [key_hash(i64), key_ptr(ptr), value_ptr(ptr), occupied(i64)]
+                                    let bucket_size = 4i64; // 4 values per bucket
+                                    let total_size = initial_capacity * bucket_size * 8; // 8 bytes per field
                                     
                                     // Call malloc to allocate memory for buckets
                                     let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -1867,7 +1867,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let key = self.compile_expression(&args[0])?;
                                 let value = self.compile_expression(&args[1])?;
                                 let hash_fn = self.compile_expression(&args[2])?;
-                                let eq_fn = self.compile_expression(&args[3])?;
+                                let _eq_fn = self.compile_expression(&args[3])?;
                                 
                                 // Step 1: Call hash_fn(key) to get hash value
                                 // The hash_fn is passed as a closure/function pointer
@@ -1921,19 +1921,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "buckets_ptr"
                                 )?.into_pointer_value();
                                 
-                                // Each bucket has 3 i64 values: [key_hash, value, occupied]
+                                // Each bucket has 4 fields: [key_hash, key_ptr, value_ptr, occupied]
                                 // Calculate the offset to the target bucket
-                                let i64_ptr_type = self.context.i64_type().ptr_type(AddressSpace::default());
+                                let i64_ptr_type = self.context.ptr_type(AddressSpace::default());
                                 let buckets_as_i64_ptr = self.builder.build_pointer_cast(
                                     buckets_ptr,
                                     i64_ptr_type,
                                     "buckets_as_i64"
                                 )?;
                                 
-                                // Multiply bucket_index by 3 to get the starting position
+                                // Multiply bucket_index by 4 to get the starting position
                                 let bucket_offset = self.builder.build_int_mul(
                                     bucket_index,
-                                    self.context.i64_type().const_int(3, false),
+                                    self.context.i64_type().const_int(4, false),
                                     "bucket_offset"
                                 )?;
                                 
@@ -1947,23 +1947,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     )?
                                 };
                                 
-                                let value_offset = self.builder.build_int_add(
+                                // Get pointer to key storage location (offset + 1)
+                                let key_ptr_offset = self.builder.build_int_add(
                                     bucket_offset,
                                     self.context.i64_type().const_int(1, false),
-                                    "value_offset"
+                                    "key_ptr_offset"
                                 )?;
-                                let value_ptr = unsafe {
+                                let key_storage_ptr = unsafe {
                                     self.builder.build_gep(
                                         self.context.i64_type(),
                                         buckets_as_i64_ptr,
-                                        &[value_offset],
-                                        "value_ptr"
+                                        &[key_ptr_offset],
+                                        "key_storage_ptr"
                                     )?
                                 };
                                 
-                                let occupied_offset = self.builder.build_int_add(
+                                // Get pointer to value storage location (offset + 2)
+                                let value_ptr_offset = self.builder.build_int_add(
                                     bucket_offset,
                                     self.context.i64_type().const_int(2, false),
+                                    "value_ptr_offset"
+                                )?;
+                                let value_storage_ptr = unsafe {
+                                    self.builder.build_gep(
+                                        self.context.i64_type(),
+                                        buckets_as_i64_ptr,
+                                        &[value_ptr_offset],
+                                        "value_storage_ptr"
+                                    )?
+                                };
+                                
+                                // Get pointer to occupied flag (offset + 3)
+                                let occupied_offset = self.builder.build_int_add(
+                                    bucket_offset,
+                                    self.context.i64_type().const_int(3, false),
                                     "occupied_offset"
                                 )?;
                                 let occupied_ptr = unsafe {
@@ -1975,25 +1992,67 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     )?
                                 };
                                 
-                                // Store the hash and value (for now, assume i64 value)
+                                // Store the hash
                                 self.builder.build_store(key_hash_ptr, hash_value)?;
                                 
-                                // Convert value to i64 if needed
-                                let value_as_i64 = if value.get_type() == self.context.i64_type().into() {
-                                    value.into_int_value()
-                                } else if value.get_type() == self.context.i32_type().into() {
-                                    // Zero-extend i32 to i64
-                                    self.builder.build_int_z_extend(
-                                        value.into_int_value(),
+                                // Allocate and store the key
+                                let _key_size = if key.get_type() == self.context.ptr_type(AddressSpace::default()).into() {
+                                    // Key is a string (pointer), store it directly
+                                    let key_ptr_as_i64 = self.builder.build_ptr_to_int(
+                                        key.into_pointer_value(),
                                         self.context.i64_type(),
-                                        "value_i64"
-                                    )?
+                                        "key_ptr_as_i64"
+                                    )?;
+                                    self.builder.build_store(key_storage_ptr, key_ptr_as_i64)?;
                                 } else {
-                                    // For other types, use a placeholder
-                                    self.context.i64_type().const_int(0, false)
+                                    // Key is a primitive, store it as i64
+                                    let key_as_i64 = if key.get_type() == self.context.i64_type().into() {
+                                        key.into_int_value()
+                                    } else if key.get_type() == self.context.i32_type().into() {
+                                        self.builder.build_int_z_extend(
+                                            key.into_int_value(),
+                                            self.context.i64_type(),
+                                            "key_i64"
+                                        )?
+                                    } else {
+                                        self.context.i64_type().const_int(0, false)
+                                    };
+                                    self.builder.build_store(key_storage_ptr, key_as_i64)?;
                                 };
                                 
-                                self.builder.build_store(value_ptr, value_as_i64)?;
+                                // Store the value (allocate memory and copy)
+                                if value.get_type() == self.context.i32_type().into() {
+                                    // Value is i32, allocate 4 bytes
+                                    let malloc_fn = self.module.get_function("malloc").unwrap();
+                                    let value_mem = self.builder.build_call(
+                                        malloc_fn,
+                                        &[self.context.i64_type().const_int(4, false).into()],
+                                        "value_mem"
+                                    )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                                    
+                                    // Cast to i32* and store the value
+                                    let value_mem_i32 = self.builder.build_pointer_cast(
+                                        value_mem,
+                                        self.context.ptr_type(AddressSpace::default()),
+                                        "value_mem_i32"
+                                    )?;
+                                    self.builder.build_store(value_mem_i32, value)?;
+                                    
+                                    // Store the pointer in the bucket
+                                    let value_ptr_as_i64 = self.builder.build_ptr_to_int(
+                                        value_mem,
+                                        self.context.i64_type(),
+                                        "value_ptr_as_i64"
+                                    )?;
+                                    self.builder.build_store(value_storage_ptr, value_ptr_as_i64)?;
+                                } else if value.get_type() == self.context.i64_type().into() {
+                                    // Value is i64, store directly as i64
+                                    self.builder.build_store(value_storage_ptr, value)?;
+                                } else {
+                                    // Other types, store as 0 for now
+                                    self.builder.build_store(value_storage_ptr, self.context.i64_type().const_int(0, false))?;
+                                }
+                                
                                 self.builder.build_store(occupied_ptr, self.context.i64_type().const_int(1, false))?;
                                 
                                 // Update size
@@ -2033,7 +2092,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Compile arguments
                                 let key = self.compile_expression(&args[0])?;
                                 let hash_fn = self.compile_expression(&args[1])?;
-                                let eq_fn = self.compile_expression(&args[2])?;
+                                let _eq_fn = self.compile_expression(&args[2])?;
                                 
                                 // Step 1: Call hash_fn(key) to get hash value
                                 let hash_fn_ptr = if hash_fn.is_pointer_value() {
@@ -2086,25 +2145,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     "buckets_ptr"
                                 )?.into_pointer_value();
                                 
-                                // Each bucket has 3 i64 values: [key_hash, value, occupied]
-                                let i64_ptr_type = self.context.i64_type().ptr_type(AddressSpace::default());
+                                // Each bucket has 4 fields: [key_hash, key_ptr, value_ptr, occupied]
+                                let i64_ptr_type = self.context.ptr_type(AddressSpace::default());
                                 let buckets_as_i64_ptr = self.builder.build_pointer_cast(
                                     buckets_ptr,
                                     i64_ptr_type,
                                     "buckets_as_i64"
                                 )?;
                                 
-                                // Multiply bucket_index by 3 to get the starting position
+                                // Multiply bucket_index by 4 to get the starting position
                                 let bucket_offset = self.builder.build_int_mul(
                                     bucket_index,
-                                    self.context.i64_type().const_int(3, false),
+                                    self.context.i64_type().const_int(4, false),
                                     "bucket_offset"
                                 )?;
                                 
                                 // Get pointers to bucket fields
                                 let occupied_offset = self.builder.build_int_add(
                                     bucket_offset,
-                                    self.context.i64_type().const_int(2, false),
+                                    self.context.i64_type().const_int(3, false), // occupied is at offset 3
                                     "occupied_offset"
                                 )?;
                                 let occupied_ptr = unsafe {
@@ -2174,27 +2233,64 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // Found: retrieve the value and return Some(value)
                                 self.builder.position_at_end(found_block);
                                 
-                                // Get pointer to value
+                                // Get pointer to value storage (at offset 2 in new structure)
                                 let value_offset = self.builder.build_int_add(
                                     bucket_offset,
-                                    self.context.i64_type().const_int(1, false),
+                                    self.context.i64_type().const_int(2, false), // value_ptr is at offset 2
                                     "value_offset"
                                 )?;
-                                let value_ptr = unsafe {
+                                let value_storage_ptr = unsafe {
                                     self.builder.build_gep(
                                         self.context.i64_type(),
                                         buckets_as_i64_ptr,
                                         &[value_offset],
-                                        "value_ptr"
+                                        "value_storage_ptr"
                                     )?
                                 };
                                 
-                                // Load the value
-                                let stored_value = self.builder.build_load(
+                                // Load the value or pointer
+                                let stored_value_or_ptr = self.builder.build_load(
                                     self.context.i64_type(),
-                                    value_ptr,
-                                    "stored_value"
+                                    value_storage_ptr,
+                                    "stored_value_or_ptr"
                                 )?.into_int_value();
+                                
+                                // For i32 values, we stored a pointer that needs dereferencing
+                                // Check if we stored this as a pointer (non-zero high bits indicate pointer)
+                                let stored_value = if let Some(var_info) = self.variables.get(obj_name) {
+                                    if let AstType::Generic { type_args, .. } = &var_info.ast_type {
+                                        if type_args.len() >= 2 {
+                                            match &type_args[1] {
+                                                AstType::I32 => {
+                                                    // Value was stored as a pointer to i32, dereference it
+                                                    let value_ptr = self.builder.build_int_to_ptr(
+                                                        stored_value_or_ptr,
+                                                        self.context.ptr_type(AddressSpace::default()),
+                                                        "value_ptr"
+                                                    )?;
+                                                    let loaded_i32 = self.builder.build_load(
+                                                        self.context.i32_type(),
+                                                        value_ptr,
+                                                        "loaded_i32"
+                                                    )?.into_int_value();
+                                                    // Convert to i64 for Option payload
+                                                    self.builder.build_int_z_extend(
+                                                        loaded_i32,
+                                                        self.context.i64_type(),
+                                                        "value_as_i64"
+                                                    )?
+                                                }
+                                                _ => stored_value_or_ptr // Direct i64 value
+                                            }
+                                        } else {
+                                            stored_value_or_ptr
+                                        }
+                                    } else {
+                                        stored_value_or_ptr
+                                    }
+                                } else {
+                                    stored_value_or_ptr
+                                };
                                 
                                 // Get the value type from HashMap<K,V> generic args and convert accordingly
                                 let some_value = if let Some(var_info) = self.variables.get(obj_name) {
