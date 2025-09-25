@@ -1,0 +1,28 @@
+// Debug test for nested generic inspection
+{ io, Result } = @std
+
+main = () i32 {
+    // Create inner Result.Ok(42)
+    inner = Result.Ok(42)
+    
+    // Direct test - does the inner work?
+    inner ?
+        | Result.Ok(val) {
+            io.println("Inner direct: ${val}")
+        }
+        | Result.Err(e) { io.println("Inner error") }
+    
+    // Create outer Result.Ok(inner)
+    outer = Result.Ok(inner)
+    
+    // Extract outer - don't try to extract inner yet
+    outer ?
+        | Result.Ok(inner_result) {
+            io.println("Extracted inner Result from outer - got something")
+            // Don't try to pattern match on inner_result yet
+            // Just try to print that we got here
+        }
+        | Result.Err(e) { io.println("Outer was Err") }
+    
+    0
+}

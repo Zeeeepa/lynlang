@@ -27,6 +27,7 @@ mod strings;
 mod structs;
 mod symbols;
 mod types;
+mod vec_support;
 
 #[derive(Debug, Clone)]
 pub enum Type<'ctx> {

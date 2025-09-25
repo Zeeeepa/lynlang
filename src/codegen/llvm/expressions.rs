@@ -60,21 +60,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             })
                         }
                     } else {
-                        // None variant
-                        Ok(AstType::Generic {
-                            name: "Option".to_string(),
-                            type_args: vec![AstType::Void],
-                        })
+                        // None variant - use context if available
+                        if let Some(t) = self.generic_type_context.get("Option_Some_Type") {
+                            Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![t.clone()],
+                            })
+                        } else {
+                            Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![AstType::Void],
+                            })
+                        }
                     }
                 } else if enum_name == "Result" {
                     // For Result, we need to track which variant we're in
                     if variant == "Ok" && payload.is_some() {
                         if let Some(ref p) = payload {
                             let inner_type = self.infer_expression_type(p)?;
-                            // We can't determine E type from just Ok variant, so use placeholder
+                            // Try to get error type from context
+                            let err_type = self.generic_type_context.get("Result_Err_Type")
+                                .cloned()
+                                .unwrap_or(AstType::String); // Default to String for errors
                             Ok(AstType::Generic {
                                 name: "Result".to_string(),
-                                type_args: vec![inner_type, AstType::Void],
+                                type_args: vec![inner_type, err_type],
                             })
                         } else {
                             Ok(AstType::Generic {
@@ -85,10 +95,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     } else if variant == "Err" && payload.is_some() {
                         if let Some(ref p) = payload {
                             let inner_type = self.infer_expression_type(p)?;
-                            // We can't determine T type from just Err variant, so use placeholder
+                            // Try to get ok type from context
+                            let ok_type = self.generic_type_context.get("Result_Ok_Type")
+                                .cloned()
+                                .unwrap_or(AstType::Void);
                             Ok(AstType::Generic {
                                 name: "Result".to_string(),
-                                type_args: vec![AstType::Void, inner_type],
+                                type_args: vec![ok_type, inner_type],
                             })
                         } else {
                             Ok(AstType::Generic {
@@ -97,9 +110,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             })
                         }
                     } else {
+                        // Try to get types from context
+                        let ok_type = self.generic_type_context.get("Result_Ok_Type")
+                            .cloned()
+                            .unwrap_or(AstType::Void);
+                        let err_type = self.generic_type_context.get("Result_Err_Type")
+                            .cloned()
+                            .unwrap_or(AstType::Void);
                         Ok(AstType::Generic {
                             name: "Result".to_string(),
-                            type_args: vec![AstType::Void, AstType::Void],
+                            type_args: vec![ok_type, err_type],
                         })
                     }
                 } else {
@@ -1351,14 +1371,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(ok_value);
                 }
 
-                // Special handling for DynVec methods
+                // Special handling for Vec and DynVec methods
                 if let Expression::Identifier(obj_name) = object.as_ref() {
+                    // Check if this is a Vec<T, N> type
+                    let is_vec = if let Some(var_info) = self.variables.get(obj_name) {
+                        matches!(&var_info.ast_type, AstType::Vec { .. })
+                    } else {
+                        false
+                    };
+                    
                     // Check if this is actually a DynVec type
                     let is_dynvec = if let Some(var_info) = self.variables.get(obj_name) {
                         matches!(&var_info.ast_type, AstType::DynVec { .. })
                     } else {
                         false
                     };
+                    
+                    // Handle Vec<T, N> methods
+                    if is_vec {
+                        let (vec_ptr, _) = self.get_variable(obj_name)?;
+                        return self.compile_vec_method(obj_name, method, args, vec_ptr, object_value);
+                    }
                     
                     if is_dynvec {
                         // Only handle DynVec methods if it's actually a DynVec
@@ -4495,7 +4528,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like Option.Some), we need to heap-allocate to ensure
                             // the nested struct persists when extracted from the outer enum
-                            let _struct_type = compiled.get_type();
+                            let struct_type = compiled.get_type();
                             
                             // Use malloc to heap-allocate the nested enum struct
                             let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -4505,11 +4538,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.module.add_function("malloc", malloc_type, None)
                             });
                             
-                            // Calculate size of the struct  
-                            // Enum structs are { i64 tag, ptr payload } = 16 bytes on 64-bit systems
-                            let size = self.context.i64_type().const_int(16, false);
-                            let size_val = size;
-                            let malloc_call = self.builder.build_call(malloc_fn, &[size_val.into()], "heap_enum")?;
+                            // Calculate size of the struct properly based on actual type
+                            // For enum structs, we need to get the actual size from LLVM
+                            let size = if struct_type.is_struct_type() {
+                                let struct_type = struct_type.into_struct_type();
+                                // Size = 8 bytes for discriminant + 8 bytes for pointer = 16 bytes
+                                self.context.i64_type().const_int(16, false)
+                            } else {
+                                // Default size for other types
+                                self.context.i64_type().const_int(16, false)
+                            };
+                            
+                            let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_enum")?;
                             let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                             
                             // Store the struct value to heap memory
@@ -4595,7 +4635,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like Option.Some), we need to heap-allocate to ensure
                             // the nested struct persists when extracted from the outer enum
-                            let _struct_type = compiled.get_type();
+                            let struct_type = compiled.get_type();
                             
                             // Use malloc to heap-allocate the nested enum struct
                             let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -4605,11 +4645,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 self.module.add_function("malloc", malloc_type, None)
                             });
                             
-                            // Calculate size of the struct  
-                            // Enum structs are { i64 tag, ptr payload } = 16 bytes on 64-bit systems
-                            let size = self.context.i64_type().const_int(16, false);
-                            let size_val = size;
-                            let malloc_call = self.builder.build_call(malloc_fn, &[size_val.into()], "heap_enum")?;
+                            // Calculate size of the struct properly based on actual type
+                            // For enum structs, we need to get the actual size from LLVM
+                            let size = if struct_type.is_struct_type() {
+                                let struct_type = struct_type.into_struct_type();
+                                // Size = 8 bytes for discriminant + 8 bytes for pointer = 16 bytes
+                                self.context.i64_type().const_int(16, false)
+                            } else {
+                                // Default size for other types
+                                self.context.i64_type().const_int(16, false)
+                            };
+                            
+                            let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_enum")?;
                             let heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                             
                             // Store the struct value to heap memory

@@ -1,0 +1,40 @@
+// Test to verify value extraction in nested generics
+{ io, Result } = @std
+
+main = () i32 {
+    // Test that direct i32 works
+    direct_val = 42
+    io.println("Direct value: ${direct_val}")
+    
+    // Test that Result.Ok(42) works  
+    result_val = Result.Ok(42)
+    result_val ?
+        | Result.Ok(v) { 
+            io.println("Result extraction: ${v}")
+            // Check if v is actually 42
+            v == 42 ? 
+                | true { io.println("  Correct: v == 42") }
+                | false { io.println("  Wrong: v != 42, got ${v}") }
+        }
+        | Result.Err(e) { io.println("Error") }
+    
+    // Now test nested
+    inner = Result.Ok(100)
+    outer = Result.Ok(inner)
+    
+    outer ?
+        | Result.Ok(inner_result) {
+            io.println("Outer extracted")
+            inner_result ?
+                | Result.Ok(v) { 
+                    io.println("Inner value: ${v}")
+                    v == 100 ?
+                        | true { io.println("  Correct: v == 100") }
+                        | false { io.println("  Wrong: v != 100, got ${v}") }
+                }
+                | Result.Err(e) { io.println("Inner err") }
+        }
+        | Result.Err(e) { io.println("Outer err") }
+    
+    0
+}
