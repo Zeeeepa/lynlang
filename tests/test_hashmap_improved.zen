@@ -1,0 +1,57 @@
+// Test improved HashMap implementation
+{ io, HashMap, Option } = @std
+
+// Simple hash function for strings
+string_hash = (s: string) i64 {
+    val ::= 12345 as i64
+    return val  // Simple constant for now
+}
+
+// Simple equality function for strings
+string_eq = (a: string, b: string) bool {
+    return true  // Always equal for testing
+}
+
+main = () i32 {
+    io.println("Testing improved HashMap implementation...")
+    
+    // Create HashMap<string, i32>
+    map ::= HashMap<string, i32>.new()
+    io.println("HashMap created")
+    
+    // Initial size should be 0
+    io.println("Initial size: ${map.len()}")
+    io.println("Is empty: ${map.is_empty()}")
+    
+    // Insert some items
+    io.println("\nInserting items...")
+    map.insert("Alice", 25, string_hash, string_eq)
+    io.println("Inserted Alice->25, size now: ${map.len()}")
+    
+    map.insert("Bob", 30, string_hash, string_eq)
+    io.println("Inserted Bob->30, size now: ${map.len()}")
+    
+    // Check if map contains keys
+    io.println("\nChecking contains...")
+    has_alice ::= map.contains("Alice", string_hash, string_eq)
+    io.println("Contains Alice: ${has_alice}")
+    
+    // Get values
+    io.println("\nGetting values...")
+    alice_age ::= map.get("Alice", string_hash, string_eq)
+    alice_age ?
+        | Option.Some(age) { io.println("Alice's age: ${age}") }
+        | Option.None { io.println("Alice not found") }
+    
+    // Remove an entry
+    io.println("\nRemoving Bob...")
+    removed ::= map.remove("Bob", string_hash, string_eq)
+    removed ?
+        | Option.Some(age) { io.println("Removed Bob (age was ${age})") }
+        | Option.None { io.println("Bob not found") }
+    
+    io.println("Size after removal: ${map.len()}")
+    
+    io.println("\nTest completed!")
+    return 0
+}

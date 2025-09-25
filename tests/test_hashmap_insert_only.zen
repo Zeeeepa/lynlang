@@ -1,0 +1,44 @@
+// Test HashMap insert and size tracking
+{ io, HashMap } = @std
+
+// Simple hash function for strings
+string_hash = (s: string) i64 {
+    hash ::= 12345 as i64
+    return hash
+}
+
+// Simple equality function for strings
+string_eq = (a: string, b: string) bool {
+    return true
+}
+
+main = () i32 {
+    io.println("Testing HashMap insert and size tracking...")
+    
+    // Create HashMap<string, i32>
+    map ::= HashMap<string, i32>.new()
+    io.println("HashMap created")
+    
+    // Initial size should be 0
+    io.println("Initial size: ${map.len()}")
+    
+    // Insert some items
+    io.println("Inserting Alice->25...")
+    map.insert("Alice", 25, string_hash, string_eq)
+    io.println("Size after insert: ${map.len()}")
+    
+    io.println("Inserting Bob->30...")
+    map.insert("Bob", 30, string_hash, string_eq)
+    io.println("Size after insert: ${map.len()}")
+    
+    io.println("Inserting Charlie->35...")
+    map.insert("Charlie", 35, string_hash, string_eq)
+    io.println("Size after insert: ${map.len()}")
+    
+    // Check contains
+    has_alice ::= map.contains("Alice", string_hash, string_eq)
+    io.println("Contains Alice: ${has_alice}")
+    
+    io.println("Test completed!")
+    return 0
+}

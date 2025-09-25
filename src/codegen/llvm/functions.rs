@@ -2978,6 +2978,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
             return self.compile_array_new(args);
         }
         
+        // Check if this is HashMap.new() or HashSet.new()
+        if name == "hashmap_new" {
+            return self.compile_hashmap_new(args);
+        }
+        if name == "hashset_new" {
+            return self.compile_hashset_new(args);
+        }
+        if name == "dynvec_new" {
+            return self.compile_dynvec_new(args);
+        }
+        
         // Check if this is a stdlib function call (e.g., io.print)
         if name.contains('.') {
             let parts: Vec<&str> = name.splitn(2, '.').collect();
@@ -4581,5 +4592,261 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .into_struct_value();
 
         Ok(result.into())
+    }
+    
+    /// Compile HashMap.new() - creates a new HashMap
+    pub fn compile_hashmap_new(
+        &mut self,
+        _args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // HashMap struct: { buckets_ptr, size, capacity }
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let hashmap_struct_type = self.context.struct_type(
+            &[
+                ptr_type.into(),                 // buckets pointer
+                self.context.i64_type().into(),  // size
+                self.context.i64_type().into(),  // capacity
+            ],
+            false,
+        );
+        
+        // Initial capacity
+        let initial_capacity = self.context.i64_type().const_int(16, false);
+        
+        // Allocate buckets array
+        let bucket_size = self.context.i64_type().const_int(32, false); // Each bucket is 32 bytes (for chaining)
+        let total_size = self.builder.build_int_mul(initial_capacity, bucket_size, "total_size")?;
+        
+        // Call malloc
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, Some(Linkage::External))
+        });
+        
+        let buckets_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "buckets")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| CompileError::InternalError(
+                "malloc should return a pointer".to_string(),
+                None,
+            ))?;
+        
+        // Initialize buckets to zero
+        let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[ptr_type.into(), i32_type.into(), i64_type.into()], false);
+            self.module.add_function("memset", fn_type, Some(Linkage::External))
+        });
+        
+        self.builder.build_call(
+            memset_fn,
+            &[
+                buckets_ptr.into(),
+                self.context.i32_type().const_int(0, false).into(),
+                total_size.into(),
+            ],
+            "memset_call",
+        )?;
+        
+        // Create the HashMap struct
+        let hashmap_alloca = self.builder.build_alloca(hashmap_struct_type, "hashmap")?;
+        
+        // Store buckets pointer
+        let buckets_field = self.builder.build_struct_gep(
+            hashmap_struct_type,
+            hashmap_alloca,
+            0,
+            "buckets_field",
+        )?;
+        self.builder.build_store(buckets_field, buckets_ptr)?;
+        
+        // Store size (initially 0)
+        let size_field = self.builder.build_struct_gep(
+            hashmap_struct_type,
+            hashmap_alloca,
+            1,
+            "size_field",
+        )?;
+        self.builder.build_store(size_field, self.context.i64_type().const_int(0, false))?;
+        
+        // Store capacity
+        let capacity_field = self.builder.build_struct_gep(
+            hashmap_struct_type,
+            hashmap_alloca,
+            2,
+            "capacity_field",
+        )?;
+        self.builder.build_store(capacity_field, initial_capacity)?;
+        
+        // Load and return the hashmap struct
+        let result = self.builder.build_load(hashmap_struct_type, hashmap_alloca, "hashmap_value")?;
+        Ok(result)
+    }
+    
+    /// Compile HashSet.new() - creates a new HashSet
+    pub fn compile_hashset_new(
+        &mut self,
+        _args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // HashSet uses the same structure as HashMap (but without values)
+        // HashSet struct: { buckets_ptr, size, capacity }
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let hashset_struct_type = self.context.struct_type(
+            &[
+                ptr_type.into(),                 // buckets pointer
+                self.context.i64_type().into(),  // size
+                self.context.i64_type().into(),  // capacity
+            ],
+            false,
+        );
+        
+        // Initial capacity
+        let initial_capacity = self.context.i64_type().const_int(16, false);
+        
+        // Allocate buckets array
+        let bucket_size = self.context.i64_type().const_int(16, false); // Each bucket is 16 bytes (just key + next pointer)
+        let total_size = self.builder.build_int_mul(initial_capacity, bucket_size, "total_size")?;
+        
+        // Call malloc
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, Some(Linkage::External))
+        });
+        
+        let buckets_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "buckets")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| CompileError::InternalError(
+                "malloc should return a pointer".to_string(),
+                None,
+            ))?;
+        
+        // Initialize buckets to zero
+        let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
+            let i32_type = self.context.i32_type();
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[ptr_type.into(), i32_type.into(), i64_type.into()], false);
+            self.module.add_function("memset", fn_type, Some(Linkage::External))
+        });
+        
+        self.builder.build_call(
+            memset_fn,
+            &[
+                buckets_ptr.into(),
+                self.context.i32_type().const_int(0, false).into(),
+                total_size.into(),
+            ],
+            "memset_call",
+        )?;
+        
+        // Create the HashSet struct
+        let hashset_alloca = self.builder.build_alloca(hashset_struct_type, "hashset")?;
+        
+        // Store buckets pointer
+        let buckets_field = self.builder.build_struct_gep(
+            hashset_struct_type,
+            hashset_alloca,
+            0,
+            "buckets_field",
+        )?;
+        self.builder.build_store(buckets_field, buckets_ptr)?;
+        
+        // Store size (initially 0)
+        let size_field = self.builder.build_struct_gep(
+            hashset_struct_type,
+            hashset_alloca,
+            1,
+            "size_field",
+        )?;
+        self.builder.build_store(size_field, self.context.i64_type().const_int(0, false))?;
+        
+        // Store capacity
+        let capacity_field = self.builder.build_struct_gep(
+            hashset_struct_type,
+            hashset_alloca,
+            2,
+            "capacity_field",
+        )?;
+        self.builder.build_store(capacity_field, initial_capacity)?;
+        
+        // Load and return the hashset struct
+        let result = self.builder.build_load(hashset_struct_type, hashset_alloca, "hashset_value")?;
+        Ok(result)
+    }
+    
+    /// Compile DynVec.new() - creates a new DynVec
+    pub fn compile_dynvec_new(
+        &mut self,
+        _args: &[ast::Expression],
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // DynVec struct: { ptr, length, capacity }
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let dynvec_struct_type = self.context.struct_type(
+            &[
+                ptr_type.into(),                 // data pointer
+                self.context.i64_type().into(),  // length
+                self.context.i64_type().into(),  // capacity
+            ],
+            false,
+        );
+        
+        // Initial capacity
+        let initial_capacity = self.context.i64_type().const_int(10, false);
+        
+        // Allocate memory for initial capacity (8 bytes per element for i64)
+        let element_size = self.context.i64_type().const_int(8, false);
+        let total_size = self.builder.build_int_mul(initial_capacity, element_size, "total_size")?;
+        
+        // Call malloc
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, Some(Linkage::External))
+        });
+        
+        let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "dynvec_data")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| CompileError::InternalError(
+                "malloc should return a pointer".to_string(),
+                None,
+            ))?;
+        
+        // Create the DynVec struct
+        let dynvec_alloca = self.builder.build_alloca(dynvec_struct_type, "dynvec")?;
+        
+        // Store data pointer
+        let data_field = self.builder.build_struct_gep(
+            dynvec_struct_type,
+            dynvec_alloca,
+            0,
+            "data_field",
+        )?;
+        self.builder.build_store(data_field, data_ptr)?;
+        
+        // Store length (initially 0)
+        let length_field = self.builder.build_struct_gep(
+            dynvec_struct_type,
+            dynvec_alloca,
+            1,
+            "length_field",
+        )?;
+        self.builder.build_store(length_field, self.context.i64_type().const_int(0, false))?;
+        
+        // Store capacity
+        let capacity_field = self.builder.build_struct_gep(
+            dynvec_struct_type,
+            dynvec_alloca,
+            2,
+            "capacity_field",
+        )?;
+        self.builder.build_store(capacity_field, initial_capacity)?;
+        
+        // Load and return the dynvec struct
+        let result = self.builder.build_load(dynvec_struct_type, dynvec_alloca, "dynvec_value")?;
+        Ok(result)
     }
 }

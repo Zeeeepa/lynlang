@@ -1,5 +1,5 @@
 // Test HashMap and HashSet collections
-{ io, HashMap, HashSet } = @std
+{ io, HashMap, HashSet, Option } = @std
 
 // Simple hash function for strings
 string_hash = (s: string) i64 {
@@ -51,13 +51,13 @@ test_hashmap = () void {
     io.println("\n▸ Retrieving values:")
     alice_age ::= map.get("Alice", string_hash, string_eq)
     alice_age ?
-        | .Some(age) { io.println("  Alice's age: ${age}") }
-        | .None { io.println("  Alice not found") }
+        | Option.Some(age) { io.println("  Alice's age: ${age}") }
+        | Option.None { io.println("  Alice not found") }
     
     bob_age ::= map.get("Bob", string_hash, string_eq)
     bob_age ?
-        | .Some(age) { io.println("  Bob's age: ${age}") }
-        | .None { io.println("  Bob not found") }
+        | Option.Some(age) { io.println("  Bob's age: ${age}") }
+        | Option.None { io.println("  Bob not found") }
     
     // Check existence
     io.println("\n▸ Checking existence:")
@@ -81,8 +81,8 @@ test_hashmap = () void {
     io.println("\n▸ Removing entries:")
     removed ::= map.remove("Bob", string_hash, string_eq)
     removed ?
-        | .Some(age) { io.println("  Removed Bob (age was ${age})") }
-        | .None { io.println("  Bob not found for removal") }
+        | Option.Some(age) { io.println("  Removed Bob (age was ${age})") }
+        | Option.None { io.println("  Bob not found for removal") }
     
     io.println("  New size: ${map.len()}")
 }
