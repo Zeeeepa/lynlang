@@ -376,7 +376,7 @@ builder = (b :: Build) void {
 **Current Status: 90% Language Core Complete | 100% Test Pass Rate**
 
 ### Test Suite Health (2025-09-25)
-- **173/173** tests passing (100% pass rate)
+- **179/179** tests passing (100% pass rate)
 - **Zero segfaults** - rock solid stability
 - **7 disabled tests** - require unimplemented features (behaviors, pointers, inline.c FFI)
 - **showcase.zen** fully operational with all features
@@ -398,7 +398,7 @@ builder = (b :: Build) void {
 - ✅ **Structs and enums** - Full support with payloads
 - ✅ **UFC** - Method chaining and overloading  
 - ✅ **String interpolation** - `"${expr}"` syntax
-- ✅ **String methods** - `.len()`, `.substr()`, `.char_at()`, `.split()`, `.to_i32()`, `.to_i64()`, `.to_f64()`, `.trim()`
+- ✅ **String methods** - `.len()`, `.substr()`, `.char_at()`, `.split()`, `.to_i32()`, `.to_i64()`, `.to_f64()`, `.trim()`, `.contains()`, `.starts_with()`, `.ends_with()`, `.index_of()`
 - ✅ **Range iteration** - `(0..10).loop()`, `(1..=5).loop()`
 - ✅ **Range structs** - Can store and use ranges as values
 - ✅ **Infinite loops** - `loop()` with break/continue

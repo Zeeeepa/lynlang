@@ -1,0 +1,70 @@
+// Test string.index_of() method
+
+main = () i32 {
+    text = "Hello, World!"
+    
+    // Test index_of - find at beginning
+    idx1 = text.index_of("Hello")
+    idx1 == 0 ?
+        | true { io.println("Test 1 passed: Found 'Hello' at index 0") }
+        | false { io.println("Test 1 FAILED: 'Hello' should be at index 0"); return 1 }
+    
+    // Test index_of - find in middle
+    idx2 = text.index_of("World")
+    idx2 == 7 ?
+        | true { io.println("Test 2 passed: Found 'World' at index 7") }
+        | false { io.println("Test 2 FAILED: 'World' should be at index 7"); return 1 }
+    
+    // Test index_of - not found
+    idx3 = text.index_of("Python")
+    idx3 == -1 ?
+        | true { io.println("Test 3 passed: 'Python' not found returns -1") }
+        | false { io.println("Test 3 FAILED: Should return -1 when not found"); return 1 }
+    
+    // Test index_of - single character
+    idx4 = text.index_of("o")
+    idx4 == 4 ?
+        | true { io.println("Test 4 passed: Found first 'o' at index 4") }
+        | false { io.println("Test 4 FAILED: First 'o' should be at index 4"); return 1 }
+    
+    // Test index_of - empty string (should always return 0)
+    idx5 = text.index_of("")
+    idx5 == 0 ?
+        | true { io.println("Test 5 passed: Empty string found at index 0") }
+        | false { io.println("Test 5 FAILED: Empty string should be at index 0"); return 1 }
+    
+    // Test index_of - special characters
+    idx6 = text.index_of(",")
+    idx6 == 5 ?
+        | true { io.println("Test 6 passed: Found ',' at index 5") }
+        | false { io.println("Test 6 FAILED: ',' should be at index 5"); return 1 }
+    
+    // Test with variable substring
+    search = "World"
+    idx7 = text.index_of(search)
+    idx7 == 7 ?
+        | true { io.println("Test 7 passed: Variable substring found at index 7") }
+        | false { io.println("Test 7 FAILED: Variable substring should be at index 7"); return 1 }
+    
+    // Test with string variable
+    str = "programming is fun"
+    idx8 = str.index_of("gram")
+    idx8 == 3 ?
+        | true { io.println("Test 8 passed: Found 'gram' at index 3") }
+        | false { io.println("Test 8 FAILED: 'gram' should be at index 3"); return 1 }
+    
+    // Test case sensitivity
+    idx9 = str.index_of("GRAM")
+    idx9 == -1 ?
+        | true { io.println("Test 9 passed: Case sensitive search returns -1") }
+        | false { io.println("Test 9 FAILED: Should be case sensitive"); return 1 }
+    
+    // Test finding last character
+    idx10 = text.index_of("!")
+    idx10 == 12 ?
+        | true { io.println("Test 10 passed: Found '!' at index 12") }
+        | false { io.println("Test 10 FAILED: '!' should be at index 12"); return 1 }
+    
+    io.println("All string.index_of() tests passed!")
+    return 0
+}

@@ -1058,6 +1058,17 @@ impl TypeChecker {
                         }
                         "substr" => return Ok(AstType::String),
                         "char_at" => return Ok(AstType::I32),
+                        "split" => {
+                            return Ok(AstType::Generic {
+                                name: "Array".to_string(),
+                                type_args: vec![AstType::String],
+                            })
+                        }
+                        "trim" => return Ok(AstType::String),
+                        "contains" => return Ok(AstType::Bool),
+                        "starts_with" => return Ok(AstType::Bool),
+                        "ends_with" => return Ok(AstType::Bool),
+                        "index_of" => return Ok(AstType::I64),
                         _ => {}
                     }
                 }

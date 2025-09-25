@@ -1,0 +1,15 @@
+// Test with explicit type annotation
+
+main = () i32 {
+    text = "Hello, World!"
+    
+    idx: i64 = text.index_of("World")
+    io.println(idx)
+    
+    // Now try comparison
+    idx == 7 ?
+        | true { io.println("Equal to 7") }
+        | false { io.println("Not equal to 7") }
+    
+    return 0
+}

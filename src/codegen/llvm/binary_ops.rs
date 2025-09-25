@@ -6,6 +6,38 @@ use inkwell::AddressSpace;
 use inkwell::{FloatPredicate, IntPredicate};
 
 impl<'ctx> LLVMCompiler<'ctx> {
+    /// Helper function to cast integers to the same type (prefer wider type)
+    fn normalize_int_types(
+        &mut self,
+        left_int: inkwell::values::IntValue<'ctx>,
+        right_int: inkwell::values::IntValue<'ctx>,
+    ) -> Result<(inkwell::values::IntValue<'ctx>, inkwell::values::IntValue<'ctx>), CompileError> {
+        if left_int.get_type() != right_int.get_type() {
+            let left_width = left_int.get_type().get_bit_width();
+            let right_width = right_int.get_type().get_bit_width();
+            
+            if left_width > right_width {
+                // Cast right to left's type
+                let right_cast = self.builder.build_int_s_extend(
+                    right_int,
+                    left_int.get_type(),
+                    "ext_right",
+                )?;
+                Ok((left_int, right_cast))
+            } else {
+                // Cast left to right's type
+                let left_cast = self.builder.build_int_s_extend(
+                    left_int,
+                    right_int.get_type(),
+                    "ext_left",
+                )?;
+                Ok((left_cast, right_int))
+            }
+        } else {
+            Ok((left_int, right_int))
+        }
+    }
+    
     pub fn compile_binary_operation(
         &mut self,
         op: &BinaryOperator,
@@ -377,10 +409,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+            
+            // Cast to same type if needed (prefer wider type)
+            let (left_final, right_final) = if left_int.get_type() != right_int.get_type() {
+                let left_width = left_int.get_type().get_bit_width();
+                let right_width = right_int.get_type().get_bit_width();
+                
+                if left_width > right_width {
+                    // Cast right to left's type
+                    let right_cast = self.builder.build_int_s_extend(
+                        right_int,
+                        left_int.get_type(),
+                        "ext_right",
+                    )?;
+                    (left_int, right_cast)
+                } else {
+                    // Cast left to right's type
+                    let left_cast = self.builder.build_int_s_extend(
+                        left_int,
+                        right_int.get_type(),
+                        "ext_left",
+                    )?;
+                    (left_cast, right_int)
+                }
+            } else {
+                (left_int, right_int)
+            };
+            
             let result = self.builder.build_int_compare(
                 IntPredicate::EQ,
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "eqtmp",
             )?;
             Ok(result.into())
@@ -473,10 +534,39 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+            
+            // Cast to same type if needed (prefer wider type)
+            let (left_final, right_final) = if left_int.get_type() != right_int.get_type() {
+                let left_width = left_int.get_type().get_bit_width();
+                let right_width = right_int.get_type().get_bit_width();
+                
+                if left_width > right_width {
+                    // Cast right to left's type
+                    let right_cast = self.builder.build_int_s_extend(
+                        right_int,
+                        left_int.get_type(),
+                        "ext_right",
+                    )?;
+                    (left_int, right_cast)
+                } else {
+                    // Cast left to right's type
+                    let left_cast = self.builder.build_int_s_extend(
+                        left_int,
+                        right_int.get_type(),
+                        "ext_left",
+                    )?;
+                    (left_cast, right_int)
+                }
+            } else {
+                (left_int, right_int)
+            };
+            
             let result = self.builder.build_int_compare(
                 IntPredicate::NE,
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "netmp",
             )?;
             Ok(result.into())
@@ -541,10 +631,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         right_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         if left_val.is_int_value() && right_val.is_int_value() {
+            let left_int = left_val.into_int_value();
+            let right_int = right_val.into_int_value();
+            
+            // Normalize types
+            let (left_final, right_final) = self.normalize_int_types(left_int, right_int)?;
+            
             let result = self.builder.build_int_compare(
                 IntPredicate::SLT,
-                left_val.into_int_value(),
-                right_val.into_int_value(),
+                left_final,
+                right_final,
                 "lttmp",
             )?;
             // Zero-extend i1 to i64 for test compatibility

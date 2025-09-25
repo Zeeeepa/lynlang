@@ -699,6 +699,114 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 })?;
                             return Ok(result);
                         }
+                        "contains" => {
+                            // string.contains(substring) - check if string contains substring
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("contains expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Compile the substring argument
+                            let substring = self.compile_expression(&args[0])?;
+                            
+                            // Call the runtime string_contains function
+                            let func = self.get_or_create_runtime_function("string_contains")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into(), substring.into()], "contains_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError(
+                                        "string_contains did not return a value".to_string(),
+                                        None,
+                                    )
+                                })?;
+                            return Ok(result);
+                        }
+                        "starts_with" => {
+                            // string.starts_with(prefix) - check if string starts with prefix
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("starts_with expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Compile the prefix argument
+                            let prefix = self.compile_expression(&args[0])?;
+                            
+                            // Call the runtime string_starts_with function
+                            let func = self.get_or_create_runtime_function("string_starts_with")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into(), prefix.into()], "starts_with_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError(
+                                        "string_starts_with did not return a value".to_string(),
+                                        None,
+                                    )
+                                })?;
+                            return Ok(result);
+                        }
+                        "ends_with" => {
+                            // string.ends_with(suffix) - check if string ends with suffix
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("ends_with expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Compile the suffix argument
+                            let suffix = self.compile_expression(&args[0])?;
+                            
+                            // Call the runtime string_ends_with function
+                            let func = self.get_or_create_runtime_function("string_ends_with")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into(), suffix.into()], "ends_with_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError(
+                                        "string_ends_with did not return a value".to_string(),
+                                        None,
+                                    )
+                                })?;
+                            return Ok(result);
+                        }
+                        "index_of" => {
+                            // string.index_of(substring) - find index of substring in string
+                            if args.len() != 1 {
+                                return Err(CompileError::TypeError(
+                                    format!("index_of expects 1 argument, got {}", args.len()),
+                                    None,
+                                ));
+                            }
+                            
+                            // Compile the substring argument
+                            let substring = self.compile_expression(&args[0])?;
+                            
+                            // Call the runtime string_index_of function
+                            let func = self.get_or_create_runtime_function("string_index_of")?;
+                            let result = self
+                                .builder
+                                .build_call(func, &[object_value.into(), substring.into()], "index_of_result")?
+                                .try_as_basic_value()
+                                .left()
+                                .ok_or_else(|| {
+                                    CompileError::InternalError(
+                                        "string_index_of did not return a value".to_string(),
+                                        None,
+                                    )
+                                })?;
+                            return Ok(result);
+                        }
                         _ => {}
                     }
                 }

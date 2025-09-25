@@ -1941,6 +1941,317 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     .add_function(name, fn_type, Some(Linkage::External));
                 Ok(func)
             }
+            "string_contains" => {
+                // string_contains(str: *const i8, substr: *const i8) -> bool (as i1)
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = self.context.bool_type().fn_type(&[
+                    string_type.into(),
+                    string_type.into(),
+                ], false);
+                
+                let func = self.module.add_function(name, fn_type, None);
+                
+                // Generate implementation
+                let entry = self.context.append_basic_block(func, "entry");
+                let saved_block = self.builder.get_insert_block();
+                
+                self.builder.position_at_end(entry);
+                
+                // Get parameters
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                let substr_param = func.get_nth_param(1).unwrap().into_pointer_value();
+                
+                // Declare strstr function
+                let strstr_fn = self.module.get_function("strstr").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+                    self.module.add_function("strstr", fn_type, Some(Linkage::External))
+                });
+                
+                // Call strstr(str, substr)
+                let result = self.builder.build_call(
+                    strstr_fn,
+                    &[str_param.into(), substr_param.into()],
+                    "strstr_result"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Check if result is null
+                let null = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                let is_not_null = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    result,
+                    null,
+                    "is_not_null"
+                )?;
+                
+                self.builder.build_return(Some(&is_not_null))?;
+                
+                // Restore position
+                if let Some(block) = saved_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
+            "string_starts_with" => {
+                // string_starts_with(str: *const i8, prefix: *const i8) -> bool (as i1)
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = self.context.bool_type().fn_type(&[
+                    string_type.into(),
+                    string_type.into(),
+                ], false);
+                
+                let func = self.module.add_function(name, fn_type, None);
+                
+                // Generate implementation
+                let entry = self.context.append_basic_block(func, "entry");
+                let saved_block = self.builder.get_insert_block();
+                
+                self.builder.position_at_end(entry);
+                
+                // Get parameters
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                let prefix_param = func.get_nth_param(1).unwrap().into_pointer_value();
+                
+                // Declare strncmp function
+                let strncmp_fn = self.module.get_function("strncmp").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = self.context.i32_type().fn_type(&[
+                        ptr_type.into(),
+                        ptr_type.into(),
+                        i64_type.into(),
+                    ], false);
+                    self.module.add_function("strncmp", fn_type, Some(Linkage::External))
+                });
+                
+                // Declare strlen function
+                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = self.context.i64_type().fn_type(&[ptr_type.into()], false);
+                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
+                });
+                
+                // Get length of prefix
+                let prefix_len = self.builder.build_call(
+                    strlen_fn,
+                    &[prefix_param.into()],
+                    "prefix_len"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Compare first n characters
+                let result = self.builder.build_call(
+                    strncmp_fn,
+                    &[str_param.into(), prefix_param.into(), prefix_len.into()],
+                    "strncmp_result"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Check if result is 0 (equal)
+                let zero = self.context.i32_type().const_int(0, false);
+                let is_equal = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    result,
+                    zero,
+                    "is_equal"
+                )?;
+                
+                self.builder.build_return(Some(&is_equal))?;
+                
+                // Restore position
+                if let Some(block) = saved_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
+            "string_index_of" => {
+                // string_index_of(str: *const i8, substr: *const i8) -> i64
+                // Returns -1 if not found, otherwise the index
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = self.context.i64_type().fn_type(&[
+                    string_type.into(),
+                    string_type.into(),
+                ], false);
+                
+                let func = self.module.add_function(name, fn_type, None);
+                
+                // Generate implementation
+                let entry = self.context.append_basic_block(func, "entry");
+                let found_block = self.context.append_basic_block(func, "found");
+                let not_found_block = self.context.append_basic_block(func, "not_found");
+                let saved_block = self.builder.get_insert_block();
+                
+                self.builder.position_at_end(entry);
+                
+                // Get parameters
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                let substr_param = func.get_nth_param(1).unwrap().into_pointer_value();
+                
+                // Declare strstr function
+                let strstr_fn = self.module.get_function("strstr").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = ptr_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+                    self.module.add_function("strstr", fn_type, Some(Linkage::External))
+                });
+                
+                // Call strstr(str, substr)
+                let result = self.builder.build_call(
+                    strstr_fn,
+                    &[str_param.into(), substr_param.into()],
+                    "strstr_result"
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Check if result is null
+                let null = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
+                let is_null = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    result,
+                    null,
+                    "is_null"
+                )?;
+                
+                self.builder.build_conditional_branch(is_null, not_found_block, found_block)?;
+                
+                // Found block - calculate index
+                self.builder.position_at_end(found_block);
+                
+                // Cast pointers to integers
+                let result_int = self.builder.build_ptr_to_int(
+                    result,
+                    self.context.i64_type(),
+                    "result_int"
+                )?;
+                let str_int = self.builder.build_ptr_to_int(
+                    str_param,
+                    self.context.i64_type(),
+                    "str_int"
+                )?;
+                
+                // Calculate the index
+                let index = self.builder.build_int_sub(result_int, str_int, "index")?;
+                self.builder.build_return(Some(&index))?;
+                
+                // Not found block - return -1
+                self.builder.position_at_end(not_found_block);
+                let minus_one = self.context.i64_type().const_int(u64::MAX, true); // -1 as i64
+                self.builder.build_return(Some(&minus_one))?;
+                
+                // Restore position
+                if let Some(block) = saved_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
+            "string_ends_with" => {
+                // string_ends_with(str: *const i8, suffix: *const i8) -> bool (as i1)
+                let string_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let fn_type = self.context.bool_type().fn_type(&[
+                    string_type.into(),
+                    string_type.into(),
+                ], false);
+                
+                let func = self.module.add_function(name, fn_type, None);
+                
+                // Generate implementation
+                let entry = self.context.append_basic_block(func, "entry");
+                let check_block = self.context.append_basic_block(func, "check");
+                let false_block = self.context.append_basic_block(func, "return_false");
+                let saved_block = self.builder.get_insert_block();
+                
+                self.builder.position_at_end(entry);
+                
+                // Get parameters
+                let str_param = func.get_nth_param(0).unwrap().into_pointer_value();
+                let suffix_param = func.get_nth_param(1).unwrap().into_pointer_value();
+                
+                // Declare strlen function
+                let strlen_fn = self.module.get_function("strlen").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = self.context.i64_type().fn_type(&[ptr_type.into()], false);
+                    self.module.add_function("strlen", fn_type, Some(Linkage::External))
+                });
+                
+                // Declare strcmp function
+                let strcmp_fn = self.module.get_function("strcmp").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = self.context.i32_type().fn_type(&[
+                        ptr_type.into(),
+                        ptr_type.into(),
+                    ], false);
+                    self.module.add_function("strcmp", fn_type, Some(Linkage::External))
+                });
+                
+                // Get lengths
+                let str_len = self.builder.build_call(
+                    strlen_fn,
+                    &[str_param.into()],
+                    "str_len"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                let suffix_len = self.builder.build_call(
+                    strlen_fn,
+                    &[suffix_param.into()],
+                    "suffix_len"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Check if suffix is longer than string
+                let is_too_long = self.builder.build_int_compare(
+                    inkwell::IntPredicate::UGT,
+                    suffix_len,
+                    str_len,
+                    "is_too_long"
+                )?;
+                
+                self.builder.build_conditional_branch(is_too_long, false_block, check_block)?;
+                
+                // Check block - compare suffix
+                self.builder.position_at_end(check_block);
+                
+                // Calculate offset
+                let offset = self.builder.build_int_sub(str_len, suffix_len, "offset")?;
+                
+                // Get pointer to end of string
+                let i8_type = self.context.i8_type();
+                let str_end = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        i8_type,
+                        str_param,
+                        &[offset],
+                        "str_end"
+                    )?
+                };
+                
+                // Compare strings
+                let result = self.builder.build_call(
+                    strcmp_fn,
+                    &[str_end.into(), suffix_param.into()],
+                    "strcmp_result"
+                )?.try_as_basic_value().left().unwrap().into_int_value();
+                
+                // Check if result is 0 (equal)
+                let zero = self.context.i32_type().const_int(0, false);
+                let is_equal = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    result,
+                    zero,
+                    "is_equal"
+                )?;
+                
+                self.builder.build_return(Some(&is_equal))?;
+                
+                // False block
+                self.builder.position_at_end(false_block);
+                let false_val = self.context.bool_type().const_int(0, false);
+                self.builder.build_return(Some(&false_val))?;
+                
+                // Restore position
+                if let Some(block) = saved_block {
+                    self.builder.position_at_end(block);
+                }
+                
+                Ok(func)
+            }
             _ => Err(CompileError::InternalError(
                 format!("Unknown runtime function: {}", name),
                 None,

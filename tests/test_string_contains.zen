@@ -1,0 +1,51 @@
+// Test string.contains() method
+
+main = () i32 {
+    // Test with literal strings
+    text = "Hello, World!"
+    
+    // Test contains - should find substring
+    text.contains("World") ?
+        | true { io.println("Test 1 passed: Found 'World'") }
+        | false { io.println("Test 1 FAILED: Should find 'World'"); return 1 }
+    
+    // Test contains - should find at beginning
+    text.contains("Hello") ?
+        | true { io.println("Test 2 passed: Found 'Hello'") }
+        | false { io.println("Test 2 FAILED: Should find 'Hello'"); return 1 }
+    
+    // Test contains - should not find missing substring
+    text.contains("Python") ?
+        | true { io.println("Test 3 FAILED: Should not find 'Python'"); return 1 }
+        | false { io.println("Test 3 passed: Correctly didn't find 'Python'") }
+    
+    // Test contains with empty string - should always return true
+    text.contains("") ?
+        | true { io.println("Test 4 passed: Empty string is contained") }
+        | false { io.println("Test 4 FAILED: Empty string should be contained"); return 1 }
+    
+    // Test contains with single character
+    text.contains("o") ?
+        | true { io.println("Test 5 passed: Found 'o'") }
+        | false { io.println("Test 5 FAILED: Should find 'o'"); return 1 }
+    
+    // Test contains with variable substring
+    search = "World"
+    text.contains(search) ?
+        | true { io.println("Test 6 passed: Found variable substring") }
+        | false { io.println("Test 6 FAILED: Should find variable substring"); return 1 }
+    
+    // Test with string variable
+    str = "programming is fun"
+    str.contains("gram") ?
+        | true { io.println("Test 7 passed: Found 'gram' in variable") }
+        | false { io.println("Test 7 FAILED: Should find 'gram'"); return 1 }
+    
+    // Test case sensitivity - should be case sensitive
+    str.contains("GRAM") ?
+        | true { io.println("Test 8 FAILED: Should be case sensitive"); return 1 }
+        | false { io.println("Test 8 passed: Correctly case sensitive") }
+    
+    io.println("All string.contains() tests passed!")
+    return 0
+}

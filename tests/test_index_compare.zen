@@ -1,0 +1,16 @@
+// Test comparing index_of result
+
+main = () i32 {
+    text = "Hello, World!"
+    
+    idx = text.index_of("World")
+    
+    // Just use 7 directly - should work since idx is i64
+    is_seven = idx == 7
+    
+    is_seven ?
+        | true { io.println("Found at 7 with i64") }
+        | false { io.println("Not at 7 with i64") }
+    
+    return 0
+}
