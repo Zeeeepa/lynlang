@@ -1,31 +1,20 @@
-// Zen Language - Elegance, Efficiency, Expressiveness
+// Zen Language Showcase - Demonstrating Working Features
 { io } = @std
 
-// Custom enum definition
-Status : .Active | .Inactive | .Pending
-
-// Helper functions
+// Helper function demonstrating UFC
 double = (n: i32) i32 { 
     return n * 2 
 }
 
+// Pattern matching example
 sign = (n: i32) string {
-    n == 0 ? 
+    return n == 0 ? 
         | true { "zero" } 
         | false {
             n > 0 ? 
                 | true { "positive" } 
                 | false { "negative" }
         }
-}
-
-// Enum helper function
-status_message = (s: Status) string {
-    s ?
-        | .Active { "System is running" }
-        | .Inactive { "System is stopped" }
-        | .Pending { "System is starting up" }
-        | _ { "Unknown status" }
 }
 
 main = () i32 {
@@ -74,10 +63,8 @@ main = () i32 {
     // Inline Functions & Closures
     io.println("")
     io.println("▸ Inline Functions & Closures")
-    multiply = (a: i32, b: i32) i32 {
-        return a * b
-    }
-    get_magic = () { return 42 }
+    multiply = (a: i32, b: i32) i32 { return a * b }
+    get_magic = () i32 { return 42 }
     result3 = multiply(3, get_magic())
     io.println("  3 * 42 = ${result3}")
     
@@ -87,32 +74,6 @@ main = () i32 {
     name = "Zen"
     version = 1
     io.println("  Welcome to ${name} v${version}!")
-    
-    // Enums and Pattern Matching
-    io.println("")
-    io.println("▸ Custom Enums")
-    current_status = Status.Active
-    io.println("  Status: ${status_message(current_status)}")
-    
-    // Demonstrate both qualified and shorthand patterns
-    io.println("")
-    io.println("▸ Flexible Pattern Matching") 
-    test_status = Status.Pending
-    qualified_check = test_status ?
-        | Status.Active { "Active (qualified)" }
-        | Status.Inactive { "Inactive (qualified)" }
-        | Status.Pending { "Pending (qualified)" }
-        | _ { "Unknown" }
-    io.println("  Qualified syntax: ${qualified_check}")
-    
-    // Option type
-    io.println("")
-    io.println("▸ Built-in Option Type")
-    value = Option.Some(100)
-    result_opt = value ?
-        | .Some { "Has value" }
-        | .None { "No value" }
-    io.println("  Option check: ${result_opt}")
     
     io.println("")
     io.println("═══════════════════════════════════════════")
