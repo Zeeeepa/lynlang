@@ -227,11 +227,12 @@
 ✓ Task 223: **VERIFIED** Perfect Project Status (2025-09-25 @ 13:00 UTC) - Confirmed 181/181 tests passing (100% pass rate), 7 disabled tests, zero compiler warnings, 27 Rust unit tests passing
 ✓ Task 224: **UPDATED** Documentation and Verified Test Suite (2025-09-25) - Corrected documentation to reflect HashMap<K,V> and HashSet<T> are only partially implemented (instantiation works, methods don't). Test suite: 183/183 tests passing (100%), 185 enabled tests, 7 disabled, 192 total test files.
 ✓ Task 225: **IMPLEMENTED** HashMap/HashSet Method Stubs (2025-09-25) - Added method stubs for HashMap operations (insert, get, contains, remove, size). Fixed type inference for HashMap<K,V> variables. Methods return placeholder values. Test suite improved to 185/185 (100.0%)!
+✓ Task 226: **IMPROVED** HashMap/HashSet Method Signatures (2025-09-25) - Fixed argument counts to match stdlib: insert(4 args), get/contains/remove(3 args). Added len() and is_empty() methods. Fixed Option enum return types. Test suite at 186/186 (100%)!
 
-## Current Status (2025-09-25 - 185/185 TESTS PASSING - 100%!!)
+## Current Status (2025-09-25 - 186/186 TESTS PASSING - 100%!!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 100% pass rate (185/185 passing) - PERFECT! VERIFIED 2025-09-25
+- **Test Suite Health**: 100% pass rate (186/186 passing) - PERFECT! VERIFIED 2025-09-25
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!
@@ -270,10 +271,10 @@
 - **HashMap/HashSet Methods STUBBED**: insert, get, contains, remove, size methods now compile correctly (placeholder implementations)
 
 ### Test Suite Health (VERIFIED 2025-09-25 @ 13:00 UTC) 
-- **100% Pass Rate**: 185/185 enabled tests passing (from run_tests.sh) - PERFECT!
-- **7 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, collections)
+- **100% Pass Rate**: 186/186 enabled tests passing (from run_tests.sh) - PERFECT!
+- **8 Disabled Tests**: Tests requiring unimplemented features (behaviors, pointers, inline.c, nested Result, collections)
 - **Zero Segfaults**: Project completely stable with no crashes
-- **Total Test Files**: 192 test files in tests/ folder (185 enabled .zen + 7 .disabled)
+- **Total Test Files**: 194 test files in tests/ folder (186 enabled .zen + 8 .disabled)
 - **Generic Type Support**: Basic nested generics partially working (Result<Option<T>, E>)
 - **Rust Unit Tests**: 27 tests passing (19 typechecker + 8 parser tests)
 - **String.len() Method**: FULLY IMPLEMENTED - Returns i64 length using runtime strlen function
@@ -432,7 +433,7 @@
 
 
 ### Current Development Focus
-- **Project State**: Excellent health - 100% test pass rate maintained (185/185 tests)
+- **Project State**: Excellent health - 100% test pass rate maintained (186/186 tests)
 - **Recent Achievements**: String methods complete (len, substr, char_at), 41 Rust tests passing
 - **Next Priority**: Enable disabled tests to reach >95% feature completion
 - **Recommended Focus Areas**:
