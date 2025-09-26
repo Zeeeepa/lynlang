@@ -1,10 +1,10 @@
 // Test HashMap.remove() functionality
-{ io } = @std
+{ io, Option } = @std
 { HashMap } = @std
 
 main = () i32 {
     // Create a HashMap
-    map = HashMap<i32, i32>.new()
+    map = HashMap<i32, i32>()
     
     // Add some values
     map.insert(5, 100)

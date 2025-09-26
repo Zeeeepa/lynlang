@@ -1,0 +1,112 @@
+// Advanced Generics Test Suite 2025-09-26
+// Tests the limits and robustness of generic type system
+
+{ io, Result, Option } = @std
+
+main = () void {
+    io.println("=== Advanced Generics Test Suite ===")
+    
+    // Test 1: Simple nested generics
+    io.println("\n1. Simple nested: Result<Option<i32>, string>")
+    result1 = Result.Ok(Option.Some(42))
+    result1 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Got value: ${v}") }
+                | Option.None { io.println("  Got None") }
+        }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    // Test 2: Inverted nesting
+    io.println("\n2. Inverted nesting: Option<Result<i32, string>>")
+    option2 = Option.Some(Result.Ok(100))
+    option2 ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(v) { io.println("  Got value: ${v}") }
+                | Result.Err(e) { io.println("  Error: ${e}") }
+        }
+        | Option.None { io.println("  Got None") }
+    
+    // Test 3: Triple nesting
+    io.println("\n3. Triple nested: Result<Result<Result<i32, string>, string>, string>")
+    inner_inner = Result.Ok(999)
+    inner = Result.Ok(inner_inner)
+    outer = Result.Ok(inner)
+    
+    outer ?
+        | Result.Ok(mid) {
+            mid ?
+                | Result.Ok(inn) {
+                    inn ?
+                        | Result.Ok(v) { io.println("  Got deeply nested value: ${v}") }
+                        | Result.Err(e) { io.println("  Inner error: ${e}") }
+                }
+                | Result.Err(e) { io.println("  Middle error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Outer error: ${e}") }
+    
+    // Test 4: Mixed Some/None and Ok/Err cases
+    io.println("\n4. Mixed cases with Option<Result<i32, string>>")
+    
+    opt_ok = Option.Some(Result.Ok(200))
+    opt_ok ?
+        | Option.Some(r) {
+            r ?
+                | Result.Ok(v) { io.println("  Some(Ok(${v}))") }
+                | Result.Err(e) { io.println("  Some(Err(${e}))") }
+        }
+        | Option.None { io.println("  None") }
+    
+    opt_err = Option.Some(Result.Err("failed"))
+    opt_err ?
+        | Option.Some(r) {
+            r ?
+                | Result.Ok(v) { io.println("  Some(Ok(${v}))") }
+                | Result.Err(e) { io.println("  Some(Err(${e}))") }
+        }
+        | Option.None { io.println("  None") }
+    
+    opt_none = Option.None
+    opt_none ?
+        | Option.Some(r) {
+            r ?
+                | Result.Ok(v) { io.println("  Some(Ok(${v}))") }
+                | Result.Err(e) { io.println("  Some(Err(${e}))") }
+        }
+        | Option.None { io.println("  None") }
+    
+    // Test 5: Generic Vec operations
+    io.println("\n5. Vec with generics")
+    vec = Vec<i32, 10>()
+    vec.push(10)
+    vec.push(20)
+    vec.push(30)
+    
+    len = vec.len()
+    io.println("  Vec length: ${len}")
+    
+    // Note: Vec.get() returns element directly, not wrapped
+    // val1 = vec.get(0)
+    // io.println("  vec[0] = ${val1}")
+    
+    // Test 6: Complex type preservation  
+    io.println("\n6. Type preservation in assignments")
+    
+    // Store nested generic in variable
+    complex_val = Result.Ok(Option.Some(777))
+    
+    // Extract through multiple steps
+    complex_val ?
+        | Result.Ok(inner_opt) {
+            stored_opt = inner_opt  // Store intermediate
+            stored_opt ?
+                | Option.Some(final_val) { 
+                    io.println("  Preserved through assignments: ${final_val}")
+                }
+                | Option.None { io.println("  None preserved") }
+        }
+        | Result.Err(e) { io.println("  Error: ${e}") }
+    
+    io.println("\n=== All Advanced Generic Tests Complete ===")
+}

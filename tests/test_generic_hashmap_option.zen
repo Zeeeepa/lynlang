@@ -5,7 +5,7 @@ main = () void {
     io.println("Testing HashMap<string, Option<i32>>")
     
     // Create HashMap with Option values
-    map = HashMap<string, Option<i32>>.new()
+    map = HashMap<string, Option<i32>>()
     
     // Insert Some and None values
     map.insert("key1", Option.Some(100))

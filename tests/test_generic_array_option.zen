@@ -5,7 +5,7 @@ main = () void {
     io.println("Testing Array<Option<i32>>")
     
     // Create array of Option<i32>
-    arr = Array.new()
+    arr = Array<Option<i32>>()
     
     // Push Some and None values
     arr.push(Option.Some(10))

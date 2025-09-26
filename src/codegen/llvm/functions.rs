@@ -14,9 +14,60 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Allow Array.new() with no arguments for generic arrays - use default capacity of 10
+        if args.is_empty() {
+            // Create empty array with default capacity of 10
+            let default_capacity = self.context.i64_type().const_int(10, false);
+            
+            // Create the Array<T> struct: { ptr, length, capacity }
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let array_struct_type = self.context.struct_type(
+                &[
+                    ptr_type.into(),                 // data pointer
+                    self.context.i64_type().into(),  // length
+                    self.context.i64_type().into(),  // capacity
+                ],
+                false,
+            );
+            
+            // Allocate memory for 10 elements (80 bytes for i64 elements)
+            let element_size = self.context.i64_type().const_int(8, false);
+            let total_size = self.builder.build_int_mul(default_capacity, element_size, "total_size")?;
+            
+            // Call malloc to allocate memory
+            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                let i64_type = self.context.i64_type();
+                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                self.module.add_function("malloc", fn_type, Some(Linkage::External))
+            });
+            
+            let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc returned void".to_string(), None))?;
+            
+            // Create the array struct
+            let array_val = self.builder.build_alloca(array_struct_type, "array")?;
+            
+            // Set data pointer
+            let data_field_ptr = self.builder.build_struct_gep(array_struct_type, array_val, 0, "data_ptr")?;
+            self.builder.build_store(data_field_ptr, data_ptr)?;
+            
+            // Set length to 0 (empty array)
+            let length_field_ptr = self.builder.build_struct_gep(array_struct_type, array_val, 1, "length_ptr")?;
+            self.builder.build_store(length_field_ptr, self.context.i64_type().const_int(0, false))?;
+            
+            // Set capacity to 10
+            let capacity_field_ptr = self.builder.build_struct_gep(array_struct_type, array_val, 2, "capacity_ptr")?;
+            self.builder.build_store(capacity_field_ptr, default_capacity)?;
+            
+            // Return the array struct
+            return Ok(self.builder.build_load(array_struct_type, array_val, "array_loaded")?.into());
+        }
+        
         if args.len() != 2 {
             return Err(CompileError::TypeError(
-                format!("Array.new expects 2 arguments, got {}", args.len()),
+                format!("Array.new expects 0 or 2 arguments, got {}", args.len()),
                 None,
             ));
         }
