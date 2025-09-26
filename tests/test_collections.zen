@@ -1,5 +1,6 @@
 // Test HashMap and HashSet collections
-{ io, HashMap, Set as HashSet, Option, get_default_allocator, Allocator } = @std
+{ io, HashMap, Set, Option, get_default_allocator, Allocator } = @std
+HashSet = Set
 
 // Simple hash function for strings
 string_hash = (s: string) i64 {

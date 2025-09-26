@@ -4,7 +4,7 @@
 // Simple hash function for testing
 hash_string = (s: string) i64 {
     hash ::= 0 as i64
-    i ::= 0
+    i ::= 0 as i32
     loop {
         i >= s.len() ? { break }
         c = s.char_at(i)
@@ -18,8 +18,8 @@ hash_string = (s: string) i64 {
 // String equality function  
 eq_string = (a: string, b: string) i64 {
     a == b ?
-        | true { return 1 }
-        | false { return 0 }
+        | true { return 1 as i64 }
+        | false { return 0 as i64 }
 }
 
 main = () i32 {

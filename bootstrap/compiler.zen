@@ -183,7 +183,7 @@ compiler_new = (config: CompilerConfig) Compiler   {
 }
 
 // Main compilation pipeline
-compile = (compiler: *Compiler) CompilationResult {
+compile = (compiler: Ptr<Compiler>) CompilationResult {
     start_time := core.time_now()
     
     // Read source file
@@ -223,7 +223,7 @@ compile = (compiler: *Compiler) CompilationResult {
     compiler.current_stage = CompilerStage.TypeChecking
     compiler.config.verbose ? { io.print("Stage 3: Type Checking\n") }
     
-    type_check(compiler.ast.unwrap(), &compiler.type_env) ?
+    type_check(compiler.ast.unwrap(), Ref<TypeEnvironment>(compiler.type_env)) ?
         | Ok(typed_ast) { compiler.ast = Option.Some(typed_ast) }
         | Err(err) { return compilation_error(err, compiler) }
     
@@ -292,11 +292,11 @@ lex = (source: string) Result<DynVec<Token>, string>   {
 // Parser
 parse = (tokens: DynVec<Token>) Result<ASTNode, string>   {
     parser := parser_new(tokens)
-    return parser_parse_program(&parser)
+    return parser_parse_program(Ref<Parser>(parser))
 }
 
 // Type checker
-type_check = (ast: ASTNode, env: *TypeEnvironment) Result<ASTNode, string>   {
+type_check = (ast: ASTNode, env: Ref<TypeEnvironment>) Result<ASTNode, string>   {
     // Type checking implementation
     // This would traverse the AST and assign types to all expressions
     return Result.Ok(ast)  // Placeholder
@@ -352,7 +352,7 @@ link = (ir: string, output: string, target: string) Result<string, string>   {
 }
 
 // Helper functions
-compilation_error = (err: string, compiler: *Compiler) CompilationResult   {
+compilation_error = (err: string, compiler: Ptr<Compiler>) CompilationResult   {
     return CompilationResult {
         success = false,
         output_path = "",
