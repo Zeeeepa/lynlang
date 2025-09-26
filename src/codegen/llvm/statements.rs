@@ -152,7 +152,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // Save the inferred AST type for later
                                     inferred_ast_type = Some(ast_type.clone());
                                     
-                                    // Track generic types if this is a Result or Option
+                                    // Track generic types if this is a Result, Option, Array, etc.
                                     if let AstType::Generic { name: type_name, type_args } = &ast_type {
                                         if type_name == "Result" && type_args.len() == 2 {
                                             self.track_generic_type(format!("{}_Result_Ok_Type", name), type_args[0].clone());
@@ -160,6 +160,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             self.generic_tracker.track_generic_type(&ast_type, name);
                                         } else if type_name == "Option" && type_args.len() == 1 {
                                             self.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                                            self.generic_tracker.track_generic_type(&ast_type, name);
+                                        } else if type_name == "Array" && type_args.len() == 1 {
+                                            self.track_generic_type(format!("{}_Array_Element_Type", name), type_args[0].clone());
+                                            self.generic_tracker.track_generic_type(&ast_type, name);
+                                        } else if type_name == "HashMap" && type_args.len() == 2 {
+                                            self.track_generic_type(format!("{}_HashMap_Key_Type", name), type_args[0].clone());
+                                            self.track_generic_type(format!("{}_HashMap_Value_Type", name), type_args[1].clone());
+                                            self.generic_tracker.track_generic_type(&ast_type, name);
+                                        } else if type_name == "HashSet" && type_args.len() == 1 {
+                                            self.track_generic_type(format!("{}_HashSet_Element_Type", name), type_args[0].clone());
+                                            self.generic_tracker.track_generic_type(&ast_type, name);
+                                        } else if type_name == "DynVec" {
+                                            // DynVec can have multiple element types
+                                            for (i, element_type) in type_args.iter().enumerate() {
+                                                self.track_generic_type(format!("{}_DynVec_Element_{}_Type", name, i), element_type.clone());
+                                            }
                                             self.generic_tracker.track_generic_type(&ast_type, name);
                                         }
                                     }
@@ -385,9 +401,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     // Track Result<T,E> types with variable-specific keys
                                     self.track_generic_type(format!("{}_Result_Ok_Type", name), type_args[0].clone());
                                     self.track_generic_type(format!("{}_Result_Err_Type", name), type_args[1].clone());
+                                    self.generic_tracker.track_generic_type(type_, name);
                                 } else if type_name == "Option" && type_args.len() == 1 {
                                     // Track Option<T> types with variable-specific keys
                                     self.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                                    self.generic_tracker.track_generic_type(type_, name);
+                                } else if type_name == "Array" && type_args.len() == 1 {
+                                    // Track Array<T> types with variable-specific keys
+                                    self.track_generic_type(format!("{}_Array_Element_Type", name), type_args[0].clone());
+                                    self.generic_tracker.track_generic_type(type_, name);
+                                } else if type_name == "HashMap" && type_args.len() == 2 {
+                                    self.track_generic_type(format!("{}_HashMap_Key_Type", name), type_args[0].clone());
+                                    self.track_generic_type(format!("{}_HashMap_Value_Type", name), type_args[1].clone());
+                                    self.generic_tracker.track_generic_type(type_, name);
+                                } else if type_name == "HashSet" && type_args.len() == 1 {
+                                    self.track_generic_type(format!("{}_HashSet_Element_Type", name), type_args[0].clone());
+                                    self.generic_tracker.track_generic_type(type_, name);
+                                } else if type_name == "DynVec" {
+                                    // DynVec can have multiple element types
+                                    for (i, element_type) in type_args.iter().enumerate() {
+                                        self.track_generic_type(format!("{}_DynVec_Element_{}_Type", name, i), element_type.clone());
+                                    }
+                                    self.generic_tracker.track_generic_type(type_, name);
                                 }
                             }
                             

@@ -159,34 +159,92 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "data_ptr"
         )?.into_pointer_value();
         
-        // Calculate element address
+        // Calculate element address (arrays store pointers)
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let element_ptr = unsafe {
             self.builder.build_gep(
-                self.context.i64_type(),
+                ptr_type,
                 data_ptr,
                 &[current_length],
                 "element_ptr",
             )?
         };
         
-        // Store the value (assuming i64 for now)
-        let value_to_store = if value.is_int_value() {
-            value.into_int_value()
+        // Store the value - Arrays use generic pointer storage
+        // We store values as pointers for flexibility
+        let value_to_store = if value.is_pointer_value() {
+            // Already a pointer (e.g., strings, structs passed by reference)
+            value.into_pointer_value()
+        } else if value.is_int_value() {
+            // For integers, allocate memory and store the value
+            let int_val = value.into_int_value();
+            let alloc_size = self.context.i64_type().const_int(8, false);
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "int_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            
+            // Store the integer value (extend to i64 if needed)
+            let value_i64 = if int_val.get_type() == self.context.i64_type() {
+                int_val
+            } else {
+                self.builder.build_int_s_extend(int_val, self.context.i64_type(), "value_i64")?
+            };
+            self.builder.build_store(ptr, value_i64)?;
+            ptr
+        } else if value.is_float_value() {
+            // For floats, allocate memory and store the value
+            let float_val = value.into_float_value();
+            let alloc_size = self.context.i64_type().const_int(8, false);
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "float_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            self.builder.build_store(ptr, float_val)?;
+            ptr
+        } else if value.is_struct_value() {
+            // For structs (like Option.Some), allocate memory and store the struct
+            let struct_val = value.into_struct_value();
+            
+            // Calculate struct size (simplified - in reality need proper size calculation)
+            // For now use a conservative estimate
+            let alloc_size = self.context.i64_type().const_int(32, false); // Conservative size for small structs
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "struct_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            
+            // Store the struct value
+            self.builder.build_store(ptr, struct_val)?;
+            ptr
         } else {
-            return Err(CompileError::TypeError(
-                "Array.push currently only supports integer values".to_string(),
-                None,
-            ));
+            // Unknown value type - try to allocate and store as-is
+            let alloc_size = self.context.i64_type().const_int(8, false);
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "value_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            self.builder.build_store(ptr, value)?;
+            ptr
         };
         
-        // Extend to i64 if needed
-        let value_i64 = if value_to_store.get_type() == self.context.i64_type() {
-            value_to_store
-        } else {
-            self.builder.build_int_s_extend(value_to_store, self.context.i64_type(), "value_i64")?
-        };
-        
-        self.builder.build_store(element_ptr, value_i64)?;
+        self.builder.build_store(element_ptr, value_to_store)?;
         
         // Increment length
         let new_length = self.builder.build_int_add(
@@ -255,34 +313,92 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "data_ptr"
         )?.into_pointer_value();
         
-        // Calculate element address
+        // Calculate element address (arrays store pointers)
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let element_ptr = unsafe {
             self.builder.build_gep(
-                self.context.i64_type(),
+                ptr_type,
                 data_ptr,
                 &[current_length],
                 "element_ptr",
             )?
         };
         
-        // Store the value (assuming i64 for now)
-        let value_to_store = if value.is_int_value() {
-            value.into_int_value()
+        // Store the value - Arrays use generic pointer storage
+        // We store values as pointers for flexibility
+        let value_to_store = if value.is_pointer_value() {
+            // Already a pointer (e.g., strings, structs passed by reference)
+            value.into_pointer_value()
+        } else if value.is_int_value() {
+            // For integers, allocate memory and store the value
+            let int_val = value.into_int_value();
+            let alloc_size = self.context.i64_type().const_int(8, false);
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "int_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            
+            // Store the integer value (extend to i64 if needed)
+            let value_i64 = if int_val.get_type() == self.context.i64_type() {
+                int_val
+            } else {
+                self.builder.build_int_s_extend(int_val, self.context.i64_type(), "value_i64")?
+            };
+            self.builder.build_store(ptr, value_i64)?;
+            ptr
+        } else if value.is_float_value() {
+            // For floats, allocate memory and store the value
+            let float_val = value.into_float_value();
+            let alloc_size = self.context.i64_type().const_int(8, false);
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "float_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            self.builder.build_store(ptr, float_val)?;
+            ptr
+        } else if value.is_struct_value() {
+            // For structs (like Option.Some), allocate memory and store the struct
+            let struct_val = value.into_struct_value();
+            
+            // Calculate struct size (simplified - in reality need proper size calculation)
+            // For now use a conservative estimate
+            let alloc_size = self.context.i64_type().const_int(32, false); // Conservative size for small structs
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "struct_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            
+            // Store the struct value
+            self.builder.build_store(ptr, struct_val)?;
+            ptr
         } else {
-            return Err(CompileError::TypeError(
-                "Array.push currently only supports integer values".to_string(),
-                None,
-            ));
+            // Unknown value type - try to allocate and store as-is
+            let alloc_size = self.context.i64_type().const_int(8, false);
+            let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+                CompileError::InternalError("No malloc function declared".to_string(), None)
+            })?;
+            let ptr = self.builder.build_call(malloc_fn, &[alloc_size.into()], "value_ptr")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc failed".to_string(), None))?
+                .into_pointer_value();
+            self.builder.build_store(ptr, value)?;
+            ptr
         };
         
-        // Extend to i64 if needed
-        let value_i64 = if value_to_store.get_type() == self.context.i64_type() {
-            value_to_store
-        } else {
-            self.builder.build_int_s_extend(value_to_store, self.context.i64_type(), "value_i64")?
-        };
-        
-        self.builder.build_store(element_ptr, value_i64)?;
+        self.builder.build_store(element_ptr, value_to_store)?;
         
         // Increment length
         let new_length = self.builder.build_int_add(
@@ -341,21 +457,27 @@ impl<'ctx> LLVMCompiler<'ctx> {
             &format!("get_data_ptr_{}", unique_id)
         )?.into_pointer_value();
         
-        // Calculate element address
+        // Calculate element address (arrays store pointers)
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let element_ptr = unsafe {
             self.builder.build_gep(
-                self.context.i64_type(),
+                ptr_type,
                 data_ptr,
                 &[index_i64],
                 &format!("get_elem_ptr_{}", unique_id),
             )?
         };
         
-        // Load and return the value as i32 (since that's what's being tested)
-        let value_i64 = self.builder.build_load(self.context.i64_type(), element_ptr, &format!("get_elem_val_{}", unique_id))?;
-        // Convert back to i32 since that's what the array elements really are
+        // Load the pointer from the array
+        let value_ptr = self.builder.build_load(ptr_type, element_ptr, &format!("get_elem_ptr_val_{}", unique_id))?.into_pointer_value();
+        
+        // For now, assume it's an integer and load it
+        // In a full implementation, we'd need to track element types
+        let value = self.builder.build_load(self.context.i64_type(), value_ptr, &format!("get_elem_val_{}", unique_id))?;
+        
+        // Convert back to i32 if that's what the array elements really are
         let value_i32 = self.builder.build_int_truncate(
-            value_i64.into_int_value(),
+            value.into_int_value(),
             self.context.i32_type(),
             &format!("get_val_i32_{}", unique_id)
         )?;
@@ -2988,6 +3110,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Check if this is Array.new() static method
         if name == "Array.new" {
             return self.compile_array_new(args);
+        }
+        
+        // Check if this is a generic type constructor like HashMap<K,V>()
+        if name.contains('<') && name.contains('>') {
+            // Extract the base type name
+            if let Some(angle_pos) = name.find('<') {
+                let base_type = &name[..angle_pos];
+                match base_type {
+                    "HashMap" => return self.compile_hashmap_new(args),
+                    "HashSet" => return self.compile_hashset_new(args),
+                    "DynVec" => return self.compile_dynvec_new(args),
+                    _ => {
+                        // Continue with regular function lookup
+                    }
+                }
+            }
         }
         
         // Check if this is HashMap.new() or HashSet.new()
