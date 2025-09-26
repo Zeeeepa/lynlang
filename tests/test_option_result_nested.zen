@@ -1,0 +1,50 @@
+// Test Option<Result<i32, string>> nesting
+{ io, Result, Option } = @std
+
+main = () void {
+    io.println("=== Testing Option<Result<i32, string>> ===")
+    
+    // Test Option.Some with Result.Ok
+    opt1 = Option.Some(Result.Ok(42))
+    io.println("Created Option.Some(Result.Ok(42))")
+    
+    opt1 ?
+        | Option.Some(res) {
+            io.println("Extracted Some with Result")
+            res ?
+                | Result.Ok(val) {
+                    io.println("Value: ${val}")
+                    val == 42 ?
+                        | true { io.println("✓ Option<Result<i32, string>> works!") }
+                        | false { io.println("✗ Wrong value: ${val}") }
+                }
+                | Result.Err(e) { io.println("✗ Got Err(${e}) but expected Ok") }
+        }
+        | Option.None { io.println("✗ Got None but expected Some") }
+    
+    // Test Option.Some with Result.Err
+    opt2 = Option.Some(Result.Err("error msg"))
+    io.println("\nCreated Option.Some(Result.Err(\"error msg\"))")
+    
+    opt2 ?
+        | Option.Some(res) {
+            io.println("Extracted Some with Result")
+            res ?
+                | Result.Ok(val) { io.println("✗ Got Ok(${val}) but expected Err") }
+                | Result.Err(e) { 
+                    io.println("Error: ${e}")
+                    e == "error msg" ?
+                        | true { io.println("✓ Option<Result<_, string>> with Err works!") }
+                        | false { io.println("✗ Wrong error: ${e}") }
+                }
+        }
+        | Option.None { io.println("✗ Got None but expected Some") }
+    
+    // Test Option.None
+    opt3 = Option.None
+    io.println("\nCreated Option.None")
+    
+    opt3 ?
+        | Option.Some(res) { io.println("✗ Got Some but expected None") }
+        | Option.None { io.println("✓ Option.None works!") }
+}

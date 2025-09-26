@@ -672,7 +672,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                 ptr_val,
                                                 &format!("nested_{}_struct", name.to_lowercase()),
                                             ) {
-                                                Ok(loaded_struct) => loaded_struct,
+                                                Ok(loaded_struct) => {
+                                                    loaded_struct
+                                                },
                                                 Err(_) => extracted
                                             }
                                         }
@@ -693,6 +695,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             )
                                             .unwrap_or(extracted),
                                         AstType::I32 => {
+                                            
                                             let loaded = self
                                                 .builder
                                                 .build_load(
@@ -1142,6 +1145,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let extracted = self
                                         .builder
                                         .build_extract_value(struct_val, 1, "payload")?;
+                                    eprintln!("[DEBUG STRUCT] Extracted payload is_ptr={} is_struct={}", 
+                                             extracted.is_pointer_value(), extracted.is_struct_value());
                                     // The payload might be a pointer that needs dereferencing
                                     if extracted.is_pointer_value() {
                                         let ptr_val = extracted.into_pointer_value();
@@ -1192,8 +1197,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                                         // Try to load with the tracked type information
                                         let loaded_value = if let Some(ast_type) = load_type {
-                                            // eprintln!("[DEBUG] Loading payload with tracked type: {:?}", ast_type);
-                                            use crate::ast::AstType;
+                                                            use crate::ast::AstType;
                                             match ast_type {
                                                 AstType::I8 => self
                                                     .builder
@@ -1286,10 +1290,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                                 self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
                                                                 self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
                                                                 
-                                                                // If the Ok type is i32, make sure we track that
-                                                                if matches!(type_args[0], AstType::I32) {
-                                                                    eprintln!("[DEBUG] Nested Result has I32 Ok type");
-                                                                }
+                                                                
+                                                                // If the Ok type is i32, make sure we track that properly
                                                             } else if name == "Option" && type_args.len() == 1 {
                                                                 self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
                                                             }

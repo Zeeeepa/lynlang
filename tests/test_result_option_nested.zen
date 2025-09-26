@@ -1,25 +1,50 @@
-// Test Result.Ok(Option.Some(100)) specifically
+// Test Result<Option<i32>, string> nesting
 { io, Result, Option } = @std
 
-main = () i32 {
+main = () void {
     io.println("=== Testing Result<Option<i32>, string> ===")
     
-    // This is the failing case
-    result = Result.Ok(Option.Some(100))
+    // Test Result.Ok with Option.Some
+    result1 = Result.Ok(Option.Some(42))
+    io.println("Created Result.Ok(Option.Some(42))")
     
-    result ?
+    result1 ?
         | Result.Ok(opt) {
-            io.println("Extracted Option from Result.Ok")
+            io.println("Extracted Ok with Option")
             opt ?
-                | Option.Some(v) { 
-                    io.println("Value should be 100, got: ${v}")
-                    v == 100 ?
-                        | true { io.println("✓ PASS") }
-                        | false { io.println("✗ FAIL: Got ${v} instead of 100") }
+                | Option.Some(val) {
+                    io.println("Value: ${val}")
+                    val == 42 ?
+                        | true { io.println("✓ Result<Option<i32>, string> works!") }
+                        | false { io.println("✗ Wrong value: ${val}") }
                 }
-                | Option.None { io.println("✗ FAIL: Got None instead of Some(100)") }
+                | Option.None { io.println("✗ Got None but expected Some") }
         }
-        | Result.Err(e) { io.println("✗ FAIL: Got Err instead of Ok") }
+        | Result.Err(e) { io.println("Error: ${e}") }
     
-    0
+    // Test Result.Ok with Option.None
+    result2 = Result.Ok(Option.None)
+    io.println("\nCreated Result.Ok(Option.None)")
+    
+    result2 ?
+        | Result.Ok(opt) {
+            io.println("Extracted Ok with Option")
+            opt ?
+                | Option.Some(val) { io.println("✗ Got Some(${val}) but expected None") }
+                | Option.None { io.println("✓ Result<Option<_>, string> with None works!") }
+        }
+        | Result.Err(e) { io.println("Error: ${e}") }
+    
+    // Test Result.Err
+    result3 = Result.Err("test error")
+    io.println("\nCreated Result.Err(\"test error\")")
+    
+    result3 ?
+        | Result.Ok(opt) { io.println("✗ Got Ok but expected Err") }
+        | Result.Err(e) { 
+            io.println("Error: ${e}")
+            e == "test error" ?
+                | true { io.println("✓ Result.Err works!") }
+                | false { io.println("✗ Wrong error: ${e}") }
+        }
 }

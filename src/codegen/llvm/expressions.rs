@@ -4554,7 +4554,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
             match found_enum {
                 Some(info) => info,
                 None => {
-        // eprintln!("[DEBUG] Using fallback for {}.{} - not found in symbol table", enum_name, variant);
                     // Fallback to basic representation if enum not found in symbol table
                     // This maintains backward compatibility
                     // Special handling for Result type variants
@@ -4717,7 +4716,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
         } else {
             match self.symbols.lookup(enum_name) {
-                Some(symbols::Symbol::EnumType(info)) => info.clone(),
+                Some(symbols::Symbol::EnumType(info)) => {
+                    info.clone()
+                },
                 _ => {
                     // Fallback to basic representation if enum not found in symbol table
                     // This maintains backward compatibility
@@ -5042,23 +5043,65 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 let new_heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
                                 
                                 // Load the value from the original (possibly stack) location
-                                let value = self.builder.build_load(self.context.i64_type(), inner_ptr, "inner_value")?;
+                                // CRITICAL FIX: Use the correct type for loading based on generic context
+                                let load_type = if enum_name == "Result" && variant == "Ok" {
+                                    self.generic_type_context.get("Result_Ok_Type").cloned()
+                                } else if enum_name == "Result" && variant == "Err" {
+                                    self.generic_type_context.get("Result_Err_Type").cloned()
+                                } else if enum_name == "Option" && variant == "Some" {
+                                    self.generic_type_context.get("Option_Some_Type").cloned()
+                                } else {
+                                    None
+                                };
                                 
-                                // Store the value to the new heap location
-                                self.builder.build_store(new_heap_ptr, value)?;
                                 
-                                // Update the payload pointer in the struct to point to heap
-                                let payload_ptr_field = self.builder.build_struct_gep(
-                                    struct_type,
-                                    typed_ptr,
-                                    1,
-                                    "inner_payload_ptr_field"
-                                )?;
-                                self.builder.build_store(payload_ptr_field, new_heap_ptr)?;
+                                // For nested generics, we don't actually want to deep copy here
+                                // because the inner payload is already heap-allocated by the nested enum creation
+                                // We just need to preserve the pointer
+                                if let Some(AstType::Generic { name, .. }) = &load_type {
+                                    if name == "Result" || name == "Option" {
+                                        // The inner payload is already a heap-allocated enum struct
+                                        // We don't need to deep copy it, the pointer is valid
+                                        self.builder.build_unconditional_branch(continue_block)?;
+                                        self.builder.position_at_end(continue_block);
+                                        // Skip the rest of the deep copy logic - continue from here
+                                    }
+                                } 
                                 
-                                self.builder.build_unconditional_branch(continue_block)?;
+                                // Only deep copy if it's not a nested generic
+                                if !matches!(&load_type, Some(AstType::Generic { name, .. }) if name == "Result" || name == "Option") {
+                                    let value = if let Some(ast_type) = load_type {
+                                        use crate::ast::AstType;
+                                        match ast_type {
+                                            AstType::I32 => {
+                                                self.builder.build_load(self.context.i32_type(), inner_ptr, "inner_value_i32")?
+                                            },
+                                            AstType::I64 => self.builder.build_load(self.context.i64_type(), inner_ptr, "inner_value_i64")?,
+                                            AstType::F32 => self.builder.build_load(self.context.f32_type(), inner_ptr, "inner_value_f32")?,
+                                            AstType::F64 => self.builder.build_load(self.context.f64_type(), inner_ptr, "inner_value_f64")?,
+                                            _ => self.builder.build_load(self.context.i64_type(), inner_ptr, "inner_value")?
+                                        }
+                                    } else {
+                                        // Default to i32 as that's our default integer type
+                                        self.builder.build_load(self.context.i32_type(), inner_ptr, "inner_value_default")?
+                                    };
+                                    
+                                    // Store the value to the new heap location
+                                    self.builder.build_store(new_heap_ptr, value)?;
+                                    
+                                    // Update the payload pointer in the struct to point to heap
+                                    let payload_ptr_field = self.builder.build_struct_gep(
+                                        struct_type,
+                                        typed_ptr,
+                                        1,
+                                        "inner_payload_ptr_field"
+                                    )?;
+                                    self.builder.build_store(payload_ptr_field, new_heap_ptr)?;
+                                    
+                                    self.builder.build_unconditional_branch(continue_block)?;
+                                }
                                 
-                                // Continue block
+                                // Continue block - execution resumes here whether we deep copied or not
                                 self.builder.position_at_end(continue_block);
                             }
                         }
