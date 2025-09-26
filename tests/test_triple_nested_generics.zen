@@ -6,8 +6,13 @@ main = () void {
     
     // Create a triple nested Result
     inner_inner = Result.Ok(42)
-    inner = Result.Ok(inner_inner) 
+    io.println("Created inner_inner")
+    
+    inner = Result.Ok(inner_inner)
+    io.println("Created inner with inner_inner")
+    
     outer = Result.Ok(inner)
+    io.println("Created outer with inner")
     
     // Try to extract with pattern matching
     outer ?

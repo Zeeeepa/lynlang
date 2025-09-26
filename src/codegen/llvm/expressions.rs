@@ -4604,8 +4604,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         
                         let compiled = self.compile_expression(expr)?;
-        // eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
-        //                         compiled.is_struct_value(), compiled.is_pointer_value());
                         let payload_ptr = self.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -4615,7 +4613,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
-        // eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like nested Result/Option), we need special handling
                             let struct_val = compiled.into_struct_value();
@@ -4771,8 +4768,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         }
                         
                         let compiled = self.compile_expression(expr)?;
-        // eprintln!("[DEBUG] Payload compiled: is_struct={}, is_ptr={}", 
-        //                         compiled.is_struct_value(), compiled.is_pointer_value());
                         let payload_ptr = self.builder.build_struct_gep(
                             enum_struct_type,
                             alloca,
@@ -4782,7 +4777,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                         // Store payload as pointer
                         // Check if the payload is an enum struct itself (for nested generics)
-        // eprintln!("[DEBUG] Payload compiled, is_struct: {}", compiled.is_struct_value());
                         let payload_value = if compiled.is_struct_value() {
                             // For enum structs (like nested Result/Option), we need special handling
                             let struct_val = compiled.into_struct_value();

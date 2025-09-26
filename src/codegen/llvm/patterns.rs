@@ -422,26 +422,55 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                                                 ], false);
                                                 
+                                                // CRITICAL FIX: For deeply nested generics, we need to recursively track types
+                                                // Track nested type information BEFORE loading
+                                                if name == "Result" && type_args.len() == 2 {
+                                                    // Check if the inner type is also a Result or Option
+                                                    if let AstType::Generic { name: inner_name, type_args: inner_args } = &type_args[0] {
+                                                        if inner_name == "Result" && inner_args.len() == 2 {
+                                                            // Result<Result<T,E>,E2> - track inner types
+                                                            self.track_generic_type("Nested_Result_Ok_Type".to_string(), inner_args[0].clone());
+                                                            self.track_generic_type("Nested_Result_Err_Type".to_string(), inner_args[1].clone());
+                                                            
+                                                            // Track even deeper nesting if present
+                                                            if let AstType::Generic { name: innermost_name, type_args: innermost_args } = &inner_args[0] {
+                                                                if innermost_name == "Result" && innermost_args.len() == 2 {
+                                                                    self.track_generic_type("Nested_Result_Ok_Result_Ok_Type".to_string(), innermost_args[0].clone());
+                                                                    self.track_generic_type("Nested_Result_Ok_Result_Err_Type".to_string(), innermost_args[1].clone());
+                                                                }
+                                                            }
+                                                        } else if inner_name == "Option" && inner_args.len() == 1 {
+                                                            // Result<Option<T>,E> - track inner type
+                                                            self.track_generic_type("Nested_Result_Ok_Option_Type".to_string(), inner_args[0].clone());
+                                                        }
+                                                    }
+                                                    
+                                                    self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                                                    self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                                                } else if name == "Option" && !type_args.is_empty() {
+                                                    // Check if inner type is Result or Option
+                                                    if let AstType::Generic { name: inner_name, type_args: inner_args } = &type_args[0] {
+                                                        if inner_name == "Result" && inner_args.len() == 2 {
+                                                            // Option<Result<T,E>> - track inner types
+                                                            self.track_generic_type("Nested_Option_Some_Result_Ok_Type".to_string(), inner_args[0].clone());
+                                                            self.track_generic_type("Nested_Option_Some_Result_Err_Type".to_string(), inner_args[1].clone());
+                                                        } else if inner_name == "Option" && inner_args.len() == 1 {
+                                                            // Option<Option<T>> - track inner type
+                                                            self.track_generic_type("Nested_Option_Some_Option_Type".to_string(), inner_args[0].clone());
+                                                        }
+                                                    }
+                                                    
+                                                    self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
+                                                }
+                                                
                                                 // Load the nested enum struct value
                                                 match self.builder.build_load(
                                                     nested_enum_type,
                                                     ptr_val,
                                                     &format!("nested_{}_struct", name.to_lowercase()),
                                                 ) {
-                                                    Ok(loaded_struct) => {
-                                                        // CRITICAL: Update the type context for next pattern match iteration
-                                                        // This ensures the type info is available for the next level
-                                                        if name == "Option" && !type_args.is_empty() {
-                                                            self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
-                                                        } else if name == "Result" && type_args.len() == 2 {
-                                                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
-                                                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
-                                                        }
-                                                        loaded_struct
-                                                    },
-                                                    Err(e) => {
-                                                        loaded_payload
-                                                    }
+                                                    Ok(loaded_struct) => loaded_struct,
+                                                    Err(_e) => loaded_payload
                                                 }
                                             }
                                         }
@@ -616,7 +645,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     use crate::ast::AstType;
                                     match &ast_type {
                                         AstType::Generic { name, type_args } if name == "Option" || name == "Result" => {
-                                            
                                             // Track nested generic types for further extraction
                                             if name == "Option" && !type_args.is_empty() {
                                                 self.track_generic_type("Option_Some_Type".to_string(), type_args[0].clone());
