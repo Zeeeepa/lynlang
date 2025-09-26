@@ -1,0 +1,15 @@
+{ io, Array } = @std
+
+main = () void {
+    io.println("Creating array...")
+    arr: Array<i32> = Array.new(10, 0)
+    io.println("Array created")
+    
+    io.println("Getting initial value...")
+    val0 = arr.get(0)
+    io.println("Initial value at 0: ${val0}")
+    
+    io.println("About to set value...")
+    // arr.set(0, 100)  // Commented out for now
+    io.println("Set complete (skipped)")
+}

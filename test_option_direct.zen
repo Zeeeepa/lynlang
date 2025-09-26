@@ -1,0 +1,10 @@
+{ io, Option } = @std
+
+main = () void {
+    // Create an Option directly
+    opt: Option<i32> = Option.Some(42)
+    
+    opt ?
+        | Option.Some(v) { io.println("Some: ${v}") }
+        | Option.None { io.println("None") }
+}

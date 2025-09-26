@@ -1,0 +1,13 @@
+{ io, Array } = @std
+
+main = () void {
+    arr: Array<i32> = Array.new(10, 0)  
+    arr.push(42)
+    arr.push(43)
+    
+    val1 = arr.get(0)
+    val2 = arr.get(10)  // Out of bounds
+    
+    io.println("Get 0: ${val1}")
+    io.println("Get 10: ${val2}")
+}

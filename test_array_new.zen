@@ -1,0 +1,11 @@
+{ io, Array } = @std
+
+main = () void {
+    io.println("Creating array...")
+    arr: Array<i32> = Array.new(10, 0)
+    io.println("Array created")
+    
+    io.println("Getting length...")
+    len = arr.len()
+    io.println("Length: ${len}")
+}

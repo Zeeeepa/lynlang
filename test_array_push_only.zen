@@ -1,0 +1,12 @@
+{ io, Array } = @std
+
+main = () void {
+    arr: Array<i32> = Array.new(10, 0)
+    io.println("Created array")
+    
+    arr.push(42)
+    io.println("Pushed value")
+    
+    // Dont call get yet
+    io.println("Done")
+}

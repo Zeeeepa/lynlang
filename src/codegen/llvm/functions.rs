@@ -418,12 +418,24 @@ impl<'ctx> LLVMCompiler<'ctx> {
         array_val: BasicValueEnum<'ctx>,
         index_val: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Set the generic type context for pattern matching
+        self.track_generic_type("Option_Some_Type".to_string(), crate::ast::AstType::I32);
+        
         // Array struct type: { ptr, length, capacity }
         let array_struct_type = self.context.struct_type(
             &[
                 self.context.ptr_type(inkwell::AddressSpace::default()).into(),
                 self.context.i64_type().into(),
                 self.context.i64_type().into(),
+            ],
+            false,
+        );
+        
+        // Option type: { discriminant: i64, payload: i32 }
+        let option_type = self.context.struct_type(
+            &[
+                self.context.i64_type().into(),  // discriminant
+                self.context.i32_type().into(),  // payload (assuming i32 elements)
             ],
             false,
         );
@@ -443,6 +455,50 @@ impl<'ctx> LLVMCompiler<'ctx> {
         } else {
             self.builder.build_int_s_extend(index, self.context.i64_type(), &format!("get_index_i64_{}", unique_id))?
         };
+        
+        // Get length to check bounds
+        let length_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            1,
+            &format!("get_length_ptr_{}", unique_id),
+        )?;
+        let length = self.builder.build_load(
+            self.context.i64_type(),
+            length_ptr,
+            &format!("get_length_{}", unique_id)
+        )?.into_int_value();
+        
+        // Check if index is within bounds (index >= 0 && index < length)
+        let zero = self.context.i64_type().const_zero();
+        let index_ge_zero = self.builder.build_int_compare(
+            inkwell::IntPredicate::SGE,
+            index_i64,
+            zero,
+            &format!("get_index_ge_zero_{}", unique_id),
+        )?;
+        let index_lt_len = self.builder.build_int_compare(
+            inkwell::IntPredicate::SLT,
+            index_i64,
+            length,
+            &format!("get_index_lt_len_{}", unique_id),
+        )?;
+        let in_bounds = self.builder.build_and(
+            index_ge_zero,
+            index_lt_len,
+            &format!("get_in_bounds_{}", unique_id),
+        )?;
+        
+        // Create blocks for in-bounds and out-of-bounds cases
+        let current_fn = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let in_bounds_bb = self.context.append_basic_block(current_fn, &format!("get_in_bounds_{}", unique_id));
+        let out_bounds_bb = self.context.append_basic_block(current_fn, &format!("get_out_bounds_{}", unique_id));
+        let merge_bb = self.context.append_basic_block(current_fn, &format!("get_merge_{}", unique_id));
+        
+        self.builder.build_conditional_branch(in_bounds, in_bounds_bb, out_bounds_bb)?;
+        
+        // In-bounds case: load value and return Some
+        self.builder.position_at_end(in_bounds_bb);
         
         // Get data pointer
         let data_ptr_ptr = self.builder.build_struct_gep(
@@ -471,17 +527,44 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Load the pointer from the array
         let value_ptr = self.builder.build_load(ptr_type, element_ptr, &format!("get_elem_ptr_val_{}", unique_id))?.into_pointer_value();
         
-        // For now, assume it's an integer and load it
-        // In a full implementation, we'd need to track element types
-        let value = self.builder.build_load(self.context.i64_type(), value_ptr, &format!("get_elem_val_{}", unique_id))?;
+        // Load the value as i64 (since push stores as i64) then truncate to i32
+        let value_i64 = self.builder.build_load(self.context.i64_type(), value_ptr, &format!("get_elem_val_i64_{}", unique_id))?.into_int_value();
+        let value = self.builder.build_int_truncate(value_i64, self.context.i32_type(), &format!("get_elem_val_{}", unique_id))?;
         
-        // Convert back to i32 if that's what the array elements really are
-        let value_i32 = self.builder.build_int_truncate(
-            value.into_int_value(),
-            self.context.i32_type(),
-            &format!("get_val_i32_{}", unique_id)
-        )?;
-        Ok(value_i32.into())
+        // Create Some(value) - allocate and build struct
+        let some_alloca = self.builder.build_alloca(option_type, &format!("some_alloca_{}", unique_id))?;
+        let disc_ptr = self.builder.build_struct_gep(option_type, some_alloca, 0, &format!("some_disc_ptr_{}", unique_id))?;
+        let payload_ptr = self.builder.build_struct_gep(option_type, some_alloca, 1, &format!("some_payload_ptr_{}", unique_id))?;
+        
+        self.builder.build_store(disc_ptr, self.context.i64_type().const_int(0, false))?;  // 0 for Some
+        self.builder.build_store(payload_ptr, value)?;
+        
+        let some_val = self.builder.build_load(option_type, some_alloca, &format!("some_val_{}", unique_id))?;
+        
+        self.builder.build_unconditional_branch(merge_bb)?;
+        let some_bb = self.builder.get_insert_block().unwrap();
+        
+        // Out-of-bounds case: return None
+        self.builder.position_at_end(out_bounds_bb);
+        
+        let none_alloca = self.builder.build_alloca(option_type, &format!("none_alloca_{}", unique_id))?;
+        let disc_ptr = self.builder.build_struct_gep(option_type, none_alloca, 0, &format!("none_disc_ptr_{}", unique_id))?;
+        let payload_ptr = self.builder.build_struct_gep(option_type, none_alloca, 1, &format!("none_payload_ptr_{}", unique_id))?;
+        
+        self.builder.build_store(disc_ptr, self.context.i64_type().const_int(1, false))?;  // 1 for None
+        self.builder.build_store(payload_ptr, self.context.i32_type().const_int(0, false))?;  // dummy payload
+        
+        let none_val = self.builder.build_load(option_type, none_alloca, &format!("none_val_{}", unique_id))?;
+        
+        self.builder.build_unconditional_branch(merge_bb)?;
+        let none_bb = self.builder.get_insert_block().unwrap();
+        
+        // Merge block: use PHI node
+        self.builder.position_at_end(merge_bb);
+        let phi = self.builder.build_phi(option_type, &format!("get_result_{}", unique_id))?;
+        phi.add_incoming(&[(&some_val, some_bb), (&none_val, none_bb)]);
+        
+        Ok(phi.as_basic_value())
     }
     
     /// Compile Array.len() - returns the current length of the array

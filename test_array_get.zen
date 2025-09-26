@@ -1,0 +1,9 @@
+{ io, Array } = @std
+
+main = () void {
+    arr: Array<i32> = Array.new(10, 0)
+    arr.push(42)
+    io.println("Pushed 42, trying get...")
+    val = arr.get(0)
+    io.println("Got value: ${val}")
+}

@@ -1,0 +1,10 @@
+{ io, Array } = @std
+
+main = () void {
+    arr: Array<i32> = Array.new(10, 0)
+    arr.push(42)
+    val = arr.get(0)
+    // Try to use the value directly
+    val_plus_10 = val + 10
+    io.println("Value plus 10: ${val_plus_10}")
+}
