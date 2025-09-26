@@ -71,6 +71,7 @@ test_parse_enum
 test_parse_return
 test_lexer
 test_debug
+test_parse_debug
 out
 build/zenc
 build/stage0/zen
