@@ -1,6 +1,5 @@
 // Test doubly nested generics Result<Result<T,E>, E2>
 {io, Result, get_default_allocator} = @std
-{io, Result, get_default_allocator} = @std
 
 main = () void {
     alloc = get_default_allocator()

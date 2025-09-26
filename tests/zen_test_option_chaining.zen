@@ -1,6 +1,5 @@
 // Test Option type chaining and handling
 {io, Option, get_default_allocator} = @std
-{io, Option, get_default_allocator} = @std
 
 // Helper function that might return a value
 get_value = (n: i32) Option<i32> {

@@ -1,6 +1,5 @@
 // Test Option<Option> to see if it's specific to Result
 {io, Option, get_default_allocator} = @std
-{io, Option, get_default_allocator} = @std
 
 main = () void {
     alloc = get_default_allocator()

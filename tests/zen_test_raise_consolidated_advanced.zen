@@ -1,6 +1,5 @@
 // Consolidated .raise() error propagation tests
 {io, Result, get_default_allocator} = @std
-{io, Result, get_default_allocator} = @std
 
 // Helper functions for testing
 divide = (a: i32, b: i32) Result<i32, string> {

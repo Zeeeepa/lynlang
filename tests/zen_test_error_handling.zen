@@ -4,7 +4,6 @@
 {io, Result, get_default_allocator} = @std
 
 // Import Result and Option from stdlib  
-{io, Result, get_default_allocator} = @std
 
 // Parse function that returns Result (lines 198-203)
 parse_radius = (s: string) Result<f64, string> {

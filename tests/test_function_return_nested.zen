@@ -1,6 +1,5 @@
 // Test nested generic return values
 {io, Option, Result, get_default_allocator} = @std
-{io, Option, Result, get_default_allocator} = @std
 
 // Simple function returning Option<i32>
 simple_option = () Option<i32> {

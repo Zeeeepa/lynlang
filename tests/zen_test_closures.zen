@@ -126,7 +126,7 @@ test_nested_closures = () void {
         inner = (y: i32) {
             return x + y
         }
-        inner(10)
+        return inner(10)
     }
     
     result = outer(5)
@@ -139,9 +139,9 @@ test_closure_loop = () void {
     
     sum_range = (start: i32, end: i32) i32 {
         total = 0
-        for i in start..end {
+        (start..end).loop((i) {
             total = total + i
-        }
+        })
         total
     }
     

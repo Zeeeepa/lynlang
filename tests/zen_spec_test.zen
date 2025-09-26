@@ -4,7 +4,6 @@
 {io, math, Option, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, math, Option, get_default_allocator} = @std
 
 // Simple struct from spec (line 116-120)
 Point: {

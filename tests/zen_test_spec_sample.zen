@@ -2,10 +2,8 @@
 
 // Imports - only @std and @this are special
 {io, maths, Option, get_default_allocator} = @std
-{io, maths, Option, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, maths, Option, get_default_allocator} = @std
 
 // Simple struct
 Point: {

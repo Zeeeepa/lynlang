@@ -1,6 +1,5 @@
 // Debug double raise issue
 {io, Result, get_default_allocator} = @std
-{io, Result, get_default_allocator} = @std
 
 // Helper that returns Result<Result<i32, string>, string>
 get_double_result = () Result<Result<i32, string>, string> {

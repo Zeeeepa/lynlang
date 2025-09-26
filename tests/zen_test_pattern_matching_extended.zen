@@ -1,6 +1,5 @@
 // Extended pattern matching tests
 {io, Option, Result, get_default_allocator} = @std
-{io, Option, Result, get_default_allocator} = @std
 
 // Custom enum for testing
 Priority : .High | .Medium | .Low

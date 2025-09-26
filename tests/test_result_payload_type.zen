@@ -1,6 +1,5 @@
 // Test to understand what type of value we get from Result payload
 {io, Option, Result, get_default_allocator} = @std
-{io, Option, Result, get_default_allocator} = @std
 
 main = () void {
     alloc = get_default_allocator()

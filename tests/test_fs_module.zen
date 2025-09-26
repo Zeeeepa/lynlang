@@ -1,6 +1,5 @@
 // Test file system operations
 {io, Result, get_default_allocator} = @std
-{io, Result, get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()

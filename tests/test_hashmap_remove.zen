@@ -1,6 +1,5 @@
 // Test HashMap.remove() functionality
 {io, Option, get_default_allocator, HashMap} = @std
-{io, Option, get_default_allocator, HashMap} = @std
 
 main = () i32 {
     // Create a HashMap

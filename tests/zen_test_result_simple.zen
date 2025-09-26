@@ -3,7 +3,6 @@
 {io, Result, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, Result, get_default_allocator} = @std
 
 test_result = () Result<i32, string> {
     return Result.Ok(42)

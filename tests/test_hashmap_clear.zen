@@ -1,6 +1,5 @@
 // Test HashMap.clear() functionality
 {io, get_default_allocator, Option, HashMap} = @std
-{io, get_default_allocator, Option, HashMap} = @std
 
 main = () i32 {
     alloc = get_default_allocator()

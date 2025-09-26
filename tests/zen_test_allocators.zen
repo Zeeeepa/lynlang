@@ -33,7 +33,7 @@ test_allocator_array = () void {
 }
 
 // Test 3: Allocator with structs
-Point = struct {
+Point : {
     x: i32,
     y: i32
 }

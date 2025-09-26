@@ -2,7 +2,6 @@
 {io, Option, Result, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, Option, Result, get_default_allocator} = @std
 
 // Function with pattern matching as expression
 test_pattern = () Result<i32, string> {

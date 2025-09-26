@@ -4,7 +4,7 @@
 { io, Array, get_default_allocator, Result } = @std
 
 // Test 1: Basic struct definition and instantiation
-Point = struct {
+Point : {
     x: i32,
     y: i32
 }
@@ -22,7 +22,7 @@ test_basic_struct = () void {
 }
 
 // Test 2: Struct with methods
-Person = struct {
+Person : {
     name: string,
     age: i32
 }
@@ -41,7 +41,7 @@ test_struct_methods = () void {
 }
 
 // Test 3: Struct with generic types
-Container = struct<T> {
+Container<T> : {
     value: T,
     count: i32
 }

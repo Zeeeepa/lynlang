@@ -9,7 +9,7 @@ test_basic_array = () void {
     
     io.println("Creating array...")
     alloc = get_default_allocator()
-    arr: Array<i32> = Array.new(alloc, 10, 0)
+    arr = Array<i32>(alloc)
     io.println("Array created")
     
     io.println("Getting length...")
@@ -32,7 +32,8 @@ test_basic_array = () void {
 test_array_multiple = () void {
     io.println("=== Test 2: Multiple Elements ===")
     
-    arr: Array<i32> = Array.new(alloc, 5, 0)
+    alloc = get_default_allocator()
+    arr = Array<i32>(alloc)
     
     // Push multiple values
     arr.push(10)
@@ -43,17 +44,18 @@ test_array_multiple = () void {
     io.println("Length: ${arr.len()}")
     
     // Get and print each element
-    for i in 0..arr.len() {
+    (0..arr.len()).loop((i) {
         val = arr.get(i)
         io.println("arr[${i}] = ${val}")
-    }
+    })
 }
 
 // Test 3: Array with strings
 test_string_array = () void {
     io.println("=== Test 3: String Array ===")
     
-    arr: Array<string> = Array.new(alloc, 3, "")
+    alloc = get_default_allocator()
+    arr = Array<string>(alloc)
     
     arr.push("hello")
     arr.push("world")
@@ -61,10 +63,10 @@ test_string_array = () void {
     
     io.println("String array length: ${arr.len()}")
     
-    for i in 0..arr.len() {
+    (0..arr.len()).loop((i) {
         val = arr.get(i)
         io.println("arr[${i}] = ${val}")
-    }
+    })
 }
 
 // Test 4: Array with generic types
@@ -78,10 +80,10 @@ test_generic_array = () void {
     int_arr.push(3)
     
     io.println("Integer array:")
-    for i in 0..int_arr.len() {
+    (0..int_arr.len()).loop((i) {
         val = int_arr.get(i)
         io.println("  int_arr[${i}] = ${val}")
-    }
+    })
     
     // Test with f64
     float_arr: Array<f64> = Array.new(alloc, 2, 0.0)
@@ -89,10 +91,10 @@ test_generic_array = () void {
     float_arr.push(2.71)
     
     io.println("Float array:")
-    for i in 0..float_arr.len() {
+    (0..float_arr.len()).loop((i) {
         val = float_arr.get(i)
         io.println("  float_arr[${i}] = ${val}")
-    }
+    })
 }
 
 // Test 5: Array methods
@@ -136,12 +138,12 @@ test_option_array = () void {
     
     io.println("Option array length: ${arr.len()}")
     
-    for i in 0..arr.len() {
+    (0..arr.len()).loop((i) {
         opt = arr.get(i)
         opt ?
             | Some(val) { io.println("arr[${i}] = Some(${val})") }
             | None { io.println("arr[${i}] = None") }
-    }
+    })
 }
 
 main = () void {
