@@ -1,14 +1,15 @@
 // Consolidated Array tests
 // Combines functionality from multiple test_array_*.zen files
 
-{ io, Array } = @std
+{ io, get_default_allocator } = @std
 
 // Test 1: Basic Array creation and operations
 test_basic_array = () void {
     io.println("=== Test 1: Basic Array ===")
     
     io.println("Creating array...")
-    arr: Array<i32> = Array.new(10, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     io.println("Array created")
     
     io.println("Getting length...")
@@ -31,7 +32,7 @@ test_basic_array = () void {
 test_array_multiple = () void {
     io.println("=== Test 2: Multiple Elements ===")
     
-    arr: Array<i32> = Array.new(5, 0)
+    arr: Array<i32> = Array.new(alloc, 5, 0)
     
     // Push multiple values
     arr.push(10)
@@ -52,7 +53,7 @@ test_array_multiple = () void {
 test_string_array = () void {
     io.println("=== Test 3: String Array ===")
     
-    arr: Array<string> = Array.new(3, "")
+    arr: Array<string> = Array.new(alloc, 3, "")
     
     arr.push("hello")
     arr.push("world")
@@ -71,7 +72,7 @@ test_generic_array = () void {
     io.println("=== Test 4: Generic Array ===")
     
     // Test with i32
-    int_arr: Array<i32> = Array.new(3, 0)
+    int_arr: Array<i32> = Array.new(alloc, 3, 0)
     int_arr.push(1)
     int_arr.push(2)
     int_arr.push(3)
@@ -83,7 +84,7 @@ test_generic_array = () void {
     }
     
     // Test with f64
-    float_arr: Array<f64> = Array.new(2, 0.0)
+    float_arr: Array<f64> = Array.new(alloc, 2, 0.0)
     float_arr.push(3.14)
     float_arr.push(2.71)
     
@@ -98,7 +99,7 @@ test_generic_array = () void {
 test_array_methods = () void {
     io.println("=== Test 5: Array Methods ===")
     
-    arr: Array<i32> = Array.new(5, 0)
+    arr: Array<i32> = Array.new(alloc, 5, 0)
     
     // Test push
     arr.push(100)
@@ -127,7 +128,7 @@ test_array_methods = () void {
 test_option_array = () void {
     io.println("=== Test 6: Option Array ===")
     
-    arr: Array<Option<i32>> = Array.new(3, None)
+    arr: Array<Option<i32>> = Array.new(alloc, 3, None)
     
     arr.push(Some(42))
     arr.push(None)

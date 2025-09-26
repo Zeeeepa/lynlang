@@ -10,7 +10,7 @@ main = () void {
     // These should all work with allocator
     map = HashMap<i32, i32>(alloc)
     vec = DynVec<i32>(alloc)
-    arr = Array<i32>(alloc, 10, 0)  // allocator, capacity, default_value
+    arr: Array<i32> = Array.new(alloc, 10, 0)  // allocator, capacity, default_value
     
     io.println("All collections created with allocators")
     

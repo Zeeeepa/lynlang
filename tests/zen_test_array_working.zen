@@ -1,12 +1,13 @@
 // Comprehensive Array<T> test demonstrating working functionality
-{ io, Array } = @std
+{ io, get_default_allocator } = @std
 
 main = () i32 {
     io.println("Testing Array<T> implementation")
     io.println("================================")
     
     // Create array
-    arr: Array<i32> = Array.new(100, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 100, 0)
     io.println("Created Array<i32> with capacity 100")
     
     // Test push

@@ -875,41 +875,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .build_int_add(total_len, one, "total_len_with_null")?;
 
         // Get the default allocator for string operations (NO-GC requirement)
-        let allocator_ptr = if let Some(get_alloc_fn) = self.module.get_function("get_default_allocator") {
+        let new_str_ptr = if let Some(get_alloc_fn) = self.module.get_function("get_default_allocator") {
             let alloc_call = self.builder.build_call(get_alloc_fn, &[], "get_alloc")?;
-            alloc_call.try_as_basic_value()
+            let _allocator_ptr = alloc_call.try_as_basic_value()
                 .left()
                 .ok_or_else(|| {
                     CompileError::InternalError("get_default_allocator did not return a value".to_string(), None)
                 })?
+                .into_pointer_value();
+            
+            // Call allocator.alloc(size, align) through the allocator interface
+            // For now, we still use malloc directly but pass through the allocator for future enhancement
+            // TODO: Implement proper virtual method dispatch for allocator.alloc()
+            let call = self
+                .builder
+                .build_call(malloc_fn, &[total_len.into()], "new_str")?;
+            call.try_as_basic_value()
+                .left()
+                .ok_or_else(|| {
+                    CompileError::InternalError("malloc did not return a value".to_string(), None)
+                })?
                 .into_pointer_value()
         } else {
             // Fallback to malloc if get_default_allocator not available
-            // TODO: This should be an error in strict NO-GC mode
-            eprintln!("WARNING: String concatenation using malloc instead of allocator");
-            let call = self
-                .builder
-                .build_call(malloc_fn, &[total_len.into()], "new_str")?;
-            call.try_as_basic_value()
-                .left()
-                .ok_or_else(|| {
-                    CompileError::InternalError("malloc did not return a value".to_string(), None)
-                })?
-                .into_pointer_value()
-        };
-
-        // For now, still use malloc through the allocator interface
-        // TODO: Implement proper allocator.alloc() method call
-        let new_str_ptr = {
-            let call = self
-                .builder
-                .build_call(malloc_fn, &[total_len.into()], "new_str")?;
-            call.try_as_basic_value()
-                .left()
-                .ok_or_else(|| {
-                    CompileError::InternalError("malloc did not return a value".to_string(), None)
-                })?
-                .into_pointer_value()
+            // This should be an error in strict NO-GC mode
+            return Err(CompileError::TypeError(
+                "String operations require an allocator for NO-GC memory management. Import memory_unified or allocator module.".to_string(),
+                None,
+            ));
         };
 
         // Cast the result to i8*

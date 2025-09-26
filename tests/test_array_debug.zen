@@ -1,9 +1,10 @@
 // Debug Array issue
-{ io, Array } = @std
+{ io, get_default_allocator } = @std
 
 main = () void {
     io.println("Creating array...")
-    arr: Array<i32> = Array.new(10, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     
     io.println("Pushing...")
     arr.push(42)

@@ -1,11 +1,12 @@
 // Simple test for Array<T> functionality
-{ io, Array } = @std
+{ io, get_default_allocator } = @std
 
 main = () void {
     io.println("=== Simple Array Test ===")
     
     // Create array
-    arr: Array<i32> = Array.new(10, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     
     // Push values
     arr.push(42)

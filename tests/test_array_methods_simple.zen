@@ -1,11 +1,12 @@
 // Simple test for Array methods
-{ io, Array } = @std
+{ io, get_default_allocator } = @std
 
 main = () void {
     io.println("=== Testing Array Methods ===")
     
     // Create a new array with capacity 10 and default value 0
-    arr: Array<i32> = Array.new(10, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     
     // Test len() method (should be 0 initially)
     io.println("Initial length: ${arr.len()}")

@@ -4,7 +4,8 @@
 main = () void {
     io.println("Testing Array pop")
     
-    arr: Array<i32> = Array.new(10, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     arr.push(42)
     
     // Comment out pop for now

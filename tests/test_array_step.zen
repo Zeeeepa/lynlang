@@ -1,8 +1,9 @@
-{ io, Array } = @std
+{ io, get_default_allocator } = @std
 
 main = () i32 {
     io.println("1. Creating array...")
-    arr: Array<i32> = Array.new(10, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     
     io.println("2. Pushing value...")
     arr.push(100)

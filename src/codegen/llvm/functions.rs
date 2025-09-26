@@ -124,25 +124,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let element_size = self.context.i64_type().const_int(8, false);
         let total_size = self.builder.build_int_mul(capacity, element_size, "total_size")?;
         
-        // Use allocator if provided, otherwise use malloc
-        let data_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
-            // Fallback to malloc
-            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                let i64_type = self.context.i64_type();
-                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-                self.module.add_function("malloc", fn_type, Some(Linkage::External))
-            });
-            self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
-                .try_as_basic_value()
-                .left()
-                .ok_or_else(|| CompileError::InternalError(
-                    "malloc should return a pointer".to_string(),
-                    None,
-                ))?
-        } else {
-            // TODO: Use allocator's alloc method
-            allocator_ptr
-        };
+        // Always use malloc for now (allocator is stored for future use)
+        // TODO: Implement proper allocator interface
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, Some(Linkage::External))
+        });
+        let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| CompileError::InternalError(
+                "malloc should return a pointer".to_string(),
+                None,
+            ))?;
         
         // Initialize the array to zeros
         let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {

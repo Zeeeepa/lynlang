@@ -16,7 +16,7 @@
 { Stack } = import("collections/stack.zen")
 
 // Memory management
-{ Allocator, malloc, free } = import("memory.zen")
+{ Allocator, malloc, free, get_default_allocator } = import("memory_unified.zen")
 { GPA, AsyncPool } = import("allocator_async.zen")
 
 // Behaviors (traits/interfaces)
@@ -55,7 +55,7 @@ module.exports = {
     Queue, Stack,
     
     // Memory & concurrency
-    Allocator, malloc, free,
+    Allocator, malloc, free, get_default_allocator,
     GPA, AsyncPool,
     Actor, Task, Future,
     
