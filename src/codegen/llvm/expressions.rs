@@ -171,11 +171,136 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                     // If not a Result type, return Void (will error during compilation)
                     Ok(AstType::Void)
+                } else if method == "new" || method == "init" {
+                    // Collection constructors and init methods return the type
+                    if let Expression::Identifier(name) = &**object {
+                        match name.as_str() {
+                            "Array" => Ok(AstType::Generic { 
+                                name: "Array".to_string(), 
+                                type_args: vec![AstType::I32]  // Default element type
+                            }),
+                            "HashMap" => Ok(AstType::Generic { 
+                                name: "HashMap".to_string(), 
+                                type_args: vec![AstType::String, AstType::I32]  // Default K,V types
+                            }),
+                            "HashSet" => Ok(AstType::Generic { 
+                                name: "HashSet".to_string(), 
+                                type_args: vec![AstType::I32]  // Default element type
+                            }),
+                            "DynVec" => Ok(AstType::Generic { 
+                                name: "DynVec".to_string(), 
+                                type_args: vec![AstType::I32]  // Default element type
+                            }),
+                            "Vec" => Ok(AstType::Generic { 
+                                name: "Vec".to_string(), 
+                                type_args: vec![AstType::I32]  // Default element type
+                            }),
+                            "GPA" => Ok(AstType::Struct { 
+                                name: "GPA".to_string(), 
+                                fields: vec![] 
+                            }),
+                            "AsyncPool" => Ok(AstType::Struct { 
+                                name: "AsyncPool".to_string(), 
+                                fields: vec![] 
+                            }),
+                            _ => Ok(AstType::Void)
+                        }
+                    } else {
+                        Ok(AstType::Void)
+                    }
                 } else {
-                    // For other methods, we'll need more context
-                    // For now, return Void
+                    // For other common methods, try to infer return type
+                    match method.as_str() {
+                        "len" | "size" | "length" => Ok(AstType::I64),
+                        "is_empty" => Ok(AstType::Bool),
+                        "to_i32" => Ok(AstType::Generic { 
+                            name: "Option".to_string(), 
+                            type_args: vec![AstType::I32]
+                        }),
+                        "to_i64" => Ok(AstType::Generic { 
+                            name: "Option".to_string(), 
+                            type_args: vec![AstType::I64]
+                        }),
+                        "to_f64" => Ok(AstType::Generic { 
+                            name: "Option".to_string(), 
+                            type_args: vec![AstType::F64]
+                        }),
+                        "contains" | "starts_with" | "ends_with" => Ok(AstType::Bool),
+                        "index_of" => Ok(AstType::I64),
+                        "substr" | "trim" | "to_upper" | "to_lower" => Ok(AstType::String),
+                        "split" => Ok(AstType::Generic { 
+                            name: "Array".to_string(), 
+                            type_args: vec![AstType::String]
+                        }),
+                        "char_at" => Ok(AstType::I32),
+                        "get" => {
+                            // Try to infer from object type
+                            if let Ok(object_type) = self.infer_expression_type(object) {
+                                if let AstType::Generic { name, type_args } = object_type {
+                                    if (name == "HashMap" || name == "Array" || name == "Vec") && !type_args.is_empty() {
+                                        // Return Option<element_type>
+                                        return Ok(AstType::Generic { 
+                                            name: "Option".to_string(), 
+                                            type_args: vec![type_args[type_args.len()-1].clone()]
+                                        });
+                                    }
+                                }
+                            }
+                            Ok(AstType::Void)
+                        }
+                        _ => Ok(AstType::Void)
+                    }
+                }
+            }
+            Expression::PatternMatch { arms, .. } => {
+                // Pattern match takes the type of its first arm's body
+                if let Some(first_arm) = arms.first() {
+                    self.infer_expression_type(&first_arm.body)
+                } else {
                     Ok(AstType::Void)
                 }
+            }
+            Expression::QuestionMatch { arms, .. } => {
+                // Question match takes the type of its first arm's body 
+                if let Some(first_arm) = arms.first() {
+                    self.infer_expression_type(&first_arm.body)
+                } else {
+                    Ok(AstType::Void)
+                }
+            }
+            Expression::Conditional { arms, .. } => {
+                // Conditional takes the type of its first arm's body
+                if let Some(first_arm) = arms.first() {
+                    self.infer_expression_type(&first_arm.body)
+                } else {
+                    Ok(AstType::Void)
+                }
+            }
+            Expression::BinaryOp { op, .. } => {
+                // Binary operations return different types based on the operator
+                use crate::ast::BinaryOperator;
+                match op {
+                    BinaryOperator::GreaterThan | BinaryOperator::LessThan | 
+                    BinaryOperator::GreaterThanEquals | BinaryOperator::LessThanEquals |
+                    BinaryOperator::Equals | BinaryOperator::NotEquals | 
+                    BinaryOperator::And | BinaryOperator::Or => Ok(AstType::Bool),
+                    BinaryOperator::Add | BinaryOperator::Subtract | 
+                    BinaryOperator::Multiply | BinaryOperator::Divide | 
+                    BinaryOperator::Modulo => Ok(AstType::I32), // Default to I32, should analyze operands
+                    _ => Ok(AstType::Void),
+                }
+            }
+            Expression::Block(stmts) => {
+                // Block takes the type of its last expression
+                for stmt in stmts.iter().rev() {
+                    if let crate::ast::Statement::Expression(expr) = stmt {
+                        return self.infer_expression_type(expr);
+                    }
+                    if let crate::ast::Statement::Return(expr) = stmt {
+                        return self.infer_expression_type(expr);
+                    }
+                }
+                Ok(AstType::Void)
             }
             _ => Ok(AstType::Void),
         }
