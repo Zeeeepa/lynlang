@@ -617,7 +617,7 @@ impl<'a> Parser<'a> {
                             
                             // Format the name with the actual type arguments
                             let type_args_str = type_args.iter()
-                                .map(|t| format!("{:?}", t))  // This is a temporary representation
+                                .map(|t| format!("{}", t))  // Use Display instead of Debug
                                 .collect::<Vec<_>>()
                                 .join(", ");
                             (format!("{}<{}>", name, type_args_str), true)
@@ -646,7 +646,7 @@ impl<'a> Parser<'a> {
                             
                             // Format the name with the actual type arguments
                             let type_args_str = type_args.iter()
-                                .map(|t| format!("{:?}", t))  // This is a temporary representation
+                                .map(|t| format!("{}", t))  // Use Display instead of Debug
                                 .collect::<Vec<_>>()
                                 .join(", ");
                             (format!("{}<{}>", name, type_args_str), true)

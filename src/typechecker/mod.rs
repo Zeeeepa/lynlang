@@ -779,6 +779,28 @@ impl TypeChecker {
                     }
                 }
 
+                // Check if this is a generic type constructor like HashMap<K,V>()
+                if name.contains('<') && name.contains('>') {
+                    // Extract the base type name
+                    if let Some(angle_pos) = name.find('<') {
+                        let base_type = &name[..angle_pos];
+                        match base_type {
+                            "HashMap" | "HashSet" | "DynVec" => {
+                                // These constructors return their respective generic types
+                                // Parse the type arguments to construct the proper return type
+                                // For now, return a generic placeholder
+                                return Ok(AstType::Generic {
+                                    name: base_type.to_string(),
+                                    type_args: vec![], // TODO: Parse actual type args from name
+                                });
+                            }
+                            _ => {
+                                // Continue with regular function lookup
+                            }
+                        }
+                    }
+                }
+
                 // First check if it's a known function
                 if let Some(sig) = self.functions.get(name) {
                     Ok(sig.return_type.clone())

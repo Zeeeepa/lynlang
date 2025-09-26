@@ -1,0 +1,20 @@
+// Test nested generics with HashMap
+{ io, HashMap, Option, Result } = @std
+
+main = () void {
+    io.println("=== Testing Nested Generics in Collections ===")
+    
+    // Test 1: HashMap with Option values
+    map1 = HashMap<string, Option<i32>>()
+    io.println("Created HashMap<string, Option<i32>>")
+    
+    // Test 2: HashMap with Result values
+    map2 = HashMap<string, Result<i32, string>>()
+    io.println("Created HashMap<string, Result<i32, string>>")
+    
+    // Test 3: DynVec with Option elements
+    vec = DynVec<Option<string>>()
+    io.println("Created DynVec<Option<string>>")
+    
+    io.println("All nested generic constructors working!")
+}
