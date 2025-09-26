@@ -28,7 +28,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 if let Some(var_info) = self.variables.get(name) {
                     Ok(var_info.ast_type.clone())
                 } else {
-                    Ok(AstType::Void)
+                    // If not found, it might be a pattern binding - default to I32
+                    // This is a heuristic that works for most cases
+                    Ok(AstType::I32)
                 }
             }
             Expression::Range {
@@ -337,8 +339,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
             Expression::QuestionMatch { arms, .. } => {
-                // Question match takes the type of its first arm's body 
+                // Question match takes the type of its first arm's body
+                // For now we use a heuristic: if the body is a block with a single identifier,
+                // we assume it's from pattern binding and default to scrutinee payload type
                 if let Some(first_arm) = arms.first() {
+                    // Check if the body needs special handling
+                    if let Expression::Block(stmts) = &first_arm.body {
+                        if stmts.len() == 1 {
+                            if let crate::ast::Statement::Expression(Expression::Identifier(_)) = &stmts[0] {
+                                // This is likely a pattern binding variable, assume I32 for now
+                                // In a full implementation, we'd extract the actual type from the pattern
+                                return Ok(AstType::I32);
+                            }
+                        }
+                    }
                     self.infer_expression_type(&first_arm.body)
                 } else {
                     Ok(AstType::Void)

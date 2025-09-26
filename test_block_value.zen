@@ -1,0 +1,17 @@
+{ io, Option } = @std
+
+main = () i32 {
+    opt = Option.Some(42)
+    
+    // Block with single expression should return that value
+    result = opt ?
+        | Option.Some(v) { 
+            v  // Last expression in block
+        }
+        | Option.None { 
+            0  // Last expression in block
+        }
+    
+    io.println("Result: ${result}")
+    result
+}
