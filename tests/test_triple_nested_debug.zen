@@ -1,0 +1,72 @@
+// Debug triple nested generics
+{ io, Result } = @std
+
+main = () void {
+    io.println("Debug triple nested Result")
+    
+    // Test 1: Fully inline triple nesting
+    io.println("\n1. Triple inline: Result.Ok(Result.Ok(Result.Ok(999)))")
+    r1 = Result.Ok(Result.Ok(Result.Ok(999)))
+    
+    r1 ?
+        | Result.Ok(level2) {
+            io.println("  Got level 1 Ok")
+            level2 ?
+                | Result.Ok(level3) {
+                    io.println("  Got level 2 Ok")
+                    level3 ?
+                        | Result.Ok(v) {
+                            io.println("  Value: ${v}")
+                            v == 999 ?
+                                | true { io.println("  ✓ Works!") }
+                                | false { io.println("  ✗ Got ${v} instead of 999") }
+                        }
+                        | Result.Err(e) { io.println("  Level 3 error") }
+                }
+                | Result.Err(e) { io.println("  Level 2 error") }
+        }
+        | Result.Err(e) { io.println("  Level 1 error") }
+    
+    // Test 2: Build it up step by step
+    io.println("\n2. Step by step:")
+    level3b = Result.Ok(888)
+    level2b = Result.Ok(level3b)
+    r2 = Result.Ok(level2b)
+    
+    r2 ?
+        | Result.Ok(l2) {
+            io.println("  Got level 1 Ok")
+            l2 ?
+                | Result.Ok(l3) {
+                    io.println("  Got level 2 Ok")
+                    l3 ?
+                        | Result.Ok(v) {
+                            io.println("  Value: ${v}")
+                            v == 888 ?
+                                | true { io.println("  ✓ Works!") }
+                                | false { io.println("  ✗ Got ${v} instead of 888") }
+                        }
+                        | Result.Err(e) { io.println("  Level 3 error") }
+                }
+                | Result.Err(e) { io.println("  Level 2 error") }
+        }
+        | Result.Err(e) { io.println("  Level 1 error") }
+    
+    // Test 3: Inline but with different values to track
+    io.println("\n3. Different values at each level:")
+    r3 = Result.Ok(Result.Ok(Result.Err("deepest error")))
+    
+    r3 ?
+        | Result.Ok(l2) {
+            io.println("  Got level 1 Ok")
+            l2 ?
+                | Result.Ok(l3) {
+                    io.println("  Got level 2 Ok")
+                    l3 ?
+                        | Result.Ok(v) { io.println("  Value: ${v}") }
+                        | Result.Err(e) { io.println("  Level 3 error: ${e}") }
+                }
+                | Result.Err(e) { io.println("  Level 2 error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Level 1 error: ${e}") }
+}

@@ -1,0 +1,40 @@
+// Debug test to understand nested generic payload issue
+{ io, Result } = @std
+
+main = () void {
+    io.println("Testing nested Result payload")
+    
+    // Direct creation of nested Result
+    inner = Result.Ok(42)
+    
+    // Verify inner works
+    inner ?
+        | Result.Ok(v) { io.println("Inner value: ${v}") }
+        | Result.Err(e) { io.println("Inner error") }
+    
+    // Now create outer with inner
+    outer = Result.Ok(inner)
+    
+    // Try to extract
+    outer ?
+        | Result.Ok(extracted_inner) {
+            io.println("Got outer Ok")
+            extracted_inner ?
+                | Result.Ok(v) { io.println("Extracted inner value: ${v}") }
+                | Result.Err(e) { io.println("Extracted inner error") }
+        }
+        | Result.Err(e) { io.println("Outer error") }
+    
+    // Try inline creation
+    io.println("\nInline creation:")
+    inline_outer = Result.Ok(Result.Ok(99))
+    
+    inline_outer ?
+        | Result.Ok(inline_inner) {
+            io.println("Got inline outer Ok")
+            inline_inner ?
+                | Result.Ok(v) { io.println("Inline inner value: ${v}") }
+                | Result.Err(e) { io.println("Inline inner error") }
+        }
+        | Result.Err(e) { io.println("Inline outer error") }
+}

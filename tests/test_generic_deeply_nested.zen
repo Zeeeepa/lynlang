@@ -1,0 +1,116 @@
+// Test deeply nested generic types
+{ io, Result, Option, DynVec } = @std
+
+// Function returning Result<Option<Result<i32, string>>, string>
+deeply_nested_1 = (val: i32) Result<Option<Result<i32, string>>, string> {
+    val == 0 ?
+        | true { Result.Err("Zero not allowed") }
+        | false {
+            val > 0 ?
+                | true { Result.Ok(Option.Some(Result.Ok(val))) }
+                | false { Result.Ok(Option.Some(Result.Err("Negative value"))) }
+        }
+}
+
+// Function returning Option<Result<Option<i32>, string>>
+deeply_nested_2 = (val: i32) Option<Result<Option<i32>, string>> {
+    val == 0 ?
+        | true { Option.None }
+        | false {
+            val > 0 ?
+                | true { Option.Some(Result.Ok(Option.Some(val))) }
+                | false { Option.Some(Result.Err("Invalid value")) }
+        }
+}
+
+// Function to test three levels of nesting
+triple_nested = () Result<Result<Result<i32, string>, string>, string> {
+    Result.Ok(Result.Ok(Result.Ok(999)))
+}
+
+main = () void {
+    io.println("Testing deeply nested generic types")
+    
+    // Test Result<Option<Result<i32, string>>, string>
+    io.println("\n1. Result<Option<Result<i32, string>>, string>")
+    
+    d1 = deeply_nested_1(42)
+    d1 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(inner_result) {
+                    inner_result ?
+                        | Result.Ok(v) { io.println("  Got Ok(Some(Ok(${v})))") }
+                        | Result.Err(e) { io.println("  Got Ok(Some(Err(${e})))") }
+                }
+                | Option.None { io.println("  Got Ok(None)") }
+        }
+        | Result.Err(e) { io.println("  Got Err(${e})") }
+    
+    d2 = deeply_nested_1(-5)
+    d2 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(inner_result) {
+                    inner_result ?
+                        | Result.Ok(v) { io.println("  Unexpected Ok(${v})") }
+                        | Result.Err(e) { io.println("  Got Ok(Some(Err(${e})))") }
+                }
+                | Option.None { io.println("  Got Ok(None)") }
+        }
+        | Result.Err(e) { io.println("  Got Err(${e})") }
+    
+    // Test Option<Result<Option<i32>, string>>
+    io.println("\n2. Option<Result<Option<i32>, string>>")
+    
+    n1 = deeply_nested_2(100)
+    n1 ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(inner_opt) {
+                    inner_opt ?
+                        | Option.Some(v) { io.println("  Got Some(Ok(Some(${v})))") }
+                        | Option.None { io.println("  Got Some(Ok(None))") }
+                }
+                | Result.Err(e) { io.println("  Got Some(Err(${e}))") }
+        }
+        | Option.None { io.println("  Got None") }
+    
+    n2 = deeply_nested_2(0)
+    n2 ?
+        | Option.Some(res) { io.println("  Unexpected Some") }
+        | Option.None { io.println("  Got None") }
+    
+    // Test triple nesting with raise()
+    io.println("\n3. Triple nested with raise()")
+    t1 = triple_nested()
+    t1 ?
+        | Result.Ok(level2) {
+            level2 ?
+                | Result.Ok(level3) {
+                    level3 ?
+                        | Result.Ok(v) { 
+                            io.println("  Triple nested value: ${v}")
+                            v == 999 ?
+                                | true { io.println("  ✓ Triple nesting works!") }
+                                | false { io.println("  ✗ Triple nesting failed: got ${v}") }
+                        }
+                        | Result.Err(e) { io.println("  Level3 error: ${e}") }
+                }
+                | Result.Err(e) { io.println("  Level2 error: ${e}") }
+        }
+        | Result.Err(e) { io.println("  Level1 error: ${e}") }
+    
+    // Test triple raise()
+    io.println("\n4. Triple raise()")
+    t2 = triple_nested()
+    lev2 = t2.raise()
+    lev3 = lev2.raise()
+    final_val = lev3.raise()
+    io.println("  Triple raise extracted: ${final_val}")
+    final_val == 999 ?
+        | true { io.println("  ✓ Triple raise works!") }
+        | false { io.println("  ✗ Triple raise failed: got ${final_val}") }
+    
+    io.println("\n✓ All deeply nested generic tests completed!")
+}
