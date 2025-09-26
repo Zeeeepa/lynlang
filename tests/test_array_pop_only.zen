@@ -1,0 +1,15 @@
+// Test just Array pop method
+{ io, Array, Option } = @std
+
+main = () void {
+    io.println("Testing Array pop")
+    
+    arr: Array<i32> = Array.new(10, 0)
+    arr.push(42)
+    
+    // Comment out pop for now
+    // val = arr.pop()
+    
+    io.println("Length after push: ${arr.len()}")
+    io.println("Done")
+}

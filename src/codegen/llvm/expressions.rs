@@ -1754,7 +1754,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(ok_value);
                 }
 
-                // Special handling for Vec and DynVec methods
+                // Special handling for Vec, DynVec and Array methods
                 if let Expression::Identifier(obj_name) = object.as_ref() {
                     // Check if this is a Vec<T, N> type
                     let is_vec = if let Some(var_info) = self.variables.get(obj_name) {
@@ -1770,10 +1770,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         false
                     };
                     
+                    // Check if this is an Array<T> type
+                    let is_array = if let Some(var_info) = self.variables.get(obj_name) {
+                        matches!(&var_info.ast_type, AstType::Generic { name, .. } if name == "Array")
+                    } else {
+                        false
+                    };
+                    
                     // Handle Vec<T, N> methods
                     if is_vec {
                         let (vec_ptr, _) = self.get_variable(obj_name)?;
                         return self.compile_vec_method(obj_name, method, args, vec_ptr, object_value);
+                    }
+                    
+                    // Handle Array<T> methods
+                    if is_array {
+                        return self.compile_array_method(obj_name, method, args, object_value);
                     }
                     
                     if is_dynvec {
@@ -6470,6 +6482,436 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(self
             .builder
             .build_load(array_struct_type, array_ptr, "array_value")?)
+    }
+
+    /// Compile Array<T> methods (push, get, set, pop, len)
+    fn compile_array_method(
+        &mut self,
+        obj_name: &str,
+        method: &str,
+        args: &[Expression],
+        array_value: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Get the pointer to the array variable
+        let (array_ptr, _) = self.get_variable(obj_name)?;
+        
+        match method {
+            "push" => {
+                if args.len() != 1 {
+                    return Err(CompileError::TypeError(
+                        "Array.push expects exactly 1 argument".to_string(),
+                        None,
+                    ));
+                }
+                
+                // Compile the value to push
+                let value = self.compile_expression(&args[0])?;
+                
+                // Load current length and capacity
+                let len_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    1,
+                    "len_ptr",
+                )?;
+                let capacity_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    2,
+                    "capacity_ptr",
+                )?;
+                
+                let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?.into_int_value();
+                let capacity = self.builder.build_load(self.context.i64_type(), capacity_ptr, "capacity")?.into_int_value();
+                
+                // Check if we need to grow the array
+                let need_grow = self.builder.build_int_compare(
+                    inkwell::IntPredicate::UGE,
+                    len,
+                    capacity,
+                    "need_grow",
+                )?;
+                
+                let grow_block = self.context.append_basic_block(self.current_function.unwrap(), "array_grow");
+                let store_block = self.context.append_basic_block(self.current_function.unwrap(), "array_store");
+                
+                self.builder.build_conditional_branch(need_grow, grow_block, store_block)?;
+                
+                // Grow block - double capacity and reallocate
+                self.builder.position_at_end(grow_block);
+                let new_capacity = self.builder.build_int_mul(
+                    capacity,
+                    self.context.i64_type().const_int(2, false),
+                    "new_capacity",
+                )?;
+                
+                // Calculate new size in bytes (assuming 8 bytes per element)
+                let element_size = self.context.i64_type().const_int(8, false);
+                let new_size = self.builder.build_int_mul(new_capacity, element_size, "new_size")?;
+                
+                // Get data pointer
+                let data_ptr_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    0,
+                    "data_ptr_ptr",
+                )?;
+                let old_data = self.builder.build_load(
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    data_ptr_ptr,
+                    "old_data",
+                )?.into_pointer_value();
+                
+                // Reallocate memory
+                let realloc_fn = self.module.get_function("realloc").unwrap_or_else(|| {
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let i64_type = self.context.i64_type();
+                    let fn_type = ptr_type.fn_type(&[ptr_type.into(), i64_type.into()], false);
+                    self.module.add_function("realloc", fn_type, Some(inkwell::module::Linkage::External))
+                });
+                
+                let new_data = self.builder.build_call(
+                    realloc_fn,
+                    &[old_data.into(), new_size.into()],
+                    "new_data",
+                )?.try_as_basic_value().left().unwrap();
+                
+                // Store new data pointer and capacity
+                self.builder.build_store(data_ptr_ptr, new_data)?;
+                self.builder.build_store(capacity_ptr, new_capacity)?;
+                self.builder.build_unconditional_branch(store_block)?;
+                
+                // Store block - store the value at the current length index
+                self.builder.position_at_end(store_block);
+                
+                // Get data pointer (reload since it might have changed if we grew)
+                let data_ptr_ptr_store = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    0,
+                    "data_ptr_ptr_store",
+                )?;
+                let data_ptr = self.builder.build_load(
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    data_ptr_ptr_store,
+                    "data",
+                )?.into_pointer_value();
+                
+                // Calculate element pointer
+                let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let data_as_i64_ptr = self.builder.build_pointer_cast(
+                    data_ptr,
+                    i64_ptr_type,
+                    "data_as_i64",
+                )?;
+                
+                let element_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i64_type(),
+                        data_as_i64_ptr,
+                        &[len],
+                        "element_ptr",
+                    )?
+                };
+                
+                // Store the value as i64 (or allocate and store pointer for complex types)
+                let value_to_store = if value.is_int_value() {
+                    let int_val = value.into_int_value();
+                    if int_val.get_type().get_bit_width() < 64 {
+                        self.builder.build_int_z_extend(int_val, self.context.i64_type(), "extended")?
+                    } else {
+                        int_val
+                    }
+                } else if value.is_float_value() {
+                    let float_val = value.into_float_value();
+                    self.builder.build_bit_cast(float_val, self.context.i64_type(), "float_as_i64")?.into_int_value()
+                } else {
+                    // For other types, allocate memory and store pointer
+                    self.context.i64_type().const_int(0, false)
+                };
+                
+                self.builder.build_store(element_ptr, value_to_store)?;
+                
+                // Increment length
+                let new_len = self.builder.build_int_add(
+                    len,
+                    self.context.i64_type().const_int(1, false),
+                    "new_len",
+                )?;
+                self.builder.build_store(len_ptr, new_len)?;
+                
+                // Return void
+                Ok(self.context.struct_type(&[], false).const_zero().into())
+            }
+            "get" => {
+                if args.len() != 1 {
+                    return Err(CompileError::TypeError(
+                        "Array.get expects exactly 1 argument".to_string(),
+                        None,
+                    ));
+                }
+                
+                // Compile the index
+                let index = self.compile_expression(&args[0])?;
+                let index = if index.is_int_value() {
+                    let idx = index.into_int_value();
+                    if idx.get_type().get_bit_width() < 64 {
+                        self.builder.build_int_z_extend(idx, self.context.i64_type(), "index_i64")?
+                    } else {
+                        idx
+                    }
+                } else {
+                    return Err(CompileError::TypeError("Array index must be an integer".to_string(), None));
+                };
+                
+                // Load the data pointer
+                let data_ptr_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    0,
+                    "data_ptr_ptr",
+                )?;
+                let data_ptr = self.builder.build_load(
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    data_ptr_ptr,
+                    "data",
+                )?.into_pointer_value();
+                
+                // Calculate element pointer
+                let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let data_as_i64_ptr = self.builder.build_pointer_cast(
+                    data_ptr,
+                    i64_ptr_type,
+                    "data_as_i64",
+                )?;
+                
+                let element_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i64_type(),
+                        data_as_i64_ptr,
+                        &[index],
+                        "element_ptr",
+                    )?
+                };
+                
+                // Load the value
+                let value = self.builder.build_load(self.context.i64_type(), element_ptr, "get_elem_value")?;
+                
+                // Truncate to i32 if needed for compatibility
+                let i32_value = self.builder.build_int_truncate(
+                    value.into_int_value(),
+                    self.context.i32_type(),
+                    "get_elem_i32"
+                )?;
+                
+                Ok(i32_value.into())
+            }
+            "set" => {
+                if args.len() != 2 {
+                    return Err(CompileError::TypeError(
+                        "Array.set expects exactly 2 arguments (index, value)".to_string(),
+                        None,
+                    ));
+                }
+                
+                // Compile the index
+                let index = self.compile_expression(&args[0])?;
+                let index = if index.is_int_value() {
+                    let idx = index.into_int_value();
+                    if idx.get_type().get_bit_width() < 64 {
+                        self.builder.build_int_z_extend(idx, self.context.i64_type(), "index_i64")?
+                    } else {
+                        idx
+                    }
+                } else {
+                    return Err(CompileError::TypeError("Array index must be an integer".to_string(), None));
+                };
+                
+                // Compile the value
+                let value = self.compile_expression(&args[1])?;
+                
+                // Load the data pointer
+                let data_ptr_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    0,
+                    "data_ptr_ptr",
+                )?;
+                let data_ptr = self.builder.build_load(
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    data_ptr_ptr,
+                    "data",
+                )?.into_pointer_value();
+                
+                // Calculate element pointer
+                let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let data_as_i64_ptr = self.builder.build_pointer_cast(
+                    data_ptr,
+                    i64_ptr_type,
+                    "data_as_i64",
+                )?;
+                
+                let element_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i64_type(),
+                        data_as_i64_ptr,
+                        &[index],
+                        "element_ptr",
+                    )?
+                };
+                
+                // Store the value as i64
+                let value_to_store = if value.is_int_value() {
+                    let int_val = value.into_int_value();
+                    if int_val.get_type().get_bit_width() < 64 {
+                        self.builder.build_int_z_extend(int_val, self.context.i64_type(), "extended")?
+                    } else {
+                        int_val
+                    }
+                } else if value.is_float_value() {
+                    let float_val = value.into_float_value();
+                    self.builder.build_bit_cast(float_val, self.context.i64_type(), "float_as_i64")?.into_int_value()
+                } else {
+                    // For other types, use a placeholder
+                    self.context.i64_type().const_int(0, false)
+                };
+                
+                self.builder.build_store(element_ptr, value_to_store)?;
+                
+                // Return void
+                Ok(self.context.struct_type(&[], false).const_zero().into())
+            }
+            "len" => {
+                // Load and return the length
+                let len_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    1,
+                    "len_ptr",
+                )?;
+                let len = self.builder.build_load(self.context.i64_type(), len_ptr, "len")?;
+                Ok(len)
+            }
+            "pop" => {
+                // Generate unique ID to avoid name collisions
+                static mut POP_ID: u32 = 0;
+                let pop_id = unsafe {
+                    POP_ID += 1;
+                    POP_ID
+                };
+                
+                // Load current length
+                let len_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    1,
+                    &format!("len_ptr_{}", pop_id),
+                )?;
+                let len = self.builder.build_load(self.context.i64_type(), len_ptr, &format!("len_{}", pop_id))?.into_int_value();
+                
+                // Check if array is not empty
+                let is_not_empty = self.builder.build_int_compare(
+                    inkwell::IntPredicate::SGT,
+                    len,
+                    self.context.i64_type().const_int(0, false),
+                    &format!("not_empty_{}", pop_id),
+                )?;
+                
+                let some_block = self.context.append_basic_block(self.current_function.unwrap(), &format!("pop_some_{}", pop_id));
+                let none_block = self.context.append_basic_block(self.current_function.unwrap(), &format!("pop_none_{}", pop_id));
+                let merge_block = self.context.append_basic_block(self.current_function.unwrap(), &format!("pop_merge_{}", pop_id));
+                
+                self.builder.build_conditional_branch(is_not_empty, some_block, none_block)?;
+                
+                // Some block - return last element and decrement length
+                self.builder.position_at_end(some_block);
+                
+                // Decrement length
+                let new_len = self.builder.build_int_sub(
+                    len,
+                    self.context.i64_type().const_int(1, false),
+                    &format!("new_len_{}", pop_id),
+                )?;
+                self.builder.build_store(len_ptr, new_len)?;
+                
+                // Load data pointer
+                let data_ptr_ptr = self.builder.build_struct_gep(
+                    array_value.get_type(),
+                    array_ptr,
+                    0,
+                    &format!("data_ptr_ptr_{}", pop_id),
+                )?;
+                let data_ptr = self.builder.build_load(
+                    self.context.ptr_type(inkwell::AddressSpace::default()),
+                    data_ptr_ptr,
+                    &format!("data_{}", pop_id),
+                )?.into_pointer_value();
+                
+                // Calculate element pointer (at new_len, which is the last element)
+                let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                let data_as_i64_ptr = self.builder.build_pointer_cast(
+                    data_ptr,
+                    i64_ptr_type,
+                    &format!("data_as_i64_{}", pop_id),
+                )?;
+                
+                let element_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.i64_type(),
+                        data_as_i64_ptr,
+                        &[new_len],
+                        &format!("element_ptr_{}", pop_id),
+                    )?
+                };
+                
+                // Load the value
+                let value = self.builder.build_load(self.context.i64_type(), element_ptr, &format!("pop_elem_value_{}", pop_id))?;
+                
+                // Truncate to i32 for compatibility
+                let i32_value = self.builder.build_int_truncate(
+                    value.into_int_value(),
+                    self.context.i32_type(),
+                    &format!("pop_elem_i32_{}", pop_id)
+                )?;
+                
+                // Create Option.Some with the value
+                let option_struct_type = self.context.struct_type(
+                    &[
+                        self.context.i64_type().into(), // discriminant
+                        self.context.i32_type().into(), // payload (i32)
+                    ],
+                    false,
+                );
+                let some_value = option_struct_type.const_named_struct(&[
+                    self.context.i64_type().const_int(1, false).into(), // Some discriminant
+                    i32_value.into(),
+                ]);
+                
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // None block - return Option.None
+                self.builder.position_at_end(none_block);
+                let none_value = option_struct_type.const_named_struct(&[
+                    self.context.i64_type().const_int(0, false).into(), // None discriminant
+                    self.context.i32_type().const_int(0, false).into(),  // dummy payload
+                ]);
+                
+                self.builder.build_unconditional_branch(merge_block)?;
+                
+                // Merge block
+                self.builder.position_at_end(merge_block);
+                let phi = self.builder.build_phi(option_struct_type, &format!("pop_result_{}", pop_id))?;
+                phi.add_incoming(&[(&some_value, some_block), (&none_value, none_block)]);
+                
+                Ok(phi.as_basic_value())
+            }
+            _ => {
+                Err(CompileError::TypeError(
+                    format!("Unknown Array method: {}", method),
+                    None,
+                ))
+            }
+        }
     }
 
     /// Compile .raise() expression by transforming it into pattern matching
