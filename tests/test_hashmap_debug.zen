@@ -1,15 +1,16 @@
 // Test HashMap creation only
-{ io, Option, HashMap } = @std
+{ io, Option, HashMap , get_default_allocator } = @std
 
 main = () void {
     io.println("Creating HashMap...")
     
     // Create a HashMap with i32 keys and values
-    map = HashMap<i32, i32>()
+    alloc = get_default_allocator()
+    map = HashMap<i32, i32>(alloc)
     
     io.println("HashMap created successfully!")
     
     // Check length
     len = map.len()
-    io.println("Length: ${len}")
+    io.println("Length: ${len, get_default_allocator }")
 }

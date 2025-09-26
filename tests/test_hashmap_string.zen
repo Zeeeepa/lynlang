@@ -1,9 +1,10 @@
 // Test HashMap with string keys
-{ io, Option, HashMap } = @std
+{ io, Option, HashMap , get_default_allocator } = @std
 
 main = () void {
     // Create a HashMap with string keys and i32 values
-    map = HashMap<string, i32>()
+    alloc = get_default_allocator()
+    map = HashMap<string, i32>(alloc)
     
     io.println("HashMap created")
     
@@ -16,6 +17,6 @@ main = () void {
     result = map.get("key1")
     
     result ?
-        | Some(val) { io.println("Got value: ${val}") }
+        | Some(val) { io.println("Got value: ${val, get_default_allocator }") }
         | None { io.println("Key not found") }
 }

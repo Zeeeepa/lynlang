@@ -1,5 +1,5 @@
 // Test HashMap with Option values
-{ io, Option, HashMap, HashSet } = @std
+{ io, Option, HashMap, HashSet , get_default_allocator } = @std
 
 main = () void {
     io.println("Testing HashMap<string, Option<i32>>")
@@ -17,7 +17,7 @@ main = () void {
     opt1 ?
         | Some(inner) {
             inner ?
-                | Some(val) { io.println("key1 = Some(${val})") }
+                | Some(val) { io.println("key1 = Some(${val, get_default_allocator })") }
                 | None { io.println("key1 = None") }
         }
         | None { io.println("key1 not found") }

@@ -1,12 +1,13 @@
 // Debug test for HashMap method recognition
-{ io, HashMap } = @std
+{ io, HashMap , get_default_allocator } = @std
 
 main = () void {
     // Create a HashMap with the () syntax
-    map = HashMap<i32, i32>()
+    alloc = get_default_allocator()
+    map = HashMap<i32, i32>(alloc)
     io.println("HashMap created")
     
     // This should work but currently fails
     map.insert(1, 100)
     io.println("Insert called")
-}
+, get_default_allocator }

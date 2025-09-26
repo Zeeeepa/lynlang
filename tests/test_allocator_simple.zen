@@ -5,7 +5,8 @@ main = () void {
     io.println("Testing allocator requirements for NO-GC")
     
     // These should fail without allocator
-    map = HashMap<i32, i32>()
+    alloc = get_default_allocator()
+    map = HashMap<i32, i32>(alloc)
     
     io.println("Should not reach here - allocator required!")
-}
+, get_default_allocator }

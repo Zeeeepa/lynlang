@@ -1,5 +1,5 @@
 // Test HashMap pattern matching on Option
-{ io, HashMap } = @std
+{ io, HashMap , get_default_allocator } = @std
 
 // Simple hash function for strings
 string_hash = (s: string) i64 {
@@ -29,7 +29,7 @@ main = () i32 {
     
     // Pattern match on the result
     result ?
-        | .Some(value) { io.println("Found value: ${value}") }
+        | .Some(value) { io.println("Found value: ${value, get_default_allocator }") }
         | .None { io.println("Key not found") }
     
     return 0

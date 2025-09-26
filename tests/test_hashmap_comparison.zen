@@ -1,5 +1,5 @@
 // Test both HashMap constructors
-{ io, HashMap } = @std
+{ io, HashMap , get_default_allocator } = @std
 
 main = () void {
     io.println("Testing HashMap constructors")
@@ -8,8 +8,9 @@ main = () void {
     map1 = HashMap<i32, i32>.new()
     io.println("map1 created with .new()")
     
-    // Test 2: HashMap<i32, i32>()
-    map2 = HashMap<i32, i32>()
+    alloc = get_default_allocator()
+    // Test 2: HashMap<i32, i32>(alloc)
+    map2 = HashMap<i32, i32>(alloc)
     io.println("map2 created with ()")
     
     // Now try insert on both
@@ -22,4 +23,4 @@ main = () void {
     // This currently fails
     map2.insert(2, 200)
     io.println("map2.insert worked")
-}
+, get_default_allocator }

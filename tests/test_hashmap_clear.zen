@@ -1,6 +1,6 @@
 // Test HashMap.clear() functionality
 { io } = @std
-{ HashMap } = @std
+{ HashMap , get_default_allocator } = @std
 
 main = () i32 {
     // Create a HashMap
@@ -13,7 +13,7 @@ main = () i32 {
     
     // Check size before clear
     sizeBefore = map.size()
-    io.println("Size before clear: ${sizeBefore}")
+    io.println("Size before clear: ${sizeBefore, get_default_allocator }")
     
     // Clear the map
     map.clear()

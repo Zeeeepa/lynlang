@@ -1,11 +1,11 @@
 // Test simple HashMap get with Option pattern matching
-{ io, HashMap, Option } = @std
+{ io, HashMap, Option , get_default_allocator } = @std
 
 main = () i32 {
     map ::= HashMap<i32, i32>.new()
     
     // Simple functions
-    hash_fn = (x: i32) i64 { 16 as i64 }
+    hash_fn = (x: i32) i64 { 16 as i64 , get_default_allocator }
     eq_fn = (a: i32, b: i32) i64 { a == b ? | true { 1 as i64 } | false { 0 as i64 } }
     
     // Insert and get
@@ -22,11 +22,11 @@ main = () i32 {
     // Test the result from HashMap
     result ?
         | Option.Some(v) { 
-            io.println("HashMap get returned: ${v}") 
+            io.println("HashMap get returned: ${v, get_default_allocator }") 
             return 0
         }
         | Option.None { 
             io.println("HashMap get returned None") 
             return 0
-        }
+        , get_default_allocator }
 }

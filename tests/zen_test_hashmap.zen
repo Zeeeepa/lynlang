@@ -1,14 +1,14 @@
 // Consolidated HashMap tests
 // Combines functionality from multiple test_hashmap_*.zen files
 
-{ io, Option, HashMap } = @std
+{ io, Option, HashMap , get_default_allocator } = @std
 
 // Test 1: Basic HashMap operations
 test_basic_hashmap = () void {
     io.println("=== Test 1: Basic HashMap ===")
     
     // Create a HashMap with i32 keys and values
-    map = HashMap<i32, i32>()
+    map = HashMap<i32, i32>(alloc)
     
     io.println("HashMap created")
     
@@ -21,7 +21,7 @@ test_basic_hashmap = () void {
     result = map.get(1)
     
     result ?
-        | Some(val) { io.println("Got value: ${val}") }
+        | Some(val) { io.println("Got value: ${val, get_default_allocator }") }
         | None { io.println("Key not found") }
 }
 
@@ -29,7 +29,7 @@ test_basic_hashmap = () void {
 test_string_key_hashmap = () void {
     io.println("=== Test 2: String Key HashMap ===")
     
-    map = HashMap<string, i32>()
+    map = HashMap<string, i32>(alloc)
     
     map.insert("apple", 5)
     map.insert("banana", 3)
@@ -40,7 +40,7 @@ test_string_key_hashmap = () void {
     // Get values
     apple_count = map.get("apple")
     apple_count ?
-        | Some(count) { io.println("Apple count: ${count}") }
+        | Some(count) { io.println("Apple count: ${count, get_default_allocator }") }
         | None { io.println("Apple not found") }
     
     banana_count = map.get("banana")
@@ -53,7 +53,7 @@ test_string_key_hashmap = () void {
 test_string_value_hashmap = () void {
     io.println("=== Test 3: String Value HashMap ===")
     
-    map = HashMap<i32, string>()
+    map = HashMap<i32, string>(alloc)
     
     map.insert(1, "one")
     map.insert(2, "two")
@@ -65,7 +65,7 @@ test_string_value_hashmap = () void {
     for i in 1..4 {
         result = map.get(i)
         result ?
-            | Some(word) { io.println("${i} = ${word}") }
+            | Some(word) { io.println("${i, get_default_allocator } = ${word}") }
             | None { io.println("${i} not found") }
     }
 }
@@ -74,7 +74,7 @@ test_string_value_hashmap = () void {
 test_hashmap_remove = () void {
     io.println("=== Test 4: HashMap Remove ===")
     
-    map = HashMap<i32, string>()
+    map = HashMap<i32, string>(alloc)
     
     map.insert(1, "first")
     map.insert(2, "second")
@@ -85,7 +85,7 @@ test_hashmap_remove = () void {
     // Remove middle item
     removed = map.remove(2)
     removed ?
-        | Some(val) { io.println("Removed: ${val}") }
+        | Some(val) { io.println("Removed: ${val, get_default_allocator }") }
         | None { io.println("Nothing to remove") }
     
     // Check remaining items
@@ -114,7 +114,7 @@ test_option_value_hashmap = () void {
     valid_result ?
         | Some(opt) {
             opt ?
-                | Some(val) { io.println("Valid value: ${val}") }
+                | Some(val) { io.println("Valid value: ${val, get_default_allocator }") }
                 | None { io.println("Valid key but None value") }
         }
         | None { io.println("Valid key not found") }
@@ -133,9 +133,9 @@ test_option_value_hashmap = () void {
 test_hashmap_size_clear = () void {
     io.println("=== Test 6: HashMap Size and Clear ===")
     
-    map = HashMap<i32, string>()
+    map = HashMap<i32, string>(alloc)
     
-    io.println("Initial size: ${map.size()}")
+    io.println("Initial size: ${map.size(), get_default_allocator }")
     
     map.insert(1, "a")
     map.insert(2, "b")
@@ -161,7 +161,7 @@ test_nested_hashmap = () void {
     map = HashMap<string, HashMap<i32, string>>()
     
     // Create inner map
-    inner = HashMap<i32, string>()
+    inner = HashMap<i32, string>(alloc)
     inner.insert(1, "inner_one")
     inner.insert(2, "inner_two")
     
@@ -175,7 +175,7 @@ test_nested_hashmap = () void {
         | Some(inner_map) {
             inner_result = inner_map.get(1)
             inner_result ?
-                | Some(val) { io.println("Nested value: ${val}") }
+                | Some(val) { io.println("Nested value: ${val, get_default_allocator }") }
                 | None { io.println("Inner key not found") }
         }
         | None { io.println("Outer key not found") }
@@ -207,4 +207,4 @@ main = () void {
     io.println("")
     
     io.println("=== HashMap Tests Complete ===")
-}
+, get_default_allocator }

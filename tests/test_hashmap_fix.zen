@@ -1,5 +1,5 @@
 // Test HashMap with proper key checking
-{ io, HashMap } = @std
+{ io, HashMap , get_default_allocator } = @std
 
 // Simple hash function for strings
 string_hash = (s: string) i64 {
@@ -38,7 +38,7 @@ main = () i32 {
     // Retrieve Alice
     alice ::= map.get("Alice", string_hash, string_eq)
     alice ?
-        | .Some(age) { io.println("  Alice is ${age} years old") }
+        | .Some(age) { io.println("  Alice is ${age, get_default_allocator } years old") }
         | .None { io.println("  Alice not found") }
         
     // Retrieve Bob  

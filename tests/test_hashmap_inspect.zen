@@ -1,5 +1,5 @@
 // Test to inspect HashMap internals
-{ io, HashMap, Option } = @std
+{ io, HashMap, Option , get_default_allocator } = @std
 
 main = () i32 {
     // Create HashMap<i32, i32> 
@@ -8,7 +8,7 @@ main = () i32 {
     // Simple hash function for i32
     hash_fn = (x: i32) i64 {
         return 16 as i64  // Force to bucket 0 for debugging
-    }
+    , get_default_allocator }
     
     // Simple equality function for i32
     eq_fn = (a: i32, b: i32) i64 {
