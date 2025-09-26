@@ -4982,35 +4982,69 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         // Store the struct value to the heap
                         self.builder.build_store(typed_ptr, struct_val)?;
                         
-                        // CRITICAL CHECK: For nested enum structs, verify payload persistence
+                        // CRITICAL FIX: For nested enum structs, ensure inner payloads are heap-allocated
                         if struct_type.count_fields() == 2 {
-                            // This is an enum struct - check if the inner payload is properly heap-allocated
+                            // This is an enum struct - must deep-copy inner payload to heap
                             let inner_discriminant = self.builder.build_extract_value(struct_val, 0, "inner_disc_check")?;
                             let inner_payload_ptr = self.builder.build_extract_value(struct_val, 1, "inner_payload_check")?;
                             
-        // eprintln!("[DEBUG] Nested enum struct stored to heap:");
-                            if inner_discriminant.is_int_value() {
+                            // Check if the inner enum has a valid payload (discriminant == 0 for Ok/Some)
+                            if inner_discriminant.is_int_value() && inner_payload_ptr.is_pointer_value() {
                                 let disc = inner_discriminant.into_int_value();
-                                if let Some(val) = disc.get_zero_extended_constant() {
-        // eprintln!("[DEBUG]   Inner discriminant: {}", val);
-                                    if val == 0 {
-        // eprintln!("[DEBUG]   This is Ok/Some variant - payload should be valid");
-                                        
-                                        // CRITICAL FIX: The inner payload pointer might point to stack memory!
-                                        // For inline constructions like Result.Ok(Result.Ok(42)), the inner
-                                        // Result.Ok(42)'s payload (42) might be on the stack.
-                                        // We need to ensure it's properly heap-allocated.
-                                        
-                                        if inner_payload_ptr.is_pointer_value() {
-                                            let ptr = inner_payload_ptr.into_pointer_value();
-        // eprintln!("[DEBUG]   Inner payload ptr: {:?}", ptr);
-                                            
-                                            // TODO: Here we would need to check if the pointer is to stack
-                                            // and if so, copy the value to heap. This is complex because
-                                            // we need to know the payload type.
-                                        }
-                                    }
-                                }
+                                
+                                // Create a block for checking if we need to copy the payload
+                                let current_block = self.builder.get_insert_block().unwrap();
+                                let function = current_block.get_parent().unwrap();
+                                let copy_block = self.context.append_basic_block(function, "copy_inner_payload");
+                                let continue_block = self.context.append_basic_block(function, "continue_enum_store");
+                                
+                                // Check if discriminant == 0 (Ok/Some variant)
+                                let is_ok_or_some = self.builder.build_int_compare(
+                                    inkwell::IntPredicate::EQ,
+                                    disc,
+                                    self.context.i64_type().const_int(0, false),
+                                    "is_ok_or_some"
+                                )?;
+                                
+                                self.builder.build_conditional_branch(is_ok_or_some, copy_block, continue_block)?;
+                                
+                                // Copy block: Deep-copy the inner payload to heap
+                                self.builder.position_at_end(copy_block);
+                                
+                                let inner_ptr = inner_payload_ptr.into_pointer_value();
+                                
+                                // Allocate new heap memory for the inner payload
+                                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                                    let i64_type = self.context.i64_type();
+                                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                    let malloc_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                    self.module.add_function("malloc", malloc_type, None)
+                                });
+                                
+                                // Allocate 16 bytes for primitive types (enough for i64, f64, etc)
+                                let size = self.context.i64_type().const_int(16, false);
+                                let malloc_call = self.builder.build_call(malloc_fn, &[size.into()], "heap_inner_payload")?;
+                                let new_heap_ptr = malloc_call.try_as_basic_value().left().unwrap().into_pointer_value();
+                                
+                                // Load the value from the original (possibly stack) location
+                                let value = self.builder.build_load(self.context.i64_type(), inner_ptr, "inner_value")?;
+                                
+                                // Store the value to the new heap location
+                                self.builder.build_store(new_heap_ptr, value)?;
+                                
+                                // Update the payload pointer in the struct to point to heap
+                                let payload_ptr_field = self.builder.build_struct_gep(
+                                    struct_type,
+                                    typed_ptr,
+                                    1,
+                                    "inner_payload_ptr_field"
+                                )?;
+                                self.builder.build_store(payload_ptr_field, new_heap_ptr)?;
+                                
+                                self.builder.build_unconditional_branch(continue_block)?;
+                                
+                                // Continue block
+                                self.builder.position_at_end(continue_block);
                             }
                         }
                         
