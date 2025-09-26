@@ -1,0 +1,29 @@
+// Debug Vec with Option
+{ io, Option } = @std
+
+main = () void {
+    io.println("Testing Vec<Option<i32>, 3> pattern match")
+    
+    // Create Vec of Option<i32>
+    vec = Vec<Option<i32>, 3>()
+    
+    // Push a Some value
+    vec.push(Option.Some(42))
+    io.println("Pushed Some(42)")
+    
+    // Get it back
+    opt: Option<i32> = vec.get(0)
+    io.println("Got element from vec")
+    
+    // Test pattern match directly
+    io.println("About to pattern match")
+    opt ?
+        | Some(val) {
+            io.println("In Some branch")
+            io.println("Value: ${val}")
+        }
+        | None {
+            io.println("In None branch")
+        }
+    io.println("After pattern match")
+}

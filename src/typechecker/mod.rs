@@ -1374,7 +1374,7 @@ impl TypeChecker {
                     return Ok(AstType::Void);
                 }
                 
-                // Special handling for HashMap/HashSet methods
+                // Special handling for HashMap/HashSet/Vec methods
                 if let AstType::Generic { name, type_args } = &object_type {
                     if name == "HashMap" {
                         match method.as_str() {
@@ -1413,6 +1413,20 @@ impl TypeChecker {
                             "remove" => return Ok(AstType::Bool),
                             _ => {}
                         }
+                    }
+                }
+                
+                // Special handling for Vec<T, N> methods
+                if let AstType::Vec { element_type, .. } = &object_type {
+                    match method.as_str() {
+                        "get" => return Ok(element_type.as_ref().clone()),  // Returns element directly
+                        "pop" => return Ok(AstType::Generic {               // Returns Option<element>
+                            name: "Option".to_string(),
+                            type_args: vec![element_type.as_ref().clone()],
+                        }),
+                        "len" | "capacity" => return Ok(AstType::I64),
+                        "push" | "set" | "clear" => return Ok(AstType::Void),
+                        _ => {}
                     }
                 }
 

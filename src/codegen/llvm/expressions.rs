@@ -6344,12 +6344,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Vec<T, N> is a struct with { [T; N], i64 }
         // where the array holds the data and i64 is current length
 
-        // Get element LLVM type
+        // Get element LLVM type - support both basic and struct types
         let elem_llvm_type = match self.to_llvm_type(element_type)? {
             Type::Basic(basic_type) => basic_type,
-            _ => {
+            Type::Struct(struct_type) => struct_type.into(),
+            Type::Pointer(_) => {
+                // Pointers are basic types in LLVM
+                match self.to_llvm_type(element_type)?.into_basic_type() {
+                    Ok(basic) => basic,
+                    Err(_) => {
+                        return Err(CompileError::TypeError(
+                            "Invalid pointer type for Vec element".to_string(),
+                            None,
+                        ))
+                    }
+                }
+            }
+            Type::Function(_) => {
                 return Err(CompileError::TypeError(
-                    "Vec element type must be a basic type".to_string(),
+                    "Vec element type cannot be a function type".to_string(),
+                    None,
+                ))
+            }
+            Type::Void => {
+                return Err(CompileError::TypeError(
+                    "Vec element type cannot be void".to_string(),
                     None,
                 ))
             }

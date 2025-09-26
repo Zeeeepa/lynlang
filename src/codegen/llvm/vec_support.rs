@@ -103,7 +103,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(self.context.struct_type(&[], false).const_zero().into())
             }
             "get" => {
-                // Vec.get(index) -> value at index
+                // Vec.get(index) -> value at index (returns element directly, not Option)
                 if args.len() != 1 {
                     return Err(CompileError::TypeError(
                         "get expects exactly 1 argument".to_string(),
@@ -124,9 +124,26 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Err(CompileError::TypeError("Variable not found".to_string(), None));
                 };
                 
+                // Get the LLVM type - support both basic and struct types
                 let element_llvm_type = match self.to_llvm_type(&element_ast_type)? {
                     Type::Basic(basic_type) => basic_type,
-                    _ => return Err(CompileError::TypeError("Vec element type must be basic type".to_string(), None)),
+                    Type::Struct(struct_type) => struct_type.into(),
+                    Type::Pointer(_) => {
+                        // Pointers are basic types in LLVM
+                        match self.to_llvm_type(&element_ast_type)?.into_basic_type() {
+                            Ok(basic) => basic,
+                            Err(_) => {
+                                return Err(CompileError::TypeError("Invalid pointer type for Vec element".to_string(), None));
+                            }
+                        }
+                    }
+                    Type::Function(_) => {
+                        // Function types can't be Vec elements
+                        return Err(CompileError::TypeError("Vec element cannot be function type".to_string(), None));
+                    }
+                    Type::Void => {
+                        return Err(CompileError::TypeError("Vec element cannot be void type".to_string(), None));
+                    }
                 };
 
                 // Get direct GEP to the array element

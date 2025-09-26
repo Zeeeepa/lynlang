@@ -1,0 +1,21 @@
+// Test simple Vec
+{ io } = @std
+
+main = () void {
+    vec = Vec<i32, 10>()
+    
+    // Get type of vec
+    io.println("Vec created")
+    
+    // Push a value
+    vec.push(42)
+    io.println("Pushed 42")
+    
+    // Get length
+    length = vec.len()
+    io.println("Length: ${length}")
+    
+    // Get element
+    val: i32 = vec.get(0)
+    io.println("vec[0] = ${val}")
+}
