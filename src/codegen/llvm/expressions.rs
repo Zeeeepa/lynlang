@@ -272,7 +272,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             type_args: vec![AstType::String]
                         }),
                         "char_at" => Ok(AstType::I32),
-                        "get" | "remove" | "insert" => {
+                        "get" | "remove" | "insert" | "pop" => {
                             // Try to infer from object type
                             if let Ok(object_type) = self.infer_expression_type(object) {
                                 if let AstType::Generic { name, type_args } = object_type {
@@ -287,8 +287,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         if method == "remove" {
                                             return Ok(AstType::Bool);
                                         }
-                                    } else if (name == "Array" || name == "Vec") && !type_args.is_empty() {
-                                        // Array/Vec.get returns Option<element_type>
+                                    } else if (name == "Array" || name == "Vec" || name == "DynVec") && !type_args.is_empty() {
+                                        // Array/Vec/DynVec get and pop return Option<element_type>
                                         return Ok(AstType::Generic { 
                                             name: "Option".to_string(), 
                                             type_args: vec![type_args[0].clone()]
@@ -296,6 +296,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                 }
                             }
+                            Ok(AstType::Void)
+                        }
+                        "push" | "set" | "clear" => {
+                            // Array/Vec/DynVec mutation methods return void
                             Ok(AstType::Void)
                         }
                         "add" => {
