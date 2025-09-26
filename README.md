@@ -6,15 +6,16 @@ A revolutionary programming language with **ZERO KEYWORDS**. All control flow th
 
 > *"No keywords. Pure expression. Allocator-driven concurrency."*
 
-## 🎉 Project Status (2025-09-25 @ 15:40 UTC)
+## 🎉 Project Status (2025-09-26)
 
-- **Test Suite**: **100% PASS RATE** - 195/195 tests passing, zero failures!
-- **Disabled Tests**: 7 tests await unimplemented features  
-- **Compiler Health**: Builds successfully with zero warnings
+- **Test Suite**: **87.0% PASS RATE** - 260/299 tests passing (up from 82.6%)
+- **Segfaults**: 2 (test_collections.zen, test_hashmap_remove.zen)  
+- **Compiler Health**: Builds successfully with 12 warnings
 - **Core Features**: All working - showcase.zen runs perfectly
 - **Rust Unit Tests**: 19 tests passing (module system, type checker, FFI, behaviors)
 - **Recent Achievements**: 
-  - 🎉 **HashMap<i32,i32> fixed!** Full type inference for generic collections now working
+  - 🎉 **Generic Type Inference IMPROVED!** HashMap<K,V>.new() and HashSet<T>.new() now properly inferred
+  - ✅ Collection method type inference - insert/get/remove/pop/union/intersection all properly typed
   - ✅ String case conversion - to_upper(), to_lower() 
   - ✅ String search methods - contains(), starts_with(), ends_with(), index_of()
   - ✅ String manipulation - len(), substr(), char_at(), split(), trim()
