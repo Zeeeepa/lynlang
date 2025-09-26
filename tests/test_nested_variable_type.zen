@@ -1,0 +1,24 @@
+// Test variable type inference with nested generics
+{ io, Result } = @std
+
+main = () void {
+    io.println("Testing variable type inference for nested Result")
+    
+    // Direct construction - this should work
+    direct_nested: Result<Result<i32, string>, string> = Result.Ok(Result.Ok(42))
+    
+    // Try to extract
+    inner = direct_nested.raise()
+    value = inner.raise()
+    
+    io.println("Direct nested: ${value}")
+    
+    // Implicit type - this likely fails
+    implicit_nested = Result.Ok(Result.Ok(100))
+    
+    // Try to extract 
+    inner2 = implicit_nested.raise()
+    value2 = inner2.raise()
+    
+    io.println("Implicit nested: ${value2}")
+}

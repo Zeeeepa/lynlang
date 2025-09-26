@@ -1,0 +1,17 @@
+// Debug type inference issue
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () void {
+    io.println("Testing chained raise on function call")
+    
+    // The problematic pattern
+    inner = get_nested().raise()
+    io.println("Got inner result")
+    
+    value = inner.raise()
+    io.println("Value: ${value}")
+}

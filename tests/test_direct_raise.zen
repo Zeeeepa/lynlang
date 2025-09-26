@@ -1,0 +1,13 @@
+// Test direct raise on variable
+{ io, Result } = @std
+
+main = () void {
+    io.println("Testing direct raise on variable")
+    
+    // Create a simple Result
+    result: Result<i32, string> = Result.Ok(42)
+    
+    // Try to extract with raise
+    value = result.raise()
+    io.println("Value: ${value}")
+}

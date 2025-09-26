@@ -1,0 +1,14 @@
+// Debug type inference
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () void {
+    io.println("Testing type inference")
+    
+    // Test what type get_nested() returns according to inference
+    outer = get_nested()
+    io.println("Got outer - should be Result<Result<i32,string>,string>")
+}

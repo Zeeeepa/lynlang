@@ -146,44 +146,70 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     ),
                                 )
                             } else {
-                                // Not a closure - compile and infer normally
-                                let init_value = self.compile_expression(init_expr)?;
-                                // Save the compiled value to avoid recompiling
-                                compiled_value = Some(init_value);
-
-                                match init_value {
-                                    BasicValueEnum::IntValue(int_val) => {
-                                        let bit_width = int_val.get_type().get_bit_width();
-                                        if bit_width == 1 {
-                                            // Boolean type
-                                            Type::Basic(self.context.bool_type().into())
-                                        } else if bit_width <= 32 {
-                                            Type::Basic(self.context.i32_type().into())
-                                        } else {
-                                            Type::Basic(self.context.i64_type().into())
+                                // Not a closure - try to infer the AST type first
+                                // This is crucial for generic types like Result<T,E>
+                                if let Ok(ast_type) = self.infer_expression_type(init_expr) {
+                                    // Save the inferred AST type for later
+                                    inferred_ast_type = Some(ast_type.clone());
+                                    
+                                    // Track generic types if this is a Result or Option
+                                    if let AstType::Generic { name: type_name, type_args } = &ast_type {
+                                        if type_name == "Result" && type_args.len() == 2 {
+                                            self.track_generic_type(format!("{}_Result_Ok_Type", name), type_args[0].clone());
+                                            self.track_generic_type(format!("{}_Result_Err_Type", name), type_args[1].clone());
+                                            self.generic_tracker.track_generic_type(&ast_type, name);
+                                        } else if type_name == "Option" && type_args.len() == 1 {
+                                            self.track_generic_type(format!("{}_Option_Some_Type", name), type_args[0].clone());
+                                            self.generic_tracker.track_generic_type(&ast_type, name);
                                         }
                                     }
-                                    BasicValueEnum::FloatValue(_fv) => {
-                                        // Store the AST type as F64 to ensure proper loading later
-                                        inferred_ast_type = Some(AstType::F64);
-                                        // For now, assume all floats are f64
-                                        Type::Basic(self.context.f64_type().into())
+                                    
+                                    // Now compile the expression
+                                    let init_value = self.compile_expression(init_expr)?;
+                                    compiled_value = Some(init_value);
+                                    
+                                    // Convert the AST type to LLVM type
+                                    self.to_llvm_type(&ast_type)?
+                                } else {
+                                    // Fall back to compiling and inferring from LLVM value
+                                    let init_value = self.compile_expression(init_expr)?;
+                                    // Save the compiled value to avoid recompiling
+                                    compiled_value = Some(init_value);
+
+                                    match init_value {
+                                        BasicValueEnum::IntValue(int_val) => {
+                                            let bit_width = int_val.get_type().get_bit_width();
+                                            if bit_width == 1 {
+                                                // Boolean type
+                                                Type::Basic(self.context.bool_type().into())
+                                            } else if bit_width <= 32 {
+                                                Type::Basic(self.context.i32_type().into())
+                                            } else {
+                                                Type::Basic(self.context.i64_type().into())
+                                            }
+                                        }
+                                        BasicValueEnum::FloatValue(_fv) => {
+                                            // Store the AST type as F64 to ensure proper loading later
+                                            inferred_ast_type = Some(AstType::F64);
+                                            // For now, assume all floats are f64
+                                            Type::Basic(self.context.f64_type().into())
+                                        }
+                                        BasicValueEnum::PointerValue(_) => {
+                                            // For pointers (including strings), use ptr type
+                                            Type::Basic(
+                                                self.context
+                                                    .ptr_type(inkwell::AddressSpace::default())
+                                                    .into(),
+                                            )
+                                        }
+                                        BasicValueEnum::StructValue(struct_val) => {
+                                            // For structs (including enums), use the struct type directly
+                                            // The struct type is already a BasicTypeEnum
+                                            let struct_type = struct_val.get_type();
+                                            Type::Basic(struct_type.as_basic_type_enum())
+                                        }
+                                        _ => Type::Basic(self.context.i64_type().into()), // Default to i64
                                     }
-                                    BasicValueEnum::PointerValue(_) => {
-                                        // For pointers (including strings), use ptr type
-                                        Type::Basic(
-                                            self.context
-                                                .ptr_type(inkwell::AddressSpace::default())
-                                                .into(),
-                                        )
-                                    }
-                                    BasicValueEnum::StructValue(struct_val) => {
-                                        // For structs (including enums), use the struct type directly
-                                        // The struct type is already a BasicTypeEnum
-                                        let struct_type = struct_val.get_type();
-                                        Type::Basic(struct_type.as_basic_type_enum())
-                                    }
-                                    _ => Type::Basic(self.context.i64_type().into()), // Default to i64
                                 }
                             }
                         } else {
@@ -203,9 +229,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         .context
                         .ptr_type(inkwell::AddressSpace::default())
                         .as_basic_type_enum(),
-                    _ => {
+                    Type::Pointer(_) => self
+                        .context
+                        .ptr_type(inkwell::AddressSpace::default())
+                        .as_basic_type_enum(),
+                    Type::Void => {
                         return Err(CompileError::TypeError(
-                            "Cannot allocate non-basic or struct type".to_string(),
+                            format!("Cannot infer type for variable '{}' - expression has void type", name),
                             None,
                         ))
                     }
@@ -1177,7 +1207,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         }
                         
-                        // eprintln!("[DEBUG VAR] Storing variable {} with type {:?}", name, inferred_type);
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {

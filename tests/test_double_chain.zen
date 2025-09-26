@@ -1,0 +1,19 @@
+// Test double chaining
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () void {
+    io.println("Testing double method chain")
+    
+    // Single chain - should work
+    inner = get_nested().raise()
+    value1 = inner.raise()
+    io.println("Single chain: ${value1}")
+    
+    // Double chain - this might fail
+    //value2 = get_nested().raise().raise()
+    //io.println("Double chain: ${value2}")
+}

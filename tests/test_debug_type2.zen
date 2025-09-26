@@ -1,0 +1,21 @@
+// Debug type inference issue
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () void {
+    io.println("Testing type inference without annotation")
+    
+    // This works
+    outer = get_nested()
+    io.println("Got outer result")
+    
+    // Try to extract with raise - no type annotation
+    inner = outer.raise()
+    io.println("Got inner result")
+    
+    value = inner.raise()
+    io.println("Value: ${value}")
+}

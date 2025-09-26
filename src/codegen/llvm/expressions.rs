@@ -135,12 +135,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(AstType::Void)
                 }
             }
+            Expression::FunctionCall { name, .. } => {
+                // Check if we know the function's return type
+                if let Some(return_type) = self.function_types.get(name) {
+                    Ok(return_type.clone())
+                } else {
+                    // Default to I32 for unknown functions
+                    Ok(AstType::I32)
+                }
+            }
+            Expression::Raise(object) => {
+                // .raise() extracts T from Result<T,E>
+                let object_type = self.infer_expression_type(object)?;
+                // If it's Result<T,E>, return T
+                if let AstType::Generic { name, type_args } = object_type {
+                    if name == "Result" && type_args.len() == 2 {
+                        // The raise() method returns the Ok type (T) from Result<T,E>
+                        return Ok(type_args[0].clone());
+                    }
+                }
+                // If not a Result type, return Void (will error during compilation)
+                Ok(AstType::Void)
+            }
             Expression::MethodCall { object, method, .. } => {
                 // Special handling for .raise() method which extracts T from Result<T,E>
                 if method == "raise" {
                     // Get the type of the object being raised
                     let object_type = self.infer_expression_type(object)?;
-                    
                     // If it's Result<T,E>, return T
                     if let AstType::Generic { name, type_args } = object_type {
                         if name == "Result" && type_args.len() == 2 {
@@ -6105,6 +6126,47 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // For Result.Err, we don't know the Ok type yet, default to I32
                             self.track_generic_type("Result_Ok_Type".to_string(), AstType::I32);
                             self.track_generic_type("Result_Err_Type".to_string(), payload_type.clone());
+                        }
+                    }
+                }
+            }
+            Expression::MethodCall { object, method, .. } => {
+                // Special handling for chained method calls like get_chained().raise()
+                // We need to compile the object first to get its type
+                // For raise() on a method call result, we need to track the types properly
+                
+                // First try to infer what the object returns
+                if let Ok(object_type) = self.infer_expression_type(object) {
+                    // If the object returns a Result, and we're calling raise() on it,
+                    // we need to track its generic types
+                    if let AstType::Generic { name: type_name, type_args } = &object_type {
+                        if type_name == "Result" && type_args.len() == 2 {
+                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                            
+                            self.track_complex_generic(&object_type, "Result");
+                            self.generic_tracker.track_generic_type(&object_type, "Result");
+                            
+                            // For nested Result types, ensure we track the inner type properly
+                            if let AstType::Generic { name: inner_name, .. } = &type_args[0] {
+                                if inner_name == "Result" {
+                                    // This is Result<Result<T,E>,E> - track the nested structure
+                                    self.generic_tracker.track_generic_type(&type_args[0], "Result_Ok");
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Now infer the type of the full method call expression
+                if let Ok(expr_type) = self.infer_expression_type(expr) {
+                    if let AstType::Generic { name: type_name, type_args } = &expr_type {
+                        if type_name == "Result" && type_args.len() == 2 {
+                            self.track_generic_type("Result_Ok_Type".to_string(), type_args[0].clone());
+                            self.track_generic_type("Result_Err_Type".to_string(), type_args[1].clone());
+                            
+                            self.track_complex_generic(&expr_type, "Result");
+                            self.generic_tracker.track_generic_type(&expr_type, "Result");
                         }
                     }
                 }
