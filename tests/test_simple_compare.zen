@@ -1,0 +1,16 @@
+// Test simple comparison
+{ io } = @std
+
+main = () i32 {
+    test1 = "hello".to_upper()
+    result = test1 == "HELLO"
+    
+    result ? {
+        io.println("Match!")
+    }
+    result == false ? {
+        io.println("No match")
+    }
+    
+    return 0
+}

@@ -1,0 +1,9 @@
+// Test to_upper with mixed case
+{ io } = @std
+
+main = () i32 {
+    str = "Hello World"
+    upper = str.to_upper()
+    io.println(upper)
+    return 0
+}

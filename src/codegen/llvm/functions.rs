@@ -2655,22 +2655,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     "is_lower"
                 )?;
                 
-                let upper_block = self.context.append_basic_block(func, "to_upper");
-                let store_block = self.context.append_basic_block(func, "store_char");
-                
-                self.builder.build_conditional_branch(is_lower, upper_block, store_block)?;
-                
-                // Convert to uppercase
-                self.builder.position_at_end(upper_block);
+                // Use select instruction instead of phi nodes
                 let diff = self.context.i8_type().const_int(32, false);
                 let upper_char = self.builder.build_int_sub(src_char, diff, "upper_char")?;
-                self.builder.build_unconditional_branch(store_block)?;
-                
-                // Store character (either converted or original)
-                self.builder.position_at_end(store_block);
-                let char_phi = self.builder.build_phi(self.context.i8_type(), "char_phi")?;
-                char_phi.add_incoming(&[(&upper_char, upper_block), (&src_char, loop_body)]);
-                let final_char = char_phi.as_basic_value().into_int_value();
+                let final_char = self.builder.build_select(is_lower, upper_char, src_char, "final_char")?.into_int_value();
                 
                 // Store in destination
                 let dst_ptr = unsafe {
@@ -2812,22 +2800,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     "is_upper"
                 )?;
                 
-                let lower_block = self.context.append_basic_block(func, "to_lower");
-                let store_block = self.context.append_basic_block(func, "store_char");
-                
-                self.builder.build_conditional_branch(is_upper, lower_block, store_block)?;
-                
-                // Convert to lowercase
-                self.builder.position_at_end(lower_block);
+                // Use select instruction instead of phi nodes
                 let diff = self.context.i8_type().const_int(32, false);
                 let lower_char = self.builder.build_int_add(src_char, diff, "lower_char")?;
-                self.builder.build_unconditional_branch(store_block)?;
-                
-                // Store character (either converted or original)
-                self.builder.position_at_end(store_block);
-                let char_phi = self.builder.build_phi(self.context.i8_type(), "char_phi")?;
-                char_phi.add_incoming(&[(&lower_char, lower_block), (&src_char, loop_body)]);
-                let final_char = char_phi.as_basic_value().into_int_value();
+                let final_char = self.builder.build_select(is_upper, lower_char, src_char, "final_char")?.into_int_value();
                 
                 // Store in destination
                 let dst_ptr = unsafe {

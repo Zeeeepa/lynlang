@@ -512,13 +512,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let result =
                 self.builder
                     .build_int_compare(IntPredicate::EQ, cmp_result, zero, "strcmp_eq")?;
-            // Zero-extend i1 to i64 for test compatibility
-            let zext = self.builder.build_int_z_extend(
-                result,
-                self.context.i64_type(),
-                "zext_strcmp_eq",
-            )?;
-            Ok(zext.into())
+            Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
                 expected: "int or float or string".to_string(),
@@ -609,13 +603,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let result =
                 self.builder
                     .build_int_compare(IntPredicate::NE, cmp_result, zero, "strcmp_ne")?;
-            // Zero-extend i1 to i64 for test compatibility
-            let zext = self.builder.build_int_z_extend(
-                result,
-                self.context.i64_type(),
-                "zext_strcmp_ne",
-            )?;
-            Ok(zext.into())
+            Ok(result.into())
         } else {
             Err(CompileError::TypeMismatch {
                 expected: "int or float or string".to_string(),

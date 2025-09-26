@@ -1,0 +1,19 @@
+// Test single to_upper call
+{ io } = @std
+
+main = () i32 {
+    test1 = "hello".to_upper()
+    io.println(test1)
+    
+    io.println("About to compare")
+    test1_ok = test1 == "HELLO"
+    
+    test1_ok ? {
+        io.println("test1 ok")
+    }
+    test1_ok == false ? {
+        io.println("test1 not ok")
+    }
+    
+    return 0
+}

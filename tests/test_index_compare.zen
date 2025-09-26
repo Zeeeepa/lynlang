@@ -1,4 +1,5 @@
 // Test comparing index_of result
+{io, get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()

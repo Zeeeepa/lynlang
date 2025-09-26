@@ -1,11 +1,10 @@
 // Simple HashSet test to verify basic functionality
-{ io , get_default_allocator} = @std
-{ HashSet , get_default_allocator} = @std
+{ io, HashSet, get_default_allocator} = @std
 
 main = () i32 {
     alloc = get_default_allocator()
     // Test HashSet creation
-    set = HashSet<i32>.new()
+    set = HashSet<i32>(alloc)
     
     // Test add operation
     added = set.add(10)

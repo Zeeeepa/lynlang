@@ -25,7 +25,7 @@ main = () i32 {
     // Try to retrieve it
     result ::= map.get(5, hash_fn, eq_fn)
     result ?
-        | Option.Some(value) { 
+        | Some(value) { 
             io.println("Got value: ${value}")
             value == 12345 ?
                 | true { io.println("SUCCESS!") }

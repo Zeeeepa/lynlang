@@ -1,4 +1,5 @@
 // Test just the p3 case
+{io, get_default_allocator} = @std
 
 Point: {
     x :: f64,

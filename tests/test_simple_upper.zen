@@ -1,0 +1,9 @@
+// Simple test for to_upper
+{ io } = @std
+
+main = () i32 {
+    str = "a"
+    upper = str.to_upper()
+    io.println(upper)
+    return 0
+}

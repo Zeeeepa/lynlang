@@ -18,6 +18,8 @@ Rectangle: {
     bottom_right: Point
 }
 
+{io, get_default_allocator} = @std
+
 main = () void {
     alloc = get_default_allocator()
     // Create struct instances

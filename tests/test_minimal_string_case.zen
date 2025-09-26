@@ -1,0 +1,21 @@
+// Minimal test to reproduce crash
+{ io } = @std
+
+main = () i32 {
+    test1 = "hello".to_upper()
+    test2 = "WORLD".to_lower()
+    
+    test1_ok = test1 == "HELLO"
+    test2_ok = test2 == "world"
+    
+    all_ok = test1_ok && test2_ok
+    
+    all_ok == true ? {
+        return 0
+    }
+    all_ok == false ? {
+        return 1  
+    }
+    
+    return 0
+}

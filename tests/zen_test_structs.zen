@@ -120,7 +120,7 @@ test_nested_structs = () void {
 }
 
 // Test 7: Struct with array field
-ArrayStruct = struct {
+ArrayStruct: {
     numbers: Array<i32>,
     name: string
 }

@@ -2,8 +2,7 @@
 // Tests @std imports and destructuring
 
 // Destructuring imports (lines 91-94)
-{ io, maths , get_default_allocator} = @std
-{ String, StringBuilder , get_default_allocator} = @std
+{ io, maths, String, StringBuilder, get_default_allocator} = @std
 
 // Meta imports - not yet implemented
 // { requires, implements, reflect, meta, inline, simd , get_default_allocator} = @std

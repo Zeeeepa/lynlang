@@ -1,0 +1,12 @@
+// Test without comparison
+{ io } = @std
+
+main = () i32 {
+    test1 = "hello".to_upper()
+    test2 = "WORLD".to_lower()
+    
+    io.println(test1)
+    io.println(test2)
+    
+    return 0
+}
