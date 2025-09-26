@@ -489,7 +489,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(AstType::Void)
                 }
             }
-            Expression::BinaryOp { op, .. } => {
+            Expression::BinaryOp { op, left, right } => {
                 // Binary operations return different types based on the operator
                 use crate::ast::BinaryOperator;
                 match op {
@@ -499,7 +499,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     BinaryOperator::And | BinaryOperator::Or => Ok(AstType::Bool),
                     BinaryOperator::Add | BinaryOperator::Subtract | 
                     BinaryOperator::Multiply | BinaryOperator::Divide | 
-                    BinaryOperator::Modulo => Ok(AstType::I32), // Default to I32, should analyze operands
+                    BinaryOperator::Modulo => {
+                        // Infer type based on operands
+                        let left_type = self.infer_expression_type(left)?;
+                        let right_type = self.infer_expression_type(right)?;
+                        
+                        // If either operand is a float, the result is a float
+                        if matches!(left_type, AstType::F32 | AstType::F64) || 
+                           matches!(right_type, AstType::F32 | AstType::F64) {
+                            Ok(AstType::F64)
+                        } else {
+                            // Default to I32 for integer operations
+                            Ok(AstType::I32)
+                        }
+                    }
                     _ => Ok(AstType::Void),
                 }
             }
