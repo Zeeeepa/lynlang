@@ -5,8 +5,8 @@ main = () i32 {
     alloc = get_default_allocator()
     x = 42
     
-    // This block has a return, so it should be void
-    check_result = x == 42 ? {
+    // This block has a return, so it should be void (don't assign to variable)
+    x == 42 ? {
         io.println("x is 42")
         return 0
     }

@@ -8,7 +8,8 @@ hash_string = (s: string) i64 {
     loop {
         i >= s.len() ? { break }
         c = s.char_at(i)
-        hash = hash * 31 + (c as i64)
+        c_val = c as i64
+        hash = hash * 31 + c_val
         i = i + 1
     }
     return hash

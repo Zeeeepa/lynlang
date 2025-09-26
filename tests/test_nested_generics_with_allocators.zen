@@ -6,7 +6,7 @@ main = () i32 {
     alloc = get_default_allocator()
     
     // Test HashMap<String, Option<i32>>
-    map1 = HashMap<String, Option<i32>>.new(alloc)
+    map1 = HashMap<String, Option<i32>>(alloc)
     map1.insert("key1", Some(42))
     map1.insert("key2", None)
     
@@ -20,7 +20,7 @@ main = () i32 {
         | None { io.println("Key not found") }
     
     // Test DynVec<Result<i32, String>>
-    vec = DynVec<Result<i32, String>>.new(alloc)
+    vec = DynVec<Result<i32, String>>(alloc)
     vec.push(Ok(100))
     vec.push(Err("error"))
     
@@ -34,9 +34,9 @@ main = () i32 {
         | None { io.println("Index out of bounds") }
     
     // Test HashMap<i32, DynVec<String>>
-    map2 = HashMap<i32, DynVec<String>>.new(alloc)
+    map2 = HashMap<i32, DynVec<String>>(alloc)
     
-    strings = DynVec<String>.new(alloc)
+    strings = DynVec<String>(alloc)
     strings.push("hello")
     strings.push("world")
     

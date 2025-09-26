@@ -138,11 +138,11 @@ test_closure_loop = () void {
     io.println("=== Test 9: Closure with Loop ===")
     
     sum_range = (start: i32, end: i32) i32 {
-        total = 0
-        (start..end).loop((i) {
+        total ::= 0
+        (start..end).loop((i: i32) {
             total = total + i
         })
-        total
+        return total
     }
     
     result = sum_range(1, 6)  // Should be 1+2+3+4+5 = 15
