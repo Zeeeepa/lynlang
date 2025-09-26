@@ -1,13 +1,19 @@
-// Very simple generic test
+// Test simple generic type: Result<i32, string>
 { io, Result } = @std
 
+test_result = () Result<i32, string> {
+    Result.Ok(42)
+}
+
 main = () void {
-    // Direct pattern match - this works
-    Result.Ok(42) ? | Result.Ok(v) => io.println("Direct: ${v}")
-                    | Result.Err(e) => io.println("Error: ${e}")
+    io.println("Testing simple generic...")
     
-    // Through variable - does this work?
-    r = Result.Ok(100)
-    r ? | Result.Ok(v) => io.println("Variable: ${v}")
-        | Result.Err(e) => io.println("Error: ${e}")
+    result = test_result()
+    val = result.raise()
+    
+    io.println("Got value: ${val}")
+    
+    val == 42 ?
+        | true { io.println("✓ Works!") }
+        | false { io.println("✗ Failed, got ${val}") }
 }

@@ -65,6 +65,9 @@ impl GenericTypeTracker {
                 // Track the main generic type
                 self.insert(format!("{}_type", prefix), type_.clone());
                 
+                // Track the generic name for easy lookup
+                self.insert(format!("{}_name", prefix), AstType::EnumType { name: name.clone() });
+                
                 // Track each type argument recursively
                 if name == "Result" && type_args.len() == 2 {
                     self.insert(format!("{}_Ok_Type", prefix), type_args[0].clone());
@@ -100,6 +103,12 @@ impl GenericTypeTracker {
                     
                     // Recursively track nested generics
                     self.track_generic_type(&type_args[0], &format!("{}_Element", prefix));
+                } else {
+                    // For other generic types, track type arguments by index
+                    for (i, arg) in type_args.iter().enumerate() {
+                        self.insert(format!("{}_arg{}_Type", prefix, i), arg.clone());
+                        self.track_generic_type(arg, &format!("{}_arg{}", prefix, i));
+                    }
                 }
             }
             _ => {
@@ -120,6 +129,67 @@ impl GenericTypeTracker {
             for (k, v) in other {
                 current.insert(k, v);
             }
+        }
+    }
+    
+    /// Instantiate a generic type with concrete type arguments
+    /// This is the core of monomorphization - creating concrete types from generics
+    pub fn instantiate_generic(
+        &mut self, 
+        generic_name: &str,
+        type_args: &[AstType],
+    ) -> String {
+        // Create a unique key for this instantiation
+        let mut key = generic_name.to_string();
+        for arg in type_args {
+            key.push('_');
+            key.push_str(&self.type_to_string(arg));
+        }
+        
+        // Track this instantiation
+        self.insert(format!("{}_instantiated", key), AstType::Generic {
+            name: generic_name.to_string(),
+            type_args: type_args.to_vec(),
+        });
+        
+        // Track individual type arguments
+        for (i, arg) in type_args.iter().enumerate() {
+            self.insert(format!("{}_T{}", key, i), arg.clone());
+        }
+        
+        key
+    }
+    
+    /// Convert a type to a string representation for key generation
+    fn type_to_string(&self, type_: &AstType) -> String {
+        match type_ {
+            AstType::I8 => "i8".to_string(),
+            AstType::I16 => "i16".to_string(),
+            AstType::I32 => "i32".to_string(),
+            AstType::I64 => "i64".to_string(),
+            AstType::U8 => "u8".to_string(),
+            AstType::U16 => "u16".to_string(),
+            AstType::U32 => "u32".to_string(),
+            AstType::U64 => "u64".to_string(),
+            AstType::F32 => "f32".to_string(),
+            AstType::F64 => "f64".to_string(),
+            AstType::Bool => "bool".to_string(),
+            AstType::String => "string".to_string(),
+            AstType::Void => "void".to_string(),
+            AstType::Generic { name, type_args } => {
+                let mut s = name.clone();
+                if !type_args.is_empty() {
+                    s.push('_');
+                    for (i, arg) in type_args.iter().enumerate() {
+                        if i > 0 {
+                            s.push('_');
+                        }
+                        s.push_str(&self.type_to_string(arg));
+                    }
+                }
+                s
+            }
+            _ => "unknown".to_string(),
         }
     }
 }

@@ -6793,12 +6793,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 Ok(len)
             }
             "pop" => {
-                // Generate unique ID to avoid name collisions
-                static mut POP_ID: u32 = 0;
-                let pop_id = unsafe {
-                    POP_ID += 1;
-                    POP_ID
-                };
+                // Generate unique ID using counter to avoid name collisions
+                static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                let pop_id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 
                 // Load current length
                 let len_ptr = self.builder.build_struct_gep(
@@ -6882,19 +6879,41 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     ],
                     false,
                 );
-                let some_value = option_struct_type.const_named_struct(&[
-                    self.context.i64_type().const_int(1, false).into(), // Some discriminant
-                    i32_value.into(),
-                ]);
+                
+                // Build struct value dynamically (not const)
+                let some_value = option_struct_type.get_undef();
+                let some_value = self.builder.build_insert_value(
+                    some_value,
+                    self.context.i64_type().const_int(1, false),
+                    0,
+                    &format!("some_discrim_{}", pop_id),
+                )?;
+                let some_value = self.builder.build_insert_value(
+                    some_value,
+                    i32_value,
+                    1,
+                    &format!("some_payload_{}", pop_id),
+                )?;
                 
                 self.builder.build_unconditional_branch(merge_block)?;
                 
                 // None block - return Option.None
                 self.builder.position_at_end(none_block);
-                let none_value = option_struct_type.const_named_struct(&[
-                    self.context.i64_type().const_int(0, false).into(), // None discriminant
-                    self.context.i32_type().const_int(0, false).into(),  // dummy payload
-                ]);
+                
+                // Build struct value dynamically (not const)
+                let none_value = option_struct_type.get_undef();
+                let none_value = self.builder.build_insert_value(
+                    none_value,
+                    self.context.i64_type().const_int(0, false),
+                    0,
+                    &format!("none_discrim_{}", pop_id),
+                )?;
+                let none_value = self.builder.build_insert_value(
+                    none_value,
+                    self.context.i32_type().const_int(0, false),
+                    1,
+                    &format!("none_payload_{}", pop_id),
+                )?;
                 
                 self.builder.build_unconditional_branch(merge_block)?;
                 
