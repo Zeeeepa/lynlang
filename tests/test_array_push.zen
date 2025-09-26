@@ -1,0 +1,14 @@
+{ io, Array } = @std
+
+main = () i32 {
+    io.println("Creating array...")
+    arr: Array<i32> = Array.new(10, 0)
+    
+    io.println("Before push - length: ${arr.len()}")
+    
+    io.println("Pushing 42...")
+    arr.push(42)
+    io.println("After push - length: ${arr.len()}")
+    
+    return 0
+}

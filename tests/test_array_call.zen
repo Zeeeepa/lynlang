@@ -1,0 +1,15 @@
+{ io, Array } = @std
+
+main = () i32 {
+    io.println("1. Creating array...")
+    arr: Array<i32> = Array.new(10, 0)
+    
+    io.println("2. Pushing value...")
+    arr.push(100)
+    
+    io.println("3. Calling get...")
+    arr.get(0)
+    
+    io.println("4. Done")
+    return 0
+}

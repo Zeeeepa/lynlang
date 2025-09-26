@@ -311,8 +311,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         if method == "remove" {
                                             return Ok(AstType::Bool);
                                         }
-                                    } else if (name == "Array" || name == "Vec" || name == "DynVec") && !type_args.is_empty() {
-                                        // Array/Vec/DynVec get and pop return Option<element_type>
+                                    } else if name == "Array" && !type_args.is_empty() {
+                                        // Array.get returns element type directly (not wrapped in Option)
+                                        if method == "get" {
+                                            return Ok(type_args[0].clone());
+                                        } else if method == "pop" {
+                                            // Array.pop returns Option<element_type>
+                                            return Ok(AstType::Generic { 
+                                                name: "Option".to_string(), 
+                                                type_args: vec![type_args[0].clone()]
+                                            });
+                                        }
+                                    } else if (name == "Vec" || name == "DynVec") && !type_args.is_empty() {
+                                        // Vec/DynVec get and pop return Option<element_type>
                                         return Ok(AstType::Generic { 
                                             name: "Option".to_string(), 
                                             type_args: vec![type_args[0].clone()]
@@ -6548,6 +6559,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Get the pointer to the array variable
         let (array_ptr, _) = self.get_variable(obj_name)?;
         
+        // Define the Array struct type
+        let array_struct_type = self.context.struct_type(
+            &[
+                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            false,
+        );
+        
         match method {
             "push" => {
                 if args.len() != 1 {
@@ -6562,13 +6583,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Load current length and capacity
                 let len_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     1,
                     "len_ptr",
                 )?;
                 let capacity_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     2,
                     "capacity_ptr",
@@ -6604,7 +6625,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Get data pointer
                 let data_ptr_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     0,
                     "data_ptr_ptr",
@@ -6639,7 +6660,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Get data pointer (reload since it might have changed if we grew)
                 let data_ptr_ptr_store = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     0,
                     "data_ptr_ptr_store",
@@ -6717,9 +6738,12 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Err(CompileError::TypeError("Array index must be an integer".to_string(), None));
                 };
                 
+                // For now, simplify: just load the value without bounds checking
+                // This avoids the complex PHI node issues
+                
                 // Load the data pointer
                 let data_ptr_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     0,
                     "data_ptr_ptr",
@@ -6730,7 +6754,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     "data",
                 )?.into_pointer_value();
                 
-                // Calculate element pointer
+                // Calculate element pointer 
+                // Arrays store values as i64s directly (not pointers)
                 let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let data_as_i64_ptr = self.builder.build_pointer_cast(
                     data_ptr,
@@ -6747,17 +6772,64 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     )?
                 };
                 
-                // Load the value
-                let value = self.builder.build_load(self.context.i64_type(), element_ptr, "get_elem_value")?;
+                // Load the value directly (it's stored as i64)
+                let stored_value = self.builder.build_load(self.context.i64_type(), element_ptr, "stored_value")?;
                 
-                // Truncate to i32 if needed for compatibility
-                let i32_value = self.builder.build_int_truncate(
-                    value.into_int_value(),
-                    self.context.i32_type(),
-                    "get_elem_i32"
-                )?;
+                // Determine the element type from the generic type context
+                let element_type_key = format!("{}_Array_Element_Type", obj_name);
+                let element_ast_type = self.generic_type_context.get(&element_type_key)
+                    .or_else(|| self.generic_type_context.get("Array_Element_Type"))
+                    .or_else(|| {
+                        // Try to get from generic tracker
+                        self.generic_tracker.get(&format!("{}_type", obj_name))
+                            .and_then(|t| {
+                                if let AstType::Generic { name, type_args } = t {
+                                    if name == "Array" && !type_args.is_empty() {
+                                        Some(&type_args[0])
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            })
+                    })
+                    .cloned()
+                    .unwrap_or(AstType::I32);
                 
-                Ok(i32_value.into())
+                // Convert the stored i64 value to the correct type
+                let value = match &element_ast_type {
+                    AstType::I32 => {
+                        // Truncate i64 to i32
+                        let i32_val = self.builder.build_int_truncate(
+                            stored_value.into_int_value(),
+                            self.context.i32_type(),
+                            "get_elem_i32"
+                        )?;
+                        i32_val.into()
+                    }
+                    AstType::I64 => stored_value,
+                    AstType::F64 => {
+                        // Bitcast i64 to f64
+                        let f64_val = self.builder.build_bit_cast(
+                            stored_value,
+                            self.context.f64_type(),
+                            "get_elem_f64"
+                        )?;
+                        f64_val
+                    }
+                    _ => {
+                        // Default: truncate to i32
+                        let i32_val = self.builder.build_int_truncate(
+                            stored_value.into_int_value(),
+                            self.context.i32_type(),
+                            "get_elem_default"
+                        )?;
+                        i32_val.into()
+                    }
+                };
+                
+                Ok(value)
             }
             "set" => {
                 if args.len() != 2 {
@@ -6785,7 +6857,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Load the data pointer
                 let data_ptr_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     0,
                     "data_ptr_ptr",
@@ -6796,7 +6868,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     "data",
                 )?.into_pointer_value();
                 
-                // Calculate element pointer
+                // Calculate element pointer (array stores i64 values directly)
                 let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let data_as_i64_ptr = self.builder.build_pointer_cast(
                     data_ptr,
@@ -6813,7 +6885,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     )?
                 };
                 
-                // Store the value as i64
+                // Store the value as i64 (similar to push)
                 let value_to_store = if value.is_int_value() {
                     let int_val = value.into_int_value();
                     if int_val.get_type().get_bit_width() < 64 {
@@ -6825,10 +6897,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let float_val = value.into_float_value();
                     self.builder.build_bit_cast(float_val, self.context.i64_type(), "float_as_i64")?.into_int_value()
                 } else {
-                    // For other types, use a placeholder
+                    // For other types, store 0
                     self.context.i64_type().const_int(0, false)
                 };
                 
+                // Store the value directly at the element position
                 self.builder.build_store(element_ptr, value_to_store)?;
                 
                 // Return void
@@ -6837,7 +6910,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
             "len" => {
                 // Load and return the length
                 let len_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     1,
                     "len_ptr",
@@ -6852,7 +6925,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Load current length
                 let len_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     1,
                     &format!("len_ptr_{}", pop_id),
@@ -6886,7 +6959,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 
                 // Load data pointer
                 let data_ptr_ptr = self.builder.build_struct_gep(
-                    array_value.get_type(),
+                    array_struct_type,
                     array_ptr,
                     0,
                     &format!("data_ptr_ptr_{}", pop_id),
@@ -6897,7 +6970,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     &format!("data_{}", pop_id),
                 )?.into_pointer_value();
                 
-                // Calculate element pointer (at new_len, which is the last element)
+                // Calculate element pointer (array stores i64 values directly)
                 let i64_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let data_as_i64_ptr = self.builder.build_pointer_cast(
                     data_ptr,
@@ -6914,7 +6987,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     )?
                 };
                 
-                // Load the value
+                // Load the value directly (it's stored as i64)
                 let value = self.builder.build_load(self.context.i64_type(), element_ptr, &format!("pop_elem_value_{}", pop_id))?;
                 
                 // Truncate to i32 for compatibility

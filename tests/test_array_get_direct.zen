@@ -1,0 +1,15 @@
+{ io, Array } = @std
+
+main = () i32 {
+    arr: Array<i32> = Array.new(10, 0)
+    
+    arr.push(42)
+    io.println("Pushed 42")
+    
+    // Don't use string interpolation
+    val = arr.get(0)
+    io.print_int(val)
+    io.println("")
+    
+    return 0
+}

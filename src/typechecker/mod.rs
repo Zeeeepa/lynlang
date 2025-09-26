@@ -1220,6 +1220,57 @@ impl TypeChecker {
                 // First check if it's a built-in method on the object type
                 let object_type = self.infer_expression_type(object)?;
 
+                // Special handling for generic collection methods
+                if let AstType::Generic { name, type_args } = &object_type {
+                    if name == "Array" && !type_args.is_empty() {
+                        // Array methods
+                        match method.as_str() {
+                            "get" => return Ok(type_args[0].clone()),  // Returns element type directly
+                            "pop" => return Ok(AstType::Generic {       // Returns Option<element_type>
+                                name: "Option".to_string(),
+                                type_args: vec![type_args[0].clone()],
+                            }),
+                            "len" => return Ok(AstType::I64),
+                            "push" | "set" => return Ok(AstType::Void),
+                            _ => {}
+                        }
+                    } else if name == "HashMap" && type_args.len() >= 2 {
+                        // HashMap methods
+                        match method.as_str() {
+                            "get" | "remove" => return Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![type_args[1].clone()],
+                            }),
+                            "contains" => return Ok(AstType::Bool),
+                            "len" | "size" => return Ok(AstType::I64),
+                            "is_empty" => return Ok(AstType::Bool),
+                            "insert" | "clear" => return Ok(AstType::Void),
+                            _ => {}
+                        }
+                    } else if name == "HashSet" && !type_args.is_empty() {
+                        // HashSet methods
+                        match method.as_str() {
+                            "contains" => return Ok(AstType::Bool),
+                            "remove" => return Ok(AstType::Bool),
+                            "len" | "size" => return Ok(AstType::I64),
+                            "is_empty" => return Ok(AstType::Bool),
+                            "insert" | "clear" => return Ok(AstType::Void),
+                            _ => {}
+                        }
+                    } else if (name == "Vec" || name == "DynVec") && !type_args.is_empty() {
+                        // Vec/DynVec methods
+                        match method.as_str() {
+                            "get" | "pop" => return Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![type_args[0].clone()],
+                            }),
+                            "len" => return Ok(AstType::I64),
+                            "push" | "set" | "clear" => return Ok(AstType::Void),
+                            _ => {}
+                        }
+                    }
+                }
+
                 // Try to find the function in scope
                 // The method call object.method(args) becomes method(object, args)
                 if let Some(func_type) = self.functions.get(method) {

@@ -1,0 +1,24 @@
+{ io, Array } = @std
+
+main = () i32 {
+    io.println("Creating array...")
+    arr: Array<i32> = Array.new(10, 0)
+    io.println("Array created")
+    
+    io.println("Getting length...")
+    len = arr.len()
+    io.println("Initial length: ${len}")
+    
+    io.println("Pushing first element...")
+    arr.push(42)
+    io.println("Pushed 42")
+    
+    len2 = arr.len()
+    io.println("Length after push: ${len2}")
+    
+    io.println("Getting element at index 0...")
+    val = arr.get(0)
+    io.println("Value at index 0: ${val}")
+    
+    return 0
+}

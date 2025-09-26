@@ -1,0 +1,9 @@
+{ io, Array } = @std
+
+main = () i32 {
+    io.println("Test 1: Creating array")
+    arr: Array<i32> = Array.new(10, 0)
+    io.println("Test 2: Array created successfully")
+    
+    return 0
+}

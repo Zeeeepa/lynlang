@@ -1,0 +1,12 @@
+{ io, Array } = @std
+
+main = () i32 {
+    arr: Array<i32> = Array.new(10, 0)
+    arr.push(100)
+    
+    val: i32 = arr.get(0)
+    io.print_int(val)
+    io.println("")
+    
+    return 0
+}
