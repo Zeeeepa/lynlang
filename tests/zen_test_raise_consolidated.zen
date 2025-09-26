@@ -26,8 +26,8 @@ test_mixed_errors = () void {
     
     inner = mixed.raise()
     inner ?
-        | Result.Ok(v) { io.println("  Got value: ${v}") }
-        | Result.Err(e) { io.println("  Got error: ${e}") }
+        | Result.Ok(v) { io.println("  Got value: ${v}"); {} }
+        | Result.Err(e) { io.println("  Got error: ${e}"); {} }
 }
 
 // Test 3: raise() in expressions
@@ -42,8 +42,8 @@ test_raise_in_expressions = () void {
     
     // Use raise() in conditionals
     get_result().raise() > 5 ?
-        | true { io.println("  Conditional works") }
-        | false { io.println("  Conditional failed") }
+        | true { io.println("  Conditional works"); {} }
+        | false { io.println("  Conditional failed"); {} }
 }
 
 main = () void {

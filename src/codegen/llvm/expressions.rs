@@ -6217,15 +6217,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .unwrap_or("anon")
             .to_string();
 
-        // Check if the function returns a Result type
-        let returns_result = if let Some(return_type) = self.function_types.get(&function_name) {
+        // Check if the function returns a Result type and if it's void
+        let (returns_result, is_void_function) = if let Some(return_type) = self.function_types.get(&function_name) {
             match return_type {
-                AstType::Generic { name, .. } if name == "Result" => true,
-                AstType::Result { .. } => true, // Also handle legacy Result type
-                _ => false,
+                AstType::Generic { name, .. } if name == "Result" => (true, false),
+                AstType::Result { .. } => (true, false), // Also handle legacy Result type
+                AstType::Void => (false, true),
+                _ => (false, false),
             }
         } else {
-            false
+            (false, true) // Default to void if we don't know
         };
 
         // Compile the expression that should return a Result<T, E>
@@ -6635,12 +6636,15 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         "return_result",
                     )?;
                     self.builder.build_return(Some(&return_result))?;
-                } else {
+                } else if !is_void_function {
                     // Function returns a plain type (like i32) - this is an error case
                     // For now, we'll return a default error value (1 for i32, indicating error)
                     // In a proper implementation, this would need better error handling
                     let error_value = self.context.i32_type().const_int(1, false);
                     self.builder.build_return(Some(&error_value))?;
+                } else {
+                    // Void function - just return without a value
+                    self.builder.build_return(None)?;
                 }
 
                 // Continue with Ok value
@@ -6658,10 +6662,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // For unit Results, handle based on return type
                 if returns_result {
                     self.builder.build_return(Some(&struct_val))?;
-                } else {
+                } else if !is_void_function {
                     // Return error value for plain return type
                     let error_value = self.context.i32_type().const_int(1, false);
                     self.builder.build_return(Some(&error_value))?;
+                } else {
+                    // Void function - just return without a value
+                    self.builder.build_return(None)?;
                 }
 
                 self.builder.position_at_end(continue_bb);
@@ -6757,10 +6764,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.builder
                             .build_load(struct_type, result_ptr, "err_result")?;
                     self.builder.build_return(Some(&err_result))?;
-                } else {
+                } else if !is_void_function {
                     // Return error value for plain return type
                     let error_value = self.context.i32_type().const_int(1, false);
                     self.builder.build_return(Some(&error_value))?;
+                } else {
+                    // Void function - just return without a value
+                    self.builder.build_return(None)?;
                 }
 
                 self.builder.position_at_end(continue_bb);
@@ -6987,10 +6997,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             "return_result",
                         )?;
                         self.builder.build_return(Some(&return_result))?;
-                    } else {
+                    } else if !is_void_function {
                         // Function returns a plain type - return error value
                         let error_value = self.context.i32_type().const_int(1, false);
                         self.builder.build_return(Some(&error_value))?;
+                    } else {
+                        // Void function - just return without a value
+                        self.builder.build_return(None)?;
                     }
                     
                     // Continue with Ok value
@@ -7009,10 +7022,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             "return_result",
                         )?;
                         self.builder.build_return(Some(&return_result))?;
-                    } else {
+                    } else if !is_void_function {
                         // Return error value for plain return type
                         let error_value = self.context.i32_type().const_int(1, false);
                         self.builder.build_return(Some(&error_value))?;
+                    } else {
+                        // Void function - just return without a value
+                        self.builder.build_return(None)?;
                     }
                     
                     self.builder.position_at_end(continue_bb);
