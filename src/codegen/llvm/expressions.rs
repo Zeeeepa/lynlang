@@ -6998,10 +6998,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 )?;
                 
                 // Create Option.Some with the value
+                // We need to allocate the value on heap and store pointer for generic compatibility
+                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                    let i64_type = self.context.i64_type();
+                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                    self.module.add_function("malloc", fn_type, Some(inkwell::module::Linkage::External))
+                });
+                
+                // Allocate space for i32 value
+                let payload_size = self.context.i64_type().const_int(4, false);
+                let payload_ptr = self.builder.build_call(
+                    malloc_fn,
+                    &[payload_size.into()],
+                    &format!("payload_alloc_{}", pop_id),
+                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                
+                // Store the i32 value in allocated memory
+                let payload_ptr_typed = self.builder.build_pointer_cast(
+                    payload_ptr,
+                    self.context.i32_type().ptr_type(inkwell::AddressSpace::default()),
+                    &format!("payload_ptr_i32_{}", pop_id),
+                )?;
+                self.builder.build_store(payload_ptr_typed, i32_value)?;
+                
+                // Create Option struct with pointer payload
+                let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let option_struct_type = self.context.struct_type(
                     &[
-                        self.context.i64_type().into(), // discriminant
-                        self.context.i32_type().into(), // payload (i32)
+                        self.context.i64_type().into(), // discriminant  
+                        ptr_type.into(),                 // payload pointer
                     ],
                     false,
                 );
@@ -7010,13 +7036,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let some_value = option_struct_type.get_undef();
                 let some_value = self.builder.build_insert_value(
                     some_value,
-                    self.context.i64_type().const_int(1, false),
+                    self.context.i64_type().const_int(0, false),  // Some = 0
                     0,
                     &format!("some_discrim_{}", pop_id),
                 )?;
                 let some_value = self.builder.build_insert_value(
                     some_value,
-                    i32_value,
+                    payload_ptr,
                     1,
                     &format!("some_payload_{}", pop_id),
                 )?;
@@ -7026,17 +7052,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // None block - return Option.None
                 self.builder.position_at_end(none_block);
                 
-                // Build struct value dynamically (not const)
+                // Build struct value dynamically (not const) - use same struct type with pointer
                 let none_value = option_struct_type.get_undef();
                 let none_value = self.builder.build_insert_value(
                     none_value,
-                    self.context.i64_type().const_int(0, false),
+                    self.context.i64_type().const_int(1, false),  // None = 1
                     0,
                     &format!("none_discrim_{}", pop_id),
                 )?;
+                // For None, use null pointer as payload
+                let null_ptr = ptr_type.const_null();
                 let none_value = self.builder.build_insert_value(
                     none_value,
-                    self.context.i32_type().const_int(0, false),
+                    null_ptr,
                     1,
                     &format!("none_payload_{}", pop_id),
                 )?;

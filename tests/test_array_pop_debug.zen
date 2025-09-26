@@ -1,0 +1,27 @@
+{ io, Array } = @std
+
+main = () i32 {
+    io.println("Creating array...")
+    arr: Array<i32> = Array.new(10, 0)
+    
+    io.println("Pushing values...")
+    arr.push(5)
+    arr.push(10)
+    arr.push(15)
+    
+    io.println("Getting length...")
+    len = arr.len()
+    io.println("Length after pushes: ${len}")
+    
+    io.println("About to pop...")
+    result = arr.pop()
+    io.println("Pop completed, checking result...")
+    
+    // Check discriminant first
+    result ?
+        | Option.Some(val) { io.println("Popped value: ${val}") }
+        | Option.None { io.println("Array was empty") }
+    
+    io.println("Test complete")
+    return 0
+}
