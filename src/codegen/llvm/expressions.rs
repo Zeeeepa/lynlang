@@ -6341,18 +6341,38 @@ impl<'ctx> LLVMCompiler<'ctx> {
         size: usize,
         initial_values: Option<&Vec<Expression>>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        // For now, simplify Vec to just return a placeholder
-        // TODO: Implement proper Vec with array storage
+        // Vec<T, N> is a struct with { [T; N], i64 }
+        // where the array holds the data and i64 is current length
 
         // Get element LLVM type
-        let _elem_llvm_type = self.to_llvm_type(element_type)?;
+        let elem_llvm_type = match self.to_llvm_type(element_type)? {
+            Type::Basic(basic_type) => basic_type,
+            _ => {
+                return Err(CompileError::TypeError(
+                    "Vec element type must be a basic type".to_string(),
+                    None,
+                ))
+            }
+        };
 
-        // Create a simple struct type: { i64 capacity, i64 len }
+        // Create the Vec struct type: { [T; N], i64 }
+        let array_type = match elem_llvm_type {
+            BasicTypeEnum::IntType(int_type) => int_type.array_type(size as u32).into(),
+            BasicTypeEnum::FloatType(float_type) => float_type.array_type(size as u32).into(),
+            BasicTypeEnum::PointerType(ptr_type) => ptr_type.array_type(size as u32).into(),
+            BasicTypeEnum::StructType(struct_type) => struct_type.array_type(size as u32).into(),
+            _ => {
+                return Err(CompileError::TypeError(
+                    "Unsupported element type for Vec".to_string(),
+                    None,
+                ))
+            }
+        };
         let i64_type = self.context.i64_type();
         let vec_struct_type = self.context.struct_type(
             &[
-                i64_type.into(), // capacity
-                i64_type.into(), // length
+                array_type,  // data: [T; N]
+                i64_type.into(),    // len: i64
             ],
             false,
         );
@@ -6360,26 +6380,36 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Allocate the Vec on the stack
         let vec_ptr = self.builder.build_alloca(vec_struct_type, "vec")?;
 
-        // Initialize capacity field
-        let cap_field_ptr =
-            self.builder
-                .build_struct_gep(vec_struct_type, vec_ptr, 0, "cap_field")?;
-        let cap_value = i64_type.const_int(size as u64, false);
-        self.builder.build_store(cap_field_ptr, cap_value)?;
-
-        // Initialize length field
-        let initial_len = if let Some(values) = initial_values {
-            values.len() as u64
-        } else {
-            0
-        };
+        // Initialize length field to 0 (or number of initial values)
         let len_field_ptr =
             self.builder
                 .build_struct_gep(vec_struct_type, vec_ptr, 1, "len_field")?;
+        let initial_len = if let Some(values) = initial_values {
+            // If we have initial values, compile and store them
+            let len = values.len().min(size); // Don't exceed capacity
+            for (i, value_expr) in values.iter().take(len).enumerate() {
+                let value = self.compile_expression(value_expr)?;
+                let indices = vec![
+                    self.context.i32_type().const_int(0, false),  // Struct index
+                    self.context.i32_type().const_int(0, false),  // Array index
+                    self.context.i32_type().const_int(i as u64, false),  // Element index
+                ];
+                let elem_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        vec_struct_type,
+                        vec_ptr,
+                        &indices,
+                        &format!("elem_ptr_{}", i),
+                    )?
+                };
+                self.builder.build_store(elem_ptr, value)?;
+            }
+            len as u64
+        } else {
+            0
+        };
         let len_value = i64_type.const_int(initial_len, false);
         self.builder.build_store(len_field_ptr, len_value)?;
-
-        // TODO: Actually allocate and initialize the data array
 
         // Load and return the Vec struct value
         Ok(self

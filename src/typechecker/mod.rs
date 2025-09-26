@@ -1235,6 +1235,20 @@ impl TypeChecker {
                 // First check if it's a built-in method on the object type
                 let object_type = self.infer_expression_type(object)?;
 
+                // Special handling for Vec type
+                if let AstType::Vec { element_type, .. } = &object_type {
+                    match method.as_str() {
+                        "get" => return Ok(element_type.as_ref().clone()),  // Returns element type directly
+                        "pop" => return Ok(AstType::Generic {       // Returns Option<element_type>
+                            name: "Option".to_string(),
+                            type_args: vec![element_type.as_ref().clone()],
+                        }),
+                        "len" | "capacity" => return Ok(AstType::I64),
+                        "push" | "set" | "clear" => return Ok(AstType::Void),
+                        _ => {}
+                    }
+                }
+
                 // Special handling for generic collection methods
                 if let AstType::Generic { name, type_args } = &object_type {
                     if name == "Array" && !type_args.is_empty() {
@@ -1272,8 +1286,20 @@ impl TypeChecker {
                             "insert" | "clear" => return Ok(AstType::Void),
                             _ => {}
                         }
-                    } else if (name == "Vec" || name == "DynVec") && !type_args.is_empty() {
-                        // Vec/DynVec methods
+                    } else if name == "Vec" && !type_args.is_empty() {
+                        // Vec methods - Vec.get returns the element directly, not Option
+                        match method.as_str() {
+                            "get" => return Ok(type_args[0].clone()),  // Returns element type directly
+                            "pop" => return Ok(AstType::Generic {       // Returns Option<element_type>
+                                name: "Option".to_string(),
+                                type_args: vec![type_args[0].clone()],
+                            }),
+                            "len" | "capacity" => return Ok(AstType::I64),
+                            "push" | "set" | "clear" => return Ok(AstType::Void),
+                            _ => {}
+                        }
+                    } else if name == "DynVec" && !type_args.is_empty() {
+                        // DynVec methods
                         match method.as_str() {
                             "get" | "pop" => return Ok(AstType::Generic {
                                 name: "Option".to_string(),

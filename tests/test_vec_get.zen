@@ -1,0 +1,12 @@
+// Test Vec<T, size> get method
+{ io } = @std
+
+main = () void {
+    vec = Vec<i32, 10>()
+    vec.push(42)
+    vec.push(100)
+    
+    // Try without type inference
+    val: i32 = vec.get(0)
+    io.println("vec[0] = ${val}")
+}

@@ -1,9 +1,14 @@
-// Basic Vec test
+// Test Vec<T, size> basic operations
 { io } = @std
 
 main = () void {
-    // Try creating a simple Vec<i32, 10>
+    // Create a Vec with fixed size
     vec = Vec<i32, 10>()
     vec.push(42)
-    io.println("Pushed 42 to vec")
+    
+    io.println("Vec created and pushed")
+    
+    // Test len
+    length = vec.len()
+    io.println("Vec length: ${length}")
 }

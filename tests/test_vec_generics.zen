@@ -1,0 +1,15 @@
+// Test Vec<T, size> with generics
+{ io } = @std
+
+main = () void {
+    // Create a Vec with fixed size
+    vec = Vec<i32, 10>()
+    vec.push(42)
+    vec.push(100)
+    
+    io.println("Vec created and items pushed")
+    
+    // Test access
+    val = vec.get(0)
+    io.println("vec[0] = ${val}")
+}
