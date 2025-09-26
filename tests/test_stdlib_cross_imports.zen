@@ -1,0 +1,66 @@
+// Test that stdlib modules can import each other correctly
+// This demonstrates module interdependencies
+
+// Import multiple stdlib modules
+{ print, println, Vec, min, max, get_default_allocator } = @std
+
+// Test function that uses multiple stdlib modules
+process_data = () void   {
+    allocator = get_default_allocator()
+    // Create a vector with allocator
+    v = Vec<i32, 10>(allocator)
+    
+    // Add some numbers
+    v.push(10)
+    v.push(20)
+    v.push(30)
+    
+    // Process with math functions
+    sum = 0
+    i = 0
+    loop () {
+        i >= v.len() ? { break }
+        sum = sum + v.get(i)
+        i = i + 1
+    }
+    
+    // Print using io module
+    print("Sum of vector elements: ")
+    print(sum)
+    print("\n")
+}
+
+// Test string manipulation across modules
+test_string_ops = () void   {
+    // Create strings
+    s1 = "Hello"
+    s2 = "World"
+    
+    // Use string concatenation
+    combined = s1 + " " + s2
+    
+    // Print result
+    print("Combined string: ")
+    print(combined)
+    print("\n")
+    
+    // Test string length
+    len = combined.len()
+    print("String length: ")
+    print(len)
+    print("\n")
+}
+
+// Main entry point
+main = () i32   {
+    print("Testing stdlib cross-imports\n")
+    print("============================\n\n")
+    
+    process_data()
+    test_string_ops()
+    
+    print("\n============================\n")
+    print("Cross-import tests complete!\n")
+    
+    return 0
+}

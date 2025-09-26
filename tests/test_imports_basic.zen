@@ -1,0 +1,9 @@
+// Basic import test
+{ Option, Some, None } = @std
+
+main = () i32 {
+    opt = Some(42)
+    opt ?
+        | .Some(val) { return val }
+        | .None { return 0 }
+}

@@ -1,0 +1,154 @@
+// utils.zen - Utility functions for the Zen full example
+// This file demonstrates a library that can be built and linked
+
+{ print, println } = @std.io
+{ Option, Result } = @std
+{ HashMap, DynVec } = @std
+
+// Utility functions for string manipulation
+StringUtils: {
+    // Convert string to uppercase
+    to_upper: (s: string) string {
+        // Simple implementation - in real code this would be more sophisticated
+        return s  // Placeholder
+    },
+    
+    // Convert string to lowercase  
+    to_lower: (s: string) string {
+        return s  // Placeholder
+    },
+    
+    // Check if string contains substring
+    contains: (s: string, substr: string) bool {
+        return true  // Placeholder
+    },
+    
+    // Split string by delimiter
+    split: (s: string, delim: string) DynVec<string> {
+        allocator = @std.get_default_allocator()
+        result = DynVec.new<string>(allocator)
+        result.push(s)  // Placeholder - just return original string
+        return result
+    }
+}
+
+// Math utilities
+MathUtils: {
+    // Calculate factorial
+    factorial: (n: u32) u64 {
+        n == 0 ? {
+            return 1
+        } : {
+            return n * MathUtils.factorial(n - 1)
+        }
+    },
+    
+    // Calculate fibonacci number
+    fibonacci: (n: u32) u64 {
+        n <= 1 ? {
+            return n
+        } : {
+            return MathUtils.fibonacci(n - 1) + MathUtils.fibonacci(n - 2)
+        }
+    },
+    
+    // Check if number is prime
+    is_prime: (n: u64) bool {
+        n < 2 ? {
+            return false
+        } : {
+            i = 2
+            loop(() {
+                i * i > n ? { break }
+                n % i == 0 ? {
+                    return false
+                } : {
+                    i = i + 1
+                }
+            })
+            return true
+        }
+    }
+}
+
+// Collection utilities
+CollectionUtils: {
+    // Find maximum value in vector
+    max: <T: Comparable>(vec: DynVec<T>) Option<T> {
+        vec.len() == 0 ? {
+            return Option.None
+        } : {
+            max_val = vec.get(0).raise()
+            (1..vec.len()).loop((i) {
+                current = vec.get(i).raise()
+                current > max_val ? {
+                    max_val = current
+                } : {}
+            })
+            return Option.Some(max_val)
+        }
+    },
+    
+    // Find minimum value in vector
+    min: <T: Comparable>(vec: DynVec<T>) Option<T> {
+        vec.len() == 0 ? {
+            return Option.None
+        } : {
+            min_val = vec.get(0).raise()
+            (1..vec.len()).loop((i) {
+                current = vec.get(i).raise()
+                current < min_val ? {
+                    min_val = current
+                } : {}
+            })
+            return Option.Some(min_val)
+        }
+    },
+    
+    // Sum all values in vector
+    sum: <T: Addable>(vec: DynVec<T>) T {
+        vec.len() == 0 ? {
+            return T.default()
+        } : {
+            total = vec.get(0).raise()
+            (1..vec.len()).loop((i) {
+                total = total + vec.get(i).raise()
+            })
+            return total
+        }
+    }
+}
+
+// Configuration utilities
+ConfigUtils: {
+    // Parse environment variable
+    get_env: (name: string) Option<string> {
+        // In real implementation, this would read from environment
+        name == "DEBUG" ? {
+            return Option.Some("true")
+        } : {
+            return Option.None
+        }
+    },
+    
+    // Parse configuration file
+    load_config: (path: string) Result<HashMap<string, string>, string> {
+        allocator = @std.get_default_allocator()
+        config = HashMap.new<string, string>(allocator)
+        
+        // In real implementation, this would parse a config file
+        config.insert("app_name", "zen_demo")
+        config.insert("version", "1.0.0")
+        config.insert("debug", "false")
+        
+        return Result.Ok(config)
+    }
+}
+
+// Export the utility modules
+module.exports = {
+    StringUtils: StringUtils,
+    MathUtils: MathUtils,
+    CollectionUtils: CollectionUtils,
+    ConfigUtils: ConfigUtils
+}

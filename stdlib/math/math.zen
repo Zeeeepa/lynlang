@@ -1,6 +1,36 @@
 // Zen Standard Library: Math Module (Improved)
 // Mathematical functions and constants
 
+// Basic comparison and utility functions - non-generic for now
+min = (a: i32, b: i32) i32 {
+    a < b ? 
+        | true { return a }
+        | false { return b }
+}
+
+max = (a: i32, b: i32) i32 {
+    a > b ? 
+        | true { return a }
+        | false { return b }
+}
+
+abs = (x: i32) i32 {
+    x < 0 ? 
+        | true { return -x }
+        | false { return x }
+}
+
+// Generic versions (commented out until compiler supports them better)
+// min_generic = <T>(a: T, b: T) T {
+//     a < b ? { return a } : { return b }
+// }
+// max_generic = <T>(a: T, b: T) T {
+//     a > b ? { return a } : { return b }
+// }
+// abs_generic = <T>(x: T) T {
+//     x < 0 ? { return -x } : { return x }
+// }
+
 // External math functions from C math library
 sin = (x: f64) f64 {
     inline.c("""
@@ -508,6 +538,9 @@ vec3_normalize = (v: Vec3) Vec3   {
 
 // Export main functions and constants
 module.exports = {
+    // Basic comparison and utility
+    min, max, abs,
+    
     // Constants
     PI, TAU, E, PHI, SQRT2, LN2, LN10,
     DEG_TO_RAD, RAD_TO_DEG,

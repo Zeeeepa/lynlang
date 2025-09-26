@@ -1,0 +1,9 @@
+// Testing module - re-exports from runner.zen
+// This provides a clean interface for the testing system
+
+{ test, assert, run_tests, TestResult, TestCase } = import("runner.zen")
+
+// Re-export everything from runner
+module.exports = {
+    test, assert, run_tests, TestResult, TestCase
+}

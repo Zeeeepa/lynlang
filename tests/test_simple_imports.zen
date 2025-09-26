@@ -2,29 +2,29 @@
 // This shows that imports work at module level without comptime
 
 // Module-level imports (CORRECT - no comptime wrapper)
-{ Option, Some, None, Result, Ok, Err } = @std
+{ Option, Some, None, Result, Ok, Err, min, max, abs } = @std
 build = @std
 
 // Simple arithmetic using core functions
 calculate = () i32   {
-    // Use min and max from core
-    a := 10
-    b := 20
+    // Use min and max from std
+    a = 10
+    b = 20
     
-    min_value := core.min(a, b)  // Should be 10
-    max_value := core.max(a, b)  // Should be 20
+    min_value = min(a, b)  // Should be 10
+    max_value = max(a, b)  // Should be 20
     
-    // Use abs from core
-    negative := -15
-    positive := core.abs(negative)  // Should be 15
+    // Use abs from std
+    negative = -15
+    positive = abs(negative)  // Should be 15
     
     // Calculate result
-    result := min_value + max_value + positive
+    result = min_value + max_value + positive
     return result  // 10 + 20 + 15 = 45
 }
 
 // Main function
 main = () i32   {
-    result := calculate()
+    result = calculate()
     return result
 }

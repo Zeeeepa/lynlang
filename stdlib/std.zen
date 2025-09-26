@@ -10,7 +10,8 @@
 // Collections - all from collections/ directory  
 { Vec, DynVec } = import("vec.zen")
 { HashMap } = import("collections/hashmap.zen") 
-{ Set } = import("collections/set.zen")
+{ HashSet } = import("collections/set.zen")
+Set = HashSet
 { List } = import("collections/list.zen")
 { Queue } = import("collections/queue.zen")
 { Stack } = import("collections/stack.zen")
@@ -24,7 +25,7 @@
   implements, requires, derive } = import("behaviors.zen")
 
 // Concurrency
-{ Actor, Task, Future } = import("concurrent/concurrency.zen")
+{ Actor, Task, Future } = import("concurrent_unified.zen")
 
 // I/O
 { print, println } = import("io/io.zen")
@@ -51,7 +52,7 @@ module.exports = {
     
     // Collections
     Vec, DynVec,
-    HashMap, Set, List,
+    HashMap, HashSet, Set, List,
     Queue, Stack,
     
     // Memory & concurrency

@@ -1,0 +1,419 @@
+// Zen String System - Static and Dynamic String Support
+// This module provides both static (compile-time) and dynamic (runtime) strings
+
+{ Option, Result, get_default_allocator } = @std
+
+// ============================================================================
+// STATIC STRING (no allocator needed, immutable)
+// ============================================================================
+
+// Static strings are compile-time constants, stored in read-only memory
+// They are represented as simple char pointers (string type)
+StaticString := string  // Alias for clarity
+
+// Helper to get static string length
+static_string_len = (s: StaticString) u64 {
+    s == null ? { return 0 }
+    
+    len: u64 = 0
+    loop((handle) {
+        s[len] == 0 ? { handle.break() }
+        len = len + 1
+    })
+    return len
+}
+
+// ============================================================================
+// DYNAMIC STRING (requires allocator, mutable)
+// ============================================================================
+
+// Dynamic strings are heap-allocated and can be modified
+String := {
+    data: Ptr<i8>       // Pointer to character data
+    len: u64            // Current length (excluding null terminator)
+    capacity: u64       // Allocated capacity
+    allocator: Ptr<Allocator>  // Associated allocator
+    
+    // Create a new empty string with given allocator
+    new: (allocator: Ptr<Allocator>) String {
+        return String {
+            data: null,
+            len: 0,
+            capacity: 0,
+            allocator: allocator
+        }
+    }
+    
+    // Create from a static string (makes a copy)
+    from_static: (s: StaticString, allocator: Ptr<Allocator>) Result<String, AllocatorError> {
+        s == null ? {
+            return Ok(String.new(allocator))
+        }
+        
+        len := static_string_len(s)
+        capacity := len + 1  // +1 for null terminator
+        
+        // Allocate memory for the string data
+        data_result := allocator.alloc(capacity, 1)  // align=1 for chars
+        data_result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) {
+                data := @ptrcast(Ptr<i8>, ptr)
+                
+                // Copy the static string data
+                i: u64 = 0
+                loop((handle) {
+                    i <= len ? {  // Include null terminator
+                        data[i] = s[i]
+                        i = i + 1
+                    } : {
+                        handle.break()
+                    }
+                })
+                
+                return Ok(String {
+                    data: data,
+                    len: len,
+                    capacity: capacity,
+                    allocator: allocator
+                })
+            }
+    }
+    
+    // Reserve capacity for string growth
+    reserve: (mut self, new_capacity: u64) Result<void, AllocatorError> {
+        new_capacity <= self.capacity ? { return Ok(()) }
+        
+        // Allocate new buffer
+        new_data_result := self.allocator.alloc(new_capacity, 1)
+        new_data_result ?
+            | Err(e) { return Err(e) }
+            | Ok(new_ptr) {
+                new_data := @ptrcast(Ptr<i8>, new_ptr)
+                
+                // Copy existing data if any
+                self.data != null ? {
+                    i: u64 = 0
+                    loop((handle) {
+                        i <= self.len ? {  // Include null terminator
+                            new_data[i] = self.data[i]
+                            i = i + 1
+                        } : {
+                            handle.break()
+                        }
+                    })
+                    
+                    // Free old buffer
+                    self.allocator.free(@ptrcast(RawPtr<void>, self.data), self.capacity, 1)
+                }
+                
+                self.data = new_data
+                self.capacity = new_capacity
+                return Ok(())
+            }
+    }
+    
+    // Append a character
+    push_char: (mut self, c: i8) Result<void, AllocatorError> {
+        // Ensure we have capacity (+1 for null terminator)
+        self.len + 2 > self.capacity ? {
+            new_capacity := (self.capacity == 0) ? 8 : (self.capacity * 2)
+            self.reserve(new_capacity)?
+        }
+        
+        self.data[self.len] = c
+        self.len = self.len + 1
+        self.data[self.len] = 0  // Maintain null termination
+        return Ok(())
+    }
+    
+    // Append a static string
+    append_static: (mut self, s: StaticString) Result<void, AllocatorError> {
+        s == null ? { return Ok(()) }
+        
+        s_len := static_string_len(s)
+        s_len == 0 ? { return Ok(()) }
+        
+        // Ensure we have capacity
+        new_len := self.len + s_len
+        new_len + 1 > self.capacity ? {
+            new_capacity := new_len + 1
+            // Round up to power of 2
+            new_capacity < 8 ? { new_capacity = 8 }
+            self.reserve(new_capacity)?
+        }
+        
+        // Copy the string
+        i: u64 = 0
+        loop((handle) {
+            i < s_len ? {
+                self.data[self.len + i] = s[i]
+                i = i + 1
+            } : {
+                handle.break()
+            }
+        })
+        
+        self.len = new_len
+        self.data[self.len] = 0  // Maintain null termination
+        return Ok(())
+    }
+    
+    // Append another dynamic string
+    append: (mut self, other: String) Result<void, AllocatorError> {
+        other.len == 0 ? { return Ok(()) }
+        
+        // Ensure we have capacity
+        new_len := self.len + other.len
+        new_len + 1 > self.capacity ? {
+            new_capacity := new_len + 1
+            // Round up to power of 2
+            new_capacity < 8 ? { new_capacity = 8 }
+            self.reserve(new_capacity)?
+        }
+        
+        // Copy the string
+        i: u64 = 0
+        loop((handle) {
+            i < other.len ? {
+                self.data[self.len + i] = other.data[i]
+                i = i + 1
+            } : {
+                handle.break()
+            }
+        })
+        
+        self.len = new_len
+        self.data[self.len] = 0  // Maintain null termination
+        return Ok(())
+    }
+    
+    // Clear the string (keep allocated memory)
+    clear: (mut self) void {
+        self.len = 0
+        self.data != null ? {
+            self.data[0] = 0
+        }
+    }
+    
+    // Get as C-style string (null-terminated)
+    as_cstr: (self) Ptr<i8> {
+        return self.data
+    }
+    
+    // Get as static string view (doesn't transfer ownership)
+    as_static: (self) StaticString {
+        return @ptrcast(StaticString, self.data)
+    }
+    
+    // Clone the string with a new allocator
+    clone: (self, allocator: Ptr<Allocator>) Result<String, AllocatorError> {
+        self.len == 0 ? {
+            return Ok(String.new(allocator))
+        }
+        
+        // Allocate new buffer
+        capacity := self.len + 1
+        data_result := allocator.alloc(capacity, 1)
+        data_result ?
+            | Err(e) { return Err(e) }
+            | Ok(ptr) {
+                data := @ptrcast(Ptr<i8>, ptr)
+                
+                // Copy data
+                i: u64 = 0
+                loop((handle) {
+                    i <= self.len ? {  // Include null terminator
+                        data[i] = self.data[i]
+                        i = i + 1
+                    } : {
+                        handle.break()
+                    }
+                })
+                
+                return Ok(String {
+                    data: data,
+                    len: self.len,
+                    capacity: capacity,
+                    allocator: allocator
+                })
+            }
+    }
+    
+    // Free the string's memory
+    free: (mut self) void {
+        self.data != null ? {
+            self.allocator.free(@ptrcast(RawPtr<void>, self.data), self.capacity, 1)
+            self.data = null
+            self.len = 0
+            self.capacity = 0
+        }
+    }
+}
+
+// ============================================================================
+// STRING BUILDER (for efficient string concatenation)
+// ============================================================================
+
+StringBuilder := {
+    buffer: String
+    
+    new: (allocator: Ptr<Allocator>) StringBuilder {
+        return StringBuilder {
+            buffer: String.new(allocator)
+        }
+    }
+    
+    with_capacity: (capacity: u64, allocator: Ptr<Allocator>) Result<StringBuilder, AllocatorError> {
+        buffer := String.new(allocator)
+        buffer.reserve(capacity)?
+        return Ok(StringBuilder { buffer: buffer })
+    }
+    
+    append: (mut self, s: StaticString) Result<void, AllocatorError> {
+        return self.buffer.append_static(s)
+    }
+    
+    append_string: (mut self, s: String) Result<void, AllocatorError> {
+        return self.buffer.append(s)
+    }
+    
+    append_char: (mut self, c: i8) Result<void, AllocatorError> {
+        return self.buffer.push_char(c)
+    }
+    
+    // Build the final string (transfers ownership)
+    build: (mut self) String {
+        result := self.buffer
+        self.buffer = String.new(result.allocator)  // Reset builder
+        return result
+    }
+    
+    clear: (mut self) void {
+        self.buffer.clear()
+    }
+    
+    len: (self) u64 {
+        return self.buffer.len
+    }
+}
+
+// ============================================================================
+// CONVERSION UTILITIES
+// ============================================================================
+
+// Convert integer to string (creates dynamic string)
+int_to_string = (n: i64, allocator: Ptr<Allocator>) Result<String, AllocatorError> {
+    n == 0 ? {
+        return String.from_static("0", allocator)
+    }
+    
+    // Handle negative
+    negative := n < 0
+    negative ? { n = -n }
+    
+    // Count digits
+    temp := n
+    digits: u64 = 0
+    loop((handle) {
+        temp > 0 ? {
+            digits = digits + 1
+            temp = temp / 10
+        } : {
+            handle.break()
+        }
+    })
+    
+    // Create string with appropriate capacity
+    len := digits + (negative ? 1 : 0)
+    result := String.new(allocator)
+    result.reserve(len + 1)?  // +1 for null terminator
+    
+    // Fill from right to left
+    result.len = len
+    pos := len - 1
+    loop((handle) {
+        n > 0 ? {
+            result.data[pos] = '0' + (n % 10)
+            pos = pos - 1
+            n = n / 10
+        } : {
+            handle.break()
+        }
+    })
+    
+    negative ? { result.data[0] = '-' }
+    result.data[len] = 0  // Null terminate
+    
+    return Ok(result)
+}
+
+// Parse integer from static string
+parse_int = (s: StaticString) Option<i64> {
+    s == null ? { return Option.None }
+    
+    len := static_string_len(s)
+    len == 0 ? { return Option.None }
+    
+    negative := false
+    start: u64 = 0
+    
+    s[0] == '-' ? {
+        negative = true
+        start = 1
+    }
+    s[0] == '+' ? {
+        start = 1
+    }
+    
+    result: i64 = 0
+    i := start
+    loop((handle) {
+        i < len ? {
+            c := s[i]
+            (c < '0' || c > '9') ? {
+                return Option.None  // Invalid character
+            }
+            digit := c - '0'
+            result = result * 10 + digit
+            i = i + 1
+        } : {
+            handle.break()
+        }
+    })
+    
+    negative ? { result = -result }
+    return Option.Some(result)
+}
+
+// ============================================================================
+// STRING INTERPOLATION SUPPORT
+// ============================================================================
+
+// Format a string with arguments (simplified version)
+// In real implementation, this would use variadic arguments
+format = (template: StaticString, allocator: Ptr<Allocator>) Result<String, AllocatorError> {
+    return String.from_static(template, allocator)
+}
+
+// ============================================================================
+// MODULE EXPORTS
+// ============================================================================
+
+module.exports = {
+    // Types
+    StaticString,
+    String,
+    StringBuilder,
+    
+    // Static string functions
+    static_string_len,
+    
+    // Conversion functions
+    int_to_string,
+    parse_int,
+    format,
+    
+    // For backward compatibility
+    string_len: static_string_len,
+}

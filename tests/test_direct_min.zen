@@ -1,0 +1,11 @@
+// Test defining min directly in file
+min = (a: i32, b: i32) i32 {
+    a < b ? 
+        | true { return a }
+        | false { return b }
+}
+
+main = () i32 {
+    result = min(10, 20)
+    return result  // Should be 10
+}

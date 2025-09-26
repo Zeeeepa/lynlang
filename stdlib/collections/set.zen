@@ -83,3 +83,16 @@ hashset_clear<T> = HashSet<T>.clear
 
 // Export HashSet as Set for compatibility
 Set = HashSet
+
+// Module exports
+module.exports = {
+    HashSet,
+    Set,
+    hashset_new,
+    hashset_add,
+    hashset_remove,
+    hashset_contains,
+    hashset_len,
+    hashset_is_empty,
+    hashset_clear,
+}

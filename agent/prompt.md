@@ -1,3 +1,7 @@
+# TASK
+
+1. keep going and implmenting things
+
 
 # PROJECT STATUS (2025-09-26)
 

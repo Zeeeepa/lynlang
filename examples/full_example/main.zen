@@ -1,0 +1,381 @@
+// main.zen - Comprehensive demonstration of Zen language features
+// This example showcases all major features of the Zen programming language
+
+{ print, println } = @std.io
+{ Option, Result, get_default_allocator } = @std
+{ HashMap, HashSet } = @std.collections
+{ Vec, DynVec, Array } = @std
+
+// ============================================================================
+// 1. STRUCTS - Custom data types with fields
+// ============================================================================
+
+Person := {
+    name: string,
+    age: i32,
+    email: Option<string>
+}
+
+// Struct with methods (when supported)
+Point := {
+    x: f64,
+    y: f64
+}
+
+// ============================================================================
+// 2. ENUMS - Sum types with variants
+// ============================================================================
+
+Status:
+    Active: {user_id: i64},
+    Inactive,
+    Banned: {reason: string, until: i64}
+
+Color:
+    Red,
+    Green,
+    Blue,
+    RGB: {r: i8, g: i8, b: i8}
+
+// ============================================================================
+// 3. FUNCTIONS - Various function patterns
+// ============================================================================
+
+// Simple function
+add = (a: i32, b: i32) i32 {
+    return a + b
+}
+
+// Generic function
+swap = <T>(a: T, b: T) {a: T, b: T} {
+    return (b, a)
+}
+
+// Function returning Result
+divide = (a: f64, b: f64) Result<f64, string> {
+    b == 0.0 ? {
+        return Result.Err("Division by zero")
+    }
+    return Result.Ok(a / b)
+}
+
+// Function with Option
+find_person = (id: i64) Option<Person> {
+    // Simulated lookup
+    id == 1 ? {
+        return Option.Some(Person {
+            name: "Alice",
+            age: 30,
+            email: Option.Some("alice@example.com")
+        })
+    }
+    return Option.None
+}
+
+// ============================================================================
+// 4. CLOSURES - Anonymous functions with captures
+// ============================================================================
+
+make_multiplier = ((factor: i32) i32) i32 {
+    return (x: i32) i32 { return x * factor }
+}
+
+// ============================================================================
+// 5. PATTERN MATCHING - Exhaustive matching with {}
+// ============================================================================
+
+describe_status = (status: Status) string {
+    status ?
+        | Active(id) { return "User ${id} is active" }
+        | Inactive { return "User is inactive" }
+        | Banned(reason, until) { return "Banned: ${reason} until ${until}" }
+}
+
+// ============================================================================
+// 6. ERROR PROPAGATION - Using .raise() for Result/Option
+// ============================================================================
+
+calculate = () Result<f64, string> {
+    // Chain operations with error propagation
+    x = divide(10.0, 2.0).raise()  // Returns 5.0 or propagates error
+    y = divide(x, 2.0).raise()     // Returns 2.5 or propagates error
+    return Result.Ok(y * 2.0)       // Returns 5.0
+}
+
+// ============================================================================
+// 7. LOOPS AND RANGES - Various iteration patterns
+// ============================================================================
+
+demo_loops = () void {
+    println("\n=== LOOPS ===")
+    
+    // Range loop
+    println("Range loop (0..5):")
+    (0..5).loop((i) {
+        print("${i} ")
+    })
+    println("")
+    
+    // Infinite loop with break
+    println("Infinite loop with break:")
+    counter ::= 0
+    loop((handle) {
+        counter >= 3 ? { handle.break() }
+        print("${counter} ")
+        counter = counter + 1
+    })
+    println("")
+}
+
+// ============================================================================
+// 8. COLLECTIONS WITH ALLOCATORS - NO-GC memory management
+// ============================================================================
+
+demo_collections = () void {
+    println("\n=== COLLECTIONS (with allocators) ===")
+    
+    allocator ::= get_default_allocator()
+    
+    // HashMap with allocator
+    map ::= HashMap.new<string, i32>(allocator)
+    map.insert("one", 1)
+    map.insert("two", 2)
+    map.insert("three", 3)
+    
+    value = map.get("two")
+    value ?
+        | Some(v) { println("HashMap: 'two' = ${v}") }
+        | None { println("Key not found") }
+    
+    // DynVec with allocator
+    vec = DynVec.new<i32>(allocator)
+    vec.push(10)
+    vec.push(20)
+    vec.push(30)
+    println("DynVec length: ${vec.len()}")
+    
+    // Array with allocator
+    arr = Array.new<f64>(allocator)
+    arr.push(3.14)
+    arr.push(2.71)
+    println("Array first element: ${arr.get(0)}")
+}
+
+// ============================================================================
+// 9. STRINGS - Static vs Dynamic
+// ============================================================================
+
+demo_strings = () void {
+    println("\n=== STRINGS ===")
+    
+    // Static string (compile-time)
+    static_str: StaticString = "Hello, World!"
+    println("Static: ${static_str}")
+    
+    // String operations
+    upper = static_str.to_upper()
+    println("Upper: ${upper}")
+    
+    contains = static_str.contains("World")
+    println("Contains 'World': ${contains}")
+    
+    // String parsing
+    num_str = "42"
+    parsed = num_str.to_i32()
+    parsed ?
+        | Some(n) { println("Parsed: ${n}") }
+        | None { println("Parse failed") }
+}
+
+// ============================================================================
+// 10. GENERICS - Nested and complex generic types
+// ============================================================================
+
+Container<T> : {
+    value: T,
+    metadata: Option<string>
+}
+
+demo_generics = () void {
+    println("\n=== GENERICS ===")
+    
+    // Simple generic
+    container = Container<i32> {
+        value: 42,
+        metadata: Option.Some("Important number")
+    }
+    println("Container value: ${container.value}")
+    
+    // Nested generics
+    result_option: Result<Option<i32>, string> = Result.Ok(Option.Some(100))
+    result_option ?
+        | Ok(opt) {
+            opt ?
+                | Some(v) { println("Nested generic value: ${v}") }
+                | None { println("None inside Ok") }
+        }
+        | Err(e) { println("Error: ${e}") }
+    
+    // Triple nested
+    complex: Option<Result<Option<string>, i32>> = 
+        Option.Some(Result.Ok(Option.Some("deeply nested")))
+    println("Triple nested generic works!")
+}
+
+// ============================================================================
+// 11. UFC (Universal Function Call) - Method chaining
+// ============================================================================
+
+double = (x: i32) i32 { return x * 2 }
+add_ten = (x: i32) i32 { return x + 10 }
+
+demo_ufc = () void {
+    println("\n=== UFC (Method Chaining) ===")
+    
+    result = 5
+        .double()      // 10
+        .add_ten()     // 20
+        .double()      // 40
+    
+    println("UFC result: 5.double().add_ten().double() = ${result}")
+}
+
+// ============================================================================
+// 12. FORWARD DECLARATIONS
+// ============================================================================
+
+// Forward declare a function
+process_data: (data: string) Result<i32, string>
+
+// Implementation comes later
+process_data = (data: string) Result<i32, string> {
+    data.len() > 0 ? {
+        return Result.Ok(data.len())
+    }
+    return Result.Err("Empty data")
+}
+
+// ============================================================================
+// 13. META PROGRAMMING - Compile-time features
+// ============================================================================
+
+demo_meta = () void {
+    println("\n=== META PROGRAMMING ===")
+    
+    // Type introspection (when supported)
+    // size = @sizeof(Person)
+    // align = @alignof(Person)
+    // type_name = @typename(Person)
+    
+    println("Meta features: @sizeof, @alignof, @typename")
+}
+
+// ============================================================================
+// 14. FFI - Foreign Function Interface (C interop)
+// ============================================================================
+
+// External C function declaration
+external strlen: (str: string) i64
+
+demo_ffi = () void {
+    println("\n=== FFI (C Interop) ===")
+    
+    text = "Hello FFI"
+    // When FFI is fully supported:
+    // length := strlen(text)
+    // println("String length via C: ${length}")
+    
+    println("FFI allows calling C functions directly")
+}
+
+// ============================================================================
+// 15. DEFAULT VALUES - Struct field defaults
+// ============================================================================
+
+Config := {
+    host: string = "localhost",
+    port: i32 = 8080,
+    debug: bool = false
+}
+
+demo_defaults = () void {
+    println("\n=== DEFAULT VALUES ===")
+    
+    // Using defaults
+    config1 = Config {}
+    println("Default config: ${config1.host}:${config1.port}")
+    
+    // Override some defaults  
+    config2 = Config {
+        port: 3000,
+        debug: true
+    }
+    println("Custom config: port=${config2.port}, debug=${config2.debug}")
+}
+
+// ============================================================================
+// 16. MEMORY MANAGEMENT - Manual allocation
+// ============================================================================
+
+demo_memory = () void {
+    println("\n=== MEMORY MANAGEMENT ===")
+    
+    allocator = get_default_allocator()
+    
+    // Allocate memory for 10 integers
+    size = 10 * 8  // 10 i64s
+    memory = allocator.alloc(size, 8)  // size, alignment
+    
+    memory ?
+        | Ok(ptr) {
+            println("Allocated ${size} bytes")
+            // Use the memory...
+            allocator.free(ptr, size, 8)
+            println("Memory freed")
+        }
+        | Err(e) {
+            println("Allocation failed")
+        }
+}
+
+// ============================================================================
+// MAIN FUNCTION - Entry point demonstrating all features
+// ============================================================================
+
+main = () void {
+    println("=== ZEN LANGUAGE FEATURE SHOWCASE ===")
+    println("Demonstrating all major language features\n")
+    
+    // Basic features
+    println("1. Basic arithmetic: 10 + 5 = ${add(10, 5)}")
+    
+    // Pattern matching
+    status = Status.Active(12345)
+    println("2. Pattern matching: ${describe_status(status)}")
+    
+    // Error handling
+    calc_result = calculate()
+    calc_result ?
+        | Ok(v) { println("3. Error propagation result: ${v}") }
+        | Err(e) { println("3. Error: ${e}") }
+    
+    // Options
+    person = find_person(1)
+    person ?
+        | Some(p) { println("4. Option: Found ${p.name}, age ${p.age}") }
+        | None { println("4. Person not found") }
+    
+    // Run all demos
+    demo_loops()
+    demo_collections()
+    demo_strings()
+    demo_generics()
+    demo_ufc()
+    demo_meta()
+    demo_ffi()
+    demo_defaults()
+    demo_memory()
+    
+    println("\n=== DEMONSTRATION COMPLETE ===")
+    println("Zen: Elegance, Efficiency, and Expressiveness")
+}

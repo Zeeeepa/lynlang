@@ -322,3 +322,16 @@ hashmap_contains<K, V> = HashMap<K, V>.contains
 hashmap_len<K, V> = HashMap<K, V>.len
 hashmap_is_empty<K, V> = HashMap<K, V>.is_empty
 hashmap_clear<K, V> = HashMap<K, V>.clear
+
+// Module exports
+module.exports = {
+    HashMap,
+    hashmap_new,
+    hashmap_insert,
+    hashmap_get,
+    hashmap_remove,
+    hashmap_contains,
+    hashmap_len,
+    hashmap_is_empty,
+    hashmap_clear,
+}

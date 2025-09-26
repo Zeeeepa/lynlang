@@ -1,0 +1,5 @@
+// Test simple variable assignment
+main = () i32 {
+    a = 10
+    return a
+}
