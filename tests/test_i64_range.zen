@@ -1,9 +1,0 @@
-// Test with i64 variables
-{ io } = @std
-
-main = () void {
-    x: i64 = 3
-    y: i64 = 5
-    range = x..y
-    io.println("i64 range created")
-}

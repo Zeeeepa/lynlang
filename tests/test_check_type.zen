@@ -1,8 +1,0 @@
-// Test to check variable types
-{ io } = @std
-
-main = () void {
-    x: i64 = 3
-    io.println("x = ${x}")
-    // Don't create range yet, just check the variable
-}

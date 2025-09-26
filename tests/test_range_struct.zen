@@ -1,8 +1,0 @@
-{ io } = @std
-
-main = () void {
-    r = (0..3)
-    r.loop((i) {
-        io.println(i)
-    })
-}

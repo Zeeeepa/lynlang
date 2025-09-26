@@ -1,8 +1,0 @@
-// Test range with typed variable
-{ io } = @std
-
-main = () void {
-    x: i64 = 3
-    range = 0..x
-    io.println("Created range")
-}
