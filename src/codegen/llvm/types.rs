@@ -410,6 +410,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     return Ok(Type::Struct(hashset_struct_type));
                 }
 
+                // Special handling for Option<T> and Result<T,E> types
+                // These are registered as enum types in the symbol table
+                if name == "Option" || name == "Result" {
+                    // Look up the registered enum type
+                    if let Some(symbols::Symbol::EnumType(enum_info)) = self.symbols.lookup(name) {
+                        return Ok(Type::Struct(enum_info.llvm_type));
+                    } else {
+                        // Fallback to standard enum struct if not registered (shouldn't happen)
+                        let enum_struct_type = self.context.struct_type(
+                            &[
+                                self.context.i64_type().into(), // discriminant
+                                self.context.ptr_type(inkwell::AddressSpace::default()).into(), // payload pointer
+                            ],
+                            false,
+                        );
+                        return Ok(Type::Struct(enum_struct_type));
+                    }
+                }
+
                 // Check if this is actually a user-defined struct type
                 if let Some(struct_info) = self.struct_types.get(name) {
                     Ok(Type::Struct(struct_info.llvm_type))

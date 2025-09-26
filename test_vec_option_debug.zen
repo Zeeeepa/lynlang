@@ -1,29 +1,35 @@
-// Debug Vec with Option
+// Debug test for Vec<Option<i32>, size>
 { io, Option } = @std
 
 main = () void {
-    io.println("Testing Vec<Option<i32>, 3> pattern match")
+    io.println("Testing regular Option pattern match first")
     
-    // Create Vec of Option<i32>
+    opt_test = Option.Some(42)
+    opt_test ?
+        | Some(val) { io.println("Regular option: Some(${val})") }
+        | None { io.println("Regular option: None") }
+    
+    io.println("\nNow testing Vec<Option<i32>, 3>")
+    
     vec = Vec<Option<i32>, 3>()
+    io.println("Vec created")
     
-    // Push a Some value
-    vec.push(Option.Some(42))
-    io.println("Pushed Some(42)")
+    io.println("Pushing Option.Some(100)")
+    vec.push(Option.Some(100))
+    io.println("First push done")
     
-    // Get it back
-    opt: Option<i32> = vec.get(0)
-    io.println("Got element from vec")
+    io.println("Getting element 0")
+    opt1: Option<i32> = vec.get(0)
+    io.println("Got element 0")
     
-    // Test pattern match directly
-    io.println("About to pattern match")
-    opt ?
-        | Some(val) {
-            io.println("In Some branch")
-            io.println("Value: ${val}")
+    io.println("Pattern matching element 0...")
+    opt1 ?
+        | Some(val) { 
+            io.println("opt1 = Some(${val})")
         }
-        | None {
-            io.println("In None branch")
+        | None { 
+            io.println("opt1 = None")
         }
-    io.println("After pattern match")
+    
+    io.println("Test complete")
 }

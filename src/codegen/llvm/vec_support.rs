@@ -24,6 +24,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
 
                 let value = self.compile_expression(&args[0])?;
+                
+                // Debug: Check if we're storing a struct type
+                let element_ast_type = if let Some(var_info) = self.variables.get(obj_name) {
+                    if let AstType::Vec { element_type, .. } = &var_info.ast_type {
+                        element_type.as_ref().clone()
+                    } else {
+                        return Err(CompileError::TypeError("Internal error: Vec type mismatch".to_string(), None));
+                    }
+                } else {
+                    return Err(CompileError::TypeError("Variable not found".to_string(), None));
+                };
 
                 // Vec is { [T; N], i64 } where array is first, len is second
                 // Get len field pointer
@@ -73,9 +84,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     current_len,  // Index to the element in the array
                 ];
                 
+                // Get the Vec struct type - we need this for proper GEP
+                // We need the struct type for GEP, not the value type
+                let vec_struct_type = vec_value.into_struct_value().get_type();
+                
                 let element_ptr = unsafe {
                     self.builder.build_in_bounds_gep(
-                        vec_value.get_type(),
+                        vec_struct_type,
                         vec_ptr,
                         &indices,
                         "element_ptr",
@@ -155,9 +170,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     index_val,  // Index to the element in the array
                 ];
                 
+                // Get the Vec struct type - we need this for proper GEP
+                // We need the struct type for GEP, not the value type
+                let vec_struct_type = vec_value.into_struct_value().get_type();
+                
                 let element_ptr = unsafe {
                     self.builder.build_in_bounds_gep(
-                        vec_value.get_type(),
+                        vec_struct_type,
                         vec_ptr,
                         &indices,
                         "element_ptr",
@@ -170,6 +189,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     element_ptr,
                     "value",
                 )?;
+                
+                // Debug: Check if this is an Option/Result enum struct
+                if let AstType::Generic { name, .. } = &element_ast_type {
+                    if name == "Option" || name == "Result" {
+                        // eprintln!("[DEBUG] Vec.get() returning {} struct", name);
+                    }
+                }
                 
                 Ok(value)
             }
@@ -211,9 +237,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     index_val,  // Index to the element in the array
                 ];
                 
+                // Get the Vec struct type - we need this for proper GEP
+                // We need the struct type for GEP, not the value type
+                let vec_struct_type = vec_value.into_struct_value().get_type();
+                
                 let element_ptr = unsafe {
                     self.builder.build_in_bounds_gep(
-                        vec_value.get_type(),
+                        vec_struct_type,
                         vec_ptr,
                         &indices,
                         "element_ptr",

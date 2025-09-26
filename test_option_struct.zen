@@ -1,0 +1,14 @@
+// Test Option struct creation
+{ io, Option } = @std
+
+main = () void {
+    io.println("Creating Option.Some(100)")
+    opt = Option.Some(100)
+    
+    io.println("Pattern matching...")
+    opt ?
+        | Some(val) { io.println("Value: ${val}") }
+        | None { io.println("None") }
+        
+    io.println("Done")
+}

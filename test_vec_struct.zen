@@ -1,0 +1,28 @@
+// Test Vec with struct element type
+{ io } = @std
+
+Point: {
+    x: i32,
+    y: i32,
+}
+
+main = () void {
+    io.println("Creating Vec<Point, 3>")
+    
+    vec = Vec<Point, 3>()
+    io.println("Vec created")
+    
+    io.println("Creating point")
+    p1 = Point { x: 10, y: 20 }
+    
+    io.println("Pushing point")
+    vec.push(p1)
+    io.println("Push done")
+    
+    io.println("Getting element")
+    p2: Point = vec.get(0)
+    
+    io.println("Point x: ${p2.x}, y: ${p2.y}")
+    
+    io.println("Test complete")
+}
