@@ -1788,29 +1788,26 @@ impl TypeChecker {
         match pattern {
             Pattern::Identifier(name) => {
                 // Simple identifier pattern binds the name to the type of the matched value
-                // For Option<T>, extract T from the generic type
-                let binding_type = if let AstType::Generic {
-                    name: enum_name,
-                    type_args,
-                } = scrutinee_type
-                {
-                    if enum_name == "Option" && !type_args.is_empty() {
-                        // For Option<T>, the payload has type T
-                        type_args[0].clone()
-                    } else if enum_name == "Result" && type_args.len() >= 2 {
-                        // For Result<T,E>, depends on the variant being matched
-                        // This is simplified - ideally we'd know which variant we're in
-                        type_args[0].clone()
+                // Check if the scrutinee is a primitive generic type that should be unwrapped
+                let binding_type = if let AstType::Generic { name: type_name, type_args } = scrutinee_type {
+                    if type_args.is_empty() {
+                        // Check if it's a primitive type name that got wrapped as Generic
+                        match type_name.as_str() {
+                            "i32" | "I32" => AstType::I32,
+                            "i64" | "I64" => AstType::I64,
+                            "f32" | "F32" => AstType::F32,
+                            "f64" | "F64" => AstType::F64,
+                            "bool" | "Bool" => AstType::Bool,
+                            "string" | "String" => AstType::String,
+                            _ => scrutinee_type.clone()
+                        }
                     } else {
-                        // For other generics, default to I32
-                        AstType::I32
+                        scrutinee_type.clone()
                     }
                 } else {
-                    // For non-generic types, use the scrutinee type directly
                     scrutinee_type.clone()
                 };
 
-                // eprintln!("DEBUG TypeChecker: Adding variable '{}' with type {:?} from identifier pattern", name, binding_type);
                 self.declare_variable(name, binding_type, false)?;
             }
             Pattern::EnumLiteral { variant, payload } => {
@@ -1847,6 +1844,7 @@ impl TypeChecker {
                 }
             }
             Pattern::EnumVariant {
+                enum_name: pattern_enum_name,
                 variant, payload, ..
             } => {
                 // For qualified enum patterns with payloads, determine the payload type based on the variant
