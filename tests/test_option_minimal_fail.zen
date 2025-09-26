@@ -1,0 +1,14 @@
+// Minimal failing test case
+{ io } = @std
+
+main = () i32 {
+    opt3: Option<i32> = Option.None
+    
+    res_none = opt3 ?
+        | Some(x) => x
+        | None => 0
+    
+    io.println("res_none = ${res_none}")
+    
+    0
+}

@@ -1,0 +1,16 @@
+// Test QuestionMatch type inference
+{ io } = @std
+
+main = () i32 {
+    // Test without explicit type annotation
+    opt1 = Option.None
+    
+    // This should return i32 from both branches
+    res = opt1 ?
+        | Some(x) => x + 10
+        | None => 42
+    
+    io.println("Result: ${res}")
+    
+    0
+}

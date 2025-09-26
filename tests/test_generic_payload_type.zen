@@ -1,0 +1,17 @@
+// Test generic payload type resolution
+{ io, Option } = @std
+{ Some, None } = Option
+
+main = () i32 {
+    // Simple Option<i32> with addition  
+    opt1 = Some(10)
+    
+    // This should work - x should have type i32, not Generic T
+    res = opt1 ?
+        | Some(x) => x + 5
+        | None => 0
+    
+    io.println("Result: ${res}")
+    
+    0
+}

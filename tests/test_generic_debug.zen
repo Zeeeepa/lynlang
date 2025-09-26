@@ -1,0 +1,20 @@
+// Debug generic type issue
+{ io } = @std
+
+main = () i32 {
+    // Create Option<i32>
+    opt = Some(10)
+    io.println("Created Option.Some(10)")
+    
+    // Pattern match and use in arithmetic
+    res = opt ?
+        | Some(x) => {
+            io.println("Matched Some(x) where x = ${x}")
+            x + 5  // This should work
+        }
+        | None => 0
+    
+    io.println("Result: ${res}")
+    
+    0
+}

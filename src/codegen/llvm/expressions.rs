@@ -67,9 +67,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 type_args: vec![t.clone()],
                             })
                         } else {
+                            // Default to Option<T> with generic T, not Void
                             Ok(AstType::Generic {
                                 name: "Option".to_string(),
-                                type_args: vec![AstType::Void],
+                                type_args: vec![AstType::Generic {
+                                    name: "T".to_string(),
+                                    type_args: vec![],
+                                }],
                             })
                         }
                     }
@@ -301,6 +305,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     }
                 }
                 Ok(AstType::Void)
+            }
+            Expression::Some(value) => {
+                // Option::Some(T) -> Option<T>
+                let inner_type = self.infer_expression_type(value)?;
+                Ok(AstType::Generic {
+                    name: "Option".to_string(),
+                    type_args: vec![inner_type],
+                })
+            }
+            Expression::None => {
+                // Option::None -> Option<T> (with generic T)
+                // Try to get type from context first
+                if let Some(t) = self.generic_type_context.get("Option_Some_Type") {
+                    Ok(AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args: vec![t.clone()],
+                    })
+                } else {
+                    // Default to Option<T> with generic T
+                    Ok(AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args: vec![AstType::Generic { 
+                            name: "T".to_string(), 
+                            type_args: vec![] 
+                        }],
+                    })
+                }
             }
             _ => Ok(AstType::Void),
         }
