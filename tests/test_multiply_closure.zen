@@ -1,0 +1,18 @@
+// Test multiply closure with params
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure with params returning Result
+    multiply = (a: i32, b: i32) {
+        return Result.Ok(a * b)
+    }
+    
+    val3 = multiply(3, 7).raise()
+    io.println("val3 assigned successfully")
+    
+    val3 == 21 ? {
+        io.println("✓ Test works: Got 21")
+    }
+    
+    0
+}

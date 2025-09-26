@@ -754,7 +754,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.builder.build_store(value_ptr, self.context.i32_type().const_zero())?;
         
         let none_val = {
-            let discriminant = self.context.i64_type().const_int(1, false); // 1 for None
+            let discriminant = self.context.i64_type().const_int(1, false); // 1 for None (matching registration)
             let null_ptr = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
             option_type.const_named_struct(&[discriminant.into(), null_ptr.into()])
         };
@@ -811,7 +811,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
         // Create Some(value) - following the same pattern as compile_enum_variant
         let some_alloca = self.builder.build_alloca(option_type, &format!("pop_some_alloca_{}", unique_id))?;
         
-        // Store discriminant
+        // Store discriminant - Some is 0 (matching registration)
         let tag_ptr = self.builder.build_struct_gep(option_type, some_alloca, 0, &format!("pop_tag_ptr_{}", unique_id))?;
         self.builder.build_store(tag_ptr, self.context.i64_type().const_zero())?;
         

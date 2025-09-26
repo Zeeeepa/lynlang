@@ -1,0 +1,8 @@
+// Simple test to debug opt1
+{ io, Option } = @std
+
+main = () i32 {
+    opt1 = Option.None
+    io.println("opt1 assigned")
+    0
+}

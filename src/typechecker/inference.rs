@@ -11,8 +11,34 @@ pub fn infer_binary_op_type(
     op: &BinaryOperator,
     right: &Expression,
 ) -> Result<AstType> {
-    let left_type = checker.infer_expression_type(left)?;
-    let right_type = checker.infer_expression_type(right)?;
+    let mut left_type = checker.infer_expression_type(left)?;
+    let mut right_type = checker.infer_expression_type(right)?;
+    
+    // Debug comparison types
+    if matches!(left_type, AstType::Void) || matches!(right_type, AstType::Void) {
+        eprintln!("DEBUG: Comparing types: left={:?}, right={:?}", left_type, right_type);
+        eprintln!("       Left expr: {:?}", left);
+        eprintln!("       Right expr: {:?}", right);
+    }
+
+    // Handle unresolved generic types by defaulting to appropriate concrete types
+    // This happens when Option.None creates Option<T> or Result.Ok/Err creates Result<T,E>
+    if let AstType::Generic { name, type_args } = &left_type {
+        if name == "T" && type_args.is_empty() {
+            left_type = AstType::I32;
+        } else if name == "E" && type_args.is_empty() {
+            // Error types default to String
+            left_type = AstType::String;
+        }
+    }
+    if let AstType::Generic { name, type_args } = &right_type {
+        if name == "T" && type_args.is_empty() {
+            right_type = AstType::I32;
+        } else if name == "E" && type_args.is_empty() {
+            // Error types default to String
+            right_type = AstType::String;
+        }
+    }
 
     match op {
         BinaryOperator::Add

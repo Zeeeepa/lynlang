@@ -153,6 +153,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // This is crucial for generic types like Result<T,E>
                                 if let Ok(ast_type) = self.infer_expression_type(init_expr) {
                                     // Save the inferred AST type for later
+                                    eprintln!("[DEBUG statements.rs] Inferred type for variable '{}': {:?}", name, ast_type);
                                     inferred_ast_type = Some(ast_type.clone());
                                     
                                     // Track generic types if this is a Result, Option, Array, etc.
@@ -1236,7 +1237,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         }
                         
-                        // eprintln!("[DEBUG VAR STORED] Variable {} stored with type {:?}", name, inferred_type);
+                        eprintln!("[DEBUG VAR STORED] Variable {} stored with type {:?}", name, inferred_type);
                         
                         // Track generic type parameters for this variable
                         if let AstType::Generic { name: type_name, type_args } = &inferred_type {
@@ -1250,6 +1251,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         }
                         
+                        eprintln!("[DEBUG VAR INSERT 1254] Variable {} with type {:?}", name, inferred_type);
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {

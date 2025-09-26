@@ -1,0 +1,14 @@
+// Simple test to debug closure returning Result
+{ io, Result } = @std
+
+main = () i32 {
+    // Simple closure returning Result<i32, string>
+    get_int = () {
+        return Result.Ok(42)
+    }
+    
+    result = get_int()
+    io.println("Result type should be Result<i32,E>")
+    
+    0
+}

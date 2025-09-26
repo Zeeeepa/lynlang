@@ -567,7 +567,6 @@ impl TypeChecker {
                 if !self.variable_exists(name) {
                     // This is a new immutable declaration using = operator
                     let value_type = self.infer_expression_type(value)?;
-                    // eprintln!("[DEBUG TYPECHECKER] Variable {} assigned type: {:?}", name, value_type);
                     self.declare_variable_with_init(name, value_type.clone(), false, true)?;
                 // false = immutable
                 } else {
@@ -932,7 +931,9 @@ impl TypeChecker {
                 self.infer_expression_type(pointer)
             }
             Expression::StructField { struct_, field } => {
+                // eprintln!("DEBUG: StructField access - struct: {:?}, field: {}", struct_, field);
                 let struct_type = self.infer_expression_type(struct_)?;
+                // eprintln!("DEBUG: StructField - struct_type: {:?}", struct_type);
                 match struct_type {
                     AstType::Ptr(inner) => {
                         // Handle pointer to struct - automatically dereference
@@ -1127,7 +1128,11 @@ impl TypeChecker {
                     let inner_type = if let Some(p) = payload {
                         self.infer_expression_type(p)?
                     } else {
-                        AstType::Void
+                        // For None variant, use a generic placeholder that can be unified later
+                        AstType::Generic {
+                            name: "T".to_string(),
+                            type_args: vec![],
+                        }
                     };
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
@@ -1139,23 +1144,38 @@ impl TypeChecker {
                         let ok_type = if let Some(p) = payload {
                             self.infer_expression_type(p)?
                         } else {
-                            AstType::Void
+                            // For Ok with no payload, use a generic placeholder
+                            AstType::Generic {
+                                name: "T".to_string(),
+                                type_args: vec![],
+                            }
                         };
-                        // We don't know the error type yet, default to String
+                        // We don't know the error type yet, use generic placeholder
+                        eprintln!("DEBUG: Result.Ok with payload, creating Result<{:?}, E>", ok_type);
                         Ok(AstType::Generic {
                             name: "Result".to_string(),
-                            type_args: vec![ok_type, AstType::String],
+                            type_args: vec![ok_type, AstType::Generic {
+                                name: "E".to_string(),
+                                type_args: vec![],
+                            }],
                         })
                     } else if variant == "Err" {
                         let err_type = if let Some(p) = payload {
                             self.infer_expression_type(p)?
                         } else {
-                            AstType::String
+                            // For Err with no payload, use generic placeholder
+                            AstType::Generic {
+                                name: "E".to_string(),
+                                type_args: vec![],
+                            }
                         };
-                        // We don't know the ok type yet, default to I32
+                        // We don't know the ok type yet, use generic placeholder
                         Ok(AstType::Generic {
                             name: "Result".to_string(),
-                            type_args: vec![AstType::I32, err_type],
+                            type_args: vec![AstType::Generic {
+                                name: "T".to_string(),
+                                type_args: vec![],
+                            }, err_type],
                         })
                     } else {
                         // Unknown variant, default
@@ -1511,9 +1531,13 @@ impl TypeChecker {
                     })
                 } else if variant == "None" {
                     // None can be any Option type - will need context to determine
+                    // eprintln!("DEBUG: Struct field None being converted to Option<T>");
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
-                        type_args: vec![AstType::Void], // Placeholder, will be refined by context
+                        type_args: vec![AstType::Generic {
+                            name: "T".to_string(),
+                            type_args: vec![],
+                        }], // Use generic T instead of Void
                     })
                 } else if variant == "Ok" {
                     let ok_type = if let Some(p) = payload {
@@ -1535,7 +1559,13 @@ impl TypeChecker {
                     // For Result, we don't know the ok type yet
                     Ok(AstType::Generic {
                         name: "Result".to_string(),
-                        type_args: vec![AstType::Void, err_type], // Unknown ok type
+                        type_args: vec![
+                            AstType::Generic {
+                                name: "T".to_string(),
+                                type_args: vec![],
+                            },
+                            err_type
+                        ], // Use generic T for unknown ok type
                     })
                 } else {
                     // Unknown enum literal - would need more context
@@ -1660,6 +1690,7 @@ impl TypeChecker {
             }
             Expression::None => {
                 // Option::None -> Option<T>
+                eprintln!("[DEBUG typechecker] Expression::None returning Option<T>");
                 Ok(AstType::Generic {
                     name: "Option".to_string(),
                     type_args: vec![AstType::Generic {
@@ -1815,6 +1846,7 @@ impl TypeChecker {
                     None,
                 ));
             }
+            // eprintln!("DEBUG: Inserting variable '{}' with type {:?} into typechecker scope", name, type_);
             scope.insert(
                 name.to_string(),
                 VariableInfo {
@@ -1882,6 +1914,17 @@ impl TypeChecker {
         // Search from innermost to outermost scope
         for scope in self.scopes.iter().rev() {
             if let Some(var_info) = scope.get(name) {
+                // eprintln!("DEBUG: Found variable '{}' with type {:?}", name, var_info.type_);
+                // Handle generic placeholders - convert to appropriate defaults
+                if let AstType::Generic { name: type_name, type_args } = &var_info.type_ {
+                    if type_name == "T" && type_args.is_empty() {
+                        // eprintln!("DEBUG: Converting Generic T to I32 for variable '{}'", name);
+                        return Ok(AstType::I32);
+                    } else if type_name == "E" && type_args.is_empty() {
+                        // Error types default to String
+                        return Ok(AstType::String);
+                    }
+                }
                 return Ok(var_info.type_.clone());
             }
         }
@@ -1894,6 +1937,7 @@ impl TypeChecker {
             });
         }
 
+        // eprintln!("DEBUG: Variable '{}' not found, returning undefined error", name);
         Err(CompileError::TypeError(
             format!("Undefined variable: {}", name),
             None,

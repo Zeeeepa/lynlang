@@ -1,0 +1,25 @@
+// Minimal test for Array<Option<i32>> get
+{ io, Option, Array } = @std
+
+main = () void {
+    io.println("Creating Array<Option<i32>>")
+    arr = Array<Option<i32>>()
+    
+    io.println("Creating Option.Some(42)")
+    opt = Option.Some(42)
+    
+    io.println("Pushing to array...")
+    arr.push(opt)
+    
+    io.println("Getting from array...")
+    val = arr.get(0)
+    
+    io.println("Got value, checking...")
+    val ?
+        | Option.Some(x) {
+            io.println("Got Some(${x})")
+        }
+        | Option.None {
+            io.println("Got None")
+        }
+}

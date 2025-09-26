@@ -58,7 +58,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else {
                             Ok(AstType::Generic {
                                 name: "Option".to_string(),
-                                type_args: vec![AstType::Void],
+                                type_args: vec![AstType::Generic {
+                                    name: "T".to_string(),
+                                    type_args: vec![],
+                                }],
                             })
                         }
                     } else {
@@ -99,7 +102,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else {
                             Ok(AstType::Generic {
                                 name: "Result".to_string(),
-                                type_args: vec![AstType::Void, AstType::Void],
+                                type_args: vec![
+                                    AstType::Generic {
+                                        name: "T".to_string(),
+                                        type_args: vec![],
+                                    },
+                                    AstType::Generic {
+                                        name: "E".to_string(),
+                                        type_args: vec![],
+                                    },
+                                ],
                             })
                         }
                     } else if variant == "Err" && payload.is_some() {
@@ -120,7 +132,16 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         } else {
                             Ok(AstType::Generic {
                                 name: "Result".to_string(),
-                                type_args: vec![AstType::Void, AstType::Void],
+                                type_args: vec![
+                                    AstType::Generic {
+                                        name: "T".to_string(),
+                                        type_args: vec![],
+                                    },
+                                    AstType::Generic {
+                                        name: "E".to_string(),
+                                        type_args: vec![],
+                                    },
+                                ],
                             })
                         }
                     } else {
@@ -386,7 +407,21 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         }
                     }
-                    self.infer_expression_type(&first_arm.body)
+                    // For arrow syntax, we need to be more careful about type inference
+                    // If the body contains identifiers that might be pattern bindings, default to I32
+                    // This prevents errors when pattern variables aren't in scope during type inference
+                    match &first_arm.body {
+                        Expression::BinaryOp { left, op: _, right: _ } => {
+                            // Check if left operand is a potential pattern binding
+                            if matches!(**left, Expression::Identifier(_)) {
+                                // Assume the pattern binding will be an integer type
+                                // This is a reasonable default for now
+                                return Ok(AstType::I32);
+                            }
+                            self.infer_expression_type(&first_arm.body)
+                        }
+                        _ => self.infer_expression_type(&first_arm.body)
+                    }
                 } else {
                     Ok(AstType::Void)
                 }
@@ -437,12 +472,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Option::None -> Option<T> (with generic T)
                 // Try to get type from context first
                 if let Some(t) = self.generic_type_context.get("Option_Some_Type") {
+                    eprintln!("[DEBUG] Expression::None has context type: {:?}", t);
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
                         type_args: vec![t.clone()],
                     })
                 } else {
                     // Default to Option<T> with generic T
+                    eprintln!("[DEBUG] Expression::None defaulting to Option<T>");
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
                         type_args: vec![AstType::Generic { 
@@ -6688,7 +6725,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     )?
                 };
                 
-                // Store the value as i64 (or allocate and store pointer for complex types)
+                // Store the value - for structs like Option<T>, store as pointer
                 let value_to_store = if value.is_int_value() {
                     let int_val = value.into_int_value();
                     if int_val.get_type().get_bit_width() < 64 {
@@ -6699,8 +6736,34 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else if value.is_float_value() {
                     let float_val = value.into_float_value();
                     self.builder.build_bit_cast(float_val, self.context.i64_type(), "float_as_i64")?.into_int_value()
+                } else if value.is_struct_value() {
+                    // For struct types (like Option<T>), allocate memory and store pointer
+                    let struct_val = value.into_struct_value();
+                    let struct_type = struct_val.get_type();
+                    let struct_size = self.target_data.get_store_size(&struct_type);
+                    
+                    // Allocate memory for the struct
+                    let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                        let i64_type = self.context.i64_type();
+                        let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                        self.module.add_function("malloc", fn_type, Some(inkwell::module::Linkage::External))
+                    });
+                    
+                    let alloc_size = self.context.i64_type().const_int(struct_size, false);
+                    let heap_ptr = self.builder.build_call(
+                        malloc_fn,
+                        &[alloc_size.into()],
+                        "heap_struct",
+                    )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                    
+                    // Store the struct to heap
+                    self.builder.build_store(heap_ptr, struct_val)?;
+                    
+                    // Cast pointer to i64 to store in array
+                    self.builder.build_ptr_to_int(heap_ptr, self.context.i64_type(), "ptr_as_i64")?
                 } else {
-                    // For other types, allocate memory and store pointer
+                    // For other types, store 0 as placeholder
                     self.context.i64_type().const_int(0, false)
                 };
                 
@@ -6817,6 +6880,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             "get_elem_f64"
                         )?;
                         f64_val
+                    }
+                    AstType::Generic { name, .. } if name == "Option" => {
+                        // For Option<T>, the stored value is a pointer to the struct
+                        // Convert i64 back to pointer
+                        let ptr = self.builder.build_int_to_ptr(
+                            stored_value.into_int_value(),
+                            self.context.ptr_type(inkwell::AddressSpace::default()),
+                            "option_ptr"
+                        )?;
+                        
+                        // Load the Option struct from the pointer
+                        // Option struct type: { discriminant: i64, payload: ptr }
+                        let option_type = self.context.struct_type(
+                            &[
+                                self.context.i64_type().into(),
+                                self.context.ptr_type(inkwell::AddressSpace::default()).into(),
+                            ],
+                            false,
+                        );
+                        
+                        let loaded = self.builder.build_load(option_type, ptr, "loaded_option")?;
+                        loaded
                     }
                     _ => {
                         // Default: truncate to i32
@@ -8360,9 +8445,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     })
                 } else if name == "Option.None" {
                     // None variant - type needs to be inferred from context
+                    // Use Generic T instead of Void as placeholder
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
-                        type_args: vec![AstType::Void],
+                        type_args: vec![AstType::Generic {
+                            name: "T".to_string(),
+                            type_args: vec![],
+                        }],
                     })
                 } else {
                     // Check if we know the function's return type

@@ -1,0 +1,18 @@
+// Test just val1 to isolate the issue
+{ io, Result } = @std
+
+main = () i32 {
+    // Test 1: Basic closure returning Result<i32, string>
+    get_int = () {
+        return Result.Ok(42)
+    }
+    
+    val1 = get_int().raise()
+    io.println("val1 assigned successfully")
+    
+    val1 == 42 ? {
+        io.println("✓ Test 1: Result<i32,string> from closure works")
+    }
+    
+    0
+}

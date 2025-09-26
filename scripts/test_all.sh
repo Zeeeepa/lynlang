@@ -5,13 +5,15 @@ set +e  # Don't exit on first failure
 
 echo "=== Zen Language Test Suite - Complete Run ==="
 
-# Ensure compiler exists
-if [ ! -f "./target/release/zen" ]; then
-    echo "Error: Compiler not found. Run 'cargo build --release' first."
+# Ensure compiler exists (try release first, then debug)
+if [ -f "./target/release/zen" ]; then
+    COMPILER="./target/release/zen"
+elif [ -f "./target/debug/zen" ]; then
+    COMPILER="./target/debug/zen"
+else
+    echo "Error: Compiler not found. Run 'cargo build' first."
     exit 1
 fi
-
-COMPILER="./target/release/zen"
 TEST_DIR="tests"
 PASSED=0
 FAILED=0

@@ -1,0 +1,17 @@
+// Debug opt1 type issue
+{ io, Option } = @std
+
+main = () i32 {
+    opt1 = Option.None
+    
+    // Try to use opt1 in a simple pattern match
+    opt1 ?
+        | Option.Some(val) {
+            io.println("Has value")
+        }
+        | Option.None {
+            io.println("No value")  
+        }
+    
+    0
+}

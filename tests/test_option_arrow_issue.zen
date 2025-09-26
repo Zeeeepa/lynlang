@@ -1,0 +1,20 @@
+// Test Option arrow syntax issue
+{ io, Option } = @std
+
+main = () i32 {
+    // Test with Some - should work
+    opt1 = Option.Some(10)
+    result1 = opt1 ?
+        | Option.Some(x) => x + 5
+        | Option.None => 0
+    io.println("Some result: ${result1}")
+    
+    // Test with None - fails with arrow syntax
+    opt2 = Option.None  
+    result2 = opt2 ?
+        | Option.Some(x) => 100  // no x reference
+        | Option.None => 42
+    io.println("None result: ${result2}")
+    
+    0
+}

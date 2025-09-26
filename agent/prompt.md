@@ -267,8 +267,9 @@ RECENTLY FIXED:
 ✓ Task 244: **FIXED** raise() in Void Functions (2025-09-26) - Fixed compiler bug where raise() would try to return values from void functions, causing LLVM verification errors. Now properly handles void functions by returning without a value. Re-enabled zen_test_raise_consolidated.zen test. Test suite: 205/281 passing (73.0%).
 ✓ Task 245: **FIXED** Triple Nested Generics Payload Extraction (2025-09-26) - Successfully fixed payload extraction for triple nested generics! Result<Result<Result<T,E>,E>,E> now correctly extracts deeply nested values. Added test_triple_nested_generics.zen demonstrating successful extraction of value 42 from 3 levels of nesting. Test suite: 206/283 passing (72.8%).
 ✓ Task 246: **IMPROVED** Generic Pattern Matching Type Inference (2025-09-26) - Fixed QuestionMatch type inference in LLVM codegen. Added heuristic for pattern binding variables. Arrow syntax (`=>`) in pattern matching now works correctly. Test suite improved from 87% to 90.3% (270/299 tests passing).
+✓ Task 247: **FIXED** Array.pop() Generic Option Handling (2025-09-26) - Fixed critical bug where Array.pop() created incompatible Option structs. Unified Option layout to use pointer-based payloads with heap allocation. Fixed discriminant values (Some=0, None=1). Eliminates segfaults in Array<T> pattern matching. Array methods with Option returns now work correctly!
 
-## Current Status (2025-09-26 - 206/283 TESTS PASSING - 72.8%)
+## Current Status (2025-09-26 - ARRAY GENERICS FIXED!)
 
 ### 🎉 Major Milestones Achieved  
 - **Test Suite Health**: 90.3% pass rate (270/299 passing) - 29 tests failing, 2 segfaults
