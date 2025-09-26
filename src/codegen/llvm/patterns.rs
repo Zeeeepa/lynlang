@@ -1564,15 +1564,91 @@ impl<'ctx> LLVMCompiler<'ctx> {
             // Determine the AST type based on the LLVM type
             let (actual_value, ast_type) = if value.is_int_value() {
                 let int_val = value.into_int_value();
-                // Map integer types
-                let ast_type = match int_val.get_type().get_bit_width() {
-                    8 => crate::ast::AstType::I8,
-                    16 => crate::ast::AstType::I16,
-                    32 => crate::ast::AstType::I32,
-                    64 => crate::ast::AstType::I64,
-                    _ => crate::ast::AstType::I64,
-                };
-                (*value, ast_type)
+                
+                // Check if this is actually a pointer stored as i64 (common for Option payloads)
+                // When we have type information from Option_Some_Type, use it
+                if int_val.get_type().get_bit_width() == 64 {
+                    if let Some(option_type) = self.generic_tracker.get("Option_Some_Type") {
+                        // Check if it's a DynVec type
+                        if let crate::ast::AstType::DynVec { .. } = option_type {
+                            // This i64 is actually a pointer to a DynVec struct
+                            // Convert it to a pointer and load the struct
+                            let ptr_val = self.builder.build_int_to_ptr(
+                                int_val,
+                                self.context.ptr_type(AddressSpace::default()),
+                                "dynvec_ptr_from_i64"
+                            ).unwrap();
+                            
+                            // DynVec struct type
+                            let dynvec_struct_type = self.context.struct_type(
+                                &[
+                                    self.context.ptr_type(AddressSpace::default()).into(),
+                                    self.context.i64_type().into(),
+                                    self.context.i64_type().into(),
+                                    self.context.ptr_type(AddressSpace::default()).into(),
+                                ],
+                                false,
+                            );
+                            
+                            let loaded_struct = self.builder.build_load(
+                                dynvec_struct_type,
+                                ptr_val,
+                                "loaded_dynvec"
+                            ).unwrap();
+                            
+                            (loaded_struct, option_type.clone())
+                        } else {
+                            // Regular i64 or other type stored as i64
+                            (*value, option_type.clone())
+                        }
+                    } else if let Some(option_type) = self.generic_type_context.get("Option_Some_Type") {
+                        // Check if it's a DynVec type  
+                        if let crate::ast::AstType::DynVec { .. } = option_type {
+                            // This i64 is actually a pointer to a DynVec struct
+                            // Convert it to a pointer and load the struct
+                            let ptr_val = self.builder.build_int_to_ptr(
+                                int_val,
+                                self.context.ptr_type(AddressSpace::default()),
+                                "dynvec_ptr_from_i64"
+                            ).unwrap();
+                            
+                            // DynVec struct type
+                            let dynvec_struct_type = self.context.struct_type(
+                                &[
+                                    self.context.ptr_type(AddressSpace::default()).into(),
+                                    self.context.i64_type().into(),
+                                    self.context.i64_type().into(),
+                                    self.context.ptr_type(AddressSpace::default()).into(),
+                                ],
+                                false,
+                            );
+                            
+                            let loaded_struct = self.builder.build_load(
+                                dynvec_struct_type,
+                                ptr_val,
+                                "loaded_dynvec"
+                            ).unwrap();
+                            
+                            (loaded_struct, option_type.clone())
+                        } else {
+                            // Regular i64 or other type stored as i64
+                            (*value, option_type.clone())
+                        }
+                    } else {
+                        // No type information, treat as regular i64
+                        (*value, crate::ast::AstType::I64)
+                    }
+                } else {
+                    // Map integer types
+                    let ast_type = match int_val.get_type().get_bit_width() {
+                        8 => crate::ast::AstType::I8,
+                        16 => crate::ast::AstType::I16,
+                        32 => crate::ast::AstType::I32,
+                        64 => crate::ast::AstType::I64,
+                        _ => crate::ast::AstType::I64,
+                    };
+                    (*value, ast_type)
+                }
             } else if value.is_float_value() {
                 let fv = value.into_float_value();
                 let ast_type = if fv.get_type() == self.context.f32_type() {
@@ -1586,10 +1662,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // The problem is distinguishing between:
                 // 1. Pointer to integer (needs dereferencing)
                 // 2. String pointer (should NOT be dereferenced)
+                // 3. DynVec or other collection types (pointer to struct)
                 //
-                // For now, be conservative and assume pointers are strings
-                // This means integer payloads won't work unless we dereference them earlier
-                (*value, crate::ast::AstType::String)
+                // Check if we have type information from the Option_Some_Type tracker
+                let ast_type = if let Some(option_type) = self.generic_tracker.get("Option_Some_Type") {
+                    // Use the tracked type from Option extraction
+                    option_type.clone()
+                } else {
+                    // Also check the generic_type_context HashMap
+                    if let Some(option_type) = self.generic_type_context.get("Option_Some_Type") {
+                        option_type.clone()
+                    } else {
+                        // For pointers, we need to detect if it's a DynVec based on what we stored
+                        // But for now, just check our trackers
+                        crate::ast::AstType::String
+                    }
+                };
+                (*value, ast_type)
             } else if value.is_struct_value() {
                 // For struct values, check if it's an enum struct (has 2 fields: discriminant + payload)
                 let struct_val = value.into_struct_value();

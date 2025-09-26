@@ -1,0 +1,8 @@
+// Test just get_default_allocator function
+{ io, get_default_allocator } = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    io.println("Got default allocator")
+    return 0
+}

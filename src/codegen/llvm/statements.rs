@@ -811,28 +811,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let base_type = &name[..angle_pos];
                                     let type_params_str = &name[angle_pos+1..name.len()-1];
                                     
-                                    // Parse type parameters
-                                    let type_args: Vec<AstType> = type_params_str
-                                        .split(',')
-                                        .map(|s| {
-                                            let trimmed = s.trim();
-                                            match trimmed {
-                                                "i8" => AstType::I8,
-                                                "i16" => AstType::I16,
-                                                "i32" => AstType::I32,
-                                                "i64" => AstType::I64,
-                                                "u8" => AstType::U8,
-                                                "u16" => AstType::U16,
-                                                "u32" => AstType::U32,
-                                                "u64" => AstType::U64,
-                                                "f32" => AstType::F32,
-                                                "f64" => AstType::F64,
-                                                "bool" => AstType::Bool,
-                                                "string" => AstType::String,
-                                                _ => AstType::I32, // Default
-                                            }
-                                        })
-                                        .collect();
+                                    // Parse type parameters (handling nested generics)
+                                    let type_args: Vec<AstType> = self.parse_comma_separated_types(type_params_str);
                                     
                                     AstType::Generic {
                                         name: base_type.to_string(),

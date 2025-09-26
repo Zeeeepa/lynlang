@@ -3491,6 +3491,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                                     // Direct i64 value
                                                     (stored_value_or_ptr.into(), AstType::I64)
                                                 }
+                                                AstType::DynVec { element_types, allocator_type } => {
+                                                    // Value is a DynVec struct, stored as pointer
+                                                    let value_ptr = self.builder.build_int_to_ptr(
+                                                        stored_value_or_ptr,
+                                                        self.context.ptr_type(AddressSpace::default()),
+                                                        "value_ptr"
+                                                    )?;
+                                                    
+                                                    // DynVec struct type: { ptr data, i64 len, i64 capacity, ptr allocator }
+                                                    let dynvec_struct_type = self.context.struct_type(
+                                                        &[
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                            self.context.i64_type().into(),
+                                                            self.context.i64_type().into(),
+                                                            self.context.ptr_type(AddressSpace::default()).into(),
+                                                        ],
+                                                        false,
+                                                    );
+                                                    
+                                                    let loaded_dynvec = self.builder.build_load(
+                                                        dynvec_struct_type,
+                                                        value_ptr,
+                                                        "loaded_dynvec"
+                                                    )?;
+                                                    
+                                                    (loaded_dynvec, AstType::DynVec { element_types: element_types.clone(), allocator_type: allocator_type.clone() })
+                                                }
                                                 _ => {
                                                     // Unknown type, treat as i64
                                                     (stored_value_or_ptr.into(), AstType::I64)
@@ -3578,6 +3605,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         let loaded_option = self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?;
                                         loaded_option
                                     }
+                                    AstType::DynVec { .. } => {
+                                        // actual_value is a DynVec struct, need to allocate and store it
+                                        let dynvec_struct = actual_value.into_struct_value();
+                                        let dynvec_struct_type = dynvec_struct.get_type();
+                                        let dynvec_alloca = self.builder.build_alloca(dynvec_struct_type, "dynvec_payload_storage")?;
+                                        self.builder.build_store(dynvec_alloca, dynvec_struct)?;
+                                        
+                                        let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
+                                        let some_value_alloca = self.builder.build_alloca(option_llvm_type, "some_value")?;
+                                        let disc_ptr = self.builder.build_struct_gep(
+                                            option_llvm_type,
+                                            some_value_alloca,
+                                            0,
+                                            "disc_ptr"
+                                        )?;
+                                        self.builder.build_store(disc_ptr, some_discriminant)?;
+                                        let payload_ptr = self.builder.build_struct_gep(
+                                            option_llvm_type,
+                                            some_value_alloca,
+                                            1,
+                                            "payload_ptr"
+                                        )?;
+                                        self.builder.build_store(payload_ptr, dynvec_alloca)?;
+                                        let loaded_option = self.builder.build_load(option_llvm_type, some_value_alloca, "some_value")?;
+                                        loaded_option
+                                    }
                                     _ => {
                                         // For other types, return the raw value
                                         let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
@@ -3607,22 +3660,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 phi.add_incoming(&[(&none_value, not_found_block), (&some_value, found_block)]);
                                 
                                 // Set the generic type context for Option<V> where V is the value type
-                                if let Some(var_info) = self.variables.get(obj_name) {
+                                let value_type = if let Some(var_info) = self.variables.get(obj_name) {
                                     if let AstType::Generic { type_args, .. } = &var_info.ast_type {
                                         if type_args.len() >= 2 {
-                                            // Set Option_Some_Type based on the HashMap value type
-                                            // This is the outer Option's Some type, which is the HashMap value type
-                                            self.generic_type_context.insert("Option_Some_Type".to_string(), type_args[1].clone());
-                                            
-                                            // If the value type itself is an Option or Result, also track the inner types
-                                            if let AstType::Generic { name: inner_name, type_args: inner_args } = &type_args[1] {
-                                                if inner_name == "Option" && inner_args.len() >= 1 {
-                                                    self.generic_type_context.insert("Inner_Option_Some_Type".to_string(), inner_args[0].clone());
-                                                } else if inner_name == "Result" && inner_args.len() >= 2 {
-                                                    self.generic_type_context.insert("Inner_Result_Ok_Type".to_string(), inner_args[0].clone());
-                                                    self.generic_type_context.insert("Inner_Result_Err_Type".to_string(), inner_args[1].clone());
-                                                }
-                                            }
+                                            Some(type_args[1].clone())
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+                                
+                                if let Some(val_type) = value_type {
+                                    // Set Option_Some_Type based on the HashMap value type
+                                    // This is the outer Option's Some type, which is the HashMap value type
+                                    self.track_generic_type("Option_Some_Type".to_string(), val_type.clone());
+                                    
+                                    // If the value type itself is an Option or Result, also track the inner types
+                                    if let AstType::Generic { name: inner_name, type_args: inner_args } = &val_type {
+                                        if inner_name == "Option" && inner_args.len() >= 1 {
+                                            self.track_generic_type("Inner_Option_Some_Type".to_string(), inner_args[0].clone());
+                                        } else if inner_name == "Result" && inner_args.len() >= 2 {
+                                            self.track_generic_type("Inner_Result_Ok_Type".to_string(), inner_args[0].clone());
+                                            self.track_generic_type("Inner_Result_Err_Type".to_string(), inner_args[1].clone());
                                         }
                                     }
                                 }
@@ -5434,6 +5497,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Also track nested generics recursively
                     if matches!(t, AstType::Generic { .. }) {
                         self.track_complex_generic(&t, "Option_Some");
+                    }
+                    // Track DynVec types
+                    if matches!(t, AstType::DynVec { .. }) {
+                        self.generic_tracker.track_generic_type(&t, "Option_Some");
                     }
                     // Track custom enum types too
                     if matches!(t, AstType::EnumType { .. }) {

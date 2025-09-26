@@ -1,0 +1,26 @@
+// Test extracting DynVec from Option and calling methods
+{ io, get_default_allocator, DynVec, Option, Some, None } = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    
+    // Create a DynVec directly
+    vec = DynVec<String>(alloc)
+    vec.push("hello")
+    
+    // Wrap it in Some
+    opt = Some(vec)
+    
+    // Extract and use it
+    opt ?
+        | Some(v) {
+            // v should be DynVec<String>
+            item = v.get(0)
+            item ?
+                | Some(s) { io.println(s) }
+                | None { io.println("Empty") }
+        }
+        | None { io.println("None") }
+    
+    return 0
+}

@@ -417,7 +417,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 ast::Declaration::Struct(_) => {} // Already handled above
                 ast::Declaration::Enum(_) => {}   // Already handled above
                 ast::Declaration::ModuleImport { alias, module_path } => {
-                    // Handle module imports like { io } = @std
+                    // Handle module imports like { io } = @std or { Option, Some, None } = @std
                     // We just register these as compile-time symbols
                     // The actual variables will be created when needed in functions
 
@@ -428,20 +428,55 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         alias
                     };
 
-                    // Store a marker value for stdlib modules
-                    let module_marker = match module_name {
-                        "io" => 1,
-                        "math" => 2,
-                        "core" => 3,
-                        "GPA" => 4,
-                        "AsyncPool" => 5,
-                        "Allocator" => 6,
-                        _ => 0,
-                    };
-
-                    // Register this as a compile-time module import
-                    // We'll create actual variables later when in a function context
-                    self.module_imports.insert(alias.clone(), module_marker);
+                    // Handle specific std types and modules
+                    match module_name {
+                        // Built-in types from @std
+                        "Option" | "Some" | "None" => {
+                            // Option types are already registered in register_builtin_types
+                            // Just mark that these names are available as imports
+                            self.module_imports.insert(alias.clone(), 100); // Special marker for Option types
+                        }
+                        "Result" | "Ok" | "Err" => {
+                            // Result types are already registered in register_builtin_types
+                            // Just mark that these names are available as imports
+                            self.module_imports.insert(alias.clone(), 101); // Special marker for Result types
+                        }
+                        // Collections
+                        "HashMap" | "HashSet" | "DynVec" | "Array" | "Vec" => {
+                            self.module_imports.insert(alias.clone(), 102); // Special marker for collections
+                        }
+                        // Allocator types
+                        "Allocator" | "get_default_allocator" => {
+                            self.module_imports.insert(alias.clone(), 103); // Special marker for allocator
+                        }
+                        // Math functions
+                        "min" | "max" | "abs" | "sqrt" | "pow" | "sin" | "cos" | "tan" => {
+                            self.module_imports.insert(alias.clone(), 104); // Special marker for math functions
+                        }
+                        // Regular modules
+                        "io" => {
+                            self.module_imports.insert(alias.clone(), 1);
+                        }
+                        "math" => {
+                            self.module_imports.insert(alias.clone(), 2);
+                        }
+                        "core" => {
+                            self.module_imports.insert(alias.clone(), 3);
+                        }
+                        "GPA" => {
+                            self.module_imports.insert(alias.clone(), 4);
+                        }
+                        "AsyncPool" => {
+                            self.module_imports.insert(alias.clone(), 5);
+                        }
+                        "build" => {
+                            self.module_imports.insert(alias.clone(), 7);
+                        }
+                        _ => {
+                            // Unknown import, store with marker 0
+                            self.module_imports.insert(alias.clone(), 0);
+                        }
+                    }
                 }
                 ast::Declaration::Behavior(_) => {} // Behaviors are interface definitions, no codegen needed
                 ast::Declaration::Trait(_) => {} // Trait definitions are interface definitions, no direct codegen needed
@@ -755,6 +790,125 @@ impl<'ctx> LLVMCompiler<'ctx> {
         } else {
             // For other types, return as is for now
             Ok(value)
+        }
+    }
+    
+    /// Parse comma-separated types from a string, handling nested generics
+    pub fn parse_comma_separated_types(&self, type_str: &str) -> Vec<AstType> {
+        let mut result = Vec::new();
+        let mut current = String::new();
+        let mut depth = 0;
+        
+        for ch in type_str.chars() {
+            match ch {
+                '<' => {
+                    depth += 1;
+                    current.push(ch);
+                }
+                '>' => {
+                    depth -= 1;
+                    current.push(ch);
+                }
+                ',' if depth == 0 => {
+                    // End of current type
+                    let parsed = self.parse_type_string(current.trim());
+                    result.push(parsed);
+                    current.clear();
+                }
+                _ => {
+                    current.push(ch);
+                }
+            }
+        }
+        
+        // Don't forget the last type
+        if !current.is_empty() {
+            let parsed = self.parse_type_string(current.trim());
+            result.push(parsed);
+        }
+        
+        result
+    }
+    
+    /// Parse a single type string into an AstType
+    pub fn parse_type_string(&self, type_str: &str) -> AstType {
+        // Check for generic types
+        if let Some(angle_pos) = type_str.find('<') {
+            let base_type = &type_str[..angle_pos];
+            let type_params_str = &type_str[angle_pos+1..type_str.len()-1];
+            
+            match base_type {
+                "DynVec" => {
+                    let element_types = self.parse_comma_separated_types(type_params_str);
+                    AstType::DynVec {
+                        element_types,
+                        allocator_type: None,
+                    }
+                }
+                "Vec" => {
+                    // Vec<T, N> where N is the size
+                    let parts = self.parse_comma_separated_types(type_params_str);
+                    if parts.len() >= 1 {
+                        // For now, default size to 10 if not specified
+                        AstType::Vec {
+                            element_type: Box::new(parts[0].clone()),
+                            size: 10, // Default size
+                        }
+                    } else {
+                        AstType::Vec {
+                            element_type: Box::new(AstType::I32),
+                            size: 10,
+                        }
+                    }
+                }
+                "Option" => {
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: "Option".to_string(),
+                        type_args,
+                    }
+                }
+                "Result" => {
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: "Result".to_string(),
+                        type_args,
+                    }
+                }
+                "HashMap" | "HashSet" => {
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: base_type.to_string(),
+                        type_args,
+                    }
+                }
+                _ => {
+                    // Unknown generic type
+                    let type_args = self.parse_comma_separated_types(type_params_str);
+                    AstType::Generic {
+                        name: base_type.to_string(),
+                        type_args,
+                    }
+                }
+            }
+        } else {
+            // Simple types
+            match type_str {
+                "i8" => AstType::I8,
+                "i16" => AstType::I16,
+                "i32" => AstType::I32,
+                "i64" => AstType::I64,
+                "u8" => AstType::U8,
+                "u16" => AstType::U16,
+                "u32" => AstType::U32,
+                "u64" => AstType::U64,
+                "f32" => AstType::F32,
+                "f64" => AstType::F64,
+                "bool" => AstType::Bool,
+                "string" | "String" => AstType::String,
+                "void" => AstType::Void,
+                _ => AstType::I32, // Default fallback
+            }
         }
     }
 }

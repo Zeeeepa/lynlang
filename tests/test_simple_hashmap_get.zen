@@ -1,0 +1,17 @@
+// Test HashMap.get method
+{ io, get_default_allocator, HashMap } = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    map = HashMap<String, i32>(alloc)
+    
+    map.insert("key1", 42)
+    
+    val = map.get("key1")
+    
+    val ?
+        | Some(v) { io.print_int(v) }
+        | None { io.println("Not found") }
+    
+    return 0
+}

@@ -355,7 +355,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     Ok(Type::Struct(dynvec_struct))
                 }
             }
-            AstType::Generic { name, type_args: _ } => {
+            AstType::Generic { name, type_args } => {
                 // Special handling for empty generic names - this is likely a bug
                 if name.is_empty() {
                     // Debug output commented out to avoid false test failures
@@ -449,6 +449,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 {
                     // Check if it's an enum type that was parsed as Generic
                     Ok(Type::Struct(enum_info.llvm_type))
+                } else if name == "DynVec" && type_args.len() == 1 {
+                    // Convert Generic DynVec to proper DynVec type
+                    // This happens when type parsing creates Generic instead of DynVec
+                    let dynvec_type = AstType::DynVec {
+                        element_types: type_args.clone(),
+                        allocator_type: None,
+                    };
+                    self.to_llvm_type(&dynvec_type)
                 } else {
                     // After monomorphization, we should not encounter generic types
                     // If we do, it means monomorphization failed to resolve this type

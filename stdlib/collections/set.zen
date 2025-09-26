@@ -62,6 +62,11 @@ HashSet<T>.len = (self: HashSet<T>) usize {
     return self.map.len()
 }
 
+// Alias for len (compatibility)
+HashSet<T>.size = (self: HashSet<T>) usize {
+    return self.map.len()
+}
+
 // Check if set is empty
 HashSet<T>.is_empty = (self: HashSet<T>) bool {
     return self.map.is_empty()
@@ -78,6 +83,7 @@ hashset_add<T> = HashSet<T>.add
 hashset_remove<T> = HashSet<T>.remove
 hashset_contains<T> = HashSet<T>.contains
 hashset_len<T> = HashSet<T>.len
+hashset_size<T> = HashSet<T>.size
 hashset_is_empty<T> = HashSet<T>.is_empty
 hashset_clear<T> = HashSet<T>.clear
 
@@ -93,6 +99,7 @@ module.exports = {
     hashset_remove,
     hashset_contains,
     hashset_len,
+    hashset_size,
     hashset_is_empty,
     hashset_clear,
 }

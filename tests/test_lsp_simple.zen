@@ -1,0 +1,18 @@
+// Simple LSP test file
+{ Option, Some, None } = @std
+
+main = () i32 {
+    // Test variable declarations
+    x = 10
+    y = 20
+    
+    // Test Option type
+    opt = Some(42)
+    
+    // Test pattern matching
+    result = opt ?
+        | .Some(val) { val + x }
+        | .None { 0 }
+    
+    result
+}

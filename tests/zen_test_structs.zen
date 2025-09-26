@@ -174,7 +174,7 @@ test_struct_self_methods = () void {
 }
 
 // Test 9: Struct with default values
-DefaultStruct = struct {
+DefaultStruct : {
     value: i32,
     name: string,
     active: bool

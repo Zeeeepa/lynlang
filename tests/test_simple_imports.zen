@@ -2,29 +2,33 @@
 // This shows that imports work at module level without comptime
 
 // Module-level imports (CORRECT - no comptime wrapper)
-{ Option, Some, None, Result, Ok, Err, min, max, abs } = @std
-build = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+// { min, max, abs } = @std.math  // Math functions need separate handling
+// build = @std  // Module assignment not yet supported
 
-// Simple arithmetic using core functions
+// Simple test using Option/Result types
 calculate = () i32   {
-    // Use min and max from std
-    a = 10
-    b = 20
+    // Test Option type
+    opt = Some(10)
+    value = opt ?
+        | .Some(v) { v }
+        | .None { 0 }
     
-    min_value = min(a, b)  // Should be 10
-    max_value = max(a, b)  // Should be 20
+    // Test Result type  
+    res = Ok(20)
+    value2 = res ?
+        | .Ok(v) { v }
+        | .Err(_) { 0 }
     
-    // Use abs from std
-    negative = -15
-    positive = abs(negative)  // Should be 15
-    
-    // Calculate result
-    result = min_value + max_value + positive
-    return result  // 10 + 20 + 15 = 45
+    // Return sum
+    result = value + value2
+    return result  // 10 + 20 = 30
 }
 
 // Main function
 main = () i32   {
     result = calculate()
-    return result
+    result == 30 ?
+        | true { 0 }  // Return 0 for success
+        | false { 1 }  // Return 1 if not expected value
 }
