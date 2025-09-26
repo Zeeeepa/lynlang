@@ -1,5 +1,5 @@
 // Test .raise() with Result<f64, string>
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 calculate_pi = () Result<f64, string> {
     pi_result = Result.Ok(3.14159)
@@ -12,6 +12,7 @@ calculate_pi = () Result<f64, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     outcome = calculate_pi()
     outcome ?
         | Result.Ok(v) { 

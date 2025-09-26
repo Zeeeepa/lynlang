@@ -1,5 +1,5 @@
 // Test structs with methods (simplified version)
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 Point: {
     x: f64,
@@ -34,6 +34,7 @@ rect_area = (r: Rectangle) f64 {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Structs with Methods ===")
     
     // Create a circle

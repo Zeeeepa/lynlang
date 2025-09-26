@@ -6,6 +6,7 @@ Point: {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     // Create struct instances
     p1 = Point { x: 10.0, y: 20.0 }
     p2 = Point { x: 5.0 }  // y uses default value

@@ -1,7 +1,8 @@
 // Test comparison type mismatch
-{io, Array} = @std
+{io, Array, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Create array and get length
     arr = Array<i32>()
     arr.push(1)

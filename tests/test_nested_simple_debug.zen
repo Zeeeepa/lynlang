@@ -1,7 +1,8 @@
 // Simple nested generics test
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing nested Result")
     
     // Create nested Result directly

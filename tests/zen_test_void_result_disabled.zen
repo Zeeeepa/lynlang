@@ -1,8 +1,9 @@
 // Test Result<void, E> for operations with no return value
 // DISABLED: Result<void, string> causes LLVM type mismatch errors
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("═══════════════════════════════════")
     io.println("  RESULT<VOID, E> TEST DISABLED    ")
     io.println("═══════════════════════════════════")

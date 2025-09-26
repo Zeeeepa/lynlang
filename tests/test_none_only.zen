@@ -1,7 +1,8 @@
 // Test just None variable creation and match
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     empty = None
     io.println("Created None")
     

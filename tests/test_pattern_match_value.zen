@@ -1,5 +1,5 @@
 // Test pattern match return values
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 test_pattern_value = () i32 {
     x = Result.Ok(42)
@@ -13,6 +13,7 @@ test_pattern_value = () i32 {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     result = test_pattern_value()
     io.println("Result: ${result}")
     

@@ -1,6 +1,7 @@
 // Test string.index_of() method
 
 main = () i32 {
+    alloc = get_default_allocator()
     text = "Hello, World!"
     
     // Test index_of - find at beginning

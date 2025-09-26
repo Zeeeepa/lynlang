@@ -1,6 +1,6 @@
 // Extended pattern matching tests
-{io, Option, Result} = @std
-{io, Option, Result} = @std
+{io, Option, Result, get_default_allocator} = @std
+{io, Option, Result, get_default_allocator} = @std
 
 // Custom enum for testing
 Priority : .High | .Medium | .Low
@@ -34,6 +34,7 @@ test_result = (res: Result<i32, string>) void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Extended Pattern Matching Tests ===")
     
     // Test custom enum

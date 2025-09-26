@@ -1,5 +1,5 @@
 // Debug test for .raise() return value
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 test_direct = () Result<i32, string> {
     result = Result.Ok(42)
@@ -8,6 +8,7 @@ test_direct = () Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     test_result = test_direct()
     test_result ?
         | Result.Ok(value) {

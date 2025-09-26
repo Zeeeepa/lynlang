@@ -1,5 +1,5 @@
 // Simple test of Result type and error handling
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Simple Result operations
 divide = (a: i32, b: i32) Result<i32, string> {
@@ -58,6 +58,7 @@ safe_calculation = (x: i32) Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("═══════════════════════════════")
     io.println("  SIMPLE ERROR HANDLING TEST   ")
     io.println("═══════════════════════════════")

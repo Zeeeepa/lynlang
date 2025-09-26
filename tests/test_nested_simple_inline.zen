@@ -1,7 +1,8 @@
 // Test inline construction of nested Result types
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Testing Inline Nested Construction ===")
     
     // Test 1: Direct inline Result<Result<i32, string>, string>

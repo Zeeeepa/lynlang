@@ -1,6 +1,7 @@
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     x = 42
     // Direct print - pattern matching on scalars not valid
     io.println("Bound value: ${x}")

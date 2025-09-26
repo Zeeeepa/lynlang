@@ -1,5 +1,5 @@
 // Test function with conditional returning Result<i32, string>
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Function with conditional that returns Result<i32, string>
 make_result = (success: bool) Result<i32, string> {
@@ -9,6 +9,7 @@ make_result = (success: bool) Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Testing conditional function returns ===")
     
     // Test success case

@@ -1,7 +1,8 @@
 // Test mixed Option<Result<T,E>> nesting
-{ io, Option, Result } = @std
+{ io, Option, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Option<Result<i32,string>> ===")
     
     // Create Option containing Result

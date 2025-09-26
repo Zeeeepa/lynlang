@@ -1,8 +1,9 @@
 // Debug AST for range loop
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // This should create a Range expression with a MethodCall
     range = (0..3)
     range.loop((i) {

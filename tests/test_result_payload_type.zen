@@ -1,8 +1,9 @@
 // Test to understand what type of value we get from Result payload
-{io, Option, Result} = @std
-{io, Option, Result} = @std
+{io, Option, Result, get_default_allocator} = @std
+{io, Option, Result, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Create a Result<i32, string> - this should work
     simple_result = Result.Ok(42)
     simple_result ? | Result.Ok(n) => io.println("Simple: ${n}")

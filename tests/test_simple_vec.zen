@@ -1,7 +1,8 @@
 // Test simple Vec
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     vec = Vec<i32, 10>()
     
     // Get type of vec

@@ -1,7 +1,8 @@
 // Test integer printing directly
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Testing Integer Printing ===")
     
     // Direct integers

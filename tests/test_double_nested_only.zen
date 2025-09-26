@@ -1,7 +1,8 @@
 // Test double nested Result only
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Test: Double nested Result<Result<T,E>,E>")
     
     get_double_nested = () Result<Result<i32, string>, string> {

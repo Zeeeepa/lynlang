@@ -1,9 +1,10 @@
 // Consolidated test for range operations and loops
 // Combines functionality from multiple zen_test_range_*.zen files
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing range operations:")
     io.println("")
     

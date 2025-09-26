@@ -60,7 +60,7 @@ main = () void {
     
     // 2.2: Array operations with generics
     io.println("  • Array<i32> operations:")
-    arr = Array.new(10, 0)  // size 10, initialized with 0
+    arr = Array.new(alloc, 10, 0)  // size 10, initialized with 0
     arr.set(0, 10)
     arr.set(1, 20)
     arr.set(2, 30)

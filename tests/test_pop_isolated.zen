@@ -1,8 +1,9 @@
-{io, Array, Option} = @std
+{io, Array, Option, get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Create array with larger capacity
-    arr: Array<i32> = Array.new(100, 0)
+    arr: Array<i32> = Array.new(alloc, 100, 0)
     
     // Push exactly 3 values
     arr.push(111)

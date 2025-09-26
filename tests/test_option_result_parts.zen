@@ -1,5 +1,5 @@
 // Test each part of nested generics separately
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 test_double_nested = () void {
     io.println("Test 1: Double nested Result<Result<T,E>,E>")
@@ -50,6 +50,7 @@ test_option_result = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     test_double_nested()
     test_triple_nested()
     test_option_result()

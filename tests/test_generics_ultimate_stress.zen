@@ -1,11 +1,12 @@
 // Ultimate stress test for generic type system
 // Tests the most complex generic patterns imaginable
-{ io, Result, Option, Array, HashMap } = @std
+{ io, Result, Option, Array, HashMap , get_default_allocator} = @std
 
 // Custom generic enum for testing
 Either<L, R> : .Left(L) | .Right(R)
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Ultimate Generics Stress Test ===")
     
     // Test 1: 5-level deep nested Result

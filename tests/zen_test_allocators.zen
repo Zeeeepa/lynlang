@@ -1,7 +1,7 @@
 // Consolidated allocator tests
 // Combines functionality from multiple test_allocator_*.zen files
 
-{io, Array} = @std
+{io, Array, get_default_allocator} = @std
 
 // Test 1: Basic allocator functionality
 test_basic_allocator = () void {
@@ -177,6 +177,7 @@ test_allocator_custom = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Allocator Tests ===")
     io.println("")
     

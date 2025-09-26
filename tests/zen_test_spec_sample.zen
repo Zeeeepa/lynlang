@@ -1,11 +1,11 @@
 // Sample from LANGUAGE_SPEC.zen to test parsing
 
 // Imports - only @std and @this are special
-{io, maths, Option} = @std
-{io, maths, Option} = @std
+{io, maths, Option, get_default_allocator} = @std
+{io, maths, Option, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, maths, Option} = @std
+{io, maths, Option, get_default_allocator} = @std
 
 // Simple struct
 Point: {
@@ -37,6 +37,7 @@ GameEntity:
 // get_health = (e: GameEntity.Powerup) u32 { return 0 }
 
 main = () void {
+    alloc = get_default_allocator()
     // Different assignment forms
     x: i32
     x = 10

@@ -1,7 +1,7 @@
 // Consolidated closure tests
 // Combines functionality from multiple test_closure_*.zen files
 
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Test 1: Basic closure with parameters
 test_basic_closure = () void {
@@ -165,6 +165,7 @@ test_closure_compare = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Closure Tests ===")
     io.println("")
     

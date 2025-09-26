@@ -1,7 +1,8 @@
 // Test Vec<T, size> basic operations
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Create a Vec with fixed size
     vec = Vec<i32, 10>()
     vec.push(42)

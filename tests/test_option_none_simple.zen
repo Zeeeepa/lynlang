@@ -1,7 +1,8 @@
 // Test Option.None pattern matching issue
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test 1: Direct None matching with no variables
     Option.None ?
         | Option.Some(x) {

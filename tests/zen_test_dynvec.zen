@@ -1,8 +1,9 @@
 // Test DynVec operations - DISABLED
 // DynVec not yet fully implemented in stdlib
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("DynVec test disabled - stdlib implementation not yet complete")
     return 0
 }

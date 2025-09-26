@@ -1,10 +1,11 @@
 // Debug custom enum payload loss in generics
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 // Simple custom enum
 MyEnum : .Value(n: i32) | .Empty
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Debugging Custom Enum in Generics ===")
     
     // Test 1: Direct custom enum - should work

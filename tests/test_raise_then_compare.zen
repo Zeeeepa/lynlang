@@ -1,7 +1,8 @@
 // Test raise then comparison
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     get_five = () Result<f64, string> {
         return Result.Ok(5.0)
     }

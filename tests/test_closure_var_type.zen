@@ -1,7 +1,8 @@
 // Test closure variable type
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Closure with explicit return type stored in variable
     test = () Result<i32, string> {
         return Result.Ok(42)

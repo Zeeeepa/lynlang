@@ -1,11 +1,12 @@
 // Test Option returned from function
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 get_option = () Option<i32> {
     return Option.Some(456)
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     result ::= get_option()
     
     result ?

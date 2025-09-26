@@ -1,5 +1,5 @@
 // Test literal types
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 test_int = () i32 {
     return 42
@@ -15,6 +15,7 @@ test_bool = () bool {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     a ::= test_int()
     io.println("i32: ${a}")
     

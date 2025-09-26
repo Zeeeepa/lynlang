@@ -1,5 +1,5 @@
 // Test what .raise() returns for nested Result
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Function that returns Result<Result<i32, string>, string>
 get_nested = () Result<Result<i32, string>, string> {
@@ -15,6 +15,7 @@ test_raise = () Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     result = test_raise()
     
     result ?

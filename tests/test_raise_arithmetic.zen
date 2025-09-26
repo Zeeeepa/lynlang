@@ -1,5 +1,5 @@
 // Test .raise() with arithmetic operations
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 calculate = () Result<i32, string> {
     a = Result.Ok(10)
@@ -19,6 +19,7 @@ calculate = () Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     outcome = calculate()
     outcome ?
         | Result.Ok(v) { 

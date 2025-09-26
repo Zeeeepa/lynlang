@@ -1,7 +1,8 @@
 // Test closure with conditional returns 
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // This should work - conditional returns Result value
     test1 = (x: i32) Result<i32, string> {
         result = x > 0 ?

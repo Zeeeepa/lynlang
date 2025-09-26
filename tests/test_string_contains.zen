@@ -1,6 +1,7 @@
 // Test string.contains() method
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with literal strings
     text = "Hello, World!"
     

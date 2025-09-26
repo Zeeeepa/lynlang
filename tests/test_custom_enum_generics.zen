@@ -1,5 +1,5 @@
 // Test custom enum generic type inference and payload extraction
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Custom enum similar to Result but with different names
 MyResult : .Success(val: i32) | .Error(msg: string)
@@ -24,6 +24,7 @@ test_nested_custom = () Option<MyResult> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Custom Enum Generic Tests ===")
     
     // Test 1: Basic custom enum

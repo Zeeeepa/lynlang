@@ -1,7 +1,8 @@
 // Comprehensive test for Option<T> pattern matching with various types
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Option<i32> Tests ===")
     
     // Test with integer payload

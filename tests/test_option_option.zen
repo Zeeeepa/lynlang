@@ -1,8 +1,9 @@
 // Test Option<Option> to see if it's specific to Result
-{io, Option} = @std
-{io, Option} = @std
+{io, Option, get_default_allocator} = @std
+{io, Option, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Create Option<Option<i32>>
     inner_opt = Option.Some(321)
     outer_opt = Option.Some(inner_opt)

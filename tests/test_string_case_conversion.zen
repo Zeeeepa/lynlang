@@ -1,6 +1,7 @@
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     text = "Hello World 123!"
     upper = text.to_upper()
     lower = text.to_lower()

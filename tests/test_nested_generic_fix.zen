@@ -1,5 +1,5 @@
 // Test to understand and fix nested generic payload issue
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Test inline creation of triple nested Results
 test_triple_inline = () Result<Result<Result<i32, string>, string>, string> {
@@ -33,6 +33,7 @@ test_with_vars = () Result<Result<i32, string>, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing nested generic payload fixes")
     
     // Test 1: Step by step creation

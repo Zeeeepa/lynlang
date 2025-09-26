@@ -1,7 +1,8 @@
 // Simple test for string.split() method
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test basic split
     text = "hello,world"
     parts = text.split(",")

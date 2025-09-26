@@ -1,5 +1,5 @@
 // Test potential workaround for nested generic issue
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Helper to create a heap-allocated value
 make_value = (v: i32) i32 { v }
@@ -14,6 +14,7 @@ test_with_helper = () Result<Result<Result<i32, string>, string>, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing nested generic workarounds")
     
     // Test with helper function

@@ -1,5 +1,5 @@
 // Test direct use of .raise() without storing in variable
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
@@ -15,6 +15,7 @@ process_value = () Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     result = process_value()
     result ?
         | Result.Ok(val) { io.println("Done") }

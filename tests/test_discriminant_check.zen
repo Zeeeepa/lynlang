@@ -1,8 +1,9 @@
 // Check if discriminant is preserved
-{io, Option, Result} = @std
-{io, Option, Result} = @std
+{io, Option, Result, get_default_allocator} = @std
+{io, Option, Result, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test with Option first (simpler)
     inner_opt = Option.Some(456)
     outer_result = Result.Ok(inner_opt)

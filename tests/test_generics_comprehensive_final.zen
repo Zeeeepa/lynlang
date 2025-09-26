@@ -1,10 +1,11 @@
 // Comprehensive test of generic type system capabilities
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Test custom enum for comparison
 CustomEnum : .Value(n: i32) | .Empty
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Comprehensive Generics Test Suite ===")
     
     // Test 1: Standard nested generics - Result<Result<T,E>,E>

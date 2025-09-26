@@ -1,11 +1,12 @@
 // Test void function
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 myfunc = () void {
     io.println("Hello from myfunc")
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Starting main")
     myfunc()
     io.println("Done")

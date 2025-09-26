@@ -1,5 +1,5 @@
 // Test more complex string interpolation cases
-{ io, Option, Result } = @std
+{ io, Option, Result , get_default_allocator} = @std
 
 CustomEnum:
     Value(i32)
@@ -7,6 +7,7 @@ CustomEnum:
     | Empty
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with enum values
     myEnum = CustomEnum.Value(123)
     myEnum ?

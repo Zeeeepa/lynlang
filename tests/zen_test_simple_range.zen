@@ -1,6 +1,7 @@
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test different ways to call .loop on ranges
     
     // Direct range without parens - doesn't work due to precedence

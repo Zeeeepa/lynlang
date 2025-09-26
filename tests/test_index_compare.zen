@@ -1,6 +1,7 @@
 // Test comparing index_of result
 
 main = () i32 {
+    alloc = get_default_allocator()
     text = "Hello, World!"
     
     idx = text.index_of("World")

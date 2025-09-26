@@ -1,7 +1,8 @@
 // Direct test of Option pattern matching
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     test ::= Option.Some(123)
     
     test ?

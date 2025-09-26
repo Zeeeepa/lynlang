@@ -1,8 +1,9 @@
 // Test mutable assignment operators per LANGUAGE_SPEC.zen
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test ::= mutable inferred type assignment
     a ::= 10
     io.println("a = ${a}")

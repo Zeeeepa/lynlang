@@ -1,5 +1,5 @@
 // Test for Option<None> pattern matching with null pointer check fix
-{io, Option} = @std
+{io, Option, get_default_allocator} = @std
 
 test_option_pattern = (opt: Option<i32>) i32 {
     opt ? 
@@ -8,6 +8,7 @@ test_option_pattern = (opt: Option<i32>) i32 {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing Option pattern matching with null pointer fix")
     
     // Test 1: Some value

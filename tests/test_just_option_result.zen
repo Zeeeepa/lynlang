@@ -1,5 +1,5 @@
 // Just test Option<Result>
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 test_option_result = () i32 {
     io.println("Test: Option<Result>")
@@ -23,5 +23,6 @@ test_option_result = () i32 {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     test_option_result()
 }

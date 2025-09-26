@@ -1,5 +1,5 @@
 // Test for improved .raise() functionality with closures
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Test with nested closures that return Result
 chain_raises = () Result<i32, string> {
@@ -29,6 +29,7 @@ early_error_return = (input: i32) Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test 1: Chain raises
     test1 = chain_raises()
     test1 ?

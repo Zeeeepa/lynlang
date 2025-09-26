@@ -1,4 +1,4 @@
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Simple function returning Result<void, string>
 test_fn = () Result<void, string> {
@@ -6,6 +6,7 @@ test_fn = () Result<void, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     result = test_fn()
     
     result ?

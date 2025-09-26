@@ -1,10 +1,10 @@
 // Test file to verify LANGUAGE_SPEC.zen features are working
 
 // Import syntax from spec (line 92-94)
-{io, math, Option} = @std
+{io, math, Option, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, math, Option} = @std
+{io, math, Option, get_default_allocator} = @std
 
 // Simple struct from spec (line 116-120)
 Point: {
@@ -14,6 +14,7 @@ Point: {
 
 // Function with explicit types from spec
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Zen Language Spec Features ===")
     
     // Test 1: Variable declarations from spec (lines 299-306)

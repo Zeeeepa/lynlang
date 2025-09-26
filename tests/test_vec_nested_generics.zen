@@ -1,5 +1,5 @@
 // Test Vec with deeply nested generic types
-{ io, Option, Result } = @std
+{ io, Option, Result , get_default_allocator} = @std
 
 // Test struct for nested generics
 Person: {
@@ -8,6 +8,7 @@ Person: {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Vec with Nested Generics ===")
     
     // Test 1: Vec<Option<Result<i32, string>>>

@@ -1,9 +1,10 @@
 // Complete pattern matching tests from LANGUAGE_SPEC.zen
 // Tests the ? operator for all control flow
 
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Boolean pattern matching (lines 352-361)
     is_ready = true
     is_ready ? {

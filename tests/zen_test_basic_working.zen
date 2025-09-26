@@ -1,9 +1,10 @@
 // Basic test for currently working Zen features
 // From LANGUAGE_SPEC.zen
 
-{ io, math } = @std
+{ io, math , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Zen Basic Working Features Test ===")
     
     // 1. Variable declarations (spec lines 299-306)

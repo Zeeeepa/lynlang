@@ -1,6 +1,7 @@
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test range.loop()
     range = (0..10)
     range.loop((i) {

@@ -1,9 +1,10 @@
 // Test file demonstrating allocator-based async system foundation
 // Conceptual example showing the GPA (sync) and AsyncPool (async) design
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Allocator-based Sync/Async System Demo")
     io.println("=====================================")
     io.println("")

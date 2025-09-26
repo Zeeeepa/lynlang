@@ -1,7 +1,8 @@
 // Debug comparison issue
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     add = (a: i32, b: i32) {
         return Result.Ok(a + b)
     }

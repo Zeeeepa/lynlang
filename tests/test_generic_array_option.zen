@@ -1,7 +1,8 @@
 // Test Array with Option generics
-{io, Option, Array} = @std
+{io, Option, Array, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing Array<Option<i32>>")
     
     // Create array of Option<i32>

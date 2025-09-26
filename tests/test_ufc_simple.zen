@@ -1,7 +1,8 @@
 // Test simple range loop with mixed types
-{io, Array} = @std
+{io, Array, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Create an i64 value
     arr = Array<i32>()
     arr.push(1)

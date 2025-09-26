@@ -6,6 +6,7 @@ Point: {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     p ::= Point { x: 10.0, y: 20.0 }
     io.println("Point created")
     

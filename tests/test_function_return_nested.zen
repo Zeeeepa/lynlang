@@ -1,6 +1,6 @@
 // Test nested generic return values
-{io, Option, Result} = @std
-{io, Option, Result} = @std
+{io, Option, Result, get_default_allocator} = @std
+{io, Option, Result, get_default_allocator} = @std
 
 // Simple function returning Option<i32>
 simple_option = () Option<i32> {
@@ -20,6 +20,7 @@ nested_option_result = () Option<Result<i32, string>> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     // Test simple Option return
     opt1 = simple_option()
     opt1 ? | Option.Some(n) => io.println("Simple Option: ${n}")

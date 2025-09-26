@@ -1,7 +1,8 @@
 // Trace the type issue more carefully
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     divide = (a: f64, b: f64) Result<f64, string> {
         result = b == 0.0 ?
             | true { Result.Err("Division by zero") }

@@ -1,5 +1,5 @@
 // Comprehensive test for nested generic types
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Test 1: Double nested Result<Result<T,E>,E>
 test_double_nested_result = () i32 {
@@ -201,6 +201,7 @@ test_double_option = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Comprehensive Nested Generics Test ===\n")
     
     test_double_nested_result()

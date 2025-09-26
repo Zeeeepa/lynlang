@@ -1,7 +1,8 @@
 // Test raise() with closures returning Result<T,E> - fixed version
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test 1: Basic closure returning Result<i32, string>
     get_value = () Result<i32, string> {
         return Result.Ok(42)

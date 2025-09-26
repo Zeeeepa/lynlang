@@ -1,5 +1,5 @@
 // Test complex nested generic types
-{ io, Result, Option, DynVec } = @std
+{ io, Result, Option, DynVec , get_default_allocator} = @std
 
 // Function that returns Result<Option<i32>, string>
 get_result_option = (val: i32) Result<Option<i32>, string> {
@@ -31,6 +31,7 @@ get_nested_result = (val: i32) Result<Result<i32, string>, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing complex nested generics")
     
     // Test Result<Option<i32>, string>

@@ -1,7 +1,8 @@
 // Test Array constructor with nested generics
-{ io, Array, Option } = @std
+{ io, Array, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing Array constructor with generics")
     
     // Test 1: Simple Array<i32>()

@@ -1,7 +1,8 @@
 // Test inline vs variable creation
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Method 1: Using variable
     inner1 = Result.Ok(42)
     outer1 = Result.Ok(inner1)

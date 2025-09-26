@@ -1,7 +1,8 @@
 // Test Array with nested generic types
-{ io, Option, Array } = @std
+{ io, Option, Array , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing Array with Option<i32>")
     
     // First test: Can we create the array?

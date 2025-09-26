@@ -1,5 +1,5 @@
-{io, Result} = @std
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
+{io, Result, get_default_allocator} = @std
 
 divide = (a: i32, b: i32) Result<i32, string> {
     b == 0 ?
@@ -13,6 +13,7 @@ safe_add = (a: i32, b: i32) Result<i32, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing multiple .raise() in closure")
     
     chain_test = () Result<i32, string> {

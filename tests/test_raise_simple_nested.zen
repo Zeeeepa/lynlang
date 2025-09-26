@@ -1,8 +1,9 @@
 // Test simple nested Result.raise() - currently broken
 // Issue: Nested Result payload extraction fails
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing simple nested Result.raise()")
     
     // Direct inline construction - this is where the issue occurs

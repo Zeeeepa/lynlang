@@ -1,7 +1,8 @@
 // Test nested generics: Vec<Option<i32>, size>
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing Vec<Option<i32>, 3>")
     
     // Create Vec of Option<i32>

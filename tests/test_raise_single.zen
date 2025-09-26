@@ -1,5 +1,5 @@
 // Test single .raise() on nested Result
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Function that returns Result<Result<i32, string>, string>
 get_nested = () Result<Result<i32, string>, string> {
@@ -7,6 +7,7 @@ get_nested = () Result<Result<i32, string>, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test raise directly  
     result = get_nested().raise()
     io.println("After raise")

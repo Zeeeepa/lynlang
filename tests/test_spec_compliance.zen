@@ -1,10 +1,11 @@
 // Test file based on LANGUAGE_SPEC.zen
 // Testing new Zen syntax features
 
-{ io, maths, Option } = @std
-{ String, StringBuilder } = @std
+{ io, maths, Option , get_default_allocator} = @std
+{ String, StringBuilder , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test assignment types
     x: i32 // forward declaration
     x = 10

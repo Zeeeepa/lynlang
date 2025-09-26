@@ -1,5 +1,5 @@
 // Test basic enum functionality without advanced features
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Simple enum
 Shape:
@@ -13,6 +13,7 @@ GameEntity:
     | Powerup
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing basic enums...")
     
     // Simple enum usage

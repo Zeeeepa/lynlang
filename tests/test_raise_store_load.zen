@@ -1,7 +1,8 @@
 // Test .raise() with store and load
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     result = Result.Ok(42)
     value = result.raise()
     

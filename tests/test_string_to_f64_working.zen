@@ -1,6 +1,7 @@
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test valid float parsing
     s1 = "3.14159"
     result1 = s1.to_f64()

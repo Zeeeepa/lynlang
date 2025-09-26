@@ -1,7 +1,8 @@
 // Test multiple Option<T> in sequence
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Test 1: Some(42)")
     x = Some(42)
     x ?

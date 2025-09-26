@@ -1,7 +1,8 @@
 // Test Option<Result<i32, string>> nesting
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Option<Result<i32, string>> ===")
     
     // Test Option.Some with Result.Ok

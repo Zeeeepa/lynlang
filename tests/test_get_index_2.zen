@@ -1,7 +1,8 @@
-{io, Array, Option} = @std
+{io, Array, Option, get_default_allocator} = @std
 
 main = () i32 {
-    arr: Array<i32> = Array.new(10, 0)
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     
     arr.push(111)
     arr.push(222)

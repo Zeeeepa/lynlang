@@ -1,6 +1,6 @@
 // Test nested Result<Result<T,E>,E> with raise() - currently broken
 // Issue: Inline construction of nested Results loses inner payload values
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Helper function that returns Result<Result<i32, string>, string>
 get_nested_result = () Result<Result<i32, string>, string> {
@@ -8,6 +8,7 @@ get_nested_result = () Result<Result<i32, string>, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing nested Result with raise()")
     
     // This should work but returns 0 instead of 42

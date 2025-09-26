@@ -1,7 +1,8 @@
 // Test to verify value extraction in nested generics - simplified
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test nested without comparisons
     inner = Result.Ok(100)
     outer = Result.Ok(inner)

@@ -1,5 +1,5 @@
 // Test function returning Result<i32, string>
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Function that returns Result<i32, string>
 make_result = (val: i32) Result<i32, string> {
@@ -7,6 +7,7 @@ make_result = (val: i32) Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Testing function returns with Result<i32, string> ===")
     
     // Call function

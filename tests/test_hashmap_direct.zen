@@ -1,7 +1,8 @@
 // Test direct HashMap value extraction without Option
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Create a simple test case to check memory operations
     
     // Test 1: Basic value storage and retrieval

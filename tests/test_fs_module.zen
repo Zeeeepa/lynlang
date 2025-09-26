@@ -1,8 +1,9 @@
 // Test file system operations
-{io, Result} = @std
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
+{io, Result, get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing file system operations...")
     
     // Test 1: Write a file

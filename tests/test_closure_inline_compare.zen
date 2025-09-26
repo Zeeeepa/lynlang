@@ -1,9 +1,11 @@
 // Test inline closure comparison
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Don't store closure in variable - call directly
-    val = ((a: i32, b: i32) { return Result.Ok(a + b) })(10, 5).raise()
+    f = (a: i32, b: i32) { return Result.Ok(a + b) }
+    val = f(10, 5).raise()
     io.println("Value: ${val}")
     
     // Now compare

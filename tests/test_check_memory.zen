@@ -1,8 +1,9 @@
-{ io, Array } = @std
+{ io, Array, get_default_allocator } = @std
 
 main = () i32 {
     // Create array
-    arr: Array<i32> = Array.new(10, 999)  // Use 999 as default
+    alloc = get_default_allocator()
+    arr: Array<i32> = Array.new(alloc, 10, 999)  // Use 999 as default
     
     io.println("Created array with default 999")
     

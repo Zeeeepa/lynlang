@@ -1,10 +1,10 @@
 // Error handling tests from LANGUAGE_SPEC.zen lines 198-211
 // Tests Result type and .raise() error propagation
 
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
 
 // Import Result and Option from stdlib  
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
 
 // Parse function that returns Result (lines 198-203)
 parse_radius = (s: string) Result<f64, string> {
@@ -56,6 +56,7 @@ safe_calculate = (x: f64, y: f64) f64 {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     // Test parse_radius
     result1 = parse_radius("3.14")
     result1 ?

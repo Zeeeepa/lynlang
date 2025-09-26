@@ -1,7 +1,8 @@
 // Test variable type inference with nested generics
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing variable type inference for nested Result")
     
     // Direct construction - this should work

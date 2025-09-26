@@ -1,6 +1,7 @@
 // Test simple function call
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Test")
 }

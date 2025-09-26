@@ -1,7 +1,7 @@
 // Consolidated struct tests
 // Combines functionality from multiple test_struct_*.zen files
 
-{io, Array, get_default_allocator, Result} = @std
+{ io, Array, get_default_allocator, Result } = @std
 
 // Test 1: Basic struct definition and instantiation
 Point = struct {
@@ -138,10 +138,10 @@ test_array_struct = () void {
     io.println("Struct name: ${struct_with_array.name}")
     io.println("Array length: ${struct_with_array.numbers.len()}")
     
-    for i in 0..struct_with_array.numbers.len() {
+    (0..struct_with_array.numbers.len()).loop((i) {
         val = struct_with_array.numbers.get(i)
         io.println("  numbers[${i}] = ${val}")
-    }
+    })
 }
 
 // Test 8: Struct with methods using self

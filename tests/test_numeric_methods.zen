@@ -1,6 +1,7 @@
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing numeric methods:")
     
     // Test abs

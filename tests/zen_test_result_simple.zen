@@ -1,15 +1,16 @@
 // Simple Result type test
 
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
 
 test_result = () Result<i32, string> {
     return Result.Ok(42)
 }
 
 main = () void {
+    alloc = get_default_allocator()
     result = test_result()
     result ?
         | Result.Ok(val) { io.println("Got value") }

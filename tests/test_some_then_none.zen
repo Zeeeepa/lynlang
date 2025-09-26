@@ -1,7 +1,8 @@
 // Test Some then None pattern matching
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     val = Some(42)
     empty = None
     

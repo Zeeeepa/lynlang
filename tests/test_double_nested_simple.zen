@@ -1,5 +1,5 @@
 // Simple double nested test
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 test_double_nested_result = () i32 {
     io.println("Test 1: Double nested Result<Result<T,E>,E>")
@@ -22,5 +22,6 @@ test_double_nested_result = () i32 {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     test_double_nested_result()
 }

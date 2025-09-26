@@ -1,7 +1,8 @@
 // Debug test for Vec<Option<i32>, size>
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing regular Option pattern match first")
     
     opt_test = Option.Some(42)

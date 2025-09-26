@@ -1,6 +1,7 @@
 // Trait/Behavior test disabled - not yet implemented
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Traits/Behaviors not yet implemented")
 }

@@ -1,7 +1,8 @@
 // Test to verify value extraction in nested generics
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test that direct i32 works
     direct_val = 42
     io.println("Direct value: ${direct_val}")

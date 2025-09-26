@@ -1,11 +1,12 @@
 // Test nested generic type: Result<Result<i32, string>, string>
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 test_nested = () Result<Result<i32, string>, string> {
     Result.Ok(Result.Ok(100))
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing nested generic...")
     
     outer = test_nested()

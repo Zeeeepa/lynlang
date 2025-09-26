@@ -1,10 +1,10 @@
 // Comprehensive test of LANGUAGE_SPEC.zen features
 
 // Import syntax (lines 92-94)
-{io, math, Option, Result} = @std
+{io, math, Option, Result, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, math, Option, Result} = @std
+{io, math, Option, Result, get_default_allocator} = @std
 
 // Struct with mutable fields (lines 116-120)
 Point: {
@@ -27,6 +27,7 @@ Shape:
 
 // Main function demonstrating various features
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing LANGUAGE_SPEC.zen compliance")
     
     // Variable declarations (lines 299-306)

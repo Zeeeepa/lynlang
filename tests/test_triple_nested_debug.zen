@@ -1,7 +1,8 @@
 // Debug triple nested generics
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Debug triple nested Result")
     
     // Test 1: Fully inline triple nesting

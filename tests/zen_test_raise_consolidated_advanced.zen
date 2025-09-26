@@ -1,6 +1,6 @@
 // Consolidated .raise() error propagation tests
-{io, Result} = @std
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
+{io, Result, get_default_allocator} = @std
 
 // Helper functions for testing
 divide = (a: i32, b: i32) Result<i32, string> {
@@ -31,6 +31,7 @@ process_float = (x: f64) Result<f64, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Raise Error Propagation Tests ===")
     
     // Test 1: Basic raise with arithmetic

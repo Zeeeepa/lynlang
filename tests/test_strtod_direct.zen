@@ -1,9 +1,10 @@
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 // Test calling strtod directly - currently inline.c is not fully implemented
 // This test is disabled until inline.c FFI support is complete
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("inline.c FFI test - not yet implemented")
     // Once working, this would test:
     // test_strtod = () f64 {

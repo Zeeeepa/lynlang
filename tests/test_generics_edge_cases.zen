@@ -1,5 +1,5 @@
 // Test edge cases and complex scenarios for generic types
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Custom enum to test generic instantiation with user-defined types
 CustomResult : .Success(value: i32) | .Failure(msg: string)
@@ -66,6 +66,7 @@ test_passthrough = () void {
 
 // Main test driver
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Generic Edge Cases ===")
     
     io.println("\n1. Custom enum with generics:")

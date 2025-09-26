@@ -1,7 +1,7 @@
 // Consolidated error propagation tests (.raise() operator)
 // Combines functionality from multiple test_raise_*.zen files
 
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Test 1: Basic .raise() with arithmetic
 test_basic_arithmetic = () Result<i32, string> {
@@ -103,6 +103,7 @@ test_raise_comparison = () Result<bool, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Error Propagation Tests (.raise() operator) ===")
     io.println("")
     

@@ -1,7 +1,8 @@
 // Test closure params with raise and pattern
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     test = (x: f64) Result<f64, string> {
         return Result.Ok(x)
     }

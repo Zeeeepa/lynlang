@@ -1,6 +1,7 @@
 // Test with explicit type annotation
 
 main = () i32 {
+    alloc = get_default_allocator()
     text = "Hello, World!"
     
     idx: i64 = text.index_of("World")

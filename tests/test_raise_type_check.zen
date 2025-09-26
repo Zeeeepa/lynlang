@@ -1,5 +1,5 @@
 // Test to check type of value returned by .raise()
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
@@ -9,6 +9,7 @@ maybe_fail = (fail: bool) Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test direct pattern matching
     result = maybe_fail(false)
     result ?

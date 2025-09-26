@@ -1,6 +1,7 @@
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test 1: Nested Result creation
     outer = Result.Ok(Result.Ok(42))
     io.println("Created nested Result")

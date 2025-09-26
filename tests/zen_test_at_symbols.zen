@@ -1,9 +1,10 @@
 // Test @ symbols per LANGUAGE_SPEC.zen
 
 // Test @std import
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test @this.defer
     @this.defer(io.println("Deferred message"))
     

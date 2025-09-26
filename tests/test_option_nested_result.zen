@@ -1,5 +1,5 @@
 // Test nested generics: Option<Result<T, E>>
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 test_function = () Option<Result<i32, string>> {
     // Return Some with Ok value
@@ -7,6 +7,7 @@ test_function = () Option<Result<i32, string>> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing Option<Result<i32, string>>")
     
     opt = test_function()

@@ -1,5 +1,5 @@
 // Test raise in void function
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 get_nested = () Result<Result<i32, string>, string> {
     Result.Ok(Result.Ok(42))
@@ -15,5 +15,6 @@ test_raises = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     test_raises()
 }

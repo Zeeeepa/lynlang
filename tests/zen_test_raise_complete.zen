@@ -1,6 +1,6 @@
 // Comprehensive test suite for .raise() error propagation
 // Consolidates all raise/error propagation tests
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Test basic .raise() functionality - simpler version
 test_basic_raise = () i32 {
@@ -92,6 +92,7 @@ test_complex_raise = () i32 {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("═══════════════════════════════════════════")
     io.println("         .RAISE() TEST SUITE               ")
     io.println("═══════════════════════════════════════════")

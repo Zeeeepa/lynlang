@@ -1,5 +1,5 @@
 // Complete test for .raise() functionality
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 process_result = () Result<i32, string> {
     // Create an Ok Result  
@@ -26,6 +26,7 @@ test_error_propagation = () Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test Ok path
     result1 = process_result()
     result1 ?

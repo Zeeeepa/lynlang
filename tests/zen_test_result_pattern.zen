@@ -1,8 +1,8 @@
 // Test Result pattern matching in expression context
-{io, Option, Result} = @std
+{io, Option, Result, get_default_allocator} = @std
 
 // Import Result and Option from stdlib
-{io, Option, Result} = @std
+{io, Option, Result, get_default_allocator} = @std
 
 // Function with pattern matching as expression
 test_pattern = () Result<i32, string> {
@@ -15,6 +15,7 @@ test_pattern = () Result<i32, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing pattern matching")
     result = test_pattern()
     

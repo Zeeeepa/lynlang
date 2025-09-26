@@ -1,5 +1,5 @@
 // Test raise() step by step
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Function that returns Result<Result<i32, string>, string>
 get_nested = () Result<Result<i32, string>, string> {
@@ -8,6 +8,7 @@ get_nested = () Result<Result<i32, string>, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     // Get the outer Result
     outer = get_nested()
     

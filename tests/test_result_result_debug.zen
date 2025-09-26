@@ -1,5 +1,5 @@
 // Debug Result<Result<i32, string>, string> issue
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 test_inline = () void {
     io.println("Inline construction:")
@@ -40,6 +40,7 @@ test_from_function = () void {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Debugging Result<Result<>> ===")
     test_inline()
     test_with_variable()

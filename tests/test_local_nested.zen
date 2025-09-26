@@ -1,8 +1,9 @@
 // Test nested generics created locally vs in function
-{io, Result} = @std
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
+{io, Result, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Create nested Result locally
     inner1 = Result.Ok(77)
     outer1 = Result.Ok(inner1)

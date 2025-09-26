@@ -1,7 +1,8 @@
 // Test direct raise on variable
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing direct raise on variable")
     
     // Create a simple Result

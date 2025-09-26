@@ -1,11 +1,12 @@
-{io, Result} = @std
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
+{io, Result, get_default_allocator} = @std
 
 divide = (a: i32, b: i32) Result<i32, string> {
     Result.Ok(a / b)
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing .raise() inside closure that returns Result")
     
     test = () Result<i32, string> {

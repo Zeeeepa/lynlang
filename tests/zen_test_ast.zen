@@ -1,8 +1,9 @@
 // Test AST generation
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test 1: direct call (not working)
     (0..2).loop((i) {
         io.println("Direct: ${i}")

@@ -1,11 +1,12 @@
 // Test method chaining on generic function results
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 get_chained = () Result<Result<i32, string>, string> {
     Result.Ok(Result.Ok(500))
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing method chaining on nested generics")
     
     // Test 1: Store in intermediate variables (should work)

@@ -1,7 +1,8 @@
 // Test Option<Result> in void function
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Test: Option<Result> in void")
     
     get_option_result = () Option<Result<i32, string>> {

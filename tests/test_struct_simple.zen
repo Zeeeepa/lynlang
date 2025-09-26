@@ -1,5 +1,5 @@
 // Test simple struct definition and usage
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 // Define a simple struct
 Point: {
@@ -8,6 +8,7 @@ Point: {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     // Create a struct instance
     p = Point { x: 10.0, y: 20.0 }
     

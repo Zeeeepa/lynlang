@@ -1,7 +1,8 @@
 // Debug test for nested generic inspection
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Create inner Result.Ok(42)
     inner = Result.Ok(42)
     

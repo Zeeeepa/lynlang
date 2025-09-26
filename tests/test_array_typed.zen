@@ -1,7 +1,8 @@
 // Test Array with explicit typing
-{ io, Array } = @std
+{ io, Array , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Try with explicit type annotation
     arr: Array<i32> = Array<i32>()
     io.println("Array created")

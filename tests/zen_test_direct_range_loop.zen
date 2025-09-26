@@ -1,4 +1,5 @@
 main = () void {
+    alloc = get_default_allocator()
     // Direct range.loop() without assignment
     (0..10).loop((i) {
         io.println("test")

@@ -1,8 +1,8 @@
 // Test string methods and operations
-{io, Option} = @std
-{io, Option} = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== String Methods Test ===")
     
     // Test string interpolation

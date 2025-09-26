@@ -1,5 +1,5 @@
 // Test .raise() with function calls returning Result<T,E>
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // Helper function that returns Result<i32, string>
 compute = (x: i32) Result<i32, string> {
@@ -21,6 +21,7 @@ process = () Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     result = process()
     result ?
         | Result.Ok(v) { 

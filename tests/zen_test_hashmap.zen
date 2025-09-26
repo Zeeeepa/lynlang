@@ -1,7 +1,7 @@
 // Consolidated HashMap tests
 // Combines functionality from multiple test_hashmap_*.zen files
 
-{io, Option, HashMap, get_default_allocator} = @std
+{ io, Option, HashMap, get_default_allocator } = @std
 
 // Test 1: Basic HashMap operations
 test_basic_hashmap = () void {
@@ -65,12 +65,12 @@ test_string_value_hashmap = () void {
     io.println("Inserted string values")
     
     // Get values
-    for i in 1..4 {
+    (1..4).loop((i) {
         result = map.get(i)
         result ?
             | Some(word) { io.println("${i} = ${word}") }
             | None { io.println("${i} not found") }
-    }
+    })
 }
 
 // Test 4: HashMap remove operations
@@ -93,12 +93,12 @@ test_hashmap_remove = () void {
         | None { io.println("Nothing to remove") }
     
     // Check remaining items
-    for i in 1..4 {
+    (1..4).loop((i) {
         result = map.get(i)
         result ?
             | Some(val) { io.println("Key ${i}: ${val}") }
             | None { io.println("Key ${i}: not found") }
-    }
+    })
 }
 
 // Test 5: HashMap with Option values
@@ -215,5 +215,3 @@ main = () void {
     
     io.println("=== HashMap Tests Complete ===")
 }
-
-main()

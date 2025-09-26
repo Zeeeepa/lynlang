@@ -1,7 +1,8 @@
 // Simplified consolidated Option tests
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Option Type Tests ===")
     
     // Test 1: Basic Some and None

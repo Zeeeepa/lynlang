@@ -1,8 +1,9 @@
 // Debug range loop issue
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Starting range test")
     
     // Test 1: Simple range

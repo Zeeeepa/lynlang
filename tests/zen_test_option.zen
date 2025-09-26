@@ -1,7 +1,7 @@
 // Consolidated Option type tests
 // Combines functionality from multiple test_option_*.zen files
 
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 // Test 1: Basic Some and None
 test_basic_option = () void {
@@ -93,6 +93,7 @@ test_nested_option = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Option Type Tests ===")
     io.println("")
     

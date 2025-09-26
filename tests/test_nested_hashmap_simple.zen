@@ -1,7 +1,8 @@
 // Test nested generics with HashMap
-{io, HashMap, Option, Result, DynVec} = @std
+{io, HashMap, Option, Result, DynVec, get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Nested Generics in Collections ===")
     
     // Test 1: HashMap with Option values

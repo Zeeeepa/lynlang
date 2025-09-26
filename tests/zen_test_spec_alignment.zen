@@ -1,9 +1,10 @@
 // Test file to verify alignment with LANGUAGE_SPEC.zen
 
 // Test imports - only @std and @this are special
-{ io, maths } = @std
+{ io, maths , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Test variable declarations - all forms from spec
     x: i32           // forward declaration (immutable)
     x = 10          // initialization

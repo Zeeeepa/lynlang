@@ -1,5 +1,5 @@
 // Comprehensive test for .raise() with function call results
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Test 1: Basic function returning Result<i32, string>
 get_number = () Result<i32, string> {
@@ -66,6 +66,7 @@ test_float_raise = () Result<f64, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test 1: Basic function call with raise
     test1 = get_number().raise()
     test1 == 42 ? {

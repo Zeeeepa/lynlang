@@ -1,7 +1,8 @@
 // Test triple nested Result only
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Test: Triple nested Result")
     
     get_triple_nested = () Result<Result<Result<i32, string>, string>, string> {

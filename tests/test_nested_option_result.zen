@@ -1,5 +1,5 @@
 // Test Option<Result<Option<i32>, string>> - triple nested
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 // Triple nested: Option<Result<Option<i32>, string>>
 get_triple_nested = () Option<Result<Option<i32>, string>> {
@@ -7,6 +7,7 @@ get_triple_nested = () Option<Result<Option<i32>, string>> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Testing Triple Nested Generic ===")
     
     deep = get_triple_nested()

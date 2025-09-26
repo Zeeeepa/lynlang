@@ -1,7 +1,8 @@
 // Test string.to_i32() and string.to_i64() methods
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing string.to_i32() and string.to_i64() methods...")
     
     // Test 1: Valid i32 conversion

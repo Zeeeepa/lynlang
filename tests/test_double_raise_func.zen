@@ -1,5 +1,5 @@
 // Test double raise in function
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 get_double_nested = () Result<Result<i32, string>, string> {
     Result.Ok(Result.Ok(100))
@@ -16,5 +16,6 @@ test_double_nested_result = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     test_double_nested_result()
 }

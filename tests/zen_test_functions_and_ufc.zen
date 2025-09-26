@@ -1,7 +1,7 @@
 // Function and UFC tests from LANGUAGE_SPEC.zen
 // Tests function definitions and Uniform Function Call
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 // Simple function
 add = (a: i32, b: i32) i32 {
@@ -42,6 +42,7 @@ double = (x: i32) i32 {
 // }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Regular function calls
     sum = add(5, 3)
     io.println("5 + 3 = ${sum}")

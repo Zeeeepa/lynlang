@@ -1,9 +1,10 @@
 // Advanced Generics Test Suite 2025-09-26
 // Tests the limits and robustness of generic type system
 
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Advanced Generics Test Suite ===")
     
     // Test 1: Simple nested generics

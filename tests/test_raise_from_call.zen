@@ -1,11 +1,12 @@
 // Test .raise() from function call result
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 get_result = () Result<i32, string> {
     return Result.Ok(42)
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test direct call and raise
     value = get_result().raise()
     

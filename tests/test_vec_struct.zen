@@ -1,5 +1,5 @@
 // Test Vec with struct element type
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 Point: {
     x: i32,
@@ -7,6 +7,7 @@ Point: {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Creating Vec<Point, 3>")
     
     vec = Vec<Point, 3>()

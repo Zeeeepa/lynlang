@@ -1,4 +1,4 @@
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 // Function that returns Option<i32>
 get_option = () Option<i32> {
@@ -6,6 +6,7 @@ get_option = () Option<i32> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     result ::= get_option()
     
     result ?

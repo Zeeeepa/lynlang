@@ -1,6 +1,7 @@
 // Simple test for string.index_of() method
 
 main = () i32 {
+    alloc = get_default_allocator()
     text = "Hello, World!"
     
     // Simple test

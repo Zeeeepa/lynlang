@@ -1,7 +1,8 @@
 // Test string.split() method - returns Array<string> but array methods not yet fully implemented
-{io, Array} = @std
+{io, Array, get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test basic split - returns memory address of Array<string>
     s ::= "hello,world,test"
     parts ::= s.split(",")  // Returns Array<string> with 3 elements

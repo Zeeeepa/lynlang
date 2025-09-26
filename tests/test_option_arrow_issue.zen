@@ -1,7 +1,8 @@
 // Test Option arrow syntax issue
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with Some - should work
     opt1 = Option.Some(10)
     result1 = opt1 ?

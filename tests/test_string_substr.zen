@@ -1,7 +1,8 @@
 // Test string.substr() method
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing string.substr() method...")
     
     // Test 1: Basic substring extraction

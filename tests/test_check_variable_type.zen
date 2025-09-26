@@ -1,7 +1,8 @@
 // Check how variable type is determined
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     x = 3  // Should be i32 by default
     y: i32 = x  // This should work if x is i32
     io.println("y = ${y}")

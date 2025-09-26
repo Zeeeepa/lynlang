@@ -1,6 +1,7 @@
-{io, Option} = @std
+{io, Option, get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with explicit i32
     x: i32 = 42
     opt = Option.Some(x)

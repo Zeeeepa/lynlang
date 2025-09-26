@@ -1,7 +1,8 @@
 // Minimal test for Array<Option<i32>> push
-{ io, Option, Array } = @std
+{ io, Option, Array , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Creating Array<Option<i32>>")
     arr = Array<Option<i32>>()
     

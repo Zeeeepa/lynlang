@@ -2,6 +2,7 @@
 // Tests all variable declaration forms
 
 main = () void {
+    alloc = get_default_allocator()
     // Forward declaration (immutable)
     x: i32
     x = 10

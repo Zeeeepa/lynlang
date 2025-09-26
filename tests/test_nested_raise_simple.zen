@@ -1,11 +1,12 @@
 // Simple test for nested raise
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 get_nested = () Result<Result<i32, string>, string> {
     Result.Ok(Result.Ok(42))
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing nested raise...")
     
     // Get the outer Result

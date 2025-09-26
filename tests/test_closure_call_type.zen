@@ -1,7 +1,8 @@
 // Test what type a closure call returns
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Closure with params
     add = (a: i32, b: i32) {
         io.println("In closure")

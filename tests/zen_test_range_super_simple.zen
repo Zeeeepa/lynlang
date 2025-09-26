@@ -1,5 +1,6 @@
 // Simplest possible range loop test
 
 main = () void {
+    alloc = get_default_allocator()
     (0..3).loop((i) {})
 }

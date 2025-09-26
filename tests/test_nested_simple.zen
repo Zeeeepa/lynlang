@@ -1,7 +1,8 @@
 // Simple nested generics test
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Simple Nested Generics Test ===")
     
     // Test 1: Option<Result> from function

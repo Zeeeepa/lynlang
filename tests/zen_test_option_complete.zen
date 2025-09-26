@@ -1,8 +1,9 @@
 // Comprehensive test suite for Option<T> type
 // Consolidates all Option tests into a single file
-{io, Option} = @std
+{io, Option, get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("═══════════════════════════════════════════")
     io.println("           OPTION<T> TEST SUITE            ")
     io.println("═══════════════════════════════════════════")

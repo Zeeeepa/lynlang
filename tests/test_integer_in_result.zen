@@ -1,5 +1,5 @@
 // Test integers in Result
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 test_inline = () void {
     io.println("Testing inline Result with large integers:")
@@ -27,6 +27,7 @@ test_from_function = () void {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("=== Testing Integers in Result ===")
     test_inline()
     test_from_function()

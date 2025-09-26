@@ -1,7 +1,8 @@
 // Comprehensive test for string.char_at() method
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with ASCII string
     hello ::= "Hello, World!"
     

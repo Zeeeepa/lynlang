@@ -1,7 +1,8 @@
 // Test Option with arithmetic
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with arithmetic in Some
     calc = Some(10 + 15)
     io.println("Created Some(25)")

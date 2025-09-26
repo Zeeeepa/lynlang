@@ -2,26 +2,27 @@
 // Tests @std imports and destructuring
 
 // Destructuring imports (lines 91-94)
-{ io, maths } = @std
-{ String, StringBuilder } = @std
+{ io, maths , get_default_allocator} = @std
+{ String, StringBuilder , get_default_allocator} = @std
 
 // Meta imports - not yet implemented
-// { requires, implements, reflect, meta, inline, simd } = @std
+// { requires, implements, reflect, meta, inline, simd , get_default_allocator} = @std
 
 // Memory/allocator imports - not yet implemented
-// { GPA, AsyncPool, Allocator} = @std
+// { GPA, AsyncPool, Allocator, get_default_allocator} = @std
 
 // Collection imports - disabled as DynVec is not fully working
-// { DynVec } = @std
+// { DynVec , get_default_allocator} = @std
 
 // Concurrency imports - not yet implemented
-// { Actor, Channel, Mutex, AtomicU32 } = @std
+// { Actor, Channel, Mutex, AtomicU32 , get_default_allocator} = @std
 
 // External module imports - not yet implemented
 // sdl2 = @std.import("sdl2")
 // ecs = @std.import("ecs")
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Use imported io
     io.println("Testing imports")
     

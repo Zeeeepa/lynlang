@@ -1,6 +1,7 @@
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     s = "42.5"
     opt = s.to_f64()
     

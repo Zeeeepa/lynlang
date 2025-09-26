@@ -1,7 +1,8 @@
 // Debug opt1 type issue
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     opt1 = Option.None
     
     // Try to use opt1 in a simple pattern match

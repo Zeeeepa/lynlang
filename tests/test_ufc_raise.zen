@@ -1,5 +1,5 @@
 // Test UFC with .raise()
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 maybe_fail = (fail: bool) Result<i32, string> {
     fail ? {
@@ -9,6 +9,7 @@ maybe_fail = (fail: bool) Result<i32, string> {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test that maybe_fail returns a Result
     result = maybe_fail(false)
     io.println("Result created")

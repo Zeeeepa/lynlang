@@ -1,7 +1,8 @@
 // Test HashMap with Option values
-{ io, Option, HashMap, HashSet } = @std
+{ io, Option, HashMap, HashSet , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing HashMap<string, Option<i32>>")
     
     // Create HashMap with Option values

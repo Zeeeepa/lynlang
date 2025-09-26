@@ -1,5 +1,5 @@
 // Test triple nested generics: Result<Option<Result<T, E>>, E>
-{ io, Result, Option } = @std
+{ io, Result, Option , get_default_allocator} = @std
 
 test_function = () Result<Option<Result<i32, string>>, string> {
     // Triple nesting!
@@ -9,6 +9,7 @@ test_function = () Result<Option<Result<i32, string>>, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing Result<Option<Result<i32, string>>, string>")
     
     result = test_function()

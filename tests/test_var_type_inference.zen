@@ -1,7 +1,8 @@
 // Test variable type inference
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Test: Variable type inference")
     
     // Store nested result in variable

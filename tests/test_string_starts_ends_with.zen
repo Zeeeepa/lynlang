@@ -1,6 +1,7 @@
 // Test string.starts_with() and string.ends_with() methods
 
 main = () i32 {
+    alloc = get_default_allocator()
     text = "Hello, World!"
     
     // Test starts_with

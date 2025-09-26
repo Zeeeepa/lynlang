@@ -1,7 +1,8 @@
 // Minimal test for Option<i32> pattern matching
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with integer payload only
     x = Some(42)
     x ?

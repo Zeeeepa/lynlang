@@ -1,8 +1,9 @@
 // Test range explicitly
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Create range first, then call loop
     my_range = (0..3)
     

@@ -1,7 +1,8 @@
 // Test using range directly without storing
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     x = 3
     // Use range directly in loop
     (0..x).loop((i) {

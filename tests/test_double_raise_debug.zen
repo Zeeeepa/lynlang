@@ -1,6 +1,6 @@
 // Debug double raise issue
-{io, Result} = @std
-{io, Result} = @std
+{io, Result, get_default_allocator} = @std
+{io, Result, get_default_allocator} = @std
 
 // Helper that returns Result<Result<i32, string>, string>
 get_double_result = () Result<Result<i32, string>, string> {
@@ -8,6 +8,7 @@ get_double_result = () Result<Result<i32, string>, string> {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Testing Double Raise ===")
     
     // First test: manual unwrapping

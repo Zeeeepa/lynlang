@@ -1,10 +1,11 @@
 // Simple test to isolate custom enum in Option issue
-{ io, Option } = @std
+{ io, Option , get_default_allocator} = @std
 
 // Very simple custom enum
 Simple : .HasValue(v: i32) | .NoValue
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing simple custom enum in Option")
     
     // Direct enum - should work

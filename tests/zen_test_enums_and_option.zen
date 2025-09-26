@@ -2,7 +2,7 @@
 // Tests enum definitions and Option<T> type
 
 // Import Result and Option from stdlib
-{ Result, Option } = @std
+{ Result, Option , get_default_allocator} = @std
 
 // Simple enum
 Shape:
@@ -16,6 +16,7 @@ GameEntity:
     | Powerup
 
 main = () void {
+    alloc = get_default_allocator()
     // Option handling - no null!
     maybe_radius: Option<f64> = Option.Some(5.5)
     maybe_radius ?

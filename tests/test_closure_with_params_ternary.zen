@@ -1,7 +1,8 @@
 // Test exactly like failing test
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Closure WITH PARAMS - this is the key difference
     multiply = (a: i32, b: i32) {
         return Result.Ok(a * b)

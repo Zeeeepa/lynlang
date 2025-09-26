@@ -1,7 +1,8 @@
 // Test Option<String> with block-based pattern matching
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Test with string payload - use blocks instead of arrow functions
     msg = Some("hello")
     

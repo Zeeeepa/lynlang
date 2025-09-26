@@ -1,8 +1,9 @@
 // Test direct loop vs functional loop
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     // Direct loop statement 
     counter ::= 0
     loop {

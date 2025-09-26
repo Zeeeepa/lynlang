@@ -1,7 +1,8 @@
 // Test that should work without pattern binding
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     x = Some(42)
     
     // Extract value directly

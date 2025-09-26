@@ -1,9 +1,10 @@
 // Loop and range tests from LANGUAGE_SPEC.zen lines 431-459
 // Tests all loop forms and range syntax
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Range iteration (lines 431-434)
     (0..10).loop((i) {
         io.println("Count: ${i}")

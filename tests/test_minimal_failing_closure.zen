@@ -1,7 +1,8 @@
 // Minimal test case for closure type issue
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // This closure has explicit return type
     test = () Result<i32, string> {
         return Result.Ok(42)

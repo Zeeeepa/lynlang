@@ -1,7 +1,8 @@
 // Test string.trim() method
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing string.trim() method...")
     
     // Test 1: Basic string with leading and trailing spaces

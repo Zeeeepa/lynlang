@@ -1,5 +1,5 @@
 // Simplified double raise test
-{ io, Result } = @std
+{ io, Result , get_default_allocator} = @std
 
 // First test without complex return type annotation
 simple_double_result = () void {
@@ -17,6 +17,7 @@ simple_double_result = () void {
 }
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Simplified Test ===")
     simple_double_result()
 }

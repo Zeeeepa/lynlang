@@ -1,8 +1,9 @@
 // Test capturing loop result
 
-{ io } = @std
+{ io , get_default_allocator} = @std
 
 main = () void {
+    alloc = get_default_allocator()
     result = (0..3).loop((i) {
         io.println("i = ${i}")
     })

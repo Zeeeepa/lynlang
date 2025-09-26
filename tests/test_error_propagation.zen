@@ -1,5 +1,5 @@
 // Test error propagation patterns in Zen
-{io, Result, Error, Array} = @std
+{io, Result, Error, Array, get_default_allocator} = @std
 
 // Example file operations that can fail
 FileError:
@@ -136,6 +136,7 @@ test_result_methods = () void {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("╔════════════════════════════════════════╗")
     io.println("║   ERROR PROPAGATION TEST SUITE        ║")
     io.println("╚════════════════════════════════════════╝")
