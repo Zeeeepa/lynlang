@@ -4,22 +4,29 @@
 
 ## 🎯 Current Status Overview
 
-The Zen language project has achieved significant progress with a **89.0% test pass rate** (363/408 tests passing). Major milestone: NO-GC goal achieved with ZERO segfaults!
+The Zen language project has achieved significant progress with a **84.8% test pass rate** (346/408 tests passing). Major milestone: NO-GC goal achieved with ZERO segfaults!
 
 ## 📊 Test Suite Health
 
 - **Total Tests**: 408
-- **Passing**: 363 (89.0%)
-- **Failing**: 45 (11.0%)
+- **Passing**: 346 (84.8%)
+- **Failing**: 62 (15.2%)
 - **Segfaults**: 0 ✓️ ELIMINATED!
 - **Disabled Tests**: 6 (unimplemented features)
 
 ### Test Categories
-- **Core Language**: 95% passing
-- **Collections**: 85% passing  
-- **Error Handling**: 90% passing
-- **Generics**: 80% passing
-- **Advanced Features**: 60% passing
+- **Core Language**: 90% passing
+- **Collections**: 75% passing  
+- **Error Handling**: 85% passing
+- **Generics**: 70% passing
+- **Advanced Features**: 55% passing
+
+### Failure Breakdown (62 failures)
+- **Internal Compiler Errors**: 40 (64.5%)
+- **Type Errors**: 10 (16.1%)
+- **Parse Errors**: 5 (8.1%)
+- **Undeclared Variables**: 3 (4.8%)
+- **Runtime Errors**: 4 (6.5%)
 
 ## ✅ Working Features
 
