@@ -1,0 +1,20 @@
+// Test comparison type mismatch
+{ io } = @std
+
+main = () void {
+    // Create array and get length
+    arr = Array<i32>()
+    arr.push(1)
+    length = arr.len()  // returns i64
+    
+    io.println("Length: ${length}")
+    
+    // Test direct comparison - this might be where the error is
+    i = 0  // i32
+    
+    // Try to use both variables
+    sum = i + length  // This should cause a type mismatch
+    io.println("Sum: ${sum}")
+    
+    io.println("Done")
+}

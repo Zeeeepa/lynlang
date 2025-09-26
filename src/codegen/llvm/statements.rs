@@ -152,7 +152,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 // This is crucial for generic types like Result<T,E>
                                 if let Ok(ast_type) = self.infer_expression_type(init_expr) {
                                     // Save the inferred AST type for later
-                                    // eprintln!("[DEBUG statements.rs] Inferred type for variable '{}': {:?}", name, ast_type);
                                     inferred_ast_type = Some(ast_type.clone());
                                     
                                     // Track generic types if this is a Result, Option, Array, etc.
@@ -173,6 +172,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             self.track_generic_type(format!("{}_Array_Element_Type", name), type_args[0].clone());
                                             self.generic_tracker.track_generic_type(&ast_type, name);
                                         } else if type_name == "HashMap" && type_args.len() == 2 {
+                                            // eprintln!("[DEBUG] Tracking HashMap<{:?}, {:?}> for variable '{}'", 
+                                            //     type_args[0], type_args[1], name);
                                             self.track_generic_type(format!("{}_HashMap_Key_Type", name), type_args[0].clone());
                                             self.track_generic_type(format!("{}_HashMap_Value_Type", name), type_args[1].clone());
                                             self.generic_tracker.track_generic_type(&ast_type, name);
@@ -1250,7 +1251,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             }
                         }
                         
-                        // eprintln!("[DEBUG VAR INSERT 1254] Variable {} with type {:?}", name, inferred_type);
+                        // eprintln!("[DEBUG VAR INSERT] Variable '{}' with type: {:?}", name, inferred_type);
                         self.variables.insert(
                             name.clone(),
                             super::VariableInfo {

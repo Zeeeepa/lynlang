@@ -1,23 +1,21 @@
-// Test simple HashMap
+// Test HashMap with string keys
 { io, Option, HashMap } = @std
 
 main = () void {
-    // Create a HashMap with i32 keys and values
-    map = HashMap<i32, i32>()
+    // Create a HashMap with string keys and i32 values
+    map = HashMap<string, i32>()
     
     io.println("HashMap created")
     
     // Try to insert a value
-    map.insert(1, 100)
+    map.insert("key1", 100)
     
     io.println("Value inserted")
     
     // Try to get the value
-    result = map.get(1)
+    result = map.get("key1")
     
     result ?
         | Some(val) { io.println("Got value: ${val}") }
         | None { io.println("Key not found") }
-    
-    io.println("Test complete")
 }

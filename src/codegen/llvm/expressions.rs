@@ -180,6 +180,43 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
             Expression::FunctionCall { name, .. } => {
+                // Check if this is a generic type constructor like HashMap<K,V>()
+                if name.contains('<') && name.contains('>') {
+                    // Parse the generic type from the name
+                    if let Some(angle_pos) = name.find('<') {
+                        let base_type = &name[..angle_pos];
+                        let type_params_str = &name[angle_pos+1..name.len()-1];
+                        
+                        // Parse type parameters (simple parsing for now)
+                        let type_args: Vec<AstType> = type_params_str
+                            .split(',')
+                            .map(|s| {
+                                let trimmed = s.trim();
+                                match trimmed {
+                                    "i8" => AstType::I8,
+                                    "i16" => AstType::I16,
+                                    "i32" => AstType::I32,
+                                    "i64" => AstType::I64,
+                                    "u8" => AstType::U8,
+                                    "u16" => AstType::U16,
+                                    "u32" => AstType::U32,
+                                    "u64" => AstType::U64,
+                                    "f32" => AstType::F32,
+                                    "f64" => AstType::F64,
+                                    "bool" => AstType::Bool,
+                                    "string" => AstType::String,
+                                    _ => AstType::I32, // Default
+                                }
+                            })
+                            .collect();
+                        
+                        return Ok(AstType::Generic {
+                            name: base_type.to_string(),
+                            type_args,
+                        });
+                    }
+                }
+                
                 // Check if we know the function's return type
                 if let Some(return_type) = self.function_types.get(name) {
                     Ok(return_type.clone())
@@ -391,7 +428,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // HashSet comparison methods return bool
                             Ok(AstType::Bool)
                         }
-                        _ => Ok(AstType::Void)
+                        _ => {
+                            // Try to look up the function for UFC
+                            if let Some(func_return_type) = self.function_types.get(method) {
+                                Ok(func_return_type.clone())
+                            } else {
+                                Ok(AstType::Void)
+                            }
+                        }
                     }
                 }
             }
@@ -483,14 +527,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 // Option::None -> Option<T> (with generic T)
                 // Try to get type from context first
                 if let Some(t) = self.generic_type_context.get("Option_Some_Type") {
-                    eprintln!("[DEBUG] Expression::None has context type: {:?}", t);
+                    // eprintln!("[DEBUG] Expression::None has context type: {:?}", t);
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
                         type_args: vec![t.clone()],
                     })
                 } else {
                     // Default to Option<T> with generic T
-                    eprintln!("[DEBUG] Expression::None defaulting to Option<T>");
+                    // eprintln!("[DEBUG] Expression::None defaulting to Option<T>");
                     Ok(AstType::Generic {
                         name: "Option".to_string(),
                         type_args: vec![AstType::Generic { 
@@ -6213,9 +6257,28 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let start_val = self.compile_expression(start)?;
         let end_val = self.compile_expression(end)?;
 
-        // Ensure both are integers
+        // Ensure both are integers and convert to same type
         let (start_int, end_int) = match (start_val, end_val) {
-            (BasicValueEnum::IntValue(s), BasicValueEnum::IntValue(e)) => (s, e),
+            (BasicValueEnum::IntValue(s), BasicValueEnum::IntValue(e)) => {
+                // Ensure both integers are the same type
+                if s.get_type() != e.get_type() {
+                    // Convert both to i64 for consistency
+                    let i64_type = self.context.i64_type();
+                    let s_extended = if s.get_type() == self.context.i32_type() {
+                        self.builder.build_int_s_extend(s, i64_type, "start_extended")?
+                    } else {
+                        s
+                    };
+                    let e_extended = if e.get_type() == self.context.i32_type() {
+                        self.builder.build_int_s_extend(e, i64_type, "end_extended")?
+                    } else {
+                        e
+                    };
+                    (s_extended, e_extended)
+                } else {
+                    (s, e)
+                }
+            },
             _ => {
                 return Err(CompileError::InternalError(
                     "Range bounds must be integers".to_string(),
@@ -6283,11 +6346,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.symbols.insert(&param_name, Symbol::Variable(loop_var));
 
         // Also store in the variables map for compatibility
+        // Determine the actual type of the loop variable
+        let loop_var_type = if start_int.get_type() == self.context.i64_type() {
+            crate::ast::AstType::I64
+        } else {
+            crate::ast::AstType::I32
+        };
+        
         self.variables.insert(
             param_name.clone(),
             super::VariableInfo {
                 pointer: loop_var,
-                ast_type: crate::ast::AstType::I32,
+                ast_type: loop_var_type,
                 is_mutable: true, // Loop variables are mutable
                 is_initialized: true,
             },
@@ -8382,6 +8452,25 @@ impl<'ctx> LLVMCompiler<'ctx> {
         param: &str,
         body: &Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Ensure both values are the same type
+        let (start_val, end_val) = if start_val.get_type() != end_val.get_type() {
+            // Convert both to i64 for consistency
+            let i64_type = self.context.i64_type();
+            let s_extended = if start_val.get_type() == self.context.i32_type() {
+                self.builder.build_int_s_extend(start_val, i64_type, "start_extended")?
+            } else {
+                start_val
+            };
+            let e_extended = if end_val.get_type() == self.context.i32_type() {
+                self.builder.build_int_s_extend(end_val, i64_type, "end_extended")?
+            } else {
+                end_val
+            };
+            (s_extended, e_extended)
+        } else {
+            (start_val, end_val)
+        };
+
         // Create loop blocks
         let loop_header = self
             .context
@@ -8439,11 +8528,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
         self.symbols.insert(param, Symbol::Variable(loop_var));
 
         // Also store in the variables map for compatibility
+        // Determine the actual type of the loop variable
+        let loop_var_type = if start_val.get_type() == self.context.i64_type() {
+            crate::ast::AstType::I64
+        } else {
+            crate::ast::AstType::I32
+        };
+        
         self.variables.insert(
             param.to_string(),
             super::VariableInfo {
                 pointer: loop_var,
-                ast_type: crate::ast::AstType::I32,
+                ast_type: loop_var_type,
                 is_mutable: false, // Loop variables are immutable
                 is_initialized: true,
             },

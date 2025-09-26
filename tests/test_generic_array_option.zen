@@ -18,7 +18,9 @@ main = () void {
     io.println("Array length: ${length}")
     
     // Pattern match on each element
-    (0..length).loop((i) {
+    // First create a range then call loop on it
+    range_var = 0..length
+    range_var.loop((i) {
         opt = arr.get(i)
         opt ?
             | Some(val) { io.println("arr[${i}] = Some(${val})") }

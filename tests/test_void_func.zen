@@ -1,0 +1,12 @@
+// Test void function
+{ io } = @std
+
+myfunc = () void {
+    io.println("Hello from myfunc")
+}
+
+main = () void {
+    io.println("Starting main")
+    myfunc()
+    io.println("Done")
+}

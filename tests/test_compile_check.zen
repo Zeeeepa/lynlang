@@ -1,0 +1,26 @@
+// Check what gets compiled
+{ io } = @std
+
+double = (x: i32) i32 {
+    io.println("double called with ${x}")
+    return x * 2
+}
+
+main = () i32 {
+    io.println("Starting main")
+    
+    // This works
+    direct = double(5)
+    io.println("Direct: ${direct}")
+    
+    // This should fail type inference
+    io.println("About to call UFC")
+    value = 10
+    io.println("value = ${value}")
+    
+    // Try UFC
+    result = value.double()
+    io.println("UFC: ${result}")
+    
+    return 0
+}

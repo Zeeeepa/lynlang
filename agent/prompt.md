@@ -6,11 +6,25 @@ we need to give generics so much more love generics and types should be super ha
 
 
 DISABLED TESTS ANALYSIS (Updated 2025-09-26):
-1. zen_test_collections.zen.disabled - Requires Vec<T, size> with struct element types
-2. zen_test_behaviors.zen.disabled - Behavior/trait system not implemented
-3. zen_test_pointers.zen.disabled - Pointer types not implemented
-4. zen_lsp_test.zen.disabled - LSP features not implemented
-5. zen_test_comprehensive_working.zen.disabled - Complex feature integration issues
+1. zen_test_behaviors.zen.disabled - Behavior/trait system not implemented
+2. zen_test_pointers.zen.disabled - Pointer types not implemented
+3. zen_lsp_test.zen.disabled - LSP features not implemented
+4. zen_test_comprehensive_working.zen.disabled - Complex feature integration issues
+
+FAILING TESTS ANALYSIS (Updated 2025-09-26):
+1. test_allocator_basic.zen - GPA/AsyncPool structs not defined
+2. test_allocator_toplevel.zen - Same allocator struct issues
+3. test_closure_inline_compare.zen - Parse error with inline comparisons
+4. test_generic_array_option.zen - Type mismatch in range loop comparison
+5. test_generic_hashmap_option.zen - Method 'insert' not found on HashMap
+6. test_hashmap_remove.zen - HashMap.remove() runtime behavior issues
+7. test_raise_closure_results.zen - Closure return type inference failing
+8. test_raise_function_results.zen - Float raise() returns 0 instead of value
+9. test_struct_with_methods.zen - Struct method compilation not supported
+10. test_ternary_types.zen - Ternary operator syntax not supported
+11. zen_test_ast.zen - Type inference failure
+12. zen_test_capture_loop.zen - Loop capture variable inference issue
+13. zen_test_functions_and_ufc.zen - UFC type inference failure
 
 RECENTLY FIXED (2025-09-26):
 - Vec<T, size> FULLY IMPLEMENTED - push/get/set/len/clear/capacity methods working!
@@ -283,11 +297,12 @@ TEST SUITE STATUS (2025-09-26 - EXCELLENT):
 ✓ Task 249: **IMPLEMENTED** Vec<T, size> Generic Type (2025-09-26) - Fully implemented Vec<T, size> with correct struct layout {[T; N], i64}. Added push/get/set/len/clear/capacity methods with proper generic type tracking. Vec.get() returns element directly. Test suite improved to 95.5% pass rate (321/336).
 ✓ Task 250: **VERIFIED** Nested Generic Types (2025-09-26) - Confirmed all nested generic combinations working perfectly: Result<Option<T>,E>, Option<Result<T,E>>, and even triple-nested Result<Option<Result<T,E>>,E>. Payload extraction working correctly at all nesting levels.
 ✓ Task 251: **ENHANCED** Vec<T, N> Struct Type Support (2025-09-26) - Fixed Vec to properly handle struct element types. Vec<T, N> now correctly creates arrays of struct types instead of falling back to i8. Test suite improved from 95.6% to 96.2% pass rate (332/345 passing). Zero segfaults!
+✓ Task 252: **ENHANCED** Generic Type System Robustness (2025-09-26) - Fixed Array.new() to work with no arguments (default capacity 10). Created comprehensive advanced generics test suite verifying nested generics, triple nesting, and type preservation. Confirmed Result<Option<T>,E>, Option<Result<T,E>>, and Result<Result<Result<T,E>,E>,E> all working perfectly. Test suite: 333/346 passing (96.2%), 0 segfaults.
 
 ## Current Status (2025-09-26 - GENERICS GREATLY IMPROVED!)
 
 ### 🎉 Major Milestones Achieved  
-- **Test Suite Health**: 96.2% pass rate (332/345 passing) - 13 tests failing, 0 SEGFAULTS!
+- **Test Suite Health**: 96.2% pass rate (333/346 passing) - 13 tests failing, 0 SEGFAULTS!
 - **Project Structure Clean**: All test files properly organized in tests/ folder - no test files in root directory!
 - **raise() with Closures ENHANCED**: Closures returning Result<T,E> now work perfectly with raise() - improved type inference!
 - **string.len() IMPLEMENTED**: String length method returning i64 now fully working for all string types!

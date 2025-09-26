@@ -1,0 +1,13 @@
+// Debug test for range types
+{ io } = @std
+
+main = () void {
+    // Create a range variable first
+    my_range = 0..5
+    
+    my_range.loop((i) {
+        io.println("i = ${i}")
+    })
+    
+    io.println("Test passed!")
+}

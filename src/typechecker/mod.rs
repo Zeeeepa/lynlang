@@ -1464,10 +1464,9 @@ impl TypeChecker {
                     }
                 }
 
-                // If no specific handling found, try to resolve as UFC
-                // For now, return the object type as a fallback
-                // TODO: Implement full UFC resolution with function lookup
-                Ok(object_type)
+                // If no specific handling found, return void as a fallback for unknown method calls
+                // This is because most method calls without explicit handling are side-effect operations
+                Ok(AstType::Void)
             }
             Expression::Loop { body: _ } => {
                 // Loop expressions return void for now
@@ -1501,7 +1500,7 @@ impl TypeChecker {
                                         return_type: Box::new(ret_type),
                                     });
                                 } else {
-                                    eprintln!("[DEBUG TYPECHECKER] Failed to infer closure return type");
+                                    // eprintln!("[DEBUG TYPECHECKER] Failed to infer closure return type");
                                 }
                             }
                         }
@@ -1737,7 +1736,7 @@ impl TypeChecker {
             }
             Expression::None => {
                 // Option::None -> Option<T>
-                eprintln!("[DEBUG typechecker] Expression::None returning Option<T>");
+                // eprintln!("[DEBUG typechecker] Expression::None returning Option<T>");
                 Ok(AstType::Generic {
                     name: "Option".to_string(),
                     type_args: vec![AstType::Generic {
