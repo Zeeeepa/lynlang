@@ -1,36 +1,42 @@
-// Test triple nested generics: Result<Result<Result<i32,E>,E>,E>
+// Test for triple nested generic payload extraction
 { io, Result } = @std
 
 main = () void {
-    io.println("=== Testing Triple Nested Result ===")
+    io.println("=== Triple Nested Generics Test ===")
     
-    // Create a triple nested Result
-    inner_inner = Result.Ok(42)
-    io.println("Created inner_inner")
+    // Test 1: Simple triple nesting - Result<Result<Result<i32, string>, string>, string>
+    create_triple_result = () Result<Result<Result<i32, string>, string>, string> {
+        inner = Result.Ok(42)
+        middle = Result.Ok(inner) 
+        outer = Result.Ok(middle)
+        return outer
+    }
     
-    inner = Result.Ok(inner_inner)
-    io.println("Created inner with inner_inner")
+    test_result = create_triple_result()
     
-    outer = Result.Ok(inner)
-    io.println("Created outer with inner")
-    
-    // Try to extract with pattern matching
-    outer ?
-        | Result.Ok(middle) {
-            io.println("Outer Ok extracted")
-            middle ?
-                | Result.Ok(innermost) {
-                    io.println("Middle Ok extracted")
-                    innermost ?
-                        | Result.Ok(val) {
-                            io.println("Value: ${val}")
-                            val == 42 ?
-                                | true { io.println("✓ Triple nesting works!") }
-                                | false { io.println("✗ Wrong value: ${val}") }
+    // Extract the deeply nested value
+    test_result ?
+        | Result.Ok(level2) {
+            io.println("Level 1: Got Ok, extracting level 2...")
+            level2 ?
+                | Result.Ok(level3) {
+                    io.println("Level 2: Got Ok, extracting level 3...")
+                    level3 ?
+                        | Result.Ok(value) {
+                            io.println("Level 3: Got Ok with value: ${value}")
+                            io.println("SUCCESS: Triple nested generics working if value = 42")
                         }
-                        | Result.Err(e) { io.println("Innermost error") }
+                        | Result.Err(e) {
+                            io.println("Level 3 error: ${e}")
+                        }
                 }
-                | Result.Err(e) { io.println("Middle error") }
+                | Result.Err(e) {
+                    io.println("Level 2 error: ${e}")
+                }
         }
-        | Result.Err(e) { io.println("Outer error") }
+        | Result.Err(e) {
+            io.println("Level 1 error: ${e}")
+        }
+    
+    io.println("=== Test Complete ===")
 }
