@@ -1,0 +1,59 @@
+// Standard library module index
+// This file re-exports all stdlib components
+
+// Core types and utilities
+export {
+    Option, Some, None,
+    Result, Ok, Err
+} from "./core/option.zen", "./core/result.zen"
+
+// Collection types
+export {
+    HashMap,
+    DynVec,
+    Array,
+    Vec
+} from "./collections/hashmap.zen"
+
+// Memory management
+export {
+    Allocator,
+    get_default_allocator,
+    ArenaAllocator,
+    StackAllocator
+} from "./memory/allocator.zen"
+
+// Math functions (built-in)
+export {
+    min,
+    max,
+    abs,
+    sqrt,
+    pow,
+    sin,
+    cos,
+    tan
+}
+
+// IO functions (built-in) 
+export {
+    print,
+    println,
+    print_int,
+    print_float,
+    read_line,
+    read_file,
+    write_file
+}
+
+// String utilities (built-in)
+export {
+    to_string,
+    parse_int,
+    parse_float,
+    concat,
+    split,
+    trim,
+    to_upper,
+    to_lower
+}

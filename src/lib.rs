@@ -13,7 +13,7 @@ pub mod comptime;
 pub mod error;
 pub mod ffi;
 pub mod lexer;
-pub mod lsp;
+// pub mod lsp;  // Moved to separate binary
 pub mod module_system;
 pub mod parser;
 pub mod stdlib;

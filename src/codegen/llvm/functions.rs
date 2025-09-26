@@ -3454,6 +3454,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 })?)
             }
         } else if let Ok((alloca, var_type)) = self.get_variable(name) {
+            // Check if this is an imported math function
+            if (name == "min" || name == "max" || name == "abs") && matches!(var_type, AstType::Function { .. }) {
+                return self.compile_math_function(name, args);
+            }
+            
             // Function pointer call - load the function pointer from variable
             let function_ptr = self
                 .builder

@@ -936,6 +936,83 @@ impl TypeChecker {
                 // String interpolation always returns a string (pointer to char)
                 Ok(AstType::Ptr(Box::new(AstType::I8)))
             }
+            Expression::Closure { params, return_type, body } => {
+                // Infer closure type - create a FunctionPointer type
+                let param_types: Vec<AstType> = params
+                    .iter()
+                    .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
+                    .collect();
+
+                // If explicit return type provided, use it
+                if let Some(rt) = return_type {
+                    return Ok(AstType::FunctionPointer {
+                        param_types,
+                        return_type: Box::new(rt.clone()),
+                    });
+                }
+
+                // Otherwise, need to infer return type from body with proper scoping
+                // Temporarily add closure parameters to scope for return type inference
+                self.enter_scope();
+                for (_i, (param_name, opt_type)) in params.iter().enumerate() {
+                    let param_type = opt_type.clone().unwrap_or(AstType::I32);
+                    let _ = self.declare_variable(param_name, param_type.clone(), false);
+                }
+
+                // Infer return type from body
+                let inferred_return = match body.as_ref() {
+                    Expression::Block(stmts) => {
+                        // First, process variable declarations to populate the scope
+                        for stmt in stmts {
+                            match stmt {
+                                crate::ast::Statement::VariableDeclaration { .. } |
+                                crate::ast::Statement::VariableAssignment { .. } => {
+                                    let _ = self.check_statement(stmt);
+                                }
+                                _ => {}
+                            }
+                        }
+                        
+                        // Look for return statements
+                        let mut ret_type = Box::new(AstType::Void);
+                        for stmt in stmts {
+                            if let crate::ast::Statement::Return(ret_expr) = stmt {
+                                if let Ok(rt) = self.infer_expression_type(ret_expr) {
+                                    ret_type = Box::new(rt);
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // If void from return search, check last expression
+                        if matches!(*ret_type, AstType::Void) {
+                            if let Some(crate::ast::Statement::Expression(last_expr)) = stmts.last() {
+                                if let Ok(rt) = self.infer_expression_type(last_expr) {
+                                    ret_type = Box::new(rt);
+                                }
+                            }
+                        }
+                        
+                        ret_type
+                    }
+                    _ => {
+                        // Simple expression body
+                        if let Ok(rt) = self.infer_expression_type(body) {
+                            Box::new(rt)
+                        } else {
+                            Box::new(AstType::I32)
+                        }
+                    }
+                };
+
+                // Pop the temporary scope
+                self.exit_scope();
+
+                Ok(AstType::FunctionPointer {
+                    param_types,
+                    return_type: inferred_return,
+                })
+            }
             Expression::ArrayIndex { array, .. } => {
                 // Array indexing returns the element type
                 let array_type = self.infer_expression_type(array)?;
@@ -1376,6 +1453,21 @@ impl TypeChecker {
                         }
                     }
                 }
+                
+                // Special handling for DynVec type (not generic)
+                if let AstType::DynVec { element_types, .. } = &object_type {
+                    if !element_types.is_empty() {
+                        match method.as_str() {
+                            "get" | "pop" => return Ok(AstType::Generic {
+                                name: "Option".to_string(),
+                                type_args: vec![element_types[0].clone()],
+                            }),
+                            "len" => return Ok(AstType::I64),
+                            "push" | "set" | "clear" => return Ok(AstType::Void),
+                            _ => {}
+                        }
+                    }
+                }
 
                 // Try to find the function in scope
                 // The method call object.method(args) becomes method(object, args)
@@ -1435,6 +1527,19 @@ impl TypeChecker {
                     }
                 }
 
+                // Special handling for .raise() method which extracts T from Result<T,E>
+                if method == "raise" {
+                    // Get the type of the object being raised
+                    if let AstType::Generic { name, type_args } = &object_type {
+                        if name == "Result" && type_args.len() == 2 {
+                            // The raise() method returns the Ok type (T) from Result<T,E>
+                            return Ok(type_args[0].clone());
+                        }
+                    }
+                    // If not a Result type, return Void (will error during compilation)
+                    return Ok(AstType::Void);
+                }
+                
                 // Special handling for built-in methods like .loop()
                 if method == "loop" {
                     // .loop() on ranges and collections returns void
@@ -1538,80 +1643,6 @@ impl TypeChecker {
             Expression::Loop { body: _ } => {
                 // Loop expressions return void for now
                 Ok(AstType::Void)
-            }
-            Expression::Closure { params, return_type: _, body } => {
-                // Infer closure type - create a FunctionPointer type
-                let param_types: Vec<AstType> = params
-                    .iter()
-                    .map(|(_, opt_type)| opt_type.clone().unwrap_or(AstType::I32))
-                    .collect();
-
-                // Temporarily add closure parameters to scope for return type inference
-                self.enter_scope();
-                for (_i, (param_name, opt_type)) in params.iter().enumerate() {
-                    let param_type = opt_type.clone().unwrap_or(AstType::I32);
-                    self.declare_variable(param_name, param_type.clone(), false)?;
-                }
-
-                // TODO: Properly infer return type from body
-                // For now, try to infer from the body if it's a simple return
-                let return_type = match body.as_ref() {
-                    Expression::Block(stmts) => {
-                        // First, process all variable declarations to populate the scope
-                        // This is necessary for return statements that reference these variables
-                        for stmt in stmts {
-                            match stmt {
-                                crate::ast::Statement::VariableDeclaration { .. } |
-                                crate::ast::Statement::VariableAssignment { .. } => {
-                                    // Process the statement to declare/update variables in scope
-                                    let _ = self.check_statement(stmt);
-                                }
-                                _ => {}
-                            }
-                        }
-                        
-                        // Now look for return statements with variables properly in scope
-                        for stmt in stmts {
-                            if let crate::ast::Statement::Return(ret_expr) = stmt {
-                                if let Ok(ret_type) = self.infer_expression_type(ret_expr) {
-                                    self.exit_scope();
-                                    return Ok(AstType::FunctionPointer {
-                                        param_types,
-                                        return_type: Box::new(ret_type),
-                                    });
-                                } else {
-                                    // eprintln!("[DEBUG TYPECHECKER] Failed to infer closure return type");
-                                }
-                            }
-                        }
-                        // If no explicit return, check last expression
-                        if let Some(crate::ast::Statement::Expression(last_expr)) = stmts.last() {
-                            if let Ok(ret_type) = self.infer_expression_type(last_expr) {
-                                Box::new(ret_type)
-                            } else {
-                                Box::new(AstType::Void)
-                            }
-                        } else {
-                            Box::new(AstType::Void)
-                        }
-                    }
-                    _ => {
-                        // Try to infer the return type from the body expression
-                        if let Ok(ret_type) = self.infer_expression_type(body) {
-                            Box::new(ret_type)
-                        } else {
-                            Box::new(AstType::I32) // Default to i32
-                        }
-                    }
-                };
-
-                // Pop the temporary scope
-                self.exit_scope();
-
-                Ok(AstType::FunctionPointer {
-                    param_types,
-                    return_type,
-                })
             }
             Expression::Raise(expr) => {
                 // .raise() unwraps a Result type and returns the Ok variant

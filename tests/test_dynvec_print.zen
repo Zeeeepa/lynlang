@@ -1,0 +1,19 @@
+// Debug DynVec with print
+{DynVec, get_default_allocator} = @std
+
+print_int = (n: i32) void {
+    // Built-in print_int is available
+}
+
+main = () i32 {
+    alloc = get_default_allocator()
+    vec = DynVec<i32>(alloc)
+    vec.push(42)
+    
+    // Get with pattern matching - but without io module
+    item = vec.get(0)
+    
+    item ?
+        | .Some(v) { print_int(v); return 0 }
+        | .None { return 0 }
+}

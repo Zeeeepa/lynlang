@@ -363,6 +363,18 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     }
                                 }
                             }
+                            
+                            // Also check for DynVec struct type (not generic)
+                            let object_type = self.infer_expression_type(object)?;
+                            if let AstType::DynVec { element_types, .. } = &object_type {
+                                if !element_types.is_empty() && (method == "get" || method == "pop") {
+                                    return Ok(AstType::Generic { 
+                                        name: "Option".to_string(), 
+                                        type_args: vec![element_types[0].clone()]
+                                    });
+                                }
+                            }
+                            
                             Ok(AstType::Void)
                         }
                         "push" | "set" | "clear" => {
@@ -2195,6 +2207,30 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     None,
                                 ));
                             }
+                            
+                            // Get the element type from the DynVec
+                            let element_ast_type = if let Some(var_info) = self.variables.get(obj_name) {
+                                if let AstType::DynVec { element_types, .. } = &var_info.ast_type {
+                                    if !element_types.is_empty() {
+                                        Some(element_types[0].clone())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
+                            
+                            let element_llvm_type = if let Some(ast_type) = element_ast_type {
+                                match self.to_llvm_type(&ast_type)? {
+                                    Type::Basic(basic_type) => basic_type,
+                                    _ => self.context.i64_type().into(),
+                                }
+                            } else {
+                                self.context.i64_type().into()
+                            };
 
                             let index = self.compile_expression(&args[0])?;
                             let index = if index.is_int_value() {
@@ -2254,16 +2290,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
 
                             // None block - return None
                             self.builder.position_at_end(none_block);
+                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                             let option_type = self.context.struct_type(
                                 &[
                                     self.context.i64_type().into(), // discriminant
-                                    self.context.i64_type().into(), // payload
+                                    ptr_type.into(),                // payload (pointer type to match standard Option layout)
                                 ],
                                 false,
                             );
                             let none_value = option_type.const_named_struct(&[
                                 self.context.i64_type().const_int(1, false).into(), // None = 1
-                                self.context.i64_type().const_int(0, false).into(), // dummy payload
+                                ptr_type.const_null().into(),                       // null pointer for None
                             ]);
                             self.builder.build_unconditional_branch(merge_block)?;
 
@@ -2289,24 +2326,37 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             // Get element at index
                             let element_ptr = unsafe {
                                 self.builder.build_gep(
-                                    self.context.i64_type(),
+                                    element_llvm_type,
                                     data_ptr,
                                     &[index],
-                                    "element_ptr",
+                                    "dynvec_get_element_ptr",
                                 )
                             }?;
 
                             let value = self.builder.build_load(
-                                self.context.i64_type(),
+                                element_llvm_type,
                                 element_ptr,
-                                "element_value",
+                                "dynvec_element_value",
                             )?;
 
-                            // Create Some(value)
-                            let some_value = option_type.const_named_struct(&[
-                                self.context.i64_type().const_int(0, false).into(), // Some = 0
-                                value.into(),
-                            ]);
+                            // Allocate memory for the value and store it
+                            let value_ptr = self.builder.build_alloca(element_llvm_type, "option_value_ptr")?;
+                            self.builder.build_store(value_ptr, value)?;
+
+                            // Create Some(value_ptr)
+                            let some_value = option_type.get_undef();
+                            let some_value = self.builder.build_insert_value(
+                                some_value,
+                                self.context.i64_type().const_int(0, false),
+                                0,
+                                "some_discriminant"
+                            )?;
+                            let some_value = self.builder.build_insert_value(
+                                some_value,
+                                value_ptr,
+                                1,
+                                "some_payload"
+                            )?;
 
                             self.builder.build_unconditional_branch(merge_block)?;
 
@@ -4657,15 +4707,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 if let Expression::Identifier(obj_name) = object.as_ref() {
                     // Check if this is actually a HashMap type
                     let is_hashmap = if let Some(var_info) = self.variables.get(obj_name) {
-                        eprintln!("[DEBUG] Checking var '{}' type: {:?}", obj_name, var_info.ast_type);
                         matches!(&var_info.ast_type, 
                             AstType::Generic { name, .. } if name == "HashMap")
                     } else {
-                        eprintln!("[DEBUG] Variable '{}' not found", obj_name);
                         false
                     };
-                    
-                    eprintln!("[DEBUG] is_hashmap = {}, method = '{}'", is_hashmap, method);
                     if is_hashmap {
                         // Compile HashMap method by prepending object to args and calling as function
                         // This works because HashMap methods are implemented as functions that take the HashMap as first arg
@@ -9044,6 +9090,23 @@ impl<'ctx> LLVMCompiler<'ctx> {
     /// Infer the return type of a closure from its body
     pub fn infer_closure_return_type(&self, body: &Expression) -> Result<AstType, CompileError> {
         match body {
+            Expression::QuestionMatch { arms, .. } => {
+                // For question match expressions, check the return types of all arms
+                // and return the first non-void type found (they should all be the same)
+                for arm in arms {
+                    if let Expression::Block(statements) = &arm.body {
+                        for stmt in statements {
+                            if let crate::ast::Statement::Return(ret_expr) = stmt {
+                                let ret_type = self.infer_expression_type(ret_expr)?;
+                                if ret_type != AstType::Void {
+                                    return Ok(ret_type);
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(AstType::Void)
+            }
             Expression::Block(statements) => {
                 // Look for the last expression or a return statement
                 for stmt in statements {

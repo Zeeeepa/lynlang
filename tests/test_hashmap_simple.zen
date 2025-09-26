@@ -1,0 +1,13 @@
+// Test simple HashMap
+{HashMap, get_default_allocator} = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    map = HashMap<i32, i32>(alloc)
+    map.insert(1, 42)
+    
+    // Try get
+    val = map.get(1)
+    
+    return 0
+}

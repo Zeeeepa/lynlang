@@ -1,0 +1,14 @@
+// Test HashMap with nested Option
+{HashMap, get_default_allocator, Option, Some, None} = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    
+    // Test HashMap<i32, Option<i32>>
+    map = HashMap<i32, Option<i32>>(alloc)
+    map.insert(1, Some(42))
+    
+    val = map.get(1)
+    
+    return 0
+}

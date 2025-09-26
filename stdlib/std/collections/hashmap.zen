@@ -1,0 +1,179 @@
+// HashMap implementation for Zen
+// Provides key-value storage with O(1) average access time
+
+{Option, Some, None} = @std.core
+{Allocator} = @std.memory
+
+// Bucket structure for HashMap entries
+struct HashBucket<K, V> {
+    occupied: bool,
+    key: K,
+    value: V,
+    hash: i64
+}
+
+// HashMap structure
+struct HashMap<K, V> {
+    allocator: Allocator,
+    buckets: DynVec<HashBucket<K, V>>,
+    size: i32,
+    capacity: i32
+}
+
+// Create a new HashMap with given allocator
+new = <K, V>(allocator: Allocator) HashMap<K, V> {
+    initial_capacity = 16
+    buckets = DynVec<HashBucket<K, V>>(allocator)
+    
+    // Initialize buckets
+    i = 0
+    loop(() {
+        i >= initial_capacity ? { break }
+        bucket = HashBucket<K, V> {
+            occupied: false,
+            key: undefined,    // Will be set when occupied
+            value: undefined,  // Will be set when occupied  
+            hash: 0
+        }
+        buckets.push(bucket)
+        i = i + 1
+    })
+    
+    return HashMap<K, V> {
+        allocator: allocator,
+        buckets: buckets,
+        size: 0,
+        capacity: initial_capacity
+    }
+}
+
+// Insert a key-value pair
+insert = <K, V>(map: HashMap<K, V>, key: K, value: V, hash_fn: (K) i64, eq_fn: (K, K) bool) void {
+    hash = hash_fn(key)
+    index = (hash % map.capacity as i64) as i32
+    
+    // Linear probing for collision resolution
+    attempts = 0
+    loop(() {
+        attempts >= map.capacity ? { panic("HashMap is full") }
+        
+        bucket = map.buckets.get(index)
+        bucket ?
+            | Some(b) {
+                !b.occupied ? {
+                    // Empty slot found
+                    new_bucket = HashBucket<K, V> {
+                        occupied: true,
+                        key: key,
+                        value: value,
+                        hash: hash
+                    }
+                    map.buckets.set(index, new_bucket)
+                    map.size = map.size + 1
+                    break
+                }
+                
+                // Check if key already exists
+                eq_fn(b.key, key) ? {
+                    // Update existing value
+                    updated = HashBucket<K, V> {
+                        occupied: true,
+                        key: key,
+                        value: value,
+                        hash: hash
+                    }
+                    map.buckets.set(index, updated)
+                    break
+                }
+                
+                // Continue probing
+                index = (index + 1) % map.capacity
+                attempts = attempts + 1
+            }
+            | None { panic("Invalid bucket index") }
+    })
+}
+
+// Get a value by key
+get = <K, V>(map: HashMap<K, V>, key: K, hash_fn: (K) i64, eq_fn: (K, K) bool) Option<V> {
+    hash = hash_fn(key)
+    index = (hash % map.capacity as i64) as i32
+    
+    attempts = 0
+    loop(() {
+        attempts >= map.capacity ? { break }
+        
+        bucket = map.buckets.get(index)
+        bucket ?
+            | Some(b) {
+                b.occupied ? {
+                    eq_fn(b.key, key) ? {
+                        return Some(b.value)
+                    }
+                    // Continue searching
+                    index = (index + 1) % map.capacity
+                    attempts = attempts + 1
+                } : {
+                    // Empty slot means key not found
+                    break
+                }
+            }
+            | None { break }
+    })
+    
+    return None
+}
+
+// Check if key exists
+contains_key = <K, V>(map: HashMap<K, V>, key: K, hash_fn: (K) i64, eq_fn: (K, K) bool) bool {
+    result = get(map, key, hash_fn, eq_fn)
+    result ?
+        | Some(_) { return true }
+        | None { return false }
+}
+
+// Remove a key-value pair
+remove = <K, V>(map: HashMap<K, V>, key: K, hash_fn: (K) i64, eq_fn: (K, K) bool) Option<V> {
+    hash = hash_fn(key)
+    index = (hash % map.capacity as i64) as i32
+    
+    attempts = 0
+    loop(() {
+        attempts >= map.capacity ? { break }
+        
+        bucket = map.buckets.get(index)
+        bucket ?
+            | Some(b) {
+                b.occupied && eq_fn(b.key, key) ? {
+                    old_value = b.value
+                    // Mark as unoccupied
+                    empty_bucket = HashBucket<K, V> {
+                        occupied: false,
+                        key: undefined,
+                        value: undefined,
+                        hash: 0
+                    }
+                    map.buckets.set(index, empty_bucket)
+                    map.size = map.size - 1
+                    return Some(old_value)
+                }
+                
+                // Continue searching
+                index = (index + 1) % map.capacity
+                attempts = attempts + 1
+            }
+            | None { break }
+    })
+    
+    return None
+}
+
+// Get the number of entries
+len = <K, V>(map: HashMap<K, V>) i32 {
+    return map.size
+}
+
+// Check if empty
+is_empty = <K, V>(map: HashMap<K, V>) bool {
+    return map.size == 0
+}

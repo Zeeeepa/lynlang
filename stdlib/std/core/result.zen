@@ -1,0 +1,64 @@
+// Result type - represents either success (Ok) or failure (Err)
+// Built-in enum type provided by the compiler
+
+// Result<T, E> is a built-in enum with two variants:
+// - Ok(T): operation succeeded with value T
+// - Err(E): operation failed with error E
+
+// Helper functions for working with Result types
+
+// is_ok checks if a Result is Ok
+is_ok = <T, E>(res: Result<T, E>) bool {
+    res ?
+        | .Ok(_) { return true }
+        | .Err(_) { return false }
+}
+
+// is_err checks if a Result is Err
+is_err = <T, E>(res: Result<T, E>) bool {
+    res ?
+        | .Ok(_) { return false }
+        | .Err(_) { return true }
+}
+
+// unwrap extracts the Ok value, panics on Err
+unwrap = <T, E>(res: Result<T, E>) T {
+    res ?
+        | .Ok(val) { return val }
+        | .Err(_) { panic("Called unwrap on Err value") }
+}
+
+// unwrap_err extracts the Err value, panics on Ok
+unwrap_err = <T, E>(res: Result<T, E>) E {
+    res ?
+        | .Ok(_) { panic("Called unwrap_err on Ok value") }
+        | .Err(err) { return err }
+}
+
+// unwrap_or returns Ok value or default
+unwrap_or = <T, E>(res: Result<T, E>, default: T) T {
+    res ?
+        | .Ok(val) { return val }
+        | .Err(_) { return default }
+}
+
+// map transforms the Ok value, preserves Err
+map = <T, U, E>(res: Result<T, E>, f: (T) U) Result<U, E> {
+    res ?
+        | .Ok(val) { return Ok(f(val)) }
+        | .Err(err) { return Err(err) }
+}
+
+// map_err transforms the Err value, preserves Ok
+map_err = <T, E, F>(res: Result<T, E>, f: (E) F) Result<T, F> {
+    res ?
+        | .Ok(val) { return Ok(val) }
+        | .Err(err) { return Err(f(err)) }
+}
+
+// and_then chains Result operations
+and_then = <T, U, E>(res: Result<T, E>, f: (T) Result<U, E>) Result<U, E> {
+    res ?
+        | .Ok(val) { return f(val) }
+        | .Err(err) { return Err(err) }
+}

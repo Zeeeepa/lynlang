@@ -1,0 +1,61 @@
+// Option type - represents an optional value
+// Built-in enum type provided by the compiler
+
+// Option<T> is a built-in enum with two variants:
+// - Some(T): contains a value
+// - None: no value
+
+// Helper functions for working with Option types
+
+// is_some checks if an Option contains a value
+is_some = <T>(opt: Option<T>) bool {
+    opt ?
+        | .Some(_) { return true }
+        | .None { return false }
+}
+
+// is_none checks if an Option is None
+is_none = <T>(opt: Option<T>) bool {
+    opt ?
+        | .Some(_) { return false }
+        | .None { return true }
+}
+
+// unwrap extracts the value from Some, panics on None
+unwrap = <T>(opt: Option<T>) T {
+    opt ?
+        | .Some(val) { return val }
+        | .None { panic("Called unwrap on None value") }
+}
+
+// unwrap_or returns the value from Some or a default value
+unwrap_or = <T>(opt: Option<T>, default: T) T {
+    opt ?
+        | .Some(val) { return val }
+        | .None { return default }
+}
+
+// map transforms the value inside Some, preserves None
+map = <T, U>(opt: Option<T>, f: (T) U) Option<U> {
+    opt ?
+        | .Some(val) { return Some(f(val)) }
+        | .None { return None }
+}
+
+// and_then chains Option operations (flatMap)
+and_then = <T, U>(opt: Option<T>, f: (T) Option<U>) Option<U> {
+    opt ?
+        | .Some(val) { return f(val) }
+        | .None { return None }
+}
+
+// filter keeps Some values that match predicate
+filter = <T>(opt: Option<T>, pred: (T) bool) Option<T> {
+    opt ?
+        | .Some(val) {
+            pred(val) ?
+                | true { return Some(val) }
+                | false { return None }
+        }
+        | .None { return None }
+}

@@ -101,7 +101,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let saved_ok_type = self.generic_type_context.get("Result_Ok_Type").cloned();
 
                 let llvm_type = match type_ {
-                    Some(type_) => self.to_llvm_type(type_)?,
+                    Some(type_) => {
+                        self.to_llvm_type(type_)?
+                    }
                     None => {
                         // Type inference - try to infer from initializer
                         if let Some(init_expr) = initializer {
@@ -127,7 +129,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     return_type: Box::new(inferred_return_type.clone()),
                                 };
                                 
-                                // DON'T insert into function_types here with just the return type - that's wrong!
+                                // Track the function's return type for later lookup when it's called
+                                // This is crucial for type inference when calling closures
+                                self.function_types.insert(name.clone(), inferred_return_type.clone());
 
                                 // Save this for later when we insert the variable
                                 inferred_ast_type = Some(func_type);
@@ -2063,7 +2067,67 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 },
                             );
                         }
-                        // Other stdlib entities (types, etc.)
+                        // Option type constructors
+                        "Option" | "Some" | "None" => {
+                            // For Option, Some, None, we don't need to create variables
+                            // They're available as built-in enum types and constructors
+                            // The expressions referring to them will be handled at compile time
+                            
+                            // Register Option as a type reference
+                            if name == "Option" {
+                                let alloca = self
+                                    .builder
+                                    .build_alloca(self.context.i64_type(), name)
+                                    .map_err(|e| CompileError::from(e))?;
+
+                                self.builder
+                                    .build_store(
+                                        alloca,
+                                        self.context.i64_type().const_int(100, false), // Special marker for Option type
+                                    )
+                                    .map_err(|e| CompileError::from(e))?;
+
+                                self.variables.insert(
+                                    name.clone(),
+                                    super::VariableInfo {
+                                        pointer: alloca,
+                                        ast_type: AstType::EnumType { name: "Option".to_string() },
+                                        is_mutable: false,
+                                        is_initialized: true,
+                                    },
+                                );
+                            }
+                            // Some and None don't need variables - they're used directly as constructors
+                        }
+                        // Result type constructors
+                        "Result" | "Ok" | "Err" => {
+                            // Similar to Option - Result is a type, Ok and Err are constructors
+                            if name == "Result" {
+                                let alloca = self
+                                    .builder
+                                    .build_alloca(self.context.i64_type(), name)
+                                    .map_err(|e| CompileError::from(e))?;
+
+                                self.builder
+                                    .build_store(
+                                        alloca,
+                                        self.context.i64_type().const_int(101, false), // Special marker for Result type
+                                    )
+                                    .map_err(|e| CompileError::from(e))?;
+
+                                self.variables.insert(
+                                    name.clone(),
+                                    super::VariableInfo {
+                                        pointer: alloca,
+                                        ast_type: AstType::EnumType { name: "Result".to_string() },
+                                        is_mutable: false,
+                                        is_initialized: true,
+                                    },
+                                );
+                            }
+                            // Ok and Err don't need variables - they're used directly as constructors
+                        }
+                        // Other stdlib entities
                         _ => {
                             // For now, create a generic marker
                             let alloca = self

@@ -27,9 +27,26 @@ def run_test(test_file):
         if result.returncode == -11 or "Segmentation fault" in stderr:
             return False, "Segmentation fault"
         
-        # Check exit code
-        if result.returncode != 0:
-            return False, f"Runtime error (code {result.returncode})"
+        # List of tests that expect specific non-zero exit codes
+        # These tests validate that main() returns the correct value
+        expected_nonzero = {
+            "test_imports_basic.zen": 42,
+            "test_import_simple_option.zen": 42,
+            "test_math_import.zen": 10,
+            "test_min_max.zen": 45,
+            "test_simple_assign.zen": 10,
+            "test_direct_min.zen": 10,
+        }
+        
+        test_name = test_file.name
+        if test_name in expected_nonzero:
+            expected = expected_nonzero[test_name]
+            if result.returncode != expected:
+                return False, f"Wrong exit code: expected {expected}, got {result.returncode}"
+        else:
+            # Default: expect exit code 0
+            if result.returncode != 0:
+                return False, f"Runtime error (code {result.returncode})"
         
         return True, None
             

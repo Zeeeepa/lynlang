@@ -23,9 +23,26 @@ impl ModuleSystem {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let mut search_paths = vec![cwd.clone(), cwd.join("lib"), cwd.join("modules")];
 
-        // Add standard library path if it exists
+        // Add standard library path - check multiple locations
+        // First check if we have a local stdlib directory
+        let stdlib_path = cwd.join("stdlib");
+        if stdlib_path.exists() {
+            search_paths.push(stdlib_path);
+        }
+        
+        // Also check parent directory (for when running from target/debug)
+        let parent_stdlib = cwd.parent().and_then(|p| {
+            let path = p.join("stdlib");
+            if path.exists() { Some(path) } else { None }
+        });
+        if let Some(path) = parent_stdlib {
+            search_paths.push(path);
+        }
+
+        // Add standard library path if ZEN_HOME is set
         if let Ok(zen_home) = std::env::var("ZEN_HOME") {
             let zen_path = PathBuf::from(zen_home);
+            search_paths.push(zen_path.join("stdlib"));
             search_paths.push(zen_path.join("std"));
             search_paths.push(zen_path.join("lib"));
         }

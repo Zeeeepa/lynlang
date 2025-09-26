@@ -1,0 +1,13 @@
+// Debug DynVec issue
+{DynVec, get_default_allocator} = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    vec = DynVec<i32>(alloc)
+    vec.push(42)
+    
+    // Just try to get without pattern matching
+    item = vec.get(0)
+    
+    return 0
+}
