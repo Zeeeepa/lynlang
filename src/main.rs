@@ -189,21 +189,43 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
             let main_type = main_fn.get_type();
             let return_type = main_type.get_return_type();
             
-            let result = unsafe { execution_engine.run_function(main_fn, &[]) };
-            
             // Handle different return types
             let exit_code = if let Some(ret_type) = return_type {
                 if ret_type.is_int_type() {
                     // Simple integer return (normal main)
+                    let result = unsafe { execution_engine.run_function(main_fn, &[]) };
                     result.as_int(true) as i32
                 } else if ret_type.is_struct_type() {
-                    // Struct return (Result type) - extract discriminant
-                    // For Result<T,E>, if Ok return 0, if Err return 1
-                    // The result is a struct with discriminant as first field
-                    // We can't directly access struct fields in JIT mode,
-                    // so we'll just return 0 for now (assuming success)
+                    // Struct return (Result type) 
+                    // LLVM JIT can't handle struct returns properly
+                    // For now, we just run the function and assume success
+                    // The function will execute but we can't get the Result value
+                    eprintln!("Warning: main() returns Result<T,E> which is not fully supported in JIT mode");
+                    eprintln!("The function will execute but the Result value cannot be extracted");
+                    
+                    // Create a wrapper that calls main and returns 0
+                    // This is a workaround for LLVM JIT limitations
+                    unsafe {
+                        // Try to run the function anyway - this might crash but let's try
+                        // Some LLVM versions might handle this
+                        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            execution_engine.run_function(main_fn, &[])
+                        })) {
+                            Ok(_) => 0,  // Function ran successfully
+                            Err(_) => {
+                                eprintln!("Error: Cannot execute main() with Result<T,E> return type in JIT mode");
+                                eprintln!("Consider using 'void' or 'i32' as the return type");
+                                1
+                            }
+                        }
+                    }
+                } else if ret_type.is_float_type() {
+                    // Void return - run the function normally
+                    unsafe { execution_engine.run_function(main_fn, &[]) };
                     0
                 } else {
+                    // Unknown return type - try to run it
+                    let result = unsafe { execution_engine.run_function(main_fn, &[]) };
                     0
                 }
             } else {

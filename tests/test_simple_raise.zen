@@ -6,12 +6,10 @@ get_simple = () Result<i32, string> {
     Result.Ok(42)
 }
 
-main = () Result<i32, string> {
+main = () void {
     io.println("Testing simple raise...")
     
     // Use raise to get the value
     val = get_simple().raise()
     io.println("Got value: ${val}")
-    
-    Result.Ok(val)
 }

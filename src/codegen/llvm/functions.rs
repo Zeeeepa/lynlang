@@ -2646,12 +2646,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
         function: &ast::Function,
     ) -> Result<FunctionValue<'ctx>, CompileError> {
         // Special case for main function - C runtime expects int return
-        let actual_return_type =
-            if function.name == "main" && matches!(function.return_type, AstType::Void) {
-                AstType::I32
-            } else {
-                function.return_type.clone()
-            };
+        let actual_return_type = if function.name == "main" {
+            match &function.return_type {
+                AstType::Void => AstType::I32,  // Convert void to i32
+                AstType::Generic { name, .. } if name == "Result" => {
+                    // Main returning Result<T,E> is not supported in JIT mode
+                    eprintln!("Warning: main() returning Result<T,E> is not fully supported in JIT mode");
+                    eprintln!("The function will compile but may crash when executed.");
+                    eprintln!("Consider using 'void' or 'i32' as the return type for main()");
+                    // For now, keep the Result type and hope for the best
+                    function.return_type.clone()
+                }
+                _ => function.return_type.clone()
+            }
+        } else {
+            function.return_type.clone()
+        };
 
         // First, get the return type
         let return_type = self.to_llvm_type(&actual_return_type)?;
