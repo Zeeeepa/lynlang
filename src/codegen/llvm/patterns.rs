@@ -1145,8 +1145,6 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                     let extracted = self
                                         .builder
                                         .build_extract_value(struct_val, 1, "payload")?;
-                                    eprintln!("[DEBUG STRUCT] Extracted payload is_ptr={} is_struct={}", 
-                                             extracted.is_pointer_value(), extracted.is_struct_value());
                                     // The payload might be a pointer that needs dereferencing
                                     if extracted.is_pointer_value() {
                                         let ptr_val = extracted.into_pointer_value();

@@ -185,8 +185,32 @@ fn run_file(file_path: &str) -> std::io::Result<()> {
     // Find and run main function
     match execution_engine.get_function_value("main") {
         Ok(main_fn) => {
+            // Check the return type of main
+            let main_type = main_fn.get_type();
+            let return_type = main_type.get_return_type();
+            
             let result = unsafe { execution_engine.run_function(main_fn, &[]) };
-            let exit_code = result.as_int(true) as i32;
+            
+            // Handle different return types
+            let exit_code = if let Some(ret_type) = return_type {
+                if ret_type.is_int_type() {
+                    // Simple integer return (normal main)
+                    result.as_int(true) as i32
+                } else if ret_type.is_struct_type() {
+                    // Struct return (Result type) - extract discriminant
+                    // For Result<T,E>, if Ok return 0, if Err return 1
+                    // The result is a struct with discriminant as first field
+                    // We can't directly access struct fields in JIT mode,
+                    // so we'll just return 0 for now (assuming success)
+                    0
+                } else {
+                    0
+                }
+            } else {
+                // Void return
+                0
+            };
+            
             if exit_code != 0 {
                 std::process::exit(exit_code);
             }
