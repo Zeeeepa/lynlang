@@ -1,0 +1,11 @@
+// Minimal test for get_default_allocator
+{ io, get_default_allocator } = @std
+
+main = () void {
+    io.println("Testing get_default_allocator...")
+    
+    // Get allocator - this returns a pointer marker
+    alloc = get_default_allocator()
+    
+    io.println("Got allocator!")
+}

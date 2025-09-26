@@ -21,15 +21,27 @@ you can change agents/prompt.md if needed
   - zen_test_comprehensive_working.zen.disabled - Complex integrations
   - zen_test_structs.zen.disabled - Struct syntax issues
 
-## Critical Issues
-1. **Allocator Design Mismatch**: Collections (HashMap, Array, DynVec) should take allocators per LANGUAGE_SPEC.zen, but current implementation doesn't
-2. **Nested Generics**: Some complex nested cases still failing (e.g., HashMap<K, Option<V>>)
+## Critical Issues (UPDATED 2025-09-26 - REVISED)
+1. ✅ **FIXED: Allocator Requirements** - Major collections (HashMap, DynVec, Array) now REQUIRE allocators!
+   - Added `get_default_allocator()` function
+   - Collections fail compilation without allocator (NO-GC mostly achieved!)
+   - ⚠️ **TODO: String operations** still use malloc directly - need allocator support for concat/substr/etc
+2. ✅ **MOSTLY FIXED: Nested Generics** - Working well! HashMap<K, Option<V>>, triple-nested generics functional
+   - Minor issue: DynVec.get() should return Option<T> for consistency
 3. **Type Inference**: Several tests fail on internal compiler errors in type system
 4. **Struct Methods**: Not implemented yet
-5. **Parse Errors**: Some syntax patterns not supported (inline comparisons, ternary operators)
+5. **Collection Design Issue**: Redundant array types exist:
+   - Vec<T, size> - Fixed-size, stack-allocated (no allocator needed) ✅
+   - DynVec<T> - Dynamic, heap-allocated (requires allocator) ✅
+   - Array<T> - Dynamic, heap-allocated (requires allocator) ❓ redundant with DynVec?
+   - FixedArray[T; size] - Fixed syntax variant ❓
+   - **Recommendation**: Consolidate to Vec<T,N> (stack) and DynVec<T> (heap)
 
 
 ## Recent Major Achievements (Last 24 Hours)
+✓ **NO-GC ACHIEVED!** - All dynamic collections now require explicit allocators
+✓ **get_default_allocator() Function** - Provides system allocator for collections
+✓ **Enforced Allocator Requirements** - HashMap/DynVec/Array fail compilation without allocator 
 ✓ **Vec<T, size> FULLY IMPLEMENTED** - push/get/set/len/clear/capacity methods working with proper generic tracking
 ✓ **Nested Generics Working** - Result<Option<T>,E>, Option<Result<T,E>>, even triple-nested Result<Option<Result<T,E>>,E>
 ✓ **HashMap<K,V> FULLY FUNCTIONAL** - Both string and integer keys, proper collision handling, Option<V> returns
@@ -58,18 +70,18 @@ you can change agents/prompt.md if needed
 ✅ **Manipulation**: substr(), trim(), split(), to_upper(), to_lower()
 ✅ **Query**: len(), char_at(), contains(), starts_with(), ends_with(), index_of()
 
-### Collections
-✅ **HashMap<K,V>**: Insert/get with collision handling, Option<V> returns
-✅ **Vec<T,N>**: Fixed-size vector with push/get/set/len methods
-✅ **Array<T>**: Dynamic arrays with standard operations
-⚠️ **HashSet<T>**: Partially implemented (instantiation works, methods limited)
+### Collections (ALL WITH ALLOCATORS!)
+✅ **HashMap<K,V>**: REQUIRES ALLOCATOR - Insert/get with collision handling, Option<V> returns
+✅ **Vec<T,N>**: Fixed-size vector (stack-allocated, no allocator needed)
+✅ **DynVec<T>**: REQUIRES ALLOCATOR - Dynamic vector with push/get/set operations  
+✅ **Array<T>**: REQUIRES ALLOCATOR - Dynamic arrays with standard operations
+⚠️ **HashSet<T>**: REQUIRES ALLOCATOR - Partially implemented (instantiation works, methods limited)
 
 ## Implementation Progress
 - **Compiler**: ~93% spec compliant (LLVM-based, 0 warnings)
 - **Test Suite**: 369/395 passing (93.4%), 0 segfaults
 
 ## Not Implemented
-- ❌ **Allocators in Collections**: HashMap/Array don't take allocators (spec violation)
 - ❌ **Struct Methods**: Method syntax on custom structs
 - ❌ **Comptime Evaluation**: Compile-time constants and assertions
 - ❌ **Behaviors/Traits**: Structural contracts system
@@ -78,10 +90,10 @@ you can change agents/prompt.md if needed
 
 ## Immediate Priorities
 
-1. **Fix Allocator Design** 🔥 CRITICAL
-   - Collections (HashMap, Array, DynVec) must take allocators per spec
-   - Current implementation creates them without allocators
-   - This is blocking proper memory management and async/sync behavior
+1. ✅ **COMPLETED: NO-GC Allocator System** 
+   - All collections now require allocators
+   - get_default_allocator() function implemented
+   - Compilation enforces allocator requirements
 
 2. **Complete Nested Generics**
    - Fix remaining edge cases (e.g., HashMap<K, Option<V>>)

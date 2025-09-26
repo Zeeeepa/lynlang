@@ -1859,6 +1859,18 @@ impl TypeChecker {
                     );
                 }
             }
+            "get_default_allocator" => {
+                // Special case: get_default_allocator is a function, not a module
+                // Register it as a global function
+                self.functions.insert(
+                    alias.to_string(), // Use alias directly as the function name
+                    FunctionSignature {
+                        params: vec![], // No parameters
+                        return_type: AstType::Ptr(Box::new(AstType::Void)), // Returns opaque allocator pointer
+                        is_external: true,
+                    },
+                );
+            }
             _ => {
                 // Unknown stdlib module, but not an error
             }

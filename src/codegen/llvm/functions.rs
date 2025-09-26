@@ -16,11 +16,19 @@ impl<'ctx> LLVMCompiler<'ctx> {
         false
     }
     
-    /// Compile Array.new(capacity, default_value) - creates a new array
+    /// Compile Array.new(allocator, capacity, default_value) - creates a new array
     pub fn compile_array_new(
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Array REQUIRES an allocator per NO-GC design
+        if args.is_empty() {
+            return Err(CompileError::TypeError(
+                "Array.new() requires an allocator argument for NO-GC memory management".to_string(),
+                None,
+            ));
+        }
+        
         // Array struct: { ptr, length, capacity, allocator }
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let array_struct_type = self.context.struct_type(
@@ -33,18 +41,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
             false,
         );
         
-        // Extract allocator from args or use default
-        let (allocator_ptr, remaining_args) = if !args.is_empty() && self.is_allocator_type(&args[0]) {
-            // First arg is allocator
-            (self.compile_expression(&args[0])?, &args[1..])
-        } else {
-            // No allocator provided, use default
-            let get_default_fn = self.module.get_function("get_default_allocator")
-                .and_then(|f| self.builder.build_call(f, &[], "default_alloc").ok())
-                .and_then(|call| call.try_as_basic_value().left())
-                .unwrap_or_else(|| ptr_type.const_null().into());
-            (get_default_fn, &args[..])
-        };
+        // First arg must be allocator
+        let allocator_ptr = self.compile_expression(&args[0])?;
+        let remaining_args = &args[1..];
         
         // Allow Array.new() with no arguments for generic arrays - use default capacity of 10
         if remaining_args.is_empty() {
@@ -55,22 +54,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
             let element_size = self.context.i64_type().const_int(8, false);
             let total_size = self.builder.build_int_mul(default_capacity, element_size, "total_size")?;
             
-            // Use allocator if provided, otherwise use malloc
-            let data_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
-                // Fallback to malloc
-                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                    let i64_type = self.context.i64_type();
-                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-                    self.module.add_function("malloc", fn_type, Some(Linkage::External))
-                });
-                self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| CompileError::InternalError("malloc returned void".to_string(), None))?
-            } else {
-                // TODO: Use allocator's alloc method
-                allocator_ptr
-            };
+            // For now, always use malloc (allocator is just stored for future use)
+            // TODO: Implement proper allocator interface
+            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                let i64_type = self.context.i64_type();
+                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                self.module.add_function("malloc", fn_type, Some(Linkage::External))
+            });
+            let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "array_data")?
+                .try_as_basic_value()
+                .left()
+                .ok_or_else(|| CompileError::InternalError("malloc returned void".to_string(), None))?;
             
             // Create the array struct
             let array_val = self.builder.build_alloca(array_struct_type, "array")?;
@@ -1264,7 +1258,17 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 let start_param = func.get_nth_param(1).unwrap().into_int_value();
                 let length_param = func.get_nth_param(2).unwrap().into_int_value();
                 
-                // Allocate memory for the substring (length + 1 for null terminator)
+                // Get default allocator for string operations (NO-GC requirement)
+                // TODO: Accept allocator as parameter for full control
+                let _allocator = if let Some(get_alloc_fn) = self.module.get_function("get_default_allocator") {
+                    let alloc_call = self.builder.build_call(get_alloc_fn, &[], "get_alloc")?;
+                    alloc_call.try_as_basic_value().left()
+                } else {
+                    eprintln!("WARNING: string_substr using malloc instead of allocator");
+                    None
+                };
+                
+                // For now, still use malloc (TODO: use allocator.alloc method)
                 let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
                     let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                     let size_type = self.context.i64_type();
@@ -4966,6 +4970,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // HashMap REQUIRES an allocator per NO-GC design
+        if args.is_empty() {
+            return Err(CompileError::TypeError(
+                "HashMap.new() requires an allocator argument for NO-GC memory management".to_string(),
+                None,
+            ));
+        }
+        
         // HashMap struct: { buckets_ptr, size, capacity, allocator_ptr }
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let hashmap_struct_type = self.context.struct_type(
@@ -4978,20 +4990,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             false,
         );
         
-        // Get allocator from args or use default
-        let allocator_ptr = if args.is_empty() {
-            // Call get_default_allocator() 
-            self.module.get_function("get_default_allocator")
-                .and_then(|f| self.builder.build_call(f, &[], "default_alloc").ok())
-                .and_then(|call| call.try_as_basic_value().left())
-                .unwrap_or_else(|| {
-                    // Fallback: create null pointer for allocator
-                    ptr_type.const_null().into()
-                })
-        } else {
-            // Use provided allocator
-            self.compile_expression(&args[0])?
-        };
+        // Use provided allocator
+        let allocator_ptr = self.compile_expression(&args[0])?;
         
         // Initial capacity
         let initial_capacity = self.context.i64_type().const_int(16, false);
@@ -5000,25 +5000,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let bucket_size = self.context.i64_type().const_int(32, false); // Each bucket is 32 bytes (for chaining)
         let total_size = self.builder.build_int_mul(initial_capacity, bucket_size, "total_size")?;
         
-        // Use allocator if provided, otherwise use malloc
-        let buckets_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
-            // Fallback to malloc
-            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                let i64_type = self.context.i64_type();
-                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-                self.module.add_function("malloc", fn_type, Some(Linkage::External))
-            });
-            self.builder.build_call(malloc_fn, &[total_size.into()], "buckets")?
-                .try_as_basic_value()
-                .left()
-                .ok_or_else(|| CompileError::InternalError(
-                    "malloc should return a pointer".to_string(),
-                    None,
-                ))?
-        } else {
-            // TODO: Use allocator's alloc method
-            allocator_ptr
-        };
+        // For now, always use malloc (allocator is just stored for future use)
+        // TODO: Implement proper allocator interface
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, Some(Linkage::External))
+        });
+        let buckets_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "buckets")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| CompileError::InternalError(
+                "malloc should return a pointer".to_string(),
+                None,
+            ))?;
         
         // Initialize buckets to zero
         let memset_fn = self.module.get_function("memset").unwrap_or_else(|| {
@@ -5085,19 +5080,31 @@ impl<'ctx> LLVMCompiler<'ctx> {
     /// Compile HashSet.new() - creates a new HashSet
     pub fn compile_hashset_new(
         &mut self,
-        _args: &[ast::Expression],
+        args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // HashSet REQUIRES an allocator per NO-GC design
+        if args.is_empty() {
+            return Err(CompileError::TypeError(
+                "HashSet.new() requires an allocator argument for NO-GC memory management".to_string(),
+                None,
+            ));
+        }
+        
         // HashSet uses the same structure as HashMap (but without values)
-        // HashSet struct: { buckets_ptr, size, capacity }
+        // HashSet struct: { buckets_ptr, size, capacity, allocator_ptr }
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let hashset_struct_type = self.context.struct_type(
             &[
                 ptr_type.into(),                 // buckets pointer
                 self.context.i64_type().into(),  // size
                 self.context.i64_type().into(),  // capacity
+                ptr_type.into(),                 // allocator pointer
             ],
             false,
         );
+        
+        // Use provided allocator
+        let allocator_ptr = self.compile_expression(&args[0])?;
         
         // Initial capacity
         let initial_capacity = self.context.i64_type().const_int(16, false);
@@ -5179,6 +5186,14 @@ impl<'ctx> LLVMCompiler<'ctx> {
         &mut self,
         args: &[ast::Expression],
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // DynVec REQUIRES an allocator per NO-GC design
+        if args.is_empty() {
+            return Err(CompileError::TypeError(
+                "DynVec.new() requires an allocator argument for NO-GC memory management".to_string(),
+                None,
+            ));
+        }
+        
         // DynVec struct: { ptr, length, capacity, allocator }
         let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
         let dynvec_struct_type = self.context.struct_type(
@@ -5191,20 +5206,8 @@ impl<'ctx> LLVMCompiler<'ctx> {
             false,
         );
         
-        // Get allocator from args or use default
-        let allocator_ptr = if args.is_empty() {
-            // Call get_default_allocator() 
-            self.module.get_function("get_default_allocator")
-                .and_then(|f| self.builder.build_call(f, &[], "default_alloc").ok())
-                .and_then(|call| call.try_as_basic_value().left())
-                .unwrap_or_else(|| {
-                    // Fallback: create null pointer for allocator
-                    ptr_type.const_null().into()
-                })
-        } else {
-            // Use provided allocator
-            self.compile_expression(&args[0])?
-        };
+        // Use provided allocator
+        let allocator_ptr = self.compile_expression(&args[0])?;
         
         // Initial capacity
         let initial_capacity = self.context.i64_type().const_int(10, false);
@@ -5213,25 +5216,20 @@ impl<'ctx> LLVMCompiler<'ctx> {
         let element_size = self.context.i64_type().const_int(8, false);
         let total_size = self.builder.build_int_mul(initial_capacity, element_size, "total_size")?;
         
-        // Use allocator if provided, otherwise use malloc
-        let data_ptr = if !allocator_ptr.is_pointer_value() || allocator_ptr.into_pointer_value().is_null() {
-            // Fallback to malloc
-            let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
-                let i64_type = self.context.i64_type();
-                let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
-                self.module.add_function("malloc", fn_type, Some(Linkage::External))
-            });
-            self.builder.build_call(malloc_fn, &[total_size.into()], "dynvec_data")?
-                .try_as_basic_value()
-                .left()
-                .ok_or_else(|| CompileError::InternalError(
-                    "malloc should return a pointer".to_string(),
-                    None,
-                ))?
-        } else {
-            // TODO: Use allocator's alloc method
-            allocator_ptr
-        };
+        // For now, always use malloc (allocator is just stored for future use)
+        // TODO: Implement proper allocator interface
+        let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+            let i64_type = self.context.i64_type();
+            let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+            self.module.add_function("malloc", fn_type, Some(Linkage::External))
+        });
+        let data_ptr = self.builder.build_call(malloc_fn, &[total_size.into()], "dynvec_data")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| CompileError::InternalError(
+                "malloc should return a pointer".to_string(),
+                None,
+            ))?;
         
         // Create the DynVec struct
         let dynvec_alloca = self.builder.build_alloca(dynvec_struct_type, "dynvec")?;

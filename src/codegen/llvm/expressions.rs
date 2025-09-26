@@ -7651,9 +7651,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 )?.try_as_basic_value().left().unwrap().into_pointer_value();
                 
                 // Store the i32 value in allocated memory
+                let i32_ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
                 let payload_ptr_typed = self.builder.build_pointer_cast(
                     payload_ptr,
-                    self.context.i32_type().ptr_type(inkwell::AddressSpace::default()),
+                    i32_ptr_type,
                     &format!("payload_ptr_i32_{}", pop_id),
                 )?;
                 self.builder.build_store(payload_ptr_typed, i32_value)?;

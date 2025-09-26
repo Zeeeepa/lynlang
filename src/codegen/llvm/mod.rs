@@ -295,6 +295,40 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 void_type.fn_type(&[ptr_type.into(), ptr_type.into(), i64_type.into()], false);
             self.module.add_function("memcpy", memcpy_type, None);
         }
+        
+        // Declare get_default_allocator: i8* @get_default_allocator()
+        // Returns a pointer to the default system allocator
+        if self.module.get_function("get_default_allocator").is_none() {
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            let get_alloc_type = ptr_type.fn_type(&[], false);
+            let func = self.module.add_function("get_default_allocator", get_alloc_type, None);
+            
+            // Implementation: return a simple marker that malloc/free will recognize
+            let entry = self.context.append_basic_block(func, "entry");
+            let current_block = self.builder.get_insert_block();
+            self.builder.position_at_end(entry);
+            
+            // Return a non-null pointer (value 1) as a marker for default allocator
+            // Create an integer with value 1 and cast to pointer
+            let i64_type = self.context.i64_type();
+            let marker_int = i64_type.const_int(1, false);
+            let marker_ptr = self.builder.build_int_to_ptr(marker_int, ptr_type, "allocator_marker")
+                .unwrap_or_else(|_| ptr_type.const_null());
+            self.builder.build_return(Some(&marker_ptr));
+            
+            // Restore builder position
+            if let Some(block) = current_block {
+                self.builder.position_at_end(block);
+            }
+            
+            // Register the function so it can be called from Zen code
+            self.functions.insert("get_default_allocator".to_string(), func);
+            // Register the return type
+            self.function_types.insert(
+                "get_default_allocator".to_string(),
+                AstType::Ptr(Box::new(AstType::Void)), // Allocator is an opaque pointer
+            );
+        }
     }
 
     pub fn get_type(&self, name: &str) -> Result<BasicTypeEnum<'ctx>, CompileError> {

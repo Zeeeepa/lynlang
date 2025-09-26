@@ -874,7 +874,32 @@ impl<'ctx> LLVMCompiler<'ctx> {
             .builder
             .build_int_add(total_len, one, "total_len_with_null")?;
 
-        // Allocate memory for the new string
+        // Get the default allocator for string operations (NO-GC requirement)
+        let allocator_ptr = if let Some(get_alloc_fn) = self.module.get_function("get_default_allocator") {
+            let alloc_call = self.builder.build_call(get_alloc_fn, &[], "get_alloc")?;
+            alloc_call.try_as_basic_value()
+                .left()
+                .ok_or_else(|| {
+                    CompileError::InternalError("get_default_allocator did not return a value".to_string(), None)
+                })?
+                .into_pointer_value()
+        } else {
+            // Fallback to malloc if get_default_allocator not available
+            // TODO: This should be an error in strict NO-GC mode
+            eprintln!("WARNING: String concatenation using malloc instead of allocator");
+            let call = self
+                .builder
+                .build_call(malloc_fn, &[total_len.into()], "new_str")?;
+            call.try_as_basic_value()
+                .left()
+                .ok_or_else(|| {
+                    CompileError::InternalError("malloc did not return a value".to_string(), None)
+                })?
+                .into_pointer_value()
+        };
+
+        // For now, still use malloc through the allocator interface
+        // TODO: Implement proper allocator.alloc() method call
         let new_str_ptr = {
             let call = self
                 .builder

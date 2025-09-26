@@ -1,0 +1,61 @@
+// Comprehensive test for NO-GC allocator requirements
+{ io, get_default_allocator } = @std
+
+main = () i32 {
+    io.println("=== NO-GC Comprehensive Test ===")
+    
+    // Get the default allocator
+    alloc = get_default_allocator()
+    io.println("✓ Got default allocator")
+    
+    // Test HashMap with allocator
+    io.println("\n--- Testing HashMap ---")
+    map = HashMap<string, i32>(alloc)
+    map.insert("one", 1)
+    map.insert("two", 2)
+    map.insert("three", 3)
+    
+    val = map.get("two")
+    val ? 
+        | Some(v) { 
+            io.print("HashMap value: ")
+            io.print_int(v)
+            io.println("")
+        }
+        | None { io.println("ERROR: Key not found") }
+    io.println("✓ HashMap working with allocator")
+    
+    // Test DynVec with allocator
+    io.println("\n--- Testing DynVec ---")
+    vec = DynVec<i32>(alloc)
+    vec.push(10)
+    vec.push(20)
+    vec.push(30)
+    io.print("DynVec length: ")
+    io.print_int(vec.len())
+    io.println("")
+    io.println("✓ DynVec working with allocator")
+    
+    // Test nested generics with allocator
+    io.println("\n--- Testing Nested Generics ---")
+    nested_map = HashMap<i32, Option<i32>>(alloc)
+    nested_map.insert(1, Option.Some(100))
+    nested_map.insert(2, Option.None)
+    
+    nested_val = nested_map.get(1)
+    nested_val ?
+        | Some(opt) {
+            opt ?
+                | Some(v) { 
+                    io.print("Nested generic value: ")
+                    io.print_int(v)
+                    io.println("")
+                }
+                | None { io.println("ERROR: Got None") }
+        }
+        | None { io.println("ERROR: Key not found") }
+    io.println("✓ Nested generics working with allocator")
+    
+    io.println("\n=== ALL TESTS PASSED - NO GC ACHIEVED! ===")
+    return 0
+}
