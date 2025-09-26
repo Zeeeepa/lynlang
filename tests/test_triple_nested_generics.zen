@@ -1,0 +1,31 @@
+// Test triple nested generics: Result<Result<Result<i32,E>,E>,E>
+{ io, Result } = @std
+
+main = () void {
+    io.println("=== Testing Triple Nested Result ===")
+    
+    // Create a triple nested Result
+    inner_inner = Result.Ok(42)
+    inner = Result.Ok(inner_inner) 
+    outer = Result.Ok(inner)
+    
+    // Try to extract with pattern matching
+    outer ?
+        | Result.Ok(middle) {
+            io.println("Outer Ok extracted")
+            middle ?
+                | Result.Ok(innermost) {
+                    io.println("Middle Ok extracted")
+                    innermost ?
+                        | Result.Ok(val) {
+                            io.println("Value: ${val}")
+                            val == 42 ?
+                                | true { io.println("✓ Triple nesting works!") }
+                                | false { io.println("✗ Wrong value: ${val}") }
+                        }
+                        | Result.Err(e) { io.println("Innermost error") }
+                }
+                | Result.Err(e) { io.println("Middle error") }
+        }
+        | Result.Err(e) { io.println("Outer error") }
+}
