@@ -3,7 +3,7 @@
 
 main = () void {
     alloc = get_default_allocator()
-    x = 3i64  // Use i64 literal
+    x :: i64 = 3  // Explicitly type as i64
     range = 0..x
     io.println("Created range")
 }

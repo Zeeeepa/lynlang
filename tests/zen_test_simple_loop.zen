@@ -1,3 +1,5 @@
+{ get_default_allocator } = @std
+
 main = () void {
     alloc = get_default_allocator()
     // Simple loop() test

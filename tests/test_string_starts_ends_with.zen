@@ -1,4 +1,5 @@
 // Test string.starts_with() and string.ends_with() methods
+{ get_default_allocator } = @std
 
 main = () i32 {
     alloc = get_default_allocator()

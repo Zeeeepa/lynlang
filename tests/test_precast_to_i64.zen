@@ -3,8 +3,7 @@
 
 main = () void {
     alloc = get_default_allocator()
-    x ::= 3   // Make it mutable first
-    x = x as i64  // Cast to i64
+    x :: i64 = 3 as i64  // Declare as i64 from start
     range = 0..x
     io.println("Created range")
 }

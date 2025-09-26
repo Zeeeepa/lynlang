@@ -1,4 +1,6 @@
 // Simplest possible test
+{ get_default_allocator } = @std
+
 main = () void {
     alloc = get_default_allocator()
     // Empty main

@@ -1391,6 +1391,8 @@ impl TypeChecker {
                             })
                         }
                         "trim" => return Ok(AstType::String),
+                        "to_upper" => return Ok(AstType::String),
+                        "to_lower" => return Ok(AstType::String),
                         "contains" => return Ok(AstType::Bool),
                         "starts_with" => return Ok(AstType::Bool),
                         "ends_with" => return Ok(AstType::Bool),

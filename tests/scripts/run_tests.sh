@@ -4,8 +4,8 @@
 
 # Get the directory containing this script
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# Project root is one level up from scripts/
-PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+# Project root is two levels up from scripts/ (tests/scripts/)
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/../.." && pwd )"
 ZEN_COMPILER="$PROJECT_ROOT/target/release/zen"
 TESTS_DIR="$PROJECT_ROOT/tests"
 

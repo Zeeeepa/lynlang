@@ -1,83 +1,75 @@
 // Test string case conversion methods: to_upper() and to_lower()
-{ io , get_default_allocator} = @std
+{ io } = @std
 
 main = () i32 {
-    alloc = get_default_allocator()
-    io.println("Testing string case conversion methods")
-    io.println("=======================================")
-    
     // Test 1: Basic uppercase conversion
     lower_str = "hello world"
     upper = lower_str.to_upper()
-    io.println("Original: '${lower_str}'")
-    io.println("Uppercase: '${upper}'")
+    io.println(upper)
     
     // Test 2: Basic lowercase conversion
     upper_str = "HELLO WORLD"
     lower = upper_str.to_lower()
-    io.println("Original: '${upper_str}'")
-    io.println("Lowercase: '${lower}'")
+    io.println(lower)
     
     // Test 3: Mixed case conversion
     mixed = "Hello World 123!"
     mixed_upper = mixed.to_upper()
     mixed_lower = mixed.to_lower()
-    io.println("Original: '${mixed}'")
-    io.println("Uppercase: '${mixed_upper}'")
-    io.println("Lowercase: '${mixed_lower}'")
+    io.println(mixed_upper)
+    io.println(mixed_lower)
     
     // Test 4: Empty string
     empty = ""
     empty_upper = empty.to_upper()
     empty_lower = empty.to_lower()
-    io.println("Empty string upper: '${empty_upper}'")
-    io.println("Empty string lower: '${empty_lower}'")
+    io.println(empty_upper)
+    io.println(empty_lower)
     
     // Test 5: Numbers and special characters (should remain unchanged)
     special = "123!@#$%^&*()"
     special_upper = special.to_upper()
     special_lower = special.to_lower()
-    io.println("Special: '${special}'")
-    io.println("Special upper: '${special_upper}'")
-    io.println("Special lower: '${special_lower}'")
+    io.println(special_upper)
+    io.println(special_lower)
     
     // Test 6: Chain method calls
     chain_test = "hello"
     chain_result = chain_test.to_upper().to_lower()
-    io.println("Chain test: '${chain_test}' -> to_upper() -> to_lower() = '${chain_result}'")
+    io.println(chain_result)
     
     // Test 7: All lowercase alphabet
     alphabet_lower = "abcdefghijklmnopqrstuvwxyz"
     alphabet_upper = alphabet_lower.to_upper()
-    io.println("Alphabet lower: '${alphabet_lower}'")
-    io.println("Alphabet upper: '${alphabet_upper}'")
+    io.println(alphabet_upper)
     
     // Test 8: All uppercase alphabet
     alphabet_upper2 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     alphabet_lower2 = alphabet_upper2.to_lower()
-    io.println("Alphabet upper: '${alphabet_upper2}'")
-    io.println("Alphabet lower: '${alphabet_lower2}'")
+    io.println(alphabet_lower2)
     
     // Test 9: Sentence with punctuation
     sentence = "The Quick Brown Fox Jumps Over The Lazy Dog!"
     sentence_upper = sentence.to_upper()
     sentence_lower = sentence.to_lower()
-    io.println("Sentence: '${sentence}'")
-    io.println("Upper: '${sentence_upper}'")
-    io.println("Lower: '${sentence_lower}'")
+    io.println(sentence_upper)
+    io.println(sentence_lower)
     
     // Verify basic functionality
     test1 = "hello".to_upper()
     test2 = "WORLD".to_lower()
     
-    test1 == "HELLO" ?
-        | true { io.println("✅ to_upper() works correctly") }
-        | false { io.println("❌ to_upper() failed") }
+    test1_ok = test1 == "HELLO"
+    test2_ok = test2 == "world"
     
-    test2 == "world" ?
-        | true { io.println("✅ to_lower() works correctly") }
-        | false { io.println("❌ to_lower() failed") }
+    all_ok = test1_ok && test2_ok
     
-    // Return 0 for success
-    0
+    all_ok == true ? {
+        return 0
+    }
+    all_ok == false ? {
+        return 1
+    }
+    
+    return 0
 }
