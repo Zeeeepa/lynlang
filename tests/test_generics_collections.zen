@@ -1,0 +1,94 @@
+// Test generics with collections
+{ io, Result, Option, HashMap, Array, DynVec } = @std
+
+main = () void {
+    io.println("==== Testing Generics with Collections ====")
+    
+    // Test 1: HashMap with Option values
+    io.println("=== Test 1: HashMap with Option values ===")
+    map = HashMap<string, Option<i32>>()
+    map.insert("key1", Option.Some(100))
+    map.insert("key2", Option.None)
+    
+    v1 = map.get("key1")
+    v1 ?
+        | Option.Some(opt) {
+            opt ?
+                | Option.Some(val) {
+                    io.println("key1 value: ${val}")
+                }
+                | Option.None {
+                    io.println("key1 was None")
+                }
+        }
+        | Option.None {
+            io.println("key1 not found")
+        }
+    
+    v2 = map.get("key2")
+    v2 ?
+        | Option.Some(opt) {
+            opt ?
+                | Option.Some(val) {
+                    io.println("key2 value: ${val}")
+                }
+                | Option.None {
+                    io.println("key2 was None")
+                }
+        }
+        | Option.None {
+            io.println("key2 not found")
+        }
+    
+    // Test 2: DynVec with generic elements
+    io.println("=== Test 2: DynVec with generic elements ===")
+    vec = DynVec<Option<i32>>()
+    vec.push(Option.Some(200))
+    vec.push(Option.None)
+    vec.push(Option.Some(300))
+    
+    // Test getting elements
+    e0 = vec.get(0)
+    e0 ?
+        | Option.Some(v) {
+            io.println("vec[0]: Some(${v})")
+        }
+        | Option.None {
+            io.println("vec[0]: None")
+        }
+    
+    e1 = vec.get(1)
+    e1 ?
+        | Option.Some(v) {
+            io.println("vec[1]: Some(${v})")
+        }
+        | Option.None {
+            io.println("vec[1]: None")
+        }
+    
+    // Test 3: Array with generic elements
+    io.println("=== Test 3: Array with generic elements ===")
+    arr = Array<Option<i32>>()
+    arr.push(Option.Some(400))
+    arr.push(Option.None)
+    
+    a0 = arr.get(0)
+    a0 ?
+        | Option.Some(v) {
+            io.println("arr[0]: Some(${v})")
+        }
+        | Option.None {
+            io.println("arr[0]: None")
+        }
+    
+    a1 = arr.get(1)
+    a1 ?
+        | Option.Some(v) {
+            io.println("arr[1]: Some(${v})")
+        }
+        | Option.None {
+            io.println("arr[1]: None")
+        }
+    
+    io.println("==== All Collection Tests Complete ====")
+}

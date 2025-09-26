@@ -198,6 +198,10 @@ pub enum Expression {
         allocator: Box<Expression>,                // Allocator expression
         initial_capacity: Option<Box<Expression>>, // Optional initial capacity
     },
+    // Array<T>() - Array constructor
+    ArrayConstructor {
+        element_type: AstType,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

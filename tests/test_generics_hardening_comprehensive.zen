@@ -1,0 +1,287 @@
+// Comprehensive generic type system hardening test
+{ io, Result, Option, HashMap, Array, DynVec } = @std
+
+// Test 1: Complex nested generics with different combinations
+test_complex_nesting = () void {
+    io.println("=== Complex Nested Generics ===")
+    
+    // Result<Option<Result<i32, string>>, string>
+    create_complex = () Result<Option<Result<i32, string>>, string> {
+        inner_result = Result.Ok(123)
+        some_result = Option.Some(inner_result)
+        return Result.Ok(some_result)
+    }
+    
+    complex = create_complex()
+    complex ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(inner) {
+                    inner ?
+                        | Result.Ok(val) {
+                            io.println("Complex nesting value: ${val}")
+                        }
+                        | Result.Err(e) {
+                            io.println("Inner error: ${e}")
+                        }
+                }
+                | Option.None {
+                    io.println("Option was None")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer error: ${e}")
+        }
+}
+
+// Test 2: Generic collections containing generic types
+test_generic_collections = () void {
+    io.println("=== Generic Collections ===")
+    
+    // Array of Options
+    arr = Array<Option<i32>>()
+    arr.push(Option.Some(100))
+    arr.push(Option.None)
+    arr.push(Option.Some(200))
+    
+    i ::= 0
+    loop(() {
+        i >= arr.len() ? { break }
+        
+        item = arr.get(i)
+        item ?
+            | Option.Some(val) {
+                io.println("Array[${i}]: Some(${val})")
+            }
+            | Option.None {
+                io.println("Array[${i}]: None")
+            }
+        
+        i = i + 1
+    })
+}
+
+// Test 3: Generic functions returning nested generics
+test_generic_functions = () void {
+    io.println("=== Generic Functions ===")
+    
+    process_nested = () Option<i32> {
+        nested = Option.Some(Option.Some(456))
+        nested ?
+            | Option.Some(inner) {
+                return inner
+            }
+            | Option.None {
+                return Option.None
+            }
+    }
+    
+    // Test with Some(Some(x))
+    result = process_nested()
+    result ?
+        | Option.Some(v) {
+            io.println("Processed nested: ${v}")
+        }
+        | Option.None {
+            io.println("Got None")
+        }
+}
+
+// Test 4: HashMap with generic value types
+test_hashmap_generics = () void {
+    io.println("=== HashMap Generics ===")
+    
+    // HashMap<string, Option<i32>>
+    map = HashMap<string, Option<i32>>()
+    map.insert("key1", Option.Some(789))
+    map.insert("key2", Option.None)
+    map.insert("key3", Option.Some(321))
+    
+    // Retrieve and pattern match
+    val1 = map.get("key1")
+    val1 ?
+        | Option.Some(inner_opt) {
+            inner_opt ?
+                | Option.Some(v) {
+                    io.println("key1 value: ${v}")
+                }
+                | Option.None {
+                    io.println("key1 was None")
+                }
+        }
+        | Option.None {
+            io.println("key1 not found")
+        }
+    
+    val2 = map.get("key2")
+    val2 ?
+        | Option.Some(inner_opt) {
+            inner_opt ?
+                | Option.Some(v) {
+                    io.println("key2 value: ${v}")
+                }
+                | Option.None {
+                    io.println("key2 was explicitly None")
+                }
+        }
+        | Option.None {
+            io.println("key2 not found")
+        }
+}
+
+// Test 5: Chained generic operations
+test_chained_generics = () void {
+    io.println("=== Chained Generic Operations ===")
+    
+    // Chain multiple operations that return generics
+    parse_and_validate = () Result<Option<i32>, string> {
+        return Result.Ok(Option.Some(42))
+    }
+    
+    parse_none = () Result<Option<i32>, string> {
+        return Result.Ok(Option.None)
+    }
+    
+    // Test valid number
+    r1 = parse_and_validate()
+    val1 = r1.raise()
+    val1 ?
+        | Option.Some(n) {
+            io.println("Parsed value: ${n}")
+        }
+        | Option.None {
+            io.println("Got None")
+        }
+    
+    // Test None case
+    r2 = parse_none()
+    val2 = r2.raise()
+    val2 ?
+        | Option.Some(n) {
+            io.println("Should not see: ${n}")
+        }
+        | Option.None {
+            io.println("Correctly got None")
+        }
+}
+
+// Test 6: Generic type inference in variables
+test_type_inference = () void {
+    io.println("=== Type Inference ===")
+    
+    // Let compiler infer Result<Result<i32, string>, string>
+    nested_result = Result.Ok(Result.Ok(999))
+    
+    // Extract through multiple levels
+    nested_result ?
+        | Result.Ok(inner) {
+            inner ?
+                | Result.Ok(v) {
+                    io.println("Inferred nested value: ${v}")
+                }
+                | Result.Err(e) {
+                    io.println("Inner error: ${e}")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer error: ${e}")
+        }
+    
+    // Mix with immediate operations
+    get_nested = () Result<Option<i32>, string> {
+        return Result.Ok(Option.Some(777))
+    }
+    
+    // Should infer types correctly
+    immediate = get_nested().raise()
+    immediate ?
+        | Option.Some(v) {
+            io.println("Immediate extraction: ${v}")
+        }
+        | Option.None {
+            io.println("Was None")
+        }
+}
+
+// Test 7: Generic types in structs (if supported)
+test_mixed_generics = () void {
+    io.println("=== Mixed Generic Types ===")
+    
+    // Create various combinations
+    ro = Result.Ok(Option.Some(111))  // Result<Option<i32>, E>
+    or = Option.Some(Result.Ok(222))  // Option<Result<i32, E>>
+    
+    // Pattern match Result<Option>
+    ro ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) {
+                    io.println("Result<Option> value: ${v}")
+                }
+                | Option.None {
+                    io.println("Was None")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Error: ${e}")
+        }
+    
+    // Pattern match Option<Result>
+    or ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(v) {
+                    io.println("Option<Result> value: ${v}")
+                }
+                | Result.Err(e) {
+                    io.println("Error: ${e}")
+                }
+        }
+        | Option.None {
+            io.println("Was None")
+        }
+}
+
+// Test 8: Edge cases with void/unit types
+test_void_generics = () void {
+    io.println("=== Void/Unit Generics ===")
+    
+    // Result<void, string>
+    void_result = () Result<void, string> {
+        return Result.Ok(void)
+    }
+    
+    vr = void_result()
+    vr ?
+        | Result.Ok(_) {
+            io.println("Got Ok with void")
+        }
+        | Result.Err(e) {
+            io.println("Error: ${e}")
+        }
+    
+    // Option<void> - unusual but should work
+    void_option = Option.Some(void)
+    void_option ?
+        | Option.Some(_) {
+            io.println("Got Some with void")
+        }
+        | Option.None {
+            io.println("Was None")
+        }
+}
+
+main = () void {
+    io.println("==== Generic Type System Hardening Tests ====")
+    
+    test_complex_nesting()
+    test_generic_collections()
+    test_generic_functions()
+    test_hashmap_generics()
+    test_chained_generics()
+    test_type_inference()
+    test_mixed_generics()
+    test_void_generics()
+    
+    io.println("==== All Generic Tests Complete ====")
+}

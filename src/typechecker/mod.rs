@@ -1540,6 +1540,14 @@ impl TypeChecker {
                     allocator_type: None, // Allocator type inferred from constructor arg
                 })
             }
+            Expression::ArrayConstructor { element_type } => {
+                // Array<T>() -> Generic { name: "Array", type_args: [T] }
+                // This matches the expected type format for generic types
+                Ok(AstType::Generic {
+                    name: "Array".to_string(),
+                    type_args: vec![element_type.clone()],
+                })
+            }
             Expression::Some(inner) => {
                 // eprintln!("DEBUG TypeChecker: Processing Some() with inner expr");
                 // Check the inner expression to determine the actual type

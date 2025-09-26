@@ -4254,6 +4254,10 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 allocator,
                 initial_capacity.as_ref().map(|v| &**v),
             ),
+            Expression::ArrayConstructor { element_type } => {
+                // Array<T> is like DynVec but simpler - just malloc-based for now
+                self.compile_array_constructor(element_type)
+            }
             Expression::Some(value) => {
                 // Compile Option::Some variant using the registered enum
                 self.compile_enum_variant("Option", "Some", &Some(value.clone()))
@@ -6219,6 +6223,89 @@ impl<'ctx> LLVMCompiler<'ctx> {
         Ok(self
             .builder
             .build_load(dynvec_struct_type, dynvec_ptr, "dynvec_value")?)
+    }
+
+    /// Compile Array<T>() constructor
+    fn compile_array_constructor(
+        &mut self,
+        element_type: &crate::ast::AstType,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        // Array struct is { data: *T, len: i64, capacity: i64 }
+        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+        let i64_type = self.context.i64_type();
+        
+        // Create the array struct type
+        let array_struct_type = self.context.struct_type(&[
+            ptr_type.into(),     // data ptr
+            i64_type.into(),     // len
+            i64_type.into(),     // capacity
+        ], false);
+        
+        // Allocate the struct on stack
+        let array_ptr = self.builder.build_alloca(array_struct_type, "array")?;
+        
+        // Initial capacity (start small, will grow as needed)
+        let initial_capacity = 4u64;
+        
+        // Calculate element size for allocation
+        // For now, use a fixed size (8 bytes) since we're using generic pointer storage
+        // This will be improved when we add proper type size calculation
+        let element_size = self.context.i64_type().const_int(8, false);
+        
+        // Calculate total size needed
+        let capacity_value = self.context.i64_type().const_int(initial_capacity, false);
+        let total_size = self.builder.build_int_mul(capacity_value, element_size, "total_size")?;
+        
+        // Allocate memory using malloc
+        let malloc_fn = self.module.get_function("malloc").ok_or_else(|| {
+            CompileError::InternalError("No malloc function declared".to_string(), None)
+        })?;
+        
+        let allocated_ptr = self
+            .builder
+            .build_call(malloc_fn, &[total_size.into()], "array_data")?
+            .try_as_basic_value()
+            .left()
+            .ok_or_else(|| {
+                CompileError::InternalError(
+                    "malloc did not return a value".to_string(),
+                    None,
+                )
+            })?
+            .into_pointer_value();
+        
+        // Store data pointer
+        let data_field_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            0,
+            "data_field",
+        )?;
+        self.builder.build_store(data_field_ptr, allocated_ptr)?;
+        
+        // Store length (initially 0)
+        let len_field_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            1,
+            "len_field",
+        )?;
+        let zero = self.context.i64_type().const_int(0, false);
+        self.builder.build_store(len_field_ptr, zero)?;
+        
+        // Store capacity
+        let cap_field_ptr = self.builder.build_struct_gep(
+            array_struct_type,
+            array_ptr,
+            2,
+            "cap_field",
+        )?;
+        self.builder.build_store(cap_field_ptr, capacity_value)?;
+        
+        // Load and return the array struct value
+        Ok(self
+            .builder
+            .build_load(array_struct_type, array_ptr, "array_value")?)
     }
 
     /// Compile .raise() expression by transforming it into pattern matching

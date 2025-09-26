@@ -1,0 +1,22 @@
+// Test Array with nested generic types
+{ io, Option, Array } = @std
+
+main = () void {
+    io.println("Testing Array with Option<i32>")
+    
+    // Create Array<Option<i32>>
+    arr: Array<Option<i32>> = Array<Option<i32>>()
+    io.println("Created array")
+    
+    // Push some values
+    arr.push(Option.Some(100))
+    io.println("Pushed Some(100)")
+    
+    arr.push(Option.None)
+    io.println("Pushed None")
+    
+    arr.push(Option.Some(200))
+    io.println("Pushed Some(200)")
+    
+    io.println("Test complete!")
+}

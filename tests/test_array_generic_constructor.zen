@@ -1,0 +1,19 @@
+// Test Array constructor with nested generics
+{ io, Array, Option } = @std
+
+main = () void {
+    io.println("Testing Array constructor with generics")
+    
+    // Test 1: Simple Array<i32>()
+    arr1 = Array<i32>()
+    arr1.push(42)
+    io.println("Array<i32> works")
+    
+    // Test 2: Try with pre-created Option
+    opt = Option.Some(100)
+    arr2 = Array<Option<i32>>()
+    arr2.push(opt)
+    io.println("Array<Option<i32>> works")
+    
+    io.println("Done")
+}

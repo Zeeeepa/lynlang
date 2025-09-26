@@ -1,0 +1,28 @@
+// Test parsing nested generics
+{ io, Option, Result } = @std
+
+main = () void {
+    // First let's test simple generics without using them
+    io.println("Testing nested generic parsing")
+    
+    // Simple Option<i32> - this should work
+    opt_simple: Option<i32> = Option.Some(42)
+    opt_simple ?
+        | Option.Some(v) { io.println("Simple: ${v}") }
+        | Option.None { io.println("None") }
+    
+    // Nested Option - let's build it step by step
+    inner_opt = Option.Some(100)
+    outer_opt: Option<Option<i32>> = Option.Some(inner_opt)
+    
+    // Now pattern match
+    outer_opt ?
+        | Option.Some(inner) {
+            inner ?
+                | Option.Some(v) { io.println("Nested: ${v}") }
+                | Option.None { io.println("Inner None") }
+        }
+        | Option.None { io.println("Outer None") }
+    
+    io.println("Done")
+}

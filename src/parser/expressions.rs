@@ -521,6 +521,11 @@ impl<'a> Parser<'a> {
                     return self.parse_dynvec_constructor();
                 }
 
+                // Check for Array<T>() constructor
+                if name == "Array" && self.current_token == Token::Operator("<".to_string()) {
+                    return self.parse_array_constructor();
+                }
+
                 // Check for Option type constructors: Some(value) and None
                 if name == "Some" && self.current_token == Token::Symbol('(') {
                     self.next_token(); // consume '('
@@ -2138,6 +2143,48 @@ impl<'a> Parser<'a> {
             element_types,
             allocator: Box::new(allocator),
             initial_capacity,
+        })
+    }
+
+    /// Parse Array<T>() constructor
+    fn parse_array_constructor(&mut self) -> Result<Expression> {
+        // Consume '<'
+        self.next_token();
+        
+        // Parse element type - this could be nested like Option<i32>
+        let element_type = self.parse_type()?;
+        
+        // Expect '>'
+        if self.current_token != Token::Operator(">".to_string()) {
+            return Err(CompileError::SyntaxError(
+                "Expected '>' after Array element type".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Expect '('
+        if self.current_token != Token::Symbol('(') {
+            return Err(CompileError::SyntaxError(
+                "Expected '(' after Array<T>".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Array constructor can take optional arguments (initial capacity, default value, etc.)
+        // For now, we'll support empty constructor Array<T>()
+        if self.current_token != Token::Symbol(')') {
+            return Err(CompileError::SyntaxError(
+                "Expected ')' after Array constructor (only empty constructor supported for now)".to_string(),
+                Some(self.current_span.clone()),
+            ));
+        }
+        self.next_token();
+        
+        // Create an ArrayConstructor expression
+        Ok(Expression::ArrayConstructor {
+            element_type,
         })
     }
 }
