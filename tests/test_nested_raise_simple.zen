@@ -1,0 +1,30 @@
+// Simple test for nested raise
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () void {
+    io.println("Testing nested raise...")
+    
+    // Get the outer Result
+    outer = get_nested()
+    io.println("Got outer result")
+    
+    // Check what type inference gives us for outer
+    outer ?
+        | Result.Ok(inner) {
+            io.println("Outer was Ok, checking inner...")
+            inner ?
+                | Result.Ok(value) {
+                    io.println("Inner value: ${value}")
+                }
+                | Result.Err(e) {
+                    io.println("Inner error: ${e}")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer error: ${e}")
+        }
+}

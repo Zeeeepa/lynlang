@@ -1,0 +1,20 @@
+// Test double raise in function
+{ io, Result } = @std
+
+get_double_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(100))
+}
+
+test_double_nested_result = () void {
+    io.println("Test 1: Double nested Result<Result<T,E>,E>")
+    
+    outer = get_double_nested()
+    inner = outer.raise()
+    value = inner.raise()
+    
+    io.println("  Expected: 100, Got: ${value}")
+}
+
+main = () void {
+    test_double_nested_result()
+}

@@ -1,0 +1,19 @@
+// Test raise in void function
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+test_raises = () void {
+    io.println("In void function...")
+    
+    outer = get_nested()
+    // This should fail - raise in void function
+    inner = outer.raise()
+    io.println("This shouldn't print")
+}
+
+main = () void {
+    test_raises()
+}

@@ -1,0 +1,18 @@
+// Test double raise with assignment
+{ io, Result } = @std
+
+get_double_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(100))
+}
+
+main = () void {
+    outer = get_double_nested()
+    io.println("Got outer")
+    
+    // This is the problematic line
+    inner = outer.raise()  
+    io.println("Got inner")
+    
+    value = inner.raise()
+    io.println("Value: ${value}")
+}

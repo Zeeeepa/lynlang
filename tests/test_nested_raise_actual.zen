@@ -1,0 +1,31 @@
+// Test actual raise with nested Result
+{ io, Result } = @std
+
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () void {
+    io.println("Testing nested raise...")
+    
+    // This should work - outer.raise() should return Result<i32, string>
+    outer = get_nested()
+    io.println("Got outer result")
+    
+    // Try pattern match first to verify type
+    outer ?
+        | Result.Ok(inner) {
+            io.println("Inner has type Result<i32, string>")
+            // Now try raise on inner
+            inner ?
+                | Result.Ok(val) {
+                    io.println("Value from inner: ${val}")
+                }
+                | Result.Err(e) {
+                    io.println("Error: ${e}")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer error: ${e}")
+        }
+}
