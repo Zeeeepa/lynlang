@@ -1,5 +1,5 @@
 // Simple test for nested generics
-{ io } = @std
+{io, Option, Result} = @std
 
 main = () i32 {
     // Test Option<Option<i32>>

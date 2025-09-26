@@ -1,4 +1,4 @@
-{ io, Array } = @std
+{io, Array, Option} = @std
 
 main = () i32 {
     // Create array with larger capacity

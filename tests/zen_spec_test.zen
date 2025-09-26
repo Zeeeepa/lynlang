@@ -1,10 +1,10 @@
 // Test file to verify LANGUAGE_SPEC.zen features are working
 
 // Import syntax from spec (line 92-94)
-{ io, math } = @std
+{io, math, Option} = @std
 
 // Import Result and Option from stdlib
-{ Result, Option } = @std
+{io, math, Option} = @std
 
 // Simple struct from spec (line 116-120)
 Point: {

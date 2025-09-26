@@ -1,5 +1,5 @@
 // Test that collections require allocators for NO-GC goal
-{ io } = @std
+{io, get_default_allocator, HashMap} = @std
 
 main = () void {
     io.println("Testing allocator requirements for NO-GC")
@@ -9,4 +9,4 @@ main = () void {
     map = HashMap<i32, i32>(alloc)
     
     io.println("Should not reach here - allocator required!")
-, get_default_allocator }
+}

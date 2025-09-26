@@ -1,6 +1,6 @@
 // Test Option<Option> to see if it's specific to Result
-{ io } = @std
-{ Option } = @std
+{io, Option} = @std
+{io, Option} = @std
 
 main = () void {
     // Create Option<Option<i32>>

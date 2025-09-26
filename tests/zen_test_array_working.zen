@@ -1,5 +1,5 @@
 // Comprehensive Array<T> test demonstrating working functionality
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Array} = @std
 
 main = () i32 {
     io.println("Testing Array<T> implementation")

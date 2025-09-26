@@ -1,5 +1,5 @@
 // Simple test for Array methods
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Option, Array} = @std
 
 main = () void {
     io.println("=== Testing Array Methods ===")

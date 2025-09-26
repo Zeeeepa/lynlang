@@ -1,4 +1,4 @@
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Array} = @std
 
 main = () i32 {
     // Create an array with type annotation - required for methods to work

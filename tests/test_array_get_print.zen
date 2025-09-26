@@ -1,4 +1,4 @@
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Array} = @std
 
 main = () i32 {
     alloc = get_default_allocator()

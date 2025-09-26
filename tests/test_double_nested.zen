@@ -1,6 +1,6 @@
 // Test doubly nested generics Result<Result<T,E>, E2>
-{ io } = @std
-{ Result } = @std
+{io, Result} = @std
+{io, Result} = @std
 
 main = () void {
     io.println("=== Testing Result<Result<T,E>, E2> ===")

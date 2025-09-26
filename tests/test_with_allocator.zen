@@ -1,5 +1,5 @@
 // Test that collections work with get_default_allocator
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, DynVec, HashMap} = @std
 
 main = () void {
     io.println("Testing collections with get_default_allocator")

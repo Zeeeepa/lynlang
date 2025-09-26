@@ -16,10 +16,11 @@ string_eq = (a: string, b: string) bool {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("Testing HashMap Option pattern matching...")
     
     // Create HashMap<string, i32>
-    map ::= HashMap<string, i32>.new()
+    map ::= HashMap<string, i32>(alloc)
     
     // Insert a key-value pair
     map.insert("test", 123, string_hash, string_eq)
@@ -29,7 +30,7 @@ main = () i32 {
     
     // Pattern match on the result
     result ?
-        | .Some(value) { io.println("Found value: ${value, get_default_allocator }") }
+        | .Some(value) { io.println("Found value: ${value}") }
         | .None { io.println("Key not found") }
     
     return 0

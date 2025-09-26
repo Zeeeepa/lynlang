@@ -1,7 +1,7 @@
 // Consolidated allocator tests
 // Combines functionality from multiple test_allocator_*.zen files
 
-{ io } = @std
+{io, Array} = @std
 
 // Test 1: Basic allocator functionality
 test_basic_allocator = () void {

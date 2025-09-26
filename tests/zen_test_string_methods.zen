@@ -1,6 +1,6 @@
 // Test string methods and operations
-{ io } = @std
-{ Option } = @std
+{io, Option} = @std
+{io, Option} = @std
 
 main = () void {
     io.println("=== String Methods Test ===")

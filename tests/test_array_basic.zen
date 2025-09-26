@@ -1,5 +1,5 @@
 // Basic test for Array methods without pop
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Array} = @std
 
 main = () void {
     io.println("=== Testing Basic Array Methods ===")

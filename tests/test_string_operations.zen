@@ -1,5 +1,5 @@
-{ io } = @std
-{ Option } = @std
+{io, Option} = @std
+{io, Option} = @std
 
 main = () i32 {
     io.println("=== String Operations Tests ===")

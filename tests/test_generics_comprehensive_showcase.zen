@@ -1,8 +1,9 @@
 // Comprehensive showcase of working generic features in Zen
 // Demonstrates deeply nested generics, type inference, and payload extraction
-{ io, Result, Option, HashMap, Array } = @std
+{ io, Result, Option, HashMap, Array , get_default_allocator } = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("=== Comprehensive Generic Features Showcase ===\n")
     
     // ========== SECTION 1: Deeply Nested Generics ==========
@@ -43,7 +44,7 @@ main = () void {
     
     // 2.1: HashMap with i32 keys (easier than string)
     io.println("  • HashMap<i32, string> operations:")
-    map = HashMap<i32, string>.new()
+    map = HashMap<i32, string>(alloc)
     map.insert(1, "one")
     map.insert(2, "two")
     

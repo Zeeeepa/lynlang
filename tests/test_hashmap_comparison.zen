@@ -2,10 +2,11 @@
 { io, HashMap , get_default_allocator } = @std
 
 main = () void {
+    alloc = get_default_allocator()
     io.println("Testing HashMap constructors")
     
-    // Test 1: HashMap<i32, i32>.new()
-    map1 = HashMap<i32, i32>.new()
+    // Test 1: HashMap<i32, i32>(alloc)
+    map1 = HashMap<i32, i32>(alloc)
     io.println("map1 created with .new()")
     
     alloc = get_default_allocator()
@@ -23,4 +24,4 @@ main = () void {
     // This currently fails
     map2.insert(2, 200)
     io.println("map2.insert worked")
-, get_default_allocator }
+}

@@ -1,6 +1,6 @@
 // Test file system operations
-{ io } = @std
-{ fs } = @std
+{io, Result} = @std
+{io, Result} = @std
 
 main = () i32 {
     io.println("Testing file system operations...")

@@ -42,7 +42,7 @@ test_hashmap = () void {
     io.println("═══════════════════════════════════════")
     
     // Create HashMap<string, i32>
-    map ::= HashMap<string, i32>.new()
+    map ::= HashMap<string, i32>(alloc)
     
     // Insert key-value pairs
     io.println("\n▸ Inserting key-value pairs:")
@@ -55,7 +55,7 @@ test_hashmap = () void {
     io.println("\n▸ Retrieving values:")
     alice_age ::= map.get("Alice", string_hash, string_eq)
     alice_age ?
-        | Option.Some(age) { io.println("  Alice's age: ${age, get_default_allocator }") }
+        | Option.Some(age) { io.println("  Alice's age: ${age}") }
         | Option.None { io.println("  Alice not found") }
     
     bob_age ::= map.get("Bob", string_hash, string_eq)
@@ -211,6 +211,7 @@ test_string_set = () void {
 }
 
 main = () i32 {
+    alloc = get_default_allocator()
     io.println("╔═══════════════════════════════════════╗")
     io.println("║   ZEN COLLECTIONS TEST SUITE          ║")
     io.println("╚═══════════════════════════════════════╝")

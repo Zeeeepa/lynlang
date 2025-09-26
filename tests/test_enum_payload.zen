@@ -1,5 +1,5 @@
 // Test enum payload extraction bug
-{ io } = @std
+{io, Option} = @std
 
 // Define a custom enum with payload - using correct syntax
 Message:

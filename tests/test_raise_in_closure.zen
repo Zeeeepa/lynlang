@@ -1,5 +1,5 @@
-{ io } = @std
-{ Result } = @std
+{io, Result} = @std
+{io, Result} = @std
 
 divide = (a: i32, b: i32) Result<i32, string> {
     Result.Ok(a / b)

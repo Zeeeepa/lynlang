@@ -1,7 +1,7 @@
 // Consolidated Array tests
 // Combines functionality from multiple test_array_*.zen files
 
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Array} = @std
 
 // Test 1: Basic Array creation and operations
 test_basic_array = () void {

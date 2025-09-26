@@ -1,5 +1,5 @@
 // Test HashMap creation only
-{ io, HashMap , get_default_allocator } = @std
+{ io, HashMap, get_default_allocator } = @std
 
 main = () void {
     io.println("Creating HashMap...")
@@ -9,4 +9,4 @@ main = () void {
     map = HashMap<i32, i32>(alloc)
     
     io.println("HashMap created successfully!")
-, get_default_allocator }
+}

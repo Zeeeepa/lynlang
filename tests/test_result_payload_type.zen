@@ -1,6 +1,6 @@
 // Test to understand what type of value we get from Result payload
-{ io } = @std
-{ Option, Result } = @std
+{io, Option, Result} = @std
+{io, Option, Result} = @std
 
 main = () void {
     // Create a Result<i32, string> - this should work

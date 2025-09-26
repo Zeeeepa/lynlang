@@ -1,7 +1,7 @@
 // Consolidated struct tests
 // Combines functionality from multiple test_struct_*.zen files
 
-{ io, Array, get_default_allocator } = @std
+{io, Array, get_default_allocator, Result} = @std
 
 // Test 1: Basic struct definition and instantiation
 Point = struct {

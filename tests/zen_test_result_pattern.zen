@@ -1,8 +1,8 @@
 // Test Result pattern matching in expression context
-{ io } = @std
+{io, Option, Result} = @std
 
 // Import Result and Option from stdlib
-{ Result, Option } = @std
+{io, Option, Result} = @std
 
 // Function with pattern matching as expression
 test_pattern = () Result<i32, string> {

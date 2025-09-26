@@ -1,6 +1,6 @@
 // Test HashMap.remove() functionality
-{ io, Option } = @std
-{ HashMap , get_default_allocator } = @std
+{io, Option, get_default_allocator, HashMap} = @std
+{io, Option, get_default_allocator, HashMap} = @std
 
 main = () i32 {
     // Create a HashMap
@@ -14,7 +14,7 @@ main = () i32 {
     
     // Check size before remove
     sizeBefore = map.size()
-    io.println("Size before remove: ${sizeBefore, get_default_allocator }")
+    io.println("Size before remove: ${sizeBefore}")
     
     // Remove a key that exists
     result = map.remove(10)

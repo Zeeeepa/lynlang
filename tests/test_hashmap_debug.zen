@@ -1,5 +1,5 @@
 // Test HashMap creation only
-{ io, Option, HashMap , get_default_allocator } = @std
+{io, Option, HashMap, get_default_allocator} = @std
 
 main = () void {
     io.println("Creating HashMap...")
@@ -12,5 +12,5 @@ main = () void {
     
     // Check length
     len = map.len()
-    io.println("Length: ${len, get_default_allocator }")
+    io.println("Length: ${len}")
 }

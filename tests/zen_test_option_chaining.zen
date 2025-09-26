@@ -1,6 +1,6 @@
 // Test Option type chaining and handling
-{ io } = @std
-{ Option } = @std
+{io, Option} = @std
+{io, Option} = @std
 
 // Helper function that might return a value
 get_value = (n: i32) Option<i32> {

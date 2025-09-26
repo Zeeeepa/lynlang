@@ -1,5 +1,5 @@
 // Test just Array pop method
-{ io, Array, Option } = @std
+{io, Array, Option, get_default_allocator} = @std
 
 main = () void {
     io.println("Testing Array pop")

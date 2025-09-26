@@ -1,5 +1,5 @@
 // Test nested generics with HashMap
-{ io, HashMap, Option, Result , get_default_allocator } = @std
+{io, HashMap, Option, Result, DynVec} = @std
 
 main = () void {
     io.println("=== Testing Nested Generics in Collections ===")
@@ -17,4 +17,4 @@ main = () void {
     io.println("Created DynVec<Option<string>>")
     
     io.println("All nested generic constructors working!")
-, get_default_allocator }
+}

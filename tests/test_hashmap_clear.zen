@@ -1,10 +1,11 @@
 // Test HashMap.clear() functionality
-{ io } = @std
-{ HashMap , get_default_allocator } = @std
+{io, get_default_allocator, Option, HashMap} = @std
+{io, get_default_allocator, Option, HashMap} = @std
 
 main = () i32 {
+    alloc = get_default_allocator()
     // Create a HashMap
-    map = HashMap<i32, i32>.new()
+    map = HashMap<i32, i32>(alloc)
     
     // Add some values
     map.insert(5, 100)
@@ -13,7 +14,7 @@ main = () i32 {
     
     // Check size before clear
     sizeBefore = map.size()
-    io.println("Size before clear: ${sizeBefore, get_default_allocator }")
+    io.println("Size before clear: ${sizeBefore}")
     
     // Clear the map
     map.clear()

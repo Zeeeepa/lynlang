@@ -1,5 +1,5 @@
 // Test simple range loop with mixed types
-{ io } = @std
+{io, Array} = @std
 
 main = () void {
     // Create an i64 value

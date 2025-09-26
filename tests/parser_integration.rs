@@ -1,10 +1,11 @@
 use zen::parser::Parser;
 use zen::lexer::Lexer;
 use zen::ast::*;
+use zen::error::CompileError;
 
-fn parse_code(code: &str) -> Result<Program, String> {
-    let mut lexer = Lexer::new(code);
-    let mut parser = Parser::new(&mut lexer);
+fn parse_code(code: &str) -> Result<Program, CompileError> {
+    let lexer = Lexer::new(code);
+    let mut parser = Parser::new(lexer);
     parser.parse_program()
 }
 

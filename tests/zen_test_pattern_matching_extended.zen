@@ -1,6 +1,6 @@
 // Extended pattern matching tests
-{ io } = @std
-{ Option, Result } = @std
+{io, Option, Result} = @std
+{io, Option, Result} = @std
 
 // Custom enum for testing
 Priority : .High | .Medium | .Low

@@ -1,5 +1,5 @@
 // Test all collections together
-{ io, get_default_allocator, HashMap, DynVec } = @std
+{io, get_default_allocator, HashMap, DynVec, Array} = @std
 
 main = () void {
     io.println("Testing all collections")

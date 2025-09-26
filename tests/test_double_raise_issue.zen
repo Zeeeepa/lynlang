@@ -1,6 +1,6 @@
 // Debug double raise issue - second raise
-{ io } = @std
-{ Result } = @std
+{io, Result} = @std
+{io, Result} = @std
 
 // Helper that returns Result<Result<i32, string>, string>
 get_double_result = () Result<Result<i32, string>, string> {

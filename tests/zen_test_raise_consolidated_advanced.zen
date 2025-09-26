@@ -1,6 +1,6 @@
 // Consolidated .raise() error propagation tests
-{ io } = @std
-{ Result } = @std
+{io, Result} = @std
+{io, Result} = @std
 
 // Helper functions for testing
 divide = (a: i32, b: i32) Result<i32, string> {

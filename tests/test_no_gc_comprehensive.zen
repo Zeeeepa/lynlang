@@ -1,5 +1,5 @@
 // Comprehensive test for NO-GC allocator requirements
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Option, DynVec, HashMap} = @std
 
 main = () i32 {
     io.println("=== NO-GC Comprehensive Test ===")

@@ -1,5 +1,5 @@
 // Minimal test for get_default_allocator
-{ io, get_default_allocator } = @std
+{io, get_default_allocator} = @std
 
 main = () void {
     io.println("Testing get_default_allocator...")

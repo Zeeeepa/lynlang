@@ -1,9 +1,9 @@
 // Simple Result type test
 
-{ io } = @std
+{io, Result} = @std
 
 // Import Result and Option from stdlib
-{ Result, Option } = @std
+{io, Result} = @std
 
 test_result = () Result<i32, string> {
     return Result.Ok(42)

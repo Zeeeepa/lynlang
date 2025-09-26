@@ -1,11 +1,11 @@
 // Sample from LANGUAGE_SPEC.zen to test parsing
 
 // Imports - only @std and @this are special
-{ io, maths } = @std
-{ String, StringBuilder } = @std
+{io, maths, Option} = @std
+{io, maths, Option} = @std
 
 // Import Result and Option from stdlib
-{ Result, Option } = @std
+{io, maths, Option} = @std
 
 // Simple struct
 Point: {

@@ -1,6 +1,6 @@
 // Test nested generics created locally vs in function
-{ io } = @std
-{ Option, Result } = @std
+{io, Result} = @std
+{io, Result} = @std
 
 main = () void {
     // Create nested Result locally

@@ -1,5 +1,5 @@
 // Test nested generics with allocator requirements
-{ io, Allocator, get_default_allocator } = @std
+{io, Allocator, DynVec, get_default_allocator, Option, Result, HashMap} = @std
 
 main = () i32 {
     // Get default allocator

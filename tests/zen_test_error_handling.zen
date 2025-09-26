@@ -1,10 +1,10 @@
 // Error handling tests from LANGUAGE_SPEC.zen lines 198-211
 // Tests Result type and .raise() error propagation
 
-{ io } = @std
+{io, Result} = @std
 
 // Import Result and Option from stdlib  
-{ Result, Option } = @std
+{io, Result} = @std
 
 // Parse function that returns Result (lines 198-203)
 parse_radius = (s: string) Result<f64, string> {

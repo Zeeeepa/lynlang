@@ -1,4 +1,4 @@
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, Option, Array} = @std
 
 main = () i32 {
     // Create an array with capacity 10, default value 0

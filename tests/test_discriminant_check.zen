@@ -1,6 +1,6 @@
 // Check if discriminant is preserved
-{ io } = @std
-{ Result, Option } = @std
+{io, Option, Result} = @std
+{io, Option, Result} = @std
 
 main = () void {
     // Test with Option first (simpler)

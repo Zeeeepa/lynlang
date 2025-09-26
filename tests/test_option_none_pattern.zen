@@ -1,5 +1,5 @@
 // Test for Option<None> pattern matching with null pointer check fix
-{ io } = @std
+{io, Option} = @std
 
 test_option_pattern = (opt: Option<i32>) i32 {
     opt ? 

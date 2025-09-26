@@ -1,4 +1,4 @@
-{ io } = @std
+{io, Option} = @std
 
 main = () i32 {
     x = 42

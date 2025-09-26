@@ -1,10 +1,10 @@
 // Comprehensive test of LANGUAGE_SPEC.zen features
 
 // Import syntax (lines 92-94)
-{ io, math } = @std
+{io, math, Option, Result} = @std
 
 // Import Result and Option from stdlib
-{ Result, Option } = @std
+{io, math, Option, Result} = @std
 
 // Struct with mutable fields (lines 116-120)
 Point: {

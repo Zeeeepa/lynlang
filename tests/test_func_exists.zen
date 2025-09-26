@@ -1,5 +1,5 @@
 // Test comparison type mismatch
-{ io } = @std
+{io, Array} = @std
 
 main = () void {
     // Create array and get length

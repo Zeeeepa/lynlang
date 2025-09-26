@@ -1,5 +1,5 @@
 // Test HashMap with allocator
-{ io, get_default_allocator } = @std
+{io, get_default_allocator, HashMap} = @std
 
 main = () void {
     io.println("Creating HashMap with allocator...")

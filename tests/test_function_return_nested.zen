@@ -1,6 +1,6 @@
 // Test nested generic return values
-{ io } = @std
-{ Option, Result } = @std
+{io, Option, Result} = @std
+{io, Option, Result} = @std
 
 // Simple function returning Option<i32>
 simple_option = () Option<i32> {

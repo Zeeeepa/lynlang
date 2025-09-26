@@ -1,5 +1,5 @@
 // Debug test for HashMap method recognition
-{ io, HashMap , get_default_allocator } = @std
+{io, HashMap, get_default_allocator} = @std
 
 main = () void {
     // Create a HashMap with the () syntax
@@ -10,4 +10,4 @@ main = () void {
     // This should work but currently fails
     map.insert(1, 100)
     io.println("Insert called")
-, get_default_allocator }
+}
