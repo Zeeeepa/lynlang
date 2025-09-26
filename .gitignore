@@ -61,6 +61,11 @@ test_results.txt
 *.test.out
 *.test.ll
 
+# Large files and artifacts
+*.jsonl
+.agent/claude_output.jsonl
+agent/claude_output.jsonl
+
 # Security and sensitive files
 .env
 .env.local
