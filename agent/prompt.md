@@ -303,7 +303,7 @@ DISABLED TESTS ANALYSIS (Updated 2025-09-25):
 - **String.to_upper() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **String.to_lower() IMPLEMENTED**: Converts ASCII uppercase letters to lowercase, preserves non-alphabetic characters
 - **HashMap FULLY WORKING**: Both HashMap<string,V> and HashMap<i32,V> fully functional with proper key equality checking. HashSet partially working with stub implementations.
-- **Nested Generics PARTIAL**: Basic nested generics partially working, but payload extraction for Result<Result<T,E>,E2> returns 0 instead of actual values. Stack allocation issue identified.
+- **Nested Generics IMPROVED**: Double-nested generics (Result<Result<T,E>,E>) now working correctly! Triple-nested (3+ levels) still have payload extraction issues returning 0.
 
 ### Test Suite Health (VERIFIED 2025-09-25 @ Latest) 
 - **98.5% Pass Rate**: 197/200 enabled tests passing (3 failures under investigation)
