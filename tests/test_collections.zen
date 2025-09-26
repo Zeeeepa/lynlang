@@ -1,5 +1,5 @@
 // Test HashMap and HashSet collections
-{ io, HashMap, HashSet, Option , get_default_allocator } = @std
+{ io, HashMap, HashSet, Option, get_default_allocator, Allocator } = @std
 
 // Simple hash function for strings
 string_hash = (s: string) i64 {
@@ -36,7 +36,7 @@ i32_eq = (a: i32, b: i32) i64 {
         | false { return 0 as i64 }
 }
 
-test_hashmap = () void {
+test_hashmap = (alloc: Allocator) void {
     io.println("═══════════════════════════════════════")
     io.println("         Testing HashMap<K, V>         ")
     io.println("═══════════════════════════════════════")
@@ -91,14 +91,14 @@ test_hashmap = () void {
     io.println("  New size: ${map.len()}")
 }
 
-test_hashset = () void {
+test_hashset = (alloc: Allocator) void {
     io.println("\n═══════════════════════════════════════")
     io.println("          Testing HashSet<T>           ")
     io.println("═══════════════════════════════════════")
     
     // Create HashSet<i32>
-    set1 ::= HashSet<i32>.new(i32_hash, i32_eq)
-    set2 ::= HashSet<i32>.new(i32_hash, i32_eq)
+    set1 ::= HashSet<i32>.new()
+    set2 ::= HashSet<i32>.new()
     
     // Add elements
     io.println("\n▸ Building sets:")
@@ -146,7 +146,7 @@ test_hashset = () void {
     
     // Subset/superset checks
     io.println("\n▸ Subset/Superset checks:")
-    set3 ::= HashSet<i32>.new(i32_hash, i32_eq)
+    set3 ::= HashSet<i32>.new()
     set3.add(1)
     set3.add(2)
     
@@ -157,7 +157,7 @@ test_hashset = () void {
     io.println("  Set1 superset of {1, 2}: ${is_superset}")
     
     // Disjoint check
-    set4 ::= HashSet<i32>.new(i32_hash, i32_eq)
+    set4 ::= HashSet<i32>.new()
     set4.add(7)
     set4.add(8)
     
@@ -171,13 +171,13 @@ test_hashset = () void {
     io.println("  Set1 new size: ${set1.len()}")
 }
 
-test_string_set = () void {
+test_string_set = (alloc: Allocator) void {
     io.println("\n═══════════════════════════════════════")
     io.println("      Testing HashSet<string>          ")
     io.println("═══════════════════════════════════════")
     
     // Create HashSet for strings
-    languages ::= HashSet<string>.new(string_hash, string_eq)
+    languages ::= HashSet<string>.new()
     
     io.println("\n▸ Adding programming languages:")
     languages.add("Zen")
@@ -198,7 +198,7 @@ test_string_set = () void {
     io.println("  Has 'Rust': ${languages.contains("Rust")}")
     
     // Create another set
-    functional ::= HashSet<string>.new(string_hash, string_eq)
+    functional ::= HashSet<string>.new()
     functional.add("Haskell")
     functional.add("OCaml")
     functional.add("Zen")
@@ -216,9 +216,9 @@ main = () i32 {
     io.println("║   ZEN COLLECTIONS TEST SUITE          ║")
     io.println("╚═══════════════════════════════════════╝")
     
-    test_hashmap()
-    test_hashset()
-    test_string_set()
+    test_hashmap(alloc)
+    test_hashset(alloc)
+    test_string_set(alloc)
     
     io.println("\n╔═══════════════════════════════════════╗")
     io.println("║   ALL TESTS COMPLETED                 ║")
