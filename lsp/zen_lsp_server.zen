@@ -1,10 +1,10 @@
 // Zen Language Server Protocol Implementation
 // Provides IDE support for Zen language
 
-io = @std
+{ print, println } = @std
 json = @std
 net = @std
-string = @std
+{ String } = @std
 { Vec, DynVec } = @std
 hashmap = @std
 thread = @std

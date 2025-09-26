@@ -1,11 +1,11 @@
 // Zen Standard Library: Package Management Module
 // Provides utilities for managing Zen packages and dependencies
 
-core = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 fs = @std
 json = @std
 net = @std
-string = @std
+{ String } = @std
 hashmap = @std
 
 // Package manifest structure
@@ -22,10 +22,11 @@ Package: {
 }
 
 // Dependency specification
-Dependency: Version(version: string)
-    | Git(url: string, branch: string)
-    | Path(path: string)
-    | Registry(name: string, version: string)
+Dependency: 
+    Version: {version: string},
+    Git: { url: string, branch: string},
+    Path: { path: string},
+    Registry: { name: string, version: string }
 
 // Semantic version
 SemVer: {

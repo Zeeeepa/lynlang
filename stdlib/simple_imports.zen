@@ -2,7 +2,7 @@
 // This shows that imports work at module level without comptime
 
 // Module-level imports (CORRECT - no comptime wrapper)
-core = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 build = @std
 
 // Simple arithmetic using core functions

@@ -1,9 +1,9 @@
 // Zen Standard Library - Logging Module
 // Provides structured logging capabilities
 
-core = @std
-io = @std
-string = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ print, println } = @std
+{ String } = @std
 time = @std
 
 // Log levels

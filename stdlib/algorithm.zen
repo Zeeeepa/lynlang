@@ -1,7 +1,7 @@
 // Zen Standard Library - Algorithm Module
 // Common algorithms and data manipulation functions
 
-core = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 build = @std
 
 // Swap two values

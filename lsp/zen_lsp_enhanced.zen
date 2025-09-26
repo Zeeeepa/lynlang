@@ -1,9 +1,9 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides comprehensive IDE support for Zen development
 
-io = @std
+{ print, println } = @std
 fs = @std
-string = @std
+{ String } = @std
 { Vec, DynVec } = @std
 json = @std
 net = @std

@@ -1,13 +1,13 @@
 // Zen Language Server Protocol Implementation
 // Provides IDE support for Zen language
 
-core = @std
-io = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ print, println } = @std
 json = @std
 net = @std
 { Vec, DynVec } = @std
 hashmap = @std
-string = @std
+{ String } = @std
 fs = @std
 
 lexer = @std

@@ -1,9 +1,9 @@
 // utils.zen - General utility functions and helpers
 // Pure Zen implementation without comptime imports
 
-core = @std
-string = @std
-io = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ String } = @std
+{ print, println } = @std
 { Vec, DynVec } = @std
 math = @std
 

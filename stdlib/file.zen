@@ -1,9 +1,9 @@
 // File I/O operations for Zen
 // Provides file reading, writing, and manipulation utilities
 
-core = @std
-mem = @std
-string = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ malloc, free, Allocator } = @std
+{ String } = @std
 path = @std
 result = @std
 sys = @std  // Import unified system calls

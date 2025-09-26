@@ -403,7 +403,7 @@ main = () i32 {
     // Test with sample code
     test_code := "
 // Test file
-io = @std
+{ print, println } = @std
 
 main = () i32 {
     // This would be an error:

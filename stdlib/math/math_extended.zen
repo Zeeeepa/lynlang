@@ -1,7 +1,7 @@
 // Zen Standard Library: Extended Math Module
 // Transcendental and advanced mathematical functions
 
-core = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 math = @std
 
 // External math functions from libc

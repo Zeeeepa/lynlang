@@ -1,8 +1,8 @@
 // Zen Standard Library - Time Module
 // Provides time measurement and manipulation utilities
 
-core = @std
-io = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ print, println } = @std
 math = @std
 
 // Time representation in nanoseconds since epoch

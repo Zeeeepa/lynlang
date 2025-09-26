@@ -1,10 +1,10 @@
 // Zen LSP: Basic Syntax Checker
 // Provides real-time syntax checking for Zen code
 
-core = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 { Vec, DynVec } = @std
-string = @std
-io = @std
+{ String } = @std
+{ print, println } = @std
 
 // Import compiler components
 lexer = @std

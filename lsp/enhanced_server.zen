@@ -1,9 +1,9 @@
 // Enhanced Zen Language Server Protocol Implementation
 // Provides advanced IDE support with hover, go-to-definition, and more
 
-core = @std
-io = @std
-string = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ print, println } = @std
+{ String } = @std
 { Vec, DynVec } = @std
 hashmap = @std
 fs = @std
@@ -14,7 +14,7 @@ result = @std
 lexer = @std
 parser = @std
 type_checker = @std
-ast = @std
+{ AST } = @std
 
 // Symbol information for tracking definitions and references
 Symbol := {

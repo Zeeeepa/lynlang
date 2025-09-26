@@ -1,11 +1,11 @@
 // URL Parser and Builder for Zen
 // Provides URL parsing, validation, and manipulation utilities
 
-string = @std
+{ String } = @std
 vec = @std
 result = @std
 hashmap = @std
-io = @std
+{ print, println } = @std
 
 // URL components
 URL := {

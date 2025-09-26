@@ -1,8 +1,8 @@
 // Test Runner - Simple testing framework for Zen
 // Provides basic unit testing capabilities
 
-io = @std
-core = @std
+{ print, println } = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 vec = @std
 
 // Test result enumeration

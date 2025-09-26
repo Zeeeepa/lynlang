@@ -1,8 +1,8 @@
 // HTTP client and server module for Zen
 // Provides high-level HTTP operations built on low-level socket operations
 
-core = @std
-string = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ String } = @std
 net = @std
 result = @std
 hashmap = @std

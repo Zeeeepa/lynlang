@@ -1,11 +1,11 @@
 // Zen Standard Library - Test Framework
 // Provides testing infrastructure for Zen programs
 
-core = @std
-io = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ print, println } = @std
 assert = @std
 { Vec, DynVec } = @std
-string = @std
+{ String } = @std
 
 // TestResult represents the outcome of a test
 TestResult: Passed

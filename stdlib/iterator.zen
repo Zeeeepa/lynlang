@@ -1,7 +1,7 @@
 // Zen Standard Library: Iterator Module
 // Provides functional iteration patterns for collections
 
-core = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 
 // Range iterator for numeric ranges
 Range: {

@@ -1,9 +1,9 @@
 // Unit Testing Framework for Zen
 
-io = @std
-string = @std
+{ print, println } = @std
+{ String } = @std
 vec = @std
-core = @std
+{ Option, Some, None, Result, Ok, Err } = @std
 time = @std
 
 // Test result types

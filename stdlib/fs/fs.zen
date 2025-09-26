@@ -1,8 +1,8 @@
 // Zen Standard Library: File System Module
 // High-level file system operations
 
-core = @std
-io = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ print, println } = @std
 
 // Import path utilities from dedicated path module
 path = @std

@@ -1,8 +1,8 @@
 // Zen Standard Library: Assert Module
 // Testing and assertion utilities
 
-core = @std
-io = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ print, println } = @std
 
 // Assert that a condition is true
 assert = (condition: bool, message: string = "Assertion failed") void   {

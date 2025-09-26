@@ -1,9 +1,9 @@
 // Network programming utilities for Zen
 // Provides TCP/UDP sockets, HTTP client/server, and networking primitives
 
-core = @std
-mem = @std
-string = @std
+{ Option, Some, None, Result, Ok, Err } = @std
+{ malloc, free, Allocator } = @std
+{ String } = @std
 result = @std
 file = @std
 concurrency = @std

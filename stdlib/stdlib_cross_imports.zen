@@ -2,8 +2,8 @@
 // This demonstrates module interdependencies
 
 // Import multiple stdlib modules
-io = @std
-string = @std
+{ print, println } = @std
+{ String } = @std
 vec = @std
 math = @std
 

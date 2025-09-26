@@ -3,8 +3,9 @@
 // This is the main entry point for the self-hosted compiler
 
 // Module-level imports (correct syntax - no comptime blocks)
-{ io, fs, string, core, path, process, result } = @std
-{ Vec, DynVec } = @std
+{ Vec, DynVec, Option, Result, Error } = @std
+{ print, println } = @std
+{ read_file, write_file } = @std
 
 // Compiler pipeline stages
 CompilerStage:  
@@ -501,7 +502,7 @@ main = (args: DynVec<string>) i32   {
     
     // Create compiler and compile
     compiler = compiler_new(config)
-    result := compile(&compiler)
+    result := compile(Ptr<Compiler>(compiler))
     
     result.success ?
     | true {

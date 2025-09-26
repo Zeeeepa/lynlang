@@ -1,6 +1,6 @@
 // Basic Zen Check Tool
 
-io = @std
+{ print, println } = @std
 
 // Main entry point
 main = () i32 {

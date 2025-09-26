@@ -1,10 +1,9 @@
 // Zen Standard Library - String Utilities
 // Comprehensive string manipulation and processing functions
 
-core = @std
-mem = @std
-{ Vec, DynVec } = @std
-io = @std
+{ Vec, DynVec, Option, Result, Error } = @std
+{ print, println } = @std
+{ malloc, free } = @std
 
 // Note: StringBuilder moved to text/string_builder.zen to avoid duplication
 
