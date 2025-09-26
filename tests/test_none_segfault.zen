@@ -1,13 +1,13 @@
 // Minimal test to reproduce None segfault
-{ io } = @std
+{ io, Option } = @std
 
 main = () void {
     // Test with just None
-    empty = None
+    empty = Option.None
     io.println("Created None")
     
     // Single pattern match on None
     empty ?
-        | None { io.println("Is None") }
-        | Some(x) { io.println("Is Some") }
+        | Option.None { io.println("Is None") }
+        | Option.Some(x) { io.println("Is Some") }
 }
