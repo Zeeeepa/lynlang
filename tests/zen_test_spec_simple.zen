@@ -1,14 +1,13 @@
 // Test basic Zen spec syntax
 
-{ io , get_default_allocator} = @std
+{ io } = @std
 
 // Option type definition
 // NOTE: Using stdlib Option instead of redefining
-{ Option, Some, None , get_default_allocator} = @std
+{ Option, Some, None } = @std
 
 // Simple assignment operators
 main = () void {
-    alloc = get_default_allocator()
     x = 10          // Immutable assignment  
     y ::= 20        // Mutable assignment
     z :: i32 = 30   // Mutable with type

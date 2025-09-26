@@ -59,7 +59,7 @@ main = () void {
     
     // Test 4: HashMap instantiation with generic values (methods not yet implemented)
     io.println("\n[4] HashMap instantiation test")
-    map = HashMap<string, Option<Result<i32, string>>>()
+    map = HashMap<String, Option<Result<i32, String>>>.new(alloc)
     io.println("  Created HashMap with complex generic type (instantiation works!)")
     
     // Test 5: Function returning deeply nested generic

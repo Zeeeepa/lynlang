@@ -9,7 +9,7 @@ test_basic_array = () void {
     
     io.println("Creating array...")
     alloc = get_default_allocator()
-    arr = Array<i32>(alloc)
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     io.println("Array created")
     
     io.println("Getting length...")
@@ -33,7 +33,7 @@ test_array_multiple = () void {
     io.println("=== Test 2: Multiple Elements ===")
     
     alloc = get_default_allocator()
-    arr = Array<i32>(alloc)
+    arr: Array<i32> = Array.new(alloc, 10, 0)
     
     // Push multiple values
     arr.push(10)
@@ -55,7 +55,7 @@ test_string_array = () void {
     io.println("=== Test 3: String Array ===")
     
     alloc = get_default_allocator()
-    arr = Array<string>(alloc)
+    arr: Array<String> = Array.new(alloc, 10, "")
     
     arr.push("hello")
     arr.push("world")
@@ -72,6 +72,8 @@ test_string_array = () void {
 // Test 4: Array with generic types
 test_generic_array = () void {
     io.println("=== Test 4: Generic Array ===")
+    
+    alloc = get_default_allocator()
     
     // Test with i32
     int_arr: Array<i32> = Array.new(alloc, 3, 0)
@@ -101,6 +103,7 @@ test_generic_array = () void {
 test_array_methods = () void {
     io.println("=== Test 5: Array Methods ===")
     
+    alloc = get_default_allocator()
     arr: Array<i32> = Array.new(alloc, 5, 0)
     
     // Test push
@@ -130,6 +133,7 @@ test_array_methods = () void {
 test_option_array = () void {
     io.println("=== Test 6: Option Array ===")
     
+    alloc = get_default_allocator()
     arr: Array<Option<i32>> = Array.new(alloc, 3, None)
     
     arr.push(Some(42))

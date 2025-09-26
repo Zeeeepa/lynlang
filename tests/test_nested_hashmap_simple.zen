@@ -6,16 +6,16 @@ main = () void {
     io.println("=== Testing Nested Generics in Collections ===")
     
     // Test 1: HashMap with Option values
-    map1 = HashMap<string, Option<i32>>()
-    io.println("Created HashMap<string, Option<i32>>")
+    map1 = HashMap<String, Option<i32>>.new(alloc)
+    io.println("Created HashMap<String, Option<i32>>")
     
     // Test 2: HashMap with Result values
-    map2 = HashMap<string, Result<i32, string>>()
-    io.println("Created HashMap<string, Result<i32, string>>")
+    map2 = HashMap<String, Result<i32, String>>.new(alloc)
+    io.println("Created HashMap<String, Result<i32, String>>")
     
     // Test 3: DynVec with Option elements
-    vec = DynVec<Option<string>>()
-    io.println("Created DynVec<Option<string>>")
+    vec = DynVec<Option<String>>.new(alloc)
+    io.println("Created DynVec<Option<String>>")
     
     io.println("All nested generic constructors working!")
 }

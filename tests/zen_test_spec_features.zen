@@ -2,7 +2,6 @@
 
 // No keywords - everything is just identifiers and operators
 main = () void {
-    alloc = get_default_allocator()
     // Assignment operators as per spec
     x = 10           // Immutable assignment
     y : i32 = 20     // Immutable with type

@@ -7,8 +7,8 @@ main = () i32 {
     
     // Test HashMap<String, Option<i32>>
     map1 = HashMap<String, Option<i32>>.new(alloc)
-    map1.insert("key1", Option.Some(42))
-    map1.insert("key2", Option.None)
+    map1.insert("key1", Some(42))
+    map1.insert("key2", None)
     
     val1 = map1.get("key1")
     val1 ?
@@ -21,8 +21,8 @@ main = () i32 {
     
     // Test DynVec<Result<i32, String>>
     vec = DynVec<Result<i32, String>>.new(alloc)
-    vec.push(Result.Ok(100))
-    vec.push(Result.Err("error"))
+    vec.push(Ok(100))
+    vec.push(Err("error"))
     
     item1 = vec.get(0)
     item1 ?
