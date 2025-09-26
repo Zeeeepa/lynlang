@@ -96,7 +96,7 @@ fn test_pattern_matching() {
 fn test_operators() {
     // Test arrow operators
     let tokens = tokenize("->");
-    assert_eq!(tokens, vec![Token::Operator("->".to_string()));
+    assert_eq!(tokens, vec![Token::Operator("->".to_string())]);
 
     // Test range operators
     let tokens = tokenize("0..10");

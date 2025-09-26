@@ -1001,7 +1001,7 @@ impl TypeChecker {
             }
             Expression::TypeCast { target_type, .. } => Ok(target_type.clone()),
             Expression::QuestionMatch { scrutinee, arms } => {
-                // QuestionMatch expression type is determined by the first arm
+                // QuestionMatch expression type is determined by the arms
                 // All arms should have the same type
 
                 // Infer the type of the scrutinee to properly type pattern bindings
@@ -1024,11 +1024,42 @@ impl TypeChecker {
                             &scrutinee_type,
                         )?;
 
-                        // Infer the type with bindings in scope
-                        let arm_type = self.infer_expression_type(&arm.body)?;
+                        // Special handling for blocks with early returns
+                        // If the arm body is a block, we need to check if it actually
+                        // produces a value or just has side effects before returning
+                        let arm_type = if let Expression::Block(stmts) = &arm.body {
+                            // Check if the block has any non-return statements before the return
+                            let mut block_type = AstType::Void;
+                            let mut has_early_return = false;
+                            
+                            for (j, stmt) in stmts.iter().enumerate() {
+                                match stmt {
+                                    Statement::Return(_) => {
+                                        has_early_return = true;
+                                        // Don't use return statement to determine block type
+                                        break;
+                                    }
+                                    Statement::Expression(expr) => {
+                                        // If this is the last statement and there's no early return after it
+                                        if j == stmts.len() - 1 && !has_early_return {
+                                            block_type = self.infer_expression_type(expr)?;
+                                        } else {
+                                            // Still type-check intermediate expressions
+                                            let _ = self.infer_expression_type(expr)?;
+                                        }
+                                    }
+                                    _ => {
+                                        self.check_statement(stmt)?;
+                                    }
+                                }
+                            }
+                            block_type
+                        } else {
+                            self.infer_expression_type(&arm.body)?
+                        };
 
-                        // The first arm determines the type
-                        if i == 0 {
+                        // The first non-void arm determines the type, or use first arm if all void
+                        if i == 0 || (matches!(result_type, AstType::Void) && !matches!(arm_type, AstType::Void)) {
                             result_type = arm_type;
                         }
 
@@ -1490,7 +1521,20 @@ impl TypeChecker {
                 // For now, try to infer from the body if it's a simple return
                 let return_type = match body.as_ref() {
                     Expression::Block(stmts) => {
-                        // Look for return statements in the block
+                        // First, process all variable declarations to populate the scope
+                        // This is necessary for return statements that reference these variables
+                        for stmt in stmts {
+                            match stmt {
+                                crate::ast::Statement::VariableDeclaration { .. } |
+                                crate::ast::Statement::VariableAssignment { .. } => {
+                                    // Process the statement to declare/update variables in scope
+                                    let _ = self.check_statement(stmt);
+                                }
+                                _ => {}
+                            }
+                        }
+                        
+                        // Now look for return statements with variables properly in scope
                         for stmt in stmts {
                             if let crate::ast::Statement::Return(ret_expr) = stmt {
                                 if let Ok(ret_type) = self.infer_expression_type(ret_expr) {

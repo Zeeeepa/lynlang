@@ -1,0 +1,23 @@
+// Test closure return type inference with conditional
+{ io, Result, get_default_allocator} = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    
+    // Closure with conditional - but explicit type should help
+    divide = (a: f64, b: f64) Result<f64, string> {
+        // Direct return of conditional
+        return b == 0.0 ?
+            | true { Result.Err("Division by zero") }
+            | false { Result.Ok(a / b) }
+    }
+    
+    // Get the value using raise
+    val = divide(10.0, 2.0).raise()
+    
+    // Print the value
+    io.print("Result: ")
+    io.println(val)
+    
+    return 0
+}

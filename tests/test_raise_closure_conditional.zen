@@ -1,0 +1,24 @@
+// Test raise with closure containing conditional
+{ io, Result, get_default_allocator} = @std
+
+main = () i32 {
+    alloc = get_default_allocator()
+    
+    // Closure with conditional returning Result  
+    divide = (a: f64, b: f64) Result<f64, string> {
+        result = b == 0.0 ?
+            | true { Result.Err("Division by zero") }
+            | false { Result.Ok(a / b) }
+        return result
+    }
+    
+    // Get the value using raise
+    val = divide(10.0, 2.0).raise()
+    
+    // Direct comparison - should work
+    val == 5.0 ? 
+        | true { io.println("Pass") }
+        | false { io.println("Fail") }
+    
+    return 0
+}
