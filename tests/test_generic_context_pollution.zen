@@ -1,0 +1,60 @@
+// Test that generic type context doesn't pollute across functions
+{ io, Result, Option } = @std
+
+// Function returning Result<i32, string>
+get_int_result = () Result<i32, string> {
+    Result.Ok(42)
+}
+
+// Function returning Result<f64, string>  
+get_float_result = () Result<f64, string> {
+    Result.Ok(3.14)
+}
+
+// Function returning Option<i32>
+get_int_option = () Option<i32> {
+    Option.Some(100)
+}
+
+// Function returning Option<string>
+get_string_option = () Option<string> {
+    Option.Some("test")
+}
+
+main = () void {
+    io.println("=== Testing Generic Context Isolation ===")
+    
+    // Call functions in sequence to check for pollution
+    int_res = get_int_result()
+    float_res = get_float_result()
+    int_opt = get_int_option()
+    str_opt = get_string_option()
+    
+    // Verify each maintains correct type
+    int_val = int_res.raise()
+    io.println("Int result: ${int_val}")
+    int_val == 42 ?
+        | true { io.println("✓ Int result correct") }
+        | false { io.println("✗ Int result wrong: ${int_val}") }
+    
+    float_val = float_res.raise()
+    io.println("Float result: ${float_val}")
+    
+    int_opt ?
+        | Option.Some(v) {
+            io.println("Int option: ${v}")
+            v == 100 ?
+                | true { io.println("✓ Int option correct") }
+                | false { io.println("✗ Int option wrong: ${v}") }
+        }
+        | Option.None { io.println("✗ Int option is None") }
+    
+    str_opt ?
+        | Option.Some(s) {
+            io.println("String option: ${s}")
+            s == "test" ?
+                | true { io.println("✓ String option correct") }
+                | false { io.println("✗ String option wrong: ${s}") }
+        }
+        | Option.None { io.println("✗ String option is None") }
+}
