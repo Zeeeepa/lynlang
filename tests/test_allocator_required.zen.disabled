@@ -1,5 +1,5 @@
 // Test that collections require allocators for NO-GC goal
-{ io, get_default_allocator } = @std
+{ io, get_default_allocator, HashMap, DynVec } = @std
 
 main = () void {
     io.println("Testing allocator requirements for NO-GC")

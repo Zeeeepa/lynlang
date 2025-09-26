@@ -1,0 +1,22 @@
+// Test all collections together
+{ io, get_default_allocator, HashMap, DynVec } = @std
+
+main = () void {
+    io.println("Testing all collections")
+    
+    // Get allocator
+    alloc = get_default_allocator()
+    io.println("Got allocator")
+    
+    // Create all collections
+    map = HashMap<i32, i32>(alloc)
+    io.println("Created HashMap")
+    
+    vec = DynVec<i32>(alloc)
+    io.println("Created DynVec")
+    
+    arr: Array<i32> = Array.new(alloc, 10, 0)
+    io.println("Created Array")
+    
+    io.println("All collections created successfully")
+}

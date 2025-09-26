@@ -1,0 +1,16 @@
+// Test HashMap and DynVec together
+{ io, get_default_allocator, HashMap, DynVec } = @std
+
+main = () void {
+    io.println("Testing HashMap and DynVec")
+    
+    alloc = get_default_allocator()
+    
+    map = HashMap<i32, i32>(alloc)
+    vec = DynVec<i32>(alloc)
+    
+    map.insert(1, 100)
+    vec.push(42)
+    
+    io.println("Both operations completed")
+}

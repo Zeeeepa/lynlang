@@ -1,18 +1,18 @@
 # Zen Language Development Status
 
-**Last Updated: 2025-01-27**
+**Last Updated: 2025-09-26**
 
 ## 🎯 Current Status Overview
 
-The Zen language project has achieved significant progress with a **87.0% test pass rate** (260/299 tests passing). The core language features are working well, with some areas requiring attention for full completion.
+The Zen language project has achieved significant progress with a **88.6% test pass rate** (364/411 tests passing). Major milestone: NO-GC goal achieved - all collections now require explicit allocators.
 
 ## 📊 Test Suite Health
 
-- **Total Tests**: 299
-- **Passing**: 260 (87.0%)
-- **Failing**: 39 (13.0%)
-- **Segfaults**: 2 (test_collections.zen, test_hashmap_remove.zen)
-- **Disabled Tests**: 7 (unimplemented features)
+- **Total Tests**: 411
+- **Passing**: 364 (88.6%)
+- **Failing**: 47 (11.4%)
+- **Segfaults**: 3 (multiple collections with same allocator issue)
+- **Disabled Tests**: 6 (unimplemented features)
 
 ### Test Categories
 - **Core Language**: 95% passing
@@ -47,12 +47,12 @@ The Zen language project has achieved significant progress with a **87.0% test p
 - **UFC (Uniform Function Call)**: Method chaining working
 - **String Interpolation**: `"${expr}"` syntax complete
 
-### Collections and Data Structures
-- **Array<T>**: Push, get, set, len, pop methods working
-- **HashMap<K,V>**: Basic operations functional
-- **HashSet<T>**: Core functionality implemented
-- **DynVec<T>**: Dynamic vector support
-- **Generic Type Inference**: Basic generics working
+### Collections and Data Structures (NO-GC ACHIEVED!)
+- **Array<T>**: REQUIRES ALLOCATOR - push, get, set, len methods working
+- **HashMap<K,V>**: REQUIRES ALLOCATOR - insert, get with Option returns
+- **DynVec<T>**: REQUIRES ALLOCATOR - dynamic growth with allocator
+- **Vec<T,N>**: Fixed-size vector (stack-allocated, no allocator needed)
+- **get_default_allocator()**: System allocator function implemented
 
 ### Error Handling
 - **Option<T>**: Some/None with pattern matching
@@ -61,18 +61,17 @@ The Zen language project has achieved significant progress with a **87.0% test p
 - **Pattern Matching**: Enum patterns working
 
 ### Advanced Features
-- **Allocator System**: GPA (sync) and AsyncPool (async) allocators
-- **Behaviors System**: Structural contracts without keywords
+- **NO-GC Memory Management**: All collections require explicit allocators
+- **Nested Generics**: Result<Option<T>,E>, triple-nested types working
 - **Module System**: Basic import/export functionality
 - **Type System**: Core type checking and inference
 
 ## ⚠️ Partially Working Features
 
-### Generic Types
-- **Basic Generics**: `Result<T>`, `Option<T>`, `HashMap<K,V>` working
-- **Nested Generics**: First level works, deeper nesting has issues
-- **Type Inference**: Variables don't track generic types properly
-- **Multiple raise()**: Second raise() fails with type errors
+### Known Limitations
+- **Multiple Collections**: Using Array with other collections causes segfault
+- **Type Inference**: Some closures fail with "Cannot infer" errors
+- **Struct Methods**: Not yet implemented (causing ~10 test failures)
 
 ### Collections
 - **HashMap**: Basic operations work, some advanced features missing

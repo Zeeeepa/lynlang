@@ -1,0 +1,18 @@
+// Debug allocator issue
+{ io, get_default_allocator } = @std
+
+main = () void {
+    io.println("Test 1: Get allocator")
+    alloc = get_default_allocator()
+    io.println("Got allocator")
+    
+    io.println("Test 2: Create Array")
+    arr: Array<i32> = Array.new(alloc, 10, 0)
+    io.println("Created array")
+    
+    io.println("Test 3: Push to array")
+    arr.push(99)
+    io.println("Pushed to array")
+    
+    io.println("All tests passed")
+}
