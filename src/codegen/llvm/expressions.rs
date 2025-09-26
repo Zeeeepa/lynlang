@@ -333,6 +333,54 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     })
                 }
             }
+            Expression::StructLiteral { name, .. } => {
+                // Get the struct type fields from registered types
+                if let Some(struct_info) = self.struct_types.get(name) {
+                    let mut fields = Vec::new();
+                    for (field_name, (_index, field_type)) in &struct_info.fields {
+                        fields.push((field_name.clone(), field_type.clone()));
+                    }
+                    Ok(AstType::Struct {
+                        name: name.clone(),
+                        fields,
+                    })
+                } else {
+                    // Unknown struct type
+                    Ok(AstType::Struct {
+                        name: name.clone(),
+                        fields: vec![],
+                    })
+                }
+            }
+            Expression::VecConstructor { element_type, size, .. } => {
+                // Vec<T, N> constructor returns Vec type
+                Ok(AstType::Vec {
+                    element_type: Box::new(element_type.clone()),
+                    size: *size,
+                })
+            }
+            Expression::DynVecConstructor { element_types, .. } => {
+                // DynVec<T> constructor returns DynVec type
+                Ok(AstType::DynVec {
+                    element_types: element_types.clone(),
+                    allocator_type: None,
+                })
+            }
+            Expression::ArrayConstructor { element_type } => {
+                // Array<T> constructor returns Generic Array type
+                Ok(AstType::Generic {
+                    name: "Array".to_string(),
+                    type_args: vec![element_type.clone()],
+                })
+            }
+            Expression::StringInterpolation { .. } => {
+                // String interpolation always returns a string
+                Ok(AstType::String)
+            }
+            Expression::TypeCast { target_type, .. } => {
+                // Type cast returns the target type
+                Ok(target_type.clone())
+            }
             _ => Ok(AstType::Void),
         }
     }
