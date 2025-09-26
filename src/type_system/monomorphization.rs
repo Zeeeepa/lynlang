@@ -35,10 +35,30 @@ impl Monomorphizer {
             e.to_string()
         })?;
 
+        // After type checking, update functions with inferred return types
+        let mut updated_functions = std::collections::HashMap::new();
+        for (func_name, sig) in self.type_checker.get_function_signatures() {
+            updated_functions.insert(func_name.clone(), sig.return_type.clone());
+        }
+        
         for decl in &program.declarations {
             match decl {
-                Declaration::Function(func) if !func.type_params.is_empty() => {
-                    self.env.register_generic_function(func.clone());
+                Declaration::Function(func) => {
+                    let mut updated_func = func.clone();
+                    // If the function has Void return type and the type checker inferred a different type, update it
+                    if func.return_type == AstType::Void {
+                        if let Some(inferred_type) = updated_functions.get(&func.name) {
+                            if *inferred_type != AstType::Void {
+                                updated_func.return_type = inferred_type.clone();
+                            }
+                        }
+                    }
+                    
+                    if !func.type_params.is_empty() {
+                        self.env.register_generic_function(updated_func.clone());
+                    } else {
+                        declarations.push(Declaration::Function(updated_func));
+                    }
                 }
                 Declaration::Struct(struct_def) if !struct_def.type_params.is_empty() => {
                     self.env.register_generic_struct(struct_def.clone());

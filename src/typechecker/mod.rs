@@ -56,6 +56,11 @@ pub struct EnumInfo {
 }
 
 impl TypeChecker {
+    /// Get the inferred function signatures
+    pub fn get_function_signatures(&self) -> &HashMap<String, FunctionSignature> {
+        &self.functions
+    }
+    
     /// Parse type arguments from a generic type string like "HashMap<i32, i32>"
     fn parse_generic_type_string(type_str: &str) -> (String, Vec<AstType>) {
         if let Some(angle_pos) = type_str.find('<') {
@@ -160,8 +165,28 @@ impl TypeChecker {
         for declaration in &program.declarations {
             self.collect_declaration_types(declaration)?;
         }
+        
+        // Second pass: infer return types for functions with Void return type
+        for declaration in &program.declarations {
+            if let Declaration::Function(func) = declaration {
+                if func.return_type == AstType::Void && !func.body.is_empty() {
+                    // Try to infer the actual return type from the body
+                    match self.infer_function_return_type(func) {
+                        Ok(inferred_type) => {
+                            // Update the function signature with the inferred return type
+                            if let Some(sig) = self.functions.get_mut(&func.name) {
+                                sig.return_type = inferred_type;
+                            }
+                        },
+                        Err(_) => {
+                            // Keep it as Void if inference fails
+                        }
+                    }
+                }
+            }
+        }
 
-        // Second pass: type check function bodies
+        // Third pass: type check function bodies
         for declaration in &program.declarations {
             self.check_declaration(declaration)?;
         }
@@ -172,6 +197,8 @@ impl TypeChecker {
     fn collect_declaration_types(&mut self, declaration: &Declaration) -> Result<()> {
         match declaration {
             Declaration::Function(func) => {
+                // Store the function signature with the declared return type for now
+                // We'll infer the actual return type in a later pass if needed
                 let signature = FunctionSignature {
                     params: func.args.clone(),
                     return_type: func.return_type.clone(),
@@ -1766,6 +1793,41 @@ impl TypeChecker {
         ))
     }
 
+    /// Infer the return type of a function from its body
+    fn infer_function_return_type(&mut self, func: &Function) -> Result<AstType> {
+        // Create a temporary scope for the function
+        self.enter_scope();
+        
+        // Add function parameters to scope
+        for (param_name, param_type) in &func.args {
+            self.declare_variable(param_name, param_type.clone(), false)?;
+        }
+        
+        // Analyze the body to find the return type
+        let return_type = if let Some(last_stmt) = func.body.last() {
+            match last_stmt {
+                Statement::Expression(expr) => {
+                    // The last expression is the return value
+                    self.infer_expression_type(expr)?
+                }
+                Statement::Return(expr) => {
+                    // Explicit return statement
+                    self.infer_expression_type(expr)?
+                }
+                _ => {
+                    // Other statements don't produce a return value
+                    AstType::Void
+                }
+            }
+        } else {
+            // Empty body returns void
+            AstType::Void
+        };
+        
+        self.exit_scope();
+        Ok(return_type)
+    }
+    
     fn get_variable_type(&self, name: &str) -> Result<AstType> {
         // Search from innermost to outermost scope
         for scope in self.scopes.iter().rev() {
