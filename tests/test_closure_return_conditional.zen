@@ -1,0 +1,31 @@
+// Test closure with conditional returns 
+{ io, Result } = @std
+
+main = () i32 {
+    // This should work - conditional returns Result value
+    test1 = (x: i32) Result<i32, string> {
+        result = x > 0 ?
+            | true { Result.Ok(x) }
+            | false { Result.Err("negative") }
+        return result
+    }
+    
+    r1 = test1(42)
+    r1 ?
+        | Result.Ok(v) { io.println("test1(42) = Ok(${v})") }
+        | Result.Err(e) { io.println("test1(42) = Err(${e})") }
+    
+    // This might have issues - direct conditional with return statements
+    test2 = (x: i32) Result<i32, string> {
+        return x > 0 ?
+            | true { Result.Ok(x) }
+            | false { Result.Err("negative") }
+    }
+    
+    r2 = test2(42)
+    r2 ?
+        | Result.Ok(v) { io.println("test2(42) = Ok(${v})") }
+        | Result.Err(e) { io.println("test2(42) = Err(${e})") }
+    
+    return 0
+}

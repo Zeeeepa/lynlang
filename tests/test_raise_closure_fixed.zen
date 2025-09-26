@@ -1,8 +1,8 @@
-// Test raise() with closures returning Result<T,E>
+// Test raise() with closures returning Result<T,E> - fixed version
 { io, Result } = @std
 
 main = () i32 {
-    // Test 1: Closure returning Result<i32, string>
+    // Test 1: Basic closure returning Result<i32, string>
     get_value = () Result<i32, string> {
         return Result.Ok(42)
     }
@@ -12,15 +12,13 @@ main = () i32 {
         | true { io.println("✓ Test 1: Basic closure with Result<i32, string>") }
         | false { 
             io.println("✗ Test 1 failed: Expected 42, got ${val1}")
-            return 1
         }
     
     // Test 2: Closure with parameters returning Result<f64, string>
     divide = (a: f64, b: f64) Result<f64, string> {
-        result = b == 0.0 ?
-            | true { Result.Err("Division by zero") }
-            | false { Result.Ok(a / b) }
-        return result
+        b == 0.0 ?
+            | true { return Result.Err("Division by zero") }
+            | false { return Result.Ok(a / b) }
     }
     
     val2 = divide(10.0, 2.0).raise()
@@ -28,7 +26,6 @@ main = () i32 {
         | true { io.println("✓ Test 2: Closure with params returning Result<f64, string>") }
         | false {
             io.println("✗ Test 2 failed: Expected 5.0, got ${val2}")
-            return 1
         }
     
     // Test 3: Inline closure with raise
@@ -38,7 +35,6 @@ main = () i32 {
         | true { io.println("✓ Test 3: Inline closure with raise") }
         | false {
             io.println("✗ Test 3 failed: Expected 100, got ${val3}")
-            return 1
         }
     
     // Test 4: Closure with computation
@@ -51,7 +47,6 @@ main = () i32 {
         | true { io.println("✓ Test 4: Closure with computation") }
         | false {
             io.println("✗ Test 4 failed: Expected 100, got ${val4}")
-            return 1
         }
     
     // Test 5: Nested closures with raise
@@ -68,7 +63,6 @@ main = () i32 {
         | true { io.println("✓ Test 5: Nested closures with raise") }
         | false {
             io.println("✗ Test 5 failed: Expected 50, got ${val5}")
-            return 1
         }
     
     io.println("\n✓ All closure + raise() tests passed!")

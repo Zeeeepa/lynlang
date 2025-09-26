@@ -1,0 +1,53 @@
+// Test returning nested generics from functions
+{ io } = @std
+{ Result, Option } = @std
+
+// Simple function returning Option
+get_option = () Option<i32> {
+    return Option.Some(42)
+}
+
+// Function returning Result<Option<i32>, string>
+get_nested = () Result<Option<i32>, string> {
+    opt = Option.Some(42)
+    return Result.Ok(opt)
+}
+
+// Function returning inline nested creation
+get_inline = () Result<Option<i32>, string> {
+    return Result.Ok(Option.Some(77))
+}
+
+main = () void {
+    io.println("=== Testing Function Returns ===")
+    
+    // Test simple Option return
+    opt = get_option()
+    opt ?
+        | Option.Some(v) { io.println("Simple Option return: ${v}") }
+        | Option.None { io.println("Simple Option return: None") }
+    
+    // Test nested return with local variable
+    io.println("\n--- With Local Variable ---")
+    nested = get_nested()
+    nested ?
+        | Result.Ok(o) {
+            io.println("Got Result.Ok from function")
+            o ?
+                | Option.Some(v) { io.println("  Inner value: ${v}") }
+                | Option.None { io.println("  Inner: None") }
+        }
+        | Result.Err(e) { io.println("Error: ${e}") }
+    
+    // Test inline nested return
+    io.println("\n--- Inline Return ---")
+    inline = get_inline()
+    inline ?
+        | Result.Ok(o) {
+            io.println("Got inline Result.Ok from function")
+            o ?
+                | Option.Some(v) { io.println("  Inner value: ${v}") }
+                | Option.None { io.println("  Inner: None") }
+        }
+        | Result.Err(e) { io.println("Error: ${e}") }
+}

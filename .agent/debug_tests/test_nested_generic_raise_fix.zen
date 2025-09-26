@@ -1,0 +1,25 @@
+// Test .raise() with nested generic function returns
+{ io, Result, Option } = @std
+
+// Simple nested function return
+get_nested = () Result<Option<i32>, string> {
+    Result.Ok(Option.Some(42))
+}
+
+main = () Result<i32, string> {
+    io.println("Testing .raise() with nested generics...")
+    
+    // Use raise to extract the Option
+    opt = get_nested().raise()
+    io.println("After raise, got Option")
+    
+    // Extract from the Option
+    val = opt ? 
+        | Option.Some(v) {
+            io.println("Extracted value: ${v}")
+            v
+        }
+        | Option.None => 0
+    
+    Result.Ok(val)
+}

@@ -1,0 +1,30 @@
+// Test raise() with nested Result - simplest case
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    inner = Result.Ok(42)
+    Result.Ok(inner)
+}
+
+// Function that uses raise to extract nested value
+extract_value = () Result<i32, string> {
+    // First raise to get inner Result from outer
+    inner = get_nested().raise()
+    
+    // Second raise to get i32 from inner
+    value = inner.raise()
+    
+    Result.Ok(value)
+}
+
+main = () i32 {
+    result = extract_value()
+    result ? | Result.Ok(v) => {
+        io.println("Got value: ${v}")
+        v == 42 ? | true => 0 | false => 1
+    } | Result.Err(e) => {
+        io.println("Got error: ${e}")
+        2
+    }
+}

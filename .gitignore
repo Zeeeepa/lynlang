@@ -1,13 +1,27 @@
-/target
-/venv
-output.o
-.agent/
-.agent/claude_output.jsonl
-test_output/
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# Python virtual environments
+/venv/
+/venv*/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Build directories
 /build/
-/target/
+/out/
+/zen_output/
+/test_dir/
 
 # C build artifacts
 *.c
@@ -40,6 +54,12 @@ build/**/zen-compile
 /zenc
 /zen-check
 /zen-lsp
+
+# Test outputs and temporary files
+test_output/
+test_results.txt
+*.test.out
+*.test.ll
 
 # Security and sensitive files
 .env

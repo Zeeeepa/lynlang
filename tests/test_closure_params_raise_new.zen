@@ -1,0 +1,19 @@
+// Test closure with params and raise
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure with params and explicit return type
+    test = (x: f64) Result<f64, string> {
+        return Result.Ok(x * 2.0)
+    }
+    
+    // Call it with raise
+    v = test(5.0).raise()
+    io.println("Got v: ${v}")
+    
+    // Now check if v can be compared
+    check = v == 10.0
+    io.println("v == 10.0? ${check}")
+    
+    return 0
+}

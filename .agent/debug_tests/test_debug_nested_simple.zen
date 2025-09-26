@@ -1,0 +1,38 @@
+// Simple test to debug nested Result issues
+{ io } = @std
+{ Result } = @std
+
+main = () void {
+    // Create inner Result
+    inner = Result.Ok(42)
+    io.println("Created inner Result.Ok(42)")
+    
+    // Check inner directly
+    inner ?
+        | Result.Ok(val) {
+            io.println("Inner Ok value: ${val}")
+        }
+        | Result.Err(e) {
+            io.println("Inner Err: ${e}")
+        }
+    
+    // Now wrap it in an outer Result
+    outer = Result.Ok(inner)
+    io.println("Created outer Result.Ok(inner)")
+    
+    // Extract and check
+    outer ?
+        | Result.Ok(extracted_inner) {
+            io.println("Extracted inner from outer")
+            extracted_inner ?
+                | Result.Ok(val) {
+                    io.println("Final value: ${val}")  // Should be 42
+                }
+                | Result.Err(e) {
+                    io.println("Inner was Err: ${e}")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer was Err: ${e}")
+        }
+}

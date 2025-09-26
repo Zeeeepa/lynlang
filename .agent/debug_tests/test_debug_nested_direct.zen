@@ -1,0 +1,25 @@
+// Debug test for nested Result direct construction
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("Creating inner Result...")
+    inner = Result.Ok(42)
+    io.println("Inner created")
+    
+    io.println("Creating outer with inner...")
+    outer = Result.Ok(inner)
+    io.println("Outer created")
+    
+    io.println("Extracting from outer...")
+    outer ?
+        | Result.Ok(extracted_inner) {
+            io.println("Got inner from outer")
+            extracted_inner ?
+                | Result.Ok(val) {
+                    io.println("Got value from inner: ${val}")
+                    val == 42 ? | true => 0 | false => 1
+                }
+                | Result.Err(e) => 2
+        }
+        | Result.Err(e) => 3
+}

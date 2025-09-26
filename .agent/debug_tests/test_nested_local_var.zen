@@ -1,0 +1,53 @@
+// Test nested generics with local variable storage
+{ io } = @std
+{ Result, Option } = @std
+
+test1 = () Result<Option<i32>, string> {
+    // This works - inline creation
+    return Result.Ok(Option.Some(42))
+}
+
+test2 = () Result<Option<i32>, string> {
+    // This breaks - local variable  
+    inner = Option.Some(42)
+    return Result.Ok(inner)
+}
+
+test3 = () Result<Option<i32>, string> {
+    // Test: Create inner, use immediately
+    inner = Option.Some(42)
+    outer = Result.Ok(inner)
+    return outer
+}
+
+main = () void {
+    io.println("Test 1 (inline):")
+    r1 = test1()
+    r1 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Value: ${v}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("  Error") }
+    
+    io.println("\nTest 2 (local var):")
+    r2 = test2()
+    r2 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Value: ${v}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("  Error") }
+    
+    io.println("\nTest 3 (two locals):")
+    r3 = test3()
+    r3 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Value: ${v}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("  Error") }
+}

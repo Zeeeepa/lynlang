@@ -1,0 +1,64 @@
+// Debug test for nested Result returned from function
+{ io } = @std
+{ Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+make_nested = (val: i32) Result<Result<i32, string>, string> {
+    io.println("make_nested called with ${val}")
+    inner = Result.Ok(val)
+    
+    // Check inner before returning
+    inner ?
+        | Result.Ok(v) {
+            io.println("Inner before wrapping: Ok(${v})")
+        }
+        | Result.Err(e) {
+            io.println("Inner before wrapping: Err(${e})")
+        }
+    
+    outer = Result.Ok(inner)
+    io.println("Created outer Result")
+    return outer
+}
+
+main = () void {
+    io.println("=== Test 1: Direct call and extract ===")
+    
+    // Call function
+    nested = make_nested(100)
+    io.println("Function returned")
+    
+    // Extract with pattern matching
+    nested ?
+        | Result.Ok(inner) {
+            io.println("Outer was Ok, extracting inner...")
+            inner ?
+                | Result.Ok(val) {
+                    io.println("Inner value: ${val}")  // Should be 100
+                }
+                | Result.Err(e) {
+                    io.println("Inner error: ${e}")
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer error: ${e}")
+        }
+    
+    io.println("\n=== Test 2: Using raise ===")
+    
+    nested2 = make_nested(200)
+    io.println("Function returned")
+    
+    // Extract with raise
+    inner2 = nested2.raise()
+    io.println("First raise completed")
+    
+    // Now pattern match on inner2
+    inner2 ?
+        | Result.Ok(val) {
+            io.println("Value from raise: ${val}")  // Should be 200
+        }
+        | Result.Err(e) {
+            io.println("Error from raise: ${e}")
+        }
+}

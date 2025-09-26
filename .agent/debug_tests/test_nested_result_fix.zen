@@ -1,0 +1,31 @@
+// Test for nested Result<Result<T,E>,E> payload extraction
+{ io, Result } = @std
+
+main = () void {
+    // Create inner Result with value 42
+    inner = Result.Ok(42)
+    
+    // Wrap it in outer Result
+    outer = Result.Ok(inner)
+    
+    // Extract nested value - this should print 42, not 0
+    outer ?
+        | Result.Ok(inner_result) {
+            inner_result ?
+                | Result.Ok(val) { io.println("Nested value: ${val}") }
+                | Result.Err(e) { io.println("Inner error: ${e}") }
+        }
+        | Result.Err(e) { io.println("Outer error: ${e}") }
+    
+    // Test with different payload values to verify issue
+    inner2 = Result.Ok(123)
+    outer2 = Result.Ok(inner2)
+    
+    outer2 ?
+        | Result.Ok(res) {
+            res ?
+                | Result.Ok(v) { io.println("Second nested: ${v}") }
+                | Result.Err(_) { io.println("Error") }
+        }
+        | Result.Err(_) { io.println("Error") }
+}

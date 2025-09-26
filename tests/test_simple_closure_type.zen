@@ -1,0 +1,23 @@
+// Test simple closure type inference
+{ io, Result } = @std
+
+main = () i32 {
+    // Define a closure with explicit return type
+    get_value = () Result<i32, string> {
+        return Result.Ok(42)
+    }
+    
+    // Call the closure directly
+    result = get_value()
+    
+    // Pattern match on result
+    result ?
+        | Result.Ok(val) { 
+            io.println("Got value: ${val}")
+            return 0
+        }
+        | Result.Err(e) { 
+            io.println("Got error: ${e}")
+            return 1
+        }
+}

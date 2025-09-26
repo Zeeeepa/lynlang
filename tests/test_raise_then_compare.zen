@@ -1,0 +1,17 @@
+// Test raise then comparison
+{ io, Result } = @std
+
+main = () i32 {
+    get_five = () Result<f64, string> {
+        return Result.Ok(5.0)
+    }
+    
+    val = get_five().raise()
+    io.println("Got val: ${val}")
+    
+    // Now compare
+    is_five = val == 5.0
+    io.println("Is five: ${is_five}")
+    
+    return 0
+}

@@ -1,0 +1,62 @@
+// Test nested generic types with comprehensive tracking
+{ io } = @std
+{ Result, Option } = @std
+
+test_simple_result = () Result<i32, string> {
+    return Result.Ok(42)
+}
+
+test_simple_option = () Option<i32> {
+    return Option.Some(100)  
+}
+
+test_nested_result_option = () Result<Option<i32>, string> {
+    inner = Option.Some(42)
+    return Result.Ok(inner)
+}
+
+test_nested_option_result = () Option<Result<i32, string>> {
+    inner = Result.Ok(123)
+    return Option.Some(inner)
+}
+
+main = () void {
+    io.println("=== Testing Nested Generic Types ===")
+    
+    // Test simple generics first
+    simple_result = test_simple_result()
+    simple_result ?
+        | Result.Ok(val) { io.println("Simple Result.Ok: ${val}") }
+        | Result.Err(e) { io.println("Simple Result.Err: ${e}") }
+    
+    simple_option = test_simple_option()
+    simple_option ?
+        | Option.Some(val) { io.println("Simple Option.Some: ${val}") }
+        | Option.None { io.println("Simple Option.None") }
+    
+    // Test nested Result<Option<i32>, string>
+    io.println("\n--- Testing Result<Option<i32>, string> ---")
+    nested_ro = test_nested_result_option()
+    nested_ro ?
+        | Result.Ok(opt) {
+            io.println("Got Result.Ok with Option payload")
+            opt ?
+                | Option.Some(val) { io.println("  Inner Option.Some: ${val}") }
+                | Option.None { io.println("  Inner Option.None") }
+        }
+        | Result.Err(e) { io.println("Result.Err: ${e}") }
+    
+    // Test nested Option<Result<i32, string>>
+    io.println("\n--- Testing Option<Result<i32, string>> ---")
+    nested_or = test_nested_option_result()
+    nested_or ?
+        | Option.Some(res) {
+            io.println("Got Option.Some with Result payload")
+            res ?
+                | Result.Ok(val) { io.println("  Inner Result.Ok: ${val}") }
+                | Result.Err(e) { io.println("  Inner Result.Err: ${e}") }
+        }
+        | Option.None { io.println("Option.None") }
+    
+    io.println("\n=== Test Complete ===")
+}

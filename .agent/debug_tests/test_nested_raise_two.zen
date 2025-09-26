@@ -1,0 +1,21 @@
+// Test two raises in sequence
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () i32 {
+    // First raise
+    inner = get_nested().raise()
+    io.println("First raise done")
+    
+    // Second raise on the result
+    value = inner.raise()
+    io.println("Second raise done: ${value}")
+    
+    value == 42 ?
+        | true { 0 }
+        | false { 1 }
+}

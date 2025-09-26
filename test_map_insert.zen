@@ -1,7 +1,0 @@
-{ io, HashMap } = @std
-
-main = () void {
-    map = HashMap<i32, i32>()
-    map.insert(5, 100)
-    io.println("inserted")
-}

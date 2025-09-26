@@ -1,0 +1,33 @@
+// Ultra simple nested Result test
+{ io, Result } = @std
+
+main = () i32 {
+    // This WORKS - separate variable
+    inner = Result.Ok(42)
+    outer1 = Result.Ok(inner)
+    
+    // This FAILS - inline construction  
+    outer2 = Result.Ok(Result.Ok(99))
+    
+    // Test outer1 (should work)
+    result1 = outer1 ?
+        | Result.Ok(x) {
+            x ?
+                | Result.Ok(v) => v
+                | Result.Err(e) => -1
+        }
+        | Result.Err(e) => -2
+    
+    // Test outer2 (currently returns 0)
+    result2 = outer2 ?
+        | Result.Ok(x) {
+            x ?
+                | Result.Ok(v) => v
+                | Result.Err(e) => -3
+        }
+        | Result.Err(e) => -4
+    
+    io.println("result1: ${result1}, result2: ${result2}")
+    
+    result1 == 42 && result2 == 99 ? | true => 0 | false => 1
+}

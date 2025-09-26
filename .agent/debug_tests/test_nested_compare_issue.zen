@@ -1,0 +1,31 @@
+// Simple test to isolate the comparison issue
+{ io, Result, Option } = @std
+
+main = () i32 {
+    // Triple nested value
+    nested = Option.Some(Result.Ok(Option.Some(42)))
+    
+    nested ?
+        | Option.Some(res) {
+            res ?
+                | Result.Ok(opt) {
+                    opt ?
+                        | Option.Some(v) {
+                            io.println("Value: ${v}")
+                            
+                            // Try to use v in various ways
+                            doubled = v + v
+                            io.println("Doubled: ${doubled}")
+                            
+                            // Try comparison - this is where it fails
+                            is_42 = v == 42
+                            io.println("Is 42: ${is_42}")
+                        }
+                        | Option.None { }
+                }
+                | Result.Err(e) { }
+        }
+        | Option.None { }
+    
+    0
+}

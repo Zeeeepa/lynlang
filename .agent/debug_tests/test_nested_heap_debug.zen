@@ -1,0 +1,50 @@
+// Test to understand heap allocation in nested Results
+{ io, Result } = @std
+
+get_inner = () Result<i32, string> {
+    Result.Ok(42)
+}
+
+main = () i32 {
+    // Test 1: Store inner first (this works)
+    inner1 = Result.Ok(42)
+    outer1 = Result.Ok(inner1)
+    
+    outer1 ?
+        | Result.Ok(extracted1) {
+            extracted1 ?
+                | Result.Ok(val1) {
+                    io.println("Test 1 value: ${val1}")
+                }
+                | Result.Err(e) => { io.println("Error 1") }
+        }
+        | Result.Err(e) => { io.println("Outer error 1") }
+    
+    // Test 2: Direct nesting (this returns 0)  
+    outer2 = Result.Ok(Result.Ok(42))
+    
+    outer2 ?
+        | Result.Ok(extracted2) {
+            extracted2 ?
+                | Result.Ok(val2) {
+                    io.println("Test 2 value: ${val2}")
+                }
+                | Result.Err(e) => { io.println("Error 1") }
+        }
+        | Result.Err(e) => { io.println("Outer error 1") }
+    
+    // Test 3: Function call
+    outer3 = Result.Ok(get_inner())
+    
+    outer3 ?
+        | Result.Ok(extracted3) {
+            extracted3 ?
+                | Result.Ok(val3) {
+                    io.println("Test 3 value: ${val3}")
+                }
+                | Result.Err(e) => { io.println("Error 1") }
+        }
+        | Result.Err(e) => { io.println("Outer error 1") }
+    
+    0
+}

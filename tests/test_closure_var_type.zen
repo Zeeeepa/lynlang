@@ -1,0 +1,24 @@
+// Test closure variable type
+{ io, Result } = @std
+
+main = () i32 {
+    // Closure with explicit return type stored in variable
+    test = () Result<i32, string> {
+        return Result.Ok(42)
+    }
+    
+    // Call it
+    result = test()
+    
+    // Check the result type
+    result ?
+        | Result.Ok(v) { 
+            io.println("Ok: ${v}")
+            // Now check if v can be compared
+            check = v == 42
+            io.println("v == 42? ${check}")
+        }
+        | Result.Err(e) { io.println("Err: ${e}") }
+    
+    return 0
+}

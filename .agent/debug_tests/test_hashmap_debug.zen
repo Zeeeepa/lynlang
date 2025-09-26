@@ -1,0 +1,39 @@
+// Debug test for HashMap type issue
+{ io, HashMap, Option } = @std
+
+main = () i32 {
+    // Create HashMap<i32, i32>
+    map ::= HashMap<i32, i32>.new()
+    io.println("HashMap created")
+    
+    // Simple functions
+    hash_fn = (x: i32) i64 { x as i64 }
+    eq_fn = (a: i32, b: i32) i64 { a == b ? | true { 1 as i64 } | false { 0 as i64 } }
+    
+    // Insert value
+    map.insert(5, 100, hash_fn, eq_fn)
+    io.println("Inserted 5 -> 100")
+    
+    // Get value
+    result ::= map.get(5, hash_fn, eq_fn)
+    
+    // Test the extracted value directly
+    result ?
+        | Option.Some(v) {
+            io.println("Extracted value: ${v}")
+            
+            // Test with literal first
+            test1 = v == 100
+            io.println("v == 100: ${test1}")
+            
+            // Test with variable
+            expected = 100
+            test2 = v == expected
+            io.println("v == expected: ${test2}")
+        }
+        | Option.None { 
+            io.println("Not found") 
+        }
+    
+    0
+}

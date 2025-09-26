@@ -411,38 +411,33 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 }
             }
             Expression::QuestionMatch { arms, .. } => {
-                // Question match takes the type of its first arm's body
-                // For now we use a heuristic: if the body is a block with a single identifier,
-                // we assume it's from pattern binding and default to scrutinee payload type
-                if let Some(first_arm) = arms.first() {
-                    // Check if the body needs special handling
-                    if let Expression::Block(stmts) = &first_arm.body {
-                        if stmts.len() == 1 {
-                            if let crate::ast::Statement::Expression(Expression::Identifier(_)) = &stmts[0] {
-                                // This is likely a pattern binding variable, assume I32 for now
-                                // In a full implementation, we'd extract the actual type from the pattern
-                                return Ok(AstType::I32);
+                // Question match should return the common type of all arms
+                // We iterate through arms to find the first non-void type
+                for arm in arms {
+                    let arm_type = self.infer_expression_type(&arm.body)?;
+                    // Return the first non-void type we find
+                    if !matches!(arm_type, AstType::Void) {
+                        // Handle special cases for pattern binding
+                        if let Expression::Block(stmts) = &arm.body {
+                            if stmts.len() == 1 {
+                                if let crate::ast::Statement::Expression(Expression::Identifier(_)) = &stmts[0] {
+                                    // This is likely a pattern binding variable, assume I32 for now
+                                    return Ok(AstType::I32);
+                                }
                             }
                         }
-                    }
-                    // For arrow syntax, we need to be more careful about type inference
-                    // If the body contains identifiers that might be pattern bindings, default to I32
-                    // This prevents errors when pattern variables aren't in scope during type inference
-                    match &first_arm.body {
-                        Expression::BinaryOp { left, op: _, right: _ } => {
-                            // Check if left operand is a potential pattern binding
+                        // For arrow syntax with binary ops, check for pattern bindings
+                        if let Expression::BinaryOp { left, op: _, right: _ } = &arm.body {
                             if matches!(**left, Expression::Identifier(_)) {
                                 // Assume the pattern binding will be an integer type
-                                // This is a reasonable default for now
                                 return Ok(AstType::I32);
                             }
-                            self.infer_expression_type(&first_arm.body)
                         }
-                        _ => self.infer_expression_type(&first_arm.body)
+                        return Ok(arm_type);
                     }
-                } else {
-                    Ok(AstType::Void)
                 }
+                // If all arms are void, return void
+                Ok(AstType::Void)
             }
             Expression::Conditional { arms, .. } => {
                 // Conditional takes the type of its first arm's body
@@ -481,15 +476,22 @@ impl<'ctx> LLVMCompiler<'ctx> {
             }
             Expression::Block(stmts) => {
                 // Block takes the type of its last expression
-                for stmt in stmts.iter().rev() {
-                    if let crate::ast::Statement::Expression(expr) = stmt {
-                        return self.infer_expression_type(expr);
+                if let Some(last_stmt) = stmts.last() {
+                    match last_stmt {
+                        crate::ast::Statement::Expression(expr) => {
+                            // If the last statement is an expression, the block evaluates to its type
+                            self.infer_expression_type(expr)
+                        }
+                        crate::ast::Statement::Return(_) => {
+                            // If the block ends with a return, it doesn't evaluate to a value
+                            // Instead, it's void since control flow leaves the block
+                            Ok(AstType::Void)
+                        }
+                        _ => Ok(AstType::Void)
                     }
-                    if let crate::ast::Statement::Return(expr) = stmt {
-                        return self.infer_expression_type(expr);
-                    }
+                } else {
+                    Ok(AstType::Void)
                 }
-                Ok(AstType::Void)
             }
             Expression::Some(value) => {
                 // Option::Some(T) -> Option<T>
@@ -769,24 +771,44 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // Empty block returns void
                     Ok(self.context.i32_type().const_int(0, false).into())
                 } else {
-                    // Compile all statements except the last one
-                    for stmt in &statements[..statements.len() - 1] {
-                        self.compile_statement(stmt)?;
-                    }
-
-                    // Check if the last statement is an expression statement
-                    // If so, return its value
-                    match &statements[statements.len() - 1] {
-                        crate::ast::Statement::Expression(expr) => {
-                            // The last expression is the block's value
-                            self.compile_expression(expr)
+                    // Check if block contains a return statement
+                    let mut has_return = false;
+                    
+                    // Compile all statements
+                    for (i, stmt) in statements.iter().enumerate() {
+                        // Check if this is a return statement
+                        if let crate::ast::Statement::Return(_) = stmt {
+                            has_return = true;
+                            self.compile_statement(stmt)?;
+                            // After a return, we need to create a dummy value for LLVM
+                            // even though this code is unreachable
+                            if i < statements.len() - 1 {
+                                // If there are more statements after return, they're unreachable
+                                // but we still need to return something for LLVM
+                                return Ok(self.context.i32_type().const_int(0, false).into());
+                            }
+                        } else if i == statements.len() - 1 && !has_return {
+                            // Last statement and no return encountered
+                            match stmt {
+                                crate::ast::Statement::Expression(expr) => {
+                                    // The last expression is the block's value
+                                    return self.compile_expression(expr);
+                                }
+                                _ => {
+                                    // Last statement is not an expression, compile it and return void
+                                    self.compile_statement(stmt)?;
+                                    return Ok(self.context.i32_type().const_int(0, false).into());
+                                }
+                            }
+                        } else {
+                            // Regular statement, not last
+                            self.compile_statement(stmt)?;
                         }
-                        _ => {
-                            // Last statement is not an expression, return void
-                            self.compile_statement(&statements[statements.len() - 1])?;
-                            Ok(self.context.i32_type().const_int(0, false).into())
-                        }
                     }
+                    
+                    // If we have a return, the block evaluates to void
+                    // (the actual value was already returned)
+                    Ok(self.context.i32_type().const_int(0, false).into())
                 }
             }
             Expression::Return(expr) => {

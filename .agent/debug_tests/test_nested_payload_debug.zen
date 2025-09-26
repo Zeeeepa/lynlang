@@ -1,0 +1,52 @@
+// Debug test to understand nested Result payload
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    inner = Result.Ok(42)
+    io.println("Inner Result created")
+    
+    // Create the outer Result containing the inner
+    outer = Result.Ok(inner)
+    io.println("Outer Result created")
+    
+    outer
+}
+
+test_direct_pattern = () void {
+    // Test direct pattern matching (this works)
+    result = get_nested()
+    result ? | Result.Ok(inner) => {
+        io.println("Got inner Result from outer Ok")
+        inner ? | Result.Ok(val) => io.println("Inner value: ${val}")
+               | Result.Err(e) => io.println("Inner error: ${e}")
+    } | Result.Err(e) => io.println("Outer error: ${e}")
+}
+
+test_with_raise = () Result<i32, string> {
+    io.println("\n=== Testing raise ===")
+    
+    // First raise() to get inner Result
+    io.println("Calling get_nested().raise()...")
+    inner_result = get_nested().raise()
+    io.println("Got inner result from raise")
+    
+    // Check if inner_result is actually a Result
+    inner_result ? | Result.Ok(v) => {
+        io.println("Inner is Ok with value: ${v}")
+        Result.Ok(v + 10)
+    } | Result.Err(e) => {
+        io.println("Inner is Err: ${e}")
+        Result.Err(e)
+    }
+}
+
+main = () void {
+    io.println("=== Pattern matching test ===")
+    test_direct_pattern()
+    
+    io.println("\n=== Raise test ===")
+    result = test_with_raise()
+    result ? | Result.Ok(v) => io.println("Final: ${v}")
+            | Result.Err(e) => io.println("Error: ${e}")
+}

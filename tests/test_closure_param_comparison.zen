@@ -1,0 +1,19 @@
+// Test comparison with closure param
+{ io, Result } = @std
+
+main = () i32 {
+    test = (b: f64) Result<f64, string> {
+        // Compare parameter
+        result = b == 0.0 ?
+            | true { Result.Err("zero") }
+            | false { Result.Ok(b * 2.0) }
+        return result
+    }
+    
+    r = test(5.0)
+    r ?
+        | Result.Ok(v) { io.println("Ok: ${v}") }
+        | Result.Err(e) { io.println("Err: ${e}") }
+    
+    return 0
+}

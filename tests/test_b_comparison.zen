@@ -1,0 +1,15 @@
+// Test just the b == 0.0 comparison
+{ io, Result } = @std
+
+main = () i32 {
+    b = 2.0
+    
+    // This comparison
+    result = b == 0.0 ?
+        | true { Result.Err("Division by zero") }
+        | false { Result.Ok(10.0 / b) }
+    
+    io.println("Got result")
+    
+    return 0
+}

@@ -1,0 +1,23 @@
+// Test manual extraction of nested generics to understand the issue
+{ io } = @std
+{ Option, Result } = @std
+
+main = () void {
+    // First, create an inner Option
+    inner = Option.Some(42)
+    
+    // Test that the inner option works on its own
+    inner ? | Option.Some(n) => io.println("Inner Option value: ${n}")
+           | Option.None => io.println("Inner was None")
+    
+    // Now wrap it in Result
+    wrapped = Result.Ok(inner)
+    
+    // Extract and test - this is where it fails
+    wrapped ? | Result.Ok(opt) => {
+        io.println("Extracted something from Result.Ok")
+        // Here opt should be the Option<i32> but its payload is lost
+        opt ? | Option.Some(n) => io.println("Nested value: ${n}")
+              | Option.None => io.println("Nested was None")
+    } | Result.Err(e) => io.println("Error: ${e}")
+}

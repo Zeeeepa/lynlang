@@ -1,0 +1,38 @@
+// Test .raise() step by step with nested Result
+{ io, Result } = @std
+
+// Function that returns Result<Result<i32, string>, string>
+get_nested = () Result<Result<i32, string>, string> {
+    Result.Ok(Result.Ok(42))
+}
+
+main = () i32 {
+    // First get the outer result
+    outer = get_nested()
+    
+    // Extract inner using pattern matching
+    inner = outer ?
+        | Result.Ok(i) {
+            io.println("Got inner from pattern match")
+            i
+        }
+        | Result.Err(e) {
+            io.println("Outer error: ${e}")
+            Result.Err(e)
+        }
+    
+    // Now try to extract value from inner
+    val = inner ?
+        | Result.Ok(v) {
+            io.println("Inner value: ${v}")
+            v
+        }
+        | Result.Err(e) {
+            io.println("Inner error: ${e}")
+            100
+        }
+    
+    val == 42 ?
+        | true { 0 }
+        | false { 1 }
+}

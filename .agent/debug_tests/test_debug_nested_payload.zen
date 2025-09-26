@@ -1,0 +1,48 @@
+// Debug nested payload extraction issue
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("=== Debug Nested Payload Extraction ===")
+    
+    // Step 1: Create inner Result
+    inner = Result.Ok(42)
+    io.println("Step 1: Created inner Result.Ok(42)")
+    
+    // Verify inner works
+    inner ?
+        | Result.Ok(v) { io.println("  Inner value directly: ${v}") }
+        | Result.Err(e) { io.println("  Inner error: ${e}") }
+    
+    // Step 2: Create outer Result with inner as payload
+    outer = Result.Ok(inner)
+    io.println("\nStep 2: Created outer Result.Ok(inner)")
+    
+    // Step 3: Extract outer payload
+    outer ?
+        | Result.Ok(extracted_inner) {
+            io.println("Step 3: Extracted inner from outer")
+            
+            // Step 4: Pattern match on extracted inner
+            extracted_inner ?
+                | Result.Ok(val) {
+                    io.println("Step 4: Inner value from nested: ${val}")
+                    val == 42 ?
+                        | true {
+                            io.println("✅ SUCCESS: Got correct value 42")
+                            return 0
+                        }
+                        | false {
+                            io.println("❌ FAIL: Got wrong value ${val}")
+                            return 1
+                        }
+                }
+                | Result.Err(e) {
+                    io.println("❌ FAIL: Inner was Err: ${e}")
+                    return 2
+                }
+        }
+        | Result.Err(e) {
+            io.println("❌ FAIL: Outer was Err: ${e}")
+            return 3
+        }
+}

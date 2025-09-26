@@ -1,0 +1,47 @@
+// Test to debug nested generic type tracking
+{ io, Result, Option } = @std
+
+main = () i32 {
+    // Build up the nested type step by step
+    inner_value = 999
+    io.println("Inner value: ${inner_value}")
+    
+    inner_some = Option.Some(inner_value)
+    io.println("Created inner Option")
+    
+    middle_ok = Result.Ok(inner_some) 
+    io.println("Created middle Result")
+    
+    outer_some = Option.Some(middle_ok)
+    io.println("Created outer Option")
+    
+    // Now extract step by step
+    outer_some ?
+        | Option.Some(result_val) {
+            io.println("Extracted outer Option.Some")
+            
+            result_val ?
+                | Result.Ok(option_val) {
+                    io.println("Extracted middle Result.Ok")
+                    
+                    // This is the problematic extraction
+                    option_val ?
+                        | Option.Some(final_val) {
+                            io.println("Extracted inner Option.Some")
+                            // The type of final_val should be i32 but is being inferred as Void
+                            io.println("Final value: ${final_val}")
+                        }
+                        | Option.None {
+                            io.println("Got Option.None")
+                        }
+                }
+                | Result.Err(e) {
+                    io.println("Got Result.Err")
+                }
+        }
+        | Option.None {
+            io.println("Got outer Option.None")
+        }
+    
+    0
+}

@@ -1,0 +1,52 @@
+// Test nested block expressions and returns
+{ io } = @std
+
+main = () i32 {
+    io.println("Testing nested blocks...")
+    
+    // Block that returns a value
+    result = {
+        a = 10
+        b = 20
+        a + b
+    }
+    io.println("Block result: ${result}")
+    
+    // Nested blocks
+    complex = {
+        outer = 5
+        inner = {
+            x = 2
+            y = 3
+            x * y
+        }
+        outer + inner
+    }
+    io.println("Complex nested result: ${complex}")
+    
+    // Block with conditional
+    status = {
+        value = 15
+        value > 10 ?
+            | true { "high" }
+            | false { "low" }
+    }
+    io.println("Status: ${status}")
+    
+    // Multiple nested levels
+    deep = {
+        level1 = {
+            level2 = {
+                level3 = {
+                    42
+                }
+                level3 * 2
+            }
+            level2 + 10
+        }
+        level1
+    }
+    io.println("Deep nesting result: ${deep}")
+    
+    return 0
+}

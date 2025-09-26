@@ -1,0 +1,39 @@
+// Debug inline nested creation issue
+{ io, Result } = @std
+
+main = () i32 {
+    io.println("=== Debug Inline Nested Creation ===")
+    
+    // Create nested Result inline (this is where issue occurs)
+    nested = Result.Ok(Result.Ok(42))
+    io.println("Created nested inline: Result.Ok(Result.Ok(42))")
+    
+    // Extract outer
+    nested ?
+        | Result.Ok(inner) {
+            io.println("Got outer Result.Ok")
+            
+            // Extract inner
+            inner ?
+                | Result.Ok(val) {
+                    io.println("Inner value: ${val}")
+                    val == 42 ?
+                        | true {
+                            io.println("✅ SUCCESS: Value is 42")
+                            return 0
+                        }
+                        | false {
+                            io.println("❌ FAIL: Value is ${val}, expected 42")
+                            return 1
+                        }
+                }
+                | Result.Err(e) {
+                    io.println("Inner was Err")
+                    return 2
+                }
+        }
+        | Result.Err(e) {
+            io.println("Outer was Err")
+            return 3
+        }
+}

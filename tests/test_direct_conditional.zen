@@ -1,0 +1,18 @@
+// Test direct conditional 
+{ io, Result } = @std
+
+main = () i32 {
+    b = 0.0
+    
+    // Direct conditional with blocks that return
+    result = b == 0.0 ?
+        | true { Result.Err("Division by zero") }
+        | false { Result.Ok(42.0) }
+        
+    // Pattern match on result
+    result ?
+        | Result.Ok(val) { io.println("Ok: ${val}") }
+        | Result.Err(e) { io.println("Err: ${e}") }
+    
+    return 0
+}

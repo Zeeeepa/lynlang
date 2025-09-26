@@ -1,0 +1,60 @@
+// Test nested generics with function calls
+{ io } = @std
+{ Result, Option } = @std
+
+// Helper that returns Option<i32>
+get_option = () Option<i32> {
+    return Option.Some(42)
+}
+
+// Test 1: Call function, wrap immediately  
+test1 = () Result<Option<i32>, string> {
+    return Result.Ok(get_option())
+}
+
+// Test 2: Call function, store, then wrap
+test2 = () Result<Option<i32>, string> {
+    inner = get_option()
+    return Result.Ok(inner)
+}
+
+// Test 3: Call function, test it, then wrap
+test3 = () Result<Option<i32>, string> {
+    inner = get_option()
+    inner ?
+        | Option.Some(v) { io.println("  [test3] Got ${v}") }
+        | Option.None { io.println("  [test3] Got None") }
+    return Result.Ok(inner)
+}
+
+main = () void {
+    io.println("Test 1 (direct wrap):")
+    r1 = test1()
+    r1 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Value: ${v}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("  Error") }
+    
+    io.println("\nTest 2 (store then wrap):")
+    r2 = test2()
+    r2 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Value: ${v}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("  Error") }
+    
+    io.println("\nTest 3 (test then wrap):")
+    r3 = test3()
+    r3 ?
+        | Result.Ok(opt) {
+            opt ?
+                | Option.Some(v) { io.println("  Value: ${v}") }
+                | Option.None { io.println("  None") }
+        }
+        | Result.Err(e) { io.println("  Error") }
+}

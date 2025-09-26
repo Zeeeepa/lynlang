@@ -1,0 +1,19 @@
+// Test simple closure with raise
+{ io, Result } = @std
+
+main = () i32 {
+    // Define a closure with explicit return type
+    get_value = () Result<i32, string> {
+        return Result.Ok(42)
+    }
+    
+    // Call the closure with raise
+    val = get_value().raise()
+    io.println("Got value: ${val}")
+    
+    // Check value
+    is_42 = val == 42
+    io.println("Is 42? ${is_42}")
+    
+    return 0
+}
