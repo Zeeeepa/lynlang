@@ -1,0 +1,22 @@
+// Simple test for HashMap.remove() debugging
+{ io } = @std
+{ HashMap } = @std
+
+main = () i32 {
+    // Create a HashMap
+    map = HashMap<i32, i32>.new()
+    
+    // Add one value
+    map.insert(5, 100)
+    
+    // Check size before remove
+    sizeBefore = map.size()
+    io.println("Size before remove: ${sizeBefore}")
+    
+    // Remove the key
+    io.println("About to call remove...")
+    result = map.remove(5)
+    io.println("Remove returned!")
+    
+    0
+}

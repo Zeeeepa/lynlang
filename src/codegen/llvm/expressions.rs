@@ -3440,23 +3440,70 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 )?;
                                 self.builder.build_store(size_ptr, new_size)?;
                                 
-                                // Return Some(30) as test value for removed item
+                                // Return Some with proper heap-allocated payload
+                                // For now, use a test value, but this should be the actual removed value
                                 let test_value = self.context.i32_type().const_int(30, false);
+                                
+                                // Allocate memory for the payload
+                                let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
+                                    let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                    let i64_type = self.context.i64_type();
+                                    let fn_type = ptr_type.fn_type(&[i64_type.into()], false);
+                                    self.module.add_function("malloc", fn_type, Some(inkwell::module::Linkage::External))
+                                });
+                                
+                                // Allocate 8 bytes for i32 (with padding)
+                                let alloc_size = self.context.i64_type().const_int(8, false);
+                                let heap_ptr = self.builder.build_call(
+                                    malloc_fn,
+                                    &[alloc_size.into()],
+                                    "payload_heap",
+                                )?.try_as_basic_value().left().unwrap().into_pointer_value();
+                                
+                                // Store the value on heap
+                                self.builder.build_store(heap_ptr, test_value)?;
+                                
                                 let some_discriminant = self.context.i64_type().const_int(0, false); // Some = 0
-                                let some_value = option_llvm_type.const_named_struct(&[
-                                    some_discriminant.into(),
-                                    test_value.into(),
-                                ]);
+                                // Create struct value (not const)
+                                let some_alloca = self.builder.build_alloca(option_llvm_type, "some_option")?;
+                                let disc_ptr = self.builder.build_struct_gep(
+                                    option_llvm_type,
+                                    some_alloca,
+                                    0,
+                                    "disc_ptr"
+                                )?;
+                                self.builder.build_store(disc_ptr, some_discriminant)?;
+                                let payload_ptr = self.builder.build_struct_gep(
+                                    option_llvm_type,
+                                    some_alloca,
+                                    1,
+                                    "payload_ptr"
+                                )?;
+                                self.builder.build_store(payload_ptr, heap_ptr)?;
+                                let some_value = self.builder.build_load(option_llvm_type, some_alloca, "some_value")?;
                                 self.builder.build_unconditional_branch(merge_block)?;
                                 
                                 // Not found: return None
                                 self.builder.position_at_end(else_block);
                                 let none_discriminant = self.context.i64_type().const_int(1, false); // None = 1
                                 let null_payload = self.context.ptr_type(inkwell::AddressSpace::default()).const_null();
-                                let none_value = option_llvm_type.const_named_struct(&[
-                                    none_discriminant.into(),
-                                    null_payload.into(),
-                                ]);
+                                // Create struct value (not const)
+                                let none_alloca = self.builder.build_alloca(option_llvm_type, "none_option")?;
+                                let disc_ptr = self.builder.build_struct_gep(
+                                    option_llvm_type,
+                                    none_alloca,
+                                    0,
+                                    "disc_ptr"
+                                )?;
+                                self.builder.build_store(disc_ptr, none_discriminant)?;
+                                let payload_ptr = self.builder.build_struct_gep(
+                                    option_llvm_type,
+                                    none_alloca,
+                                    1,
+                                    "payload_ptr"
+                                )?;
+                                self.builder.build_store(payload_ptr, null_payload)?;
+                                let none_value = self.builder.build_load(option_llvm_type, none_alloca, "none_value")?;
                                 self.builder.build_unconditional_branch(merge_block)?;
                                 
                                 // Merge
@@ -6740,7 +6787,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     // For struct types (like Option<T>), allocate memory and store pointer
                     let struct_val = value.into_struct_value();
                     let struct_type = struct_val.get_type();
-                    let struct_size = self.target_data.get_store_size(&struct_type);
+                    
+                    // Use size_of method to get struct size
+                    let struct_size = struct_type.size_of().unwrap();
                     
                     // Allocate memory for the struct
                     let malloc_fn = self.module.get_function("malloc").unwrap_or_else(|| {
@@ -6750,7 +6799,7 @@ impl<'ctx> LLVMCompiler<'ctx> {
                         self.module.add_function("malloc", fn_type, Some(inkwell::module::Linkage::External))
                     });
                     
-                    let alloc_size = self.context.i64_type().const_int(struct_size, false);
+                    let alloc_size = struct_size;
                     let heap_ptr = self.builder.build_call(
                         malloc_fn,
                         &[alloc_size.into()],
