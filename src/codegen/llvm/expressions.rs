@@ -2562,9 +2562,107 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                         
                                         (hash_fn.as_global_value().as_pointer_value().into(), 
                                          eq_fn.as_global_value().as_pointer_value().into())
+                                    } else if key.get_type() == self.context.ptr_type(inkwell::AddressSpace::default()).into() {
+                                        // For string keys (pointer types), generate hash and equality functions
+                                        let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                        
+                                        // Create hash function that uses string hash
+                                        let hash_fn_type = self.context.i64_type().fn_type(&[ptr_type.into()], false);
+                                        let hash_fn = self.module.add_function("hash_string_default", hash_fn_type, None);
+                                        let hash_bb = self.context.append_basic_block(hash_fn, "entry");
+                                        let builder = self.context.create_builder();
+                                        builder.position_at_end(hash_bb);
+                                        let str_ptr = hash_fn.get_nth_param(0).unwrap().into_pointer_value();
+                                        
+                                        // Simple djb2 hash implementation inline
+                                        let hash_var = builder.build_alloca(self.context.i64_type(), "hash")?;
+                                        let init_hash = self.context.i64_type().const_int(5381, false);
+                                        builder.build_store(hash_var, init_hash)?;
+                                        
+                                        // Create loop to process each character
+                                        let loop_bb = self.context.append_basic_block(hash_fn, "loop");
+                                        let done_bb = self.context.append_basic_block(hash_fn, "done");
+                                        
+                                        // Initialize index
+                                        let idx_var = builder.build_alloca(self.context.i64_type(), "idx")?;
+                                        builder.build_store(idx_var, self.context.i64_type().const_zero())?;
+                                        builder.build_unconditional_branch(loop_bb)?;
+                                        
+                                        // Loop body
+                                        builder.position_at_end(loop_bb);
+                                        let idx = builder.build_load(self.context.i64_type(), idx_var, "idx_val")?;
+                                        let char_ptr = unsafe { builder.build_gep(self.context.i8_type(), str_ptr, &[idx.into_int_value()], "char_ptr")? };
+                                        let char_val = builder.build_load(self.context.i8_type(), char_ptr, "char")?;
+                                        
+                                        // Check for null terminator
+                                        let is_null = builder.build_int_compare(
+                                            inkwell::IntPredicate::EQ, 
+                                            char_val.into_int_value(), 
+                                            self.context.i8_type().const_zero(),
+                                            "is_null"
+                                        )?;
+                                        // Process the character first, then check for termination
+                                        let continue_bb = self.context.append_basic_block(hash_fn, "continue");
+                                        builder.build_conditional_branch(is_null, done_bb, continue_bb)?;
+                                        
+                                        builder.position_at_end(continue_bb);
+                                        // Update hash: hash = hash * 33 + char
+                                        let hash = builder.build_load(self.context.i64_type(), hash_var, "hash_val")?;
+                                        let thirty_three = self.context.i64_type().const_int(33, false);
+                                        let multiplied = builder.build_int_mul(hash.into_int_value(), thirty_three, "mult")?;
+                                        let char_extended = builder.build_int_z_extend(char_val.into_int_value(), self.context.i64_type(), "char_ext")?;
+                                        let new_hash = builder.build_int_add(multiplied, char_extended, "new_hash")?;
+                                        builder.build_store(hash_var, new_hash)?;
+                                        
+                                        // Increment index and continue loop
+                                        let one = self.context.i64_type().const_int(1, false);
+                                        let next_idx = builder.build_int_add(idx.into_int_value(), one, "next_idx")?;
+                                        builder.build_store(idx_var, next_idx)?;
+                                        builder.build_unconditional_branch(loop_bb)?;
+                                        
+                                        // Done
+                                        builder.position_at_end(done_bb);
+                                        let final_hash = builder.build_load(self.context.i64_type(), hash_var, "final_hash")?;
+                                        builder.build_return(Some(&final_hash))?;
+                                        
+                                        // Create equality function using strcmp
+                                        let eq_fn_type = self.context.i64_type().fn_type(&[ptr_type.into(), ptr_type.into()], false);
+                                        let eq_fn = self.module.add_function("eq_string_default", eq_fn_type, None);
+                                        let eq_bb = self.context.append_basic_block(eq_fn, "entry");
+                                        builder.position_at_end(eq_bb);
+                                        
+                                        // Get or declare strcmp
+                                        let strcmp_fn = self.module.get_function("strcmp").unwrap_or_else(|| {
+                                            let strcmp_type = self.context.i32_type().fn_type(
+                                                &[ptr_type.into(), ptr_type.into()], 
+                                                false
+                                            );
+                                            self.module.add_function("strcmp", strcmp_type, Some(Linkage::External))
+                                        });
+                                        
+                                        let a = eq_fn.get_nth_param(0).unwrap().into_pointer_value();
+                                        let b = eq_fn.get_nth_param(1).unwrap().into_pointer_value();
+                                        let cmp_result = builder.build_call(strcmp_fn, &[a.into(), b.into()], "cmp")?
+                                            .try_as_basic_value()
+                                            .left()
+                                            .unwrap()
+                                            .into_int_value();
+                                        
+                                        // strcmp returns 0 for equal strings
+                                        let is_equal = builder.build_int_compare(
+                                            inkwell::IntPredicate::EQ,
+                                            cmp_result,
+                                            self.context.i32_type().const_zero(),
+                                            "is_equal"
+                                        )?;
+                                        let result = builder.build_int_z_extend(is_equal, self.context.i64_type(), "result")?;
+                                        builder.build_return(Some(&result))?;
+                                        
+                                        (hash_fn.as_global_value().as_pointer_value().into(), 
+                                         eq_fn.as_global_value().as_pointer_value().into())
                                     } else {
                                         // For other types, use a simple hash for now
-                                        // This is a placeholder - should be extended for strings, etc.
+                                        // This is a placeholder - should be extended for other types
                                         return Err(CompileError::TypeError(
                                             "Default hash/eq functions not implemented for this key type. Please provide explicit hash and equality functions.".to_string(),
                                             None,
@@ -2835,6 +2933,116 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             let cmp = builder.build_int_compare(inkwell::IntPredicate::EQ, a, b, "eq")?;
                                             let result = builder.build_int_z_extend(cmp, self.context.i64_type(), "result")?;
                                             builder.build_return(Some(&result))?;
+                                            eq_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        (hash_fn, eq_fn)
+                                    } else if key.get_type() == self.context.ptr_type(inkwell::AddressSpace::default()).into() {
+                                        // For string keys, reuse or create default string functions
+                                        let hash_fn = if let Some(func) = self.module.get_function("hash_string_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            // Create the hash function (same as before)
+                                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                            let hash_fn_type = self.context.i64_type().fn_type(&[ptr_type.into()], false);
+                                            let hash_fn = self.module.add_function("hash_string_default", hash_fn_type, None);
+                                            let hash_bb = self.context.append_basic_block(hash_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(hash_bb);
+                                            let str_ptr = hash_fn.get_nth_param(0).unwrap().into_pointer_value();
+                                            
+                                            // Simple djb2 hash implementation inline
+                                            let hash_var = builder.build_alloca(self.context.i64_type(), "hash")?;
+                                            let init_hash = self.context.i64_type().const_int(5381, false);
+                                            builder.build_store(hash_var, init_hash)?;
+                                            
+                                            // Create loop to process each character
+                                            let loop_bb = self.context.append_basic_block(hash_fn, "loop");
+                                            let done_bb = self.context.append_basic_block(hash_fn, "done");
+                                            
+                                            // Initialize index
+                                            let idx_var = builder.build_alloca(self.context.i64_type(), "idx")?;
+                                            builder.build_store(idx_var, self.context.i64_type().const_zero())?;
+                                            builder.build_unconditional_branch(loop_bb)?;
+                                            
+                                            // Loop body
+                                            builder.position_at_end(loop_bb);
+                                            let idx = builder.build_load(self.context.i64_type(), idx_var, "idx_val")?;
+                                            let char_ptr = unsafe { builder.build_gep(self.context.i8_type(), str_ptr, &[idx.into_int_value()], "char_ptr")? };
+                                            let char_val = builder.build_load(self.context.i8_type(), char_ptr, "char")?;
+                                            
+                                            // Check for null terminator
+                                            let is_null = builder.build_int_compare(
+                                                inkwell::IntPredicate::EQ, 
+                                                char_val.into_int_value(), 
+                                                self.context.i8_type().const_zero(),
+                                                "is_null"
+                                            )?;
+                                            // Process the character first, then check for termination
+                                            let continue_bb = self.context.append_basic_block(hash_fn, "continue");
+                                            builder.build_conditional_branch(is_null, done_bb, continue_bb)?;
+                                            
+                                            builder.position_at_end(continue_bb);
+                                            // Update hash: hash = hash * 33 + char
+                                            let hash = builder.build_load(self.context.i64_type(), hash_var, "hash_val")?;
+                                            let thirty_three = self.context.i64_type().const_int(33, false);
+                                            let multiplied = builder.build_int_mul(hash.into_int_value(), thirty_three, "mult")?;
+                                            let char_extended = builder.build_int_z_extend(char_val.into_int_value(), self.context.i64_type(), "char_ext")?;
+                                            let new_hash = builder.build_int_add(multiplied, char_extended, "new_hash")?;
+                                            builder.build_store(hash_var, new_hash)?;
+                                            
+                                            // Increment index and continue loop
+                                            let one = self.context.i64_type().const_int(1, false);
+                                            let next_idx = builder.build_int_add(idx.into_int_value(), one, "next_idx")?;
+                                            builder.build_store(idx_var, next_idx)?;
+                                            builder.build_unconditional_branch(loop_bb)?;
+                                            
+                                            // Done
+                                            builder.position_at_end(done_bb);
+                                            let final_hash = builder.build_load(self.context.i64_type(), hash_var, "final_hash")?;
+                                            builder.build_return(Some(&final_hash))?;
+                                            
+                                            hash_fn.as_global_value().as_pointer_value().into()
+                                        };
+                                        
+                                        let eq_fn = if let Some(func) = self.module.get_function("eq_string_default") {
+                                            func.as_global_value().as_pointer_value().into()
+                                        } else {
+                                            // Create equality function using strcmp
+                                            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+                                            let eq_fn_type = self.context.i64_type().fn_type(&[ptr_type.into(), ptr_type.into()], false);
+                                            let eq_fn = self.module.add_function("eq_string_default", eq_fn_type, None);
+                                            let eq_bb = self.context.append_basic_block(eq_fn, "entry");
+                                            let builder = self.context.create_builder();
+                                            builder.position_at_end(eq_bb);
+                                            
+                                            // Get or declare strcmp
+                                            let strcmp_fn = self.module.get_function("strcmp").unwrap_or_else(|| {
+                                                let strcmp_type = self.context.i32_type().fn_type(
+                                                    &[ptr_type.into(), ptr_type.into()], 
+                                                    false
+                                                );
+                                                self.module.add_function("strcmp", strcmp_type, Some(Linkage::External))
+                                            });
+                                            
+                                            let a = eq_fn.get_nth_param(0).unwrap().into_pointer_value();
+                                            let b = eq_fn.get_nth_param(1).unwrap().into_pointer_value();
+                                            let cmp_result = builder.build_call(strcmp_fn, &[a.into(), b.into()], "cmp")?
+                                                .try_as_basic_value()
+                                                .left()
+                                                .unwrap()
+                                                .into_int_value();
+                                            
+                                            // strcmp returns 0 for equal strings
+                                            let is_equal = builder.build_int_compare(
+                                                inkwell::IntPredicate::EQ,
+                                                cmp_result,
+                                                self.context.i32_type().const_zero(),
+                                                "is_equal"
+                                            )?;
+                                            let result = builder.build_int_z_extend(is_equal, self.context.i64_type(), "result")?;
+                                            builder.build_return(Some(&result))?;
+                                            
                                             eq_fn.as_global_value().as_pointer_value().into()
                                         };
                                         

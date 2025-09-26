@@ -800,8 +800,50 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                 }
                             }
                         } else if let Expression::FunctionCall { name, .. } = init_expr {
-                            // For function calls, get the return type from function_types
-                            if let Some(return_type) = self.function_types.get(name) {
+                            // Check if this is a generic type constructor like HashMap<K,V>()
+                            if name.contains('<') && name.contains('>') {
+                                // Parse the generic type from the name
+                                if let Some(angle_pos) = name.find('<') {
+                                    let base_type = &name[..angle_pos];
+                                    let type_params_str = &name[angle_pos+1..name.len()-1];
+                                    
+                                    // Parse type parameters
+                                    let type_args: Vec<AstType> = type_params_str
+                                        .split(',')
+                                        .map(|s| {
+                                            let trimmed = s.trim();
+                                            match trimmed {
+                                                "i8" => AstType::I8,
+                                                "i16" => AstType::I16,
+                                                "i32" => AstType::I32,
+                                                "i64" => AstType::I64,
+                                                "u8" => AstType::U8,
+                                                "u16" => AstType::U16,
+                                                "u32" => AstType::U32,
+                                                "u64" => AstType::U64,
+                                                "f32" => AstType::F32,
+                                                "f64" => AstType::F64,
+                                                "bool" => AstType::Bool,
+                                                "string" => AstType::String,
+                                                _ => AstType::I32, // Default
+                                            }
+                                        })
+                                        .collect();
+                                    
+                                    AstType::Generic {
+                                        name: base_type.to_string(),
+                                        type_args,
+                                    }
+                                } else {
+                                    // Couldn't parse, fallback to regular function call handling
+                                    if let Some(return_type) = self.function_types.get(name) {
+                                        return_type.clone()
+                                    } else {
+                                        AstType::I32
+                                    }
+                                }
+                            } else if let Some(return_type) = self.function_types.get(name) {
+                                // Regular function call, get the return type from function_types
                                 return_type.clone()
                             } else {
                                 // Fallback to type inference from value
