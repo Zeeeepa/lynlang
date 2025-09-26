@@ -4263,9 +4263,13 @@ impl<'ctx> LLVMCompiler<'ctx> {
                     let ast_type = opt_type.as_ref().unwrap_or(&AstType::I32);
                     match self.to_llvm_type(ast_type)? {
                         Type::Basic(ty) => param_types.push(ty.into()),
+                        Type::Struct(struct_type) => {
+                            // Struct types (including generics like Option<T>, Result<T,E>) are supported
+                            param_types.push(struct_type.into());
+                        }
                         _ => {
                             return Err(CompileError::InternalError(
-                                "Closure parameter must be basic type".to_string(),
+                                format!("Unsupported closure parameter type: {:?}", ast_type),
                                 None,
                             ))
                         }

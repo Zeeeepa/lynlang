@@ -1,0 +1,16 @@
+// Minimal test for generic type issues
+{ io, Option } = @std
+
+main = () void {
+    io.println("=== Minimal Generic Test ===")
+    
+    // Basic closure with i32 parameter
+    simple_closure = (val: i32) i32 {
+        val * 2
+    }
+    
+    result1 = simple_closure(10)
+    io.println("simple_closure(10) = ${result1}")
+    
+    io.println("Test complete!")
+}

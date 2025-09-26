@@ -1,0 +1,18 @@
+// Test for generic type in closure parameter
+{ io, Option } = @std
+
+main = () void {
+    io.println("=== Generic Closure Parameter Test ===")
+    
+    // Closure that takes Option<i32> and returns i32
+    extract_option = (opt: Option<i32>) i32 {
+        io.println("In closure...")
+        42
+    }
+    
+    opt1: Option<i32> = Option.Some(100)
+    result = extract_option(opt1)
+    io.println("extract_option result = ${result}")
+    
+    io.println("Test complete!")
+}

@@ -1,0 +1,29 @@
+// Test pattern matching with side effects in closure
+{ io, Option } = @std
+
+main = () void {
+    io.println("=== Pattern Matching with Side Effects ===")
+    
+    // Closure that pattern matches and has side effects
+    process_option = (opt: Option<i32>) i32 {
+        opt ?
+            | Option.Some(v) { 
+                io.println("Found value: ${v}")
+                v * 2
+            }
+            | Option.None { 
+                io.println("Found None")
+                -1
+            }
+    }
+    
+    opt1: Option<i32> = Option.Some(50)
+    result1 = process_option(opt1)
+    io.println("Result: ${result1}")
+    
+    opt2: Option<i32> = Option.None
+    result2 = process_option(opt2)
+    io.println("Result: ${result2}")
+    
+    io.println("Test complete!")
+}

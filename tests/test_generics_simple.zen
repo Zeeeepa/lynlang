@@ -1,0 +1,21 @@
+// Simple test for generic type instantiation
+{ io, Option, Result } = @std
+
+test_option_parameter = (opt: Option<i32>) void {
+    opt ?
+        | Option.Some(v) { io.println("Value: ${v}") }
+        | Option.None { io.println("None") }
+}
+
+main = () void {
+    io.println("=== Simple Generic Test ===")
+    
+    // Test Option<i32>
+    opt1: Option<i32> = Option.Some(42)
+    test_option_parameter(opt1)
+    
+    opt2: Option<i32> = Option.None
+    test_option_parameter(opt2)
+    
+    io.println("Test complete!")
+}

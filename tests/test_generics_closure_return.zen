@@ -1,0 +1,24 @@
+// Test closure returning enum
+{ io, Option } = @std
+
+main = () void {
+    io.println("=== Test Closure Return Option ===")
+    
+    // Non-closure version first
+    normal_some: Option<i32> = Option.Some(42)
+    normal_some ?
+        | Option.Some(v) { io.println("Normal Some = ${v}") }
+        | Option.None { io.println("Normal None") }
+    
+    // Regular function returning Option<i32>
+    regular_func = () Option<i32> {
+        Option.Some(100)
+    }
+    
+    regular_result = regular_func()
+    regular_result ?
+        | Option.Some(v) { io.println("Regular function = ${v}") }
+        | Option.None { io.println("Regular function = None") }
+    
+    io.println("Test complete!")
+}

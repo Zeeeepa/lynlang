@@ -1,0 +1,23 @@
+// Test for pattern matching in closure with Option<i32>
+{ io, Option } = @std
+
+main = () void {
+    io.println("=== Pattern Matching in Closure Test ===")
+    
+    // Closure that pattern matches on Option<i32>
+    extract_option = (opt: Option<i32>) i32 {
+        opt ?
+            | Option.Some(v) { v }
+            | Option.None { 0 }
+    }
+    
+    opt1: Option<i32> = Option.Some(100)
+    result1 = extract_option(opt1)
+    io.println("extract_option(Some(100)) = ${result1}")
+    
+    opt2: Option<i32> = Option.None
+    result2 = extract_option(opt2)
+    io.println("extract_option(None) = ${result2}")
+    
+    io.println("Test complete!")
+}

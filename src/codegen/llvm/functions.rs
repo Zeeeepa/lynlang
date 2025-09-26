@@ -3388,8 +3388,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let llvm_ty = self.to_llvm_type(ty)?;
                             match llvm_ty {
                                 Type::Basic(b) => Ok(b),
+                                Type::Struct(s) => Ok(s.into()),
                                 _ => Err(CompileError::InternalError(
-                                    "Function argument type must be a basic type".to_string(),
+                                    format!("Unsupported function argument type: {:?}", ty),
                                     None,
                                 )),
                             }
@@ -3421,8 +3422,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                             let llvm_ty = self.to_llvm_type(ty)?;
                             match llvm_ty {
                                 Type::Basic(b) => Ok(b),
+                                Type::Struct(s) => Ok(s.into()),
                                 _ => Err(CompileError::InternalError(
-                                    "Function argument type must be a basic type".to_string(),
+                                    format!("Unsupported function argument type: {:?}", ty),
                                     None,
                                 )),
                             }
@@ -3463,9 +3465,9 @@ impl<'ctx> LLVMCompiler<'ctx> {
                                             let llvm_ty = self.to_llvm_type(ty)?;
                                             match llvm_ty {
                                                 Type::Basic(b) => Ok(b),
+                                                Type::Struct(s) => Ok(s.into()),
                                                 _ => Err(CompileError::InternalError(
-                                                    "Function argument type must be a basic type"
-                                                        .to_string(),
+                                                    format!("Unsupported function argument type: {:?}", ty),
                                                     None,
                                                 )),
                                             }
