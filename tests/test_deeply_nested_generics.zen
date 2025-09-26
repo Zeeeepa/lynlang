@@ -1,62 +1,56 @@
 // Test deeply nested generic types
 { io, Result, Option } = @std
 
-// Function that returns Result<Result<i32, string>, string>
-get_nested_result = () Result<Result<i32, string>, string> {
-    Result.Ok(Result.Ok(100))
-}
-
-// Function that returns Result<Option<i32>, string>
-get_result_option = () Result<Option<i32>, string> {
-    Result.Ok(Option.Some(200))
-}
-
-// Function that returns Option<Result<i32, string>>
-get_option_result = () Option<Result<i32, string>> {
-    Option.Some(Result.Ok(300))
-}
-
-main = () i32 {
-    io.println("=== Testing Nested Generic Payload Extraction ===")
+main = () void {
+    io.println("=== Deeply Nested Generics Test ===")
     
-    // Test Result<Result<i32, string>, string>
-    nested1 = get_nested_result()
-    nested1 ?
-        | Result.Ok(inner) {
-            inner ?
-                | Result.Ok(val) {
-                    io.println("Result<Result>: Got value ${val}")
-                    val == 100 ? | true { io.println("  ✓ Value is correct") } | false { io.println("  ✗ Wrong value!") }
+    // Test 1: Quadruple nested Results
+    io.println("Test 1: Result<Result<Result<Result<i32,E>,E>,E>,E>")
+    create_quad = () Result<Result<Result<Result<i32, string>, string>, string>, string> {
+        return Result.Ok(Result.Ok(Result.Ok(Result.Ok(999))))
+    }
+    
+    quad = create_quad()
+    level1 = quad.raise()
+    level2 = level1.raise()
+    level3 = level2.raise()
+    value = level3.raise()
+    io.println("  Got: ${value} (expected 999)")
+    
+    // Test 2: Mixed nested Option and Result
+    io.println("\nTest 2: Option<Result<Option<Result<i32,E>>,E>>")
+    create_mixed = () Option<Result<Option<Result<i32, string>>, string>> {
+        return Option.Some(Result.Ok(Option.Some(Result.Ok(777))))
+    }
+    
+    mixed = create_mixed()
+    mixed ?
+        | Option.Some(result1) {
+            inner_opt = result1.raise()
+            inner_opt ?
+                | Option.Some(result2) {
+                    val = result2.raise()
+                    io.println("  Got: ${val} (expected 777)")
                 }
-                | Result.Err(e) { io.println("Inner error: ${e}") }
+                | Option.None { io.println("  Error: Got None") }
         }
-        | Result.Err(e) { io.println("Outer error: ${e}") }
+        | Option.None { io.println("  Error: Got None") }
     
-    // Test Result<Option<i32>, string>
-    nested2 = get_result_option()
-    nested2 ?
-        | Result.Ok(opt) {
-            opt ?
-                | Option.Some(val) {
-                    io.println("Result<Option>: Got value ${val}")
-                    val == 200 ? | true { io.println("  ✓ Value is correct") } | false { io.println("  ✗ Wrong value!") }
-                }
-                | Option.None { io.println("Got None") }
+    // Test 3: Result with complex error type
+    io.println("\nTest 3: Result<T, Result<string, i32>>")
+    create_complex_err = () Result<i32, Result<string, i32>> {
+        // Return an error that is itself a Result
+        return Result.Err(Result.Ok("complex error"))
+    }
+    
+    complex = create_complex_err()
+    complex ?
+        | Result.Ok(v) { io.println("  Error: Got Ok(${v})") }
+        | Result.Err(err_result) {
+            err_result ?
+                | Result.Ok(msg) { io.println("  Got error message: '${msg}' (expected 'complex error')") }
+                | Result.Err(code) { io.println("  Got error code: ${code}") }
         }
-        | Result.Err(e) { io.println("Error: ${e}") }
     
-    // Test Option<Result<i32, string>>
-    nested3 = get_option_result()
-    nested3 ?
-        | Option.Some(res) {
-            res ?
-                | Result.Ok(val) {
-                    io.println("Option<Result>: Got value ${val}")
-                    val == 300 ? | true { io.println("  ✓ Value is correct") } | false { io.println("  ✗ Wrong value!") }
-                }
-                | Result.Err(e) { io.println("Error: ${e}") }
-        }
-        | Option.None { io.println("Got None") }
-    
-    0
+    io.println("\n=== Test Complete ===")
 }

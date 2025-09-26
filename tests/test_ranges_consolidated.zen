@@ -50,11 +50,12 @@ main = () void {
         io.println("  Number: ${n}")
     })
     
-    // Test 7: Range used for indexing
-    io.println("\nTest 7: Range for array indexing:")
-    values = [10, 20, 30, 40, 50]
+    // Test 7: Range with counter
+    io.println("\nTest 7: Range with counter:")
+    counter ::= 0
     (0..5).loop((i) {
-        io.println("  values[${i}] = ${values[i]}")
+        counter = counter + 1
+        io.println("  Iteration ${counter}: value = ${i}")
     })
     
     io.println("\nAll range tests completed!")

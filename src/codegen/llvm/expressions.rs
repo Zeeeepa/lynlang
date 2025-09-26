@@ -270,6 +270,11 @@ impl<'ctx> LLVMCompiler<'ctx> {
                 } else {
                     // For other common methods, try to infer return type
                     match method.as_str() {
+                        // Numeric methods - return same type as input
+                        "abs" | "min" | "max" => {
+                            // These methods return the same type as the object
+                            self.infer_expression_type(object)
+                        }
                         "len" | "size" | "length" => Ok(AstType::I64),
                         "is_empty" => Ok(AstType::Bool),
                         "to_i32" => Ok(AstType::Generic { 

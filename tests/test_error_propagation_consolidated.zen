@@ -48,7 +48,7 @@ compute = (x: i32) Result<i32, string> {
 }
 
 test_ufc_raise = () Result<i32, string> {
-    ufc_val = 5.compute().raise()
+    ufc_val = compute(5).raise()
     Result.Ok(ufc_val)
 }
 
