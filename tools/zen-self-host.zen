@@ -1,17 +1,7 @@
 // Zen Self-Hosting Driver
 // Uses the Zen standard library compiler to compile Zen code
 
-io = @std
-fs = @std
-string = @std
-core = @std
-build = @std
-
-// Import compiler components
-lexer := build.import("compiler/lexer")
-parser := build.import("compiler/parser")
-type_checker := build.import("compiler/type_checker")
-codegen := build.import("compiler/codegen")
+{io, fs, string, core, build} = @std
 
 // Compilation options
 CompileOptions: {

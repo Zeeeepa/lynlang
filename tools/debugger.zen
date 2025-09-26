@@ -1,15 +1,8 @@
 // Zen Interactive Debugger
 // Provides step-through debugging capabilities for Zen programs
 
-core = @std
-io = @std
-string = @std
+{core, io, string, hashmap, fs, process, colors, mem} = @std
 { Vec, DynVec } = @std
-hashmap = @std
-fs = @std
-process = @std
-colors = @std
-mem = @std
 
 // Debugger state
 DebuggerState : 

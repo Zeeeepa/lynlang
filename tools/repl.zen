@@ -1,14 +1,7 @@
 // Zen Language REPL (Read-Eval-Print Loop)
 // Interactive shell for experimenting with Zen code
 
-core = @std
-io = @std
-string = @std
-process = @std
-lexer = @std
-parser = @std
-type_checker = @std
-interpreter = @std
+{core, io, string, process, lexer, parser, type_checker, interpreter} = @std
 
 // REPL state
 ReplState := {

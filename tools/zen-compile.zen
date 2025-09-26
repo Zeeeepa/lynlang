@@ -1,16 +1,7 @@
 // Zen Language - Bootstrap Compiler
 // Compiles Zen source code to C for bootstrapping
 
-core = @std
-io = @std
-fs = @std
-os = @std
-string = @std
-path = @std
-lexer = @std
-parser = @std
-codegen = @std
-type_checker = @std
+{core, io, fs, os, string, path, lexer, parser, codegen, type_checker} = @std
 
 // Compiler options
 CompilerOptions := {

@@ -2,13 +2,7 @@
 // A build system for Zen projects written in Zen
 
 // Imports
-core = @std
-io = @std
-fs = @std
-process = @std
-string = @std
-json = @std
-hashmap = @std
+{core, io, fs, process, string, json, hashmap} = @std
 
 // Build configuration
 BuildConfig: {

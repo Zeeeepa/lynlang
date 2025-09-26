@@ -1,10 +1,7 @@
 // Zen Syntax Checker - A step towards self-hosting
 // This tool validates Zen source files for basic syntax errors
 
-core = @std
-io = @std
-fs = @std
-string = @std
+{core, io, fs, string} = @std
 
 // Error types for syntax checking
 SyntaxError: 
