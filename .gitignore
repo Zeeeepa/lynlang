@@ -66,6 +66,15 @@ test_results.txt
 .agent/claude_output.jsonl
 agent/claude_output.jsonl
 
+# Compiled binaries and test executables
+test_parse_enum
+test_parse_return
+test_lexer
+test_debug
+out
+build/zenc
+build/stage0/zen
+
 # Security and sensitive files
 .env
 .env.local
